@@ -71,15 +71,14 @@ manifest = AppManifest(
 
     # Session management
     sessions=[
-        # Example session (uncomment to add):
-        # SessionConfig(
-        #     name="auth_session",
-        #     enabled=True,
-        #     ttl=timedelta(days=7),
-        #     idle_timeout=timedelta(hours=1),
-        #     transport="cookie",
-        #     store="memory",
-        # ),
+        SessionConfig(
+            name="auth_session",
+            enabled=True,
+            ttl=timedelta(days=7),
+            idle_timeout=timedelta(hours=1),
+            transport="cookie",
+            store="memory",
+        ),
     ],
 
     # Feature flags

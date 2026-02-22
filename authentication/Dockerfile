@@ -53,7 +53,7 @@ LABEL org.opencontainers.image.title="authentication" \
       org.opencontainers.image.description="Aquilia application — authentication" \
       org.opencontainers.image.vendor="Aquilia" \
       org.opencontainers.image.version="${APP_VERSION:-0.1.0}" \
-      org.opencontainers.image.created="2026-02-20T14:18:41.990018+00:00"
+      org.opencontainers.image.created="2026-02-22T08:00:10.215206+00:00"
 
 # Security: run as non-root
 RUN groupadd -r aquilia && \
@@ -80,9 +80,6 @@ RUN rm -rf aquilia* pyproject.toml* setup.py*
 # Create directories for runtime data
 RUN mkdir -p /app/artifacts /app/runtime /app/.aquilia && \
     chown -R aquilia:aquilia /app
-
-# Run database migrations before starting (uncomment when ready)
-# RUN python -m aquilia.cli migrate --apply
 
 # Switch to non-root user
 USER aquilia

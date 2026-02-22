@@ -49,17 +49,8 @@ workspace = (
             "modules.auth.services:AuthService"
         ))
 
-    .module(Module("dashboard", version="0.1.0", description="Dashboard module")
-        .route_prefix("/dashboard")
-        .tags("dashboard", "core")
-        .register_controllers(
-            "modules.dashboard.controllers:DashboardController"
-        )
-        .register_services(
-            "modules.dashboard.services:DashboardService"
-        ))
-
     # Integrations - Configure core systems
+    .integrate(Integration.auth(secret_key="production-grade-secret-key"))
     .integrate(Integration.di(auto_wire=True, manifest_validation=True))
     .integrate(Integration.registry(
         mode="auto",  # "dev", "prod", "auto" (env-based)
@@ -87,10 +78,7 @@ workspace = (
 
     # Static Files - Serve static assets (CSS, JS, images)
     .integrate(Integration.static_files(
-        directories={
-            "/static": "static",
-            "/uploads": "authentication/uploads"
-        },
+        directories={"/static": "static"},
         cache_max_age=86400,
         etag=True,
     ))
@@ -145,9 +133,9 @@ workspace = (
         logging_enabled=True,
     )
 
-    .integrate(Integration.database(
-        url = "sqlite:///db.sqlite"
-    ))
+    .database(
+        url = "sqlite:///db.sqlite3"
+    )
 )
 
 # Export for CLI/server

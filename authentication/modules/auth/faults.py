@@ -18,6 +18,8 @@ AUTH = FaultDomain.custom(
 class AuthNotFoundFault(Fault):
     """
     Raised when a auth is not found.
+
+    Recovery: Return 404 response
     """
 
     domain = AUTH
@@ -37,6 +39,8 @@ class AuthNotFoundFault(Fault):
 class AuthValidationFault(Fault):
     """
     Raised when auth data validation fails.
+
+    Recovery: Return 400 response with validation errors
     """
 
     domain = AUTH
@@ -56,6 +60,8 @@ class AuthValidationFault(Fault):
 class AuthOperationFault(Fault):
     """
     Raised when a auth operation fails.
+
+    Recovery: Retry with exponential backoff
     """
 
     domain = AUTH
@@ -69,41 +75,4 @@ class AuthOperationFault(Fault):
             message=f"Operation '{operation}' failed: {reason}",
             metadata={"operation": operation, "reason": reason},
             retryable=True,
-        )
-
-
-class UserAlreadyExistsFault(Fault):
-    """
-    Raised when attempting to register a user that already exists.
-    """
-
-    domain = AUTH
-    severity = Severity.INFO
-    code = "USER_ALREADY_EXISTS"
-
-    def __init__(self, email: str):
-        super().__init__(
-            code=self.code,
-            domain=self.domain,
-            message=f"User with email {email} already exists",
-            metadata={"email": email},
-            retryable=False,
-        )
-
-
-class InvalidCredentialsFault(Fault):
-    """
-    Raised when login falls due to invalid credentials.
-    """
-
-    domain = AUTH
-    severity = Severity.INFO
-    code = "INVALID_CREDENTIALS"
-
-    def __init__(self):
-        super().__init__(
-            code=self.code,
-            domain=self.domain,
-            message="Invalid email or password",
-            retryable=False,
         )

@@ -6,7 +6,6 @@
 #   app        — Aquilia application server
 #   redis      — Redis (sessions/cache/rate-limit)
 #   nginx      — Reverse proxy
-#   migrate    — Database migration runner (run-once)
 #   prometheus — Metrics collection      [profile: monitoring]
 #   grafana    — Metrics dashboard       [profile: monitoring]
 #
@@ -37,20 +36,16 @@ services:
       AQ_SERVER_HOST: "0.0.0.0"
       AQ_SERVER_PORT: "8000"
       AQ_SERVER_WORKERS: "4"
-      DATABASE_URL: "sqlite:///data/db.sqlite3"
       REDIS_URL: "redis://redis:6379/0"
     env_file:
       - .env
     volumes:
       - ./:/app
-      - app-data:/app/data
       - app-artifacts:/app/artifacts
       - app-trace:/app/.aquilia
     depends_on:
         redis:
           condition: service_healthy
-        migrate:
-          condition: service_completed_successfully
     healthcheck:
       test: ['CMD', 'curl', '-f', 'http://localhost:8000/health']
       interval: 30s
@@ -62,24 +57,6 @@ services:
       options:
         max-size: '10m'
         max-file: '3'
-    networks:
-      - authentication-net
-
-  # ── Database Migrations (run-once) ──
-  migrate:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: production
-    container_name: authentication-migrate
-    command: ['python', '-m', 'aquilia.cli', 'db', 'migrate']
-    environment:
-      DATABASE_URL: "sqlite:///data/db.sqlite3"
-    volumes:
-      - ./:/app
-      - app-data:/app/data
-      - app-artifacts:/app/artifacts
-      - app-trace:/app/.aquilia
     networks:
       - authentication-net
 
@@ -175,7 +152,6 @@ networks:
 
 # ── Volumes ──
 volumes:
-  app-data:
   app-artifacts:
   app-trace:
   redis-data:

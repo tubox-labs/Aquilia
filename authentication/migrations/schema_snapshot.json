@@ -1,27 +1,25 @@
 {
-  "checksum": "ec8e2a4dd0f2af1c",
+  "checksum": "9c2fe32e3fc70eb8",
   "models": {
-    "User": {
+    "UsersModel": {
       "fields": {
+        "active": {
+          "column": "active",
+          "default": false,
+          "field_class": "BooleanField",
+          "type": "INTEGER"
+        },
         "created_at": {
           "column": "created_at",
-          "default": "<callable:<lambda>>",
           "field_class": "DateTimeField",
           "type": "TIMESTAMP"
         },
         "email": {
           "column": "email",
           "field_class": "EmailField",
-          "max_length": 255,
-          "type": "VARCHAR(255)",
+          "max_length": 225,
+          "type": "VARCHAR(225)",
           "unique": true
-        },
-        "full_name": {
-          "column": "full_name",
-          "field_class": "CharField",
-          "max_length": 255,
-          "nullable": true,
-          "type": "VARCHAR(255)"
         },
         "id": {
           "column": "id",
@@ -29,37 +27,34 @@
           "primary_key": true,
           "type": "INTEGER"
         },
-        "is_active": {
-          "column": "is_active",
-          "default": true,
-          "field_class": "BooleanField",
-          "type": "INTEGER"
+        "name": {
+          "column": "name",
+          "field_class": "CompositeField",
+          "type": "TEXT"
         },
-        "is_superuser": {
-          "column": "is_superuser",
-          "default": false,
-          "field_class": "BooleanField",
-          "type": "INTEGER"
-        },
-        "password_hash": {
-          "column": "password_hash",
+        "password": {
+          "column": "password",
           "field_class": "CharField",
-          "max_length": 255,
-          "type": "VARCHAR(255)"
+          "max_length": 225,
+          "type": "VARCHAR(225)"
         },
-        "profile": {
-          "column": "profile",
+        "username": {
+          "column": "username",
+          "default": "unknown",
           "field_class": "CharField",
-          "max_length": 255,
-          "type": "VARCHAR(255)"
-        },
-        "updated_at": {
-          "column": "updated_at",
-          "field_class": "DateTimeField",
-          "type": "TIMESTAMP"
+          "max_length": 225,
+          "type": "VARCHAR(225)"
         }
       },
-      "indexes": [],
+      "indexes": [
+        {
+          "columns": [
+            "email"
+          ],
+          "name": "idx_users_email",
+          "unique": false
+        }
+      ],
       "meta": {
         "abstract": false,
         "managed": true,
@@ -67,7 +62,7 @@
           "-created_at"
         ]
       },
-      "table": "auth_users"
+      "table": "users"
     }
   },
   "version": 1
