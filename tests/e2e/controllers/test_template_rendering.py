@@ -50,7 +50,8 @@ class TestTemplateInjection:
             resp = await client.post("/auth/register", data={
                 "email": payload,
                 "password": "test1234",
-                "full_name": payload,
+                "username": payload,
+                "name": {"first_name": payload, "last_name": "User"},
             })
             # Should either reject (4xx) or render with escaped output
             if resp.status_code == 200 or resp.status_code == 302:
@@ -84,7 +85,8 @@ class TestXSSPrevention:
             resp = await client.post("/auth/register", data={
                 "email": payload,
                 "password": "test1234",
-                "full_name": payload,
+                "username": payload,
+                "name": {"first_name": payload, "last_name": "User"},
             })
             if resp.status_code == 200:
                 body = resp.text

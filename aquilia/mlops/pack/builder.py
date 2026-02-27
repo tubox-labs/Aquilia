@@ -29,7 +29,7 @@ from .._types import (
     Provenance,
     TensorSpec,
 )
-from ..faults import (
+from ..engine.faults import (
     PackBuildFault,
     PackIntegrityFault,
 )

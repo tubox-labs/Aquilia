@@ -17,7 +17,7 @@ def _unique_email(tag: str = "") -> str:
 
 async def _register_login_get_tokens(client, tag=""):
     email = _unique_email(tag)
-    user = {"email": email, "password": "Str0ngP@ss!", "full_name": f"Cache {tag}"}
+    user = {"username": f"cache_{tag}", "email": email, "password": "Str0ngP@ss!", "name": {"first_name": f"Cache {tag}", "last_name": "User"}}
     reg = await client.post("/auth/register", json=user)
     assert reg.status_code == 201
     login = await client.post("/auth/login", json={"email": email, "password": user["password"]})

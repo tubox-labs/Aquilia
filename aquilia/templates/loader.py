@@ -11,8 +11,12 @@ Supports:
 from typing import Any, Callable, Dict, List, Optional, Tuple
 from pathlib import Path
 import os
+import logging
 from jinja2 import BaseLoader, TemplateNotFound
 from jinja2.loaders import FileSystemLoader, PackageLoader as Jinja2PackageLoader
+
+
+logger = logging.getLogger(__name__)
 
 
 class TemplateLoader(BaseLoader):
@@ -108,6 +112,7 @@ class TemplateLoader(BaseLoader):
         
         # Step 3: Try module-resolved path through filesystem loaders
         resolved_path = self._resolve_template_path(module_name, template_path)
+        
         if resolved_path != template:  # Only if resolution changed the path
             for loader in self._fs_loaders:
                 try:

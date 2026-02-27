@@ -24,8 +24,111 @@ from typing import (
     Sequence,
     Tuple,
     Union,
+    Type,
     runtime_checkable,
 )
+
+
+# ── DTypes ────────────────────────────────────────────────────────────────
+
+class DType(str, Enum):
+    """
+    Centralized DType system for Aquilia MLOps.
+    
+    Provides framework-agnostic numeric and tensor types with support for 
+    runtime validation and conversion.
+    """
+    # Floating point
+    FLOAT64 = "float64"
+    FLOAT32 = "float32"
+    FLOAT16 = "float16"
+    BFLOAT16 = "bfloat16"
+    
+    # Integer
+    INT64 = "int64"
+    INT32 = "int32"
+    INT16 = "int16"
+    INT8 = "int8"
+    UINT8 = "uint8"
+    
+    # Boolean & Other
+    BOOL = "bool"
+    STRING = "string"
+    OBJECT = "object"
+    
+    @property
+    def is_floating(self) -> bool:
+        return self in (DType.FLOAT64, DType.FLOAT32, DType.FLOAT16, DType.BFLOAT16)
+        
+    @property
+    def is_integer(self) -> bool:
+        return self in (DType.INT64, DType.INT32, DType.INT16, DType.INT8, DType.UINT8)
+
+    @property
+    def itemsize(self) -> int:
+        """Returns size in bytes."""
+        mapping = {
+            DType.FLOAT64: 8, DType.INT64: 8,
+            DType.FLOAT32: 4, DType.INT32: 4,
+            DType.FLOAT16: 2, DType.BFLOAT16: 2, DType.INT16: 2,
+            DType.INT8: 1, DType.UINT8: 1, DType.BOOL: 1,
+        }
+        return mapping.get(self, 0)
+
+    @classmethod
+    def from_numpy(cls, dtype: Any) -> "DType":
+        """Convert numpy dtype to MLOps DType."""
+        import numpy as np
+        s = str(np.dtype(dtype))
+        # Normalize common names
+        mapping = {
+            "float64": cls.FLOAT64, "float32": cls.FLOAT32, "float16": cls.FLOAT16,
+            "int64": cls.INT64, "int32": cls.INT32, "int16": cls.INT16, "int8": cls.INT8,
+            "uint8": cls.UINT8, "bool": cls.BOOL, "object": cls.OBJECT, "str": cls.STRING,
+            "<U": cls.STRING, # Numpy unicode
+        }
+        for k, v in mapping.items():
+            if s.startswith(k):
+                return v
+        return cls.OBJECT
+
+    @classmethod
+    def from_torch(cls, dtype: Any) -> "DType":
+        """Convert torch dtype to MLOps DType."""
+        import torch
+        mapping = {
+            torch.float64: cls.FLOAT64, torch.float32: cls.FLOAT32,
+            torch.float16: cls.FLOAT16, torch.bfloat16: cls.BFLOAT16,
+            torch.int64: cls.INT64, torch.int32: cls.INT32,
+            torch.int16: cls.INT16, torch.int8: cls.INT8,
+            torch.uint8: cls.UINT8, torch.bool: cls.BOOL,
+        }
+        return mapping.get(dtype, cls.OBJECT)
+
+    def to_torch(self) -> Any:
+        """Convert to torch dtype."""
+        import torch
+        mapping = {
+            DType.FLOAT64: torch.float64, DType.FLOAT32: torch.float32,
+            DType.FLOAT16: torch.float16, DType.BFLOAT16: torch.bfloat16,
+            DType.INT64: torch.int64, DType.INT32: torch.int32,
+            DType.INT16: torch.int16, DType.INT8: torch.int8,
+            DType.UINT8: torch.uint8, DType.BOOL: torch.bool,
+        }
+        return mapping.get(self)
+
+    def validate(self, value: Any) -> bool:
+        """Runtime validation of a value against this DType."""
+        # Simple scalar validation
+        if self.is_floating:
+            return isinstance(value, (float, int))
+        if self.is_integer:
+            return isinstance(value, int)
+        if self == DType.BOOL:
+            return isinstance(value, bool)
+        if self == DType.STRING:
+            return isinstance(value, str)
+        return True
 
 
 # ── Enums ──────────────────────────────────────────────────────────────────
@@ -154,15 +257,15 @@ class CircuitState(str, Enum):
 class TensorSpec:
     """Describes a single tensor in the inference signature."""
     name: str
-    dtype: str          # e.g. "float32", "int64"
+    dtype: DType          # Use the explicit DType enum
     shape: List[Any]    # e.g. [None, 64] — None means dynamic
 
     def to_dict(self) -> Dict[str, Any]:
-        return {"name": self.name, "dtype": self.dtype, "shape": self.shape}
+        return {"name": self.name, "dtype": self.dtype.value, "shape": self.shape}
 
     @classmethod
     def from_dict(cls, d: Dict[str, Any]) -> "TensorSpec":
-        return cls(name=d["name"], dtype=d["dtype"], shape=d["shape"])
+        return cls(name=d["name"], dtype=DType(d["dtype"]), shape=d["shape"])
 
 
 @dataclass(frozen=True)

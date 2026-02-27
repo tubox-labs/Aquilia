@@ -63,6 +63,18 @@ def resolve_blueprint_from_annotation(
     return None, None
 
 
+def _unflatten_dict(flat_dict: dict) -> dict:
+    """Unflatten dot-notated dictionary keys into nested dictionaries."""
+    result = {}
+    for key, value in flat_dict.items():
+        parts = key.split('.')
+        current = result
+        for part in parts[:-1]:
+            current = current.setdefault(part, {})
+        current[parts[-1]] = value
+    return result
+
+
 async def bind_blueprint_to_request(
     blueprint_cls: Type[Blueprint],
     request: Any,
@@ -92,10 +104,57 @@ async def bind_blueprint_to_request(
         body = await request.json()
     except Exception:
         try:
-            body = await request.form()
-            body = dict(body)
+            form_data = await request.form()
+            form_dict = form_data.fields.to_dict() if hasattr(form_data, "fields") else dict(form_data)
+            body = _unflatten_dict(form_dict)
         except Exception:
             body = {}
+
+    data = dict(body) if isinstance(body, dict) else {}
+
+    # Extract DI parameters (Query, Header) from Facet defaults
+    try:
+        from ..di.dep import Header, Query
+        for name, facet in getattr(blueprint_cls, "_all_facets", {}).items():
+            if hasattr(facet, "default"):
+                default_val = facet.default
+                if isinstance(default_val, Query):
+                    param_name = default_val.name or name
+                    val = None
+                    if hasattr(request, "query_param"):
+                        val = request.query_param(param_name)
+                    elif hasattr(request, "query_params"):
+                        qps = request.query_params
+                        val = qps.get(param_name) if isinstance(qps, dict) else None
+                    if val is not None:
+                        data[name] = val
+                    else:
+                        if getattr(default_val, "required", False):
+                            data[name] = None
+                        elif hasattr(default_val, "default") and default_val.default is not ...:
+                            data[name] = default_val.default
+                        else:
+                            data[name] = None
+                elif isinstance(default_val, Header):
+                    header_key = default_val.header_key
+                    val = None
+                    if hasattr(request, "headers"):
+                        headers = request.headers
+                        if isinstance(headers, dict):
+                            val = headers.get(header_key)
+                        elif hasattr(headers, "get"):
+                            val = headers.get(header_key)
+                    if val is not None:
+                        data[name] = val
+                    else:
+                        if getattr(default_val, "required", False):
+                            data[name] = None
+                        elif hasattr(default_val, "default") and default_val.default is not ...:
+                            data[name] = default_val.default
+                        else:
+                            data[name] = None
+    except ImportError:
+        pass
 
     # Build context with request info
     bp_context = {
@@ -112,7 +171,7 @@ async def bind_blueprint_to_request(
 
     # Instantiate Blueprint
     bp = blueprint_cls(
-        data=body,
+        data=data,
         partial=partial,
         projection=projection,
         context=bp_context,

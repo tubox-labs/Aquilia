@@ -15,17 +15,15 @@ files, environment variables, or the Workspace fluent API.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
-
-from ..serializers.base import Serializer
-from ..serializers.fields import (
-    BooleanField,
-    CharField,
-    DictField,
-    FloatField,
-    IntegerField,
-    ListField,
-    ChoiceField,
+from ..blueprints.core import Blueprint
+from ..blueprints.facets import (
+    BoolFacet,
+    TextFacet,
+    DictFacet,
+    FloatFacet,
+    IntFacet,
+    ListFacet,
+    ChoiceFacet,
 )
 
 
@@ -39,40 +37,40 @@ PROVIDER_TYPES = ("smtp", "ses", "sendgrid", "console", "file")
 # ═══════════════════════════════════════════════════════════════════
 
 
-class ProviderConfigSerializer(Serializer):
+class ProviderConfigBlueprint(Blueprint):
     """
-    Serializer for a single mail provider configuration.
+    Blueprint for a single mail provider configuration.
 
     Validates provider type, priority bounds, and SMTP-specific fields.
     """
 
-    name = CharField(max_length=100, required=True, help_text="Unique provider name")
-    type = ChoiceField(
+    name = TextFacet(max_length=100, required=True, help_text="Unique provider name")
+    type = ChoiceFacet(
         choices=PROVIDER_TYPES,
         required=True,
         help_text="Provider backend type",
     )
-    priority = IntegerField(
+    priority = IntFacet(
         min_value=0, max_value=1000, default=50, required=False,
         help_text="Lower = preferred",
     )
-    enabled = BooleanField(default=True, required=False)
-    rate_limit_per_min = IntegerField(
+    enabled = BoolFacet(default=True, required=False)
+    rate_limit_per_min = IntFacet(
         min_value=0, default=600, required=False,
         help_text="Max messages per minute for this provider",
     )
-    config = DictField(default=dict, required=False, help_text="Extra provider-specific options")
+    config = DictFacet(default=dict, required=False, help_text="Extra provider-specific options")
 
     # SMTP shortcuts
-    host = CharField(default=None, required=False, allow_null=True)
-    port = IntegerField(
+    host = TextFacet(default=None, required=False, allow_null=True)
+    port = IntFacet(
         min_value=1, max_value=65535, default=None, required=False, allow_null=True,
     )
-    username = CharField(default=None, required=False, allow_null=True)
-    password = CharField(default=None, required=False, allow_null=True, write_only=True)
-    use_tls = BooleanField(default=True, required=False)
-    use_ssl = BooleanField(default=False, required=False)
-    timeout = FloatField(min_value=0.1, max_value=300.0, default=30.0, required=False)
+    username = TextFacet(default=None, required=False, allow_null=True)
+    password = TextFacet(default=None, required=False, allow_null=True, write_only=True)
+    use_tls = BoolFacet(default=True, required=False)
+    use_ssl = BoolFacet(default=False, required=False)
+    timeout = FloatFacet(min_value=0.1, max_value=300.0, default=30.0, required=False)
 
     def validate(self, attrs: dict) -> dict:
         """Cross-field validation: SMTP needs host."""
@@ -84,13 +82,13 @@ class ProviderConfigSerializer(Serializer):
         return attrs
 
 
-class RetryConfigSerializer(Serializer):
-    """Serializer for retry / backoff configuration."""
+class RetryConfigBlueprint(Blueprint):
+    """Blueprint for retry / backoff configuration."""
 
-    max_attempts = IntegerField(min_value=0, max_value=100, default=5, required=False)
-    base_delay = FloatField(min_value=0.0, max_value=60.0, default=1.0, required=False)
-    max_delay = FloatField(min_value=0.0, default=3600.0, required=False)
-    jitter = BooleanField(default=True, required=False)
+    max_attempts = IntFacet(min_value=0, max_value=100, default=5, required=False)
+    base_delay = FloatFacet(min_value=0.0, max_value=60.0, default=1.0, required=False)
+    max_delay = FloatFacet(min_value=0.0, default=3600.0, required=False)
+    jitter = BoolFacet(default=True, required=False)
 
     def validate(self, attrs: dict) -> dict:
         """Ensure base_delay <= max_delay."""
@@ -101,32 +99,32 @@ class RetryConfigSerializer(Serializer):
         return attrs
 
 
-class RateLimitConfigSerializer(Serializer):
-    """Serializer for global and per-domain rate-limiting."""
+class RateLimitConfigBlueprint(Blueprint):
+    """Blueprint for global and per-domain rate-limiting."""
 
-    global_per_minute = IntegerField(min_value=0, default=1000, required=False)
-    per_domain_per_minute = IntegerField(min_value=0, default=100, required=False)
-    per_provider_per_minute = IntegerField(
+    global_per_minute = IntFacet(min_value=0, default=1000, required=False)
+    per_domain_per_minute = IntFacet(min_value=0, default=100, required=False)
+    per_provider_per_minute = IntFacet(
         min_value=0, default=None, required=False, allow_null=True,
     )
 
 
-class SecurityConfigSerializer(Serializer):
-    """Serializer for security / deliverability settings."""
+class SecurityConfigBlueprint(Blueprint):
+    """Blueprint for security / deliverability settings."""
 
-    dkim_enabled = BooleanField(default=False, required=False)
-    dkim_domain = CharField(default=None, required=False, allow_null=True)
-    dkim_selector = CharField(max_length=100, default="aquilia", required=False)
-    dkim_private_key_path = CharField(default=None, required=False, allow_null=True)
-    dkim_private_key_env = CharField(default="AQUILIA_DKIM_PRIVATE_KEY", required=False)
+    dkim_enabled = BoolFacet(default=False, required=False)
+    dkim_domain = TextFacet(default=None, required=False, allow_null=True)
+    dkim_selector = TextFacet(max_length=100, default="aquilia", required=False)
+    dkim_private_key_path = TextFacet(default=None, required=False, allow_null=True)
+    dkim_private_key_env = TextFacet(default="AQUILIA_DKIM_PRIVATE_KEY", required=False)
 
-    require_tls = BooleanField(default=True, required=False)
-    allowed_from_domains = ListField(
-        child=CharField(max_length=253),
+    require_tls = BoolFacet(default=True, required=False)
+    allowed_from_domains = ListFacet(
+        child=TextFacet(max_length=253),
         default=list,
         required=False,
     )
-    pii_redaction_enabled = BooleanField(default=False, required=False)
+    pii_redaction_enabled = BoolFacet(default=False, required=False)
 
     def validate(self, attrs: dict) -> dict:
         """DKIM domain required when DKIM is enabled."""
@@ -135,27 +133,27 @@ class SecurityConfigSerializer(Serializer):
         return attrs
 
 
-class TemplateConfigSerializer(Serializer):
-    """Serializer for ATS template engine configuration."""
+class TemplateConfigBlueprint(Blueprint):
+    """Blueprint for ATS template engine configuration."""
 
-    template_dirs = ListField(
-        child=CharField(max_length=500),
+    template_dirs = ListFacet(
+        child=TextFacet(max_length=500),
         default=lambda: ["mail_templates"],
         required=False,
     )
-    auto_escape = BooleanField(default=True, required=False)
-    cache_compiled = BooleanField(default=True, required=False)
-    strict_mode = BooleanField(default=False, required=False)
+    auto_escape = BoolFacet(default=True, required=False)
+    cache_compiled = BoolFacet(default=True, required=False)
+    strict_mode = BoolFacet(default=False, required=False)
 
 
-class QueueConfigSerializer(Serializer):
-    """Serializer for queue / storage settings."""
+class QueueConfigBlueprint(Blueprint):
+    """Blueprint for queue / storage settings."""
 
-    db_url = CharField(default="", required=False, help_text="Empty = use app main database")
-    batch_size = IntegerField(min_value=1, max_value=10000, default=50, required=False)
-    poll_interval = FloatField(min_value=0.1, max_value=60.0, default=1.0, required=False)
-    dedupe_window_seconds = IntegerField(min_value=0, default=3600, required=False)
-    retention_days = IntegerField(min_value=1, max_value=3650, default=30, required=False)
+    db_url = TextFacet(default="", required=False, help_text="Empty = use app main database")
+    batch_size = IntFacet(min_value=1, max_value=10000, default=50, required=False)
+    poll_interval = FloatFacet(min_value=0.1, max_value=60.0, default=1.0, required=False)
+    dedupe_window_seconds = IntFacet(min_value=0, default=3600, required=False)
+    retention_days = IntFacet(min_value=1, max_value=3650, default=30, required=False)
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -186,14 +184,14 @@ class _ConfigObject:
     def __init__(self, data: dict | None = None, **kwargs):
         if data is None:
             data = kwargs
-        # Validate through the serializer to populate defaults
+        # Validate through the blueprint to populate defaults
         # (e.g. ProviderConfig(name="x", type="smtp") gets priority=50, etc.
         #  or RetryConfig() gets max_attempts=5, base_delay=1.0, etc.)
-        cls_ser = type(self)._serializer_cls
-        if cls_ser is not None:
-            ser = cls_ser(data=data)
-            if ser.is_valid():
-                data = ser.validated_data
+        cls_bp = type(self)._blueprint_cls
+        if cls_bp is not None:
+            bp = cls_bp(data=data)
+            if bp.is_sealed():
+                data = bp.validated_data
         object.__setattr__(self, "_data", dict(data))
 
     def __getattr__(self, name: str) -> Any:
@@ -239,32 +237,32 @@ class _ConfigObject:
 
 class ProviderConfig(_ConfigObject):
     """Attribute-access wrapper for a validated provider config."""
-    _serializer_cls = ProviderConfigSerializer
+    _blueprint_cls = ProviderConfigBlueprint
 
 
 class RetryConfig(_ConfigObject):
     """Attribute-access wrapper for a validated retry config."""
-    _serializer_cls = RetryConfigSerializer
+    _blueprint_cls = RetryConfigBlueprint
 
 
 class RateLimitConfig(_ConfigObject):
     """Attribute-access wrapper for a validated rate-limit config."""
-    _serializer_cls = RateLimitConfigSerializer
+    _blueprint_cls = RateLimitConfigBlueprint
 
 
 class SecurityConfig(_ConfigObject):
     """Attribute-access wrapper for a validated security config."""
-    _serializer_cls = SecurityConfigSerializer
+    _blueprint_cls = SecurityConfigBlueprint
 
 
 class TemplateConfig(_ConfigObject):
     """Attribute-access wrapper for a validated template config."""
-    _serializer_cls = TemplateConfigSerializer
+    _blueprint_cls = TemplateConfigBlueprint
 
 
 class QueueConfig(_ConfigObject):
     """Attribute-access wrapper for a validated queue config."""
-    _serializer_cls = QueueConfigSerializer
+    _blueprint_cls = QueueConfigBlueprint
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -273,23 +271,23 @@ class QueueConfig(_ConfigObject):
 
 
 def _validate_sub(
-    serializer_cls: type,
+    blueprint_cls: type,
     data: dict,
     wrapper_cls: type,
 ) -> _ConfigObject:
-    """Validate a sub-config dict through its serializer, return wrapper."""
-    ser = serializer_cls(data=data)
-    if ser.is_valid():
-        return wrapper_cls(ser.validated_data)
+    """Validate a sub-config dict through its blueprint, return wrapper."""
+    bp = blueprint_cls(data=data)
+    if bp.is_sealed():
+        return wrapper_cls(bp.validated_data)
     # If validation fails, still create with defaults (lenient for config)
     return wrapper_cls(data)
 
 
 def _validate_provider(data: dict) -> ProviderConfig:
     """Validate a single provider config dict."""
-    ser = ProviderConfigSerializer(data=data)
-    if ser.is_valid():
-        return ProviderConfig(ser.validated_data)
+    bp = ProviderConfigBlueprint(data=data)
+    if bp.is_sealed():
+        return ProviderConfig(bp.validated_data)
     return ProviderConfig(data)
 
 
@@ -308,7 +306,7 @@ def _coerce_providers(items: list) -> List[ProviderConfig]:
 
 def _coerce_sub(
     value: Any,
-    serializer_cls: type,
+    blueprint_cls: type,
     wrapper_cls: type,
 ) -> _ConfigObject:
     """Accept a wrapper, dict, or None and return a validated wrapper."""
@@ -317,9 +315,9 @@ def _coerce_sub(
     if isinstance(value, _ConfigObject):
         return wrapper_cls(object.__getattribute__(value, "_data"))
     if isinstance(value, dict):
-        return _validate_sub(serializer_cls, value, wrapper_cls)
+        return _validate_sub(blueprint_cls, value, wrapper_cls)
     # None / missing → defaults
-    return _validate_sub(serializer_cls, {}, wrapper_cls)
+    return _validate_sub(blueprint_cls, {}, wrapper_cls)
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -379,17 +377,17 @@ class MailConfig:
 
         # Sub-configs: accept wrapper objects or raw dicts
         self.providers = _coerce_providers(providers or [])
-        self.retry = _coerce_sub(retry, RetryConfigSerializer, RetryConfig)
+        self.retry = _coerce_sub(retry, RetryConfigBlueprint, RetryConfig)
         self.rate_limit = _coerce_sub(
-            rate_limit, RateLimitConfigSerializer, RateLimitConfig,
+            rate_limit, RateLimitConfigBlueprint, RateLimitConfig,
         )
         self.security = _coerce_sub(
-            security, SecurityConfigSerializer, SecurityConfig,
+            security, SecurityConfigBlueprint, SecurityConfig,
         )
         self.templates = _coerce_sub(
-            templates, TemplateConfigSerializer, TemplateConfig,
+            templates, TemplateConfigBlueprint, TemplateConfig,
         )
-        self.queue = _coerce_sub(queue, QueueConfigSerializer, QueueConfig)
+        self.queue = _coerce_sub(queue, QueueConfigBlueprint, QueueConfig)
 
         self.console_backend = console_backend
         self.file_backend_path = file_backend_path
@@ -418,7 +416,7 @@ class MailConfig:
         """
         Build MailConfig from a configuration dictionary.
 
-        Each sub-section is validated through its corresponding Serializer.
+        Each sub-section is validated through its corresponding Blueprint.
         """
         providers: list[ProviderConfig] = []
         for p in data.get("providers", []):
@@ -440,27 +438,27 @@ class MailConfig:
             subject_prefix=data.get("subject_prefix", ""),
             providers=providers,
             retry=_validate_sub(
-                RetryConfigSerializer,
+                RetryConfigBlueprint,
                 retry_data if isinstance(retry_data, dict) else {},
                 RetryConfig,
             ),
             rate_limit=_validate_sub(
-                RateLimitConfigSerializer,
+                RateLimitConfigBlueprint,
                 rate_data if isinstance(rate_data, dict) else {},
                 RateLimitConfig,
             ),
             security=_validate_sub(
-                SecurityConfigSerializer,
+                SecurityConfigBlueprint,
                 sec_data if isinstance(sec_data, dict) else {},
                 SecurityConfig,
             ),
             templates=_validate_sub(
-                TemplateConfigSerializer,
+                TemplateConfigBlueprint,
                 tmpl_data if isinstance(tmpl_data, dict) else {},
                 TemplateConfig,
             ),
             queue=_validate_sub(
-                QueueConfigSerializer,
+                QueueConfigBlueprint,
                 queue_data if isinstance(queue_data, dict) else {},
                 QueueConfig,
             ),

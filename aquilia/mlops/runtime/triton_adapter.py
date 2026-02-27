@@ -12,7 +12,7 @@ import time
 from typing import Any, Dict, List, Optional
 
 from .._types import BatchRequest, InferenceResult, ModelpackManifest
-from .base import BaseRuntime
+from .base import BaseRuntime, ModelState
 
 logger = logging.getLogger("aquilia.mlops.runtime.triton")
 
@@ -37,12 +37,15 @@ class TritonAdapter(BaseRuntime):
         self._model_version: str = ""
 
     async def prepare(self, manifest: ModelpackManifest, model_dir: str) -> None:
+        self._set_state(ModelState.PREPARED)
         self._manifest = manifest
         self._model_dir = model_dir
         self._model_name = manifest.name.replace("/", "_")
         self._model_version = manifest.version.lstrip("v")
 
     async def load(self) -> None:
+        self._set_state(ModelState.LOADING)
+
         try:
             if self._protocol == "grpc":
                 import tritonclient.grpc as grpcclient
@@ -51,14 +54,22 @@ class TritonAdapter(BaseRuntime):
                 import tritonclient.http as httpclient
                 self._client = httpclient.InferenceServerClient(url=self._url)
         except ImportError:
+            self._set_state(ModelState.FAILED)
             raise ImportError(
                 "tritonclient required. Install with: pip install tritonclient[all]"
             )
 
-        if not self._client.is_server_live():
-            raise ConnectionError(f"Triton server not reachable at {self._url}")
+        try:
+            if not self._client.is_server_live():
+                self._set_state(ModelState.FAILED)
+                raise ConnectionError(f"Triton server not reachable at {self._url}")
+        except ConnectionError:
+            raise
+        except Exception:
+            self._set_state(ModelState.FAILED)
+            raise
 
-        self._loaded = True
+        self._set_state(ModelState.LOADED)
         logger.info("Connected to Triton at %s", self._url)
 
     async def infer(self, batch: BatchRequest) -> List[InferenceResult]:

@@ -28,7 +28,7 @@ class TestConcurrencyStress:
         users = []
         for i in range(5):
             email = _unique_email(f"s{i}")
-            user = {"email": email, "password": "Str0ngP@ss!", "full_name": f"Stress {i}"}
+            user = {"username": f"stress_{i}", "email": email, "password": "Str0ngP@ss!", "name": {"first_name": f"Stress {i}", "last_name": "User"}}
             reg = await client.post("/auth/register", json=user)
             if reg.status_code == 201:
                 login = await client.post("/auth/login", json={
@@ -131,7 +131,7 @@ class TestConcurrencyStress:
         for i in range(20):
             email = _unique_email(f"rapid{i}")
             reg = await client.post("/auth/register", json={
-                "email": email, "password": "Str0ngP@ss!", "full_name": f"Rapid {i}",
+                "username": f"rapid_{i}", "email": email, "password": "Str0ngP@ss!", "name": {"first_name": f"Rapid {i}", "last_name": "User"},
             })
             if reg.status_code == 201:
                 await client.post("/auth/login", json={

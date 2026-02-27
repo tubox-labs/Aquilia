@@ -14,7 +14,7 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 
 from .._types import BatchRequest, InferenceResult, ModelpackManifest
-from .base import BaseRuntime
+from .base import BaseRuntime, ModelState
 
 logger = logging.getLogger("aquilia.mlops.runtime.onnx")
 
@@ -39,6 +39,7 @@ class ONNXRuntimeAdapter(BaseRuntime):
         self._total_latency_ms: float = 0.0
 
     async def prepare(self, manifest: ModelpackManifest, model_dir: str) -> None:
+        self._set_state(ModelState.PREPARED)
         self._manifest = manifest
         self._model_dir = model_dir
         logger.info("Prepared ONNXRuntimeAdapter: %s v%s", manifest.name, manifest.version)
@@ -47,9 +48,12 @@ class ONNXRuntimeAdapter(BaseRuntime):
         if not self._manifest:
             raise RuntimeError("Runtime not prepared")
 
+        self._set_state(ModelState.LOADING)
+
         try:
             import onnxruntime as ort
         except ImportError:
+            self._set_state(ModelState.FAILED)
             raise ImportError(
                 "onnxruntime required. Install with: pip install onnxruntime"
             )
@@ -61,16 +65,21 @@ class ONNXRuntimeAdapter(BaseRuntime):
             model_path = Path(self._model_dir) / self._manifest.entrypoint
 
         if not model_path.exists():
+            self._set_state(ModelState.FAILED)
             raise FileNotFoundError(f"ONNX model not found: {model_path}")
 
-        providers = self._providers or ort.get_available_providers()
-        sess_opts = self._session_options or ort.SessionOptions()
+        try:
+            providers = self._providers or ort.get_available_providers()
+            sess_opts = self._session_options or ort.SessionOptions()
 
-        self._session = ort.InferenceSession(
-            str(model_path), sess_options=sess_opts, providers=providers
-        )
+            self._session = ort.InferenceSession(
+                str(model_path), sess_options=sess_opts, providers=providers
+            )
+        except Exception:
+            self._set_state(ModelState.FAILED)
+            raise
 
-        self._loaded = True
+        self._set_state(ModelState.LOADED)
         self._load_time_ms = (time.monotonic() - start) * 1000
         logger.info(
             "ONNX model loaded in %.1fms (providers=%s)",

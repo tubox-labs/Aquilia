@@ -79,6 +79,7 @@ from .facets import (
 )
 from .lenses import Lens
 from .projections import ProjectionRegistry
+from .annotations import Field, computed, NestedBlueprintFacet
 from .exceptions import (
     BlueprintFault,
     CastFault,
@@ -132,6 +133,10 @@ __all__ = [
     "Inject",
     "derive_facet",
     "MODEL_FIELD_TO_FACET",
+    # Annotations
+    "Field",
+    "computed",
+    "NestedBlueprintFacet",
     # Lenses
     "Lens",
     # Projections

@@ -103,6 +103,18 @@ class LifecycleCoordinator:
         self.logger.info("Starting application lifecycle...")
         
         try:
+            # 1. Execute global workspace-level startup hook if present
+            global_startup = self.config.get("on_startup") if self.config else None
+            if global_startup:
+                self.logger.info("Executing global workspace startup hook...")
+                hook = self._resolve_hook(global_startup)
+                if hook:
+                    if inspect.iscoroutinefunction(hook):
+                        await hook(self.config.to_dict() if self.config else {}, None)
+                    else:
+                        hook(self.config.to_dict() if self.config else {}, None)
+
+            # 2. Execute app-level hooks
             # Apps are already in topological order from registry
             for ctx in self.runtime.meta.app_contexts:
                 await self._startup_app(ctx)
@@ -188,9 +200,23 @@ class LifecycleCoordinator:
         
         self.logger.info("Stopping application...")
         
-        # Shutdown in reverse order
+        # 1. Shutdown in reverse order
         for app_name in reversed(self.started_apps):
             await self._shutdown_app(app_name)
+        
+        # 2. Execute global workspace-level shutdown hook if present
+        global_shutdown = self.config.get("on_shutdown") if self.config else None
+        if global_shutdown:
+            self.logger.info("Executing global workspace shutdown hook...")
+            try:
+                hook = self._resolve_hook(global_shutdown)
+                if hook:
+                    if inspect.iscoroutinefunction(hook):
+                        await hook(self.config.to_dict() if self.config else {}, None)
+                    else:
+                        hook(self.config.to_dict() if self.config else {}, None)
+            except Exception as e:
+                self.logger.error(f"Global shutdown hook error: {e}")
         
         self.phase = LifecyclePhase.STOPPED
         self._emit_event(LifecycleEvent(LifecyclePhase.STOPPED))
@@ -263,6 +289,27 @@ class LifecycleCoordinator:
             "started_apps": self.started_apps.copy(),
             "total_apps": len(self.runtime.meta.app_contexts),
         }
+
+    def _resolve_hook(self, hook: Any) -> Optional[Callable]:
+        """Resolve hook string or return callable."""
+        if hook is None or callable(hook):
+            return hook
+        
+        if not isinstance(hook, str):
+            return None
+            
+        import importlib
+        try:
+            if ":" in hook:
+                mod_path, func_name = hook.split(":", 1)
+            else:
+                mod_path, func_name = hook.rsplit(".", 1)
+            
+            module = importlib.import_module(mod_path)
+            return getattr(module, func_name)
+        except (ImportError, AttributeError, ValueError) as e:
+            self.logger.error(f"Failed to resolve lifecycle hook '{hook}': {e}")
+            return None
 
 
 class LifecycleManager:

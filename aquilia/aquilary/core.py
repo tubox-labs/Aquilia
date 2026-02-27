@@ -1191,8 +1191,38 @@ class RuntimeRegistry:
         # Register effects with DI
         self._register_effects()
         
+        # Resolve lifecycle hooks from strings to callables
+        self._resolve_lifecycle_hooks()
+        
         # Validate all dependencies can be resolved
         self._validate_resolvability()
         
         # Return runtime instance
         return self
+
+    def _resolve_lifecycle_hooks(self):
+        """Resolve lifecycle hook import paths into callables."""
+        import importlib
+        import inspect
+
+        def _resolve(path: str) -> Optional[Callable]:
+            if not path or not isinstance(path, str):
+                return None
+            try:
+                if ":" in path:
+                    mod_path, func_name = path.split(":", 1)
+                else:
+                    mod_path, func_name = path.rsplit(".", 1)
+                
+                module = importlib.import_module(mod_path)
+                func = getattr(module, func_name)
+                return func
+            except (ImportError, AttributeError, ValueError) as e:
+                print(f"Warning: Failed to resolve lifecycle hook '{path}': {e}")
+                return None
+
+        for ctx in self.meta.app_contexts:
+            if isinstance(ctx.on_startup, str):
+                ctx.on_startup = _resolve(ctx.on_startup)
+            if isinstance(ctx.on_shutdown, str):
+                ctx.on_shutdown = _resolve(ctx.on_shutdown)

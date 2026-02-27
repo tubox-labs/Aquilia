@@ -1,26 +1,28 @@
 """
 Aquilia MLOps Platform
 
-Production-ready model packaging, registry, serving, observability,
-and release management — fully integrated with the Aquilia framework.
+Production-grade ML serving with TorchServe-class capabilities and
+FastAPI-level simplicity — fully integrated with the Aquilia framework.
 
-Quick start::
+Quick start (class-based)::
 
-    from aquilia.mlops import ModelpackBuilder, RegistryClient, PythonRuntime
+    from aquilia.mlops import AquiliaModel, model
 
-    # Create a modelpack
-    builder = ModelpackBuilder(name="my-model", version="v1.0.0")
-    builder.add_model("model.pt", framework="pytorch")
-    pack_path = await builder.save("./out")
+    @model(name="sentiment", version="v1")
+    class SentimentModel(AquiliaModel):
+        async def load(self, artifacts_dir, device):
+            self.pipeline = load_pipeline(artifacts_dir)
 
-    # Publish to registry
-    client = RegistryClient("http://localhost:8080")
-    await client.push(pack_path)
+        async def predict(self, inputs):
+            return {"sentiment": self.pipeline(inputs["text"])}
 
-    # Serve
-    runtime = PythonRuntime()
-    await runtime.prepare(manifest, model_dir)
-    await runtime.load()
+Quick start (functional)::
+
+    from aquilia.mlops import serve
+
+    @serve(name="echo", version="v1")
+    async def echo_model(inputs: dict) -> dict:
+        return {"echo": inputs.get("text", "")}
 """
 
 from ._types import (
@@ -81,16 +83,36 @@ from ._structures import (
 from .pack.builder import ModelpackBuilder
 from .pack.content_store import ContentStore
 from .registry.service import RegistryService
-from .runtime.base import BaseRuntime, BaseStreamingRuntime
+from .runtime.base import BaseRuntime, BaseStreamingRuntime, ModelState, InvalidStateTransition
 from .runtime.python_runtime import PythonRuntime
+from .runtime.device_manager import DeviceManager, DeviceInfo, DeviceKind
+from .runtime.executor import InferenceExecutor, PoolKind
 from .serving.server import ModelServingServer, WarmupStrategy
 from .serving.batching import DynamicBatcher
 from .observe.metrics import MetricsCollector
 from .observe.drift import DriftDetector
 from .plugins.host import PluginHost
 
+# New serving architecture
+from .engine import InferencePipeline
+from .engine.hooks import (
+    before_predict, after_predict, on_error,
+    on_load, on_unload, preprocess, postprocess,
+    HookRegistry, collect_hooks,
+)
+from .orchestrator import (
+    ModelOrchestrator, ModelRegistry, ModelEntry,
+    VersionManager, VersionRouter, ModelLoader,
+)
+from .api import AquiliaModel, model, serve
+from .api.route_generator import RouteGenerator, RouteDefinition
+from .manifest import (
+    MLOpsManifestConfig, ModelManifestEntry, parse_mlops_config,
+    validate_manifest_config,
+)
+
 # Integration modules
-from .faults import (
+from .engine.faults import (
     MLOpsFault,
     PackBuildFault,
     PackIntegrityFault,
@@ -127,16 +149,16 @@ from .faults import (
     MemorySoftLimitFault,
     MemoryHardLimitFault,
 )
-from .di_providers import register_mlops_providers, MLOpsConfig
-from .controller import MLOpsController
-from .middleware import (
+from .di.providers import register_mlops_providers, MLOpsConfig
+from .serving.controllers import MLOpsController
+from .serving.middleware import (
     mlops_metrics_middleware,
     mlops_request_id_middleware,
     mlops_rate_limit_middleware,
     mlops_circuit_breaker_middleware,
     register_mlops_middleware,
 )
-from .lifecycle_hooks import mlops_on_startup, mlops_on_shutdown
+from .engine.lifecycle import mlops_on_startup, mlops_on_shutdown
 
 __all__ = [
     # Types — Enums
@@ -195,13 +217,46 @@ __all__ = [
     "RegistryService",
     "BaseRuntime",
     "BaseStreamingRuntime",
+    "ModelState",
+    "InvalidStateTransition",
     "PythonRuntime",
+    "DeviceManager",
+    "DeviceInfo",
+    "DeviceKind",
+    "InferenceExecutor",
+    "PoolKind",
     "ModelServingServer",
     "WarmupStrategy",
     "DynamicBatcher",
     "MetricsCollector",
     "DriftDetector",
     "PluginHost",
+    # New Serving Architecture
+    "InferencePipeline",
+    "before_predict",
+    "after_predict",
+    "on_error",
+    "on_load",
+    "on_unload",
+    "preprocess",
+    "postprocess",
+    "HookRegistry",
+    "collect_hooks",
+    "ModelOrchestrator",
+    "ModelRegistry",
+    "ModelEntry",
+    "VersionManager",
+    "VersionRouter",
+    "ModelLoader",
+    "AquiliaModel",
+    "model",
+    "serve",
+    "RouteGenerator",
+    "RouteDefinition",
+    "MLOpsManifestConfig",
+    "ModelManifestEntry",
+    "parse_mlops_config",
+    "validate_manifest_config",
     # Faults
     "MLOpsFault",
     "PackBuildFault",

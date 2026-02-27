@@ -64,6 +64,26 @@ class MetricsCollector:
         self._ewma: Dict[str, ExponentialDecay] = {}
         # Hot-model tracker
         self._hot_models = TopKHeap(k=hot_k)
+        # Per-model scoped counters: {model_name: {metric_name: AtomicCounter}}
+        self._model_counters: Dict[str, Dict[str, AtomicCounter]] = defaultdict(
+            lambda: defaultdict(AtomicCounter)
+        )
+        # Per-model scoped histograms
+        self._model_histograms: Dict[str, Dict[str, RingBuffer]] = defaultdict(dict)
+
+    # ── Convenience Properties ───────────────────────────────────────
+
+    @property
+    def total_inferences(self) -> int:
+        """Total number of inference requests processed."""
+        return self._counters["aquilia_inference_total"].value
+
+    @property
+    def total_tokens(self) -> int:
+        """Total tokens generated across all requests."""
+        return self._counters["aquilia_tokens_generated_total"].value
+
+    # ── Core Metric Methods ──────────────────────────────────────────
 
     def inc(self, name: str, value: float = 1.0) -> None:
         """Increment a counter."""
@@ -82,6 +102,36 @@ class MetricsCollector:
         if name not in self._ewma:
             self._ewma[name] = ExponentialDecay(alpha=0.1)
         self._ewma[name].update(value)
+
+    def inc_for_model(self, model_name: str, name: str, value: float = 1.0) -> None:
+        """Increment a counter scoped to a specific model."""
+        self._model_counters[model_name][name].inc(int(value))
+        # Also increment global counter
+        self.inc(name, value)
+
+    def observe_for_model(self, model_name: str, name: str, value: float) -> None:
+        """Record a histogram observation scoped to a specific model."""
+        key = f"{model_name}:{name}"
+        if name not in self._model_histograms[model_name]:
+            self._model_histograms[model_name][name] = RingBuffer(self._histogram_capacity)
+        self._model_histograms[model_name][name].append(value)
+        # Also record global observation
+        self.observe(name, value)
+
+    def model_summary(self, model_name: str) -> Dict[str, Any]:
+        """Get metrics summary scoped to a specific model."""
+        result: Dict[str, Any] = {"model_name": model_name}
+        # Counters
+        for name, counter in self._model_counters.get(model_name, {}).items():
+            result[name] = counter.value
+        # Histograms
+        for name, rb in self._model_histograms.get(model_name, {}).items():
+            if rb:
+                sorted_vals = sorted(rb)
+                result[f"{name}_p50"] = sorted_vals[len(sorted_vals) // 2] if sorted_vals else 0.0
+                result[f"{name}_p99"] = sorted_vals[int(len(sorted_vals) * 0.99)] if sorted_vals else 0.0
+                result[f"{name}_count"] = len(rb)
+        return result
 
     def record_inference(
         self,
@@ -188,6 +238,12 @@ class MetricsCollector:
                 val = self.percentile(name, p * 100)
                 lines.append(f'{name}{{quantile="{p}",{labels}}} {val}')
             lines.append(f"{name}_count{{{labels}}} {len(self._histograms[name])}")
+
+        # Per-model counters
+        for model_name, counters in sorted(self._model_counters.items()):
+            for metric_name, counter in sorted(counters.items()):
+                ml = f'model="{model_name}",{labels}'
+                lines.append(f"{metric_name}{{{ml}}} {counter.value}")
 
         return "\n".join(lines) + "\n"
 

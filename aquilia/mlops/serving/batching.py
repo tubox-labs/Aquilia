@@ -106,6 +106,7 @@ class DynamicBatcher:
         strategy: BatchingStrategy = BatchingStrategy.HYBRID,
         token_budget: int = 0,
         continuous: bool = False,
+        max_queue_depth: int = 0,
     ):
         self._infer_fn = infer_fn
         self.max_batch_size = max_batch_size
@@ -113,6 +114,7 @@ class DynamicBatcher:
         self.strategy = strategy
         self._token_budget = token_budget
         self._continuous = continuous
+        self._max_queue_depth = max_queue_depth
 
         self._queue: asyncio.Queue[_PendingRequest] = asyncio.Queue()
         # Priority heap for continuous batching
@@ -130,6 +132,8 @@ class DynamicBatcher:
         self._total_wait_ms = 0.0
         self._total_tokens_processed = 0
         self._priority_dispatches = 0
+        self._timeout_count = 0
+        self._backpressure_rejections = 0
 
     async def start(self) -> None:
         """Start the background batcher coroutine."""
@@ -175,10 +179,37 @@ class DynamicBatcher:
         Submit a single request and wait for its result.
 
         The request is enqueued into the batcher and will be processed
-        in the next batch.
+        in the next batch.  If ``max_queue_depth`` is configured and the
+        queue is full, raises ``RuntimeError`` for backpressure.
+        Per-request ``timeout_ms`` is honoured via ``asyncio.wait_for``.
         """
+        # Backpressure: reject if queue is over capacity
+        if self._max_queue_depth > 0:
+            current_depth = self._queue.qsize() + len(self._priority_heap)
+            if current_depth >= self._max_queue_depth:
+                self._backpressure_rejections += 1
+                raise RuntimeError(
+                    f"Queue depth limit exceeded ({current_depth}/{self._max_queue_depth})"
+                )
+
         pending = _PendingRequest(request)
         await self._queue.put(pending)
+
+        # Per-request timeout enforcement
+        timeout_ms = getattr(request, "timeout_ms", 0.0) or 0.0
+        if timeout_ms > 0:
+            try:
+                return await asyncio.wait_for(
+                    pending.future, timeout=timeout_ms / 1000.0,
+                )
+            except asyncio.TimeoutError:
+                self._timeout_count += 1
+                if not pending.future.done():
+                    pending.future.cancel()
+                raise asyncio.TimeoutError(
+                    f"Request {request.request_id} timed out after {timeout_ms}ms"
+                )
+
         return await pending.future
 
     def metrics(self) -> Dict[str, float]:
@@ -203,6 +234,9 @@ class DynamicBatcher:
             "priority_dispatches": float(self._priority_dispatches),
             "adaptive_max_batch": float(self._adaptive_max),
             "continuous_mode": float(self._continuous),
+            "timeout_count": float(self._timeout_count),
+            "backpressure_rejections": float(self._backpressure_rejections),
+            "max_queue_depth": float(self._max_queue_depth),
         }
 
     # ── Internal: Standard batching ──────────────────────────────────

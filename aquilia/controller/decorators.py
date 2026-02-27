@@ -31,8 +31,6 @@ class RouteDecorator:
         deprecated: bool = False,
         response_model: Optional[type] = None,
         status_code: int = 200,
-        request_serializer: Optional[type] = None,
-        response_serializer: Optional[type] = None,
         request_blueprint: Optional[type] = None,
         response_blueprint: Optional[type] = None,
         # ── Filtering, Searching, Ordering ───────────────────────────
@@ -58,10 +56,6 @@ class RouteDecorator:
             deprecated: Mark as deprecated in OpenAPI
             response_model: Response type for OpenAPI
             status_code: Default status code
-            request_serializer: Aquilia Serializer class for request body
-                                validation/deserialization
-            response_serializer: Aquilia Serializer class for response
-                                 serialization
             request_blueprint: Aquilia Blueprint class for request body
                                casting and sealing
             response_blueprint: Aquilia Blueprint class (or ProjectedRef via
@@ -87,8 +81,6 @@ class RouteDecorator:
         self.deprecated = deprecated
         self.response_model = response_model
         self.status_code = status_code
-        self.request_serializer = request_serializer
-        self.response_serializer = response_serializer
         self.request_blueprint = request_blueprint
         self.response_blueprint = response_blueprint
         self.filterset_class = filterset_class
@@ -121,8 +113,6 @@ class RouteDecorator:
             'status_code': self.status_code,
             'func_name': func.__name__,
             'signature': inspect.signature(func),
-            'request_serializer': self.request_serializer,
-            'response_serializer': self.response_serializer,
             'request_blueprint': self.request_blueprint,
             'response_blueprint': self.response_blueprint,
             'filterset_class': self.filterset_class,

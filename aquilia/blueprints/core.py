@@ -24,9 +24,12 @@ from typing import (
     TYPE_CHECKING,
 )
 
+from ..utils.data import DataObject
+
 from .facets import Facet, UNSET, derive_facet, Computed, Constant, ReadOnly, Inject
 from .lenses import Lens, _ProjectedRef
 from .projections import ProjectionRegistry
+from .annotations import introspect_annotations, Field, _ComputedMarker
 from .exceptions import (
     BlueprintFault,
     CastFault,
@@ -39,8 +42,10 @@ if TYPE_CHECKING:
     from ..models.base import Model
 
 
-__all__ = ["Blueprint", "BlueprintMeta"]
+__all__ = ["Blueprint", "BlueprintMeta", "_blueprint_registry"]
 
+# Global registry for resolving forward/lazy Blueprint references by string name
+_blueprint_registry: Dict[str, Type["Blueprint"]] = {}
 
 # ── Spec Descriptor ──────────────────────────────────────────────────────
 
@@ -119,12 +124,32 @@ class BlueprintMeta(type):
             if isinstance(value, Facet):
                 declared_facets[key] = value
 
+        # Clean up Field/ComputedMarker descriptors from namespace
+        # so they don't pollute the class dict.
+        # Collect Field descriptors separately so we can pass them
+        # to annotation introspection later.
+        field_descriptors: Dict[str, Field] = {}
+        for key, value in list(namespace.items()):
+            if isinstance(value, Field):
+                field_descriptors[key] = value
+                namespace.pop(key, None)
+            elif isinstance(value, _ComputedMarker):
+                # Convert to Computed facet immediately
+                facet = value.to_facet()
+                declared_facets[key] = facet
+                namespace[key] = facet
+
         # Inherit facets from parent Blueprints
         parent_facets: Dict[str, Facet] = {}
         for base in bases:
             if hasattr(base, "_declared_facets"):
                 for fname, facet in base._declared_facets.items():
                     if fname not in declared_facets:
+                        parent_facets[fname] = facet.clone()
+            # Also inherit annotation-derived facets from parent
+            if hasattr(base, "_annotated_facets"):
+                for fname, facet in base._annotated_facets.items():
+                    if fname not in declared_facets and fname not in parent_facets:
                         parent_facets[fname] = facet.clone()
 
         # Parse Spec inner class
@@ -143,15 +168,45 @@ class BlueprintMeta(type):
 
         spec = _SpecData(spec_cls)
 
-        # Build the class
+        # Build the class — AFTER this, cls.__annotations__ is available
         cls = super().__new__(mcs, name, bases, namespace, **kwargs)
         cls._spec = spec
         cls._declared_facets = declared_facets
         cls._parent_facets = parent_facets
         cls._all_facets: Dict[str, Facet] = {}
 
+        # ── Type-annotation introspection ────────────────────────────
+        # Now that the class is created, we can read cls.__annotations__
+        # which is properly populated even with PEP 649 (Python 3.14).
+        annotated_facets: Dict[str, Facet] = {}
+        try:
+            # Build a namespace dict with annotations and field descriptors
+            ann_namespace: Dict[str, Any] = {}
+            # Get resolved annotations from the class
+            cls_annotations = {}
+            try:
+                cls_annotations = cls.__annotations__
+            except Exception:
+                pass
+            ann_namespace["__annotations__"] = cls_annotations
+            # Re-inject field descriptors for introspection
+            ann_namespace.update(field_descriptors)
+            # Inject any other class attributes that are defaults (not Facets)
+            for fname in cls_annotations:
+                if fname not in ann_namespace and fname not in declared_facets:
+                    val = namespace.get(fname, UNSET)
+                    if val is not UNSET:
+                        ann_namespace[fname] = val
+            annotated_facets = introspect_annotations(cls, ann_namespace, bases)
+        except Exception:
+            pass  # Defensive — never break metaclass construction
+
+        cls._annotated_facets = annotated_facets
+
         # If this is the base Blueprint class itself, skip model derivation
-        if spec.model is None and not declared_facets:
+        if spec.model is None and not declared_facets and not annotated_facets:
+            cls._seal_methods = []
+            cls._async_seal_methods = []
             return cls
 
         # Auto-derive facets from model
@@ -159,9 +214,10 @@ class BlueprintMeta(type):
         if spec.model is not None:
             model_facets = mcs._derive_model_facets(spec)
 
-        # Merge: parent < model < declared (declared wins)
+        # Merge: parent < annotated < model < declared (declared wins)
         all_facets = {}
         all_facets.update(parent_facets)
+        all_facets.update(annotated_facets)
         all_facets.update(model_facets)
         all_facets.update(declared_facets)
 
@@ -207,6 +263,11 @@ class BlueprintMeta(type):
                 method = getattr(cls, attr_name, None)
                 if callable(method):
                     cls._async_seal_methods.append(attr_name)
+
+        # Register the Blueprint in the global registry for forward references
+        # Only register if it's an actual defined Blueprint, not a base
+        if name != "Blueprint":
+            _blueprint_registry[name] = cls
 
         return cls
 
@@ -369,6 +430,19 @@ class Blueprint(metaclass=BlueprintMeta):
             bound = facet.clone()
             bound.bind(fname, self)
             self._bound_facets[fname] = bound
+
+    def __getattr__(self, name: str) -> Any:
+        """Proxy attribute access to validated_data."""
+        if name.startswith("_"):
+            raise AttributeError(name)
+        if self._validated_data is not None:
+            if name in self._validated_data:
+                return self._validated_data[name]
+        raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'")
+
+    def __getitem__(self, key: str) -> Any:
+        """Proxy dictionary-style access to validated_data."""
+        return self.validated_data[key]
 
     # ── Outbound: Mold ───────────────────────────────────────────────
 
@@ -596,7 +670,7 @@ class Blueprint(metaclass=BlueprintMeta):
                 raise SealFault(message="Blueprint validation failed", errors=self._errors)
             return False
 
-        self._validated_data = validated
+        self._validated_data = DataObject(validated)
         self._is_sealed = True
         return True
 

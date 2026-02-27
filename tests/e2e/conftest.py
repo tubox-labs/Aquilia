@@ -35,16 +35,18 @@ def _make_user_data(suffix: str = "") -> dict:
     _user_counter += 1
     tag = f"{_user_counter}{suffix}"
     return {
+        "username": f"testuser_{tag}",
         "email": f"testuser{tag}@example.com",
         "password": "Str0ngP@ss!",
-        "full_name": f"Test User {tag}",
+        "name": {"first_name": f"Test User {tag}", "last_name": "User"},
     }
 
 
 DEFAULT_USER = {
+    "username": "e2e_test_user",
     "email": "e2e-test@example.com",
     "password": "Str0ngP@ss!",
-    "full_name": "E2E Test User",
+    "name": {"first_name": "E2E Test User", "last_name": "User"},
 }
 
 
@@ -97,7 +99,10 @@ async def test_server():
             "templates": {
                 "enabled": True,
                 "path": os.path.join(base_dir, "templates"),
-                "search_paths": [os.path.join(base_dir, "templates")],
+                "search_paths": [
+                    os.path.join(base_dir, "templates"),
+                    os.path.join(base_dir, "modules", "auth", "templates"),
+                ],
                 "auto_discover": True
             },
             "security": {

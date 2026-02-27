@@ -93,7 +93,6 @@ FaultDomain.IO = FaultDomain("io", "I/O operations")
 FaultDomain.SECURITY = FaultDomain("security", "Security and auth")
 FaultDomain.SYSTEM = FaultDomain("system", "System level faults")
 FaultDomain.MODEL = FaultDomain("model", "Model ORM and database faults")
-FaultDomain.SERIALIZATION = FaultDomain("serialization", "Serializer validation and data errors")
 FaultDomain.CACHE = FaultDomain("cache", "Cache subsystem faults")
 
 
@@ -123,7 +122,6 @@ DOMAIN_DEFAULTS = {
     FaultDomain.SECURITY: {"severity": Severity.ERROR, "retryable": False},
     FaultDomain.SYSTEM: {"severity": Severity.FATAL, "retryable": False},
     FaultDomain.MODEL: {"severity": Severity.ERROR, "retryable": False},
-    FaultDomain.SERIALIZATION: {"severity": Severity.WARN, "retryable": False},
     FaultDomain.CACHE: {"severity": Severity.ERROR, "retryable": True},
 }
 

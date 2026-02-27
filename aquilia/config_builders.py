@@ -47,6 +47,10 @@ class ModuleConfig:
     serializers: List[str] = field(default_factory=list)
     tags: List[str] = field(default_factory=list)
     
+    # Lifecycle hooks
+    on_startup: Optional[str] = None
+    on_shutdown: Optional[str] = None
+    
     # Database configuration (per-module override)
     database: Optional[Dict[str, Any]] = None
     
@@ -71,6 +75,8 @@ class ModuleConfig:
             "models": self.models,
             "serializers": self.serializers,
             "tags": self.tags,
+            "on_startup": self.on_startup,
+            "on_shutdown": self.on_shutdown,
             "auto_discover": self.auto_discover,
         }
         if self.database:
@@ -183,6 +189,26 @@ class Module:
                 )
         """
         self._config.serializers.extend(serializers)
+        return self
+    
+    def on_startup(self, hook: str) -> "Module":
+        """
+        Register a startup hook for this module.
+        
+        Args:
+            hook: Import path to a callable in "module:func" format.
+        """
+        self._config.on_startup = hook
+        return self
+        
+    def on_shutdown(self, hook: str) -> "Module":
+        """
+        Register a shutdown hook for this module.
+        
+        Args:
+            hook: Import path to a callable in "module:func" format.
+        """
+        self._config.on_shutdown = hook
         return self
     
     def database(
@@ -1429,6 +1455,28 @@ class Workspace:
         self._mail_config: Optional[Dict[str, Any]] = None
         self._mlops_config: Optional[Dict[str, Any]] = None
         self._cache_config: Optional[Dict[str, Any]] = None
+        self._on_startup: Optional[str] = None
+        self._on_shutdown: Optional[str] = None
+    
+    def on_startup(self, hook: str) -> "Workspace":
+        """
+        Register a workspace-level startup hook.
+        
+        Args:
+            hook: Import path to a callable in "module:func" format.
+        """
+        self._on_startup = hook
+        return self
+        
+    def on_shutdown(self, hook: str) -> "Workspace":
+        """
+        Register a workspace-level shutdown hook.
+        
+        Args:
+            hook: Import path to a callable in "module:func" format.
+        """
+        self._on_shutdown = hook
+        return self
     
     def runtime(
         self,
@@ -1691,6 +1739,14 @@ class Workspace:
         )
         self._mlops_config = config
         self._integrations["mlops"] = config
+        
+        if enabled:
+            # Auto-register MLOps lifecycle hooks if not already set
+            if not self._on_startup:
+                self.on_startup("aquilia.mlops.engine.lifecycle:mlops_on_startup")
+            if not self._on_shutdown:
+                self.on_shutdown("aquilia.mlops.engine.lifecycle:mlops_on_shutdown")
+                
         return self
     
     def to_dict(self) -> Dict[str, Any]:
@@ -1715,6 +1771,8 @@ class Workspace:
             },
             "modules": [m.to_dict() for m in self._modules],
             "integrations": self._integrations,
+            "on_startup": self._on_startup,
+            "on_shutdown": self._on_shutdown,
         }
         
         # Add optional configurations

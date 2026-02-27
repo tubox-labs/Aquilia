@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Sequence
 
 from .._types import DriftMethod, DriftReport
-from ..faults import DriftDetectionFault
+from ..engine.faults import DriftDetectionFault
 
 logger = logging.getLogger("aquilia.mlops.observe.drift")
 

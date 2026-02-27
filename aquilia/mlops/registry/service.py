@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from .._types import ModelpackManifest, StorageAdapter
-from ..faults import (
+from ..engine.faults import (
     RegistryConnectionFault,
     PackNotFoundFault,
     ImmutabilityViolationFault,

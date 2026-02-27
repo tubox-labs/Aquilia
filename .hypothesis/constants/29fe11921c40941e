@@ -1,0 +1,4 @@
+# file: /Users/kuroyami/PyProjects/Aquilia/aquilia/blueprints/integration.py
+# hypothesis_version: 6.151.9
+
+['_all_facets', 'container', 'default', 'fields', 'get', 'headers', 'is_blueprint_class', 'query_param', 'query_params', 'request', 'required', 'state']

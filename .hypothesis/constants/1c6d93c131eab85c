@@ -1,0 +1,4 @@
+# file: /Users/kuroyami/PyProjects/Aquilia/aquilia/di/request_dag.py
+# hypothesis_version: 6.151.9
+
+['1', '_cache', '_container', '_request', '_resolving', '_teardowns', 'aquilia.di.dag', 'get', 'headers', 'query_param', 'query_params', 'true', 'yes']

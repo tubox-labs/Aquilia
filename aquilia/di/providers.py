@@ -609,62 +609,60 @@ class ScopedProvider:
         await self._inner_provider.shutdown()
 
 
-class SerializerProvider:
+class BlueprintProvider:
     """
-    DI Provider that creates Serializer instances with request context.
+    DI Provider that creates Blueprint instances with request context.
 
     When resolved, the provider:
     1. Parses the request body (JSON or form data)
-    2. Creates the serializer with ``data=body`` and a context dict
+    2. Creates the Blueprint with ``data=body`` and a context dict
        containing ``request``, ``container``, and ``identity``
-    3. Returns the **serializer instance** (not yet validated)
+    3. Returns the **Blueprint instance** (not yet sealed)
 
-    The handler can then call ``serializer.is_valid()`` and ``serializer.save()``.
-
-    This mirrors FastAPI's ``Depends()`` pattern but for Aquilia serializers.
+    The handler can then call ``blueprint.is_sealed()`` and ``blueprint.imprint()``.
 
     Usage::
 
         from aquilia.di import Container
-        from aquilia.di.providers import SerializerProvider
+        from aquilia.di.providers import BlueprintProvider
 
         container.register(
-            SerializerProvider(UserSerializer, scope="request")
+            BlueprintProvider(UserBlueprint, scope="request")
         )
 
         # In handler:
-        async def create_user(self, ctx, serializer: UserSerializer):
-            serializer.is_valid(raise_fault=True)
-            user = await serializer.save()
-            return Response.json(UserSerializer(instance=user).data, status=201)
+        async def create_user(self, ctx, blueprint: UserBlueprint):
+            blueprint.is_sealed(raise_fault=True)
+            user = await blueprint.imprint()
+            return Response.json(UserBlueprint(instance=user).data, status=201)
     """
 
-    __slots__ = ("_meta", "_serializer_cls", "_auto_validate")
+    __slots__ = ("_meta", "_blueprint_cls", "_auto_seal")
 
     def __init__(
         self,
-        serializer_cls: type,
+        blueprint_cls: type,
         *,
         scope: str = "request",
-        auto_validate: bool = False,
+        auto_seal: bool = False,
         tags: tuple[str, ...] = (),
     ):
-        self._serializer_cls = serializer_cls
-        self._auto_validate = auto_validate
+        self._blueprint_cls = blueprint_cls
+        self._auto_seal = auto_seal
 
-        module = serializer_cls.__module__
-        qualname = serializer_cls.__qualname__
+        module = blueprint_cls.__module__
+        qualname = blueprint_cls.__qualname__
         token = f"{module}.{qualname}"
 
         try:
-            source_file = inspect.getsourcefile(serializer_cls)
-            _, line = inspect.getsourcelines(serializer_cls)
+            source_file = inspect.getsourcefile(blueprint_cls)
+            _, line = inspect.getsourcelines(blueprint_cls)
         except (TypeError, OSError):
             source_file = module
             line = None
 
         self._meta = ProviderMeta(
-            name=serializer_cls.__name__,
+            name=blueprint_cls.__name__,
             token=token,
             scope=scope,
             tags=tags,
@@ -679,11 +677,11 @@ class SerializerProvider:
 
     async def instantiate(self, ctx: ResolveCtx) -> Any:
         """
-        Create serializer instance with request data from DI context.
+        Create Blueprint instance with request data from DI context.
 
         The provider looks for a ``Request`` instance in the container
         to parse the body.  If no request is available (e.g. testing),
-        the serializer is created without data.
+        the Blueprint is created without data.
         """
         container = ctx.container
 
@@ -712,23 +710,22 @@ class SerializerProvider:
                 identity = state.get("identity") if isinstance(state, dict) else getattr(state, "identity", None)
 
         # Build context
-        from aquilia.serializers.fields import empty
-        ser_context = {"container": container}
+        bp_context = {"container": container}
         if request is not None:
-            ser_context["request"] = request
+            bp_context["request"] = request
         if identity is not None:
-            ser_context["identity"] = identity
+            bp_context["identity"] = identity
 
-        serializer = self._serializer_cls(
-            data=data if data is not None else empty,
-            context=ser_context,
+        bp_instance = self._blueprint_cls(
+            data=data if data is not None else {},
+            context=bp_context,
         )
 
-        if self._auto_validate and data is not None:
-            serializer.is_valid(raise_fault=True)
+        if self._auto_seal and data is not None:
+            bp_instance.is_sealed(raise_fault=True)
 
-        return serializer
+        return bp_instance
 
     async def shutdown(self) -> None:
-        """No-op for serializer provider."""
+        """No-op for blueprint provider."""
         pass

@@ -54,13 +54,13 @@ from .service import send_mail, asend_mail
 from .envelope import MailEnvelope, EnvelopeStatus, Priority
 from .config import (
     MailConfig,
-    # Config serializers (Aquilia Serializer-based validation)
-    ProviderConfigSerializer,
-    RetryConfigSerializer,
-    RateLimitConfigSerializer,
-    SecurityConfigSerializer,
-    TemplateConfigSerializer,
-    QueueConfigSerializer,
+    # Config blueprints (Aquilia Blueprint-based validation)
+    ProviderConfigBlueprint,
+    RetryConfigBlueprint,
+    RateLimitConfigBlueprint,
+    SecurityConfigBlueprint,
+    TemplateConfigBlueprint,
+    QueueConfigBlueprint,
     # Config wrapper objects (backward-compatible attribute access)
     ProviderConfig,
     RetryConfig,
@@ -115,13 +115,13 @@ __all__ = [
     "Priority",
     # Config
     "MailConfig",
-    # Config serializers
-    "ProviderConfigSerializer",
-    "RetryConfigSerializer",
-    "RateLimitConfigSerializer",
-    "SecurityConfigSerializer",
-    "TemplateConfigSerializer",
-    "QueueConfigSerializer",
+    # Config blueprints
+    "ProviderConfigBlueprint",
+    "RetryConfigBlueprint",
+    "RateLimitConfigBlueprint",
+    "SecurityConfigBlueprint",
+    "TemplateConfigBlueprint",
+    "QueueConfigBlueprint",
     # Config wrappers
     "ProviderConfig",
     "RetryConfig",

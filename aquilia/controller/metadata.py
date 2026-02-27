@@ -357,9 +357,6 @@ def _extract_method_params(
             # Determine source
             if param_name in path_params:
                 source = 'path'
-            elif _is_serializer_type(param_type):
-                # Serializer subclass → auto-parse request body (FastAPI-style)
-                source = 'body'
             elif _is_blueprint_type(param_type):
                 # Blueprint subclass → auto-parse request body
                 source = 'body'
@@ -389,8 +386,29 @@ def _extract_method_params(
                         # Generic Annotated without DI marker → treat as query
                         source = 'query'
                 else:
-                    # Non-Annotated generic types (Optional[str], List[int]) → query
-                    source = 'query'
+                    # Dict[str, Any] and similar mapping types → treat as body
+                    # (raw JSON body injection for POST/PUT/PATCH handlers).
+                    # All other non-Annotated generics (List, Optional, etc.) → query.
+                    _generic_origin = get_origin(param_type)
+                    if _generic_origin is dict:
+                        source = 'body'
+                    else:
+                        # Check Optional[Dict[...]] → Optional is Union[X, None],
+                        # so unwrap and re-check the first arg.
+                        try:
+                            from typing import Union
+                            if _generic_origin is Union:
+                                _inner_args = get_args(param_type)
+                                # Optional[X] → Union[X, None]; X may itself be a Dict
+                                _non_none = [a for a in _inner_args if a is not type(None)]
+                                if len(_non_none) == 1 and get_origin(_non_none[0]) is dict:
+                                    source = 'body'
+                                else:
+                                    source = 'query'
+                            else:
+                                source = 'query'
+                        except Exception:
+                            source = 'query'
             elif param_name == "session" or (hasattr(param_type, "__name__") and param_type.__name__ == "Session"):
                 # Always treat Session as DI source
                 source = 'di'
@@ -412,24 +430,6 @@ def _extract_method_params(
     
     return params
 
-
-def _is_serializer_type(annotation: Any) -> bool:
-    """
-    Check if a type annotation is an Aquilia Serializer subclass.
-
-    Used by the metadata extractor to auto-detect handler parameters
-    that should be populated from the request body — similar to how
-    FastAPI detects Pydantic BaseModel subclasses.
-    """
-    try:
-        from aquilia.serializers.base import Serializer
-        return (
-            isinstance(annotation, type)
-            and issubclass(annotation, Serializer)
-            and annotation is not Serializer
-        )
-    except ImportError:
-        return False
 
 
 def _is_blueprint_type(annotation: Any) -> bool:

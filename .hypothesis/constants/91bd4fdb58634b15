@@ -1,0 +1,4 @@
+# file: /Users/kuroyami/PyProjects/Aquilia/authentication/modules/auth/faults.py
+# hypothesis_version: 6.151.9
+
+['AUTH', 'AUTH_NOT_FOUND', 'Auth module faults', 'Validation failed', 'errors', 'item_id', 'operation', 'reason']

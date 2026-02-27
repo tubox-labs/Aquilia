@@ -95,10 +95,11 @@ class TestTemplateInputFuzz:
     @settings(max_examples=30, suppress_health_check=[HealthCheck.function_scoped_fixture])
     async def test_fuzz_registration_inputs(self, client, email, password, name):
         """FUZZ-002: Random strings in registration form should not crash."""
-        resp = await client.post("/auth/register", data={
+        resp = await client.post("/auth/register", json={
+            "username": "fuzzer",
             "email": email,
             "password": password,
-            "full_name": name,
+            "name": {"first_name": name, "last_name": "User"},
         })
         # Must return a valid HTTP response
         assert resp.status_code > 0
@@ -133,7 +134,7 @@ class TestUploadParserFuzz:
         email = _unique_email("fuzzup")
         resp = await client.post(
             "/auth/register",
-            data={"email": email, "password": "Str0ngP@ss!", "full_name": "Fuzzer"},
+            json={"username": "fuzzer", "email": email, "password": "Str0ngP@ss!", "name": {"first_name": "Fuzzer", "last_name": "User"}},
             files={"profile": (filename, content, "application/octet-stream")},
         )
         assert resp.status_code > 0, f"Server crashed with filename={filename!r}"

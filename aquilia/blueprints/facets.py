@@ -440,7 +440,7 @@ class IntFacet(Facet):
             raise CastFault(self.name or "<unbound>", "Boolean is not a valid integer")
         try:
             return int(value)
-        except (ValueError, TypeError) as exc:
+        except (ValueError, TypeError, OverflowError) as exc:
             raise CastFault(self.name or "<unbound>", f"Expected integer, got {type(value).__name__}") from exc
 
     def seal(self, value: Any) -> int:
@@ -478,7 +478,7 @@ class FloatFacet(Facet):
     def cast(self, value: Any) -> float:
         try:
             return float(value)
-        except (ValueError, TypeError) as exc:
+        except (ValueError, TypeError, OverflowError) as exc:
             raise CastFault(self.name or "<unbound>", f"Expected number, got {type(value).__name__}") from exc
 
     def seal(self, value: Any) -> float:
@@ -797,19 +797,65 @@ class ListFacet(Facet):
 
 
 class DictFacet(Facet):
-    """Dictionary/object facet."""
+    """Dictionary/object facet, optionally validating all values against a specific facet."""
 
     _type_name = "object"
+
+    def __init__(self, *, value_facet: Facet | None = None, **kwargs):
+        super().__init__(**kwargs)
+        if value_facet is not None:
+            # Bind child facet's initial name
+            value_facet.name = f"{self.name or '<unbound>'}[*]"
+        self.value_facet = value_facet
 
     def cast(self, value: Any) -> dict:
         if not isinstance(value, dict):
             raise CastFault(self.name or "<unbound>", f"Expected object, got {type(value).__name__}")
-        return dict(value)
+        
+        result = {}
+        for k, v in value.items():
+            if not isinstance(k, str):
+                raise CastFault(self.name or "<unbound>", f"Dictionary keys must be strings, got {type(k).__name__}")
+            if self.value_facet:
+                self.value_facet.name = f"{self.name or '<unbound>'}[{k}]"
+                result[k] = self.value_facet.cast(v)
+            else:
+                result[k] = v
+        return result
+
+    def seal(self, value: dict) -> dict:
+        if not self.value_facet:
+            return value
+            
+        result = {}
+        for k, v in value.items():
+            self.value_facet.name = f"{self.name or '<unbound>'}[{k}]"
+            result[k] = self.value_facet.seal(v)
+        return result
 
     def mold(self, value: Any) -> dict | None:
         if value is None:
             return None
-        return dict(value) if isinstance(value, dict) else value
+        if not isinstance(value, dict):
+            try:
+                value = dict(value)
+            except (TypeError, ValueError):
+                return value
+            
+        if not self.value_facet:
+            return value
+            
+        result = {}
+        for k, v in value.items():
+            self.value_facet.name = f"{self.name or '<unbound>'}[{k}]"
+            result[k] = self.value_facet.mold(v)
+        return result
+
+    def to_schema(self) -> Dict[str, Any]:
+        schema = super().to_schema()
+        if self.value_facet:
+            schema["additionalProperties"] = self.value_facet.to_schema()
+        return schema
 
 
 class JSONFacet(Facet):
@@ -877,6 +923,67 @@ class ChoiceFacet(Facet):
     def to_schema(self) -> Dict[str, Any]:
         schema = super().to_schema()
         schema["enum"] = sorted(str(v) for v in self._valid_values)
+        return schema
+
+
+# ── PolymorphicFacet ───────────────────────────────────────────────────
+
+class PolymorphicFacet(Facet):
+    """
+    A Facet that attempts to cast and seal through multiple candidate Facets.
+    Useful for Union types like `Union[CatBlueprint, DogBlueprint]`.
+    """
+    
+    _type_name = "object"
+
+    def __init__(self, choices: list[Facet], **kwargs):
+        super().__init__(**kwargs)
+        self.choices = choices
+
+    def cast(self, value: Any) -> Any:
+        errors = []
+        for choice in self.choices:
+            choice.name = self.name
+            try:
+                return choice.cast(value)
+            except CastFault as e:
+                errors.append(str(e))
+                
+        raise CastFault(
+            self.name or "<unbound>", 
+            f"Value did not match any polymorphic schema. Errors: {'; '.join(errors)}"
+        )
+
+    def seal(self, value: Any) -> Any:
+        errors = []
+        for choice in self.choices:
+            choice.name = self.name
+            try:
+                return choice.seal(value)
+            except (CastFault, SealFault) as e:
+                errors.append(str(e))
+                
+        raise SealFault(
+            self.name or "<unbound>", 
+            f"Value did not match any polymorphic schema during seal. Errors: {'; '.join(errors)}"
+        )
+
+    def mold(self, value: Any) -> Any:
+        for choice in self.choices:
+            choice.name = self.name
+            try:
+                molded = choice.mold(value)
+                # If molding didn't crash, we assume success. 
+                # For dictionaries, we might want to ensure it's not None if value wasn't None.
+                if molded is not None or value is None:
+                    return molded
+            except Exception:
+                pass
+        return value
+
+    def to_schema(self) -> Dict[str, Any]:
+        schema = super().to_schema()
+        schema["anyOf"] = [choice.to_schema() for choice in self.choices]
         return schema
 
 

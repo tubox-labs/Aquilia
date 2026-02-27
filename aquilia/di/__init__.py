@@ -32,7 +32,7 @@ from .providers import (
     AliasProvider,
     LazyProxyProvider,
     ScopedProvider,
-    SerializerProvider,
+    BlueprintProvider,
 )
 
 from .scopes import (
@@ -104,7 +104,7 @@ __all__ = [
     "AliasProvider",
     "LazyProxyProvider",
     "ScopedProvider",
-    "SerializerProvider",
+    "BlueprintProvider",
     
     # Scopes
     "Scope",

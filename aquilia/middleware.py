@@ -246,7 +246,6 @@ class ExceptionMiddleware:
                 FaultDomain.IO: 502,
                 FaultDomain.EFFECT: 503,
                 FaultDomain.MODEL: 404,        # DB Not Found usually
-                FaultDomain.SERIALIZATION: 400, # Validation error
                 FaultDomain.CACHE: 502,
                 FaultDomain.CONFIG: 500,
                 FaultDomain.REGISTRY: 500,

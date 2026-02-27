@@ -17,7 +17,7 @@ def _unique_email(tag: str = "") -> str:
 
 async def _register(client, tag=""):
     email = _unique_email(tag)
-    user = {"email": email, "password": "Str0ngP@ss!", "full_name": f"Session {tag}"}
+    user = {"username": f"session_{tag}", "email": email, "password": "Str0ngP@ss!", "name": {"first_name": f"Session {tag}", "last_name": "User"}}
     reg = await client.post("/auth/register", json=user)
     assert reg.status_code == 201
     return user

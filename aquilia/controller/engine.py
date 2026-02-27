@@ -128,33 +128,27 @@ class ControllerEngine:
         handler_method = getattr(controller, route_metadata.handler_name)
 
         # ── Fast path for simple handlers ──
-        # Handlers with no pipeline, no serializer, and only ctx/path params
+        # Handlers with no pipeline, no blueprint, and only ctx/path params
         # can skip the full _bind_parameters machinery.
         route_id = id(route)
         is_simple = ControllerEngine._simple_route_cache.get(route_id)
         if is_simple is None:
             params = route_metadata.parameters
-            _rm = getattr(route_metadata, '_raw_metadata', {}) or {}
-            has_serializer = (
-                getattr(route_metadata, 'request_serializer', None) or _rm.get('request_serializer')
-                or getattr(route_metadata, 'response_serializer', None) or _rm.get('response_serializer')
-            )
             has_blueprint = (
-                getattr(route_metadata, 'request_blueprint', None) or _rm.get('request_blueprint')
-                or getattr(route_metadata, 'response_blueprint', None) or _rm.get('response_blueprint')
+                getattr(route_metadata, 'request_blueprint', None)
+                or getattr(route_metadata, 'response_blueprint', None)
             )
             has_filters_or_pagination = (
-                getattr(route_metadata, 'filterset_class', None) or _rm.get('filterset_class')
-                or getattr(route_metadata, 'filterset_fields', None) or _rm.get('filterset_fields')
-                or getattr(route_metadata, 'search_fields', None) or _rm.get('search_fields')
-                or getattr(route_metadata, 'ordering_fields', None) or _rm.get('ordering_fields')
-                or getattr(route_metadata, 'pagination_class', None) or _rm.get('pagination_class')
-                or getattr(route_metadata, 'renderer_classes', None) or _rm.get('renderer_classes')
+                getattr(route_metadata, 'filterset_class', None)
+                or getattr(route_metadata, 'filterset_fields', None)
+                or getattr(route_metadata, 'search_fields', None)
+                or getattr(route_metadata, 'ordering_fields', None)
+                or getattr(route_metadata, 'pagination_class', None)
+                or getattr(route_metadata, 'renderer_classes', None)
             )
             is_simple = (
                 not route.controller_metadata.pipeline
                 and not route_metadata.pipeline
-                and not has_serializer
                 and not has_blueprint
                 and not has_filters_or_pagination
                 and (not params or all(
@@ -164,7 +158,7 @@ class ControllerEngine:
             ControllerEngine._simple_route_cache[route_id] = is_simple
 
         if is_simple:
-            # Direct call — skip _bind_parameters, lifecycle hooks, serializer
+            # Direct call — skip _bind_parameters, lifecycle hooks, blueprint
             try:
                 # Signature-aware call
                 sig = self._get_cached_signature(handler_method)
@@ -232,7 +226,6 @@ class ControllerEngine:
 
             result = await self._safe_call(handler_method, **kwargs)
             result = await self._apply_filters_and_pagination(result, route_metadata, request)
-            result = self._apply_response_serializer(result, route_metadata, ctx)
             result = self._apply_response_blueprint(result, route_metadata, ctx)
             response = self._apply_content_negotiation(result, route_metadata, request)
             if response is None:
@@ -406,20 +399,7 @@ class ControllerEngine:
         - DI container
         - Dep() descriptors (resolved via RequestDAG)
         - Special: ctx, request
-        - **Serializer subclasses**: Auto-parsed from request body (FastAPI-style)
         - **Blueprint subclasses**: Auto-parsed, cast+sealed from request body
-
-        When a parameter is typed as a ``Serializer`` subclass, the engine
-        will:
-        1. Parse the request body (JSON or form)
-        2. Create the serializer with ``data=body, context={request, container}``
-        3. Call ``is_valid(raise_fault=True)``
-        4. Inject ``serializer.validated_data`` as the parameter value
-
-        If the parameter name is ``serializer`` or ends with ``_serializer``,
-        the full serializer instance is injected instead of just the
-        validated data.  This gives the handler access to ``.save()``,
-        ``.errors``, etc.
 
         When a parameter is typed as a ``Blueprint`` subclass, the engine
         will:
@@ -432,20 +412,12 @@ class ControllerEngine:
         or ``_bp``, the full Blueprint instance is injected. Otherwise,
         ``blueprint.validated_data`` is injected.
 
-        Similarly, if a ``request_serializer`` or ``request_blueprint``
-        is declared on the route decorator, it takes precedence and is
-        used for body parsing.
+        If a ``request_blueprint`` is declared on the route decorator,
+        it takes precedence and is used for body parsing.
         """
         kwargs = {}
         request_dag = None  # Lazy — created only if handler uses Dep()
         
-        # Check for request_serializer from decorator metadata
-        decorator_request_serializer = getattr(route_metadata, 'request_serializer', None)
-        if decorator_request_serializer is None:
-            raw_meta = getattr(route_metadata, '_raw_metadata', None)
-            if raw_meta and isinstance(raw_meta, dict):
-                decorator_request_serializer = raw_meta.get('request_serializer')
-
         # Check for request_blueprint from decorator metadata
         decorator_request_blueprint = getattr(route_metadata, 'request_blueprint', None)
         if decorator_request_blueprint is None:
@@ -453,7 +425,7 @@ class ControllerEngine:
             if raw_meta and isinstance(raw_meta, dict):
                 decorator_request_blueprint = raw_meta.get('request_blueprint')
         
-        # Track if body has been consumed by a serializer
+        # Track if body has been consumed by a blueprint
         _body_consumed = False
         _body_cache = None
         
@@ -477,23 +449,14 @@ class ControllerEngine:
             if param_name in ("ctx", "context"):
                 continue
             
-            # ── FastAPI-style Serializer injection ───────────────────────
-            # If the parameter type is a Serializer subclass, auto-parse
-            # the request body through it.
-            param_is_serializer = self._is_serializer_class(param.type)
-
             # ── Blueprint injection ──────────────────────────────────────
             # If the parameter type is a Blueprint subclass, auto-parse
             # the request body through it.
             param_is_blueprint = self._is_blueprint_class(param.type)
             
-            # Also check for decorator-level request_serializer
-            use_serializer = None
             use_blueprint = None
 
-            if param_is_serializer:
-                use_serializer = param.type
-            elif param_is_blueprint:
+            if param_is_blueprint:
                 use_blueprint = param.type
             elif (
                 decorator_request_blueprint
@@ -502,13 +465,6 @@ class ControllerEngine:
                 and not _body_consumed
             ):
                 use_blueprint = decorator_request_blueprint
-            elif (
-                decorator_request_serializer
-                and self._is_serializer_class(decorator_request_serializer)
-                and param.source == 'body'
-                and not _body_consumed
-            ):
-                use_serializer = decorator_request_serializer
 
             # ── Blueprint body binding ───────────────────────────────────
             if use_blueprint is not None and not _body_consumed:
@@ -544,10 +500,12 @@ class ControllerEngine:
                 )
                 bp_instance.is_sealed(raise_fault=True)
 
-                # If param name suggests they want the Blueprint instance,
-                # inject the full Blueprint. Otherwise inject validated_data.
+                # Inject the FULL Blueprint instance if:
+                # 1. The parameter is explicitly typed as a Blueprint subclass
+                # 2. The parameter name suggests it wants the instance
                 inject_instance = (
-                    param_name == "blueprint"
+                    param_is_blueprint
+                    or param_name == "blueprint"
                     or param_name.endswith("_blueprint")
                     or param_name.endswith("_bp")
                 )
@@ -556,38 +514,6 @@ class ControllerEngine:
                     kwargs[param_name] = bp_instance
                 else:
                     kwargs[param_name] = bp_instance.validated_data
-                continue
-            
-            if use_serializer is not None and not _body_consumed:
-                body = await _get_body()
-                _body_consumed = True
-                
-                # Build context with request + container for DI defaults
-                ser_context = {"request": request}
-                if container:
-                    ser_context["container"] = container
-                if ctx.identity:
-                    ser_context["identity"] = ctx.identity
-                
-                serializer = use_serializer(
-                    data=body,
-                    context=ser_context,
-                )
-                serializer.is_valid(raise_fault=True)
-                
-                # If param name suggests they want the serializer instance,
-                # inject the full serializer (access to .save(), .errors, etc.)
-                # Otherwise inject just the validated_data dict.
-                inject_instance = (
-                    param_name == "serializer"
-                    or param_name.endswith("_serializer")
-                    or param_name.endswith("_ser")
-                )
-                
-                if inject_instance:
-                    kwargs[param_name] = serializer
-                else:
-                    kwargs[param_name] = serializer.validated_data
                 continue
             
             # Path parameters
@@ -610,12 +536,32 @@ class ControllerEngine:
             elif param.source == "body":
                 if request.method in ("POST", "PUT", "PATCH"):
                     try:
-                        body = await request.json()
-                        if param_name in body:
+                        body = await _get_body()
+                        # If the parameter type is a plain dict (Dict[str, Any]) or
+                        # the body itself is not a dict, inject the whole body.
+                        # Otherwise, if the body contains a key matching param_name,
+                        # extract that field (legacy behaviour for named body fields).
+                        from typing import get_origin as _go
+                        import typing as _t
+                        _raw_type = param.type
+                        # Unwrap Optional[Dict] → Dict
+                        try:
+                            if _go(_raw_type) is _t.Union:
+                                _args = _t.get_args(_raw_type)
+                                _non_none = [a for a in _args if a is not type(None)]
+                                if len(_non_none) == 1:
+                                    _raw_type = _non_none[0]
+                        except Exception:
+                            pass
+                        _is_dict_type = _go(_raw_type) is dict or _raw_type is dict
+                        if _is_dict_type:
+                            # Inject the full JSON body as the dict param
+                            kwargs[param_name] = body if isinstance(body, dict) else {}
+                        elif isinstance(body, dict) and param_name in body:
                             kwargs[param_name] = body[param_name]
                         elif not param.required and param.default is not inspect.Parameter.empty:
                             kwargs[param_name] = param.default
-                    except:
+                    except Exception:
                         if not param.required and param.default is not inspect.Parameter.empty:
                             kwargs[param_name] = param.default
             
@@ -721,27 +667,7 @@ class ControllerEngine:
         else:
             return value
     
-    _serializer_base_class = None  # Cached Serializer class
     _blueprint_base_class = None   # Cached Blueprint class
-
-    def _is_serializer_class(self, annotation: Any) -> bool:
-        """Check if annotation is a Serializer subclass (FastAPI-style detection)."""
-        if ControllerEngine._serializer_base_class is None:
-            try:
-                from aquilia.serializers.base import Serializer
-                ControllerEngine._serializer_base_class = Serializer
-            except ImportError:
-                ControllerEngine._serializer_base_class = type(None)  # sentinel
-                return False
-        
-        base = ControllerEngine._serializer_base_class
-        if base is type(None):
-            return False
-        return (
-            isinstance(annotation, type)
-            and issubclass(annotation, base)
-            and annotation is not base
-        )
 
     def _is_blueprint_class(self, annotation: Any) -> bool:
         """Check if annotation is a Blueprint subclass or ProjectedRef."""
@@ -770,44 +696,6 @@ class ControllerEngine:
             and issubclass(annotation, base)
             and annotation is not base
         )
-
-    def _apply_response_serializer(
-        self,
-        result: Any,
-        route_metadata: Any,
-        ctx: RequestCtx,
-    ) -> Any:
-        """Auto-serialize handler return value via response_serializer."""
-        # Fast path: check direct attribute first (avoids dict lookups for common case)
-        response_serializer = getattr(route_metadata, 'response_serializer', None)
-        if response_serializer is None:
-            raw_meta = getattr(route_metadata, '_raw_metadata', None)
-            if raw_meta and isinstance(raw_meta, dict):
-                response_serializer = raw_meta.get('response_serializer')
-        
-        if response_serializer is None or not self._is_serializer_class(response_serializer):
-            return result
-        
-        # Don't re-serialize Response objects
-        if isinstance(result, Response):
-            return result
-        
-        # Build context for the serializer
-        ser_context = {"request": ctx.request}
-        if ctx.container:
-            ser_context["container"] = ctx.container
-        
-        try:
-            if isinstance(result, (list, tuple)):
-                serializer = response_serializer.many(instance=result, context=ser_context)
-            else:
-                serializer = response_serializer(instance=result, context=ser_context)
-            return serializer.data
-        except Exception as e:
-            self.logger.warning(
-                f"Response serialization failed: {e}. Returning raw result."
-            )
-            return result
 
     def _apply_response_blueprint(
         self,

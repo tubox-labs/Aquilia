@@ -17,7 +17,7 @@ def _unique_email(tag: str = "") -> str:
 
 async def _register_login(client, tag=""):
     email = _unique_email(tag)
-    user = {"email": email, "password": "Str0ngP@ss!", "full_name": f"Me {tag}"}
+    user = {"username": f"me_{tag}", "email": email, "password": "Str0ngP@ss!", "name": {"first_name": f"Me {tag}", "last_name": "User"}}
     reg = await client.post("/auth/register", json=user)
     assert reg.status_code == 201
     login = await client.post("/auth/login", json={"email": email, "password": user["password"]})
@@ -40,7 +40,7 @@ class TestMeEndpoint:
 
         body = resp.json()
         assert body["email"] == user["email"]
-        assert body["full_name"] == user["full_name"]
+        assert body["name"]["first_name"] == user["name"]["first_name"]
         assert "id" in body
         assert "created_at" in body
         # Must NOT leak secrets

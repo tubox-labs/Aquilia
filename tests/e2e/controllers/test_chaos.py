@@ -25,7 +25,7 @@ class TestConcurrentRegistration:
     async def test_concurrent_same_email(self, client):
         """CHAOS-001: Only one of 10 concurrent registrations should succeed."""
         email = _unique_email("race")
-        payload = {"email": email, "password": "Str0ngP@ss!", "full_name": "Racer"}
+        payload = {"username": "racer", "email": email, "password": "Str0ngP@ss!", "name": {"first_name": "Racer", "last_name": "User"}}
 
         async def attempt_register():
             return await client.post("/auth/register", json=payload)
@@ -58,7 +58,7 @@ class TestCacheChaos:
     async def test_concurrent_me_with_cache_corruption(self, test_server, client):
         """CHAOS-002: Multiple /me requests during cache corruption should not crash."""
         email = _unique_email("cachaos")
-        user = {"email": email, "password": "Str0ngP@ss!", "full_name": "CacheChaos"}
+        user = {"username": "cache_chaos", "email": email, "password": "Str0ngP@ss!", "name": {"first_name": "CacheChaos", "last_name": "User"}}
         await client.post("/auth/register", json=user)
         login = await client.post("/auth/login", json={"email": email, "password": user["password"]})
         tokens = login.json()
@@ -106,7 +106,7 @@ class TestConcurrentLoginStress:
     async def test_concurrent_logins(self, client):
         """CHAOS-003: 20 concurrent logins should all succeed or fail gracefully."""
         email = _unique_email("stress")
-        user = {"email": email, "password": "Str0ngP@ss!", "full_name": "StressUser"}
+        user = {"username": "stress_user", "email": email, "password": "Str0ngP@ss!", "name": {"first_name": "StressUser", "last_name": "User"}}
         await client.post("/auth/register", json=user)
 
         async def attempt_login():

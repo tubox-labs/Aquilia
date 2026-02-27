@@ -62,3 +62,6 @@ dist/
 
 .vite
 .qodo
+.hypothesis/
+.aquilia/
+.aquilia-store/

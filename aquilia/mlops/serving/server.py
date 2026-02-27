@@ -40,7 +40,7 @@ from .._structures import (
     MemoryTracker,
     TokenBucketRateLimiter,
 )
-from ..faults import InferenceFault, RuntimeLoadFault
+from ..engine.faults import InferenceFault, RuntimeLoadFault
 from ..runtime.base import BaseRuntime, select_runtime
 from .batching import DynamicBatcher
 
@@ -135,11 +135,19 @@ class ModelServingServer:
             manifest, preferred=runtime_kind
         )
 
-        # Batcher
+        # Batcher — auto-detect LLM manifests for continuous batching
+        is_llm = manifest.is_llm
+        use_continuous = is_llm
+        token_budget = 0
+        if is_llm and manifest.llm_config:
+            token_budget = getattr(manifest.llm_config, "max_tokens", 0) or 4096
+
         self._batcher = DynamicBatcher(
             infer_fn=self._runtime.infer,
             max_batch_size=max_batch_size,
             max_latency_ms=max_latency_ms,
+            continuous=use_continuous,
+            token_budget=token_budget,
         )
 
         # Request dedup — BloomFilter
@@ -176,11 +184,14 @@ class ModelServingServer:
 
         self._started = False
         self._ready = False
+        self._draining = False
         self._start_time = 0.0
         self._request_count = 0
         self._stream_count = 0
         self._total_latency_ms = 0.0
         self._total_tokens_generated = 0
+        self._inflight = 0
+        self._drain_timeout_s = 30.0
 
     async def start(self) -> None:
         """Prepare and load the model, warm up, start the batcher."""
@@ -224,12 +235,36 @@ class ModelServingServer:
                 len(warmup_times), avg,
             )
 
-    async def stop(self) -> None:
-        """Stop the batcher and unload the model."""
+    async def stop(self, drain_timeout_s: Optional[float] = None) -> None:
+        """
+        Stop the server gracefully.
+
+        1. Mark as draining (reject new requests)
+        2. Wait for in-flight requests to complete (up to timeout)
+        3. Stop the batcher and unload the runtime
+        """
+        timeout = drain_timeout_s or self._drain_timeout_s
+        self._draining = True
         self._ready = False
+        logger.info(
+            "Draining %d in-flight requests (timeout=%.1fs)...",
+            self._inflight, timeout,
+        )
+
+        # Wait for in-flight requests to complete
+        deadline = time.time() + timeout
+        while self._inflight > 0 and time.time() < deadline:
+            await asyncio.sleep(0.1)
+
+        if self._inflight > 0:
+            logger.warning(
+                "Drain timeout: %d requests still in flight", self._inflight,
+            )
+
         await self._batcher.stop()
         await self._runtime.unload()
         self._started = False
+        self._draining = False
         logger.info("Server stopped")
 
     async def predict(
@@ -252,6 +287,14 @@ class ModelServingServer:
                 "_server",
                 reason="Server not started — call start() first",
                 metadata={"model": self.manifest.name},
+            )
+
+        # Reject new requests during drain
+        if self._draining:
+            raise InferenceFault(
+                "_server",
+                reason="Server is draining — no new requests accepted",
+                metadata={"inflight": self._inflight},
             )
 
         # Circuit breaker check
@@ -292,6 +335,7 @@ class ModelServingServer:
         )
 
         try:
+            self._inflight += 1
             result = await self._batcher.submit(request)
             self._circuit_breaker.record_success()
             self._request_count += 1
@@ -301,6 +345,8 @@ class ModelServingServer:
         except Exception as exc:
             self._circuit_breaker.record_failure()
             raise
+        finally:
+            self._inflight -= 1
 
     async def stream_predict(
         self,
@@ -320,6 +366,13 @@ class ModelServingServer:
                 "_server",
                 reason="Server not started — call start() first",
                 metadata={"model": self.manifest.name},
+            )
+
+        if self._draining:
+            raise InferenceFault(
+                "_server",
+                reason="Server is draining — no new requests accepted",
+                metadata={"inflight": self._inflight},
             )
 
         if not self._circuit_breaker.allow_request():
@@ -364,6 +417,7 @@ class ModelServingServer:
             )
 
         try:
+            self._inflight += 1
             self._stream_count += 1
             total_tokens = 0
             async for chunk in self._runtime.stream_infer(request):
@@ -376,6 +430,8 @@ class ModelServingServer:
         except Exception:
             self._circuit_breaker.record_failure()
             raise
+        finally:
+            self._inflight -= 1
 
     # ── Health Probes ────────────────────────────────────────────────
 
@@ -411,6 +467,8 @@ class ModelServingServer:
         return {
             "status": "serving" if self._started else "stopped",
             "ready": self._ready,
+            "draining": self._draining,
+            "inflight": self._inflight,
             "model": self.manifest.name,
             "version": self.manifest.version,
             "model_type": self.manifest.model_type,
@@ -439,6 +497,7 @@ class ModelServingServer:
             "aquilia_avg_latency_ms": avg_latency,
             "aquilia_dedup_hits": float(self._dedup_hits),
             "aquilia_total_tokens_generated": float(self._total_tokens_generated),
+            "aquilia_inflight": float(self._inflight),
             "aquilia_circuit_breaker_state": (
                 0.0 if self._circuit_breaker.state == "closed"
                 else 1.0 if self._circuit_breaker.state == "open"

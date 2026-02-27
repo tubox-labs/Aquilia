@@ -3,15 +3,19 @@ Python in-process runtime — loads and runs models natively in Python.
 
 Supports PyTorch, scikit-learn, XGBoost, LightGBM, HuggingFace Transformers,
 and custom callables.  Includes streaming inference for LLM/SLM models.
+
+Lifecycle states are managed via ``ModelState`` from ``base.py``::
+
+    UNLOADED → prepare() → PREPARED → load() → LOADING → LOADED
+                                                  ↓ (fail)
+                                                FAILED → load() (retry)
 """
 
 from __future__ import annotations
 
 import importlib
 import logging
-import os
 import pickle
-import sys
 import time
 from pathlib import Path
 from typing import Any, AsyncIterator, Callable, Dict, List, Optional
@@ -26,7 +30,7 @@ from .._types import (
     StreamChunk,
     TokenUsage,
 )
-from .base import BaseRuntime, BaseStreamingRuntime
+from .base import BaseStreamingRuntime, ModelState
 
 logger = logging.getLogger("aquilia.mlops.runtime.python")
 
@@ -61,7 +65,12 @@ class PythonRuntime(BaseStreamingRuntime):
         self._is_llm: bool = False
         self._generation_kwargs: Dict[str, Any] = {}
 
+    # ── Lifecycle ────────────────────────────────────────────────────
+
     async def prepare(self, manifest: ModelpackManifest, model_dir: str) -> None:
+        """Prepare runtime: validate manifest, detect device."""
+        self._set_state(ModelState.PREPARED)
+
         self._manifest = manifest
         self._model_dir = model_dir
         self._is_llm = manifest.is_llm
@@ -85,19 +94,56 @@ class PythonRuntime(BaseStreamingRuntime):
         )
 
     async def load(self) -> None:
+        """Load model into memory, transitioning through LOADING → LOADED."""
         if not self._manifest:
             raise RuntimeError("Runtime not prepared. Call prepare() first.")
 
+        self._set_state(ModelState.LOADING)
         start = time.monotonic()
 
-        if self._is_llm:
-            await self._load_llm()
-        else:
-            await self._load_standard()
+        try:
+            if self._is_llm:
+                await self._load_llm()
+            else:
+                await self._load_standard()
 
-        self._loaded = True
-        self._load_time_ms = (time.monotonic() - start) * 1000
-        logger.info("Model loaded in %.1fms (device=%s)", self._load_time_ms, self._device)
+            self._load_time_ms = (time.monotonic() - start) * 1000
+            self._set_state(ModelState.LOADED)
+            self._last_error = None
+            logger.info(
+                "Model loaded in %.1fms (device=%s)", self._load_time_ms, self._device,
+            )
+
+        except Exception as exc:
+            self._last_error = str(exc)
+            self._set_state(ModelState.FAILED)
+            logger.error("Model load failed: %s", exc)
+            raise
+
+    async def unload(self) -> None:
+        """Unload model and free resources."""
+        if self._state == ModelState.UNLOADED:
+            return
+
+        self._set_state(ModelState.UNLOADING)
+
+        # Release model references so GC can free memory
+        self._model = None
+        self._tokenizer = None
+        self._predict_fn = None
+
+        # Let torch free GPU memory if available
+        try:
+            import torch
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+        except ImportError:
+            pass
+
+        self._set_state(ModelState.UNLOADED)
+        logger.info("PythonRuntime unloaded")
+
+    # ── Loaders ──────────────────────────────────────────────────────
 
     async def _load_standard(self) -> None:
         """Load a standard ML model (sklearn, PyTorch, etc.)."""
@@ -135,7 +181,6 @@ class PythonRuntime(BaseStreamingRuntime):
             )
 
         model_path = self._manifest.entrypoint
-        # If the entrypoint is a local path, resolve it
         local_path = Path(self._model_dir) / model_path
         if local_path.exists():
             model_path = str(local_path)
@@ -177,50 +222,65 @@ class PythonRuntime(BaseStreamingRuntime):
                 pass
         self._model.eval()
 
+    # ── Inference ────────────────────────────────────────────────────
+
     async def infer(self, batch: BatchRequest) -> List[InferenceResult]:
-        if not self._loaded:
-            raise RuntimeError("Model not loaded. Call load() first.")
+        if self._state != ModelState.LOADED:
+            raise RuntimeError(
+                f"Model not loaded (state={self._state.value}). Call load() first."
+            )
 
         results: List[InferenceResult] = []
 
         for req in batch.requests:
             start = time.monotonic()
 
-            if self._is_llm and self._tokenizer is not None:
-                outputs = await self._infer_llm(req)
-            elif self._predict_fn:
-                outputs = self._predict_fn(req.inputs)
-            elif hasattr(self._model, "predict"):
-                outputs = self._model.predict(req.inputs)
-            elif hasattr(self._model, "forward"):
-                outputs = self._model.forward(req.inputs)
-            elif callable(self._model):
-                outputs = self._model(req.inputs)
-            else:
-                raise RuntimeError("Model has no predict/forward/callable method")
+            try:
+                if self._is_llm and self._tokenizer is not None:
+                    outputs = await self._infer_llm(req)
+                elif self._predict_fn:
+                    outputs = self._predict_fn(req.inputs)
+                elif hasattr(self._model, "predict"):
+                    outputs = self._model.predict(req.inputs)
+                elif hasattr(self._model, "forward"):
+                    outputs = self._model.forward(req.inputs)
+                elif callable(self._model):
+                    outputs = self._model(req.inputs)
+                else:
+                    raise RuntimeError("Model has no predict/forward/callable method")
 
-            latency = (time.monotonic() - start) * 1000
-            self._inference_count += 1
-            self._total_infer_count += 1
-            self._total_latency_ms += latency
-            self._total_infer_time_ms += latency
+                latency = (time.monotonic() - start) * 1000
+                self._inference_count += 1
+                self._total_infer_count += 1
+                self._total_latency_ms += latency
+                self._total_infer_time_ms += latency
 
-            token_count = 0
-            prompt_tokens = 0
-            finish_reason = "stop"
-            if isinstance(outputs, dict):
-                token_count = outputs.pop("_token_count", 0)
-                prompt_tokens = outputs.pop("_prompt_tokens", 0)
-                finish_reason = outputs.pop("_finish_reason", "stop")
+                token_count = 0
+                prompt_tokens = 0
+                finish_reason = "stop"
+                if isinstance(outputs, dict):
+                    token_count = outputs.pop("_token_count", 0)
+                    prompt_tokens = outputs.pop("_prompt_tokens", 0)
+                    finish_reason = outputs.pop("_finish_reason", "stop")
 
-            results.append(InferenceResult(
-                request_id=req.request_id,
-                outputs={"prediction": outputs} if not isinstance(outputs, dict) else outputs,
-                latency_ms=latency,
-                token_count=token_count,
-                prompt_tokens=prompt_tokens,
-                finish_reason=finish_reason,
-            ))
+                results.append(InferenceResult(
+                    request_id=req.request_id,
+                    outputs={"prediction": outputs} if not isinstance(outputs, dict) else outputs,
+                    latency_ms=latency,
+                    token_count=token_count,
+                    prompt_tokens=prompt_tokens,
+                    finish_reason=finish_reason,
+                ))
+
+            except Exception as exc:
+                latency = (time.monotonic() - start) * 1000
+                results.append(InferenceResult(
+                    request_id=req.request_id,
+                    outputs={"error": str(exc)},
+                    latency_ms=latency,
+                    finish_reason="error",
+                    metadata={"error_type": type(exc).__name__},
+                ))
 
         return results
 
@@ -230,7 +290,6 @@ class PythonRuntime(BaseStreamingRuntime):
 
         prompt = req.inputs.get("prompt", req.inputs.get("input", ""))
         if isinstance(prompt, list):
-            # Chat-style messages
             prompt = self._tokenizer.apply_chat_template(
                 prompt, tokenize=False, add_generation_prompt=True,
             )
@@ -332,7 +391,6 @@ class PythonRuntime(BaseStreamingRuntime):
                     input_ids = torch.cat([input_ids, next_token], dim=-1)
                     await asyncio.sleep(0)  # yield control
 
-            # If we exhausted max_new_tokens without EOS
             if generated_tokens >= max_new:
                 yield StreamChunk(
                     request_id=request.request_id,
@@ -344,6 +402,18 @@ class PythonRuntime(BaseStreamingRuntime):
                 )
         finally:
             self._total_prompt_tokens += prompt_len
+
+    # ── Preprocessing / Postprocessing ───────────────────────────────
+
+    async def preprocess(self, raw_input: Dict[str, Any]) -> Dict[str, Any]:
+        """Default preprocessing — identity pass-through."""
+        return raw_input
+
+    async def postprocess(self, raw_output: Dict[str, Any]) -> Dict[str, Any]:
+        """Default postprocessing — identity pass-through."""
+        return raw_output
+
+    # ── Observability ────────────────────────────────────────────────
 
     async def metrics(self) -> Dict[str, float]:
         base = await super().metrics()
@@ -361,7 +431,7 @@ class PythonRuntime(BaseStreamingRuntime):
 
     async def memory_info(self) -> Dict[str, Any]:
         """Return GPU/CPU memory info."""
-        info: Dict[str, Any] = {"device": self._device, "loaded": self._loaded}
+        info: Dict[str, Any] = {"device": self._device, "state": self._state.value}
         try:
             import torch
             if self._device == "cuda" and torch.cuda.is_available():
@@ -372,7 +442,7 @@ class PythonRuntime(BaseStreamingRuntime):
             pass
         return info
 
-    # ── Loaders ──────────────────────────────────────────────────────
+    # ── Static Loaders ───────────────────────────────────────────────
 
     @staticmethod
     def _load_pytorch(path: Path) -> Any:

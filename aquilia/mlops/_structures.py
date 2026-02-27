@@ -1019,6 +1019,27 @@ class CircuitBreaker:
             self._success_count = 0
             self._half_open_calls = 0
 
+    def force_open(self) -> None:
+        """Force the circuit breaker into OPEN state (reject all requests)."""
+        with self._lock:
+            self._state = "open"
+            self._last_failure_time = time.monotonic()
+
+    def force_close(self) -> None:
+        """Force the circuit breaker into CLOSED state (allow all requests)."""
+        with self._lock:
+            self._state = "closed"
+            self._failure_count = 0
+            self._success_count = 0
+            self._half_open_calls = 0
+
+    def force_half_open(self) -> None:
+        """Force the circuit breaker into HALF_OPEN state (limited probes)."""
+        with self._lock:
+            self._state = "half_open"
+            self._half_open_calls = 0
+            self._success_count = 0
+
     @property
     def stats(self) -> Dict[str, Any]:
         with self._lock:

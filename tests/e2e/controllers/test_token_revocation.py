@@ -17,7 +17,7 @@ def _unique_email(tag: str = "") -> str:
 
 async def _get_tokens(client, tag=""):
     email = _unique_email(tag)
-    user = {"email": email, "password": "Str0ngP@ss!", "full_name": f"Revoke {tag}"}
+    user = {"username": f"revoke_{tag}", "email": email, "password": "Str0ngP@ss!", "name": {"first_name": f"Revoke {tag}", "last_name": "User"}}
     await client.post("/auth/register", json=user)
     login = await client.post("/auth/login", json={"email": email, "password": user["password"]})
     return user, login.json()

@@ -223,14 +223,11 @@ class RequestDAG:
             return await self.resolve(sub_dep, base_type)
 
         base_type = _get_base_type(ptype)
-        if _is_serializer_type(base_type):
-            serializer = await base_type.from_request_async(
-                self._request, container=self._container
-            )
-            serializer.is_valid(raise_fault=True)
-            # DTO Pattern: Always inject the Serializer instance itself.
-            # The injected object can be queried via dot-notation (data.username).
-            return serializer
+        if _is_blueprint_type(base_type):
+            from aquilia.blueprints.integration import bind_blueprint_to_request
+            bp = await bind_blueprint_to_request(base_type, self._request)
+            bp.is_sealed(raise_fault=True)
+            return bp
 
         # No Dep/extractor annotation → resolve from container by type
         return await self._resolve_from_container(ptype, tag=None)
@@ -394,14 +391,14 @@ def _get_base_type(annotation: Any) -> type:
     return annotation
 
 
-def _is_serializer_type(annotation: Any) -> bool:
-    """Check if type is a Serializer subclass."""
+def _is_blueprint_type(annotation: Any) -> bool:
+    """Check if type is a Blueprint subclass."""
     try:
-        from aquilia.serializers.base import Serializer
+        from aquilia.blueprints.core import Blueprint
         return (
             isinstance(annotation, type)
-            and issubclass(annotation, Serializer)
-            and annotation is not Serializer
+            and issubclass(annotation, Blueprint)
+            and annotation is not Blueprint
         )
     except ImportError:
         return False

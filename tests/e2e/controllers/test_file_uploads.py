@@ -35,7 +35,7 @@ class TestValidUpload:
         email = _unique_email("img")
         resp = await client.post(
             "/auth/register",
-            data={"email": email, "password": "Str0ngP@ss!", "full_name": "Uploader"},
+            data={"username": "uploader", "email": email, "password": "Str0ngP@ss!", "name.first_name": "Uploader", "name.last_name": "User"},
             files={"profile": ("avatar.png", png_1x1, "image/png")},
         )
 
@@ -57,7 +57,7 @@ class TestOversizedUpload:
         email = _unique_email("big")
         resp = await client.post(
             "/auth/register",
-            data={"email": email, "password": "Str0ngP@ss!", "full_name": "BigUploader"},
+            data={"username": "big_uploader", "email": email, "password": "Str0ngP@ss!", "name.first_name": "BigUploader", "name.last_name": "User"},
             files={"profile": ("huge.bin", big_data, "application/octet-stream")},
         )
 
@@ -97,7 +97,7 @@ class TestMalformedMultipart:
         email = _unique_email("empty")
         resp = await client.post(
             "/auth/register",
-            data={"email": email, "password": "Str0ngP@ss!", "full_name": "EmptyFile"},
+            data={"username": "empty_file", "email": email, "password": "Str0ngP@ss!", "name.first_name": "EmptyFile", "name.last_name": "User"},
             files={"profile": ("empty.png", b"", "image/png")},
         )
         # Should succeed (empty file is valid) or return validation error
@@ -114,7 +114,7 @@ class TestFilenameInjection:
         email = _unique_email("null")
         resp = await client.post(
             "/auth/register",
-            data={"email": email, "password": "Str0ngP@ss!", "full_name": "NullByte"},
+            data={"username": "null_byte", "email": email, "password": "Str0ngP@ss!", "name.first_name": "NullByte", "name.last_name": "User"},
             files={"profile": ("evil\x00.png", b"\x89PNG", "image/png")},
         )
         assert resp.status_code > 0  # Server must not crash
@@ -124,7 +124,7 @@ class TestFilenameInjection:
         email = _unique_email("traversal")
         resp = await client.post(
             "/auth/register",
-            data={"email": email, "password": "Str0ngP@ss!", "full_name": "Traversal"},
+            data={"username": "traversal", "email": email, "password": "Str0ngP@ss!", "name.first_name": "Traversal", "name.last_name": "User"},
             files={"profile": ("../../../etc/passwd", b"not really", "text/plain")},
         )
         assert resp.status_code > 0  # Server must not crash
