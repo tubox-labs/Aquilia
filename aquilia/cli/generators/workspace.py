@@ -72,27 +72,33 @@ class WorkspaceGenerator:
     
     def generate_workspace_module_config(self, discovered_modules: dict) -> str:
         """
-        Generate enhanced workspace module configuration from discovered manifests and runtime discovery.
+        Generate workspace module configuration as pointers to per-module manifests.
+        
+        In the Manifest-First Architecture, workspace.py declares **which**
+        modules exist and their orchestration metadata (route prefix, tags,
+        dependencies). All component declarations (controllers, services,
+        middleware, etc.) live exclusively in each module's ``manifest.py``.
         
         Args:
-            discovered_modules: Dictionary of discovered module data with enhanced discovery results
+            discovered_modules: Dictionary of discovered module data
             
         Returns:
-            String containing workspace module configuration with all discovered controllers/services
+            String containing workspace module configuration (pointers only)
         """
         lines = []
         
         for mod_name, mod_data in discovered_modules.items():
-            # Generate module configuration
+            # Generate module configuration — pointer only
             version = mod_data.get('version', '0.1.0')
             description = mod_data.get('description', f'{mod_name.capitalize()} module')
             route_prefix = mod_data.get('route_prefix', f'/{mod_name}')
             tags = mod_data.get('tags', [])
+            depends_on = mod_data.get('depends_on', [])
             
-            # Build enhanced module config with discovered resources
+            # Build slim module config (orchestration metadata only)
             base_config = f'Module("{mod_name}", version="{version}", description="{description}")'
             
-            # Add route prefix (8 spaces = .module indent + 1 tab)
+            # Add route prefix
             config_chain = f'{base_config}\n        .route_prefix("{route_prefix}")'
             
             # Add tags
@@ -100,28 +106,10 @@ class WorkspaceGenerator:
                 tags_str = ', '.join(f'"{tag}"' for tag in tags)
                 config_chain += f'\n        .tags({tags_str})'
             
-            # Add discovered controllers registration
-            controllers_list = mod_data.get('controllers_list', [])
-            if controllers_list and len(controllers_list) > 0:
-                # Handle Discovery v2 metadata objects
-                normalized_controllers = [c["path"] if isinstance(c, dict) else c for c in controllers_list]
-                controllers_str = ',\n            '.join(f'"{ctrl}"' for ctrl in normalized_controllers)
-                config_chain += f'\n        .register_controllers(\n            {controllers_str}\n        )'
-            
-            # Add discovered services registration  
-            services_list = mod_data.get('services_list', [])
-            if services_list and len(services_list) > 0:
-                # Handle Discovery v2 metadata objects
-                normalized_services = [s["path"] if isinstance(s, dict) else s for s in services_list]
-                services_str = ',\n            '.join(f'"{svc}"' for svc in normalized_services)
-                config_chain += f'\n        .register_services(\n            {services_str}\n        )'
-
-            # Add discovered socket controllers registration
-            sockets_list = mod_data.get('socket_controllers_list', [])
-            if sockets_list and len(sockets_list) > 0:
-                normalized_sockets = [s["path"] if isinstance(s, dict) else s for s in sockets_list]
-                sockets_str = ',\n            '.join(f'"{sock}"' for sock in normalized_sockets)
-                config_chain += f'\n        .register_sockets(\n            {sockets_str}\n        )'
+            # Add dependencies
+            if depends_on:
+                deps_str = ', '.join(f'"{dep}"' for dep in depends_on)
+                config_chain += f'\n        .depends_on({deps_str})'
             
             # .module at same level as .integrate (4 spaces)
             module_line = f'    .module({config_chain})'
@@ -420,8 +408,8 @@ class WorkspaceGenerator:
             for mod_name in sorted_names:
                 mod = discovered[mod_name]
                 
-                # Build enhanced module registration with proper formatting
-                # Format: .module(Module("name", version="...", description="...").route_prefix(...).tags(...).register_controllers(...).register_services(...))
+                # Build slim module registration — pointer only
+                # Component declarations (controllers, services, etc.) live in manifest.py
                 
                 base_config = f'Module("{mod["name"]}", version="{mod["version"]}", description="{mod["description"]}")'
                 
@@ -433,26 +421,10 @@ class WorkspaceGenerator:
                     tags_part = ", ".join(f'"{t}"' for t in mod['tags'])
                     config_chain += f'\n        .tags({tags_part})'
                 
-                # Add discovered controllers registration
-                controllers_list = mod.get('controllers_list', [])
-                if controllers_list and len(controllers_list) > 0:
-                    normalized_controllers = [c["path"] if isinstance(c, dict) else c for c in controllers_list]
-                    controllers_str = ',\n            '.join(f'"{ctrl}"' for ctrl in normalized_controllers)
-                    config_chain += f'\n        .register_controllers(\n            {controllers_str}\n        )'
-                
-                # Add discovered services registration  
-                services_list = mod.get('services_list', [])
-                if services_list and len(services_list) > 0:
-                    normalized_services = [s["path"] if isinstance(s, dict) else s for s in services_list]
-                    services_str = ',\n            '.join(f'"{svc}"' for svc in normalized_services)
-                    config_chain += f'\n        .register_services(\n            {services_str}\n        )'
-
-                # Add discovered socket controllers registration
-                sockets_list = mod.get('socket_controllers_list', [])
-                if sockets_list and len(sockets_list) > 0:
-                    normalized_sockets = [s["path"] if isinstance(s, dict) else s for s in sockets_list]
-                    sockets_str = ',\n            '.join(f'"{sock}"' for sock in normalized_sockets)
-                    config_chain += f'\n        .register_sockets(\n            {sockets_str}\n        )'
+                # Add dependencies
+                if mod.get('depends_on'):
+                    deps_part = ", ".join(f'"{d}"' for d in mod['depends_on'])
+                    config_chain += f'\n        .depends_on({deps_part})'
                 
                 # .module(Module(...) on same line, then chain methods indented
                 module_line = f'.module({config_chain}\n    ))'

@@ -30,21 +30,29 @@ class RuntimeConfig:
 
 @dataclass
 class ModuleConfig:
-    """Module configuration."""
+    """
+    Module configuration — workspace-level orchestration metadata.
+    
+    The Module in workspace.py is a **pointer** to the per-module manifest.
+    Component declarations (controllers, services, middleware, models,
+    serializers, socket_controllers) live exclusively in each module's
+    ``manifest.py`` via ``AppManifest``.
+    
+    This dataclass holds only the orchestration concerns that the
+    workspace needs to know about:
+    - Identity (name, version)
+    - Routing topology (route_prefix, depends_on)
+    - Organisational metadata (tags, description, fault_domain)
+    - Discovery behaviour (auto_discover)
+    - Lifecycle hooks (on_startup, on_shutdown)
+    - Per-module database override
+    """
     name: str
     version: str = "0.1.0"
     description: str = ""
     fault_domain: Optional[str] = None
     route_prefix: Optional[str] = None
     depends_on: List[str] = field(default_factory=list)
-    controllers: List[str] = field(default_factory=list)
-    routes: List[Dict[str, Any]] = field(default_factory=list)
-    services: List[str] = field(default_factory=list)
-    providers: List[Dict[str, Any]] = field(default_factory=list)
-    middlewares: List[str] = field(default_factory=list)
-    socket_controllers: List[str] = field(default_factory=list)
-    models: List[str] = field(default_factory=list)
-    serializers: List[str] = field(default_factory=list)
     tags: List[str] = field(default_factory=list)
     
     # Lifecycle hooks
@@ -66,14 +74,6 @@ class ModuleConfig:
             "fault_domain": self.fault_domain or self.name.upper(),
             "route_prefix": self.route_prefix or f"/{self.name}",
             "depends_on": self.depends_on,
-            "controllers": self.controllers,
-            "routes": self.routes,
-            "services": self.services,
-            "providers": self.providers,
-            "middlewares": self.middlewares,
-            "socket_controllers": self.socket_controllers,
-            "models": self.models,
-            "serializers": self.serializers,
             "tags": self.tags,
             "on_startup": self.on_startup,
             "on_shutdown": self.on_shutdown,
@@ -85,7 +85,44 @@ class ModuleConfig:
 
 
 class Module:
-    """Fluent module builder."""
+    """
+    Fluent module builder — workspace-level orchestration only.
+    
+    The Module builder configures **how** a module fits into the workspace
+    (routing, dependencies, tags, lifecycle). All component declarations
+    (controllers, services, middleware, models, serializers) belong in the
+    module's own ``manifest.py`` via ``AppManifest``.
+    
+    This separation follows the Manifest-First Architecture:
+    - ``workspace.py`` → orchestration & integration config
+    - ``modules/*/manifest.py`` → module internals (source of truth)
+    
+    Example::
+    
+        # workspace.py — pointer only
+        workspace = (
+            Workspace("myapp")
+            .module(
+                Module("users", version="0.1.0")
+                .route_prefix("/users")
+                .depends_on("auth")
+                .tags("core", "users")
+            )
+            .module(
+                Module("auth", version="0.1.0")
+                .route_prefix("/auth")
+            )
+        )
+        
+        # modules/users/manifest.py — source of truth
+        manifest = AppManifest(
+            name="users",
+            version="0.1.0",
+            controllers=["modules.users.controllers:UsersController"],
+            services=["modules.users.services:UsersService"],
+            ...
+        )
+    """
     
     def __init__(self, name: str, version: str = "0.1.0", description: str = ""):
         self._config = ModuleConfig(
@@ -129,66 +166,101 @@ class Module:
         self._config.tags = list(module_tags)
         return self
 
+    # ──────────────────────────────────────────────────────────────────────
+    # Legacy registration methods (DEPRECATED)
+    #
+    # These methods are retained for backward compatibility but are no-ops
+    # in the new architecture.  All component declarations belong in the
+    # module's manifest.py.  The workspace.py Module builder is a pointer
+    # only; the manifest is the source of truth.
+    # ──────────────────────────────────────────────────────────────────────
+
     def register_controllers(self, *controllers: str) -> "Module":
-        """Register explicit controllers."""
-        self._config.controllers.extend(controllers)
+        """DEPRECATED — declare controllers in modules/*/manifest.py instead."""
+        import warnings
+        warnings.warn(
+            "Module.register_controllers() is deprecated. "
+            "Declare controllers in modules/<name>/manifest.py → AppManifest(controllers=[...]).",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         return self
 
     def register_services(self, *services: str) -> "Module":
-        """Register explicit services."""
-        self._config.services.extend(services)
+        """DEPRECATED — declare services in modules/*/manifest.py instead."""
+        import warnings
+        warnings.warn(
+            "Module.register_services() is deprecated. "
+            "Declare services in modules/<name>/manifest.py → AppManifest(services=[...]).",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         return self
         
     def register_providers(self, *providers: Dict[str, Any]) -> "Module":
-        """Register explicit DI providers."""
-        self._config.providers.extend(providers)
+        """DEPRECATED — declare providers in modules/*/manifest.py instead."""
+        import warnings
+        warnings.warn(
+            "Module.register_providers() is deprecated. "
+            "Declare providers in modules/<name>/manifest.py.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         return self
         
     def register_routes(self, *routes: Dict[str, Any]) -> "Module":
-        """Register explicit routes."""
-        self._config.routes.extend(routes)
+        """DEPRECATED — declare routes via controllers in modules/*/manifest.py instead."""
+        import warnings
+        warnings.warn(
+            "Module.register_routes() is deprecated. "
+            "Use controller decorators (@GET, @POST, etc.) instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         return self
 
     def register_sockets(self, *sockets: str) -> "Module":
-        """Register explicit WebSocket controllers."""
-        self._config.socket_controllers.extend(sockets)
+        """DEPRECATED — declare socket controllers in modules/*/manifest.py instead."""
+        import warnings
+        warnings.warn(
+            "Module.register_sockets() is deprecated. "
+            "Declare socket_controllers in modules/<name>/manifest.py → AppManifest(socket_controllers=[...]).",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         return self
 
     def register_middlewares(self, *middlewares: str) -> "Module":
-        """Register explicit middlewares."""
-        self._config.middlewares.extend(middlewares)
+        """DEPRECATED — declare middleware in modules/*/manifest.py instead."""
+        import warnings
+        warnings.warn(
+            "Module.register_middlewares() is deprecated. "
+            "Declare middleware in modules/<name>/manifest.py → AppManifest(middleware=[...]).",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         return self
     
     def register_models(self, *models: str) -> "Module":
-        """
-        Register explicit model files or glob patterns.
-        
-        Supports both legacy .amdl files and new Python model modules.
-        
-        Args:
-            *models: Paths to model files or glob patterns.
-                     E.g. "models/user.py", "models/*.py", "models/legacy.amdl"
-        """
-        self._config.models.extend(models)
+        """DEPRECATED — declare models in modules/*/manifest.py instead."""
+        import warnings
+        warnings.warn(
+            "Module.register_models() is deprecated. "
+            "Declare models in modules/<name>/manifest.py → AppManifest(models=[...]).",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         return self
     
     def register_serializers(self, *serializers: str) -> "Module":
-        """
-        Register explicit serializer classes for this module.
-        
-        Args:
-            *serializers: Import paths in ``"module.path:ClassName"`` format.
-                          E.g. ``"modules.users.serializers:UserSerializer"``
-        
-        Example::
-        
-            Module("users")
-                .register_serializers(
-                    "modules.users.serializers:UserSerializer",
-                    "modules.users.serializers:UserCreateSerializer",
-                )
-        """
-        self._config.serializers.extend(serializers)
+        """DEPRECATED — declare serializers in modules/*/manifest.py instead."""
+        import warnings
+        warnings.warn(
+            "Module.register_serializers() is deprecated. "
+            "Declare serializers in modules/<name>/manifest.py → AppManifest(serializers=[...]).",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         return self
     
     def on_startup(self, hook: str) -> "Module":
