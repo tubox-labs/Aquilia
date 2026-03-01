@@ -37,7 +37,7 @@ const navSections = [
     links: [
       { label: 'DI Container', path: '/docs/di', icon: Box },
       { label: 'Models (ORM)', path: '/docs/models', icon: Database },
-      { label: 'Serializers', path: '/docs/serializers', icon: FileText },
+      { label: 'Blueprints', path: '/docs/blueprints', icon: FileText },
       { label: 'Database', path: '/docs/database', icon: Database },
     ],
   },
@@ -103,7 +103,7 @@ export function Navbar({ onToggleSidebar }: NavbarProps) {
   }
 
   return (
-    <nav className="fixed w-full z-50 glass border-b border-[var(--border-color)]/50">
+    <nav className="fixed w-full z-40 glass border-b border-[var(--border-color)]/50">
       <div className="max-w-[90rem] mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Left: Hamburger + Logo */}
@@ -171,7 +171,7 @@ export function Navbar({ onToggleSidebar }: NavbarProps) {
               {/* Mega-menu dropdown — hover-triggered */}
               {dropdownOpen && (
                 <div
-                  className={`absolute left-1/2 -translate-x-1/2 top-full mt-0 w-[54rem] rounded-2xl border shadow-2xl backdrop-blur-xl animate-in fade-in slide-in-from-top-2 duration-200 ${isDark ? 'bg-[#09090b]/98 border-white/10' : 'bg-white/98 border-gray-200'}`}
+                  className={`absolute left-1/2 -translate-x-1/2 top-full mt-0 w-[54rem] rounded-2xl border shadow-2xl backdrop-blur-xl animate-in fade-in slide-in-from-top-2 duration-200 z-50 ${isDark ? 'bg-[#09090b]/98 border-white/10' : 'bg-white/98 border-gray-200'}`}
                   style={{ animationDuration: '200ms', animationFillMode: 'forwards' }}
                 >
                   {/* Invisible bridge keeps hover connected */}
