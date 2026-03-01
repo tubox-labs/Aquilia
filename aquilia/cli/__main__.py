@@ -1608,17 +1608,24 @@ def admin_createsuperuser(ctx, username: str, password: str, email: str):
     import asyncio
 
     async def _create():
-        # Connect to the database
+        # Connect to the database and register with ORM
         database_url = _detect_workspace_db_url()
         try:
-            from aquilia.db.engine import AquiliaDatabase
-            db = AquiliaDatabase(database_url)
+            from aquilia.db.engine import configure_database
+            db = configure_database(database_url)
             await db.connect()
         except Exception:
             db = None
 
         try:
-            from aquilia.admin.models import AdminUser
+            from aquilia.admin.models import (
+                AdminUser,
+                ContentType,
+                AdminPermission,
+                AdminGroup,
+                AdminLogEntry,
+                AdminSession,
+            )
 
             if db is None:
                 raise RuntimeError(
@@ -1626,7 +1633,31 @@ def admin_createsuperuser(ctx, username: str, password: str, email: str):
                     "Run 'aq db migrate' first to set up the database."
                 )
 
-            # ORM-based creation — requires tables to already exist via `aq db migrate`
+            # Auto-ensure admin tables exist (safety net).
+            # The admin models live in the framework, not the workspace,
+            # so users may not have run makemigrations for them yet.
+            _admin_models = [
+                ContentType,
+                AdminPermission,
+                AdminGroup,
+                AdminUser,
+                AdminLogEntry,
+                AdminSession,
+            ]
+            for _model in _admin_models:
+                try:
+                    create_sql = _model.generate_create_table_sql()
+                    await db.execute(create_sql)
+                    # Create indexes
+                    for idx_sql in _model.generate_index_sql():
+                        await db.execute(idx_sql)
+                    # Create M2M tables
+                    for m2m_sql in _model.generate_m2m_sql():
+                        await db.execute(m2m_sql)
+                except Exception:
+                    pass  # Table already exists — that's fine
+
+            # ORM-based creation
             try:
                 user = await AdminUser.create_superuser(
                     username=username,

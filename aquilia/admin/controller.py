@@ -118,7 +118,7 @@ class AdminController(Controller):
     # ── Dashboard ────────────────────────────────────────────────────
 
     @GET("/")
-    async def dashboard(self, ctx: RequestCtx) -> Response:
+    async def dashboard(self, request, ctx: RequestCtx) -> Response:
         """Admin dashboard — model overview with stats."""
         identity = _get_identity(ctx)
         if identity is None:
@@ -146,7 +146,7 @@ class AdminController(Controller):
     # ── Login / Logout ───────────────────────────────────────────────
 
     @GET("/login")
-    async def login_page(self, ctx: RequestCtx) -> Response:
+    async def login_page(self, request, ctx: RequestCtx) -> Response:
         """Render admin login page."""
         # Already logged in?
         identity = _get_identity(ctx)
@@ -156,7 +156,7 @@ class AdminController(Controller):
         return _html_response(render_login_page())
 
     @POST("/login")
-    async def login_submit(self, ctx: RequestCtx) -> Response:
+    async def login_submit(self, request, ctx: RequestCtx) -> Response:
         """
         Process admin login.
 
@@ -205,7 +205,7 @@ class AdminController(Controller):
         return _redirect("/admin/")
 
     @GET("/logout")
-    async def logout(self, ctx: RequestCtx) -> Response:
+    async def logout(self, request, ctx: RequestCtx) -> Response:
         """Logout and clear admin session."""
         identity = _get_identity(ctx)
 
@@ -226,8 +226,9 @@ class AdminController(Controller):
     # ── List View ────────────────────────────────────────────────────
 
     @GET("/{model}/")
-    async def list_view(self, ctx: RequestCtx, model: str) -> Response:
+    async def list_view(self, request, ctx: RequestCtx) -> Response:
         """List records for a model with search and pagination."""
+        model = request.state.get("path_params", {}).get("model", "")
         identity = _get_identity(ctx)
         if identity is None:
             return _redirect("/admin/login")
@@ -280,8 +281,9 @@ class AdminController(Controller):
     # ── Add (Create) ─────────────────────────────────────────────────
 
     @GET("/{model}/add")
-    async def add_form(self, ctx: RequestCtx, model: str) -> Response:
+    async def add_form(self, request, ctx: RequestCtx) -> Response:
         """Render the add/create form for a model."""
+        model = request.state.get("path_params", {}).get("model", "")
         identity = _get_identity(ctx)
         if identity is None:
             return _redirect("/admin/login")
@@ -328,8 +330,9 @@ class AdminController(Controller):
         return _html_response(html)
 
     @POST("/{model}/add")
-    async def add_submit(self, ctx: RequestCtx, model: str) -> Response:
+    async def add_submit(self, request, ctx: RequestCtx) -> Response:
         """Process create form submission."""
+        model = request.state.get("path_params", {}).get("model", "")
         identity = _get_identity(ctx)
         if identity is None:
             return _redirect("/admin/login")
@@ -387,8 +390,11 @@ class AdminController(Controller):
     # ── Edit (Update) ────────────────────────────────────────────────
 
     @GET("/{model}/{pk}")
-    async def edit_form(self, ctx: RequestCtx, model: str, pk: str) -> Response:
+    async def edit_form(self, request, ctx: RequestCtx) -> Response:
         """Render the edit form for a record."""
+        _pp = request.state.get("path_params", {})
+        model = _pp.get("model", "")
+        pk = _pp.get("pk", "")
         identity = _get_identity(ctx)
         if identity is None:
             return _redirect("/admin/login")
@@ -415,8 +421,11 @@ class AdminController(Controller):
         return _html_response(html)
 
     @POST("/{model}/{pk}")
-    async def edit_submit(self, ctx: RequestCtx, model: str, pk: str) -> Response:
+    async def edit_submit(self, request, ctx: RequestCtx) -> Response:
         """Process edit form submission."""
+        _pp = request.state.get("path_params", {})
+        model = _pp.get("model", "")
+        pk = _pp.get("pk", "")
         identity = _get_identity(ctx)
         if identity is None:
             return _redirect("/admin/login")
@@ -458,8 +467,11 @@ class AdminController(Controller):
     # ── Delete ───────────────────────────────────────────────────────
 
     @POST("/{model}/{pk}/delete")
-    async def delete_record(self, ctx: RequestCtx, model: str, pk: str) -> Response:
+    async def delete_record(self, request, ctx: RequestCtx) -> Response:
         """Delete a record."""
+        _pp = request.state.get("path_params", {})
+        model = _pp.get("model", "")
+        pk = _pp.get("pk", "")
         identity = _get_identity(ctx)
         if identity is None:
             return _redirect("/admin/login")
@@ -482,7 +494,7 @@ class AdminController(Controller):
     # ── Audit Log ────────────────────────────────────────────────────
 
     @GET("/audit/")
-    async def audit_view(self, ctx: RequestCtx) -> Response:
+    async def audit_view(self, request, ctx: RequestCtx) -> Response:
         """View the admin audit log."""
         identity = _get_identity(ctx)
         if identity is None:

@@ -283,36 +283,24 @@ def _compute_checksum(snapshot: Dict[str, Any]) -> str:
 
 
 def save_snapshot(snapshot: Dict[str, Any], path: Path) -> None:
-    """Write snapshot to file (CROUS if path ends in .crous, otherwise JSON)."""
+    """Write snapshot to file in CROUS binary format."""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    if str(path).endswith(".crous"):
-        try:
-            import crous
-            crous.dump(snapshot, str(path))
-            logger.info(f"Schema snapshot saved (CROUS): {path}")
-            return
-        except ImportError:
-            pass
-    # Fallback: JSON
-    path.write_text(json.dumps(snapshot, indent=2, sort_keys=True, default=str), encoding="utf-8")
-    logger.info(f"Schema snapshot saved: {path}")
+    # Always use CROUS binary format via _crous_native
+    import _crous_native as crous_backend
+    crous_backend.encode_to_file(snapshot, str(path))
+    logger.info(f"Schema snapshot saved (CROUS): {path}")
 
 
 def load_snapshot(path: Path) -> Optional[Dict[str, Any]]:
-    """Load snapshot from file. Supports both CROUS and JSON formats."""
+    """Load snapshot from file in CROUS binary format."""
     path = Path(path)
     if not path.exists():
         return None
     try:
-        if str(path).endswith(".crous"):
-            try:
-                import crous
-                return crous.load(str(path))
-            except ImportError:
-                pass
-        return json.loads(path.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError) as exc:
+        import _crous_native as crous_backend
+        return crous_backend.decode_from_file(str(path))
+    except (OSError, Exception) as exc:
         logger.warning(f"Failed to load snapshot {path}: {exc}")
         return None
 

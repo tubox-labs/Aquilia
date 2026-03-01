@@ -83,15 +83,10 @@ def generate_dsl_migration(
 
     snap_path = Path(snapshot_path) if snapshot_path else mdir / "schema_snapshot.crous"
 
-    # Load old snapshot — try CROUS first, then fall back to legacy JSON
+    # Load old snapshot from CROUS binary
     old_snapshot = None
     if snap_path.exists():
         old_snapshot = load_snapshot(snap_path)
-    if old_snapshot is None:
-        # Legacy JSON fallback for migration from older versions
-        json_snap = mdir / "schema_snapshot.json"
-        if json_snap.exists():
-            old_snapshot = load_snapshot(json_snap)
     if old_snapshot is None:
         old_snapshot = {"version": 1, "models": {}, "checksum": ""}
 
@@ -130,19 +125,8 @@ def generate_dsl_migration(
     filepath = mdir / filename
     filepath.write_text(content, encoding="utf-8")
 
-    # Save new snapshot (CROUS primary, JSON legacy fallback)
-    if str(snap_path).endswith(".crous"):
-        try:
-            import crous
-            crous.dump(new_snapshot, str(snap_path))
-            logger.info(f"Schema snapshot saved (CROUS): {snap_path}")
-        except ImportError:
-            # crous not installed — fall back to JSON
-            json_path = snap_path.with_suffix(".json")
-            save_snapshot(new_snapshot, json_path)
-            logger.info(f"Schema snapshot saved (JSON fallback): {json_path}")
-    else:
-        save_snapshot(new_snapshot, snap_path)
+    # Save new snapshot in CROUS binary format
+    save_snapshot(new_snapshot, snap_path)
 
     logger.info(f"Generated DSL migration: {filepath}")
     return filepath

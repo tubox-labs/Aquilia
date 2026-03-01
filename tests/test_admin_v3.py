@@ -722,39 +722,43 @@ class TestAdminRouteCount:
 
 
 class TestMigrationFormat:
-    """Test that migration system uses CROUS format."""
+    """Test that migration system uses CROUS binary format exclusively."""
 
-    def test_snapshot_save_supports_crous(self):
-        """save_snapshot should handle .crous extension."""
+    def test_snapshot_save_crous_binary(self):
+        """save_snapshot should write CROUS binary files."""
         from aquilia.models.schema_snapshot import save_snapshot
         import tempfile
         import os
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            # Test JSON format (fallback)
-            json_path = os.path.join(tmpdir, "test.json")
+            crous_path = os.path.join(tmpdir, "test.crous")
             snapshot = {"version": 1, "models": {}, "checksum": "abc"}
-            save_snapshot(snapshot, json_path)
-            assert os.path.exists(json_path)
+            save_snapshot(snapshot, crous_path)
+            assert os.path.exists(crous_path)
+            # Verify it's binary CROUS, not JSON
+            with open(crous_path, "rb") as f:
+                header = f.read(7)
+            assert header == b"CROUSv1", f"Expected CROUS binary header, got {header!r}"
 
-    def test_snapshot_load_supports_json(self):
-        """load_snapshot should handle JSON files."""
+    def test_snapshot_roundtrip_crous(self):
+        """save_snapshot + load_snapshot should roundtrip data via CROUS."""
         from aquilia.models.schema_snapshot import save_snapshot, load_snapshot
         import tempfile
         import os
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            json_path = os.path.join(tmpdir, "test.json")
+            crous_path = os.path.join(tmpdir, "test.crous")
             snapshot = {"version": 1, "models": {"User": {"table": "users"}}, "checksum": "abc"}
-            save_snapshot(snapshot, json_path)
-            loaded = load_snapshot(json_path)
+            save_snapshot(snapshot, crous_path)
+            loaded = load_snapshot(crous_path)
             assert loaded is not None
             assert loaded["version"] == 1
             assert "User" in loaded["models"]
+            assert loaded["models"]["User"]["table"] == "users"
 
     def test_load_snapshot_nonexistent_returns_none(self):
         from aquilia.models.schema_snapshot import load_snapshot
-        result = load_snapshot("/nonexistent/path/snapshot.json")
+        result = load_snapshot("/nonexistent/path/snapshot.crous")
         assert result is None
 
     def test_migration_gen_default_path_is_crous(self):
@@ -762,9 +766,34 @@ class TestMigrationFormat:
         from aquilia.models.migration_gen import generate_dsl_migration
         import inspect
 
-        # Check the source code references .crous
         source = inspect.getsource(generate_dsl_migration)
         assert "schema_snapshot.crous" in source
+
+    def test_no_json_fallback_in_save(self):
+        """save_snapshot should not contain JSON fallback logic."""
+        from aquilia.models.schema_snapshot import save_snapshot
+        import inspect
+
+        source = inspect.getsource(save_snapshot)
+        assert "json.dumps" not in source, "save_snapshot should not fall back to JSON"
+
+    def test_no_json_fallback_in_load(self):
+        """load_snapshot should not contain JSON fallback logic."""
+        from aquilia.models.schema_snapshot import load_snapshot
+        import inspect
+
+        source = inspect.getsource(load_snapshot)
+        assert "json.loads" not in source, "load_snapshot should not fall back to JSON"
+
+    def test_uses_crous_native(self):
+        """Both save and load should use _crous_native."""
+        from aquilia.models.schema_snapshot import save_snapshot, load_snapshot
+        import inspect
+
+        save_src = inspect.getsource(save_snapshot)
+        load_src = inspect.getsource(load_snapshot)
+        assert "_crous_native" in save_src
+        assert "_crous_native" in load_src
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -801,6 +830,12 @@ class TestCLINoRawSQL:
         """Error message should mention 'aq db migrate'."""
         source = self._get_source()
         assert "aq db migrate" in source or "migrate" in source
+
+    def test_createsuperuser_uses_configure_database(self):
+        """Ensure createsuperuser registers DB via configure_database, not raw AquiliaDatabase."""
+        source = self._get_source()
+        assert "configure_database" in source, "Should use configure_database to register DB with ORM"
+        assert "AquiliaDatabase(" not in source, "Should not create raw AquiliaDatabase instance"
 
 
 # ═══════════════════════════════════════════════════════════════════════════

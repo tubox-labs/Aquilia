@@ -26,6 +26,75 @@ import click
 # ── Discovery Helpers ─────────────────────────────────────────────────────────
 
 
+def _has_admin_integration() -> bool:
+    """Detect if admin integration is enabled in workspace.py."""
+    import re as _re
+    workspace_file = Path.cwd() / "workspace.py"
+    if not workspace_file.exists():
+        return False
+    try:
+        text = workspace_file.read_text()
+        # Match Integration.admin( that is NOT commented out
+        for line in text.splitlines():
+            stripped = line.strip()
+            if stripped.startswith("#"):
+                continue
+            if _re.search(r'Integration\.admin\s*\(', stripped):
+                return True
+    except Exception:
+        pass
+    return False
+
+
+def _discover_admin_models(verbose: bool = False) -> list:
+    """
+    Import and return all admin ORM models from aquilia.admin.models.
+
+    These models (ContentType, AdminPermission, AdminGroup, AdminUser,
+    AdminLogEntry, AdminSession) live in the framework package and are
+    not discovered by _find_model_files which only scans the workspace.
+    """
+    try:
+        from aquilia.models.base import Model
+        from aquilia.admin.models import (
+            ContentType,
+            AdminPermission,
+            AdminGroup,
+            AdminUser,
+            AdminLogEntry,
+            AdminSession,
+            _HAS_ORM,
+        )
+        if not _HAS_ORM:
+            return []
+
+        admin_models = [
+            ContentType,
+            AdminPermission,
+            AdminGroup,
+            AdminUser,
+            AdminLogEntry,
+            AdminSession,
+        ]
+        # Only return actual Model subclasses
+        result = [
+            m for m in admin_models
+            if isinstance(m, type) and issubclass(m, Model) and m is not Model
+        ]
+        if verbose:
+            for m in result:
+                click.echo(
+                    click.style(
+                        f"  Found admin model: {m.__name__} "
+                        f"(table={m._meta.table_name})",
+                        fg="magenta",
+                    )
+                )
+        return result
+    except Exception:
+        return []
+
+
 def _find_model_files(search_dirs: Optional[List[str]] = None) -> List[Path]:
     """
     Find all Python model files in the workspace.
@@ -154,6 +223,11 @@ def _discover_models(
     """
     Discover all Model subclasses in the workspace.
 
+    When admin integration is enabled in workspace.py, admin models
+    (ContentType, AdminPermission, AdminGroup, AdminUser, AdminLogEntry,
+    AdminSession) are automatically included — mirroring Django's
+    ``django.contrib.admin`` model discovery.
+
     Args:
         search_dirs: Explicit directories to search
         app: Filter to a specific module/app name
@@ -179,6 +253,14 @@ def _discover_models(
 
     discovered = []
     seen_names: set = set()
+
+    # ── Include admin models when admin integration is enabled ────────────
+    if not app and _has_admin_integration():
+        admin_models = _discover_admin_models(verbose=verbose)
+        for m in admin_models:
+            if m.__name__ not in seen_names:
+                discovered.append(m)
+                seen_names.add(m.__name__)
 
     for py_path in py_files:
         try:

@@ -1333,17 +1333,25 @@ class TestAdminControllerRoutes:
 
         return ctx
 
+    def _make_request(self, path_params=None):
+        """Create a mock request with path_params in state."""
+        req = MagicMock()
+        req.state = {"path_params": path_params or {}}
+        return req
+
     @pytest.mark.asyncio
     async def test_dashboard_redirects_without_auth(self):
         ctx = self._make_ctx()
-        resp = await self.ctrl.dashboard(ctx)
+        req = self._make_request()
+        resp = await self.ctrl.dashboard(req, ctx)
         assert resp.status == 302
         assert resp.headers["location"] == "/admin/login"
 
     @pytest.mark.asyncio
     async def test_login_page_renders(self):
         ctx = self._make_ctx()
-        resp = await self.ctrl.login_page(ctx)
+        req = self._make_request()
+        resp = await self.ctrl.login_page(req, ctx)
         assert resp.status == 200
         assert b"login" in resp._content.lower() or b"Login" in resp._content
 
@@ -1351,64 +1359,73 @@ class TestAdminControllerRoutes:
     async def test_login_submit_empty_credentials(self):
         ctx = self._make_ctx()
         ctx.form = AsyncMock(return_value={"username": "", "password": ""})
-        resp = await self.ctrl.login_submit(ctx)
+        req = self._make_request()
+        resp = await self.ctrl.login_submit(req, ctx)
         assert resp.status == 400
 
     @pytest.mark.asyncio
     async def test_login_submit_invalid_credentials(self):
         ctx = self._make_ctx()
         ctx.form = AsyncMock(return_value={"username": "wrong", "password": "wrong"})
+        req = self._make_request()
 
         # Ensure env vars don't match
         with patch.dict(os.environ, {"AQUILIA_ADMIN_USER": "admin", "AQUILIA_ADMIN_PASSWORD": "admin"}):
-            resp = await self.ctrl.login_submit(ctx)
+            resp = await self.ctrl.login_submit(req, ctx)
         assert resp.status == 401
 
     @pytest.mark.asyncio
     async def test_login_submit_valid_credentials(self):
         ctx = self._make_ctx(session_data={})
         ctx.form = AsyncMock(return_value={"username": "admin", "password": "admin"})
+        req = self._make_request()
 
         with patch.dict(os.environ, {"AQUILIA_ADMIN_USER": "admin", "AQUILIA_ADMIN_PASSWORD": "admin"}):
-            resp = await self.ctrl.login_submit(ctx)
+            resp = await self.ctrl.login_submit(req, ctx)
         assert resp.status == 302
         assert resp.headers["location"] == "/admin/"
 
     @pytest.mark.asyncio
     async def test_logout_redirects(self):
         ctx = self._make_ctx()
-        resp = await self.ctrl.logout(ctx)
+        req = self._make_request()
+        resp = await self.ctrl.logout(req, ctx)
         assert resp.status == 302
         assert resp.headers["location"] == "/admin/login"
 
     @pytest.mark.asyncio
     async def test_list_view_redirects_without_auth(self):
         ctx = self._make_ctx()
-        resp = await self.ctrl.list_view(ctx, "usermodel")
+        req = self._make_request({"model": "usermodel"})
+        resp = await self.ctrl.list_view(req, ctx)
         assert resp.status == 302
 
     @pytest.mark.asyncio
     async def test_add_form_redirects_without_auth(self):
         ctx = self._make_ctx()
-        resp = await self.ctrl.add_form(ctx, "usermodel")
+        req = self._make_request({"model": "usermodel"})
+        resp = await self.ctrl.add_form(req, ctx)
         assert resp.status == 302
 
     @pytest.mark.asyncio
     async def test_edit_form_redirects_without_auth(self):
         ctx = self._make_ctx()
-        resp = await self.ctrl.edit_form(ctx, "usermodel", "1")
+        req = self._make_request({"model": "usermodel", "pk": "1"})
+        resp = await self.ctrl.edit_form(req, ctx)
         assert resp.status == 302
 
     @pytest.mark.asyncio
     async def test_delete_redirects_without_auth(self):
         ctx = self._make_ctx()
-        resp = await self.ctrl.delete_record(ctx, "usermodel", "1")
+        req = self._make_request({"model": "usermodel", "pk": "1"})
+        resp = await self.ctrl.delete_record(req, ctx)
         assert resp.status == 302
 
     @pytest.mark.asyncio
     async def test_audit_view_redirects_without_auth(self):
         ctx = self._make_ctx()
-        resp = await self.ctrl.audit_view(ctx)
+        req = self._make_request()
+        resp = await self.ctrl.audit_view(req, ctx)
         assert resp.status == 302
 
     @pytest.mark.asyncio
@@ -1418,9 +1435,10 @@ class TestAdminControllerRoutes:
             attributes={"admin_role": "superadmin", "name": "Admin"},
         )
         ctx = self._make_ctx(identity=identity)
+        req = self._make_request()
         self.site._initialized = True
 
-        resp = await self.ctrl.dashboard(ctx)
+        resp = await self.ctrl.dashboard(req, ctx)
         assert resp.status == 200
         assert b"<!DOCTYPE html>" in resp._content
 
@@ -1431,9 +1449,10 @@ class TestAdminControllerRoutes:
             attributes={"admin_role": "superadmin", "name": "Admin"},
         )
         ctx = self._make_ctx(identity=identity, query_params={"q": "", "page": "1"})
+        req = self._make_request({"model": "usermodel"})
         self.site._initialized = True
 
-        resp = await self.ctrl.list_view(ctx, "usermodel")
+        resp = await self.ctrl.list_view(req, ctx)
         assert resp.status == 200
 
     @pytest.mark.asyncio
@@ -1443,9 +1462,10 @@ class TestAdminControllerRoutes:
             attributes={"admin_role": "superadmin", "name": "Admin"},
         )
         ctx = self._make_ctx(identity=identity)
+        req = self._make_request({"model": "UserModel"})
         self.site._initialized = True
 
-        resp = await self.ctrl.add_form(ctx, "UserModel")
+        resp = await self.ctrl.add_form(req, ctx)
         assert resp.status == 200
 
     @pytest.mark.asyncio
@@ -1455,9 +1475,10 @@ class TestAdminControllerRoutes:
             attributes={"admin_role": "superadmin", "name": "Admin"},
         )
         ctx = self._make_ctx(identity=identity)
+        req = self._make_request({"model": "UserModel", "pk": "1"})
         self.site._initialized = True
 
-        resp = await self.ctrl.edit_form(ctx, "UserModel", "1")
+        resp = await self.ctrl.edit_form(req, ctx)
         assert resp.status == 200
 
     @pytest.mark.asyncio
@@ -1467,9 +1488,10 @@ class TestAdminControllerRoutes:
             attributes={"admin_role": "superadmin", "name": "Admin"},
         )
         ctx = self._make_ctx(identity=identity)
+        req = self._make_request({"model": "UserModel", "pk": "1"})
         self.site._initialized = True
 
-        resp = await self.ctrl.delete_record(ctx, "UserModel", "1")
+        resp = await self.ctrl.delete_record(req, ctx)
         assert resp.status == 302  # redirect after delete
 
     @pytest.mark.asyncio
@@ -1479,9 +1501,10 @@ class TestAdminControllerRoutes:
             attributes={"admin_role": "viewer", "name": "Viewer"},
         )
         ctx = self._make_ctx(identity=identity)
+        req = self._make_request()
         self.site._initialized = True
 
-        resp = await self.ctrl.audit_view(ctx)
+        resp = await self.ctrl.audit_view(req, ctx)
         # viewer doesn't have AUDIT_VIEW permission → redirect
         assert resp.status == 302
 
