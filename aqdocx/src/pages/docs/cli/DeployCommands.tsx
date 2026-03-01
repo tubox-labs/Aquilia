@@ -13,8 +13,6 @@ export function CLIDeployCommands() {
   const pClass = `mb-4 leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-600'}`
   const boxClass = `p-6 rounded-2xl border ${isDark ? 'bg-[#0A0A0A] border-white/10' : 'bg-white border-gray-200'}`
   const codeClass = 'text-xs font-mono bg-black/5 dark:bg-white/10 px-1.5 py-0.5 rounded text-aquilia-600 dark:text-aquilia-400'
-  const noteClass = `p-4 rounded-xl border-l-4 ${isDark ? 'bg-blue-500/5 border-blue-500/50 text-gray-300' : 'bg-blue-50 border-blue-500 text-gray-700'}`
-
   const Table = ({ children }: { children: React.ReactNode }) => (
     <div className={`overflow-hidden border rounded-lg mb-6 ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
       <table className="w-full text-sm text-left">

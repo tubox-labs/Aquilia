@@ -6,8 +6,6 @@ import { NextSteps } from '../../../components/NextSteps'
 export function MLOpsOrchestrator() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
-  const boxClass = `p-6 rounded-2xl border ${isDark ? 'bg-[#0A0A0A] border-white/10' : 'bg-white border-gray-200'}`
-
   return (
     <div className="max-w-4xl mx-auto">
       <div className="mb-12">

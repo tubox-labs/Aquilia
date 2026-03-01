@@ -1,6 +1,6 @@
 import { useTheme } from '../../../context/ThemeContext'
 import { CodeBlock } from '../../../components/CodeBlock'
-import { Terminal, Wifi, ArrowRight } from 'lucide-react'
+import { Terminal, Wifi } from 'lucide-react'
 import { NextSteps } from '../../../components/NextSteps'
 
 export function CLIWebSocketCommands() {
