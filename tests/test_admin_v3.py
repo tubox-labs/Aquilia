@@ -1474,3 +1474,136 @@ class TestCLIEnhancements:
         source = inspect.getsource(fn)
         assert "Integration.admin(" in source, "Should detect admin integration"
         assert "skip_checks" in source, "Should respect --skip-checks"
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 19. ADMIN SETUP COMMAND TESTS
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class TestAdminSetupCommand:
+    """Tests for the ``aq admin setup`` auto-configure command."""
+
+    def test_setup_command_exists(self):
+        """admin setup command must be registered."""
+        from aquilia.cli.__main__ import admin_setup
+        assert admin_setup is not None
+
+    def test_setup_has_non_interactive_flag(self):
+        """admin setup must have a --non-interactive / -y flag."""
+        from aquilia.cli.__main__ import admin_setup
+        params = {p.name: p for p in admin_setup.params}
+        assert "non_interactive" in params, "--non-interactive/-y flag must exist"
+
+    def test_setup_has_database_url_option(self):
+        """admin setup must have a --database-url option."""
+        from aquilia.cli.__main__ import admin_setup
+        params = {p.name: p for p in admin_setup.params}
+        assert "database_url" in params, "--database-url option must exist"
+
+    def test_setup_source_handles_sessions(self):
+        """Source must handle both uncommenting and injecting sessions."""
+        import inspect
+        from aquilia.cli.__main__ import admin_setup
+        fn = getattr(admin_setup, "callback", admin_setup)
+        source = inspect.getsource(fn)
+        assert ".sessions(" in source, "Should handle sessions config"
+        assert "SessionPolicy" in source, "Should reference SessionPolicy"
+
+    def test_setup_source_handles_imports(self):
+        """Source must add required imports (timedelta, SessionPolicy)."""
+        import inspect
+        from aquilia.cli.__main__ import admin_setup
+        fn = getattr(admin_setup, "callback", admin_setup)
+        source = inspect.getsource(fn)
+        assert "timedelta" in source, "Should handle timedelta import"
+        assert "SessionPolicy" in source, "Should handle SessionPolicy import"
+
+    def test_setup_source_handles_admin_integration(self):
+        """Source must handle admin integration config."""
+        import inspect
+        from aquilia.cli.__main__ import admin_setup
+        fn = getattr(admin_setup, "callback", admin_setup)
+        source = inspect.getsource(fn)
+        assert "Integration.admin(" in source, "Should handle admin integration"
+
+    def test_setup_source_handles_database_tables(self):
+        """Source must create admin database tables."""
+        import inspect
+        from aquilia.cli.__main__ import admin_setup
+        fn = getattr(admin_setup, "callback", admin_setup)
+        source = inspect.getsource(fn)
+        assert "AdminUser" in source, "Should handle AdminUser model"
+        assert "admin_users" in source, "Should reference admin_users table"
+
+    def test_setup_source_checks_superuser(self):
+        """Source must check for existing superusers."""
+        import inspect
+        from aquilia.cli.__main__ import admin_setup
+        fn = getattr(admin_setup, "callback", admin_setup)
+        source = inspect.getsource(fn)
+        assert "superuser" in source.lower(), "Should check for superusers"
+        assert "createsuperuser" in source, "Should offer to create superuser"
+
+    def test_setup_source_has_7_steps(self):
+        """Setup should have 7 sequential steps."""
+        import inspect
+        from aquilia.cli.__main__ import admin_setup
+        fn = getattr(admin_setup, "callback", admin_setup)
+        source = inspect.getsource(fn)
+        for i in range(1, 8):
+            assert f"step({i}," in source, f"Should have step {i}"
+
+    def test_setup_confirms_before_writing(self):
+        """Non-interactive mode must be opt-in; default should confirm."""
+        import inspect
+        from aquilia.cli.__main__ import admin_setup
+        fn = getattr(admin_setup, "callback", admin_setup)
+        source = inspect.getsource(fn)
+        assert "click.confirm" in source, "Should ask for confirmation"
+        assert "non_interactive" in source, "Should respect non_interactive flag"
+
+
+class TestWarningBoxIsYellow:
+    """Tests that the admin warning box uses ANSI yellow colouring."""
+
+    def test_warning_contains_ansi_yellow_escape(self):
+        """The warning message must contain ANSI yellow escape code."""
+        from aquilia.server import AquiliaServer
+        from unittest.mock import MagicMock
+        import logging
+
+        server = MagicMock()
+        server._session_engine = None
+        server.logger = MagicMock(spec=logging.Logger)
+
+        stack = MagicMock()
+        stack.middlewares = []
+        server.middleware_stack = stack
+
+        AquiliaServer._validate_admin_prerequisites(server)
+
+        server.logger.warning.assert_called_once()
+        warn_msg = server.logger.warning.call_args[0][0]
+        assert "\033[33m" in warn_msg, "Warning must contain ANSI yellow (\\033[33m)"
+        assert "\033[0m" in warn_msg, "Warning must contain ANSI reset (\\033[0m)"
+
+    def test_warning_mentions_aq_admin_setup(self):
+        """The warning message must mention 'aq admin setup'."""
+        from aquilia.server import AquiliaServer
+        from unittest.mock import MagicMock
+        import logging
+
+        server = MagicMock()
+        server._session_engine = None
+        server.logger = MagicMock(spec=logging.Logger)
+
+        stack = MagicMock()
+        stack.middlewares = []
+        server.middleware_stack = stack
+
+        AquiliaServer._validate_admin_prerequisites(server)
+
+        warn_msg = server.logger.warning.call_args[0][0]
+        assert "aq admin setup" in warn_msg, "Warning must mention 'aq admin setup'"
+        assert "aq admin check" in warn_msg, "Warning must mention 'aq admin check'"

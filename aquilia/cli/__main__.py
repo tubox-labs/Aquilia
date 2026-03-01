@@ -618,7 +618,8 @@ def run(ctx, mode: str, port: int, host: str, reload: bool, skip_checks: bool):
                     warning(
                         f"  ! Admin integration detected but sessions are NOT configured.\n"
                         f"    Admin login will NOT work without session support.\n"
-                        f"    Run 'aq admin check' for full diagnostics or add .sessions() to workspace.py.\n"
+                        f"    Run 'aq admin setup' to auto-configure everything.\n"
+                        f"    Or:  'aq admin check' for full diagnostics.\n"
                         f"    Use --skip-checks to suppress this warning."
                     )
                     click.echo()
@@ -1870,19 +1871,23 @@ def admin_check(ctx, fix: bool, as_json: bool):
                 panel(
                     [
                         "The admin dashboard requires session support.",
-                        "Add this to your workspace.py:",
                         "",
-                        "  from datetime import timedelta",
-                        "  from aquilia.sessions import SessionPolicy",
+                        "  Quick fix:   aq admin setup",
+                        "  Manual fix:  Uncomment .sessions(...) in workspace.py",
                         "",
-                        "  .sessions(",
-                        "      policies=[",
-                        '          SessionPolicy(name="default",',
-                        "              ttl=timedelta(days=7),",
-                        "              idle_timeout=timedelta(hours=1),",
-                        "          ),",
-                        "      ],",
-                        "  )",
+                        "  Or add this to your workspace.py:",
+                        "",
+                        "    from datetime import timedelta",
+                        "    from aquilia.sessions import SessionPolicy",
+                        "",
+                        "    .sessions(",
+                        "        policies=[",
+                        '            SessionPolicy(name="default",',
+                        "                ttl=timedelta(days=7),",
+                        "                idle_timeout=timedelta(hours=1),",
+                        "            ),",
+                        "        ],",
+                        "    )",
                     ],
                     title="Required: Enable Sessions",
                     fg="yellow",
@@ -2256,6 +2261,342 @@ def admin_changepassword(ctx, username: str, password: str, database_url: Option
     else:
         error(f"  {_CROSS} User '{username}' not found")
         sys.exit(1)
+
+
+@admin.command('setup')
+@click.option('--non-interactive', '-y', is_flag=True, help='Skip confirmation prompts')
+@click.option('--database-url', type=str, default=None, help='Database URL to use (default: sqlite:///db.sqlite3)')
+@click.pass_context
+def admin_setup(ctx, non_interactive: bool, database_url: Optional[str]):
+    """
+    Auto-configure all admin dependencies in workspace.py.
+
+    This is the one-stop command to get the admin dashboard running.
+    It performs every step needed:
+
+    \b
+      1. Ensures .sessions(...) is enabled in workspace.py
+      2. Ensures Integration.admin(...) is present
+      3. Ensures Integration.database(...) is present
+      4. Ensures Integration.static_files(...) is present
+      5. Adds the required imports (SessionPolicy, timedelta)
+      6. Runs database migrations for admin tables
+      7. Prompts to create a superuser if none exists
+
+    Examples:
+      aq admin setup
+      aq admin setup -y
+      aq admin setup --database-url=postgresql://...
+    """
+    import asyncio
+    import textwrap
+
+    click.echo()
+    banner("AquilAdmin", subtitle="Auto-Setup")
+    click.echo()
+
+    workspace_file = Path("workspace.py")
+    if not workspace_file.exists():
+        error(f"  {_CROSS} workspace.py not found — run 'aq init workspace <name>' first")
+        sys.exit(1)
+
+    content = workspace_file.read_text()
+    original_content = content
+
+    # Remove comment-only lines for active config detection
+    def _active(text: str) -> str:
+        return "\n".join(
+            line for line in text.splitlines()
+            if not line.strip().startswith("#")
+        )
+
+    active = _active(content)
+    changes_made: list[str] = []
+
+    # ── Step 1: Ensure required imports ──────────────────────────────
+    step(1, "Checking imports...")
+    needed_imports: list[str] = []
+    if "from datetime import timedelta" not in content and "timedelta" not in content:
+        needed_imports.append("from datetime import timedelta")
+    if "SessionPolicy" not in content:
+        needed_imports.append("from aquilia.sessions import SessionPolicy")
+
+    if needed_imports:
+        # Insert after the last import line
+        lines = content.splitlines()
+        last_import_idx = 0
+        for i, line in enumerate(lines):
+            stripped = line.strip()
+            if stripped.startswith("from ") or stripped.startswith("import "):
+                if not stripped.startswith("#"):
+                    last_import_idx = i
+
+        for imp in needed_imports:
+            lines.insert(last_import_idx + 1, imp)
+            last_import_idx += 1
+            changes_made.append(f"Added import: {imp}")
+
+        content = "\n".join(lines)
+        active = _active(content)
+        success(f"    {_CHECK} Added {len(needed_imports)} import(s)")
+    else:
+        dim(f"    {_CHECK} Imports already present")
+
+    # ── Step 2: Ensure sessions are enabled ──────────────────────────
+    step(2, "Checking sessions config...")
+    has_sessions = (
+        ".sessions(" in active
+        or "Integration.sessions(" in active
+        or "Integration.auth(" in active
+    )
+    if not has_sessions:
+        # Check if there's a commented-out .sessions block we can uncomment
+        if "# .sessions(" in content:
+            # Uncomment the entire .sessions(...) block
+            lines = content.splitlines()
+            in_sessions_block = False
+            brace_depth = 0
+            for i, line in enumerate(lines):
+                stripped = line.lstrip()
+                if not in_sessions_block and stripped.startswith("# .sessions("):
+                    lines[i] = line.replace("# .sessions(", ".sessions(", 1)
+                    in_sessions_block = True
+                    brace_depth = line.count("(") - line.count(")")
+                    continue
+                if in_sessions_block:
+                    if stripped.startswith("# "):
+                        lines[i] = line.replace("# ", "", 1)
+                    brace_depth += line.count("(") - line.count(")")
+                    if brace_depth <= 0:
+                        in_sessions_block = False
+
+            content = "\n".join(lines)
+            active = _active(content)
+            changes_made.append("Uncommented .sessions(...) block")
+            success(f"    {_CHECK} Uncommented .sessions(...) block")
+        else:
+            # Inject a sessions block before the admin integration or at the end
+            sessions_block = textwrap.dedent("""\
+
+    # Sessions — required for admin login
+    .sessions(
+        policies=[
+            SessionPolicy(
+                name="default",
+                ttl=timedelta(days=7),
+                idle_timeout=timedelta(hours=1),
+            ),
+        ],
+    )""")
+            # Find the admin integration line or the closing ')'
+            lines = content.splitlines()
+            insert_idx = None
+            for i, line in enumerate(lines):
+                if "Integration.admin(" in line and not line.lstrip().startswith("#"):
+                    insert_idx = i
+                    break
+            if insert_idx is None:
+                # Insert before the last ')'
+                for i in range(len(lines) - 1, -1, -1):
+                    if lines[i].strip() == ")":
+                        insert_idx = i
+                        break
+            if insert_idx is not None:
+                for j, sline in enumerate(sessions_block.splitlines()):
+                    lines.insert(insert_idx + j, sline)
+                content = "\n".join(lines)
+                active = _active(content)
+                changes_made.append("Injected .sessions(...) block")
+                success(f"    {_CHECK} Injected .sessions(...) config")
+            else:
+                warning(f"    ! Could not find insertion point — add .sessions() manually")
+    else:
+        dim(f"    {_CHECK} Sessions already configured")
+
+    # ── Step 3: Ensure Integration.admin(...) ────────────────────────
+    step(3, "Checking admin integration...")
+    if "Integration.admin(" not in active:
+        if "# .integrate(Integration.admin(" in content or "#.integrate(Integration.admin(" in content:
+            # Uncomment it
+            content = _re.sub(
+                r"#\s*\.integrate\(Integration\.admin\(",
+                ".integrate(Integration.admin(",
+                content,
+                count=1,
+            )
+            # Also uncomment any following commented lines until closing ))
+            lines = content.splitlines()
+            in_admin_block = False
+            for i, line in enumerate(lines):
+                if ".integrate(Integration.admin(" in line and not line.lstrip().startswith("#"):
+                    in_admin_block = True
+                    continue
+                if in_admin_block:
+                    stripped = line.lstrip()
+                    if stripped.startswith("# "):
+                        lines[i] = line.replace("# ", "", 1)
+                    if "))" in line:
+                        in_admin_block = False
+            content = "\n".join(lines)
+            active = _active(content)
+            changes_made.append("Uncommented Integration.admin(...)")
+            success(f"    {_CHECK} Uncommented admin integration")
+        else:
+            # Inject admin integration before the closing ')'
+            admin_block = textwrap.dedent("""\
+
+    # Admin Dashboard
+    .integrate(Integration.admin(
+        url_prefix="/admin",
+        site_title="Admin",
+        auto_discover=True,
+    ))""")
+            lines = content.splitlines()
+            for i in range(len(lines) - 1, -1, -1):
+                if lines[i].strip() == ")":
+                    for j, sline in enumerate(admin_block.splitlines()):
+                        lines.insert(i + j, sline)
+                    break
+            content = "\n".join(lines)
+            active = _active(content)
+            changes_made.append("Injected Integration.admin(...)")
+            success(f"    {_CHECK} Injected admin integration")
+    else:
+        dim(f"    {_CHECK} Admin integration already configured")
+
+    # ── Step 4: Ensure Integration.database(...) ─────────────────────
+    step(4, "Checking database integration...")
+    if "Integration.database(" not in active:
+        warning(f"    ! No database integration found — admin needs a database")
+        info(f"      Add: .integrate(Integration.database(pool_size=5))")
+    else:
+        dim(f"    {_CHECK} Database integration present")
+
+    # ── Step 5: Ensure Integration.static_files(...) ─────────────────
+    step(5, "Checking static files integration...")
+    if "Integration.static_files(" not in active:
+        warning(f"    ! No static files integration — admin CSS/JS may not load")
+        info(f'      Add: .integrate(Integration.static_files(directories={{"/static": "static"}}))')
+    else:
+        dim(f"    {_CHECK} Static files integration present")
+
+    # ── Write workspace.py if changed ────────────────────────────────
+    if content != original_content:
+        click.echo()
+        section("Changes to workspace.py")
+        for change in changes_made:
+            bullet(change, fg="green")
+        click.echo()
+
+        if not non_interactive:
+            if not click.confirm(click.style("  Apply these changes to workspace.py?", bold=True), default=True):
+                info(f"  {_CROSS} Aborted — no changes written")
+                sys.exit(0)
+
+        workspace_file.write_text(content)
+        success(f"  {_CHECK} workspace.py updated")
+    else:
+        click.echo()
+        dim(f"  {_CHECK} workspace.py already fully configured")
+
+    # ── Step 6: Ensure admin tables exist ────────────────────────────
+    click.echo()
+    step(6, "Ensuring admin database tables...")
+
+    db_url = database_url or _detect_workspace_db_url()
+
+    async def _ensure_tables():
+        try:
+            from aquilia.db.engine import configure_database
+            db = configure_database(db_url)
+            await db.connect()
+        except Exception as e:
+            return False, f"Database connection failed: {e}"
+
+        try:
+            from aquilia.admin.models import (
+                AdminUser, ContentType, AdminPermission,
+                AdminGroup, AdminLogEntry, AdminSession,
+            )
+            _admin_models = [
+                ContentType, AdminPermission, AdminGroup,
+                AdminUser, AdminLogEntry, AdminSession,
+            ]
+            created = 0
+            for _model in _admin_models:
+                try:
+                    create_sql = _model.generate_create_table_sql()
+                    await db.execute(create_sql)
+                    for idx_sql in _model.generate_index_sql():
+                        await db.execute(idx_sql)
+                    for m2m_sql in _model.generate_m2m_sql():
+                        await db.execute(m2m_sql)
+                    created += 1
+                except Exception:
+                    pass  # Table already exists
+            return True, f"{created} table(s) checked/created"
+        finally:
+            try:
+                await db.disconnect()
+            except Exception:
+                pass
+
+    try:
+        ok, detail = asyncio.run(_ensure_tables())
+        if ok:
+            success(f"    {_CHECK} {detail}")
+        else:
+            warning(f"    ! {detail}")
+    except Exception as e:
+        warning(f"    ! Could not ensure tables: {e}")
+        info(f"      Run 'aq db migrate' manually")
+
+    # ── Step 7: Check for superuser ──────────────────────────────────
+    step(7, "Checking for superuser...")
+
+    async def _check_su():
+        try:
+            from aquilia.db.engine import configure_database
+            db = configure_database(db_url)
+            await db.connect()
+            try:
+                result = await db.fetch_one(
+                    "SELECT COUNT(*) as cnt FROM admin_users WHERE is_superuser = 1"
+                )
+                return result["cnt"] if result else 0
+            finally:
+                await db.disconnect()
+        except Exception:
+            return -1  # Unknown
+
+    try:
+        su_count = asyncio.run(_check_su())
+    except Exception:
+        su_count = -1
+
+    if su_count > 0:
+        dim(f"    {_CHECK} {su_count} superuser(s) found")
+    elif su_count == 0:
+        warning(f"    ! No superusers found")
+        if not non_interactive:
+            if click.confirm(click.style("  Create a superuser now?", bold=True), default=True):
+                # Invoke the createsuperuser command
+                ctx.invoke(admin_createsuperuser)
+                return
+        else:
+            info(f"      Run 'aq admin createsuperuser' to create one")
+    else:
+        dim(f"    ? Could not check (run 'aq db migrate' first)")
+
+    # ── Done ─────────────────────────────────────────────────────────
+    click.echo()
+    success(f"  {_CHECK} Admin setup complete!")
+    click.echo()
+    next_steps([
+        "aq admin check          (verify configuration)",
+        "aq run                  (start the dev server)",
+        "Visit http://localhost:8000/admin/",
+    ])
 
 
 @admin.command('status')

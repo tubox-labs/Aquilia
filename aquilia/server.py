@@ -1660,19 +1660,25 @@ class AquiliaServer:
         if has_session_engine or has_session_mw:
             return  # All good
 
+        # ANSI yellow escape codes for terminal colouring
+        _Y = "\033[33m"  # yellow
+        _B = "\033[1m"   # bold
+        _R = "\033[0m"   # reset
+
         self.logger.warning(
-            "\n"
-            "  ╔══════════════════════════════════════════════════════════════╗\n"
-            "  ║  ADMIN: Sessions are NOT configured!                       ║\n"
-            "  ║                                                            ║\n"
-            "  ║  The admin dashboard requires sessions to store login      ║\n"
-            "  ║  state.  Without it, login will redirect in a loop.        ║\n"
-            "  ║                                                            ║\n"
-            "  ║  Fix:  Uncomment .sessions(...) in workspace.py            ║\n"
-            "  ║  Or:   Enable .integrate(Integration.auth(...))            ║\n"
-            "  ║                                                            ║\n"
-            "  ║  Run 'aq admin check' for a full prerequisites report.     ║\n"
-            "  ╚══════════════════════════════════════════════════════════════╝"
+            f"\n"
+            f"  {_Y}╔══════════════════════════════════════════════════════════════╗{_R}\n"
+            f"  {_Y}║{_R}  {_B}{_Y}ADMIN: Sessions are NOT configured!{_R}                       {_Y}║{_R}\n"
+            f"  {_Y}║{_R}                                                            {_Y}║{_R}\n"
+            f"  {_Y}║{_R}  The admin dashboard requires sessions to store login      {_Y}║{_R}\n"
+            f"  {_Y}║{_R}  state.  Without it, login will redirect in a loop.        {_Y}║{_R}\n"
+            f"  {_Y}║{_R}                                                            {_Y}║{_R}\n"
+            f"  {_Y}║{_R}  Fix:  Run {_B}'aq admin setup'{_R} to auto-configure              {_Y}║{_R}\n"
+            f"  {_Y}║{_R}  Or:   Uncomment .sessions(...) in workspace.py            {_Y}║{_R}\n"
+            f"  {_Y}║{_R}  Or:   Enable .integrate(Integration.auth(...))            {_Y}║{_R}\n"
+            f"  {_Y}║{_R}                                                            {_Y}║{_R}\n"
+            f"  {_Y}║{_R}  Run {_B}'aq admin check'{_R} for a full prerequisites report.     {_Y}║{_R}\n"
+            f"  {_Y}╚══════════════════════════════════════════════════════════════╝{_R}"
         )
 
     def _ensure_admin_static_assets(self) -> None:
