@@ -1617,6 +1617,14 @@ class AquiliaServer:
             self.controller_router._initialized = False
             self.controller_router.initialize()
 
+            # ── Auto-enable sessions if not already configured ────────────
+            # The admin controller REQUIRES sessions to store the login
+            # identity.  If the user hasn't explicitly enabled sessions
+            # (or auth) in their workspace, we inject a lightweight
+            # in-memory session middleware automatically so that admin
+            # login works out of the box.
+            self._ensure_admin_sessions()
+
             # ── Auto-register assets/ as /static if not already served ────
             # The admin templates reference /static/logo.png and
             # /static/favicon.ico.  If the user hasn't mapped an "assets"
@@ -1633,6 +1641,115 @@ class AquiliaServer:
         except Exception as e:
             self.logger.error(f"Admin integration failed: {e}", exc_info=True)
 
+    def _ensure_admin_sessions(self) -> None:
+        """
+        Ensure session middleware is present when admin is enabled.
+
+        The admin controller relies on ``ctx.session.data`` to persist
+        the ``_admin_identity`` across requests.  If the workspace has
+        not configured sessions (or auth — which also brings sessions),
+        we inject a lightweight in-memory session engine + middleware so
+        the admin login/logout flow works out of the box.
+
+        This is a **safety net** — users who have already enabled
+        sessions (or auth) via ``Workspace.sessions()`` or
+        ``Integration.sessions()`` will not be affected.
+        """
+        # If a session engine was already created during _setup_middleware,
+        # the admin will work fine — nothing to do.
+        if getattr(self, "_session_engine", None) is not None:
+            return
+
+        # Check if a session middleware is already registered in the stack
+        existing_names = {
+            getattr(desc, "name", None)
+            for desc in getattr(self.middleware_stack, "middlewares", [])
+        }
+        if "session" in existing_names or "auth" in existing_names:
+            return
+
+        self.logger.info(
+            "Admin integration detected but sessions are not configured. "
+            "Auto-enabling in-memory session middleware for admin login support."
+        )
+
+        try:
+            from datetime import timedelta
+            from aquilia.sessions import (
+                SessionEngine,
+                SessionPolicy,
+                PersistencePolicy,
+                ConcurrencyPolicy,
+                TransportPolicy,
+                MemoryStore,
+                CookieTransport,
+            )
+
+            policy = SessionPolicy(
+                name="admin_auto",
+                ttl=timedelta(days=1),
+                idle_timeout=timedelta(hours=2),
+                rotate_on_use=False,
+                rotate_on_privilege_change=False,
+                persistence=PersistencePolicy(
+                    enabled=True,
+                    store_name="memory",
+                    write_through=True,
+                ),
+                concurrency=ConcurrencyPolicy(
+                    max_sessions_per_principal=10,
+                    behavior_on_limit="evict_oldest",
+                ),
+                transport=TransportPolicy(
+                    adapter="cookie",
+                    cookie_name="aquilia_admin_session",
+                    cookie_httponly=True,
+                    cookie_secure=False,   # dev-friendly default
+                    cookie_samesite="lax",
+                    header_name="X-Session-ID",
+                ),
+                scope="user",
+            )
+
+            store = MemoryStore()
+            transport = CookieTransport(policy.transport)
+
+            engine = SessionEngine(policy=policy, store=store, transport=transport)
+            self._session_engine = engine
+
+            self.middleware_stack.add(
+                SessionMiddleware(engine),
+                scope="global",
+                priority=15,
+                name="session",
+            )
+
+            # Register in DI so any future lookups can find the engine
+            try:
+                from aquilia.di.providers import ValueProvider
+                engine_provider = ValueProvider(
+                    token=SessionEngine,
+                    value=engine,
+                    scope="app",
+                    name="session_engine_instance",
+                )
+                for container in self.runtime.di_containers.values():
+                    container.register(engine_provider)
+            except Exception:
+                pass  # DI registration is best-effort
+
+            self.logger.info(
+                "Auto-enabled in-memory session middleware "
+                "(cookie: aquilia_admin_session, ttl: 1 day)"
+            )
+
+        except Exception as e:
+            self.logger.error(
+                f"Failed to auto-enable sessions for admin: {e}. "
+                "Admin login will not work. Enable sessions manually in workspace.py.",
+                exc_info=True,
+            )
+
     def _ensure_admin_static_assets(self) -> None:
         """
         Ensure ``assets/`` directory is served under ``/static`` so that
@@ -1641,10 +1758,11 @@ class AquiliaServer:
 
         If a ``StaticMiddleware`` is already configured and includes
         the project ``assets/`` dir, this is a no-op.  Otherwise, the
-        ``assets/`` directory is added to the existing middleware or a
-        minimal static handler is installed.
+        ``assets/`` directory is added as a fallback lookup path to the
+        existing middleware, or a minimal static handler is installed.
         """
         import pathlib
+        from pathlib import Path
 
         # Find the project root (CWD or parent of aquilia package)
         candidates = [
@@ -1654,7 +1772,7 @@ class AquiliaServer:
         assets_dir = None
         for candidate in candidates:
             if candidate.is_dir():
-                assets_dir = candidate
+                assets_dir = candidate.resolve()
                 break
 
         if assets_dir is None:
@@ -1663,21 +1781,24 @@ class AquiliaServer:
         # Check if /static already maps to assets/
         existing_mw = getattr(self, "_static_middleware", None)
         if existing_mw is not None:
-            # Add assets dir to the existing static middleware's lookup
-            existing_dirs = getattr(existing_mw, "directories", {})
-            if "/static" in existing_dirs:
-                existing_path = pathlib.Path(existing_dirs["/static"]).resolve()
-                if existing_path == assets_dir.resolve():
+            # Check if the primary /static directory IS already assets/
+            primary_dirs = getattr(existing_mw, "_directories", {})
+            if "/static" in primary_dirs:
+                if primary_dirs["/static"].resolve() == assets_dir:
                     return  # Already mapped
-            # Append assets dir to extra directories for /static prefix
-            extra = getattr(existing_mw, "extra_directories", {})
-            extra.setdefault("/static", [])
-            if str(assets_dir) not in [str(p) for p in extra["/static"]]:
-                extra["/static"].append(str(assets_dir))
-                existing_mw.extra_directories = extra
-                # Rebuild lookup if the middleware supports it
-                if hasattr(existing_mw, "_rebuild_lookup"):
-                    existing_mw._rebuild_lookup()
+
+            # Add assets_dir as a fallback directory for /static prefix.
+            # StaticMiddleware stores fallbacks in ``_fallback_dirs`` as
+            # Dict[str, List[Path]].  When a file is NOT found in the
+            # primary directory, it searches these fallbacks in order.
+            fallbacks = getattr(existing_mw, "_fallback_dirs", {})
+            fb_list = fallbacks.setdefault("/static", [])
+            if assets_dir not in fb_list:
+                fb_list.append(assets_dir)
+                self.logger.info(
+                    f"Added {assets_dir} as fallback for /static "
+                    f"(admin assets)"
+                )
             return
 
         # No static middleware exists — install a minimal one

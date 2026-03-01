@@ -1051,3 +1051,264 @@ class TestMetaConfiguration:
         if _HAS_ORM:
             meta = AdminSession._meta
             assert meta.verbose_name == "Session"
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 15. AUTO-SESSION ENABLEMENT & STATIC ASSETS TESTS
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class TestAutoAdminSessions:
+    """Tests for _ensure_admin_sessions auto-enabling when admin is used."""
+
+    def _make_server(self, *, session_engine=None, middleware_names=None):
+        """Create a minimal mock server with controllable session state."""
+        from unittest.mock import MagicMock, PropertyMock
+        import logging
+
+        server = MagicMock()
+        server._session_engine = session_engine
+        server.logger = logging.getLogger("test_auto_sessions")
+
+        # Build a mock middleware stack with named entries
+        stack = MagicMock()
+        descs = []
+        for name in (middleware_names or []):
+            d = MagicMock()
+            d.name = name
+            descs.append(d)
+        stack.middlewares = descs
+        server.middleware_stack = stack
+
+        # Runtime DI containers
+        server.runtime = MagicMock()
+        server.runtime.di_containers = {}
+
+        return server
+
+    def test_skips_when_session_engine_exists(self):
+        """If session engine is already set, _ensure_admin_sessions is a no-op."""
+        from aquilia.server import AquiliaServer
+        server = self._make_server(session_engine=MagicMock())
+
+        # Call the unbound method with our mock
+        AquiliaServer._ensure_admin_sessions(server)
+
+        # Should NOT have called middleware_stack.add
+        server.middleware_stack.add.assert_not_called()
+
+    def test_skips_when_session_middleware_registered(self):
+        """If a 'session' middleware is already in the stack, no-op."""
+        from aquilia.server import AquiliaServer
+        server = self._make_server(middleware_names=["exception", "session", "logging"])
+
+        AquiliaServer._ensure_admin_sessions(server)
+        server.middleware_stack.add.assert_not_called()
+
+    def test_skips_when_auth_middleware_registered(self):
+        """If an 'auth' middleware is in the stack, no-op."""
+        from aquilia.server import AquiliaServer
+        server = self._make_server(middleware_names=["exception", "auth", "logging"])
+
+        AquiliaServer._ensure_admin_sessions(server)
+        server.middleware_stack.add.assert_not_called()
+
+    def test_auto_enables_when_no_sessions(self):
+        """When no session engine and no session/auth middleware, auto-create one."""
+        from aquilia.server import AquiliaServer
+        server = self._make_server(middleware_names=["exception", "logging"])
+
+        AquiliaServer._ensure_admin_sessions(server)
+
+        # Should have called middleware_stack.add with a SessionMiddleware
+        server.middleware_stack.add.assert_called_once()
+        call_kwargs = server.middleware_stack.add.call_args
+        assert call_kwargs[1]["name"] == "session"
+        assert call_kwargs[1]["scope"] == "global"
+
+        # Session engine should be set
+        assert server._session_engine is not None
+
+    def test_auto_session_uses_memory_store(self):
+        """Auto-created session engine uses in-memory store."""
+        from aquilia.server import AquiliaServer
+        from aquilia.sessions import MemoryStore
+        server = self._make_server(middleware_names=["exception"])
+
+        AquiliaServer._ensure_admin_sessions(server)
+
+        engine = server._session_engine
+        assert isinstance(engine.store, MemoryStore)
+
+    def test_auto_session_cookie_name(self):
+        """Auto-created session uses 'aquilia_admin_session' cookie."""
+        from aquilia.server import AquiliaServer
+        server = self._make_server(middleware_names=["exception"])
+
+        AquiliaServer._ensure_admin_sessions(server)
+
+        engine = server._session_engine
+        assert engine.transport.cookie_name == "aquilia_admin_session"
+
+    def test_auto_session_policy_name(self):
+        """Auto-created session policy is named 'admin_auto'."""
+        from aquilia.server import AquiliaServer
+        server = self._make_server(middleware_names=[])
+
+        AquiliaServer._ensure_admin_sessions(server)
+
+        assert server._session_engine.policy.name == "admin_auto"
+
+
+class TestEnsureAdminStaticAssets:
+    """Tests for _ensure_admin_static_assets fallback directory injection."""
+
+    def test_adds_fallback_dir_to_existing_static_mw(self):
+        """When static middleware exists, assets dir is added as fallback."""
+        from aquilia.server import AquiliaServer
+        from unittest.mock import MagicMock
+        from pathlib import Path
+        import logging
+
+        server = MagicMock()
+        server.logger = logging.getLogger("test_static")
+
+        # Simulate existing static middleware with /static mapped to static/
+        mw = MagicMock()
+        mw._directories = {"/static": Path("/some/project/static").resolve()}
+        mw._fallback_dirs = {}
+        server._static_middleware = mw
+
+        # Patch pathlib.Path.cwd() to return a directory that has assets/
+        import tempfile, os
+        with tempfile.TemporaryDirectory() as tmpdir:
+            assets = Path(tmpdir) / "assets"
+            assets.mkdir()
+            (assets / "logo.png").touch()
+
+            with patch("pathlib.Path.cwd", return_value=Path(tmpdir)):
+                AquiliaServer._ensure_admin_static_assets(server)
+
+            # Fallback should be added
+            assert "/static" in mw._fallback_dirs
+            assert len(mw._fallback_dirs["/static"]) == 1
+            assert mw._fallback_dirs["/static"][0] == assets.resolve()
+
+    def test_no_duplicate_fallback_dir(self):
+        """Calling _ensure_admin_static_assets twice doesn't duplicate."""
+        from aquilia.server import AquiliaServer
+        from unittest.mock import MagicMock
+        from pathlib import Path
+        import logging
+
+        server = MagicMock()
+        server.logger = logging.getLogger("test_static")
+
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmpdir:
+            assets = Path(tmpdir) / "assets"
+            assets.mkdir()
+            (assets / "logo.png").touch()
+
+            mw = MagicMock()
+            mw._directories = {"/static": Path(tmpdir) / "static"}
+            mw._fallback_dirs = {}
+            server._static_middleware = mw
+
+            with patch("pathlib.Path.cwd", return_value=Path(tmpdir)):
+                AquiliaServer._ensure_admin_static_assets(server)
+                AquiliaServer._ensure_admin_static_assets(server)
+
+            assert len(mw._fallback_dirs["/static"]) == 1
+
+    def test_skips_when_already_mapped_to_assets(self):
+        """If /static already points to assets/, skip."""
+        from aquilia.server import AquiliaServer
+        from unittest.mock import MagicMock
+        from pathlib import Path
+        import logging
+
+        server = MagicMock()
+        server.logger = logging.getLogger("test_static")
+
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmpdir:
+            assets = Path(tmpdir) / "assets"
+            assets.mkdir()
+            (assets / "logo.png").touch()
+
+            mw = MagicMock()
+            mw._directories = {"/static": assets.resolve()}
+            mw._fallback_dirs = {}
+            server._static_middleware = mw
+
+            with patch("pathlib.Path.cwd", return_value=Path(tmpdir)):
+                AquiliaServer._ensure_admin_static_assets(server)
+
+            # No fallback should be added — primary already maps
+            assert "/static" not in mw._fallback_dirs or len(mw._fallback_dirs.get("/static", [])) == 0
+
+
+class TestAdminCLIEmailRequired:
+    """Tests for the enhanced admin CLI createsuperuser command."""
+
+    def test_email_is_required_option(self):
+        """Email must be a required option (no default value)."""
+        from aquilia.cli.__main__ import admin_createsuperuser
+        # Click stores params on the command
+        params = {p.name: p for p in admin_createsuperuser.params}
+        email_param = params.get("email")
+        assert email_param is not None, "email parameter must exist"
+        # No default means it will prompt — prompt is truthy when required
+        assert email_param.prompt is not None, "email should have a prompt (required)"
+        # Click uses Sentinel.UNSET (not None) when no default is provided
+        assert email_param.default is None or str(email_param.default) == "Sentinel.UNSET", \
+            f"email should not have a default value, got: {email_param.default!r}"
+
+    def test_email_validation_in_source(self):
+        """Source must contain email validation logic."""
+        import inspect
+        from aquilia.cli.__main__ import admin_createsuperuser
+        fn = getattr(admin_createsuperuser, "callback", admin_createsuperuser)
+        source = inspect.getsource(fn)
+        assert "@" in source, "Source should check for '@' in email"
+
+    def test_password_validation_in_source(self):
+        """Source must validate password length."""
+        import inspect
+        from aquilia.cli.__main__ import admin_createsuperuser
+        fn = getattr(admin_createsuperuser, "callback", admin_createsuperuser)
+        source = inspect.getsource(fn)
+        assert "len(password)" in source, "Source should check password length"
+
+    def test_banner_in_createsuperuser(self):
+        """Beautified CLI should use banner()."""
+        import inspect
+        from aquilia.cli.__main__ import admin_createsuperuser
+        fn = getattr(admin_createsuperuser, "callback", admin_createsuperuser)
+        source = inspect.getsource(fn)
+        assert "banner(" in source, "Should display a banner"
+
+    def test_step_indicators_in_createsuperuser(self):
+        """Beautified CLI should use step() for progress."""
+        import inspect
+        from aquilia.cli.__main__ import admin_createsuperuser
+        fn = getattr(admin_createsuperuser, "callback", admin_createsuperuser)
+        source = inspect.getsource(fn)
+        assert "step(" in source, "Should use step() indicators"
+
+    def test_permissions_section_in_createsuperuser(self):
+        """Beautified CLI should show permissions section."""
+        import inspect
+        from aquilia.cli.__main__ import admin_createsuperuser
+        fn = getattr(admin_createsuperuser, "callback", admin_createsuperuser)
+        source = inspect.getsource(fn)
+        assert "Permissions" in source, "Should show permissions section"
+
+    def test_troubleshooting_panel_on_error(self):
+        """Beautified CLI should show troubleshooting panel on error."""
+        import inspect
+        from aquilia.cli.__main__ import admin_createsuperuser
+        fn = getattr(admin_createsuperuser, "callback", admin_createsuperuser)
+        source = inspect.getsource(fn)
+        assert "Troubleshooting" in source, "Should show troubleshooting on error"

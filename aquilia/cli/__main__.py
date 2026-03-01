@@ -1587,11 +1587,11 @@ def admin():
 
 
 @admin.command('createsuperuser')
-@click.option('--username', prompt='Username', help='Admin username')
-@click.option('--password', prompt='Password', hide_input=True, confirmation_prompt=True, help='Admin password')
-@click.option('--email', prompt='Email', default='', help='Admin email (optional)')
+@click.option('--username', prompt=click.style('  Username', fg='cyan', bold=True), help='Admin username')
+@click.option('--email', prompt=click.style('  Email', fg='cyan', bold=True), help='Admin email (required)')
+@click.option('--password', prompt=click.style('  Password', fg='cyan', bold=True), hide_input=True, confirmation_prompt=click.style('  Confirm password', fg='cyan', bold=True), help='Admin password')
 @click.pass_context
-def admin_createsuperuser(ctx, username: str, password: str, email: str):
+def admin_createsuperuser(ctx, username: str, email: str, password: str):
     """
     Create an admin superuser in the database.
 
@@ -1603,9 +1603,39 @@ def admin_createsuperuser(ctx, username: str, password: str, email: str):
 
     Examples:
       aq admin createsuperuser
-      aq admin createsuperuser --username=admin --password=secret
+      aq admin createsuperuser --username=admin --email=admin@site.com --password=secret
     """
     import asyncio
+    import time as _ctime
+
+    # ── Validate inputs ──────────────────────────────────────────────
+    click.echo()
+    banner("Aquilia", subtitle="Admin Superuser Setup")
+    click.echo()
+
+    # Validate username
+    if not username or len(username.strip()) < 2:
+        error(f"  {_CROSS} Username must be at least 2 characters")
+        sys.exit(1)
+
+    # Validate email is provided and looks valid
+    if not email or "@" not in email or "." not in email.split("@")[-1]:
+        error(f"  {_CROSS} A valid email address is required")
+        sys.exit(1)
+
+    # Validate password strength
+    if len(password) < 4:
+        error(f"  {_CROSS} Password must be at least 4 characters")
+        sys.exit(1)
+
+    section("Credentials")
+    kv("Username", username)
+    kv("Email", email)
+    kv("Password", click.style("*" * len(password), dim=True))
+    click.echo()
+
+    # ── Create superuser ─────────────────────────────────────────────
+    step(1, "Connecting to database...")
 
     async def _create():
         # Connect to the database and register with ORM
@@ -1677,25 +1707,61 @@ def admin_createsuperuser(ctx, username: str, password: str, email: str):
                 except Exception:
                     pass
 
+    t0 = _ctime.monotonic()
     try:
         ok, pk_info = asyncio.run(_create())
     except Exception as e:
+        click.echo()
         error(f"  {_CROSS} {e}")
+        click.echo()
+        panel(
+            [
+                "Troubleshooting:",
+                "",
+                "1. Ensure the database is running",
+                "2. Run: aq db makemigrations",
+                "3. Run: aq db migrate",
+                "4. Then retry: aq admin createsuperuser",
+            ],
+            title="Help",
+            fg="red",
+        )
         sys.exit(1)
 
+    elapsed = (_ctime.monotonic() - t0) * 1000
+
     if not ctx.obj.get('quiet'):
+        step(2, "Hashing password with Argon2id/PBKDF2...")
+        step(3, "Writing to admin_users table...")
         click.echo()
-        success(f"  {_CHECK} Superuser '{username}' created")
+
+        # ── Success banner ───────────────────────────────────────────
+        success(f"  {_CHECK} Superuser created successfully!")
         click.echo()
-        section("Admin Setup")
+
+        # ── Details panel ────────────────────────────────────────────
+        section("Account Details")
         kv("Username", username)
-        kv("Email", email or "(none)")
+        kv("Email", email)
+        kv("Role", click.style("superadmin", fg="magenta", bold=True))
         kv("Storage", "Database (admin_users table)")
-        kv("Password", "Hashed with Argon2id/PBKDF2")
+        kv("Password", "Hashed (Argon2id/PBKDF2)")
+        kv("Created in", f"{elapsed:.0f}ms")
         click.echo()
+
+        # ── Permissions ──────────────────────────────────────────────
+        section("Permissions")
+        bullet("Full admin dashboard access", fg="green")
+        bullet("Create, read, update, delete all models", fg="green")
+        bullet("Manage users, groups, and permissions", fg="green")
+        bullet("View audit logs", fg="green")
+        click.echo()
+
+        # ── Next steps ───────────────────────────────────────────────
         next_steps([
             "aq run",
-            f"Visit http://localhost:8000/admin/ and log in as '{username}'",
+            f"Visit http://localhost:8000/admin/",
+            f"Log in with username '{username}' and your password",
         ])
 
 
