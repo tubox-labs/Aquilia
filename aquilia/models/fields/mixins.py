@@ -206,8 +206,9 @@ class EncryptedMixin:
         if value is None:
             return None
         str_value = str(value)
-        if self._encryption_backend:
-            return self._encryption_backend(str_value)
+        backend = type(self).__dict__.get('_encryption_backend') or type(self)._encryption_backend
+        if backend:
+            return backend(str_value)
         if self._fernet_instance is not None:
             return self._fernet_instance.encrypt(
                 str_value.encode("utf-8")
@@ -226,8 +227,9 @@ class EncryptedMixin:
         if value is None:
             return None
         if isinstance(value, str):
-            if self._decryption_backend:
-                return self._decryption_backend(value)
+            decrypt = type(self).__dict__.get('_decryption_backend') or type(self)._decryption_backend
+            if decrypt:
+                return decrypt(value)
             if self._fernet_instance is not None:
                 try:
                     return self._fernet_instance.decrypt(
