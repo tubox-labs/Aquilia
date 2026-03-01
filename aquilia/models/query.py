@@ -21,9 +21,16 @@ Usage:
 
 from __future__ import annotations
 
+import logging
+import re
 from typing import Any, Dict, List, Optional, Tuple, Type, TYPE_CHECKING
 
 from .fields.lookups import resolve_lookup, lookup_registry
+
+logger = logging.getLogger("aquilia.models.query")
+
+# Regex for validating field names in order() to prevent injection
+_SAFE_FIELD_RE = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*$')
 
 # Module-level cached lookup registry — avoid calling lookup_registry()
 # on every filter clause.
@@ -292,8 +299,12 @@ class Q:
         "_only_fields",
         "_defer_fields",
         "_select_for_update",
+        "_sfu_nowait",
+        "_sfu_skip_locked",
         "_is_none",
         "_set_operations",
+        "_result_cache",
+        "_iterator_chunk_size",
     )
 
     def __init__(self, table: str, model_cls: Type[Model], db: AquiliaDatabase):
@@ -316,8 +327,12 @@ class Q:
         self._only_fields: List[str] = []
         self._defer_fields: List[str] = []
         self._select_for_update: bool = False
+        self._sfu_nowait: bool = False
+        self._sfu_skip_locked: bool = False
         self._is_none: bool = False
         self._set_operations: List[Tuple[str, Q]] = []
+        self._result_cache: Optional[List] = None
+        self._iterator_chunk_size: Optional[int] = None
 
     # ── Dialect helper ───────────────────────────────────────────────
 
@@ -434,20 +449,31 @@ class Q:
             .order(F("name").asc())                # expression-based
             .order(F("score").desc(nulls_last=True))  # NULLS LAST
         """
-        from .expression import OrderBy
+        from .expression import F as FExpr, OrderBy
         new = self._clone()
         dialect = new._get_dialect()
         for f in fields:
             if isinstance(f, OrderBy):
                 sql, _ = f.as_sql(dialect)
                 new._order_clauses.append(sql)
+            elif isinstance(f, FExpr):
+                # Bare F() object — treat as ASC
+                sql, _ = f.as_sql(dialect)
+                new._order_clauses.append(f"{sql} ASC")
             elif isinstance(f, str):
                 if f == "?":
                     new._order_clauses.append("RANDOM()")
-                elif f.startswith("-"):
-                    new._order_clauses.append(f'"{f[1:]}" DESC')
                 else:
-                    new._order_clauses.append(f'"{f}" ASC')
+                    name = f.lstrip("-")
+                    if not _SAFE_FIELD_RE.match(name):
+                        raise ValueError(
+                            f"Invalid field name in order(): {name!r}. "
+                            f"Field names must contain only alphanumeric characters and underscores."
+                        )
+                    if f.startswith("-"):
+                        new._order_clauses.append(f'"{name}" DESC')
+                    else:
+                        new._order_clauses.append(f'"{f}" ASC')
             else:
                 # Other expression types
                 if hasattr(f, 'as_sql'):
@@ -618,14 +644,24 @@ class Q:
 
         Use inside atomic() for safe concurrent updates.
 
+        Args:
+            nowait: If True, raise error immediately if rows are locked (PostgreSQL/MySQL).
+            skip_locked: If True, skip rows that are currently locked (PostgreSQL/MySQL).
+
         Usage:
             async with atomic():
                 product = await Product.objects.select_for_update().filter(id=1).one()
                 product.stock -= 1
                 await product.save()
+
+            # Non-blocking:
+            async with atomic():
+                product = await Product.objects.select_for_update(nowait=True).filter(id=1).one()
         """
         new = self._clone()
         new._select_for_update = True
+        new._sfu_nowait = nowait
+        new._sfu_skip_locked = skip_locked
         return new
 
     def using(self, db_alias: str) -> Q:
@@ -649,6 +685,21 @@ class Q:
         """
         return self.filter(q_node)
 
+    def iterator(self, chunk_size: int = 2000) -> Q:
+        """
+        Return a queryset that uses chunked iteration for memory efficiency.
+
+        Instead of loading all results into memory at once, fetches rows
+        in batches of ``chunk_size`` during async iteration.
+
+        Usage:
+            async for user in User.objects.filter(active=True).iterator(chunk_size=500):
+                process(user)
+        """
+        new = self._clone()
+        new._iterator_chunk_size = chunk_size
+        return new
+
     def none(self) -> Q:
         """
         Return an empty queryset that evaluates to [] (Django-style).
@@ -663,6 +714,20 @@ class Q:
         new = self._clone()
         new._is_none = True
         return new
+
+    # ── Guard methods ────────────────────────────────────────────────
+
+    def __bool__(self) -> bool:
+        raise TypeError(
+            "Q objects cannot be used in boolean context. "
+            "Use 'await qs.exists()' instead."
+        )
+
+    def __len__(self) -> int:
+        raise TypeError(
+            "Q objects don't support len(). "
+            "Use 'await qs.count()' instead."
+        )
 
     # ── Slicing support ──────────────────────────────────────────────
 
@@ -718,27 +783,52 @@ class Q:
         c._only_fields = self._only_fields.copy() if self._only_fields else []
         c._defer_fields = self._defer_fields.copy() if self._defer_fields else []
         c._select_for_update = self._select_for_update
+        c._sfu_nowait = self._sfu_nowait
+        c._sfu_skip_locked = self._sfu_skip_locked
         c._is_none = self._is_none
         c._set_operations = self._set_operations[:] if self._set_operations else []
+        c._result_cache = None  # Fresh clone always has empty cache
+        c._iterator_chunk_size = self._iterator_chunk_size
         return c
 
-    def _build_select(self, count: bool = False) -> Tuple[str, List[Any]]:
-        """Build the SELECT SQL and parameter list."""
+    def _build_select(self, count: bool = False, columns: Optional[List[str]] = None) -> Tuple[str, List[Any]]:
+        """Build the SELECT SQL and parameter list.
+
+        Args:
+            count: If True, build a COUNT(*) query.
+            columns: Optional explicit column list (used by values()).
+        """
         from .aggregate import Aggregate
         from .expression import Expression
 
         dialect = self._get_dialect()
-        params = self._params.copy()
+        # Annotation params must come BEFORE where params in the final list
+        # because annotation SQL appears in SELECT (before WHERE).
+        annotation_params: List[Any] = []
 
         if count:
             col = "COUNT(*)"
+        elif columns is not None:
+            # Explicit column list (from values())
+            col_parts = []
+            for f in columns:
+                if f in self._annotations:
+                    expr = self._annotations[f]
+                    if isinstance(expr, (Aggregate, Expression)):
+                        sql_frag, expr_params = expr.as_sql(dialect)
+                        col_parts.append(f'{sql_frag} AS "{f}"')
+                        annotation_params.extend(expr_params)
+                    else:
+                        col_parts.append(f'{expr} AS "{f}"')
+                else:
+                    col_parts.append(f'"{f}"')
+            col = ", ".join(col_parts)
         elif self._annotations:
             parts = []
             # Determine base columns
             if self._only_fields:
                 parts.extend(f'"{f}"' for f in self._only_fields)
             elif self._defer_fields and hasattr(self._model_cls, '_column_names'):
-                # Exclude deferred fields
                 for cn in self._model_cls._attr_names:
                     if cn not in self._defer_fields:
                         field = self._model_cls._fields.get(cn)
@@ -750,14 +840,13 @@ class Q:
                 if isinstance(expr, (Aggregate, Expression)):
                     sql_frag, expr_params = expr.as_sql(dialect)
                     parts.append(f'{sql_frag} AS "{alias}"')
-                    params = list(expr_params) + params
+                    annotation_params.extend(expr_params)
                 else:
                     parts.append(f'{expr} AS "{alias}"')
             col = ", ".join(parts)
         elif self._only_fields:
             col = ", ".join(f'"{f}"' for f in self._only_fields)
         elif self._defer_fields and hasattr(self._model_cls, '_attr_names'):
-            # Build column list excluding deferred fields
             selected = []
             for cn in self._model_cls._attr_names:
                 if cn not in self._defer_fields:
@@ -767,6 +856,28 @@ class Q:
             col = ", ".join(selected) if selected else "*"
         else:
             col = "*" if not self._select_related else f'"{self._table}".*'
+
+        # ── select_related: add aliased columns for joined tables ─────
+        if self._select_related and not count and columns is None:
+            from .fields_module import ForeignKey, OneToOneField
+            extra_cols = []
+            for rel_name in self._select_related:
+                field = self._model_cls._fields.get(rel_name)
+                if isinstance(field, (ForeignKey, OneToOneField)):
+                    related_model = field.related_model
+                    if related_model is None:
+                        from .registry import ModelRegistry as _Reg
+                        target_name = field.to if isinstance(field.to, str) else field.to.__name__
+                        related_model = _Reg.get(target_name)
+                    if related_model is not None:
+                        rtable = related_model._table_name
+                        for rattr, rfield in related_model._fields.items():
+                            alias = f"{rel_name}__{rattr}"
+                            extra_cols.append(
+                                f'"{rtable}"."{rfield.column_name}" AS "{alias}"'
+                            )
+            if extra_cols:
+                col = col + ", " + ", ".join(extra_cols)
 
         distinct = "DISTINCT " if self._distinct and not count else ""
         sql = f'SELECT {distinct}{col} FROM "{self._table}"'
@@ -779,7 +890,6 @@ class Q:
                 if isinstance(field, (ForeignKey, OneToOneField)):
                     related_model = field.related_model
                     if related_model is None:
-                        # Try resolving from registry
                         from .registry import ModelRegistry as _Reg
                         target_name = field.to if isinstance(field.to, str) else field.to.__name__
                         related_model = _Reg.get(target_name)
@@ -791,6 +901,9 @@ class Q:
                             f' LEFT JOIN "{rtable}" ON '
                             f'"{self._table}"."{fk_col}" = "{rtable}"."{rpk}"'
                         )
+
+        # Combine params: annotation params first, then WHERE params
+        params = annotation_params + self._params.copy()
 
         if self._wheres:
             sql += " WHERE " + " AND ".join(f"({w})" for w in self._wheres)
@@ -805,7 +918,6 @@ class Q:
         if not count and self._order_clauses:
             sql += " ORDER BY " + ", ".join(self._order_clauses)
         elif not count and not self._order_clauses and hasattr(self._model_cls, '_meta'):
-            # Apply default ordering from Meta class
             meta_ordering = getattr(self._model_cls._meta, 'ordering', [])
             if meta_ordering:
                 default_order = []
@@ -821,9 +933,16 @@ class Q:
         if not count and self._offset_val is not None:
             sql += f" OFFSET {self._offset_val}"
 
-        # SELECT FOR UPDATE (PostgreSQL/MySQL only, ignored on SQLite)
+        # SELECT FOR UPDATE (PostgreSQL/MySQL only)
         if self._select_for_update and not count:
-            sql += " FOR UPDATE"
+            if dialect == "sqlite":
+                logger.warning("select_for_update() has no effect on SQLite")
+            else:
+                sql += " FOR UPDATE"
+                if self._sfu_nowait:
+                    sql += " NOWAIT"
+                elif self._sfu_skip_locked:
+                    sql += " SKIP LOCKED"
 
         return sql, params
 
@@ -833,6 +952,11 @@ class Q:
         """Execute and return all matching rows as model instances."""
         if self._is_none:
             return []
+
+        # Return cached results if available
+        if self._result_cache is not None:
+            return self._result_cache
+
         sql, params = self._build_select()
 
         # Apply set operations (UNION, INTERSECT, EXCEPT)
@@ -843,12 +967,68 @@ class Q:
                 params.extend(other_params)
 
         rows = await self._db.fetch_all(sql, params)
-        instances = [self._model_cls.from_row(row) for row in rows]
+
+        # ── select_related: split joined columns into nested objects ──
+        if self._select_related:
+            from .fields_module import ForeignKey, OneToOneField
+            from .registry import ModelRegistry as _Reg
+
+            # Build metadata for splitting
+            sr_meta = []  # (rel_name, related_model)
+            for rel_name in self._select_related:
+                field = self._model_cls._fields.get(rel_name)
+                if isinstance(field, (ForeignKey, OneToOneField)):
+                    related_model = field.related_model
+                    if related_model is None:
+                        target_name = field.to if isinstance(field.to, str) else field.to.__name__
+                        related_model = _Reg.get(target_name)
+                    if related_model is not None:
+                        sr_meta.append((rel_name, related_model))
+
+            instances = []
+            for row in rows:
+                row_dict = dict(row)
+                # Extract related model data from aliased columns
+                for rel_name, related_model in sr_meta:
+                    related_data = {}
+                    prefix = f"{rel_name}__"
+                    has_data = False
+                    for key in list(row_dict.keys()):
+                        if key.startswith(prefix):
+                            attr_name = key[len(prefix):]
+                            val = row_dict.pop(key)
+                            related_data[attr_name] = val
+                            if val is not None:
+                                has_data = True
+                    # Build related instance (or None for LEFT JOIN miss)
+                    if has_data:
+                        related_instance = related_model.from_row(related_data)
+                    else:
+                        related_instance = None
+                    # We'll attach it after creating the parent instance
+                    row_dict[f"_sr_{rel_name}"] = related_instance
+
+                instance = self._model_cls.from_row(row_dict)
+                # Attach select_related instances to parent
+                for rel_name, _ in sr_meta:
+                    sr_key = f"_sr_{rel_name}"
+                    related_obj = getattr(instance, sr_key, row_dict.get(sr_key))
+                    setattr(instance, rel_name, related_obj)
+                    # Clean up the temp attribute
+                    try:
+                        delattr(instance, sr_key)
+                    except AttributeError:
+                        pass
+                instances.append(instance)
+        else:
+            instances = [self._model_cls.from_row(row) for row in rows]
 
         # ── prefetch_related: execute separate queries for related objects ──
         if self._prefetch_related and instances:
             await self._execute_prefetch(instances)
 
+        # Cache results
+        self._result_cache = instances
         return instances
 
     async def _execute_prefetch(self, instances: List[Model]) -> None:
@@ -1080,13 +1260,27 @@ class Q:
         """
         Check if any matching rows exist.
 
+        Uses SELECT EXISTS(...LIMIT 1) for efficient short-circuit evaluation
+        instead of COUNT(*) which must scan all matching rows.
+
         Usage:
             if await User.objects.filter(email="a@b.com").exists():
                 print("Found!")
         """
         if self._is_none:
             return False
-        return (await self.count()) > 0
+        # Build a lightweight SELECT 1 query with LIMIT 1
+        inner_sql, params = self._build_select()
+        # Replace SELECT ... FROM with SELECT 1 FROM for efficiency
+        from_idx = inner_sql.upper().find(" FROM ")
+        if from_idx != -1:
+            inner_sql = "SELECT 1" + inner_sql[from_idx:]
+        # Add LIMIT 1 if not already present
+        if "LIMIT" not in inner_sql.upper():
+            inner_sql += " LIMIT 1"
+        exists_sql = f"SELECT EXISTS ({inner_sql})"
+        val = await self._db.fetch_val(exists_sql, params)
+        return bool(val)
 
     async def update(self, values: Dict[str, Any] = None, **kwargs) -> int:
         """
@@ -1156,46 +1350,9 @@ class Q:
         if self._is_none:
             return []
 
-        # Build using the existing infrastructure for consistency
-        from .aggregate import Aggregate
-        from .expression import Expression
-
-        dialect = self._get_dialect()
-        params = self._params.copy()
-
-        if fields:
-            col_parts = []
-            for f in fields:
-                # Check if this is an annotation alias
-                if f in self._annotations:
-                    expr = self._annotations[f]
-                    if isinstance(expr, (Aggregate, Expression)):
-                        sql_frag, expr_params = expr.as_sql(dialect)
-                        col_parts.append(f'{sql_frag} AS "{f}"')
-                        params = list(expr_params) + params
-                    else:
-                        col_parts.append(f'{expr} AS "{f}"')
-                else:
-                    col_parts.append(f'"{f}"')
-            cols = ", ".join(col_parts)
-        else:
-            cols = "*"
-
-        sql = f'SELECT {cols} FROM "{self._table}"'
-
-        if self._wheres:
-            sql += " WHERE " + " AND ".join(f"({w})" for w in self._wheres)
-        if self._group_by:
-            sql += " GROUP BY " + ", ".join(f'"{g}"' for g in self._group_by)
-        if self._having:
-            sql += " HAVING " + " AND ".join(f"({h})" for h in self._having)
-            params.extend(self._having_params)
-        if self._order_clauses:
-            sql += " ORDER BY " + ", ".join(self._order_clauses)
-        if self._limit_val is not None:
-            sql += f" LIMIT {self._limit_val}"
-        if self._offset_val is not None:
-            sql += f" OFFSET {self._offset_val}"
+        # Delegate to _build_select with explicit column list
+        col_list = list(fields) if fields else None
+        sql, params = self._build_select(columns=col_list)
 
         # Set operations
         if self._set_operations:
@@ -1312,12 +1469,25 @@ class Q:
         """
         Return the query execution plan (EXPLAIN).
 
+        Dialect-aware: uses EXPLAIN QUERY PLAN for SQLite,
+        EXPLAIN (FORMAT ...) for PostgreSQL, EXPLAIN for MySQL.
+
         Usage:
             plan = await User.objects.filter(active=True).explain()
             print(plan)
         """
         sql, params = self._build_select()
-        explain_sql = f"EXPLAIN QUERY PLAN {sql}"
+        dialect = self._get_dialect()
+        if dialect == "postgresql":
+            fmt = format or "TEXT"
+            explain_sql = f"EXPLAIN (FORMAT {fmt}) {sql}"
+        elif dialect == "mysql":
+            if format and format.upper() == "JSON":
+                explain_sql = f"EXPLAIN FORMAT=JSON {sql}"
+            else:
+                explain_sql = f"EXPLAIN {sql}"
+        else:
+            explain_sql = f"EXPLAIN QUERY PLAN {sql}"
         rows = await self._db.fetch_all(explain_sql, params)
         return "\n".join(str(row) for row in rows)
 
@@ -1327,10 +1497,20 @@ class Q:
         """
         Async iteration over queryset results.
 
+        Uses chunked fetching when iterator() was called, otherwise loads
+        all results into memory on first iteration.
+
         Usage:
             async for user in User.objects.filter(active=True):
                 print(user.name)
+
+            # Memory-efficient for large tables:
+            async for user in User.objects.filter(active=True).iterator(chunk_size=500):
+                print(user.name)
         """
+        chunk = self._iterator_chunk_size
+        if chunk is not None:
+            return _ChunkedQueryIterator(self, chunk_size=chunk)
         return _QueryIterator(self)
 
     def __repr__(self) -> str:
@@ -1352,7 +1532,7 @@ class Q:
 
 
 class _QueryIterator:
-    """Async iterator for Q querysets."""
+    """Async iterator for Q querysets — loads all results on first iteration."""
 
     def __init__(self, query: Q):
         self._query = query
@@ -1365,5 +1545,40 @@ class _QueryIterator:
         if self._index >= len(self._results):
             raise StopAsyncIteration
         item = self._results[self._index]
+        self._index += 1
+        return item
+
+
+class _ChunkedQueryIterator:
+    """Memory-efficient async iterator that fetches results in chunks.
+
+    Instead of loading all rows at once, fetches ``chunk_size`` rows per
+    batch using LIMIT/OFFSET, yielding one row at a time.
+    """
+
+    def __init__(self, query: Q, chunk_size: int = 2000):
+        self._query = query
+        self._chunk_size = chunk_size
+        self._offset = 0
+        self._buffer: List = []
+        self._index = 0
+        self._exhausted = False
+
+    async def __anext__(self):
+        if self._index >= len(self._buffer):
+            if self._exhausted:
+                raise StopAsyncIteration
+            # Fetch next chunk
+            chunk_qs = self._query.limit(self._chunk_size).offset(self._offset)
+            # Bypass cache for chunk fetching
+            chunk_qs._result_cache = None
+            self._buffer = await chunk_qs.all()
+            self._index = 0
+            self._offset += self._chunk_size
+            if len(self._buffer) < self._chunk_size:
+                self._exhausted = True
+            if not self._buffer:
+                raise StopAsyncIteration
+        item = self._buffer[self._index]
         self._index += 1
         return item
