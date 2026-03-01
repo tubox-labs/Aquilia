@@ -146,13 +146,16 @@ def _validate_workspace_config(workspace_root: Path, verbose: bool = False) -> L
 
 def _discover_and_update_manifests(workspace_root: Path, verbose: bool = False) -> None:
     """
-    Discover controllers and services in all modules and auto-update manifest.py files.
+    Discover controllers, services, models, guards, pipes, interceptors
+    in all modules and auto-update manifest.py files.
     
-    This function:
-    1. Scans all modules for controllers and services
-    2. Compares with manifest.py declarations
-    3. Automatically updates manifest.py with any missing declarations
-    4. Provides visibility into what was discovered vs declared
+    Discovery pipeline (v2.1):
+    1. ``AutoDiscoveryEngine`` (AST-based) — primary scanner for all
+       component kinds including models, guards, pipes, interceptors.
+    2. ``EnhancedDiscovery`` — fallback for controllers/services/sockets.
+    3. Compares with manifest.py declarations.
+    4. Automatically updates manifest.py with missing declarations.
+    5. Updates workspace.py with module registrations.
     
     Args:
         workspace_root: Path to workspace root
@@ -173,11 +176,24 @@ def _discover_and_update_manifests(workspace_root: Path, verbose: bool = False) 
     if not modules_dir.exists():
         return
     
+    # --- v2.1: Try AST-based auto-discovery engine first ---
+    ast_results = {}
+    try:
+        from aquilia.discovery.engine import AutoDiscoveryEngine
+        engine = AutoDiscoveryEngine(modules_dir)
+        ast_results = engine.discover_all()
+    except Exception:
+        pass
+    
     discovery = EnhancedDiscovery(verbose=verbose)
     
     # Track discovery results
     total_controllers = 0
     total_services = 0
+    total_models = 0
+    total_guards = 0
+    total_pipes = 0
+    total_interceptors = 0
     modules_updated = 0
     
     # Discover all modules with manifest.py
@@ -196,7 +212,35 @@ def _discover_and_update_manifests(workspace_root: Path, verbose: bool = False) 
             print(f"\n  Discovering module: {module_name}")
         
         try:
-            # Use enhanced discovery to get properly classified controllers, services, and socket controllers
+            # ── Discover via AST engine (models, guards, pipes, interceptors) ──
+            ast_models = []
+            ast_guards = []
+            ast_pipes = []
+            ast_interceptors = []
+            
+            if module_name in ast_results:
+                result = ast_results[module_name]
+                ast_models = [c.name for c in result.models]
+                ast_guards = [c.name for c in result.guards]
+                ast_pipes = [c.name for c in result.pipes]
+                ast_interceptors = [c.name for c in result.interceptors]
+                
+                if verbose:
+                    if ast_models:
+                        print(f"    + Found {len(ast_models)} model(s): {', '.join(ast_models)}")
+                    if ast_guards:
+                        print(f"    + Found {len(ast_guards)} guard(s): {', '.join(ast_guards)}")
+                    if ast_pipes:
+                        print(f"    + Found {len(ast_pipes)} pipe(s): {', '.join(ast_pipes)}")
+                    if ast_interceptors:
+                        print(f"    + Found {len(ast_interceptors)} interceptor(s): {', '.join(ast_interceptors)}")
+            
+            total_models += len(ast_models)
+            total_guards += len(ast_guards)
+            total_pipes += len(ast_pipes)
+            total_interceptors += len(ast_interceptors)
+            
+            # ── Discover controllers / services / sockets via EnhancedDiscovery ──
             result = discovery.discover_module_controllers_and_services(
                 base_package, module_name
             )
@@ -240,6 +284,20 @@ def _discover_and_update_manifests(workspace_root: Path, verbose: bool = False) 
                     print(f"    !  Error cleaning manifest: {str(e)[:60]}")
                 continue
             
+            # ── v2.1: Inject models/guards/pipes/interceptors into manifest ──
+            updated_content = _inject_component_list(
+                updated_content, "models", ast_models
+            )
+            updated_content = _inject_component_list(
+                updated_content, "guards", ast_guards
+            )
+            updated_content = _inject_component_list(
+                updated_content, "pipes", ast_pipes
+            )
+            updated_content = _inject_component_list(
+                updated_content, "interceptors", ast_interceptors
+            )
+            
             # Write updated manifest if there were changes
             if updated_content != manifest_content:
                 try:
@@ -257,6 +315,14 @@ def _discover_and_update_manifests(workspace_root: Path, verbose: bool = False) 
         except Exception as e:
             if verbose:
                 print(f"    !  Unexpected error processing {module_name}: {str(e)[:80]}")
+    
+    # Summary (v2.1)
+    if verbose:
+        print(f"\n  Discovery summary:")
+        print(f"    Controllers: {total_controllers}  Services: {total_services}")
+        print(f"    Models: {total_models}  Guards: {total_guards}")
+        print(f"    Pipes: {total_pipes}  Interceptors: {total_interceptors}")
+        print(f"    Modules updated: {modules_updated}")
     
     # After updating all manifests, update workspace.py with discovered configs
     try:
@@ -278,6 +344,57 @@ def _discover_and_update_manifests(workspace_root: Path, verbose: bool = False) 
     except Exception as e:
         if verbose:
             print(f"  !  Failed to update workspace.py: {str(e)[:80]}")
+
+
+def _inject_component_list(
+    content: str,
+    field_name: str,
+    discovered_items: list,
+) -> str:
+    """
+    Inject or update a component list (models, guards, pipes, interceptors)
+    in a manifest.py content string.
+    
+    If the field already exists, merges new items into the existing list.
+    If not present, does nothing (the user can add it when ready).
+    
+    Args:
+        content: manifest.py text
+        field_name: e.g. "models", "guards", "pipes", "interceptors"
+        discovered_items: list of class names discovered by AST engine
+    
+    Returns:
+        Updated content string
+    """
+    import re
+    
+    if not discovered_items:
+        return content
+    
+    # Find existing field declaration: e.g. models=["Foo", "Bar"]
+    pattern = rf'({field_name}\s*=\s*\[)(.*?)(\])'
+    match = re.search(pattern, content, re.DOTALL)
+    
+    if not match:
+        return content  # Field not declared — user hasn't opted in
+    
+    # Parse existing items
+    existing_items = re.findall(r'"([^"]+)"', match.group(2))
+    
+    # Merge (preserve order, add new at end)
+    merged = list(existing_items)
+    for item in discovered_items:
+        if item not in merged:
+            merged.append(item)
+    
+    if set(merged) == set(existing_items):
+        return content  # No changes
+    
+    # Rebuild the list
+    items_str = ", ".join(f'"{item}"' for item in merged)
+    new_field = f'{field_name}=[{items_str}]'
+    
+    return content[:match.start()] + new_field + content[match.end():]
 
 
 def _discover_and_display_routes(workspace_root: Path, verbose: bool = False) -> None:

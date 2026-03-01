@@ -274,7 +274,7 @@ def print_analysis_report(analysis: Dict) -> None:
     if analysis['dependencies']['max_depth'] > 0:
         section("Dependencies")
         kv("Max Depth", str(analysis['dependencies']['max_depth']))
-        cyclic = analysis['dependencies']['cyclic_detected']
+        cyclic = analysis['dependencies']['cyclic_dependencies']
         kv("Cyclic Dependencies", "Detected" if cyclic else "None")
         click.echo()
 

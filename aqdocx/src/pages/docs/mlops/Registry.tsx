@@ -6,7 +6,7 @@ import { NextSteps } from '../../../components/NextSteps'
 export function MLOpsRegistry() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
-  const box = `p-6 rounded-2xl border ${isDark ? 'bg-[#0A0A0A] border-white/10' : 'bg-white border-gray-200'}`
+  const boxClass = `p-6 rounded-2xl border ${isDark ? 'bg-[#0A0A0A] border-white/10' : 'bg-white border-gray-200'}`
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -22,93 +22,188 @@ export function MLOpsRegistry() {
           </span>
         </h1>
         <p className={`text-lg leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          <code className="text-aquilia-400">RegistryService</code> is a versioned model registry with stage transitions (staging → production → archived), rollback capability, and integration with the <code className="text-aquilia-400">ContentStore</code>.
+          The registry provides centralized model versioning with async SQLite persistence, LRU manifest caching,
+          immutability enforcement, content-addressable blob storage, and pluggable storage backends (filesystem, S3).
         </p>
       </div>
 
       {/* RegistryService */}
       <section className="mb-16">
         <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>RegistryService</h2>
-        <CodeBlock language="python" filename="registry.py">{`from aquilia.mlops import RegistryService, ContentStore
+        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+          Core registry service with publish/fetch/promote/delete operations and built-in integrity verification.
+        </p>
+        <CodeBlock language="python" code={`from aquilia.mlops.registry.service import RegistryService
 
-store = ContentStore.local("./model_store/")
-registry = RegistryService(store=store)
+registry = RegistryService(
+    db_path="registry.db",       # SQLite database path
+    blob_root=".aquilia-store",  # Blob storage root
+    cache_size=256,              # LRU cache entries
+)
 
-# Register a modelpack
-entry = await registry.register(pack)
-print(entry.content_id)   # "sha256:..."
-print(entry.stage)         # "staging"
+# Initialize (creates tables + indexes)
+await registry.initialize()
 
-# Promote to production
-await registry.promote(pack.name, version="1.2.0", stage="production")
+# Publish a modelpack
+await registry.publish(
+    name="sentiment",
+    version="v2",
+    archive_path="./sentiment-v2.aquilia",
+)
+# Steps: validate manifest → check immutability → store blobs → insert record
 
-# Get the production model
-prod = await registry.get_production("sentiment-classifier")
-print(prod.version)   # "1.2.0"
+# Fetch a manifest (LRU-cached)
+manifest = await registry.fetch("sentiment", "v2")
+print(manifest.name)       # "sentiment"
+print(manifest.version)    # "v2"
+print(manifest.framework)  # Framework.PYTORCH
 
-# Rollback to previous version
-await registry.rollback("sentiment-classifier")
+# Fetch by content digest
+manifest = await registry.fetch_by_digest("sha256:abc123...")
 
-# List all versions
-versions = await registry.list_versions("sentiment-classifier")
-for v in versions:
-    print(f"  v{v.version} — {v.stage}")`}</CodeBlock>
+# List all versions of a model
+versions = await registry.list_versions("sentiment")
+# → ["v1", "v2", "v3"]
+
+# List all models in registry
+packs = await registry.list_packs(limit=100, offset=0)
+
+# Promote (copy tag from one version to another)
+await registry.promote("sentiment", from_version="v2", to_tag="latest")
+
+# Delete a version
+await registry.delete("sentiment", "v1")
+
+# Verify integrity (re-check all blob digests)
+is_valid = await registry.verify("sentiment", "v2")
+# Returns True if all blobs match their recorded SHA-256 digests`} />
       </section>
 
-      {/* Stages */}
+      {/* Database Schema */}
       <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Model Stages</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {[
-            { stage: 'staging', color: 'yellow', desc: 'Newly registered. Not yet serving traffic. Run validation tests here.' },
-            { stage: 'production', color: 'green', desc: 'Actively serving. Only one version can be production at a time.' },
-            { stage: 'archived', color: 'gray', desc: 'Retired. Kept for audit trail and rollback capability.' },
-          ].map((s, i) => (
-            <div key={i} className={box}>
-              <span className={`inline-block px-2 py-0.5 rounded text-xs font-mono font-bold mb-2 ${
-                s.color === 'yellow' ? 'bg-yellow-500/20 text-yellow-400' :
-                s.color === 'green' ? 'bg-green-500/20 text-green-400' :
-                'bg-gray-500/20 text-gray-400'
-              }`}>{s.stage}</span>
-              <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>{s.desc}</p>
-            </div>
-          ))}
+        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Database Schema</h2>
+        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+          <code className="text-aquilia-500">RegistryDB</code> manages an async SQLite database with 3 tables and optimized indexes.
+        </p>
+        <CodeBlock language="sql" code={`-- Table: packs
+CREATE TABLE packs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    version TEXT NOT NULL,
+    manifest TEXT NOT NULL,          -- JSON blob
+    content_digest TEXT NOT NULL,    -- SHA-256 of all blob digests
+    created_at REAL NOT NULL,
+    UNIQUE(name, version)
+);
+CREATE INDEX idx_packs_name ON packs(name);
+CREATE INDEX idx_packs_digest ON packs(content_digest);
+
+-- Table: tags
+CREATE TABLE tags (
+    name TEXT NOT NULL,
+    tag TEXT NOT NULL,
+    version TEXT NOT NULL,
+    PRIMARY KEY(name, tag)
+);
+
+-- Table: blobs
+CREATE TABLE blobs (
+    digest TEXT PRIMARY KEY,
+    size INTEGER NOT NULL,
+    storage_path TEXT NOT NULL,
+    ref_count INTEGER DEFAULT 1
+);`} />
+      </section>
+
+      {/* Storage Backends */}
+      <section className="mb-16">
+        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Storage Backends</h2>
+        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+          Blob storage is pluggable via the <code className="text-aquilia-500">BaseStorageAdapter</code> protocol.
+          Two backends are included: filesystem and S3/MinIO.
+        </p>
+
+        <h3 className={`text-lg font-semibold mb-3 ${isDark ? 'text-white' : 'text-gray-900'}`}>Filesystem Backend</h3>
+        <CodeBlock language="python" code={`from aquilia.mlops.registry.storage.filesystem import FilesystemStorageAdapter
+
+adapter = FilesystemStorageAdapter(root=".aquilia-blobs")
+
+# Content-addressable layout:
+# .aquilia-blobs/
+# └── sha256/
+#     ├── ab/
+#     │   └── abc123...  ← blob file
+#     └── cd/
+#         └── cde456...  ← blob file
+
+await adapter.put_blob("sha256:abc123...", data)
+blob = await adapter.get_blob("sha256:abc123...")
+exists = await adapter.has_blob("sha256:abc123...")
+await adapter.delete_blob("sha256:abc123...")
+all_digests = await adapter.list_blobs()`} />
+
+        <h3 className={`text-lg font-semibold mb-3 mt-8 ${isDark ? 'text-white' : 'text-gray-900'}`}>S3 / MinIO Backend</h3>
+        <CodeBlock language="python" code={`from aquilia.mlops.registry.storage.s3 import S3StorageAdapter
+
+adapter = S3StorageAdapter(
+    bucket="my-modelpacks",
+    prefix="blobs/",
+    endpoint_url="http://localhost:9000",  # MinIO
+    aws_access_key_id="minioadmin",
+    aws_secret_access_key="minioadmin",
+    region_name="us-east-1",
+)
+
+# Same interface as filesystem
+await adapter.put_blob("sha256:abc123...", data)
+# → stored at s3://my-modelpacks/blobs/sha256/ab/abc123...
+
+# Requires: pip install boto3`} />
+
+        <h3 className={`text-lg font-semibold mb-3 mt-8 ${isDark ? 'text-white' : 'text-gray-900'}`}>Custom Backend</h3>
+        <CodeBlock language="python" code={`from aquilia.mlops.registry.storage.base import BaseStorageAdapter
+
+class MyStorageAdapter(BaseStorageAdapter):
+    """Custom blob storage (GCS, Azure Blob, etc.)"""
+
+    async def put_blob(self, digest: str, data: bytes) -> str: ...
+    async def get_blob(self, digest: str) -> bytes: ...
+    async def has_blob(self, digest: str) -> bool: ...
+    async def delete_blob(self, digest: str) -> None: ...
+    async def list_blobs(self) -> list[str]: ...`} />
+      </section>
+
+      {/* Immutability & Caching */}
+      <section className="mb-16">
+        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Immutability &amp; Caching</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className={boxClass}>
+            <h4 className={`font-semibold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>Immutability</h4>
+            <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+              Once a <code className="text-aquilia-500">name:version</code> pair is published, it cannot be overwritten.
+              Attempting to publish the same name+version raises <code className="text-aquilia-500">RegistryImmutabilityFault</code>.
+              This ensures reproducibility — the same version always returns the same model.
+            </p>
+          </div>
+          <div className={boxClass}>
+            <h4 className={`font-semibold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>LRU Caching</h4>
+            <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+              Manifest lookups are cached with an <code className="text-aquilia-500">LRUCache</code> (default 256 entries).
+              Cache hits avoid SQLite queries entirely. The cache tracks hit/miss rates for monitoring.
+              Cache is invalidated on publish, promote, and delete operations.
+            </p>
+          </div>
         </div>
       </section>
 
-      {/* Registry API */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Registry API</h2>
-        <div className="overflow-x-auto">
-          <table className={`w-full text-sm border-collapse ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-            <thead>
-              <tr className={isDark ? 'border-b border-white/10' : 'border-b border-gray-200'}>
-                <th className="py-3 px-4 text-left font-semibold">Method</th>
-                <th className="py-3 px-4 text-left font-semibold">Description</th>
-              </tr>
-            </thead>
-            <tbody>
-              {[
-                ['register(pack)', 'Register a new modelpack version'],
-                ['promote(name, version, stage)', 'Move model to a new stage'],
-                ['get_production(name)', 'Get the active production model'],
-                ['get_staging(name)', 'Get the current staging model'],
-                ['rollback(name)', 'Revert to previous production version'],
-                ['list_versions(name)', 'List all versions of a model'],
-                ['delete_version(name, version)', 'Delete a specific version'],
-                ['compare(name, v1, v2)', 'Compare metadata of two versions'],
-              ].map(([method, desc], i) => (
-                <tr key={i} className={isDark ? 'border-b border-white/5' : 'border-b border-gray-100'}>
-                  <td className="py-2.5 px-4 font-mono text-aquilia-400 text-xs">{method}</td>
-                  <td className="py-2.5 px-4 text-xs">{desc}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-    
-      <NextSteps />
+      <NextSteps
+        items={[
+          { text: 'Runtime Backends', link: '/docs/mlops/runtime' },
+          { text: 'Serving', link: '/docs/mlops/serving' },
+          { text: 'Security', link: '/docs/mlops/security' },
+          { text: 'Deployment', link: '/docs/mlops/deployment' },
+        ]}
+      />
     </div>
   )
 }

@@ -2,6 +2,8 @@ import { Routes, Route } from 'react-router-dom'
 import { ThemeProvider } from './context/ThemeContext'
 import { DocsLayout } from './components/DocsLayout'
 import { LandingPage } from './pages/LandingPage'
+import { Changelogs } from './pages/Changelogs'
+import { Releases } from './pages/Releases'
 
 // Getting Started
 import { IntroductionPage } from './pages/docs/getting-started/Introduction'
@@ -69,13 +71,16 @@ import { ModelsRelationships } from './pages/docs/models/Relationships'
 import { ModelsMigrations } from './pages/docs/models/Migrations'
 import { ModelsAdvanced } from './pages/docs/models/Advanced'
 
-// Serializers
-import { SerializersOverview } from './pages/docs/serializers/Overview'
-import { SerializerFields } from './pages/docs/serializers/Fields'
-import { SerializerValidators } from './pages/docs/serializers/Validators'
-import { SerializerRelations } from './pages/docs/serializers/Relations'
-import { SerializerModel } from './pages/docs/serializers/ModelSerializer'
-import { SerializerDIIntegration } from './pages/docs/serializers/DIIntegration'
+// Blueprints
+import { BlueprintsOverview } from './pages/docs/blueprints/Overview'
+import { BlueprintsFacets } from './pages/docs/blueprints/Facets'
+import { BlueprintsProjections } from './pages/docs/blueprints/Projections'
+import { BlueprintsLenses } from './pages/docs/blueprints/Lenses'
+import { BlueprintsSeals } from './pages/docs/blueprints/Seals'
+import { BlueprintsAnnotations } from './pages/docs/blueprints/Annotations'
+import { BlueprintsIntegration } from './pages/docs/blueprints/Integration'
+import { BlueprintsSchemas } from './pages/docs/blueprints/Schemas'
+import { BlueprintsFaults } from './pages/docs/blueprints/Faults'
 
 // Database
 import { DatabaseOverview } from './pages/docs/database/Overview'
@@ -88,11 +93,24 @@ import { AuthGuards } from './pages/docs/auth/Guards'
 import { AuthAdvanced } from './pages/docs/auth/Advanced'
 import { AuthZPage } from './pages/docs/auth/AuthZ'
 import { AuthCredentials } from './pages/docs/auth/Credentials'
+import { AuthManager } from './pages/docs/auth/Manager'
+import { AuthOAuth } from './pages/docs/auth/OAuth'
+import { AuthMFA } from './pages/docs/auth/MFA'
+import { AuthTokens } from './pages/docs/auth/Tokens'
+import { AuthStores } from './pages/docs/auth/Stores'
+import { AuthFaults } from './pages/docs/auth/Faults'
+import { AuthIntegration } from './pages/docs/auth/Integration'
 
 // Sessions
 import { SessionsOverview } from './pages/docs/sessions/Overview'
-import { SessionsStores } from './pages/docs/sessions/Stores'
+import { SessionsEngine } from './pages/docs/sessions/Engine'
 import { SessionsPolicies } from './pages/docs/sessions/Policies'
+import { SessionsStores } from './pages/docs/sessions/Stores'
+import { SessionsTransport } from './pages/docs/sessions/Transport'
+import { SessionsDecorators } from './pages/docs/sessions/Decorators'
+import { SessionsState } from './pages/docs/sessions/State'
+import { SessionsGuards } from './pages/docs/sessions/Guards'
+import { SessionsFaults } from './pages/docs/sessions/Faults'
 
 // Middleware
 import { MiddlewareOverview } from './pages/docs/middleware/Overview'
@@ -147,10 +165,22 @@ import { AquilaryFingerprint } from './pages/docs/aquilary/Fingerprint'
 
 // MLOps
 import { MLOpsOverview } from './pages/docs/mlops/Overview'
+import { MLOpsTypes } from './pages/docs/mlops/Types'
+import { MLOpsAPI } from './pages/docs/mlops/API'
+import { MLOpsEngine } from './pages/docs/mlops/Engine'
 import { MLOpsModelpack } from './pages/docs/mlops/Modelpack'
 import { MLOpsRegistry } from './pages/docs/mlops/Registry'
+import { MLOpsRuntime } from './pages/docs/mlops/Runtime'
 import { MLOpsServing } from './pages/docs/mlops/Serving'
-import { MLOpsDrift } from './pages/docs/mlops/Drift'
+import { MLOpsOrchestrator } from './pages/docs/mlops/Orchestrator'
+import { MLOpsObservability } from './pages/docs/mlops/Observability'
+import { MLOpsPlugins } from './pages/docs/mlops/Plugins'
+import { MLOpsRelease } from './pages/docs/mlops/Release'
+import { MLOpsScheduler } from './pages/docs/mlops/Scheduler'
+import { MLOpsSecurity } from './pages/docs/mlops/Security'
+import { MLOpsExplain } from './pages/docs/mlops/Explain'
+import { MLOpsDeployment } from './pages/docs/mlops/Deployment'
+import { MLOpsTutorial } from './pages/docs/mlops/Tutorial'
 
 // CLI
 import { CLIOverview } from './pages/docs/cli/Overview'
@@ -160,6 +190,11 @@ import { CLICoreCommands } from './pages/docs/cli/CoreCommands'
 import { CLIDatabaseCommands } from './pages/docs/cli/DatabaseCommands'
 import { CLIMLOpsCommands } from './pages/docs/cli/MLOpsCommands'
 import { CLIInspectionCommands } from './pages/docs/cli/InspectionCommands'
+import { CLIWebSocketCommands } from './pages/docs/cli/WebSocketCommands'
+import { CLIDeployCommands } from './pages/docs/cli/DeployCommands'
+import { CLIArtifactCommands } from './pages/docs/cli/ArtifactCommands'
+import { CLITraceCommands } from './pages/docs/cli/TraceCommands'
+import { CLISubsystemCommands } from './pages/docs/cli/SubsystemCommands'
 
 // Testing
 import { TestingOverview } from './pages/docs/testing/Overview'
@@ -176,6 +211,8 @@ export default function App() {
     <ThemeProvider>
       <Routes>
         <Route path="/" element={<LandingPage />} />
+        <Route path="/changelogs" element={<Changelogs />} />
+        <Route path="/releases" element={<Releases />} />
         <Route path="/docs" element={<DocsLayout />}>
           <Route index element={<IntroductionPage />} />
           <Route path="installation" element={<InstallationPage />} />
@@ -254,14 +291,17 @@ export default function App() {
           <Route path="models/transactions" element={<ModelsAdvanced />} />
           <Route path="models/aggregation" element={<ModelsAdvanced />} />
 
-          {/* Serializers */}
-          <Route path="serializers" element={<SerializersOverview />} />
-          <Route path="serializers/base" element={<SerializersOverview />} />
-          <Route path="serializers/model" element={<SerializerModel />} />
-          <Route path="serializers/fields" element={<SerializerFields />} />
-          <Route path="serializers/validators" element={<SerializerValidators />} />
-          <Route path="serializers/relations" element={<SerializerRelations />} />
-          <Route path="serializers/di-integration" element={<SerializerDIIntegration />} />
+          {/* Blueprints */}
+          <Route path="blueprints" element={<BlueprintsOverview />} />
+          <Route path="blueprints/overview" element={<BlueprintsOverview />} />
+          <Route path="blueprints/facets" element={<BlueprintsFacets />} />
+          <Route path="blueprints/projections" element={<BlueprintsProjections />} />
+          <Route path="blueprints/lenses" element={<BlueprintsLenses />} />
+          <Route path="blueprints/seals" element={<BlueprintsSeals />} />
+          <Route path="blueprints/annotations" element={<BlueprintsAnnotations />} />
+          <Route path="blueprints/integration" element={<BlueprintsIntegration />} />
+          <Route path="blueprints/schemas" element={<BlueprintsSchemas />} />
+          <Route path="blueprints/faults" element={<BlueprintsFaults />} />
 
           {/* Database */}
           <Route path="database" element={<DatabaseOverview />} />
@@ -274,10 +314,15 @@ export default function App() {
           <Route path="auth" element={<AuthOverview />} />
           <Route path="auth/identity" element={<AuthIdentity />} />
           <Route path="auth/credentials" element={<AuthCredentials />} />
-          <Route path="auth/manager" element={<AuthAdvanced />} />
-          <Route path="auth/oauth" element={<AuthAdvanced />} />
-          <Route path="auth/mfa" element={<AuthAdvanced />} />
+          <Route path="auth/manager" element={<AuthManager />} />
+          <Route path="auth/oauth" element={<AuthOAuth />} />
+          <Route path="auth/mfa" element={<AuthMFA />} />
+          <Route path="auth/tokens" element={<AuthTokens />} />
+          <Route path="auth/stores" element={<AuthStores />} />
+          <Route path="auth/faults" element={<AuthFaults />} />
           <Route path="auth/guards" element={<AuthGuards />} />
+          <Route path="auth/integration" element={<AuthIntegration />} />
+          <Route path="auth/advanced" element={<AuthAdvanced />} />
           <Route path="authz" element={<AuthZPage />} />
           <Route path="authz/rbac" element={<AuthZPage />} />
           <Route path="authz/abac" element={<AuthZPage />} />
@@ -286,9 +331,14 @@ export default function App() {
           {/* Sessions */}
           <Route path="sessions" element={<SessionsOverview />} />
           <Route path="sessions/overview" element={<SessionsOverview />} />
-          <Route path="sessions/session-id" element={<SessionsStores />} />
-          <Route path="sessions/stores" element={<SessionsStores />} />
+          <Route path="sessions/engine" element={<SessionsEngine />} />
           <Route path="sessions/policies" element={<SessionsPolicies />} />
+          <Route path="sessions/stores" element={<SessionsStores />} />
+          <Route path="sessions/transport" element={<SessionsTransport />} />
+          <Route path="sessions/decorators" element={<SessionsDecorators />} />
+          <Route path="sessions/state" element={<SessionsState />} />
+          <Route path="sessions/guards" element={<SessionsGuards />} />
+          <Route path="sessions/faults" element={<SessionsFaults />} />
 
           {/* Middleware */}
           <Route path="middleware" element={<MiddlewareOverview />} />
@@ -345,10 +395,22 @@ export default function App() {
 
           {/* MLOps */}
           <Route path="mlops" element={<MLOpsOverview />} />
+          <Route path="mlops/types" element={<MLOpsTypes />} />
+          <Route path="mlops/api" element={<MLOpsAPI />} />
+          <Route path="mlops/engine" element={<MLOpsEngine />} />
           <Route path="mlops/modelpack" element={<MLOpsModelpack />} />
           <Route path="mlops/registry" element={<MLOpsRegistry />} />
+          <Route path="mlops/runtime" element={<MLOpsRuntime />} />
           <Route path="mlops/serving" element={<MLOpsServing />} />
-          <Route path="mlops/drift" element={<MLOpsDrift />} />
+          <Route path="mlops/orchestrator" element={<MLOpsOrchestrator />} />
+          <Route path="mlops/observability" element={<MLOpsObservability />} />
+          <Route path="mlops/plugins" element={<MLOpsPlugins />} />
+          <Route path="mlops/release" element={<MLOpsRelease />} />
+          <Route path="mlops/scheduler" element={<MLOpsScheduler />} />
+          <Route path="mlops/security" element={<MLOpsSecurity />} />
+          <Route path="mlops/explain" element={<MLOpsExplain />} />
+          <Route path="mlops/deployment" element={<MLOpsDeployment />} />
+          <Route path="mlops/tutorial" element={<MLOpsTutorial />} />
 
           {/* CLI */}
           <Route path="cli" element={<CLIOverview />} />
@@ -358,6 +420,11 @@ export default function App() {
           <Route path="cli/database" element={<CLIDatabaseCommands />} />
           <Route path="cli/mlops" element={<CLIMLOpsCommands />} />
           <Route path="cli/inspection" element={<CLIInspectionCommands />} />
+          <Route path="cli/websockets" element={<CLIWebSocketCommands />} />
+          <Route path="cli/deploy" element={<CLIDeployCommands />} />
+          <Route path="cli/artifacts" element={<CLIArtifactCommands />} />
+          <Route path="cli/trace" element={<CLITraceCommands />} />
+          <Route path="cli/subsystems" element={<CLISubsystemCommands />} />
 
           {/* Testing */}
           <Route path="testing" element={<TestingOverview />} />

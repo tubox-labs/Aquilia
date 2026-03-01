@@ -1,7 +1,7 @@
 import { useTheme } from '../../../context/ThemeContext'
 import { CodeBlock } from '../../../components/CodeBlock'
 import { Link } from 'react-router-dom'
-import { ArrowLeft, ArrowRight, Cpu } from 'lucide-react'
+import { Brain, ArrowRight, Layers, Box, Server, Activity, Shield, Zap, Eye, Plug, Rocket, Database, Cpu, GitBranch, BarChart3 } from 'lucide-react'
 import { NextSteps } from '../../../components/NextSteps'
 
 export function MLOpsOverview() {
@@ -13,7 +13,7 @@ export function MLOpsOverview() {
     <div className="max-w-4xl mx-auto">
       <div className="mb-12">
         <div className="flex items-center gap-2 text-sm text-aquilia-500 font-medium mb-4">
-          <Cpu className="w-4 h-4" />
+          <Brain className="w-4 h-4" />
           Advanced / MLOps
         </div>
         <h1 className={`text-4xl ${isDark ? 'text-white' : 'text-gray-900'}`}>
@@ -23,23 +23,133 @@ export function MLOpsOverview() {
           </span>
         </h1>
         <p className={`text-lg leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Aquilia's MLOps module provides production-ready model packaging (Modelpack), a content-addressable registry, dynamic serving with batching, observability with drift detection, and rollout management — fully integrated with the framework's DI, fault, and lifecycle systems.
+          Aquilia's MLOps module is a comprehensive, production-grade machine learning operations platform
+          built directly into the framework. It provides everything needed to package, register, serve, observe,
+          optimize, secure, and manage ML models at scale — from traditional classifiers to large language models (LLMs).
+          Every component is fully integrated with Aquilia's DI container, FaultEngine, CacheService, Artifacts system,
+          and lifecycle hooks.
         </p>
       </div>
 
-      {/* Architecture */}
+      {/* Architecture Overview */}
       <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Architecture</h2>
+        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Architecture Overview</h2>
+        <p className={`mb-6 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+          The MLOps module is organized into 17 sub-modules spanning the entire ML lifecycle. Each module
+          is independently usable but designed to work together as a cohesive platform.
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {[
+            { name: 'API Layer', desc: 'Model definition via @model, @serve decorators and AquiliaModel base class with automatic route generation', icon: '🎯' },
+            { name: 'Engine', desc: 'InferencePipeline with hooks, lifecycle management, MLOps module manifest, and 35+ fault types', icon: '⚙️' },
+            { name: 'Pack', desc: 'ModelpackBuilder creates .aquilia TAR.GZ archives with content-addressable storage and cryptographic signing', icon: '📦' },
+            { name: 'Registry', desc: 'RegistryService with async SQLite, versioning, immutability, LRU caching, and S3/filesystem storage backends', icon: '🗃️' },
+            { name: 'Runtime', desc: 'Multi-backend execution: PythonRuntime, ONNX, Triton, TorchServe, BentoML with FSM state management', icon: '🏃' },
+            { name: 'Serving', desc: 'ModelServingServer with dynamic batching, circuit breaker, rate limiting, streaming, and K8s health probes', icon: '🌐' },
+            { name: 'Orchestrator', desc: 'ModelOrchestrator facade with lazy loading, hot-reload, version routing, and model persistence', icon: '🎭' },
+            { name: 'Observe', desc: 'MetricsCollector (Prometheus-compatible), DriftDetector (PSI/KS/embedding), and PredictionLogger', icon: '👁️' },
+            { name: 'Optimizer', desc: 'OptimizationPipeline for quantization (INT8/FP16) and EdgeExporter for TFLite/CoreML/TensorRT', icon: '🔧' },
+            { name: 'Plugins', desc: 'PluginHost with entry-point discovery, lifecycle management, and PluginMarketplace for community plugins', icon: '🔌' },
+            { name: 'Release', desc: 'RolloutEngine for canary/A/B deployments with metric-gated advancement and auto-rollback', icon: '🚀' },
+            { name: 'Scheduler', desc: 'Autoscaler with GPU/token-based policies and PlacementScheduler with hardware-aware node scoring', icon: '📊' },
+            { name: 'Security', desc: 'RBAC with 4 built-in roles, Fernet encryption at rest, HMAC/RSA artifact signing', icon: '🔒' },
+            { name: 'Explain', desc: 'SHAP/LIME explainability wrappers, PII redaction, differential privacy noise, input sanitization', icon: '🔍' },
+            { name: 'DI Providers', desc: '20+ singleton services wired via register_mlops_providers() with ecosystem integration', icon: '💉' },
+            { name: 'Manifest', desc: 'TOML-based model configuration with schema validation and class-path resolution', icon: '📋' },
+            { name: 'Deploy', desc: 'K8s manifests (Deployment, Service, HPA, PVC) and Grafana dashboard for production deployment', icon: '☁️' },
+          ].map((item, i) => (
+            <div key={i} className={boxClass}>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-lg">{item.icon}</span>
+                <code className="text-aquilia-500 font-mono text-sm font-bold">{item.name}</code>
+              </div>
+              <p className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{item.desc}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Quick Start */}
+      <section className="mb-16">
+        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Quick Start</h2>
+
+        <h3 className={`text-lg font-semibold mb-3 ${isDark ? 'text-white' : 'text-gray-900'}`}>Class-Based Model</h3>
+        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+          Define a model by subclassing <code className="text-aquilia-500">AquiliaModel</code> and decorating with <code className="text-aquilia-500">@model</code>.
+          The decorator registers the model with the global <code className="text-aquilia-500">ModelRegistry</code> and auto-generates HTTP endpoints.
+        </p>
+        <CodeBlock language="python" code={`from aquilia.mlops import AquiliaModel, model
+
+@model(name="sentiment", version="v1", device="auto", batch_size=32)
+class SentimentAnalyzer(AquiliaModel):
+    async def load(self):
+        # Load your model weights, tokenizer, etc.
+        self.pipeline = load_sentiment_pipeline("./model.pt")
+
+    async def predict(self, inputs: dict) -> dict:
+        text = inputs.get("text", "")
+        score = self.pipeline(text)
+        return {"sentiment": "positive" if score > 0.5 else "negative", "score": score}
+
+    async def preprocess(self, raw_input: dict) -> dict:
+        # Optional: clean text, validate inputs
+        raw_input["text"] = raw_input["text"].strip().lower()
+        return raw_input
+
+    async def postprocess(self, raw_output: dict) -> dict:
+        # Optional: format output, add metadata
+        raw_output["model_version"] = "v1"
+        return raw_output`} />
+
+        <h3 className={`text-lg font-semibold mb-3 mt-8 ${isDark ? 'text-white' : 'text-gray-900'}`}>Functional Model</h3>
+        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+          For simple models, use the <code className="text-aquilia-500">@serve</code> decorator to wrap a plain function.
+        </p>
+        <CodeBlock language="python" code={`from aquilia.mlops import serve
+
+@serve(name="echo", version="v1")
+async def echo_model(inputs: dict) -> dict:
+    return {"echo": inputs}`} />
+
+        <h3 className={`text-lg font-semibold mb-3 mt-8 ${isDark ? 'text-white' : 'text-gray-900'}`}>DI Integration</h3>
+        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+          Wire all 20+ MLOps services into Aquilia's DI container with a single call.
+        </p>
+        <CodeBlock language="python" code={`from aquilia import Workspace, Integration
+
+workspace = (
+    Workspace("my-ml-app")
+    .integrate(Integration.mlops(
+        registry_db="registry.db",
+        blob_root="./blobs",
+        drift_method="psi",
+        drift_threshold=0.2,
+        max_batch_size=32,
+        rate_limit_rps=100.0,
+        circuit_breaker_failure_threshold=5,
+        memory_hard_limit_mb=8192,
+        cache_enabled=True,
+    ))
+)`} />
+      </section>
+
+      {/* Type System */}
+      <section className="mb-16">
+        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Type System</h2>
+        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+          The MLOps module defines a comprehensive type system in <code className="text-aquilia-500">_types.py</code> with 17 enums,
+          12 dataclasses, and 4 protocols that provide type safety across all subsystems.
+        </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {[
-            { name: 'ModelpackBuilder', desc: 'Packages models, dependencies, and metadata into a portable .modelpack archive with content-addressable storage.' },
-            { name: 'RegistryService', desc: 'Centralized model registry with versioning, immutability enforcement, and push/pull semantics.' },
-            { name: 'PythonRuntime', desc: 'Loads and executes models in an isolated Python runtime. Supports PyTorch, TensorFlow, ONNX, and scikit-learn.' },
-            { name: 'ModelServingServer', desc: 'HTTP/gRPC serving layer with warmup strategies, health checks, and graceful draining.' },
-            { name: 'DynamicBatcher', desc: 'Groups inference requests into micro-batches for GPU throughput optimization.' },
-            { name: 'MetricsCollector', desc: 'Collects latency, throughput, error rate, and custom metrics. Exports to Prometheus/OpenTelemetry.' },
-            { name: 'DriftDetector', desc: 'Monitors prediction distributions for data/concept drift using KS-test, PSI, and custom methods.' },
-            { name: 'PluginHost', desc: 'Extension system for custom hooks: pre/post-inference, model loading, metrics export.' },
+            { name: 'DType', desc: '10 numeric types with framework-specific conversion (numpy, torch)' },
+            { name: 'Framework', desc: '11 ML frameworks: PyTorch, TensorFlow, ONNX, JAX, VLLM, LlamaCpp, HuggingFace, etc.' },
+            { name: 'RuntimeKind', desc: '8 runtime backends: Python, ONNX, Triton, TorchServe, BentoML, VLLM, LlamaCpp, Custom' },
+            { name: 'QuantizePreset', desc: '12 quantization presets: INT8, FP16, DYNAMIC, STATIC, GGUF_Q4, AWQ, GPTQ, EDGE, etc.' },
+            { name: 'ModelType', desc: '8 model types: SLM, LLM, VISION, MULTIMODAL, TABULAR, TIMESERIES, RECOMMENDER, CUSTOM' },
+            { name: 'InferenceMode', desc: '4 modes: BATCH, STREAMING, REALTIME, OFFLINE' },
+            { name: 'DeviceType', desc: '6 devices: CPU, CUDA, MPS, XLA, NPU, AUTO' },
+            { name: 'BatchingStrategy', desc: '5 strategies: SIZE, TIME, HYBRID, CONTINUOUS, ADAPTIVE' },
           ].map((item, i) => (
             <div key={i} className={boxClass}>
               <code className="text-aquilia-500 font-mono text-sm font-bold">{item.name}</code>
@@ -49,159 +159,111 @@ export function MLOpsOverview() {
         </div>
       </section>
 
-      {/* Modelpack */}
+      {/* Data Structures */}
       <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Building a Modelpack</h2>
-        <CodeBlock language="python" filename="build_pack.py">{`from aquilia.mlops import ModelpackBuilder, Framework
-
-builder = ModelpackBuilder(
-    name="sentiment-classifier",
-    version="v1.2.0",
-    description="BERT-based sentiment analysis model",
-)
-
-# Add the model file
-builder.add_model(
-    "model.pt",
-    framework=Framework.PYTORCH,
-    input_spec={"text": {"type": "string", "max_length": 512}},
-    output_spec={"label": {"type": "string"}, "score": {"type": "number"}},
-)
-
-# Add preprocessing artifacts
-builder.add_artifact("tokenizer/", "tokenizer")
-builder.add_artifact("config.json", "config")
-
-# Add dependencies
-builder.add_requirements(["torch>=2.0", "transformers>=4.30"])
-
-# Set provenance
-builder.set_provenance(
-    training_data="s3://data/sentiment-v3",
-    training_commit="abc123",
-    metrics={"accuracy": 0.945, "f1": 0.932},
-)
-
-# Build the pack
-pack_path = await builder.save("./modelpacks/")
-print(f"Modelpack saved to {pack_path}")
-# → ./modelpacks/sentiment-classifier-v1.2.0.modelpack`}</CodeBlock>
+        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Built-in Data Structures</h2>
+        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+          The module ships with 17 high-performance data structures in <code className="text-aquilia-500">_structures.py</code>,
+          purpose-built for ML serving workloads.
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {[
+            { name: 'RingBuffer', desc: 'O(1) bounded circular buffer with percentile computation for metrics histograms' },
+            { name: 'LRUCache', desc: 'O(1) eviction with hit-rate tracking, used by RegistryService for manifest lookups' },
+            { name: 'CircuitBreaker', desc: '3-state FSM (CLOSED→OPEN→HALF_OPEN) with lifetime metrics and configurable thresholds' },
+            { name: 'TokenBucketRateLimiter', desc: 'Lazy-refill token bucket for per-model or global rate limiting' },
+            { name: 'ConsistentHash', desc: 'Jump-consistent hashing for sticky routing in TrafficRouter' },
+            { name: 'AdaptiveBatchQueue', desc: 'Priority + token-budget draining queue for LLM continuous batching' },
+            { name: 'ModelLineageDAG', desc: 'Directed acyclic graph with BFS traversal for model ancestry tracking' },
+            { name: 'ExperimentLedger', desc: 'A/B experiment assignment with per-arm metrics and statistical summarization' },
+            { name: 'BloomFilter', desc: 'Probabilistic set for request deduplication in serving' },
+            { name: 'MemoryTracker', desc: 'Soft/hard limit tracking with eviction candidate selection' },
+          ].map((item, i) => (
+            <div key={i} className={boxClass}>
+              <code className="text-aquilia-500 font-mono text-sm font-bold">{item.name}</code>
+              <p className={`text-xs mt-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{item.desc}</p>
+            </div>
+          ))}
+        </div>
       </section>
 
-      {/* Registry */}
+      {/* Module Registration */}
       <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Model Registry</h2>
-        <CodeBlock language="python" filename="registry.py">{`from aquilia.mlops import RegistryService
+        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Module Registration</h2>
+        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+          The MLOps module registers itself with Aquilia's Aquilary system via <code className="text-aquilia-500">MLOpsManifest</code>,
+          declaring controllers, 16 services, effects, 12 fault domains, and 4 middleware with scoped ordering.
+        </p>
+        <CodeBlock language="python" code={`# engine/module.py — MLOpsManifest (Aquilary Module)
 
-registry = RegistryService(storage_path="./model-registry/")
-
-# Push a modelpack to the registry
-await registry.push("./modelpacks/sentiment-classifier-v1.2.0.modelpack")
-
-# List available models
-models = await registry.list_models()
-for model in models:
-    print(f"{model.name}:{model.version} — {model.framework}")
-
-# Pull a specific version
-pack = await registry.pull("sentiment-classifier", version="v1.2.0")
-
-# Immutability — pushing the same version again raises an error
-# ImmutabilityViolationFault: Version v1.2.0 already exists`}</CodeBlock>
+class MLOpsManifest(AquilaryModule):
+    name = "mlops"
+    controllers = [MLOpsController]
+    services = [
+        MetricsCollector, DriftDetector, PredictionLogger,
+        RegistryService, PluginHost, TrafficRouter, RolloutEngine,
+        Autoscaler, PlacementScheduler, RBACManager,
+        ArtifactSigner, EncryptionManager, BlobEncryptor,
+        ModelOrchestrator, ModelLoader, ModelPersistenceManager,
+    ]
+    fault_domains = [
+        "mlops.pack", "mlops.registry", "mlops.serving",
+        "mlops.observe", "mlops.rollout", "mlops.scheduler",
+        "mlops.security", "mlops.plugin", "mlops.circuit_breaker",
+        "mlops.rate_limit", "mlops.streaming", "mlops.memory",
+    ]
+    middleware = [
+        mlops_request_id_middleware,
+        mlops_metrics_middleware,
+        mlops_rate_limit_middleware,
+        mlops_circuit_breaker_middleware,
+    ]`} />
       </section>
 
-      {/* Serving */}
+      {/* Lifecycle */}
       <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Model Serving</h2>
-        <CodeBlock language="python" filename="serve.py">{`from aquilia.mlops import (
-    ModelServingServer, PythonRuntime,
-    DynamicBatcher, WarmupStrategy,
-)
-
-# Create runtime
-runtime = PythonRuntime()
-await runtime.prepare(manifest, model_dir="./models/sentiment/")
-await runtime.load()
-
-# Create serving server
-server = ModelServingServer(
-    runtime=runtime,
-    batcher=DynamicBatcher(
-        max_batch_size=32,
-        max_wait_ms=50,
-        strategy="adaptive",
-    ),
-    warmup=WarmupStrategy.EAGER,  # Pre-warm on startup
-    max_concurrent=100,
-)
-
-# Inference
-result = await server.predict({
-    "text": "This product is amazing!",
-})
-print(result)  # {"label": "positive", "score": 0.987}`}</CodeBlock>
+        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Lifecycle</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className={boxClass}>
+            <h3 className={`font-semibold mb-3 ${isDark ? 'text-white' : 'text-gray-900'}`}>Startup (7 steps)</h3>
+            <ol className={`text-sm space-y-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+              <li>1. Register DI providers</li>
+              <li>2. Initialize registry DB</li>
+              <li>3. Discover plugins via entry points</li>
+              <li>4. Initialize CacheService</li>
+              <li>5. Create artifact store directory</li>
+              <li>6. Wire FaultEngine → MetricsCollector listener</li>
+              <li>7. Detect device capabilities (CUDA/MPS)</li>
+            </ol>
+          </div>
+          <div className={boxClass}>
+            <h3 className={`font-semibold mb-3 ${isDark ? 'text-white' : 'text-gray-900'}`}>Shutdown (6 steps)</h3>
+            <ol className={`text-sm space-y-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+              <li>1. Open circuit breaker (reject new requests)</li>
+              <li>2. Flush metrics</li>
+              <li>3. Unload all models + release GPU cache</li>
+              <li>4. Deactivate all plugins</li>
+              <li>5. Shutdown CacheService</li>
+              <li>6. Close registry DB connection</li>
+            </ol>
+          </div>
+        </div>
       </section>
 
-      {/* Drift Detection */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Drift Detection</h2>
-        <CodeBlock language="python" filename="drift.py">{`from aquilia.mlops import DriftDetector, DriftMethod
-
-detector = DriftDetector(
-    method=DriftMethod.KS_TEST,  # Kolmogorov-Smirnov test
-    window_size=1000,
-    threshold=0.05,
-    features=["text_length", "vocab_coverage"],
-)
-
-# Feed predictions for monitoring
-detector.observe(predictions)
-
-# Check for drift
-report = detector.report()
-if report.is_drifted:
-    print(f"Drift detected: {report.drifted_features}")
-    print(f"P-value: {report.p_value}")
-    # Trigger alert or auto-retrain`}</CodeBlock>
-      </section>
-
-      {/* Integration */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Framework Integration</h2>
-        <CodeBlock language="python" filename="workspace.py">{`from aquilia import Workspace, Integration
-
-workspace = Workspace(
-    integrations=[
-        Integration.mlops(
-            registry_path="./model-registry/",
-            serving_port=8081,
-            metrics_export="prometheus",
-            drift_detection=True,
-            drift_method="ks_test",
-            drift_window=1000,
-        ),
-    ],
-)
-
-# MLOps controller is auto-registered at /mlops/*
-# GET  /mlops/models          → List models
-# GET  /mlops/models/{name}   → Model details
-# POST /mlops/predict/{name}  → Inference
-# GET  /mlops/health          → Health check
-# GET  /mlops/metrics         → Prometheus metrics`}</CodeBlock>
-      </section>
-
-      {/* Navigation */}
-      <div className={`flex items-center justify-between pt-8 mt-12 border-t ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
-        <Link to="/docs/mail" className={`flex items-center gap-2 text-sm ${isDark ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-900'}`}>
-          <ArrowLeft className="w-4 h-4" /> Mail
-        </Link>
-        <Link to="/docs/cli" className="flex items-center gap-2 text-sm text-aquilia-500 font-semibold hover:text-aquilia-400">
-          CLI <ArrowRight className="w-4 h-4" />
-        </Link>
-      </div>
-    
-      <NextSteps />
+      <NextSteps
+        items={[
+          { text: 'Types & Structures', link: '/docs/mlops/types' },
+          { text: 'API Layer', link: '/docs/mlops/api' },
+          { text: 'Engine & Pipeline', link: '/docs/mlops/engine' },
+          { text: 'Modelpack Builder', link: '/docs/mlops/modelpack' },
+          { text: 'Registry', link: '/docs/mlops/registry' },
+          { text: 'Runtime Backends', link: '/docs/mlops/runtime' },
+          { text: 'Serving', link: '/docs/mlops/serving' },
+          { text: 'Orchestrator', link: '/docs/mlops/orchestrator' },
+          { text: 'Observability', link: '/docs/mlops/observability' },
+          { text: 'MLOps Tutorial', link: '/docs/mlops/tutorial' },
+        ]}
+      />
     </div>
   )
 }

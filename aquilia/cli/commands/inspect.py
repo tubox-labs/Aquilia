@@ -25,11 +25,17 @@ def _ensure_workspace_root() -> Path:
 
 
 def _get_workspace_modules(workspace_root: Path) -> List[str]:
-    """Extract module names from workspace.py."""
+    """Extract module names from workspace.py.
+
+    Strips comment lines before scanning so that commented-out
+    ``Module(...)`` declarations are not picked up.
+    """
     ws_file = get_workspace_file(workspace_root)
     if not ws_file:
         return []
-    content = ws_file.read_text()
+    lines = ws_file.read_text().splitlines()
+    active_lines = [ln for ln in lines if not ln.lstrip().startswith('#')]
+    content = '\n'.join(active_lines)
     return re.findall(r'Module\("([^"]+)"', content)
 
 

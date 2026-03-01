@@ -20,12 +20,13 @@ __version__ = "1.0.0"
 # Core Framework
 # ============================================================================
 
-from .manifest import AppManifest, DatabaseConfig
+from .manifest import AppManifest, DatabaseConfig, ComponentRef, ComponentKind
 from .config import Config, ConfigLoader
 from .config_builders import Workspace, Module, Integration
 from .request import Request
 from .response import Response
 from .server import AquiliaServer
+from .health import HealthRegistry, HealthStatus, SubsystemStatus
 
 # Request data structures
 from ._datastructures import (

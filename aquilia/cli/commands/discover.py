@@ -1,10 +1,13 @@
 """
-CLI command for module discovery inspection and validation.
+CLI command for module discovery inspection, validation, and auto-sync.
+
+Architecture v2: Uses AutoDiscoveryEngine for AST-based component scanning.
 Shows detailed information about auto-discovered modules including:
 - Module metadata (version, description, tags, author)
 - Dependencies and dependency ordering
-- Module structure (services, controllers, middleware)
+- Module structure (services, controllers, middleware, guards, pipes, interceptors)
 - Route conflicts and validation warnings
+- NEW: Auto-sync mode to update manifest.py files with discovered components
 """
 
 import sys
@@ -18,15 +21,15 @@ from ..utils.colors import (
 
 
 class DiscoveryInspector:
-    """Inspect and display auto-discovered modules."""
+    """Inspect, validate, and auto-sync discovered modules."""
     
     def __init__(self, workspace_name: str, workspace_path: Optional[str] = None):
         self.workspace_name = workspace_name
         self.workspace_path = Path(workspace_path or workspace_name)
         self.generator = WorkspaceGenerator(workspace_name, self.workspace_path)
     
-    def inspect(self, verbose: bool = False) -> None:
-        """Run discovery inspection and display results."""
+    def inspect(self, verbose: bool = False, sync: bool = False, dry_run: bool = False) -> None:
+        """Run discovery inspection and optionally sync manifests."""
         discovered = self.generator._discover_modules()
         
         if not discovered:
@@ -44,6 +47,94 @@ class DiscoveryInspector:
         
         if verbose:
             self._print_detailed_info(discovered, sorted_names)
+        
+        # v2: Auto-discovery engine scan
+        self._run_autodiscovery(sync=sync, dry_run=dry_run)
+    
+    def _run_autodiscovery(self, sync: bool = False, dry_run: bool = False) -> None:
+        """
+        Run AST-based auto-discovery engine (v2).
+        
+        Scans module files for components and optionally syncs manifest.py.
+        """
+        import click
+        
+        modules_dir = self.workspace_path / "modules"
+        if not modules_dir.is_dir():
+            return
+        
+        try:
+            from aquilia.discovery.engine import AutoDiscoveryEngine
+        except ImportError:
+            warning("  Auto-discovery engine not available")
+            return
+        
+        engine = AutoDiscoveryEngine(modules_dir)
+        results = engine.discover_all()
+        
+        if not results:
+            return
+        
+        # Display auto-discovery results
+        click.echo()
+        section("Auto-Discovery Scan (AST)")
+        click.echo()
+        
+        all_new = []
+        rows = []
+        
+        for module_name, result in sorted(results.items()):
+            for comp in result.components:
+                # Check if already in manifest
+                manifest_refs = engine._parse_manifest_refs(
+                    modules_dir / module_name / "manifest.py"
+                )
+                field_name = engine.differ.KIND_TO_FIELD.get(comp.kind, "unknown")
+                existing = manifest_refs.get(field_name, [])
+                is_synced = engine.differ._is_declared(comp, existing)
+                
+                status = f"{_CHECK} synced" if is_synced else "⚡ NEW"
+                rows.append((
+                    module_name,
+                    comp.kind.value,
+                    comp.name,
+                    status,
+                ))
+                
+                if not is_synced:
+                    all_new.append((module_name, comp))
+        
+        if rows:
+            table(
+                headers=["Module", "Kind", "Component", "Status"],
+                rows=rows,
+                col_widths=[15, 15, 30, 12],
+            )
+            click.echo()
+        
+        if all_new:
+            info(f"  Found {len(all_new)} new component(s).")
+            
+            if sync:
+                if dry_run:
+                    info("  Dry run — no files modified.")
+                
+                reports = engine.sync_all(dry_run=dry_run)
+                for report in reports:
+                    if report.has_changes:
+                        action_str = "would add" if dry_run else "added"
+                        for action in report.added:
+                            success(
+                                f"  {_CHECK} {report.manifest_path.name} — "
+                                f"{action_str} {action.component.name}"
+                            )
+                
+                if not dry_run:
+                    success(f"\n  {_CHECK} Manifests synced successfully.")
+            else:
+                dim(f"  Run `aq discover --sync` to update manifests.")
+        else:
+            success(f"  {_CHECK} All components synced — manifests up to date.")
     
     def _print_summary(self, discovered: dict, validation: dict, sorted_names: list) -> None:
         """Print summary of discovered modules."""
@@ -144,12 +235,26 @@ def main():
         "--path",
         help="Workspace path (defaults to workspace name)"
     )
+    parser.add_argument(
+        "--sync",
+        action="store_true",
+        help="Auto-sync discovered components into manifest.py files"
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show what would be synced without writing (use with --sync)"
+    )
     
     args = parser.parse_args()
     
     try:
         inspector = DiscoveryInspector(args.workspace, args.path)
-        inspector.inspect(verbose=args.verbose)
+        inspector.inspect(
+            verbose=args.verbose,
+            sync=args.sync,
+            dry_run=args.dry_run,
+        )
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)

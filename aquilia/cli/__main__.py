@@ -27,8 +27,8 @@ from . import __version__, __cli_name__
 from .utils.colors import (
     success, error, info, warning, dim, bold,
     banner, section, kv, rule, step, bullet, panel, table, next_steps,
-    file_written, file_skipped,
-    _CHECK, _CROSS,
+    file_written, file_skipped, tree_item, badge, indent_echo, accent,
+    _CHECK, _CROSS, _ARROW, _BULLET,
 )
 
 import re as _re
@@ -65,6 +65,19 @@ def _detect_workspace_db_url() -> str:
 class AquiliaGroup(click.Group):
     """Click group subclass with branded help output."""
 
+    # Command categories for grouped display
+    _CATEGORIES = {
+        "Scaffold": ["init", "add", "generate"],
+        "Develop": ["run", "validate", "compile", "test", "discover", "doctor"],
+        "Production": ["serve", "freeze"],
+        "Database": ["db"],
+        "Inspect": ["inspect", "manifest", "analytics"],
+        "Subsystems": ["ws", "cache", "mail", "trace"],
+        "MLOps": ["pack", "model", "deploy", "observe", "export", "plugin", "lineage", "experiment"],
+        "Deploy": ["deploy-gen", "artifact"],
+        "Migration": ["migrate"],
+    }
+
     def format_help(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
         """Override to add Aquilia branding to the top-level help."""
         # Only show the full banner for the root group
@@ -77,22 +90,53 @@ class AquiliaGroup(click.Group):
     def format_commands(
         self, ctx: click.Context, formatter: click.HelpFormatter
     ) -> None:
-        """Format command listing with aligned columns."""
-        commands = []
+        """Format command listing with categorised groups."""
+        commands_map = {}
         for subcommand in self.list_commands(ctx):
             cmd = self.get_command(ctx, subcommand)
             if cmd is None or cmd.hidden:
                 continue
             help_text = cmd.get_short_help_str(limit=48)
-            commands.append((subcommand, help_text))
+            commands_map[subcommand] = help_text
 
-        if commands:
+        if not commands_map:
+            return
+
+        # Try categorised output for root group
+        if ctx.parent is None:
+            categorised: set[str] = set()
+            max_len = max(len(c) for c in commands_map) + 2
+
+            for cat_name, cat_cmds in self._CATEGORIES.items():
+                matched = [(c, commands_map[c]) for c in cat_cmds if c in commands_map]
+                if not matched:
+                    continue
+                with formatter.section(
+                    click.style(cat_name, fg="cyan", bold=True)
+                ):
+                    for name, help_text in matched:
+                        padded = name.ljust(max_len)
+                        styled_name = click.style(padded, fg="green")
+                        formatter.write(f"  {styled_name} {help_text}\n")
+                        categorised.add(name)
+
+            # Any uncategorised commands
+            uncategorised = [(c, h) for c, h in commands_map.items() if c not in categorised]
+            if uncategorised:
+                with formatter.section(
+                    click.style("Other", fg="cyan", bold=True)
+                ):
+                    for name, help_text in uncategorised:
+                        padded = name.ljust(max_len)
+                        styled_name = click.style(padded, fg="green")
+                        formatter.write(f"  {styled_name} {help_text}\n")
+        else:
+            # Subgroups: simple listing
             with formatter.section(
                 click.style("Commands", fg="cyan", bold=True)
             ):
-                # Find max command name width for alignment
-                max_len = max(len(c[0]) for c in commands) + 2
-                for name, help_text in commands:
+                max_len = max(len(c) for c in commands_map) + 2
+                for name, help_text in commands_map.items():
                     padded = name.ljust(max_len)
                     styled_name = click.style(padded, fg="green")
                     formatter.write(f"  {styled_name} {help_text}\n")
@@ -155,9 +199,32 @@ def init_workspace(ctx, name: str, minimal: bool, template: Optional[str]):
         
         if not ctx.obj['quiet']:
             click.echo()
-            success(f"  {_CHECK} Created workspace '{name}'")
-            kv("Location", str(workspace_path))
+            banner("Aquilia", subtitle=f"Workspace created  {_CHECK}")
             click.echo()
+
+            section("Project")
+            kv("Name", name)
+            kv("Location", str(workspace_path))
+            if template:
+                kv("Template", template)
+            kv("Mode", "minimal" if minimal else "full")
+            click.echo()
+
+            section("Generated Files")
+            tree_item("workspace.py", depth=0)
+            tree_item("starter.py", depth=0)
+            tree_item("config/", depth=0)
+            if not minimal:
+                tree_item("base.yaml", depth=1)
+                tree_item("dev.yaml", depth=1)
+                tree_item("prod.yaml", depth=1, last=True)
+                tree_item("Dockerfile", depth=0)
+                tree_item("docker-compose.yml", depth=0)
+                tree_item(".gitignore", depth=0, last=True)
+            else:
+                tree_item("base.yaml", depth=1, last=True)
+            click.echo()
+
             next_steps([
                 f"cd {name}",
                 "aq add module <module_name>",
@@ -181,9 +248,10 @@ def add():
 @click.option('--fault-domain', type=str, help='Custom fault domain')
 @click.option('--route-prefix', type=str, help='Route prefix (default: /name)')
 @click.option('--with-tests', is_flag=True, help='Generate test routes')
+@click.option('--minimal', is_flag=True, help='Generate minimal module (controller + manifest only)')
 @click.option('--no-docker', is_flag=True, help='Skip auto-generating Docker files')
 @click.pass_context
-def add_module(ctx, name: str, depends_on: tuple, fault_domain: Optional[str], route_prefix: Optional[str], with_tests: bool, no_docker: bool):
+def add_module(ctx, name: str, depends_on: tuple, fault_domain: Optional[str], route_prefix: Optional[str], with_tests: bool, minimal: bool, no_docker: bool):
     """
     Add a new module to the workspace.
     
@@ -192,6 +260,7 @@ def add_module(ctx, name: str, depends_on: tuple, fault_domain: Optional[str], r
     
     Examples:
       aq add module users
+      aq add module users --minimal
       aq add module products --depends-on=users
       aq add module admin --fault-domain=ADMIN --route-prefix=/api/admin
       aq add module test --with-tests
@@ -206,22 +275,51 @@ def add_module(ctx, name: str, depends_on: tuple, fault_domain: Optional[str], r
             fault_domain=fault_domain,
             route_prefix=route_prefix,
             with_tests=with_tests,
+            minimal=minimal,
+            no_docker=no_docker,
             verbose=ctx.obj['verbose'],
         )
         
         if not ctx.obj['quiet']:
             click.echo()
-            success(f"  {_CHECK} Added module '{name}'")
-            kv("Location", str(module_path))
+            success(f"  {_CHECK} Module '{name}' added successfully")
+            click.echo()
+
+            section("Module Details")
+            kv("Name", name)
+            kv("Location", f"modules/{name}/")
+            kv("Route Prefix", route_prefix or f"/{name}")
             if depends_on:
                 kv("Dependencies", ", ".join(depends_on))
+            if fault_domain:
+                kv("Fault Domain", fault_domain)
+            kv("Type", "minimal" if minimal else "full")
             click.echo()
-            next_steps([
-                f"Implement controllers in modules/{name}/controllers.py",
-                f"Implement services in modules/{name}/services.py",
-                "Run: aq run",
-                "Deploy: aq deploy all",
-            ])
+
+            section("Generated Files")
+            tree_item("__init__.py", depth=0)
+            tree_item("manifest.py", depth=0)
+            tree_item("controllers.py", depth=0)
+            if not minimal:
+                tree_item("services.py", depth=0)
+                tree_item("faults.py", depth=0)
+                tree_item("models/", depth=0)
+            if with_tests:
+                tree_item("test_routes.py", depth=0, last=True)
+            else:
+                items = ["__init__.py", "manifest.py", "controllers.py"]
+                if not minimal:
+                    items.extend(["services.py", "faults.py", "models/"])
+                # Mark last item
+            click.echo()
+
+            steps = [
+                f"Edit modules/{name}/controllers.py",
+            ]
+            if not minimal:
+                steps.append(f"Add services in modules/{name}/services.py")
+            steps.extend(["aq run", "aq validate"])
+            next_steps(steps)
     
     except Exception as e:
         error(f"  {_CROSS} Failed to add module: {e}")
@@ -271,16 +369,19 @@ def generate_controller(ctx, name: str, prefix: Optional[str], resource: Optiona
         if not ctx.obj['quiet']:
             click.echo()
             success(f"  {_CHECK} Generated controller '{name}'")
+            click.echo()
+            section("Controller")
+            kv("Name", f"{name}Controller")
             kv("Location", str(file_path))
             if with_lifecycle:
-                kv("Includes", "Lifecycle hooks (on_startup, on_request, on_response)")
+                kv("Lifecycle", "on_startup, on_request, on_response")
             if test:
                 kv("Type", "Test/Demo controller")
             click.echo()
             next_steps([
-                f"Add to manifest: controllers = ['{file_path.parent.name}.{file_path.stem}:{name}Controller']",
+                f"Register in manifest: controllers = ['{file_path.parent.name}.{file_path.stem}:{name}Controller']",
                 "Implement your business logic",
-                "Run: aq run",
+                "aq run",
             ])
     
     except Exception as e:
@@ -314,14 +415,30 @@ def validate(ctx, strict: bool, module: Optional[str]):
             click.echo()
             if result.is_valid:
                 success(f"  {_CHECK} Validation passed")
+                click.echo()
+                section("Summary")
                 kv("Modules", str(result.module_count))
                 kv("Routes", str(result.route_count))
-                kv("DI providers", str(result.provider_count))
+                kv("DI Providers", str(result.provider_count))
+                if result.fingerprint:
+                    kv("Fingerprint", str(result.fingerprint)[:24])
+                # Show warnings even when valid
+                if hasattr(result, 'warnings') and result.warnings:
+                    click.echo()
+                    section("Warnings")
+                    for w in result.warnings:
+                        bullet(w, fg="yellow")
             else:
                 error(f"  {_CROSS} Validation failed")
                 click.echo()
+                section("Errors")
                 for fault in result.faults:
                     bullet(fault, fg="red")
+                if hasattr(result, 'warnings') and result.warnings:
+                    click.echo()
+                    section("Warnings")
+                    for w in result.warnings:
+                        bullet(w, fg="yellow")
                 sys.exit(1)
     
     except Exception as e:
@@ -354,9 +471,11 @@ def compile(ctx, watch: bool, output: Optional[str]):
         if not ctx.obj['quiet']:
             click.echo()
             success(f"  {_CHECK} Compilation complete")
-            kv("Artifacts", str(len(artifacts)))
+            click.echo()
+            section("Artifacts")
+            kv("Count", str(len(artifacts)))
             for artifact in artifacts:
-                bullet(str(artifact))
+                tree_item(str(artifact))
     
     except Exception as e:
         error(f"  {_CROSS} Compilation failed: {e}")
@@ -391,9 +510,10 @@ def run(ctx, mode: str, port: int, host: str, reload: bool):
     
     except KeyboardInterrupt:
         if not ctx.obj['quiet']:
-            info("\n✓ Server stopped")
+            click.echo()
+            info(f"  {_CHECK} Server stopped gracefully")
     except Exception as e:
-        error(f"✗ Server error: {e}")
+        error(f"  {_CROSS} Server error: {e}")
         sys.exit(1)
 
 
@@ -614,20 +734,33 @@ def migrate(ctx, source: str, dry_run: bool):
 @cli.command('doctor')
 @click.pass_context
 def doctor(ctx):
-    """Diagnose workspace issues."""
+    """Diagnose workspace issues.
+
+    Performs comprehensive health checks across all layers:
+    environment, workspace structure, manifests, Aquilary pipeline,
+    integrations, and deployment readiness.
+    """
     from .commands.doctor import diagnose_workspace
-    
+
     try:
         issues = diagnose_workspace(verbose=ctx.obj['verbose'])
-        
+
         click.echo()
         if not issues:
-            success(f"  {_CHECK} No issues found")
+            banner("Aquilia Doctor", subtitle=f"Workspace is healthy  {_CHECK}")
         else:
             warning(f"  Found {len(issues)} issue(s):")
+            click.echo()
+            section("Issues")
             for issue in issues:
                 bullet(issue, fg="yellow")
-    
+            click.echo()
+            next_steps([
+                "Fix the issues above",
+                "aq doctor -v  (verbose details)",
+                "aq validate --strict  (full pipeline check)",
+            ])
+
     except Exception as e:
         error(f"  {_CROSS} Diagnosis failed: {e}")
         sys.exit(1)
@@ -687,21 +820,63 @@ def ws_gen_client(ctx, lang: str, out: str, artifacts_dir: str):
         sys.exit(1)
 
 
+@ws.command('purge-room')
+@click.option('--namespace', required=True, help='Namespace')
+@click.option('--room', required=True, help='Room to purge')
+@click.option('--redis-url', default=None, help='Redis URL (optional)')
+@click.pass_context
+def ws_purge_room(ctx, namespace: str, room: str, redis_url: Optional[str]):
+    """Purge a room's state from the adapter.
+
+    Examples:\n      aq ws purge-room --namespace /chat --room room1
+    """
+    from .commands.ws import cmd_ws_purge_room
+    try:
+        cmd_ws_purge_room({'namespace': namespace, 'room': room, 'redis_url': redis_url})
+    except Exception as e:
+        error(f"  {_CROSS} WS purge-room failed: {e}")
+        sys.exit(1)
+
+
+@ws.command('kick')
+@click.option('--conn', required=True, help='Connection ID to disconnect')
+@click.option('--reason', default='kicked by admin', help='Reason for kick')
+@click.option('--redis-url', default=None, help='Redis URL (optional)')
+@click.pass_context
+def ws_kick(ctx, conn: str, reason: str, redis_url: Optional[str]):
+    """Kick (disconnect) a WebSocket connection.
+
+    Examples:\n      aq ws kick --conn abc-123 --reason "violated rules"
+    """
+    from .commands.ws import cmd_ws_kick
+    try:
+        cmd_ws_kick({'conn': conn, 'reason': reason, 'redis_url': redis_url})
+    except Exception as e:
+        error(f"  {_CROSS} WS kick failed: {e}")
+        sys.exit(1)
+
+
 # ============================================================================
 # Discovery
 # ============================================================================
 
 @cli.command('discover')
 @click.option('--path', type=click.Path(), default=None, help='Workspace path')
+@click.option('--sync', is_flag=True, help='Auto-sync discovered components into manifest.py files')
+@click.option('--dry-run', is_flag=True, help='Preview sync changes without writing (use with --sync)')
 @click.pass_context
-def discover(ctx, path: Optional[str]):
+def discover(ctx, path: Optional[str], sync: bool, dry_run: bool):
     """Inspect auto-discovered modules in workspace."""
     from .commands.discover import DiscoveryInspector
 
     try:
         workspace_root = Path(path) if path else Path.cwd()
         inspector = DiscoveryInspector(workspace_root.name, str(workspace_root))
-        inspector.inspect(verbose=ctx.obj['verbose'])
+        inspector.inspect(
+            verbose=ctx.obj['verbose'],
+            sync=sync,
+            dry_run=dry_run,
+        )
     except Exception as e:
         error(f"  {_CROSS} Discovery failed: {e}")
         sys.exit(1)
@@ -1158,6 +1333,8 @@ from .commands.mlops_cmds import (
     observe_group,
     export_group,
     plugin_group,
+    lineage_group,
+    experiment_group,
 )
 
 cli.add_command(pack_group)
@@ -1166,6 +1343,8 @@ cli.add_command(deploy_group)
 cli.add_command(observe_group)
 cli.add_command(export_group)
 cli.add_command(plugin_group)
+cli.add_command(lineage_group)
+cli.add_command(experiment_group)
 
 
 # ============================================================================

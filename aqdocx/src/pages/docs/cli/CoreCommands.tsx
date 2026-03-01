@@ -71,10 +71,8 @@ export function CLICoreCommands() {
 
                 <h3 className={h3Class}>Options</h3>
                 <Table>
-                    <Row opt="--template, -t" desc="Project template (api, service, monolith)" def="api" />
                     <Row opt="--minimal" desc="Skip generating example modules" def="false" />
-                    <Row opt="--no-input" desc="Disable interactive prompts" def="false" />
-                    <Row opt="--dry-run" desc="Preview file generation without writing" def="false" />
+                    <Row opt="--template, -t" desc="Project template (default workspace scaffold)" />
                 </Table>
 
                 <h3 className={h3Class}>Examples</h3>
@@ -107,8 +105,8 @@ aq init workspace ci-project --no-input`}
                     <Row opt="--fault-domain" desc="Assign to specific fault isolation domain" />
                     <Row opt="--route-prefix" desc="Custom URL prefix for module routes" />
                     <Row opt="--with-tests" desc="Generate test scaffolding" def="false" />
-                    <Row opt="--package" desc="Add as a Python package instead of Aquilia module" def="false" />
-                    <Row opt="--no-docker" desc="Skip generating Dockerfile/compose" def="false" />
+                    <Row opt="--minimal" desc="Generate minimal module structure" def="false" />
+                    <Row opt="--no-docker" desc="Skip generating Dockerfile/compose for this module" def="false" />
                 </Table>
 
                 <h3 className={h3Class}>Examples</h3>
@@ -204,10 +202,7 @@ aq manifest update users --freeze`}
                     <Row opt="--host" desc="Bind host address" def="127.0.0.1" />
                     <Row opt="--port, -p" desc="Bind port" def="8000" />
                     <Row opt="--reload / --no-reload" desc="Enable/disable hot-reloading" def="true" />
-                    <Row opt="--workers, -w" desc="Number of worker processes" def="1" />
-                    <Row opt="--env-file" desc="Path to .env file" def=".env" />
-                    <Row opt="--mode" desc="Runtime mode (dev, test, prod)" def="dev" />
-                    <Row opt="--log-level" desc="Logging verbosity (debug, info, warning, error)" def="info" />
+                    <Row opt="--mode" desc="Runtime mode (dev, test)" def="dev" />
                 </Table>
             </section>
 
@@ -224,9 +219,10 @@ aq manifest update users --freeze`}
 
                 <h3 className={h3Class}>Options</h3>
                 <Table>
-                    <Row opt="--pattern, -k" desc="Run tests matching pattern string" />
-                    <Row opt="--markers, -m" desc="Run tests matching markers" />
-                    <Row opt="--coverage" desc="Collect code coverage calculation" def="false" />
+                    <Row opt="PATHS" desc="Specific test file/directory paths (positional, multiple)" def="auto-discover" />
+                    <Row opt="-k" desc="Run tests matching pattern string" />
+                    <Row opt="-m" desc="Run tests matching markers" />
+                    <Row opt="--coverage" desc="Collect code coverage data" def="false" />
                     <Row opt="--coverage-html" desc="Generate HTML coverage report" def="false" />
                     <Row opt="--failfast, -x" desc="Stop immediately on first failure" def="false" />
                 </Table>
@@ -252,12 +248,16 @@ aq test --coverage-html`}
                 <h2 className={h2Class}><Wrench className="w-6 h-6 text-orange-500" /> Diagnostics</h2>
 
                 <h3 className={h3Class}>Doctor</h3>
-                <p className={pClass}>Checks workspace health, dependencies, and configuration integrity.</p>
-                <CodeBlock language="bash" filename="terminal">aq doctor [--fix]</CodeBlock>
+                <p className={pClass}>Performs comprehensive 6-phase health checks across every layer — environment, workspace, manifests, pipeline, integrations, and deployment.</p>
+                <CodeBlock language="bash" filename="terminal">aq doctor</CodeBlock>
 
                 <h3 className={h3Class}>Validate</h3>
-                <p className={pClass}>Static analysis of module manifests, imports, and circular dependencies.</p>
-                <CodeBlock language="bash" filename="terminal">aq validate [--strict] [--module=NAME]</CodeBlock>
+                <p className={pClass}>Static analysis of module manifests, controller/service imports, circular dependencies, and optional fingerprint generation.</p>
+                <CodeBlock language="bash" filename="terminal">aq validate [OPTIONS]</CodeBlock>
+                <Table>
+                    <Row opt="--strict" desc="Enable strict mode with fingerprint verification" def="false" />
+                    <Row opt="--module" desc="Validate a specific module only" />
+                </Table>
             </section>
 
             {/* Build / Production */}
@@ -269,33 +269,35 @@ aq test --coverage-html`}
                     Compiles workspace configuration and manifests into optimized artifacts for production.
                 </p>
                 <CodeBlock language="bash" filename="terminal">
-                    aq compile --output=dist/ [OPTIONS]
+                    aq compile [OPTIONS]
                 </CodeBlock>
                 <Table>
-                    <Row opt="--output, -o" desc="Output directory" def="dist" />
+                    <Row opt="--output, -o" desc="Output directory" def="artifacts" />
                     <Row opt="--watch" desc="Recompile on change" def="false" />
-                    <Row opt="--clean" desc="Clean output directory before build" def="false" />
                 </Table>
 
                 <h3 className={h3Class}>Freeze</h3>
                 <p className={pClass}>
-                    Creates a cryptographically signed, immutable bundle of the compiled application.
+                    Compiles the workspace and then creates a SHA-256 fingerprinted <code className={`text-xs font-mono bg-black/5 dark:bg-white/10 px-1.5 py-0.5 rounded text-aquilia-600 dark:text-aquilia-400`}>frozen.json</code> bundle — an immutable, verifiable snapshot of the compiled application.
                 </p>
                 <CodeBlock language="bash" filename="terminal">
-                    aq freeze --sign [KEY_PATH]
+                    aq freeze [OPTIONS]
                 </CodeBlock>
+                <Table>
+                    <Row opt="--output, -o" desc="Output directory" def="artifacts" />
+                    <Row opt="--sign" desc="Sign the frozen bundle" def="false" />
+                </Table>
 
                 <h3 className={h3Class}>Serve</h3>
                 <p className={pClass}>
-                    Starts the optimized production server. Requires compiled artifacts.
+                    Starts the production server with uvicorn in multi-worker mode. Automatically sets <code className={`text-xs font-mono bg-black/5 dark:bg-white/10 px-1.5 py-0.5 rounded text-aquilia-600 dark:text-aquilia-400`}>AQUILIA_ENV=prod</code>.
                 </p>
                 <CodeBlock language="bash" filename="terminal">
                     aq serve [OPTIONS]
                 </CodeBlock>
                 <Table>
                     <Row opt="--bind, -b" desc="Bind address (host:port)" def="0.0.0.0:8000" />
-                    <Row opt="--workers, -w" desc="Number of worker processes" def="auto" />
-                    <Row opt="--timeout" desc="Worker timeout in seconds" def="30" />
+                    <Row opt="--workers, -w" desc="Number of worker processes" def="1" />
                 </Table>
             </section>
         
