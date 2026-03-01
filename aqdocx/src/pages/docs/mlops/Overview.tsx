@@ -1,7 +1,6 @@
 import { useTheme } from '../../../context/ThemeContext'
 import { CodeBlock } from '../../../components/CodeBlock'
-import { Link } from 'react-router-dom'
-import { Brain, ArrowRight, Layers, Box, Server, Activity, Shield, Zap, Eye, Plug, Rocket, Database, Cpu, GitBranch, BarChart3 } from 'lucide-react'
+import { Brain } from 'lucide-react'
 import { NextSteps } from '../../../components/NextSteps'
 
 export function MLOpsOverview() {

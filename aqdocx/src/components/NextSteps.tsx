@@ -16,7 +16,11 @@ sections.forEach(section => {
     })
 })
 
-export function NextSteps() {
+interface NextStepsProps {
+    items?: { text: string; link: string }[]
+}
+
+export function NextSteps({ items }: NextStepsProps = {}) {
     const { theme } = useTheme()
     const isDark = theme === 'dark'
     const location = useLocation()
@@ -57,11 +61,15 @@ export function NextSteps() {
         }
     }
 
+    const finalItems = items
+        ? items.map(i => ({ label: i.text, path: i.link }))
+        : suggestions
+
     return (
         <section className="mb-10 mt-16 pt-10 border-t border-dashed border-gray-200 dark:border-white/10">
             <h2 className={`text-2xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>Next Steps</h2>
             <div className="flex flex-col gap-3">
-                {suggestions.map((page, i) => (
+                {finalItems.map((page, i) => (
                     <Link
                         key={i}
                         to={page.path}

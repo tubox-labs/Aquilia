@@ -6,8 +6,6 @@ import { NextSteps } from '../../../components/NextSteps'
 export function AuthFaults() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
-  const boxClass = `p-6 rounded-2xl border ${isDark ? 'bg-[#0A0A0A] border-white/10' : 'bg-white border-gray-200'}`
-
   const cellClass = `px-4 py-2 text-sm ${isDark ? 'text-gray-300 border-white/5' : 'text-gray-700 border-gray-100'} border-b`
   const headClass = `px-4 py-2 text-xs font-semibold uppercase tracking-wider ${isDark ? 'text-gray-400 border-white/10' : 'text-gray-500 border-gray-200'} border-b text-left`
 
