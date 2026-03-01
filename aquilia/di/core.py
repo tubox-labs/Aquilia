@@ -29,6 +29,9 @@ _is_coroutine = inspect.iscoroutinefunction
 # Module-level cache: type → "module.qualname" string
 _type_key_cache: Dict[type, str] = {}
 
+# Sentinel for cache-miss distinction (allows caching None values)
+_CACHE_SENTINEL = object()
+
 # Scopes that should cache instances (frozen for O(1) lookup)
 _CACHEABLE_SCOPES = frozenset(("singleton", "app", "request"))
 
@@ -330,9 +333,16 @@ class Container:
         except RuntimeError as e:
             if "resolve()" in str(e):
                 raise  # Re-raise our own error
-            # No running loop — safe to create one for sync usage
-            instance = asyncio.run(self.resolve_async(token, tag=tag, optional=optional))
-            return instance
+            # No running loop — create a temporary one for sync usage
+            # Use asyncio.Runner (3.11+) to avoid destroying global state
+            try:
+                loop = asyncio.new_event_loop()
+                instance = loop.run_until_complete(
+                    self.resolve_async(token, tag=tag, optional=optional)
+                )
+                return instance
+            finally:
+                loop.close()
     
     async def resolve_async(
         self,
@@ -365,8 +375,8 @@ class Container:
         cache_key = f"{token_key}#{tag}" if tag else token_key
         
         # Fast path: check cache (no diagnostics overhead)
-        cached = self._cache.get(cache_key)
-        if cached is not None:
+        cached = self._cache.get(cache_key, _CACHE_SENTINEL)
+        if cached is not _CACHE_SENTINEL:
             return cached
         
         # Lookup provider
@@ -378,8 +388,12 @@ class Container:
             self._raise_not_found(token_key, tag)
         
         # Scope Delegation: singleton/app → parent
+        # Only delegate when the provider was inherited from the parent,
+        # not when the child registered it locally.
         if self._parent and provider.meta.scope in ("singleton", "app"):
-            return await self._parent.resolve_async(token, tag=tag, optional=optional)
+            parent_provider = self._parent._providers.get(cache_key)
+            if parent_provider is provider:
+                return await self._parent.resolve_async(token, tag=tag, optional=optional)
         
         # Create resolution context
         ctx = ResolveCtx(container=self)
@@ -401,19 +415,31 @@ class Container:
 
     async def _check_lifecycle_hooks(self, instance: Any, name: str) -> None:
         """Check and register lifecycle hooks for an instance."""
+        # Skip lazy proxies — they should not be introspected until resolved
+        from .providers import _LazyProxy
+        if isinstance(instance, _LazyProxy):
+            return
+
         if hasattr(instance, "on_startup"):
             hook = instance.on_startup
-            self._lifecycle.on_startup(
-                hook if _is_coroutine(hook) else lambda: asyncio.to_thread(hook),
-                name=f"{name}.on_startup"
-            )
+            # Bind hook via default arg to avoid late-binding closure bug
+            if _is_coroutine(hook):
+                self._lifecycle.on_startup(hook, name=f"{name}.on_startup")
+            else:
+                self._lifecycle.on_startup(
+                    lambda _h=hook: asyncio.to_thread(_h),
+                    name=f"{name}.on_startup",
+                )
         
         if hasattr(instance, "on_shutdown"):
             hook = instance.on_shutdown
-            self._lifecycle.on_shutdown(
-                hook if _is_coroutine(hook) else lambda: asyncio.to_thread(hook),
-                name=f"{name}.on_shutdown"
-            )
+            if _is_coroutine(hook):
+                self._lifecycle.on_shutdown(hook, name=f"{name}.on_shutdown")
+            else:
+                self._lifecycle.on_shutdown(
+                    lambda _h=hook: asyncio.to_thread(_h),
+                    name=f"{name}.on_shutdown",
+                )
 
     async def startup(self) -> None:
         """
@@ -439,7 +465,7 @@ class Container:
         - Shared diagnostics reference from parent.
         """
         child = Container.__new__(Container)
-        child._providers = self._providers  # Share by reference
+        child._providers = self._providers.copy()  # Shallow copy — child can add without mutating parent
         child._cache = {}  # Fresh cache per request
         child._scope = "request"
         child._parent = self

@@ -131,26 +131,31 @@ async def override_container(
     # Create mock provider
     mock = MockProvider(mock_value, token, tags=(tag,) if tag else ())
     
-    # Save original
+    # Save original provider and cache
     token_key = container._token_to_key(token)
     cache_key = container._make_cache_key(token_key, tag)
+    original_provider = container._providers.get(cache_key)
     original_cached = container._cache.get(cache_key)
     
-    # Register mock
-    container.register(mock, tag=tag)
+    # Force-replace provider (bypass duplicate check)
+    container._providers[cache_key] = mock
     
-    # Override cache
-    if cache_key in container._cache:
-        del container._cache[cache_key]
+    # Clear cache so the mock is resolved on next access
+    container._cache.pop(cache_key, None)
     
     try:
         yield mock
     finally:
-        # Restore original
+        # Restore original provider
+        if original_provider is not None:
+            container._providers[cache_key] = original_provider
+        else:
+            container._providers.pop(cache_key, None)
+        
+        # Restore original cache
+        container._cache.pop(cache_key, None)
         if original_cached is not None:
             container._cache[cache_key] = original_cached
-        elif cache_key in container._cache:
-            del container._cache[cache_key]
 
 
 # Pytest fixtures (if pytest is available)

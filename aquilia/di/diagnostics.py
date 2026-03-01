@@ -104,3 +104,24 @@ class _DiagnosticMeasure:
                 duration=duration,
                 **self.kwargs
             )
+
+    # Async context manager support
+    async def __aenter__(self):
+        self.start_time = time.time()
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        duration = time.time() - self.start_time
+        if exc_type:
+            self.diagnostics.emit(
+                DIEventType.RESOLUTION_FAILURE,
+                duration=duration,
+                error=exc_val,
+                **self.kwargs
+            )
+        else:
+            self.diagnostics.emit(
+                DIEventType.RESOLUTION_SUCCESS,
+                duration=duration,
+                **self.kwargs
+            )
