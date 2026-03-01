@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}ORM Models{% endblock %}
+{% block breadcrumb %}ORM Models{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>ORM Models</h1>
+    <p>All registered models and their record counts.</p>
+</div>
+
+{# ── Stats ── #}
+<div class="stats-row" style="margin-bottom:28px;">
+    <div class="stat-item">
+        <div class="stat-number">{{ total_models }}</div>
+        <div class="stat-label">Models</div>
+    </div>
+    <div class="stat-item">
+        <div class="stat-number">{{ total_records }}</div>
+        <div class="stat-label">Records</div>
+    </div>
+    <div class="stat-item">
+        <div class="stat-number">{{ app_list|length }}</div>
+        <div class="stat-label">Apps</div>
+    </div>
+</div>
+
+{# ── Model cards grid ── #}
+{% for app in app_list %}
+<div class="section-label">{{ app.app_name }}</div>
+<div class="model-grid" style="margin-bottom:28px;">
+    {% for model in app.models %}
+    <a class="model-card" href="{{ url_prefix|default('/admin') }}/{{ model.url_name }}/">
+        <div>
+            <div class="model-card-name">
+                <i class="icon-table" style="font-size:14px;vertical-align:-2px;margin-right:4px;opacity:0.4;"></i>
+                {{ model.name_plural }}
+            </div>
+            <div class="model-card-app">{{ model.model_name }}</div>
+        </div>
+        <div>
+            <div class="model-card-count">{{ model_counts.get(model.model_name, '?') }}</div>
+            <div class="model-card-label">records</div>
+        </div>
+    </a>
+    {% endfor %}
+</div>
+{% endfor %}
+
+{% if not app_list %}
+<div class="glass-card">
+    <div class="empty-state">
+        <i class="icon-database" style="font-size:32px;display:block;margin-bottom:12px;opacity:0.3;"></i>
+        No models registered yet
+    </div>
+</div>
+{% endif %}
+{% endblock %}

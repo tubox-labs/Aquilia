@@ -1,0 +1,82 @@
+{# Sidebar partial — included in base.html #}
+<aside class="admin-sidebar" id="adminSidebar">
+    <a class="sidebar-brand" href="{{ url_prefix|default('/admin') }}/">
+        <img src="/static/logo.png" alt="" onerror="this.style.display='none'">
+        <span class="sidebar-brand-text">{{ site_title|default('Aquilia') }}</span>
+        <span class="badge">Admin</span>
+    </a>
+
+    {# ── Overview ── #}
+    <div class="sidebar-section">
+        <span class="sidebar-section-label">Overview</span>
+        <a class="sidebar-link{{ ' active' if active_page == 'dashboard' else '' }}" href="{{ url_prefix|default('/admin') }}/">
+            <i class="icon-layout-dashboard"></i> Dashboard
+        </a>
+    </div>
+
+    {# ── Data ── #}
+    <div class="sidebar-section">
+        <span class="sidebar-section-label">Data</span>
+        <a class="sidebar-link{{ ' active' if active_page == 'orm' else '' }}" href="{{ url_prefix|default('/admin') }}/orm/">
+            <i class="icon-database"></i> ORM Models
+            {% if total_models is defined %}
+            <span class="sidebar-badge">{{ total_models }}</span>
+            {% endif %}
+        </a>
+        <a class="sidebar-link{{ ' active' if active_page == 'migrations' else '' }}" href="{{ url_prefix|default('/admin') }}/migrations/">
+            <i class="icon-git-branch"></i> Migrations
+        </a>
+    </div>
+
+    {# ── System ── #}
+    <div class="sidebar-section">
+        <span class="sidebar-section-label">System</span>
+        <a class="sidebar-link{{ ' active' if active_page == 'build' else '' }}" href="{{ url_prefix|default('/admin') }}/build/">
+            <i class="icon-package"></i> Build
+        </a>
+        <a class="sidebar-link{{ ' active' if active_page == 'config' else '' }}" href="{{ url_prefix|default('/admin') }}/config/">
+            <i class="icon-settings"></i> Configuration
+        </a>
+    </div>
+
+    {# ── Security ── #}
+    <div class="sidebar-section">
+        <span class="sidebar-section-label">Security</span>
+        <a class="sidebar-link{{ ' active' if active_page == 'permissions' else '' }}" href="{{ url_prefix|default('/admin') }}/permissions/">
+            <i class="icon-shield"></i> Permissions
+        </a>
+        <a class="sidebar-link{{ ' active' if active_page == 'audit' else '' }}" href="{{ url_prefix|default('/admin') }}/audit/">
+            <i class="icon-scroll-text"></i> Audit Log
+        </a>
+    </div>
+
+    {# ── ORM Models (per-model links) ── #}
+    {% if app_list is defined and app_list|length > 0 %}
+    <div class="sidebar-section">
+        <span class="sidebar-section-label">Models</span>
+        {% for app in app_list %}
+        {% for model in app.models %}
+        <a class="sidebar-link{{ ' active' if active_model == model.model_name|lower else '' }}" href="{{ url_prefix|default('/admin') }}/{{ model.url_name }}/">
+            <i class="icon-table"></i> {{ model.name_plural }}
+        </a>
+        {% endfor %}
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {# ── Footer ── #}
+    <div class="sidebar-footer">
+        <div class="sidebar-user">
+            <div class="sidebar-user-avatar">
+                {{ identity_name|default('A')|truncate(1, True, '') }}
+            </div>
+            <div class="sidebar-user-info">
+                <div class="sidebar-user-name">{{ identity_name|default('Admin') }}</div>
+                <div class="sidebar-user-role">Administrator</div>
+            </div>
+            <a href="{{ url_prefix|default('/admin') }}/logout" class="btn-ghost" style="padding:4px;color:var(--text-faint);" title="Logout">
+                <i class="icon-log-out" style="font-size:16px;"></i>
+            </a>
+        </div>
+    </div>
+</aside>

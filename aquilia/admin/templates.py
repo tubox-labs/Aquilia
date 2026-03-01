@@ -113,6 +113,7 @@ def render_dashboard(
             site_title=site_title,
             url_prefix=url_prefix,
             page_title="Dashboard",
+            active_page="dashboard",
         )
     return _fallback_dashboard(
         app_list, stats, identity_name,
@@ -149,6 +150,7 @@ def render_list_view(
             search=data.get("search", ""),
             actions=data.get("actions", {}),
             app_list=app_list,
+            active_page="",
             active_model=model_name.lower() if model_name else "",
             identity_name=identity_name,
             flash=flash,
@@ -190,6 +192,7 @@ def render_form_view(
             can_delete=data.get("can_delete", False) and not is_create,
             is_create=is_create,
             app_list=app_list,
+            active_page="",
             active_model=model_name.lower() if model_name else "",
             identity_name=identity_name,
             flash=flash,
@@ -220,6 +223,7 @@ def render_audit_page(
             entries=entries,
             total=total,
             app_list=app_list,
+            active_page="audit",
             active_model="_audit",
             identity_name=identity_name,
             site_title=site_title,
@@ -230,6 +234,161 @@ def render_audit_page(
         entries, app_list, identity_name, total,
         site_title=site_title, url_prefix=url_prefix,
     )
+
+
+def render_orm_page(
+    app_list: List[Dict[str, Any]],
+    model_counts: Dict[str, Any],
+    identity_name: str = "Admin",
+    *,
+    site_title: str = "Aquilia Admin",
+    url_prefix: str = "/admin",
+) -> str:
+    """Render the ORM models page."""
+    total_models = sum(len(a.get("models", [])) for a in app_list)
+    total_records = sum(v for v in model_counts.values() if isinstance(v, int))
+
+    if _HAS_JINJA2:
+        return _render_template(
+            "orm.html",
+            app_list=app_list,
+            model_counts=model_counts,
+            total_models=total_models,
+            total_records=total_records,
+            active_page="orm",
+            identity_name=identity_name,
+            site_title=site_title,
+            url_prefix=url_prefix,
+            page_title="ORM Models",
+        )
+    return f"""<!DOCTYPE html><html lang="en" data-theme="dark"><head>
+<meta charset="UTF-8"><title>ORM Models — Aquilia Admin</title><style>{_FALLBACK_CSS}</style></head>
+<body><div style="padding:24px"><h1>ORM Models</h1><p>{total_models} models registered</p></div></body></html>"""
+
+
+def render_build_page(
+    build_info: Dict[str, Any],
+    artifacts: List[Dict[str, Any]],
+    pipeline_phases: List[Dict[str, Any]],
+    build_log: str = "",
+    build_files: Optional[List[Dict[str, Any]]] = None,
+    app_list: Optional[List[Dict[str, Any]]] = None,
+    identity_name: str = "Admin",
+    *,
+    site_title: str = "Aquilia Admin",
+    url_prefix: str = "/admin",
+) -> str:
+    """Render the build page with Crous artifacts and pipeline status."""
+    if _HAS_JINJA2:
+        return _render_template(
+            "build.html",
+            build_info=build_info,
+            artifacts=artifacts,
+            pipeline_phases=pipeline_phases,
+            build_log=build_log,
+            build_files=build_files or [],
+            app_list=app_list or [],
+            active_page="build",
+            identity_name=identity_name,
+            site_title=site_title,
+            url_prefix=url_prefix,
+            page_title="Build",
+        )
+    return f"""<!DOCTYPE html><html lang="en" data-theme="dark"><head>
+<meta charset="UTF-8"><title>Build — Aquilia Admin</title><style>{_FALLBACK_CSS}</style></head>
+<body><div style="padding:24px"><h1>Build</h1><p>{len(artifacts)} artifacts</p></div></body></html>"""
+
+
+def render_migrations_page(
+    migrations: List[Dict[str, Any]],
+    app_list: Optional[List[Dict[str, Any]]] = None,
+    identity_name: str = "Admin",
+    *,
+    site_title: str = "Aquilia Admin",
+    url_prefix: str = "/admin",
+) -> str:
+    """Render the migrations page with syntax highlighted source."""
+    total_operations = sum(m.get("operations_count", 0) for m in migrations)
+    total_models_affected = len(set(
+        model for m in migrations for model in m.get("models", [])
+    ))
+
+    if _HAS_JINJA2:
+        return _render_template(
+            "migrations.html",
+            migrations=migrations,
+            total_operations=total_operations,
+            total_models_affected=total_models_affected,
+            app_list=app_list or [],
+            active_page="migrations",
+            identity_name=identity_name,
+            site_title=site_title,
+            url_prefix=url_prefix,
+            page_title="Migrations",
+        )
+    return f"""<!DOCTYPE html><html lang="en" data-theme="dark"><head>
+<meta charset="UTF-8"><title>Migrations — Aquilia Admin</title><style>{_FALLBACK_CSS}</style></head>
+<body><div style="padding:24px"><h1>Migrations</h1><p>{len(migrations)} migrations</p></div></body></html>"""
+
+
+def render_config_page(
+    config_files: List[Dict[str, Any]],
+    workspace_info: Optional[Dict[str, Any]] = None,
+    app_list: Optional[List[Dict[str, Any]]] = None,
+    identity_name: str = "Admin",
+    *,
+    site_title: str = "Aquilia Admin",
+    url_prefix: str = "/admin",
+) -> str:
+    """Render the configuration page with YAML file contents."""
+    if _HAS_JINJA2:
+        return _render_template(
+            "config.html",
+            config_files=config_files,
+            workspace_info=workspace_info or {},
+            app_list=app_list or [],
+            active_page="config",
+            identity_name=identity_name,
+            site_title=site_title,
+            url_prefix=url_prefix,
+            page_title="Configuration",
+        )
+    return f"""<!DOCTYPE html><html lang="en" data-theme="dark"><head>
+<meta charset="UTF-8"><title>Configuration — Aquilia Admin</title><style>{_FALLBACK_CSS}</style></head>
+<body><div style="padding:24px"><h1>Configuration</h1><p>{len(config_files)} config files</p></div></body></html>"""
+
+
+def render_permissions_page(
+    roles: List[Dict[str, Any]],
+    all_permissions: List[str],
+    model_permissions: List[Dict[str, Any]],
+    app_list: Optional[List[Dict[str, Any]]] = None,
+    identity_name: str = "Admin",
+    flash: str = "",
+    flash_type: str = "success",
+    *,
+    site_title: str = "Aquilia Admin",
+    url_prefix: str = "/admin",
+) -> str:
+    """Render the permissions page with role matrix."""
+    if _HAS_JINJA2:
+        return _render_template(
+            "permissions.html",
+            roles=roles,
+            all_permissions=all_permissions,
+            model_permissions=model_permissions,
+            app_list=app_list or [],
+            active_page="permissions",
+            identity_name=identity_name,
+            flash=flash,
+            flash_type=flash_type,
+            site_title=site_title,
+            url_prefix=url_prefix,
+            page_title="Permissions",
+        )
+    return f"""<!DOCTYPE html><html lang="en" data-theme="dark"><head>
+<meta charset="UTF-8"><title>Permissions — Aquilia Admin</title><style>{_FALLBACK_CSS}</style></head>
+<body><div style="padding:24px"><h1>Permissions</h1><p>{len(roles)} roles</p></div></body></html>"""
 
 
 # ═══════════════════════════════════════════════════════════════════════════

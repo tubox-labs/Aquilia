@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}Migrations{% endblock %}
+{% block breadcrumb %}Migrations{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Migrations</h1>
+    <p>Database migration history and schema operations.</p>
+</div>
+
+{# ── Stats ── #}
+<div class="stats-row" style="margin-bottom:28px;">
+    <div class="stat-item">
+        <div class="stat-number">{{ migrations|length }}</div>
+        <div class="stat-label">Migrations</div>
+    </div>
+    <div class="stat-item">
+        <div class="stat-number">{{ total_operations|default(0) }}</div>
+        <div class="stat-label">Operations</div>
+    </div>
+    <div class="stat-item">
+        <div class="stat-number">{{ total_models_affected|default(0) }}</div>
+        <div class="stat-label">Models Affected</div>
+    </div>
+</div>
+
+{# ── Migration list ── #}
+{% if migrations %}
+<div class="glass-card" style="padding:0;">
+    <div class="card-header">
+        <span class="card-title">Migration Files</span>
+        <span class="meta-text">{{ migrations_dir|default('migrations/') }}</span>
+    </div>
+    {% for mig in migrations %}
+    <div class="migration-item" onclick="this.querySelector('.migration-code').classList.toggle('active')">
+        <div class="migration-item-header">
+            <span class="migration-revision">{{ mig.revision|default('') }}</span>
+            <span style="font-size:0.82rem;font-weight:500;color:var(--text-primary);">{{ mig.filename }}</span>
+            {% if mig.operations_count is defined %}
+            <span class="build-artifact-kind" style="margin-left:auto;">{{ mig.operations_count }} ops</span>
+            {% endif %}
+        </div>
+        {% if mig.models %}
+        <div class="migration-models">
+            {% for model_name in mig.models %}
+            <span class="migration-model-tag">{{ model_name }}</span>
+            {% endfor %}
+        </div>
+        {% endif %}
+        {# ── Inline source code (collapsible) ── #}
+        {% if mig.source %}
+        <div class="migration-code" style="display:none;margin-top:12px;">
+            <div class="code-block-container" style="margin-bottom:0;">
+                <div class="code-block-header">
+                    <div class="dots">
+                        <div class="dot dot-red"></div>
+                        <div class="dot dot-yellow"></div>
+                        <div class="dot dot-green"></div>
+                    </div>
+                    <span class="filename">{{ mig.filename }}</span>
+                </div>
+                <div class="code-block-body">
+                    <pre>{{ mig.source_highlighted|default(mig.source)|safe }}</pre>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="glass-card">
+    <div class="empty-state">
+        <i class="icon-git-branch" style="font-size:32px;display:block;margin-bottom:12px;opacity:0.3;"></i>
+        No migrations found
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+// Toggle migration source code
+document.querySelectorAll('.migration-item').forEach(function(item) {
+    item.addEventListener('click', function() {
+        var code = this.querySelector('.migration-code');
+        if (code) {
+            code.style.display = code.style.display === 'none' ? 'block' : 'none';
+        }
+    });
+});
+{% endblock %}

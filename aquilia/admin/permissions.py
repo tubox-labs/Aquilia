@@ -180,6 +180,11 @@ def has_model_permission(
     if not has_admin_permission(identity, perm):
         return False
 
+    # Check runtime model permission overrides first
+    model_overrides = _MODEL_PERMISSION_OVERRIDES.get(model_name, {})
+    if action in model_overrides:
+        return model_overrides[action]
+
     # Check model-specific permissions on identity attributes
     model_perms = identity.get_attribute("admin_model_permissions", {}) if identity else {}
     if model_perms:
@@ -198,9 +203,86 @@ def require_admin_access(identity: Optional["Identity"]) -> None:
     """
     from .faults import AdminAuthorizationFault
 
-    if identity is None:
-        raise AdminAuthorizationFault(action="access admin")
-
     role = get_admin_role(identity)
     if role is None:
-        raise AdminAuthorizationFault(action="access admin", resource="admin dashboard")
+        raise AdminAuthorizationFault("No admin access")
+
+
+# ── Runtime permission management ────────────────────────────────────────
+
+
+# Runtime overrides for per-model permissions.
+# Maps model_name -> {action -> bool} to allow/deny specific model actions
+# beyond the role-based defaults.
+_MODEL_PERMISSION_OVERRIDES: dict[str, dict[str, bool]] = {}
+
+
+def update_role_permissions(
+    role: AdminRole,
+    permission: AdminPermission,
+    *,
+    granted: bool,
+) -> None:
+    """
+    Grant or revoke a specific permission for a role at runtime.
+
+    This modifies the in-memory ``ROLE_PERMISSIONS`` matrix.
+    Changes persist for the lifetime of the process.
+
+    Args:
+        role: The admin role to modify
+        permission: The permission to grant or revoke
+        granted: True to grant, False to revoke
+
+    Raises:
+        ValueError: If trying to revoke from SUPERADMIN (always has all)
+    """
+    if role == AdminRole.SUPERADMIN:
+        if not granted:
+            raise ValueError("Cannot revoke permissions from SUPERADMIN role")
+        return  # SUPERADMIN always has all permissions
+
+    perms = ROLE_PERMISSIONS.setdefault(role, set())
+    if granted:
+        perms.add(permission)
+    else:
+        perms.discard(permission)
+
+
+def set_model_permission_override(
+    model_name: str,
+    action: str,
+    *,
+    allowed: bool,
+) -> None:
+    """
+    Set a per-model permission override.
+
+    Overrides the default role-based model permission check for a
+    specific model and action combination.
+
+    Args:
+        model_name: The model class name (e.g. "User", "BlogPost")
+        action: One of "view", "add", "change", "delete", "export"
+        allowed: True to allow, False to deny
+    """
+    _MODEL_PERMISSION_OVERRIDES.setdefault(model_name, {})[action] = allowed
+
+
+def get_model_permission_overrides() -> dict[str, dict[str, bool]]:
+    """Return the current model permission overrides."""
+    return dict(_MODEL_PERMISSION_OVERRIDES)
+
+
+def clear_model_permission_overrides(model_name: Optional[str] = None) -> None:
+    """
+    Clear model permission overrides.
+
+    Args:
+        model_name: If provided, clear only overrides for that model.
+                    If None, clear all overrides.
+    """
+    if model_name is None:
+        _MODEL_PERMISSION_OVERRIDES.clear()
+    else:
+        _MODEL_PERMISSION_OVERRIDES.pop(model_name, None)
