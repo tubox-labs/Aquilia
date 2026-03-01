@@ -7,6 +7,7 @@ import { PostgresSQLIcon, RedisIcon, RabbitMQIcon, SentryIcon, OpenTelemetryIcon
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { ArchitectureDiagram } from '../components/ArchitectureDiagram'
+import { ReleaseTimeline } from '../components/ReleaseTimeline'
 
 export function LandingPage() {
   const { theme } = useTheme()
@@ -340,6 +341,24 @@ export function LandingPage() {
                 <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>High-speed ASGI delivery through localized DI scopes and deterministic execution pipelines.</p>
               </div>
             </div>
+          </div>
+        </section>
+
+        {/* Release Timeline */}
+        <section className={`py-20 relative overflow-hidden border-t ${isDark ? 'bg-zinc-950/50 border-white/5' : 'bg-gray-50/30 border-gray-200'}`}>
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center mb-12">
+              <h2 className="text-aquilia-500 font-bold tracking-wide uppercase text-sm mb-4">Open Roadmap</h2>
+              <h3 className={`text-4xl md:text-5xl leading-tight ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                <span className="font-bold tracking-tighter gradient-text font-mono">
+                  Built in the Open
+                </span>
+              </h3>
+              <p className={`mt-4 text-lg max-w-2xl mx-auto ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                Follow every milestone from alpha to production — and see what's coming next.
+              </p>
+            </div>
+            <ReleaseTimeline isDark={isDark} />
           </div>
         </section>
 

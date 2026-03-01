@@ -382,20 +382,28 @@ class ManifestLoader:
     
     def _autodiscover_manifests(self) -> List[ManifestSource]:
         """
-        Auto-discover manifests in apps/ directory.
+        Auto-discover manifests in apps/ and modules/ directories.
+        
+        v2: Scans both legacy apps/ and new modules/ directories.
         
         Returns:
             List of ManifestSource objects
         """
-        apps_dir = Path("apps")
-        if not apps_dir.exists():
-            return []
-        
         sources: List[ManifestSource] = []
         
-        for app_dir in apps_dir.iterdir():
-            if app_dir.is_dir() and not app_dir.name.startswith("_"):
-                sources.extend(self._discover_in_directory(app_dir))
+        # v2: Scan modules/ directory first (preferred convention)
+        modules_dir = Path("modules")
+        if modules_dir.exists():
+            for module_dir in modules_dir.iterdir():
+                if module_dir.is_dir() and not module_dir.name.startswith("_"):
+                    sources.extend(self._discover_in_directory(module_dir))
+        
+        # Legacy: also scan apps/ directory for backwards compatibility
+        apps_dir = Path("apps")
+        if apps_dir.exists():
+            for app_dir in apps_dir.iterdir():
+                if app_dir.is_dir() and not app_dir.name.startswith("_"):
+                    sources.extend(self._discover_in_directory(app_dir))
         
         return sources
     
@@ -421,15 +429,15 @@ class ManifestLoader:
         if not hasattr(manifest, "version") or not manifest.version:
             errors.append("Missing required field: version")
         
-        # Type validation
+        # Type validation — v2: accept str, ComponentRef, or type
         if hasattr(manifest, "controllers"):
             if not isinstance(manifest.controllers, list):
                 errors.append("Field 'controllers' must be a list")
             else:
                 for i, ctrl in enumerate(manifest.controllers):
-                    if not isinstance(ctrl, (str, type)):
+                    if not isinstance(ctrl, (str, type)) and not hasattr(ctrl, "class_path"):
                         errors.append(
-                            f"controllers[{i}] must be string import path"
+                            f"controllers[{i}] must be string import path or ComponentRef"
                         )
         
         if hasattr(manifest, "services"):

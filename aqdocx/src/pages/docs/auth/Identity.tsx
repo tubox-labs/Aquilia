@@ -1,11 +1,12 @@
 import { useTheme } from '../../../context/ThemeContext'
 import { CodeBlock } from '../../../components/CodeBlock'
-import { Shield } from 'lucide-react'
+import { Shield, User } from 'lucide-react'
 import { NextSteps } from '../../../components/NextSteps'
 
 export function AuthIdentity() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
+  const boxClass = `p-6 rounded-2xl border ${isDark ? 'bg-[#0A0A0A] border-white/10' : 'bg-white border-gray-200'}`
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -18,18 +19,59 @@ export function AuthIdentity() {
           </span>
         </h1>
         <p className={`text-lg leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Deep dive into the credential types — passwords (Argon2id), API keys (scoped, rate-limited), and how they map to the <code className="text-aquilia-500">Identity</code> model.
+          Deep dive into the credential types — passwords (Argon2id), API keys (scoped, rate-limited), and how they map to the <code className="text-aquilia-500">Identity</code> frozen dataclass.
         </p>
       </div>
 
+      {/* Identity Methods */}
+      <section className="mb-16">
+        <h2 className={`text-2xl font-bold mb-6 flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}><User className="w-5 h-5 text-blue-500" />Identity Methods</h2>
+        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+          <code className="text-aquilia-500">Identity</code> is a frozen dataclass — immutable after creation. It provides convenience methods for attribute access and serialization.
+        </p>
+        <CodeBlock language="python" filename="Identity API">{`from aquilia.auth.core import Identity, IdentityType, IdentityStatus
+
+identity = Identity(
+    id="user_42",
+    type=IdentityType.USER,
+    attributes={
+        "email": "alice@example.com",
+        "name": "Alice",
+        "roles": ["admin", "editor"],
+        "scopes": ["read", "write", "admin:write"],
+    },
+    status=IdentityStatus.ACTIVE,
+    tenant_id="org_1",
+)
+
+# Attribute access
+identity.get_attribute("email")      # "alice@example.com"
+identity.get_attribute("missing")    # None
+identity.get_attribute("missing", "default")  # "default"
+
+# Role / scope checks
+identity.has_role("admin")           # True
+identity.has_role("superadmin")      # False
+identity.has_scope("read")           # True
+identity.has_scope("admin:write")    # True
+
+# Status checks
+identity.is_active()                 # True (ACTIVE)
+# Also checks: SUSPENDED → False, DELETED → False, PENDING → False
+
+# Serialization
+data = identity.to_dict()
+restored = Identity.from_dict(data)`}</CodeBlock>
+      </section>
+
       <section className="mb-16">
         <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>PasswordCredential</h2>
-        <CodeBlock language="python" filename="Password Auth">{`from aquilia.auth.core import PasswordCredential, CredentialStatus
+        <CodeBlock language="python" filename="Password Auth">{`from aquilia.auth.core import PasswordCredential
 
 cred = PasswordCredential(
     identity_id="user_42",
     password_hash="$argon2id$v=19$m=65536,t=3,p=4$...",
-    algorithm="argon2id",
+    algorithm="argon2id",          # primary hasher
     must_change=False,
 )
 
@@ -38,8 +80,8 @@ if cred.should_rotate(max_age_days=90):
     # Prompt user to change password
     ...
 
-# Touch on successful login
-cred.touch()  # updates last_used_at
+# Touch on successful login — updates last_used_at
+cred.touch()
 
 # Serialization
 data = cred.to_dict()`}</CodeBlock>
@@ -64,7 +106,7 @@ key = ApiKeyCredential(
 
 # Security checks
 key.is_expired()     # False
-key.has_scope("read:users")  # via Identity attributes
+key.has_scope("read:users")  # True
 
 # Keys are hashed before storage — raw key only shown once at creation`}</CodeBlock>
       </section>
@@ -78,7 +120,7 @@ key.has_scope("read:users")  # via Identity attributes
             { type: 'DEVICE', desc: 'IoT or device identity for hardware-based authentication.' },
             { type: 'ANONYMOUS', desc: 'Unauthenticated principal with minimal permissions.' },
           ].map((item, i) => (
-            <div key={i} className={`p-5 rounded-xl border ${isDark ? 'bg-[#111] border-white/10' : 'bg-white border-gray-200'}`}>
+            <div key={i} className={boxClass}>
               <span className="text-aquilia-500 font-mono font-bold text-sm">{item.type}</span>
               <p className={`mt-2 text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{item.desc}</p>
             </div>
@@ -87,7 +129,7 @@ key.has_scope("read:users")  # via Identity attributes
       </section>
 
       <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Credential Status</h2>
+        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Identity Status</h2>
         <div className="overflow-x-auto">
           <table className={`w-full text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
             <thead><tr className={`border-b ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
@@ -96,10 +138,10 @@ key.has_scope("read:users")  # via Identity attributes
             </tr></thead>
             <tbody className="divide-y divide-white/5">
               {[
-                ['ACTIVE', 'Credential is valid and can be used for authentication.'],
-                ['SUSPENDED', 'Temporarily disabled — can be reactivated.'],
-                ['REVOKED', 'Permanently invalidated — must create a new credential.'],
-                ['EXPIRED', 'Passed expiration date — renewal required.'],
+                ['ACTIVE', 'Identity is valid and can authenticate. is_active() returns True.'],
+                ['SUSPENDED', 'Temporarily disabled by an administrator — can be reactivated.'],
+                ['DELETED', 'Soft-deleted — identity data preserved but access denied.'],
+                ['PENDING', 'Account created but not yet activated (e.g. awaiting email verification).'],
               ].map(([s, d], i) => (
                 <tr key={i}>
                   <td className="py-2.5 pr-4 font-mono text-xs text-aquilia-400">{s}</td>

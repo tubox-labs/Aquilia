@@ -17,6 +17,12 @@ from . import (
     ws,
     model_cmds,
     deploy_gen,
+    cache,
+    mail,
+    test,
+    trace,
+    artifacts,
+    mlops_cmds,
 )
 
 __all__ = [
@@ -36,4 +42,10 @@ __all__ = [
     'ws',
     'model_cmds',
     'deploy_gen',
+    'cache',
+    'mail',
+    'test',
+    'trace',
+    'artifacts',
+    'mlops_cmds',
 ]

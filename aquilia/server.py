@@ -2,6 +2,12 @@
 AquiliaServer - Main server orchestrating all components with lifecycle management.
 
 Fully integrated with Aquilary manifest-driven registry system.
+
+Architecture v2 additions:
+- HealthRegistry for centralized subsystem health tracking
+- SubsystemInitializer protocol support for server decomposition
+- Graceful shutdown with connection draining
+- Auto-discovery engine integration
 """
 
 from typing import Optional, List, Any
@@ -18,6 +24,7 @@ from .middleware_ext.session_middleware import SessionMiddleware
 from .controller.openapi import OpenAPIGenerator, OpenAPIConfig, generate_swagger_html, generate_redoc_html
 from .faults.engine import FaultEngine, FaultMiddleware
 from .response import Response
+from .health import HealthRegistry, HealthStatus, SubsystemStatus
 # Template Integration
 from .templates.middleware import TemplateMiddleware
 from .templates.di_providers import register_template_providers
@@ -66,6 +73,11 @@ class AquiliaServer:
         self.logger.info("🔍 Initializing AquiliaServer...")
         self.logger.info(f"📦 Config has sessions: {'sessions' in self.config.to_dict()}")
         self.mode = mode
+        
+        # v2: Health registry for subsystem tracking
+        self.health_registry = HealthRegistry()
+        self._inflight_requests = 0
+        self._accepting = True
         
         # Initialize fault engine
         self.fault_engine = FaultEngine(debug=self._is_debug())
@@ -582,7 +594,18 @@ class AquiliaServer:
         for ctx in self.runtime.meta.app_contexts:
             # Derive module package from any registered import path.
             # Controller paths look like "modules.chat.controllers:ChatController"
-            import_paths = list(ctx.controllers) + list(ctx.services)
+            # Items may be strings OR ServiceConfig/dataclass objects.
+            raw_paths = list(ctx.controllers) + list(ctx.services)
+            import_paths = []
+            for item in raw_paths:
+                if isinstance(item, str):
+                    import_paths.append(item)
+                elif hasattr(item, "class_path"):
+                    import_paths.append(item.class_path)
+                else:
+                    # Unknown type — try str() as last resort
+                    import_paths.append(str(item))
+
             for import_path in import_paths:
                 if ":" in import_path:
                     mod_dotted = import_path.split(":", 1)[0]
@@ -1649,27 +1672,46 @@ class AquiliaServer:
 
     
     async def _load_starter_controller(self):
-        """Auto-load starter.py controller from workspace root when debug=True.
+        """Auto-load starter.py controller from workspace root.
 
-        Discovers a ``StarterController`` in the workspace ``starter.py``
-        file and registers it so that new projects have a welcome page
-        at ``/`` out of the box.
+        Loading strategy (v2.1):
+        1. If the workspace declares ``.starter("starter")``, load that
+           file unconditionally (debug or prod — user chose to keep it).
+        2. Legacy fallback: if debug mode is enabled and ``starter.py``
+           exists in the working directory, load it automatically.
 
-        The starter controller is only loaded if:
-        - Debug mode is enabled
-        - ``starter.py`` exists in the working directory
-        - No other controller has already claimed ``GET /``
+        The starter controller is skipped if another controller has
+        already registered ``GET /``.
         """
-        if not self._is_debug():
-            return None
-
         import importlib
         import importlib.util
         from pathlib import Path
 
-        # Look for starter.py in cwd (the workspace root)
-        starter_path = Path.cwd() / "starter.py"
-        if not starter_path.exists():
+        # ── Determine starter source ──
+        starter_module_name = None
+
+        # v2.1: Check workspace config for .starter() declaration
+        if hasattr(self, 'config') and self.config:
+            try:
+                ws_dict = self.config.to_dict() if hasattr(self.config, 'to_dict') else {}
+                starter_module_name = ws_dict.get("starter")
+            except Exception:
+                pass
+
+        # Resolve starter path
+        starter_path = None
+        if starter_module_name:
+            candidate = Path.cwd() / f"{starter_module_name}.py"
+            if candidate.exists():
+                starter_path = candidate
+        elif self._is_debug():
+            # Legacy: auto-load starter.py in debug mode
+            candidate = Path.cwd() / "starter.py"
+            if candidate.exists():
+                starter_path = candidate
+                starter_module_name = "starter"
+
+        if starter_path is None:
             return None
 
         # Check if any existing route already handles GET /
@@ -1682,14 +1724,16 @@ class AquiliaServer:
             pass
 
         try:
-            spec = importlib.util.spec_from_file_location("starter", str(starter_path))
+            spec = importlib.util.spec_from_file_location(
+                starter_module_name, str(starter_path)
+            )
             if spec is None or spec.loader is None:
                 return None
             module = importlib.util.module_from_spec(spec)
             # Register in sys.modules so inspect.getfile() can resolve
             # the class back to its source file.
             import sys as _sys
-            _sys.modules["starter"] = module
+            _sys.modules[starter_module_name] = module
             spec.loader.exec_module(module)
 
             # Find Controller subclasses in the module
@@ -2282,7 +2326,31 @@ class AquiliaServer:
         except Exception as e:
             self.logger.warning(f"Trace snapshot failed (non-fatal): {e}")
 
+        # v2: Register subsystem health statuses
+        self.health_registry.register("aquilary", HealthStatus(
+            name="aquilary", status=SubsystemStatus.HEALTHY,
+            message=f"{len(self.runtime.meta.app_contexts)} apps loaded",
+        ))
+        self.health_registry.register("routing", HealthStatus(
+            name="routing", status=SubsystemStatus.HEALTHY,
+            message=f"{len(routes) if routes else 0} routes compiled",
+        ))
+        self.health_registry.register("di", HealthStatus(
+            name="di", status=SubsystemStatus.HEALTHY,
+            message=f"{total_services} services registered",
+        ))
+        if hasattr(self, '_cache_service') and self._cache_service is not None:
+            self.health_registry.register("cache", HealthStatus(
+                name="cache", status=SubsystemStatus.HEALTHY,
+            ))
+        if hasattr(self, '_mail_service') and self._mail_service is not None:
+            self.health_registry.register("mail", HealthStatus(
+                name="mail", status=SubsystemStatus.HEALTHY,
+            ))
+
         self.logger.info(f"✅ Server ready with {len(self.runtime.meta.app_contexts)} apps ({_startup_ms:.0f}ms)")
+        overall = self.health_registry.overall()
+        self.logger.info(f"🏥 Health: {overall.status.value} — {overall.message}")
     
     async def shutdown(self):
         """
@@ -2430,23 +2498,71 @@ class AquiliaServer:
         self._startup_complete = False
         self.logger.info("✅ All apps stopped")
     
+    def get_health(self) -> dict:
+        """
+        Get current server health status (v2).
+        
+        Returns dict suitable for JSON serialization at /health endpoint.
+        """
+        return self.health_registry.to_dict()
+
+    async def graceful_shutdown(self, timeout: float = 30.0):
+        """
+        Graceful shutdown sequence (v2).
+        
+        1. Stop accepting new connections
+        2. Drain in-flight requests (with timeout)
+        3. Run standard shutdown hooks
+        4. Final cleanup
+        
+        Args:
+            timeout: Maximum seconds to wait for in-flight requests
+        """
+        import asyncio
+        
+        self.logger.info("🛑 Initiating graceful shutdown...")
+        self._accepting = False
+        
+        # Wait for in-flight requests to complete
+        if self._inflight_requests > 0:
+            self.logger.info(
+                f"⏳ Draining {self._inflight_requests} in-flight requests "
+                f"(timeout: {timeout}s)..."
+            )
+            deadline = asyncio.get_event_loop().time() + timeout
+            while self._inflight_requests > 0:
+                if asyncio.get_event_loop().time() > deadline:
+                    self.logger.warning(
+                        f"⚠️ Forced shutdown — {self._inflight_requests} "
+                        f"requests still in-flight after {timeout}s"
+                    )
+                    break
+                await asyncio.sleep(0.1)
+        
+        # Run standard shutdown
+        await self.shutdown()
+        self.logger.info("✅ Graceful shutdown complete")
+
     def run(
         self,
         host: str = "127.0.0.1",
         port: int = 8000,
         reload: bool = False,
         log_level: str = "info",
+        graceful_timeout: float = 30.0,
     ):
         """
-        Run the development server.
+        Run the development server with graceful shutdown support.
         
         Args:
             host: Host to bind to
             port: Port to bind to
             reload: Enable auto-reload
             log_level: Logging level
+            graceful_timeout: Seconds to wait for in-flight requests on shutdown
         """
         import asyncio
+        import signal
         
         # Setup logging
         logging.basicConfig(
@@ -2456,6 +2572,21 @@ class AquiliaServer:
         
         # Run startup
         asyncio.run(self.startup())
+        
+        # Install signal handlers for graceful shutdown
+        loop = asyncio.new_event_loop()
+        
+        def _signal_handler(signum, frame):
+            self.logger.info(f"Received signal {signal.Signals(signum).name}")
+            loop.call_soon_threadsafe(
+                loop.create_task, self.graceful_shutdown(graceful_timeout)
+            )
+        
+        try:
+            signal.signal(signal.SIGTERM, _signal_handler)
+            signal.signal(signal.SIGINT, _signal_handler)
+        except (OSError, ValueError):
+            pass  # Signal handling not available (e.g., non-main thread)
         
         try:
             # Try to import uvicorn
@@ -2479,9 +2610,33 @@ class AquiliaServer:
             raise
         
         finally:
-            # Run shutdown
-            asyncio.run(self.shutdown())
+            # Run graceful shutdown
+            asyncio.run(self.graceful_shutdown(graceful_timeout))
     
     def get_asgi_app(self):
         """Get the ASGI application for external servers."""
         return self.app
+    
+    def lifespan(self):
+        """
+        ASGI lifespan context manager (FastAPI-compatible pattern).
+        
+        Use with ASGI servers that support the lifespan protocol::
+        
+            server = AquiliaServer(workspace_path)
+            
+            async def app(scope, receive, send):
+                async with server.lifespan():
+                    ...  # handle requests
+        """
+        from contextlib import asynccontextmanager
+        
+        @asynccontextmanager
+        async def _lifespan():
+            await self.startup()
+            try:
+                yield self
+            finally:
+                await self.graceful_shutdown()
+        
+        return _lifespan()

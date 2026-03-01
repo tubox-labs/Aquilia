@@ -4,7 +4,7 @@ import {
   Sun, Moon, Github, ChevronDown, Rocket, Zap, Box,
   Shield, Layers, Wrench, BookOpen, Download, Cpu,
   Settings, Database, Lock, Key, Code, Bug, Wifi,
-  Mail, FileText, Brain, Terminal, TestTube, FileCode, Eye, Menu
+  Mail, FileText, Brain, Terminal, TestTube, FileCode, Eye, Menu, Tag
 } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 
@@ -37,7 +37,7 @@ const navSections = [
     links: [
       { label: 'DI Container', path: '/docs/di', icon: Box },
       { label: 'Models (ORM)', path: '/docs/models', icon: Database },
-      { label: 'Serializers', path: '/docs/serializers', icon: FileText },
+      { label: 'Blueprints', path: '/docs/blueprints', icon: FileText },
       { label: 'Database', path: '/docs/database', icon: Database },
     ],
   },
@@ -84,13 +84,14 @@ interface NavbarProps {
 export function Navbar({ onToggleSidebar }: NavbarProps) {
   const { theme, toggle } = useTheme()
   const [dropdownOpen, setDropdownOpen] = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const location = useLocation()
   const isDark = theme === 'dark'
   const dropdownRef = useRef<HTMLDivElement>(null)
   const hoverTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Close on route change
-  useEffect(() => { setDropdownOpen(false) }, [location.pathname])
+  useEffect(() => { setDropdownOpen(false); setMobileMenuOpen(false) }, [location.pathname])
 
   const handleMouseEnter = () => {
     if (hoverTimeout.current) clearTimeout(hoverTimeout.current)
@@ -102,14 +103,20 @@ export function Navbar({ onToggleSidebar }: NavbarProps) {
   }
 
   return (
-    <nav className="fixed w-full z-50 glass border-b border-[var(--border-color)]/50">
+    <nav className="fixed w-full z-40 glass border-b border-[var(--border-color)]/50">
       <div className="max-w-[90rem] mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Left: Hamburger + Logo */}
           <div className="flex items-center gap-4">
             {/* Hamburger for mobile */}
             <button
-              onClick={onToggleSidebar}
+              onClick={() => {
+                if (onToggleSidebar) {
+                  onToggleSidebar()
+                } else {
+                  setMobileMenuOpen(!mobileMenuOpen)
+                }
+              }}
               className={`lg:hidden p-2 -ml-2 rounded-lg transition-colors ${isDark ? 'text-gray-400 hover:bg-white/10 hover:text-white' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'}`}
             >
               <Menu className="w-5 h-5" />
@@ -164,7 +171,7 @@ export function Navbar({ onToggleSidebar }: NavbarProps) {
               {/* Mega-menu dropdown — hover-triggered */}
               {dropdownOpen && (
                 <div
-                  className={`absolute left-1/2 -translate-x-1/2 top-full mt-0 w-[54rem] rounded-2xl border shadow-2xl backdrop-blur-xl animate-in fade-in slide-in-from-top-2 duration-200 ${isDark ? 'bg-[#09090b]/98 border-white/10' : 'bg-white/98 border-gray-200'}`}
+                  className={`absolute left-1/2 -translate-x-1/2 top-full mt-0 w-[54rem] rounded-2xl border shadow-2xl backdrop-blur-xl animate-in fade-in slide-in-from-top-2 duration-200 z-50 ${isDark ? 'bg-[#09090b]/98 border-white/10' : 'bg-white/98 border-gray-200'}`}
                   style={{ animationDuration: '200ms', animationFillMode: 'forwards' }}
                 >
                   {/* Invisible bridge keeps hover connected */}
@@ -244,6 +251,30 @@ export function Navbar({ onToggleSidebar }: NavbarProps) {
               <span>Guide</span>
               <div className={`absolute inset-0 -translate-x-full group-hover/guide:translate-x-full transition-transform duration-700 bg-gradient-to-r ${isDark ? 'from-transparent via-white/5 to-transparent' : 'from-transparent via-gray-200 to-transparent'}`} />
             </Link>
+
+            <Link
+              to="/changelogs"
+              className={`hidden md:flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition-all duration-200 rounded-lg group/cl relative overflow-hidden ${location.pathname === '/changelogs'
+                ? 'text-aquilia-400'
+                : `${isDark ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-900'}`
+                }`}
+            >
+              <FileText className="w-4 h-4 group-hover/cl:scale-110 transition-transform duration-200" />
+              <span>Changelogs</span>
+              <div className={`absolute inset-0 -translate-x-full group-hover/cl:translate-x-full transition-transform duration-700 bg-gradient-to-r ${isDark ? 'from-transparent via-white/5 to-transparent' : 'from-transparent via-gray-200 to-transparent'}`} />
+            </Link>
+
+            <Link
+              to="/releases"
+              className={`hidden md:flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition-all duration-200 rounded-lg group/rel relative overflow-hidden ${location.pathname === '/releases'
+                ? 'text-aquilia-400'
+                : `${isDark ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-900'}`
+                }`}
+            >
+              <Tag className="w-4 h-4 group-hover/rel:scale-110 transition-transform duration-200" />
+              <span>Releases</span>
+              <div className={`absolute inset-0 -translate-x-full group-hover/rel:translate-x-full transition-transform duration-700 bg-gradient-to-r ${isDark ? 'from-transparent via-white/5 to-transparent' : 'from-transparent via-gray-200 to-transparent'}`} />
+            </Link>
           </div>
 
           {/* Right actions */}
@@ -273,6 +304,43 @@ export function Navbar({ onToggleSidebar }: NavbarProps) {
           </div>
         </div>
       </div>
+
+      {/* Mobile menu — shown when hamburger clicked on standalone pages */}
+      {mobileMenuOpen && !onToggleSidebar && (
+        <div className={`lg:hidden border-t ${isDark ? 'bg-[#09090b]/98 border-white/10' : 'bg-white/98 border-gray-200'}`}>
+          <div className="px-4 py-4 space-y-1">
+            <Link
+              to="/docs"
+              className={`flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${isDark ? 'text-gray-300 hover:bg-white/5' : 'text-gray-600 hover:bg-gray-50'}`}
+            >
+              <BookOpen className="w-4 h-4" />
+              Guide
+            </Link>
+            <Link
+              to="/changelogs"
+              className={`flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                location.pathname === '/changelogs'
+                  ? 'text-aquilia-500 bg-aquilia-500/10'
+                  : isDark ? 'text-gray-300 hover:bg-white/5' : 'text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              <FileText className="w-4 h-4" />
+              Changelogs
+            </Link>
+            <Link
+              to="/releases"
+              className={`flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                location.pathname === '/releases'
+                  ? 'text-aquilia-500 bg-aquilia-500/10'
+                  : isDark ? 'text-gray-300 hover:bg-white/5' : 'text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              <Tag className="w-4 h-4" />
+              Releases
+            </Link>
+          </div>
+        </div>
+      )}
     </nav>
   )
 }

@@ -3,14 +3,84 @@ AppManifest - Production-grade, data-driven application manifest system.
 
 No import-time side effects, fully serializable and inspectable.
 Provides precise control over middleware, sessions, DI, lifecycle, and error handling.
+
+Architecture v2:
+- ComponentRef: Universal typed reference for all component kinds
+- ComponentKind: Enum for component classification
+- exports/imports: NestJS-style cross-module provider visibility
+- auto_discover: Convention-over-configuration file scanning
+- guards/pipes/interceptors: First-class request pipeline components
 """
 
-from typing import Any, Callable, Optional, Type, List, Tuple, Dict
+from typing import Any, Callable, Optional, Type, List, Tuple, Dict, Union
 from dataclasses import dataclass, field
 from enum import Enum
 from datetime import timedelta
 import hashlib
 import json
+import warnings
+
+
+# ============================================================================
+# Component Classification (v2)
+# ============================================================================
+
+class ComponentKind(str, Enum):
+    """Classification of framework components for auto-discovery."""
+    CONTROLLER = "controller"
+    SERVICE = "service"
+    MIDDLEWARE = "middleware"
+    GUARD = "guard"
+    PIPE = "pipe"
+    INTERCEPTOR = "interceptor"
+    EFFECT = "effect"
+    MODEL = "model"
+    FAULT_HANDLER = "fault_handler"
+    SOCKET_CONTROLLER = "socket_controller"
+    SERIALIZER = "serializer"
+
+
+@dataclass
+class ComponentRef:
+    """
+    Universal typed reference to any framework component.
+
+    Provides a unified format for referencing controllers, services,
+    middleware, guards, pipes, interceptors, and models.
+    Replaces the inconsistent mix of bare strings and config dataclasses.
+
+    Examples:
+        ComponentRef("modules.users.controllers:UsersController", ComponentKind.CONTROLLER)
+        ComponentRef("modules.auth.guards:JWTGuard", ComponentKind.GUARD, metadata={"priority": 10})
+    """
+    class_path: str              # "module.path:ClassName"
+    kind: ComponentKind          # Component classification
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self):
+        if ":" not in self.class_path:
+            raise ValueError(
+                f"ComponentRef class_path must be 'module.path:ClassName', "
+                f"got '{self.class_path}'"
+            )
+
+    @property
+    def module_path(self) -> str:
+        """Extract the module path (before ':')."""
+        return self.class_path.split(":", 1)[0]
+
+    @property
+    def class_name(self) -> str:
+        """Extract the class name (after ':')."""
+        return self.class_path.split(":", 1)[1]
+
+    def to_dict(self) -> dict:
+        """Serialize to dictionary."""
+        return {
+            "class_path": self.class_path,
+            "kind": self.kind.value,
+            "metadata": self.metadata,
+        }
 
 
 class ServiceScope(str, Enum):
@@ -280,10 +350,19 @@ class AppManifest:
     """
     Production-grade application manifest for complete app configuration.
     
+    Architecture v2 additions:
+    - exports/imports: Cross-module provider visibility (NestJS-style)
+    - guards/pipes/interceptors: First-class request pipeline components
+    - auto_discover: Convention-over-configuration file scanning
+    - All component lists accept Union[str, ComponentRef] for flexibility
+    
     Provides precise control over:
     - Services with DI scopes and lifecycle
     - Controllers with routing
     - Middleware with scoping and priority
+    - Guards for authentication/authorization gates
+    - Pipes for request data transformation/validation
+    - Interceptors for cross-cutting concerns (logging, caching, etc.)
     - Sessions with policies and storage
     - Error handling with fault domains
     - Feature flags with conditional activation
@@ -295,15 +374,20 @@ class AppManifest:
     description: str = ""                 # Module description
     author: str = ""                      # Module author
     
-    # Component declarations
-    services: List[ServiceConfig] = field(default_factory=list)  # Detailed service config
-    controllers: List[str] = field(default_factory=list)  # "path:ClassName" format
-    socket_controllers: List[str] = field(default_factory=list)  # "path:ClassName" format (WebSockets)
-    models: List[str] = field(default_factory=list)  # .amdl file paths or glob patterns
-    serializers: List[str] = field(default_factory=list)  # "path:ClassName" serializer classes
+    # Component declarations — all accept str or ComponentRef
+    services: List[Union[str, ServiceConfig, ComponentRef]] = field(default_factory=list)
+    controllers: List[Union[str, ComponentRef]] = field(default_factory=list)
+    socket_controllers: List[Union[str, ComponentRef]] = field(default_factory=list)
+    models: List[Union[str, ComponentRef]] = field(default_factory=list)
+    serializers: List[Union[str, ComponentRef]] = field(default_factory=list)
+    
+    # v2: First-class request pipeline components
+    guards: List[Union[str, ComponentRef]] = field(default_factory=list)
+    pipes: List[Union[str, ComponentRef]] = field(default_factory=list)
+    interceptors: List[Union[str, ComponentRef]] = field(default_factory=list)
     
     # Middleware configuration
-    middleware: List[MiddlewareConfig] = field(default_factory=list)
+    middleware: List[Union[str, MiddlewareConfig, ComponentRef]] = field(default_factory=list)
     
     # Routing
     route_prefix: str = "/"               # Route prefix for module
@@ -327,14 +411,24 @@ class AppManifest:
     # Feature flags
     features: List[FeatureConfig] = field(default_factory=list)
     
-    # Dependencies
+    # v2: Cross-module dependency management (NestJS-style)
+    exports: List[str] = field(default_factory=list)       # Services visible to importing modules
+    imports: List[str] = field(default_factory=list)        # Modules this module depends on
+    
+    # Legacy: still works but prefer 'imports'
     depends_on: List[str] = field(default_factory=list)
     
     # Metadata
     tags: List[str] = field(default_factory=list)
     config_schema: Optional[Dict[str, Any]] = None  # JSON Schema for validation
     
-    # Legacy support (for backward compatibility)
+    # v2: Auto-discovery control
+    auto_discover: bool = True            # Enable convention-based component scanning
+    discover_patterns: List[str] = field(default_factory=lambda: [
+        "controllers", "services", "middleware", "guards", "models"
+    ])
+    
+    # Legacy support (for backward compatibility — will emit warnings)
     middlewares: List[Tuple[str, dict]] = field(default_factory=list)  # Old format
     default_fault_domain: Optional[str] = None  # Old format
     on_startup: Optional[Callable] = None  # Old format
@@ -342,7 +436,7 @@ class AppManifest:
     config: Optional[Type] = None  # Old format
     
     def __post_init__(self):
-        """Validate manifest structure."""
+        """Validate and normalize manifest structure."""
         if not self.name:
             raise ValueError("Manifest must have a name")
         if not self.version:
@@ -354,6 +448,11 @@ class AppManifest:
         
         # Convert legacy middleware format to new format if needed
         if self.middlewares and not self.middleware:
+            warnings.warn(
+                f"AppManifest({self.name!r}).middlewares is deprecated. "
+                "Use 'middleware' with MiddlewareConfig objects instead.",
+                DeprecationWarning, stacklevel=2,
+            )
             for path, kwargs in self.middlewares:
                 self.middleware.append(
                     MiddlewareConfig(
@@ -364,28 +463,92 @@ class AppManifest:
         
         # Convert legacy fault domain to new format if needed
         if self.default_fault_domain and not self.faults:
+            warnings.warn(
+                f"AppManifest({self.name!r}).default_fault_domain is deprecated. "
+                "Use 'faults=FaultHandlingConfig(default_domain=...)' instead.",
+                DeprecationWarning, stacklevel=2,
+            )
             self.faults = FaultHandlingConfig(
                 default_domain=self.default_fault_domain
             )
+        
+        # v2: Migrate depends_on → imports (with warning)
+        if self.depends_on and not self.imports:
+            warnings.warn(
+                f"AppManifest({self.name!r}).depends_on is deprecated. "
+                "Use 'imports' instead for cross-module dependencies.",
+                DeprecationWarning, stacklevel=2,
+            )
+            self.imports = list(self.depends_on)
+        
+        # v2: Normalize string services to ServiceConfig
+        normalized_services = []
+        for s in self.services:
+            if isinstance(s, str):
+                normalized_services.append(ServiceConfig(class_path=s))
+            elif isinstance(s, ComponentRef):
+                normalized_services.append(ServiceConfig(
+                    class_path=s.class_path,
+                    config=s.metadata.get("config"),
+                ))
+            else:
+                normalized_services.append(s)
+        self.services = normalized_services
+        
+        # v2: Normalize string middleware to MiddlewareConfig
+        normalized_mw = []
+        for m in self.middleware:
+            if isinstance(m, str):
+                normalized_mw.append(MiddlewareConfig(class_path=m))
+            elif isinstance(m, ComponentRef):
+                normalized_mw.append(MiddlewareConfig(
+                    class_path=m.class_path,
+                    priority=m.metadata.get("priority", 50),
+                    config=m.metadata.get("config"),
+                ))
+            else:
+                normalized_mw.append(m)
+        self.middleware = normalized_mw
     
     def to_dict(self) -> dict:
-        """Serialize manifest to dictionary (for fingerprinting)."""
+        """Serialize manifest to dictionary (for fingerprinting and inspection)."""
+        
+        def _ref_to_str(ref) -> str:
+            """Convert any component reference to its class_path string."""
+            if isinstance(ref, str):
+                return ref
+            if isinstance(ref, ComponentRef):
+                return ref.class_path
+            if hasattr(ref, "class_path"):
+                return ref.class_path
+            return str(ref)
+        
         result = {
             "name": self.name,
             "version": self.version,
-            "controllers": self.controllers,
-            "socket_controllers": self.socket_controllers,
-            "models": self.models,
-            "serializers": self.serializers,
-            "services": [s.to_dict() for s in self.services],
+            "controllers": [_ref_to_str(c) for c in self.controllers],
+            "socket_controllers": [_ref_to_str(c) for c in self.socket_controllers],
+            "models": [_ref_to_str(m) for m in self.models],
+            "serializers": [_ref_to_str(s) for s in self.serializers],
+            "services": [s.to_dict() if hasattr(s, 'to_dict') else str(s) for s in self.services],
+            "middleware": [m.to_dict() if hasattr(m, 'to_dict') else str(m) for m in self.middleware],
+            "guards": [_ref_to_str(g) for g in self.guards],
+            "pipes": [_ref_to_str(p) for p in self.pipes],
+            "interceptors": [_ref_to_str(i) for i in self.interceptors],
+            "exports": self.exports,
+            "imports": self.imports,
             "depends_on": self.depends_on,
-            "middleware": [m.to_dict() for m in self.middleware],
             "description": self.description,
             "author": self.author,
             "tags": self.tags,
+            "auto_discover": self.auto_discover,
         }
         if self.database:
             result["database"] = self.database.to_dict()
+        if self.faults:
+            result["faults"] = self.faults.to_dict()
+        if self.lifecycle:
+            result["lifecycle"] = self.lifecycle.to_dict()
         return result
     
     def fingerprint(self) -> str:
@@ -394,156 +557,6 @@ class AppManifest:
         return hashlib.sha256(data.encode()).hexdigest()[:16]
 
 
-class ManifestLoader:
-    """Loads, validates, and manages application manifests."""
-    
-    @staticmethod
-    def load_manifests(manifest_classes: List[Type[AppManifest]]) -> List[AppManifest]:
-        """
-        Instantiate manifest classes and validate them.
-        
-        Args:
-            manifest_classes: List of AppManifest subclasses or instances
-            
-        Returns:
-            List of instantiated and validated manifests
-            
-        Raises:
-            TypeError: If invalid manifest type
-            ValueError: If duplicate app names or invalid configuration
-        """
-        manifests = []
-        names_seen = set()
-        
-        for cls in manifest_classes:
-            # Check if it's already an instance (AppManifest object)
-            if isinstance(cls, AppManifest):
-                manifest = cls
-            # Check if it's a class that can be instantiated
-            elif isinstance(cls, type):
-                manifest = cls()
-            else:
-                raise TypeError(f"Expected AppManifest instance or class, got {type(cls)}")
-            
-            # Check for duplicate names
-            if manifest.name in names_seen:
-                raise ValueError(
-                    f"Duplicate app name '{manifest.name}' found. "
-                    f"Each app must have a unique name."
-                )
-            names_seen.add(manifest.name)
-            
-            manifests.append(manifest)
-        
-        return manifests
-    
-    @staticmethod
-    def validate_manifest(manifest: AppManifest) -> List[str]:
-        """
-        Validate a single manifest and return list of warnings/errors.
-        
-        Checks:
-        - Version format (semver)
-        - Circular dependencies
-        - Service configurations
-        - Middleware declarations
-        - Session configurations
-        - Fault handling setup
-        
-        Returns:
-            List of validation messages (empty if valid)
-        """
-        issues = []
-        
-        # Validate version format
-        if not manifest.version or "." not in manifest.version:
-            issues.append(f"App '{manifest.name}': version should follow semver (e.g., '1.0.0')")
-        
-        # Check for circular self-dependency
-        if manifest.name in manifest.depends_on:
-            issues.append(f"App '{manifest.name}': cannot depend on itself")
-        
-        # Validate service configurations
-        for idx, service in enumerate(manifest.services):
-            if not service.class_path or ":" not in service.class_path:
-                issues.append(
-                    f"App '{manifest.name}': service[{idx}] class_path must be "
-                    f"'module:ClassName' format"
-                )
-            
-            # Validate scope
-            try:
-                ServiceScope(service.scope)
-            except ValueError:
-                issues.append(
-                    f"App '{manifest.name}': service[{idx}] has invalid scope '{service.scope}'"
-                )
-            
-            # Validate lifecycle dependencies
-            if service.lifecycle and service.lifecycle.depends_on:
-                for dep in service.lifecycle.depends_on:
-                    service_names = [s.class_path.split(":")[-1] for s in manifest.services]
-                    if dep not in service_names:
-                        issues.append(
-                            f"App '{manifest.name}': service '{service.class_path}' "
-                            f"depends on '{dep}' which doesn't exist"
-                        )
-        
-        # Validate middleware declarations
-        for idx, mw in enumerate(manifest.middleware):
-            if not mw.class_path or ":" not in mw.class_path:
-                issues.append(
-                    f"App '{manifest.name}': middleware[{idx}] class_path must be "
-                    f"'module:ClassName' format"
-                )
-        
-        # Validate session configurations
-        for idx, session in enumerate(manifest.sessions):
-            if not session.name:
-                issues.append(
-                    f"App '{manifest.name}': session[{idx}] must have a name"
-                )
-            
-            if session.transport not in ["cookie", "header", "custom"]:
-                issues.append(
-                    f"App '{manifest.name}': session[{idx}] has invalid transport '{session.transport}'"
-                )
-            
-            if session.store not in ["memory", "redis", "database", "custom"]:
-                issues.append(
-                    f"App '{manifest.name}': session[{idx}] has invalid store '{session.store}'"
-                )
-        
-        # Validate legacy middleware format if present
-        for idx, (path, kwargs) in enumerate(manifest.middlewares):
-            if not isinstance(path, str) or ":" not in path:
-                issues.append(
-                    f"App '{manifest.name}': middleware[{idx}] path must be "
-                    f"'module:callable' format"
-                )
-            if not isinstance(kwargs, dict):
-                issues.append(
-                    f"App '{manifest.name}': middleware[{idx}] kwargs must be a dict"
-                )
-        
-        return issues
-    
-    @staticmethod
-    def validate_all(manifests: List[AppManifest]) -> Dict[str, List[str]]:
-        """
-        Validate all manifests and collect issues.
-        
-        Args:
-            manifests: List of manifests to validate
-            
-        Returns:
-            Dictionary mapping manifest name to list of issues
-        """
-        issues_by_app = {}
-        
-        for manifest in manifests:
-            issues = ManifestLoader.validate_manifest(manifest)
-            if issues:
-                issues_by_app[manifest.name] = issues
-        
-        return issues_by_app
+# Legacy ManifestLoader removed — use aquilia.aquilary.ManifestLoader instead.
+# The aquilary pipeline (loader → validator → graph → fingerprint → registry)
+# is the canonical manifest processing system.

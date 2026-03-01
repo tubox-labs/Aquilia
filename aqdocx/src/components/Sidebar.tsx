@@ -149,14 +149,17 @@ export const sections: SidebarSection[] = [
         ]
       },
       {
-        label: 'Serializers', path: '/docs/serializers', icon: <Binary className="w-3.5 h-3.5" />,
+        label: 'Blueprints', path: '/docs/blueprints', icon: <Binary className="w-3.5 h-3.5" />,
         children: [
-          { label: 'Serializer', path: '/docs/serializers/base' },
-          { label: 'ModelSerializer', path: '/docs/serializers/model' },
-          { label: 'Fields', path: '/docs/serializers/fields' },
-          { label: 'Validators', path: '/docs/serializers/validators' },
-          { label: 'Relations', path: '/docs/serializers/relations' },
-          { label: 'DI Integration', path: '/docs/serializers/di-integration' },
+          { label: 'Overview', path: '/docs/blueprints/overview' },
+          { label: 'Facets', path: '/docs/blueprints/facets' },
+          { label: 'Projections', path: '/docs/blueprints/projections' },
+          { label: 'Lenses', path: '/docs/blueprints/lenses' },
+          { label: 'Seals (Validation)', path: '/docs/blueprints/seals' },
+          { label: 'Annotations', path: '/docs/blueprints/annotations' },
+          { label: 'Integration', path: '/docs/blueprints/integration' },
+          { label: 'Schemas', path: '/docs/blueprints/schemas' },
+          { label: 'Faults', path: '/docs/blueprints/faults' },
         ]
       },
     ]
@@ -173,7 +176,11 @@ export const sections: SidebarSection[] = [
           { label: 'Auth Manager', path: '/docs/auth/manager' },
           { label: 'OAuth2 / OIDC', path: '/docs/auth/oauth' },
           { label: 'MFA', path: '/docs/auth/mfa' },
+          { label: 'Tokens & Keys', path: '/docs/auth/tokens' },
+          { label: 'Stores', path: '/docs/auth/stores' },
           { label: 'Guards', path: '/docs/auth/guards' },
+          { label: 'Faults', path: '/docs/auth/faults' },
+          { label: 'Integration', path: '/docs/auth/integration' },
         ]
       },
       {
@@ -187,10 +194,15 @@ export const sections: SidebarSection[] = [
       {
         label: 'Sessions', path: '/docs/sessions', icon: <Cog className="w-3.5 h-3.5" />,
         children: [
-          { label: 'Session System', path: '/docs/sessions/overview' },
-          { label: 'SessionID', path: '/docs/sessions/session-id' },
-          { label: 'Stores', path: '/docs/sessions/stores' },
+          { label: 'Overview', path: '/docs/sessions/overview' },
+          { label: 'Engine', path: '/docs/sessions/engine' },
           { label: 'Policies', path: '/docs/sessions/policies' },
+          { label: 'Stores', path: '/docs/sessions/stores' },
+          { label: 'Transport', path: '/docs/sessions/transport' },
+          { label: 'Decorators', path: '/docs/sessions/decorators' },
+          { label: 'Typed State', path: '/docs/sessions/state' },
+          { label: 'Guards & Context', path: '/docs/sessions/guards' },
+          { label: 'Faults', path: '/docs/sessions/faults' },
         ]
       },
     ]
@@ -277,10 +289,22 @@ export const sections: SidebarSection[] = [
       {
         label: 'MLOps', path: '/docs/mlops', icon: <Brain className="w-3.5 h-3.5" />,
         children: [
+          { label: 'Type System', path: '/docs/mlops/types' },
+          { label: 'API & Decorators', path: '/docs/mlops/api' },
+          { label: 'Engine & Pipeline', path: '/docs/mlops/engine' },
           { label: 'Modelpack Builder', path: '/docs/mlops/modelpack' },
           { label: 'Registry', path: '/docs/mlops/registry' },
+          { label: 'Runtime Backends', path: '/docs/mlops/runtime' },
           { label: 'Serving', path: '/docs/mlops/serving' },
-          { label: 'Drift Detection', path: '/docs/mlops/drift' },
+          { label: 'Orchestrator', path: '/docs/mlops/orchestrator' },
+          { label: 'Observability', path: '/docs/mlops/observability' },
+          { label: 'Plugins', path: '/docs/mlops/plugins' },
+          { label: 'Release & Rollouts', path: '/docs/mlops/release' },
+          { label: 'Scheduler', path: '/docs/mlops/scheduler' },
+          { label: 'Security', path: '/docs/mlops/security' },
+          { label: 'Explainability', path: '/docs/mlops/explain' },
+          { label: 'Deployment', path: '/docs/mlops/deployment' },
+          { label: 'Tutorial', path: '/docs/mlops/tutorial' },
         ]
       },
     ]
@@ -298,6 +322,11 @@ export const sections: SidebarSection[] = [
           { label: 'MLOps', path: '/docs/cli/mlops' },
           { label: 'Inspection', path: '/docs/cli/inspection' },
           { label: 'Generators', path: '/docs/cli/generators' },
+          { label: 'WebSocket', path: '/docs/cli/websockets' },
+          { label: 'Deploy', path: '/docs/cli/deploy' },
+          { label: 'Artifacts', path: '/docs/cli/artifacts' },
+          { label: 'Trace', path: '/docs/cli/trace' },
+          { label: 'Subsystems', path: '/docs/cli/subsystems' },
         ]
       },
       {

@@ -56,7 +56,7 @@ export function CLIOverview() {
               <Terminal className="w-5 h-5 text-aquilia-500" />
               <h3 className={`font-bold ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>Core Commands</h3>
             </div>
-            <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>lifecycle management: init, run, serve, deploy.</p>
+            <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Lifecycle management: init, add, generate, validate, compile, run, serve, freeze, manifest.</p>
           </Link>
 
           <Link to="/docs/cli/database" className={`group p-6 rounded-xl border transition-all ${isDark ? 'bg-[#0A0A0A] border-white/10 hover:border-purple-500/50' : 'bg-white border-gray-200 hover:border-purple-500/50'}`}>
@@ -80,7 +80,7 @@ export function CLIOverview() {
               <div className="w-5 h-5 rounded bg-green-500/20 flex items-center justify-center text-green-500">In</div>
               <h3 className={`font-bold ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>Inspection</h3>
             </div>
-            <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>DI graph, routes, analytics, caching & mail diagnosis.</p>
+            <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Routes, DI graph, modules, faults, and config introspection.</p>
           </Link>
 
           <Link to="/docs/cli/generators" className={`group p-6 rounded-xl border transition-all ${isDark ? 'bg-[#0A0A0A] border-white/10 hover:border-orange-500/50' : 'bg-white border-gray-200 hover:border-orange-500/50'}`}>
@@ -89,6 +89,46 @@ export function CLIOverview() {
               <h3 className={`font-bold ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>Generators</h3>
             </div>
             <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Code scaffolding and custom templates.</p>
+          </Link>
+
+          <Link to="/docs/cli/websockets" className={`group p-6 rounded-xl border transition-all ${isDark ? 'bg-[#0A0A0A] border-white/10 hover:border-cyan-500/50' : 'bg-white border-gray-200 hover:border-cyan-500/50'}`}>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-5 h-5 rounded bg-cyan-500/20 flex items-center justify-center text-cyan-500">WS</div>
+              <h3 className={`font-bold ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>WebSocket</h3>
+            </div>
+            <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Inspect, broadcast, client generation, room management.</p>
+          </Link>
+
+          <Link to="/docs/cli/deploy" className={`group p-6 rounded-xl border transition-all ${isDark ? 'bg-[#0A0A0A] border-white/10 hover:border-red-500/50' : 'bg-white border-gray-200 hover:border-red-500/50'}`}>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-5 h-5 rounded bg-red-500/20 flex items-center justify-center text-red-500">Dp</div>
+              <h3 className={`font-bold ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>Deploy</h3>
+            </div>
+            <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Dockerfile, Compose, Kubernetes, Nginx, CI/CD, monitoring generators.</p>
+          </Link>
+
+          <Link to="/docs/cli/artifacts" className={`group p-6 rounded-xl border transition-all ${isDark ? 'bg-[#0A0A0A] border-white/10 hover:border-yellow-500/50' : 'bg-white border-gray-200 hover:border-yellow-500/50'}`}>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-5 h-5 rounded bg-yellow-500/20 flex items-center justify-center text-yellow-500">Ar</div>
+              <h3 className={`font-bold ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>Artifacts</h3>
+            </div>
+            <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>List, inspect, verify, garbage collect, export, and diff .crous artifacts.</p>
+          </Link>
+
+          <Link to="/docs/cli/trace" className={`group p-6 rounded-xl border transition-all ${isDark ? 'bg-[#0A0A0A] border-white/10 hover:border-indigo-500/50' : 'bg-white border-gray-200 hover:border-indigo-500/50'}`}>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-5 h-5 rounded bg-indigo-500/20 flex items-center justify-center text-indigo-500">Tr</div>
+              <h3 className={`font-bold ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>Trace</h3>
+            </div>
+            <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Status, inspect, journal, clean, and diff trace diagnostics.</p>
+          </Link>
+
+          <Link to="/docs/cli/subsystems" className={`group p-6 rounded-xl border transition-all ${isDark ? 'bg-[#0A0A0A] border-white/10 hover:border-teal-500/50' : 'bg-white border-gray-200 hover:border-teal-500/50'}`}>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-5 h-5 rounded bg-teal-500/20 flex items-center justify-center text-teal-500">Ss</div>
+              <h3 className={`font-bold ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>Subsystems</h3>
+            </div>
+            <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Doctor, cache, mail, test, discover, analytics, and migrate commands.</p>
           </Link>
         </div>
       </section>

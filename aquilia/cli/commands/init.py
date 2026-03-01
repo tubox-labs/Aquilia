@@ -15,13 +15,20 @@ def create_workspace(
 ) -> Path:
     """
     Create a new Aquilia workspace.
-    
+
+    When ``minimal=True``, generates the absolute minimum needed to run:
+      - workspace.py (lean config — no sessions, no security, no telemetry)
+      - modules/ directory
+      - config/base.yaml (minimal)
+      - starter.py (welcome page)
+    No Docker files, no artifacts dir, no README, no .gitignore.
+
     Args:
         name: Workspace name
-        minimal: Create minimal setup without examples
+        minimal: Create minimal setup without extras
         template: Template to use (api, service, monolith)
         verbose: Enable verbose output
-    
+
     Returns:
         Path to created workspace
     """
@@ -31,32 +38,37 @@ def create_workspace(
             info(f"  Using template: {template}")
         if minimal:
             info(f"  Minimal mode: enabled")
-    
+
     workspace_path = Path.cwd() / name
-    
+
     if workspace_path.exists():
         raise ValueError(f"Directory '{name}' already exists")
-    
+
     generator = WorkspaceGenerator(
         name=name,
         path=workspace_path,
         minimal=minimal,
         template=template,
     )
-    
+
     generator.generate()
-    
+
     if verbose:
         dim("\nGenerated structure:")
         dim(f"  {name}/")
         dim(f"    workspace.py")
+        dim(f"    starter.py")
         dim(f"    modules/")
         dim(f"    config/")
         dim(f"      base.yaml")
-        dim(f"      dev.yaml")
-        dim(f"      prod.yaml")
         if not minimal:
+            dim(f"      dev.yaml")
+            dim(f"      prod.yaml")
             dim(f"    artifacts/")
             dim(f"    runtime/")
-    
+            dim(f"    Dockerfile")
+            dim(f"    docker-compose.yml")
+            dim(f"    .gitignore")
+            dim(f"    README.md")
+
     return workspace_path

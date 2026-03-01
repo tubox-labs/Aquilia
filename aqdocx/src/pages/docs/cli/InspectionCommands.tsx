@@ -1,6 +1,6 @@
 import { useTheme } from '../../../context/ThemeContext'
 import { CodeBlock } from '../../../components/CodeBlock'
-import { Info, BarChart2, Search, Layers, Archive } from 'lucide-react'
+import { Info, Search, FileSearch, BarChart3, Compass } from 'lucide-react'
 import { NextSteps } from '../../../components/NextSteps'
 
 export function CLIInspectionCommands() {
@@ -13,6 +13,7 @@ export function CLIInspectionCommands() {
     const h3Class = `text-lg font-semibold mt-8 mb-3 ${isDark ? 'text-gray-200' : 'text-gray-800'}`
     const pClass = `mb-4 leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-600'}`
     const codeClass = "text-xs font-mono bg-black/5 dark:bg-white/10 px-1.5 py-0.5 rounded text-aquilia-600 dark:text-aquilia-400"
+    const boxClass = `rounded-xl border p-6 mb-8 ${isDark ? 'bg-white/[0.02] border-white/10' : 'bg-gray-50/50 border-gray-200'}`
 
     const Table = ({ children }: { children: React.ReactNode }) => (
         <div className={`overflow-hidden border rounded-lg mb-6 ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
@@ -45,7 +46,7 @@ export function CLIInspectionCommands() {
             <div className="mb-12 border-b border-gray-200 dark:border-white/10 pb-8">
                 <div className="flex items-center gap-2 text-sm text-aquilia-500 font-medium mb-4">
                     <Info className="w-4 h-4" />
-                    CLI / Inspection
+                    CLI / Inspection & Discovery
                 </div>
                 <h1 className={`text-4xl ${isDark ? 'text-white' : 'text-gray-900'}`}>
                   <span className="font-bold tracking-tighter gradient-text font-mono relative group inline-block">
@@ -54,134 +55,154 @@ export function CLIInspectionCommands() {
                   </span>
                 </h1>
                 <p className={`text-lg leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                    Deep-dive tools to analyze workspace state, trace runtime behavior, manage artifacts, and debug subsystem configurations.
+                    Static analysis tools for inspecting compiled workspace state, managing module manifests, discovering components, and generating analytics reports — all without starting the server.
                 </p>
+            </div>
+
+            {/* Overview grid */}
+            <div className={boxClass}>
+                <h3 className={`text-sm font-semibold uppercase tracking-wider mb-4 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                    Commands in this group
+                </h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {[
+                        { cmd: 'inspect', desc: 'Static introspection' },
+                        { cmd: 'manifest', desc: 'Manifest management' },
+                        { cmd: 'discover', desc: 'Component discovery' },
+                        { cmd: 'analytics', desc: 'Health report' },
+                    ].map(({ cmd, desc }) => (
+                        <a key={cmd} href={`#${cmd}`} className={`rounded-lg border px-3 py-2 text-center transition-colors ${isDark ? 'border-white/10 hover:bg-white/5' : 'border-gray-200 hover:bg-gray-50'}`}>
+                            <span className="block font-mono text-sm text-aquilia-500">{cmd}</span>
+                            <span className={`block text-xs mt-0.5 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>{desc}</span>
+                        </a>
+                    ))}
+                </div>
             </div>
 
             {/* Inspect */}
             <section id="inspect" className={sectionClass}>
-                <h2 className={h2Class}><Search className="w-6 h-6 text-aquilia-500" /> Static Inspection</h2>
+                <h2 className={h2Class}><Search className="w-6 h-6 text-aquilia-500" /> Static Inspection — aq inspect</h2>
                 <p className={pClass}>
-                    The <span className={codeClass}>inspect</span> command reveals the compiled state of your application without running it.
+                    The <span className={codeClass}>inspect</span> group reveals the compiled state of your application without running it.
+                    It loads module manifests and analyses controllers, services, fault domains, routes, and configuration files.
+                    Pass <span className={codeClass}>--verbose / -v</span> at the root level for detailed output.
                 </p>
-                <CodeBlock language="bash" filename="terminal">
-                    aq inspect [TARGET]
-                </CodeBlock>
 
-                <h3 className={h3Class}>Targets</h3>
-                <ul className={`grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-                    <li className="flex items-start gap-2"><span className="font-mono text-aquilia-500">routes</span> <span>List all compiled URI routes and handlers</span></li>
-                    <li className="flex items-start gap-2"><span className="font-mono text-aquilia-500">di</span> <span>Visualize the Dependency Injection graph</span></li>
-                    <li className="flex items-start gap-2"><span className="font-mono text-aquilia-500">modules</span> <span>List detected modules and metadata</span></li>
-                    <li className="flex items-start gap-2"><span className="font-mono text-aquilia-500">faults</span> <span>Show fault domain boundaries</span></li>
-                    <li className="flex items-start gap-2"><span className="font-mono text-aquilia-500">config</span> <span>View fully resolved configuration</span></li>
-                </ul>
+                <h3 className={h3Class}>inspect routes</h3>
+                <p className={pClass}>
+                    List all compiled URI routes and their handler references. Scans every module's manifest, discovers controllers,
+                    and resolves <span className={codeClass}>__controller_routes__</span> or <span className={codeClass}>__route__</span> decorator metadata.
+                </p>
+                <CodeBlock language="bash" filename="terminal">aq inspect routes</CodeBlock>
+
+                <h3 className={h3Class}>inspect di</h3>
+                <p className={pClass}>
+                    Visualise the Dependency Injection service graph. Lists every registered service with its scope (<span className={codeClass}>app</span>, <span className={codeClass}>request</span>, etc.) and import path.
+                </p>
+                <CodeBlock language="bash" filename="terminal">aq inspect di</CodeBlock>
+
+                <h3 className={h3Class}>inspect modules</h3>
+                <p className={pClass}>
+                    List all detected modules in a table showing name, version, route prefix, controller count, and service count.
+                    With <span className={codeClass}>-v</span>, also shows description, author, tags, and dependencies.
+                </p>
+                <CodeBlock language="bash" filename="terminal">{`aq inspect modules
+aq -v inspect modules`}</CodeBlock>
+
+                <h3 className={h3Class}>inspect faults</h3>
+                <p className={pClass}>
+                    Show fault domain boundaries per module, including default domain name, propagation strategy, and registered fault handlers.
+                </p>
+                <CodeBlock language="bash" filename="terminal">aq inspect faults</CodeBlock>
+
+                <h3 className={h3Class}>inspect config</h3>
+                <p className={pClass}>
+                    Show fully resolved configuration: workspace file path, config directory contents (YAML), and any <span className={codeClass}>AQUILIA_*</span> environment variables.
+                    With <span className={codeClass}>-v</span>, prints the full contents of each config file.
+                </p>
+                <CodeBlock language="bash" filename="terminal">{`aq inspect config
+aq -v inspect config`}</CodeBlock>
             </section>
 
-            {/* Trace */}
-            <section id="trace" className={sectionClass}>
-                <h2 className={h2Class}><Layers className="w-6 h-6 text-indigo-500" /> Runtime Trace</h2>
+            {/* Manifest */}
+            <section id="manifest" className={sectionClass}>
+                <h2 className={h2Class}><FileSearch className="w-6 h-6 text-indigo-500" /> Manifest Management — aq manifest</h2>
                 <p className={pClass}>
-                    Interact with the <span className={codeClass}>.aquilia/</span> trace directory to debug running or past server instances.
+                    Synchronise auto-discovered resources (controllers, services) into module <span className={codeClass}>manifest.py</span> files.
+                    Uses AST-level parsing and rewriting to preserve comments and formatting.
                 </p>
 
-                <h3 className={h3Class}>Status</h3>
+                <h3 className={h3Class}>manifest update</h3>
+                <p className={pClass}>
+                    Scan a module for controllers and services, then write them explicitly into <span className={codeClass}>manifest.py</span>.
+                </p>
                 <CodeBlock language="bash" filename="terminal">
-                    aq trace status [--json]
-                </CodeBlock>
-
-                <h3 className={h3Class}>Journal</h3>
-                <p className={pClass}>View lifecycle events (boot, shutdown, errors).</p>
-                <CodeBlock language="bash" filename="terminal">
-                    aq trace journal [OPTIONS]
+                    aq manifest update MODULE [OPTIONS]
                 </CodeBlock>
                 <Table>
-                    <Row opt="--tail, -n" desc="Show last N events" def="20" />
-                    <Row opt="--event, -e" desc="Filter by event type (boot, error, etc)" />
-                    <Row opt="--json-output" desc="Output as JSON" def="false" />
+                    <Row opt="MODULE" desc="Module name to update (positional, required)" />
+                    <Row opt="--check" desc="Fail if manifest is out of sync — CI mode (exit 1 on diff)" def="false" />
+                    <Row opt="--freeze" desc="Disable auto-discovery after sync — strict / production mode" def="false" />
                 </Table>
+                <CodeBlock language="bash" filename="terminal">{`# Normal sync
+aq manifest update users
 
-                <h3 className={h3Class}>Diff</h3>
-                <p className={pClass}>Compare current trace against another instance (useful for regression testing).</p>
-                <CodeBlock language="bash" filename="terminal">
-                    aq trace diff [OTHER_TRACE_PATH] --section=routes
-                </CodeBlock>
+# CI gate — fail if out of sync
+aq manifest update users --check
 
-                <h3 className={h3Class}>Clean</h3>
-                <CodeBlock language="bash" filename="terminal">
-                    aq trace clean [--force]
-                </CodeBlock>
+# Lock manifest for production
+aq manifest update users --freeze`}</CodeBlock>
             </section>
 
-            {/* Artifacts */}
-            <section id="artifact" className={sectionClass}>
-                <h2 className={h2Class}><Archive className="w-6 h-6 text-yellow-500" /> Artifact Management</h2>
+            {/* Discover */}
+            <section id="discover" className={sectionClass}>
+                <h2 className={h2Class}><Compass className="w-6 h-6 text-green-500" /> Discovery — aq discover</h2>
                 <p className={pClass}>
-                    Manage the local artifact store (build outputs, models, bundles).
+                    Scan the workspace to discover all modules, controllers, and services without modifying any files.
+                    Optionally auto-sync discovered components into <span className={codeClass}>manifest.py</span> files.
                 </p>
-
-                <h3 className={h3Class}>List & Inspect</h3>
                 <CodeBlock language="bash" filename="terminal">
-                    {`# List artifacts
-aq artifact list --kind model --tag env=prod
-
-# Inspect metadata
-aq artifact inspect my-app-v1.0.0`}
+                    aq discover [OPTIONS]
                 </CodeBlock>
-
-                <h3 className={h3Class}>Verify</h3>
-                <p className={pClass}>Cryptographically verify artifact integrity.</p>
-                <CodeBlock language="bash" filename="terminal">
-                    {`aq artifact verify my-model
-aq artifact verify-all`}
-                </CodeBlock>
-
-                <h3 className={h3Class}>Export & Import</h3>
-                <CodeBlock language="bash" filename="terminal">
-                    {`# Create a transfer bundle
-aq artifact export --name my-model -o bundle.aq
-
-# Import from bundle
-aq artifact import bundle.aq`}
-                </CodeBlock>
-
-                <h3 className={h3Class}>Garbage Collection</h3>
-                <CodeBlock language="bash" filename="terminal">
-                    aq artifact gc --keep sha256:abc... --dry-run
-                </CodeBlock>
+                <Table>
+                    <Row opt="--path" desc="Workspace path to scan" def="." />
+                    <Row opt="--sync" desc="Auto-sync discovered components into manifest.py files" def="false" />
+                    <Row opt="--dry-run" desc="Preview sync changes without writing (use with --sync)" def="false" />
+                </Table>
+                <CodeBlock language="bash" filename="terminal">{`aq discover
+aq discover --path /app
+aq discover --sync --dry-run
+aq discover --sync`}</CodeBlock>
             </section>
 
-            {/* Subsystems */}
-            <section id="subsystems" className={sectionClass}>
-                <h2 className={h2Class}><BarChart2 className="w-6 h-6 text-blue-500" /> Subsystem Utilities</h2>
-
-                <h3 className={h3Class}>WebSockets</h3>
+            {/* Analytics */}
+            <section id="analytics" className={sectionClass}>
+                <h2 className={h2Class}><BarChart3 className="w-6 h-6 text-blue-500" /> Analytics — aq analytics</h2>
+                <p className={pClass}>
+                    Run a full discovery analysis and print a workspace health report covering module count, route coverage, service registration, and potential issues.
+                </p>
                 <CodeBlock language="bash" filename="terminal">
-                    {`aq ws inspect
-aq ws broadcast --namespace /chat --event message --payload '{"text": "hi"}'
-aq ws gen-client --lang ts --out src/socket.ts`}
+                    aq analytics [OPTIONS]
                 </CodeBlock>
+                <Table>
+                    <Row opt="--path" desc="Workspace path to analyse" def="." />
+                </Table>
+                <CodeBlock language="bash" filename="terminal">{`aq analytics
+aq analytics --path /app`}</CodeBlock>
+            </section>
 
-                <h3 className={h3Class}>Cache</h3>
-                <CodeBlock language="bash" filename="terminal">
-                    {`aq cache check
-aq cache inspect
-aq cache stats
-aq cache clear --namespace session_store`}
-                </CodeBlock>
-
-                <h3 className={h3Class}>Mail</h3>
-                <CodeBlock language="bash" filename="terminal">
-                    {`aq mail check
-aq mail inspect
-aq mail send-test user@example.com`}
-                </CodeBlock>
-
-                <h3 className={h3Class}>Analytics</h3>
-                <CodeBlock language="bash" filename="terminal">
-                    {`aq analytics
-aq discover --path src/`}
-                </CodeBlock>
+            {/* Cross-references */}
+            <section className={sectionClass}>
+                <h2 className={`text-xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>Related Pages</h2>
+                <p className={pClass}>
+                    Dedicated documentation for subsystems, trace, artifacts, and WebSocket commands is available on their own pages:
+                </p>
+                <ul className={`space-y-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                    <li>• <a href="/docs/cli/trace" className="text-aquilia-500 hover:underline">Trace Commands</a> — <span className={codeClass}>aq trace status | journal | diff | export | clean</span></li>
+                    <li>• <a href="/docs/cli/artifacts" className="text-aquilia-500 hover:underline">Artifact Commands</a> — <span className={codeClass}>aq artifact list | inspect | verify | gc | export | diff | history | import | count | stats</span></li>
+                    <li>• <a href="/docs/cli/websocket" className="text-aquilia-500 hover:underline">WebSocket Commands</a> — <span className={codeClass}>aq ws inspect | broadcast | gen-client | rooms | kick</span></li>
+                    <li>• <a href="/docs/cli/subsystems" className="text-aquilia-500 hover:underline">Subsystem Commands</a> — <span className={codeClass}>aq cache | mail</span> and more</li>
+                </ul>
             </section>
         
       <NextSteps />

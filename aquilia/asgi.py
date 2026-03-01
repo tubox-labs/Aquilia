@@ -1,6 +1,6 @@
 """
-ASGI adapter - Bridges ASGI protocol to Aquilia's request/response system.
-Supports HTTP, WebSocket, and Controllers.
+ASGI adapter — Bridges the ASGI protocol to Aquilia's request / response system.
+Supports HTTP, WebSocket, and Lifespan events.
 
 Performance (v2):
 - Middleware chain is built ONCE after startup and cached.
@@ -8,6 +8,12 @@ Performance (v2):
 - Per-request allocations minimized.
 - Query string parsed once (lazy, inside Request).
 - DI container lookup uses cached app container reference.
+
+Hardening (v2.1):
+- In-flight request tracking via ``EngineMetrics``.
+- Built-in ``/_health`` endpoint returns liveness + metrics JSON.
+- Graceful error recovery with structured logging.
+- Lifespan guards for ``DatabaseNotReadyError``.
 """
 
 from __future__ import annotations
@@ -15,6 +21,7 @@ from __future__ import annotations
 from typing import Dict, Any, Optional, Callable, Awaitable
 import logging
 import sys
+import time
 import platform
 
 from .request import Request
@@ -22,6 +29,7 @@ from .response import Response
 from .middleware import MiddlewareStack, Handler
 from .controller.router import ControllerRouter
 from .controller.base import RequestCtx
+from .engine import get_engine_metrics
 
 
 class ASGIAdapter:
@@ -212,13 +220,18 @@ class ASGIAdapter:
         if self._cached_middleware_chain is None:
             self._build_cached_chain()
 
+        path = scope.get("path", "/")
+        method = scope.get("method", "GET")
+
+        # ── Fast-path: built-in health endpoint ──
+        if path == "/_health" and method == "GET":
+            await self._serve_health(send)
+            return
+
         # ── Create lean Request object ──
         request = Request(scope, receive)
 
         # ── Sync route matching (O(1) for static, O(k) for dynamic) ──
-        path = scope.get("path", "/")
-        method = scope.get("method", "GET")
-
         controller_match = self.controller_router.match_sync(path, method)
 
         # ── Resolve DI container ──
@@ -262,9 +275,13 @@ class ASGIAdapter:
             request.state["path_params"] = {}
 
         # ── Execute cached middleware chain ──
+        metrics = get_engine_metrics()
+        metrics.request_started()
+        t0 = time.monotonic()
         try:
             response = await self._cached_middleware_chain(request, ctx)
         except Exception as e:
+            metrics.request_errored()
             self.logger.error(f"Critical error in request pipeline: {e}", exc_info=True)
             if self._is_debug():
                 accept = self._get_accept_from_request(request)
@@ -284,8 +301,63 @@ class ASGIAdapter:
                 {"error": "Internal server error"},
                 status=500,
             )
+        finally:
+            latency_ms = (time.monotonic() - t0) * 1000.0
+            metrics.request_finished(latency_ms)
 
         await response.send_asgi(send)
+
+    # ------------------------------------------------------------------
+    # Built-in health endpoint
+    # ------------------------------------------------------------------
+
+    async def _serve_health(self, send: Callable) -> None:
+        """Serve ``GET /_health`` — liveness probe + engine metrics.
+
+        Returns JSON with:
+        - ``status``: ``"healthy"`` / ``"degraded"``
+        - ``metrics``: in-flight, total requests, mean latency
+        - ``subsystems``: per-subsystem health (if HealthRegistry is available)
+        """
+        import json as _json
+
+        metrics = get_engine_metrics()
+        body: Dict[str, Any] = {
+            "status": "healthy",
+            "metrics": metrics.snapshot(),
+        }
+
+        # Optionally include subsystem health from HealthRegistry (v2)
+        try:
+            from .lifecycle import HealthRegistry
+            registry = HealthRegistry.instance()
+            if registry is not None:
+                report = registry.report()
+                body["subsystems"] = report
+                # Degrade overall status if any subsystem is unhealthy
+                if any(
+                    s.get("status") != "healthy"
+                    for s in report.values()
+                    if isinstance(s, dict)
+                ):
+                    body["status"] = "degraded"
+        except Exception:
+            pass
+
+        payload = _json.dumps(body).encode("utf-8")
+        await send({
+            "type": "http.response.start",
+            "status": 200,
+            "headers": [
+                [b"content-type", b"application/json"],
+                [b"cache-control", b"no-store"],
+                [b"content-length", str(len(payload)).encode()],
+            ],
+        })
+        await send({
+            "type": "http.response.body",
+            "body": payload,
+        })
 
     async def handle_websocket(self, scope: dict, receive: Callable, send: Callable):
         """Handle WebSocket connection."""

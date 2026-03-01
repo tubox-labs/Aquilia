@@ -1,11 +1,12 @@
 import { useTheme } from '../../../context/ThemeContext'
 import { CodeBlock } from '../../../components/CodeBlock'
-import { Shield } from 'lucide-react'
+import { Shield, Lock, Key, Fingerprint, Database, Layers, AlertTriangle, Puzzle } from 'lucide-react'
 import { NextSteps } from '../../../components/NextSteps'
 
 export function AuthOverview() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
+  const boxClass = `p-6 rounded-2xl border ${isDark ? 'bg-[#0A0A0A] border-white/10' : 'bg-white border-gray-200'}`
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -22,6 +23,32 @@ export function AuthOverview() {
         </p>
       </div>
 
+      {/* Module Map */}
+      <section className="mb-16">
+        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Module Overview</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[
+            { icon: <Key className="w-5 h-5" />, title: 'core', desc: 'Identity, IdentityType/Status, PasswordCredential, ApiKeyCredential, OAuthClient, MFACredential, TokenClaims, AuthResult, Store protocols.', color: '#3b82f6' },
+            { icon: <Lock className="w-5 h-5" />, title: 'manager', desc: 'AuthManager — password & API key auth, token refresh/revocation, logout. RateLimiter with sliding window & lockout.', color: '#22c55e' },
+            { icon: <Fingerprint className="w-5 h-5" />, title: 'hashing', desc: 'PasswordHasher (Argon2id primary, PBKDF2 fallback), PasswordPolicy with breach check (HIBP k-anonymity).', color: '#f59e0b' },
+            { icon: <Shield className="w-5 h-5" />, title: 'tokens', desc: 'KeyDescriptor (RS256/ES256/EdDSA), KeyRing with rotation, TokenManager — JWT access, opaque refresh, revocation.', color: '#8b5cf6' },
+            { icon: <Shield className="w-5 h-5" />, title: 'guards', desc: 'AuthGuard, ApiKeyGuard, AuthzGuard, ScopeGuard, RoleGuard. Decorators: require_auth, require_scopes, require_roles.', color: '#ef4444' },
+            { icon: <Shield className="w-5 h-5" />, title: 'authz', desc: 'RBACEngine, ABACEngine, ScopeChecker, unified AuthzEngine. PolicyBuilder with owner_only, admin_or_owner, time_based.', color: '#06b6d4' },
+            { icon: <Layers className="w-5 h-5" />, title: 'oauth', desc: 'OAuth2Manager — authorization code (PKCE), client credentials, device flow (user_code polling). PKCEVerifier.', color: '#ec4899' },
+            { icon: <Fingerprint className="w-5 h-5" />, title: 'mfa', desc: 'TOTPProvider (RFC 6238), WebAuthnProvider, MFAManager — enroll, verify, backup codes (XXXX-XXXX-XXXX).', color: '#14b8a6' },
+            { icon: <Database className="w-5 h-5" />, title: 'stores', desc: 'Memory stores for identities, credentials, tokens, OAuth clients, auth codes, device codes. RedisTokenStore.', color: '#a855f7' },
+            { icon: <AlertTriangle className="w-5 h-5" />, title: 'faults', desc: '30+ structured faults: AUTH_001–015, AUTHZ_001–005, AUTH_101–105, AUTH_201–203, AUTH_301–304, AUTH_401–405.', color: '#f97316' },
+            { icon: <Puzzle className="w-5 h-5" />, title: 'integration', desc: 'DI providers, AquilAuthMiddleware (6-phase), FlowGuards, ControllerGuardAdapter, AuthPrincipal, session policies.', color: '#84cc16' },
+            { icon: <Shield className="w-5 h-5" />, title: 'policy', desc: 'PolicyDecision, @rule decorator, Policy base class, PolicyRegistry with default-deny evaluation.', color: '#64748b' },
+          ].map((m, i) => (
+            <div key={i} className={boxClass}>
+              <div className="flex items-center gap-2 mb-2" style={{ color: m.color }}>{m.icon}<span className="font-semibold text-sm font-mono">{m.title}</span></div>
+              <p className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{m.desc}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
       {/* Architecture SVG */}
       <section className="mb-16">
         <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Auth Architecture</h2>
@@ -31,7 +58,7 @@ export function AuthOverview() {
 
             {[
               { x: 30, w: 120, label: 'Request', sub: 'Authorization header', color: '#3b82f6' },
-              { x: 170, w: 120, label: 'Authenticator', sub: 'Extract credential', color: '#f59e0b' },
+              { x: 170, w: 120, label: 'Middleware', sub: '6-phase pipeline', color: '#f59e0b' },
               { x: 310, w: 120, label: 'Identity', sub: 'Resolve principal', color: '#22c55e' },
               { x: 450, w: 100, label: 'Guard', sub: 'Check policy', color: '#ef4444' },
               { x: 570, w: 70, label: 'Handler', sub: '', color: '#8b5cf6' },
@@ -84,18 +111,27 @@ identity = Identity(
     tenant_id="org_123",
 )
 
-# Check permissions
-identity.has_role("admin")     # True
-identity.has_scope("write")    # True
-identity.is_active()           # True
+# Identity is a frozen dataclass — immutable
+identity.has_role("admin")      # True
+identity.has_scope("write")     # True
+identity.is_active()            # True
+identity.get_attribute("email") # "alice@example.com"
 
-# Access in controller via RequestCtx
-@Get("/me")
-async def me(self, ctx):
-    identity = ctx.identity
-    if not identity or not identity.is_active():
-        return Response.json({"error": "Unauthorized"}, status=401)
-    return ctx.json(identity.to_dict())`}</CodeBlock>
+# Serialization
+data = identity.to_dict()
+restored = Identity.from_dict(data)
+
+# Full auth flow with AuthManager
+from aquilia.auth.manager import AuthManager
+
+result = await auth_manager.authenticate_password(
+    identifier="alice@example.com",
+    password="S3cur3Pa$$word!",
+)
+# result.identity  → Identity
+# result.tokens    → {"access_token": "...", "refresh_token": "..."}
+# result.session   → AuthSession | None
+# result.metadata  → {"method": "password", ...}`}</CodeBlock>
       </section>
 
       <section className="mb-16">
@@ -112,7 +148,7 @@ async def me(self, ctx):
                 ['id', 'str', 'Stable unique identifier (never changes)'],
                 ['type', 'IdentityType', 'USER, SERVICE, DEVICE, or ANONYMOUS'],
                 ['attributes', 'dict[str, Any]', 'Flexible ABAC attributes — email, roles, scopes, etc.'],
-                ['status', 'IdentityStatus', 'ACTIVE, SUSPENDED, DELETED, PENDING'],
+                ['status', 'IdentityStatus', 'ACTIVE, SUSPENDED, DELETED, or PENDING'],
                 ['tenant_id', 'str | None', 'Multi-tenant organization ID'],
                 ['created_at', 'datetime', 'Creation timestamp'],
                 ['updated_at', 'datetime', 'Last update timestamp'],

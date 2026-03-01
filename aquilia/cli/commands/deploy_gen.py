@@ -247,7 +247,8 @@ def deploy_compose(ctx, dev_mode: bool, monitoring: bool, output: str, force: bo
         click.echo()
         next_steps([
             "docker compose up -d",
-            "docker compose --profile monitoring up -d",
+            "docker compose --profile proxy up -d        # Include Nginx",
+            "docker compose --profile monitoring up -d   # Include Prometheus + Grafana",
             "docker compose logs -f app",
         ])
 

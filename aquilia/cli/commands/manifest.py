@@ -2,17 +2,119 @@
 Manifest management commands.
 
 Provides commands to update and manage manifest.py files.
+Supports both manifest formats:
+  1. AppManifest dataclass:   manifest = AppManifest(name=..., controllers=[...], services=[...])
+  2. Module builder fluent:   manifest = Module("...").register_controllers(...).register_services(...)
+
+This command scans for controllers/services, detects drift against
+what is declared in manifest.py, and optionally updates the file.
 """
 
 import sys
 import re
+import ast
 from pathlib import Path
 import logging
-from typing import List, Optional
+from typing import List, Optional, Set, Tuple
 
 from aquilia.utils.scanner import PackageScanner
 
 logger = logging.getLogger("aquilia.cli.manifest")
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# AST-Based Manifest Parser
+# ═══════════════════════════════════════════════════════════════════════════
+
+class _ManifestParser:
+    """
+    Parse manifest.py with AST to extract declared controllers/services.
+
+    Handles both declaration styles:
+      - AppManifest(controllers=["a:B", ...], services=[ServiceConfig(...), ...])
+      - Module("name").register_controllers("a:B", ...).register_services("a:B", ...)
+    """
+
+    def __init__(self, source: str):
+        self.source = source
+        self.tree = ast.parse(source)
+        self.controllers: Set[str] = set()
+        self.services: Set[str] = set()
+
+    def parse(self) -> Tuple[List[str], List[str]]:
+        """Parse and return (controllers, services)."""
+        for node in ast.walk(self.tree):
+            # ── AppManifest(...) dataclass ──
+            if isinstance(node, ast.Call):
+                func_name = self._get_call_name(node)
+                if func_name == "AppManifest":
+                    self._extract_appmanifest_args(node)
+                # ── Module(...).register_controllers(...) builder ──
+                elif func_name in ("register_controllers", "register_services"):
+                    target = "controllers" if func_name == "register_controllers" else "services"
+                    for arg in node.args:
+                        val = self._extract_str(arg)
+                        if val:
+                            getattr(self, target).add(val)
+
+        return sorted(self.controllers), sorted(self.services)
+
+    def _extract_appmanifest_args(self, call: ast.Call):
+        for kw in call.keywords:
+            if kw.arg == "controllers" and isinstance(kw.value, ast.List):
+                for elt in kw.value.elts:
+                    val = self._extract_str(elt)
+                    if val:
+                        self.controllers.add(val)
+            elif kw.arg == "services" and isinstance(kw.value, ast.List):
+                for elt in kw.value.elts:
+                    val = self._extract_str(elt)
+                    if val:
+                        self.services.add(val)
+                    # ServiceConfig("path:Class", ...) — extract first positional arg
+                    if isinstance(elt, ast.Call):
+                        svc_name = self._get_call_name(elt)
+                        if svc_name == "ServiceConfig" and elt.args:
+                            sval = self._extract_str(elt.args[0])
+                            if sval:
+                                self.services.add(sval)
+                        # Also check keyword arg: ServiceConfig(class_path="path:Class")
+                        for skw in elt.keywords:
+                            if skw.arg == "class_path":
+                                sval = self._extract_str(skw.value)
+                                if sval:
+                                    self.services.add(sval)
+
+    @staticmethod
+    def _extract_str(node: ast.AST) -> Optional[str]:
+        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            return node.value
+        return None
+
+    @staticmethod
+    def _get_call_name(node: ast.Call) -> Optional[str]:
+        if isinstance(node.func, ast.Name):
+            return node.func.id
+        if isinstance(node.func, ast.Attribute):
+            return node.func.attr
+        return None
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Manifest Format Detection
+# ═══════════════════════════════════════════════════════════════════════════
+
+def _detect_manifest_format(source: str) -> str:
+    """
+    Detect whether manifest.py uses AppManifest dataclass or Module builder.
+    Returns 'appmanifest' or 'module'.
+    """
+    if "AppManifest(" in source:
+        return "appmanifest"
+    if "Module(" in source:
+        return "module"
+    # Fallback — older projects may use either
+    return "appmanifest"
 
 
 def update_manifest(module_name: str, workspace_root: Path, check: bool = False, freeze: bool = False, verbose: bool = False):
@@ -150,48 +252,17 @@ def update_manifest(module_name: str, workspace_root: Path, check: bool = False,
         f"{s.__module__}:{s.__name__}" for s in services
     )))
     
-    # 2. Parse Existing Manifest content to detect drift
+    # 2. Parse Existing Manifest — AST-based for both formats
     content = manifest_path.read_text()
     
-    # Very crude extraction of what's currently there (for diffing in check mode)
-    # Extract string arguments from register_controllers(...) calls
-    # Matches: manifest.register_controllers(\n    "pkg.mod:Class",\n    ...
-    # This is a best-effort check.
+    try:
+        parser = _ManifestParser(content)
+        existing_controllers, existing_services = parser.parse()
+    except SyntaxError as e:
+        print(f"Error: manifest.py has a syntax error at line {e.lineno}: {e.msg}")
+        sys.exit(1)
     
-    def extract_registered(method: str) -> List[str]:
-        # Regex to find all calls to the method
-        # Matches: manifest.method(...)
-        pattern = rf'manifest\.{method}\s*\((.*?)\)'
-        matches = re.finditer(pattern, content, re.DOTALL)
-        
-        all_items = set()
-        
-        for match in matches:
-            # Check if this specific call is commented out
-            # We look at the start position of the match and check preceding lines for '#'
-            start_pos = match.start()
-            line_start = content.rfind('\n', 0, start_pos) + 1
-            line_prefix = content[line_start:start_pos].strip()
-            
-            if line_prefix.startswith('#'):
-                continue
-                
-            args_block = match.group(1)
-            
-            # Filter out comments INSIDE the args block
-            cleaned_block = "\n".join(
-                line for line in args_block.splitlines() 
-                if not line.strip().startswith("#")
-            )
-            
-            # Extract quoted strings
-            items = re.findall(r'[\'"]([^\'"]+)[\'"]', cleaned_block)
-            all_items.update(items)
-            
-        return sorted(list(all_items))
-
-    existing_controllers = extract_registered("register_controllers")
-    existing_services = extract_registered("register_services")
+    manifest_format = _detect_manifest_format(content)
     
     # Compute Diff
     missing_controllers = set(found_controllers) - set(existing_controllers)
@@ -224,26 +295,50 @@ def update_manifest(module_name: str, workspace_root: Path, check: bool = False,
         print(f"✓ Manifest for '{module_name}' is already up to date.")
         return
 
-    # Helper to generate registration code
-    def generate_block(method: str, items: List[str]) -> str:
-        if not items:
-            return ""
-        items_str = ",\n    ".join([f'"{item}"' for item in items])
-        return f"\nmanifest.{method}(\n    {items_str}\n)\n"
+    # ── Update based on detected format ──
+    if manifest_format == "module":
+        # Module builder: replace register_controllers/register_services calls
+        sync_marker = "# --- Synced Resources (aq manifest update) ---"
 
-    sync_marker = "# --- Synced Resources (aq manifest update) ---"
-    
-    new_block = f"\n\n{sync_marker}"
-    new_block += generate_block("register_controllers", found_controllers)
-    new_block += generate_block("register_services", found_services)
-    
-    if sync_marker in content:
-        # Replace existing block
-        parts = content.split(sync_marker)
-        content = parts[0].rstrip() + new_block
+        def generate_builder_block(method: str, items: List[str]) -> str:
+            if not items:
+                return ""
+            items_str = ",\n    ".join([f'"{item}"' for item in items])
+            return f"\nmanifest.{method}(\n    {items_str}\n)\n"
+
+        new_block = f"\n\n{sync_marker}"
+        new_block += generate_builder_block("register_controllers", found_controllers)
+        new_block += generate_builder_block("register_services", found_services)
+
+        if sync_marker in content:
+            parts = content.split(sync_marker)
+            content = parts[0].rstrip() + new_block
+        else:
+            content = content.rstrip() + new_block
+
     else:
-        # Append to end
-        content = content.rstrip() + new_block
+        # AppManifest dataclass: update controllers=[...] and services=[...] lists in-place
+        # Use regex for targeted replacement of list contents
+        ctrl_items = ", ".join(f'"{c}"' for c in found_controllers)
+        svc_items = ", ".join(f'"{s}"' for s in found_services)
+
+        # Replace controllers list
+        content = re.sub(
+            r'(controllers\s*=\s*\[)[^\]]*(\])',
+            rf'\g<1>{ctrl_items}\2',
+            content,
+            count=1,
+        )
+
+        # Replace services list (only simple string lists — ServiceConfig objects untouched)
+        # Only replace if services are plain strings, not ServiceConfig objects
+        if "ServiceConfig(" not in content:
+            content = re.sub(
+                r'(services\s*=\s*\[)[^\]]*(\])',
+                rf'\g<1>{svc_items}\2',
+                content,
+                count=1,
+            )
     
     # Handle Freeze Mode (Disable autodiscovery)
     if freeze:

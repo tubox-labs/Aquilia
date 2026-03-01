@@ -14,11 +14,12 @@ class DiscoveryCLI:
     """CLI interface for discovery operations."""
     
     @staticmethod
-    def discover(workspace: str, path: Optional[str] = None, verbose: bool = False) -> None:
-        """Discover and list all modules."""
+    def discover(workspace: str, path: Optional[str] = None, verbose: bool = False,
+                 sync: bool = False, dry_run: bool = False) -> None:
+        """Discover and list all modules. Optionally sync manifests."""
         try:
             inspector = DiscoveryInspector(workspace, path or workspace)
-            inspector.inspect(verbose=verbose)
+            inspector.inspect(verbose=verbose, sync=sync, dry_run=dry_run)
         except Exception as e:
             print(f"Error: {e}", file=sys.stderr)
             sys.exit(1)
