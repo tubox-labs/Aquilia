@@ -211,34 +211,58 @@ class AdminController(Controller):
         identity = await self._authenticate_admin(username, password)
 
         if identity is None:
-            # Log failed attempt
+            # Log failed attempt — persisted to DB via alog
             meta = _extract_request_meta(request)
-            self.site.audit_log.log(
-                user_id="unknown",
-                username=username,
-                role="none",
-                action=AdminAction.LOGIN_FAILED,
-                success=False,
-                error_message="Invalid credentials",
-                ip_address=meta.get("ip_address"),
-                user_agent=meta.get("user_agent"),
-            )
+            audit = self.site.audit_log
+            if hasattr(audit, "alog"):
+                await audit.alog(
+                    user_id="unknown",
+                    username=username,
+                    role="none",
+                    action=AdminAction.LOGIN_FAILED,
+                    success=False,
+                    error_message="Invalid credentials",
+                    ip_address=meta.get("ip_address"),
+                    user_agent=meta.get("user_agent"),
+                )
+            else:
+                audit.log(
+                    user_id="unknown",
+                    username=username,
+                    role="none",
+                    action=AdminAction.LOGIN_FAILED,
+                    success=False,
+                    error_message="Invalid credentials",
+                    ip_address=meta.get("ip_address"),
+                    user_agent=meta.get("user_agent"),
+                )
             return _html_response(render_login_page(error="Invalid credentials"), 401)
 
         # Store identity in session
         if ctx.session and hasattr(ctx.session, "data"):
             ctx.session.data["_admin_identity"] = identity.to_dict()
 
-        # Log successful login
+        # Log successful login — persisted to DB
         meta = _extract_request_meta(request)
-        self.site.audit_log.log(
-            user_id=identity.id,
-            username=_get_identity_name(identity),
-            role=str(get_admin_role(identity) or "unknown"),
-            action=AdminAction.LOGIN,
-            ip_address=meta.get("ip_address"),
-            user_agent=meta.get("user_agent"),
-        )
+        audit = self.site.audit_log
+        if hasattr(audit, "alog"):
+            await audit.alog(
+                user_id=identity.id,
+                username=_get_identity_name(identity),
+                role=str(get_admin_role(identity) or "unknown"),
+                action=AdminAction.LOGIN,
+                ip_address=meta.get("ip_address"),
+                user_agent=meta.get("user_agent"),
+            )
+        else:
+            audit.log(
+                user_id=identity.id,
+                username=_get_identity_name(identity),
+                role=str(get_admin_role(identity) or "unknown"),
+                action=AdminAction.LOGIN,
+                ip_address=meta.get("ip_address"),
+                user_agent=meta.get("user_agent"),
+            )
 
         return _redirect("/admin/")
 
@@ -987,7 +1011,7 @@ class AdminController(Controller):
 
     @GET("/audit/")
     async def audit_view(self, request, ctx: RequestCtx) -> Response:
-        """View the admin audit log."""
+        """View the admin audit log — reads from DB if available."""
         identity = _get_identity(ctx)
         if identity is None:
             return _redirect("/admin/login")
@@ -998,8 +1022,14 @@ class AdminController(Controller):
         if not self.site._initialized:
             self.site.initialize()
 
-        entries = self.site.audit_log.get_entries(limit=100)
-        total = self.site.audit_log.count()
+        # Use async DB-backed query so persisted entries survive restarts
+        audit = self.site.audit_log
+        if hasattr(audit, "get_entries_async"):
+            entries = await audit.get_entries_async(limit=200)
+            total = await audit.count_async()
+        else:
+            entries = audit.get_entries(limit=200)
+            total = audit.count()
 
         app_list = self.site.get_app_list(identity)
         html = render_audit_page(

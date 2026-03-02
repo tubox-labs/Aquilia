@@ -495,6 +495,122 @@ if _HAS_ORM:
                 action_flag=action_flag, change_message=change_message,
             )
 
+    # ── AdminAuditEntry ──────────────────────────────────────────────────
+
+    class AdminAuditEntry(Model):
+        """
+        Persistent, model-backed audit log entry for every admin action.
+
+        Replaces the in-memory AdminAuditLog list so audit history
+        survives server restarts and user logouts.
+
+        Fields mirror the AdminAuditEntry dataclass in audit.py so
+        existing serialization / rendering code continues to work.
+        """
+
+        table = "admin_audit_entries"
+
+        entry_id = CharField(max_length=32, unique=True, db_index=True)
+        timestamp = DateTimeField(auto_now_add=True, db_index=True)
+        user_id = CharField(max_length=255, db_index=True, blank=True, default="")
+        username = CharField(max_length=255, blank=True, default="")
+        role = CharField(max_length=100, blank=True, default="")
+        action = CharField(max_length=50, db_index=True)
+        model_name = CharField(max_length=255, null=True, blank=True)
+        record_pk = CharField(max_length=255, null=True, blank=True)
+        changes_json = TextField(blank=True, default="")  # JSON-encoded changes dict
+        ip_address = CharField(max_length=45, blank=True, default="")
+        user_agent = TextField(blank=True, default="")
+        metadata_json = TextField(blank=True, default="")  # JSON-encoded metadata dict
+        success = BooleanField(default=True)
+        error_message = TextField(null=True, blank=True)
+
+        class Meta:
+            ordering = ["-timestamp"]
+            verbose_name = "Audit Entry"
+            verbose_name_plural = "Audit Entries"
+            get_latest_by = "timestamp"
+            indexes = [
+                Index(fields=["timestamp"], name="idx_audit_entry_timestamp"),
+                Index(fields=["user_id", "timestamp"], name="idx_audit_entry_user_ts"),
+                Index(fields=["action", "timestamp"], name="idx_audit_entry_action_ts"),
+                Index(fields=["model_name", "timestamp"], name="idx_audit_entry_model_ts"),
+            ]
+
+        def __str__(self) -> str:
+            return f"[{self.action}] {self.username} @ {self.timestamp}"
+
+        def to_dict(self) -> Dict[str, Any]:
+            """Serialize to dict compatible with existing audit templates."""
+            import json as _json
+            changes = None
+            if self.changes_json:
+                try:
+                    changes = _json.loads(self.changes_json)
+                except (ValueError, TypeError):
+                    pass
+            metadata: Dict[str, Any] = {}
+            if self.metadata_json:
+                try:
+                    metadata = _json.loads(self.metadata_json)
+                except (ValueError, TypeError):
+                    pass
+            ts = self.timestamp
+            ts_str = ts.isoformat() if hasattr(ts, "isoformat") else str(ts)
+            return {
+                "id": self.entry_id,
+                "timestamp": ts_str,
+                "user_id": self.user_id,
+                "username": self.username,
+                "role": self.role,
+                "action": self.action,
+                "model_name": self.model_name,
+                "record_pk": self.record_pk,
+                "changes": changes,
+                "ip_address": self.ip_address,
+                "user_agent": self.user_agent,
+                "metadata": metadata,
+                "success": bool(self.success),
+                "error_message": self.error_message,
+            }
+
+        @classmethod
+        async def create_entry(
+            cls,
+            user_id: str,
+            username: str,
+            role: str,
+            action: str,
+            *,
+            model_name: Optional[str] = None,
+            record_pk: Optional[str] = None,
+            changes: Optional[Dict[str, Any]] = None,
+            ip_address: Optional[str] = None,
+            user_agent: Optional[str] = None,
+            metadata: Optional[Dict[str, Any]] = None,
+            success: bool = True,
+            error_message: Optional[str] = None,
+        ) -> "AdminAuditEntry":
+            """Create and persist an audit entry to the database."""
+            import json as _json
+            import secrets as _sec
+            entry_id = f"audit_{_sec.token_hex(8)}"
+            return await cls.create(
+                entry_id=entry_id,
+                user_id=user_id or "",
+                username=username or "",
+                role=role or "",
+                action=action if isinstance(action, str) else str(action),
+                model_name=model_name,
+                record_pk=str(record_pk) if record_pk is not None else None,
+                changes_json=_json.dumps(changes, default=str) if changes else "",
+                ip_address=ip_address or "",
+                user_agent=user_agent or "",
+                metadata_json=_json.dumps(metadata or {}, default=str),
+                success=success,
+                error_message=error_message,
+            )
+
     # ── AdminSession ─────────────────────────────────────────────────────
 
     class AdminSession(Model):
@@ -622,6 +738,22 @@ else:
         async def log_action(cls, **kwargs: Any) -> "AdminLogEntry":
             return cls(**kwargs)
 
+    class AdminAuditEntry:  # type: ignore[no-redef]
+        """Stub AdminAuditEntry when ORM is not available."""
+        _HAS_ORM = False
+        def __init__(self, **kwargs: Any):
+            for k, v in kwargs.items():
+                setattr(self, k, v)
+        def to_dict(self) -> Dict[str, Any]:
+            return {k: getattr(self, k, None) for k in (
+                "id", "timestamp", "user_id", "username", "role", "action",
+                "model_name", "record_pk", "changes", "ip_address",
+                "user_agent", "metadata", "success", "error_message",
+            )}
+        @classmethod
+        async def create_entry(cls, **kwargs: Any) -> "AdminAuditEntry":
+            return cls(**kwargs)
+
     class AdminSession:  # type: ignore[no-redef]
         """Stub AdminSession when ORM is not available."""
         _HAS_ORM = False
@@ -643,6 +775,7 @@ __all__ = [
     "AdminGroup",
     "AdminUser",
     "AdminLogEntry",
+    "AdminAuditEntry",
     "AdminSession",
     "_hash_password",
     "_verify_password",

@@ -24,7 +24,7 @@ if TYPE_CHECKING:
 from .options import ModelAdmin
 from .permissions import AdminRole, AdminPermission, get_admin_role, has_admin_permission, has_model_permission
 from .permissions import update_role_permissions, set_model_permission_override, get_model_permission_overrides
-from .audit import AdminAuditLog, AdminAction
+from .audit import AdminAuditLog, ModelBackedAuditLog, AdminAction
 from .faults import (
     AdminAuthorizationFault,
     AdminModelNotFoundFault,
@@ -71,8 +71,8 @@ class AdminSite:
         # Registry: model_class -> ModelAdmin instance
         self._registry: Dict[Type[Model], ModelAdmin] = {}
 
-        # Audit log
-        self.audit_log = AdminAuditLog()
+        # Audit log — model-backed (persists to DB), falls back to in-memory
+        self.audit_log: ModelBackedAuditLog = ModelBackedAuditLog()
 
         # Initialization state
         self._initialized = False

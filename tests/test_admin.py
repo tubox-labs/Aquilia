@@ -941,8 +941,10 @@ class TestAdminSite:
         assert not site._initialized
 
     def test_audit_log_exists(self):
+        from aquilia.admin.audit import ModelBackedAuditLog
         site = AdminSite()
-        assert isinstance(site.audit_log, AdminAuditLog)
+        # site.audit_log is now a ModelBackedAuditLog (persists to DB)
+        assert isinstance(site.audit_log, (AdminAuditLog, ModelBackedAuditLog))
 
 
 class TestAdminSiteCRUD:
