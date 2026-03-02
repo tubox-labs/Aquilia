@@ -31,11 +31,12 @@ Example:
             return self.repo.get(id)
 """
 
-from .base import Controller, RequestCtx
+from .base import Controller, RequestCtx, ExceptionFilter, Interceptor, Throttle
 from .decorators import (
     GET, POST, PUT, PATCH, DELETE,
-    HEAD, OPTIONS, WS,
+    HEAD, OPTIONS, TRACE, WS,
     route,
+    VALID_HTTP_METHODS,
 )
 from .metadata import (
     ControllerMetadata,
@@ -95,11 +96,15 @@ __all__ = [
     # Base
     "Controller",
     "RequestCtx",
+    "ExceptionFilter",
+    "Interceptor",
+    "Throttle",
     
     # Decorators
     "GET", "POST", "PUT", "PATCH", "DELETE",
-    "HEAD", "OPTIONS", "WS",
+    "HEAD", "OPTIONS", "TRACE", "WS",
     "route",
+    "VALID_HTTP_METHODS",
     
     # Metadata
     "ControllerMetadata",

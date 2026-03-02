@@ -5,12 +5,10 @@ Defines session-specific faults that integrate with AquilaFaults system.
 All session errors are structured Faults, not bare exceptions.
 """
 
+import hashlib
+
 from aquilia.faults.core import Fault, Severity, FaultDomain
 
-
-# Extend FaultDomain with SESSION
-# Note: This would ideally be added to aquilia/faults/core.py
-# For now, we define session faults under SECURITY domain
 
 # ============================================================================
 # Session Fault Base
@@ -23,7 +21,12 @@ class SessionFault(Fault):
     All session faults use FaultDomain.SECURITY by default.
     """
     
-    domain = FaultDomain.SECURITY  # Use SECURITY until SESSION domain added
+    domain = FaultDomain.SECURITY
+
+    @staticmethod
+    def _hash_session_id(session_id: str) -> str:
+        """Hash session ID for privacy-safe logging."""
+        return f"sha256:{hashlib.sha256(session_id.encode()).hexdigest()[:16]}"
 
 
 # ============================================================================
@@ -41,7 +44,7 @@ class SessionExpiredFault(SessionFault):
     code = "SESSION_EXPIRED"
     message = "Session has expired"
     severity = Severity.WARN
-    public = True  # Safe to show to user
+    public = True
     retryable = False
     
     def __init__(
@@ -53,12 +56,6 @@ class SessionExpiredFault(SessionFault):
         super().__init__(**kwargs)
         self.session_id_hash = self._hash_session_id(session_id) if session_id else None
         self.expires_at = expires_at
-    
-    @staticmethod
-    def _hash_session_id(session_id: str) -> str:
-        """Hash session ID for logging (privacy)."""
-        import hashlib
-        return f"sha256:{hashlib.sha256(session_id.encode()).hexdigest()[:16]}"
 
 
 class SessionIdleTimeoutFault(SessionFault):
@@ -70,6 +67,21 @@ class SessionIdleTimeoutFault(SessionFault):
     
     code = "SESSION_IDLE_TIMEOUT"
     message = "Session idle timeout exceeded"
+    severity = Severity.WARN
+    public = True
+    retryable = False
+
+
+class SessionAbsoluteTimeoutFault(SessionFault):
+    """
+    Session absolute timeout exceeded (OWASP requirement).
+    
+    Session total lifetime exceeded the maximum allowed, regardless of activity.
+    Forces re-authentication even for active sessions.
+    """
+    
+    code = "SESSION_ABSOLUTE_TIMEOUT"
+    message = "Session absolute timeout exceeded"
     severity = Severity.WARN
     public = True
     retryable = False
@@ -110,17 +122,12 @@ class SessionNotFoundFault(SessionFault):
 class SessionPolicyViolationFault(SessionFault):
     """
     Session violates policy constraints.
-    
-    Examples:
-    - Attempting to mutate read-only session
-    - Scope mismatch
-    - Policy-specific validation failure
     """
     
     code = "SESSION_POLICY_VIOLATION"
     message = "Session violates policy constraints"
     severity = Severity.ERROR
-    public = False  # May contain internal details
+    public = False
     retryable = False
     
     def __init__(self, violation: str, policy_name: str, **kwargs):
@@ -137,8 +144,6 @@ class SessionPolicyViolationFault(SessionFault):
 class SessionConcurrencyViolationFault(SessionFault):
     """
     Too many concurrent sessions for principal.
-    
-    Policy-defined concurrency limit exceeded.
     """
     
     code = "SESSION_CONCURRENCY_VIOLATION"
@@ -166,9 +171,7 @@ class SessionConcurrencyViolationFault(SessionFault):
 
 class SessionLockedFault(SessionFault):
     """
-    Session is locked by another operation.
-    
-    Retry after lock is released.
+    Session is locked by another operation. Retry after lock is released.
     """
     
     code = "SESSION_LOCKED"
@@ -184,10 +187,7 @@ class SessionLockedFault(SessionFault):
 
 class SessionStoreUnavailableFault(SessionFault):
     """
-    Session store is unavailable.
-    
-    This is a transient error - retry may succeed.
-    Examples: Redis connection failure, file system error.
+    Session store is unavailable. Transient error - retry may succeed.
     """
     
     code = "SESSION_STORE_UNAVAILABLE"
@@ -209,8 +209,6 @@ class SessionStoreUnavailableFault(SessionFault):
 class SessionStoreCorruptedFault(SessionFault):
     """
     Session data in store is corrupted.
-    
-    Data cannot be deserialized or is structurally invalid.
     """
     
     code = "SESSION_STORE_CORRUPTED"
@@ -219,6 +217,12 @@ class SessionStoreCorruptedFault(SessionFault):
     public = False
     retryable = False
 
+    def __init__(self, message: str | None = None, session_id: str | None = None, **kwargs):
+        super().__init__(**kwargs)
+        if message:
+            self.message = message
+        self.session_id_hash = self._hash_session_id(session_id) if session_id else None
+
 
 # ============================================================================
 # Rotation Faults
@@ -226,9 +230,7 @@ class SessionStoreCorruptedFault(SessionFault):
 
 class SessionRotationFailedFault(SessionFault):
     """
-    Session ID rotation failed.
-    
-    This is a critical error - session may be in inconsistent state.
+    Session ID rotation failed. Session may be in inconsistent state.
     """
     
     code = "SESSION_ROTATION_FAILED"
@@ -239,8 +241,9 @@ class SessionRotationFailedFault(SessionFault):
     
     def __init__(self, old_id: str, new_id: str, cause: str, **kwargs):
         super().__init__(**kwargs)
-        self.old_id_hash = SessionExpiredFault._hash_session_id(old_id)
-        self.new_id_hash = SessionExpiredFault._hash_session_id(new_id)
+        # Use own _hash_session_id instead of fragile cross-class reference
+        self.old_id_hash = self._hash_session_id(old_id)
+        self.new_id_hash = self._hash_session_id(new_id)
         self.cause = cause
         self.message = f"Session rotation failed: {cause}"
 
@@ -252,11 +255,6 @@ class SessionRotationFailedFault(SessionFault):
 class SessionTransportFault(SessionFault):
     """
     Error extracting or injecting session via transport.
-    
-    Examples:
-    - Malformed cookie
-    - Missing required header
-    - Invalid token format
     """
     
     code = "SESSION_TRANSPORT_ERROR"
@@ -278,9 +276,7 @@ class SessionTransportFault(SessionFault):
 
 class SessionForgeryAttemptFault(SessionFault):
     """
-    Suspected session forgery or tampering.
-    
-    This is a security event and should be logged/alerted.
+    Suspected session forgery or tampering. Security event.
     """
     
     code = "SESSION_FORGERY_ATTEMPT"
@@ -297,12 +293,7 @@ class SessionForgeryAttemptFault(SessionFault):
 
 class SessionHijackAttemptFault(SessionFault):
     """
-    Suspected session hijacking.
-    
-    Examples:
-    - IP address mismatch
-    - User agent mismatch
-    - Impossible geographic location change
+    Suspected session hijacking (IP/User-Agent mismatch).
     """
     
     code = "SESSION_HIJACK_ATTEMPT"
@@ -315,3 +306,22 @@ class SessionHijackAttemptFault(SessionFault):
         super().__init__(**kwargs)
         self.reason = reason
         self.message = f"Suspected session hijacking: {reason}"
+
+
+class SessionFingerprintMismatchFault(SessionFault):
+    """
+    Session fingerprint does not match client (OWASP hijack detection).
+    
+    The stored fingerprint (hash of IP + User-Agent) does not match the
+    current request, indicating possible session hijacking.
+    """
+    
+    code = "SESSION_FINGERPRINT_MISMATCH"
+    message = "Session fingerprint mismatch - possible hijack"
+    severity = Severity.ERROR
+    public = False
+    retryable = False
+    
+    def __init__(self, session_id: str | None = None, **kwargs):
+        super().__init__(**kwargs)
+        self.session_id_hash = self._hash_session_id(session_id) if session_id else None

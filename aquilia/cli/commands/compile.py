@@ -1,4 +1,11 @@
-"""Manifest compilation command."""
+"""Manifest compilation command.
+
+Uses the Aquilia Build Pipeline to:
+1. Discover and validate workspace modules
+2. Run static checks (syntax, imports, routes)
+3. Compile manifests to Crous binary artifacts
+4. Bundle everything into a single verified output
+"""
 
 from pathlib import Path
 from typing import Optional, List
@@ -10,14 +17,18 @@ def compile_workspace(
     output_dir: Optional[str] = None,
     watch: bool = False,
     verbose: bool = False,
+    mode: str = "dev",
+    check_only: bool = False,
 ) -> List[str]:
     """
-    Compile manifests to artifacts.
+    Compile manifests to artifacts using the build pipeline.
     
     Args:
         output_dir: Output directory for artifacts
         watch: Watch for changes and recompile
         verbose: Enable verbose output
+        mode: Build mode ("dev" or "prod")
+        check_only: Only run checks, don't emit artifacts
     
     Returns:
         List of generated artifact paths
@@ -27,19 +38,52 @@ def compile_workspace(
     
     if not workspace_config.exists():
         raise ValueError("Not in an Aquilia workspace (workspace.py not found)")
-    
-    output = Path(output_dir) if output_dir else workspace_root / 'artifacts'
+
+    output = Path(output_dir) if output_dir else workspace_root / 'build'
     output.mkdir(parents=True, exist_ok=True)
-    
-    compiler = WorkspaceCompiler(
-        workspace_root=workspace_root,
-        output_dir=output,
-        verbose=verbose,
-    )
-    
-    artifacts = compiler.compile()
-    
-    if watch:
-        raise NotImplementedError("Watch mode not yet implemented")
-    
-    return [str(a.relative_to(workspace_root)) for a in artifacts]
+
+    # Use the build pipeline for Crous binary output
+    try:
+        from aquilia.build import AquiliaBuildPipeline
+
+        result = AquiliaBuildPipeline.build(
+            workspace_root=str(workspace_root),
+            mode=mode,
+            verbose=verbose,
+            output_dir=str(output),
+            check_only=check_only,
+        )
+
+        if not result.success:
+            print("\n  ✗ Compilation FAILED\n")
+            for err in result.errors:
+                print(f"  {err}")
+            return []
+
+        if verbose:
+            print(f"  ✓ {result.summary()}")
+
+        # Return paths of generated artifacts
+        crous_files = sorted(output.glob("*.crous"))
+        return [
+            str(f.relative_to(workspace_root))
+            for f in crous_files
+        ]
+
+    except ImportError:
+        # Fallback to legacy WorkspaceCompiler
+        if verbose:
+            print("  Build pipeline not available, falling back to WorkspaceCompiler")
+
+        compiler = WorkspaceCompiler(
+            workspace_root=workspace_root,
+            output_dir=output,
+            verbose=verbose,
+        )
+
+        artifacts = compiler.compile()
+
+        if watch:
+            raise NotImplementedError("Watch mode not yet implemented")
+
+        return [str(a.relative_to(workspace_root)) for a in artifacts]

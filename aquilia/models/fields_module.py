@@ -284,7 +284,7 @@ class AutoField(Field):
         blank: bool = False,
         default: Any = UNSET,
         unique: bool = False,
-        primary_key: bool = False,
+        primary_key: bool = True,
         db_index: bool = False,
         db_column: Optional[str] = None,
         choices: Optional[Sequence[Tuple[Any, str]]] = None,
@@ -292,22 +292,20 @@ class AutoField(Field):
         help_text: str = "",
         editable: bool = True,
         verbose_name: Optional[str] = None):
-        kwargs = {
-            'null': null,
-            'blank': blank,
-            'default': default,
-            'unique': unique,
-            'primary_key': primary_key,
-            'db_index': db_index,
-            'db_column': db_column,
-            'choices': choices,
-            'validators': validators,
-            'help_text': help_text,
-            'editable': editable,
-            'verbose_name': verbose_name,
-        }
-        kwargs.setdefault("primary_key", True)
-        super().__init__(**kwargs)
+        super().__init__(
+            null=null,
+            blank=blank,
+            default=default,
+            unique=unique,
+            primary_key=primary_key,
+            db_index=db_index,
+            db_column=db_column,
+            choices=choices,
+            validators=validators,
+            help_text=help_text,
+            editable=editable,
+            verbose_name=verbose_name,
+        )
 
     def validate(self, value: Any) -> Any:
         if value is None:
@@ -334,7 +332,7 @@ class BigAutoField(Field):
         blank: bool = False,
         default: Any = UNSET,
         unique: bool = False,
-        primary_key: bool = False,
+        primary_key: bool = True,
         db_index: bool = False,
         db_column: Optional[str] = None,
         choices: Optional[Sequence[Tuple[Any, str]]] = None,
@@ -342,22 +340,20 @@ class BigAutoField(Field):
         help_text: str = "",
         editable: bool = True,
         verbose_name: Optional[str] = None):
-        kwargs = {
-            'null': null,
-            'blank': blank,
-            'default': default,
-            'unique': unique,
-            'primary_key': primary_key,
-            'db_index': db_index,
-            'db_column': db_column,
-            'choices': choices,
-            'validators': validators,
-            'help_text': help_text,
-            'editable': editable,
-            'verbose_name': verbose_name,
-        }
-        kwargs.setdefault("primary_key", True)
-        super().__init__(**kwargs)
+        super().__init__(
+            null=null,
+            blank=blank,
+            default=default,
+            unique=unique,
+            primary_key=primary_key,
+            db_index=db_index,
+            db_column=db_column,
+            choices=choices,
+            validators=validators,
+            help_text=help_text,
+            editable=editable,
+            verbose_name=verbose_name,
+        )
 
     def validate(self, value: Any) -> Any:
         if value is None:

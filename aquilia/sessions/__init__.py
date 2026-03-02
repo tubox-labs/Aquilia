@@ -2,10 +2,11 @@
 AquilaSessions - Production-grade session management for Aquilia.
 
 This package provides explicit, policy-driven session management with:
-- Cryptographic session IDs
+- Cryptographic session IDs (256-bit entropy, OWASP compliant)
 - Multiple backend stores (memory, Redis, file)
-- Policy-based lifecycle management
-- Transport-agnostic design (HTTP, WebSocket, etc.)
+- Policy-based lifecycle management (TTL, idle timeout, absolute timeout)
+- Transport-agnostic design (HTTP cookies, headers)
+- OWASP session fingerprinting for hijack detection
 - Deep integration with Aquilia's DI, Flow, and Faults systems
 
 Philosophy:
@@ -26,17 +27,24 @@ from .core import (
 
 from .policy import (
     SessionPolicy,
+    SessionPolicyBuilder,
     PersistencePolicy,
     ConcurrencyPolicy,
     TransportPolicy,
+    DEFAULT_USER_POLICY,
+    API_TOKEN_POLICY,
+    EPHEMERAL_POLICY,
+    ADMIN_POLICY,
 )
 
 from .store import (
+    SessionStore,
     MemoryStore,
     FileStore,
 )
 
 from .transport import (
+    SessionTransport,
     CookieTransport,
     HeaderTransport,
     create_transport,
@@ -47,20 +55,34 @@ from .engine import SessionEngine
 from .faults import (
     SessionFault,
     SessionExpiredFault,
+    SessionIdleTimeoutFault,
+    SessionAbsoluteTimeoutFault,
     SessionInvalidFault,
+    SessionNotFoundFault,
     SessionConcurrencyViolationFault,
     SessionStoreUnavailableFault,
+    SessionStoreCorruptedFault,
     SessionRotationFailedFault,
     SessionPolicyViolationFault,
+    SessionTransportFault,
+    SessionForgeryAttemptFault,
+    SessionHijackAttemptFault,
+    SessionFingerprintMismatchFault,
+    SessionLockedFault,
 )
 
-# Unique Aquilia session syntax (NEW)
+# Session decorators + guards (includes merged enhanced.py features)
 from .decorators import (
     session,
     authenticated,
     stateful,
     SessionRequiredFault,
     AuthenticationRequiredFault,
+    SessionContext,
+    SessionGuard,
+    requires,
+    AdminGuard,
+    VerifiedEmailGuard,
 )
 
 from .state import (
@@ -68,14 +90,6 @@ from .state import (
     Field,
     CartState,
     UserPreferencesState,
-)
-
-from .enhanced import (
-    SessionContext,
-    SessionGuard,
-    requires,
-    AdminGuard,
-    VerifiedEmailGuard,
 )
 
 __all__ = [
@@ -87,9 +101,14 @@ __all__ = [
     "SessionFlag",
     # Policy types
     "SessionPolicy",
+    "SessionPolicyBuilder",
     "PersistencePolicy",
     "ConcurrencyPolicy",
     "TransportPolicy",
+    "DEFAULT_USER_POLICY",
+    "API_TOKEN_POLICY",
+    "EPHEMERAL_POLICY",
+    "ADMIN_POLICY",
     # Engine
     "SessionEngine",
     # Storage
@@ -100,31 +119,40 @@ __all__ = [
     "SessionTransport",
     "CookieTransport",
     "HeaderTransport",
-    # Faults
+    "create_transport",
+    # Faults (complete set)
     "SessionFault",
     "SessionExpiredFault",
+    "SessionIdleTimeoutFault",
+    "SessionAbsoluteTimeoutFault",
     "SessionInvalidFault",
+    "SessionNotFoundFault",
     "SessionConcurrencyViolationFault",
     "SessionStoreUnavailableFault",
+    "SessionStoreCorruptedFault",
     "SessionRotationFailedFault",
     "SessionPolicyViolationFault",
-    # Decorators (NEW - Unique syntax)
+    "SessionTransportFault",
+    "SessionForgeryAttemptFault",
+    "SessionHijackAttemptFault",
+    "SessionFingerprintMismatchFault",
+    "SessionLockedFault",
+    # Decorators + Guards
     "session",
     "authenticated",
     "stateful",
     "SessionRequiredFault",
     "AuthenticationRequiredFault",
-    # State (NEW - Typed state)
-    "SessionState",
-    "Field",
-    "CartState",
-    "UserPreferencesState",
-    # Enhanced features (NEW - Advanced patterns)
     "SessionContext",
     "SessionGuard",
     "requires",
     "AdminGuard",
     "VerifiedEmailGuard",
+    # State
+    "SessionState",
+    "Field",
+    "CartState",
+    "UserPreferencesState",
 ]
 
 __version__ = "0.1.0"

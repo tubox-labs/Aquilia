@@ -329,18 +329,16 @@ class ASGIAdapter:
 
         # Optionally include subsystem health from HealthRegistry (v2)
         try:
-            from .lifecycle import HealthRegistry
-            registry = HealthRegistry.instance()
+            from .health import HealthRegistry
+            # Access registry from server reference if available
+            registry = getattr(self.server, 'health_registry', None) if self.server else None
             if registry is not None:
-                report = registry.report()
-                body["subsystems"] = report
+                health_report = registry.to_dict()
+                body["subsystems"] = health_report.get("subsystems", {})
                 # Degrade overall status if any subsystem is unhealthy
-                if any(
-                    s.get("status") != "healthy"
-                    for s in report.values()
-                    if isinstance(s, dict)
-                ):
-                    body["status"] = "degraded"
+                overall_status = health_report.get("status", "healthy")
+                if overall_status != "healthy":
+                    body["status"] = overall_status
         except Exception:
             pass
 

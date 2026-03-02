@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 import hashlib
 import json
 import pickle
-from datetime import datetime
+from datetime import datetime, timezone
 from jinja2 import Environment, TemplateSyntaxError, meta
 from jinja2.exceptions import TemplateNotFound, UndefinedError
 
@@ -177,7 +177,7 @@ class TemplateManager:
                     hash=source_hash,
                     size=size,
                     mtime=mtime,
-                    compiled_at=datetime.utcnow().isoformat()
+                    compiled_at=datetime.now(timezone.utc).isoformat()
                 )
                 
                 # Compile template (triggers bytecode cache)
@@ -196,7 +196,7 @@ class TemplateManager:
             "schema_version": "1.0",
             "artifact_type": "templates",
             "fingerprint": fingerprint,
-            "created_at": datetime.utcnow().isoformat(),
+            "created_at": datetime.now(timezone.utc).isoformat(),
             "payload": {
                 "templates": {
                     name: meta.to_dict()

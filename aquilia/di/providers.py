@@ -5,6 +5,7 @@ Provider implementations for different instantiation strategies.
 from typing import Any, Callable, Coroutine, Type, Optional, Dict, List, TypeVar
 import inspect
 import asyncio
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 
 from .core import Provider, ProviderMeta, ResolveCtx
@@ -428,6 +429,22 @@ class PoolProvider:
                 # Pool full - destroy instance
                 if hasattr(instance, "close"):
                     await instance.close()
+
+    @asynccontextmanager
+    async def acquire(self, ctx: ResolveCtx = None):
+        """Acquire an instance from the pool with auto-release.
+
+        Usage::
+
+            async with pool_provider.acquire(ctx) as conn:
+                await conn.execute(...)
+            # conn is automatically released back to pool
+        """
+        instance = await self.instantiate(ctx or ResolveCtx(container=None))
+        try:
+            yield instance
+        finally:
+            await self.release(instance)
     
     async def shutdown(self) -> None:
         """Shutdown pool and clean up instances."""
@@ -489,7 +506,7 @@ class LazyProxyProvider:
     Only use when explicitly allowed in manifest.
     """
     
-    __slots__ = ("_meta", "_target_token", "_target_tag", "_proxy_class")
+    __slots__ = ("_meta", "_target_token", "_target_tag")
     
     def __init__(
         self,
@@ -500,7 +517,6 @@ class LazyProxyProvider:
     ):
         self._target_token = target_token
         self._target_tag = target_tag
-        self._proxy_class = self._create_proxy_class()
         
         token_str = token if isinstance(token, str) else f"{token.__module__}.{token.__qualname__}"
         
@@ -517,7 +533,7 @@ class LazyProxyProvider:
     
     async def instantiate(self, ctx: ResolveCtx) -> Any:
         """Create lazy proxy."""
-        proxy = self._proxy_class(
+        proxy = _LazyProxy(
             ctx.container,
             self._target_token,
             self._target_tag,
@@ -527,46 +543,52 @@ class LazyProxyProvider:
     async def shutdown(self) -> None:
         """No-op for lazy proxy."""
         pass
-    
-    def _create_proxy_class(self) -> Type:
-        """Create proxy class that defers resolution."""
-        class LazyProxy:
-            __slots__ = ("_container", "_token", "_tag", "_instance")
-            
-            def __init__(self, container, token, tag):
-                self._container = container
-                self._token = token
-                self._tag = tag
-                self._instance = None
-            
-            def _resolve(self):
-                """Resolve actual instance on first access."""
-                if self._instance is None:
-                    try:
-                        loop = asyncio.get_running_loop()
-                    except RuntimeError:
-                        loop = None
-                    if loop is not None and loop.is_running():
-                        raise RuntimeError(
-                            f"Cannot lazily resolve '{self._token}' synchronously "
-                            f"inside a running async event loop. Use "
-                            f"'await container.resolve_async(...)' or resolve "
-                            f"eagerly during startup."
-                        )
-                    self._instance = asyncio.run(
-                        self._container.resolve_async(self._token, tag=self._tag)
+
+
+class _LazyProxy:
+    """Lazy proxy that defers resolution until first attribute access."""
+    __slots__ = ("_container", "_token", "_tag", "_instance")
+
+    def __init__(self, container, token, tag):
+        object.__setattr__(self, "_container", container)
+        object.__setattr__(self, "_token", token)
+        object.__setattr__(self, "_tag", tag)
+        object.__setattr__(self, "_instance", None)
+
+    def _resolve(self):
+        """Resolve actual instance on first access."""
+        if object.__getattribute__(self, "_instance") is None:
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                loop = None
+            if loop is not None and loop.is_running():
+                raise RuntimeError(
+                    f"Cannot lazily resolve '{object.__getattribute__(self, '_token')}' "
+                    f"synchronously inside a running async event loop. Use "
+                    f"'await container.resolve_async(...)' or resolve eagerly "
+                    f"during startup."
+                )
+            _loop = asyncio.new_event_loop()
+            try:
+                instance = _loop.run_until_complete(
+                    object.__getattribute__(self, "_container").resolve_async(
+                        object.__getattribute__(self, "_token"),
+                        tag=object.__getattribute__(self, "_tag"),
                     )
-                return self._instance
-            
-            def __getattr__(self, name):
-                instance = self._resolve()
-                return getattr(instance, name)
-            
-            def __call__(self, *args, **kwargs):
-                instance = self._resolve()
-                return instance(*args, **kwargs)
-        
-        return LazyProxy
+                )
+            finally:
+                _loop.close()
+            object.__setattr__(self, "_instance", instance)
+        return object.__getattribute__(self, "_instance")
+
+    def __getattr__(self, name):
+        instance = self._resolve()
+        return getattr(instance, name)
+
+    def __call__(self, *args, **kwargs):
+        instance = self._resolve()
+        return instance(*args, **kwargs)
 
 
 class ScopedProvider:

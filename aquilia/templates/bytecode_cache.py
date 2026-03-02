@@ -12,7 +12,7 @@ from pathlib import Path
 import hashlib
 import json
 import pickle
-from datetime import datetime
+from datetime import datetime, timezone
 from jinja2 import BytecodeCache as Jinja2BytecodeCache
 from jinja2.bccache import Bucket
 
@@ -161,7 +161,7 @@ class CrousBytecodeCache(BytecodeCache):
         self._cache[key] = bytecode
         self._metadata[key] = {
             "source_hash": self._compute_key_hash(key),
-            "compiled_at": datetime.utcnow().isoformat(),
+            "compiled_at": datetime.now(timezone.utc).isoformat(),
             "size": len(bytecode),
         }
         self._dirty = True
@@ -228,7 +228,7 @@ class CrousBytecodeCache(BytecodeCache):
             "schema_version": "1.0",
             "artifact_type": "template_bytecode",
             "fingerprint": fingerprint,
-            "created_at": datetime.utcnow().isoformat(),
+            "created_at": datetime.now(timezone.utc).isoformat(),
             "payload": {
                 "bytecode": self._cache.copy(),
                 "metadata": self._metadata.copy(),

@@ -13,10 +13,75 @@ from __future__ import annotations
 
 import secrets
 import base64
+import hashlib
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 from dataclasses import dataclass, field
 from typing import Any, Literal
+
+
+# ============================================================================
+# _DirtyTrackingDict - Marks parent Session dirty on any mutation
+# ============================================================================
+
+class _DirtyTrackingDict(dict):
+    """
+    A dict subclass that marks its owning Session dirty whenever
+    a mutation occurs (``__setitem__``, ``__delitem__``, ``pop``,
+    ``update``, ``setdefault``, ``clear``).
+
+    This solves the class of bugs where code does::
+
+        session.data["key"] = value
+
+    which is a dict mutation and never triggers ``Session.__setattr__``.
+    Without this wrapper the session would not be persisted because
+    ``_dirty`` stays ``False``.
+    """
+
+    __slots__ = ("_owner",)
+
+    def __init__(self, *args: Any, owner: "Session | None" = None, **kwargs: Any):
+        super().__init__(*args, **kwargs)
+        object.__setattr__(self, "_owner", owner)
+
+    def _mark_dirty(self) -> None:
+        owner = object.__getattribute__(self, "_owner")
+        if owner is not None:
+            object.__setattr__(owner, "_dirty", True)
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        super().__setitem__(key, value)
+        self._mark_dirty()
+
+    def __delitem__(self, key: str) -> None:
+        super().__delitem__(key)
+        self._mark_dirty()
+
+    def pop(self, key: str, *args: Any) -> Any:
+        result = super().pop(key, *args)
+        self._mark_dirty()
+        return result
+
+    def update(self, *args: Any, **kwargs: Any) -> None:
+        super().update(*args, **kwargs)
+        self._mark_dirty()
+
+    def setdefault(self, key: str, default: Any = None) -> Any:
+        had_key = key in self
+        result = super().setdefault(key, default)
+        if not had_key:
+            self._mark_dirty()
+        return result
+
+    def clear(self) -> None:
+        if len(self) > 0:
+            super().clear()
+            self._mark_dirty()
+
+    def _bind(self, owner: "Session") -> None:
+        """Bind (or rebind) this dict to its owning session."""
+        object.__setattr__(self, "_owner", owner)
 
 
 # ============================================================================
@@ -33,69 +98,45 @@ class SessionID:
     - URL-safe encoding
     - Prefixed for identification (sess_)
     
-    Example:
-        >>> sid = SessionID()
-        >>> str(sid)
-        'sess_kJ8...'
-        >>> SessionID.from_string(str(sid))
-        SessionID(sess_kJ8...)
+    Per OWASP: Session IDs must have at least 64 bits of entropy.
+    Aquilia uses 256 bits (32 bytes) for maximum security.
     """
     
     __slots__ = ("_raw", "_encoded")
     
+    ENTROPY_BYTES = 32  # 256 bits entropy (OWASP minimum: 64 bits)
+    PREFIX = "sess_"
+    
     def __init__(self, raw: bytes | None = None):
-        """
-        Create session ID.
-        
-        Args:
-            raw: Raw bytes (32 bytes). If None, generates random bytes.
-        """
         if raw is None:
-            raw = secrets.token_bytes(32)
-        elif len(raw) != 32:
-            raise ValueError("Session ID must be exactly 32 bytes")
+            raw = secrets.token_bytes(self.ENTROPY_BYTES)
+        elif len(raw) != self.ENTROPY_BYTES:
+            raise ValueError(f"Session ID must be exactly {self.ENTROPY_BYTES} bytes")
         
         self._raw = raw
-        self._encoded = f"sess_{base64.urlsafe_b64encode(raw).decode().rstrip('=')}"
+        self._encoded = f"{self.PREFIX}{base64.urlsafe_b64encode(raw).decode().rstrip('=')}"
     
     def __str__(self) -> str:
-        """Return encoded session ID string."""
         return self._encoded
     
     def __repr__(self) -> str:
-        """Return debug representation."""
         return f"SessionID({self._encoded[:16]}...)"
     
     def __eq__(self, other: object) -> bool:
-        """Check equality based on raw bytes."""
         if not isinstance(other, SessionID):
             return False
-        return self._raw == other._raw
+        return secrets.compare_digest(self._raw, other._raw)
     
     def __hash__(self) -> int:
-        """Hash based on raw bytes."""
         return hash(self._raw)
     
     @classmethod
     def from_string(cls, encoded: str) -> SessionID:
-        """
-        Parse session ID from encoded string.
+        if not encoded.startswith(cls.PREFIX):
+            raise ValueError(f"Invalid session ID format: must start with '{cls.PREFIX}'")
         
-        Args:
-            encoded: Encoded session ID (sess_...)
-            
-        Returns:
-            SessionID instance
-            
-        Raises:
-            ValueError: If format is invalid
-        """
-        if not encoded.startswith("sess_"):
-            raise ValueError("Invalid session ID format: must start with 'sess_'")
+        raw_b64 = encoded[len(cls.PREFIX):]
         
-        raw_b64 = encoded[5:]
-        
-        # Add padding if needed (base64 requires multiple of 4)
         padding = 4 - (len(raw_b64) % 4)
         if padding != 4:
             raw_b64 += "=" * padding
@@ -105,12 +146,18 @@ class SessionID:
         except Exception as e:
             raise ValueError(f"Invalid session ID encoding: {e}")
         
+        if len(raw) != cls.ENTROPY_BYTES:
+            raise ValueError(f"Decoded session ID has wrong length: {len(raw)} bytes")
+        
         return cls(raw)
     
     @property
     def raw(self) -> bytes:
-        """Get raw bytes (use with caution)."""
         return self._raw
+    
+    def fingerprint(self) -> str:
+        """Privacy-safe fingerprint for logging."""
+        return f"sha256:{hashlib.sha256(self._raw).hexdigest()[:16]}"
 
 
 # ============================================================================
@@ -118,27 +165,15 @@ class SessionID:
 # ============================================================================
 
 class SessionScope(str, Enum):
-    """
-    Session lifetime semantics.
-    
-    Scope determines when and how session state persists:
-    - REQUEST: Lives only for single request (no persistence)
-    - CONNECTION: WebSocket / long-lived connection
-    - USER: Persistent user session (typical web session)
-    - DEVICE: Bound to device fingerprint (mobile apps)
-    """
-    
     REQUEST = "request"
     CONNECTION = "connection"
     USER = "user"
     DEVICE = "device"
     
     def requires_persistence(self) -> bool:
-        """Check if this scope requires store persistence."""
         return self in (SessionScope.USER, SessionScope.DEVICE, SessionScope.CONNECTION)
     
     def is_ephemeral(self) -> bool:
-        """Check if session is ephemeral (no persistence)."""
         return self == SessionScope.REQUEST
 
 
@@ -147,18 +182,6 @@ class SessionScope(str, Enum):
 # ============================================================================
 
 class SessionFlag(str, Enum):
-    """
-    Flags that modify session behavior.
-    
-    Flags are additive markers that affect how the session is treated:
-    - AUTHENTICATED: Has authenticated principal
-    - EPHEMERAL: Never persist to store (override policy)
-    - ROTATABLE: ID should rotate on privilege change
-    - RENEWABLE: Can extend TTL on use
-    - READ_ONLY: Data mutations disallowed
-    - LOCKED: Concurrency lock active
-    """
-    
     AUTHENTICATED = "authenticated"
     EPHEMERAL = "ephemeral"
     ROTATABLE = "rotatable"
@@ -178,22 +201,6 @@ class SessionPrincipal:
     
     A session may exist without a principal (anonymous).
     Principal binding is explicit and auditable.
-    
-    Attributes:
-        kind: Type of principal (user, service, device, anonymous)
-        id: Unique identifier within kind
-        attributes: Additional claims/metadata
-    
-    Example:
-        >>> principal = SessionPrincipal(
-        ...     kind="user",
-        ...     id="user_123",
-        ...     attributes={"email": "user@example.com", "role": "admin"}
-        ... )
-        >>> principal.is_user()
-        True
-        >>> principal.get_attribute("email")
-        'user@example.com'
     """
     
     kind: Literal["user", "service", "device", "anonymous"]
@@ -201,35 +208,27 @@ class SessionPrincipal:
     attributes: dict[str, Any] = field(default_factory=dict)
     
     def is_user(self) -> bool:
-        """Check if principal is a user."""
         return self.kind == "user"
     
     def is_service(self) -> bool:
-        """Check if principal is a service."""
         return self.kind == "service"
     
     def is_device(self) -> bool:
-        """Check if principal is a device."""
         return self.kind == "device"
     
     def is_anonymous(self) -> bool:
-        """Check if principal is anonymous."""
         return self.kind == "anonymous"
     
     def has_attribute(self, key: str) -> bool:
-        """Check if attribute exists."""
         return key in self.attributes
     
     def get_attribute(self, key: str, default: Any = None) -> Any:
-        """Get attribute value with optional default."""
         return self.attributes.get(key, default)
     
     def set_attribute(self, key: str, value: Any) -> None:
-        """Set attribute value."""
         self.attributes[key] = value
     
     def remove_attribute(self, key: str) -> None:
-        """Remove attribute."""
         self.attributes.pop(key, None)
 
 
@@ -245,34 +244,9 @@ class Session:
     Sessions are NOT implicit cookies. They are explicit capabilities
     that grant scoped access to state and identity.
     
-    Attributes:
-        id: Opaque, cryptographically random identifier
-        principal: Who owns this session (optional)
-        data: Application state (mutable dictionary)
-        created_at: When session was created
-        last_accessed_at: When session was last accessed
-        expires_at: When session expires (None = no expiry)
-        scope: Lifetime semantics
-        flags: Behavioral markers
-        version: Optimistic concurrency control counter
-    
-    Internal attributes (prefixed with _):
-        _dirty: Has data been modified?
-        _policy_name: Which policy governs this session
-    
-    Example:
-        >>> session = Session(
-        ...     id=SessionID(),
-        ...     scope=SessionScope.USER,
-        ...     created_at=datetime.now(timezone.utc),
-        ...     last_accessed_at=datetime.now(timezone.utc)
-        ... )
-        >>> session.data["cart_items"] = 3
-        >>> session.is_dirty
-        True
-        >>> session.mark_authenticated(SessionPrincipal("user", "user_123"))
-        >>> session.is_authenticated
-        True
+    The ``data`` dict is wrapped in ``_DirtyTrackingDict`` so that
+    *any* mutation (``session.data["k"] = v``, ``.pop()``, etc.)
+    automatically marks the session dirty, ensuring it gets persisted.
     """
     
     id: SessionID
@@ -285,48 +259,75 @@ class Session:
     flags: set[SessionFlag] = field(default_factory=set)
     version: int = 0
     
-    # Internal tracking (not serialized)
+    # Internal tracking
     _dirty: bool = field(default=False, repr=False)
     _policy_name: str = field(default="", repr=False)
+    _fingerprint: str = field(default="", repr=False)
+    
+    def __post_init__(self) -> None:
+        """Wrap self.data in _DirtyTrackingDict bound to this session."""
+        raw = object.__getattribute__(self, "data")
+        if not isinstance(raw, _DirtyTrackingDict):
+            wrapped = _DirtyTrackingDict(raw, owner=self)
+            object.__setattr__(self, "data", wrapped)
+        else:
+            raw._bind(self)
+        # __post_init__ may have marked dirty via __setattr__; reset
+        object.__setattr__(self, "_dirty", False)
     
     def __setattr__(self, name: str, value: Any) -> None:
-        """Override setattr to track data mutations."""
+        """Track mutations that should mark dirty."""
+        if name == "data" and hasattr(self, "_dirty"):
+            # Wrap incoming dicts in _DirtyTrackingDict
+            if not isinstance(value, _DirtyTrackingDict):
+                value = _DirtyTrackingDict(value, owner=self)
+            else:
+                value._bind(self)
         super().__setattr__(name, value)
-        
-        # Mark dirty if data is modified (but not during __init__)
-        if hasattr(self, "_dirty") and name == "data":
+        if hasattr(self, "_dirty") and name in ("data", "principal", "expires_at", "flags"):
             object.__setattr__(self, "_dirty", True)
     
+    # ========================================================================
+    # Dict-Like Data Access
+    # ========================================================================
+    
     def __getitem__(self, key: str) -> Any:
-        """Allow dict-like access to data."""
         return self.data[key]
     
     def __setitem__(self, key: str, value: Any) -> None:
-        """Allow dict-like access to data (marks dirty)."""
+        if self.is_read_only:
+            raise RuntimeError("Cannot mutate read-only session")
         self.data[key] = value
         self._dirty = True
     
     def __contains__(self, key: str) -> bool:
-        """Check if key exists in data."""
         return key in self.data
     
+    def __delitem__(self, key: str) -> None:
+        if self.is_read_only:
+            raise RuntimeError("Cannot mutate read-only session")
+        del self.data[key]
+        self._dirty = True
+    
     def get(self, key: str, default: Any = None) -> Any:
-        """Get data value with default."""
         return self.data.get(key, default)
     
     def set(self, key: str, value: Any) -> None:
-        """Set data value (explicit, marks dirty)."""
+        if self.is_read_only:
+            raise RuntimeError("Cannot mutate read-only session")
         self.data[key] = value
         self._dirty = True
     
     def delete(self, key: str) -> None:
-        """Delete data key (marks dirty)."""
+        if self.is_read_only:
+            raise RuntimeError("Cannot mutate read-only session")
         if key in self.data:
             del self.data[key]
             self._dirty = True
     
     def clear_data(self) -> None:
-        """Clear all session data (marks dirty)."""
+        if self.is_read_only:
+            raise RuntimeError("Cannot mutate read-only session")
         self.data.clear()
         self._dirty = True
     
@@ -335,83 +336,46 @@ class Session:
     # ========================================================================
     
     def is_expired(self, now: datetime | None = None) -> bool:
-        """
-        Check if session has passed expiry.
-        
-        Args:
-            now: Current time (defaults to utcnow)
-            
-        Returns:
-            True if expired, False otherwise
-        """
         if not self.expires_at:
             return False
-        
         if now is None:
             now = datetime.now(timezone.utc)
-        
         return now >= self.expires_at
     
     def idle_duration(self, now: datetime | None = None) -> timedelta:
-        """
-        Calculate how long session has been idle.
-        
-        Args:
-            now: Current time (defaults to utcnow)
-            
-        Returns:
-            Timedelta since last access
-        """
         if now is None:
             now = datetime.now(timezone.utc)
-        
         return now - self.last_accessed_at
     
-    def touch(self, now: datetime | None = None) -> None:
-        """
-        Mark session as accessed (updates last_accessed_at).
-        
-        Args:
-            now: Current time (defaults to utcnow)
-        """
+    def age(self, now: datetime | None = None) -> timedelta:
+        """Total session age since creation."""
         if now is None:
             now = datetime.now(timezone.utc)
-        
-        self.last_accessed_at = now
-        self._dirty = True
+        return now - self.created_at
+    
+    def touch(self, now: datetime | None = None) -> None:
+        if now is None:
+            now = datetime.now(timezone.utc)
+        object.__setattr__(self, "last_accessed_at", now)
+        object.__setattr__(self, "_dirty", True)
     
     def extend_expiry(self, ttl: timedelta, now: datetime | None = None) -> None:
-        """
-        Extend session expiry by TTL.
-        
-        Args:
-            ttl: Time to live to add
-            now: Current time (defaults to utcnow)
-        """
         if now is None:
-            now = datetime.utcnow()
-        
-        self.expires_at = now + ttl
-        self._dirty = True
+            now = datetime.now(timezone.utc)
+        object.__setattr__(self, "expires_at", now + ttl)
+        object.__setattr__(self, "_dirty", True)
     
     # ========================================================================
     # Authentication Methods
     # ========================================================================
     
     def mark_authenticated(self, principal: SessionPrincipal) -> None:
-        """
-        Bind principal and mark as authenticated.
-        
-        Args:
-            principal: Principal to bind
-        """
         self.principal = principal
         self.flags.add(SessionFlag.AUTHENTICATED)
-        self.flags.add(SessionFlag.ROTATABLE)  # Should rotate on privilege change
+        self.flags.add(SessionFlag.ROTATABLE)
         self._dirty = True
     
     def clear_authentication(self) -> None:
-        """Remove authentication and principal."""
         self.principal = None
         self.flags.discard(SessionFlag.AUTHENTICATED)
         self.flags.discard(SessionFlag.ROTATABLE)
@@ -419,12 +383,10 @@ class Session:
     
     @property
     def is_authenticated(self) -> bool:
-        """Check if session has authenticated principal."""
         return SessionFlag.AUTHENTICATED in self.flags and self.principal is not None
     
     @property
     def is_anonymous(self) -> bool:
-        """Check if session is anonymous (no principal or anonymous principal)."""
         return not self.is_authenticated
     
     # ========================================================================
@@ -433,46 +395,61 @@ class Session:
     
     @property
     def is_dirty(self) -> bool:
-        """Check if session needs persistence."""
         return self._dirty
     
     def mark_clean(self) -> None:
-        """Mark session as clean (after persistence)."""
-        self._dirty = False
+        object.__setattr__(self, "_dirty", False)
     
     def mark_dirty(self) -> None:
-        """Explicitly mark session as dirty."""
-        self._dirty = True
+        object.__setattr__(self, "_dirty", True)
     
     @property
     def is_ephemeral(self) -> bool:
-        """Check if session should never persist."""
-        return (
-            SessionFlag.EPHEMERAL in self.flags
-            or self.scope.is_ephemeral()
-        )
+        return SessionFlag.EPHEMERAL in self.flags or self.scope.is_ephemeral()
     
     @property
     def is_read_only(self) -> bool:
-        """Check if data mutations are disallowed."""
         return SessionFlag.READ_ONLY in self.flags
     
     @property
     def is_locked(self) -> bool:
-        """Check if concurrency lock is active."""
         return SessionFlag.LOCKED in self.flags
+    
+    # ========================================================================
+    # Client Fingerprinting (OWASP: Bind Session to User Properties)
+    # ========================================================================
+    
+    def bind_fingerprint(self, ip: str | None = None, user_agent: str | None = None) -> None:
+        """Bind session to client properties for hijack detection."""
+        parts = []
+        if ip:
+            parts.append(ip)
+        if user_agent:
+            parts.append(user_agent)
+        if parts:
+            fp = hashlib.sha256("|".join(parts).encode()).hexdigest()[:32]
+            object.__setattr__(self, "_fingerprint", fp)
+            object.__setattr__(self, "_dirty", True)
+    
+    def verify_fingerprint(self, ip: str | None = None, user_agent: str | None = None) -> bool:
+        """Verify client fingerprint matches. Returns True if unset."""
+        if not self._fingerprint:
+            return True
+        parts = []
+        if ip:
+            parts.append(ip)
+        if user_agent:
+            parts.append(user_agent)
+        if not parts:
+            return True
+        fp = hashlib.sha256("|".join(parts).encode()).hexdigest()[:32]
+        return secrets.compare_digest(self._fingerprint, fp)
     
     # ========================================================================
     # Serialization
     # ========================================================================
     
     def to_dict(self) -> dict[str, Any]:
-        """
-        Serialize session to dictionary (for storage).
-        
-        Returns:
-            Dictionary representation
-        """
         return {
             "id": str(self.id),
             "principal": (
@@ -492,32 +469,21 @@ class Session:
             "flags": [f.value for f in self.flags],
             "version": self.version,
             "_policy_name": self._policy_name,
+            "_fingerprint": self._fingerprint,
         }
     
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Session:
-        """
-        Deserialize session from dictionary.
-        
-        Args:
-            data: Dictionary representation
-            
-        Returns:
-            Session instance
-        """
-        # Parse session ID
         session_id = SessionID.from_string(data["id"])
         
-        # Parse principal
         principal = None
         if data.get("principal"):
             principal = SessionPrincipal(
                 kind=data["principal"]["kind"],
                 id=data["principal"]["id"],
-                attributes=data["principal"]["attributes"],
+                attributes=data["principal"].get("attributes", {}),
             )
         
-        # Parse dates
         created_at = datetime.fromisoformat(data["created_at"])
         last_accessed_at = datetime.fromisoformat(data["last_accessed_at"])
         expires_at = (
@@ -526,11 +492,9 @@ class Session:
             else None
         )
         
-        # Parse scope and flags
         scope = SessionScope(data["scope"])
         flags = {SessionFlag(f) for f in data.get("flags", [])}
         
-        # Create session
         session = cls(
             id=session_id,
             principal=principal,
@@ -544,6 +508,7 @@ class Session:
         )
         
         session._policy_name = data.get("_policy_name", "")
-        session._dirty = False  # Just loaded, not dirty
+        session._fingerprint = data.get("_fingerprint", "")
+        session._dirty = False
         
         return session

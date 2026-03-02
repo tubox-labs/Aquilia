@@ -224,7 +224,7 @@ def model_serve(model_path, runtime, host, port, batch_size, batch_latency_ms):
         import signal
         stop = asyncio.Event()
         for sig in (signal.SIGINT, signal.SIGTERM):
-            asyncio.get_event_loop().add_signal_handler(sig, stop.set)
+            asyncio.get_running_loop().add_signal_handler(sig, stop.set)
         click.echo(click.style("✓ Server ready — press Ctrl+C to stop", fg="green"))
         await stop.wait()
         await server.stop()

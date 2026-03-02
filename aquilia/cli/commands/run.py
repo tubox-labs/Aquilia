@@ -735,6 +735,42 @@ def run_dev_server(
         print()
         return
     
+    # ===== BUILD PIPELINE — Compile, check, and bundle before serving =====
+    print("  Running build pipeline...")
+    try:
+        from aquilia.build import AquiliaBuildPipeline
+        build_result = AquiliaBuildPipeline.build(
+            workspace_root=str(workspace_root),
+            mode=mode,
+            verbose=verbose,
+        )
+
+        if not build_result.success:
+            print("\n  ✗ Build FAILED — server will not start.\n")
+            for err in build_result.errors:
+                print(f"  {err}")
+            if build_result.warnings:
+                print()
+                for warn in build_result.warnings:
+                    print(f"  {warn}")
+            print(f"\n  Build failed in {build_result.total_ms:.0f}ms")
+            print("  Fix the errors above and try again.\n")
+            return
+
+        # Report build success
+        print(f"  ✓ {build_result.summary()}")
+
+        if build_result.warnings and verbose:
+            for warn in build_result.warnings:
+                print(f"  {warn}")
+
+    except ImportError:
+        if verbose:
+            print("  ⚠ Build pipeline not available, proceeding without pre-compilation")
+    except Exception as e:
+        if verbose:
+            print(f"  ⚠ Build pipeline error: {e}, proceeding without pre-compilation")
+    
     # Strategy 1: Check for workspace configuration (workspace.py) and auto-create app
     workspace_config = workspace_root / "workspace.py"
     if workspace_config.exists():

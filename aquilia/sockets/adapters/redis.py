@@ -314,7 +314,7 @@ class RedisAdapter(Adapter):
             connection_id,
             json.dumps({
                 "worker_id": worker_id,
-                "timestamp": asyncio.get_event_loop().time(),
+                "timestamp": asyncio.get_running_loop().time(),
             })
         )
         

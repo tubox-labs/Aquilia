@@ -810,6 +810,63 @@ class Integration:
         }
 
     @staticmethod
+    def admin(
+        url_prefix: str = "/admin",
+        site_title: str = "Aquilia Admin",
+        site_header: str = "Aquilia Administration",
+        auto_discover: bool = True,
+        login_url: Optional[str] = None,
+        enable_audit: bool = True,
+        audit_max_entries: int = 10_000,
+        list_per_page: int = 25,
+        theme: str = "auto",
+        **kwargs,
+    ) -> Dict[str, Any]:
+        """
+        Configure the admin dashboard integration.
+
+        Provides a Django-admin-like interface with auto-discovered models,
+        RBAC, audit logging, and the aqdocx design system.
+
+        Args:
+            url_prefix: URL prefix for admin routes (default "/admin").
+            site_title: Title shown in browser tab.
+            site_header: Header text in the admin dashboard.
+            auto_discover: Auto-register models from ModelRegistry.
+            login_url: Custom login URL (defaults to ``{url_prefix}/login``).
+            enable_audit: Enable the admin audit trail.
+            audit_max_entries: Max audit log entries (FIFO eviction).
+            list_per_page: Default rows per page in list views.
+            theme: Theme mode — ``"auto"``, ``"dark"``, or ``"light"``.
+            **kwargs: Additional admin configuration.
+
+        Returns:
+            Admin configuration dictionary.
+
+        Example::
+
+            .integrate(Integration.admin(
+                url_prefix="/admin",
+                site_title="MyApp Admin",
+                auto_discover=True,
+            ))
+        """
+        return {
+            "_integration_type": "admin",
+            "enabled": True,
+            "url_prefix": url_prefix.rstrip("/"),
+            "site_title": site_title,
+            "site_header": site_header,
+            "auto_discover": auto_discover,
+            "login_url": login_url or f"{url_prefix.rstrip('/')}/login",
+            "enable_audit": enable_audit,
+            "audit_max_entries": audit_max_entries,
+            "list_per_page": list_per_page,
+            "theme": theme,
+            **kwargs,
+        }
+
+    @staticmethod
     def patterns(**kwargs) -> Dict[str, Any]:
         """Configure patterns."""
         return {

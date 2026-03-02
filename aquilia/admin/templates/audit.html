@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}Audit Log{% endblock %}
+{% block breadcrumb %}Audit Log{% endblock %}
+
+{% block content %}
+<div class="page-header-row">
+    <h2><i class="icon-scroll-text" style="font-size:18px;vertical-align:-2px;margin-right:6px;opacity:0.4;"></i>Audit Log</h2>
+</div>
+
+<div class="glass-card" style="padding:0;">
+    <div class="card-header">
+        <span class="card-title">{{ total }} entries</span>
+    </div>
+
+    {% if entries %}
+        {% for entry in entries %}
+        <div class="audit-entry">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                {% set action_cls = 'audit-create' if entry.action in ('create', 'login') else ('audit-update' if entry.action in ('update', 'bulk_action') else ('audit-delete' if entry.action == 'delete' else 'audit-login')) %}
+                <span class="audit-action {{ action_cls }}">{{ entry.action }}</span>
+                <span style="font-weight:500;font-size:0.82rem;">
+                    <i class="icon-user" style="font-size:12px;vertical-align:-1px;margin-right:2px;color:var(--text-faint);"></i>
+                    {{ entry.username|default('unknown') }}
+                </span>
+                {% if entry.role %}
+                <span class="perm-role perm-role-{{ entry.role|lower }}" style="font-size:0.6rem;padding:1px 6px;">{{ entry.role }}</span>
+                {% endif %}
+                {% if entry.model_name %}
+                <span class="meta-text">on</span>
+                <span style="font-size:0.82rem;">
+                    <i class="icon-box" style="font-size:12px;vertical-align:-1px;margin-right:2px;color:var(--text-faint);"></i>
+                    {{ entry.model_name }}
+                </span>
+                {% endif %}
+                {% if entry.record_pk %}
+                <span style="font-family:var(--font-mono);font-size:0.78rem;color:var(--accent);">#{{ entry.record_pk }}</span>
+                {% endif %}
+                {# ── Success/failure indicator ── #}
+                {% if entry.success is defined and not entry.success %}
+                <span class="perm-badge perm-denied"><i class="icon-x" style="font-size:10px;"></i> Failed</span>
+                {% endif %}
+                <span style="margin-left:auto;font-size:0.72rem;color:var(--text-faint);">
+                    <i class="icon-clock" style="font-size:11px;vertical-align:-1px;margin-right:2px;"></i>
+                    {{ entry.timestamp|default('')|string|truncate(19, True, '') }}
+                </span>
+            </div>
+            {# ── IP / User Agent metadata ── #}
+            {% if entry.ip_address or entry.user_agent %}
+            <div style="font-size:0.72rem;color:var(--text-faint);margin-top:4px;display:flex;gap:12px;">
+                {% if entry.ip_address %}
+                <span><i class="icon-globe" style="font-size:10px;vertical-align:-1px;margin-right:2px;"></i>{{ entry.ip_address }}</span>
+                {% endif %}
+                {% if entry.user_agent %}
+                <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:300px;" title="{{ entry.user_agent }}">
+                    <i class="icon-monitor" style="font-size:10px;vertical-align:-1px;margin-right:2px;"></i>{{ entry.user_agent }}
+                </span>
+                {% endif %}
+            </div>
+            {% endif %}
+            {# ── Error message ── #}
+            {% if entry.error_message %}
+            <div style="font-size:0.78rem;color:var(--danger);margin-top:6px;padding:8px 12px;background:var(--danger-subtle);border-radius:var(--radius-sm);">
+                <i class="icon-alert-circle" style="font-size:12px;vertical-align:-1px;margin-right:4px;"></i>{{ entry.error_message }}
+            </div>
+            {% endif %}
+            {# ── Field changes ── #}
+            {% if entry.changes and entry.changes is mapping %}
+            <div style="font-size:0.78rem;color:var(--text-muted);margin-top:6px;padding:8px 12px;background:var(--bg-surface);border-radius:var(--radius-sm);font-family:var(--font-mono);line-height:1.7;">
+                {% for field_name, change in entry.changes.items() %}
+                    {% if change is mapping %}
+                    <span><span class="kw">{{ field_name }}</span>: <span style="color:var(--danger);">{{ change.old|default('∅') }}</span> → <span style="color:var(--success);">{{ change.new|default('∅') }}</span></span><br>
+                    {% else %}
+                    <span><span class="kw">{{ field_name }}</span>: {{ change }}</span><br>
+                    {% endif %}
+                {% endfor %}
+            </div>
+            {% endif %}
+            {# ── Extra metadata ── #}
+            {% if entry.metadata and entry.metadata is mapping and entry.metadata|length > 0 %}
+            <div style="font-size:0.72rem;color:var(--text-faint);margin-top:4px;font-family:var(--font-mono);">
+                {% for mk, mv in entry.metadata.items() %}
+                <span>{{ mk }}={{ mv }}</span>{% if not loop.last %} · {% endif %}
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    {% else %}
+    <div class="empty-state">
+        <i class="icon-history" style="font-size:32px;display:block;margin-bottom:12px;opacity:0.3;"></i>
+        No audit entries yet
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

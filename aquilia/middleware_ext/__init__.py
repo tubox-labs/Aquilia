@@ -56,6 +56,10 @@ from .logging import (
     StructuredLogFormatter,
     DevLogFormatter,
 )
+from .effect_middleware import (
+    EffectMiddleware,
+    FlowContextMiddleware,
+)
 
 __all__ = [
     # Core
@@ -87,4 +91,7 @@ __all__ = [
     "CombinedLogFormatter",
     "StructuredLogFormatter",
     "DevLogFormatter",
+    # Effect System
+    "EffectMiddleware",
+    "FlowContextMiddleware",
 ]

@@ -81,10 +81,14 @@ def generate_dsl_migration(
     mdir = Path(migrations_dir)
     mdir.mkdir(parents=True, exist_ok=True)
 
-    snap_path = Path(snapshot_path) if snapshot_path else mdir / "schema_snapshot.json"
+    snap_path = Path(snapshot_path) if snapshot_path else mdir / "schema_snapshot.crous"
 
-    # Load old snapshot
-    old_snapshot = load_snapshot(snap_path) or {"version": 1, "models": {}, "checksum": ""}
+    # Load old snapshot from CROUS binary
+    old_snapshot = None
+    if snap_path.exists():
+        old_snapshot = load_snapshot(snap_path)
+    if old_snapshot is None:
+        old_snapshot = {"version": 1, "models": {}, "checksum": ""}
 
     # Create new snapshot
     new_snapshot = create_snapshot(model_classes)
@@ -121,7 +125,7 @@ def generate_dsl_migration(
     filepath = mdir / filename
     filepath.write_text(content, encoding="utf-8")
 
-    # Save new snapshot
+    # Save new snapshot in CROUS binary format
     save_snapshot(new_snapshot, snap_path)
 
     logger.info(f"Generated DSL migration: {filepath}")

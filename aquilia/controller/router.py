@@ -262,14 +262,28 @@ class ControllerRouter:
                 full_name = f"{route.controller_class.__name__}.{route.route_metadata.handler_name}"
                 if full_name == name or route.route_metadata.handler_name == name:
                     path = route.full_path
-                    path_params = {}
+                    path_params = set()
                     query_params = {}
+
                     for k, v in params.items():
-                        placeholder = f"{{{k}}}"
-                        if placeholder in path:
-                            path = path.replace(placeholder, str(v))
-                        else:
+                        # Handle both {param} and <param> / <param:type> syntax
+                        replaced = False
+                        for pattern in (f"{{{k}}}", f"<{k}>"):
+                            if pattern in path:
+                                path = path.replace(pattern, str(v))
+                                replaced = True
+                                break
+                        if not replaced:
+                            # Try <param:type> pattern
+                            import re
+                            typed_re = re.compile(rf"<{re.escape(k)}:[^>]+>")
+                            new_path = typed_re.sub(str(v), path)
+                            if new_path != path:
+                                path = new_path
+                                replaced = True
+                        if not replaced:
                             query_params[k] = v
+
                     if query_params:
                         query_str = "&".join(f"{k}={v}" for k, v in query_params.items())
                         path += f"?{query_str}"

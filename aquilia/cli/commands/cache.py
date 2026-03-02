@@ -123,31 +123,38 @@ def cmd_cache_inspect(verbose: bool = False) -> None:
 
 
 def cmd_cache_stats(verbose: bool = False) -> None:
-    """Display cache statistics from trace diagnostics."""
-    trace_path = Path(".aquilia/diagnostics.json")
-    if not trace_path.exists():
-        click.echo(click.style("✗ No diagnostics found.", fg="yellow"))
-        click.echo("  Start the server first to generate trace data.")
+    """Display cache statistics by connecting to the live cache backend."""
+    config = _load_cache_config()
+    if not config or not config.get("enabled", False):
+        click.echo(click.style("✗ Cache is not enabled.", fg="yellow"))
         return
 
     try:
-        data = json.loads(trace_path.read_text())
+        from aquilia.cache.di_providers import build_cache_config, create_cache_service
+
+        cfg = build_cache_config(config)
+        svc = create_cache_service(cfg)
+
+        async def _stats():
+            await svc.initialize()
+            info = await svc.info() if hasattr(svc, 'info') else {}
+            await svc.shutdown()
+            return info
+
+        cache_data = asyncio.run(_stats())
+        if not cache_data:
+            click.echo(click.style("✗ No cache statistics available.", fg="yellow"))
+            return
+
+        click.echo(click.style("Cache Statistics", fg="cyan", bold=True))
+        click.echo("─" * 40)
+        for key, value in cache_data.items():
+            click.echo(f"  {key:18s} {value}")
     except Exception as e:
-        click.echo(click.style(f"✗ Failed to read diagnostics: {e}", fg="red"))
-        return
-
-    cache_data = data.get("cache", {})
-    if not cache_data.get("active", False):
-        click.echo(click.style("✗ Cache subsystem is not active.", fg="yellow"))
-        return
-
-    click.echo(click.style("Cache Statistics", fg="cyan", bold=True))
-    click.echo("─" * 40)
-    click.echo(f"  Service:         {cache_data.get('service', 'N/A')}")
-    click.echo(f"  Backend:         {cache_data.get('backend', 'N/A')}")
-    click.echo(f"  Default TTL:     {cache_data.get('default_ttl', 'N/A')}s")
-    click.echo(f"  Max Size:        {cache_data.get('max_size', 'N/A')}")
-    click.echo(f"  Eviction Policy: {cache_data.get('eviction_policy', 'N/A')}")
+        click.echo(click.style(f"✗ Failed to get cache stats: {e}", fg="red"))
+        if verbose:
+            import traceback
+            traceback.print_exc()
 
 
 def cmd_cache_clear(namespace: Optional[str] = None, verbose: bool = False) -> None:

@@ -20,7 +20,6 @@ from . import (
     cache,
     mail,
     test,
-    trace,
     artifacts,
     mlops_cmds,
 )
@@ -45,7 +44,6 @@ __all__ = [
     'cache',
     'mail',
     'test',
-    'trace',
     'artifacts',
     'mlops_cmds',
 ]

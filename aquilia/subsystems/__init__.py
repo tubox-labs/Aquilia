@@ -9,10 +9,12 @@ for optional subsystems.
 from __future__ import annotations
 
 from .base import SubsystemInitializer, BootContext, BaseSubsystem
+from .effects import EffectSubsystem
 
 
 __all__ = [
     "SubsystemInitializer",
     "BootContext",
     "BaseSubsystem",
+    "EffectSubsystem",
 ]

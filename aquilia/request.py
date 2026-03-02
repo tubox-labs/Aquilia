@@ -1511,7 +1511,79 @@ class Request:
         lifecycle = self.state.get("lifecycle_manager")
         if lifecycle and hasattr(lifecycle, "emit"):
             await lifecycle.emit(effect_name, request=self, **data)
-    
+
+    def get_effect(self, name: str) -> Any:
+        """
+        Get an acquired effect resource by name.
+
+        Effects are acquired by EffectMiddleware or FlowPipeline
+        and stored in ``request.state["effects"]``.
+
+        Args:
+            name: Effect name (e.g., "DBTx", "Cache").
+
+        Returns:
+            The acquired effect resource handle.
+
+        Raises:
+            KeyError: If the effect has not been acquired.
+
+        Example::
+
+            @requires("DBTx", "Cache")
+            @POST("/users")
+            async def create_user(self, ctx):
+                db = ctx.request.get_effect("DBTx")
+                cache = ctx.request.get_effect("Cache")
+        """
+        effects = self.state.get("effects", {})
+        if name not in effects:
+            # Try FlowContext
+            flow_ctx = self.state.get("flow_context")
+            if flow_ctx is not None and hasattr(flow_ctx, "get_effect"):
+                return flow_ctx.get_effect(name)
+            raise KeyError(
+                f"Effect '{name}' not acquired. "
+                f"Use @requires('{name}') on your handler."
+            )
+        return effects[name]
+
+    def has_effect(self, name: str) -> bool:
+        """Check if an effect resource is currently acquired."""
+        effects = self.state.get("effects", {})
+        if name in effects:
+            return True
+        flow_ctx = self.state.get("flow_context")
+        if flow_ctx is not None and hasattr(flow_ctx, "has_effect"):
+            return flow_ctx.has_effect(name)
+        return False
+
+    @property
+    def effects(self) -> Dict[str, Any]:
+        """
+        All currently acquired effect resources.
+
+        Returns a merged view of effects from both EffectMiddleware
+        and FlowContext.
+        """
+        result = dict(self.state.get("effects", {}))
+        flow_ctx = self.state.get("flow_context")
+        if flow_ctx is not None and hasattr(flow_ctx, "effects"):
+            for k, v in flow_ctx.effects.items():
+                if k not in result:
+                    result[k] = v
+        return result
+
+    @property
+    def flow_context(self) -> Any:
+        """
+        Get the FlowContext for this request, if available.
+
+        The FlowContext is created by FlowContextMiddleware and
+        carries effect resources, pipeline state, and identity.
+        """
+        return self.state.get("flow_context")
+
     async def before_response(self, callback: Callable[..., Awaitable[None]]) -> None:
         """
         Register callback to run before response is sent.

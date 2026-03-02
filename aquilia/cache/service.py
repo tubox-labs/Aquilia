@@ -288,18 +288,23 @@ class CacheService:
         
         # Stampede prevention: check for in-flight computation
         if self._config.stampede_prevention:
+            # Acquire lock once to atomically check-and-register
+            existing_future = None
             async with self._inflight_lock:
                 if full_key in self._inflight:
-                    # Another coroutine is computing this value — wait for it
-                    future = self._inflight[full_key]
-                    stats = await self._backend.stats()
-                    stats.stampede_joins += 1
-                    
-            # Wait outside the lock
-            if full_key in self._inflight:
+                    # Another coroutine is computing this value — capture the future
+                    existing_future = self._inflight[full_key]
+                    try:
+                        stats = await self._backend.stats()
+                        stats.stampede_joins += 1
+                    except Exception:
+                        pass
+            
+            # Wait outside the lock if another coroutine is computing
+            if existing_future is not None:
                 try:
                     return await asyncio.wait_for(
-                        asyncio.shield(self._inflight[full_key]),
+                        asyncio.shield(existing_future),
                         timeout=self._config.stampede_timeout,
                     )
                 except (asyncio.TimeoutError, asyncio.CancelledError):
@@ -307,11 +312,29 @@ class CacheService:
                 except Exception:
                     pass  # Fall through to compute independently
             
-            # Register as the computing coroutine
+            # Register as the computing coroutine (atomically under lock)
             loop = asyncio.get_running_loop()
             future: asyncio.Future = loop.create_future()
             async with self._inflight_lock:
-                self._inflight[full_key] = future
+                # Double-check: another coroutine may have registered between
+                # our first check and this point
+                if full_key in self._inflight:
+                    existing_future = self._inflight[full_key]
+                else:
+                    existing_future = None
+                    self._inflight[full_key] = future
+            
+            # If someone else registered while we were waiting, join them
+            if existing_future is not None:
+                try:
+                    return await asyncio.wait_for(
+                        asyncio.shield(existing_future),
+                        timeout=self._config.stampede_timeout,
+                    )
+                except (asyncio.TimeoutError, asyncio.CancelledError):
+                    logger.warning(f"Stampede wait timed out for key '{key}', computing independently")
+                except Exception:
+                    pass
             
             try:
                 # Compute the value

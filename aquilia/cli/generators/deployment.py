@@ -6,7 +6,7 @@ Deeply integrated with the Aquilia ecosystem:
 - Discovery: scans workspace for modules, controllers, services
 - Config: reads workspace.py, config/*.yaml, pyproject.toml
 - Artifacts: leverages artifact system for build fingerprints
-- Trace: integrates with .aquilia/ diagnostics directory
+- Build: uses Crous binary format for compiled artifacts
 - Faults: generates health-check endpoints compatible with fault domains
 - MLOps: generates separate model-serving containers & k8s manifests
 - Sessions: configures Redis/store backends in compose
@@ -581,7 +581,7 @@ COPY --chown=aquilia:aquilia . .
 RUN rm -rf aquilia* pyproject.toml* setup.py*
 
 # Create directories for runtime data
-RUN mkdir -p /app/artifacts /app/runtime /app/.aquilia && \\
+RUN mkdir -p /app/artifacts /app/runtime && \\
     chown -R aquilia:aquilia /app
 {migration_comment}
 # Switch to non-root user
@@ -606,10 +606,14 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \\
 # Use tini as init system for proper signal handling
 ENTRYPOINT ["tini", "--"]
 
-# Start Aquilia production server
-CMD ["python", "-m", "aquilia.cli", "serve", \\
+# Start Aquilia production server with gunicorn + uvicorn workers
+CMD ["gunicorn", "{name}.asgi:app", \\
+     "-k", "uvicorn.workers.UvicornWorker", \\
      "--workers", "{workers}", \\
-     "--bind", "0.0.0.0:{port}"]
+     "--bind", "0.0.0.0:{port}", \\
+     "--timeout", "120", \\
+     "--graceful-timeout", "30", \\
+     "--access-logfile", "-"]
 """
 
     def generate_dockerfile_dev(self) -> str:
@@ -734,7 +738,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \\
 COPY --chown=mlops:mlops . .
 
 # Create model storage directory
-RUN mkdir -p /models /app/.aquilia && \\
+RUN mkdir -p /models && \\
     chown -R mlops:mlops /models /app
 
 USER mlops
@@ -782,8 +786,7 @@ ENV/
 dist/
 build/
 
-# Aquilia trace/runtime (regenerated)
-.aquilia/
+# Aquilia runtime (regenerated)
 runtime/
 prediction_logs/
 
@@ -975,7 +978,6 @@ class ComposeGenerator:
         if uses_sqlite:
             app_volumes.append('      - app-data:/app/data')
         app_volumes.append('      - app-artifacts:/app/artifacts')
-        app_volumes.append('      - app-trace:/app/.aquilia')
 
         compose_lines.extend([
             f"  # ── Aquilia Application ──",
@@ -1282,7 +1284,7 @@ class ComposeGenerator:
         ])
 
         # ── Volumes ──
-        volume_names = ["app-artifacts", "app-trace"]
+        volume_names = ["app-artifacts"]
         if uses_sqlite:
             volume_names.insert(0, "app-data")
         if needs_postgres:
@@ -1598,12 +1600,8 @@ class KubernetesGenerator:
                       volumeMounts:
                         - name: artifacts
                           mountPath: /app/artifacts
-                        - name: trace
-                          mountPath: /app/.aquilia
                   volumes:
                     - name: artifacts
-                      emptyDir: {{}}
-                    - name: trace
                       emptyDir: {{}}
                   terminationGracePeriodSeconds: 30
         """)
@@ -2944,8 +2942,8 @@ class MakefileGenerator:
             \tpython -m aquilia.cli validate --strict
 
             compile:  ## Compile manifests to artifacts
-            \t@echo "📦 Compiling artifacts..."
-            \tpython -m aquilia.cli compile
+            \t@echo "📦 Building artifacts..."
+            \tpython -m aquilia.cli build --mode production
 
             doctor:  ## Diagnose workspace issues
             \t@echo "🩺 Running diagnostics..."
@@ -2955,7 +2953,7 @@ class MakefileGenerator:
             \t@echo "🧹 Cleaning..."
             \tfind . -type d -name __pycache__ -exec rm -rf {{}} + 2>/dev/null || true
             \tfind . -type d -name "*.egg-info" -exec rm -rf {{}} + 2>/dev/null || true
-            \trm -rf .aquilia/cache build/ dist/ .pytest_cache/ .coverage coverage.xml htmlcov/
+            \trm -rf build/ dist/ .pytest_cache/ .coverage coverage.xml htmlcov/
 
             ## ── Docker ──────────────────────────────────────────────────────
             .PHONY: docker-build docker-build-dev docker-up docker-down docker-logs docker-shell docker-prune

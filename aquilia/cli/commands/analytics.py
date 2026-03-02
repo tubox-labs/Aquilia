@@ -17,7 +17,7 @@ class DiscoveryAnalytics:
         self.workspace_name = workspace_name
         self.workspace_path = Path(workspace_path or workspace_name)
         self.generator = WorkspaceGenerator(workspace_name, self.workspace_path)
-        self.cache_dir = self.workspace_path / '.aquilia' / 'discovery'
+        self.cache_dir = self.workspace_path / 'build' / '.cache'
         self.cache_dir.mkdir(parents=True, exist_ok=True)
     
     def analyze(self) -> Dict:
@@ -190,7 +190,7 @@ class DiscoveryAnalytics:
                 return "beta"
             else:
                 return "alpha"
-        except:
+        except Exception:
             return "unknown"
     
     def _get_components(self, mod: Dict) -> List[str]:
@@ -222,15 +222,27 @@ class DiscoveryAnalytics:
             return "complex"
     
     def _cache_analysis(self, analysis: Dict) -> None:
-        """Cache analysis results."""
-        cache_file = self.cache_dir / 'analysis.json'
-        with open(cache_file, 'w') as f:
-            json.dump(analysis, f, indent=2, default=str)
+        """Cache analysis results as Crous binary."""
+        try:
+            try:
+                import _crous_native as crous_backend
+            except ImportError:
+                import crous as crous_backend
+            cache_file = self.cache_dir / 'analysis.crous'
+            cache_file.write_bytes(crous_backend.encode(analysis))
+        except ImportError:
+            cache_file = self.cache_dir / 'analysis.json'
+            with open(cache_file, 'w') as f:
+                json.dump(analysis, f, indent=2, default=str)
     
     def get_cached_analysis(self, max_age_seconds: int = 3600) -> Optional[Dict]:
         """Get cached analysis if fresh."""
-        cache_file = self.cache_dir / 'analysis.json'
-        if not cache_file.exists():
+        # Try Crous first, then JSON fallback
+        crous_file = self.cache_dir / 'analysis.crous'
+        json_file = self.cache_dir / 'analysis.json'
+        
+        cache_file = crous_file if crous_file.exists() else (json_file if json_file.exists() else None)
+        if not cache_file:
             return None
         
         file_age = (datetime.now() - datetime.fromtimestamp(cache_file.stat().st_mtime)).total_seconds()
@@ -238,9 +250,16 @@ class DiscoveryAnalytics:
             return None
         
         try:
-            with open(cache_file) as f:
-                return json.load(f)
-        except:
+            if cache_file.suffix == '.crous':
+                try:
+                    import _crous_native as crous_backend
+                except ImportError:
+                    import crous as crous_backend
+                return crous_backend.decode(cache_file.read_bytes())
+            else:
+                with open(cache_file) as f:
+                    return json.load(f)
+        except Exception:
             return None
 
 

@@ -585,7 +585,7 @@ class EnhancedDiscovery:
                 return class_name in init_file.read_text()
 
             return False
-        except:
+        except Exception:
             return False
 
     def _find_block_match(self, content: str, comment_text: str):
