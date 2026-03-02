@@ -19,7 +19,8 @@
     <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
     <link rel="shortcut icon" href="/static/favicon.ico">
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;550;600;700&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;450;500;550;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
     <link href="https://unpkg.com/lucide-static@latest/font/lucide.css" rel="stylesheet">
     <style>
     {% block head_css %}
@@ -29,6 +30,12 @@
     {% block extra_head %}{% endblock %}
 </head>
 <body>
+    {# ── Ambient background blobs (green/blue/purple/cyan like aqdocx) ── #}
+    <div class="ambient-blob ambient-blob-green"></div>
+    <div class="ambient-blob ambient-blob-blue"></div>
+    <div class="ambient-blob ambient-blob-purple"></div>
+    <div class="ambient-blob ambient-blob-cyan"></div>
+
     <div class="admin-layout">
         {# ── Sidebar ── #}
         {% include "partials/sidebar_v2.html" %}

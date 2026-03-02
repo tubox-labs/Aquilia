@@ -801,16 +801,27 @@ class AdminSite:
 
     @staticmethod
     def _get_integration_icon(name: str) -> str:
-        """Get an icon for an integration type."""
+        """Get a Lucide icon class for an integration type."""
         icons = {
-            "di": "🔌", "registry": "📋", "routing": "🔀",
-            "fault_handling": "🛡️", "patterns": "🧩",
-            "database": "🗄️", "cache": "⚡", "templates": "📄",
-            "static_files": "📁", "admin": "👤", "cors": "🌐",
-            "csp": "🔒", "rate_limit": "⏱️", "mail": "📧",
-            "sessions": "🔑",
+            "di": "icon-plug",
+            "registry": "icon-clipboard-list",
+            "routing": "icon-git-branch",
+            "fault_handling": "icon-shield",
+            "patterns": "icon-puzzle",
+            "database": "icon-database",
+            "cache": "icon-zap",
+            "templates": "icon-file-text",
+            "static_files": "icon-folder",
+            "admin": "icon-user",
+            "cors": "icon-globe",
+            "csp": "icon-lock",
+            "rate_limit": "icon-clock",
+            "mail": "icon-mail",
+            "sessions": "icon-key",
+            "auth": "icon-shield-check",
+            "openapi": "icon-book-open",
         }
-        return icons.get(name, "⚙️")
+        return icons.get(name, "icon-settings")
 
     # ── Permissions data ─────────────────────────────────────────────
 

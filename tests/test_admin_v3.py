@@ -2401,7 +2401,8 @@ class TestTemplatePartialsV3:
         from pathlib import Path
         content = (Path(__file__).parent.parent / "aquilia/admin/templates/partials/css.html").read_text()
         assert "22c55e" in content, "Missing Aquilia green accent"
-        assert "Inter" in content, "Missing Inter font"
+        assert "Outfit" in content, "Missing Outfit font (aqdocx theme)"
+        assert "Space Mono" in content, "Missing Space Mono font (aqdocx theme)"
 
     def test_base_includes_sidebar(self):
         from pathlib import Path
@@ -2412,6 +2413,12 @@ class TestTemplatePartialsV3:
         from pathlib import Path
         content = (Path(__file__).parent.parent / "aquilia/admin/templates/base.html").read_text()
         assert "css.html" in content
+
+    def test_base_includes_aqdocx_fonts(self):
+        from pathlib import Path
+        content = (Path(__file__).parent.parent / "aquilia/admin/templates/base.html").read_text()
+        assert "Outfit" in content, "Missing Outfit font CDN"
+        assert "Space+Mono" in content, "Missing Space Mono font CDN"
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -3273,26 +3280,34 @@ class TestGridBackground:
         from aquilia.admin.templates import _jinja_env
         tpl = _jinja_env.get_template("partials/css.html")
         css = tpl.render()
+        # Grid lines + ambient blob divs (aqdocx style)
         assert "linear-gradient" in css
-        assert "40px 40px" in css
+        assert "40px 40px" in css  # grid size
+        assert "ambient-blob" in css  # blob classes
+        assert "breathing" in css  # blob animation
 
     def test_css_has_dark_grid_color(self):
         from aquilia.admin.templates import _jinja_env
         tpl = _jinja_env.get_template("partials/css.html")
         css = tpl.render()
-        assert "#27272a" in css
+        # Dark theme uses rgba borders and pure black background
+        assert "#000000" in css
+        assert "rgba(255,255,255,0.08)" in css
 
     def test_css_has_light_grid_color(self):
         from aquilia.admin.templates import _jinja_env
         tpl = _jinja_env.get_template("partials/css.html")
         css = tpl.render()
-        assert "#d4d4d8" in css
+        # Light theme uses visible border color
+        assert "#e4e4e7" in css
 
     def test_body_before_has_background_size(self):
         from aquilia.admin.templates import _jinja_env
         tpl = _jinja_env.get_template("partials/css.html")
         css = tpl.render()
+        # Grid lines use background-size: 40px 40px
         assert "background-size" in css
+        assert "40px 40px" in css
 
 
 class TestAdminModelRegistration:
@@ -4205,8 +4220,9 @@ class TestWorkspacePage:
             app_list=[], identity_name="admin",
         )
         assert "toggleModule" in html
-        assert "body-orders" in html
-        assert "chevron-orders" in html
+        assert "module-body" in html
+        assert "module-chevron" in html
+        assert "data-collapsed" in html
 
     def test_workspace_page_no_modules(self):
         from aquilia.admin.templates import render_workspace_page
@@ -4518,6 +4534,16 @@ class TestWorkspaceRoute:
         from aquilia.admin.controller import AdminController
         assert inspect.iscoroutinefunction(AdminController.workspace_view)
 
+    def test_workspace_route_delegates_correctly(self):
+        """Test that /workspace/ URL delegates to workspace_view instead of list_view."""
+        from aquilia.admin.controller import AdminController
+        # Verify _SYSTEM_PAGES includes workspace
+        assert hasattr(AdminController, '_SYSTEM_PAGES')
+        assert 'workspace' in AdminController._SYSTEM_PAGES
+        # Verify workspace_view method exists
+        assert hasattr(AdminController, 'workspace_view')
+        assert callable(getattr(AdminController, 'workspace_view'))
+
 
 class TestSidebarWorkspaceLink:
     """Sidebar should include a Workspace link in the System section."""
@@ -4587,3 +4613,102 @@ class TestModalAccessibility:
         )
         # Modal should use CSS variables for theming
         assert "var(--bg-elevated)" in html or "var(--border-color)" in html
+
+
+class TestAqdocxThemeAlignment:
+    """Verify admin CSS is aligned with aqdocx docs theme."""
+
+    def test_css_uses_outfit_font(self):
+        from aquilia.admin.templates import _jinja_env
+        css = _jinja_env.get_template("partials/css.html").render()
+        assert '"Outfit"' in css
+
+    def test_css_uses_space_mono_font(self):
+        from aquilia.admin.templates import _jinja_env
+        css = _jinja_env.get_template("partials/css.html").render()
+        assert '"Space Mono"' in css
+
+    def test_css_pure_black_dark_mode(self):
+        from aquilia.admin.templates import _jinja_env
+        css = _jinja_env.get_template("partials/css.html").render()
+        assert "--bg-body: #000000" in css
+        assert "--bg-card: #000000" in css
+        assert "--bg-sidebar: #000000" in css
+
+    def test_css_has_grid_background(self):
+        from aquilia.admin.templates import _jinja_env
+        css = _jinja_env.get_template("partials/css.html").render()
+        assert "linear-gradient" in css
+        assert "40px 40px" in css
+
+    def test_css_has_ambient_blob_classes(self):
+        from aquilia.admin.templates import _jinja_env
+        css = _jinja_env.get_template("partials/css.html").render()
+        assert "ambient-blob-green" in css
+        assert "ambient-blob-blue" in css
+        assert "ambient-blob-purple" in css
+        assert "ambient-blob-cyan" in css
+
+    def test_base_has_ambient_blobs(self):
+        from pathlib import Path
+        html = (Path(__file__).parent.parent / "aquilia/admin/templates/base.html").read_text()
+        assert "ambient-blob-green" in html
+        assert "ambient-blob-blue" in html
+        assert "ambient-blob-purple" in html
+        assert "ambient-blob-cyan" in html
+
+    def test_css_has_breathing_animation(self):
+        from aquilia.admin.templates import _jinja_env
+        css = _jinja_env.get_template("partials/css.html").render()
+        assert "@keyframes breathing" in css
+
+    def test_css_sidebar_active_gradient(self):
+        from aquilia.admin.templates import _jinja_env
+        css = _jinja_env.get_template("partials/css.html").render()
+        assert "linear-gradient(to right" in css
+        assert "border-left: 2px solid #22c55e" in css
+
+
+class TestIntegrationIconsLucide:
+    """Integration icons should use Lucide classes instead of emojis."""
+
+    def test_integration_icon_returns_lucide_class(self):
+        from aquilia.admin.site import AdminSite
+        assert AdminSite._get_integration_icon("database") == "icon-database"
+        assert AdminSite._get_integration_icon("mail") == "icon-mail"
+        assert AdminSite._get_integration_icon("cache") == "icon-zap"
+        assert AdminSite._get_integration_icon("sessions") == "icon-key"
+        assert AdminSite._get_integration_icon("unknown_thing") == "icon-settings"
+
+    def test_no_emoji_in_integration_icons(self):
+        from aquilia.admin.site import AdminSite
+        known = [
+            "di", "registry", "routing", "fault_handling", "patterns",
+            "database", "cache", "templates", "static_files", "admin",
+            "cors", "csp", "rate_limit", "mail", "sessions", "auth", "openapi",
+        ]
+        for name in known:
+            icon = AdminSite._get_integration_icon(name)
+            assert icon.startswith("icon-"), f"{name} icon should be Lucide class, got {icon}"
+
+
+class TestWorkspaceModuleExpandCollapse:
+    """Module expand/collapse should use data-collapsed + max-height approach."""
+
+    def test_module_body_has_data_collapsed(self):
+        from aquilia.admin.templates import render_workspace_page
+        html = render_workspace_page(
+            workspace={
+                "name": "App", "version": "1.0", "description": "",
+                "python_version": "3.12", "platform": "darwin",
+                "modules": [
+                    {"name": "core", "manifest": None, "files": [{"name": "main.py", "kind": "controller"}]},
+                ],
+                "integrations": [], "registered_models": [], "project_meta": {},
+                "stats": {"total_modules": 1, "total_models": 0, "total_controllers": 0, "total_services": 0, "total_integrations": 0},
+            },
+            app_list=[], identity_name="admin",
+        )
+        assert 'data-collapsed="true"' in html
+        assert "max-height" in html
+        assert "toggleModule(this)" in html

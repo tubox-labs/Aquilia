@@ -88,7 +88,9 @@
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;">
         {% for intg in workspace.integrations %}
         <div style="padding:14px;border-radius:10px;background:var(--bg-input);border:1px solid var(--border-color);display:flex;align-items:center;gap:12px;">
-            <div style="font-size:1.5rem;">{{ intg.icon }}</div>
+            <div style="width:36px;height:36px;border-radius:8px;background:rgba(34,197,94,.1);display:flex;align-items:center;justify-content:center;">
+                <i class="{{ intg.icon }}" style="font-size:16px;color:var(--accent);"></i>
+            </div>
             <div>
                 <div style="font-size:.85rem;font-weight:600;color:var(--text-primary);">{{ intg.name }}</div>
                 {% if intg.params and intg.params|length > 0 %}
@@ -144,7 +146,8 @@
     {% for mod in workspace.modules %}
     <div class="card module-card" style="padding:0;margin-bottom:12px;overflow:hidden;" data-module="{{ mod.name }}">
         {# Module Header — clickable to expand #}
-        <div class="module-header" onclick="toggleModule('{{ mod.name }}')" style="padding:18px 20px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;transition:background .15s;">
+        <div class="module-header" style="padding:18px 20px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;transition:background .15s;user-select:none;"
+             onclick="toggleModule(this)">
             <div style="display:flex;align-items:center;gap:12px;">
                 <div style="width:36px;height:36px;border-radius:8px;background:rgba(34,197,94,.1);display:flex;align-items:center;justify-content:center;">
                     <i class="icon-package" style="font-size:16px;color:var(--accent);"></i>
@@ -171,14 +174,15 @@
                 <span style="padding:2px 8px;border-radius:4px;font-size:.65rem;background:rgba(34,197,94,.12);color:var(--accent);font-weight:600;">{{ tag }}</span>
                 {% endfor %}
                 {% endif %}
-                <svg class="module-chevron" id="chevron-{{ mod.name }}" style="width:18px;height:18px;color:var(--text-muted);transition:transform .2s;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <svg class="module-chevron" style="width:18px;height:18px;color:var(--text-muted);transition:transform .25s var(--ease);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <polyline points="6 9 12 15 18 9"/>
                 </svg>
             </div>
         </div>
 
-        {# Module Body — hidden by default #}
-        <div class="module-body" id="body-{{ mod.name }}" style="display:none;border-top:1px solid var(--border-color);">
+        {# Module Body — hidden by default via CSS class #}
+        <div class="module-body" style="border-top:1px solid var(--border-color);max-height:0;overflow:hidden;transition:max-height .35s var(--ease);"
+             data-collapsed="true">
             {% if mod.manifest %}
             {# ── Manifest Details Grid ── #}
             <div style="padding:16px 20px;">
@@ -198,7 +202,10 @@
                     {% if mod.manifest.auto_discover is not none %}
                     <div style="padding:10px 12px;border-radius:8px;background:var(--bg-input);border:1px solid var(--border-color);">
                         <div style="font-size:.65rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px;">Auto Discover</div>
-                        <span style="font-size:.8rem;color:{{ 'var(--accent)' if mod.manifest.auto_discover else 'var(--text-muted)' }};">{{ '✓ Enabled' if mod.manifest.auto_discover else '✗ Disabled' }}</span>
+                        <span style="font-size:.8rem;color:{{ 'var(--accent)' if mod.manifest.auto_discover else 'var(--text-muted)' }};display:flex;align-items:center;gap:4px;">
+                            <i class="{{ 'icon-check-circle' if mod.manifest.auto_discover else 'icon-x-circle' }}" style="font-size:14px;"></i>
+                            {{ 'Enabled' if mod.manifest.auto_discover else 'Disabled' }}
+                        </span>
                     </div>
                     {% endif %}
                 </div>
@@ -299,23 +306,32 @@
 
 {% block extra_js %}
 <script>
-function toggleModule(name) {
-    const body = document.getElementById('body-' + name);
-    const chevron = document.getElementById('chevron-' + name);
+function toggleModule(headerEl) {
+    var card = headerEl.closest('.module-card');
+    if (!card) return;
+    var body = card.querySelector('.module-body');
+    var chevron = card.querySelector('.module-chevron');
     if (!body) return;
-    const isOpen = body.style.display !== 'none';
-    body.style.display = isOpen ? 'none' : 'block';
-    if (chevron) {
-        chevron.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(180deg)';
+    var isCollapsed = body.getAttribute('data-collapsed') === 'true';
+    if (isCollapsed) {
+        /* Expand: measure scrollHeight then set max-height */
+        body.style.maxHeight = body.scrollHeight + 'px';
+        body.setAttribute('data-collapsed', 'false');
+        if (chevron) chevron.style.transform = 'rotate(180deg)';
+    } else {
+        /* Collapse */
+        body.style.maxHeight = '0';
+        body.setAttribute('data-collapsed', 'true');
+        if (chevron) chevron.style.transform = 'rotate(0deg)';
     }
 }
 
 /* Auto-expand first module */
 document.addEventListener('DOMContentLoaded', function() {
-    const firstCard = document.querySelector('.module-card');
+    var firstCard = document.querySelector('.module-card');
     if (firstCard) {
-        const name = firstCard.dataset.module;
-        toggleModule(name);
+        var header = firstCard.querySelector('.module-header');
+        if (header) toggleModule(header);
     }
 });
 
@@ -323,13 +339,20 @@ document.addEventListener('DOMContentLoaded', function() {
 document.addEventListener('keydown', function(e) {
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
     if (e.key === 'e' && !e.ctrlKey && !e.metaKey) {
-        const bodies = document.querySelectorAll('.module-body');
-        const allOpen = Array.from(bodies).every(b => b.style.display !== 'none');
+        var bodies = document.querySelectorAll('.module-body');
+        var allOpen = Array.from(bodies).every(function(b) { return b.getAttribute('data-collapsed') === 'false'; });
         bodies.forEach(function(body) {
-            const name = body.id.replace('body-', '');
-            const chevron = document.getElementById('chevron-' + name);
-            body.style.display = allOpen ? 'none' : 'block';
-            if (chevron) chevron.style.transform = allOpen ? 'rotate(0deg)' : 'rotate(180deg)';
+            var card = body.closest('.module-card');
+            var chevron = card ? card.querySelector('.module-chevron') : null;
+            if (allOpen) {
+                body.style.maxHeight = '0';
+                body.setAttribute('data-collapsed', 'true');
+                if (chevron) chevron.style.transform = 'rotate(0deg)';
+            } else {
+                body.style.maxHeight = body.scrollHeight + 'px';
+                body.setAttribute('data-collapsed', 'false');
+                if (chevron) chevron.style.transform = 'rotate(180deg)';
+            }
         });
     }
 });

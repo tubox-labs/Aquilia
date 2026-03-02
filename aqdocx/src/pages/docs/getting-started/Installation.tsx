@@ -151,7 +151,7 @@ pip install "aquilia[all]"`} language="bash" />
         </p>
 
         <CodeBlock
-          code={`git clone https://github.com/your-org/aquilia.git
+          code={`git clone https://github.com/tubox-labs/aquilia.git
 cd aquilia
 python -m venv env
 source env/bin/activate

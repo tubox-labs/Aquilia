@@ -264,12 +264,25 @@ class AdminController(Controller):
 
         return _redirect("/admin/login")
 
+    # Reserved names — system pages that must not be treated as model names
+    _SYSTEM_PAGES = frozenset({
+        "login", "logout", "orm", "build", "migrations",
+        "config", "workspace", "permissions", "audit",
+    })
+
     # ── List View ────────────────────────────────────────────────────
 
     @GET("/{model}/")
     async def list_view(self, request, ctx: RequestCtx) -> Response:
         """List records for a model with search and pagination."""
         model = request.state.get("path_params", {}).get("model", "")
+
+        # Delegate to the correct system page handler
+        if model in self._SYSTEM_PAGES:
+            handler = getattr(self, f"{model}_view", None)
+            if handler:
+                return await handler(request, ctx)
+
         identity = _get_identity(ctx)
         if identity is None:
             return _redirect("/admin/login")
