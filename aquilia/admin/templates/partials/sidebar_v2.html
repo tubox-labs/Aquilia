@@ -1,8 +1,13 @@
 {# Sidebar partial — included in base.html #}
 <aside class="admin-sidebar" id="adminSidebar">
+    {# ── Brand (matches aqdocx: gradient glow + logo + name + version) ── #}
     <a class="sidebar-brand" href="{{ url_prefix|default('/admin') }}/">
+        <div class="sidebar-brand-glow"></div>
         <img src="/static/logo.png" alt="" onerror="this.style.display='none'">
-        <span class="sidebar-brand-text">{{ site_title|default('Aquilia') }}</span>
+        <div class="sidebar-brand-info">
+            <div class="sidebar-brand-text">{{ site_title|default('Aquilia') }}</div>
+            <div class="sidebar-brand-version">Admin Panel</div>
+        </div>
         <span class="badge">Admin</span>
     </a>
 
@@ -32,7 +37,7 @@
     <div class="sidebar-section">
         <span class="sidebar-section-label">System</span>
         <a class="sidebar-link{{ ' active' if active_page == 'workspace' else '' }}" href="{{ url_prefix|default('/admin') }}/workspace/">
-            <i class="icon-layout"></i> Workspace
+            <i class="icon-layout-template"></i> Workspace
         </a>
         <a class="sidebar-link{{ ' active' if active_page == 'build' else '' }}" href="{{ url_prefix|default('/admin') }}/build/">
             <i class="icon-package"></i> Build

@@ -4633,7 +4633,8 @@ class TestAqdocxThemeAlignment:
         css = _jinja_env.get_template("partials/css.html").render()
         assert "--bg-body: #000000" in css
         assert "--bg-card: #000000" in css
-        assert "--bg-sidebar: #000000" in css
+        # aqdocx sidebar is #09090b (zinc-950), not pure black
+        assert "--bg-sidebar: #09090b" in css
 
     def test_css_has_grid_background(self):
         from aquilia.admin.templates import _jinja_env
