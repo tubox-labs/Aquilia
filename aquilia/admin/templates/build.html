@@ -1,0 +1,238 @@
+{% extends "base.html" %}
+{% block title %}Build{% endblock %}
+{% block breadcrumb %}Build{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Build</h1>
+    <p>Crous build artifacts and pipeline status.</p>
+</div>
+
+{# ── Build info stats ── #}
+{% if build_info %}
+<div class="stats-row" style="margin-bottom:28px;">
+    <div class="stat-item">
+        <div class="stat-number">{{ build_info.workspace_name|default('—') }}</div>
+        <div class="stat-label">Workspace</div>
+    </div>
+    <div class="stat-item">
+        <div class="stat-number">{{ build_info.workspace_version|default('—') }}</div>
+        <div class="stat-label">Version</div>
+    </div>
+    <div class="stat-item">
+        <div class="stat-number">{{ build_info.mode|default('—') }}</div>
+        <div class="stat-label">Mode</div>
+    </div>
+    <div class="stat-item">
+        <div class="stat-number">{{ build_info.total_artifacts|default(0) }}</div>
+        <div class="stat-label">Artifacts</div>
+    </div>
+</div>
+{% endif %}
+
+{# ── Tabs ── #}
+<div class="tab-nav" data-tab-group="build">
+    <button class="tab-btn active" data-tab="artifacts" onclick="switchTab('build','artifacts')">
+        <i class="icon-package" style="font-size:14px;vertical-align:-2px;margin-right:4px;"></i>Artifacts
+    </button>
+    <button class="tab-btn" data-tab="file-viewer" onclick="switchTab('build','file-viewer')">
+        <i class="icon-file-code" style="font-size:14px;vertical-align:-2px;margin-right:4px;"></i>File Viewer
+    </button>
+    <button class="tab-btn" data-tab="pipeline" onclick="switchTab('build','pipeline')">
+        <i class="icon-git-branch" style="font-size:14px;vertical-align:-2px;margin-right:4px;"></i>Pipeline
+    </button>
+    <button class="tab-btn" data-tab="logs" onclick="switchTab('build','logs')">
+        <i class="icon-terminal" style="font-size:14px;vertical-align:-2px;margin-right:4px;"></i>Build Logs
+    </button>
+</div>
+
+{# ── Artifacts tab ── #}
+<div class="tab-content active" data-tab-content="build" data-tab="artifacts">
+    {% if artifacts %}
+    <div class="glass-card" style="padding:0;">
+        <div class="card-header">
+            <span class="card-title">Crous Artifacts</span>
+            <span class="meta-text">.crous binary format</span>
+        </div>
+        {% for art in artifacts %}
+        <div class="build-artifact-row" style="cursor:pointer;" data-artifact-name="{{ art.name }}" onclick="viewArtifact('{{ art.name }}')">
+            <i class="icon-file" style="font-size:16px;color:var(--accent);opacity:0.6;"></i>
+            <div style="min-width:0;flex:1;">
+                <div class="build-artifact-name">{{ art.name }}</div>
+                {% if art.digest %}
+                <div class="build-artifact-digest" title="{{ art.digest }}">sha256:{{ art.digest[:16] }}…</div>
+                {% endif %}
+            </div>
+            <span class="build-artifact-kind">{{ art.kind|default('artifact') }}</span>
+            <span class="build-artifact-size">{{ art.size|default('—') }}</span>
+            <i class="icon-eye" style="font-size:14px;color:var(--accent);opacity:0.4;margin-left:8px;" title="View contents"></i>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="glass-card">
+        <div class="empty-state">
+            <i class="icon-package" style="font-size:32px;display:block;margin-bottom:12px;opacity:0.3;"></i>
+            No build artifacts found.<br>
+            <span class="meta-text">Run <code style="color:var(--accent);">aquilia build</code> to generate Crous artifacts.</span>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+{# ── File Viewer tab ── #}
+<div class="tab-content" data-tab-content="build" data-tab="file-viewer">
+    <div class="section-label">Artifact Contents</div>
+    {% if artifacts %}
+        {% for art in artifacts %}
+        {% if art.content %}
+        <div class="code-block-container" id="viewer-{{ loop.index }}" data-viewer-name="{{ art.name }}" style="margin-bottom:20px;">
+            <div class="code-block-header">
+                <div class="dots">
+                    <div class="dot dot-red"></div>
+                    <div class="dot dot-yellow"></div>
+                    <div class="dot dot-green"></div>
+                </div>
+                <span class="filename">{{ art.name }}</span>
+                <span style="margin-left:auto;font-size:0.65rem;padding:2px 8px;border-radius:var(--radius-full);background:var(--bg-surface);color:var(--text-muted);text-transform:uppercase;letter-spacing:0.04em;font-weight:500;">
+                    {{ art.content_type|default('binary') }}
+                </span>
+            </div>
+            <div class="code-block-body" style="max-height:500px;overflow-y:auto;">
+                <pre>{% if art.content_highlighted %}{{ art.content_highlighted|safe }}{% else %}{{ art.content }}{% endif %}</pre>
+            </div>
+        </div>
+        {% endif %}
+        {% endfor %}
+    {% else %}
+    <div class="glass-card">
+        <div class="empty-state">
+            <i class="icon-file-code" style="font-size:32px;display:block;margin-bottom:12px;opacity:0.3;"></i>
+            No artifact data to display.<br>
+            <span class="meta-text">Build the project first to inspect artifact contents.</span>
+        </div>
+    </div>
+    {% endif %}
+
+    {# ── Other build files ── #}
+    {% if build_files %}
+    <div class="section-label" style="margin-top:28px;">Other Build Files</div>
+    {% for bf in build_files %}
+    <div class="code-block-container" style="margin-bottom:20px;">
+        <div class="code-block-header">
+            <div class="dots">
+                <div class="dot dot-red"></div>
+                <div class="dot dot-yellow"></div>
+                <div class="dot dot-green"></div>
+            </div>
+            <span class="filename">{{ bf.name }}</span>
+            <span style="margin-left:auto;font-size:0.65rem;color:var(--text-faint);font-family:var(--font-mono);">{{ bf.size }}</span>
+        </div>
+        <div class="code-block-body" style="max-height:500px;overflow-y:auto;">
+            <pre>{{ bf.content }}</pre>
+        </div>
+    </div>
+    {% endfor %}
+    {% endif %}
+</div>
+
+{# ── Pipeline tab (restored) ── #}
+<div class="tab-content" data-tab-content="build" data-tab="pipeline">
+    <div class="glass-card" style="padding:0;">
+        <div class="card-header">
+            <span class="card-title">Build Pipeline</span>
+            <span class="meta-text">Discovery → Validation → Static Check → Compile → Bundle → Fingerprint</span>
+        </div>
+        {% if pipeline_phases %}
+        {% for phase in pipeline_phases %}
+        <div class="build-phase">
+            <div class="build-phase-indicator">
+                <div class="build-phase-dot {{ phase.status|default('pending') }}"></div>
+                {% if not loop.last %}<div class="build-phase-line"></div>{% endif %}
+            </div>
+            <div class="build-phase-content">
+                <div class="build-phase-title">{{ phase.name }}</div>
+                <div class="build-phase-detail">{{ phase.detail|default('') }}</div>
+            </div>
+            {% if phase.duration %}
+            <div class="build-phase-time">{{ phase.duration }}</div>
+            {% endif %}
+        </div>
+        {% endfor %}
+        {% else %}
+        {% for phase_name in ['Discovery', 'Validation', 'Static Check', 'Compilation', 'Bundling', 'Fingerprint'] %}
+        <div class="build-phase">
+            <div class="build-phase-indicator">
+                <div class="build-phase-dot pending"></div>
+                {% if not loop.last %}<div class="build-phase-line"></div>{% endif %}
+            </div>
+            <div class="build-phase-content">
+                <div class="build-phase-title">{{ phase_name }}</div>
+                <div class="build-phase-detail">Not yet executed</div>
+            </div>
+        </div>
+        {% endfor %}
+        {% endif %}
+    </div>
+</div>
+
+{# ── Build Logs tab ── #}
+<div class="tab-content" data-tab-content="build" data-tab="logs">
+    {% if build_log %}
+    <div class="code-block-container">
+        <div class="code-block-header">
+            <div class="dots">
+                <div class="dot dot-red"></div>
+                <div class="dot dot-yellow"></div>
+                <div class="dot dot-green"></div>
+            </div>
+            <span class="filename">build output</span>
+        </div>
+        <div class="code-block-body">
+            <pre>{{ build_log }}</pre>
+        </div>
+    </div>
+    {% else %}
+    <div class="glass-card">
+        <div class="empty-state">
+            <i class="icon-terminal" style="font-size:32px;display:block;margin-bottom:12px;opacity:0.3;"></i>
+            No build logs available
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+{# ── Fingerprint ── #}
+{% if build_info and build_info.fingerprint %}
+<div style="margin-top:24px;">
+    <div class="section-label">Build Fingerprint</div>
+    <div class="glass-card card-padded">
+        <div style="font-family:var(--font-mono);font-size:0.78rem;color:var(--text-muted);word-break:break-all;">
+            <i class="icon-fingerprint" style="font-size:14px;vertical-align:-2px;margin-right:6px;color:var(--accent);"></i>
+            {{ build_info.fingerprint }}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<script>
+function viewArtifact(name) {
+    // Switch to File Viewer tab
+    switchTab('build', 'file-viewer');
+    // Highlight the clicked artifact row
+    document.querySelectorAll('.build-artifact-row').forEach(r => r.style.outline = 'none');
+    const row = document.querySelector('[data-artifact-name="' + name + '"]');
+    if (row) row.style.outline = '1px solid var(--accent)';
+    // Scroll to the matching code block
+    setTimeout(function() {
+        const viewer = document.querySelector('[data-viewer-name="' + name + '"]');
+        if (viewer) {
+            viewer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            viewer.style.outline = '2px solid var(--accent)';
+            viewer.style.borderRadius = 'var(--radius)';
+            setTimeout(function() { viewer.style.outline = 'none'; }, 2500);
+        }
+    }, 150);
+}
+</script>
+{% endblock %}

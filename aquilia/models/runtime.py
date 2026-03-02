@@ -138,8 +138,14 @@ class Q:
     """
     Aquilia Query builder — chainable, async-terminal.
 
+    Supports both raw WHERE clauses and Django-style field lookups:
+
     Usage:
+        # Raw where
         rows = await User.$query().where("active = ?", True).order("-id").limit(10).all()
+
+        # Django-style lookups (delegates to _build_filter_clause)
+        rows = await User.$query().filter(age__gt=18, active=True).all()
     """
 
     __slots__ = (
@@ -187,6 +193,26 @@ class Q:
         else:
             new._wheres.append(clause)
             new._params.extend(args)
+        return new
+
+    def filter(self, **kwargs: Any) -> Q:
+        """
+        Django-style field lookups.
+
+        Delegates to the shared ``_build_filter_clause`` from ``query.py``
+        so that all lookup operators (gt, lt, contains, in, isnull, etc.)
+        work identically in both Python Model and AMDL ModelProxy queries.
+
+        Examples:
+            .filter(age__gt=18)
+            .filter(name__contains="Alice", active=True)
+        """
+        from .query import _build_filter_clause
+        new = self._clone()
+        for key, value in kwargs.items():
+            clause, clause_params = _build_filter_clause(key, value)
+            new._wheres.append(clause)
+            new._params.extend(clause_params)
         return new
 
     def order(self, *fields: str) -> Q:

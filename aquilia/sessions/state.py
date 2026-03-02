@@ -14,8 +14,8 @@ Example:
     ...     cart.total += price
 """
 
-from typing import Any, Dict, Type, TypeVar, get_type_hints
-from dataclasses import dataclass, field, fields, MISSING
+from typing import Any, Dict, TypeVar, get_type_hints
+from dataclasses import MISSING
 
 
 T = TypeVar('T', bound='SessionState')
@@ -35,7 +35,11 @@ class Field:
     def __get__(self, obj, objtype=None):
         if obj is None:
             return self
-        return getattr(obj, self.private_name, self._get_default())
+        # FIX: Graceful missing key handling
+        try:
+            return getattr(obj, self.private_name)
+        except AttributeError:
+            return self._get_default()
     
     def __set__(self, obj, value):
         setattr(obj, self.private_name, value)
@@ -66,12 +70,6 @@ class SessionState:
     """
     
     def __init__(self, data: Dict[str, Any]):
-        """
-        Initialize session state with data dictionary.
-        
-        Args:
-            data: Session data dictionary (typically session.data)
-        """
         self._data = data
         self._sync_from_data()
     
@@ -83,11 +81,9 @@ class SessionState:
             if name.startswith('_'):
                 continue
             
-            # Get value from data or use default
             if name in self._data:
                 setattr(self, f'_{name}', self._data[name])
             else:
-                # Use field default if available
                 field_obj = getattr(self.__class__, name, None)
                 if isinstance(field_obj, Field):
                     default_value = field_obj._get_default()
@@ -109,10 +105,8 @@ class SessionState:
     def __setattr__(self, name: str, value: Any):
         """Override setattr to sync to data dictionary."""
         if name.startswith('_'):
-            # Private attributes
             super().__setattr__(name, value)
         else:
-            # Public attributes - sync to data
             super().__setattr__(f'_{name}', value)
             if hasattr(self, '_data'):
                 self._data[name] = value
@@ -122,12 +116,11 @@ class SessionState:
         if name.startswith('_') or name in ('_sync_from_data', '_sync_to_data', 'get', 'to_dict', '__getitem__', '__setitem__'):
             return super().__getattribute__(name)
         
-        # Check if it's a field
         try:
             cls_attr = getattr(self.__class__, name, None)
             if isinstance(cls_attr, Field):
                 return super().__getattribute__(f'_{name}')
-        except:
+        except Exception:
             pass
         
         return super().__getattribute__(name)
@@ -137,7 +130,6 @@ class SessionState:
         
     def __setitem__(self, key: str, value: Any):
         self._data[key] = value
-        # Also sync to instance attr for consistency if it exists
         if hasattr(self, f'_{key}'):
             super().__setattr__(f'_{key}', value)
 
@@ -153,11 +145,16 @@ class SessionState:
     def __repr__(self) -> str:
         hints = get_type_hints(self.__class__)
         fields_str = ", ".join(
-            f"{name}={getattr(self, f'_{name}', None)}"
+            f"{name}={getattr(self, f'_{name}', None)!r}"
             for name in hints.keys()
             if not name.startswith('_')
         )
         return f"{self.__class__.__name__}({fields_str})"
+    
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, self.__class__):
+            return NotImplemented
+        return self._data == other._data
 
 
 # Example typed states

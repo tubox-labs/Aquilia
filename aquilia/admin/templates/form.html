@@ -1,0 +1,213 @@
+{% extends "base.html" %}
+
+{% set title_text = ('Add ' ~ verbose_name) if is_create else ('Edit ' ~ verbose_name ~ ' #' ~ pk) %}
+{% block title %}{{ title_text }}{% endblock %}
+
+{% block content %}
+<div class="page-header-row">
+    <h2>
+        <a href="{{ url_prefix|default('/admin') }}/{{ model_name|lower }}/" class="btn-ghost" style="display:inline-flex;align-items:center;gap:4px;margin-right:8px;padding:4px 8px;border-radius:var(--radius-sm);color:var(--text-faint);">
+            <i class="icon-arrow-left" style="font-size:16px;"></i>
+        </a>
+        <i class="icon-{{ 'edit' if not is_create else 'plus-circle' }}" style="font-size:18px;vertical-align:-2px;margin-right:6px;opacity:0.4;"></i>
+        {{ title_text }}
+    </h2>
+</div>
+
+<div class="glass-card card-padded" style="max-width:640px;">
+    {% set action_url = (url_prefix|default('/admin') ~ '/' ~ model_name|lower ~ '/add') if is_create else (url_prefix|default('/admin') ~ '/' ~ model_name|lower ~ '/' ~ pk) %}
+    <form method="POST" action="{{ action_url }}" id="adminForm" data-dirty="false">
+        {# ── Unsaved changes indicator ── #}
+        <div id="unsaved-bar" style="display:none;padding:10px 16px;margin:-20px -20px 20px;border-radius:var(--radius) var(--radius) 0 0;background:rgba(34,197,94,0.08);border-bottom:1px solid rgba(34,197,94,0.2);font-size:0.78rem;color:var(--accent);display:none;align-items:center;gap:8px;">
+            <i class="icon-alert-circle" style="font-size:14px;"></i>
+            <span>You have unsaved changes</span>
+            <span id="changed-count" style="margin-left:auto;background:var(--accent);color:#000;padding:1px 8px;border-radius:var(--radius-full);font-weight:600;font-size:0.7rem;"></span>
+        </div>
+        {% for fld in fields %}
+            {% set name = fld.name|default('') %}
+            {% set label = fld.label|default(name) %}
+            {% set field_type = fld.type|default('text') %}
+            {% set value = fld.value if fld.value is not none else '' %}
+            {% set required = fld.required|default(false) and not fld.readonly|default(false) %}
+            {% set readonly = fld.readonly|default(false) %}
+            {% set help_text = fld.help_text|default('') %}
+            {% set choices = fld.choices %}
+
+            {% if field_type == 'checkbox' %}
+            <div class="form-group">
+                <label class="form-label" style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                    <input type="hidden" name="{{ name }}" value="">
+                    <input type="checkbox" name="{{ name }}" value="1"
+                        {{ 'checked' if value else '' }}
+                        {{ 'disabled' if readonly else '' }}
+                        style="accent-color:var(--accent);width:16px;height:16px;">
+                    {{ label }}
+                </label>
+                {% if help_text %}<div class="form-help">{{ help_text }}</div>{% endif %}
+            </div>
+
+            {% elif field_type == 'textarea' %}
+            <div class="form-group">
+                <label class="form-label" for="field-{{ name }}">{{ label }}</label>
+                <textarea name="{{ name }}" id="field-{{ name }}" class="form-input"
+                    {{ 'required' if required else '' }}
+                    {{ 'readonly' if readonly else '' }}>{{ value }}</textarea>
+                {% if help_text %}<div class="form-help">{{ help_text }}</div>{% endif %}
+            </div>
+
+            {% elif field_type == 'select' and choices %}
+            <div class="form-group">
+                <label class="form-label" for="field-{{ name }}">{{ label }}</label>
+                <select name="{{ name }}" id="field-{{ name }}" class="form-input"
+                    {{ 'required' if required else '' }}
+                    {{ 'disabled' if readonly else '' }}>
+                    {% for choice_val, choice_label in choices %}
+                    <option value="{{ choice_val }}" {{ 'selected' if choice_val|string == value|string else '' }}>{{ choice_label }}</option>
+                    {% endfor %}
+                </select>
+                {% if help_text %}<div class="form-help">{{ help_text }}</div>{% endif %}
+            </div>
+
+            {% else %}
+            <div class="form-group">
+                <label class="form-label" for="field-{{ name }}">{{ label }}</label>
+                <input type="{{ field_type }}" name="{{ name }}" id="field-{{ name }}" value="{{ value }}"
+                    class="form-input"
+                    {{ 'required' if required else '' }}
+                    {{ 'readonly' if readonly else '' }}>
+                {% if help_text %}<div class="form-help">{{ help_text }}</div>{% endif %}
+            </div>
+            {% endif %}
+        {% endfor %}
+
+        <div style="display:flex;gap:10px;align-items:center;margin-top:28px;padding-top:20px;border-top:1px solid var(--border-subtle);">
+            <button type="submit" class="btn btn-primary" id="saveBtn">
+                <i class="icon-{{ 'plus' if is_create else 'save' }}" style="font-size:14px;"></i>
+                {{ 'Create' if is_create else 'Save Changes' }}
+            </button>
+            {% if not is_create %}
+            <button type="button" class="btn btn-secondary" id="previewBtn" onclick="toggleChangePreview()" style="display:none;">
+                <i class="icon-eye" style="font-size:14px;"></i> Preview Changes
+            </button>
+            {% endif %}
+            <a href="{{ url_prefix|default('/admin') }}/{{ model_name|lower }}/" class="btn btn-secondary">Cancel</a>
+        </div>
+
+        {# ── Change diff preview ── #}
+        {% if not is_create %}
+        <div id="change-preview" style="display:none;margin-top:20px;padding:16px;background:rgba(0,0,0,0.4);border:1px solid var(--border-subtle);border-radius:var(--radius);">
+            <div style="font-size:0.78rem;font-weight:600;color:var(--text-muted);margin-bottom:12px;">
+                <i class="icon-git-commit" style="font-size:14px;vertical-align:-2px;margin-right:4px;"></i> Change Preview
+            </div>
+            <div id="diff-content" style="font-family:var(--font-mono);font-size:0.75rem;line-height:1.8;"></div>
+        </div>
+        {% endif %}
+    </form>
+</div>
+
+{% if can_delete and not is_create %}
+<form method="POST" action="{{ url_prefix|default('/admin') }}/{{ model_name|lower }}/{{ pk }}/delete"
+    onsubmit="return confirm('Are you sure you want to delete this record? This cannot be undone.');"
+    style="margin-top:24px;">
+    <button type="submit" class="btn btn-danger">
+        <i class="icon-trash-2" style="font-size:14px;"></i> Delete this {{ verbose_name }}
+    </button>
+</form>
+{% endif %}
+
+{% block extra_js %}
+<script>
+(function() {
+    var form = document.getElementById('adminForm');
+    if (!form) return;
+    var initialValues = {};
+    var inputs = form.querySelectorAll('input, textarea, select');
+    inputs.forEach(function(el) {
+        if (!el.name || el.type === 'hidden') return;
+        if (el.type === 'checkbox') {
+            initialValues[el.name] = el.checked;
+        } else {
+            initialValues[el.name] = el.value;
+        }
+    });
+
+    function getChangedFields() {
+        var changes = [];
+        inputs.forEach(function(el) {
+            if (!el.name || el.type === 'hidden') return;
+            var oldVal = initialValues[el.name];
+            var newVal = el.type === 'checkbox' ? el.checked : el.value;
+            if (oldVal !== undefined && String(oldVal) !== String(newVal)) {
+                var label = el.closest('.form-group') ? (el.closest('.form-group').querySelector('.form-label') || {}).textContent || el.name : el.name;
+                changes.push({ name: el.name, label: label.trim(), oldVal: String(oldVal), newVal: String(newVal) });
+            }
+        });
+        return changes;
+    }
+
+    function updateDirtyState() {
+        var changes = getChangedFields();
+        var bar = document.getElementById('unsaved-bar');
+        var count = document.getElementById('changed-count');
+        var previewBtn = document.getElementById('previewBtn');
+        if (changes.length > 0) {
+            form.dataset.dirty = 'true';
+            if (bar) { bar.style.display = 'flex'; }
+            if (count) { count.textContent = changes.length + ' field' + (changes.length > 1 ? 's' : ''); }
+            if (previewBtn) { previewBtn.style.display = 'inline-flex'; }
+        } else {
+            form.dataset.dirty = 'false';
+            if (bar) { bar.style.display = 'none'; }
+            if (previewBtn) { previewBtn.style.display = 'none'; }
+            var preview = document.getElementById('change-preview');
+            if (preview) preview.style.display = 'none';
+        }
+    }
+
+    inputs.forEach(function(el) {
+        el.addEventListener('input', updateDirtyState);
+        el.addEventListener('change', updateDirtyState);
+    });
+
+    // Unsaved changes warning
+    window.addEventListener('beforeunload', function(e) {
+        if (form.dataset.dirty === 'true') {
+            e.preventDefault();
+            e.returnValue = '';
+        }
+    });
+    form.addEventListener('submit', function() { form.dataset.dirty = 'false'; });
+
+    // Change preview
+    window.toggleChangePreview = function() {
+        var preview = document.getElementById('change-preview');
+        var diff = document.getElementById('diff-content');
+        if (!preview || !diff) return;
+        if (preview.style.display !== 'none') { preview.style.display = 'none'; return; }
+        var changes = getChangedFields();
+        if (changes.length === 0) { preview.style.display = 'none'; return; }
+        var html = '';
+        changes.forEach(function(c) {
+            html += '<div style="margin-bottom:10px;padding:8px;background:rgba(0,0,0,0.3);border-radius:6px;">';
+            html += '<div style="color:var(--text-muted);font-size:0.72rem;margin-bottom:4px;font-weight:500;">' + c.label + '</div>';
+            html += '<div style="color:#ef4444;">- ' + (c.oldVal || '<em>empty</em>') + '</div>';
+            html += '<div style="color:#22c55e;">+ ' + (c.newVal || '<em>empty</em>') + '</div>';
+            html += '</div>';
+        });
+        diff.innerHTML = html;
+        preview.style.display = 'block';
+    };
+
+    // Ctrl+S / Cmd+S to save
+    document.addEventListener('keydown', function(e) {
+        if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+            e.preventDefault();
+            if (form.dataset.dirty === 'true') {
+                form.submit();
+            }
+        }
+    });
+})();
+</script>
+{% endblock %}
+{% endblock %}

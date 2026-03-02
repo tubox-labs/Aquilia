@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Delete {{ verbose_name }} #{{ pk }}{% endblock %}
+
+{% block content %}
+<div class="page-header-row">
+    <h2>
+        <a href="{{ url_prefix|default('/admin') }}/{{ model_name|lower }}/{{ pk }}" class="btn-ghost" style="display:inline-flex;align-items:center;gap:4px;margin-right:8px;padding:4px 8px;border-radius:var(--radius-sm);color:var(--text-faint);">
+            <i class="icon-arrow-left" style="font-size:16px;"></i>
+        </a>
+        Confirm Deletion
+    </h2>
+</div>
+
+<div class="glass-card" style="max-width:480px;">
+    <div class="delete-confirm">
+        <div class="delete-icon">
+            <i class="icon-alert-triangle" style="font-size:24px;"></i>
+        </div>
+        <div class="delete-title">Delete {{ verbose_name }} #{{ pk }}?</div>
+        <div class="delete-message">
+            This action <strong>cannot be undone</strong>. The record and all associated data will be permanently removed.
+        </div>
+        <div class="delete-actions">
+            <form method="POST" action="{{ url_prefix|default('/admin') }}/{{ model_name|lower }}/{{ pk }}/delete">
+                <button type="submit" class="btn btn-danger">
+                    <i class="icon-trash-2" style="font-size:14px;"></i> Yes, Delete
+                </button>
+            </form>
+            <a href="{{ url_prefix|default('/admin') }}/{{ model_name|lower }}/{{ pk }}" class="btn btn-secondary">
+                <i class="icon-x" style="font-size:14px;"></i> Cancel
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -14,7 +14,7 @@ import base64
 import hashlib
 import secrets
 import string
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from .core import OAuthClient
@@ -266,7 +266,7 @@ class OAuth2Manager:
         code = f"ac_{secrets.token_urlsafe(32)}"
 
         # Store code (expires in 10 minutes)
-        expires_at = datetime.utcnow() + timedelta(minutes=10)
+        expires_at = datetime.now(timezone.utc) + timedelta(minutes=10)
 
         await self.code_store.save_code(
             code=code,
@@ -317,7 +317,7 @@ class OAuth2Manager:
 
         # Check expiration
         expires_at = datetime.fromisoformat(code_data["expires_at"])
-        if datetime.utcnow() > expires_at:
+        if datetime.now(timezone.utc) > expires_at:
             raise AUTH_GRANT_INVALID(
                 grant_type="authorization_code", reason="Code expired"
             )
@@ -455,7 +455,7 @@ class OAuth2Manager:
         user_code = self._generate_user_code()
 
         # Store device code (expires in 15 minutes)
-        expires_at = datetime.utcnow() + timedelta(minutes=15)
+        expires_at = datetime.now(timezone.utc) + timedelta(minutes=15)
 
         await self.device_store.save_device_code(
             device_code=device_code,
@@ -503,7 +503,7 @@ class OAuth2Manager:
 
         # Check expiration
         expires_at = datetime.fromisoformat(code_data["expires_at"])
-        if datetime.utcnow() > expires_at:
+        if datetime.now(timezone.utc) > expires_at:
             raise AUTH_DEVICE_CODE_EXPIRED()
 
         # Check status

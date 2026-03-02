@@ -679,7 +679,7 @@ def _extract_frames(exc: BaseException) -> List[Dict[str, Any]]:
         try:
             cwd = os.getcwd()
             short_path = os.path.relpath(filename, cwd) if filename.startswith(cwd) else filename
-        except:
+        except Exception:
             short_path = filename
             
         frames.append({
@@ -703,7 +703,7 @@ def _extract_request_info(request: Any) -> Dict[str, Any]:
         if hasattr(request, 'headers'): info['Headers'] = dict(request.headers)
         if hasattr(request, 'query_params'): info['Query Params'] = dict(request.query_params)
         if hasattr(request, 'path_params'): info['Path Params'] = dict(request.path_params)
-    except: pass
+    except Exception: pass
     return info
 
 # ============================================================================

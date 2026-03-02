@@ -752,12 +752,16 @@ class Model(metaclass=ModelMeta):
         await pre_save.send(sender=self.__class__, instance=self, created=is_create)
 
         if not is_create:
-            # Update
+            # Update — use dirty tracking if update_fields not explicit
             data: Dict[str, Any] = {}
-            target_fields = update_fields or [
-                attr for attr in self._attr_names
-                if not self._fields[attr].primary_key
-            ]
+            if update_fields:
+                target_fields = update_fields
+            else:
+                dirty = self.get_dirty_fields()
+                target_fields = list(dirty.keys()) if dirty else [
+                    attr for attr in self._attr_names
+                    if not self._fields[attr].primary_key
+                ]
 
             for attr_name in target_fields:
                 field = self._fields.get(attr_name)
@@ -819,6 +823,9 @@ class Model(metaclass=ModelMeta):
 
         # Signal: post_save
         await post_save.send(sender=self.__class__, instance=self, created=is_create)
+
+        # Reset dirty tracking after successful save
+        self._snapshot_original()
 
         return self
 
@@ -936,17 +943,80 @@ class Model(metaclass=ModelMeta):
         """
         pass
 
-    async def refresh(self) -> Model:
-        """Reload instance from database."""
+    async def refresh(self, fields: Optional[List[str]] = None) -> Model:
+        """Reload instance from database.
+
+        Args:
+            fields: Optional list of field names to refresh. If None,
+                    refreshes all fields. Matches Django's
+                    ``refresh_from_db(fields=...)`` API.
+        """
         pk_val = getattr(self, self._pk_attr)
         if pk_val is None:
             raise ValueError("Cannot refresh unsaved instance")
-        fresh = await self.__class__.get(pk=pk_val)
-        if fresh is None:
-            raise ValueError(f"{self.__class__.__name__} with pk={pk_val} no longer exists")
-        for attr in self._attr_names:
-            setattr(self, attr, getattr(fresh, attr))
+
+        if fields is not None:
+            # Partial refresh — SELECT only requested columns
+            cols = []
+            for attr_name in fields:
+                field = self._fields.get(attr_name)
+                if field is None:
+                    raise ValueError(f"Unknown field: {attr_name}")
+                cols.append(field.column_name)
+            col_sql = ", ".join(f'"{c}"' for c in cols)
+            sql = f'SELECT {col_sql} FROM "{self._table_name}" WHERE "{self._pk_name}" = ?'
+            db = self._get_db()
+            rows = await db.fetch_all(sql, [pk_val])
+            if not rows:
+                raise ValueError(f"{self.__class__.__name__} with pk={pk_val} no longer exists")
+            row = rows[0]
+            for attr_name in fields:
+                field = self._fields[attr_name]
+                raw = row.get(field.column_name)
+                setattr(self, attr_name, field.to_python(raw) if raw is not None else None)
+        else:
+            # Full refresh
+            fresh = await self.__class__.get(pk=pk_val)
+            if fresh is None:
+                raise ValueError(f"{self.__class__.__name__} with pk={pk_val} no longer exists")
+            for attr in self._attr_names:
+                setattr(self, attr, getattr(fresh, attr))
+
+        # Reset dirty tracking snapshot
+        self._snapshot_original()
         return self
+
+    # Django-style alias
+    refresh_from_db = refresh
+
+    def _snapshot_original(self) -> None:
+        """Capture current field values for dirty-field tracking."""
+        self._original_values = {
+            attr: getattr(self, attr, None) for attr in self._attr_names
+        }
+
+    def get_dirty_fields(self) -> Dict[str, Any]:
+        """Return dict of fields whose values differ from the DB snapshot.
+
+        Returns:
+            Dict mapping field name -> current value for changed fields.
+        """
+        original = getattr(self, '_original_values', None)
+        if original is None:
+            # No snapshot — treat all non-PK fields as dirty
+            return {
+                attr: getattr(self, attr, None)
+                for attr in self._attr_names
+                if not self._fields[attr].primary_key
+            }
+        dirty: Dict[str, Any] = {}
+        for attr in self._attr_names:
+            if self._fields[attr].primary_key:
+                continue
+            current = getattr(self, attr, None)
+            if current != original.get(attr):
+                dirty[attr] = current
+        return dirty
 
     # ── Relationships ────────────────────────────────────────────────
 
@@ -1139,22 +1209,31 @@ class Model(metaclass=ModelMeta):
 
         Performance: Uses _col_to_attr mapping cached at class creation
         to avoid per-field isinstance checks and double-lookups.
+
+        Also snapshots original values for dirty-field tracking so that
+        ``save()`` can generate minimal UPDATE statements.
         """
         instance = cls.__new__(cls)
         col_to_attr = cls._col_to_attr
+        original: Dict[str, Any] = {}
 
         # Iterate row keys and map to attrs via cached dict
         for key, raw in row.items():
             mapping = col_to_attr.get(key)
             if mapping is not None:
                 attr_name, field = mapping
-                setattr(instance, attr_name, field.to_python(raw))
+                converted = field.to_python(raw)
+                setattr(instance, attr_name, converted)
+                original[attr_name] = converted
 
         # Set None for any fields not in the row
         for attr_name, field in cls._non_m2m_fields:
             if not hasattr(instance, attr_name):
                 setattr(instance, attr_name, None)
+                original[attr_name] = None
 
+        # Snapshot for dirty tracking (used by save())
+        instance._original_values = original
         return instance
 
     # ── SQL Generation ───────────────────────────────────────────────

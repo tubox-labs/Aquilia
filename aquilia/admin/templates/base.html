@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <script>
+    (function(){var s=localStorage.getItem('aquilia-admin-theme');if(s)document.documentElement.setAttribute('data-theme',s);})();
+    </script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Aquilia Admin — manage your application data, users, and configuration.">
+    <meta name="author" content="Aquilia Framework">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="theme-color" content="#22c55e">
+    <meta name="color-scheme" content="dark light">
+    <meta property="og:title" content="{% block og_title %}{{ site_title|default('Aquilia Admin') }}{% endblock %}">
+    <meta property="og:description" content="Aquilia Admin — manage your application data, users, and configuration.">
+    <meta property="og:type" content="website">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+    <title>{% block title %}Dashboard{% endblock %} — {{ site_title|default('Aquilia Admin') }}</title>
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+    <link rel="shortcut icon" href="/static/favicon.ico">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;550;600;700&display=swap" rel="stylesheet">
+    <link href="https://unpkg.com/lucide-static@latest/font/lucide.css" rel="stylesheet">
+    <style>
+    {% block head_css %}
+    {% include "partials/css.html" %}
+    {% endblock %}
+    </style>
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    <div class="admin-layout">
+        {# ── Sidebar ── #}
+        {% include "partials/sidebar_v2.html" %}
+
+        {# ── Main content ── #}
+        <div class="admin-main">
+            {# ── Top bar ── #}
+            <div class="admin-topbar">
+                <div class="topbar-left">
+                    <button class="btn-ghost" onclick="document.getElementById('adminSidebar').classList.toggle('open')" style="display:none;padding:4px;" id="menuToggle">
+                        <i class="icon-menu" style="font-size:20px;"></i>
+                    </button>
+                    <div class="topbar-breadcrumb">
+                        <a href="{{ url_prefix|default('/admin') }}/">Admin</a>
+                        <span class="sep">/</span>
+                        <span class="current">{% block breadcrumb %}{{ page_title|default('Dashboard') }}{% endblock %}</span>
+                    </div>
+                </div>
+                <div class="topbar-right">
+                    <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme" aria-label="Toggle theme">
+                        <i class="icon-sun"></i>
+                    </button>
+                </div>
+            </div>
+
+            {# ── Page content ── #}
+            <div class="admin-content">
+                {% if flash %}
+                <div class="flash flash-{{ flash_type|default('success') }}">
+                    <i class="icon-{% if flash_type == 'error' %}alert-circle{% elif flash_type == 'warning' %}alert-triangle{% elif flash_type == 'info' %}info{% else %}check-circle{% endif %}" style="font-size:16px;flex-shrink:0;"></i>
+                    {{ flash }}
+                </div>
+                {% endif %}
+
+                {% block content %}{% endblock %}
+            </div>
+        </div>
+    </div>
+
+    <script>
+    {% block base_js %}
+    function toggleTheme() {
+        const html = document.documentElement;
+        const current = html.getAttribute('data-theme');
+        const next = current === 'dark' ? 'light' : 'dark';
+        html.setAttribute('data-theme', next);
+        localStorage.setItem('aquilia-admin-theme', next);
+        // Force repaint for CSS variable changes
+        document.body.classList.add('theme-transitioning');
+        requestAnimationFrame(function() {
+            requestAnimationFrame(function() {
+                document.body.classList.remove('theme-transitioning');
+            });
+        });
+    }
+    (function() {
+        // Show mobile menu toggle on small screens
+        if (window.innerWidth <= 768) {
+            var btn = document.getElementById('menuToggle');
+            if (btn) btn.style.display = 'block';
+        }
+    })();
+    function toggleAll(source) {
+        document.querySelectorAll('.row-check').forEach(function(cb) {
+            cb.checked = source.checked;
+        });
+    }
+    // Tab switching
+    function switchTab(tabGroup, tabName) {
+        document.querySelectorAll('[data-tab-group="'+tabGroup+'"] .tab-btn').forEach(function(b) {
+            b.classList.toggle('active', b.getAttribute('data-tab') === tabName);
+        });
+        document.querySelectorAll('[data-tab-content="'+tabGroup+'"]').forEach(function(c) {
+            c.classList.toggle('active', c.getAttribute('data-tab') === tabName);
+        });
+    }
+    // ── Toast notification system ──
+    (function() {
+        var container = document.createElement('div');
+        container.id = 'toast-container';
+        container.style.cssText = 'position:fixed;top:20px;right:20px;z-index:10000;display:flex;flex-direction:column;gap:8px;pointer-events:none;';
+        document.body.appendChild(container);
+        window.showToast = function(msg, type, duration) {
+            type = type || 'success';
+            duration = duration || 3500;
+            var icons = {success:'check-circle',error:'alert-circle',warning:'alert-triangle',info:'info'};
+            var colors = {success:'#22c55e',error:'#ef4444',warning:'#f59e0b',info:'#3b82f6'};
+            var toast = document.createElement('div');
+            toast.style.cssText = 'pointer-events:auto;display:flex;align-items:center;gap:10px;padding:12px 18px;background:var(--bg-elevated);border:1px solid '+colors[type]+';border-radius:10px;color:var(--text-primary);font-size:0.82rem;font-family:var(--font-sans);box-shadow:0 8px 32px rgba(0,0,0,0.3);opacity:0;transform:translateX(40px);transition:opacity 0.3s,transform 0.3s;max-width:380px;';
+            toast.innerHTML = '<i class="icon-'+icons[type]+'" style="font-size:16px;color:'+colors[type]+';flex-shrink:0;"></i><span>'+msg+'</span><button onclick="this.parentElement.remove()" style="background:none;border:none;color:#888;cursor:pointer;padding:0 0 0 8px;font-size:16px;">&times;</button>';
+            container.appendChild(toast);
+            requestAnimationFrame(function() {
+                toast.style.opacity = '1';
+                toast.style.transform = 'translateX(0)';
+            });
+            setTimeout(function() {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateX(40px)';
+                setTimeout(function() { toast.remove(); }, 300);
+            }, duration);
+        };
+        // Auto-convert flash messages to toasts
+        var flash = document.querySelector('.flash');
+        if (flash) {
+            var type = flash.classList.contains('flash-error') ? 'error' : flash.classList.contains('flash-warning') ? 'warning' : flash.classList.contains('flash-info') ? 'info' : 'success';
+            showToast(flash.textContent.trim(), type, 5000);
+        }
+    })();
+    // ── Keyboard shortcuts help (Shift+?) ──
+    (function() {
+        document.addEventListener('keydown', function(e) {
+            if (e.key === '?' && e.shiftKey && !['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName)) {
+                var existing = document.getElementById('shortcut-overlay');
+                if (existing) { existing.remove(); return; }
+                var overlay = document.createElement('div');
+                overlay.id = 'shortcut-overlay';
+                overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:10001;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);';
+                overlay.innerHTML = '<div style="background:var(--bg-elevated);border:1px solid var(--border-color);border-radius:14px;padding:28px 36px;max-width:420px;width:90%;box-shadow:0 24px 64px rgba(0,0,0,0.4);">' +
+                    '<h3 style="margin:0 0 18px;color:var(--text-primary);font-size:1rem;font-weight:600;">Keyboard Shortcuts</h3>' +
+                    '<div style="display:grid;grid-template-columns:auto 1fr;gap:8px 18px;font-size:0.82rem;color:var(--text-secondary);">' +
+                    '<kbd style="background:var(--bg-surface);padding:2px 8px;border-radius:4px;font-size:0.75rem;color:var(--text-primary);font-family:var(--font-mono);border:1px solid var(--border-color);">⌘K</kbd><span>Focus search</span>' +
+                    '<kbd style="background:var(--bg-surface);padding:2px 8px;border-radius:4px;font-size:0.75rem;color:var(--text-primary);font-family:var(--font-mono);border:1px solid var(--border-color);">N</kbd><span>Add new record</span>' +
+                    '<kbd style="background:var(--bg-surface);padding:2px 8px;border-radius:4px;font-size:0.75rem;color:var(--text-primary);font-family:var(--font-mono);border:1px solid var(--border-color);">Shift+?</kbd><span>Show this help</span>' +
+                    '<kbd style="background:var(--bg-surface);padding:2px 8px;border-radius:4px;font-size:0.75rem;color:var(--text-primary);font-family:var(--font-mono);border:1px solid var(--border-color);">Esc</kbd><span>Close dialogs</span>' +
+                    '</div>' +
+                    '<div style="margin-top:18px;text-align:right;"><button onclick="this.closest(\'#shortcut-overlay\').remove()" style="background:var(--accent);color:#000;border:none;padding:6px 18px;border-radius:8px;cursor:pointer;font-size:0.8rem;font-weight:500;">Close</button></div>' +
+                    '</div>';
+                overlay.addEventListener('click', function(ev) { if (ev.target === overlay) overlay.remove(); });
+                document.body.appendChild(overlay);
+            }
+            if (e.key === 'Escape') {
+                var ov = document.getElementById('shortcut-overlay');
+                if (ov) ov.remove();
+            }
+        });
+    })();
+    {% endblock %}
+    {% block extra_js %}{% endblock %}
+    </script>
+</body>
+</html>

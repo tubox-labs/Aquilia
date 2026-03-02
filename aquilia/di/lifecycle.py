@@ -6,6 +6,9 @@ from typing import Any, Callable, Coroutine, List, Optional
 from dataclasses import dataclass, field
 from enum import Enum
 import asyncio
+import logging
+
+logger = logging.getLogger("aquilia.di.lifecycle")
 
 
 class DisposalStrategy(str, Enum):
@@ -142,7 +145,7 @@ class Lifecycle:
         if errors:
             # Log but don't raise during shutdown
             for name, error in errors:
-                print(f"Warning: Shutdown hook '{name}' failed: {error}")
+                logger.warning("Shutdown hook '%s' failed: %s", name, error)
     
     async def run_finalizers(self) -> None:
         """Run all finalizers according to disposal strategy."""
@@ -165,9 +168,8 @@ class Lifecycle:
                 # Continue with remaining finalizers
         
         if errors:
-            # Log but don't raise
             for error in errors:
-                print(f"Warning: Finalizer failed: {error}")
+                logger.warning("Finalizer failed: %s", error)
     
     async def _run_finalizers_fifo(self) -> None:
         """Run finalizers in FIFO order."""
@@ -181,7 +183,7 @@ class Lifecycle:
         
         if errors:
             for error in errors:
-                print(f"Warning: Finalizer failed: {error}")
+                logger.warning("Finalizer failed: %s", error)
     
     async def _run_finalizers_parallel(self) -> None:
         """Run all finalizers in parallel."""
@@ -191,7 +193,7 @@ class Lifecycle:
         errors = [r for r in results if isinstance(r, Exception)]
         if errors:
             for error in errors:
-                print(f"Warning: Finalizer failed: {error}")
+                logger.warning("Finalizer failed: %s", error)
     
     def clear(self) -> None:
         """Clear all hooks and finalizers."""

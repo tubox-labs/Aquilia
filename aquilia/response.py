@@ -578,7 +578,7 @@ class Response:
             else:
                 # Fallback: sync read in executor
                 import asyncio
-                loop = asyncio.get_event_loop()
+                loop = asyncio.get_running_loop()
                 
                 def _read_chunk(fp, size):
                     return fp.read(size)
@@ -1260,7 +1260,7 @@ class Response:
                         yield chunk
             else:
                 import asyncio as _aio
-                loop = _aio.get_event_loop()
+                loop = _aio.get_running_loop()
                 with open(file_path, "rb") as f:
                     f.seek(start)
                     while remaining > 0:
@@ -1360,7 +1360,7 @@ class Response:
 
         # ── Sync iterator ──
         if hasattr(content, "__iter__"):
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
 
             def _get_next_chunk(iterator):
                 try:

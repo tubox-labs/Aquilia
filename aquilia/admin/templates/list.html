@@ -1,0 +1,256 @@
+{% extends "base.html" %}
+{% block title %}{{ verbose_name_plural }}{% endblock %}
+
+{% block content %}
+<div class="page-header-row">
+    <h2><i class="icon-database" style="font-size:18px;vertical-align:-2px;margin-right:6px;opacity:0.4;"></i>{{ verbose_name_plural }}</h2>
+    <div style="display:flex;gap:8px;align-items:center;">
+        <div class="dropdown" style="position:relative;">
+            <button class="btn btn-secondary" id="exportDropBtn" style="font-size:0.78rem;">
+                <i class="icon-download" style="font-size:13px;"></i> Export
+            </button>
+            <div class="dropdown-menu" id="exportDropMenu">
+                <a href="{{ url_prefix|default('/admin') }}/{{ model_name|lower }}/export?format=csv" class="dropdown-item">
+                    <i class="icon-file-text" style="font-size:13px;"></i> CSV
+                </a>
+                <a href="{{ url_prefix|default('/admin') }}/{{ model_name|lower }}/export?format=json" class="dropdown-item">
+                    <i class="icon-braces" style="font-size:13px;"></i> JSON
+                </a>
+            </div>
+        </div>
+        <a class="btn btn-primary" href="{{ url_prefix|default('/admin') }}/{{ model_name|lower }}/add">
+            <i class="icon-plus" style="font-size:14px;"></i> Add {{ verbose_name }}
+        </a>
+    </div>
+</div>
+
+{# ── Search toolbar with live search ── #}
+<div class="toolbar">
+    <div class="search-box" id="liveSearchBox">
+        <i class="icon-search" style="font-size:15px;color:var(--text-faint);flex-shrink:0;"></i>
+        <input type="text" id="liveSearchInput" value="{{ search }}" placeholder="Search {{ verbose_name_plural }}…" autocomplete="off">
+        <span id="searchSpinner" style="display:none;font-size:11px;color:var(--text-faint);">⟳</span>
+        <kbd style="font-size:0.6rem;padding:1px 5px;border:1px solid var(--border-color);border-radius:3px;color:var(--text-faint);font-family:var(--font-mono);margin-left:auto;white-space:nowrap;">⌘K</kbd>
+    </div>
+    <span class="meta-text" id="resultCount">{{ total }} result{{ 's' if total != 1 else '' }}</span>
+</div>
+
+{# ── Bulk actions bar ── #}
+<div id="bulkActionsBar" style="display:none;padding:10px 16px;background:var(--accent-subtle);border:1px solid rgba(34,197,94,0.2);border-radius:var(--radius-sm);margin-bottom:12px;align-items:center;gap:12px;flex-wrap:wrap;">
+    <span style="font-size:0.82rem;font-weight:600;color:var(--accent);">
+        <i class="icon-check-square" style="font-size:14px;vertical-align:-2px;margin-right:4px;"></i>
+        <span id="selectedCount">0</span> selected
+    </span>
+    <form method="POST" action="{{ url_prefix|default('/admin') }}/{{ model_name|lower }}/action" id="bulkActionForm" style="display:flex;gap:8px;align-items:center;margin-left:auto;">
+        <input type="hidden" name="selected" id="bulkSelectedPks" value="">
+        <select name="action" class="form-input" style="width:auto;padding:6px 12px;font-size:0.78rem;">
+            <option value="">— Select action —</option>
+            {% if actions %}
+            {% for name, action_desc in actions.items() %}
+            <option value="{{ name }}">{{ action_desc.short_description }}</option>
+            {% endfor %}
+            {% endif %}
+        </select>
+        <button type="submit" class="btn btn-sm btn-danger" onclick="return confirmBulkAction()">
+            <i class="icon-play" style="font-size:12px;"></i> Apply
+        </button>
+    </form>
+</div>
+
+{# ── Data table ── #}
+<div class="table-container" id="recordsTable">
+    <table class="admin-table">
+        <thead>
+            <tr>
+                <th style="width:40px"><input type="checkbox" onchange="toggleAll(this)" id="selectAllCb" aria-label="Select all"></th>
+                {% for col in list_display %}
+                <th style="cursor:pointer;user-select:none;" onclick="sortColumn('{{ col }}')">
+                    {{ col.replace('_', ' ')|title }}
+                    <i class="icon-chevrons-up-down" style="font-size:11px;opacity:0.3;vertical-align:-1px;margin-left:2px;"></i>
+                </th>
+                {% endfor %}
+                <th style="width:120px">Actions</th>
+            </tr>
+        </thead>
+        <tbody id="recordsBody">
+        {% for row in rows %}
+            <tr data-pk="{{ row.pk }}">
+                <td><input type="checkbox" class="row-check" value="{{ row.pk }}" onchange="updateBulkBar()" aria-label="Select row"></td>
+                {% for col in list_display %}
+                    {% set val = row[col]|default('—') %}
+                    {% set raw_val = row.get('_raw_' ~ col) %}
+                    {% if loop.first %}
+                    <td class="cell-pk"><a href="{{ url_prefix|default('/admin') }}/{{ model_name|lower }}/{{ row.pk }}">{{ val }}</a></td>
+                    {% elif raw_val is sameas true %}
+                    <td class="cell-bool-true"><i class="icon-check-circle" style="font-size:15px;"></i> {{ val }}</td>
+                    {% elif raw_val is sameas false %}
+                    <td class="cell-bool-false"><i class="icon-x-circle" style="font-size:15px;"></i> {{ val }}</td>
+                    {% else %}
+                    <td>{{ val }}</td>
+                    {% endif %}
+                {% endfor %}
+                <td style="white-space:nowrap;">
+                    <a href="{{ url_prefix|default('/admin') }}/{{ model_name|lower }}/{{ row.pk }}" class="btn btn-sm btn-ghost" title="View / Edit">
+                        <i class="icon-edit-3" style="font-size:13px;"></i>
+                    </a>
+                    <button type="button" class="btn btn-sm btn-ghost" title="Duplicate" onclick="duplicateRecord('{{ row.pk }}')">
+                        <i class="icon-copy" style="font-size:13px;"></i>
+                    </button>
+                    <form method="POST" action="{{ url_prefix|default('/admin') }}/{{ model_name|lower }}/{{ row.pk }}/delete" style="display:inline;" onsubmit="return confirm('Delete record #{{ row.pk }}? This cannot be undone.');">
+                        <button type="submit" class="btn btn-sm btn-ghost" title="Delete" style="color:var(--danger);">
+                            <i class="icon-trash-2" style="font-size:13px;"></i>
+                        </button>
+                    </form>
+                </td>
+            </tr>
+        {% else %}
+            <tr>
+                <td colspan="{{ list_display|length + 2 }}" class="empty-state">
+                    <i class="icon-inbox" style="font-size:28px;display:block;margin-bottom:8px;opacity:0.3;"></i>
+                    No records found
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% include "partials/pagination.html" %}
+<div class="record-count" style="text-align:center;">
+    {{ total }} record(s) found
+</div>
+{% endblock %}
+
+{% block extra_js %}
+// ── Live Search (debounced, optimized) ──────────────────────────────
+(function() {
+    var input = document.getElementById('liveSearchInput');
+    var spinner = document.getElementById('searchSpinner');
+    if (!input) return;
+
+    var debounceTimer = null;
+    var DEBOUNCE_MS = 400;
+    var lastQuery = input.value.trim();
+
+    input.addEventListener('input', function() {
+        var q = input.value.trim();
+        if (q === lastQuery) return;
+        clearTimeout(debounceTimer);
+
+        // Don't search for single character — wait for 2+
+        if (q.length === 1) return;
+        spinner.style.display = 'inline';
+
+        debounceTimer = setTimeout(function() {
+            lastQuery = q;
+            var url = '{{ url_prefix|default("/admin") }}/{{ model_name|lower }}/' + (q ? '?q=' + encodeURIComponent(q) : '');
+            window.location.href = url;
+        }, DEBOUNCE_MS);
+    });
+
+    // ⌘K / Ctrl+K to focus search
+    document.addEventListener('keydown', function(e) {
+        if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+            e.preventDefault();
+            input.focus();
+            input.select();
+        }
+        if (e.key === 'Escape' && document.activeElement === input) {
+            input.value = '';
+            input.blur();
+        }
+    });
+})();
+
+// ── Bulk Actions ────────────────────────────────────────────────────
+function updateBulkBar() {
+    var checks = document.querySelectorAll('.row-check:checked');
+    var bar = document.getElementById('bulkActionsBar');
+    var countEl = document.getElementById('selectedCount');
+    var selectAll = document.getElementById('selectAllCb');
+    if (checks.length > 0) {
+        bar.style.display = 'flex';
+        countEl.textContent = checks.length;
+        var pks = Array.from(checks).map(function(cb) { return cb.value; });
+        document.getElementById('bulkSelectedPks').value = pks.join(',');
+    } else {
+        bar.style.display = 'none';
+    }
+    // Update select-all state
+    var total = document.querySelectorAll('.row-check').length;
+    selectAll.indeterminate = checks.length > 0 && checks.length < total;
+    selectAll.checked = checks.length === total && total > 0;
+}
+
+function toggleAll(source) {
+    document.querySelectorAll('.row-check').forEach(function(cb) { cb.checked = source.checked; });
+    updateBulkBar();
+}
+
+function confirmBulkAction() {
+    var sel = document.querySelector('#bulkActionForm select[name="action"]');
+    if (!sel.value) { alert('Please select an action first.'); return false; }
+    var count = document.querySelectorAll('.row-check:checked').length;
+    if (!count) { alert('No records selected.'); return false; }
+    return confirm('Execute "' + sel.options[sel.selectedIndex].text + '" on ' + count + ' record(s)?');
+}
+
+// ── Export dropdown ─────────────────────────────────────────────────
+(function() {
+    var btn = document.getElementById('exportDropBtn');
+    var menu = document.getElementById('exportDropMenu');
+    if (!btn || !menu) return;
+    btn.addEventListener('click', function(e) { e.stopPropagation(); menu.classList.toggle('open'); });
+    document.addEventListener('click', function() { menu.classList.remove('open'); });
+})();
+
+// ── Client-side column sort ─────────────────────────────────────────
+var _sortCol = null, _sortDir = 'asc';
+function sortColumn(col) {
+    if (_sortCol === col) _sortDir = _sortDir === 'asc' ? 'desc' : 'asc';
+    else { _sortCol = col; _sortDir = 'asc'; }
+    var tbody = document.getElementById('recordsBody');
+    if (!tbody) return;
+    var rows = Array.from(tbody.querySelectorAll('tr[data-pk]'));
+    var cols = {{ list_display|tojson }};
+    var idx = cols.indexOf(col) + 1;
+    rows.sort(function(a, b) {
+        var av = (a.children[idx] || {}).textContent || '';
+        var bv = (b.children[idx] || {}).textContent || '';
+        av = av.trim(); bv = bv.trim();
+        var an = parseFloat(av), bn = parseFloat(bv);
+        if (!isNaN(an) && !isNaN(bn)) return _sortDir === 'asc' ? an - bn : bn - an;
+        return _sortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+    });
+    rows.forEach(function(r) { tbody.appendChild(r); });
+}
+
+// ── Keyboard shortcuts ──────────────────────────────────────────────
+document.addEventListener('keydown', function(e) {
+    if (['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName)) return;
+    if (e.key === 'n') window.location.href = '{{ url_prefix|default("/admin") }}/{{ model_name|lower }}/add';
+});
+
+// ── Inline duplicate via bulk action ────────────────────────────────
+function duplicateRecord(pk) {
+    if (!confirm('Duplicate record #' + pk + '?')) return;
+    var form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '{{ url_prefix|default("/admin") }}/{{ model_name|lower }}/action';
+    var actionInput = document.createElement('input');
+    actionInput.type = 'hidden'; actionInput.name = 'action'; actionInput.value = 'duplicate_selected';
+    form.appendChild(actionInput);
+    var selectedInput = document.createElement('input');
+    selectedInput.type = 'hidden'; selectedInput.name = 'selected'; selectedInput.value = pk;
+    form.appendChild(selectedInput);
+    document.body.appendChild(form);
+    form.submit();
+}
+
+// ── Dropdown CSS injection ──────────────────────────────────────────
+(function() {
+    var s = document.createElement('style');
+    s.textContent = '.dropdown-menu{display:none;position:absolute;right:0;top:100%;margin-top:4px;z-index:100;min-width:140px;background:var(--bg-elevated);border:1px solid var(--border-color);border-radius:var(--radius-sm);padding:4px;box-shadow:0 8px 32px rgba(0,0,0,0.5);}.dropdown-menu.open{display:block!important;}.dropdown-item{display:flex;align-items:center;gap:8px;padding:8px 12px;font-size:0.8rem;color:var(--text-secondary);border-radius:var(--radius-xs);transition:background 0.12s;text-decoration:none;}.dropdown-item:hover{background:var(--bg-surface-hover);color:var(--text-primary)!important;}';
+    document.head.appendChild(s);
+})();
+{% endblock %}

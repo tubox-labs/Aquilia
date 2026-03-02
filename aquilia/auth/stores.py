@@ -17,7 +17,7 @@ from __future__ import annotations
 import asyncio
 import json
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Protocol
 
 from .core import (
@@ -108,7 +108,7 @@ class MemoryIdentityStore:
                 status=IdentityStatus.DELETED,
                 tenant_id=identity.tenant_id,
                 created_at=identity.created_at,
-                updated_at=datetime.utcnow(),
+                updated_at=datetime.now(timezone.utc),
             )
 
             self._identities[identity_id] = deleted_identity
@@ -303,7 +303,7 @@ class MemoryTokenStore:
                 "expires_at": expires_at.isoformat(),
                 "session_id": session_id,
                 "metadata": metadata or {},
-                "created_at": datetime.utcnow().isoformat(),
+                "created_at": datetime.now(timezone.utc).isoformat(),
             }
 
             if session_id:
@@ -344,7 +344,7 @@ class MemoryTokenStore:
     async def cleanup_expired(self) -> int:
         """Remove expired tokens (returns count removed)."""
         async with self._lock:
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc)
             expired = []
 
             for token_id, data in self._refresh_tokens.items():
@@ -414,7 +414,7 @@ class RedisTokenStore:
         )
 
         # Set expiration (Redis auto-cleanup)
-        ttl = int((expires_at - datetime.utcnow()).total_seconds())
+        ttl = int((expires_at - datetime.now(timezone.utc)).total_seconds())
         await self.redis.expire(self._key("token", token_id), ttl)
 
         # Track by identity
@@ -541,7 +541,7 @@ class MemoryAuthorizationCodeStore:
     async def cleanup_expired(self) -> int:
         """Remove expired codes."""
         async with self._lock:
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc)
             expired = []
 
             for code, data in self._codes.items():

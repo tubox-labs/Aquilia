@@ -36,18 +36,20 @@ class WorkspaceGenerator:
         
         # Create default scaffold files
         self._create_models_dir()
-        if not self.minimal:
-            self._create_cache_file()
-            self._create_auth_file()
         
         # Template files (--template flag or full mode)
         if self.template:
             self._create_template_files()
         
-        # Create additional files
+        # Create additional files (industry-standard project structure)
+        self._create_gitignore()
+        self._create_env_example()
+        self._create_editorconfig()
+        self._create_requirements()
+        self._create_tests_dir()
         if not self.minimal:
-            self._create_gitignore()
             self._create_readme()
+            self._create_makefile()
             self._create_deployment_files()
     
     def _create_directories(self) -> None:
@@ -55,7 +57,7 @@ class WorkspaceGenerator:
         dirs = ['modules', 'config', 'models']
         
         if not self.minimal:
-            dirs.extend(['artifacts', 'runtime'])
+            dirs.extend(['artifacts'])
         
         if self.template:
             dirs.extend([
@@ -620,6 +622,14 @@ class WorkspaceGenerator:
                 #     metrics_enabled=True,
                 #     logging_enabled=True,
                 # )
+
+                # Admin Dashboard (uncomment to enable admin at /admin/)
+                # Requires: aq admin createsuperuser
+                # .integrate(Integration.admin(
+                #     url_prefix="/admin",
+                #     site_title="{self.name} Admin",
+                #     auto_discover=True,
+                # ))
             )
 
 
@@ -867,127 +877,235 @@ class WorkspaceGenerator:
         (models_dir / '__init__.py').write_text(init_content)
         (models_dir / f'{self.name}.py').write_text(model_content)
 
-    def _create_cache_file(self) -> None:
-        """Create cache.py with Aquilia cache configuration scaffold."""
-        content = textwrap.dedent(f'''\
+    # ------------------------------------------------------------------
+    # Industry-standard project files
+    # ------------------------------------------------------------------
+
+    def _create_env_example(self) -> None:
+        """Create .env.example with documented environment variables."""
+        content = textwrap.dedent(f"""\
+            # ──────────────────────────────────────────────────────────────────
+            # {self.name} — Environment Variables
+            # ──────────────────────────────────────────────────────────────────
+            # Copy this file to .env and fill in your values:
+            #   cp .env.example .env
+            #
+            # NEVER commit .env to version control.
+            # ──────────────────────────────────────────────────────────────────
+
+            # ── Server ────────────────────────────────────────────────────────
+            AQUILIA_MODE=dev                       # dev | prod | test
+            AQUILIA_HOST=127.0.0.1
+            AQUILIA_PORT=8000
+            AQUILIA_WORKERS=1                      # Set to CPU count in prod
+            AQUILIA_DEBUG=true                      # false in prod
+
+            # ── Database ──────────────────────────────────────────────────────
+            DATABASE_URL=sqlite:///db.sqlite3
+            # DATABASE_URL=postgresql://user:password@localhost:5432/{self.name}
+            # DATABASE_URL=mysql://user:password@localhost:3306/{self.name}
+
+            # ── Security ──────────────────────────────────────────────────────
+            SECRET_KEY=change-me-in-production
+            # JWT_SECRET_KEY=
+            # ALLOWED_HOSTS=localhost,127.0.0.1
+
+            # ── Cache ─────────────────────────────────────────────────────────
+            CACHE_BACKEND=memory                   # memory | redis
+            # REDIS_URL=redis://localhost:6379/0
+
+            # ── Mail ──────────────────────────────────────────────────────────
+            # MAIL_PROVIDER=console                # console | smtp
+            # SMTP_HOST=smtp.example.com
+            # SMTP_PORT=587
+            # SMTP_USER=
+            # SMTP_PASSWORD=
+            # MAIL_FROM=noreply@example.com
+
+            # ── Logging ───────────────────────────────────────────────────────
+            LOG_LEVEL=INFO                         # DEBUG | INFO | WARNING | ERROR
+        """)
+
+        (self.path / '.env.example').write_text(content)
+
+    def _create_editorconfig(self) -> None:
+        """Create .editorconfig for consistent coding style across editors."""
+        content = textwrap.dedent("""\
+            # https://editorconfig.org
+            root = true
+
+            [*]
+            charset = utf-8
+            end_of_line = lf
+            indent_style = space
+            indent_size = 4
+            insert_final_newline = true
+            trim_trailing_whitespace = true
+
+            [*.{yml,yaml}]
+            indent_size = 2
+
+            [*.{json,js,ts,jsx,tsx}]
+            indent_size = 2
+
+            [*.md]
+            trim_trailing_whitespace = false
+
+            [Makefile]
+            indent_style = tab
+        """)
+
+        (self.path / '.editorconfig').write_text(content)
+
+    def _create_requirements(self) -> None:
+        """Create requirements.txt with pinned Aquilia dependency."""
+        content = textwrap.dedent("""\
+            # ── Core ──────────────────────────────────────────────────────────
+            aquilia>=1.0.0
+
+            # ── Database drivers (uncomment as needed) ────────────────────────
+            # aiosqlite>=0.20.0         # SQLite (async)
+            # asyncpg>=0.29.0           # PostgreSQL
+            # aiomysql>=0.2.0           # MySQL / MariaDB
+
+            # ── Cache backends (uncomment as needed) ──────────────────────────
+            # redis>=5.0.0              # Redis cache / sessions
+
+            # ── Production server ─────────────────────────────────────────────
+            # gunicorn>=22.0.0          # WSGI/ASGI process manager
+            # uvicorn[standard]>=0.30.0 # ASGI server (included with Aquilia)
+        """)
+
+        (self.path / 'requirements.txt').write_text(content)
+
+    def _create_tests_dir(self) -> None:
+        """Create tests/ directory with conftest.py and an example test."""
+        tests_dir = self.path / 'tests'
+        tests_dir.mkdir(exist_ok=True)
+
+        # __init__.py
+        (tests_dir / '__init__.py').write_text("")
+
+        # conftest.py — shared test fixtures
+        conftest = textwrap.dedent(f'''\
             """
-            {self.name} — Cache Configuration.
+            Shared test fixtures for {self.name}.
 
-            Configure caching strategies for the workspace.
-            This file is auto-imported by the workspace when
-            ``Integration.cache()`` is present in workspace.py.
-
-            Aquilia supports multiple eviction policies:
-            - LRU  (Least Recently Used)
-            - LFU  (Least Frequently Used)
-            - FIFO (First In, First Out)
-            - TTL  (Time To Live — expiry-based)
-
-            Usage in controllers:
-                from aquilia.cache import cached
-
-                @GET("/items")
-                @cached(ttl=60, key="items:all")
-                async def list_items(self, ctx):
-                    ...
+            Run tests with:
+                pytest tests/ -v
             """
 
-            from aquilia.cache import CacheConfig, EvictionPolicy
+            import pytest
 
 
-            # Workspace-level cache settings
-            cache_config = CacheConfig(
-                # Default backend — switch to "redis" for production
-                backend="memory",
+            @pytest.fixture
+            def app_config():
+                """Base application configuration for tests."""
+                return {{
+                    "name": "{self.name}",
+                    "mode": "test",
+                    "debug": True,
+                }}
+        ''')
 
-                # Maximum entries before eviction kicks in
-                max_size=1024,
+        (tests_dir / 'conftest.py').write_text(conftest)
 
-                # Default TTL in seconds (0 = no expiry)
-                default_ttl=300,
-
-                # Eviction strategy
-                eviction_policy=EvictionPolicy.LRU,
-
-                # Key prefix to avoid collisions in shared stores
-                key_prefix="{self.name}:",
-            )
-
-
-            __all__ = ["cache_config"]
-        ''').strip()
-
-        (self.path / 'cache.py').write_text(content)
-
-    def _create_auth_file(self) -> None:
-        """Create auth.py with Aquilia authentication scaffold."""
-        content = textwrap.dedent(f'''\
+        # Example test
+        test_content = textwrap.dedent(f'''\
             """
-            {self.name} — Authentication Configuration.
-
-            Configure authentication and authorisation for the workspace.
-            This file is auto-imported when ``Integration.auth()``
-            is present in workspace.py.
-
-            Usage in controllers:
-                from aquilia.auth import authenticated, roles
-
-                @GET("/profile")
-                @authenticated
-                async def profile(self, ctx):
-                    user = ctx.identity
-                    return {{"id": user.id, "email": user.email}}
-
-                @GET("/admin")
-                @roles("admin")
-                async def admin_panel(self, ctx):
-                    ...
+            Smoke tests for {self.name} workspace.
             """
 
-            from aquilia.auth import (
-                AuthConfig,
-                TokenManager,
-                PasswordHasher,
-            )
-            from datetime import timedelta
+
+            def test_workspace_config(app_config):
+                """Verify test configuration is loaded."""
+                assert app_config["name"] == "{self.name}"
+                assert app_config["mode"] == "test"
 
 
-            # Workspace-level auth settings
-            auth_config = AuthConfig(
-                # Token settings
-                token_algorithm="HS256",
-                access_token_ttl=timedelta(minutes=30),
-                refresh_token_ttl=timedelta(days=7),
+            def test_aquilia_importable():
+                """Verify Aquilia framework is installed."""
+                import aquilia
+                assert hasattr(aquilia, "__version__")
+        ''')
 
-                # Password hashing
-                hasher=PasswordHasher(
-                    algorithm="argon2",
-                    time_cost=3,
-                    memory_cost=65536,
-                    parallelism=4,
-                ),
+        (tests_dir / 'test_smoke.py').write_text(test_content)
 
-                # Session binding — tie tokens to session IDs
-                session_binding=True,
+    def _create_makefile(self) -> None:
+        """Create Makefile with common development commands."""
+        content = textwrap.dedent(f"""\
+            .PHONY: run dev test lint format migrate clean help
 
-                # Guard defaults
-                default_guard="jwt",
+            # ── Variables ─────────────────────────────────────────────────────
+            PYTHON ?= python
+            APP    ?= {self.name}
 
-                # OAuth providers (uncomment to enable)
-                # oauth_providers={{
-                #     "google": OAuthProvider(
-                #         client_id="...",
-                #         client_secret="...",
-                #         scopes=["openid", "profile", "email"],
-                #     ),
-                # }},
-            )
+            # ── Development ───────────────────────────────────────────────────
 
+            help: ## Show this help message
+            \t@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \\
+            \t\tawk 'BEGIN {{FS = ":.*?## "}}; {{printf "\\033[36m%-20s\\033[0m %s\\n", $$1, $$2}}'
 
-            __all__ = ["auth_config"]
-        ''').strip()
+            run: ## Start development server with hot-reload
+            \taq run
 
-        (self.path / 'auth.py').write_text(content)
+            dev: ## Start development server (alias for run)
+            \taq run --mode=dev
+
+            prod: ## Start production server
+            \taq run --mode=prod
+
+            # ── Testing ───────────────────────────────────────────────────────
+
+            test: ## Run all tests
+            \t$(PYTHON) -m pytest tests/ -v
+
+            test-cov: ## Run tests with coverage
+            \t$(PYTHON) -m pytest tests/ --cov=$(APP) --cov-report=term-missing
+
+            # ── Database ──────────────────────────────────────────────────────
+
+            migrate: ## Apply database migrations
+            \taq db migrate
+
+            makemigrations: ## Generate new migration
+            \taq db makemigrations
+
+            # ── Code Quality ──────────────────────────────────────────────────
+
+            lint: ## Run linter
+            \t$(PYTHON) -m ruff check .
+
+            format: ## Auto-format code
+            \t$(PYTHON) -m ruff format .
+
+            # ── Build & Deploy ────────────────────────────────────────────────
+
+            compile: ## Compile workspace artifacts
+            \taq compile
+
+            freeze: ## Freeze artifacts for deployment
+            \taq freeze
+
+            docker-build: ## Build Docker image
+            \tdocker build -t $(APP) .
+
+            docker-run: ## Run in Docker container
+            \tdocker compose up
+
+            # ── Housekeeping ──────────────────────────────────────────────────
+
+            clean: ## Remove build artifacts and caches
+            \tfind . -type d -name __pycache__ -exec rm -rf {{}} + 2>/dev/null || true
+            \tfind . -type d -name .pytest_cache -exec rm -rf {{}} + 2>/dev/null || true
+            \trm -rf artifacts/ .ruff_cache/ .mypy_cache/ htmlcov/ .coverage
+            \t@echo "Cleaned."
+
+            doctor: ## Diagnose workspace issues
+            \taq doctor
+        """)
+
+        (self.path / 'Makefile').write_text(content)
 
     def _create_template_files(self) -> None:
         """Create template scaffold files for --template flag.
@@ -1148,147 +1266,134 @@ class WorkspaceGenerator:
             .Python
             env/
             venv/
+            .venv/
             ENV/
-            
+            dist/
+            *.egg-info/
+            *.egg
+
             # Aquilia
             artifacts/
-            runtime/
             *.crous
-            
+
+            # Environment & secrets
+            .env
+            .env.*
+            !.env.example
+
+            # Testing & coverage
+            .pytest_cache/
+            htmlcov/
+            .coverage
+            .coverage.*
+            coverage.xml
+
+            # Linting & type-checking
+            .ruff_cache/
+            .mypy_cache/
+
             # IDE
             .vscode/
             .idea/
             *.swp
             *.swo
-            
+
             # OS
             .DS_Store
             Thumbs.db
+
+            # Logs
+            *.log
         """).strip()
-        
+
         (self.path / '.gitignore').write_text(content)
     
     def _create_readme(self) -> None:
         """Create README.md file."""
         content = textwrap.dedent(f"""
             # {self.name}
-            
+
             Aquilia workspace generated with `aq init workspace {self.name}`.
-            
-            ## Structure
-            
+
+            ## Project Structure
+
             ```
             {self.name}/
-              aquilia.py          # Workspace configuration (Python)
-              modules/            # Application modules
-              config/             # Environment-specific configs
-                base.yaml        # Base config
-                dev.yaml         # Development config
-                prod.yaml        # Production config
-              artifacts/          # Compiled artifacts
-              runtime/            # Runtime state
+            ├── workspace.py          # Workspace manifest (modules, integrations)
+            ├── starter.py            # Welcome-page controller
+            ├── requirements.txt      # Python dependencies
+            ├── .env.example          # Environment variable template
+            ├── .editorconfig         # Editor style consistency
+            ├── .gitignore
+            ├── Makefile              # Common dev commands
+            ├── Dockerfile
+            ├── .dockerignore
+            ├── docker-compose.yml
+            ├── config/
+            │   ├── base.yaml         # Base settings (all environments)
+            │   ├── dev.yaml          # Development overrides
+            │   └── prod.yaml         # Production overrides
+            ├── models/
+            │   └── example.py        # Example model
+            ├── modules/              # Application modules
+            └── tests/
+                ├── conftest.py       # Shared fixtures
+                └── test_smoke.py     # Smoke tests
             ```
-            
-            ## Configuration Architecture
-            
-            Aquilia uses a **professional separation of concerns**:
-            
-            - **`aquilia.py`** - Workspace structure (modules, integrations)
-              - Version-controlled and shared across team
-              - Environment-agnostic
-              - Type-safe Python API
-            
-            - **`config/*.yaml`** - Runtime settings (host, port, workers)
-              - Environment-specific (dev, prod, staging)
-              - Can contain secrets (not committed)
-              - Merged in order: base → environment → env vars
-            
+
             ## Getting Started
-            
-            ### Add a module
-            
+
             ```bash
+            # 1. Set up environment
+            cp .env.example .env      # Copy & fill in your values
+            pip install -r requirements.txt
+
+            # 2. Add a module
             aq add module users
+
+            # 3. Start dev server
+            make run                  # or: aq run
             ```
-            
-            This will update `aquilia.py`:
-            
-            ```python
-            workspace = (
-                Workspace("{self.name}", version="0.1.0")
-                .module(Module("users").route_prefix("/users"))
-                ...
-            )
-            ```
-            
-            ### Run development server
-            
+
+            ## Configuration
+
+            Aquilia separates **structure** from **runtime settings**:
+
+            | File              | Purpose                          | Committed? |
+            |-------------------|----------------------------------|------------|
+            | `workspace.py`    | Modules, integrations, structure | ✅ Yes     |
+            | `config/*.yaml`   | Host, port, workers, logging     | ✅ Yes     |
+            | `.env`            | Secrets, database URLs           | ❌ No      |
+
+            Config merge order: `base.yaml` → `<mode>.yaml` → environment variables.
+
+            ## Useful Commands
+
             ```bash
-            aq run
+            make help             # Show all available make targets
+            make run              # Start dev server
+            make test             # Run tests
+            make lint             # Lint with ruff
+            make format           # Auto-format with ruff
+            make docker-build     # Build Docker image
             ```
-            
-            This loads: `aquilia.py` + `config/base.yaml` + `config/dev.yaml`
-            
-            ### Run production server
-            
-            ```bash
-            aq run --mode=prod
-            ```
-            
-            This loads: `aquilia.py` + `config/base.yaml` + `config/prod.yaml`
-            
-            ## Session Management
-            
-            Enable sessions with unique Aquilia syntax in `aquilia.py`:
-            
-            ```python
-            workspace = (
-                Workspace("{self.name}", version="0.1.0")
-                .integrate(Integration.sessions(
-                    policy=SessionPolicy(ttl=timedelta(days=7)),
-                    store=MemoryStore(max_sessions=1000),
-                ))
-            )
-            ```
-            
-            Then use in controllers:
-            
-            ```python
-            from aquilia import session, authenticated, stateful
-            
-            @GET("/profile")
-            @authenticated
-            async def profile(ctx, user: SessionPrincipal):
-                return {{"user_id": user.id}}
-            
-            @POST("/cart")
-            @stateful
-            async def cart(ctx, state: SessionState):
-                state._data['items'].append(item)
-            ```
-            
-            ## Commands
-            
-            - `aq add module <name>` - Add new module
-            - `aq validate` - Validate configuration
-            - `aq compile` - Compile to artifacts
-            - `aq run` - Development server
-            - `aq run --mode=prod` - Production server
-            - `aq serve` - Production server (frozen artifacts)
-            - `aq freeze` - Generate immutable artifacts
-            - `aq inspect routes` - Inspect compiled routes
-            - `aq sessions list` - List active sessions
-            - `aq doctor` - Diagnose issues
-            - `aq deploy all` - Generate all deployment files
-            - `aq deploy dockerfile` - Generate Dockerfiles
-            - `aq deploy compose` - Generate docker-compose.yml
-            - `aq deploy kubernetes` - Generate Kubernetes manifests
-            
+
+            | CLI Command            | Description                          |
+            |------------------------|--------------------------------------|
+            | `aq add module <name>` | Scaffold a new module                |
+            | `aq run`               | Start development server             |
+            | `aq run --mode=prod`   | Start production server              |
+            | `aq compile`           | Compile workspace artifacts          |
+            | `aq freeze`            | Freeze artifacts for deployment      |
+            | `aq validate`          | Validate workspace configuration     |
+            | `aq doctor`            | Diagnose workspace issues            |
+            | `aq inspect routes`    | Show compiled route table            |
+
             ## Documentation
-            
+
             See Aquilia documentation for complete guides.
         """).strip()
-        
+
         (self.path / 'README.md').write_text(content)
 
     def _create_deployment_files(self) -> None:

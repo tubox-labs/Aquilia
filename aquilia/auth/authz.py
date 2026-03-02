@@ -546,10 +546,10 @@ class PolicyBuilder:
         Returns:
             Policy function
         """
-        from datetime import datetime
+        from datetime import datetime, timezone
 
         def policy(context: AuthzContext) -> AuthzResult:
-            current_hour = datetime.utcnow().hour
+            current_hour = datetime.now(timezone.utc).hour
             start, end = allowed_hours
 
             if start <= current_hour < end:

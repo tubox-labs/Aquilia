@@ -1,7 +1,10 @@
 """Artifact freezing command.
 
-Compiles the workspace and then generates a deterministic fingerprint
-so that production deployments can verify artifact integrity.
+Production-grade artifact freeze using the Aquilia Build Pipeline.
+
+1. Runs the full build pipeline in prod mode (strict checks, LZ4 compression)
+2. Generates a deterministic SHA-256 fingerprint over all Crous binaries
+3. Writes a frozen manifest with integrity verification data
 """
 
 import hashlib
@@ -20,9 +23,8 @@ def freeze_artifacts(
     """
     Generate immutable artifacts for production.
 
-    1. Runs the standard compiler to produce .crous artifacts.
-    2. Computes a combined SHA-256 fingerprint over all artifacts.
-    3. Writes a frozen manifest (frozen.json) containing the fingerprint.
+    Uses the build pipeline in prod mode (strict validation, LZ4 compression)
+    to produce verified, content-addressed Crous binary artifacts.
 
     Args:
         output_dir: Output directory for frozen artifacts
@@ -40,30 +42,63 @@ def freeze_artifacts(
             "Not in an Aquilia workspace (workspace.py not found)"
         )
 
-    # Step 1 — compile
-    from .compile import compile_workspace
+    output = output_dir or str(workspace_root / 'build')
+    artifacts_dir = Path(output)
+    artifacts_dir.mkdir(parents=True, exist_ok=True)
 
-    output = output_dir or str(workspace_root / 'artifacts')
-    artifacts = compile_workspace(output_dir=output, verbose=verbose)
+    # Step 1 — Production build (strict mode, compressed)
+    try:
+        from aquilia.build import AquiliaBuildPipeline
 
-    if verbose:
-        print(f"  Compiled {len(artifacts)} artifact(s)")
+        result = AquiliaBuildPipeline.build(
+            workspace_root=str(workspace_root),
+            mode="prod",
+            verbose=verbose,
+            compression="lz4",
+            output_dir=output,
+        )
 
-    # Step 2 — fingerprint
-    hasher = hashlib.sha256()
-    artifacts_dir = Path(output) if output_dir else workspace_root / 'artifacts'
+        if not result.success:
+            print("\n  ✗ Freeze FAILED — cannot produce production artifacts.\n")
+            for err in result.errors:
+                print(f"  {err}")
+            return ""
 
-    for artifact_path in sorted(artifacts_dir.glob('*.crous')):
-        data = artifact_path.read_bytes()
-        hasher.update(data)
+        if verbose:
+            print(f"  ✓ {result.summary()}")
 
-    fingerprint = hasher.hexdigest()
+        fingerprint = result.fingerprint
 
-    # Step 3 — write frozen manifest
+    except ImportError:
+        # Fallback to legacy compiler + manual fingerprint
+        if verbose:
+            print("  Build pipeline not available, falling back to legacy compiler")
+
+        from .compile import compile_workspace
+        artifacts = compile_workspace(output_dir=output, verbose=verbose)
+
+        if verbose:
+            print(f"  Compiled {len(artifacts)} artifact(s)")
+
+        hasher = hashlib.sha256()
+        for artifact_path in sorted(artifacts_dir.glob('*.crous')):
+            data = artifact_path.read_bytes()
+            hasher.update(data)
+        fingerprint = hasher.hexdigest()
+
+    # Step 2 — Write frozen manifest
     frozen_meta = {
         'fingerprint': fingerprint,
-        'artifacts': [str(a) for a in sorted(artifacts_dir.glob('*.crous'))],
+        'artifacts': [
+            {
+                'file': str(a.name),
+                'size_bytes': a.stat().st_size,
+                'digest': hashlib.sha256(a.read_bytes()).hexdigest(),
+            }
+            for a in sorted(artifacts_dir.glob('*.crous'))
+        ],
         'signed': sign,
+        'format': 'crous-binary',
     }
 
     frozen_path = artifacts_dir / 'frozen.json'
@@ -71,5 +106,6 @@ def freeze_artifacts(
 
     if verbose:
         print(f"  Frozen manifest: {frozen_path}")
+        print(f"  Fingerprint:     {fingerprint}")
 
     return fingerprint

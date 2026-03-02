@@ -195,6 +195,10 @@ class BaseManager:
         """SELECT ... FOR UPDATE (locking)."""
         return self.get_queryset().select_for_update(**kwargs)
 
+    def iterator(self, chunk_size: int = 2000) -> Q:
+        """Memory-efficient chunked iteration. See Q.iterator() for details."""
+        return self.get_queryset().iterator(chunk_size=chunk_size)
+
     def using(self, db_alias: str) -> Q:
         """Target a specific database."""
         return self.get_queryset().using(db_alias)

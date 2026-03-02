@@ -8,7 +8,7 @@ Orchestrates identity verification, token issuance, and session management.
 from __future__ import annotations
 
 import secrets
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from .core import (
@@ -55,7 +55,7 @@ class RateLimiter:
 
     def _cleanup_old_attempts(self, key: str) -> None:
         """Remove attempts outside the time window."""
-        cutoff = datetime.utcnow() - timedelta(seconds=self.window_seconds)
+        cutoff = datetime.now(timezone.utc) - timedelta(seconds=self.window_seconds)
         if key in self._attempts:
             self._attempts[key] = [
                 ts for ts in self._attempts[key] if ts > cutoff
@@ -68,11 +68,11 @@ class RateLimiter:
         if key not in self._attempts:
             self._attempts[key] = []
 
-        self._attempts[key].append(datetime.utcnow())
+        self._attempts[key].append(datetime.now(timezone.utc))
 
         # Check if should lock out
         if len(self._attempts[key]) >= self.max_attempts:
-            self._lockouts[key] = datetime.utcnow() + timedelta(
+            self._lockouts[key] = datetime.now(timezone.utc) + timedelta(
                 seconds=self.lockout_duration
             )
 
@@ -83,7 +83,7 @@ class RateLimiter:
             return True
 
         if key in self._lockouts:
-            if datetime.utcnow() < self._lockouts[key]:
+            if datetime.now(timezone.utc) < self._lockouts[key]:
                 return True
             else:
                 # Lockout expired
@@ -299,7 +299,7 @@ class AuthManager:
             raise AUTH_INVALID_CREDENTIALS()
 
         # Check expiration
-        if credential.expires_at and datetime.utcnow() > credential.expires_at:
+        if credential.expires_at and datetime.now(timezone.utc) > credential.expires_at:
             raise AUTH_KEY_EXPIRED(key_id=credential.key_id)
 
         # Check status
@@ -333,7 +333,7 @@ class AuthManager:
             refresh_token=None,
             session_id=None,
             expires_in=(
-                int((credential.expires_at - datetime.utcnow()).total_seconds())
+                int((credential.expires_at - datetime.now(timezone.utc)).total_seconds())
                 if credential.expires_at
                 else None
             ),
@@ -423,8 +423,8 @@ class AuthManager:
             aud=claims["aud"],
             exp=claims["exp"],
             iat=claims["iat"],
-            nbf=claims.get("nbf"),
-            jti=claims.get("jti"),
+            nbf=claims.get("nbf", claims["iat"]),
+            jti=claims.get("jti", ""),
             scopes=claims.get("scopes", []),
             roles=claims.get("roles", []),
             sid=claims.get("sid"),

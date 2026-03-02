@@ -1,0 +1,213 @@
+{% extends "base.html" %}
+{% block title %}Permissions{% endblock %}
+{% block breadcrumb %}Permissions{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Permissions</h1>
+    <p>Role-based access control — manage workspace and model level permissions.</p>
+</div>
+
+{# ── Tabs ── #}
+<div class="tab-nav" data-tab-group="perms">
+    <button class="tab-btn active" data-tab="roles" onclick="switchTab('perms','roles')">
+        <i class="icon-users" style="font-size:14px;vertical-align:-2px;margin-right:4px;"></i>Roles
+    </button>
+    <button class="tab-btn" data-tab="matrix" onclick="switchTab('perms','matrix')">
+        <i class="icon-grid" style="font-size:14px;vertical-align:-2px;margin-right:4px;"></i>Permission Matrix
+    </button>
+    <button class="tab-btn" data-tab="model-perms" onclick="switchTab('perms','model-perms')">
+        <i class="icon-lock" style="font-size:14px;vertical-align:-2px;margin-right:4px;"></i>Model Permissions
+    </button>
+</div>
+
+{# ── Roles tab ── #}
+<div class="tab-content active" data-tab-content="perms" data-tab="roles">
+    <div class="section-label">Admin Roles</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;">
+        {% for role in roles %}
+        <div class="glass-card card-padded">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+                <span class="perm-role perm-role-{{ role.name|lower }}">{{ role.name }}</span>
+                <span class="meta-text">Level {{ role.level }}</span>
+                {% if role.name == 'superadmin' %}
+                <span style="margin-left:auto;font-size:0.6rem;padding:2px 6px;border-radius:var(--radius-full);background:var(--warning-subtle);color:var(--warning);font-weight:600;">
+                    <i class="icon-shield" style="font-size:9px;vertical-align:0;margin-right:2px;"></i>IMMUTABLE
+                </span>
+                {% endif %}
+            </div>
+            <div style="font-size:0.82rem;color:var(--text-secondary);margin-bottom:14px;">{{ role.description }}</div>
+            <div style="font-size:0.7rem;color:var(--text-faint);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;">
+                {{ role.permissions|length }} permission{{ 's' if role.permissions|length != 1 else '' }}
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:4px;">
+                {% for perm in role.permissions %}
+                <span class="perm-badge perm-granted">
+                    <i class="icon-check" style="font-size:10px;"></i> {{ perm.split('.')[-1] }}
+                </span>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+{# ── Permission Matrix tab (editable) ── #}
+<div class="tab-content" data-tab-content="perms" data-tab="matrix">
+    <div class="section-label">Role × Permission Matrix</div>
+    <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:16px;display:flex;align-items:center;gap:8px;">
+        <i class="icon-info" style="font-size:14px;color:var(--info);"></i>
+        Toggle checkboxes to grant or revoke permissions per role. Superadmin permissions cannot be modified.
+    </div>
+    <form method="POST" action="{{ url_prefix|default('/admin') }}/permissions/update" id="matrixForm">
+        <input type="hidden" name="update_type" value="roles">
+        <div class="table-container">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th style="min-width:200px;">Permission</th>
+                        {% for role in roles %}
+                        <th style="text-align:center;min-width:100px;">
+                            <span class="perm-role perm-role-{{ role.name|lower }}" style="font-size:0.6rem;">{{ role.name }}</span>
+                        </th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for perm in all_permissions %}
+                    <tr>
+                        <td style="font-family:var(--font-mono);font-size:0.75rem;">
+                            <span style="color:var(--text-faint);">admin.</span>{{ perm.replace('admin.', '') }}
+                        </td>
+                        {% for role in roles %}
+                        <td style="text-align:center;">
+                            {% if role.name == 'superadmin' %}
+                            <span class="perm-badge perm-granted" title="Superadmin always has all permissions">
+                                <i class="icon-lock" style="font-size:9px;"></i>
+                            </span>
+                            {% else %}
+                            <label class="perm-toggle" title="Toggle {{ perm }} for {{ role.name }}">
+                                <input type="checkbox"
+                                    name="role_{{ role.name }}_{{ perm }}"
+                                    {{ 'checked' if perm in role.permissions else '' }}
+                                    style="accent-color:var(--accent);width:15px;height:15px;cursor:pointer;">
+                            </label>
+                            {% endif %}
+                        </td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center;margin-top:16px;">
+            <button type="submit" class="btn btn-primary">
+                <i class="icon-save" style="font-size:14px;"></i> Save Role Permissions
+            </button>
+            <button type="button" class="btn btn-secondary" onclick="document.getElementById('matrixForm').reset();trackMatrixChanges();">
+                <i class="icon-rotate-ccw" style="font-size:14px;"></i> Reset
+            </button>
+            <span class="meta-text" id="matrixChanges" style="margin-left:auto;"></span>
+        </div>
+    </form>
+</div>
+
+{# ── Model Permissions tab (editable) ── #}
+<div class="tab-content" data-tab-content="perms" data-tab="model-perms">
+    <div class="section-label">Per-Model Access Control</div>
+    {% if model_permissions %}
+    <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:16px;display:flex;align-items:center;gap:8px;">
+        <i class="icon-info" style="font-size:14px;color:var(--info);"></i>
+        Override default role-based permissions for specific models. Changes apply to all non-superadmin roles.
+    </div>
+    <form method="POST" action="{{ url_prefix|default('/admin') }}/permissions/update" id="modelPermsForm">
+        <input type="hidden" name="update_type" value="models">
+        <div class="table-container">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>Model</th>
+                        <th style="text-align:center;">
+                            <i class="icon-eye" style="font-size:13px;vertical-align:-2px;margin-right:2px;"></i>View
+                        </th>
+                        <th style="text-align:center;">
+                            <i class="icon-plus" style="font-size:13px;vertical-align:-2px;margin-right:2px;"></i>Add
+                        </th>
+                        <th style="text-align:center;">
+                            <i class="icon-edit" style="font-size:13px;vertical-align:-2px;margin-right:2px;"></i>Change
+                        </th>
+                        <th style="text-align:center;">
+                            <i class="icon-trash-2" style="font-size:13px;vertical-align:-2px;margin-right:2px;"></i>Delete
+                        </th>
+                        <th style="text-align:center;">
+                            <i class="icon-download" style="font-size:13px;vertical-align:-2px;margin-right:2px;"></i>Export
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for mp in model_permissions %}
+                    <tr>
+                        <td>
+                            <i class="icon-table" style="font-size:13px;vertical-align:-1px;margin-right:4px;color:var(--text-faint);"></i>
+                            <span style="font-weight:500;">{{ mp.name }}</span>
+                        </td>
+                        {% for action in ['view', 'add', 'change', 'delete', 'export'] %}
+                        <td style="text-align:center;">
+                            <label class="perm-toggle">
+                                <input type="checkbox"
+                                    name="model_{{ mp.name }}_{{ action }}"
+                                    {{ 'checked' if mp.perms.get(action, false) else '' }}
+                                    style="accent-color:var(--accent);width:15px;height:15px;cursor:pointer;">
+                            </label>
+                        </td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center;margin-top:16px;">
+            <button type="submit" class="btn btn-primary">
+                <i class="icon-save" style="font-size:14px;"></i> Save Model Permissions
+            </button>
+            <button type="button" class="btn btn-secondary" onclick="document.getElementById('modelPermsForm').reset()">
+                <i class="icon-rotate-ccw" style="font-size:14px;"></i> Reset
+            </button>
+        </div>
+    </form>
+    {% else %}
+    <div class="glass-card">
+        <div class="empty-state">
+            <i class="icon-lock" style="font-size:32px;display:block;margin-bottom:12px;opacity:0.3;"></i>
+            No models registered for permission management
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+// Track changes in the permission matrix
+function trackMatrixChanges() {
+    var form = document.getElementById('matrixForm');
+    if (!form) return;
+    var changed = 0;
+    form.querySelectorAll('input[type="checkbox"]').forEach(function(cb) {
+        if (window._matrixInitial && window._matrixInitial[cb.name] !== cb.checked) changed++;
+    });
+    var el = document.getElementById('matrixChanges');
+    if (el) {
+        el.textContent = changed ? changed + ' change' + (changed > 1 ? 's' : '') + ' pending' : '';
+        el.style.color = changed ? 'var(--warning)' : '';
+    }
+}
+(function() {
+    var form = document.getElementById('matrixForm');
+    if (!form) return;
+    window._matrixInitial = {};
+    form.querySelectorAll('input[type="checkbox"]').forEach(function(cb) {
+        window._matrixInitial[cb.name] = cb.checked;
+    });
+    form.addEventListener('change', trackMatrixChanges);
+})();
+{% endblock %}

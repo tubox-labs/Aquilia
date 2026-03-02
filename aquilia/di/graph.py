@@ -101,21 +101,34 @@ class DependencyGraph:
         """
         Get topological sort of providers (resolution order).
         
+        Returns dependencies before their consumers, so that when
+        iterating the returned list, each provider's dependencies
+        have already been instantiated.
+        
         Returns:
-            List of tokens in dependency order
+            List of tokens in dependency-first order
             
         Raises:
             DependencyCycleError: If cycle detected
         """
-        # Kahn's algorithm for topological sort
-        in_degree = defaultdict(int)
+        # Kahn's algorithm for topological sort.
+        # adj_list maps token → [its dependencies].
+        # We need dependencies FIRST, so we reverse the edge direction:
+        # in_degree counts how many dependencies a token has (not how
+        # many things depend on it).
+        in_degree: Dict[str, int] = defaultdict(int)
+        # Build reverse adjacency (dependents of each token)
+        reverse_adj: Dict[str, List[str]] = defaultdict(list)
         
         for token in self.providers:
-            for dep in self.adj_list[token]:
+            dep_count = 0
+            for dep in self.adj_list.get(token, []):
                 if dep in self.providers:
-                    in_degree[dep] += 1
+                    dep_count += 1
+                    reverse_adj[dep].append(token)
+            in_degree[token] = dep_count
         
-        # Start with nodes that have no dependencies
+        # Start with nodes that have NO dependencies (leaves)
         queue = deque([t for t in self.providers if in_degree[t] == 0])
         result = []
         
@@ -123,12 +136,11 @@ class DependencyGraph:
             token = queue.popleft()
             result.append(token)
             
-            for dep in self.adj_list.get(token, []):
-                if dep not in self.providers:
-                    continue
-                in_degree[dep] -= 1
-                if in_degree[dep] == 0:
-                    queue.append(dep)
+            # For each consumer that depends on this token
+            for consumer in reverse_adj.get(token, []):
+                in_degree[consumer] -= 1
+                if in_degree[consumer] == 0:
+                    queue.append(consumer)
         
         if len(result) != len(self.providers):
             # Cycle detected

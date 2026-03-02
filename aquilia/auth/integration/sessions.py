@@ -7,7 +7,7 @@ Integration with Aquilia Sessions for auth state management.
 from __future__ import annotations
 
 import secrets
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from ..core import Identity
@@ -42,11 +42,11 @@ class AuthSession:
 
     def is_expired(self) -> bool:
         """Check if session is expired."""
-        return datetime.utcnow() > self.expires_at
+        return datetime.now(timezone.utc) > self.expires_at
 
     def update_activity(self) -> None:
         """Update last activity timestamp."""
-        self.last_activity = datetime.utcnow()
+        self.last_activity = datetime.now(timezone.utc)
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
@@ -100,7 +100,7 @@ class MemorySessionStore:
             Created session
         """
         session_id = f"sess_{secrets.token_urlsafe(32)}"
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
 
         session = AuthSession(
             session_id=session_id,
@@ -271,7 +271,7 @@ class SessionManager:
         new_session = await self.session_store.create_session(
             identity_id=old_session.identity_id,
             ttl_seconds=int(
-                (old_session.expires_at - datetime.utcnow()).total_seconds()
+                (old_session.expires_at - datetime.now(timezone.utc)).total_seconds()
             ),
             metadata=old_session.metadata,
         )

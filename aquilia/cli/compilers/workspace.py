@@ -342,7 +342,21 @@ class WorkspaceCompiler:
         return output_path
     
     def _write_artifact(self, path: Path, data: dict) -> None:
-        """Write artifact to file."""
+        """Write artifact to Crous binary format (with JSON sidecar)."""
         path.parent.mkdir(parents=True, exist_ok=True)
-        with open(path, 'w') as f:
+
+        # Write Crous binary (.crous)
+        try:
+            from aquilia.build.bundler import CrousBundler
+            crous_bytes = CrousBundler.encode_single(data)
+            with open(path, 'wb') as f:
+                f.write(crous_bytes)
+        except Exception:
+            # Fallback to JSON if Crous encoding fails
+            with open(path, 'w') as f:
+                json.dump(data, f, indent=2)
+
+        # Always write human-readable JSON sidecar (.aq.json)
+        json_path = path.with_suffix('.aq.json')
+        with open(json_path, 'w') as f:
             json.dump(data, f, indent=2)

@@ -11,6 +11,8 @@ import asyncio
 import inspect
 import logging
 
+logger = logging.getLogger("aquilia.controller.factory")
+
 
 class InstantiationMode(str, Enum):
     """Controller instantiation modes."""
@@ -97,9 +99,6 @@ class ControllerFactory:
         
         self._singletons[controller_class] = instance
         return instance
-    
-    # Cache for controllers that don't have on_request hook
-    _no_on_request: set = set()
 
     async def _create_per_request(
         self,
@@ -107,29 +106,18 @@ class ControllerFactory:
         request_container: Optional[Any],
         ctx: Optional[Any] = None,
     ) -> Any:
-        """Create new instance for each request."""
+        """
+        Create new instance for each request.
+
+        NOTE: on_request is NOT called here — the engine handles lifecycle
+        hooks to avoid double invocation.
+        """
         container = request_container or self.app_container
         
         instance = await self._resolve_and_instantiate(
             controller_class,
             container,
         )
-        
-        # Fast path: skip on_request for controllers that don't override it from Controller base
-        if controller_class not in ControllerFactory._no_on_request:
-            # Check if on_request is actually overridden (not just inherited from Controller base)
-            has_custom_on_request = (
-                'on_request' in controller_class.__dict__
-                or any('on_request' in B.__dict__ for B in controller_class.__mro__[1:]
-                       if B.__name__ != 'Controller' and B is not object)
-            )
-            if has_custom_on_request:
-                if inspect.iscoroutinefunction(instance.on_request):
-                    await instance.on_request(ctx)
-                else:
-                    instance.on_request(ctx)
-            else:
-                ControllerFactory._no_on_request.add(controller_class)
         
         return instance
     
@@ -298,8 +286,14 @@ class ControllerFactory:
         elif hasattr(container, 'get'):
             return container.get(param_type)
         else:
-            # Last resort: try to instantiate
-            return param_type()
+            # Last resort: try to instantiate (may fail for abstracts)
+            try:
+                return param_type()
+            except (TypeError, Exception) as e:
+                raise TypeError(
+                    f"Cannot instantiate {param_type!r} — no container "
+                    f"provider found and default construction failed: {e}"
+                ) from e
     
     async def shutdown(self):
         """Shutdown all singleton controllers."""
@@ -311,8 +305,10 @@ class ControllerFactory:
                     else:
                         instance.on_shutdown(None)
                 except Exception as e:
-                    # Log but don't fail shutdown
-                    print(f"Error in {controller_class.__name__}.on_shutdown: {e}")
+                    logger.error(
+                        f"Error in {controller_class.__name__}.on_shutdown: {e}",
+                        exc_info=True,
+                    )
     
     def validate_scope(
         self,
@@ -329,8 +325,10 @@ class ControllerFactory:
         if mode != InstantiationMode.SINGLETON:
             return
         
+        if self.app_container is None:
+            return
+        
         # Validate scopes of all dependencies
-        import inspect
         try:
             sig = inspect.signature(controller_class.__init__)
             type_hints = self._get_type_hints(controller_class)
@@ -348,15 +346,24 @@ class ControllerFactory:
                 
                 if param_type == inspect.Parameter.empty:
                     continue
-                    
-                # Check provider scope
-                provider = self.app_container._lookup_provider(
-                    self.app_container._token_to_key(param_type), None
-                )
                 
-                if provider:
+                # Check provider scope — use public API where available
+                provider = None
+                if hasattr(self.app_container, 'get_provider'):
+                    provider = self.app_container.get_provider(param_type)
+                elif hasattr(self.app_container, '_lookup_provider'):
+                    try:
+                        key = (
+                            self.app_container._token_to_key(param_type)
+                            if hasattr(self.app_container, '_token_to_key')
+                            else param_type
+                        )
+                        provider = self.app_container._lookup_provider(key, None)
+                    except Exception:
+                        pass
+                
+                if provider and hasattr(provider, 'meta') and hasattr(provider.meta, 'scope'):
                     # Singleton/App controllers CANNOT depend on Request/Ephemeral scopes
-                    # because the dependency would be cached forever (stale/leak)
                     if provider.meta.scope in ("request", "ephemeral", "transient"):
                         raise ScopeViolationError(controller_class, param_type)
                         
@@ -364,7 +371,6 @@ class ControllerFactory:
             raise
         except Exception:
             # If validation fails due to inspection issues, log warning but allow proceed
-            # (runtime might fail later, but we shouldn't block startup on static analysis bugs)
             pass
 
     def _get_type_hints(self, cls):
@@ -373,6 +379,15 @@ class ControllerFactory:
             return get_type_hints(cls.__init__)
         except Exception:
             return {}
+
+    @classmethod
+    def clear_caches(cls):
+        """
+        Clear all class-level caches.
+
+        Call during testing teardown or hot-reload to prevent memory leaks.
+        """
+        cls._ctor_info_cache.clear()
 
 
 class ScopeViolationError(Exception):

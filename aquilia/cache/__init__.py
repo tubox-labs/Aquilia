@@ -8,7 +8,6 @@ Provides a multi-backend, DI-integrated, fault-aware caching layer with:
 - **Fault domain**: Typed cache faults with recovery strategies
 - **Effect system**: CacheEffect for handler capability declarations
 - **Middleware**: Response caching middleware with ETags
-- **Trace integration**: Cache stats in .aquilia/diagnostics.json
 - **CLI commands**: ``aq cache stats``, ``aq cache clear``, ``aq cache keys``
 - **Decorators**: ``@cached``, ``@cache_aside``, ``@invalidate``
 - **Key building**: Deterministic, collision-free key generation

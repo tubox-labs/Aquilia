@@ -361,39 +361,14 @@ class When(Expression):
                 params.append(val)
             cond_sql = " AND ".join(parts)
         elif self.lookups:
+            # Delegate to _build_filter_clause from query.py to avoid
+            # duplicating the lookup op_map and special-case logic.
+            from .query import _build_filter_clause
             parts = []
             for key, val in self.lookups.items():
-                if "__" in key:
-                    field, op = key.rsplit("__", 1)
-                    if op == "in":
-                        placeholders = ", ".join("?" for _ in val)
-                        parts.append(f'"{field}" IN ({placeholders})')
-                        params.extend(val)
-                        continue
-                    elif op == "not_in":
-                        placeholders = ", ".join("?" for _ in val)
-                        parts.append(f'"{field}" NOT IN ({placeholders})')
-                        params.extend(val)
-                        continue
-                    elif op == "isnull":
-                        if val:
-                            parts.append(f'"{field}" IS NULL')
-                        else:
-                            parts.append(f'"{field}" IS NOT NULL')
-                        continue
-                    op_map = {"gt": ">", "gte": ">=", "lt": "<", "lte": "<=", "ne": "!=",
-                              "contains": "LIKE", "startswith": "LIKE", "endswith": "LIKE"}
-                    sql_op = op_map.get(op, "=")
-                    if op == "contains":
-                        val = f"%{val}%"
-                    elif op == "startswith":
-                        val = f"{val}%"
-                    elif op == "endswith":
-                        val = f"%{val}"
-                    parts.append(f'"{field}" {sql_op} ?')
-                else:
-                    parts.append(f'"{key}" = ?')
-                params.append(val)
+                clause, clause_params = _build_filter_clause(key, val)
+                parts.append(clause)
+                params.extend(clause_params)
             cond_sql = " AND ".join(parts)
         elif isinstance(self.condition, Expression):
             cond_sql, cond_params = self.condition.as_sql(dialect)

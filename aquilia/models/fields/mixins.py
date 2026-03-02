@@ -16,7 +16,7 @@ import base64
 import datetime
 import hashlib
 import warnings
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, TYPE_CHECKING
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ..fields_module import Field
@@ -139,18 +139,51 @@ class EncryptedMixin:
     on read. Without a backend, it stores values as base64-encoded
     strings and emits a deprecation warning.
 
-    WARNING: The default base64 encoding is NOT secure encryption.
-    Configure a real encryption backend for production use.
+    By default, uses ``cryptography.fernet.Fernet`` symmetric encryption
+    when a key is provided via ``configure_encryption_key()``. Falls back
+    to base64 encoding (NOT secure) with a loud warning if neither a
+    Fernet key nor custom backends are configured.
 
     Usage:
         class SecureTextField(EncryptedMixin, TextField):
             pass
+
+        # Option 1: Provide a Fernet key (recommended)
+        EncryptedMixin.configure_encryption_key(os.environ["ENCRYPTION_KEY"])
+
+        # Option 2: Provide custom encrypt/decrypt callables
+        EncryptedMixin.configure_encryption(encrypt_fn, decrypt_fn)
 
         secret = SecureTextField()
     """
 
     _encryption_backend: Optional[Callable] = None
     _decryption_backend: Optional[Callable] = None
+    _fernet_instance: Optional[Any] = None  # cryptography.fernet.Fernet
+
+    @classmethod
+    def configure_encryption_key(cls, key: Union[str, bytes]) -> None:
+        """
+        Configure symmetric Fernet encryption using a key.
+
+        The key must be a URL-safe base64-encoded 32-byte key.
+        Generate one with ``cryptography.fernet.Fernet.generate_key()``.
+
+        Args:
+            key: Fernet-compatible encryption key (str or bytes).
+        """
+        try:
+            from cryptography.fernet import Fernet
+        except ImportError:
+            raise ImportError(
+                "The 'cryptography' package is required for Fernet encryption. "
+                "Install it with: pip install cryptography"
+            )
+        if isinstance(key, str):
+            key = key.encode("utf-8")
+        cls._fernet_instance = Fernet(key)
+        cls._encryption_backend = None
+        cls._decryption_backend = None
 
     @classmethod
     def configure_encryption(
@@ -167,18 +200,24 @@ class EncryptedMixin:
         """
         cls._encryption_backend = encrypt
         cls._decryption_backend = decrypt
+        cls._fernet_instance = None  # custom backends take priority
 
     def to_db(self, value: Any) -> Any:
         if value is None:
             return None
         str_value = str(value)
-        if self._encryption_backend:
-            return self._encryption_backend(str_value)
+        backend = type(self).__dict__.get('_encryption_backend') or type(self)._encryption_backend
+        if backend:
+            return backend(str_value)
+        if self._fernet_instance is not None:
+            return self._fernet_instance.encrypt(
+                str_value.encode("utf-8")
+            ).decode("ascii")
         # Fallback: base64 (NOT secure — placeholder only)
         warnings.warn(
             "EncryptedMixin is using base64 encoding (NOT encryption). "
-            "Configure a real encryption backend with "
-            "EncryptedMixin.configure_encryption(encrypt_fn, decrypt_fn).",
+            "Call EncryptedMixin.configure_encryption_key(key) with a Fernet "
+            "key, or configure_encryption(encrypt_fn, decrypt_fn) for a custom backend.",
             UserWarning,
             stacklevel=2,
         )
@@ -188,8 +227,17 @@ class EncryptedMixin:
         if value is None:
             return None
         if isinstance(value, str):
-            if self._decryption_backend:
-                return self._decryption_backend(value)
+            decrypt = type(self).__dict__.get('_decryption_backend') or type(self)._decryption_backend
+            if decrypt:
+                return decrypt(value)
+            if self._fernet_instance is not None:
+                try:
+                    return self._fernet_instance.decrypt(
+                        value.encode("ascii")
+                    ).decode("utf-8")
+                except Exception:
+                    # Value may not have been encrypted (e.g. legacy data)
+                    return value
             # Fallback: base64 decode
             try:
                 return base64.b64decode(value.encode("ascii")).decode("utf-8")

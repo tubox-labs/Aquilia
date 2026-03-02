@@ -88,7 +88,9 @@ class SocketRouter:
         # Pre-compile pattern for fast matching
         if self._has_patterns and self._pattern_compiler:
             try:
-                compiled = self._pattern_compiler.compile(metadata.path_pattern)
+                from aquilia.patterns import parse_pattern
+                ast = parse_pattern(metadata.path_pattern)
+                compiled = self._pattern_compiler.compile(ast)
                 self._compiled_patterns[namespace] = compiled
             except Exception as e:
                 logger.debug(f"Could not compile pattern for {namespace}: {e}")

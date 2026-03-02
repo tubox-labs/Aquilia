@@ -7,7 +7,7 @@ Identity, credentials, and foundational data structures.
 from __future__ import annotations
 
 from typing import Literal, Any, Protocol
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from dataclasses import dataclass, field
 from enum import Enum
 import secrets
@@ -53,8 +53,8 @@ class Identity:
     attributes: dict[str, Any]  # email, name, roles, dept, clearance, etc.
     status: IdentityStatus = IdentityStatus.ACTIVE
     tenant_id: str | None = None
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    updated_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     
     def get_attribute(self, key: str, default: Any = None) -> Any:
         """Get attribute value with default."""
@@ -135,20 +135,20 @@ class PasswordCredential:
     identity_id: str
     password_hash: str          # Argon2id hash
     algorithm: str = "argon2id"
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    last_changed_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    last_changed_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     last_used_at: datetime | None = None
     must_change: bool = False   # Force password change on next login
     status: CredentialStatus = CredentialStatus.ACTIVE
     
     def should_rotate(self, max_age_days: int = 90) -> bool:
         """Check if password should be rotated."""
-        age = datetime.utcnow() - self.last_changed_at
+        age = datetime.now(timezone.utc) - self.last_changed_at
         return age > timedelta(days=max_age_days)
     
     def touch(self) -> None:
         """Update last_used_at timestamp."""
-        self.last_used_at = datetime.utcnow()
+        self.last_used_at = datetime.now(timezone.utc)
     
     def to_dict(self) -> dict[str, Any]:
         """Serialize to dict."""
@@ -185,7 +185,7 @@ class ApiKeyCredential:
     scopes: list[str]
     rate_limit: int | None = None  # Requests per minute
     expires_at: datetime | None = None
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     last_used_at: datetime | None = None
     status: CredentialStatus = CredentialStatus.ACTIVE
     metadata: dict[str, Any] = field(default_factory=dict)
@@ -194,11 +194,11 @@ class ApiKeyCredential:
         """Check if key has expired."""
         if self.expires_at is None:
             return False
-        return datetime.utcnow() > self.expires_at
+        return datetime.now(timezone.utc) > self.expires_at
     
     def touch(self) -> None:
         """Update last_used_at timestamp."""
-        self.last_used_at = datetime.utcnow()
+        self.last_used_at = datetime.now(timezone.utc)
     
     @staticmethod
     def generate_key(env: Literal["test", "live"] = "live") -> str:
@@ -254,7 +254,7 @@ class OAuthClient:
     token_endpoint_auth_method: Literal["client_secret_basic", "client_secret_post", "none"] = "client_secret_post"
     access_token_ttl: int = 3600      # 1 hour
     refresh_token_ttl: int = 2592000  # 30 days
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     status: CredentialStatus = CredentialStatus.ACTIVE
     metadata: dict[str, Any] = field(default_factory=dict)
     
@@ -323,7 +323,7 @@ class MFACredential:
     webauthn_credentials: list[dict[str, Any]] = field(default_factory=list)  # Public keys
     phone_number: str | None = None     # For SMS
     email: str | None = None            # For email OTP
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     verified_at: datetime | None = None
     last_used_at: datetime | None = None
     status: CredentialStatus = CredentialStatus.ACTIVE
@@ -334,7 +334,7 @@ class MFACredential:
     
     def touch(self) -> None:
         """Update last_used_at timestamp."""
-        self.last_used_at = datetime.utcnow()
+        self.last_used_at = datetime.now(timezone.utc)
     
     @staticmethod
     def generate_totp_secret() -> str:

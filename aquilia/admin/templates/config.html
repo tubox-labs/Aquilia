@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Configuration{% endblock %}
+{% block breadcrumb %}Configuration{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Configuration</h1>
+    <p>Workspace YAML configuration files and runtime settings.</p>
+</div>
+
+{# ── Config file tabs ── #}
+{% if config_files %}
+<div class="tab-nav" data-tab-group="config">
+    {% for cfg in config_files %}
+    <button class="tab-btn{{ ' active' if loop.first else '' }}" data-tab="{{ cfg.name }}" onclick="switchTab('config','{{ cfg.name }}')">
+        <i class="icon-file-text" style="font-size:14px;vertical-align:-2px;margin-right:4px;"></i>{{ cfg.name }}
+    </button>
+    {% endfor %}
+</div>
+
+{% for cfg in config_files %}
+<div class="tab-content{{ ' active' if loop.first else '' }}" data-tab-content="config" data-tab="{{ cfg.name }}">
+    <div class="code-block-container">
+        <div class="code-block-header">
+            <div class="dots">
+                <div class="dot dot-red"></div>
+                <div class="dot dot-yellow"></div>
+                <div class="dot dot-green"></div>
+            </div>
+            <span class="filename">{{ cfg.path }}</span>
+        </div>
+        <div class="code-block-body">
+            <pre>{{ cfg.content_highlighted|default(cfg.content)|safe }}</pre>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+{% else %}
+<div class="glass-card">
+    <div class="empty-state">
+        <i class="icon-settings" style="font-size:32px;display:block;margin-bottom:12px;opacity:0.3;"></i>
+        No configuration files found
+    </div>
+</div>
+{% endif %}
+
+{# ── Workspace info ── #}
+{% if workspace_info %}
+<div class="section-label" style="margin-top:36px;">Workspace</div>
+<div class="glass-card" style="padding:0;">
+    <div class="card-header">
+        <span class="card-title">{{ workspace_info.name|default('Workspace') }}</span>
+        <span class="meta-text">v{{ workspace_info.version|default('0.0.0') }}</span>
+    </div>
+    {% if workspace_info.modules %}
+    <div style="padding:16px 20px;">
+        <div class="section-title">Modules</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;">
+            {% for mod in workspace_info.modules %}
+            <span class="migration-model-tag">{{ mod }}</span>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+    {% if workspace_info.integrations %}
+    <div style="padding:0 20px 16px;">
+        <div class="section-title">Integrations</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;">
+            {% for intg in workspace_info.integrations %}
+            <span class="migration-model-tag">{{ intg }}</span>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+{% endblock %}

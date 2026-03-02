@@ -9,7 +9,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import asdict, dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from .tokens import KeyDescriptor
@@ -65,7 +65,7 @@ class KeyArtifact(CrousArtifact):
             artifact_type="auth_key",
             artifact_id=artifact_id,
             version=version,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
             created_by=created_by,
         )
         self.key_descriptor = key_descriptor
@@ -95,7 +95,7 @@ class PolicyArtifact(CrousArtifact):
             artifact_type="auth_policy",
             artifact_id=artifact_id,
             version=version,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
             created_by=created_by,
         )
         self.policy_id = policy_id
@@ -135,7 +135,7 @@ class AuditEventArtifact(CrousArtifact):
             artifact_type="audit_event",
             artifact_id=artifact_id,
             version=version,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
             created_by=created_by,
         )
         self.event_type = event_type

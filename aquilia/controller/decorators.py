@@ -12,6 +12,12 @@ import inspect
 
 F = TypeVar('F', bound=Callable[..., Any])
 
+# All valid HTTP methods the framework supports
+VALID_HTTP_METHODS = frozenset({
+    "GET", "POST", "PUT", "PATCH", "DELETE",
+    "HEAD", "OPTIONS", "TRACE", "WS",
+})
+
 
 class RouteDecorator:
     """
@@ -24,6 +30,7 @@ class RouteDecorator:
         self,
         path: Optional[str] = None,
         *,
+        method: Optional[str] = None,
         pipeline: Optional[List[Any]] = None,
         summary: Optional[str] = None,
         description: Optional[str] = None,
@@ -42,6 +49,9 @@ class RouteDecorator:
         pagination_class: Optional[type] = None,
         # ── Content Negotiation ──────────────────────────────────────
         renderer_classes: Optional[List[Any]] = None,
+        # ── Controller-level overrides ───────────────────────────────
+        throttle: Optional[Any] = None,
+        timeout: Optional[float] = None,
     ):
         """
         Initialize route decorator.
@@ -49,6 +59,7 @@ class RouteDecorator:
         Args:
             path: URL path template (e.g., "/", "/«id:int»")
                   If None, derives from method name
+            method: HTTP method (GET, POST, etc.) — set by subclasses
             pipeline: Method-level pipeline nodes (overrides class-level)
             summary: OpenAPI summary
             description: OpenAPI description
@@ -72,8 +83,11 @@ class RouteDecorator:
                               CursorPagination)
             renderer_classes: List of renderer instances/classes for
                               content negotiation
+            throttle: Per-route Throttle override
+            timeout: Per-route handler timeout override (seconds)
         """
         self.path = path
+        self.method: Optional[str] = method
         self.pipeline = pipeline or []
         self.summary = summary
         self.description = description
@@ -89,7 +103,8 @@ class RouteDecorator:
         self.ordering_fields = ordering_fields
         self.pagination_class = pagination_class
         self.renderer_classes = renderer_classes
-        self.method: Optional[str] = None
+        self.throttle = throttle
+        self.timeout = timeout
     
     def __call__(self, func: F) -> F:
         """
@@ -100,6 +115,11 @@ class RouteDecorator:
         # Attach metadata to function
         if not hasattr(func, '__route_metadata__'):
             func.__route_metadata__ = []
+        
+        # Deduplicate: don't add the same method+path twice
+        for existing in func.__route_metadata__:
+            if existing['http_method'] == self.method and existing['path'] == self.path:
+                return func
         
         metadata = {
             'http_method': self.method,
@@ -121,6 +141,8 @@ class RouteDecorator:
             'ordering_fields': self.ordering_fields,
             'pagination_class': self.pagination_class,
             'renderer_classes': self.renderer_classes,
+            'throttle': self.throttle,
+            'timeout': self.timeout,
         }
         
         func.__route_metadata__.append(metadata)
@@ -132,64 +154,63 @@ class GET(RouteDecorator):
     """GET request decorator."""
     
     def __init__(self, path: Optional[str] = None, **kwargs):
-        super().__init__(path, **kwargs)
-        self.method = 'GET'
+        super().__init__(path, method='GET', **kwargs)
 
 
 class POST(RouteDecorator):
     """POST request decorator."""
     
     def __init__(self, path: Optional[str] = None, **kwargs):
-        super().__init__(path, **kwargs)
-        self.method = 'POST'
+        super().__init__(path, method='POST', **kwargs)
 
 
 class PUT(RouteDecorator):
     """PUT request decorator."""
     
     def __init__(self, path: Optional[str] = None, **kwargs):
-        super().__init__(path, **kwargs)
-        self.method = 'PUT'
+        super().__init__(path, method='PUT', **kwargs)
 
 
 class PATCH(RouteDecorator):
     """PATCH request decorator."""
     
     def __init__(self, path: Optional[str] = None, **kwargs):
-        super().__init__(path, **kwargs)
-        self.method = 'PATCH'
+        super().__init__(path, method='PATCH', **kwargs)
 
 
 class DELETE(RouteDecorator):
     """DELETE request decorator."""
     
     def __init__(self, path: Optional[str] = None, **kwargs):
-        super().__init__(path, **kwargs)
-        self.method = 'DELETE'
+        super().__init__(path, method='DELETE', **kwargs)
 
 
 class HEAD(RouteDecorator):
     """HEAD request decorator."""
     
     def __init__(self, path: Optional[str] = None, **kwargs):
-        super().__init__(path, **kwargs)
-        self.method = 'HEAD'
+        super().__init__(path, method='HEAD', **kwargs)
 
 
 class OPTIONS(RouteDecorator):
     """OPTIONS request decorator."""
     
     def __init__(self, path: Optional[str] = None, **kwargs):
-        super().__init__(path, **kwargs)
-        self.method = 'OPTIONS'
+        super().__init__(path, method='OPTIONS', **kwargs)
+
+
+class TRACE(RouteDecorator):
+    """TRACE request decorator."""
+    
+    def __init__(self, path: Optional[str] = None, **kwargs):
+        super().__init__(path, method='TRACE', **kwargs)
 
 
 class WS(RouteDecorator):
     """WebSocket request decorator."""
     
     def __init__(self, path: Optional[str] = None, **kwargs):
-        super().__init__(path, **kwargs)
-        self.method = 'WS'
+        super().__init__(path, method='WS', **kwargs)
 
 
 def route(
@@ -216,19 +237,28 @@ def route(
     """
     methods = [method] if isinstance(method, str) else method
     
+    # Validate methods
+    _METHOD_MAP = {
+        'GET': GET,
+        'POST': POST,
+        'PUT': PUT,
+        'PATCH': PATCH,
+        'DELETE': DELETE,
+        'HEAD': HEAD,
+        'OPTIONS': OPTIONS,
+        'TRACE': TRACE,
+        'WS': WS,
+    }
+    
     def decorator(func: F) -> F:
         for http_method in methods:
-            decorator_cls = {
-                'GET': GET,
-                'POST': POST,
-                'PUT': PUT,
-                'PATCH': PATCH,
-                'DELETE': DELETE,
-                'HEAD': HEAD,
-                'OPTIONS': OPTIONS,
-                'WS': WS,
-            }.get(http_method.upper())
-            
+            upper = http_method.upper()
+            if upper not in VALID_HTTP_METHODS:
+                raise ValueError(
+                    f"Invalid HTTP method '{http_method}'. "
+                    f"Valid methods: {', '.join(sorted(VALID_HTTP_METHODS))}"
+                )
+            decorator_cls = _METHOD_MAP.get(upper)
             if decorator_cls:
                 func = decorator_cls(path, **kwargs)(func)
         

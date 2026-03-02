@@ -134,6 +134,49 @@ from .stores import (
     MemoryTokenStore,
 )
 
+# Clearance System (Unique Aquilia access control)
+from .clearance import (
+    AccessLevel,
+    Clearance,
+    ClearanceVerdict,
+    ClearanceEngine,
+    ClearanceGuard,
+    grant,
+    exempt,
+    # Built-in conditions
+    is_verified,
+    is_owner_or_admin,
+    within_quota,
+    is_same_tenant,
+    during_hours,
+    require_attribute,
+    ip_allowlist,
+)
+
+# Audit Trail
+from .audit import (
+    AuditEventType,
+    AuditSeverity,
+    AuditEvent,
+    AuditStore,
+    MemoryAuditStore,
+    LoggingAuditStore,
+    AuditTrail,
+)
+
+# Security Hardening
+from .hardening import (
+    constant_time_compare,
+    CSRFProtection,
+    RequestFingerprint,
+    SecurityHeaders,
+    TokenBinder,
+    generate_secure_token,
+    generate_opaque_id,
+    hash_token,
+    hash_sensitive,
+)
+
 
 __all__ = [
     # Core types
@@ -227,6 +270,39 @@ __all__ = [
     "MemoryIdentityStore",
     "MemoryCredentialStore",
     "MemoryTokenStore",
+    # Clearance System
+    "AccessLevel",
+    "Clearance",
+    "ClearanceVerdict",
+    "ClearanceEngine",
+    "ClearanceGuard",
+    "grant",
+    "exempt",
+    "is_verified",
+    "is_owner_or_admin",
+    "within_quota",
+    "is_same_tenant",
+    "during_hours",
+    "require_attribute",
+    "ip_allowlist",
+    # Audit Trail
+    "AuditEventType",
+    "AuditSeverity",
+    "AuditEvent",
+    "AuditStore",
+    "MemoryAuditStore",
+    "LoggingAuditStore",
+    "AuditTrail",
+    # Security Hardening
+    "constant_time_compare",
+    "CSRFProtection",
+    "RequestFingerprint",
+    "SecurityHeaders",
+    "TokenBinder",
+    "generate_secure_token",
+    "generate_opaque_id",
+    "hash_token",
+    "hash_sensitive",
 ]
 
 

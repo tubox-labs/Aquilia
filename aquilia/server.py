@@ -136,21 +136,6 @@ class AquiliaServer:
                     f"app={event.app_name}, error={event.error}"
                 )
         self.coordinator.on_event(_lifecycle_fault_observer)
-
-        # Connect lifecycle events to trace journal
-        def _lifecycle_trace_observer(event):
-            try:
-                phase_name = event.phase.value if event.phase else "unknown"
-                error_str = str(event.error) if event.error else None
-                self.trace.journal.record_phase(
-                    f"lifecycle:{phase_name}",
-                    app_name=event.app_name or "",
-                    error=error_str,
-                    detail=event.message,
-                )
-            except Exception:
-                pass  # Trace is non-fatal
-        self.coordinator.on_event(_lifecycle_trace_observer)
         
         # Initialize controller router and middleware
         self.controller_router = ControllerRouter()
@@ -171,12 +156,9 @@ class AquiliaServer:
         self.controller_engine = ControllerEngine(
             self.controller_factory,
             fault_engine=self.fault_engine,
+            effect_registry=None,  # Wired at startup after effects init
         )
         self.controller_compiler = ControllerCompiler()
-        
-        # Trace directory (.aquilia/)
-        from .trace import AquiliaTrace
-        self.trace = AquiliaTrace()
 
         # Track startup state
         self._startup_complete = False
@@ -1061,6 +1043,63 @@ class AquiliaServer:
             )
             return CookieTransport(transport_policy)
     
+    def _should_disable_secure_cookies(self) -> bool:
+        """
+        Detect whether ``cookie_secure`` should be forced to ``False``.
+
+        When running in dev mode on plain HTTP (e.g. ``http://localhost:8000``),
+        browsers silently refuse to send cookies marked ``Secure``.  This causes
+        session-based features (admin login, auth) to loop endlessly.
+
+        We disable ``Secure`` when ANY of these conditions is true:
+
+        * ``self._is_debug()`` returns True (dev mode)
+        * ``AQUILIA_ENV`` is ``"dev"`` or ``"development"``
+        * The server config has ``mode: dev`` or ``server.mode: dev``
+        * The configured host is ``127.0.0.1`` or ``localhost``
+        """
+        import os
+
+        if self._is_debug():
+            return True
+
+        env = os.environ.get("AQUILIA_ENV", "").lower()
+        if env in ("dev", "development", "test"):
+            return True
+
+        mode = self.config.get("mode", self.config.get("server.mode", ""))
+        if isinstance(mode, str) and mode.lower() in ("dev", "development", "test"):
+            return True
+
+        host = self.config.get("server.host", self.config.get("host", ""))
+        if isinstance(host, str) and host in ("127.0.0.1", "localhost", "0.0.0.0"):
+            return True
+
+        return False
+
+    def _apply_dev_cookie_override(self, transport) -> None:
+        """
+        If running in dev mode, force ``cookie_secure=False`` on the
+        transport's underlying policy so browsers accept cookies over
+        plain HTTP.
+        """
+        if not self._should_disable_secure_cookies():
+            return
+
+        policy = getattr(transport, "policy", None)
+        if policy is None:
+            return
+
+        if getattr(policy, "cookie_secure", False):
+            try:
+                object.__setattr__(policy, "cookie_secure", False)
+            except (AttributeError, TypeError, Exception):
+                pass  # frozen dataclass — can't patch
+            self.logger.info(
+                "Dev mode detected — set cookie_secure=False for session cookies "
+                "(browsers reject Secure cookies over plain HTTP)"
+            )
+
     def _create_session_engine(self, session_config: dict):
         """
         Create SessionEngine from configuration.
@@ -1132,6 +1171,8 @@ class AquiliaServer:
             else:
                 transport = transport_config
             
+            self._apply_dev_cookie_override(transport)
+
             self.logger.info(
                 f"SessionEngine initialized (Integration format): policy={policy.name}, "
                 f"store={type(store).__name__}, transport={type(transport).__name__}"
@@ -1180,6 +1221,9 @@ class AquiliaServer:
             
             # Resolve transport from TransportPolicy object on the policy
             transport = self._resolve_transport_from_policy(policy.transport)
+
+            # Dev mode: disable cookie_secure so sessions work on http://localhost
+            self._apply_dev_cookie_override(transport)
             
             engine = SessionEngine(policy=policy, store=store, transport=transport)
             
@@ -1238,6 +1282,9 @@ class AquiliaServer:
         
         # Resolve transport using the canonical resolver
         transport = self._resolve_transport_from_policy(policy.transport)
+
+        # Dev mode: disable cookie_secure so sessions work on http://localhost
+        self._apply_dev_cookie_override(transport)
         
         # Create engine
         engine = SessionEngine(
@@ -1554,6 +1601,228 @@ class AquiliaServer:
             f"{openapi_config.redoc_path} (ReDoc) | "
             f"{openapi_config.openapi_json_path} (JSON)"
         )
+
+    def _wire_admin_integration(self):
+        """
+        Wire the AdminController routes into the controller router.
+
+        Reads the admin integration config from ``self.config["integrations"]["admin"]``
+        and mounts all AdminController routes using the same CompiledRoute injection
+        pattern as ``_register_docs_routes()``.
+
+        This is the critical bridge between ``Workspace.integrate(Integration.admin(...))``
+        and actual HTTP route serving.
+        """
+        admin_config = self.config.get("integrations", {}).get("admin", {})
+        if not admin_config:
+            return
+
+        url_prefix = admin_config.get("url_prefix", "/admin").rstrip("/")
+        site_title = admin_config.get("site_title", "Aquilia Admin")
+        auto_discover = admin_config.get("auto_discover", True)
+
+        try:
+            from .admin.controller import AdminController
+            from .admin.site import AdminSite
+            from .controller.metadata import RouteMetadata
+            from .controller.compiler import CompiledRoute
+            from .patterns import parse_pattern, PatternCompiler
+
+            pc = PatternCompiler()
+
+            # Configure the AdminSite singleton
+            site = AdminSite.default()
+            site.title = site_title
+            site.url_prefix = url_prefix
+            if auto_discover:
+                site.initialize()
+
+            # Create a controller instance
+            ctrl = AdminController(site=site)
+
+            # Define all admin routes: (method, path, handler_name, handler_func)
+            # Static routes MUST appear before dynamic /{model}/ routes so the
+            # router indexes them in _static_routes (O(1) lookup) and they are
+            # never shadowed by the <model:str> catch-all.
+            admin_routes = [
+                ("GET",  f"{url_prefix}/",                  "dashboard",        ctrl.dashboard),
+                ("GET",  f"{url_prefix}/login",             "login_page",       ctrl.login_page),
+                ("POST", f"{url_prefix}/login",             "login_submit",     ctrl.login_submit),
+                ("GET",  f"{url_prefix}/logout",            "logout",           ctrl.logout),
+                ("GET",  f"{url_prefix}/orm/",              "orm_view",         ctrl.orm_view),
+                ("GET",  f"{url_prefix}/build/",            "build_view",       ctrl.build_view),
+                ("GET",  f"{url_prefix}/migrations/",       "migrations_view",  ctrl.migrations_view),
+                ("GET",  f"{url_prefix}/config/",           "config_view",      ctrl.config_view),
+                ("GET",  f"{url_prefix}/permissions/",      "permissions_view", ctrl.permissions_view),
+                ("POST", f"{url_prefix}/permissions/update", "permissions_update", ctrl.permissions_update),
+                ("GET",  f"{url_prefix}/audit/",            "audit_view",       ctrl.audit_view),
+                ("GET",  f"{url_prefix}/<model:str>/export", "export_view",     ctrl.export_view),
+                ("POST", f"{url_prefix}/<model:str>/action", "bulk_action",     ctrl.bulk_action),
+                ("GET",  f"{url_prefix}/<model:str>/",      "list_view",        ctrl.list_view),
+                ("GET",  f"{url_prefix}/<model:str>/add",   "add_form",         ctrl.add_form),
+                ("POST", f"{url_prefix}/<model:str>/add",   "add_submit",       ctrl.add_submit),
+                ("GET",  f"{url_prefix}/<model:str>/<pk:str>",        "edit_form",      ctrl.edit_form),
+                ("POST", f"{url_prefix}/<model:str>/<pk:str>",        "edit_submit",    ctrl.edit_submit),
+                ("POST", f"{url_prefix}/<model:str>/<pk:str>/delete", "delete_record",  ctrl.delete_record),
+            ]
+
+            registered_count = 0
+            for method, path, handler_name, handler_func in admin_routes:
+                try:
+                    route = CompiledRoute(
+                        controller_class=AdminController,
+                        controller_metadata=None,
+                        route_metadata=RouteMetadata(
+                            http_method=method,
+                            path_template=path,
+                            full_path=path,
+                            handler_name=handler_name,
+                        ),
+                        compiled_pattern=pc.compile(parse_pattern(path)),
+                        full_path=path,
+                        http_method=method,
+                        specificity=1000,
+                    )
+                    route.handler = handler_func
+                    self.controller_router.routes_by_method.setdefault(method, []).append(route)
+                    registered_count += 1
+                except Exception as e:
+                    self.logger.warning(f"Failed to register admin route {method} {path}: {e}")
+
+            # Re-initialize the router to rebuild indexes
+            self.controller_router._initialized = False
+            self.controller_router.initialize()
+
+            # ── Validate admin prerequisites ─────────────────────────────
+            # The admin controller REQUIRES sessions to store the login
+            # identity.  Warn loudly if sessions are not configured.
+            self._validate_admin_prerequisites()
+
+            # ── Auto-register assets/ as /static if not already served ────
+            # The admin templates reference /static/logo.png and
+            # /static/favicon.ico.  If the user hasn't mapped an "assets"
+            # directory we inject it automatically.
+            self._ensure_admin_static_assets()
+
+            self.logger.info(
+                f"🛡️  Admin integration wired: {registered_count} routes at {url_prefix}/ "
+                f"(site: {site_title!r})"
+            )
+
+        except ImportError as e:
+            self.logger.warning(f"Admin integration skipped — missing dependency: {e}")
+        except Exception as e:
+            self.logger.error(f"Admin integration failed: {e}", exc_info=True)
+
+    def _validate_admin_prerequisites(self) -> None:
+        """
+        Validate that admin prerequisites are met.
+
+        The admin controller REQUIRES sessions (or auth, which implies
+        sessions) to store the ``_admin_identity`` cookie across
+        requests.  If neither is configured we emit a loud warning so
+        the developer knows *why* login fails.
+
+        Run ``aq admin check`` before ``aq run`` to catch this early.
+        """
+        has_session_engine = getattr(self, "_session_engine", None) is not None
+
+        existing_names = {
+            getattr(desc, "name", None)
+            for desc in getattr(self.middleware_stack, "middlewares", [])
+        }
+        has_session_mw = "session" in existing_names or "auth" in existing_names
+
+        if has_session_engine or has_session_mw:
+            return  # All good
+
+        # ANSI yellow escape codes for terminal colouring
+        _Y = "\033[33m"  # yellow
+        _B = "\033[1m"   # bold
+        _R = "\033[0m"   # reset
+
+        self.logger.warning(
+            f"\n"
+            f"  {_Y}╔══════════════════════════════════════════════════════════════╗{_R}\n"
+            f"  {_Y}║{_R}  {_B}{_Y}ADMIN: Sessions are NOT configured!{_R}                       {_Y}║{_R}\n"
+            f"  {_Y}║{_R}                                                            {_Y}║{_R}\n"
+            f"  {_Y}║{_R}  The admin dashboard requires sessions to store login      {_Y}║{_R}\n"
+            f"  {_Y}║{_R}  state.  Without it, login will redirect in a loop.        {_Y}║{_R}\n"
+            f"  {_Y}║{_R}                                                            {_Y}║{_R}\n"
+            f"  {_Y}║{_R}  Fix:  Run {_B}'aq admin setup'{_R} to auto-configure              {_Y}║{_R}\n"
+            f"  {_Y}║{_R}  Or:   Uncomment .sessions(...) in workspace.py            {_Y}║{_R}\n"
+            f"  {_Y}║{_R}  Or:   Enable .integrate(Integration.auth(...))            {_Y}║{_R}\n"
+            f"  {_Y}║{_R}                                                            {_Y}║{_R}\n"
+            f"  {_Y}║{_R}  Run {_B}'aq admin check'{_R} for a full prerequisites report.     {_Y}║{_R}\n"
+            f"  {_Y}╚══════════════════════════════════════════════════════════════╝{_R}"
+        )
+
+    def _ensure_admin_static_assets(self) -> None:
+        """
+        Ensure ``assets/`` directory is served under ``/static`` so that
+        the admin templates can reference ``/static/logo.png`` and
+        ``/static/favicon.ico``.
+
+        If a ``StaticMiddleware`` is already configured and includes
+        the project ``assets/`` dir, this is a no-op.  Otherwise, the
+        ``assets/`` directory is added as a fallback lookup path to the
+        existing middleware, or a minimal static handler is installed.
+        """
+        import pathlib
+        from pathlib import Path
+
+        # Find the project root (CWD or parent of aquilia package)
+        candidates = [
+            pathlib.Path.cwd() / "assets",
+            pathlib.Path(__file__).resolve().parent.parent / "assets",
+        ]
+        assets_dir = None
+        for candidate in candidates:
+            if candidate.is_dir():
+                assets_dir = candidate.resolve()
+                break
+
+        if assets_dir is None:
+            return
+
+        # Check if /static already maps to assets/
+        existing_mw = getattr(self, "_static_middleware", None)
+        if existing_mw is not None:
+            # Check if the primary /static directory IS already assets/
+            primary_dirs = getattr(existing_mw, "_directories", {})
+            if "/static" in primary_dirs:
+                if primary_dirs["/static"].resolve() == assets_dir:
+                    return  # Already mapped
+
+            # Add assets_dir as a fallback directory for /static prefix.
+            # StaticMiddleware stores fallbacks in ``_fallback_dirs`` as
+            # Dict[str, List[Path]].  When a file is NOT found in the
+            # primary directory, it searches these fallbacks in order.
+            fallbacks = getattr(existing_mw, "_fallback_dirs", {})
+            fb_list = fallbacks.setdefault("/static", [])
+            if assets_dir not in fb_list:
+                fb_list.append(assets_dir)
+                self.logger.info(
+                    f"Added {assets_dir} as fallback for /static "
+                    f"(admin assets)"
+                )
+            return
+
+        # No static middleware exists — install a minimal one
+        try:
+            from .middleware_ext.static import StaticMiddleware
+            mw = StaticMiddleware(
+                directories={"/static": str(assets_dir)},
+                cache_max_age=86400,
+                etag=True,
+                gzip=False,
+                brotli=False,
+                memory_cache=False,
+            )
+            self.middleware_stack.add(mw, scope="global", priority=6, name="static_files")
+            self._static_middleware = mw
+        except ImportError:
+            pass
 
     async def _load_socket_controllers(self):
         """Load and register WebSocket controllers."""
@@ -2175,182 +2444,141 @@ class AquiliaServer:
             self.logger.info("Performing runtime auto-discovery...")
             _t0 = _time.monotonic()
             self.runtime.perform_autodiscovery()
-            self.trace.journal.record_phase(
-                "autodiscovery",
-                duration_ms=(_time.monotonic() - _t0) * 1000,
-            )
+            self.logger.debug(f"Autodiscovery completed in {(_time.monotonic() - _t0) * 1000:.1f}ms")
             
             # Step 1: Load and compile controllers
             self.logger.info("Loading controllers from manifests...")
             _t0 = _time.monotonic()
             await self._load_controllers()
-            self.trace.journal.record_phase(
-                "controllers_loaded",
-                duration_ms=(_time.monotonic() - _t0) * 1000,
-            )
+            self.logger.debug(f"Controllers loaded in {(_time.monotonic() - _t0) * 1000:.1f}ms")
+
+            # Step 1.5: Wire admin integration (if configured)
+            _t0 = _time.monotonic()
+            self._wire_admin_integration()
+            self.logger.debug(f"Admin integration in {(_time.monotonic() - _t0) * 1000:.1f}ms")
         
-        # Step 2: Compile routes (includes service registration and handler wrapping)
-        self.logger.info("Compiling routes with DI integration...")
-        _t0 = _time.monotonic()
-        self.runtime.compile_routes()
-        self.trace.journal.record_phase(
-            "routes_compiled",
-            duration_ms=(_time.monotonic() - _t0) * 1000,
-        )
-        
-        # Step 3: Start lifecycle (runs app startup hooks in dependency order)
-        self.logger.info("Starting app lifecycle hooks...")
-        _t0 = _time.monotonic()
-        try:
-            await self.coordinator.startup()
-            self.trace.journal.record_phase(
-                "lifecycle_started",
-                duration_ms=(_time.monotonic() - _t0) * 1000,
-            )
-        except Exception as e:
-            from .lifecycle import LifecycleError
-            self.logger.error(f"Lifecycle startup failed: {e}")
-            self.trace.journal.record_phase(
-                "lifecycle_started",
-                error=str(e),
-                duration_ms=(_time.monotonic() - _t0) * 1000,
-            )
-            raise LifecycleError(f"Startup failed: {e}") from e
-        
-        # Step 3.1: Register AMDL models from apps (if any .amdl files exist)
-        _t0 = _time.monotonic()
-        await self._register_amdl_models()
-        self.trace.journal.record_phase(
-            "models_registered",
-            duration_ms=(_time.monotonic() - _t0) * 1000,
-        )
-        
-        # Step 3.2: Start mail subsystem (connect providers)
-        if hasattr(self, '_mail_service') and self._mail_service is not None:
+            # Step 2: Compile routes (includes service registration and handler wrapping)
+            self.logger.info("Compiling routes with DI integration...")
+            _t0 = _time.monotonic()
+            self.runtime.compile_routes()
+            self.logger.debug(f"Routes compiled in {(_time.monotonic() - _t0) * 1000:.1f}ms")
+            
+            # Step 3: Start lifecycle (runs app startup hooks in dependency order)
+            self.logger.info("Starting app lifecycle hooks...")
             _t0 = _time.monotonic()
             try:
-                await self._mail_service.on_startup()
-                self.trace.journal.record_phase(
-                    "mail_started",
-                    duration_ms=(_time.monotonic() - _t0) * 1000,
-                )
+                await self.coordinator.startup()
+                self.logger.debug(f"Lifecycle started in {(_time.monotonic() - _t0) * 1000:.1f}ms")
             except Exception as e:
-                self.logger.error(f"Mail startup failed: {e}")
-                self.trace.journal.record_phase(
-                    "mail_started",
-                    error=str(e),
-                    duration_ms=(_time.monotonic() - _t0) * 1000,
-                )
-                # Non-fatal — app can run without mail
-
-        # Step 3.5: Register effects from manifests and initialize providers
-        self.logger.info("Registering and initializing effect providers...")
-        _t0 = _time.monotonic()
-        self.runtime._register_effects()
-        try:
-            from .effects import EffectRegistry
-            # Retrieve the SAME EffectRegistry from DI (registered in __init__)
-            base_container = self._get_base_container()
-            try:
-                effect_registry = await base_container.resolve_async(EffectRegistry, optional=True)
-            except Exception:
-                effect_registry = None
+                from .lifecycle import LifecycleError
+                self.logger.error(f"Lifecycle startup failed: {e}")
+                raise LifecycleError(f"Startup failed: {e}") from e
             
-            if effect_registry is None:
-                effect_registry = EffectRegistry()
-            
-            await effect_registry.initialize_all()
-            self._effect_registry = effect_registry
-            self.logger.info(f"Effect providers initialized ({len(effect_registry.providers)} registered)")
-            self.trace.journal.record_phase(
-                "effects_initialized",
-                duration_ms=(_time.monotonic() - _t0) * 1000,
-                detail=f"{len(effect_registry.providers)} providers",
-            )
-        except Exception as e:
-            self._effect_registry = None
-            self.logger.debug(f"No effect providers to initialize: {e}")
-            self.trace.journal.record_phase(
-                "effects_initialized",
-                duration_ms=(_time.monotonic() - _t0) * 1000,
-                detail="none",
-            )
-        
-        # Step 3.6: Initialize cache subsystem (connect backend)
-        if hasattr(self, '_cache_service') and self._cache_service is not None:
+            # Step 3.1: Register AMDL models from apps (if any .amdl files exist)
             _t0 = _time.monotonic()
+            await self._register_amdl_models()
+            self.logger.debug(f"Models registered in {(_time.monotonic() - _t0) * 1000:.1f}ms")
+            
+            # Step 3.2: Start mail subsystem (connect providers)
+            if hasattr(self, '_mail_service') and self._mail_service is not None:
+                _t0 = _time.monotonic()
+                try:
+                    await self._mail_service.on_startup()
+                    self.logger.debug(f"Mail started in {(_time.monotonic() - _t0) * 1000:.1f}ms")
+                except Exception as e:
+                    self.logger.error(f"Mail startup failed: {e}")
+                    # Non-fatal — app can run without mail
+
+            # Step 3.5: Register effects from manifests and initialize providers
+            self.logger.info("Registering and initializing effect providers...")
+            _t0 = _time.monotonic()
+            self.runtime._register_effects()
             try:
-                await self._cache_service.initialize()
-                self.logger.info("🗄️  Cache backend connected")
-                self.trace.journal.record_phase(
-                    "cache_started",
-                    duration_ms=(_time.monotonic() - _t0) * 1000,
-                )
+                from .effects import EffectRegistry
+                # Retrieve the SAME EffectRegistry from DI (registered in __init__)
+                base_container = self._get_base_container()
+                try:
+                    effect_registry = await base_container.resolve_async(EffectRegistry, optional=True)
+                except Exception:
+                    effect_registry = None
+                
+                if effect_registry is None:
+                    effect_registry = EffectRegistry()
+                
+                await effect_registry.initialize_all()
+                self._effect_registry = effect_registry
+
+                # Wire effect registry into controller engine for FlowPipeline
+                if hasattr(self, 'controller_engine') and self.controller_engine:
+                    self.controller_engine.effect_registry = effect_registry
+
+                self.logger.info(f"Effect providers initialized ({len(effect_registry.providers)} registered)")
+                self.logger.debug(f"Effects initialized in {(_time.monotonic() - _t0) * 1000:.1f}ms")
             except Exception as e:
-                self.logger.error(f"Cache startup failed: {e}")
-                self.trace.journal.record_phase(
-                    "cache_started",
-                    error=str(e),
-                    duration_ms=(_time.monotonic() - _t0) * 1000,
-                )
-                # Non-fatal — app can run without cache
+                self._effect_registry = None
+                self.logger.debug(f"No effect providers to initialize: {e}")
+            
+            # Step 3.6: Initialize cache subsystem (connect backend)
+            if hasattr(self, '_cache_service') and self._cache_service is not None:
+                _t0 = _time.monotonic()
+                try:
+                    await self._cache_service.initialize()
+                    self.logger.info("🗄️  Cache backend connected")
+                    self.logger.debug(f"Cache started in {(_time.monotonic() - _t0) * 1000:.1f}ms")
+                except Exception as e:
+                    self.logger.error(f"Cache startup failed: {e}")
+                    # Non-fatal — app can run without cache
 
-        # Step 4: Log registered routes
-        routes = self.controller_router.get_routes()
-        if routes:
-            self.logger.info(f"Registered {len(routes)} controller routes:")
-            for route in routes[:10]:  # Show first 10
-                self.logger.info(
-                    f"  {route.get('method', 'GET'):7} "
-                    f"{route.get('path', '/'):30} "
-                    f"-> {route.get('handler', 'unknown')}"
-                )
-            if len(routes) > 10:
-                self.logger.info(f"  ... and {len(routes) - 10} more")
-        
-        # Log DI container information
-        total_services = sum(
-            len(container._providers)
-            for container in self.runtime.di_containers.values()
-        )
-        self.logger.info(f"DI containers: {len(self.runtime.di_containers)} apps, {total_services} services")
-        
-        # Mark startup complete
-        self._startup_complete = True
+            # Step 4: Log registered routes
+            routes = self.controller_router.get_routes()
+            if routes:
+                self.logger.info(f"Registered {len(routes)} controller routes:")
+                for route in routes[:10]:  # Show first 10
+                    self.logger.info(
+                        f"  {route.get('method', 'GET'):7} "
+                        f"{route.get('path', '/'):30} "
+                        f"-> {route.get('handler', 'unknown')}"
+                    )
+                if len(routes) > 10:
+                    self.logger.info(f"  ... and {len(routes) - 10} more")
+            
+            # Log DI container information
+            total_services = sum(
+                len(container._providers)
+                for container in self.runtime.di_containers.values()
+            )
+            self.logger.info(f"DI containers: {len(self.runtime.di_containers)} apps, {total_services} services")
+            
+            # Mark startup complete
+            self._startup_complete = True
+            _startup_ms = (_time.monotonic() - _boot_t0) * 1000
+            self.logger.info(f"⚡ Server startup completed in {_startup_ms:.0f}ms")
 
-        # Step 5: Trace snapshot — write .aquilia/ directory
-        _startup_ms = (_time.monotonic() - _boot_t0) * 1000
-        try:
-            self.trace.snapshot(self, startup_duration_ms=_startup_ms)
-            self.logger.info(f"📋 Trace snapshot written to {self.trace.root}")
-        except Exception as e:
-            self.logger.warning(f"Trace snapshot failed (non-fatal): {e}")
-
-        # v2: Register subsystem health statuses
-        self.health_registry.register("aquilary", HealthStatus(
-            name="aquilary", status=SubsystemStatus.HEALTHY,
-            message=f"{len(self.runtime.meta.app_contexts)} apps loaded",
-        ))
-        self.health_registry.register("routing", HealthStatus(
-            name="routing", status=SubsystemStatus.HEALTHY,
-            message=f"{len(routes) if routes else 0} routes compiled",
-        ))
-        self.health_registry.register("di", HealthStatus(
-            name="di", status=SubsystemStatus.HEALTHY,
-            message=f"{total_services} services registered",
-        ))
-        if hasattr(self, '_cache_service') and self._cache_service is not None:
-            self.health_registry.register("cache", HealthStatus(
-                name="cache", status=SubsystemStatus.HEALTHY,
+            # v2: Register subsystem health statuses
+            self.health_registry.register("aquilary", HealthStatus(
+                name="aquilary", status=SubsystemStatus.HEALTHY,
+                message=f"{len(self.runtime.meta.app_contexts)} apps loaded",
             ))
-        if hasattr(self, '_mail_service') and self._mail_service is not None:
-            self.health_registry.register("mail", HealthStatus(
-                name="mail", status=SubsystemStatus.HEALTHY,
+            self.health_registry.register("routing", HealthStatus(
+                name="routing", status=SubsystemStatus.HEALTHY,
+                message=f"{len(routes) if routes else 0} routes compiled",
             ))
+            self.health_registry.register("di", HealthStatus(
+                name="di", status=SubsystemStatus.HEALTHY,
+                message=f"{total_services} services registered",
+            ))
+            if hasattr(self, '_cache_service') and self._cache_service is not None:
+                self.health_registry.register("cache", HealthStatus(
+                    name="cache", status=SubsystemStatus.HEALTHY,
+                ))
+            if hasattr(self, '_mail_service') and self._mail_service is not None:
+                self.health_registry.register("mail", HealthStatus(
+                    name="mail", status=SubsystemStatus.HEALTHY,
+                ))
 
-        self.logger.info(f"✅ Server ready with {len(self.runtime.meta.app_contexts)} apps ({_startup_ms:.0f}ms)")
-        overall = self.health_registry.overall()
-        self.logger.info(f"🏥 Health: {overall.status.value} — {overall.message}")
+            self.logger.info(f"✅ Server ready with {len(self.runtime.meta.app_contexts)} apps ({_startup_ms:.0f}ms)")
+            overall = self.health_registry.overall()
+            self.logger.info(f"🏥 Health: {overall.status.value} — {overall.message}")
     
     async def shutdown(self):
         """
@@ -2374,10 +2602,7 @@ class AquiliaServer:
         # Run lifecycle shutdown hooks
         _t0 = _time.monotonic()
         await self.coordinator.shutdown()
-        self.trace.journal.record_phase(
-            "lifecycle_shutdown",
-            duration_ms=(_time.monotonic() - _t0) * 1000,
-        )
+        self.logger.debug(f"Lifecycle shutdown in {(_time.monotonic() - _t0) * 1000:.1f}ms")
         
         # Shutdown mail subsystem
         if hasattr(self, '_mail_service') and self._mail_service is not None:
@@ -2385,17 +2610,8 @@ class AquiliaServer:
             try:
                 await self._mail_service.on_shutdown()
                 self.logger.info("Mail subsystem shut down")
-                self.trace.journal.record_phase(
-                    "mail_shutdown",
-                    duration_ms=(_time.monotonic() - _t0) * 1000,
-                )
             except Exception as e:
                 self.logger.warning(f"Error shutting down mail subsystem: {e}")
-                self.trace.journal.record_phase(
-                    "mail_shutdown",
-                    error=str(e),
-                    duration_ms=(_time.monotonic() - _t0) * 1000,
-                )
 
         # Shutdown cache subsystem
         if hasattr(self, '_cache_service') and self._cache_service is not None:
@@ -2403,17 +2619,8 @@ class AquiliaServer:
             try:
                 await self._cache_service.shutdown()
                 self.logger.info("🗄️  Cache subsystem shut down")
-                self.trace.journal.record_phase(
-                    "cache_shutdown",
-                    duration_ms=(_time.monotonic() - _t0) * 1000,
-                )
             except Exception as e:
                 self.logger.warning(f"Error shutting down cache subsystem: {e}")
-                self.trace.journal.record_phase(
-                    "cache_shutdown",
-                    error=str(e),
-                    duration_ms=(_time.monotonic() - _t0) * 1000,
-                )
 
         # Cleanup DI containers
         _t0 = _time.monotonic()
@@ -2423,14 +2630,7 @@ class AquiliaServer:
                 self.logger.debug(f"Cleaned up DI container for app '{app_name}'")
             except Exception as e:
                 self.logger.warning(f"Error cleaning up container for '{app_name}': {e}")
-                self.trace.journal.record_warning(
-                    f"DI cleanup error for '{app_name}': {e}",
-                    context="di_cleanup",
-                )
-        self.trace.journal.record_phase(
-            "di_cleanup",
-            duration_ms=(_time.monotonic() - _t0) * 1000,
-        )
+        self.logger.debug(f"DI cleanup in {(_time.monotonic() - _t0) * 1000:.1f}ms")
         
         # Finalize effect providers
         if hasattr(self, '_effect_registry') and self._effect_registry:
@@ -2438,17 +2638,8 @@ class AquiliaServer:
             try:
                 await self._effect_registry.finalize_all()
                 self.logger.info("Effect providers finalized")
-                self.trace.journal.record_phase(
-                    "effects_finalized",
-                    duration_ms=(_time.monotonic() - _t0) * 1000,
-                )
             except Exception as e:
                 self.logger.warning(f"Error finalizing effect providers: {e}")
-                self.trace.journal.record_phase(
-                    "effects_finalized",
-                    error=str(e),
-                    duration_ms=(_time.monotonic() - _t0) * 1000,
-                )
         
         # Shutdown WebSocket runtime
         if hasattr(self, 'aquila_sockets') and self.aquila_sockets:
@@ -2456,17 +2647,8 @@ class AquiliaServer:
             try:
                 await self.aquila_sockets.shutdown()
                 self.logger.info("WebSocket runtime shut down")
-                self.trace.journal.record_phase(
-                    "websocket_shutdown",
-                    duration_ms=(_time.monotonic() - _t0) * 1000,
-                )
             except Exception as e:
                 self.logger.warning(f"Error shutting down WebSocket runtime: {e}")
-                self.trace.journal.record_phase(
-                    "websocket_shutdown",
-                    error=str(e),
-                    duration_ms=(_time.monotonic() - _t0) * 1000,
-                )
 
         # Disconnect AMDL database if connected
         if hasattr(self, '_amdl_database') and self._amdl_database:
@@ -2474,26 +2656,9 @@ class AquiliaServer:
             try:
                 await self._amdl_database.disconnect()
                 self.logger.info("AMDL database disconnected")
-                self.trace.journal.record_phase(
-                    "db_disconnect",
-                    duration_ms=(_time.monotonic() - _t0) * 1000,
-                )
             except Exception as e:
                 self.logger.warning(f"Error disconnecting AMDL database: {e}")
-                self.trace.journal.record_phase(
-                    "db_disconnect",
-                    error=str(e),
-                    duration_ms=(_time.monotonic() - _t0) * 1000,
-                )
 
-        # Trace shutdown snapshot
-        if hasattr(self, 'trace'):
-            try:
-                self.trace.snapshot_shutdown(self)
-                self.logger.info("📋 Trace shutdown snapshot written")
-            except Exception as e:
-                self.logger.warning(f"Trace shutdown snapshot failed (non-fatal): {e}")
-        
         # Reset startup state
         self._startup_complete = False
         self.logger.info("✅ All apps stopped")
@@ -2529,9 +2694,9 @@ class AquiliaServer:
                 f"⏳ Draining {self._inflight_requests} in-flight requests "
                 f"(timeout: {timeout}s)..."
             )
-            deadline = asyncio.get_event_loop().time() + timeout
+            deadline = asyncio.get_running_loop().time() + timeout
             while self._inflight_requests > 0:
-                if asyncio.get_event_loop().time() > deadline:
+                if asyncio.get_running_loop().time() > deadline:
                     self.logger.warning(
                         f"⚠️ Forced shutdown — {self._inflight_requests} "
                         f"requests still in-flight after {timeout}s"
@@ -2561,32 +2726,11 @@ class AquiliaServer:
             log_level: Logging level
             graceful_timeout: Seconds to wait for in-flight requests on shutdown
         """
-        import asyncio
-        import signal
-        
         # Setup logging
         logging.basicConfig(
             level=getattr(logging, log_level.upper()),
             format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         )
-        
-        # Run startup
-        asyncio.run(self.startup())
-        
-        # Install signal handlers for graceful shutdown
-        loop = asyncio.new_event_loop()
-        
-        def _signal_handler(signum, frame):
-            self.logger.info(f"Received signal {signal.Signals(signum).name}")
-            loop.call_soon_threadsafe(
-                loop.create_task, self.graceful_shutdown(graceful_timeout)
-            )
-        
-        try:
-            signal.signal(signal.SIGTERM, _signal_handler)
-            signal.signal(signal.SIGINT, _signal_handler)
-        except (OSError, ValueError):
-            pass  # Signal handling not available (e.g., non-main thread)
         
         try:
             # Try to import uvicorn
@@ -2594,6 +2738,8 @@ class AquiliaServer:
             
             self.logger.info(f"Starting uvicorn server on {host}:{port}")
             
+            # uvicorn manages the event loop and lifespan (startup/shutdown)
+            # via the ASGI lifespan protocol — no need to call startup() manually
             uvicorn.run(
                 self.app,
                 host=host,
@@ -2608,10 +2754,6 @@ class AquiliaServer:
                 "Install it with: pip install uvicorn"
             )
             raise
-        
-        finally:
-            # Run graceful shutdown
-            asyncio.run(self.graceful_shutdown(graceful_timeout))
     
     def get_asgi_app(self):
         """Get the ASGI application for external servers."""

@@ -193,7 +193,17 @@ class AquilaryRegistry:
             "route_index": self._route_index,
         }
         
-        Path(path).write_text(json.dumps(frozen, indent=2, sort_keys=True))
+        out = Path(path)
+        # Write as Crous binary if available, otherwise JSON
+        try:
+            try:
+                import _crous_native as crous_backend
+            except ImportError:
+                import crous as crous_backend
+            out = out.with_suffix(".crous") if not out.suffix == ".crous" else out
+            out.write_bytes(crous_backend.encode(frozen))
+        except ImportError:
+            out.write_text(json.dumps(frozen, indent=2, sort_keys=True))
 
 
 class Aquilary:
@@ -330,11 +340,26 @@ class Aquilary:
         config: Any,
         mode: RegistryMode,
     ) -> AquilaryRegistry:
-        """Load registry from frozen manifest file."""
-        import json
+        """Load registry from frozen manifest file (.crous or .json)."""
         from pathlib import Path
         
-        data = json.loads(Path(path).read_text())
+        manifest_path = Path(path)
+        
+        # Try Crous binary first, then JSON fallback
+        if manifest_path.suffix == ".crous" or manifest_path.with_suffix(".crous").exists():
+            crous_path = manifest_path if manifest_path.suffix == ".crous" else manifest_path.with_suffix(".crous")
+            try:
+                try:
+                    import _crous_native as crous_backend
+                except ImportError:
+                    import crous as crous_backend
+                data = crous_backend.decode(crous_path.read_bytes())
+            except (ImportError, Exception):
+                import json
+                data = json.loads(manifest_path.read_text())
+        else:
+            import json
+            data = json.loads(manifest_path.read_text())
         
         # Reconstruct app contexts from frozen data
         app_contexts = []
@@ -467,7 +492,8 @@ class RuntimeRegistry:
                         ctx.controllers.append(path)
                         
             except Exception as e:
-                print(f"Discovery warning for {ctx.name}: {e}")
+                import logging as _log
+                _log.getLogger('aquilia.aquilary').debug(f"Discovery warning for {ctx.name}: {e}")
 
             # 2. Discover Services (Recursive)
             try:
@@ -518,7 +544,8 @@ class RuntimeRegistry:
             try:
                 self._discover_amdl_models(ctx)
             except Exception as e:
-                print(f"Model discovery warning for {ctx.name}: {e}")
+                import logging as _log
+                _log.getLogger('aquilia.aquilary').debug(f"Model discovery warning for {ctx.name}: {e}")
     
     def compile_routes(self) -> None:
         """
@@ -705,10 +732,11 @@ class RuntimeRegistry:
                 isinstance(attr, type)
                 and issubclass(attr, Model)
                 and attr is not Model
-                and not getattr(attr, '_meta', None) or (
-                    hasattr(attr, '_meta') and not getattr(attr._meta, 'abstract', False)
-                )
             ):
+                # Skip abstract models
+                meta = getattr(attr, '_meta', None)
+                if meta is not None and getattr(meta, 'abstract', False):
+                    continue
                 discovered.append(attr)
         
         return discovered
@@ -759,7 +787,8 @@ class RuntimeRegistry:
                             legacy_registry.register_model(model)
                             registered_count += 1
                     except Exception as e:
-                        print(f"Warning: Failed to parse {amdl_path}: {e}")
+                        import logging as _log
+                        _log.getLogger('aquilia.aquilary').warning(f"Failed to parse {amdl_path}: {e}")
                 
                 if legacy_registry._models:
                     from aquilia.di import Container
@@ -810,7 +839,8 @@ class RuntimeRegistry:
         
         self._models_registered = True
         if registered_count:
-            print(f"✓ Registered {registered_count} model(s) in DI")
+            import logging as _log
+            _log.getLogger('aquilia.aquilary').info(f"✓ Registered {registered_count} model(s) in DI")
     
     def _register_services(self):
         """Register services from manifests with DI containers."""
@@ -821,6 +851,8 @@ class RuntimeRegistry:
         from aquilia.di import Container
         from aquilia.di.providers import ClassProvider, ValueProvider
         import importlib
+        import logging as _log
+        _svc_logger = _log.getLogger('aquilia.aquilary')
         
         for ctx in self.meta.app_contexts:
             # Create app-scoped container
@@ -843,12 +875,8 @@ class RuntimeRegistry:
                     pass
             
             # Register services
-            # Register services
-            import sys
-            # print(f"DEBUG: Processing {len(ctx.services)} services for app {ctx.name}", file=sys.stderr)
             for service_item in ctx.services:
                 try:
-                    # print(f"DEBUG: Processing item: {service_item}", file=sys.stderr)
                     # Extract config
                     if hasattr(service_item, "class_path"):
                         # ServiceConfig object
@@ -917,7 +945,7 @@ class RuntimeRegistry:
                              try:
                                  amod, acls = alias.split(":", 1)
                                  alias_token = getattr(importlib.import_module(amod), acls)
-                             except:
+                             except Exception:
                                  pass # Use string token
                                  
                         alias_provider = AliasProvider(
@@ -928,12 +956,11 @@ class RuntimeRegistry:
                         container.register(alias_provider)
                         if tag:
                             container.register(alias_provider, tag=tag)
-                        # print(f"DEBUG: Registered Alias {alias_token} -> {service_class}")
                         
-                    print(f"✓ Registered service: {service_class.__name__} in app '{ctx.name}'")
+                    _svc_logger.info(f"✓ Registered service: {service_class.__name__} in app '{ctx.name}'")
                 
                 except Exception as e:
-                    print(f"Warning: Failed to register service {service_item}: {e}")
+                    _svc_logger.warning(f"Failed to register service {service_item}: {e}")
         
         # Mark as registered
         self._services_registered = True
@@ -986,7 +1013,8 @@ class RuntimeRegistry:
                         pass  # Effect registry not available
                 
                 except Exception as e:
-                    print(f"Warning: Failed to register effect {effect_path}: {e}")
+                    import logging as _log
+                    _log.getLogger('aquilia.aquilary').warning(f"Failed to register effect {effect_path}: {e}")
     
     def _validate_resolvability(self):
         """Validate that all dependencies can be resolved."""
@@ -1218,7 +1246,8 @@ class RuntimeRegistry:
                 func = getattr(module, func_name)
                 return func
             except (ImportError, AttributeError, ValueError) as e:
-                print(f"Warning: Failed to resolve lifecycle hook '{path}': {e}")
+                import logging as _log
+                _log.getLogger('aquilia.aquilary').warning(f"Failed to resolve lifecycle hook '{path}': {e}")
                 return None
 
         for ctx in self.meta.app_contexts:

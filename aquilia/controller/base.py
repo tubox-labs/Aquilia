@@ -1,10 +1,15 @@
 """
 Controller Base Class
 
-Provides the base Controller class and RequestCtx abstraction.
+Provides the base Controller class, RequestCtx abstraction,
+and controller-level features: versioning, throttling, interceptors,
+exception filters, and handler timeouts.
 """
 
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, Callable, Dict, List, Optional, TYPE_CHECKING
+import asyncio
+import logging
+import time
 
 if TYPE_CHECKING:
     from aquilia.request import Request
@@ -12,6 +17,12 @@ if TYPE_CHECKING:
     from aquilia.sessions import Session
     from aquilia.auth.core import Identity
 
+logger = logging.getLogger("aquilia.controller")
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  RequestCtx
+# ═══════════════════════════════════════════════════════════════════════════
 
 class RequestCtx:
     """
@@ -70,7 +81,206 @@ class RequestCtx:
         return await self.request.form()
 
 
-class Controller:
+# ═══════════════════════════════════════════════════════════════════════════
+#  Exception Filter — NestJS-style
+# ═══════════════════════════════════════════════════════════════════════════
+
+class ExceptionFilter:
+    """
+    Base class for exception filters.
+
+    Exception filters intercept unhandled exceptions from controller
+    handlers and convert them into proper HTTP responses.  Inspired
+    by NestJS ``ExceptionFilter``.
+
+    Usage::
+
+        class NotFoundFilter(ExceptionFilter):
+            catches = [KeyError, LookupError]
+
+            async def catch(self, exception, ctx):
+                return Response.json(
+                    {"error": "Not found", "detail": str(exception)},
+                    status=404,
+                )
+
+        class UsersController(Controller):
+            prefix = "/users"
+            exception_filters = [NotFoundFilter()]
+    """
+
+    catches: List[type] = []  # Exception types this filter handles
+
+    async def catch(
+        self,
+        exception: Exception,
+        ctx: "RequestCtx",
+    ) -> Optional["Response"]:
+        """
+        Handle the exception and return a Response.
+
+        Return ``None`` to let the exception propagate.
+        """
+        raise NotImplementedError
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  Interceptor — NestJS-style before/after hooks
+# ═══════════════════════════════════════════════════════════════════════════
+
+class Interceptor:
+    """
+    Base class for controller interceptors.
+
+    Interceptors wrap handler execution with before/after logic,
+    supporting cross-cutting concerns like logging, caching, timing,
+    and response transformation.
+
+    Usage::
+
+        class TimingInterceptor(Interceptor):
+            async def before(self, ctx):
+                ctx.state["_start"] = time.monotonic()
+
+            async def after(self, ctx, result):
+                elapsed = time.monotonic() - ctx.state["_start"]
+                if isinstance(result, dict):
+                    result["_elapsed_ms"] = round(elapsed * 1000, 2)
+                return result
+
+        class UsersController(Controller):
+            prefix = "/users"
+            interceptors = [TimingInterceptor()]
+    """
+
+    async def before(self, ctx: "RequestCtx") -> Optional["Response"]:
+        """
+        Called before the handler executes.
+
+        Return a ``Response`` to short-circuit the handler.
+        Return ``None`` to continue.
+        """
+        return None
+
+    async def after(
+        self,
+        ctx: "RequestCtx",
+        result: Any,
+    ) -> Any:
+        """
+        Called after the handler executes.
+
+        Receives the handler result and can transform it.
+        """
+        return result
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  Throttle — Controller-level rate limiting
+# ═══════════════════════════════════════════════════════════════════════════
+
+class Throttle:
+    """
+    Simple in-memory sliding-window rate limiter.
+
+    Usage::
+
+        class UsersController(Controller):
+            throttle = Throttle(limit=100, window=60)  # 100 req / 60s
+
+    Or per-route::
+
+        @GET("/", throttle=Throttle(limit=10, window=60))
+        async def list(self, ctx): ...
+    """
+
+    def __init__(self, limit: int = 100, window: int = 60):
+        self.limit = limit
+        self.window = window
+        self._requests: Dict[str, list] = {}  # key -> [timestamps]
+
+    def _client_key(self, request: Any) -> str:
+        """Extract a client identifier from the request."""
+        if hasattr(request, "scope"):
+            client = request.scope.get("client")
+            if client:
+                return str(client[0])
+        if hasattr(request, "headers"):
+            forwarded = None
+            hdrs = request.headers
+            if hasattr(hdrs, "get"):
+                forwarded = hdrs.get("x-forwarded-for") or hdrs.get("X-Forwarded-For")
+            if forwarded:
+                return forwarded.split(",")[0].strip()
+        return "unknown"
+
+    def check(self, request: Any) -> bool:
+        """
+        Check if the request is within the rate limit.
+
+        Returns True if allowed, False if throttled.
+        """
+        now = time.monotonic()
+        key = self._client_key(request)
+
+        if key not in self._requests:
+            self._requests[key] = []
+
+        # Prune expired entries
+        cutoff = now - self.window
+        self._requests[key] = [
+            ts for ts in self._requests[key] if ts > cutoff
+        ]
+
+        if len(self._requests[key]) >= self.limit:
+            return False
+
+        self._requests[key].append(now)
+        return True
+
+    @property
+    def retry_after(self) -> int:
+        """Seconds until the window resets (approximate)."""
+        return self.window
+
+    def reset(self):
+        """Clear all rate limit state."""
+        self._requests.clear()
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  ControllerMeta — descriptor metaclass to fix mutable defaults
+# ═══════════════════════════════════════════════════════════════════════════
+
+class _ControllerMeta(type):
+    """
+    Metaclass for Controller that prevents the mutable-default-list bug.
+
+    When a subclass declares ``pipeline = [Auth.guard()]`` it must get
+    its OWN list, not share the base-class list.  This metaclass copies
+    ``pipeline``, ``tags``, ``interceptors``, and ``exception_filters``
+    during class creation so that mutations to one subclass never leak
+    to another.
+    """
+
+    _COPY_FIELDS = ("pipeline", "tags", "interceptors", "exception_filters")
+
+    def __new__(mcs, name: str, bases: tuple, namespace: dict):
+        cls = super().__new__(mcs, name, bases, namespace)
+        for field in mcs._COPY_FIELDS:
+            # If the subclass didn't explicitly set the field, copy from
+            # the inherited value so each class has its own list.
+            val = getattr(cls, field, None)
+            if val is not None and isinstance(val, list):
+                setattr(cls, field, list(val))
+        return cls
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  Controller
+# ═══════════════════════════════════════════════════════════════════════════
+
+class Controller(metaclass=_ControllerMeta):
     """
     Base Controller class.
     
@@ -80,12 +290,23 @@ class Controller:
     - Class-level and method-level pipelines
     - Lifecycle hooks
     - Template rendering support
+    - API versioning
+    - Rate limiting (throttle)
+    - Interceptors (before/after handler hooks)
+    - Exception filters (structured error handling)
+    - Handler execution timeouts
     
     Class Attributes:
         prefix: URL prefix for all routes (e.g., "/users")
         pipeline: List of pipeline nodes applied to all methods
         tags: OpenAPI tags
         instantiation_mode: "per_request" or "singleton"
+        version: API version string (e.g., "v1", "v2")
+        throttle: Throttle instance for rate limiting
+        interceptors: List of Interceptor instances
+        exception_filters: List of ExceptionFilter instances
+        timeout: Handler execution timeout in seconds (0 = no timeout)
+        max_body_size: Max request body size in bytes (0 = no limit)
     
     Lifecycle Hooks:
         async def on_startup(self, ctx): Called at app startup (singleton only)
@@ -96,7 +317,10 @@ class Controller:
     Example:
         class UsersController(Controller):
             prefix = "/users"
+            version = "v1"
             pipeline = [Auth.guard()]
+            throttle = Throttle(limit=100, window=60)
+            timeout = 30
             
             def __init__(self, repo: UserRepo, templates: TemplateEngine):
                 self.repo = repo
@@ -113,6 +337,14 @@ class Controller:
     pipeline: List[Any] = []
     tags: List[str] = []
     instantiation_mode: str = "per_request"  # or "singleton"
+    
+    # ── New industry-standard features ──
+    version: Optional[str] = None          # API version: "v1", "v2", etc.
+    throttle: Optional[Throttle] = None    # Rate limiting
+    interceptors: List[Any] = []           # Interceptor instances
+    exception_filters: List[Any] = []      # ExceptionFilter instances
+    timeout: float = 0                     # Handler timeout in seconds (0=disabled)
+    max_body_size: int = 0                 # Max body size in bytes (0=disabled)
     
     # Template engine (injected via DI)
     _template_engine: Optional[Any] = None

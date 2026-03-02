@@ -124,7 +124,7 @@ class ManifestLoader:
             elif isinstance(source, str):
                 path = Path(source)
                 
-                if path.suffix in (".yaml", ".yml", ".json"):
+                if path.suffix in (".yaml", ".yml", ".json", ".crous"):
                     # DSL file
                     resolved.append(
                         ManifestSource(
@@ -265,7 +265,7 @@ class ManifestLoader:
     
     def _load_from_dsl_file(self, path: Path) -> Any:
         """
-        Load manifest from DSL file (YAML/JSON).
+        Load manifest from DSL file (YAML/JSON/Crous).
         
         Args:
             path: Path to DSL file
@@ -275,7 +275,19 @@ class ManifestLoader:
         """
         import json
         
-        if path.suffix == ".json":
+        if path.suffix == ".crous":
+            try:
+                try:
+                    import _crous_native as crous_backend
+                except ImportError:
+                    import crous as crous_backend
+                data = crous_backend.decode(path.read_bytes())
+            except ImportError:
+                raise ImportError(
+                    "Crous package required for .crous manifests. "
+                    "Install with: pip install crous"
+                )
+        elif path.suffix == ".json":
             data = json.loads(path.read_text())
         elif path.suffix in (".yaml", ".yml"):
             try:
@@ -368,7 +380,7 @@ class ManifestLoader:
                 )
         
         # DSL manifests
-        for pattern in ["manifest.yaml", "manifest.yml", "manifest.json"]:
+        for pattern in ["manifest.yaml", "manifest.yml", "manifest.json", "manifest.crous"]:
             for path in directory.glob(pattern):
                 sources.append(
                     ManifestSource(

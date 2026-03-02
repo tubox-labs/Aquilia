@@ -4,8 +4,8 @@ Artifact Store — pluggable storage backends for artifacts.
 Provides three implementations:
 
 - **MemoryArtifactStore** — ephemeral, test-friendly
-- **FilesystemArtifactStore** — persistent, writes ``.aq.json`` files
-  into a configurable directory (default ``artifacts/``)
+- **FilesystemArtifactStore** — persistent, writes ``.crous`` binary files
+  with ``.aq.json`` sidecars into a configurable directory (default ``artifacts/``)
 - **ArtifactStore** — convenience alias that auto-detects
 
 All stores support:
@@ -170,51 +170,98 @@ class FilesystemArtifactStore(ArtifactStoreProtocol):
     """
     Persistent filesystem artifact store.
 
-    Writes each artifact as a ``.aq.json`` file::
+    Writes each artifact as a ``.crous`` binary file with a
+    ``.aq.json`` sidecar for human-readable inspection::
 
         <root>/
-          <name>-<version>.aq.json
+          <name>-<version>.crous      ← Crous binary (primary)
+          <name>-<version>.aq.json    ← JSON sidecar (metadata)
           ...
-          _index.json            ← optional index for fast lookup
 
+    Reads ``.crous`` first, falls back to ``.aq.json`` for legacy compat.
     File names are sanitised (``/`` → ``_``, ``:`` → ``_``).
     """
 
-    __slots__ = ("root",)
+    __slots__ = ("root", "_crous_backend")
 
     def __init__(self, root: str = "artifacts") -> None:
         self.root = Path(root)
         self.root.mkdir(parents=True, exist_ok=True)
+        # Initialize Crous backend
+        self._crous_backend = self._init_crous()
+
+    @staticmethod
+    def _init_crous():
+        """Initialize Crous encoder/decoder (native → pure Python fallback)."""
+        try:
+            import _crous_native as backend
+            return backend
+        except ImportError:
+            try:
+                import crous as backend
+                return backend
+            except ImportError:
+                return None
 
     # ── Helpers ──────────────────────────────────────────────────────
 
     @staticmethod
-    def _safe_filename(name: str, version: str) -> str:
+    def _safe_filename(name: str, version: str, ext: str = ".crous") -> str:
         safe = name.replace("/", "_").replace(":", "_").replace(" ", "_")
-        return f"{safe}-{version}.aq.json"
+        return f"{safe}-{version}{ext}"
 
     def _artifact_path(self, name: str, version: str) -> Path:
-        return self.root / self._safe_filename(name, version)
+        return self.root / self._safe_filename(name, version, ".crous")
+
+    def _sidecar_path(self, name: str, version: str) -> Path:
+        return self.root / self._safe_filename(name, version, ".aq.json")
+
+    def _legacy_path(self, name: str, version: str) -> Path:
+        return self.root / self._safe_filename(name, version, ".aq.json")
 
     def _iter_files(self):
-        """Yield all ``.aq.json`` files in the store directory."""
+        """Yield all artifact files in the store directory (.crous then .aq.json)."""
+        seen_stems = set()
+        # Prefer .crous files
+        for f in sorted(self.root.iterdir()):
+            if f.is_file() and f.name.endswith(".crous"):
+                seen_stems.add(f.stem)
+                yield f
+        # Fall back to .aq.json for legacy files without .crous counterparts
         for f in sorted(self.root.iterdir()):
             if f.is_file() and f.name.endswith(".aq.json"):
-                yield f
+                stem = f.name[:-8]  # strip .aq.json
+                if stem not in seen_stems:
+                    yield f
 
     # ── CRUD ─────────────────────────────────────────────────────────
 
     def save(self, artifact: Artifact) -> str:
-        path = self._artifact_path(artifact.name, artifact.version)
-        tmp = path.with_suffix(".tmp")
+        # Write .crous binary (primary)
+        crous_path = self._artifact_path(artifact.name, artifact.version)
+        tmp = crous_path.with_suffix(".tmp")
         try:
-            tmp.write_text(artifact.to_json(), encoding="utf-8")
-            tmp.replace(path)  # atomic on POSIX
+            data = artifact.to_dict()
+            if self._crous_backend:
+                encoded = self._crous_backend.encode(data)
+                tmp.write_bytes(encoded)
+            else:
+                # Fallback: write JSON as bytes
+                tmp.write_text(json.dumps(data, default=str), encoding="utf-8")
+            tmp.replace(crous_path)  # atomic on POSIX
         except Exception:
             if tmp.exists():
                 tmp.unlink()
             raise
-        logger.info("Saved artifact: %s → %s", artifact.qualified_name, path)
+
+        # Write .aq.json sidecar (human-readable metadata)
+        sidecar_path = self._sidecar_path(artifact.name, artifact.version)
+        try:
+            sidecar_path.write_text(artifact.to_json(), encoding="utf-8")
+        except Exception as exc:
+            logger.debug("Sidecar write failed (non-fatal): %s", exc)
+
+        logger.info("Saved artifact: %s → %s", artifact.qualified_name, crous_path)
         return artifact.digest
 
     def load(self, name: str, *, version: str = "") -> Optional[Artifact]:
@@ -265,14 +312,16 @@ class FilesystemArtifactStore(ArtifactStoreProtocol):
     def delete(self, name: str, *, version: str = "") -> int:
         removed = 0
         if version:
-            path = self._artifact_path(name, version)
-            if path.exists():
-                path.unlink()
-                removed = 1
+            for path in [self._artifact_path(name, version), self._sidecar_path(name, version)]:
+                if path.exists():
+                    path.unlink()
+                    removed += 1
         else:
             prefix = name.replace("/", "_").replace(":", "_").replace(" ", "_") + "-"
-            for f in list(self._iter_files()):
-                if f.name.startswith(prefix):
+            for f in list(self.root.iterdir()):
+                if f.is_file() and f.name.startswith(prefix) and (
+                    f.name.endswith(".crous") or f.name.endswith(".aq.json")
+                ):
                     f.unlink()
                     removed += 1
         return removed
@@ -300,7 +349,7 @@ class FilesystemArtifactStore(ArtifactStoreProtocol):
         output_path: str,
     ) -> str:
         """
-        Export a subset of artifacts as a JSON bundle.
+        Export a subset of artifacts as a Crous binary bundle.
 
         Returns path to the bundle file.
         """
@@ -321,17 +370,28 @@ class FilesystemArtifactStore(ArtifactStoreProtocol):
 
         out = Path(output_path)
         out.parent.mkdir(parents=True, exist_ok=True)
-        out.write_text(bundle.to_json(), encoding="utf-8")
+
+        # Write as Crous binary if backend is available
+        if self._crous_backend and out.suffix == ".crous":
+            out.write_bytes(self._crous_backend.encode(bundle.to_dict()))
+        else:
+            out.write_text(bundle.to_json(), encoding="utf-8")
+
         logger.info("Exported bundle: %d artifacts → %s", len(items), out)
         return str(out)
 
     # ── Internal ─────────────────────────────────────────────────────
 
-    @staticmethod
-    def _read(path: Path) -> Optional[Artifact]:
+    def _read(self, path: Path) -> Optional[Artifact]:
         try:
-            data = json.loads(path.read_text(encoding="utf-8"))
-            return Artifact.from_dict(data)
+            if path.name.endswith(".crous") and self._crous_backend:
+                raw = path.read_bytes()
+                data = self._crous_backend.decode(raw)
+                return Artifact.from_dict(data)
+            else:
+                # JSON fallback (legacy .aq.json files or no Crous backend)
+                data = json.loads(path.read_text(encoding="utf-8"))
+                return Artifact.from_dict(data)
         except Exception as exc:
             logger.warning("Corrupt artifact file %s: %s", path, exc)
             return None
@@ -364,6 +424,8 @@ class FilesystemArtifactStore(ArtifactStoreProtocol):
         """
         Import artifacts from a bundle file produced by ``export_bundle``.
 
+        Supports both ``.crous`` binary and ``.aq.json`` / JSON formats.
+
         Returns:
             Number of artifacts imported.
         """
@@ -371,7 +433,12 @@ class FilesystemArtifactStore(ArtifactStoreProtocol):
         if not path.exists():
             raise FileNotFoundError(f"Bundle not found: {bundle_path}")
 
-        data = json.loads(path.read_text(encoding="utf-8"))
+        # Decode based on format
+        if path.suffix == ".crous" and self._crous_backend:
+            data = self._crous_backend.decode(path.read_bytes())
+        else:
+            data = json.loads(path.read_text(encoding="utf-8"))
+
         payload = data.get("payload", {})
         items = payload.get("artifacts", []) if isinstance(payload, dict) else []
         imported = 0

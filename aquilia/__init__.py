@@ -69,9 +69,13 @@ from .aquilary import (
 from .controller import (
     Controller,
     RequestCtx,
+    ExceptionFilter,
+    Interceptor,
+    Throttle,
     GET, POST, PUT, PATCH, DELETE,
-    HEAD, OPTIONS, WS,
+    HEAD, OPTIONS, TRACE, WS,
     route,
+    VALID_HTTP_METHODS,
     ControllerMetadata,
     RouteMetadata,
     ParameterMetadata,
@@ -142,6 +146,7 @@ from .sessions import (
     SessionPrincipal,
     MemoryStore as SessionMemoryStore,
     CookieTransport,
+    TransportPolicy,
     SessionFault,
     SessionExpiredFault,
 )
@@ -162,8 +167,8 @@ from .sessions.state import (
     UserPreferencesState,
 )
 
-# Enhanced session features (NEW - Advanced patterns)
-from .sessions.enhanced import (
+# Session guards & context managers (merged from enhanced.py into decorators)
+from .sessions.decorators import (
     SessionContext,
     SessionGuard,
     requires,
@@ -206,12 +211,54 @@ from .auth.integration.middleware import (
     create_auth_middleware_stack,
 )
 
-# Note: Flow guards removed - use controller-based auth with middleware
-# from .auth.integration.flow_guards import (
-#     require_auth,
-#     require_scopes,
-#     require_roles,
-# )
+# Flow guards — re-enabled with FlowPipeline integration
+from .auth.integration.flow_guards import (
+    FlowGuard,
+    RequireAuthGuard,
+    RequireScopesGuard,
+    RequireRolesGuard,
+    RequirePermissionGuard,
+    RequirePolicyGuard,
+    ControllerGuardAdapter,
+    require_auth,
+    require_scopes,
+    require_roles,
+    require_permission,
+)
+
+# Clearance System (Unique Aquilia declarative access control)
+from .auth.clearance import (
+    AccessLevel,
+    Clearance,
+    ClearanceVerdict,
+    ClearanceEngine,
+    ClearanceGuard,
+    grant,
+    exempt,
+    is_verified,
+    is_owner_or_admin,
+    within_quota,
+    is_same_tenant,
+)
+
+# Audit Trail
+from .auth.audit import (
+    AuditEventType,
+    AuditSeverity,
+    AuditEvent,
+    AuditTrail,
+    MemoryAuditStore,
+)
+
+# Security Hardening
+from .auth.hardening import (
+    CSRFProtection,
+    RequestFingerprint,
+    SecurityHeaders,
+    TokenBinder,
+    constant_time_compare,
+    generate_secure_token,
+)
 
 # ============================================================================
 # Cache System
@@ -326,7 +373,61 @@ from .debug import (
 # Effects & Patterns
 # ============================================================================
 
-from .effects import Effect, EffectProvider, EffectRegistry
+from .effects import (
+    Effect,
+    EffectKind,
+    EffectProvider,
+    EffectRegistry,
+    DBTx,
+    CacheEffect,
+    QueueEffect,
+    HTTPEffect,
+    StorageEffect,
+    DBTxProvider,
+    CacheProvider,
+    QueueProvider,
+    HTTPProvider,
+    StorageProvider,
+)
+
+# ============================================================================
+# Flow Pipeline System
+# ============================================================================
+
+from .flow import (
+    # Core types
+    FlowNode,
+    FlowNodeType,
+    FlowContext,
+    FlowPipeline,
+    FlowResult,
+    FlowStatus,
+    FlowError,
+    # Layer system (Effect-TS pattern)
+    Layer,
+    LayerComposition,
+    # Effect scope
+    EffectScope,
+    # Decorators
+    requires,
+    get_required_effects,
+    # Factory functions
+    pipeline,
+    guard,
+    transform,
+    handler,
+    hook,
+    from_pipeline_list,
+    # Priority constants
+    PRIORITY_CRITICAL,
+    PRIORITY_AUTH,
+    PRIORITY_VALIDATE,
+    PRIORITY_TRANSFORM,
+    PRIORITY_DEFAULT,
+    PRIORITY_ENRICH,
+    PRIORITY_LOG,
+    PRIORITY_CLEANUP,
+)
 
 # ============================================================================
 # Sockets (WebSockets)
@@ -573,21 +674,6 @@ from .artifacts import (
 )
 
 # ============================================================================
-# Trace System (.aquilia/ directory)
-# ============================================================================
-
-from .trace import (
-    AquiliaTrace,
-    TraceManifest,
-    TraceRouteMap,
-    TraceDIGraph,
-    TraceSchemaLedger,
-    TraceLifecycleJournal,
-    TraceConfigSnapshot,
-    TraceDiagnostics,
-)
-
-# ============================================================================
 # Testing Framework (Django-style test infrastructure)
 # ============================================================================
 
@@ -605,6 +691,40 @@ try:
 except ImportError:
     # Testing framework is optional and requires pytest
     pass
+
+# ============================================================================
+# Admin System (AquilAdmin — Django-style auto-detecting admin)
+# ============================================================================
+
+from .admin import (
+    AdminSite,
+    ModelAdmin,
+    register,
+    autodiscover,
+    AdminController,
+    AdminPermission,
+    AdminRole,
+    AdminAuditLog,
+    AdminAction,
+    AdminUser,
+    AdminGroup,
+    ContentType,
+    AdminLogEntry,
+    AdminSession,
+    AdminUserBlueprint,
+    AdminGroupBlueprint,
+    AdminPermissionBlueprint,
+    ContentTypeBlueprint,
+    AdminLogEntryBlueprint,
+    AdminSessionBlueprint,
+    AdminFault,
+    AdminAuthenticationFault,
+    AdminAuthorizationFault,
+    AdminModelNotFoundFault,
+    AdminRecordNotFoundFault,
+    AdminValidationFault,
+    AdminActionFault,
+)
 
 # ============================================================================
 # Exports
@@ -693,6 +813,7 @@ __all__ = [
     "SessionPrincipal",
     "SessionMemoryStore",
     "CookieTransport",
+    "TransportPolicy",
     
     # Session decorators (NEW - Unique syntax)
     "session",
@@ -734,6 +855,19 @@ __all__ = [
     "AuthConfig",
     "AquilAuthMiddleware",
     "create_auth_middleware_stack",
+    
+    # Auth - Flow Guards
+    "FlowGuard",
+    "RequireAuthGuard",
+    "RequireScopesGuard",
+    "RequireRolesGuard",
+    "RequirePermissionGuard",
+    "RequirePolicyGuard",
+    "ControllerGuardAdapter",
+    "require_auth",
+    "require_scopes",
+    "require_roles",
+    "require_permission",
     
     # Cache
     "CacheBackend",
@@ -810,8 +944,47 @@ __all__ = [
     
     # Effects
     "Effect",
+    "EffectKind",
     "EffectProvider",
     "EffectRegistry",
+    "DBTx",
+    "CacheEffect",
+    "QueueEffect",
+    "HTTPEffect",
+    "StorageEffect",
+    "DBTxProvider",
+    "CacheProvider",
+    "QueueProvider",
+    "HTTPProvider",
+    "StorageProvider",
+    
+    # Flow Pipeline System
+    "FlowNode",
+    "FlowNodeType",
+    "FlowContext",
+    "FlowPipeline",
+    "FlowResult",
+    "FlowStatus",
+    "FlowError",
+    "Layer",
+    "LayerComposition",
+    "EffectScope",
+    "requires",
+    "get_required_effects",
+    "pipeline",
+    "guard",
+    "transform",
+    "handler",
+    "hook",
+    "from_pipeline_list",
+    "PRIORITY_CRITICAL",
+    "PRIORITY_AUTH",
+    "PRIORITY_VALIDATE",
+    "PRIORITY_TRANSFORM",
+    "PRIORITY_DEFAULT",
+    "PRIORITY_ENRICH",
+    "PRIORITY_LOG",
+    "PRIORITY_CLEANUP",
     
     # Sockets (WebSockets)
     "SocketController",
@@ -996,16 +1169,6 @@ __all__ = [
     "DIGraphArtifact",
     "BundleArtifact",
 
-    # Trace System
-    "AquiliaTrace",
-    "TraceManifest",
-    "TraceRouteMap",
-    "TraceDIGraph",
-    "TraceSchemaLedger",
-    "TraceLifecycleJournal",
-    "TraceConfigSnapshot",
-    "TraceDiagnostics",
-
     # Testing Framework
     "TestClient",
     "TestServer",
@@ -1014,4 +1177,22 @@ __all__ = [
     "TransactionTestCase",
     "LiveServerTestCase",
     "override_settings",
+
+    # Admin System (AquilAdmin)
+    "AdminSite",
+    "ModelAdmin",
+    "register",
+    "autodiscover",
+    "AdminController",
+    "AdminPermission",
+    "AdminRole",
+    "AdminAuditLog",
+    "AdminAction",
+    "AdminFault",
+    "AdminAuthenticationFault",
+    "AdminAuthorizationFault",
+    "AdminModelNotFoundFault",
+    "AdminRecordNotFoundFault",
+    "AdminValidationFault",
+    "AdminActionFault",
 ]

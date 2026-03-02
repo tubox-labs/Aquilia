@@ -3,6 +3,9 @@ Aquilia Testing - Effect System Testing Utilities.
 
 Provides :class:`MockEffectRegistry` and :class:`MockEffectProvider`
 for stubbing side-effects (DB, Cache, Queue, HTTP) in tests.
+
+Also provides :class:`MockFlowContext` for testing Flow pipeline
+nodes and handlers that use effects.
 """
 
 from __future__ import annotations
@@ -158,3 +161,88 @@ class MockEffectRegistry(EffectRegistry):
         """Reset tracking on all mock providers."""
         for mock in self._mocks.values():
             mock.reset()
+
+
+class MockFlowContext:
+    """
+    Test-friendly FlowContext for testing pipeline nodes and handlers.
+
+    Pre-populates effects from a MockEffectRegistry so handlers can
+    call ``ctx.get_effect("DBTx")`` etc. in tests.
+
+    Usage::
+
+        registry = MockEffectRegistry()
+        registry.register_mock("DBTx", return_value=fake_conn)
+
+        ctx = MockFlowContext.from_registry(registry)
+        result = await my_handler(ctx)
+    """
+
+    @staticmethod
+    def from_registry(
+        registry: MockEffectRegistry,
+        *,
+        request: Any = None,
+        container: Any = None,
+        identity: Any = None,
+        session: Any = None,
+        state: Optional[Dict[str, Any]] = None,
+    ) -> "Any":
+        """
+        Create a FlowContext with pre-acquired mock effects.
+
+        Returns a real FlowContext instance populated with mock resources.
+        """
+        from aquilia.flow import FlowContext
+
+        ctx = FlowContext(
+            request=request,
+            container=container,
+            identity=identity,
+            session=session,
+            state=state,
+        )
+
+        # Pre-acquire all registered mocks
+        for effect_name in registry.providers:
+            provider = registry.get_provider(effect_name)
+            if isinstance(provider, MockEffectProvider):
+                ctx.effects[effect_name] = provider.return_value
+
+        return ctx
+
+    @staticmethod
+    def create(
+        *,
+        effects: Optional[Dict[str, Any]] = None,
+        request: Any = None,
+        container: Any = None,
+        identity: Any = None,
+        session: Any = None,
+        state: Optional[Dict[str, Any]] = None,
+    ) -> "Any":
+        """
+        Create a FlowContext with manually specified effect values.
+
+        Usage::
+
+            ctx = MockFlowContext.create(
+                effects={"DBTx": fake_conn, "Cache": fake_cache},
+                identity=Identity(user_id="123"),
+            )
+        """
+        from aquilia.flow import FlowContext
+
+        ctx = FlowContext(
+            request=request,
+            container=container,
+            identity=identity,
+            session=session,
+            state=state,
+        )
+
+        if effects:
+            ctx.effects.update(effects)
+
+        return ctx
