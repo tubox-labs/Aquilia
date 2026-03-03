@@ -198,7 +198,7 @@ def parse_locale(tag: str) -> Locale:
     )
 
 
-def normalize_locale(tag: str) -> str:
+def normalize_locale(tag: str) -> Optional[str]:
     """
     Normalize a locale tag to canonical BCP 47 form.
 
@@ -211,9 +211,12 @@ def normalize_locale(tag: str) -> str:
         tag: Raw locale tag
 
     Returns:
-        Normalized tag string
+        Normalized tag string, or ``None`` if the tag cannot be parsed
     """
-    return parse_locale(tag).tag
+    try:
+        return parse_locale(tag).tag
+    except (ValueError, TypeError):
+        return None
 
 
 def match_locale(

@@ -42,7 +42,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Union
 
-from .catalog import FileCatalog, MemoryCatalog, MergedCatalog, TranslationCatalog
+from .catalog import CrousCatalog, FileCatalog, MemoryCatalog, MergedCatalog, TranslationCatalog, has_crous
 from .formatter import MessageFormatter
 from .locale import Locale, negotiate_locale, normalize_locale, parse_locale
 from .plural import PluralCategory, select_plural
@@ -78,7 +78,7 @@ class I18nConfig:
 
     # Catalog settings
     catalog_dirs: List[str] = field(default_factory=lambda: ["locales"])
-    catalog_format: str = "json"  # "json" or "yaml"
+    catalog_format: str = "crous"  # "crous" (default, fast binary), "json", or "yaml"
 
     # Behaviour
     missing_key_strategy: str = "log_and_key"
@@ -334,10 +334,11 @@ class I18nService:
         # Try fallback chain: fr-CA → fr → fallback_locale
         parsed = parse_locale(locale)
         if parsed:
-            for tag in parsed.fallback_chain:
-                if tag == locale:
+            for fb in parsed.fallback_chain:
+                fb_tag = fb.tag
+                if fb_tag == locale:
                     continue  # Already tried
-                result = self.catalog.get(key, tag)
+                result = self.catalog.get(key, fb_tag)
                 if result is not None:
                     return result
 
@@ -379,11 +380,17 @@ class I18nService:
     def _build_catalog(self) -> TranslationCatalog:
         """Build a catalog from the config's catalog_dirs."""
         catalogs: list[TranslationCatalog] = []
+        use_crous = self.config.catalog_format == "crous"
 
         for catalog_dir in self.config.catalog_dirs:
             path = Path(catalog_dir)
             if path.exists() and path.is_dir():
-                catalogs.append(FileCatalog(path))
+                if use_crous:
+                    # Use CrousCatalog — automatically falls back to JSON
+                    # if crous library is not installed
+                    catalogs.append(CrousCatalog([path]))
+                else:
+                    catalogs.append(FileCatalog([path]))
             else:
                 logger.debug("Catalog directory not found: %s", catalog_dir)
 

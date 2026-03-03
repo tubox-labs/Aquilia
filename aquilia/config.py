@@ -672,7 +672,7 @@ class ConfigLoader:
             "available_locales": ["en"],
             "fallback_locale": "en",
             "catalog_dirs": ["locales"],
-            "catalog_format": "json",
+            "catalog_format": "crous",
             "missing_key_strategy": "log_and_key",
             "auto_reload": False,
             "auto_detect": True,

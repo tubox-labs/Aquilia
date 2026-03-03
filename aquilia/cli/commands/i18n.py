@@ -52,15 +52,25 @@ def cmd_i18n_init(
     Creates:
     - ``locales/`` directory
     - Locale subdirectories for each specified locale
-    - Starter ``messages.json`` with example translations
+    - Starter ``messages.json`` (or ``.crous`` if format is ``"crous"`` and available)
     """
     locale_list = [l.strip() for l in (locales or "en").split(",")]
     base_dir = Path(directory)
 
+    # Resolve format — CROUS preferred if available
+    actual_format = format
+    if format == "crous":
+        try:
+            import crous
+            actual_format = "crous"
+        except ImportError:
+            click.echo(click.style("  ⚠  crous library not installed — falling back to JSON", fg="yellow"))
+            actual_format = "json"
+
     click.echo(click.style("Initializing i18n...", fg="cyan", bold=True))
     click.echo(f"  Directory:  {base_dir}")
     click.echo(f"  Locales:    {', '.join(locale_list)}")
-    click.echo(f"  Format:     {format}")
+    click.echo(f"  Format:     {actual_format}")
     click.echo()
 
     # Starter translations
@@ -146,7 +156,7 @@ def cmd_i18n_init(
         locale_dir = base_dir / locale
         locale_dir.mkdir(parents=True, exist_ok=True)
 
-        messages_file = locale_dir / f"messages.{format}"
+        messages_file = locale_dir / f"messages.{actual_format}"
         if messages_file.exists():
             click.echo(f"  ⏭  {messages_file} (already exists)")
             continue
@@ -158,12 +168,30 @@ def cmd_i18n_init(
             "greeting": f"Hello, {{name}}! [{locale}]",
         })
 
-        if format == "json":
+        if actual_format == "json":
             messages_file.write_text(
                 json.dumps(content, indent=2, ensure_ascii=False) + "\n",
                 encoding="utf-8",
             )
-        elif format == "yaml":
+        elif actual_format == "crous":
+            import crous as _crous
+            import hashlib as _hashlib
+            from datetime import datetime as _dt, timezone as _tz
+            # Write with CROUS envelope
+            canonical = json.dumps(content, sort_keys=True, separators=(",", ":"))
+            fingerprint = f"sha256:{_hashlib.sha256(canonical.encode()).hexdigest()}"
+            envelope = {
+                "__format__": "crous",
+                "schema_version": "1.0",
+                "artifact_type": "i18n_catalog",
+                "locale": locale,
+                "namespace": "messages",
+                "fingerprint": fingerprint,
+                "created_at": _dt.now(_tz.utc).isoformat(),
+                "translations": content,
+            }
+            _crous.dump(envelope, str(messages_file))
+        elif actual_format == "yaml":
             try:
                 import yaml
                 messages_file.write_text(
@@ -459,3 +487,45 @@ def _collect_keys(data: dict, prefix: str, keys: Set[str], _depth: int = 0) -> N
                 _collect_keys(v, full_key, keys, _depth + 1)
         else:
             keys.add(full_key)
+
+
+def cmd_i18n_compile(
+    directory: str = "locales",
+    output: Optional[str] = None,
+    verbose: bool = False,
+) -> None:
+    """
+    Compile JSON translation files to CROUS binary format.
+
+    CROUS files load significantly faster than JSON at startup.
+    The compiled ``.crous`` files are placed alongside the source
+    ``.json`` files unless an output directory is specified.
+
+    Args:
+        directory: Source locales directory
+        output: Output directory for .crous files (None = same as source)
+        verbose: Show detailed output
+    """
+    try:
+        import crous
+    except ImportError:
+        click.echo(click.style("❌ crous library is not installed.", fg="red"))
+        click.echo("  Install with: pip install crous")
+        return
+
+    from aquilia.i18n.catalog import CrousCatalog
+
+    click.echo(click.style("Compiling i18n catalogs to CROUS format...", fg="cyan", bold=True))
+    click.echo(f"  Source:  {directory}")
+    if output:
+        click.echo(f"  Output:  {output}")
+    click.echo()
+
+    catalog = CrousCatalog([directory], auto_compile=False)
+    compiled = catalog.compile(directory=output)
+
+    if compiled > 0:
+        click.echo()
+        click.echo(click.style(f"✅ Compiled {compiled} file(s) to CROUS format.", fg="green"))
+    else:
+        click.echo(click.style("No JSON files found to compile.", fg="yellow"))

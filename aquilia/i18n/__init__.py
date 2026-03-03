@@ -60,8 +60,10 @@ from .catalog import (
     TranslationCatalog,
     MemoryCatalog,
     FileCatalog,
+    CrousCatalog,
     NamespacedCatalog,
     MergedCatalog,
+    has_crous,
 )
 
 from .plural import (
@@ -138,8 +140,10 @@ __all__ = [
     "TranslationCatalog",
     "MemoryCatalog",
     "FileCatalog",
+    "CrousCatalog",
     "NamespacedCatalog",
     "MergedCatalog",
+    "has_crous",
 
     # Plural rules
     "PluralCategory",
