@@ -67,7 +67,7 @@ class ControllerRouter:
         self._static_routes: Dict[str, Dict[str, Tuple[CompiledRoute, Dict, Dict]]] = {}
         # {method: list[(compiled_re, route, param_names)]}
         self._dynamic_routes: Dict[str, List[Tuple[Any, CompiledRoute, List[str]]]] = {}
-        # {method: _TrieNode}  — trie for segment-based matching
+        # {method: _TrieNode}  -- trie for segment-based matching
         self._tries: Dict[str, _TrieNode] = {}
 
     def add_controller(self, compiled_controller: CompiledController):
@@ -108,12 +108,12 @@ class ControllerRouter:
                 has_query = bool(cp.query)
 
                 if not has_params and not has_query:
-                    # Pure static route — O(1) lookup
+                    # Pure static route -- O(1) lookup
                     # Normalize: strip trailing slash
                     path = route.full_path.rstrip('/') or '/'
                     static_map[path] = (route, _EMPTY_DICT, _EMPTY_DICT)
                 else:
-                    # Dynamic route — use compiled regex
+                    # Dynamic route -- use compiled regex
                     if cp.compiled_re:
                         param_names = list(cp.params.keys())
                         dynamic_list.append((cp, route, param_names))
@@ -133,7 +133,7 @@ class ControllerRouter:
         query_params: Optional[Dict[str, str]] = None,
     ) -> Optional[ControllerRouteMatch]:
         """
-        Synchronous O(1)/O(k) route matching — the hot path.
+        Synchronous O(1)/O(k) route matching -- the hot path.
 
         Returns ControllerRouteMatch or None.
         """
@@ -216,7 +216,7 @@ class ControllerRouter:
         method: str,
         query_params: Optional[Dict[str, str]] = None,
     ) -> Optional[ControllerRouteMatch]:
-        """Async compat wrapper — delegates to sync hot path."""
+        """Async compat wrapper -- delegates to sync hot path."""
         return self.match_sync(path, method, query_params)
 
     def get_routes(self) -> List[Dict[str, Any]]:

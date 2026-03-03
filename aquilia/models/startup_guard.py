@@ -1,5 +1,5 @@
 """
-Aquilia Safe DB Startup — guards against implicit database creation.
+Aquilia Safe DB Startup -- guards against implicit database creation.
 
 Prevents the database file and tables from being auto-created when
 models change at server startup. If the DB file does not exist or
@@ -12,7 +12,7 @@ Behavior can be overridden with the environment variable:
     AQUILIA_AUTO_MIGRATE=1
 
 Configuration:
-    db.sqlite.journal_mode  — "wal" (default for runtime), "delete" for
+    db.sqlite.journal_mode  -- "wal" (default for runtime), "delete" for
                               schema-check/dry-run operations to avoid
                               creating -wal/-shm sidecar files.
 """
@@ -101,7 +101,7 @@ def check_db_ready(
             )
             return False
 
-    logger.info("Database ready — all migrations applied")
+    logger.info("Database ready -- all migrations applied")
     return True
 
 

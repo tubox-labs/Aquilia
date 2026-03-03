@@ -1,5 +1,5 @@
 """
-Aquilia Model Options — parsed from inner Meta class.
+Aquilia Model Options -- parsed from inner Meta class.
 
 Contains the Options class which stores model metadata like
 table_name, ordering, indexes, constraints, abstract, etc.

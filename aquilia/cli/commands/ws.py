@@ -121,13 +121,13 @@ def cmd_ws_broadcast(args: dict):
                     room=room,
                     envelope=envelope,
                 )
-                print(f"✓ Broadcast sent to room {room}")
+                print(f"Broadcast sent to room {room}")
             else:
                 await adapter.broadcast(
                     namespace=namespace,
                     envelope=envelope,
                 )
-                print(f"✓ Broadcast sent to namespace {namespace}")
+                print(f"Broadcast sent to namespace {namespace}")
             
             await adapter.shutdown()
         except ImportError as e:
@@ -179,7 +179,7 @@ def cmd_ws_purge_room(args: dict):
             for conn_id in members:
                 await adapter.leave_room(namespace, room, conn_id)
             
-            print(f"✓ Purged room {namespace}/{room} ({len(members)} connections removed)")
+            print(f"Purged room {namespace}/{room} ({len(members)} connections removed)")
             await adapter.shutdown()
         except Exception as e:
             print(f"Error: {e}")
@@ -230,7 +230,7 @@ def cmd_ws_kick(args: dict):
                 for ns, connections in adapter._connections.items():
                     if conn_id in connections:
                         await adapter.unregister_connection(ns, conn_id)
-                        print(f"✓ Kicked connection {conn_id} from namespace {ns}")
+                        print(f"Kicked connection {conn_id} from namespace {ns}")
                         print(f"  Reason: {reason}")
                         found = True
                         break

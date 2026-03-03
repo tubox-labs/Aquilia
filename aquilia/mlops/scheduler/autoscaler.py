@@ -1,5 +1,5 @@
 """
-Autoscaler — K8s HPA metrics exporter and scaling policy engine.
+Autoscaler -- K8s HPA metrics exporter and scaling policy engine.
 
 Exposes custom metrics that Kubernetes HPA can use to scale deployments.
 Also provides an in-process fallback for non-K8s environments.

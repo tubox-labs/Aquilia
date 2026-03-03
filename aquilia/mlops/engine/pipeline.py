@@ -1,5 +1,5 @@
 """
-Inference Pipeline — async preprocess → batch/infer → postprocess pipeline.
+Inference Pipeline -- async preprocess → batch/infer → postprocess pipeline.
 
 Each inference request flows through this pipeline:
 
@@ -252,7 +252,7 @@ class InferencePipeline:
         request: InferenceRequest,
         ctx: PipelineContext,
     ) -> InferenceResult:
-        """Handle pipeline errors — call on_error hooks, return error result."""
+        """Handle pipeline errors -- call on_error hooks, return error result."""
         total_ms = (time.monotonic() - ctx.start_time) * 1000
 
         logger.error(

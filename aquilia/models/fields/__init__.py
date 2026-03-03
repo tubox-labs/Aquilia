@@ -1,22 +1,22 @@
 """
-Aquilia Model Fields Package — split-module field system.
+Aquilia Model Fields Package -- split-module field system.
 
 This package re-exports all fields from the original monolithic fields.py
 AND adds new field types from sub-modules. Existing imports like
 ``from aquilia.models.fields import CharField`` continue to work.
 
 New sub-modules:
-    base      — Field base class and core API
-    mixins    — NullableMixin, UniqueMixin, IndexedMixin, ChoiceMixin, EncryptedMixin
-    primitives— IntegerField, FloatField, CharField, etc.
-    relation  — ForeignKey, OneToOneField, ManyToManyField
-    file      — FileField, ImageField with storage hooks
-    json_field— JSONField with schema validation
-    composite — CompositeField, CompositePrimaryKey, CompositeAttribute
-    uuid_field— Enhanced UUIDField
-    binary_field— Enhanced BinaryField
-    auto_field— AutoField, BigAutoField
-    enum_field— EnumField
+    base      -- Field base class and core API
+    mixins    -- NullableMixin, UniqueMixin, IndexedMixin, ChoiceMixin, EncryptedMixin
+    primitives-- IntegerField, FloatField, CharField, etc.
+    relation  -- ForeignKey, OneToOneField, ManyToManyField
+    file      -- FileField, ImageField with storage hooks
+    json_field-- JSONField with schema validation
+    composite -- CompositeField, CompositePrimaryKey, CompositeAttribute
+    uuid_field-- Enhanced UUIDField
+    binary_field-- Enhanced BinaryField
+    auto_field-- AutoField, BigAutoField
+    enum_field-- EnumField
 """
 
 # ── Re-export everything from the original monolithic fields.py ──────────────

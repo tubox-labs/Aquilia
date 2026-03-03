@@ -689,15 +689,15 @@ class TestModelAdmin:
 
     def test_format_value_none(self):
         admin = ModelAdmin(model=UserModel)
-        assert admin.format_value("name", None) == "—"
+        assert admin.format_value("name", None) == "--"
 
     def test_format_value_bool_true(self):
         admin = ModelAdmin(model=UserModel)
-        assert admin.format_value("active", True) == "✓"
+        assert admin.format_value("active", True) == "yes"
 
     def test_format_value_bool_false(self):
         admin = ModelAdmin(model=UserModel)
-        assert admin.format_value("active", False) == "✗"
+        assert admin.format_value("active", False) == "no"
 
     def test_format_value_string(self):
         admin = ModelAdmin(model=UserModel)

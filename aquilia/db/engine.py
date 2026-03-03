@@ -1,5 +1,5 @@
 """
-Aquilia Database Engine — async-first, multi-backend, production-ready.
+Aquilia Database Engine -- async-first, multi-backend, production-ready.
 
 Provides:
 - AquiliaDatabase: async connection manager delegating to backend adapters
@@ -38,7 +38,7 @@ _SP_NAME_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
 
 
 def _sanitize_savepoint(name: str) -> str:
-    """Validate savepoint names — only alphanumeric + underscore allowed."""
+    """Validate savepoint names -- only alphanumeric + underscore allowed."""
     if not _SP_NAME_RE.match(name):
         raise QueryFault(
             model="<transaction>",
@@ -49,7 +49,7 @@ def _sanitize_savepoint(name: str) -> str:
 
 
 def _create_adapter(driver: str) -> DatabaseAdapter:
-    """Factory — instantiate the correct backend adapter."""
+    """Factory -- instantiate the correct backend adapter."""
     if driver == "sqlite":
         from .backends.sqlite import SQLiteAdapter
         return SQLiteAdapter()
@@ -73,7 +73,7 @@ class AquiliaDatabase:
 
     Delegates all operations to the appropriate backend adapter
     (SQLite, PostgreSQL, or MySQL). All operations are async and
-    use parameterized queries with ``?`` placeholders — the adapter
+    use parameterized queries with ``?`` placeholders -- the adapter
     translates to the backend's native param style automatically.
 
     Integrates with:
@@ -155,11 +155,11 @@ class AquiliaDatabase:
     # ── Lifecycle hooks ──────────────────────────────────────────────
 
     async def on_startup(self) -> None:
-        """Lifecycle hook — called by ``LifecycleCoordinator`` at app start."""
+        """Lifecycle hook -- called by ``LifecycleCoordinator`` at app start."""
         await self.connect()
 
     async def on_shutdown(self) -> None:
-        """Lifecycle hook — called by ``LifecycleCoordinator`` at app stop."""
+        """Lifecycle hook -- called by ``LifecycleCoordinator`` at app stop."""
         await self.disconnect()
 
     # ── Connection management ────────────────────────────────────────

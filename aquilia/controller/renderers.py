@@ -6,12 +6,12 @@ plus a pluggable renderer architecture.
 
 Built-in renderers:
 
-- **JSONRenderer** — ``application/json`` (default)
-- **XMLRenderer** — ``application/xml``
-- **YAMLRenderer** — ``application/x-yaml``
-- **PlainTextRenderer** — ``text/plain``
-- **HTMLRenderer** — ``text/html``
-- **MessagePackRenderer** — ``application/msgpack`` (optional)
+- **JSONRenderer** -- ``application/json`` (default)
+- **XMLRenderer** -- ``application/xml``
+- **YAMLRenderer** -- ``application/x-yaml``
+- **PlainTextRenderer** -- ``text/plain``
+- **HTMLRenderer** -- ``text/html``
+- **MessagePackRenderer** -- ``application/msgpack`` (optional)
 
 Usage::
 

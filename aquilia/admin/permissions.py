@@ -1,5 +1,5 @@
 """
-AquilAdmin — Admin Permission & Role System.
+AquilAdmin -- Admin Permission & Role System.
 
 Integrates with Aquilia Auth RBAC/ABAC for admin access control.
 Defines standard admin roles and per-model permission checks.

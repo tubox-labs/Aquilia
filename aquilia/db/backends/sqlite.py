@@ -1,5 +1,5 @@
 """
-Aquilia DB Backend — SQLite adapter via aiosqlite.
+Aquilia DB Backend -- SQLite adapter via aiosqlite.
 
 This is the default backend. It wraps aiosqlite and implements
 the full DatabaseAdapter interface including introspection.
@@ -28,7 +28,7 @@ logger = logging.getLogger("aquilia.db.backends.sqlite")
 
 __all__ = ["SQLiteAdapter"]
 
-# Savepoint name validation — prevent SQL injection
+# Savepoint name validation -- prevent SQL injection
 _SP_NAME_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
 
 

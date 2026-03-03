@@ -1,5 +1,5 @@
 """
-TorchServe exporter — generates TorchServe-compatible model archives.
+TorchServe exporter -- generates TorchServe-compatible model archives.
 
 Provides ``export()`` to create ``.mar`` files and
 a thin adapter for inference through TorchServe's REST API.

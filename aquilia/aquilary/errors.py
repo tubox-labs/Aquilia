@@ -46,7 +46,7 @@ class RegistryError(Exception):
         lines = []
         
         # Error header
-        lines.append(f"❌ {self.__class__.__name__}: {self.message}")
+        lines.append(f"{self.__class__.__name__}: {self.message}")
         
         # Location
         if self.span:
@@ -62,7 +62,7 @@ class RegistryError(Exception):
         
         # Suggestion
         if self.suggestion:
-            lines.append(f"\n   💡 Suggestion: {self.suggestion}")
+            lines.append(f"\n   Suggestion: {self.suggestion}")
         
         return "\n".join(lines)
     
@@ -454,16 +454,16 @@ class ValidationReport:
         lines = []
         
         if self.errors:
-            lines.append(f"❌ {len(self.errors)} error(s):")
+            lines.append(f"{len(self.errors)} error(s):")
             for i, error in enumerate(self.errors, 1):
                 lines.append(f"\n{i}. {error.format_error()}")
         
         if self.warnings:
-            lines.append(f"\n⚠️  {len(self.warnings)} warning(s):")
+            lines.append(f"\n {len(self.warnings)} warning(s):")
             for i, warning in enumerate(self.warnings, 1):
                 lines.append(f"   {i}. {warning}")
         
         if not self.errors and not self.warnings:
-            lines.append("✅ No errors or warnings")
+            lines.append("No errors or warnings")
         
         return "\n".join(lines)

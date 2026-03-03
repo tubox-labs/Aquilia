@@ -1,5 +1,5 @@
 """
-AquilaCache — Pluggable serializers for cache value encoding.
+AquilaCache -- Pluggable serializers for cache value encoding.
 
 Supports JSON (default), pickle (fast, Python-only), and msgpack
 (compact, cross-language). All serializers include structured error
@@ -17,7 +17,7 @@ logger = logging.getLogger("aquilia.cache.serializers")
 
 class JsonCacheSerializer:
     """
-    JSON serializer — safe, human-readable, cross-language.
+    JSON serializer -- safe, human-readable, cross-language.
     
     Default serializer. Handles most Python primitives and
     containers (dict, list, str, int, float, bool, None).
@@ -43,7 +43,7 @@ class JsonCacheSerializer:
 
 class PickleCacheSerializer:
     """
-    Pickle serializer — fast, supports arbitrary Python objects.
+    Pickle serializer -- fast, supports arbitrary Python objects.
     
     WARNING: Only use with trusted data. Pickle can execute
     arbitrary code during deserialization.
@@ -70,7 +70,7 @@ class PickleCacheSerializer:
 
 class MsgpackCacheSerializer:
     """
-    MessagePack serializer — compact binary, cross-language.
+    MessagePack serializer -- compact binary, cross-language.
     
     Requires `msgpack` package: pip install msgpack
     """

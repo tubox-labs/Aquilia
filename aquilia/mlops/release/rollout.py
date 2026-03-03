@@ -1,5 +1,5 @@
 """
-Release rollout engine — canary, A/B, shadow traffic management.
+Release rollout engine -- canary, A/B, shadow traffic management.
 
 Orchestrates progressive rollouts with metric-gated advancement
 and automatic rollback.

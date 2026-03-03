@@ -1,5 +1,5 @@
 """
-AquilAdmin — Model Registration & Auto-Discovery.
+AquilAdmin -- Model Registration & Auto-Discovery.
 
 Provides the @register decorator and autodiscover() function for
 registering models with the admin site.
@@ -89,7 +89,7 @@ def register(
             _do_register(model_or_admin)
             return model_or_admin
         else:
-            # @register(UserModel) — decorator factory
+            # @register(UserModel) -- decorator factory
             def decorator(cls):
                 _do_register(cls, model_or_admin)
                 return cls
@@ -151,7 +151,7 @@ def _register_admin_models(site: "AdminSite") -> None:
     Register the built-in admin models (AdminUser, AdminGroup, etc.)
     with rich ModelAdmin subclasses for Django-admin-like data management.
 
-    These models store real data in database tables — ContentType tracks
+    These models store real data in database tables -- ContentType tracks
     registered models, AdminUser stores staff accounts, AdminLogEntry
     provides an immutable audit trail, etc.
     """
@@ -177,7 +177,7 @@ def _register_admin_models(site: "AdminSite") -> None:
             search_fields = ["app_label", "model"]
             ordering = ["app_label", "model"]
             readonly_fields = ["id"]
-            icon = "🏷️"
+            icon = "tag"
             verbose_name = "Content Type"
             verbose_name_plural = "Content Types"
         site.register_admin(ContentType, ContentTypeAdmin(model=ContentType))
@@ -189,7 +189,7 @@ def _register_admin_models(site: "AdminSite") -> None:
             search_fields = ["name", "codename"]
             ordering = ["codename"]
             readonly_fields = ["id"]
-            icon = "🔑"
+            icon = "key"
             verbose_name = "Permission"
             verbose_name_plural = "Permissions"
         site.register_admin(AdminPermissionModel, AdminPermissionAdmin(model=AdminPermissionModel))
@@ -201,7 +201,7 @@ def _register_admin_models(site: "AdminSite") -> None:
             search_fields = ["name"]
             ordering = ["name"]
             readonly_fields = ["id"]
-            icon = "👥"
+            icon = "group"
             verbose_name = "Group"
             verbose_name_plural = "Groups"
         site.register_admin(AdminGroup, AdminGroupAdmin(model=AdminGroup))
@@ -215,7 +215,7 @@ def _register_admin_models(site: "AdminSite") -> None:
             ordering = ["-date_joined"]
             readonly_fields = ["id", "password_hash", "date_joined", "last_login"]
             exclude = ["password_hash"]
-            icon = "👤"
+            icon = "user"
             verbose_name = "Admin User"
             verbose_name_plural = "Admin Users"
         site.register_admin(AdminUser, AdminUserAdmin(model=AdminUser))
@@ -228,7 +228,7 @@ def _register_admin_models(site: "AdminSite") -> None:
             list_filter = ["action_flag", "action_time"]
             ordering = ["-action_time"]
             readonly_fields = ["id", "action_time", "user", "content_type", "object_id", "object_repr", "action_flag", "change_message"]
-            icon = "📋"
+            icon = "list"
             verbose_name = "Log Entry"
             verbose_name_plural = "Log Entries"
         site.register_admin(AdminLogEntry, AdminLogEntryAdmin(model=AdminLogEntry))
@@ -240,7 +240,7 @@ def _register_admin_models(site: "AdminSite") -> None:
             search_fields = ["session_key"]
             ordering = ["-expire_date"]
             readonly_fields = ["id", "session_key"]
-            icon = "🔐"
+            icon = "lock"
             verbose_name = "Session"
             verbose_name_plural = "Sessions"
         site.register_admin(AdminSession, AdminSessionAdmin(model=AdminSession))
@@ -258,7 +258,7 @@ def _register_admin_models(site: "AdminSite") -> None:
                                    "role", "action", "model_name", "record_pk",
                                    "changes_json", "ip_address", "user_agent",
                                    "metadata_json", "success", "error_message"]
-                icon = "📋"
+                icon = "list"
                 verbose_name = "Audit Entry"
                 verbose_name_plural = "Audit Entries"
             site.register_admin(AdminAuditEntry, AdminAuditEntryAdmin(model=AdminAuditEntry))

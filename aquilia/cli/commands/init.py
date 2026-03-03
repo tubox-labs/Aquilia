@@ -24,7 +24,7 @@ def create_workspace(
     Create a new Aquilia workspace.
 
     When ``minimal=True``, generates the absolute minimum needed to run:
-      - workspace.py (lean config — no sessions, no security, no telemetry)
+      - workspace.py (lean config -- no sessions, no security, no telemetry)
       - modules/ directory
       - config/base.yaml (minimal)
       - starter.py (welcome page)

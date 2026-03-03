@@ -1,5 +1,5 @@
 """
-Aquilia Composite Fields — group multiple primitives into one logical attribute.
+Aquilia Composite Fields -- group multiple primitives into one logical attribute.
 
 Provides:
 - CompositeField: Groups multiple primitive fields with serialization
@@ -97,13 +97,13 @@ class CompositeField(Field):
         prefix: Column name prefix for expanded storage
         strategy: "json" (single TEXT column) or "expand" (multiple columns)
 
-    Usage (JSON strategy — single column):
+    Usage (JSON strategy -- single column):
         coordinates = CompositeField(
             schema={"lat": FloatField(), "lng": FloatField()},
             strategy="json",
         )
 
-    Usage (Expanded strategy — multiple columns):
+    Usage (Expanded strategy -- multiple columns):
         address = CompositeField(
             schema={
                 "street": CharField(max_length=200),
@@ -185,7 +185,7 @@ class CompositePrimaryKey:
     """
     Declares a composite primary key across multiple fields.
 
-    This is not a Field itself — it's a Meta-level declaration.
+    This is not a Field itself -- it's a Meta-level declaration.
 
     Usage:
         class OrderItem(Model):

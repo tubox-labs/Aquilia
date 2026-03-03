@@ -1,5 +1,5 @@
 """
-Aquilia Model Indexes — standalone index rendering.
+Aquilia Model Indexes -- standalone index rendering.
 
 Re-exports Index and UniqueConstraint from fields_module and adds
 additional index types: GinIndex, GistIndex, BrinIndex, HashIndex,
@@ -91,22 +91,22 @@ class _PostgresOnlyIndex:
 
 
 class GinIndex(_PostgresOnlyIndex):
-    """PostgreSQL GIN index — useful for full-text search, JSONB, arrays."""
+    """PostgreSQL GIN index -- useful for full-text search, JSONB, arrays."""
     _index_type = "GIN"
 
 
 class GistIndex(_PostgresOnlyIndex):
-    """PostgreSQL GiST index — useful for geometric, range types, exclusion constraints."""
+    """PostgreSQL GiST index -- useful for geometric, range types, exclusion constraints."""
     _index_type = "GIST"
 
 
 class BrinIndex(_PostgresOnlyIndex):
-    """PostgreSQL BRIN index — useful for very large tables with natural ordering."""
+    """PostgreSQL BRIN index -- useful for very large tables with natural ordering."""
     _index_type = "BRIN"
 
 
 class HashIndex(_PostgresOnlyIndex):
-    """PostgreSQL Hash index — useful for equality lookups only."""
+    """PostgreSQL Hash index -- useful for equality lookups only."""
     _index_type = "HASH"
 
 

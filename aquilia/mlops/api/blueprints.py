@@ -1,22 +1,22 @@
 """
-MLOps Blueprints — Aquilia Blueprint definitions for all MLOps data types.
+MLOps Blueprints -- Aquilia Blueprint definitions for all MLOps data types.
 
 Uses ``aquilia.blueprints`` for declarative validation, coercion,
 and output rendering across the entire ML pipeline.
 
 Blueprints::
 
-    ModelpackManifestBlueprint  — validate / render manifest JSON
-    InferenceRequestBlueprint   — validate incoming inference payloads
-    InferenceResultBlueprint    — render inference results
-    DriftReportBlueprint        — render drift detection reports
-    RolloutConfigBlueprint      — validate rollout configuration
-    RolloutStateBlueprint       — render rollout state
-    ScalingPolicyBlueprint      — validate autoscaler policy
-    PluginDescriptorBlueprint   — render plugin metadata
-    NodeInfoBlueprint           — validate node registration
-    PlacementRequestBlueprint   — validate placement requests
-    ProvenanceBlueprint         — validate provenance metadata
+    ModelpackManifestBlueprint  -- validate / render manifest JSON
+    InferenceRequestBlueprint   -- validate incoming inference payloads
+    InferenceResultBlueprint    -- render inference results
+    DriftReportBlueprint        -- render drift detection reports
+    RolloutConfigBlueprint      -- validate rollout configuration
+    RolloutStateBlueprint       -- render rollout state
+    ScalingPolicyBlueprint      -- validate autoscaler policy
+    PluginDescriptorBlueprint   -- render plugin metadata
+    NodeInfoBlueprint           -- validate node registration
+    PlacementRequestBlueprint   -- validate placement requests
+    ProvenanceBlueprint         -- validate provenance metadata
 """
 
 from __future__ import annotations

@@ -1,5 +1,5 @@
 """
-Aquilia Flow — Typed Pipeline System with Effect Integration.
+Aquilia Flow -- Typed Pipeline System with Effect Integration.
 
 Inspired by Effect-TS's composable effect architecture, the Flow system
 provides typed, ordered, composable request pipelines:
@@ -10,13 +10,13 @@ Each pipeline stage can declare required effects (DB, Cache, Queue, etc.)
 which are automatically acquired before execution and released after.
 
 Architecture:
-    FlowNode      — Typed callable unit (guard, transform, handler, hook)
-    FlowContext   — Typed context threaded through the pipeline
-    FlowPipeline  — Composable pipeline builder and executor
-    FlowResult    — Discriminated union of pipeline outcomes
-    FlowError     — Structured pipeline failure
-    @requires     — Decorator declaring effect dependencies on handlers/nodes
-    Layer          — Composable effect constructor (Effect-TS Layer pattern)
+    FlowNode      -- Typed callable unit (guard, transform, handler, hook)
+    FlowContext   -- Typed context threaded through the pipeline
+    FlowPipeline  -- Composable pipeline builder and executor
+    FlowResult    -- Discriminated union of pipeline outcomes
+    FlowError     -- Structured pipeline failure
+    @requires     -- Decorator declaring effect dependencies on handlers/nodes
+    Layer          -- Composable effect constructor (Effect-TS Layer pattern)
 
 Integration Points:
     - Controller decorators accept ``pipeline=`` for per-route pipelines
@@ -102,7 +102,7 @@ PRIORITY_CLEANUP = 80     # Cleanup hooks
 
 
 # ============================================================================
-# FlowContext — Typed context threaded through the pipeline
+# FlowContext -- Typed context threaded through the pipeline
 # ============================================================================
 
 
@@ -244,7 +244,7 @@ class FlowContext:
 
 
 # ============================================================================
-# FlowNode — Typed callable unit in a pipeline
+# FlowNode -- Typed callable unit in a pipeline
 # ============================================================================
 
 
@@ -259,7 +259,7 @@ class FlowNode:
         name:       Human-readable name for tracing.
         priority:   Execution order (lower = earlier). Default 50.
         effects:    Effect names this node requires.
-        condition:  Optional predicate — node only runs if True.
+        condition:  Optional predicate -- node only runs if True.
         timeout:    Per-node timeout in seconds (None = no limit).
     """
     type: FlowNodeType
@@ -278,7 +278,7 @@ class FlowNode:
 
 
 # ============================================================================
-# FlowResult — Discriminated union of pipeline outcomes
+# FlowResult -- Discriminated union of pipeline outcomes
 # ============================================================================
 
 
@@ -312,7 +312,7 @@ class FlowResult:
 
 
 # ============================================================================
-# FlowError — Structured pipeline failure
+# FlowError -- Structured pipeline failure
 # ============================================================================
 
 
@@ -334,7 +334,7 @@ class FlowError(Exception):
 
 
 # ============================================================================
-# @requires — Decorator declaring effect dependencies
+# @requires -- Decorator declaring effect dependencies
 # ============================================================================
 
 
@@ -370,14 +370,14 @@ def get_required_effects(func: Callable) -> List[str]:
 
 
 # ============================================================================
-# Layer — Composable effect constructor (Effect-TS pattern)
+# Layer -- Composable effect constructor (Effect-TS pattern)
 # ============================================================================
 
 
 @dataclass
 class Layer:
     """
-    Composable effect layer — separates effect construction from usage.
+    Composable effect layer -- separates effect construction from usage.
 
     Inspired by Effect-TS's Layer system:
     - Layers build EffectProviders (construction phase)
@@ -551,7 +551,7 @@ class LayerComposition:
 
 
 # ============================================================================
-# FlowPipeline — The Pipeline Builder & Executor
+# FlowPipeline -- The Pipeline Builder & Executor
 # ============================================================================
 
 
@@ -973,7 +973,7 @@ class FlowPipeline:
         for name in effect_names:
             if not registry.has_effect(name):
                 self._logger.warning(
-                    "Effect '%s' required but not registered — skipping", name,
+                    "Effect '%s' required but not registered -- skipping", name,
                 )
                 continue
             try:
@@ -1036,7 +1036,7 @@ class FlowPipeline:
 
         # Handle FlowNode wrapping a class instance (e.g., FlowGuard)
         if hasattr(callable_fn, "__call__") and not inspect.isfunction(callable_fn):
-            # Instance with __call__ — use it directly
+            # Instance with __call__ -- use it directly
             pass
 
         # Determine signature
@@ -1044,7 +1044,7 @@ class FlowPipeline:
             sig = inspect.signature(callable_fn)
             params = sig.parameters
         except (ValueError, TypeError):
-            # Can't inspect — try calling with context
+            # Can't inspect -- try calling with context
             return await self._safe_call(callable_fn, context)
 
         param_names = set(params.keys())
@@ -1115,7 +1115,7 @@ class FlowPipeline:
                 result = await result
             return result
         except TypeError:
-            # Signature mismatch — try with just the first arg
+            # Signature mismatch -- try with just the first arg
             if args:
                 try:
                     result = fn(args[0])
@@ -1261,7 +1261,7 @@ def hook(
 
 
 # ============================================================================
-# from_pipeline_list — Convert controller pipeline lists to FlowPipeline
+# from_pipeline_list -- Convert controller pipeline lists to FlowPipeline
 # ============================================================================
 
 
@@ -1275,7 +1275,7 @@ def from_pipeline_list(
 
     Handles:
     - FlowNode instances (used directly)
-    - Callables (auto-wrapped as guards — legacy behavior)
+    - Callables (auto-wrapped as guards -- legacy behavior)
     - FlowGuard instances (wrapped via as_flow_node if available)
 
     This bridges the controller ``pipeline=[]`` syntax with the

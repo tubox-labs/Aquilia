@@ -109,7 +109,7 @@ class ControllerFactory:
         """
         Create new instance for each request.
 
-        NOTE: on_request is NOT called here — the engine handles lifecycle
+        NOTE: on_request is NOT called here -- the engine handles lifecycle
         hooks to avoid double invocation.
         """
         container = request_container or self.app_container
@@ -147,7 +147,7 @@ class ControllerFactory:
             ControllerFactory._ctor_info_cache[controller_class] = ctor_info
         
         if not ctor_info:
-            # No injectable params — simple instantiation
+            # No injectable params -- simple instantiation
             return controller_class()
 
         params = {}
@@ -291,7 +291,7 @@ class ControllerFactory:
                 return param_type()
             except (TypeError, Exception) as e:
                 raise TypeError(
-                    f"Cannot instantiate {param_type!r} — no container "
+                    f"Cannot instantiate {param_type!r} -- no container "
                     f"provider found and default construction failed: {e}"
                 ) from e
     
@@ -347,7 +347,7 @@ class ControllerFactory:
                 if param_type == inspect.Parameter.empty:
                     continue
                 
-                # Check provider scope — use public API where available
+                # Check provider scope -- use public API where available
                 provider = None
                 if hasattr(self.app_container, 'get_provider'):
                     provider = self.app_container.get_provider(param_type)

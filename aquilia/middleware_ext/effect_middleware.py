@@ -1,5 +1,5 @@
 """
-Effect Middleware — Per-request effect lifecycle management.
+Effect Middleware -- Per-request effect lifecycle management.
 
 This middleware integrates the Effect system into the ASGI request lifecycle:
 
@@ -83,7 +83,7 @@ class EffectMiddleware:
         required = self._detect_required_effects(request)
 
         if not required:
-            # No effects needed — pass through without overhead
+            # No effects needed -- pass through without overhead
             return await handler(request)
 
         # Acquire effects
@@ -145,9 +145,9 @@ class EffectMiddleware:
         Detect required effects from route/handler metadata.
 
         Checks:
-        1. ``request.state["route_effects"]`` — set by router
-        2. ``request.state["handler"].__flow_effects__`` — @requires decorator
-        3. ``request.state["pipeline_effects"]`` — from pipeline nodes
+        1. ``request.state["route_effects"]`` -- set by router
+        2. ``request.state["handler"].__flow_effects__`` -- @requires decorator
+        3. ``request.state["pipeline_effects"]`` -- from pipeline nodes
         """
         required: Set[str] = set()
 

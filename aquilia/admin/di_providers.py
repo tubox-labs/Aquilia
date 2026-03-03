@@ -1,5 +1,5 @@
 """
-AquilAdmin — DI Providers.
+AquilAdmin -- DI Providers.
 
 Dependency injection providers for admin subsystem components.
 Registers AdminSite, AdminController, and AdminAuditLog as
@@ -73,10 +73,10 @@ def register_admin_providers(container: "Container") -> None:
     Register all admin DI providers with the given container.
 
     This enables resolution of:
-    - ``AdminSite`` — the singleton admin registry
-    - ``AdminController`` — the admin route controller
-    - ``AdminAuditLog`` — the audit log instance
-    - ``ModelBackedAuditLog`` — DB-backed audit log
+    - ``AdminSite`` -- the singleton admin registry
+    - ``AdminController`` -- the admin route controller
+    - ``AdminAuditLog`` -- the audit log instance
+    - ``ModelBackedAuditLog`` -- DB-backed audit log
 
     Call this during application bootstrap, typically in the
     ``Integration.admin()`` setup or workspace configuration.
@@ -91,19 +91,19 @@ def register_admin_providers(container: "Container") -> None:
             ValueProvider(AdminSite.default()),
         )
 
-        # AdminController — one per app scope
+        # AdminController -- one per app scope
         container.register(
             AdminController,
             FactoryProvider(provide_admin_controller, scope=Scope.APP),
         )
 
-        # AuditLog — singleton from site
+        # AuditLog -- singleton from site
         container.register(
             AdminAuditLog,
             FactoryProvider(provide_audit_log, scope=Scope.SINGLETON),
         )
 
-        # ModelBackedAuditLog — singleton
+        # ModelBackedAuditLog -- singleton
         container.register(
             ModelBackedAuditLog,
             FactoryProvider(provide_model_backed_audit_log, scope=Scope.SINGLETON),
@@ -112,7 +112,7 @@ def register_admin_providers(container: "Container") -> None:
         logger.debug("Registered admin DI providers: AdminSite, AdminController, AdminAuditLog")
 
     except ImportError:
-        logger.debug("DI system not available — skipping admin provider registration")
+        logger.debug("DI system not available -- skipping admin provider registration")
     except Exception as exc:
         logger.debug("Failed to register admin DI providers: %s", exc)
 

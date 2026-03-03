@@ -1,5 +1,5 @@
 """
-AquilaMail Faults — Structured, typed fault definitions for the mail subsystem.
+AquilaMail Faults -- Structured, typed fault definitions for the mail subsystem.
 
 Integrates with Aquilia's FaultDomain system so all mail errors are inspectable,
 recoverable, and observable through the standard fault pipeline.

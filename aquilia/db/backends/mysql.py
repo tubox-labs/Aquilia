@@ -1,5 +1,5 @@
 """
-Aquilia DB Backend — MySQL/MariaDB adapter via aiomysql.
+Aquilia DB Backend -- MySQL/MariaDB adapter via aiomysql.
 
 Provides full async MySQL support with connection pooling,
 proper transaction management, and introspection.

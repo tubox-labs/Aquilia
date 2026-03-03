@@ -1,5 +1,5 @@
 """
-AquilaCache — Null (no-op) backend.
+AquilaCache -- Null (no-op) backend.
 
 Used for testing, development, or when caching should be disabled
 without changing application code.
@@ -14,7 +14,7 @@ from ..core import CacheBackend, CacheEntry, CacheStats
 
 class NullBackend(CacheBackend):
     """
-    No-op cache backend — all operations are pass-through.
+    No-op cache backend -- all operations are pass-through.
     
     Useful for:
     - Disabling cache in test environments

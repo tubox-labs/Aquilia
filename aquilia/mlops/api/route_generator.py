@@ -1,19 +1,19 @@
 """
-Route Generator — auto-generate Aquilia controller endpoints per model.
+Route Generator -- auto-generate Aquilia controller endpoints per model.
 
 Scans the ``ModelRegistry`` and generates HTTP endpoints for each
 registered model:
 
 Per model:
-- ``POST /mlops/models/{name}/predict``  — sync inference
-- ``POST /mlops/models/{name}/stream``   — streaming (if supported)
-- ``GET  /mlops/models/{name}/health``   — per-model health
-- ``GET  /mlops/models/{name}/metrics``  — per-model metrics
+- ``POST /mlops/models/{name}/predict``  -- sync inference
+- ``POST /mlops/models/{name}/stream``   -- streaming (if supported)
+- ``GET  /mlops/models/{name}/health``   -- per-model health
+- ``GET  /mlops/models/{name}/metrics``  -- per-model metrics
 
 Global:
-- ``GET  /mlops/health``   — aggregate health
-- ``GET  /mlops/metrics``  — aggregate metrics
-- ``GET  /mlops/models``   — list all models
+- ``GET  /mlops/health``   -- aggregate health
+- ``GET  /mlops/metrics``  -- aggregate metrics
+- ``GET  /mlops/models``   -- list all models
 
 Usage::
 

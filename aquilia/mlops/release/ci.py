@@ -2,7 +2,7 @@
 CI/CD templates and GitHub Actions configuration.
 
 Generates:
-- ``.github/workflows/aquilia-ci.yml`` — build, test, publish, deploy
+- ``.github/workflows/aquilia-ci.yml`` -- build, test, publish, deploy
 - Dockerfile for reproducible builds
 """
 

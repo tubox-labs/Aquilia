@@ -1,23 +1,23 @@
 """
-Artifact Store — pluggable storage backends for artifacts.
+Artifact Store -- pluggable storage backends for artifacts.
 
 Provides three implementations:
 
-- **MemoryArtifactStore** — ephemeral, test-friendly
-- **FilesystemArtifactStore** — persistent, writes ``.crous`` binary files
+- **MemoryArtifactStore** -- ephemeral, test-friendly
+- **FilesystemArtifactStore** -- persistent, writes ``.crous`` binary files
   into a configurable directory (default ``artifacts/``)
-- **ArtifactStore** — convenience alias that auto-detects
+- **ArtifactStore** -- convenience alias that auto-detects
 
 All stores support:
 
-- ``save(artifact)``            — idempotent upsert
-- ``load(name, version=)``      — load by name (+ optional version)
-- ``load_by_digest(digest)``    — content-addressed lookup
-- ``list(kind=, tag=)``         — filtered listing
-- ``delete(name, version=)``    — remove artifact(s)
-- ``exists(name, version=)``    — existence check
-- ``gc(referenced)``            — garbage-collect unreferenced
-- ``export_bundle(names, path)``— export subset as a ``.aq-bundle``
+- ``save(artifact)``            -- idempotent upsert
+- ``load(name, version=)``      -- load by name (+ optional version)
+- ``load_by_digest(digest)``    -- content-addressed lookup
+- ``list(kind=, tag=)``         -- filtered listing
+- ``delete(name, version=)``    -- remove artifact(s)
+- ``exists(name, version=)``    -- existence check
+- ``gc(referenced)``            -- garbage-collect unreferenced
+- ``export_bundle(names, path)``-- export subset as a ``.aq-bundle``
 """
 
 from __future__ import annotations
@@ -212,7 +212,7 @@ class FilesystemArtifactStore(ArtifactStoreProtocol):
         return self.root / self._safe_filename(name, version, ".crous")
 
     def _legacy_path(self, name: str, version: str) -> Path:
-        """Legacy .aq.json path — read-only fallback for old stores."""
+        """Legacy .aq.json path -- read-only fallback for old stores."""
         return self.root / self._safe_filename(name, version, ".aq.json")
 
     def _iter_files(self):
@@ -260,7 +260,7 @@ class FilesystemArtifactStore(ArtifactStoreProtocol):
                 return None
             return self._read(path)
 
-        # No version — find latest by name prefix
+        # No version -- find latest by name prefix
         prefix = name.replace("/", "_").replace(":", "_").replace(" ", "_") + "-"
         matches: List[Artifact] = []
         for f in self._iter_files():
@@ -448,7 +448,7 @@ class FilesystemArtifactStore(ArtifactStoreProtocol):
 
 def ArtifactStore(root: str = "artifacts") -> FilesystemArtifactStore:
     """
-    Convenience constructor — returns a :class:`FilesystemArtifactStore`.
+    Convenience constructor -- returns a :class:`FilesystemArtifactStore`.
 
     Use ``MemoryArtifactStore()`` for tests.
     """

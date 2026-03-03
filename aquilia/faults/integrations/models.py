@@ -101,7 +101,7 @@ class ModelFaultHandler(FaultHandler):
                 f"op={fault.metadata.get('operation')}"
             )
         
-        # Parse errors and schema faults are fatal — escalate
+        # Parse errors and schema faults are fatal -- escalate
         if isinstance(fault, (AMDLParseFault, SchemaFault)):
             logger.critical(
                 f"Fatal model fault: {fault.message}"
@@ -161,7 +161,7 @@ def patch_model_registry() -> None:
     try:
         from aquilia.models.runtime import ModelRegistry as LegacyRegistry
     except ImportError:
-        logger.debug("Legacy ModelRegistry not available — skipping patch")
+        logger.debug("Legacy ModelRegistry not available -- skipping patch")
     else:
         _original_register = LegacyRegistry.register_model
         _original_get_proxy = LegacyRegistry.get_proxy
@@ -200,7 +200,7 @@ def patch_model_registry() -> None:
     try:
         from aquilia.models.base import ModelRegistry as NewRegistry
     except ImportError:
-        logger.debug("New ModelRegistry not available — skipping patch")
+        logger.debug("New ModelRegistry not available -- skipping patch")
     else:
         _original_create_tables_new = NewRegistry.create_tables
         
@@ -225,7 +225,7 @@ def patch_database_engine() -> None:
     try:
         from aquilia.db.engine import AquiliaDatabase
     except ImportError:
-        logger.debug("AquiliaDatabase not available — skipping patch")
+        logger.debug("AquiliaDatabase not available -- skipping patch")
         return
     
     _original_connect = AquiliaDatabase.connect

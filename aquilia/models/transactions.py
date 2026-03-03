@@ -1,5 +1,5 @@
 """
-Aquilia Transactions — atomic() context manager with savepoint support.
+Aquilia Transactions -- atomic() context manager with savepoint support.
 
 Provides safe transaction handling with nested savepoint support,
 automatic rollback on exception, and properly scoped commit/rollback hooks.
@@ -17,7 +17,7 @@ Usage:
         async with atomic() as sp2:
             await Post.create(title="Hello")
             raise ValueError("oops")  # sp2 rolled back
-        # sp1 still active — Bob is saved, Post is not
+        # sp1 still active -- Bob is saved, Post is not
 
     # With commit hooks:
     async with atomic() as txn:
@@ -52,7 +52,7 @@ __all__ = [
 ]
 
 # Track nested transaction depth per asyncio Task using a WeakValueDictionary
-# keyed on task. This prevents memory leaks — when a Task is GC'd, its
+# keyed on task. This prevents memory leaks -- when a Task is GC'd, its
 # entry is automatically removed.
 _task_depths: weakref.WeakValueDictionary = weakref.WeakValueDictionary()
 
@@ -70,7 +70,7 @@ def _get_depth_holder() -> _DepthHolder:
     Get or create the depth counter for the current asyncio task.
 
     Uses WeakValueDictionary so entries are cleaned up when the Task
-    is garbage collected — no memory leak.
+    is garbage collected -- no memory leak.
     """
     try:
         task = asyncio.current_task()
@@ -99,10 +99,10 @@ class Atomic:
     - Successful exit commits or releases the savepoint
 
     Supports:
-    - ``on_commit(fn)`` — called after outermost commit only
-    - ``on_rollback(fn)`` — called on any rollback
-    - ``isolation`` — set transaction isolation level (PostgreSQL/MySQL)
-    - ``durable`` — disallows nesting
+    - ``on_commit(fn)`` -- called after outermost commit only
+    - ``on_rollback(fn)`` -- called on any rollback
+    - ``isolation`` -- set transaction isolation level (PostgreSQL/MySQL)
+    - ``durable`` -- disallows nesting
     """
 
     def __init__(
@@ -141,7 +141,7 @@ class Atomic:
         """
         Register a function to call after successful outermost commit.
 
-        The hook is NOT called if an inner savepoint rolls back — only
+        The hook is NOT called if an inner savepoint rolls back -- only
         after the entire transaction successfully commits.
 
         Supports both sync and async callables.
@@ -210,7 +210,7 @@ class Atomic:
 
         try:
             if exc_type is not None:
-                # Exception occurred — rollback
+                # Exception occurred -- rollback
                 if self._savepoint_id:
                     await db.execute(f"ROLLBACK TO SAVEPOINT {self._savepoint_id}")
                     logger.debug(f"Rolled back savepoint {self._savepoint_id}")
@@ -221,7 +221,7 @@ class Atomic:
                 # Fire rollback hooks
                 await self._fire_hooks(self._rollback_hooks)
             else:
-                # Success — commit or release savepoint
+                # Success -- commit or release savepoint
                 if self._savepoint_id:
                     await db.execute(f"RELEASE SAVEPOINT {self._savepoint_id}")
                     logger.debug(f"Released savepoint {self._savepoint_id}")

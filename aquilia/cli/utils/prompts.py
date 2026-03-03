@@ -1,9 +1,9 @@
 """
-Aquilia CLI — Interactive prompt toolkit.
+Aquilia CLI -- Interactive prompt toolkit.
 
 Vite-style beautiful interactive prompts built on Click.
 Provides select menus, confirm toggles, multi-select, and styled
-text input — all with colour-coded feedback.
+text input -- all with colour-coded feedback.
 
 Arrow-key navigation is handled via raw terminal mode (termios/tty)
 so ↑↓ keys work natively without any extra dependencies.
@@ -182,7 +182,7 @@ def _read_line_fd() -> str:
 
 
 def _read_line() -> str:
-    """Read a full line — uses fd-based reader on TTY, fallback on pipes."""
+    """Read a full line -- uses fd-based reader on TTY, fallback on pipes."""
     if _is_tty():
         try:
             return _read_line_fd()
@@ -223,7 +223,7 @@ def _render_select_rows(
 ) -> None:
     for i, (value, desc) in enumerate(choices):
         active  = i == current
-        pointer = _c("❯", fg="cyan") if active else "  "
+        pointer = _c("", fg="cyan") if active else "  "
         marker  = _c(_RADIO_ON, fg="cyan") if active else _c(_RADIO_OFF, dim_=True)
         val     = _c(value, fg="cyan", bold=True) if active else _c(value, fg="white")
         d       = f"  {_c('─', dim_=True)} {_c(desc, dim_=True)}" if desc else ""
@@ -238,7 +238,7 @@ def _render_multi_rows(
     for i, (value, desc, _) in enumerate(choices):
         active  = i == current
         on      = selected[i]
-        pointer = _c("❯", fg="cyan") if active else "  "
+        pointer = _c("", fg="cyan") if active else "  "
         marker  = _c(_CHECK_ON, fg="green") if on else _c(_CHECK_OFF, dim_=True)
         val     = (
             _c(value, fg="cyan",  bold=True) if active else
@@ -335,7 +335,7 @@ def ask_password(
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# Select — single-choice, ↑↓ navigation
+# Select -- single-choice, ↑↓ navigation
 # ═══════════════════════════════════════════════════════════════════════════
 
 def select(
@@ -421,7 +421,7 @@ def select(
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# Multi-select — toggle, ↑↓ + Space
+# Multi-select -- toggle, ↑↓ + Space
 # ═══════════════════════════════════════════════════════════════════════════
 
 def multi_select(

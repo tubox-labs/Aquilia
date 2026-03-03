@@ -1,5 +1,5 @@
 """
-Aquilia CLI — UI toolkit.
+Aquilia CLI -- UI toolkit.
 
 Provides a rich set of styled output primitives built on Click:
 
@@ -7,19 +7,19 @@ Provides a rich set of styled output primitives built on Click:
         success(), error(), warning(), info(), dim(), bold()
 
     Structural elements:
-        banner()        — branded header with box drawing
-        section()       — section divider with title
-        rule()          — thin horizontal rule
-        kv()            — key-value pair, aligned
-        badge()         — inline status badge  [OK]  [FAIL]  [SKIP]
-        tree_item()     — indented tree node
-        table()         — minimal aligned table
-        panel()         — bordered panel/box
+        banner()        -- branded header with box drawing
+        section()       -- section divider with title
+        rule()          -- thin horizontal rule
+        kv()            -- key-value pair, aligned
+        badge()         -- inline status badge  [OK]  [FAIL]  [SKIP]
+        tree_item()     -- indented tree node
+        table()         -- minimal aligned table
+        panel()         -- bordered panel/box
 
     Progress:
-        step()          — numbered step indicator
-        bullet()        — bulleted list item
-        indent()        — echo with indentation
+        step()          -- numbered step indicator
+        bullet()        -- bulleted list item
+        indent()        -- echo with indentation
 
 All output respects terminal width and degrades gracefully on
 non-colour terminals (click.style handles NO_COLOR / TERM=dumb).
@@ -115,8 +115,8 @@ _L_RT = "\u2524"   # ┤
 # Other
 _BULLET = "\u2022"     # •
 _ARROW  = "\u2192"     # →
-_CHECK  = "\u2713"     # ✓
-_CROSS  = "\u2717"     # ✗
+_CHECK  = "[ok]"
+_CROSS  = "[!!]"
 _CIRCLE = "\u25cb"     # ○
 _DOT    = "\u00b7"     # ·
 _DASH   = "\u2500"     # ─

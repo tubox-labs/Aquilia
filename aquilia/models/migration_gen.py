@@ -1,5 +1,5 @@
 """
-Aquilia Migration File Generator — creates DSL migration files.
+Aquilia Migration File Generator -- creates DSL migration files.
 
 Generates human-readable Python-DSL migration files from schema diffs.
 This replaces the old raw-SQL migration generator.

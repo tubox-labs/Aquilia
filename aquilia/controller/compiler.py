@@ -338,11 +338,11 @@ class ControllerCompiler:
                 if info1 != info2:
                     return False # Distinct static paths
             
-            # One static, one dynamic — these are NOT true conflicts.
+            # One static, one dynamic -- these are NOT true conflicts.
             # The router should prefer static matches over dynamic ones.
             elif kind1 == "static" and kind2 == "dynamic":
                 if info2 == "int" and not info1.isdigit():
-                    return False # Static is not int — no overlap
+                    return False # Static is not int -- no overlap
                 has_mixed_static_dynamic = True
                 
             elif kind1 == "dynamic" and kind2 == "static":
@@ -355,7 +355,7 @@ class ControllerCompiler:
                 pass
 
         # If ambiguity comes from static-vs-dynamic segments, it's not a
-        # true conflict — the router resolves it via static-first priority.
+        # true conflict -- the router resolves it via static-first priority.
         if has_mixed_static_dynamic:
             return False
                 

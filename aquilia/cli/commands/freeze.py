@@ -45,7 +45,7 @@ def freeze_artifacts(
     artifacts_dir = Path(output)
     artifacts_dir.mkdir(parents=True, exist_ok=True)
 
-    # Step 1 — Production build (strict mode, compressed)
+    # Step 1 -- Production build (strict mode, compressed)
     try:
         from aquilia.build import AquiliaBuildPipeline
 
@@ -58,13 +58,13 @@ def freeze_artifacts(
         )
 
         if not result.success:
-            print("\n  ✗ Freeze FAILED — cannot produce production artifacts.\n")
+            print("\n  Freeze FAILED -- cannot produce production artifacts.\n")
             for err in result.errors:
                 print(f"  {err}")
             return ""
 
         if verbose:
-            print(f"  ✓ {result.summary()}")
+            print(f"  {result.summary()}")
 
         fingerprint = result.fingerprint
 
@@ -85,7 +85,7 @@ def freeze_artifacts(
             hasher.update(data)
         fingerprint = hasher.hexdigest()
 
-    # Step 2 — Write frozen manifest
+    # Step 2 -- Write frozen manifest
     frozen_meta = {
         'fingerprint': fingerprint,
         'artifacts': [

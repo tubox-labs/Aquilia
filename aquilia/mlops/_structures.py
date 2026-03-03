@@ -1,21 +1,21 @@
 """
-MLOps Data Structures — High-performance primitives for ML pipelines.
+MLOps Data Structures -- High-performance primitives for ML pipelines.
 
 All structures are designed for the hot path: inference routing,
 metrics collection, registry caching, and drift windowing.
 
 Structures::
 
-    RingBuffer       — fixed-capacity circular buffer for sliding-window stats
-    LRUCache         — O(1) eviction cache for registry lookups & model artifacts
-    AtomicCounter    — thread-safe monotonic counter (lock-free via threading)
-    ExponentialDecay — EWMA (exponentially weighted moving average)
-    SlidingWindow    — time-bucketed sliding window for rate/latency tracking
-    TopKHeap         — space-efficient top-K tracker for hot models
-    BloomFilter      — probabilistic set for dedup / fast negative lookups
-    ConsistentHash   — jump-consistent hashing for sticky model routing
-    ModelLineageDAG  — DAG of model derivation relationships
-    ExperimentLedger — A/B experiment assignment + metric ledger
+    RingBuffer       -- fixed-capacity circular buffer for sliding-window stats
+    LRUCache         -- O(1) eviction cache for registry lookups & model artifacts
+    AtomicCounter    -- thread-safe monotonic counter (lock-free via threading)
+    ExponentialDecay -- EWMA (exponentially weighted moving average)
+    SlidingWindow    -- time-bucketed sliding window for rate/latency tracking
+    TopKHeap         -- space-efficient top-K tracker for hot models
+    BloomFilter      -- probabilistic set for dedup / fast negative lookups
+    ConsistentHash   -- jump-consistent hashing for sticky model routing
+    ModelLineageDAG  -- DAG of model derivation relationships
+    ExperimentLedger -- A/B experiment assignment + metric ledger
 """
 
 from __future__ import annotations
@@ -57,7 +57,7 @@ class RingBuffer(Generic[T]):
     Fixed-capacity circular buffer backed by a pre-allocated list.
 
     O(1) append, O(1) index access.  When the buffer is full the oldest
-    element is silently overwritten — ideal for sliding-window metrics
+    element is silently overwritten -- ideal for sliding-window metrics
     (latency histograms, throughput counters) where only the last *N*
     observations matter.
 

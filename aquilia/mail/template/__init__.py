@@ -1,5 +1,5 @@
 """
-AquilaMail ATS (Aquilia Template Syntax) — Stub module.
+AquilaMail ATS (Aquilia Template Syntax) -- Stub module.
 
 This module provides the public API for rendering ATS mail templates.
 The full lexer/parser/compiler is implemented in PR2; this stub provides
@@ -7,10 +7,10 @@ simple placeholder replacement so that the rest of the mail pipeline can
 be developed and tested end-to-end.
 
 ATS Syntax (stub supports expressions only):
-    << expr >>           — expression interpolation
-    [[% if cond %]]      — control flow (PR2)
-    [[% for x in xs %]]  — loops (PR2)
-    [[% block name %]]   — template inheritance (PR2)
+    << expr >>           -- expression interpolation
+    [[% if cond %]]      -- control flow (PR2)
+    [[% for x in xs %]]  -- loops (PR2)
+    [[% block name %]]   -- template inheritance (PR2)
 
 Filters (PR2):
     << name | title >>
@@ -138,7 +138,7 @@ def render_template(
             source = candidate.read_text(encoding="utf-8")
             return render_string(source, context)
 
-    # Not found in configured dirs — try template_name as absolute/relative path
+    # Not found in configured dirs -- try template_name as absolute/relative path
     p = Path(template_name)
     if p.is_file():
         source = p.read_text(encoding="utf-8")

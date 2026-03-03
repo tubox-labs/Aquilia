@@ -1,5 +1,5 @@
 """
-ASGI adapter — Bridges the ASGI protocol to Aquilia's request / response system.
+ASGI adapter -- Bridges the ASGI protocol to Aquilia's request / response system.
 Supports HTTP, WebSocket, and Lifespan events.
 
 Performance (v2):
@@ -143,7 +143,7 @@ class ASGIAdapter:
                     ctx.container,
                 )
 
-            # No controller matched — 404
+            # No controller matched -- 404
             if self._is_debug():
                 accept = self._get_accept_from_request(request)
                 if "text/html" in accept:
@@ -312,7 +312,7 @@ class ASGIAdapter:
     # ------------------------------------------------------------------
 
     async def _serve_health(self, send: Callable) -> None:
-        """Serve ``GET /_health`` — liveness probe + engine metrics.
+        """Serve ``GET /_health`` -- liveness probe + engine metrics.
 
         Returns JSON with:
         - ``status``: ``"healthy"`` / ``"degraded"``

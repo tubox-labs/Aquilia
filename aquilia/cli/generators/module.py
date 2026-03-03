@@ -95,7 +95,7 @@ class ModuleGenerator:
         """Generate module structure.
 
         In minimal mode, generates only:
-          - manifest.py (lean — no middleware, sessions, features)
+          - manifest.py (lean -- no middleware, sessions, features)
           - controllers.py (single GET endpoint)
           - __init__.py
         
@@ -128,7 +128,7 @@ class ModuleGenerator:
             self._create_test_routes_file()
 
     def _create_minimal_manifest(self) -> None:
-        """Create a minimal manifest.py — just name, controllers, route_prefix."""
+        """Create a minimal manifest.py -- just name, controllers, route_prefix."""
         deps_list = ', '.join(f'"{dep}"' for dep in self.depends_on) if self.depends_on else ''
         controller_class = f'{self.name.capitalize()}Controller'
 
@@ -162,7 +162,7 @@ class ModuleGenerator:
         (self.path / 'manifest.py').write_text(content)
 
     def _create_minimal_controller(self) -> None:
-        """Create a minimal controllers.py — single GET endpoint."""
+        """Create a minimal controllers.py -- single GET endpoint."""
         content = textwrap.dedent(f'''\
             """
             {self.name.capitalize()} module controller.
@@ -188,7 +188,7 @@ class ModuleGenerator:
         """Create manifest.py as the module-level configuration hub.
         
         Architecture v2: manifest.py is the **single source of truth** for
-        everything about this module — not just component registration but
+        everything about this module -- not just component registration but
         also module-level settings for sessions, cache, auth, database,
         templates, and error handling. These settings only affect this module;
         workspace-level settings apply globally.

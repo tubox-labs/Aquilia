@@ -274,7 +274,7 @@ class Container:
             name=f"{token.__name__ if hasattr(token, '__name__') else token}_instance",
         )
 
-        # Per-request instances must always replace the previous one —
+        # Per-request instances must always replace the previous one --
         # evict any existing provider/cache entry for this token so that
         # register() doesn't raise "already registered".
         token_key = self._token_to_key(token)
@@ -326,14 +326,14 @@ class Container:
         # For sync access, check if there's already a running loop
         try:
             asyncio.get_running_loop()
-            # We're in async context — caller should use resolve_async() instead
+            # We're in async context -- caller should use resolve_async() instead
             raise RuntimeError(
                 "resolve() called from async context; use await resolve_async() instead"
             )
         except RuntimeError as e:
             if "resolve()" in str(e):
                 raise  # Re-raise our own error
-            # No running loop — create a temporary one for sync usage
+            # No running loop -- create a temporary one for sync usage
             # Use asyncio.Runner (3.11+) to avoid destroying global state
             try:
                 loop = asyncio.new_event_loop()
@@ -415,7 +415,7 @@ class Container:
 
     async def _check_lifecycle_hooks(self, instance: Any, name: str) -> None:
         """Check and register lifecycle hooks for an instance."""
-        # Skip lazy proxies — they should not be introspected until resolved
+        # Skip lazy proxies -- they should not be introspected until resolved
         from .providers import _LazyProxy
         if isinstance(instance, _LazyProxy):
             return
@@ -465,7 +465,7 @@ class Container:
         - Shared diagnostics reference from parent.
         """
         child = Container.__new__(Container)
-        child._providers = self._providers.copy()  # Shallow copy — child can add without mutating parent
+        child._providers = self._providers.copy()  # Shallow copy -- child can add without mutating parent
         child._cache = {}  # Fresh cache per request
         child._scope = "request"
         child._parent = self
@@ -889,7 +889,7 @@ class Registry:
 # ── Lightweight null lifecycle for request-scoped containers ──
 
 class _NullLifecycleType:
-    """No-op lifecycle singleton — avoids allocating a real Lifecycle
+    """No-op lifecycle singleton -- avoids allocating a real Lifecycle
     per request container."""
     __slots__ = ()
 

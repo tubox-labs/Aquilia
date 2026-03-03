@@ -1,5 +1,5 @@
 """
-Console Provider — prints emails to stdout/logger (development).
+Console Provider -- prints emails to stdout/logger (development).
 
 Useful for local development and testing.  Does not actually send emails.
 """
@@ -24,7 +24,7 @@ class ConsoleProvider:
     """
 
     name: str = "console"
-    priority: int = 100  # low priority — fallback only
+    priority: int = 100  # low priority -- fallback only
     supports_batching: bool = True
     max_batch_size: int = 100
 
@@ -42,7 +42,7 @@ class ConsoleProvider:
         separator = "=" * 72
         output = (
             f"\n{separator}\n"
-            f"  📧 CONSOLE MAIL (not actually sent)\n"
+            f"  CONSOLE MAIL (not actually sent)\n"
             f"{separator}\n"
             f"  ID:      {envelope.id}\n"
             f"  From:    {envelope.from_email}\n"

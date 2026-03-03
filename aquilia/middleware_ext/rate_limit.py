@@ -424,7 +424,7 @@ class RateLimitMiddleware:
         self, rule: RateLimitRule, bucket: Any, retry_after: float
     ) -> Response:
         # Create a RateLimitExceededFault for ecosystem integration.
-        # The fault is attached to the response but NOT raised — the middleware
+        # The fault is attached to the response but NOT raised -- the middleware
         # returns a 429 response directly to avoid interrupting the pipeline.
         fault = RateLimitExceededFault(
             limit=rule.limit,

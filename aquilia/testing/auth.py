@@ -266,7 +266,7 @@ class AuthTestMixin:
         """
         Authenticate by injecting the identity into the DI container.
 
-        This is more thorough than ``force_login`` — it actually registers
+        This is more thorough than ``force_login`` -- it actually registers
         the identity in the request scope so DI-resolved services see it.
         """
         self.force_login(identity)

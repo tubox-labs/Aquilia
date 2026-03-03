@@ -121,7 +121,7 @@ class LifecycleCoordinator:
             
             self.phase = LifecyclePhase.READY
             self._emit_event(LifecycleEvent(LifecyclePhase.READY))
-            self.logger.info(f"✅ All apps started successfully ({len(self.started_apps)} apps)")
+            self.logger.info(f"All apps started successfully ({len(self.started_apps)} apps)")
         
         except Exception as e:
             self.phase = LifecyclePhase.ERROR
@@ -130,7 +130,7 @@ class LifecycleCoordinator:
                 message="Startup failed",
                 error=e
             ))
-            self.logger.error(f"❌ Startup failed: {e}")
+            self.logger.error(f"Startup failed: {e}")
             
             # Rollback - shutdown already started apps
             self.logger.info("Rolling back started apps...")
@@ -179,10 +179,10 @@ class LifecycleCoordinator:
                 app_name=app_name,
                 message=f"{app_name} started"
             ))
-            self.logger.info(f"     ✓ {app_name} started")
+            self.logger.info(f"     {app_name} started")
         
         except Exception as e:
-            self.logger.error(f"     ✗ {app_name} startup failed: {e}")
+            self.logger.error(f"     {app_name} startup failed: {e}")
             raise LifecycleError(f"Startup failed for app '{app_name}': {e}") from e
     
     async def shutdown(self):
@@ -220,7 +220,7 @@ class LifecycleCoordinator:
         
         self.phase = LifecyclePhase.STOPPED
         self._emit_event(LifecycleEvent(LifecyclePhase.STOPPED))
-        self.logger.info("✅ All apps stopped")
+        self.logger.info("All apps stopped")
     
     async def _shutdown_app(self, app_name: str):
         """
@@ -257,11 +257,11 @@ class LifecycleCoordinator:
                 app_name=app_name,
                 message=f"{app_name} stopped"
             ))
-            self.logger.info(f"     ✓ {app_name} stopped")
+            self.logger.info(f"     {app_name} stopped")
         
         except Exception as e:
             # Log but don't raise - continue cleanup
-            self.logger.error(f"     ✗ {app_name} shutdown error: {e}")
+            self.logger.error(f"     {app_name} shutdown error: {e}")
             self._emit_event(LifecycleEvent(
                 LifecyclePhase.STOPPING,
                 app_name=app_name,

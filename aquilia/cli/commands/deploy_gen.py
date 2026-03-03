@@ -1,18 +1,18 @@
 """
-Deploy CLI commands — ``aq deploy`` group.
+Deploy CLI commands -- ``aq deploy`` group.
 
 Production-ready deployment file generators for Aquilia workspaces.
 Each sub-command generates a specific deployment artefact:
 
-    aq deploy dockerfile   — Dockerfile (production / dev / mlops)
-    aq deploy compose      — docker-compose.yml
-    aq deploy kubernetes   — Full Kubernetes manifest suite
-    aq deploy nginx        — Nginx reverse-proxy configuration
-    aq deploy ci           — CI/CD pipeline (GitHub Actions / GitLab CI)
-    aq deploy monitoring   — Prometheus + Grafana provisioning
-    aq deploy env          — .env.example template
-    aq deploy makefile     — Makefile with dev/build/deploy targets
-    aq deploy all          — Generate everything at once
+    aq deploy dockerfile   -- Dockerfile (production / dev / mlops)
+    aq deploy compose      -- docker-compose.yml
+    aq deploy kubernetes   -- Full Kubernetes manifest suite
+    aq deploy nginx        -- Nginx reverse-proxy configuration
+    aq deploy ci           -- CI/CD pipeline (GitHub Actions / GitLab CI)
+    aq deploy monitoring   -- Prometheus + Grafana provisioning
+    aq deploy env          -- .env.example template
+    aq deploy makefile     -- Makefile with dev/build/deploy targets
+    aq deploy all          -- Generate everything at once
 
 All generators introspect the workspace (workspace.py, config/, modules/,
 pyproject.toml) to detect enabled components (DB, cache, sessions, auth,

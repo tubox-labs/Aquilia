@@ -1,5 +1,5 @@
 """
-Aquilia Migration System — generate and apply schema migrations.
+Aquilia Migration System -- generate and apply schema migrations.
 
 Provides:
 - Migration operations (op.create_table, op.drop_table, etc.)
@@ -36,7 +36,7 @@ MIGRATION_TABLE = "aquilia_migrations"
 
 class MigrationOps:
     """
-    Migration operation builder — used inside migration scripts.
+    Migration operation builder -- used inside migration scripts.
 
     Provides DDL operations for schema changes, dialect-aware SQL helpers,
     and raw SQL execution. Accumulated statements can be retrieved and
@@ -150,7 +150,7 @@ class MigrationOps:
 
         For PostgreSQL, generates ALTER COLUMN ... TYPE / SET NOT NULL / etc.
         For MySQL, generates MODIFY COLUMN.
-        For SQLite, ALTER COLUMN is not supported — generates a comment.
+        For SQLite, ALTER COLUMN is not supported -- generates a comment.
 
         Args:
             table: Table name
@@ -161,7 +161,7 @@ class MigrationOps:
             drop_default: Drop the default value
         """
         if self._dialect == "sqlite":
-            # SQLite does not support ALTER COLUMN — document limitation
+            # SQLite does not support ALTER COLUMN -- document limitation
             self._statements.append(
                 f'-- SQLite: ALTER COLUMN not supported for "{table}"."{column}". '
                 f"Requires table rebuild."
@@ -563,12 +563,12 @@ slug = "{slug}"
 
 
 async def upgrade(conn):
-    """Apply migration — create tables."""
+    """Apply migration -- create tables."""
 {upgrade_body}
 
 
 async def downgrade(conn):
-    """Revert migration — drop tables."""
+    """Revert migration -- drop tables."""
 {downgrade_body}
 '''
 
@@ -645,12 +645,12 @@ slug = "{slug}"
 
 
 async def upgrade(conn):
-    """Apply migration — create tables."""
+    """Apply migration -- create tables."""
 {upgrade_body}
 
 
 async def downgrade(conn):
-    """Revert migration — drop tables."""
+    """Revert migration -- drop tables."""
 {downgrade_body}
 '''
 
@@ -726,7 +726,7 @@ class MigrationRunner:
 
     async def status(self) -> Dict[str, Any]:
         """
-        Get migration status — applied, pending, and total counts.
+        Get migration status -- applied, pending, and total counts.
 
         Returns:
             Dict with keys: applied, pending, last_applied, total

@@ -1,5 +1,5 @@
 """
-Model Registry — in-memory metadata-only registry for ML models.
+Model Registry -- in-memory metadata-only registry for ML models.
 
 The registry tracks model metadata (name, version, class, config) without
 eagerly loading any model into memory.  Loading is the ``ModelLoader``'s
@@ -122,7 +122,7 @@ class ModelRegistry:
         set_active: bool = True,
     ) -> ModelEntry:
         """
-        Register a model (metadata only — no loading).
+        Register a model (metadata only -- no loading).
 
         Args:
             name: Model identifier (e.g. "sentiment").

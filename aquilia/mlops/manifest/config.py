@@ -1,5 +1,5 @@
 """
-Manifest Config — parse ``[mlops]`` config from Aquilia workspace config.
+Manifest Config -- parse ``[mlops]`` config from Aquilia workspace config.
 
 Supports both inline configuration and reference-based model definitions
 using dotted class paths.

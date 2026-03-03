@@ -1,5 +1,5 @@
 """
-AquilaMail — Production-ready async mail subsystem for Aquilia.
+AquilaMail -- Production-ready async mail subsystem for Aquilia.
 
 Django-like ergonomics with Aquilia-native features:
 - Unique Aquilia Template Syntax (ATS) for mail templates

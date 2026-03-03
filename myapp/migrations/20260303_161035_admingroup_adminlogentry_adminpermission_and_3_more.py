@@ -1,7 +1,7 @@
 """
-Migration: 20260301_151550_admingroup_adminlogentry_adminpermission_and_5_more
-Generated: 2026-03-01T15:15:50.474436+00:00
-Models: AdminGroup, AdminLogEntry, AdminPermission, AdminSession, AdminUser, Authentication, ContentType, MyappItem
+Migration: 20260303_161035_admingroup_adminlogentry_adminpermission_and_3_more
+Generated: 2026-03-03T16:10:35.852562+00:00
+Models: AdminGroup, AdminLogEntry, AdminPermission, AdminSession, AdminUser, ContentType
 """
 
 from aquilia.models.migration_dsl import (
@@ -11,9 +11,9 @@ from aquilia.models.migration_dsl import (
 
 
 class Meta:
-    revision = "20260301_151550"
-    slug = "admingroup_adminlogentry_adminpermission_and_5_more"
-    models = ['AdminGroup', 'AdminLogEntry', 'AdminPermission', 'AdminSession', 'AdminUser', 'Authentication', 'ContentType', 'MyappItem']
+    revision = "20260303_161035"
+    slug = "admingroup_adminlogentry_adminpermission_and_3_more"
+    models = ['AdminGroup', 'AdminLogEntry', 'AdminPermission', 'AdminSession', 'AdminUser', 'ContentType']
 
 
 operations = [
@@ -125,6 +125,11 @@ operations = [
             C.integer("is_active", default=True),
             C.timestamp("last_login", null=True),
             C.timestamp("date_joined"),
+            C.varchar("avatar_path", 512, null=True, default=''),
+            C.text("bio", null=True, default=''),
+            C.varchar("phone", 32, null=True, default=''),
+            C.varchar("timezone", 64, null=True, default='UTC'),
+            C.varchar("locale", 16, null=True, default='en'),
             C.auto("id"),
         ],
     ),
@@ -139,18 +144,6 @@ operations = [
     CreateIndex(
         name='idx_admin_user_active_staff', table='admin_users',
         columns=['is_active', 'is_staff'], unique=False,
-    ),
-    CreateModel(
-        name='Authentication',
-        table='authentication',
-        fields=[
-            C.auto("id"),
-            C.varchar("name", 255),
-            C.text("description", default=''),
-            C.integer("active", default=True),
-            C.timestamp("created_at"),
-            C.timestamp("updated_at"),
-        ],
     ),
     CreateModel(
         name='ContentType',
@@ -172,17 +165,5 @@ operations = [
     CreateIndex(
         name='idx_admin_content_types_model', table='admin_content_types',
         columns=['model'], unique=False,
-    ),
-    CreateModel(
-        name='MyappItem',
-        table='myapp_items',
-        fields=[
-            C.auto("id"),
-            C.varchar("name", 255),
-            C.text("description", default=''),
-            C.integer("active", default=True),
-            C.timestamp("created_at"),
-            C.timestamp("updated_at"),
-        ],
     ),
 ]

@@ -1,5 +1,5 @@
 """
-Aquilia Field Mixins — reusable behaviors for model fields.
+Aquilia Field Mixins -- reusable behaviors for model fields.
 
 These mixins can be composed with Field subclasses to add
 standard behaviors without duplicating code:
@@ -213,7 +213,7 @@ class EncryptedMixin:
             return self._fernet_instance.encrypt(
                 str_value.encode("utf-8")
             ).decode("ascii")
-        # Fallback: base64 (NOT secure — placeholder only)
+        # Fallback: base64 (NOT secure -- placeholder only)
         warnings.warn(
             "EncryptedMixin is using base64 encoding (NOT encryption). "
             "Call EncryptedMixin.configure_encryption_key(key) with a Fernet "

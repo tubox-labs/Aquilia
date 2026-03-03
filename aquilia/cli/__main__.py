@@ -40,7 +40,7 @@ import re as _re
 _DEFAULT_DB_URL = "sqlite:///db.sqlite3"
 
 # ═══════════════════════════════════════════════════════════════════════════
-# Workspace guard — block operational commands when no workspace.py present
+# Workspace guard -- block operational commands when no workspace.py present
 # ═══════════════════════════════════════════════════════════════════════════
 
 # Commands that do NOT require a workspace.py to exist:
@@ -229,7 +229,7 @@ def cli(ctx, verbose: bool, quiet: bool, debug: bool, no_color: bool):
     if no_color:
         ctx.color = False
 
-    # Workspace guard — operational commands require workspace.py
+    # Workspace guard -- operational commands require workspace.py
     _require_workspace(ctx)
 
 
@@ -283,10 +283,10 @@ def init_workspace(ctx, name: Optional[str], minimal: bool, template: Optional[s
         # 2. Template
         if not template:
             template_choice = select("Template", [
-                ("none",      "Blank workspace — start from scratch"),
-                ("api",       "REST API — routes, JSON responses, CORS"),
-                ("service",   "Microservice — lightweight, single-purpose"),
-                ("monolith",  "Monolith — full-featured, batteries included"),
+                ("none",      "Blank workspace -- start from scratch"),
+                ("api",       "REST API -- routes, JSON responses, CORS"),
+                ("service",   "Microservice -- lightweight, single-purpose"),
+                ("monolith",  "Monolith -- full-featured, batteries included"),
             ], default=0)
             template = None if template_choice == "none" else template_choice
 
@@ -496,8 +496,8 @@ def add_module(ctx, name: Optional[str], depends_on: tuple, fault_domain: Option
         # 3. Module type
         if not minimal:
             module_type = select("Module type", [
-                ("full",    "Full module — controllers, services, faults, models"),
-                ("minimal", "Minimal — controller + manifest only"),
+                ("full",    "Full module -- controllers, services, faults, models"),
+                ("minimal", "Minimal -- controller + manifest only"),
             ], default=0)
             minimal = module_type == "minimal"
 
@@ -515,7 +515,7 @@ def add_module(ctx, name: Optional[str], depends_on: tuple, fault_domain: Option
             with_tests = "tests" in module_features
             no_docker = "docker" not in module_features
 
-        # 6. Dependencies — discover existing modules
+        # 6. Dependencies -- discover existing modules
         if not depends_on:
             workspace_root = Path.cwd()
             modules_dir = workspace_root / 'modules'
@@ -1536,7 +1536,7 @@ def db():
 @click.option('--migrations-dir', type=click.Path(), default='migrations', help='Migrations directory')
 @click.option('--dsl/--no-dsl', default=True, help='Use new DSL format (default: True)')
 @click.option('--format', 'fmt', type=click.Choice(['python', 'crous']), default='crous',
-              help='Migration file format — crous (binary, default) or python')
+              help='Migration file format -- crous (binary, default) or python')
 @click.pass_context
 def db_makemigrations(ctx, app: Optional[str], migrations_dir: str, dsl: bool, fmt: str):
     """
@@ -1615,7 +1615,7 @@ def db_migrate(ctx, migrations_dir: str, database_url: Optional[str], database: 
 @click.pass_context
 def db_dump(ctx, emit: str, output_dir: Optional[str]):
     """
-    Dump model schema — annotated Python overview or raw SQL DDL.
+    Dump model schema -- annotated Python overview or raw SQL DDL.
 
     Examples:
       aq db dump
@@ -1765,7 +1765,7 @@ def db_sqlmigrate(ctx, migration_name: str, migrations_dir: str, database: Optio
 @click.pass_context
 def db_status(ctx, database_url: Optional[str]):
     """
-    Show database status — tables, row counts, columns.
+    Show database status -- tables, row counts, columns.
 
     Examples:
       aq db status
@@ -2075,7 +2075,7 @@ def admin_check(ctx, fix: bool, as_json: bool):
 
         click.echo()
         if has_failures:
-            error(f"  {_CROSS} Pre-flight check FAILED — fix the errors above before running aq run")
+            error(f"  {_CROSS} Pre-flight check FAILED -- fix the errors above before running aq run")
             click.echo()
             if not has_session_support:
                 panel(
@@ -2229,7 +2229,7 @@ def admin_createsuperuser(ctx, username: str, email: str, password: str, first_n
     extra_fields = {}
 
     if interactive:
-        section("Profile (optional — press Enter to skip)")
+        section("Profile (optional -- press Enter to skip)")
         if first_name is None:
             first_name = click.prompt(
                 click.style('  First name', fg='cyan'), default='', show_default=False
@@ -2331,7 +2331,7 @@ def admin_createsuperuser(ctx, username: str, email: str, password: str, first_n
                     for m2m_sql in _model.generate_m2m_sql():
                         await db.execute(m2m_sql)
                 except Exception:
-                    pass  # Table already exists — that's fine
+                    pass  # Table already exists -- that's fine
 
             # ORM-based creation
             try:
@@ -2487,7 +2487,7 @@ def admin_createstaff(ctx, username: str, email: str, password: str, first_name:
     extra_fields = {}
 
     if interactive:
-        section("Profile (optional — press Enter to skip)")
+        section("Profile (optional -- press Enter to skip)")
         if first_name is None:
             first_name = click.prompt(
                 click.style('  First name', fg='cyan'), default='', show_default=False
@@ -2838,7 +2838,7 @@ def admin_setup(ctx, non_interactive: bool, database_url: Optional[str]):
 
     workspace_file = Path("workspace.py")
     if not workspace_file.exists():
-        error(f"  {_CROSS} workspace.py not found — run 'aq init workspace <name>' first")
+        error(f"  {_CROSS} workspace.py not found -- run 'aq init workspace <name>' first")
         sys.exit(1)
 
     content = workspace_file.read_text()
@@ -2932,7 +2932,7 @@ def admin_setup(ctx, non_interactive: bool, database_url: Optional[str]):
             # Inject a sessions block before the admin integration or at the end
             sessions_block = textwrap.dedent("""\
 
-    # Sessions — required for admin login
+    # Sessions -- required for admin login
     .sessions(
         policies=[
             SessionPolicy(
@@ -2984,7 +2984,7 @@ def admin_setup(ctx, non_interactive: bool, database_url: Optional[str]):
                 changes_made.append("Injected .sessions(...) block")
                 success(f"    {_CHECK} Injected .sessions(...) config")
             else:
-                warning(f"    ! Could not find insertion point — add .sessions() manually")
+                warning(f"    ! Could not find insertion point -- add .sessions() manually")
     else:
         dim(f"    {_CHECK} Sessions already configured")
 
@@ -3103,14 +3103,14 @@ def admin_setup(ctx, non_interactive: bool, database_url: Optional[str]):
                 changes_made.append("Injected Integration.database(...)")
                 success(f"    {_CHECK} Injected database integration (url={db_url_val})")
             else:
-                warning(f"    ! Could not find insertion point — add Integration.database() manually")
+                warning(f"    ! Could not find insertion point -- add Integration.database() manually")
     else:
         dim(f"    {_CHECK} Database integration present")
 
     # ── Step 5: Ensure Integration.static_files(...) ─────────────────
     step(5, "Checking static files integration...")
     if "Integration.static_files(" not in active:
-        warning(f"    ! No static files integration — admin CSS/JS may not load")
+        warning(f"    ! No static files integration -- admin CSS/JS may not load")
         info(f'      Add: .integrate(Integration.static_files(directories={{"/static": "static"}}))')
     else:
         dim(f"    {_CHECK} Static files integration present")
@@ -3125,7 +3125,7 @@ def admin_setup(ctx, non_interactive: bool, database_url: Optional[str]):
 
         if not non_interactive:
             if not click.confirm(click.style("  Apply these changes to workspace.py?", bold=True), default=True):
-                info(f"  {_CROSS} Aborted — no changes written")
+                info(f"  {_CROSS} Aborted -- no changes written")
                 sys.exit(0)
 
         workspace_file.write_text(content)

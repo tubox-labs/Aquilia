@@ -1,5 +1,5 @@
 """
-AquilAdmin — AdminSite (Central Registry).
+AquilAdmin -- AdminSite (Central Registry).
 
 The AdminSite is the central coordination point for the admin system.
 It manages:
@@ -38,7 +38,7 @@ from aquilia.controller.pagination import PageNumberPagination
 logger = logging.getLogger("aquilia.admin.site")
 
 
-# ── AdminConfig — Parsed, immutable admin configuration ──────────────────────
+# ── AdminConfig -- Parsed, immutable admin configuration ──────────────────────
 
 @dataclass(frozen=True)
 class AdminConfig:
@@ -57,7 +57,7 @@ class AdminConfig:
         "profile": True, "audit": False,
     })
 
-    # Audit settings (disabled by default — opt in)
+    # Audit settings (disabled by default -- opt in)
     audit_enabled: bool = False
     audit_max_entries: int = 10_000
     audit_log_logins: bool = True
@@ -65,7 +65,7 @@ class AdminConfig:
     audit_log_searches: bool = True
     audit_excluded_actions: FrozenSet[str] = field(default_factory=frozenset)
 
-    # Monitoring settings (disabled by default — opt in)
+    # Monitoring settings (disabled by default -- opt in)
     monitoring_enabled: bool = False
     monitoring_metrics: FrozenSet[str] = field(default_factory=lambda: frozenset({
         "cpu", "memory", "disk", "network", "process", "python", "system", "health_checks",
@@ -95,7 +95,7 @@ class AdminConfig:
         if not self.audit_enabled:
             return False
         action_name = action.value if hasattr(action, "value") else str(action)
-        # Normalise to uppercase for comparison — AdminAction values are
+        # Normalise to uppercase for comparison -- AdminAction values are
         # lowercase (e.g. "view") but config uses uppercase (e.g. "VIEW").
         action_upper = action_name.upper()
         if action_upper in self.audit_excluded_actions:
@@ -190,7 +190,7 @@ class AdminConfig:
 
 class AdminSite:
     """
-    Central admin site — manages all registered models.
+    Central admin site -- manages all registered models.
 
     Singleton-safe with a default() class method.
     Multiple AdminSite instances can coexist for multi-tenant scenarios.
@@ -223,10 +223,10 @@ class AdminSite:
         # Registry: model_class -> ModelAdmin instance
         self._registry: Dict[Type[Model], ModelAdmin] = {}
 
-        # Admin configuration — populated by server._wire_admin_integration()
+        # Admin configuration -- populated by server._wire_admin_integration()
         self.admin_config: AdminConfig = AdminConfig()
 
-        # Audit log — model-backed (persists to DB), falls back to in-memory
+        # Audit log -- model-backed (persists to DB), falls back to in-memory
         self.audit_log: ModelBackedAuditLog = ModelBackedAuditLog()
 
         # Initialization state
@@ -379,7 +379,7 @@ class AdminSite:
         Build rich schema metadata for every registered model.
 
         Returns per-model: fields, relations, indexes, constraints,
-        Meta options — everything needed by the ORM inspector page.
+        Meta options -- everything needed by the ORM inspector page.
         """
         from aquilia.models.fields_module import (
             ForeignKey, OneToOneField, ManyToManyField, Field,
@@ -561,7 +561,7 @@ class AdminSite:
             "build_log": "",
         }
 
-        # Find workspace root — look for build/ directory
+        # Find workspace root -- look for build/ directory
         build_dir = self._find_workspace_path("build")
         if build_dir is None or not build_dir.is_dir():
             return result
@@ -586,7 +586,7 @@ class AdminSite:
             except Exception:
                 pass
 
-        # Scan for .crous files (ignore .aq.json — Crous only)
+        # Scan for .crous files (ignore .aq.json -- Crous only)
         for fpath in sorted(build_dir.iterdir()):
             if fpath.suffix == ".crous" and fpath.is_file():
                 try:
@@ -940,7 +940,7 @@ class AdminSite:
             "loaded_modules": len(sys.modules),
             "active_threads": threading.active_count(),
             "recursion_limit": sys.getrecursionlimit(),
-            "allocator_blocks": "—",
+            "allocator_blocks": "--",
         }
 
         # ── psutil-based metrics ──
@@ -1007,9 +1007,9 @@ class AdminSite:
                 }
             except Exception:
                 result["disk"] = {
-                    "total": 0, "total_human": "—",
-                    "used": 0, "used_human": "—",
-                    "free": 0, "free_human": "—",
+                    "total": 0, "total_human": "--",
+                    "used": 0, "used_human": "--",
+                    "free": 0, "free_human": "--",
                     "percent": 0, "partitions": [],
                 }
 
@@ -1050,8 +1050,8 @@ class AdminSite:
                 }
             except Exception:
                 result["network"] = {
-                    "bytes_sent": 0, "bytes_sent_human": "—",
-                    "bytes_recv": 0, "bytes_recv_human": "—",
+                    "bytes_sent": 0, "bytes_sent_human": "--",
+                    "bytes_recv": 0, "bytes_recv_human": "--",
                     "packets_sent": 0, "packets_recv": 0,
                     "errin": 0, "errout": 0, "dropin": 0, "dropout": 0,
                     "connections_by_status": {},
@@ -1099,8 +1099,8 @@ class AdminSite:
                     create_time, tz=timezone.utc
                 ).strftime("%Y-%m-%d %H:%M:%S UTC")
             except Exception:
-                uptime_human = "—"
-                create_time_str = "—"
+                uptime_human = "--"
+                create_time_str = "--"
 
             # Shared / private memory (platform-specific)
             shared_mem = 0
@@ -1150,13 +1150,13 @@ class AdminSite:
                     io_counters.write_bytes,
                 )
             except (psutil.AccessDenied, AttributeError, OSError):
-                result["process"]["io_read_count"] = "—"
-                result["process"]["io_write_count"] = "—"
-                result["process"]["io_read_bytes_human"] = "—"
-                result["process"]["io_write_bytes_human"] = "—"
+                result["process"]["io_read_count"] = "--"
+                result["process"]["io_write_count"] = "--"
+                result["process"]["io_read_bytes_human"] = "--"
+                result["process"]["io_write_bytes_human"] = "--"
 
         except ImportError:
-            # psutil not available — provide minimal data
+            # psutil not available -- provide minimal data
             result["cpu"] = {
                 "percent": 0, "per_core": [], "cores_physical": 0,
                 "cores_logical": os.cpu_count() or 0,
@@ -1165,38 +1165,38 @@ class AdminSite:
                 "times_user": 0, "times_system": 0, "times_idle": 0,
             }
             result["memory"] = {
-                "total": 0, "total_human": "—",
-                "available": 0, "available_human": "—",
-                "used": 0, "used_human": "—", "percent": 0,
-                "swap_total": 0, "swap_total_human": "—",
-                "swap_used": 0, "swap_used_human": "—",
-                "swap_free": 0, "swap_free_human": "—",
+                "total": 0, "total_human": "--",
+                "available": 0, "available_human": "--",
+                "used": 0, "used_human": "--", "percent": 0,
+                "swap_total": 0, "swap_total_human": "--",
+                "swap_used": 0, "swap_used_human": "--",
+                "swap_free": 0, "swap_free_human": "--",
                 "swap_percent": 0,
             }
             result["disk"] = {
-                "total": 0, "total_human": "—",
-                "used": 0, "used_human": "—",
-                "free": 0, "free_human": "—",
+                "total": 0, "total_human": "--",
+                "used": 0, "used_human": "--",
+                "free": 0, "free_human": "--",
                 "percent": 0, "partitions": [],
             }
             result["network"] = {
-                "bytes_sent": 0, "bytes_sent_human": "—",
-                "bytes_recv": 0, "bytes_recv_human": "—",
+                "bytes_sent": 0, "bytes_sent_human": "--",
+                "bytes_recv": 0, "bytes_recv_human": "--",
                 "packets_sent": 0, "packets_recv": 0,
                 "errin": 0, "errout": 0, "dropin": 0, "dropout": 0,
                 "connections_by_status": {},
             }
             result["process"] = {
                 "pid": os.getpid(), "name": "python", "status": "running",
-                "create_time": "—", "uptime_human": "—",
+                "create_time": "--", "uptime_human": "--",
                 "threads": 0, "open_files": 0,
-                "rss": 0, "rss_human": "—", "vms": 0, "vms_human": "—",
+                "rss": 0, "rss_human": "--", "vms": 0, "vms_human": "--",
                 "shared": 0, "private": 0,
                 "mem_percent": 0, "ctx_switches": 0,
                 "ctx_switches_voluntary": 0, "ctx_switches_involuntary": 0,
                 "env_snapshot": self._safe_env_snapshot(),
-                "io_read_count": "—", "io_write_count": "—",
-                "io_read_bytes_human": "—", "io_write_bytes_human": "—",
+                "io_read_count": "--", "io_write_count": "--",
+                "io_read_bytes_human": "--", "io_write_bytes_human": "--",
             }
 
         # ── Health checks ──
@@ -1503,7 +1503,7 @@ class AdminSite:
                 "table": getattr(model_cls, "table", ""),
                 "app_label": admin.get_app_label(),
                 "field_count": len(model_cls._fields) if hasattr(model_cls, "_fields") else 0,
-                "icon": admin.icon or "📦",
+                "icon": admin.icon or "box",
             })
 
         # ── Stats ────────────────────────────────────────────────────
@@ -1578,9 +1578,9 @@ class AdminSite:
 
         roles = []
         role_descriptions = {
-            AdminRole.SUPERADMIN: "Full access to everything — all admin operations.",
+            AdminRole.SUPERADMIN: "Full access to everything -- all admin operations.",
             AdminRole.ADMIN: "Full CRUD on all models, audit log, user management.",
-            AdminRole.STAFF: "View and edit access — no delete by default.",
+            AdminRole.STAFF: "View and edit access -- no delete by default.",
             AdminRole.VIEWER: "Read-only access to admin dashboard and data.",
         }
 
@@ -2046,7 +2046,7 @@ class AdminSite:
 
         coerced = {}
         for field_name, value in data.items():
-            # Skip sentinel markers — they are not real model fields
+            # Skip sentinel markers -- they are not real model fields
             if field_name.startswith("_checkbox_"):
                 continue
 

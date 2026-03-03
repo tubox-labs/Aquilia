@@ -1,5 +1,5 @@
 """
-Python in-process runtime — loads and runs models natively in Python.
+Python in-process runtime -- loads and runs models natively in Python.
 
 Supports PyTorch, scikit-learn, XGBoost, LightGBM, HuggingFace Transformers,
 and custom callables.  Includes streaming inference for LLM/SLM models.
@@ -43,9 +43,9 @@ class PythonRuntime(BaseStreamingRuntime):
     (or a user-supplied callable).
 
     Supported formats:
-    - ``.pt`` / ``.pth`` — PyTorch (``torch.load``)
-    - ``.pkl`` / ``.joblib`` — pickle / joblib
-    - ``.py`` — Python module with a ``predict(inputs)`` function
+    - ``.pt`` / ``.pth`` -- PyTorch (``torch.load``)
+    - ``.pkl`` / ``.joblib`` -- pickle / joblib
+    - ``.py`` -- Python module with a ``predict(inputs)`` function
     - Custom callable via ``set_predict_fn``
 
     LLM support:
@@ -406,11 +406,11 @@ class PythonRuntime(BaseStreamingRuntime):
     # ── Preprocessing / Postprocessing ───────────────────────────────
 
     async def preprocess(self, raw_input: Dict[str, Any]) -> Dict[str, Any]:
-        """Default preprocessing — identity pass-through."""
+        """Default preprocessing -- identity pass-through."""
         return raw_input
 
     async def postprocess(self, raw_output: Dict[str, Any]) -> Dict[str, Any]:
-        """Default postprocessing — identity pass-through."""
+        """Default postprocessing -- identity pass-through."""
         return raw_output
 
     # ── Observability ────────────────────────────────────────────────

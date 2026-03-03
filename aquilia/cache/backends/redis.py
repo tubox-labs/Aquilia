@@ -1,5 +1,5 @@
 """
-AquilaCache — Redis backend for distributed caching.
+AquilaCache -- Redis backend for distributed caching.
 
 Production-grade Redis integration with:
 - Connection pooling

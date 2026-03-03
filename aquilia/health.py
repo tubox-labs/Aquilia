@@ -1,5 +1,5 @@
 """
-Health Registry — Centralized subsystem health tracking.
+Health Registry -- Centralized subsystem health tracking.
 
 Architecture v2: Provides health status reporting for all subsystems,
 enabling graceful degradation and /health endpoint support.

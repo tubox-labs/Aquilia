@@ -1,5 +1,5 @@
 """
-Inference Executor — offloads blocking inference to thread/process pools.
+Inference Executor -- offloads blocking inference to thread/process pools.
 
 Aquilia is async-native.  Model inference (PyTorch ``forward()``,
 scikit-learn ``predict()``, ONNX ``run()`` …) is typically CPU/GPU-bound

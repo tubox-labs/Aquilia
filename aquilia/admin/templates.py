@@ -1,11 +1,11 @@
 """
-AquilAdmin — Template Renderer.
+AquilAdmin -- Template Renderer.
 
 Renders admin HTML pages using the Aquilia TemplateEngine from
 ``aquilia/templates/``.  Templates live in ``aquilia/admin/templates/``.
 Falls back to a plain Jinja2 environment when the full TemplateEngine
 cannot be initialised, and to inline Python string templates when Jinja2
-is not installed at all — ensuring the admin module stays importable in
+is not installed at all -- ensuring the admin module stays importable in
 minimal environments.
 
 Design system: matches aqdocx exactly.
@@ -343,7 +343,7 @@ def render_orm_page(
             page_title="ORM Models",
         )
     return f"""<!DOCTYPE html><html lang="en" data-theme="dark"><head>
-<meta charset="UTF-8"><title>ORM Models — Aquilia Admin</title><style>{_FALLBACK_CSS}</style></head>
+<meta charset="UTF-8"><title>ORM Models -- Aquilia Admin</title><style>{_FALLBACK_CSS}</style></head>
 <body><div style="padding:24px"><h1>ORM Models</h1><p>{total_models} models registered</p></div></body></html>"""
 
 
@@ -376,7 +376,7 @@ def render_build_page(
             page_title="Build",
         )
     return f"""<!DOCTYPE html><html lang="en" data-theme="dark"><head>
-<meta charset="UTF-8"><title>Build — Aquilia Admin</title><style>{_FALLBACK_CSS}</style></head>
+<meta charset="UTF-8"><title>Build -- Aquilia Admin</title><style>{_FALLBACK_CSS}</style></head>
 <body><div style="padding:24px"><h1>Build</h1><p>{len(artifacts)} artifacts</p></div></body></html>"""
 
 
@@ -408,7 +408,7 @@ def render_migrations_page(
             page_title="Migrations",
         )
     return f"""<!DOCTYPE html><html lang="en" data-theme="dark"><head>
-<meta charset="UTF-8"><title>Migrations — Aquilia Admin</title><style>{_FALLBACK_CSS}</style></head>
+<meta charset="UTF-8"><title>Migrations -- Aquilia Admin</title><style>{_FALLBACK_CSS}</style></head>
 <body><div style="padding:24px"><h1>Migrations</h1><p>{len(migrations)} migrations</p></div></body></html>"""
 
 
@@ -435,7 +435,7 @@ def render_config_page(
             page_title="Configuration",
         )
     return f"""<!DOCTYPE html><html lang="en" data-theme="dark"><head>
-<meta charset="UTF-8"><title>Configuration — Aquilia Admin</title><style>{_FALLBACK_CSS}</style></head>
+<meta charset="UTF-8"><title>Configuration -- Aquilia Admin</title><style>{_FALLBACK_CSS}</style></head>
 <body><div style="padding:24px"><h1>Configuration</h1><p>{len(config_files)} config files</p></div></body></html>"""
 
 
@@ -461,7 +461,7 @@ def render_workspace_page(
         )
     mods = workspace.get("modules", [])
     return f"""<!DOCTYPE html><html lang="en" data-theme="dark"><head>
-<meta charset="UTF-8"><title>Workspace — Aquilia Admin</title><style>{_FALLBACK_CSS}</style></head>
+<meta charset="UTF-8"><title>Workspace -- Aquilia Admin</title><style>{_FALLBACK_CSS}</style></head>
 <body><div style="padding:24px"><h1>Workspace</h1><p>{len(mods)} modules</p></div></body></html>"""
 
 
@@ -494,7 +494,7 @@ def render_permissions_page(
             page_title="Permissions",
         )
     return f"""<!DOCTYPE html><html lang="en" data-theme="dark"><head>
-<meta charset="UTF-8"><title>Permissions — Aquilia Admin</title><style>{_FALLBACK_CSS}</style></head>
+<meta charset="UTF-8"><title>Permissions -- Aquilia Admin</title><style>{_FALLBACK_CSS}</style></head>
 <body><div style="padding:24px"><h1>Permissions</h1><p>{len(roles)} roles</p></div></body></html>"""
 
 
@@ -521,7 +521,7 @@ def render_monitoring_page(
     cpu_pct = monitoring.get("cpu", {}).get("percent", 0)
     mem_pct = monitoring.get("memory", {}).get("percent", 0)
     return f"""<!DOCTYPE html><html lang="en" data-theme="dark"><head>
-<meta charset="UTF-8"><title>Monitoring — Aquilia Admin</title><style>{_FALLBACK_CSS}</style></head>
+<meta charset="UTF-8"><title>Monitoring -- Aquilia Admin</title><style>{_FALLBACK_CSS}</style></head>
 <body><div style="padding:24px"><h1>Monitoring</h1>
 <p>CPU: {cpu_pct}% · Memory: {mem_pct}%</p></div></body></html>"""
 
@@ -552,7 +552,7 @@ def render_admin_users_page(
         )
     total = len(users)
     return f"""<!DOCTYPE html><html lang="en" data-theme="dark"><head>
-<meta charset="UTF-8"><title>Admin Users — Aquilia Admin</title><style>{_FALLBACK_CSS}</style></head>
+<meta charset="UTF-8"><title>Admin Users -- Aquilia Admin</title><style>{_FALLBACK_CSS}</style></head>
 <body><div style="padding:24px"><h1>Admin Users</h1><p>{total} admin accounts</p></div></body></html>"""
 
 
@@ -582,7 +582,7 @@ def render_profile_page(
         )
     uname = html.escape(user.get("username", "Admin"))
     return f"""<!DOCTYPE html><html lang="en" data-theme="dark"><head>
-<meta charset="UTF-8"><title>Profile — Aquilia Admin</title><style>{_FALLBACK_CSS}</style></head>
+<meta charset="UTF-8"><title>Profile -- Aquilia Admin</title><style>{_FALLBACK_CSS}</style></head>
 <body><div style="padding:24px"><h1>Profile</h1><p>{uname}</p></div></body></html>"""
 
 
@@ -619,7 +619,7 @@ def render_error_page(
     esc_msg = html.escape(message) if message else ""
     msg_block = f'<p style="margin-top:12px;color:#a1a1aa;font-size:.9rem">{esc_msg}</p>' if esc_msg else ""
     return f"""<!DOCTYPE html><html lang="en" data-theme="dark"><head>
-<meta charset="UTF-8"><title>{status} {esc_title} — Aquilia Admin</title><style>{_FALLBACK_CSS}</style></head>
+<meta charset="UTF-8"><title>{status} {esc_title} -- Aquilia Admin</title><style>{_FALLBACK_CSS}</style></head>
 <body><div style="padding:48px;text-align:center">
 <div style="font-size:6rem;font-weight:800;opacity:.15;color:#22c55e">{status}</div>
 <h1>{esc_title}</h1>{msg_block}
@@ -682,10 +682,10 @@ def render_disabled_page(
     esc_flat = html.escape(flat_hint)
     esc_desc = html.escape(description)
     return f"""<!DOCTYPE html><html lang="en" data-theme="dark"><head>
-<meta charset="UTF-8"><title>{esc_name} (Disabled) — Aquilia Admin</title><style>{_FALLBACK_CSS}</style></head>
+<meta charset="UTF-8"><title>{esc_name} (Disabled) -- Aquilia Admin</title><style>{_FALLBACK_CSS}</style></head>
 <body><div style="padding:48px;text-align:center">
 <div style="font-size:4rem;opacity:.15;margin-bottom:16px;">⏸</div>
-<h1>{esc_name} — Disabled</h1>
+<h1>{esc_name} -- Disabled</h1>
 <p style="color:#a1a1aa;margin:12px 0;">{esc_desc}</p>
 <div style="background:#18181b;border:1px solid #27272a;border-radius:8px;padding:16px;margin:24px auto;max-width:500px;text-align:left;">
 <code style="color:#22c55e;font-size:.85rem;">{esc_builder}</code><br>
@@ -727,7 +727,7 @@ def _fallback_login(error: str = "", **kw: Any) -> str:
 <meta name="description" content="Sign in to the Aquilia Admin dashboard.">
 <meta name="robots" content="noindex, nofollow"><meta name="theme-color" content="#22c55e">
 <meta name="referrer" content="strict-origin-when-cross-origin">
-<title>Login — Aquilia Admin</title>
+<title>Login -- Aquilia Admin</title>
 <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
 <style>{_FALLBACK_CSS}</style></head><body>
 <div class="login-container"><div class="card login-card">
@@ -748,7 +748,7 @@ if(s)document.documentElement.setAttribute('data-theme',s);</script></body></htm
 def _fallback_dashboard(app_list: list, stats: dict, identity_name: str = "Admin", **kw: Any) -> str:
     total_models = stats.get("total_models", 0)
     return f"""<!DOCTYPE html><html lang="en" data-theme="dark"><head>
-<meta charset="UTF-8"><title>Dashboard — Aquilia Admin</title><style>{_FALLBACK_CSS}</style></head>
+<meta charset="UTF-8"><title>Dashboard -- Aquilia Admin</title><style>{_FALLBACK_CSS}</style></head>
 <body><div style="padding:24px"><h1>Dashboard</h1><p>{total_models} models registered</p>
 <p>Logged in as {html.escape(identity_name)}</p></div></body></html>"""
 
@@ -758,7 +758,7 @@ def _fallback_list(data: dict, app_list: list, identity_name: str = "Admin",
     model = data.get("model_name", "Model")
     total = data.get("total", 0)
     return f"""<!DOCTYPE html><html lang="en" data-theme="dark"><head>
-<meta charset="UTF-8"><title>{html.escape(model)} — Aquilia Admin</title><style>{_FALLBACK_CSS}</style></head>
+<meta charset="UTF-8"><title>{html.escape(model)} -- Aquilia Admin</title><style>{_FALLBACK_CSS}</style></head>
 <body><div style="padding:24px"><h1>{html.escape(model)}</h1><p>{total} records</p></div></body></html>"""
 
 
@@ -767,12 +767,12 @@ def _fallback_form(data: dict, app_list: list, identity_name: str = "Admin",
     model = data.get("model_name", "Model")
     title = f"{'Add' if is_create else 'Edit'} {model}"
     return f"""<!DOCTYPE html><html lang="en" data-theme="dark"><head>
-<meta charset="UTF-8"><title>{html.escape(title)} — Aquilia Admin</title><style>{_FALLBACK_CSS}</style></head>
+<meta charset="UTF-8"><title>{html.escape(title)} -- Aquilia Admin</title><style>{_FALLBACK_CSS}</style></head>
 <body><div style="padding:24px"><h1>{html.escape(title)}</h1><p>Form view (install Jinja2 for full UI)</p></div></body></html>"""
 
 
 def _fallback_audit(entries: list, app_list: list, identity_name: str = "Admin",
                     total: int = 0, **kw: Any) -> str:
     return f"""<!DOCTYPE html><html lang="en" data-theme="dark"><head>
-<meta charset="UTF-8"><title>Audit Log — Aquilia Admin</title><style>{_FALLBACK_CSS}</style></head>
+<meta charset="UTF-8"><title>Audit Log -- Aquilia Admin</title><style>{_FALLBACK_CSS}</style></head>
 <body><div style="padding:24px"><h1>Audit Log</h1><p>{total} entries</p></div></body></html>"""

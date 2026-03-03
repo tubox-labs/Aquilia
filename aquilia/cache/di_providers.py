@@ -1,5 +1,5 @@
 """
-AquilaCache — DI provider registration.
+AquilaCache -- DI provider registration.
 
 Registers CacheService and backend in Aquilia's DI container
 for seamless injection into controllers and services.

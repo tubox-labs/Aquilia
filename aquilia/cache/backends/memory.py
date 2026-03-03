@@ -1,5 +1,5 @@
 """
-AquilaCache — High-performance in-memory backend.
+AquilaCache -- High-performance in-memory backend.
 
 Implements LRU, LFU, FIFO, and TTL eviction policies using efficient
 data structures:
@@ -125,7 +125,7 @@ class MemoryBackend(CacheBackend):
             loop = asyncio.get_running_loop()
             self._sweeper_task = loop.create_task(self._ttl_sweeper())
         except RuntimeError:
-            # No running loop — skip sweeper (testing context)
+            # No running loop -- skip sweeper (testing context)
             pass
     
     async def shutdown(self) -> None:
@@ -314,7 +314,7 @@ class MemoryBackend(CacheBackend):
             return len(keys_to_delete)
     
     async def get_many(self, keys: List[str]) -> Dict[str, Optional[CacheEntry]]:
-        """Batch get — single lock acquisition."""
+        """Batch get -- single lock acquisition."""
         async with self._lock:
             results = {}
             for key in keys:
@@ -340,7 +340,7 @@ class MemoryBackend(CacheBackend):
         ttl: Optional[int] = None,
         namespace: str = "default",
     ) -> None:
-        """Batch set — single lock acquisition."""
+        """Batch set -- single lock acquisition."""
         async with self._lock:
             for key, value in items.items():
                 # Remove existing
@@ -402,7 +402,7 @@ class MemoryBackend(CacheBackend):
         ratio = len(self._store) / self._max_size if self._max_size > 0 else 0.0
         if ratio >= self._capacity_warning_threshold and not self._capacity_warned:
             logger.warning(
-                f"Cache capacity at {ratio:.0%} ({len(self._store)}/{self._max_size}) — "
+                f"Cache capacity at {ratio:.0%} ({len(self._store)}/{self._max_size}) -- "
                 f"eviction policy: {self._eviction_policy.value}"
             )
             self._capacity_warned = True

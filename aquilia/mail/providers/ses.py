@@ -1,5 +1,5 @@
 """
-AWS SES Provider — Async Amazon Simple Email Service delivery.
+AWS SES Provider -- Async Amazon Simple Email Service delivery.
 
 Features:
 - Async AWS SES v2 via aiobotocore (or boto3 sync fallback)

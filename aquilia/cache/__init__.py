@@ -1,5 +1,5 @@
 """
-AquilaCache — Production-grade, async-first caching system for Aquilia.
+AquilaCache -- Production-grade, async-first caching system for Aquilia.
 
 Provides a multi-backend, DI-integrated, fault-aware caching layer with:
 - **Multiple backends**: Memory (LRU/LFU/TTL), Redis, Composite (L1/L2)

@@ -188,7 +188,7 @@ class TestStaticChecker:
         assert "app.py:42:10" in s
         assert "[E001]" in s
         assert "Syntax error" in s
-        assert "✗" in s
+        assert "[!!]" in s
 
     def test_check_error_str_without_location(self):
         from aquilia.build.checker import CheckError, CheckSeverity
@@ -197,7 +197,7 @@ class TestStaticChecker:
             message="Unused import",
         )
         s = str(err)
-        assert "⚠" in s
+        assert "[??]" in s
         assert "Unused import" in s
 
     def test_check_error_with_hint(self):

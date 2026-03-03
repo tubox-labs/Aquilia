@@ -1,5 +1,5 @@
 """
-Base storage adapter — abstract interface for blob backends.
+Base storage adapter -- abstract interface for blob backends.
 """
 
 from __future__ import annotations

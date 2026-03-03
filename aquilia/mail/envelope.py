@@ -1,5 +1,5 @@
 """
-AquilaMail Envelope — The internal representation of a mail message.
+AquilaMail Envelope -- The internal representation of a mail message.
 
 An envelope is the immutable record of a message as it passes through
 the queue, dispatch, and delivery pipeline.  Envelopes are persisted
@@ -71,7 +71,7 @@ class Attachment:
 @dataclass
 class MailEnvelope:
     """
-    Immutable mail envelope — the unit of work in the mail pipeline.
+    Immutable mail envelope -- the unit of work in the mail pipeline.
 
     Created by EmailMessage.build_envelope(), persisted by EnvelopeStore,
     dequeued by Dispatcher, and sent by a Provider.
@@ -133,7 +133,7 @@ class MailEnvelope:
         """
         Compute content-based SHA-256 digest for deduplication.
 
-        Digest is stable across retries — computed from subject, sorted
+        Digest is stable across retries -- computed from subject, sorted
         recipients, body hash, and attachment digests.
         """
         body_hash = hashlib.sha256(

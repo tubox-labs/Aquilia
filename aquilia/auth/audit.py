@@ -173,7 +173,7 @@ class AuditStore:
         until: Optional[float] = None,
         limit: int = 100,
     ) -> List[AuditEvent]:
-        """Query stored events. Optional — not all stores support this."""
+        """Query stored events. Optional -- not all stores support this."""
         return []
 
 

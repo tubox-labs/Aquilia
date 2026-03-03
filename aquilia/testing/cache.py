@@ -16,7 +16,7 @@ class MockCacheBackend:
 
     Mirrors the :class:`~aquilia.cache.core.CacheBackend` async protocol
     but stores everything in a plain dict for zero-overhead testing.
-    TTLs are tracked and honoured — expired keys are transparently evicted.
+    TTLs are tracked and honoured -- expired keys are transparently evicted.
 
     Usage::
 

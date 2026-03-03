@@ -90,7 +90,7 @@ class RequestCtx:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-#  Exception Filter — NestJS-style
+#  Exception Filter -- NestJS-style
 # ═══════════════════════════════════════════════════════════════════════════
 
 class ExceptionFilter:
@@ -133,7 +133,7 @@ class ExceptionFilter:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-#  Interceptor — NestJS-style before/after hooks
+#  Interceptor -- NestJS-style before/after hooks
 # ═══════════════════════════════════════════════════════════════════════════
 
 class Interceptor:
@@ -184,7 +184,7 @@ class Interceptor:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-#  Throttle — Controller-level rate limiting
+#  Throttle -- Controller-level rate limiting
 # ═══════════════════════════════════════════════════════════════════════════
 
 class Throttle:
@@ -257,7 +257,7 @@ class Throttle:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-#  ControllerMeta — descriptor metaclass to fix mutable defaults
+#  ControllerMeta -- descriptor metaclass to fix mutable defaults
 # ═══════════════════════════════════════════════════════════════════════════
 
 class _ControllerMeta(type):

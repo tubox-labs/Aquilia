@@ -1,5 +1,5 @@
 """
-Aquilia SQL Builder — safe, parameterized SQL generation.
+Aquilia SQL Builder -- safe, parameterized SQL generation.
 
 Provides a fluent builder API that produces parameterized SQL
 and bind-parameter lists. All user values are bound as parameters
@@ -346,7 +346,7 @@ class CreateTableBuilder:
 
 class AlterTableBuilder:
     """
-    ALTER TABLE DDL builder — dialect-aware.
+    ALTER TABLE DDL builder -- dialect-aware.
 
     Supports ADD COLUMN, DROP COLUMN, RENAME COLUMN, RENAME TABLE,
     ADD CONSTRAINT, DROP CONSTRAINT operations.
@@ -476,7 +476,7 @@ class AlterTableBuilder:
 
 class UpsertBuilder:
     """
-    INSERT ... ON CONFLICT (upsert) query builder — dialect-aware.
+    INSERT ... ON CONFLICT (upsert) query builder -- dialect-aware.
 
     Generates:
     - SQLite/PostgreSQL: INSERT ... ON CONFLICT ... DO UPDATE SET ...

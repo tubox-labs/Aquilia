@@ -1,5 +1,5 @@
 """
-AquilAdmin — Blueprints for Admin Models.
+AquilAdmin -- Blueprints for Admin Models.
 
 Provides Aquilia Blueprint definitions for serialization,
 validation, and projection of all admin models.

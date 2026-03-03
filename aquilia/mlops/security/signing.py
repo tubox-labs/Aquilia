@@ -1,5 +1,5 @@
 """
-Security — artifact signing, verification, and encryption at rest.
+Security -- artifact signing, verification, and encryption at rest.
 """
 
 from __future__ import annotations

@@ -1,5 +1,5 @@
 """
-Aquilia Model Metaclass — field collection, auto-PK, Meta parsing, registration.
+Aquilia Model Metaclass -- field collection, auto-PK, Meta parsing, registration.
 
 Separates the metaclass logic from the Model base class for cleaner architecture.
 """

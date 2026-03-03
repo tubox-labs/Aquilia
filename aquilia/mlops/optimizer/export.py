@@ -1,5 +1,5 @@
 """
-Edge export utilities — TFLite, CoreML, quantized ONNX.
+Edge export utilities -- TFLite, CoreML, quantized ONNX.
 
 Provides ``aquilia export`` CLI target implementations.
 """

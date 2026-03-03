@@ -1,14 +1,14 @@
 """
-AquilAdmin — Comprehensive Admin Models (Django-grade Architecture).
+AquilAdmin -- Comprehensive Admin Models (Django-grade Architecture).
 
 Provides a full-featured admin model hierarchy inspired by Django:
 
-    - ``ContentType``      — tracks every model/table in the project
-    - ``AdminPermission``  — codename-based permissions tied to content types
-    - ``AdminGroup``       — named groups with M2M permissions
-    - ``AdminUser``        — staff/superuser accounts with groups & permissions
-    - ``AdminLogEntry``    — immutable audit trail of every admin action
-    - ``AdminSession``     — server-side session storage for admin auth
+    - ``ContentType``      -- tracks every model/table in the project
+    - ``AdminPermission``  -- codename-based permissions tied to content types
+    - ``AdminGroup``       -- named groups with M2M permissions
+    - ``AdminUser``        -- staff/superuser accounts with groups & permissions
+    - ``AdminLogEntry``    -- immutable audit trail of every admin action
+    - ``AdminSession``     -- server-side session storage for admin auth
 
 All models use the Aquilia ORM with proper relationships (ForeignKey,
 ManyToManyField), composite indexes, unique constraints, and db_index
@@ -733,10 +733,10 @@ else:
             return None
         @classmethod
         async def create_superuser(cls, username: str, password: str, email: str = "", **kw: Any) -> "AdminUser":
-            raise RuntimeError("ORM not available — cannot create superuser without database models")
+            raise RuntimeError("ORM not available -- cannot create superuser without database models")
         @classmethod
         async def create_staff_user(cls, username: str, password: str, email: str = "", **kw: Any) -> "AdminUser":
-            raise RuntimeError("ORM not available — cannot create staff user without database models")
+            raise RuntimeError("ORM not available -- cannot create staff user without database models")
 
     class AdminLogEntry:  # type: ignore[no-redef]
         """Stub AdminLogEntry when ORM is not available."""

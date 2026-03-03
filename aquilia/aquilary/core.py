@@ -819,7 +819,7 @@ class RuntimeRegistry:
                     discovered = self._discover_python_models(py_path)
                     registered_count += len(discovered)
                 
-                # ModelRegistry is a global singleton — models self-register via metaclass
+                # ModelRegistry is a global singleton -- models self-register via metaclass
                 if ModelRegistry._models:
                     from aquilia.di import Container
                     from aquilia.di.providers import ValueProvider
@@ -840,7 +840,7 @@ class RuntimeRegistry:
         self._models_registered = True
         if registered_count:
             import logging as _log
-            _log.getLogger('aquilia.aquilary').info(f"✓ Registered {registered_count} model(s) in DI")
+            _log.getLogger('aquilia.aquilary').info(f"Registered {registered_count} model(s) in DI")
     
     def _register_services(self):
         """Register services from manifests with DI containers."""
@@ -957,7 +957,7 @@ class RuntimeRegistry:
                         if tag:
                             container.register(alias_provider, tag=tag)
                         
-                    _svc_logger.info(f"✓ Registered service: {service_class.__name__} in app '{ctx.name}'")
+                    _svc_logger.info(f"Registered service: {service_class.__name__} in app '{ctx.name}'")
                 
                 except Exception as e:
                     _svc_logger.warning(f"Failed to register service {service_item}: {e}")

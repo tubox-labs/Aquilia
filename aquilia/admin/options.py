@@ -1,5 +1,5 @@
 """
-AquilAdmin — ModelAdmin Options.
+AquilAdmin -- ModelAdmin Options.
 
 Declarative per-model configuration for the admin interface.
 Inspired by Django's ModelAdmin but with Aquilia's modern patterns.
@@ -93,7 +93,7 @@ class ModelAdmin:
     Declarative admin configuration for a model.
 
     Class attributes configure how the model appears in the admin interface.
-    All attributes have sensible defaults — a model registered with the
+    All attributes have sensible defaults -- a model registered with the
     bare ModelAdmin class will auto-detect its fields and provide full CRUD.
 
     Attributes:
@@ -147,10 +147,10 @@ class ModelAdmin:
     actions: List[Any] = []
 
     # ── Display ──────────────────────────────────────────────────────
-    empty_value_display: str = "—"
+    empty_value_display: str = "--"
     verbose_name: Optional[str] = None
     verbose_name_plural: Optional[str] = None
-    icon: str = "📋"  # Emoji icon for nav
+    icon: str = "list"  # Emoji icon for nav
 
     def __init__(self, model: Optional[Type[Model]] = None):
         if model is not None:
@@ -487,7 +487,7 @@ class ModelAdmin:
             return self.empty_value_display
 
         if isinstance(value, bool):
-            return "✓" if value else "✗"
+            return "yes" if value else "no"
 
         if isinstance(value, (list, dict)):
             import json

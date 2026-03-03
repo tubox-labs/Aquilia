@@ -1,5 +1,5 @@
 """
-Aquilia Model Deletion — on_delete behaviors for ForeignKey fields.
+Aquilia Model Deletion -- on_delete behaviors for ForeignKey fields.
 
 Provides constants and handler functions for CASCADE, SET_NULL,
 PROTECT, SET_DEFAULT, SET(), DO_NOTHING, RESTRICT behaviors.
@@ -174,7 +174,7 @@ class OnDeleteHandler:
             return 0
 
         elif self.action == RESTRICT:
-            # Similar to PROTECT but semantically different — RESTRICT
+            # Similar to PROTECT but semantically different -- RESTRICT
             # is meant to mirror SQL RESTRICT (checked at DB level too)
             row = await db.fetch_one(
                 f'SELECT COUNT(*) as cnt FROM "{table}" '
@@ -191,13 +191,13 @@ class OnDeleteHandler:
             return 0
 
         else:
-            # DO_NOTHING or unrecognized — no application-level action
+            # DO_NOTHING or unrecognized -- no application-level action
             return 0
 
     @classmethod
     def for_action(cls, action: Any) -> OnDeleteHandler:
         """
-        Factory method — create an OnDeleteHandler from any on_delete value.
+        Factory method -- create an OnDeleteHandler from any on_delete value.
 
         Handles string constants and SET instances uniformly.
         """
@@ -211,7 +211,7 @@ class SET:
     Factory for SET(value) / SET(callable) on_delete behavior.
 
     When the referenced object is deleted, set the FK column to the
-    given value — or call the given callable to compute the value.
+    given value -- or call the given callable to compute the value.
 
     Usage:
         # Static value
@@ -233,7 +233,7 @@ class SET:
         return self._value
 
     def resolve(self) -> Any:
-        """Resolve the SET value — call it if it's a callable."""
+        """Resolve the SET value -- call it if it's a callable."""
         if callable(self._value):
             return self._value()
         return self._value

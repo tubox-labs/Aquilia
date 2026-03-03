@@ -81,7 +81,7 @@ class TritonAdapter(BaseRuntime):
         for req in batch.requests:
             start = time.monotonic()
 
-            # Build Triton request — simplified
+            # Build Triton request -- simplified
             outputs = {"prediction": req.inputs}  # Placeholder
             latency = (time.monotonic() - start) * 1000
 

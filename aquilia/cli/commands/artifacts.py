@@ -1,5 +1,5 @@
 """
-Artifact CLI commands — ``aq artifact list``, ``aq artifact inspect``,
+Artifact CLI commands -- ``aq artifact list``, ``aq artifact inspect``,
 ``aq artifact gc``, ``aq artifact export``, ``aq artifact verify``.
 
 Registered into the main ``cli`` group by ``__main__.py``.
@@ -16,7 +16,7 @@ import click
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# aq artifact — top-level group
+# aq artifact -- top-level group
 # ═══════════════════════════════════════════════════════════════════════════
 
 
@@ -78,7 +78,7 @@ def artifact_list(store_dir: str, kind: str, tag: str, json_output: bool):
     click.echo("─" * 100)
     for a in artifacts:
         digest_short = a.digest[:24] + "…" if len(a.digest) > 24 else a.digest
-        created = a.created_at[:19] if a.created_at else "—"
+        created = a.created_at[:19] if a.created_at else "--"
         click.echo(f"{a.name:<30} {a.version:<12} {a.kind:<12} {digest_short:<28} {created}")
 
     click.echo(click.style(f"\n{len(artifacts)} artifact(s)", fg="green"))
@@ -109,7 +109,7 @@ def artifact_inspect(name: str, version: str, store_dir: str, json_output: bool)
     try:
         artifact = reader.load_or_fail(name, version=version)
     except FileNotFoundError:
-        click.echo(click.style(f"✗ Artifact not found: {name}", fg="red"))
+        click.echo(click.style(f"Artifact not found: {name}", fg="red"))
         sys.exit(1)
 
     info = reader.inspect(artifact)
@@ -121,10 +121,10 @@ def artifact_inspect(name: str, version: str, store_dir: str, json_output: bool)
     click.echo(click.style(f"Artifact: {info['name']}:{info['version']}", fg="cyan", bold=True))
     click.echo(f"  Kind:       {info['kind']}")
     click.echo(f"  Digest:     {info['digest']}")
-    click.echo(f"  Created:    {info.get('created_at', '—')}")
-    click.echo(f"  Created by: {info.get('created_by', '—')}")
-    click.echo(f"  Git SHA:    {info.get('git_sha', '—')}")
-    click.echo(f"  Hostname:   {info.get('hostname', '—')}")
+    click.echo(f"  Created:    {info.get('created_at', '--')}")
+    click.echo(f"  Created by: {info.get('created_by', '--')}")
+    click.echo(f"  Git SHA:    {info.get('git_sha', '--')}")
+    click.echo(f"  Hostname:   {info.get('hostname', '--')}")
 
     if info.get("tags"):
         click.echo("  Tags:")
@@ -164,12 +164,12 @@ def artifact_verify(name: str, version: str, store_dir: str):
     result = reader.verify_by_name(name, version=version)
 
     if result is None:
-        click.echo(click.style(f"✗ Artifact not found: {name}", fg="red"))
+        click.echo(click.style(f"Artifact not found: {name}", fg="red"))
         sys.exit(1)
     elif result:
-        click.echo(click.style(f"✓ Integrity OK: {name}", fg="green"))
+        click.echo(click.style(f"Integrity OK: {name}", fg="green"))
     else:
-        click.echo(click.style(f"✗ Integrity FAILED: {name}", fg="red"))
+        click.echo(click.style(f"Integrity FAILED: {name}", fg="red"))
         sys.exit(1)
 
 
@@ -200,7 +200,7 @@ def artifact_verify_all(store_dir: str, json_output: bool):
 
     click.echo(click.style(f"Verified: {passed} passed, {failed} failed", fg="green" if failed == 0 else "red"))
     for name in failed_names:
-        click.echo(click.style(f"  ✗ {name}", fg="red"))
+        click.echo(click.style(f"  {name}", fg="red"))
 
     if failed:
         sys.exit(1)
@@ -242,7 +242,7 @@ def artifact_gc(store_dir: str, keep: tuple, dry_run: bool):
 
     removed = store.gc(referenced)
     if removed:
-        click.echo(click.style(f"✓ Collected {removed} artifact(s)", fg="green"))
+        click.echo(click.style(f"Collected {removed} artifact(s)", fg="green"))
     else:
         click.echo(click.style("Nothing to collect.", fg="green"))
 
@@ -278,9 +278,9 @@ def artifact_export(store_dir: str, output: str, name: tuple):
 
     try:
         bundle_path = store.export_bundle(names, output)
-        click.echo(click.style(f"✓ Bundle exported: {bundle_path} ({len(names)} artifact(s))", fg="green"))
+        click.echo(click.style(f"Bundle exported: {bundle_path} ({len(names)} artifact(s))", fg="green"))
     except Exception as e:
-        click.echo(click.style(f"✗ Export failed: {e}", fg="red"))
+        click.echo(click.style(f"Export failed: {e}", fg="red"))
         sys.exit(1)
 
 
@@ -308,10 +308,10 @@ def artifact_diff(name: str, version_a: str, version_b: str, store_dir: str):
     b = store.load(name, version=version_b)
 
     if not a:
-        click.echo(click.style(f"✗ Not found: {name}:{version_a}", fg="red"))
+        click.echo(click.style(f"Not found: {name}:{version_a}", fg="red"))
         sys.exit(1)
     if not b:
-        click.echo(click.style(f"✗ Not found: {name}:{version_b}", fg="red"))
+        click.echo(click.style(f"Not found: {name}:{version_b}", fg="red"))
         sys.exit(1)
 
     diff_result = reader.diff(a, b)
@@ -352,7 +352,7 @@ def artifact_history(name: str, store_dir: str):
     click.echo(click.style(f"History: {name}", fg="cyan", bold=True))
     for a in versions:
         digest_short = a.digest[:24] + "…" if len(a.digest) > 24 else a.digest
-        created = a.created_at[:19] if a.created_at else "—"
+        created = a.created_at[:19] if a.created_at else "--"
         click.echo(f"  {a.version:<12} {digest_short:<28} {created}")
 
 
@@ -376,14 +376,14 @@ def artifact_import(bundle_path: str, store_dir: str):
     path = Path(bundle_path)
 
     if not path.exists():
-        click.echo(click.style(f"✗ Bundle file not found: {bundle_path}", fg="red"))
+        click.echo(click.style(f"Bundle file not found: {bundle_path}", fg="red"))
         sys.exit(1)
 
     try:
         count = store.import_bundle(path)
-        click.echo(click.style(f"✓ Imported {count} artifact(s) from {bundle_path}", fg="green"))
+        click.echo(click.style(f"Imported {count} artifact(s) from {bundle_path}", fg="green"))
     except Exception as e:
-        click.echo(click.style(f"✗ Import failed: {e}", fg="red"))
+        click.echo(click.style(f"Import failed: {e}", fg="red"))
         sys.exit(1)
 
 
@@ -437,8 +437,8 @@ def artifact_stats(store_dir: str, json_output: bool):
     click.echo(f"  Total:         {info['total']}")
     click.echo(f"  Unique names:  {info['unique_names']}")
     click.echo(f"  Total size:    {info['total_size_bytes']} bytes")
-    click.echo(f"  Oldest:        {info['oldest'] or '—'}")
-    click.echo(f"  Newest:        {info['newest'] or '—'}")
+    click.echo(f"  Oldest:        {info['oldest'] or '--'}")
+    click.echo(f"  Newest:        {info['newest'] or '--'}")
     if info.get("by_kind"):
         click.echo("  By kind:")
         for k, v in sorted(info["by_kind"].items()):

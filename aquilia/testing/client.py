@@ -119,7 +119,7 @@ class TestClient:
     """
     In-process ASGI test client for Aquilia.
 
-    Does NOT open network sockets — instead it invokes the ASGI application
+    Does NOT open network sockets -- instead it invokes the ASGI application
     directly, captures response events, and returns a :class:`TestResponse`.
 
     Usage::

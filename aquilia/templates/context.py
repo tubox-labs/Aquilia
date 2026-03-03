@@ -143,7 +143,7 @@ def inject_url_helpers(context: Dict[str, Any], url_for_func: Any) -> None:
     """
     context["url_for"] = url_for_func
     
-    # Static URL helper (legacy fallback — prefer inject_static_helper)
+    # Static URL helper (legacy fallback -- prefer inject_static_helper)
     if "static" not in context:
         def static_url(path: str) -> str:
             """Generate static asset URL."""

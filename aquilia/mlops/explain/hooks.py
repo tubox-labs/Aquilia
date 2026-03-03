@@ -1,5 +1,5 @@
 """
-Explainability hooks — SHAP & LIME wrappers with a unified interface.
+Explainability hooks -- SHAP & LIME wrappers with a unified interface.
 
 These helpers are intentionally *thin*: they normalise inputs / outputs so
 the rest of the platform never depends on a specific XAI library.
@@ -108,7 +108,7 @@ class SHAPExplainer:
 
         shap_values = self._explainer.shap_values(arr, **kwargs)
 
-        # shap_values may be list (multi-output) — take first class
+        # shap_values may be list (multi-output) -- take first class
         if isinstance(shap_values, list):
             shap_values = shap_values[0]
 

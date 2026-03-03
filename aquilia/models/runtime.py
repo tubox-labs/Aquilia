@@ -1,5 +1,5 @@
 """
-Aquilia Model Runtime — ModelProxy, Q (query), and ModelRegistry.
+Aquilia Model Runtime -- ModelProxy, Q (query), and ModelRegistry.
 
 Generates lightweight Python proxy classes from AMDL AST nodes.
 All data-access methods use the `$` prefix (Aquilia convention).
@@ -136,7 +136,7 @@ def generate_create_index_sql(model: ModelNode) -> List[str]:
 
 class Q:
     """
-    Aquilia Query builder — chainable, async-terminal.
+    Aquilia Query builder -- chainable, async-terminal.
 
     Supports both raw WHERE clauses and Django-style field lookups:
 
@@ -353,12 +353,12 @@ class ModelRegistry:
     # ── Lifecycle hooks ──────────────────────────────────────────────
 
     async def on_startup(self) -> None:
-        """Lifecycle hook — create tables for all registered models."""
+        """Lifecycle hook -- create tables for all registered models."""
         if self._models:
             await self.create_tables()
 
     async def on_shutdown(self) -> None:
-        """Lifecycle hook — cleanup (reserved for future use)."""
+        """Lifecycle hook -- cleanup (reserved for future use)."""
         pass
 
     def register_model(self, model: ModelNode) -> Type[ModelProxy]:

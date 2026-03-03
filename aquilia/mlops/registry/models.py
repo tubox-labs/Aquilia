@@ -1,5 +1,5 @@
 """
-Registry data models — SQLite backend (default).
+Registry data models -- SQLite backend (default).
 
 Uses ``aiosqlite`` which is already an Aquilia dependency.
 """

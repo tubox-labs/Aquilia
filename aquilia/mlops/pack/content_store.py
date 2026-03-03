@@ -40,7 +40,7 @@ class ContentStore:
 
     async def store(self, digest: str, data: bytes) -> str:
         """
-        Store blob by digest. Idempotent — skips if already exists.
+        Store blob by digest. Idempotent -- skips if already exists.
 
         Returns:
             The storage path as a string.

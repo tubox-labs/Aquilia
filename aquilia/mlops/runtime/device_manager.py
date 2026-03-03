@@ -1,5 +1,5 @@
 """
-Device Manager — auto-detection, fallback, monitoring, and locking for
+Device Manager -- auto-detection, fallback, monitoring, and locking for
 compute devices (CPU, CUDA, MPS, NPU).
 
 The DeviceManager is a singleton-style service wired through DI that

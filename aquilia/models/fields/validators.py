@@ -1,5 +1,5 @@
 """
-Aquilia Field Validators — reusable validation callables.
+Aquilia Field Validators -- reusable validation callables.
 
 Provides a library of production-grade validators that can be
 attached to any field via the ``validators=[...]`` parameter.
@@ -396,7 +396,7 @@ class UniqueForDateValidator(BaseValidator):
     """
     Validate uniqueness for a date-based scope.
 
-    This is a placeholder — actual enforcement requires DB-level checks.
+    This is a placeholder -- actual enforcement requires DB-level checks.
     """
 
     code = "unique_for_date"
@@ -407,5 +407,5 @@ class UniqueForDateValidator(BaseValidator):
             self.message = message
 
     def is_valid(self, value: Any) -> bool:
-        # Placeholder — real uniqueness check happens at the DB level
+        # Placeholder -- real uniqueness check happens at the DB level
         return True

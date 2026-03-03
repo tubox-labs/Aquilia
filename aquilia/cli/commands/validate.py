@@ -70,10 +70,10 @@ def validate_workspace(
     """
     Validate workspace manifests using the Aquilary pipeline.
 
-    Phase 1 — Structure: workspace file, directories, module presence
-    Phase 2 — Manifest: load each AppManifest, validate fields
-    Phase 3 — Pipeline: RegistryValidator → DependencyGraph
-    Phase 4 — Strict: controller/service import resolution, fingerprint
+    Phase 1 -- Structure: workspace file, directories, module presence
+    Phase 2 -- Manifest: load each AppManifest, validate fields
+    Phase 3 -- Pipeline: RegistryValidator → DependencyGraph
+    Phase 4 -- Strict: controller/service import resolution, fingerprint
 
     Args:
         strict: Enable strict (production-level) validation
@@ -225,7 +225,7 @@ def validate_workspace(
                                     f"{svc_str} (expected {file_path.relative_to(workspace_root)})"
                                 )
 
-            # Strict mode — additional checks
+            # Strict mode -- additional checks
             if strict:
                 # Required files for a complete module
                 required_files = ["controllers.py", "services.py", "faults.py"]
@@ -301,7 +301,7 @@ def validate_workspace(
 
         except ImportError:
             warnings.append(
-                "Aquilary pipeline not available — skipping deep validation"
+                "Aquilary pipeline not available -- skipping deep validation"
             )
         except Exception as e:
             warnings.append(f"Aquilary pipeline validation error: {e}")

@@ -1,5 +1,5 @@
 """
-Aquilia Model Registry — global registry for all Model subclasses.
+Aquilia Model Registry -- global registry for all Model subclasses.
 
 Tracks all concrete models, resolves forward FK/M2M references,
 creates tables, and manages the global database connection.
@@ -175,7 +175,7 @@ class ModelRegistry:
                 if in_degree[dependent] == 0:
                     queue.append(dependent)
 
-        # Add any remaining models (circular FK — nullable breaks the cycle)
+        # Add any remaining models (circular FK -- nullable breaks the cycle)
         for name, model_cls in name_to_cls.items():
             if model_cls not in ordered:
                 ordered.append(model_cls)

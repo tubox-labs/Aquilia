@@ -1,5 +1,5 @@
 """
-MLOps Fault Domain — Structured error handling for the entire ML pipeline.
+MLOps Fault Domain -- Structured error handling for the entire ML pipeline.
 
 Integrates with Aquilia's FaultEngine for unified error propagation,
 recovery strategies, observability, and HTTP response mapping.
@@ -493,14 +493,14 @@ class CircuitBreakerFault(MLOpsFault):
 
 
 class CircuitBreakerOpenFault(CircuitBreakerFault):
-    """Circuit breaker is OPEN — requests are being rejected."""
+    """Circuit breaker is OPEN -- requests are being rejected."""
 
     def __init__(self, failure_count: int = 0, recovery_at: float = 0, **kwargs: Any):
         extra_meta = kwargs.pop("metadata", {})
         meta = {"failure_count": failure_count, "recovery_at": recovery_at, **extra_meta}
         super().__init__(
             code="CIRCUIT_BREAKER_OPEN",
-            message=f"Circuit breaker OPEN after {failure_count} failures — rejecting requests",
+            message=f"Circuit breaker OPEN after {failure_count} failures -- rejecting requests",
             severity=Severity.WARN,
             retryable=True,
             public=True,
@@ -510,7 +510,7 @@ class CircuitBreakerOpenFault(CircuitBreakerFault):
 
 
 class CircuitBreakerExhaustedFault(CircuitBreakerFault):
-    """Circuit breaker half-open probe failed — returning to OPEN state."""
+    """Circuit breaker half-open probe failed -- returning to OPEN state."""
 
     def __init__(self, probe_error: str = "", **kwargs: Any):
         extra_meta = kwargs.pop("metadata", {})
@@ -533,7 +533,7 @@ class RateLimitFault(MLOpsFault):
         meta = {"limit_rps": limit_rps, "retry_after": retry_after, **extra_meta}
         super().__init__(
             code="RATE_LIMIT_EXCEEDED",
-            message=f"Rate limit exceeded ({limit_rps:.1f} rps) — retry after {retry_after:.2f}s",
+            message=f"Rate limit exceeded ({limit_rps:.1f} rps) -- retry after {retry_after:.2f}s",
             domain=FaultDomain.MLOPS_RESILIENCE,
             severity=Severity.WARN,
             retryable=True,
@@ -601,7 +601,7 @@ class MemoryFault(MLOpsFault):
 
 
 class MemorySoftLimitFault(MemoryFault):
-    """Memory usage crossed soft limit — eviction candidates available."""
+    """Memory usage crossed soft limit -- eviction candidates available."""
 
     def __init__(self, current_mb: float = 0, limit_mb: float = 0, **kwargs: Any):
         extra_meta = kwargs.pop("metadata", {})
@@ -617,14 +617,14 @@ class MemorySoftLimitFault(MemoryFault):
 
 
 class MemoryHardLimitFault(MemoryFault):
-    """Memory usage crossed hard limit — requests must be rejected."""
+    """Memory usage crossed hard limit -- requests must be rejected."""
 
     def __init__(self, current_mb: float = 0, limit_mb: float = 0, **kwargs: Any):
         extra_meta = kwargs.pop("metadata", {})
         meta = {"current_mb": current_mb, "limit_mb": limit_mb, **extra_meta}
         super().__init__(
             code="MEMORY_HARD_LIMIT",
-            message=f"Memory hard limit exceeded: {current_mb:.0f}MB / {limit_mb:.0f}MB — rejecting requests",
+            message=f"Memory hard limit exceeded: {current_mb:.0f}MB / {limit_mb:.0f}MB -- rejecting requests",
             severity=Severity.FATAL,
             retryable=False,
             public=True,

@@ -547,7 +547,7 @@ def diff_to_operations(
     """
     Convert a SchemaDiff into a list of DSL operations.
 
-    This is the core of makemigrations — it takes the delta between
+    This is the core of makemigrations -- it takes the delta between
     the previous snapshot and the current models, then emits the
     minimal set of operations to bring the schema up to date.
     """

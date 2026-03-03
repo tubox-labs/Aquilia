@@ -211,7 +211,7 @@ from .auth.integration.middleware import (
     create_auth_middleware_stack,
 )
 
-# Flow guards — re-enabled with FlowPipeline integration
+# Flow guards -- re-enabled with FlowPipeline integration
 from .auth.integration.flow_guards import (
     FlowGuard,
     RequireAuthGuard,
@@ -693,7 +693,7 @@ except ImportError:
     pass
 
 # ============================================================================
-# Admin System (AquilAdmin — Django-style auto-detecting admin)
+# Admin System (AquilAdmin -- Django-style auto-detecting admin)
 # ============================================================================
 
 from .admin import (

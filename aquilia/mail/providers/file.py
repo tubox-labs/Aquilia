@@ -1,5 +1,5 @@
 """
-File Provider — Writes emails to .eml files on disk.
+File Provider -- Writes emails to .eml files on disk.
 
 Useful for local development, CI/CD testing, and audit logging.
 Each email is written as a standard RFC 2822 .eml file that can be

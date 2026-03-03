@@ -1,5 +1,5 @@
 """
-Aquilia Model System — Pure Python, Django-grade ORM.
+Aquilia Model System -- Pure Python, Django-grade ORM.
 
 The model system has been completely rewritten from the old AMDL DSL
 to a pure Pythonic, metaclass-driven architecture.

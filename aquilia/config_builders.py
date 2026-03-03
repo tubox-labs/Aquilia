@@ -31,7 +31,7 @@ class RuntimeConfig:
 @dataclass
 class ModuleConfig:
     """
-    Module configuration — workspace-level orchestration metadata.
+    Module configuration -- workspace-level orchestration metadata.
     
     The Module in workspace.py is a **pointer** to the per-module manifest.
     Component declarations (controllers, services, middleware, models,
@@ -92,7 +92,7 @@ class ModuleConfig:
 
 class Module:
     """
-    Fluent module builder — workspace-level orchestration only.
+    Fluent module builder -- workspace-level orchestration only.
     
     The Module builder configures **how** a module fits into the workspace
     (routing, dependencies, tags, lifecycle). All component declarations
@@ -105,7 +105,7 @@ class Module:
     
     Example::
     
-        # workspace.py — pointer only
+        # workspace.py -- pointer only
         workspace = (
             Workspace("myapp")
             .module(
@@ -120,7 +120,7 @@ class Module:
             )
         )
         
-        # modules/users/manifest.py — source of truth
+        # modules/users/manifest.py -- source of truth
         manifest = AppManifest(
             name="users",
             version="0.1.0",
@@ -163,13 +163,13 @@ class Module:
         return self
     
     def depends_on(self, *modules: str) -> "Module":
-        """Set module dependencies (legacy — prefer imports())."""
+        """Set module dependencies (legacy -- prefer imports())."""
         self._config.depends_on = list(modules)
         return self
     
     def imports(self, *modules: str) -> "Module":
         """
-        Declare module imports (v2 — NestJS-style encapsulation).
+        Declare module imports (v2 -- NestJS-style encapsulation).
         
         Modules listed here expose their ``exports`` to this module.
         Supersedes ``depends_on()`` for dependency declaration.
@@ -184,7 +184,7 @@ class Module:
     
     def exports(self, *components: str) -> "Module":
         """
-        Declare exported components (v2 — NestJS-style encapsulation).
+        Declare exported components (v2 -- NestJS-style encapsulation).
         
         Only exported services/components are visible to importing modules.
         Non-exported components are module-private.
@@ -210,7 +210,7 @@ class Module:
     # ──────────────────────────────────────────────────────────────────────
 
     def register_controllers(self, *controllers: str) -> "Module":
-        """DEPRECATED — declare controllers in modules/*/manifest.py instead."""
+        """DEPRECATED -- declare controllers in modules/*/manifest.py instead."""
         import warnings
         warnings.warn(
             "Module.register_controllers() is deprecated. "
@@ -221,7 +221,7 @@ class Module:
         return self
 
     def register_services(self, *services: str) -> "Module":
-        """DEPRECATED — declare services in modules/*/manifest.py instead."""
+        """DEPRECATED -- declare services in modules/*/manifest.py instead."""
         import warnings
         warnings.warn(
             "Module.register_services() is deprecated. "
@@ -232,7 +232,7 @@ class Module:
         return self
         
     def register_providers(self, *providers: Dict[str, Any]) -> "Module":
-        """DEPRECATED — declare providers in modules/*/manifest.py instead."""
+        """DEPRECATED -- declare providers in modules/*/manifest.py instead."""
         import warnings
         warnings.warn(
             "Module.register_providers() is deprecated. "
@@ -243,7 +243,7 @@ class Module:
         return self
         
     def register_routes(self, *routes: Dict[str, Any]) -> "Module":
-        """DEPRECATED — declare routes via controllers in modules/*/manifest.py instead."""
+        """DEPRECATED -- declare routes via controllers in modules/*/manifest.py instead."""
         import warnings
         warnings.warn(
             "Module.register_routes() is deprecated. "
@@ -254,7 +254,7 @@ class Module:
         return self
 
     def register_sockets(self, *sockets: str) -> "Module":
-        """DEPRECATED — declare socket controllers in modules/*/manifest.py instead."""
+        """DEPRECATED -- declare socket controllers in modules/*/manifest.py instead."""
         import warnings
         warnings.warn(
             "Module.register_sockets() is deprecated. "
@@ -265,7 +265,7 @@ class Module:
         return self
 
     def register_middlewares(self, *middlewares: str) -> "Module":
-        """DEPRECATED — declare middleware in modules/*/manifest.py instead."""
+        """DEPRECATED -- declare middleware in modules/*/manifest.py instead."""
         import warnings
         warnings.warn(
             "Module.register_middlewares() is deprecated. "
@@ -276,7 +276,7 @@ class Module:
         return self
     
     def register_models(self, *models: str) -> "Module":
-        """DEPRECATED — declare models in modules/*/manifest.py instead."""
+        """DEPRECATED -- declare models in modules/*/manifest.py instead."""
         import warnings
         warnings.warn(
             "Module.register_models() is deprecated. "
@@ -287,7 +287,7 @@ class Module:
         return self
     
     def register_serializers(self, *serializers: str) -> "Module":
-        """DEPRECATED — declare serializers in modules/*/manifest.py instead."""
+        """DEPRECATED -- declare serializers in modules/*/manifest.py instead."""
         import warnings
         warnings.warn(
             "Module.register_serializers() is deprecated. "
@@ -748,7 +748,7 @@ class Integration:
         backends with pluggable serialization and middleware.
 
         Args:
-            backend: Backend type — ``"memory"``, ``"redis"``,
+            backend: Backend type -- ``"memory"``, ``"redis"``,
                      ``"composite"``, or ``"null"``.
             default_ttl: Default time-to-live in seconds.
             max_size: Maximum entries for memory backend.
@@ -960,7 +960,7 @@ class Integration:
 
         # ── Monitoring (disabled by default) ──
         def enable_monitoring(self) -> "Integration.AdminModules":
-            """Show the Monitoring page. Disabled by default — opt in."""
+            """Show the Monitoring page. Disabled by default -- opt in."""
             self._monitoring = True
             return self
 
@@ -993,7 +993,7 @@ class Integration:
 
         # ── Audit (disabled by default) ──
         def enable_audit(self) -> "Integration.AdminModules":
-            """Show the Audit Log page. Disabled by default — opt in."""
+            """Show the Audit Log page. Disabled by default -- opt in."""
             self._audit = True
             return self
 
@@ -1043,7 +1043,7 @@ class Integration:
         categories are recorded, and which specific actions are
         excluded.
 
-        **Disabled by default** — call ``.enable()`` to activate.
+        **Disabled by default** -- call ``.enable()`` to activate.
 
         Example::
 
@@ -1147,7 +1147,7 @@ class Integration:
         Controls whether real-time system metrics are collected and
         which metric categories are shown in the dashboard.
 
-        **Disabled by default** — call ``.enable()`` to activate.
+        **Disabled by default** -- call ``.enable()`` to activate.
 
         Example::
 
@@ -1375,15 +1375,15 @@ class Integration:
             login_url: Custom login URL.
             list_per_page: Default rows per page in list views.
             theme: ``"auto"``, ``"dark"``, or ``"light"``.
-            modules: ``AdminModules`` builder — controls page visibility.
-            audit: ``AdminAudit`` builder — controls audit logging.
-            monitoring: ``AdminMonitoring`` builder — controls metrics.
-            sidebar: ``AdminSidebar`` builder — controls sidebar sections.
+            modules: ``AdminModules`` builder -- controls page visibility.
+            audit: ``AdminAudit`` builder -- controls audit logging.
+            monitoring: ``AdminMonitoring`` builder -- controls metrics.
+            sidebar: ``AdminSidebar`` builder -- controls sidebar sections.
 
         Returns:
             Admin configuration dictionary.
 
-        Example — **builder syntax** (recommended)::
+        Example -- **builder syntax** (recommended)::
 
             .integrate(Integration.admin(
                 site_title="MyApp Admin",
@@ -1407,7 +1407,7 @@ class Integration:
                 ),
             ))
 
-        Example — **flat syntax** (legacy / quick)::
+        Example -- **flat syntax** (legacy / quick)::
 
             .integrate(Integration.admin(
                 site_title="MyApp Admin",
@@ -1986,7 +1986,7 @@ class Integration:
         **kwargs,
     ) -> Dict[str, Any]:
         """
-        Configure AquilaMail — the production-ready async mail subsystem.
+        Configure AquilaMail -- the production-ready async mail subsystem.
 
         Args:
             default_from: Default sender address.
@@ -2096,14 +2096,14 @@ class Integration:
         framework via DI, lifecycle hooks, and middleware.
 
         Ecosystem wiring:
-        - **CacheService** — MLOps controller caches model metadata,
+        - **CacheService** -- MLOps controller caches model metadata,
           registry listings, and capability introspections.
-        - **FaultEngine** — All MLOps exceptions flow through the engine
+        - **FaultEngine** -- All MLOps exceptions flow through the engine
           with scoped handlers for observability and recovery.
-        - **ArtifactStore** — Model packs are managed via the Aquilia
+        - **ArtifactStore** -- Model packs are managed via the Aquilia
           artifact system with content-addressed storage and integrity
           verification.
-        - **Effects** — Controller methods declare ``CacheEffect`` to
+        - **Effects** -- Controller methods declare ``CacheEffect`` to
           participate in the effect middleware pipeline.
 
         Args:

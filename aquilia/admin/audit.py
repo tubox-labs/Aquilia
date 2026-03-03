@@ -1,5 +1,5 @@
 """
-AquilAdmin — Audit Trail.
+AquilAdmin -- Audit Trail.
 
 Every admin action (create, update, delete, bulk action, login, logout)
 is recorded in an append-only audit log. Uses Aquilia Auth's AuditTrail
@@ -85,7 +85,7 @@ class AdminAuditEntry:
 
 class AdminAuditLog:
     """
-    Admin audit log — records all admin operations.
+    Admin audit log -- records all admin operations.
 
     Thread-safe, append-only log with configurable retention.
     Integrates with Aquilia Auth's AuditTrail when available.
@@ -95,7 +95,7 @@ class AdminAuditLog:
         self._entries: List[AdminAuditEntry] = []
         self._max_entries = max_entries
         self._counter = 0
-        # Admin config reference — set by AdminSite after config is parsed
+        # Admin config reference -- set by AdminSite after config is parsed
         self._admin_config: Any = None
 
     def log(
@@ -236,7 +236,7 @@ class AdminAuditLog:
 
 class ModelBackedAuditLog:
     """
-    Model-backed audit log — persists entries to the AdminAuditEntry ORM table.
+    Model-backed audit log -- persists entries to the AdminAuditEntry ORM table.
 
     Survives server restarts and user logouts. Falls back gracefully to the
     in-memory AdminAuditLog when the ORM table is unavailable (e.g. before
@@ -249,7 +249,7 @@ class ModelBackedAuditLog:
     def __init__(self, fallback_max: int = 2_000):
         self._fallback = AdminAuditLog(max_entries=fallback_max)
         self._db_available: Optional[bool] = None  # None = not yet probed
-        # Admin config reference — set by AdminSite after config is parsed
+        # Admin config reference -- set by AdminSite after config is parsed
         self._admin_config: Any = None
 
     @property
@@ -270,7 +270,7 @@ class ModelBackedAuditLog:
             return self._db_available
         try:
             from aquilia.admin.models import AdminAuditEntry
-            # Lightweight probe — count with limit 0
+            # Lightweight probe -- count with limit 0
             await AdminAuditEntry.objects.filter(entry_id="__probe__").count()
             self._db_available = True
         except Exception:
@@ -351,7 +351,7 @@ class ModelBackedAuditLog:
                     )
                 )
         except RuntimeError:
-            pass  # No event loop running — fallback-only mode
+            pass  # No event loop running -- fallback-only mode
 
         return mem_entry
 
@@ -376,7 +376,7 @@ class ModelBackedAuditLog:
         **kwargs: Any,
     ) -> "AdminAuditEntry":
         """
-        Async version of log() — awaits the DB write directly.
+        Async version of log() -- awaits the DB write directly.
         Respects admin config action filtering.
         Use this when you are already inside an async context and want
         to guarantee the entry is persisted before continuing.
@@ -450,7 +450,7 @@ class ModelBackedAuditLog:
         offset: int = 0,
     ) -> List["AdminAuditEntry"]:
         """
-        Synchronous get_entries — returns in-memory entries only.
+        Synchronous get_entries -- returns in-memory entries only.
         Use get_entries_async() when in an async context to also
         include DB-persisted entries.
         """
@@ -487,7 +487,7 @@ class ModelBackedAuditLog:
         action: Optional["AdminAction"] = None,
         model_name: Optional[str] = None,
     ) -> int:
-        """Synchronous count — returns in-memory count only."""
+        """Synchronous count -- returns in-memory count only."""
         return self._fallback.count(action=action, model_name=model_name)
 
     def clear(self) -> int:

@@ -52,7 +52,7 @@ def cmd_di_check(args):
     - No scope violations
     - Cross-app dependencies declared
     """
-    print("🔍 Checking DI configuration...")
+    print("Checking DI configuration...")
     
     try:
         manifests, config = load_manifests_from_settings(args.settings)
@@ -68,11 +68,11 @@ def cmd_di_check(args):
                 enforce_cross_app=not args.no_cross_app_check,
             )
             
-            print("✅ DI configuration is valid!")
+            print("DI configuration is valid!")
             
             # Show summary
             provider_count = len(registry._providers)
-            print(f"\n📊 Summary:")
+            print(f"\nSummary:")
             print(f"  - Providers: {provider_count}")
             
             # Count by scope
@@ -84,24 +84,24 @@ def cmd_di_check(args):
             return 0
             
         except DependencyCycleError as e:
-            print(f"❌ Dependency cycle detected:")
+            print(f"Dependency cycle detected:")
             print(f"   {e}")
             if not args.quiet:
-                print(f"\n💡 Suggestion: Use allow_lazy=True in manifest to break cycle")
+                print(f"\nSuggestion: Use allow_lazy=True in manifest to break cycle")
             return 1
             
         except ScopeViolationError as e:
-            print(f"❌ Scope violation:")
+            print(f"Scope violation:")
             print(f"   {e}")
             return 1
             
         except DIError as e:
-            print(f"❌ DI error:")
+            print(f"DI error:")
             print(f"   {e}")
             return 1
             
     except Exception as e:
-        print(f"❌ Error: {e}")
+        print(f"Error: {e}")
         if args.verbose:
             import traceback
             traceback.print_exc()
@@ -114,7 +114,7 @@ def cmd_di_tree(args):
     
     Displays provider dependencies as a tree.
     """
-    print("🌳 Dependency Tree\n")
+    print("Dependency Tree\n")
     
     try:
         manifests, config = load_manifests_from_settings(args.settings)
@@ -141,12 +141,12 @@ def cmd_di_tree(args):
         # Save to file if requested
         if args.out:
             Path(args.out).write_text(tree)
-            print(f"\n💾 Saved to {args.out}")
+            print(f"\nSaved to {args.out}")
         
         return 0
         
     except Exception as e:
-        print(f"❌ Error: {e}")
+        print(f"Error: {e}")
         if args.verbose:
             import traceback
             traceback.print_exc()
@@ -159,7 +159,7 @@ def cmd_di_graph(args):
     
     Useful for visualization with `dot -Tpng graph.dot -o graph.png`.
     """
-    print("📊 Exporting dependency graph...")
+    print("Exporting dependency graph...")
     
     try:
         manifests, config = load_manifests_from_settings(args.settings)
@@ -182,13 +182,13 @@ def cmd_di_graph(args):
         out_path = Path(args.out)
         out_path.write_text(dot)
         
-        print(f"✅ Graph exported to {args.out}")
-        print(f"\n💡 Visualize with: dot -Tpng {args.out} -o graph.png")
+        print(f"Graph exported to {args.out}")
+        print(f"\nVisualize with: dot -Tpng {args.out} -o graph.png")
         
         return 0
         
     except Exception as e:
-        print(f"❌ Error: {e}")
+        print(f"Error: {e}")
         if args.verbose:
             import traceback
             traceback.print_exc()
@@ -205,7 +205,7 @@ def cmd_di_profile(args):
     - New instance creation time
     - Pool acquire/release latency
     """
-    print("⚡ Profiling DI performance...\n")
+    print("Profiling DI performance...\n")
     
     async def run_benchmarks():
         try:
@@ -214,22 +214,22 @@ def cmd_di_profile(args):
             from aquilia.di import Registry
             
             # Benchmark 1: Registry build
-            print("1️⃣  Registry build (cold):")
+            print("1. Registry build (cold):")
             start = time.perf_counter()
             registry = Registry.from_manifests(manifests, config=config)
             build_time = time.perf_counter() - start
-            print(f"   ⏱️  {build_time*1000:.2f}ms")
+            print(f"   {build_time*1000:.2f}ms")
             
             # Benchmark 2: Container build
-            print("\n2️⃣  Container build:")
+            print("\n2. Container build:")
             start = time.perf_counter()
             container = registry.build_container()
             container_time = time.perf_counter() - start
-            print(f"   ⏱️  {container_time*1000:.2f}ms")
+            print(f"   {container_time*1000:.2f}ms")
             
             # Benchmark 3: Cached resolution
             if args.bench:
-                print(f"\n3️⃣  Cached resolution ({args.runs} iterations):")
+                print(f"\n3. Cached resolution ({args.runs} iterations):")
                 
                 # Resolve once to populate cache
                 if registry._providers:
@@ -248,20 +248,20 @@ def cmd_di_profile(args):
                     median_time = sorted(times)[len(times)//2]
                     p95_time = sorted(times)[int(len(times)*0.95)]
                     
-                    print(f"   ⏱️  Average: {avg_time*1_000_000:.2f}µs")
-                    print(f"   ⏱️  Median:  {median_time*1_000_000:.2f}µs")
-                    print(f"   ⏱️  P95:     {p95_time*1_000_000:.2f}µs")
+                    print(f"   Average: {avg_time*1_000_000:.2f}µs")
+                    print(f"   Median:  {median_time*1_000_000:.2f}µs")
+                    print(f"   P95:     {p95_time*1_000_000:.2f}µs")
                     
                     # Check against target (<3µs)
                     if median_time * 1_000_000 < 3:
-                        print(f"   ✅ Target <3µs: PASSED")
+                        print(f"   Target <3µs: PASSED")
                     else:
-                        print(f"   ⚠️  Target <3µs: FAILED")
+                        print(f"   Target <3µs: FAILED")
             
-            print("\n✅ Profiling complete!")
+            print("\nProfiling complete!")
             
             # Summary
-            print(f"\n📊 Summary:")
+            print(f"\nSummary:")
             print(f"  - Registry build: {build_time*1000:.2f}ms")
             print(f"  - Container build: {container_time*1000:.2f}ms")
             print(f"  - Providers: {len(registry._providers)}")
@@ -269,7 +269,7 @@ def cmd_di_profile(args):
             return 0
             
         except Exception as e:
-            print(f"❌ Error: {e}")
+            print(f"Error: {e}")
             if args.verbose:
                 import traceback
                 traceback.print_exc()
@@ -287,7 +287,7 @@ def cmd_di_manifest(args):
     - Autocomplete for Inject tags
     - "Find provider" navigation
     """
-    print("📄 Generating di_manifest.json...")
+    print("Generating di_manifest.json...")
     
     try:
         manifests, config = load_manifests_from_settings(args.settings)
@@ -313,13 +313,13 @@ def cmd_di_manifest(args):
         out_path = Path(args.out)
         out_path.write_text(json.dumps(manifest_data, indent=2))
         
-        print(f"✅ Manifest exported to {args.out}")
+        print(f"Manifest exported to {args.out}")
         print(f"   {len(manifest_data['providers'])} providers")
         
         return 0
         
     except Exception as e:
-        print(f"❌ Error: {e}")
+        print(f"Error: {e}")
         if args.verbose:
             import traceback
             traceback.print_exc()

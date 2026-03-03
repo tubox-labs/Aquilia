@@ -1,5 +1,5 @@
 """
-Plugin host — discovers, loads, and manages lifecycle of MLOps plugins.
+Plugin host -- discovers, loads, and manages lifecycle of MLOps plugins.
 
 Plugins are Python packages that expose an ``aquilia_mlops_plugin`` entry
 point or implement the ``PluginHook`` protocol from ``_types.py``.
@@ -61,9 +61,9 @@ class PluginHost:
 
     **Discovery methods** (in order):
 
-    1. ``discover_entrypoints()`` — scans ``importlib.metadata`` for
+    1. ``discover_entrypoints()`` -- scans ``importlib.metadata`` for
        packages declaring the ``aquilia_mlops_plugin`` entry-point group.
-    2. ``register(cls_or_instance)`` — manually register a plugin class
+    2. ``register(cls_or_instance)`` -- manually register a plugin class
        or instance.
 
     **Lifecycle**:  discover → load → activate → deactivate

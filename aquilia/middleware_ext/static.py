@@ -113,7 +113,7 @@ class _RadixTrie:
                     matched = True
                     break
                 else:
-                    # Partial match — split the edge
+                    # Partial match -- split the edge
                     split_child = _RadixNode(prefix=common)
                     child.prefix = key[len(common):]
                     split_child.children[child.prefix] = child
@@ -302,7 +302,7 @@ class StaticMiddleware:
 
         # Fallback directories per URL prefix (for module static dirs).
         # When a file isn't found in the primary directory for a prefix,
-        # these are searched in order — like Django's AppDirectoriesFinder.
+        # these are searched in order -- like Django's AppDirectoriesFinder.
         self._fallback_dirs: Dict[str, List[Path]] = {}
         for url_prefix, fs_dirs in (extra_directories or {}).items():
             prefix_key = "/" + url_prefix.strip("/")

@@ -1,5 +1,5 @@
 """
-Plugin marketplace — lightweight discovery & installation of community
+Plugin marketplace -- lightweight discovery & installation of community
 and first-party MLOps plugins from a remote index.
 """
 
@@ -64,7 +64,7 @@ class PluginMarketplace:
             with open(path) as f:
                 raw = f.read()
         else:
-            # simple stdlib fetch — no aiohttp dependency needed
+            # simple stdlib fetch -- no aiohttp dependency needed
             with urllib.request.urlopen(self._index_url, timeout=10) as resp:
                 raw = resp.read().decode()
 

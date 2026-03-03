@@ -1,5 +1,5 @@
 """
-AquilAdmin — Structured Faults for Admin System.
+AquilAdmin -- Structured Faults for Admin System.
 
 All admin errors use Aquilia's Fault system for structured,
 typed, recoverable error handling.
@@ -39,7 +39,7 @@ class AdminAuthenticationFault(AdminFault):
 # ── Authorization Faults ─────────────────────────────────────────────────────
 
 class AdminAuthorizationFault(AdminFault):
-    """Admin authorization failed — insufficient permissions."""
+    """Admin authorization failed -- insufficient permissions."""
     code = "ADMIN_AUTHZ_DENIED"
     status = 403
 

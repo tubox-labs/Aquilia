@@ -1,5 +1,5 @@
 """
-Aquilia Build Pipeline — Vite-inspired compile-before-serve orchestrator.
+Aquilia Build Pipeline -- Vite-inspired compile-before-serve orchestrator.
 
 Sequences the complete build lifecycle:
 
@@ -7,7 +7,7 @@ Sequences the complete build lifecycle:
 
 Like Vite/Next.js, the build pipeline runs **before** the server starts.
 If any phase fails, the build is aborted and a clear error report is
-displayed — the server never boots with broken code.
+displayed -- the server never boots with broken code.
 
 Usage::
 
@@ -75,7 +75,7 @@ class BuildConfig:
 
     @classmethod
     def dev(cls, workspace_root: str = ".", verbose: bool = False) -> "BuildConfig":
-        """Dev build config — fast, no compression."""
+        """Dev build config -- fast, no compression."""
         return cls(
             mode="dev",
             workspace_root=workspace_root,
@@ -86,7 +86,7 @@ class BuildConfig:
 
     @classmethod
     def prod(cls, workspace_root: str = ".", verbose: bool = False) -> "BuildConfig":
-        """Prod build config — compressed, strict."""
+        """Prod build config -- compressed, strict."""
         return cls(
             mode="prod",
             workspace_root=workspace_root,
@@ -118,8 +118,8 @@ class BuildError:
             location = f"{self.file}"
             if self.line:
                 location += f":{self.line}"
-            location += " — "
-        prefix = "✗" if self.fatal else "⚠"
+            location += " -- "
+        prefix = "" if self.fatal else ""
         hint = f"\n    hint: {self.hint}" if self.hint else ""
         return f"  {prefix} [{self.phase.value}] {location}{self.message}{hint}"
 
@@ -276,12 +276,12 @@ class AquiliaBuildPipeline:
     Vite-inspired build pipeline for Aquilia.
 
     Sequences:
-    1. **Discovery** — Scan modules/, discover components via AST
-    2. **Validation** — Validate manifests, route conflicts, dependencies
-    3. **Static Check** — Check Python syntax, import resolution
-    4. **Compilation** — Compile manifests to artifact payloads
-    5. **Bundling** — Serialize to Crous binary with dedup + compression
-    6. **Fingerprint** — Generate deterministic build fingerprint
+    1. **Discovery** -- Scan modules/, discover components via AST
+    2. **Validation** -- Validate manifests, route conflicts, dependencies
+    3. **Static Check** -- Check Python syntax, import resolution
+    4. **Compilation** -- Compile manifests to artifact payloads
+    5. **Bundling** -- Serialize to Crous binary with dedup + compression
+    6. **Fingerprint** -- Generate deterministic build fingerprint
 
     If any phase fails, subsequent phases are skipped and the build
     result reports all errors with file:line references.
@@ -356,15 +356,15 @@ class AquiliaBuildPipeline:
             logger.info(f"Building workspace: {self.workspace_root}")
             logger.info(f"Mode: {self.config.mode} | Compression: {self.config.compression}")
 
-        _log("info", f"Build started — workspace: {self.workspace_root}")
+        _log("info", f"Build started -- workspace: {self.workspace_root}")
         _log("info", f"Mode: {self.config.mode} | Compression: {self.config.compression}")
 
         # Phase 1: Discovery
-        _log("info", "Phase 1/6: Discovery — scanning modules/")
+        _log("info", "Phase 1/6: Discovery -- scanning modules/")
         phase_start = time.monotonic()
         workspace_meta, module_names, module_manifests = self._phase_discovery(result)
         result.phases["discovery"] = (time.monotonic() - phase_start) * 1000
-        _log("info", f"Discovery complete — {len(module_names)} module(s) found ({result.phases['discovery']:.0f}ms)")
+        _log("info", f"Discovery complete -- {len(module_names)} module(s) found ({result.phases['discovery']:.0f}ms)")
 
         if result.errors:
             for e in result.errors:
@@ -380,7 +380,7 @@ class AquiliaBuildPipeline:
         result._module_manifests = module_manifests
 
         # Phase 2: Validation
-        _log("info", "Phase 2/6: Validation — checking manifests & dependencies")
+        _log("info", "Phase 2/6: Validation -- checking manifests & dependencies")
         phase_start = time.monotonic()
         self._phase_validation(result, module_manifests)
         result.phases["validation"] = (time.monotonic() - phase_start) * 1000
@@ -396,11 +396,11 @@ class AquiliaBuildPipeline:
 
         # Phase 3: Static Check
         if not self.config.skip_checks:
-            _log("info", "Phase 3/6: Static Check — analyzing source files")
+            _log("info", "Phase 3/6: Static Check -- analyzing source files")
             phase_start = time.monotonic()
             self._phase_static_check(result)
             result.phases["static_check"] = (time.monotonic() - phase_start) * 1000
-            _log("info", f"Static check complete — {result.files_checked} files ({result.phases['static_check']:.0f}ms)")
+            _log("info", f"Static check complete -- {result.files_checked} files ({result.phases['static_check']:.0f}ms)")
 
             if result.errors:
                 for e in result.errors:
@@ -410,24 +410,24 @@ class AquiliaBuildPipeline:
                 self._write_build_log(result)
                 return result
         else:
-            _log("warn", "Phase 3/6: Static Check — SKIPPED (skip_checks=True)")
+            _log("warn", "Phase 3/6: Static Check -- SKIPPED (skip_checks=True)")
 
         # If check_only, stop here
         if self.config.check_only:
-            _log("info", "check_only mode — stopping after checks")
+            _log("info", "check_only mode -- stopping after checks")
             result.success = True
             result.total_ms = (time.monotonic() - total_start) * 1000
             self._write_build_log(result)
             return result
 
         # Phase 4: Compilation
-        _log("info", "Phase 4/6: Compilation — compiling modules to artifacts")
+        _log("info", "Phase 4/6: Compilation -- compiling modules to artifacts")
         phase_start = time.monotonic()
         compiled_artifacts = self._phase_compilation(
             result, workspace_meta, module_names, module_manifests,
         )
         result.phases["compilation"] = (time.monotonic() - phase_start) * 1000
-        _log("info", f"Compilation complete — {len(compiled_artifacts)} artifact(s) ({result.phases['compilation']:.0f}ms)")
+        _log("info", f"Compilation complete -- {len(compiled_artifacts)} artifact(s) ({result.phases['compilation']:.0f}ms)")
 
         if result.errors:
             for e in result.errors:
@@ -438,7 +438,7 @@ class AquiliaBuildPipeline:
             return result
 
         # Phase 5: Bundling
-        _log("info", "Phase 5/6: Bundling — serializing to Crous binary format")
+        _log("info", "Phase 5/6: Bundling -- serializing to Crous binary format")
         phase_start = time.monotonic()
         bundle = self._phase_bundling(result, compiled_artifacts, workspace_meta)
         result.phases["bundling"] = (time.monotonic() - phase_start) * 1000
@@ -453,14 +453,14 @@ class AquiliaBuildPipeline:
             return result
 
         # Phase 6: Fingerprint
-        _log("info", "Phase 6/6: Fingerprint — computing content hash")
+        _log("info", "Phase 6/6: Fingerprint -- computing content hash")
         result.bundle = bundle
         result.fingerprint = bundle.fingerprint if bundle else ""
         result.artifacts_count = len(bundle.artifacts) if bundle else 0
         result.success = True
         result.total_ms = (time.monotonic() - total_start) * 1000
 
-        _log("info", f"Build succeeded in {result.total_ms:.0f}ms — {result.artifacts_count} artifacts, fingerprint:{result.fingerprint[:12]}…")
+        _log("info", f"Build succeeded in {result.total_ms:.0f}ms -- {result.artifacts_count} artifacts, fingerprint:{result.fingerprint[:12]}…")
         if result.warnings:
             for w in result.warnings:
                 _log("warn", str(w))
@@ -663,7 +663,7 @@ class AquiliaBuildPipeline:
                     result.warnings.append(be)
 
         except Exception as e:
-            # Validation infrastructure failure — warn but don't block
+            # Validation infrastructure failure -- warn but don't block
             result.warnings.append(BuildError(
                 phase=BuildPhase.VALIDATION,
                 message=f"Validation could not run: {e}",

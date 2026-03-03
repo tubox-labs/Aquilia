@@ -1,14 +1,14 @@
-"""Workspace diagnostics command — ``aq doctor``.
+"""Workspace diagnostics command -- ``aq doctor``.
 
 Performs comprehensive health checks on an Aquilia workspace covering
 every layer of the Manifest-First Architecture:
 
-  Phase 1 — Environment:   Python version, Aquilia installation, dependencies
-  Phase 2 — Workspace:     File presence, directory structure, config files
-  Phase 3 — Manifests:     Load, validate, field completeness
-  Phase 4 — Pipeline:      Aquilary validation, dependency graph, fingerprint
-  Phase 5 — Integrations:  DB connectivity, cache, sessions, mail, auth, templates
-  Phase 6 — Deployment:    Docker files, compose, Kubernetes manifests
+  Phase 1 -- Environment:   Python version, Aquilia installation, dependencies
+  Phase 2 -- Workspace:     File presence, directory structure, config files
+  Phase 3 -- Manifests:     Load, validate, field completeness
+  Phase 4 -- Pipeline:      Aquilary validation, dependency graph, fingerprint
+  Phase 5 -- Integrations:  DB connectivity, cache, sessions, mail, auth, templates
+  Phase 6 -- Deployment:    Docker files, compose, Kubernetes manifests
 """
 
 import re
@@ -120,7 +120,7 @@ def _check_dependencies(report: DiagnosticReport, workspace_root: Path) -> None:
             mod = importlib.import_module(pkg)
             report.add("Dependencies", f"{pkg} ({desc})", True)
         except ImportError:
-            report.warn(f"{pkg} not installed — {desc}")
+            report.warn(f"{pkg} not installed -- {desc}")
 
     # Check requirements.txt / pyproject.toml consistency
     req_file = workspace_root / "requirements.txt"
@@ -351,7 +351,7 @@ def _check_pipeline(
 ) -> None:
     """Run the Aquilary pipeline: validation, dependency graph, fingerprint."""
     if not loaded_manifests:
-        report.warn("No manifests loaded — skipping pipeline checks")
+        report.warn("No manifests loaded -- skipping pipeline checks")
         return
 
     try:
@@ -360,7 +360,7 @@ def _check_pipeline(
         from aquilia.aquilary.graph import DependencyGraph
         from aquilia.aquilary.fingerprint import FingerprintGenerator
     except ImportError:
-        report.warn("Aquilary not available — skipping pipeline checks")
+        report.warn("Aquilary not available -- skipping pipeline checks")
         return
 
     # Validation
@@ -529,8 +529,8 @@ def diagnose_workspace(verbose: bool = False) -> List[str]:
     try:
         from ..utils.colors import _CHECK, _CROSS
     except ImportError:
-        _CHECK = "✓"
-        _CROSS = "✗"
+        _CHECK = "[ok]"
+        _CROSS = "[!!]"
 
     # ── Phase 1: Environment ──
     _check_python_version(report)
@@ -544,7 +544,7 @@ def diagnose_workspace(verbose: bool = False) -> List[str]:
         if verbose:
             for r in report.results:
                 icon = _CHECK if r.passed else _CROSS
-                detail = f" — {r.detail}" if r.detail else ""
+                detail = f" -- {r.detail}" if r.detail else ""
                 print(f"  {icon} [{r.category}] {r.label}{detail}")
         return report.issues
 
@@ -570,15 +570,15 @@ def diagnose_workspace(verbose: bool = False) -> List[str]:
                 current_category = r.category
                 print(f"\n  ── {current_category} ──")
             icon = _CHECK if r.passed else _CROSS
-            detail = f" — {r.detail}" if r.detail else ""
+            detail = f" -- {r.detail}" if r.detail else ""
             print(f"    {icon} {r.label}{detail}")
 
         if report.warnings:
             print(f"\n  ── Warnings ──")
             for w in report.warnings:
-                print(f"    ⚠  {w}")
+                print(f"    {w}")
 
         if not report.issues and not report.warnings:
-            print(f"\n  {_CHECK} All checks passed — workspace is healthy")
+            print(f"\n  {_CHECK} All checks passed -- workspace is healthy")
 
     return report.issues

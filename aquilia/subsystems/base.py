@@ -1,5 +1,5 @@
 """
-Subsystem Initializer — Protocol and base implementation.
+Subsystem Initializer -- Protocol and base implementation.
 
 Architecture v2: Defines the contract for all subsystem initializers
 and provides a base class with common lifecycle patterns.
@@ -164,7 +164,7 @@ class BaseSubsystem(ABC):
             self._init_time_ms = (time.monotonic() - start) * 1000
             self._initialized = True
             self._logger.info(
-                f"✅ {self._name} initialized ({self._init_time_ms:.1f}ms)"
+                f"{self._name} initialized ({self._init_time_ms:.1f}ms)"
             )
             return HealthStatus(
                 name=self._name,
@@ -175,7 +175,7 @@ class BaseSubsystem(ABC):
         except Exception as e:
             elapsed = (time.monotonic() - start) * 1000
             self._logger.error(
-                f"❌ {self._name} failed ({elapsed:.1f}ms): {e}"
+                f"{self._name} failed ({elapsed:.1f}ms): {e}"
             )
             return HealthStatus(
                 name=self._name,
@@ -185,7 +185,7 @@ class BaseSubsystem(ABC):
             )
 
     async def health_check(self) -> HealthStatus:
-        """Default health check — reports based on init status."""
+        """Default health check -- reports based on init status."""
         if not self._initialized:
             return HealthStatus(
                 name=self._name,
@@ -205,9 +205,9 @@ class BaseSubsystem(ABC):
         try:
             await self._do_shutdown()
             self._initialized = False
-            self._logger.info(f"🛑 {self._name} shut down")
+            self._logger.info(f"{self._name} shut down")
         except Exception as e:
-            self._logger.error(f"⚠️ {self._name} shutdown error: {e}")
+            self._logger.error(f"{self._name} shutdown error: {e}")
 
     @abstractmethod
     async def _do_initialize(self, ctx: BootContext) -> None:

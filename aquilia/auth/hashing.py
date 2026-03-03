@@ -312,7 +312,7 @@ class PasswordPolicy:
             return False
 
     async def _is_breached_async(self, password: str) -> bool:
-        """Async version of breach check — does not block event loop."""
+        """Async version of breach check -- does not block event loop."""
         import asyncio
         return await asyncio.to_thread(self._is_breached, password)
 

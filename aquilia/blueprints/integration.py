@@ -1,5 +1,5 @@
 """
-Aquilia Blueprint Integration — hooks into Controller, DI, Request/Response.
+Aquilia Blueprint Integration -- hooks into Controller, DI, Request/Response.
 
 Provides:
     - Controller auto-binding for Blueprint type annotations
@@ -203,14 +203,14 @@ def render_blueprint_response(
         Dict or list of dicts ready for JSON serialization
     """
     if isinstance(blueprint_or_cls, Blueprint):
-        # Already an instance — use it
+        # Already an instance -- use it
         bp = blueprint_or_cls
         if data is not None:
             bp.instance = data
             bp.many = many
         return bp.data
 
-    # It's a class — instantiate
+    # It's a class -- instantiate
     bp_cls = blueprint_or_cls
     proj = projection
 

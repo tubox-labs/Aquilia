@@ -1,5 +1,5 @@
 """
-Aquilia Field Lookups — extensible lookup system for query filters.
+Aquilia Field Lookups -- extensible lookup system for query filters.
 
 Lookups define how field__lookup=value translates to SQL predicates.
 Each Lookup knows its SQL operator, how to prepare the RHS, and

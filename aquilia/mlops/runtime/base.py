@@ -1,5 +1,5 @@
 """
-Runtime base — abstract interface for inference backends.
+Runtime base -- abstract interface for inference backends.
 
 Provides ``BaseRuntime`` (standard) and ``BaseStreamingRuntime``
 (for LLM/SLM with token-by-token streaming), both governed by

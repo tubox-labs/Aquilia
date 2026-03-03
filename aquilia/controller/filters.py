@@ -1,5 +1,5 @@
 """
-Aquilia Filter System — Django-REST-style filtering, searching, and ordering.
+Aquilia Filter System -- Django-REST-style filtering, searching, and ordering.
 
 Provides declarative filter backends that integrate with Aquilia's
 Controller engine to auto-filter querysets or list data from query
@@ -335,16 +335,16 @@ def apply_ordering_to_list(
 
 class FilterSetMeta(type):
     """
-    Metaclass for FilterSet — collects ``Meta.fields`` at class creation.
+    Metaclass for FilterSet -- collects ``Meta.fields`` at class creation.
 
     Accepts two forms for ``Meta.fields``:
 
-    1. **List** — shorthand for exact-only filtering::
+    1. **List** -- shorthand for exact-only filtering::
 
         class Meta:
             fields = ["status", "created_at"]
 
-    2. **Dict** — explicit lookups per field::
+    2. **Dict** -- explicit lookups per field::
 
         class Meta:
             fields = {
@@ -374,7 +374,7 @@ class FilterSetMeta(type):
 
 class FilterSet(metaclass=FilterSetMeta):
     """
-    Declarative filter specification — Django-REST-Framework style.
+    Declarative filter specification -- Django-REST-Framework style.
 
     Parses query parameters from the request and produces a dict of
     ``{field__lookup: coerced_value}`` clauses that can be fed directly
@@ -390,7 +390,7 @@ class FilterSet(metaclass=FilterSetMeta):
                     "is_active": ["exact"],
                 }
 
-        # In controller — engine does this automatically:
+        # In controller -- engine does this automatically:
         fs = ProductFilter(request=request)
         clauses = fs.parse()  # {"category": "electronics", "price__gte": 10}
 
@@ -577,7 +577,7 @@ class SearchFilter(BaseFilterBackend):
                 combined = combined | n
             return queryset.apply_q(combined)
         except (ImportError, Exception):
-            # Fallback — fetch all and filter in-memory
+            # Fallback -- fetch all and filter in-memory
             items = await queryset.all()
             dicts = [i.to_dict() if hasattr(i, "to_dict") else i for i in items]
             return apply_search_to_list(dicts, term, search_fields)

@@ -71,7 +71,7 @@ class _ManifestParser:
                     val = self._extract_str(elt)
                     if val:
                         self.services.add(val)
-                    # ServiceConfig("path:Class", ...) — extract first positional arg
+                    # ServiceConfig("path:Class", ...) -- extract first positional arg
                     if isinstance(elt, ast.Call):
                         svc_name = self._get_call_name(elt)
                         if svc_name == "ServiceConfig" and elt.args:
@@ -113,7 +113,7 @@ def _detect_manifest_format(source: str) -> str:
         return "appmanifest"
     if "Module(" in source:
         return "module"
-    # Fallback — older projects may use either
+    # Fallback -- older projects may use either
     return "appmanifest"
 
 
@@ -252,7 +252,7 @@ def update_manifest(module_name: str, workspace_root: Path, check: bool = False,
         f"{s.__module__}:{s.__name__}" for s in services
     )))
     
-    # 2. Parse Existing Manifest — AST-based for both formats
+    # 2. Parse Existing Manifest -- AST-based for both formats
     content = manifest_path.read_text()
     
     try:
@@ -276,10 +276,10 @@ def update_manifest(module_name: str, workspace_root: Path, check: bool = False,
     # Handle Check Mode
     if check:
         if not has_changes:
-            print(f"✓ Manifest for '{module_name}' is in sync.")
+            print(f"Manifest for '{module_name}' is in sync.")
             sys.exit(0)
         else:
-            print(f"✗ Manifest for '{module_name}' is OUT OF SYNC.")
+            print(f"Manifest for '{module_name}' is OUT OF SYNC.")
             if missing_controllers:
                 print(f"  Missing Controllers: {', '.join(missing_controllers)}")
             if extra_controllers:
@@ -292,7 +292,7 @@ def update_manifest(module_name: str, workspace_root: Path, check: bool = False,
     
     # Handle Update
     if not has_changes and not freeze:
-        print(f"✓ Manifest for '{module_name}' is already up to date.")
+        print(f"Manifest for '{module_name}' is already up to date.")
         return
 
     # ── Update based on detected format ──
@@ -330,7 +330,7 @@ def update_manifest(module_name: str, workspace_root: Path, check: bool = False,
             count=1,
         )
 
-        # Replace services list (only simple string lists — ServiceConfig objects untouched)
+        # Replace services list (only simple string lists -- ServiceConfig objects untouched)
         # Only replace if services are plain strings, not ServiceConfig objects
         if "ServiceConfig(" not in content:
             content = re.sub(
@@ -345,10 +345,10 @@ def update_manifest(module_name: str, workspace_root: Path, check: bool = False,
         # Regex replace .auto_discover(True) -> .auto_discover(False)
         content = re.sub(r'\.auto_discover\(True\)', '.auto_discover(False)', content)
         # Also handle cases where it might be omitted or default (trickier, implying explicit True is best practice)
-        print(f"❄️  Freezing manifest (auto_discover=False)")
+        print(f" Freezing manifest (auto_discover=False)")
         
     manifest_path.write_text(content)
-    print(f"✓ Updated {manifest_path.relative_to(workspace_root)}")
+    print(f"Updated {manifest_path.relative_to(workspace_root)}")
     
     if missing_controllers or missing_services:
         print(f"  Synced {len(missing_controllers) + len(missing_services)} new items.")

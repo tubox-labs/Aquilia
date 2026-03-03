@@ -27,7 +27,7 @@ class SimpleTestCase(unittest.TestCase, AquiliaAssertions):
     Test case that does NOT start a server.
 
     Use for pure unit tests that only need assertion helpers
-    and utility functions — no DI, no ASGI, no lifecycle.
+    and utility functions -- no DI, no ASGI, no lifecycle.
 
     Usage::
 
@@ -160,7 +160,7 @@ class TransactionTestCase(AquiliaTestCase):
     Test case that wraps each test in a database transaction.
 
     The transaction is rolled back after the test completes, so database
-    state is never committed — tests are fully isolated.
+    state is never committed -- tests are fully isolated.
 
     Requires ``database.url`` in settings and an active DB connection.
 

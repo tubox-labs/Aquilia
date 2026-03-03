@@ -1,5 +1,5 @@
 """
-Example Aquilia MLOps plugin — demonstrates how to write a plugin.
+Example Aquilia MLOps plugin -- demonstrates how to write a plugin.
 
 This plugin adds a simple *model-health-check* hook that prints basic
 statistics when the ``post_inference`` event fires.
@@ -50,7 +50,7 @@ class HealthCheckPlugin:
     def deactivate(self) -> None:
         uptime = time.monotonic() - self._start_time
         logger.info(
-            "[health-check] deactivated — served %d inferences in %.1fs",
+            "[health-check] deactivated -- served %d inferences in %.1fs",
             self._inference_count,
             uptime,
         )

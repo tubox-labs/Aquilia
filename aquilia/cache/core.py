@@ -1,5 +1,5 @@
 """
-AquilaCache — Core types, protocols, and data structures.
+AquilaCache -- Core types, protocols, and data structures.
 
 Defines the fundamental contracts, data structures, and algorithms
 that power the caching subsystem.
@@ -214,11 +214,11 @@ class CacheConfig:
     key_prefix: str = "aq:"          # Key prefix for all entries
     serializer: str = "json"         # "json", "pickle", "msgpack"
     
-    # TTL jitter — prevents thundering herd on mass expiry
+    # TTL jitter -- prevents thundering herd on mass expiry
     ttl_jitter: bool = True          # Add randomness to TTL
     ttl_jitter_percent: float = 0.1  # ±10% jitter by default
     
-    # Stampede prevention — singleflight for get_or_set
+    # Stampede prevention -- singleflight for get_or_set
     stampede_prevention: bool = True  # Coalesce concurrent loads for same key
     stampede_timeout: float = 30.0    # Max wait for in-flight computation
     
@@ -345,7 +345,7 @@ class CacheKeyBuilder(Protocol):
 
 class CacheBackend(ABC):
     """
-    Abstract cache backend — defines the storage contract.
+    Abstract cache backend -- defines the storage contract.
     
     All backends must implement async lifecycle and CRUD operations.
     Backends are responsible for their own eviction and TTL enforcement.

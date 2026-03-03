@@ -1,5 +1,5 @@
 """
-Typed Artifact Kinds — convenience subclasses with kind-specific helpers.
+Typed Artifact Kinds -- convenience subclasses with kind-specific helpers.
 
 Each subclass sets ``kind`` automatically and adds domain-specific
 payload accessors so consumers don't need to dig into raw dicts.
@@ -361,7 +361,7 @@ class DIGraphArtifact(Artifact):
 
 class BundleArtifact(Artifact):
     """
-    Artifact bundle — a container that holds multiple artifacts.
+    Artifact bundle -- a container that holds multiple artifacts.
 
     Used for export/import, deployment snapshots, and backup.
     """
@@ -399,7 +399,7 @@ class BundleArtifact(Artifact):
         return [Artifact.from_dict(d) for d in self.artifacts]
 
 
-# ── Registry — typed deserialization support ────────────────────────────
+# ── Registry -- typed deserialization support ────────────────────────────
 
 from .core import register_artifact_kind  # noqa: E402
 

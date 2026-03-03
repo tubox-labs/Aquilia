@@ -1,5 +1,5 @@
 """
-AquilAdmin — Admin Controller.
+AquilAdmin -- Admin Controller.
 
 Full-featured admin controller mounted at /admin with:
 - Dashboard with model stats
@@ -144,8 +144,8 @@ def _require_identity(ctx: RequestCtx) -> tuple:
     3. Redirect to ``/admin/login`` on failure
 
     Returns:
-        ``(identity, None)`` on success — caller uses ``identity``.
-        ``(None, redirect_response)`` on failure — caller returns the response.
+        ``(identity, None)`` on success -- caller uses ``identity``.
+        ``(None, redirect_response)`` on failure -- caller returns the response.
     """
     identity = _get_identity(ctx)
     if identity is None:
@@ -270,7 +270,7 @@ class AdminController(Controller):
                 "Integration.AdminAudit().enable()",
                 "enable_audit=True",
                 "audit",
-                "Complete activity trail — every action, login, and data change recorded.",
+                "Complete activity trail -- every action, login, and data change recorded.",
             ),
             "ORM Models": (
                 "Integration.AdminModules().enable_orm()",
@@ -346,7 +346,7 @@ class AdminController(Controller):
 
     @GET("/")
     async def dashboard(self, request, ctx: RequestCtx) -> Response:
-        """Admin dashboard — model overview with stats."""
+        """Admin dashboard -- model overview with stats."""
         identity, denied = _require_identity(ctx)
         if denied:
             return denied
@@ -396,7 +396,7 @@ class AdminController(Controller):
         identity = await self._authenticate_admin(username, password)
 
         if identity is None:
-            # Log failed attempt — persisted to DB via alog
+            # Log failed attempt -- persisted to DB via alog
             meta = _extract_request_meta(request)
             audit = self.site.audit_log
             if hasattr(audit, "alog"):
@@ -427,7 +427,7 @@ class AdminController(Controller):
         if ctx.session and hasattr(ctx.session, "data"):
             ctx.session.data["_admin_identity"] = identity.to_dict()
 
-        # Log successful login — persisted to DB
+        # Log successful login -- persisted to DB
         meta = _extract_request_meta(request)
         audit = self.site.audit_log
         if hasattr(audit, "alog"):
@@ -473,7 +473,7 @@ class AdminController(Controller):
 
         return _redirect("/admin/login")
 
-    # Reserved names — system pages that must not be treated as model names
+    # Reserved names -- system pages that must not be treated as model names
     _SYSTEM_PAGES = frozenset({
         "login", "logout", "orm", "build", "migrations",
         "config", "workspace", "permissions", "audit", "monitoring",
@@ -1006,7 +1006,7 @@ class AdminController(Controller):
 
     @GET("/orm/")
     async def orm_view(self, request, ctx: RequestCtx) -> Response:
-        """ORM models overview — all registered models with counts."""
+        """ORM models overview -- all registered models with counts."""
         identity, denied = _require_identity(ctx)
         if denied:
             return denied
@@ -1032,7 +1032,7 @@ class AdminController(Controller):
 
     @GET("/build/")
     async def build_view(self, request, ctx: RequestCtx) -> Response:
-        """Build page — Crous artifacts and pipeline status."""
+        """Build page -- Crous artifacts and pipeline status."""
         identity, denied = _require_identity(ctx)
         if denied:
             return denied
@@ -1060,7 +1060,7 @@ class AdminController(Controller):
 
     @GET("/migrations/")
     async def migrations_view(self, request, ctx: RequestCtx) -> Response:
-        """Migrations page — list all migrations with syntax-highlighted source."""
+        """Migrations page -- list all migrations with syntax-highlighted source."""
         identity, denied = _require_identity(ctx)
         if denied:
             return denied
@@ -1084,7 +1084,7 @@ class AdminController(Controller):
 
     @GET("/config/")
     async def config_view(self, request, ctx: RequestCtx) -> Response:
-        """Configuration page — show workspace YAML configuration."""
+        """Configuration page -- show workspace YAML configuration."""
         identity, denied = _require_identity(ctx)
         if denied:
             return denied
@@ -1109,7 +1109,7 @@ class AdminController(Controller):
 
     @GET("/workspace/")
     async def workspace_view(self, request, ctx: RequestCtx) -> Response:
-        """Workspace page — monitor modules, manifests & project metadata."""
+        """Workspace page -- monitor modules, manifests & project metadata."""
         identity, denied = _require_identity(ctx)
         if denied:
             return denied
@@ -1146,7 +1146,7 @@ class AdminController(Controller):
 
     @GET("/permissions/")
     async def permissions_view(self, request, ctx: RequestCtx) -> Response:
-        """Permissions page — role matrix and per-model access."""
+        """Permissions page -- role matrix and per-model access."""
         identity, denied = _require_identity(ctx)
         if denied:
             return denied
@@ -1220,7 +1220,7 @@ class AdminController(Controller):
 
     @GET("/audit/")
     async def audit_view(self, request, ctx: RequestCtx) -> Response:
-        """View the admin audit log — reads from DB if available."""
+        """View the admin audit log -- reads from DB if available."""
         identity, denied = _require_identity(ctx)
         if denied:
             return denied
@@ -1269,7 +1269,7 @@ class AdminController(Controller):
 
     @GET("/monitoring/")
     async def monitoring_view(self, request, ctx: RequestCtx) -> Response:
-        """Application monitoring — CPU, memory, disk, network & process metrics."""
+        """Application monitoring -- CPU, memory, disk, network & process metrics."""
         identity, denied = _require_identity(ctx)
         if denied:
             return denied
@@ -1922,7 +1922,7 @@ class AdminController(Controller):
         """
         from aquilia.auth.core import Identity, IdentityType, IdentityStatus
 
-        # Try ORM-based AdminUser (preferred — Django-like)
+        # Try ORM-based AdminUser (preferred -- Django-like)
         try:
             from aquilia.admin.models import AdminUser
             user = await AdminUser.authenticate(username, password)

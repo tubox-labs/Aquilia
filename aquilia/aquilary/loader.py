@@ -195,7 +195,7 @@ class ManifestLoader:
                 try:
                     return cls()
                 except TypeError:
-                    # Class requires args — use the class directly
+                    # Class requires args -- use the class directly
                     return cls
             return cls
         elif source.type == "file":
@@ -441,7 +441,7 @@ class ManifestLoader:
         if not hasattr(manifest, "version") or not manifest.version:
             errors.append("Missing required field: version")
         
-        # Type validation — v2: accept str, ComponentRef, or type
+        # Type validation -- v2: accept str, ComponentRef, or type
         if hasattr(manifest, "controllers"):
             if not isinstance(manifest.controllers, list):
                 errors.append("Field 'controllers' must be a list")

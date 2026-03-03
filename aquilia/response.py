@@ -325,7 +325,7 @@ class Response:
             # Auto-detect media type
             self._headers["content-type"] = self._detect_media_type(content)
         
-        # Background tasks — avoid list allocation when empty (common case)
+        # Background tasks -- avoid list allocation when empty (common case)
         if background is None:
             self._background_tasks: List[BackgroundTask] = []
         elif isinstance(background, list):
@@ -1135,7 +1135,7 @@ class Response:
         - Minimize time.time() calls for metrics.
         """
         try:
-            # Range request handling — only for file responses
+            # Range request handling -- only for file responses
             if (
                 request is not None
                 and hasattr(self, "_file_path")
@@ -1229,7 +1229,7 @@ class Response:
                 self._file_path, range_start, range_end,
             )
         except (ValueError, IndexError):
-            pass  # Malformed range — send full response
+            pass  # Malformed range -- send full response
     
     @staticmethod
     def _create_range_stream(

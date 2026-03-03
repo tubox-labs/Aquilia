@@ -1,5 +1,5 @@
 """
-Privacy helpers — PII redaction, differential privacy noise, and
+Privacy helpers -- PII redaction, differential privacy noise, and
 input sanitisation transforms for inference payloads.
 """
 

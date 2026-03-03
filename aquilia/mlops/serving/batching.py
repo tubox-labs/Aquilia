@@ -286,7 +286,7 @@ class DynamicBatcher:
         Continuous batching loop for LLM workloads.
 
         Drains requests from a priority heap respecting the token budget.
-        New requests arriving mid-batch join the next iteration — no
+        New requests arriving mid-batch join the next iteration -- no
         head-of-line blocking.
         """
         while self._running:
@@ -311,7 +311,7 @@ class DynamicBatcher:
                 candidate_tokens = candidate.estimated_tokens
 
                 if self._token_budget > 0 and tokens_in_batch + candidate_tokens > self._token_budget:
-                    # Over budget — push back
+                    # Over budget -- push back
                     remaining_heap.append(candidate)
                     continue
 

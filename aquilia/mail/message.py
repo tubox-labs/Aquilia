@@ -1,10 +1,10 @@
 """
-AquilaMail Messages — Developer-facing message classes.
+AquilaMail Messages -- Developer-facing message classes.
 
 Django-like API:
-    EmailMessage          — plain text (optionally with HTML)
-    EmailMultiAlternatives — plain text + HTML + arbitrary MIME alternatives
-    TemplateMessage       — rendered from an ATS template
+    EmailMessage          -- plain text (optionally with HTML)
+    EmailMultiAlternatives -- plain text + HTML + arbitrary MIME alternatives
+    TemplateMessage       -- rendered from an ATS template
 
 All classes support both sync (.send()) and async (.asend()) delivery.
 """
@@ -56,7 +56,7 @@ def _validate_list(
 
 class EmailMessage:
     """
-    A single email message — the primary API for sending mail.
+    A single email message -- the primary API for sending mail.
 
     Mirrors Django's EmailMessage but integrated with Aquilia's
     envelope pipeline, DI, and fault system.
@@ -341,7 +341,7 @@ class TemplateMessage(EmailMessage):
         # Auto-generate plain text from HTML (basic strip)
         rendered_text = _html_to_text(rendered_html)
 
-        # Subject may contain ATS expressions — render inline
+        # Subject may contain ATS expressions -- render inline
         if "<<" in self.subject:
             from .template import render_string
             self.subject = render_string(self.subject, self.template_context)

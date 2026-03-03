@@ -184,7 +184,7 @@ class Request:
         '_disconnected', '_temp_files',
     )
 
-    # Class-level defaults — avoid setting per instance when unchanged
+    # Class-level defaults -- avoid setting per instance when unchanged
     _DEFAULT_MAX_BODY_SIZE = 10_485_760
     _DEFAULT_MAX_FIELD_COUNT = 1000
     _DEFAULT_MAX_FILE_SIZE = 2_147_483_648
@@ -213,7 +213,7 @@ class Request:
         self._receive = receive
         self._send = send
 
-        # Configuration — only set non-defaults
+        # Configuration -- only set non-defaults
         self.max_body_size = max_body_size
         self.max_field_count = max_field_count
         self.max_file_size = max_file_size

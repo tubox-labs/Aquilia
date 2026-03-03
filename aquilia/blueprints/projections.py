@@ -1,7 +1,7 @@
 """
-Aquilia Blueprint Projections — named, reusable field subsets.
+Aquilia Blueprint Projections -- named, reusable field subsets.
 
-A Projection is a named subset of facets — like a SQL view over a model.
+A Projection is a named subset of facets -- like a SQL view over a model.
 Instead of repeating ``fields = [...]`` everywhere, define projections
 once and select them at route level.
 
@@ -74,7 +74,7 @@ class ProjectionRegistry:
         self._all_facets = frozenset(all_facet_names - write_only_names)
 
         if projections is None:
-            # No projections defined — create a default "__all__" projection
+            # No projections defined -- create a default "__all__" projection
             self._projections["__all__"] = self._all_facets
             self._default = "__all__"
             return
@@ -83,7 +83,7 @@ class ProjectionRegistry:
             if fields == "__all__":
                 self._projections[name] = self._all_facets
             elif fields == "__minimal__":
-                # Just PK fields — resolved later by the Blueprint
+                # Just PK fields -- resolved later by the Blueprint
                 self._projections[name] = frozenset()  # placeholder
             elif isinstance(fields, (list, tuple)):
                 # Check for exclusion syntax

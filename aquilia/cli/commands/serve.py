@@ -5,9 +5,9 @@ or the standard workspace app loader.  Multi-worker support is enabled
 by default for production workloads.
 
 Supports two backends:
-- **gunicorn** (recommended) — multi-worker process manager with
+- **gunicorn** (recommended) -- multi-worker process manager with
   UvicornWorker class for ASGI.  Best for production deploys.
-- **uvicorn** (fallback) — single-process or multi-worker via
+- **uvicorn** (fallback) -- single-process or multi-worker via
   uvicorn's built-in forking.
 
 The production pipeline:
@@ -64,7 +64,7 @@ def serve_production(
     os.environ['AQUILIA_ENV'] = 'prod'
     os.environ['AQUILIA_WORKSPACE'] = str(workspace_root)
 
-    # ===== BUILD PIPELINE — Compile, check, and bundle (prod mode) =====
+    # ===== BUILD PIPELINE -- Compile, check, and bundle (prod mode) =====
     print("  Running production build pipeline...")
     try:
         from aquilia.build import AquiliaBuildPipeline
@@ -76,7 +76,7 @@ def serve_production(
         )
 
         if not build_result.success:
-            print("\n  ✗ Production build FAILED — server will not start.\n")
+            print("\n  Production build FAILED -- server will not start.\n")
             for err in build_result.errors:
                 print(f"  {err}")
             if build_result.warnings:
@@ -87,7 +87,7 @@ def serve_production(
             print("  Fix the errors above and try again.\n")
             return
 
-        print(f"  ✓ {build_result.summary()}")
+        print(f"  {build_result.summary()}")
 
         if build_result.warnings and verbose:
             for warn in build_result.warnings:
@@ -95,10 +95,10 @@ def serve_production(
 
     except ImportError:
         if verbose:
-            print("  ⚠ Build pipeline not available, proceeding without pre-compilation")
+            print("  Build pipeline not available, proceeding without pre-compilation")
     except Exception as e:
         if verbose:
-            print(f"  ⚠ Build pipeline error: {e}, proceeding without pre-compilation")
+            print(f"  Build pipeline error: {e}, proceeding without pre-compilation")
 
     # ===== ARTIFACT VERIFICATION =====
     build_dir = workspace_root / "build"
@@ -113,11 +113,11 @@ def serve_production(
             if resolved:
                 build_verified = True
                 if verbose:
-                    print(f"  ✓ Verified {len(resolved.artifacts)} pre-built artifact(s)")
+                    print(f"  Verified {len(resolved.artifacts)} pre-built artifact(s)")
                     print(f"    fingerprint: {resolved.fingerprint[:16]}…")
         except Exception as e:
             if verbose:
-                print(f"  ⚠ Artifact verification failed: {e}")
+                print(f"  Artifact verification failed: {e}")
 
     # Use the same app loader as `aq run` (runtime/app.py)
     from .run import _create_workspace_app

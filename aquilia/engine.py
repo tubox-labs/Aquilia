@@ -1,5 +1,5 @@
 """
-Engine — Core runtime primitives for the Aquilia request lifecycle.
+Engine -- Core runtime primitives for the Aquilia request lifecycle.
 
 This module provides:
 - ``RequestCtx``  : The per-request execution context (DI, state, timing).
@@ -116,7 +116,7 @@ class EngineMetrics:
 
 
 # ---------------------------------------------------------------------------
-# Singleton metrics instance — shared by all RequestCtx in the process
+# Singleton metrics instance -- shared by all RequestCtx in the process
 # ---------------------------------------------------------------------------
 
 _engine_metrics = EngineMetrics()
@@ -128,7 +128,7 @@ def get_engine_metrics() -> EngineMetrics:
 
 
 # ---------------------------------------------------------------------------
-# RequestCtx — per-request execution context
+# RequestCtx -- per-request execution context
 # ---------------------------------------------------------------------------
 
 class RequestCtx:
@@ -192,7 +192,7 @@ class RequestCtx:
         return await self.container.resolve_async(name, optional=optional)
 
     def resolve_sync(self, name: str, optional: bool = False) -> Any:
-        """Synchronous resolution — only for sync-safe providers."""
+        """Synchronous resolution -- only for sync-safe providers."""
         if hasattr(self.container, "resolve"):
             return self.container.resolve(name, optional=optional)
         raise RuntimeError(
@@ -232,7 +232,7 @@ class RequestCtx:
         2. Shuts down the request-scoped DI container.
         3. Records latency in engine metrics.
 
-        Safe to call multiple times — subsequent calls are no-ops.
+        Safe to call multiple times -- subsequent calls are no-ops.
         """
         if self._disposed:
             return

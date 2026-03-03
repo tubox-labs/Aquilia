@@ -25,13 +25,13 @@ def load_config(config_path: Optional[str]) -> Any:
     
     path = Path(config_path)
     if not path.exists():
-        print(f"❌ Config file not found: {config_path}")
+        print(f"Config file not found: {config_path}")
         sys.exit(1)
     
     # Import config module
     spec = importlib.util.spec_from_file_location("config", path)
     if spec is None or spec.loader is None:
-        print(f"❌ Cannot load config from {config_path}")
+        print(f"Cannot load config from {config_path}")
         sys.exit(1)
     
     module = importlib.util.module_from_spec(spec)
@@ -42,7 +42,7 @@ def load_config(config_path: Optional[str]) -> Any:
         if isinstance(obj, type) and name == "Config":
             return obj()
     
-    print(f"❌ No Config class found in {config_path}")
+    print(f"No Config class found in {config_path}")
     sys.exit(1)
 
 
@@ -55,7 +55,7 @@ def cmd_validate(args: argparse.Namespace) -> None:
     """
     from aquilia.aquilary import Aquilary, ManifestValidationError
     
-    print(f"🔍 Validating manifests in mode: {args.mode}")
+    print(f"Validating manifests in mode: {args.mode}")
     print(f"   Manifests: {', '.join(args.manifests)}")
     
     # Load config
@@ -70,30 +70,30 @@ def cmd_validate(args: argparse.Namespace) -> None:
             allow_fs_autodiscovery=args.autodiscover,
         )
         
-        print(f"\n✅ Validation passed!")
+        print(f"\nValidation passed!")
         print(f"   Apps: {len(registry.app_contexts)}")
         print(f"   Fingerprint: {registry.fingerprint[:16]}...")
         
         # Show load order
-        print(f"\n📦 Load Order:")
+        print(f"\nLoad Order:")
         for ctx in registry.app_contexts:
             deps = f" (→ {', '.join(ctx.depends_on)})" if ctx.depends_on else ""
             print(f"   {ctx.load_order + 1}. {ctx.name} v{ctx.version}{deps}")
         
         # Show warnings if any
         if registry._validation_report.get('warning_count', 0) > 0:
-            print(f"\n⚠️  Warnings:")
+            print(f"\n Warnings:")
             for warning in registry._validation_report.get('warnings', []):
                 print(f"   - {warning}")
         
         sys.exit(0)
         
     except ManifestValidationError as e:
-        print(f"\n❌ Validation failed!")
+        print(f"\nValidation failed!")
         print(f"\n{e}")
         sys.exit(1)
     except Exception as e:
-        print(f"\n❌ Unexpected error: {e}")
+        print(f"\nUnexpected error: {e}")
         import traceback
         traceback.print_exc()
         sys.exit(1)
@@ -108,7 +108,7 @@ def cmd_inspect(args: argparse.Namespace) -> None:
     """
     from aquilia.aquilary import Aquilary
     
-    print(f"🔍 Inspecting registry...")
+    print(f"Inspecting registry...")
     
     # Load config
     config = load_config(args.config)
@@ -129,12 +129,12 @@ def cmd_inspect(args: argparse.Namespace) -> None:
     print(f"Registry Diagnostics")
     print(f"{'='*70}")
     
-    print(f"\n📊 Summary:")
+    print(f"\nSummary:")
     print(f"   Fingerprint: {diagnostics['fingerprint']}")
     print(f"   Mode: {diagnostics['mode']}")
     print(f"   App Count: {diagnostics['app_count']}")
     
-    print(f"\n📦 Applications:")
+    print(f"\nApplications:")
     for app in diagnostics['apps']:
         print(f"\n   {app['name']} v{app['version']}")
         print(f"      Load Order: {app['load_order']}")
@@ -142,7 +142,7 @@ def cmd_inspect(args: argparse.Namespace) -> None:
         print(f"      Services: {app['services']}")
         print(f"      Dependencies: {', '.join(app['depends_on']) if app['depends_on'] else 'none'}")
     
-    print(f"\n🔗 Dependency Graph:")
+    print(f"\nDependency Graph:")
     for app_name, deps in diagnostics['dependency_graph'].items():
         deps_str = ', '.join(deps) if deps else 'none'
         print(f"   {app_name}: {deps_str}")
@@ -151,7 +151,7 @@ def cmd_inspect(args: argparse.Namespace) -> None:
         # Export as JSON
         output_path = args.json
         Path(output_path).write_text(json.dumps(diagnostics, indent=2))
-        print(f"\n💾 Diagnostics exported to: {output_path}")
+        print(f"\nDiagnostics exported to: {output_path}")
 
 
 def cmd_freeze(args: argparse.Namespace) -> None:
@@ -163,7 +163,7 @@ def cmd_freeze(args: argparse.Namespace) -> None:
     """
     from aquilia.aquilary import Aquilary
     
-    print(f"🧊 Freezing manifest...")
+    print(f"Freezing manifest...")
     
     # Load config
     config = load_config(args.config)
@@ -180,16 +180,16 @@ def cmd_freeze(args: argparse.Namespace) -> None:
     output_path = args.output or "frozen_manifest.json"
     registry.export_manifest(output_path)
     
-    print(f"\n✅ Frozen manifest exported!")
+    print(f"\nFrozen manifest exported!")
     print(f"   Path: {output_path}")
     print(f"   Fingerprint: {registry.fingerprint}")
     print(f"   Apps: {len(registry.app_contexts)}")
     
-    print(f"\n📋 Apps included:")
+    print(f"\nApps included:")
     for ctx in registry.app_contexts:
         print(f"   - {ctx.name} v{ctx.version}")
     
-    print(f"\n💡 Usage in production:")
+    print(f"\nUsage in production:")
     print(f"   1. Commit {output_path} to version control")
     print(f"   2. Deploy with: aquilary run --frozen {output_path}")
     print(f"   3. Verify fingerprint matches: {registry.fingerprint}")
@@ -204,7 +204,7 @@ def cmd_graph(args: argparse.Namespace) -> None:
     """
     from aquilia.aquilary import Aquilary
     
-    print(f"📊 Generating dependency graph...")
+    print(f"Generating dependency graph...")
     
     # Load config
     config = load_config(args.config)
@@ -230,8 +230,8 @@ def cmd_graph(args: argparse.Namespace) -> None:
     if args.output:
         output_path = Path(args.output)
         output_path.write_text(dot)
-        print(f"\n✅ Graph exported to: {output_path}")
-        print(f"\n💡 Visualize with:")
+        print(f"\nGraph exported to: {output_path}")
+        print(f"\nVisualize with:")
         print(f"   dot -Tpng {output_path} -o {output_path.stem}.png")
         print(f"   Or view at: https://dreampuf.github.io/GraphvizOnline/")
     else:
@@ -239,7 +239,7 @@ def cmd_graph(args: argparse.Namespace) -> None:
     
     # Show layers
     layers = graph.get_layers()
-    print(f"\n⚡ Parallel Loading Layers:")
+    print(f"\nParallel Loading Layers:")
     for i, layer in enumerate(layers, 1):
         print(f"   Layer {i}: {', '.join(layer)}")
 
@@ -253,7 +253,7 @@ def cmd_run(args: argparse.Namespace) -> None:
     """
     from aquilia.aquilary import Aquilary
     
-    print(f"🚀 Starting application...")
+    print(f"Starting application...")
     
     # Load config
     config = load_config(args.config)
@@ -276,24 +276,24 @@ def cmd_run(args: argparse.Namespace) -> None:
             allow_fs_autodiscovery=args.autodiscover,
         )
     
-    print(f"\n✅ Registry loaded:")
+    print(f"\nRegistry loaded:")
     print(f"   Fingerprint: {registry.fingerprint}")
     print(f"   Apps: {len(registry.app_contexts)}")
     
     # Build runtime
-    print(f"\n🔨 Building runtime...")
+    print(f"\nBuilding runtime...")
     runtime = registry.build_runtime()
     
     # Compile routes
     print(f"   Compiling routes...")
     runtime.compile_routes()
     
-    print(f"\n✅ Runtime ready!")
-    print(f"\n💡 Next: Start server with runtime instance")
+    print(f"\nRuntime ready!")
+    print(f"\nNext: Start server with runtime instance")
     
     # In real implementation, this would start the server
     # For now, just show what would happen
-    print(f"\n📦 Startup sequence:")
+    print(f"\nStartup sequence:")
     for ctx in registry.app_contexts:
         print(f"   {ctx.load_order + 1}. Starting {ctx.name}...")
         if ctx.on_startup:
@@ -491,7 +491,7 @@ Examples:
     if handler:
         handler(args)
     else:
-        print(f"❌ Unknown command: {args.command}")
+        print(f"Unknown command: {args.command}")
         parser.print_help()
         sys.exit(1)
 

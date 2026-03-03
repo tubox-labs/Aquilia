@@ -1,49 +1,49 @@
 """
-MLOps Controller — HTTP endpoints for model serving, registry, and observability.
+MLOps Controller -- HTTP endpoints for model serving, registry, and observability.
 
 Extends Aquilia's :class:`~aquilia.controller.Controller` base class and uses
 the ``@GET`` / ``@POST`` route decorators so that routes are automatically
 compiled, traced, and documented via OpenAPI.
 
 Ecosystem wiring:
-- **FaultEngine** — all exceptions are routed through ``fault_engine.process()``
+- **FaultEngine** -- all exceptions are routed through ``fault_engine.process()``
   instead of bare ``try/except``.
-- **CacheService** — model metadata, registry listings, and capability
+- **CacheService** -- model metadata, registry listings, and capability
   introspection results are cached with namespace isolation.
-- **Effects** — controller methods declare ``CacheEffect`` / ``DBTx`` so
+- **Effects** -- controller methods declare ``CacheEffect`` / ``DBTx`` so
   the effect middleware can acquire and release resources automatically.
-- **Blueprints** — request/response payloads are validated through the
+- **Blueprints** -- request/response payloads are validated through the
   Aquilia blueprint framework.
 
 Endpoints::
 
-    GET  /mlops/health             — platform health check
-    GET  /mlops/healthz            — K8s liveness probe
-    GET  /mlops/readyz             — K8s readiness probe
-    POST /mlops/predict            — single inference request
-    POST /mlops/stream             — streaming inference (SSE)
-    POST /mlops/chat               — chat-style inference (LLM)
-    GET  /mlops/metrics            — Prometheus metrics export
-    GET  /mlops/models             — list registered models
-    GET  /mlops/models/{name}      — get model details
-    POST /mlops/models/{name}/load     — load a model into memory
-    POST /mlops/models/{name}/unload   — unload a model from memory
-    POST /mlops/models/{name}/reload   — hot-reload to a new version
-    GET  /mlops/models/{name}/health   — per-model health check
-    GET  /mlops/models/{name}/metrics  — per-model metrics
-    POST /mlops/models/{name}/rollout  — start a rollout
-    GET  /mlops/drift              — drift report
-    GET  /mlops/plugins            — list loaded plugins
-    GET  /mlops/lineage            — model lineage DAG
-    GET  /mlops/experiments        — list A/B experiments
-    POST /mlops/experiments        — create experiment
-    GET  /mlops/hot-models         — top-K hot models
-    GET  /mlops/circuit-breaker    — circuit breaker status
-    GET  /mlops/rate-limit         — rate limiter status
-    GET  /mlops/memory             — memory tracker status
-    GET  /mlops/capabilities       — model capabilities
-    GET  /mlops/artifacts          — list artifacts
-    GET  /mlops/artifacts/{name}   — inspect artifact
+    GET  /mlops/health             -- platform health check
+    GET  /mlops/healthz            -- K8s liveness probe
+    GET  /mlops/readyz             -- K8s readiness probe
+    POST /mlops/predict            -- single inference request
+    POST /mlops/stream             -- streaming inference (SSE)
+    POST /mlops/chat               -- chat-style inference (LLM)
+    GET  /mlops/metrics            -- Prometheus metrics export
+    GET  /mlops/models             -- list registered models
+    GET  /mlops/models/{name}      -- get model details
+    POST /mlops/models/{name}/load     -- load a model into memory
+    POST /mlops/models/{name}/unload   -- unload a model from memory
+    POST /mlops/models/{name}/reload   -- hot-reload to a new version
+    GET  /mlops/models/{name}/health   -- per-model health check
+    GET  /mlops/models/{name}/metrics  -- per-model metrics
+    POST /mlops/models/{name}/rollout  -- start a rollout
+    GET  /mlops/drift              -- drift report
+    GET  /mlops/plugins            -- list loaded plugins
+    GET  /mlops/lineage            -- model lineage DAG
+    GET  /mlops/experiments        -- list A/B experiments
+    POST /mlops/experiments        -- create experiment
+    GET  /mlops/hot-models         -- top-K hot models
+    GET  /mlops/circuit-breaker    -- circuit breaker status
+    GET  /mlops/rate-limit         -- rate limiter status
+    GET  /mlops/memory             -- memory tracker status
+    GET  /mlops/capabilities       -- model capabilities
+    GET  /mlops/artifacts          -- list artifacts
+    GET  /mlops/artifacts/{name}   -- inspect artifact
 """
 
 from __future__ import annotations
@@ -144,7 +144,7 @@ class MLOpsController(Controller):
 
     @GET("/health")
     async def health(self, ctx: Optional[RequestCtx] = None) -> Dict[str, Any]:
-        """Platform health check — ``GET /mlops/health``."""
+        """Platform health check -- ``GET /mlops/health``."""
         # Try cache first
         cached = await self._cache_get("health_status")
         if cached is not None:
@@ -196,7 +196,7 @@ class MLOpsController(Controller):
     @POST("/predict")
     async def predict(self, body: Dict[str, Any], ctx: Optional[RequestCtx] = None) -> Dict[str, Any]:
         """
-        Single inference — ``POST /mlops/predict``.
+        Single inference -- ``POST /mlops/predict``.
 
         Body::
 
@@ -237,7 +237,7 @@ class MLOpsController(Controller):
     @POST("/stream")
     async def stream_predict(self, body: Dict[str, Any], ctx: Optional[RequestCtx] = None):
         """
-        Streaming inference — ``POST /mlops/stream``.
+        Streaming inference -- ``POST /mlops/stream``.
 
         Returns an async generator yielding SSE-formatted chunks.
 
@@ -273,7 +273,7 @@ class MLOpsController(Controller):
     @POST("/chat")
     async def chat(self, body: Dict[str, Any], ctx: Optional[RequestCtx] = None) -> Dict[str, Any]:
         """
-        Chat-style inference — ``POST /mlops/chat``.
+        Chat-style inference -- ``POST /mlops/chat``.
 
         Body::
 
@@ -314,28 +314,28 @@ class MLOpsController(Controller):
 
     @GET("/circuit-breaker")
     async def circuit_breaker_status(self, ctx: Optional[RequestCtx] = None) -> Dict[str, Any]:
-        """Circuit breaker status — ``GET /mlops/circuit-breaker``."""
+        """Circuit breaker status -- ``GET /mlops/circuit-breaker``."""
         if self._server and hasattr(self._server, "circuit_breaker"):
             return self._server.circuit_breaker.stats
         return {"error": "Circuit breaker not configured"}
 
     @GET("/rate-limit")
     async def rate_limit_status(self, ctx: Optional[RequestCtx] = None) -> Dict[str, Any]:
-        """Rate limiter status — ``GET /mlops/rate-limit``."""
+        """Rate limiter status -- ``GET /mlops/rate-limit``."""
         if self._server and hasattr(self._server, "rate_limiter") and self._server.rate_limiter:
             return self._server.rate_limiter.stats
         return {"error": "Rate limiter not configured"}
 
     @GET("/memory")
     async def memory_status(self, ctx: Optional[RequestCtx] = None) -> Dict[str, Any]:
-        """Memory tracker status — ``GET /mlops/memory``."""
+        """Memory tracker status -- ``GET /mlops/memory``."""
         if self._server and hasattr(self._server, "memory_tracker") and self._server.memory_tracker:
             return self._server.memory_tracker.stats
         return {"error": "Memory tracker not configured"}
 
     @GET("/capabilities")
     async def model_capabilities(self, ctx: Optional[RequestCtx] = None) -> Dict[str, Any]:
-        """Model capabilities — ``GET /mlops/capabilities``."""
+        """Model capabilities -- ``GET /mlops/capabilities``."""
         cached = await self._cache_get("model_capabilities")
         if cached is not None:
             return cached
@@ -355,7 +355,7 @@ class MLOpsController(Controller):
         if manifest.llm_config:
             result["llm_config"] = manifest.llm_config.to_dict()
 
-        # Cache capabilities — they rarely change
+        # Cache capabilities -- they rarely change
         await self._cache_set("model_capabilities", result, ttl=300)
         return result
 
@@ -363,7 +363,7 @@ class MLOpsController(Controller):
 
     @GET("/metrics")
     async def metrics(self, fmt: str = "json", ctx: Optional[RequestCtx] = None) -> Any:
-        """Metrics export — ``GET /mlops/metrics``."""
+        """Metrics export -- ``GET /mlops/metrics``."""
         if not self._metrics:
             return {"error": "Metrics collector not configured"}
 
@@ -377,7 +377,7 @@ class MLOpsController(Controller):
     async def list_models(
         self, limit: int = 100, offset: int = 0, ctx: Optional[RequestCtx] = None,
     ) -> Dict[str, Any]:
-        """List registered models — ``GET /mlops/models``."""
+        """List registered models -- ``GET /mlops/models``."""
         if not self._registry:
             return {"error": "Registry not configured", "models": []}
 
@@ -396,7 +396,7 @@ class MLOpsController(Controller):
 
     @GET("/models/{name}")
     async def get_model(self, name: str, tag: str = "latest", ctx: Optional[RequestCtx] = None) -> Dict[str, Any]:
-        """Get model details — ``GET /mlops/models/{name}``."""
+        """Get model details -- ``GET /mlops/models/{name}``."""
         if not self._registry:
             return {"error": "Registry not configured"}
 
@@ -420,7 +420,7 @@ class MLOpsController(Controller):
         self, name: str, body: Dict[str, Any] = None, ctx: Optional[RequestCtx] = None,
     ) -> Dict[str, Any]:
         """
-        Load a model into memory — ``POST /mlops/models/{name}/load``.
+        Load a model into memory -- ``POST /mlops/models/{name}/load``.
 
         Body (optional)::
 
@@ -452,7 +452,7 @@ class MLOpsController(Controller):
         self, name: str, body: Dict[str, Any] = None, ctx: Optional[RequestCtx] = None,
     ) -> Dict[str, Any]:
         """
-        Unload a model from memory — ``POST /mlops/models/{name}/unload``.
+        Unload a model from memory -- ``POST /mlops/models/{name}/unload``.
 
         Body (optional)::
 
@@ -477,7 +477,7 @@ class MLOpsController(Controller):
         self, name: str, body: Dict[str, Any] = None, ctx: Optional[RequestCtx] = None,
     ) -> Dict[str, Any]:
         """
-        Hot-reload a model to a new version — ``POST /mlops/models/{name}/reload``.
+        Hot-reload a model to a new version -- ``POST /mlops/models/{name}/reload``.
 
         Body::
 
@@ -504,7 +504,7 @@ class MLOpsController(Controller):
         self, name: str, ctx: Optional[RequestCtx] = None,
     ) -> Dict[str, Any]:
         """
-        Health check for a specific model — ``GET /mlops/models/{name}/health``.
+        Health check for a specific model -- ``GET /mlops/models/{name}/health``.
         """
         if not self._orchestrator:
             return {"error": "Orchestrator not configured", "status": 503}
@@ -519,7 +519,7 @@ class MLOpsController(Controller):
         self, name: str, ctx: Optional[RequestCtx] = None,
     ) -> Dict[str, Any]:
         """
-        Metrics for a specific model — ``GET /mlops/models/{name}/metrics``.
+        Metrics for a specific model -- ``GET /mlops/models/{name}/metrics``.
         """
         if not self._orchestrator:
             return {"error": "Orchestrator not configured", "status": 503}
@@ -534,7 +534,7 @@ class MLOpsController(Controller):
     @POST("/models/{name}/rollout")
     async def start_rollout(self, body: Dict[str, Any], ctx: Optional[RequestCtx] = None) -> Dict[str, Any]:
         """
-        Start a rollout — ``POST /mlops/models/{name}/rollout``.
+        Start a rollout -- ``POST /mlops/models/{name}/rollout``.
 
         Body::
 
@@ -567,7 +567,7 @@ class MLOpsController(Controller):
 
     @GET("/rollouts")
     async def list_rollouts(self, ctx: Optional[RequestCtx] = None) -> Dict[str, Any]:
-        """List rollouts — ``GET /mlops/rollouts``."""
+        """List rollouts -- ``GET /mlops/rollouts``."""
         if not self._rollout:
             return {"error": "Rollout engine not configured", "rollouts": []}
 
@@ -589,7 +589,7 @@ class MLOpsController(Controller):
 
     @GET("/drift")
     async def drift_status(self, ctx: Optional[RequestCtx] = None) -> Dict[str, Any]:
-        """Drift detection status — ``GET /mlops/drift``."""
+        """Drift detection status -- ``GET /mlops/drift``."""
         if not self._drift:
             return {"error": "Drift detector not configured"}
 
@@ -603,7 +603,7 @@ class MLOpsController(Controller):
 
     @GET("/plugins")
     async def list_plugins(self, ctx: Optional[RequestCtx] = None) -> Dict[str, Any]:
-        """List plugins — ``GET /mlops/plugins``."""
+        """List plugins -- ``GET /mlops/plugins``."""
         if not self._plugins:
             return {"plugins": []}
 
@@ -623,14 +623,14 @@ class MLOpsController(Controller):
 
     @GET("/healthz")
     async def liveness(self, ctx: Optional[RequestCtx] = None) -> Dict[str, Any]:
-        """K8s liveness probe — ``GET /mlops/healthz``."""
+        """K8s liveness probe -- ``GET /mlops/healthz``."""
         if self._server and hasattr(self._server, "liveness"):
             return await self._server.liveness()
         return {"status": "alive", "timestamp": time.time()}
 
     @GET("/readyz")
     async def readiness(self, ctx: Optional[RequestCtx] = None) -> Dict[str, Any]:
-        """K8s readiness probe — ``GET /mlops/readyz``."""
+        """K8s readiness probe -- ``GET /mlops/readyz``."""
         if self._server and hasattr(self._server, "readiness"):
             return await self._server.readiness()
         return {"status": "ready", "timestamp": time.time()}
@@ -639,7 +639,7 @@ class MLOpsController(Controller):
 
     @GET("/lineage")
     async def lineage(self, ctx: Optional[RequestCtx] = None) -> Dict[str, Any]:
-        """Model lineage DAG — ``GET /mlops/lineage``."""
+        """Model lineage DAG -- ``GET /mlops/lineage``."""
         if self._lineage is None:
             return {"error": "Lineage DAG not configured", "nodes": {}}
 
@@ -652,7 +652,7 @@ class MLOpsController(Controller):
 
     @GET("/lineage/{model_id}/ancestors")
     async def lineage_ancestors(self, model_id: str, ctx: Optional[RequestCtx] = None) -> Dict[str, Any]:
-        """Ancestors of a model — ``GET /mlops/lineage/{model_id}/ancestors``."""
+        """Ancestors of a model -- ``GET /mlops/lineage/{model_id}/ancestors``."""
         if self._lineage is None:
             return {"error": "Lineage DAG not configured"}
         return {
@@ -662,7 +662,7 @@ class MLOpsController(Controller):
 
     @GET("/lineage/{model_id}/descendants")
     async def lineage_descendants(self, model_id: str, ctx: Optional[RequestCtx] = None) -> Dict[str, Any]:
-        """Descendants of a model — ``GET /mlops/lineage/{model_id}/descendants``."""
+        """Descendants of a model -- ``GET /mlops/lineage/{model_id}/descendants``."""
         if self._lineage is None:
             return {"error": "Lineage DAG not configured"}
         return {
@@ -674,7 +674,7 @@ class MLOpsController(Controller):
 
     @GET("/experiments")
     async def list_experiments(self, ctx: Optional[RequestCtx] = None) -> Dict[str, Any]:
-        """List experiments — ``GET /mlops/experiments``."""
+        """List experiments -- ``GET /mlops/experiments``."""
         if self._experiments is None:
             return {"experiments": []}
 
@@ -689,7 +689,7 @@ class MLOpsController(Controller):
 
     @POST("/experiments")
     async def create_experiment(self, body: Dict[str, Any], ctx: Optional[RequestCtx] = None) -> Dict[str, Any]:
-        """Create experiment — ``POST /mlops/experiments``."""
+        """Create experiment -- ``POST /mlops/experiments``."""
         if self._experiments is None:
             return {"error": "Experiment ledger not configured"}
 
@@ -705,7 +705,7 @@ class MLOpsController(Controller):
     async def conclude_experiment(
         self, experiment_id: str, winner: str = "", ctx: Optional[RequestCtx] = None,
     ) -> Dict[str, Any]:
-        """Conclude experiment — ``POST /mlops/experiments/{id}/conclude``."""
+        """Conclude experiment -- ``POST /mlops/experiments/{id}/conclude``."""
         if self._experiments is None:
             return {"error": "Experiment ledger not configured"}
         self._experiments.conclude(experiment_id, winner)
@@ -715,7 +715,7 @@ class MLOpsController(Controller):
 
     @GET("/hot-models")
     async def hot_models(self, k: int = 10, ctx: Optional[RequestCtx] = None) -> Dict[str, Any]:
-        """Top-K hot models — ``GET /mlops/hot-models``."""
+        """Top-K hot models -- ``GET /mlops/hot-models``."""
         if self._metrics and hasattr(self._metrics, "hot_models"):
             return {"hot_models": self._metrics.hot_models(k)}
         return {"hot_models": []}
@@ -729,7 +729,7 @@ class MLOpsController(Controller):
         store_dir: str = "artifacts",
         ctx: Optional[RequestCtx] = None,
     ) -> Dict[str, Any]:
-        """List artifacts — ``GET /mlops/artifacts``."""
+        """List artifacts -- ``GET /mlops/artifacts``."""
         try:
             store = self._artifact_store
             if store is None:
@@ -761,7 +761,7 @@ class MLOpsController(Controller):
         store_dir: str = "artifacts",
         ctx: Optional[RequestCtx] = None,
     ) -> Dict[str, Any]:
-        """Inspect artifact — ``GET /mlops/artifacts/{name}``."""
+        """Inspect artifact -- ``GET /mlops/artifacts/{name}``."""
         try:
             from aquilia.artifacts import ArtifactReader
 

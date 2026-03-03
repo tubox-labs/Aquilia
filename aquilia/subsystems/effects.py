@@ -1,5 +1,5 @@
 """
-Effect Subsystem — Subsystem initializer for the effect system.
+Effect Subsystem -- Subsystem initializer for the effect system.
 
 Integrates effects into the Aquilia boot lifecycle:
 1. Discovers effect providers from manifests and configuration

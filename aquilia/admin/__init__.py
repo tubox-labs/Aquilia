@@ -1,5 +1,5 @@
 """
-AquilAdmin — Modern, Auto-Detecting Admin System for Aquilia.
+AquilAdmin -- Modern, Auto-Detecting Admin System for Aquilia.
 
 A comprehensive admin dashboard inspired by Django Admin but built with
 modern architecture: automatic model detection from ModelRegistry,

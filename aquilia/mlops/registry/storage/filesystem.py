@@ -1,5 +1,5 @@
 """
-Filesystem storage adapter — stores blobs on local disk.
+Filesystem storage adapter -- stores blobs on local disk.
 """
 
 from __future__ import annotations

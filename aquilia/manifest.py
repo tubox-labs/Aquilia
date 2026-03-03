@@ -374,7 +374,7 @@ class AppManifest:
     description: str = ""                 # Module description
     author: str = ""                      # Module author
     
-    # Component declarations — all accept str or ComponentRef
+    # Component declarations -- all accept str or ComponentRef
     services: List[Union[str, ServiceConfig, ComponentRef]] = field(default_factory=list)
     controllers: List[Union[str, ComponentRef]] = field(default_factory=list)
     socket_controllers: List[Union[str, ComponentRef]] = field(default_factory=list)
@@ -428,7 +428,7 @@ class AppManifest:
         "controllers", "services", "middleware", "guards", "models"
     ])
     
-    # Legacy support (for backward compatibility — will emit warnings)
+    # Legacy support (for backward compatibility -- will emit warnings)
     middlewares: List[Tuple[str, dict]] = field(default_factory=list)  # Old format
     default_fault_domain: Optional[str] = None  # Old format
     on_startup: Optional[Callable] = None  # Old format
@@ -557,6 +557,6 @@ class AppManifest:
         return hashlib.sha256(data.encode()).hexdigest()[:16]
 
 
-# Legacy ManifestLoader removed — use aquilia.aquilary.ManifestLoader instead.
+# Legacy ManifestLoader removed -- use aquilia.aquilary.ManifestLoader instead.
 # The aquilary pipeline (loader → validator → graph → fingerprint → registry)
 # is the canonical manifest processing system.

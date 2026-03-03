@@ -1,5 +1,5 @@
 """
-Aquilia Database — async-first database layer.
+Aquilia Database -- async-first database layer.
 
 Provides:
 - AquiliaDatabase: Connection manager with transaction support

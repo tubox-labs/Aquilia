@@ -18,9 +18,13 @@ Separation of concerns:
 - Environment variables = Override mechanism for secrets and env-specific values
 """
 
-from aquilia import Workspace, Module, Integration, SessionPolicy
+from aquilia import Workspace, Module, Integration
 from datetime import timedelta
+from aquilia.sessions import SessionPolicy
 from aquilia.sessions import TransportPolicy
+from aquilia.sessions import PersistencePolicy
+from aquilia.sessions import ConcurrencyPolicy
+
 
 # Define workspace structure
 workspace = (
@@ -37,12 +41,6 @@ workspace = (
     # Add modules here with explicit configuration:
     # .module(Module("auth", version="1.0.0", description="Authentication module").route_prefix("/api/v1/auth").depends_on("core"))
     # .module(Module("users", version="1.0.0", description="User management").route_prefix("/api/v1/users").depends_on("auth", "core"))
-
-    # ---- Modules ---------------------------------------------------------
-
-    .module(Module("authentication", version="0.1.0", description="Authentication module")
-        .route_prefix("/authentication")
-        .tags("authentication"))
 
     # Integrations - Configure core systems
     .integrate(Integration.di(auto_wire=True, manifest_validation=True))
@@ -102,6 +100,27 @@ workspace = (
                 name="default",
                 ttl=timedelta(days=7),
                 idle_timeout=timedelta(hours=1),
+                absolute_timeout=timedelta(days=30),
+                rotate_on_use=False,
+                rotate_on_privilege_change=True,
+                fingerprint_binding=False,
+                scope="user",
+                persistence=PersistencePolicy(
+                    enabled=True,
+                    store_name="default",
+                    write_through=True,
+                    compress=False,
+                ),
+                concurrency=ConcurrencyPolicy(
+                    max_sessions_per_principal=5,
+                    behavior_on_limit="evict_oldest",
+                ),
+                transport=TransportPolicy(
+                    cookie_name="myapp_session",
+                    cookie_secure=False,
+                    cookie_httponly=True,
+                    cookie_samesite="lax",
+                ),
             ),
         ],
     )
@@ -129,43 +148,9 @@ workspace = (
         url_prefix="/admin",
         site_title="myapp Admin",
         auto_discover=True,
-        # ── Builder syntax (recommended, IDE-friendly) ──
-        # modules=(
-        #     Integration.AdminModules()
-        #     .enable_orm()
-        #     .enable_monitoring()     # opt-in (disabled by default)
-        #     .disable_build()
-        # ),
-        # audit=(
-        #     Integration.AdminAudit()
-        #     .enable()                # opt-in (disabled by default)
-        #     .no_log_views()
-        #     .exclude_actions("VIEW", "LIST")
-        # ),
-        # monitoring=(
-        #     Integration.AdminMonitoring()
-        #     .enable()                # opt-in (disabled by default)
-        #     .metrics("cpu", "memory", "system")
-        #     .refresh_interval(15)
-        # ),
-        # sidebar=(
-        #     Integration.AdminSidebar()
-        #     .show_overview()
-        #     .show_data()
-        #     .hide_security()
-        # ),
-        # ── Flat syntax (legacy, quick) ──
-        # enable_monitoring=True,      # disabled by default
-        # enable_audit=True,           # disabled by default
-        # monitoring_metrics=["cpu", "memory", "system"],
     ))
-
-    .integrate(
-        Integration.database(
-            url = "sqlite:///db.sqlite3"
-        )
-    )
 )
+
 
 # Export for CLI/server
 __all__ = ["workspace"]

@@ -1,5 +1,5 @@
 """
-AquilaMail Configuration — Serializer-based, DI-aware mail configuration.
+AquilaMail Configuration -- Serializer-based, DI-aware mail configuration.
 
 Uses Aquilia's Serializer system instead of raw dataclasses for:
 - Declarative field validation with typed fields
@@ -321,7 +321,7 @@ def _coerce_sub(
 
 
 # ═══════════════════════════════════════════════════════════════════
-# MailConfig — top-level (preserves the public API)
+# MailConfig -- top-level (preserves the public API)
 # ═══════════════════════════════════════════════════════════════════
 
 
@@ -340,7 +340,7 @@ class MailConfig:
             providers=[...],
         ))
 
-    Attribute access is fully preserved — all existing code works unchanged.
+    Attribute access is fully preserved -- all existing code works unchanged.
     Under the hood, each sub-config is validated through its corresponding
     Serializer class.
     """

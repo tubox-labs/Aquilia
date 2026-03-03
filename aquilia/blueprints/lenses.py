@@ -1,5 +1,5 @@
 """
-Aquilia Blueprint Lenses — depth-controlled relational views.
+Aquilia Blueprint Lenses -- depth-controlled relational views.
 
 A Lens lets a Blueprint expose related model data through another
 Blueprint, with cycle detection, depth limits, and projection selection.
@@ -87,7 +87,7 @@ class Lens(Facet):
                     # Check if it's a relation field
                     mf = model_fields[name]
                     if hasattr(mf, 'to'):
-                        # It's a FK/M2M — source is the attribute name
+                        # It's a FK/M2M -- source is the attribute name
                         pass
 
     def mold(self, value: Any, *, _depth: int = 0, _seen: set | None = None) -> Any:
@@ -125,7 +125,7 @@ class Lens(Facet):
         if self.many:
             items = value if not hasattr(value, '__aiter__') else value
             if hasattr(items, 'all'):
-                # It's a manager/queryset — can't iterate sync
+                # It's a manager/queryset -- can't iterate sync
                 # Return empty; async path should be used
                 return []
             return [
@@ -137,7 +137,7 @@ class Lens(Facet):
     def _mold_single(self, instance: Any, *, _depth: int, _seen: set) -> Dict[str, Any]:
         """Mold a single related instance through the target Blueprint."""
         if self._target_cls is None:
-            # No target blueprint — fall back to dict/PK
+            # No target blueprint -- fall back to dict/PK
             return self._pk_fallback(instance)
 
         bp = self._target_cls(instance=instance, projection=self._projection)

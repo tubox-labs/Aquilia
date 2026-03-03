@@ -1,5 +1,5 @@
 """
-Aquilia Debug Pages — Tubox Themed (Premium).
+Aquilia Debug Pages -- Tubox Themed (Premium).
 
 Self-contained HTML/CSS/JS generators. No external dependencies.
 All assets are inlined for zero-config rendering. Emojis strictly forbidden.
@@ -15,7 +15,7 @@ import traceback
 from typing import Any, Dict, List, Tuple
 
 # ============================================================================
-# CSS Styles — Tubox Premium Theme (Dark & Light)
+# CSS Styles -- Tubox Premium Theme (Dark & Light)
 # ============================================================================
 
 _BASE_CSS = r"""

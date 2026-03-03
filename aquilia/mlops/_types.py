@@ -1,5 +1,5 @@
 """
-Aquilia MLOps Platform — Shared type definitions.
+Aquilia MLOps Platform -- Shared type definitions.
 
 All protocol classes, enums, TypedDicts and dataclasses shared
 across sub-packages live here to avoid circular imports.
@@ -258,7 +258,7 @@ class TensorSpec:
     """Describes a single tensor in the inference signature."""
     name: str
     dtype: DType          # Use the explicit DType enum
-    shape: List[Any]    # e.g. [None, 64] — None means dynamic
+    shape: List[Any]    # e.g. [None, 64] -- None means dynamic
 
     def to_dict(self) -> Dict[str, Any]:
         return {"name": self.name, "dtype": self.dtype.value, "shape": self.shape}

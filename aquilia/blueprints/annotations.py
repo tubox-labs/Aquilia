@@ -1,9 +1,9 @@
 """
-Aquilia Blueprint Annotations — type-annotation–driven schema declaration.
+Aquilia Blueprint Annotations -- type-annotation–driven schema declaration.
 
 Enables Blueprints to be declared using Python type annotations instead of
 (or alongside) explicit Facet instantiation.  This is a first-class,
-Aquilia-native system — no external libraries.
+Aquilia-native system -- no external libraries.
 
 Usage::
 
@@ -336,7 +336,7 @@ class NestedBlueprintFacet(Facet):
         return results
 
     def seal(self, value: Any) -> Any:
-        """Already validated during cast — pass through."""
+        """Already validated during cast -- pass through."""
         return super().seal(value)
 
     def mold(self, value: Any) -> Any:
@@ -466,7 +466,7 @@ def computed(func: Callable) -> _ComputedMarker:
     Decorator to mark a Blueprint method as a computed output field.
 
     The method receives ``(self, instance)`` and returns the computed value.
-    The field is read-only — never accepted as input.
+    The field is read-only -- never accepted as input.
 
     Usage::
 
@@ -524,10 +524,10 @@ def _unwrap_optional(annotation: Any) -> Tuple[Any, bool]:
         non_none = [a for a in args if a is not type(None)]
         if len(non_none) == 1 and type(None) in args:
             return non_none[0], True
-        # Multi-type union without None — not optional
+        # Multi-type union without None -- not optional
         if type(None) not in args:
             return annotation, False
-        # Multi-type union with None — take first non-None
+        # Multi-type union with None -- take first non-None
         return non_none[0] if non_none else annotation, True
 
     # PEP 604: types.UnionType (Python 3.10+)
@@ -548,7 +548,7 @@ def _resolve_list_child(annotation: Any) -> Tuple[bool, Any]:
     Check if annotation is list[T] and extract T.
 
     Returns:
-        (is_list, child_type) — child_type is None if not parameterised.
+        (is_list, child_type) -- child_type is None if not parameterised.
     """
     origin = get_origin(annotation)
     if origin is list:
@@ -613,7 +613,7 @@ def _build_facet_from_annotation(
         elif is_optional and "default" not in kwargs:
             kwargs["required"] = False
     else:
-        # No Field() — derive from annotation + raw default
+        # No Field() -- derive from annotation + raw default
         if is_optional:
             kwargs["allow_null"] = True
             kwargs["required"] = False
@@ -708,7 +708,7 @@ def _build_facet_from_annotation(
     # ── Scalar types ─────────────────────────────────────────────────
     facet_cls = ANNOTATION_TO_FACET.get(inner_type)
     if facet_cls is None:
-        # Unknown type — use generic Facet
+        # Unknown type -- use generic Facet
         return Facet(**{k: v for k, v in kwargs.items()
                         if k not in ("min_length", "max_length", "allow_blank")})
 
@@ -759,7 +759,7 @@ def _build_facet_from_annotation(
         type_kwargs.pop("min_length", None)
         type_kwargs.pop("max_length", None)
     else:
-        # Date/Time/UUID/Duration — remove text-specific kwargs
+        # Date/Time/UUID/Duration -- remove text-specific kwargs
         type_kwargs.pop("allow_blank", None)
         type_kwargs.pop("min_length", None)
         type_kwargs.pop("max_length", None)

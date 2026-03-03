@@ -1,5 +1,5 @@
 """
-Dep — Composable dependency descriptor for annotation-driven DI.
+Dep -- Composable dependency descriptor for annotation-driven DI.
 
 Aquilia's answer to FastAPI's Depends(), but built on Annotated[] and
 designed for the Aquilia provider/container ecosystem.
@@ -9,7 +9,7 @@ Usage::
     from typing import Annotated
     from aquilia.di import Dep
 
-    # Callable dependency — resolved per-request, cached in request DAG
+    # Callable dependency -- resolved per-request, cached in request DAG
     async def get_db() -> Database:
         return await Database.connect(...)
 
@@ -36,11 +36,11 @@ Usage::
     async def list_items(self, ctx, db: Annotated[Session, Dep(get_db_session)]):
         return await db.query(Item).all()
 
-    # Bare Dep() — resolve from container by type (like Inject())
+    # Bare Dep() -- resolve from container by type (like Inject())
     async def handler(repo: Annotated[UserRepo, Dep()]):
         ...
 
-    # Uncached — fresh instance per injection point
+    # Uncached -- fresh instance per injection point
     async def handler(w: Annotated[Worker, Dep(create_worker, cached=False)]):
         ...
 """
@@ -71,7 +71,7 @@ class Dep:
         call:      Optional callable (sync/async function, generator, or class).
                    If None, resolves from container by type annotation.
         cached:    Whether to cache the result in the per-request DAG.
-                   True by default — a shared ``get_db`` appears once in
+                   True by default -- a shared ``get_db`` appears once in
                    the DAG even if multiple parameters depend on it.
         scope:     Optional scope override. When set, the dependency is
                    resolved/instantiated in the given scope regardless of
@@ -91,7 +91,7 @@ class Dep:
 
     @property
     def is_container_lookup(self) -> bool:
-        """True when Dep() has no callable — just resolve by type from container."""
+        """True when Dep() has no callable -- just resolve by type from container."""
         return self.call is None
 
     @property

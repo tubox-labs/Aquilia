@@ -1,5 +1,5 @@
 """
-AquilaCache — Composite (L1/L2) backend.
+AquilaCache -- Composite (L1/L2) backend.
 
 Implements a two-level cache architecture:
 - **L1** (Memory): Fast, small, short TTL

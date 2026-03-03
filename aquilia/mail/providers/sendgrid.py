@@ -1,5 +1,5 @@
 """
-SendGrid Provider — Async SendGrid Web API v3 delivery via httpx.
+SendGrid Provider -- Async SendGrid Web API v3 delivery via httpx.
 
 Features:
 - Async HTTP via httpx (connection pooling, HTTP/2 support)
@@ -330,7 +330,7 @@ class SendGridProvider:
         ) if errors else f"HTTP {status_code}"
 
         logger.warning(
-            f"SendGrid error via {self.name}: HTTP {status_code} — {error_msg}"
+            f"SendGrid error via {self.name}: HTTP {status_code} -- {error_msg}"
         )
 
         # Classify by HTTP status
@@ -357,14 +357,14 @@ class SendGridProvider:
                 raw_response=body,
             )
         elif status_code == 400:
-            # Bad request — usually permanent (invalid payload)
+            # Bad request -- usually permanent (invalid payload)
             return ProviderResult(
                 status=ProviderResultStatus.PERMANENT_FAILURE,
                 error_message=f"Invalid request: {error_msg}",
                 raw_response=body,
             )
         elif status_code >= 500:
-            # Server error — transient
+            # Server error -- transient
             return ProviderResult(
                 status=ProviderResultStatus.TRANSIENT_FAILURE,
                 error_message=f"SendGrid server error: {error_msg}",

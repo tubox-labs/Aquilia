@@ -246,7 +246,7 @@ def create_safe_globals() -> Dict[str, Any]:
         "url_for": lambda name, **params: f"/{name}",
         "static_url": lambda path: f"/static/{path}",
         
-        # CSRF protection (runtime injection — reads from request.state["csrf_token"])
+        # CSRF protection (runtime injection -- reads from request.state["csrf_token"])
         "csrf_token": lambda: "",  # Placeholder; overridden at render-time by TemplateMiddleware
         
         # Config access (limited, safe subset)

@@ -1,5 +1,5 @@
 """
-Aquilia DB Backend — PostgreSQL adapter via asyncpg.
+Aquilia DB Backend -- PostgreSQL adapter via asyncpg.
 
 Provides full async PostgreSQL support with connection pooling,
 proper transaction management, and introspection.
@@ -118,7 +118,7 @@ class PostgresAdapter(DatabaseAdapter):
         """
         Convert ``?`` placeholders to ``$1, $2, ...`` for asyncpg.
 
-        String-literal safe — skips ``?`` inside single-quoted strings.
+        String-literal safe -- skips ``?`` inside single-quoted strings.
         """
         result: list[str] = []
         param_idx = 0
