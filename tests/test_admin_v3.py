@@ -6090,7 +6090,13 @@ class TestAdminControllerModuleGuards:
 
 
 class TestSidebarTemplateConditional:
-    """Test sidebar renders conditionally based on admin_config."""
+    """Test sidebar renders conditionally based on admin_config.
+
+    Since v2 the sidebar always shows every page link — disabled modules
+    redirect to a beautiful overlay page instead of being hidden.
+    Only ``sidebar_sections`` (overview/data/system/security/models) can
+    suppress entire sections from the sidebar.
+    """
 
     def _render_sidebar(self, admin_config=None):
         from aquilia.admin.templates import _render_template, _HAS_JINJA2
@@ -6117,7 +6123,8 @@ class TestSidebarTemplateConditional:
         tpl = env.get_template("partials/sidebar_v2.html")
         return tpl.render(**ctx)
 
-    def test_all_modules_visible_by_default(self):
+    def test_all_modules_always_visible(self):
+        """Every page link is always rendered regardless of modules config."""
         html = self._render_sidebar()
         assert "ORM Models" in html
         assert "Monitoring" in html
@@ -6125,40 +6132,19 @@ class TestSidebarTemplateConditional:
         assert "Audit Log" in html
         assert "Admin Users" in html
 
-    def test_orm_hidden_when_disabled(self):
+    def test_modules_disabled_does_not_hide_links(self):
+        """Disabling a module in config no longer hides it from the sidebar."""
         html = self._render_sidebar({
-            "modules": {"orm": False},
+            "modules": {"orm": False, "monitoring": False, "audit": False,
+                        "build": False, "admin_users": False},
             "sidebar_sections": {},
         })
-        assert "ORM Models" not in html
-
-    def test_monitoring_hidden_when_disabled(self):
-        html = self._render_sidebar({
-            "modules": {"monitoring": False},
-            "sidebar_sections": {},
-        })
-        assert ">Monitoring<" not in html
-
-    def test_audit_hidden_when_disabled(self):
-        html = self._render_sidebar({
-            "modules": {"audit": False},
-            "sidebar_sections": {},
-        })
-        assert "Audit Log" not in html
-
-    def test_admin_users_hidden_when_disabled(self):
-        html = self._render_sidebar({
-            "modules": {"admin_users": False},
-            "sidebar_sections": {},
-        })
-        assert "Admin Users" not in html
-
-    def test_build_hidden_when_disabled(self):
-        html = self._render_sidebar({
-            "modules": {"build": False},
-            "sidebar_sections": {},
-        })
-        assert ">Build<" not in html
+        # All links still present — disabled page handles the UX
+        assert "ORM Models" in html
+        assert "Monitoring" in html
+        assert "Audit Log" in html
+        assert "Admin Users" in html
+        assert "Build" in html
 
     def test_data_section_hidden_when_sidebar_section_disabled(self):
         html = self._render_sidebar({
@@ -6166,22 +6152,45 @@ class TestSidebarTemplateConditional:
             "sidebar_sections": {"data": False},
         })
         assert "Data" not in html
+        # ORM/Migrations links are inside the Data section
+        assert "ORM Models" not in html
+        assert "Migrations" not in html
 
     def test_security_section_hidden_when_sidebar_section_disabled(self):
         html = self._render_sidebar({
             "modules": {},
             "sidebar_sections": {"security": False},
         })
-        # No Security section label
         assert ">Security<" not in html
+        assert "Audit Log" not in html
 
-    def test_system_section_hidden_when_all_system_modules_disabled(self):
+    def test_system_section_hidden_when_sidebar_section_disabled(self):
         html = self._render_sidebar({
-            "modules": {"monitoring": False, "workspace": False, "build": False, "config": False},
-            "sidebar_sections": {},
+            "modules": {},
+            "sidebar_sections": {"system": False},
         })
-        # System section label should NOT appear
         assert ">System<" not in html
+        assert "Monitoring" not in html
+        assert "Build" not in html
+
+    def test_overview_section_hidden_when_disabled(self):
+        html = self._render_sidebar({
+            "modules": {},
+            "sidebar_sections": {"overview": False},
+        })
+        assert "Dashboard" not in html
+
+    def test_all_sections_hidden_when_all_sidebar_sections_disabled(self):
+        html = self._render_sidebar({
+            "sidebar_sections": {
+                "overview": False, "data": False, "system": False,
+                "security": False, "models": False,
+            },
+        })
+        assert "ORM Models" not in html
+        assert "Monitoring" not in html
+        assert "Audit Log" not in html
+        assert "Dashboard" not in html
 
 
 class TestAdminConfigExport:

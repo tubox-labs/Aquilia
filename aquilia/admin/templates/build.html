@@ -179,54 +179,233 @@
 {# ── Build Logs tab ── #}
 <div class="tab-content" data-tab-content="build" data-tab="logs">
     {% if build_log %}
-    <div class="build-terminal" style="background:#0a0a0a;border:1px solid var(--border-color);border-radius:var(--radius);overflow:hidden;font-family:var(--font-mono);">
-        {# Terminal title bar #}
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:rgba(255,255,255,0.03);border-bottom:1px solid var(--border-subtle);">
-            <div style="display:flex;align-items:center;gap:8px;">
-                <div style="display:flex;gap:6px;">
-                    <span style="width:10px;height:10px;border-radius:50%;background:#FF5F56;"></span>
-                    <span style="width:10px;height:10px;border-radius:50%;background:#FFBD2E;"></span>
-                    <span style="width:10px;height:10px;border-radius:50%;background:#27C93F;"></span>
+
+    <style>
+    /* ── Terminal chrome ─────────────────────────────────────── */
+    .build-terminal {
+        border-radius: var(--radius);
+        overflow: hidden;
+        font-family: var(--font-mono);
+        border: 1px solid rgba(255,255,255,0.07);
+        box-shadow: 0 8px 40px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04);
+    }
+    .terminal-chrome {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 16px;
+        background: #111111;
+        border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .terminal-dots { display:flex; gap:6px; align-items:center; }
+    .terminal-dot  { width:10px; height:10px; border-radius:50%; }
+    .terminal-dot.red    { background:#FF5F56; }
+    .terminal-dot.yellow { background:#FFBD2E; }
+    .terminal-dot.green  { background:#27C93F; }
+    .terminal-title {
+        font-size: 0.68rem;
+        color: rgba(255,255,255,0.25);
+        font-family: var(--font-mono);
+        letter-spacing: 0.02em;
+        margin-left: 12px;
+    }
+    .terminal-body {
+        background: #000000;
+        padding: 18px 20px;
+        max-height: 620px;
+        overflow-y: auto;
+        font-size: 0.775rem;
+        line-height: 1.85;
+        scrollbar-width: thin;
+        scrollbar-color: rgba(255,255,255,0.1) transparent;
+    }
+    .terminal-body::-webkit-scrollbar { width: 6px; }
+    .terminal-body::-webkit-scrollbar-track { background: transparent; }
+    .terminal-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius:3px; }
+    .terminal-status {
+        padding: 7px 16px;
+        background: #0a0a0a;
+        border-top: 1px solid rgba(255,255,255,0.05);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    /* ── Log line tokens ────────────────────────────────────── */
+    .log-line { display:flex; gap:10px; white-space:pre-wrap; word-break:break-all; }
+    .log-ln   { color:rgba(255,255,255,0.12); user-select:none; min-width:28px; text-align:right; flex-shrink:0; padding-top:1px; font-size:0.7rem; }
+    .log-text { flex:1; }
+    /* token colours — dark mode */
+    .tok-error   { color:#f87171; }   /* red-400 */
+    .tok-warn    { color:#fbbf24; }   /* amber-400 */
+    .tok-success { color:#4ade80; }   /* green-400 */
+    .tok-info    { color:#60a5fa; }   /* blue-400 */
+    .tok-debug   { color:#52525b; }   /* zinc-600 */
+    .tok-path    { color:#a78bfa; }   /* violet-400 */
+    .tok-number  { color:#fb923c; }   /* orange-400 */
+    .tok-string  { color:#34d399; }   /* emerald-400 */
+    .tok-keyword { color:#e879f9; }   /* fuchsia-400 */
+    .tok-dim     { color:rgba(255,255,255,0.22); }
+    .tok-icon    { font-size:11px; vertical-align:-1px; margin-right:4px; }
+    /* ── Light mode overrides ───────────────────────────────── */
+    [data-theme="light"] .build-terminal {
+        border-color: rgba(0,0,0,0.10);
+        box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+    }
+    [data-theme="light"] .terminal-chrome  { background: #f0f0f0; border-bottom-color: rgba(0,0,0,0.08); }
+    [data-theme="light"] .terminal-title   { color: rgba(0,0,0,0.35); }
+    [data-theme="light"] .terminal-body    {
+        background: #0d1117;   /* keep dark for legibility */
+        scrollbar-color: rgba(255,255,255,0.12) transparent;
+    }
+    [data-theme="light"] .terminal-status  { background: #e8e8e8; border-top-color: rgba(0,0,0,0.07); }
+    [data-theme="light"] .terminal-status span { color: rgba(0,0,0,0.45); }
+    </style>
+
+    <div class="build-terminal">
+        {# Chrome / title bar #}
+        <div class="terminal-chrome">
+            <div style="display:flex;align-items:center;">
+                <div class="terminal-dots">
+                    <span class="terminal-dot red"></span>
+                    <span class="terminal-dot yellow"></span>
+                    <span class="terminal-dot green"></span>
                 </div>
-                <span style="font-size:0.7rem;color:var(--text-faint);margin-left:8px;">aquilia build — output</span>
+                <span class="terminal-title">aquilia build — output</span>
             </div>
             <div style="display:flex;align-items:center;gap:8px;">
-                <span style="font-size:0.65rem;color:var(--text-faint);">{{ build_log.split('\n')|length }} lines</span>
+                <span style="font-size:0.65rem;color:rgba(255,255,255,0.2);font-family:var(--font-mono);" id="termLineCount"></span>
                 <button onclick="copyBuildLog()" class="btn btn-sm btn-secondary" style="font-size:0.65rem;padding:2px 8px;" title="Copy log">
                     <i class="icon-copy" style="font-size:11px;"></i>
                 </button>
             </div>
         </div>
-        {# Terminal body #}
-        <div id="buildLogContent" style="padding:16px;max-height:600px;overflow-y:auto;font-size:0.78rem;line-height:1.8;">
-            {% for line in build_log.split('\n') %}
-            {% if line.strip() %}
-            <div class="log-line" style="display:flex;gap:10px;white-space:pre-wrap;word-break:break-all;
-                {% if '[ERROR]' in line %}color:#ef4444;
-                {% elif '[WARN]' in line or '[WARNING]' in line %}color:#f59e0b;
-                {% elif '[INFO]' in line %}color:#a1a1aa;
-                {% elif '[DEBUG]' in line %}color:#3f3f46;
-                {% else %}color:#71717a;{% endif %}">
-                <span style="color:#3f3f46;user-select:none;min-width:24px;text-align:right;">{{ loop.index }}</span>
-                <span>{% if '[ERROR]' in line %}<i class="icon-x-circle" style="font-size:12px;vertical-align:-1px;margin-right:4px;"></i>{% elif '[WARN]' in line %}<i class="icon-alert-triangle" style="font-size:12px;vertical-align:-1px;margin-right:4px;"></i>{% elif 'succeeded' in line or 'complete' in line %}<i class="icon-check-circle" style="font-size:12px;vertical-align:-1px;margin-right:4px;color:#22c55e;"></i>{% endif %}{{ line }}</span>
-            </div>
-            {% endif %}
-            {% endfor %}
+
+        {# Terminal body — lines injected by JS for rich highlighting #}
+        <div class="terminal-body" id="buildLogContent">
+            <noscript>
+            {% for line in build_log.split('\n') %}{% if line.strip() %}<div class="log-line tok-dim"><span class="log-ln">{{ loop.index }}</span><span class="log-text">{{ line }}</span></div>{% endif %}{% endfor %}
+            </noscript>
         </div>
-        {# Terminal status bar #}
-        <div style="padding:6px 16px;background:rgba(255,255,255,0.02);border-top:1px solid var(--border-subtle);display:flex;align-items:center;justify-content:space-between;">
-            <span style="font-size:0.65rem;color:var(--text-faint);">
-                {% if 'succeeded' in build_log %}
-                <i class="icon-check-circle" style="font-size:11px;color:#22c55e;vertical-align:-1px;margin-right:4px;"></i>Build succeeded
-                {% elif 'FAILED' in build_log or '[ERROR]' in build_log %}
-                <i class="icon-x-circle" style="font-size:11px;color:#ef4444;vertical-align:-1px;margin-right:4px;"></i>Build failed
-                {% else %}
-                <i class="icon-terminal" style="font-size:11px;vertical-align:-1px;margin-right:4px;"></i>Build log
-                {% endif %}
+
+        {# Status bar #}
+        <div class="terminal-status">
+            <span style="font-size:0.65rem;color:rgba(255,255,255,0.28);" id="termStatus">
+                <i class="icon-terminal tok-icon"></i>build_output.txt
             </span>
-            <span style="font-size:0.65rem;color:var(--text-faint);font-family:var(--font-mono);">build_output.txt</span>
+            <span style="font-size:0.65rem;color:rgba(255,255,255,0.18);font-family:var(--font-mono);">build_output.txt</span>
         </div>
     </div>
+
+    <script id="buildLogData" type="application/json">{{ build_log | tojson }}</script>
+    <script>
+    (function() {
+        var raw = JSON.parse(document.getElementById('buildLogData').textContent);
+        var lines = raw.split('\n');
+        var container = document.getElementById('buildLogContent');
+        var statusEl  = document.getElementById('termStatus');
+        var countEl   = document.getElementById('termLineCount');
+
+        /* ── Token classifier ───────────────────────────── */
+        function classify(line) {
+            var t = line.toLowerCase();
+            if (/\[error\]|traceback|exception|fatal|critical/.test(t)) return 'error';
+            if (/\[warn\]|\[warning\]|deprecated|caution/.test(t))       return 'warn';
+            if (/\bsucceeded\b|success|complete|done|built|ok\b|passed/.test(t)) return 'success';
+            if (/\[info\]|info:/.test(t))   return 'info';
+            if (/\[debug\]|debug:/.test(t)) return 'debug';
+            return null;
+        }
+
+        /* ── Inline span highlighter ────────────────────── */
+        function highlight(line) {
+            // Escape HTML first
+            var s = line
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+
+            // Paths  (./... or /abs/... or C:\...)
+            s = s.replace(/((?:\.{0,2}\/|[A-Za-z]:[\\\/])[^\s'"<>]+)/g,
+                '<span class="tok-path">$1</span>');
+            // Quoted strings
+            s = s.replace(/(&quot;[^&]*?&quot;|'[^']*?')/g,
+                '<span class="tok-string">$1</span>');
+            // Numbers (standalone)
+            s = s.replace(/\b(\d+(?:\.\d+)?(?:ms|s|kb|mb|gb)?)\b/gi,
+                '<span class="tok-number">$1</span>');
+            // Keywords
+            s = s.replace(/\b(import|from|def|class|return|if|else|elif|for|while|try|except|with|async|await|true|false|none|null|undefined)\b/gi,
+                '<span class="tok-keyword">$1</span>');
+            return s;
+        }
+
+        /* ── Render ─────────────────────────────────────── */
+        var frag = document.createDocumentFragment();
+        var rendered = 0, errors = 0, warnings = 0, hasSuccess = false;
+
+        lines.forEach(function(line, idx) {
+            if (!line.trim()) return;
+            rendered++;
+            var cls = classify(line);
+            if (cls === 'error')   errors++;
+            if (cls === 'warn')    warnings++;
+            if (cls === 'success') hasSuccess = true;
+
+            var row = document.createElement('div');
+            row.className = 'log-line';
+
+            var ln = document.createElement('span');
+            ln.className = 'log-ln';
+            ln.textContent = rendered;
+
+            var txt = document.createElement('span');
+            txt.className = 'log-text ' + (cls ? 'tok-' + cls : 'tok-dim');
+
+            /* icon prefix */
+            var icon = '';
+            if (cls === 'error')   icon = '<i class="icon-x-circle tok-icon tok-error"></i>';
+            else if (cls === 'warn')    icon = '<i class="icon-alert-triangle tok-icon tok-warn"></i>';
+            else if (cls === 'success') icon = '<i class="icon-check-circle tok-icon tok-success"></i>';
+
+            txt.innerHTML = icon + highlight(line);
+            row.appendChild(ln);
+            row.appendChild(txt);
+            frag.appendChild(row);
+        });
+
+        container.innerHTML = '';
+        container.appendChild(frag);
+
+        /* ── Line count ─────────────────────────────────── */
+        countEl.textContent = rendered + ' lines';
+
+        /* ── Status bar ─────────────────────────────────── */
+        if (hasSuccess && errors === 0) {
+            statusEl.innerHTML = '<i class="icon-check-circle tok-icon tok-success"></i>Build succeeded';
+        } else if (errors > 0) {
+            statusEl.innerHTML = '<i class="icon-x-circle tok-icon tok-error"></i>' + errors + ' error' + (errors > 1 ? 's' : '') + (warnings > 0 ? ', ' + warnings + ' warning' + (warnings > 1 ? 's' : '') : '');
+        } else if (warnings > 0) {
+            statusEl.innerHTML = '<i class="icon-alert-triangle tok-icon tok-warn"></i>' + warnings + ' warning' + (warnings > 1 ? 's' : '');
+        } else {
+            statusEl.innerHTML = '<i class="icon-terminal tok-icon"></i>build_output.txt';
+        }
+
+        /* ── Auto-scroll to bottom ───────────────────────── */
+        container.scrollTop = container.scrollHeight;
+    })();
+
+    function copyBuildLog() {
+        var el = document.getElementById('buildLogContent');
+        if (!el) return;
+        var text = el.innerText || el.textContent;
+        navigator.clipboard.writeText(text).then(function() {
+            if (window.showToast) showToast('Build log copied to clipboard', 'success');
+        }).catch(function() {
+            if (window.showToast) showToast('Failed to copy', 'error');
+        });
+    }
+    </script>
+
     {% else %}
     <div class="glass-card">
         <div class="empty-state">
@@ -269,17 +448,6 @@ function viewArtifact(name) {
             setTimeout(function() { viewer.style.outline = 'none'; }, 2500);
         }
     }, 150);
-}
-
-function copyBuildLog() {
-    var el = document.getElementById('buildLogContent');
-    if (!el) return;
-    var text = el.innerText || el.textContent;
-    navigator.clipboard.writeText(text).then(function() {
-        if (window.showToast) showToast('Build log copied to clipboard', 'success');
-    }).catch(function() {
-        if (window.showToast) showToast('Failed to copy', 'error');
-    });
 }
 </script>
 {% endblock %}

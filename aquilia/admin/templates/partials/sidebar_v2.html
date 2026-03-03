@@ -20,87 +20,66 @@
 
     {# ── Resolve admin_config with safe defaults ── #}
     {% set ac = admin_config|default({}) %}
-    {% set modules = ac.get('modules', {}) if ac is mapping else {} %}
     {% set sections = ac.get('sidebar_sections', {}) if ac is mapping else {} %}
 
     {# ── Overview ── #}
     {% if sections.get('overview', true) %}
     <div class="sidebar-section" data-sidebar-section>
         <span class="sidebar-section-label">Overview</span>
-        {% if modules.get('dashboard', true) %}
         <a class="sidebar-link{{ ' active' if active_page == 'dashboard' else '' }}" href="{{ url_prefix|default('/admin') }}/" data-sidebar-label="dashboard">
             <i class="icon-layout-dashboard"></i> <span>Dashboard</span>
         </a>
-        {% endif %}
     </div>
     {% endif %}
 
     {# ── Data ── #}
-    {% if sections.get('data', true) and (modules.get('orm', true) or modules.get('migrations', true)) %}
+    {% if sections.get('data', true) %}
     <div class="sidebar-section" data-sidebar-section>
         <span class="sidebar-section-label">Data</span>
-        {% if modules.get('orm', true) %}
         <a class="sidebar-link{{ ' active' if active_page == 'orm' else '' }}" href="{{ url_prefix|default('/admin') }}/orm/" data-sidebar-label="orm models">
             <i class="icon-database"></i> <span>ORM Models</span>
             {% if total_models is defined %}
             <span class="sidebar-badge">{{ total_models }}</span>
             {% endif %}
         </a>
-        {% endif %}
-        {% if modules.get('migrations', true) %}
         <a class="sidebar-link{{ ' active' if active_page == 'migrations' else '' }}" href="{{ url_prefix|default('/admin') }}/migrations/" data-sidebar-label="migrations">
             <i class="icon-git-branch"></i> <span>Migrations</span>
         </a>
-        {% endif %}
     </div>
     {% endif %}
 
     {# ── System ── #}
-    {% if sections.get('system', true) and (modules.get('monitoring', true) or modules.get('workspace', true) or modules.get('build', true) or modules.get('config', true)) %}
+    {% if sections.get('system', true) %}
     <div class="sidebar-section" data-sidebar-section>
         <span class="sidebar-section-label">System</span>
-        {% if modules.get('monitoring', true) %}
         <a class="sidebar-link{{ ' active' if active_page == 'monitoring' else '' }}" href="{{ url_prefix|default('/admin') }}/monitoring/" data-sidebar-label="monitoring metrics cpu memory">
             <i class="icon-activity"></i> <span>Monitoring</span>
         </a>
-        {% endif %}
-        {% if modules.get('workspace', true) %}
         <a class="sidebar-link{{ ' active' if active_page == 'workspace' else '' }}" href="{{ url_prefix|default('/admin') }}/workspace/" data-sidebar-label="workspace">
             <i class="icon-layout-template"></i> <span>Workspace</span>
         </a>
-        {% endif %}
-        {% if modules.get('build', true) %}
         <a class="sidebar-link{{ ' active' if active_page == 'build' else '' }}" href="{{ url_prefix|default('/admin') }}/build/" data-sidebar-label="build">
             <i class="icon-package"></i> <span>Build</span>
         </a>
-        {% endif %}
-        {% if modules.get('config', true) %}
         <a class="sidebar-link{{ ' active' if active_page == 'config' else '' }}" href="{{ url_prefix|default('/admin') }}/config/" data-sidebar-label="configuration config settings">
             <i class="icon-settings"></i> <span>Configuration</span>
         </a>
-        {% endif %}
     </div>
     {% endif %}
 
     {# ── Security ── #}
-    {% if sections.get('security', true) and (modules.get('permissions', true) or modules.get('audit', true) or modules.get('admin_users', true)) %}
+    {% if sections.get('security', true) %}
     <div class="sidebar-section" data-sidebar-section>
         <span class="sidebar-section-label">Security</span>
-        {% if modules.get('permissions', true) %}
         <a class="sidebar-link{{ ' active' if active_page == 'permissions' else '' }}" href="{{ url_prefix|default('/admin') }}/permissions/" data-sidebar-label="permissions roles access">
             <i class="icon-shield"></i> <span>Permissions</span>
         </a>
-        {% endif %}
-        {% if modules.get('audit', true) %}
         <a class="sidebar-link{{ ' active' if active_page == 'audit' else '' }}" href="{{ url_prefix|default('/admin') }}/audit/" data-sidebar-label="audit log activity">
             <i class="icon-scroll-text"></i> <span>Audit Log</span>
         </a>
-        {% endif %}
-        {% if modules.get('admin_users', true) %}
         <a class="sidebar-link{{ ' active' if active_page == 'admin-users' else '' }}" href="{{ url_prefix|default('/admin') }}/admin-users/" data-sidebar-label="admin users management hierarchy">
             <i class="icon-users"></i> <span>Admin Users</span>
         </a>
-        {% endif %}
     </div>
     {% endif %}
 
@@ -136,3 +115,4 @@
         </div>
     </div>
 </aside>
+
