@@ -47,6 +47,9 @@
     {# ── System ── #}
     <div class="sidebar-section" data-sidebar-section>
         <span class="sidebar-section-label">System</span>
+        <a class="sidebar-link{{ ' active' if active_page == 'monitoring' else '' }}" href="{{ url_prefix|default('/admin') }}/monitoring/" data-sidebar-label="monitoring metrics cpu memory">
+            <i class="icon-activity"></i> <span>Monitoring</span>
+        </a>
         <a class="sidebar-link{{ ' active' if active_page == 'workspace' else '' }}" href="{{ url_prefix|default('/admin') }}/workspace/" data-sidebar-label="workspace">
             <i class="icon-layout-template"></i> <span>Workspace</span>
         </a>

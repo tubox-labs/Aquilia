@@ -480,6 +480,34 @@ def render_permissions_page(
 <body><div style="padding:24px"><h1>Permissions</h1><p>{len(roles)} roles</p></div></body></html>"""
 
 
+def render_monitoring_page(
+    monitoring: Dict[str, Any],
+    app_list: Optional[List[Dict[str, Any]]] = None,
+    identity_name: str = "Admin",
+    *,
+    site_title: str = "Aquilia Admin",
+    url_prefix: str = "/admin",
+) -> str:
+    """Render the application monitoring page with system metrics and charts."""
+    if _HAS_JINJA2:
+        return _render_template(
+            "monitoring.html",
+            monitoring=monitoring,
+            app_list=app_list or [],
+            active_page="monitoring",
+            identity_name=identity_name,
+            site_title=site_title,
+            url_prefix=url_prefix,
+            page_title="Monitoring",
+        )
+    cpu_pct = monitoring.get("cpu", {}).get("percent", 0)
+    mem_pct = monitoring.get("memory", {}).get("percent", 0)
+    return f"""<!DOCTYPE html><html lang="en" data-theme="dark"><head>
+<meta charset="UTF-8"><title>Monitoring — Aquilia Admin</title><style>{_FALLBACK_CSS}</style></head>
+<body><div style="padding:24px"><h1>Monitoring</h1>
+<p>CPU: {cpu_pct}% · Memory: {mem_pct}%</p></div></body></html>"""
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # Inline fallbacks (when Jinja2 is not installed)
 # ═══════════════════════════════════════════════════════════════════════════

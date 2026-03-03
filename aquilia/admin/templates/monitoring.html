@@ -1,0 +1,749 @@
+{% extends "base.html" %}
+{% block title %}Monitoring{% endblock %}
+{% block breadcrumb %}Monitoring{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Application Monitoring</h1>
+    <p>Real-time system metrics, resource utilisation, and process health for this Aquilia instance.</p>
+</div>
+
+{# ── Stats Row ── #}
+<div class="stats-row" style="margin-bottom:28px;">
+    <div class="stat-item">
+        <div class="stat-number" id="statCpu" data-count="{{ monitoring.cpu.percent|default(0)|int }}">{{ monitoring.cpu.percent|default(0)|round(1) }}%</div>
+        <div class="stat-label">CPU Usage</div>
+    </div>
+    <div class="stat-item">
+        <div class="stat-number" id="statMem" data-count="{{ monitoring.memory.percent|default(0)|int }}">{{ monitoring.memory.percent|default(0)|round(1) }}%</div>
+        <div class="stat-label">Memory</div>
+    </div>
+    <div class="stat-item">
+        <div class="stat-number" id="statDisk" data-count="{{ monitoring.disk.percent|default(0)|int }}">{{ monitoring.disk.percent|default(0)|round(1) }}%</div>
+        <div class="stat-label">Disk</div>
+    </div>
+    <div class="stat-item">
+        <div class="stat-number" id="statThreads" data-count="{{ monitoring.process.threads|default(0) }}">{{ monitoring.process.threads|default(0) }}</div>
+        <div class="stat-label">Threads</div>
+    </div>
+    <div class="stat-item">
+        <div class="stat-number" id="statFDs" data-count="{{ monitoring.process.open_files|default(0) }}">{{ monitoring.process.open_files|default(0) }}</div>
+        <div class="stat-label">Open FDs</div>
+    </div>
+    <div class="stat-item">
+        <div class="stat-number" id="statUptime">{{ monitoring.process.uptime_human|default('—') }}</div>
+        <div class="stat-label">Uptime</div>
+    </div>
+</div>
+
+{# ── Tabs ── #}
+<div class="tab-nav" data-tab-group="mon">
+    <button class="tab-btn active" data-tab="overview" onclick="switchTab('mon','overview')">
+        <i class="icon-activity" style="font-size:14px;vertical-align:-2px;margin-right:4px;"></i>Overview
+    </button>
+    <button class="tab-btn" data-tab="cpu" onclick="switchTab('mon','cpu')">
+        <i class="icon-cpu" style="font-size:14px;vertical-align:-2px;margin-right:4px;"></i>CPU
+    </button>
+    <button class="tab-btn" data-tab="memory" onclick="switchTab('mon','memory')">
+        <i class="icon-hard-drive" style="font-size:14px;vertical-align:-2px;margin-right:4px;"></i>Memory
+    </button>
+    <button class="tab-btn" data-tab="network" onclick="switchTab('mon','network')">
+        <i class="icon-wifi" style="font-size:14px;vertical-align:-2px;margin-right:4px;"></i>Network
+    </button>
+    <button class="tab-btn" data-tab="process" onclick="switchTab('mon','process')">
+        <i class="icon-terminal" style="font-size:14px;vertical-align:-2px;margin-right:4px;"></i>Process
+    </button>
+    <button class="tab-btn" data-tab="health" onclick="switchTab('mon','health')">
+        <i class="icon-heart" style="font-size:14px;vertical-align:-2px;margin-right:4px;"></i>Health
+    </button>
+</div>
+
+{# ═══════════════════════════════════════════════════════════════════ #}
+{# ── TAB 1: Overview — gauges & live line charts                  ── #}
+{# ═══════════════════════════════════════════════════════════════════ #}
+<div class="tab-content active" data-tab-content="mon" data-tab="overview">
+    <div class="section-label">System Overview</div>
+
+    {# ── Gauge Row ── #}
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:20px;margin-bottom:28px;">
+        {# CPU Gauge #}
+        <div class="glass-card" style="text-align:center;padding:28px 16px;">
+            <canvas id="gaugeCpu" width="180" height="120" style="display:block;margin:0 auto;"></canvas>
+            <div style="font-size:1.1rem;font-weight:700;margin-top:8px;color:var(--text-primary);" id="gaugeCpuVal">{{ monitoring.cpu.percent|default(0)|round(1) }}%</div>
+            <div style="font-size:0.72rem;color:var(--text-faint);margin-top:2px;">CPU Utilisation</div>
+        </div>
+        {# Memory Gauge #}
+        <div class="glass-card" style="text-align:center;padding:28px 16px;">
+            <canvas id="gaugeMem" width="180" height="120" style="display:block;margin:0 auto;"></canvas>
+            <div style="font-size:1.1rem;font-weight:700;margin-top:8px;color:var(--text-primary);" id="gaugeMemVal">{{ monitoring.memory.percent|default(0)|round(1) }}%</div>
+            <div style="font-size:0.72rem;color:var(--text-faint);margin-top:2px;">Memory · {{ monitoring.memory.used_human|default('—') }} / {{ monitoring.memory.total_human|default('—') }}</div>
+        </div>
+        {# Disk Gauge #}
+        <div class="glass-card" style="text-align:center;padding:28px 16px;">
+            <canvas id="gaugeDisk" width="180" height="120" style="display:block;margin:0 auto;"></canvas>
+            <div style="font-size:1.1rem;font-weight:700;margin-top:8px;color:var(--text-primary);" id="gaugeDiskVal">{{ monitoring.disk.percent|default(0)|round(1) }}%</div>
+            <div style="font-size:0.72rem;color:var(--text-faint);margin-top:2px;">Disk · {{ monitoring.disk.used_human|default('—') }} / {{ monitoring.disk.total_human|default('—') }}</div>
+        </div>
+        {# Swap Gauge #}
+        <div class="glass-card" style="text-align:center;padding:28px 16px;">
+            <canvas id="gaugeSwap" width="180" height="120" style="display:block;margin:0 auto;"></canvas>
+            <div style="font-size:1.1rem;font-weight:700;margin-top:8px;color:var(--text-primary);" id="gaugeSwapVal">{{ monitoring.memory.swap_percent|default(0)|round(1) }}%</div>
+            <div style="font-size:0.72rem;color:var(--text-faint);margin-top:2px;">Swap · {{ monitoring.memory.swap_used_human|default('—') }} / {{ monitoring.memory.swap_total_human|default('—') }}</div>
+        </div>
+    </div>
+
+    {# ── Live Charts ── #}
+    <div class="section-label">Live Metrics <span style="font-size:0.65rem;color:var(--text-faint);font-weight:400;margin-left:8px;" id="pollStatus">● polling every 3s</span></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:28px;">
+        <div class="glass-card" style="padding:20px;">
+            <div style="font-size:0.78rem;font-weight:600;margin-bottom:12px;color:var(--text-secondary);">CPU History (60s)</div>
+            <canvas id="chartCpuHistory" width="500" height="200" style="width:100%;height:200px;"></canvas>
+        </div>
+        <div class="glass-card" style="padding:20px;">
+            <div style="font-size:0.78rem;font-weight:600;margin-bottom:12px;color:var(--text-secondary);">Memory History (60s)</div>
+            <canvas id="chartMemHistory" width="500" height="200" style="width:100%;height:200px;"></canvas>
+        </div>
+    </div>
+
+    {# ── System Info Row ── #}
+    <div class="section-label">System Information</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px;margin-bottom:20px;">
+        <div class="glass-card" style="padding:20px;">
+            <div style="font-size:0.78rem;font-weight:600;margin-bottom:12px;color:var(--text-secondary);">Platform</div>
+            <table style="width:100%;font-size:0.75rem;">
+                <tr><td style="color:var(--text-faint);padding:3px 0;">OS</td><td style="color:var(--text-primary);text-align:right;">{{ monitoring.system.os|default('—') }}</td></tr>
+                <tr><td style="color:var(--text-faint);padding:3px 0;">Platform</td><td style="color:var(--text-primary);text-align:right;">{{ monitoring.system.platform|default('—') }}</td></tr>
+                <tr><td style="color:var(--text-faint);padding:3px 0;">Architecture</td><td style="color:var(--text-primary);text-align:right;">{{ monitoring.system.arch|default('—') }}</td></tr>
+                <tr><td style="color:var(--text-faint);padding:3px 0;">Hostname</td><td style="color:var(--text-primary);text-align:right;">{{ monitoring.system.hostname|default('—') }}</td></tr>
+                <tr><td style="color:var(--text-faint);padding:3px 0;">CPU Cores</td><td style="color:var(--text-primary);text-align:right;">{{ monitoring.cpu.cores_physical|default('—') }} physical / {{ monitoring.cpu.cores_logical|default('—') }} logical</td></tr>
+            </table>
+        </div>
+        <div class="glass-card" style="padding:20px;">
+            <div style="font-size:0.78rem;font-weight:600;margin-bottom:12px;color:var(--text-secondary);">Python Runtime</div>
+            <table style="width:100%;font-size:0.75rem;">
+                <tr><td style="color:var(--text-faint);padding:3px 0;">Version</td><td style="color:var(--text-primary);text-align:right;">{{ monitoring.python.version|default('—') }}</td></tr>
+                <tr><td style="color:var(--text-faint);padding:3px 0;">Implementation</td><td style="color:var(--text-primary);text-align:right;">{{ monitoring.python.implementation|default('—') }}</td></tr>
+                <tr><td style="color:var(--text-faint);padding:3px 0;">Executable</td><td style="color:var(--text-primary);text-align:right;word-break:break-all;font-family:var(--font-mono);font-size:0.65rem;">{{ monitoring.python.executable|default('—') }}</td></tr>
+                <tr><td style="color:var(--text-faint);padding:3px 0;">PID</td><td style="color:var(--text-primary);text-align:right;">{{ monitoring.process.pid|default('—') }}</td></tr>
+                <tr><td style="color:var(--text-faint);padding:3px 0;">GC Objects</td><td style="color:var(--text-primary);text-align:right;">{{ monitoring.python.gc_objects|default('—') }}</td></tr>
+            </table>
+        </div>
+        <div class="glass-card" style="padding:20px;">
+            <div style="font-size:0.78rem;font-weight:600;margin-bottom:12px;color:var(--text-secondary);">Load Average</div>
+            <table style="width:100%;font-size:0.75rem;">
+                <tr><td style="color:var(--text-faint);padding:3px 0;">1 min</td><td style="color:var(--text-primary);text-align:right;">{{ monitoring.cpu.load_avg_1|default('—') }}</td></tr>
+                <tr><td style="color:var(--text-faint);padding:3px 0;">5 min</td><td style="color:var(--text-primary);text-align:right;">{{ monitoring.cpu.load_avg_5|default('—') }}</td></tr>
+                <tr><td style="color:var(--text-faint);padding:3px 0;">15 min</td><td style="color:var(--text-primary);text-align:right;">{{ monitoring.cpu.load_avg_15|default('—') }}</td></tr>
+                <tr><td style="color:var(--text-faint);padding:3px 0;">CPU Freq</td><td style="color:var(--text-primary);text-align:right;">{{ monitoring.cpu.freq_current|default('—') }} MHz</td></tr>
+                <tr><td style="color:var(--text-faint);padding:3px 0;">Ctx Switches</td><td style="color:var(--text-primary);text-align:right;">{{ monitoring.process.ctx_switches|default('—') }}</td></tr>
+            </table>
+        </div>
+    </div>
+</div>
+
+{# ═══════════════════════════════════════════════════════════════════ #}
+{# ── TAB 2: CPU — per-core chart & details                       ── #}
+{# ═══════════════════════════════════════════════════════════════════ #}
+<div class="tab-content" data-tab-content="mon" data-tab="cpu">
+    <div class="section-label">CPU Per-Core Utilisation</div>
+    <div class="glass-card" style="padding:20px;margin-bottom:20px;">
+        <canvas id="chartCpuCores" width="600" height="260" style="width:100%;height:260px;"></canvas>
+    </div>
+
+    <div class="section-label">CPU Times Breakdown</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;">
+        <div class="glass-card" style="padding:20px;">
+            <canvas id="chartCpuTimes" width="300" height="260" style="width:100%;height:260px;"></canvas>
+        </div>
+        <div class="glass-card" style="padding:20px;">
+            <div style="font-size:0.78rem;font-weight:600;margin-bottom:12px;color:var(--text-secondary);">CPU Details</div>
+            <table style="width:100%;font-size:0.75rem;">
+                <tr><td style="color:var(--text-faint);padding:4px 0;">Physical Cores</td><td style="color:var(--text-primary);text-align:right;">{{ monitoring.cpu.cores_physical|default('—') }}</td></tr>
+                <tr><td style="color:var(--text-faint);padding:4px 0;">Logical Cores</td><td style="color:var(--text-primary);text-align:right;">{{ monitoring.cpu.cores_logical|default('—') }}</td></tr>
+                <tr><td style="color:var(--text-faint);padding:4px 0;">Current Frequency</td><td style="color:var(--text-primary);text-align:right;">{{ monitoring.cpu.freq_current|default('—') }} MHz</td></tr>
+                <tr><td style="color:var(--text-faint);padding:4px 0;">Max Frequency</td><td style="color:var(--text-primary);text-align:right;">{{ monitoring.cpu.freq_max|default('—') }} MHz</td></tr>
+                <tr><td style="color:var(--text-faint);padding:4px 0;">User Time</td><td style="color:var(--text-primary);text-align:right;">{{ monitoring.cpu.times_user|default('—') }}s</td></tr>
+                <tr><td style="color:var(--text-faint);padding:4px 0;">System Time</td><td style="color:var(--text-primary);text-align:right;">{{ monitoring.cpu.times_system|default('—') }}s</td></tr>
+                <tr><td style="color:var(--text-faint);padding:4px 0;">Idle Time</td><td style="color:var(--text-primary);text-align:right;">{{ monitoring.cpu.times_idle|default('—') }}s</td></tr>
+            </table>
+        </div>
+    </div>
+</div>
+
+{# ═══════════════════════════════════════════════════════════════════ #}
+{# ── TAB 3: Memory — breakdown bars & swap                       ── #}
+{# ═══════════════════════════════════════════════════════════════════ #}
+<div class="tab-content" data-tab-content="mon" data-tab="memory">
+    <div class="section-label">Memory Allocation</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;">
+        <div class="glass-card" style="padding:20px;">
+            <div style="font-size:0.78rem;font-weight:600;margin-bottom:12px;color:var(--text-secondary);">Physical Memory</div>
+            <canvas id="chartMemBreakdown" width="300" height="260" style="width:100%;height:260px;"></canvas>
+        </div>
+        <div class="glass-card" style="padding:20px;">
+            <div style="font-size:0.78rem;font-weight:600;margin-bottom:12px;color:var(--text-secondary);">Process Memory</div>
+            <canvas id="chartProcMem" width="300" height="260" style="width:100%;height:260px;"></canvas>
+        </div>
+    </div>
+
+    <div class="section-label">Memory Details</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px;margin-bottom:20px;">
+        <div class="glass-card" style="padding:20px;">
+            <div style="font-size:0.78rem;font-weight:600;margin-bottom:12px;color:var(--text-secondary);">System RAM</div>
+            <table style="width:100%;font-size:0.75rem;">
+                <tr><td style="color:var(--text-faint);padding:4px 0;">Total</td><td style="color:var(--text-primary);text-align:right;">{{ monitoring.memory.total_human|default('—') }}</td></tr>
+                <tr><td style="color:var(--text-faint);padding:4px 0;">Available</td><td style="color:var(--text-primary);text-align:right;">{{ monitoring.memory.available_human|default('—') }}</td></tr>
+                <tr><td style="color:var(--text-faint);padding:4px 0;">Used</td><td style="color:var(--text-primary);text-align:right;">{{ monitoring.memory.used_human|default('—') }}</td></tr>
+                <tr><td style="color:var(--text-faint);padding:4px 0;">Utilisation</td><td style="color:var(--text-primary);text-align:right;">{{ monitoring.memory.percent|default(0)|round(1) }}%</td></tr>
+            </table>
+        </div>
+        <div class="glass-card" style="padding:20px;">
+            <div style="font-size:0.78rem;font-weight:600;margin-bottom:12px;color:var(--text-secondary);">Swap</div>
+            <table style="width:100%;font-size:0.75rem;">
+                <tr><td style="color:var(--text-faint);padding:4px 0;">Total</td><td style="color:var(--text-primary);text-align:right;">{{ monitoring.memory.swap_total_human|default('—') }}</td></tr>
+                <tr><td style="color:var(--text-faint);padding:4px 0;">Used</td><td style="color:var(--text-primary);text-align:right;">{{ monitoring.memory.swap_used_human|default('—') }}</td></tr>
+                <tr><td style="color:var(--text-faint);padding:4px 0;">Free</td><td style="color:var(--text-primary);text-align:right;">{{ monitoring.memory.swap_free_human|default('—') }}</td></tr>
+                <tr><td style="color:var(--text-faint);padding:4px 0;">Utilisation</td><td style="color:var(--text-primary);text-align:right;">{{ monitoring.memory.swap_percent|default(0)|round(1) }}%</td></tr>
+            </table>
+        </div>
+        <div class="glass-card" style="padding:20px;">
+            <div style="font-size:0.78rem;font-weight:600;margin-bottom:12px;color:var(--text-secondary);">Process (RSS)</div>
+            <table style="width:100%;font-size:0.75rem;">
+                <tr><td style="color:var(--text-faint);padding:4px 0;">RSS</td><td style="color:var(--text-primary);text-align:right;">{{ monitoring.process.rss_human|default('—') }}</td></tr>
+                <tr><td style="color:var(--text-faint);padding:4px 0;">VMS</td><td style="color:var(--text-primary);text-align:right;">{{ monitoring.process.vms_human|default('—') }}</td></tr>
+                <tr><td style="color:var(--text-faint);padding:4px 0;">% of System</td><td style="color:var(--text-primary);text-align:right;">{{ monitoring.process.mem_percent|default(0)|round(2) }}%</td></tr>
+            </table>
+        </div>
+    </div>
+</div>
+
+{# ═══════════════════════════════════════════════════════════════════ #}
+{# ── TAB 4: Network — I/O counters & connections                 ── #}
+{# ═══════════════════════════════════════════════════════════════════ #}
+<div class="tab-content" data-tab-content="mon" data-tab="network">
+    <div class="section-label">Network I/O</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;">
+        <div class="glass-card" style="padding:20px;">
+            <canvas id="chartNetIO" width="500" height="220" style="width:100%;height:220px;"></canvas>
+        </div>
+        <div class="glass-card" style="padding:20px;">
+            <div style="font-size:0.78rem;font-weight:600;margin-bottom:12px;color:var(--text-secondary);">Network Counters</div>
+            <table style="width:100%;font-size:0.75rem;">
+                <tr><td style="color:var(--text-faint);padding:4px 0;">Bytes Sent</td><td style="color:var(--text-primary);text-align:right;" id="netBytesSent">{{ monitoring.network.bytes_sent_human|default('—') }}</td></tr>
+                <tr><td style="color:var(--text-faint);padding:4px 0;">Bytes Received</td><td style="color:var(--text-primary);text-align:right;" id="netBytesRecv">{{ monitoring.network.bytes_recv_human|default('—') }}</td></tr>
+                <tr><td style="color:var(--text-faint);padding:4px 0;">Packets Sent</td><td style="color:var(--text-primary);text-align:right;" id="netPktsSent">{{ monitoring.network.packets_sent|default('—') }}</td></tr>
+                <tr><td style="color:var(--text-faint);padding:4px 0;">Packets Received</td><td style="color:var(--text-primary);text-align:right;" id="netPktsRecv">{{ monitoring.network.packets_recv|default('—') }}</td></tr>
+                <tr><td style="color:var(--text-faint);padding:4px 0;">Errors In</td><td style="color:var(--text-primary);text-align:right;">{{ monitoring.network.errin|default(0) }}</td></tr>
+                <tr><td style="color:var(--text-faint);padding:4px 0;">Errors Out</td><td style="color:var(--text-primary);text-align:right;">{{ monitoring.network.errout|default(0) }}</td></tr>
+                <tr><td style="color:var(--text-faint);padding:4px 0;">Drops In</td><td style="color:var(--text-primary);text-align:right;">{{ monitoring.network.dropin|default(0) }}</td></tr>
+                <tr><td style="color:var(--text-faint);padding:4px 0;">Drops Out</td><td style="color:var(--text-primary);text-align:right;">{{ monitoring.network.dropout|default(0) }}</td></tr>
+            </table>
+        </div>
+    </div>
+
+    <div class="section-label">Active Connections</div>
+    <div class="glass-card" style="padding:20px;margin-bottom:20px;">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px;text-align:center;">
+            {% for status, count in monitoring.network.connections_by_status.items() %}
+            <div style="padding:14px 8px;background:var(--bg-surface);border-radius:var(--radius-sm);">
+                <div style="font-size:1.2rem;font-weight:700;color:var(--text-primary);">{{ count }}</div>
+                <div style="font-size:0.65rem;color:var(--text-faint);margin-top:2px;">{{ status }}</div>
+            </div>
+            {% endfor %}
+            {% if not monitoring.network.connections_by_status %}
+            <div style="padding:14px;color:var(--text-faint);font-size:0.8rem;">No connection data available</div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{# ═══════════════════════════════════════════════════════════════════ #}
+{# ── TAB 5: Process — detailed process info                      ── #}
+{# ═══════════════════════════════════════════════════════════════════ #}
+<div class="tab-content" data-tab-content="mon" data-tab="process">
+    <div class="section-label">Process Details</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px;margin-bottom:20px;">
+        <div class="glass-card" style="padding:20px;">
+            <div style="font-size:0.78rem;font-weight:600;margin-bottom:12px;color:var(--text-secondary);">Current Process</div>
+            <table style="width:100%;font-size:0.75rem;">
+                <tr><td style="color:var(--text-faint);padding:4px 0;">PID</td><td style="color:var(--text-primary);text-align:right;font-family:var(--font-mono);">{{ monitoring.process.pid|default('—') }}</td></tr>
+                <tr><td style="color:var(--text-faint);padding:4px 0;">Name</td><td style="color:var(--text-primary);text-align:right;">{{ monitoring.process.name|default('—') }}</td></tr>
+                <tr><td style="color:var(--text-faint);padding:4px 0;">Status</td><td style="text-align:right;"><span style="color:{{ '#22c55e' if monitoring.process.status|default('') == 'running' else 'var(--warning)' }};font-weight:600;">{{ monitoring.process.status|default('—') }}</span></td></tr>
+                <tr><td style="color:var(--text-faint);padding:4px 0;">Started</td><td style="color:var(--text-primary);text-align:right;font-size:0.7rem;">{{ monitoring.process.create_time|default('—') }}</td></tr>
+                <tr><td style="color:var(--text-faint);padding:4px 0;">Uptime</td><td style="color:var(--text-primary);text-align:right;">{{ monitoring.process.uptime_human|default('—') }}</td></tr>
+                <tr><td style="color:var(--text-faint);padding:4px 0;">Threads</td><td style="color:var(--text-primary);text-align:right;">{{ monitoring.process.threads|default('—') }}</td></tr>
+                <tr><td style="color:var(--text-faint);padding:4px 0;">Open Files</td><td style="color:var(--text-primary);text-align:right;">{{ monitoring.process.open_files|default('—') }}</td></tr>
+                <tr><td style="color:var(--text-faint);padding:4px 0;">Ctx Switches (vol)</td><td style="color:var(--text-primary);text-align:right;">{{ monitoring.process.ctx_switches_voluntary|default('—') }}</td></tr>
+                <tr><td style="color:var(--text-faint);padding:4px 0;">Ctx Switches (invol)</td><td style="color:var(--text-primary);text-align:right;">{{ monitoring.process.ctx_switches_involuntary|default('—') }}</td></tr>
+            </table>
+        </div>
+        <div class="glass-card" style="padding:20px;">
+            <div style="font-size:0.78rem;font-weight:600;margin-bottom:12px;color:var(--text-secondary);">Process Memory Map</div>
+            <canvas id="chartProcMemMap" width="300" height="260" style="width:100%;height:260px;"></canvas>
+        </div>
+    </div>
+
+    <div class="section-label">Environment Snapshot</div>
+    <div class="glass-card" style="padding:20px;margin-bottom:20px;">
+        <table style="width:100%;font-size:0.72rem;table-layout:fixed;">
+            <colgroup><col style="width:30%;"><col style="width:70%;"></colgroup>
+            {% for key, val in monitoring.process.env_snapshot.items() %}
+            <tr>
+                <td style="color:var(--accent);padding:4px 8px 4px 0;font-family:var(--font-mono);word-break:break-all;vertical-align:top;">{{ key }}</td>
+                <td style="color:var(--text-primary);padding:4px 0;font-family:var(--font-mono);word-break:break-all;">{{ val }}</td>
+            </tr>
+            {% endfor %}
+            {% if not monitoring.process.env_snapshot %}
+            <tr><td colspan="2" style="color:var(--text-faint);padding:8px 0;text-align:center;">No environment variables captured</td></tr>
+            {% endif %}
+        </table>
+    </div>
+</div>
+
+{# ═══════════════════════════════════════════════════════════════════ #}
+{# ── TAB 6: Health — subsystem health checks                     ── #}
+{# ═══════════════════════════════════════════════════════════════════ #}
+<div class="tab-content" data-tab-content="mon" data-tab="health">
+    <div class="section-label">Subsystem Health</div>
+    {% if monitoring.health_checks %}
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;margin-bottom:20px;">
+        {% for check in monitoring.health_checks %}
+        <div class="glass-card" style="padding:18px;">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+                {% if check.status == 'healthy' %}
+                <span style="width:10px;height:10px;border-radius:50%;background:#22c55e;display:inline-block;box-shadow:0 0 6px #22c55e;"></span>
+                {% elif check.status == 'degraded' %}
+                <span style="width:10px;height:10px;border-radius:50%;background:#f59e0b;display:inline-block;box-shadow:0 0 6px #f59e0b;"></span>
+                {% else %}
+                <span style="width:10px;height:10px;border-radius:50%;background:#ef4444;display:inline-block;box-shadow:0 0 6px #ef4444;"></span>
+                {% endif %}
+                <span style="font-weight:600;color:var(--text-primary);font-size:0.85rem;">{{ check.name }}</span>
+                <span style="margin-left:auto;font-size:0.65rem;color:var(--text-faint);">{{ check.latency_ms|default(0)|round(1) }}ms</span>
+            </div>
+            <div style="font-size:0.72rem;color:var(--text-secondary);">{{ check.message|default('No details') }}</div>
+            <div style="font-size:0.6rem;color:var(--text-faint);margin-top:6px;">{{ check.checked_at|default('—') }}</div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="glass-card" style="text-align:center;padding:40px;color:var(--text-faint);">
+        <i class="icon-heart" style="font-size:32px;display:block;margin-bottom:10px;opacity:0.3;"></i>
+        <div style="font-size:0.85rem;">No health checks registered yet.</div>
+        <div style="font-size:0.72rem;margin-top:4px;">Subsystems will appear here once they register with the HealthRegistry.</div>
+    </div>
+    {% endif %}
+
+    <div class="section-label">Disk Partitions</div>
+    {% if monitoring.disk.partitions %}
+    <div class="glass-card" style="padding:20px;margin-bottom:20px;overflow-x:auto;">
+        <table style="width:100%;font-size:0.72rem;border-collapse:collapse;">
+            <thead>
+                <tr style="border-bottom:1px solid var(--border-color);">
+                    <th style="text-align:left;padding:6px 10px;color:var(--text-faint);font-weight:500;">Device</th>
+                    <th style="text-align:left;padding:6px 10px;color:var(--text-faint);font-weight:500;">Mount</th>
+                    <th style="text-align:left;padding:6px 10px;color:var(--text-faint);font-weight:500;">FS Type</th>
+                    <th style="text-align:right;padding:6px 10px;color:var(--text-faint);font-weight:500;">Total</th>
+                    <th style="text-align:right;padding:6px 10px;color:var(--text-faint);font-weight:500;">Used</th>
+                    <th style="text-align:right;padding:6px 10px;color:var(--text-faint);font-weight:500;">Free</th>
+                    <th style="text-align:right;padding:6px 10px;color:var(--text-faint);font-weight:500;">Use%</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in monitoring.disk.partitions %}
+                <tr style="border-bottom:1px solid var(--border-subtle);">
+                    <td style="padding:6px 10px;font-family:var(--font-mono);color:var(--accent);">{{ p.device }}</td>
+                    <td style="padding:6px 10px;color:var(--text-primary);">{{ p.mountpoint }}</td>
+                    <td style="padding:6px 10px;color:var(--text-secondary);">{{ p.fstype }}</td>
+                    <td style="padding:6px 10px;text-align:right;color:var(--text-primary);">{{ p.total_human }}</td>
+                    <td style="padding:6px 10px;text-align:right;color:var(--text-primary);">{{ p.used_human }}</td>
+                    <td style="padding:6px 10px;text-align:right;color:var(--text-primary);">{{ p.free_human }}</td>
+                    <td style="padding:6px 10px;text-align:right;">
+                        <div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;">
+                            <div style="width:60px;height:6px;background:var(--bg-surface);border-radius:3px;overflow:hidden;">
+                                <div style="width:{{ p.percent }}%;height:100%;background:{{ '#22c55e' if p.percent < 70 else '#f59e0b' if p.percent < 90 else '#ef4444' }};border-radius:3px;"></div>
+                            </div>
+                            <span style="font-size:0.7rem;color:var(--text-primary);">{{ p.percent }}%</span>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="glass-card" style="text-align:center;padding:24px;color:var(--text-faint);font-size:0.8rem;">
+        No partition data available.
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+
+// ═══════════════════════════════════════════════════════════════════
+// ── Monitoring Charts & Live Polling                             ──
+// ═══════════════════════════════════════════════════════════════════
+
+var _monData = {{ monitoring|tojson }};
+var _isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+var _accentHex = '#22c55e';
+var _infoHex   = '#3b82f6';
+var _warningHex = '#f59e0b';
+var _dangerHex  = '#ef4444';
+var _purpleHex  = '#a855f7';
+
+function monTheme() {
+    _isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    return {
+        grid: _isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
+        text: _isDark ? '#94a3b8' : '#64748b',
+        bg:   _isDark ? '#0f1117' : '#f8fafc'
+    };
+}
+
+// ── Gauge drawer ──
+function drawGauge(canvasId, pct, color) {
+    var c = document.getElementById(canvasId);
+    if (!c) return;
+    var ctx = c.getContext('2d');
+    var w = c.width, h = c.height;
+    var cx = w / 2, cy = h - 10;
+    var r = Math.min(w, h) - 20;
+    var startAngle = Math.PI;
+    var endAngle = 2 * Math.PI;
+    var t = monTheme();
+
+    ctx.clearRect(0, 0, w, h);
+
+    // Track
+    ctx.beginPath();
+    ctx.arc(cx, cy, r * 0.45, startAngle, endAngle);
+    ctx.lineWidth = 14;
+    ctx.strokeStyle = t.grid;
+    ctx.lineCap = 'round';
+    ctx.stroke();
+
+    // Fill
+    var fillAngle = startAngle + (pct / 100) * Math.PI;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r * 0.45, startAngle, fillAngle);
+    ctx.lineWidth = 14;
+    ctx.strokeStyle = pct < 60 ? color : pct < 85 ? _warningHex : _dangerHex;
+    ctx.lineCap = 'round';
+    ctx.stroke();
+}
+
+// ── Line chart helper ──
+var _cpuHistory = [{{ monitoring.cpu.percent|default(0) }}];
+var _memHistory = [{{ monitoring.memory.percent|default(0) }}];
+var _netSentHistory = [0];
+var _netRecvHistory = [0];
+var _prevNetSent = {{ monitoring.network.bytes_sent|default(0) }};
+var _prevNetRecv = {{ monitoring.network.bytes_recv|default(0) }};
+var MAX_POINTS = 20;
+
+function drawLineChart(canvasId, dataArr, label, color, maxVal, unit) {
+    var c = document.getElementById(canvasId);
+    if (!c) return;
+    var ctx = c.getContext('2d');
+    var w = c.width, h = c.height;
+    var t = monTheme();
+    maxVal = maxVal || 100;
+    unit = unit || '%';
+
+    ctx.clearRect(0, 0, w, h);
+
+    var pad = { top: 20, right: 16, bottom: 30, left: 44 };
+    var cw = w - pad.left - pad.right;
+    var ch = h - pad.top - pad.bottom;
+
+    // Grid lines
+    ctx.strokeStyle = t.grid;
+    ctx.lineWidth = 1;
+    for (var i = 0; i <= 4; i++) {
+        var y = pad.top + (ch / 4) * i;
+        ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(w - pad.right, y); ctx.stroke();
+        ctx.fillStyle = t.text;
+        ctx.font = '10px Outfit, sans-serif';
+        ctx.textAlign = 'right';
+        ctx.fillText(Math.round(maxVal - (maxVal / 4) * i) + unit, pad.left - 6, y + 3);
+    }
+
+    if (dataArr.length < 2) return;
+
+    // Fill area
+    ctx.beginPath();
+    for (var j = 0; j < dataArr.length; j++) {
+        var x = pad.left + (j / (MAX_POINTS - 1)) * cw;
+        var yVal = pad.top + ch - (dataArr[j] / maxVal) * ch;
+        if (j === 0) ctx.moveTo(x, yVal); else ctx.lineTo(x, yVal);
+    }
+    ctx.lineTo(pad.left + ((dataArr.length - 1) / (MAX_POINTS - 1)) * cw, pad.top + ch);
+    ctx.lineTo(pad.left, pad.top + ch);
+    ctx.closePath();
+    ctx.fillStyle = color + '1A';
+    ctx.fill();
+
+    // Line
+    ctx.beginPath();
+    for (var k = 0; k < dataArr.length; k++) {
+        var x2 = pad.left + (k / (MAX_POINTS - 1)) * cw;
+        var y2 = pad.top + ch - (dataArr[k] / maxVal) * ch;
+        if (k === 0) ctx.moveTo(x2, y2); else ctx.lineTo(x2, y2);
+    }
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2.5;
+    ctx.lineJoin = 'round';
+    ctx.stroke();
+
+    // Current value dot
+    var lastX = pad.left + ((dataArr.length - 1) / (MAX_POINTS - 1)) * cw;
+    var lastY = pad.top + ch - (dataArr[dataArr.length - 1] / maxVal) * ch;
+    ctx.beginPath();
+    ctx.arc(lastX, lastY, 4, 0, 2 * Math.PI);
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.strokeStyle = t.bg;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Label
+    ctx.fillStyle = t.text;
+    ctx.font = '500 11px Outfit, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(label + ': ' + dataArr[dataArr.length - 1].toFixed(1) + unit, pad.left + 4, pad.top - 6);
+}
+
+// ── Bar chart helper ──
+function drawBarChart(canvasId, labels, values, colors, title) {
+    var c = document.getElementById(canvasId);
+    if (!c) return;
+    var ctx = c.getContext('2d');
+    var w = c.width, h = c.height;
+    var t = monTheme();
+
+    ctx.clearRect(0, 0, w, h);
+
+    var pad = { top: 16, right: 16, bottom: 40, left: 12 };
+    var cw = w - pad.left - pad.right;
+    var ch = h - pad.top - pad.bottom;
+    var maxVal = Math.max.apply(null, values) || 1;
+    var barW = (cw / labels.length) * 0.6;
+    var gap = (cw / labels.length) * 0.4;
+
+    for (var i = 0; i < labels.length; i++) {
+        var x = pad.left + (cw / labels.length) * i + gap / 2;
+        var barH = (values[i] / maxVal) * ch;
+        var y = pad.top + ch - barH;
+
+        // Bar
+        ctx.fillStyle = colors[i % colors.length];
+        ctx.beginPath();
+        ctx.roundRect(x, y, barW, barH, [4, 4, 0, 0]);
+        ctx.fill();
+
+        // Value on top
+        ctx.fillStyle = t.text;
+        ctx.font = '500 9px Outfit, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(values[i].toFixed(1) + '%', x + barW / 2, y - 5);
+
+        // Label below
+        ctx.save();
+        ctx.translate(x + barW / 2, pad.top + ch + 8);
+        ctx.rotate(-0.4);
+        ctx.fillStyle = t.text;
+        ctx.font = '10px Outfit, sans-serif';
+        ctx.textAlign = 'right';
+        ctx.fillText(labels[i], 0, 0);
+        ctx.restore();
+    }
+}
+
+// ── Doughnut chart helper ──
+function drawDoughnut(canvasId, labels, values, colors) {
+    var c = document.getElementById(canvasId);
+    if (!c) return;
+    var ctx = c.getContext('2d');
+    var w = c.width, h = c.height;
+    var t = monTheme();
+    var cx = w / 2, cy = h / 2;
+    var r = Math.min(w, h) / 2 - 30;
+    var total = 0;
+    for (var i = 0; i < values.length; i++) total += values[i];
+    if (total === 0) return;
+
+    var angle = -Math.PI / 2;
+    for (var j = 0; j < values.length; j++) {
+        var sliceAngle = (values[j] / total) * 2 * Math.PI;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, angle, angle + sliceAngle);
+        ctx.arc(cx, cy, r * 0.55, angle + sliceAngle, angle, true);
+        ctx.closePath();
+        ctx.fillStyle = colors[j % colors.length];
+        ctx.fill();
+        angle += sliceAngle;
+    }
+
+    // Legend
+    var lx = 8, ly = h - labels.length * 16 - 4;
+    for (var k = 0; k < labels.length; k++) {
+        ctx.fillStyle = colors[k % colors.length];
+        ctx.fillRect(lx, ly + k * 16, 10, 10);
+        ctx.fillStyle = t.text;
+        ctx.font = '10px Outfit, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText(labels[k], lx + 14, ly + k * 16 + 9);
+    }
+}
+
+// ── Initial chart renders ──
+function renderAllCharts() {
+    // Gauges
+    drawGauge('gaugeCpu', _monData.cpu.percent || 0, _accentHex);
+    drawGauge('gaugeMem', _monData.memory.percent || 0, _infoHex);
+    drawGauge('gaugeDisk', _monData.disk.percent || 0, _warningHex);
+    drawGauge('gaugeSwap', _monData.memory.swap_percent || 0, _purpleHex);
+
+    // Live history
+    drawLineChart('chartCpuHistory', _cpuHistory, 'CPU', _accentHex, 100, '%');
+    drawLineChart('chartMemHistory', _memHistory, 'Memory', _infoHex, 100, '%');
+
+    // CPU per-core bars
+    var coreLabels = [];
+    var coreValues = _monData.cpu.per_core || [];
+    for (var i = 0; i < coreValues.length; i++) coreLabels.push('Core ' + i);
+    var coreColors = [];
+    for (var j = 0; j < coreValues.length; j++) {
+        coreColors.push(j % 2 === 0 ? _accentHex : _infoHex);
+    }
+    if (coreValues.length) drawBarChart('chartCpuCores', coreLabels, coreValues, coreColors, 'Per-Core Usage');
+
+    // CPU Times doughnut
+    var cpuTimes = _monData.cpu;
+    var timesLabels = ['User', 'System', 'Idle'];
+    var timesValues = [cpuTimes.times_user || 0, cpuTimes.times_system || 0, cpuTimes.times_idle || 0];
+    drawDoughnut('chartCpuTimes', timesLabels, timesValues, [_accentHex, _warningHex, '#64748b']);
+
+    // Memory breakdown doughnut
+    var mem = _monData.memory;
+    drawDoughnut('chartMemBreakdown',
+        ['Used', 'Available'],
+        [mem.used || 0, mem.available || 0],
+        [_infoHex, '#64748b']
+    );
+
+    // Process memory doughnut
+    var proc = _monData.process;
+    drawDoughnut('chartProcMem',
+        ['RSS', 'VMS (other)'],
+        [proc.rss || 0, Math.max(0, (proc.vms || 0) - (proc.rss || 0))],
+        [_accentHex, '#64748b']
+    );
+
+    // Process memory map
+    drawDoughnut('chartProcMemMap',
+        ['RSS', 'Shared', 'Private'],
+        [proc.rss || 0, proc.shared || 0, proc.private || 0],
+        [_accentHex, _infoHex, _purpleHex]
+    );
+
+    // Network I/O bar chart
+    drawBarChart('chartNetIO',
+        ['Sent', 'Received'],
+        [(_monData.network.bytes_sent || 0) / (1024 * 1024), (_monData.network.bytes_recv || 0) / (1024 * 1024)],
+        [_accentHex, _infoHex],
+        'Network I/O (MB)'
+    );
+}
+
+renderAllCharts();
+
+// ── Live Polling (every 3 seconds) ──
+var _pollInterval = null;
+var _urlPrefix = '{{ url_prefix|default("/admin") }}';
+
+function startPolling() {
+    _pollInterval = setInterval(function() {
+        fetch(_urlPrefix + '/monitoring/api/')
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                _monData = data;
+
+                // Update history arrays
+                _cpuHistory.push(data.cpu.percent || 0);
+                _memHistory.push(data.memory.percent || 0);
+
+                // Network delta
+                var deltaSent = ((data.network.bytes_sent || 0) - _prevNetSent) / 1024;
+                var deltaRecv = ((data.network.bytes_recv || 0) - _prevNetRecv) / 1024;
+                _netSentHistory.push(Math.max(0, deltaSent));
+                _netRecvHistory.push(Math.max(0, deltaRecv));
+                _prevNetSent = data.network.bytes_sent || 0;
+                _prevNetRecv = data.network.bytes_recv || 0;
+
+                // Trim to MAX_POINTS
+                if (_cpuHistory.length > MAX_POINTS) _cpuHistory.shift();
+                if (_memHistory.length > MAX_POINTS) _memHistory.shift();
+                if (_netSentHistory.length > MAX_POINTS) _netSentHistory.shift();
+                if (_netRecvHistory.length > MAX_POINTS) _netRecvHistory.shift();
+
+                // Update stat counters
+                var cpuEl = document.getElementById('statCpu');
+                if (cpuEl) cpuEl.textContent = (data.cpu.percent || 0).toFixed(1) + '%';
+                var memEl = document.getElementById('statMem');
+                if (memEl) memEl.textContent = (data.memory.percent || 0).toFixed(1) + '%';
+                var diskEl = document.getElementById('statDisk');
+                if (diskEl) diskEl.textContent = (data.disk.percent || 0).toFixed(1) + '%';
+                var thrEl = document.getElementById('statThreads');
+                if (thrEl) thrEl.textContent = data.process.threads || 0;
+                var fdEl = document.getElementById('statFDs');
+                if (fdEl) fdEl.textContent = data.process.open_files || 0;
+                var upEl = document.getElementById('statUptime');
+                if (upEl) upEl.textContent = data.process.uptime_human || '—';
+
+                // Update gauge values
+                var gCpuV = document.getElementById('gaugeCpuVal');
+                if (gCpuV) gCpuV.textContent = (data.cpu.percent || 0).toFixed(1) + '%';
+                var gMemV = document.getElementById('gaugeMemVal');
+                if (gMemV) gMemV.textContent = (data.memory.percent || 0).toFixed(1) + '%';
+
+                // Update network counters
+                var nbs = document.getElementById('netBytesSent');
+                if (nbs) nbs.textContent = data.network.bytes_sent_human || '—';
+                var nbr = document.getElementById('netBytesRecv');
+                if (nbr) nbr.textContent = data.network.bytes_recv_human || '—';
+                var nps = document.getElementById('netPktsSent');
+                if (nps) nps.textContent = data.network.packets_sent || '—';
+                var npr = document.getElementById('netPktsRecv');
+                if (npr) npr.textContent = data.network.packets_recv || '—';
+
+                // Re-render charts
+                renderAllCharts();
+
+                // Pulse the poll indicator
+                var ps = document.getElementById('pollStatus');
+                if (ps) {
+                    ps.style.color = _accentHex;
+                    setTimeout(function() { ps.style.color = ''; }, 300);
+                }
+            })
+            .catch(function() {
+                var ps = document.getElementById('pollStatus');
+                if (ps) { ps.textContent = '● connection lost'; ps.style.color = _dangerHex; }
+            });
+    }, 3000);
+}
+
+startPolling();
+
+// ── Theme observer — redraw charts on theme toggle ──
+new MutationObserver(function() { renderAllCharts(); })
+    .observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+// ── Cleanup on page leave ──
+window.addEventListener('beforeunload', function() {
+    if (_pollInterval) clearInterval(_pollInterval);
+});
+
+{% endblock %}

@@ -695,6 +695,355 @@ class AdminSite:
 
     # ── Workspace data ───────────────────────────────────────────────
 
+    @staticmethod
+    def _fmt_bytes(b: int) -> str:
+        """Format bytes into human-readable string."""
+        for unit in ("B", "KB", "MB", "GB", "TB"):
+            if abs(b) < 1024:
+                return f"{b:.1f} {unit}"
+            b /= 1024  # type: ignore[assignment]
+        return f"{b:.1f} PB"
+
+    def get_monitoring_data(self) -> Dict[str, Any]:
+        """
+        Gather comprehensive system monitoring data.
+
+        Collects CPU, memory, disk, network, process, Python runtime,
+        and health-check information using ``psutil`` (with graceful
+        fallbacks when it is not installed) and stdlib introspection.
+
+        Returns a dict with sections:
+            - cpu: percent, per_core, load_avg, freq, times, cores
+            - memory: total, used, available, percent, swap_*
+            - disk: total, used, free, percent, partitions
+            - network: bytes_sent/recv, packets, errors, connections
+            - process: pid, name, status, uptime, threads, rss, vms, fds
+            - python: version, implementation, executable, gc_objects
+            - system: os, platform, arch, hostname
+            - health_checks: list from HealthRegistry
+        """
+        import gc
+        import os
+        import platform
+        import sys
+        import time
+        from datetime import datetime, timezone
+
+        result: Dict[str, Any] = {
+            "cpu": {},
+            "memory": {},
+            "disk": {},
+            "network": {},
+            "process": {},
+            "python": {},
+            "system": {},
+            "health_checks": [],
+        }
+
+        # ── System info (always available) ──
+        result["system"] = {
+            "os": platform.system(),
+            "platform": platform.platform(),
+            "arch": platform.machine(),
+            "hostname": platform.node(),
+        }
+
+        # ── Python runtime ──
+        result["python"] = {
+            "version": platform.python_version(),
+            "implementation": platform.python_implementation(),
+            "executable": sys.executable,
+            "gc_objects": len(gc.get_objects()),
+        }
+
+        # ── psutil-based metrics ──
+        try:
+            import psutil
+
+            # CPU
+            cpu_percent = psutil.cpu_percent(interval=0.1)
+            per_core = psutil.cpu_percent(interval=0, percpu=True)
+            cpu_freq = psutil.cpu_freq()
+            cpu_times = psutil.cpu_times()
+            try:
+                load_avg = os.getloadavg()
+            except (AttributeError, OSError):
+                load_avg = (0.0, 0.0, 0.0)
+
+            result["cpu"] = {
+                "percent": cpu_percent,
+                "per_core": per_core,
+                "cores_physical": psutil.cpu_count(logical=False) or 0,
+                "cores_logical": psutil.cpu_count(logical=True) or 0,
+                "freq_current": round(cpu_freq.current, 0) if cpu_freq else 0,
+                "freq_max": round(cpu_freq.max, 0) if cpu_freq else 0,
+                "load_avg_1": round(load_avg[0], 2),
+                "load_avg_5": round(load_avg[1], 2),
+                "load_avg_15": round(load_avg[2], 2),
+                "times_user": round(cpu_times.user, 1),
+                "times_system": round(cpu_times.system, 1),
+                "times_idle": round(cpu_times.idle, 1),
+            }
+
+            # Memory
+            vm = psutil.virtual_memory()
+            sw = psutil.swap_memory()
+            result["memory"] = {
+                "total": vm.total,
+                "total_human": self._fmt_bytes(vm.total),
+                "available": vm.available,
+                "available_human": self._fmt_bytes(vm.available),
+                "used": vm.used,
+                "used_human": self._fmt_bytes(vm.used),
+                "percent": vm.percent,
+                "swap_total": sw.total,
+                "swap_total_human": self._fmt_bytes(sw.total),
+                "swap_used": sw.used,
+                "swap_used_human": self._fmt_bytes(sw.used),
+                "swap_free": sw.free,
+                "swap_free_human": self._fmt_bytes(sw.free),
+                "swap_percent": sw.percent,
+            }
+
+            # Disk
+            try:
+                disk = psutil.disk_usage("/")
+                result["disk"] = {
+                    "total": disk.total,
+                    "total_human": self._fmt_bytes(disk.total),
+                    "used": disk.used,
+                    "used_human": self._fmt_bytes(disk.used),
+                    "free": disk.free,
+                    "free_human": self._fmt_bytes(disk.free),
+                    "percent": disk.percent,
+                    "partitions": [],
+                }
+            except Exception:
+                result["disk"] = {
+                    "total": 0, "total_human": "—",
+                    "used": 0, "used_human": "—",
+                    "free": 0, "free_human": "—",
+                    "percent": 0, "partitions": [],
+                }
+
+            # Disk partitions
+            try:
+                for p in psutil.disk_partitions(all=False):
+                    try:
+                        usage = psutil.disk_usage(p.mountpoint)
+                        result["disk"]["partitions"].append({
+                            "device": p.device,
+                            "mountpoint": p.mountpoint,
+                            "fstype": p.fstype,
+                            "total_human": self._fmt_bytes(usage.total),
+                            "used_human": self._fmt_bytes(usage.used),
+                            "free_human": self._fmt_bytes(usage.free),
+                            "percent": usage.percent,
+                        })
+                    except (PermissionError, OSError):
+                        continue
+            except Exception:
+                pass
+
+            # Network
+            try:
+                net = psutil.net_io_counters()
+                result["network"] = {
+                    "bytes_sent": net.bytes_sent,
+                    "bytes_sent_human": self._fmt_bytes(net.bytes_sent),
+                    "bytes_recv": net.bytes_recv,
+                    "bytes_recv_human": self._fmt_bytes(net.bytes_recv),
+                    "packets_sent": net.packets_sent,
+                    "packets_recv": net.packets_recv,
+                    "errin": net.errin,
+                    "errout": net.errout,
+                    "dropin": net.dropin,
+                    "dropout": net.dropout,
+                    "connections_by_status": {},
+                }
+            except Exception:
+                result["network"] = {
+                    "bytes_sent": 0, "bytes_sent_human": "—",
+                    "bytes_recv": 0, "bytes_recv_human": "—",
+                    "packets_sent": 0, "packets_recv": 0,
+                    "errin": 0, "errout": 0, "dropin": 0, "dropout": 0,
+                    "connections_by_status": {},
+                }
+
+            # Connections by status
+            try:
+                conns = psutil.net_connections(kind="inet")
+                status_counts: Dict[str, int] = {}
+                for c in conns:
+                    s = c.status if c.status else "NONE"
+                    status_counts[s] = status_counts.get(s, 0) + 1
+                result["network"]["connections_by_status"] = status_counts
+            except (psutil.AccessDenied, OSError):
+                pass
+
+            # Process
+            proc = psutil.Process(os.getpid())
+            try:
+                mem_info = proc.memory_info()
+                rss = mem_info.rss
+                vms = mem_info.vms
+            except Exception:
+                rss = 0
+                vms = 0
+
+            try:
+                ctx_sw = proc.num_ctx_switches()
+                ctx_vol = ctx_sw.voluntary
+                ctx_invol = ctx_sw.involuntary
+            except Exception:
+                ctx_vol = 0
+                ctx_invol = 0
+
+            try:
+                open_files_count = len(proc.open_files())
+            except (psutil.AccessDenied, OSError):
+                open_files_count = 0
+
+            try:
+                create_time = proc.create_time()
+                uptime_s = time.time() - create_time
+                uptime_human = self._format_uptime(uptime_s)
+                create_time_str = datetime.fromtimestamp(
+                    create_time, tz=timezone.utc
+                ).strftime("%Y-%m-%d %H:%M:%S UTC")
+            except Exception:
+                uptime_human = "—"
+                create_time_str = "—"
+
+            # Shared / private memory (platform-specific)
+            shared_mem = 0
+            private_mem = 0
+            try:
+                ext = proc.memory_info()
+                if hasattr(ext, "shared"):
+                    shared_mem = ext.shared
+                    private_mem = rss - shared_mem
+                else:
+                    private_mem = rss
+            except Exception:
+                private_mem = rss
+
+            result["process"] = {
+                "pid": os.getpid(),
+                "name": proc.name(),
+                "status": proc.status(),
+                "create_time": create_time_str,
+                "uptime_human": uptime_human,
+                "threads": proc.num_threads(),
+                "open_files": open_files_count,
+                "rss": rss,
+                "rss_human": self._fmt_bytes(rss),
+                "vms": vms,
+                "vms_human": self._fmt_bytes(vms),
+                "shared": shared_mem,
+                "private": private_mem,
+                "mem_percent": proc.memory_percent(),
+                "ctx_switches": ctx_vol + ctx_invol,
+                "ctx_switches_voluntary": ctx_vol,
+                "ctx_switches_involuntary": ctx_invol,
+                "env_snapshot": self._safe_env_snapshot(),
+            }
+
+        except ImportError:
+            # psutil not available — provide minimal data
+            result["cpu"] = {
+                "percent": 0, "per_core": [], "cores_physical": 0,
+                "cores_logical": os.cpu_count() or 0,
+                "freq_current": 0, "freq_max": 0,
+                "load_avg_1": 0, "load_avg_5": 0, "load_avg_15": 0,
+                "times_user": 0, "times_system": 0, "times_idle": 0,
+            }
+            result["memory"] = {
+                "total": 0, "total_human": "—",
+                "available": 0, "available_human": "—",
+                "used": 0, "used_human": "—", "percent": 0,
+                "swap_total": 0, "swap_total_human": "—",
+                "swap_used": 0, "swap_used_human": "—",
+                "swap_free": 0, "swap_free_human": "—",
+                "swap_percent": 0,
+            }
+            result["disk"] = {
+                "total": 0, "total_human": "—",
+                "used": 0, "used_human": "—",
+                "free": 0, "free_human": "—",
+                "percent": 0, "partitions": [],
+            }
+            result["network"] = {
+                "bytes_sent": 0, "bytes_sent_human": "—",
+                "bytes_recv": 0, "bytes_recv_human": "—",
+                "packets_sent": 0, "packets_recv": 0,
+                "errin": 0, "errout": 0, "dropin": 0, "dropout": 0,
+                "connections_by_status": {},
+            }
+            result["process"] = {
+                "pid": os.getpid(), "name": "python", "status": "running",
+                "create_time": "—", "uptime_human": "—",
+                "threads": 0, "open_files": 0,
+                "rss": 0, "rss_human": "—", "vms": 0, "vms_human": "—",
+                "shared": 0, "private": 0,
+                "mem_percent": 0, "ctx_switches": 0,
+                "ctx_switches_voluntary": 0, "ctx_switches_involuntary": 0,
+                "env_snapshot": self._safe_env_snapshot(),
+            }
+
+        # ── Health checks ──
+        try:
+            from aquilia.health import HealthRegistry
+            # Try to find a HealthRegistry in the DI container or global
+            registry = getattr(self, "_health_registry", None)
+            if registry is None:
+                # Look for a global instance
+                import aquilia
+                registry = getattr(aquilia, "_health_registry", None)
+            if registry and isinstance(registry, HealthRegistry):
+                for name, status in registry.all_statuses.items():
+                    result["health_checks"].append(status.to_dict())
+        except Exception:
+            pass
+
+        return result
+
+    @staticmethod
+    def _format_uptime(seconds: float) -> str:
+        """Format seconds into human-readable uptime string."""
+        days = int(seconds // 86400)
+        hours = int((seconds % 86400) // 3600)
+        minutes = int((seconds % 3600) // 60)
+        secs = int(seconds % 60)
+        parts = []
+        if days > 0:
+            parts.append(f"{days}d")
+        if hours > 0:
+            parts.append(f"{hours}h")
+        if minutes > 0:
+            parts.append(f"{minutes}m")
+        parts.append(f"{secs}s")
+        return " ".join(parts)
+
+    @staticmethod
+    def _safe_env_snapshot() -> Dict[str, str]:
+        """Capture a safe subset of environment variables (no secrets)."""
+        import os
+        safe_keys = [
+            "VIRTUAL_ENV", "PYTHONPATH", "PATH", "HOME", "USER",
+            "SHELL", "TERM", "LANG", "LC_ALL", "TZ",
+            "AQUILIA_ENV", "AQUILIA_DEBUG",
+        ]
+        result: Dict[str, str] = {}
+        for key in safe_keys:
+            val = os.environ.get(key)
+            if val:
+                # Truncate long values
+                if len(val) > 200:
+                    val = val[:200] + "…"
+                result[key] = val
+        return result
+
     def get_workspace_data(self) -> Dict[str, Any]:
         """
         Gather comprehensive workspace data for the admin workspace page.

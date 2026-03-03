@@ -2115,6 +2115,100 @@ class TestNewTemplatesRendering:
         )
         assert "<!DOCTYPE html>" in html
 
+    # ── Monitoring page ──
+
+    def test_render_monitoring_page(self):
+        from aquilia.admin.templates import render_monitoring_page
+        monitoring = {
+            "cpu": {"percent": 42.5, "per_core": [40.0, 45.0], "cores_physical": 4,
+                    "cores_logical": 8, "freq_current": 2400, "freq_max": 3200,
+                    "load_avg_1": 1.5, "load_avg_5": 1.2, "load_avg_15": 1.0,
+                    "times_user": 100.0, "times_system": 50.0, "times_idle": 200.0},
+            "memory": {"total": 17179869184, "total_human": "16.0 GB",
+                       "available": 8589934592, "available_human": "8.0 GB",
+                       "used": 8589934592, "used_human": "8.0 GB", "percent": 50.0,
+                       "swap_total": 4294967296, "swap_total_human": "4.0 GB",
+                       "swap_used": 1073741824, "swap_used_human": "1.0 GB",
+                       "swap_free": 3221225472, "swap_free_human": "3.0 GB",
+                       "swap_percent": 25.0},
+            "disk": {"total": 500000000000, "total_human": "465.7 GB",
+                     "used": 250000000000, "used_human": "232.8 GB",
+                     "free": 250000000000, "free_human": "232.8 GB",
+                     "percent": 50.0, "partitions": [
+                         {"device": "/dev/sda1", "mountpoint": "/", "fstype": "ext4",
+                          "total_human": "465.7 GB", "used_human": "232.8 GB",
+                          "free_human": "232.8 GB", "percent": 50.0}
+                     ]},
+            "network": {"bytes_sent": 1048576, "bytes_sent_human": "1.0 MB",
+                        "bytes_recv": 2097152, "bytes_recv_human": "2.0 MB",
+                        "packets_sent": 1000, "packets_recv": 2000,
+                        "errin": 0, "errout": 0, "dropin": 0, "dropout": 0,
+                        "connections_by_status": {"ESTABLISHED": 5, "LISTEN": 3}},
+            "process": {"pid": 1234, "name": "python", "status": "running",
+                        "create_time": "2025-01-01 00:00:00 UTC",
+                        "uptime_human": "1d 2h 3m 4s", "threads": 8,
+                        "open_files": 12, "rss": 104857600, "rss_human": "100.0 MB",
+                        "vms": 209715200, "vms_human": "200.0 MB",
+                        "shared": 0, "private": 104857600,
+                        "mem_percent": 0.61, "ctx_switches": 500,
+                        "ctx_switches_voluntary": 400,
+                        "ctx_switches_involuntary": 100,
+                        "env_snapshot": {"VIRTUAL_ENV": "/path/to/env"}},
+            "python": {"version": "3.14.0", "implementation": "CPython",
+                       "executable": "/usr/bin/python3", "gc_objects": 5000},
+            "system": {"os": "Linux", "platform": "Linux-5.15",
+                       "arch": "x86_64", "hostname": "test-host"},
+            "health_checks": [
+                {"name": "database", "status": "healthy", "latency_ms": 1.5,
+                 "message": "Connected", "checked_at": "2025-01-01T00:00:00Z"},
+            ],
+        }
+        html = render_monitoring_page(monitoring=monitoring, app_list=[], identity_name="Admin")
+        assert "<!DOCTYPE html>" in html
+        assert "Monitoring" in html
+        assert "CPU" in html
+
+    def test_render_monitoring_page_empty(self):
+        from aquilia.admin.templates import render_monitoring_page
+        monitoring = {
+            "cpu": {"percent": 0, "per_core": [], "cores_physical": 0,
+                    "cores_logical": 0, "freq_current": 0, "freq_max": 0,
+                    "load_avg_1": 0, "load_avg_5": 0, "load_avg_15": 0,
+                    "times_user": 0, "times_system": 0, "times_idle": 0},
+            "memory": {"total": 0, "total_human": "—", "available": 0,
+                       "available_human": "—", "used": 0, "used_human": "—",
+                       "percent": 0, "swap_total": 0, "swap_total_human": "—",
+                       "swap_used": 0, "swap_used_human": "—",
+                       "swap_free": 0, "swap_free_human": "—", "swap_percent": 0},
+            "disk": {"total": 0, "total_human": "—", "used": 0, "used_human": "—",
+                     "free": 0, "free_human": "—", "percent": 0, "partitions": []},
+            "network": {"bytes_sent": 0, "bytes_sent_human": "—",
+                        "bytes_recv": 0, "bytes_recv_human": "—",
+                        "packets_sent": 0, "packets_recv": 0,
+                        "errin": 0, "errout": 0, "dropin": 0, "dropout": 0,
+                        "connections_by_status": {}},
+            "process": {"pid": 0, "name": "python", "status": "running",
+                        "create_time": "—", "uptime_human": "—",
+                        "threads": 0, "open_files": 0,
+                        "rss": 0, "rss_human": "—", "vms": 0, "vms_human": "—",
+                        "shared": 0, "private": 0,
+                        "mem_percent": 0, "ctx_switches": 0,
+                        "ctx_switches_voluntary": 0, "ctx_switches_involuntary": 0,
+                        "env_snapshot": {}},
+            "python": {"version": "3.14.0", "implementation": "CPython",
+                       "executable": "/usr/bin/python3", "gc_objects": 0},
+            "system": {"os": "Linux", "platform": "Linux-5.15",
+                       "arch": "x86_64", "hostname": "test-host"},
+            "health_checks": [],
+        }
+        html = render_monitoring_page(monitoring=monitoring, app_list=[], identity_name="Admin")
+        assert "<!DOCTYPE html>" in html
+
+    def test_render_monitoring_page_import(self):
+        """render_monitoring_page is importable from templates module."""
+        from aquilia.admin.templates import render_monitoring_page
+        assert callable(render_monitoring_page)
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # R3. Controller Handlers — auth + render
@@ -2218,6 +2312,37 @@ class TestNewControllerHandlers:
         self.site._initialized = True
         resp = await self.ctrl.audit_view(self._req(), self._ctx(identity=_sa_identity()))
         assert resp.status == 200
+
+    # Monitoring
+    @pytest.mark.asyncio
+    async def test_monitoring_unauth(self):
+        resp = await self.ctrl.monitoring_view(self._req(), self._ctx())
+        assert resp.status == 302
+
+    @pytest.mark.asyncio
+    async def test_monitoring_auth(self):
+        self.site._initialized = True
+        resp = await self.ctrl.monitoring_view(self._req(), self._ctx(identity=_sa_identity()))
+        assert resp.status == 200
+        assert b"<!DOCTYPE html>" in resp._content
+
+    @pytest.mark.asyncio
+    async def test_monitoring_api_unauth(self):
+        resp = await self.ctrl.monitoring_api(self._req(), self._ctx())
+        assert resp.status == 401
+
+    @pytest.mark.asyncio
+    async def test_monitoring_api_auth(self):
+        self.site._initialized = True
+        resp = await self.ctrl.monitoring_api(self._req(), self._ctx(identity=_sa_identity()))
+        assert resp.status == 200
+        import json
+        data = json.loads(resp._content)
+        assert "cpu" in data
+        assert "memory" in data
+        assert "disk" in data
+        assert "network" in data
+        assert "process" in data
 
     @pytest.mark.asyncio
     async def test_list_view_real_model(self):
@@ -2389,7 +2514,7 @@ class TestTemplatePartialsV3:
     def test_sidebar_v2_nav_links(self):
         from pathlib import Path
         content = (Path(__file__).parent.parent / "aquilia/admin/templates/partials/sidebar_v2.html").read_text()
-        for page in ("orm", "build", "migrations", "config", "permissions", "audit"):
+        for page in ("orm", "build", "migrations", "config", "permissions", "audit", "monitoring"):
             assert page in content.lower(), f"/{page}/ link missing from sidebar"
 
     def test_css_exists(self):
@@ -4588,6 +4713,210 @@ class TestModalAccessibility:
             app_list=[], identity_name="admin",
         )
         assert "Escape" in html
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Monitoring System Tests
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class TestMonitoringDataCollector:
+    """AdminSite.get_monitoring_data() should return comprehensive system metrics."""
+
+    def test_get_monitoring_data_returns_dict(self):
+        from aquilia.admin.site import AdminSite
+        site = AdminSite()
+        site._initialized = True
+        data = site.get_monitoring_data()
+        assert isinstance(data, dict)
+
+    def test_get_monitoring_data_has_cpu(self):
+        from aquilia.admin.site import AdminSite
+        site = AdminSite()
+        data = site.get_monitoring_data()
+        assert "cpu" in data
+        assert "percent" in data["cpu"]
+        assert isinstance(data["cpu"]["percent"], (int, float))
+
+    def test_get_monitoring_data_has_memory(self):
+        from aquilia.admin.site import AdminSite
+        site = AdminSite()
+        data = site.get_monitoring_data()
+        assert "memory" in data
+        assert "percent" in data["memory"]
+        assert "total_human" in data["memory"]
+
+    def test_get_monitoring_data_has_disk(self):
+        from aquilia.admin.site import AdminSite
+        site = AdminSite()
+        data = site.get_monitoring_data()
+        assert "disk" in data
+        assert "percent" in data["disk"]
+
+    def test_get_monitoring_data_has_network(self):
+        from aquilia.admin.site import AdminSite
+        site = AdminSite()
+        data = site.get_monitoring_data()
+        assert "network" in data
+        assert "bytes_sent" in data["network"]
+
+    def test_get_monitoring_data_has_process(self):
+        from aquilia.admin.site import AdminSite
+        site = AdminSite()
+        data = site.get_monitoring_data()
+        assert "process" in data
+        assert "pid" in data["process"]
+        assert data["process"]["pid"] > 0
+
+    def test_get_monitoring_data_has_python(self):
+        from aquilia.admin.site import AdminSite
+        site = AdminSite()
+        data = site.get_monitoring_data()
+        assert "python" in data
+        assert "version" in data["python"]
+
+    def test_get_monitoring_data_has_system(self):
+        from aquilia.admin.site import AdminSite
+        site = AdminSite()
+        data = site.get_monitoring_data()
+        assert "system" in data
+        assert "os" in data["system"]
+        assert "hostname" in data["system"]
+
+    def test_get_monitoring_data_has_health_checks(self):
+        from aquilia.admin.site import AdminSite
+        site = AdminSite()
+        data = site.get_monitoring_data()
+        assert "health_checks" in data
+        assert isinstance(data["health_checks"], list)
+
+    def test_get_monitoring_data_cpu_per_core(self):
+        from aquilia.admin.site import AdminSite
+        site = AdminSite()
+        data = site.get_monitoring_data()
+        assert "per_core" in data["cpu"]
+        assert isinstance(data["cpu"]["per_core"], list)
+
+    def test_get_monitoring_data_process_env_snapshot(self):
+        from aquilia.admin.site import AdminSite
+        site = AdminSite()
+        data = site.get_monitoring_data()
+        assert "env_snapshot" in data["process"]
+        assert isinstance(data["process"]["env_snapshot"], dict)
+
+    def test_get_monitoring_data_disk_partitions(self):
+        from aquilia.admin.site import AdminSite
+        site = AdminSite()
+        data = site.get_monitoring_data()
+        assert "partitions" in data["disk"]
+        assert isinstance(data["disk"]["partitions"], list)
+
+    def test_fmt_bytes(self):
+        from aquilia.admin.site import AdminSite
+        assert "1.0 KB" == AdminSite._fmt_bytes(1024)
+        assert "1.0 MB" == AdminSite._fmt_bytes(1024 * 1024)
+        assert "1.0 GB" == AdminSite._fmt_bytes(1024 ** 3)
+        assert "0.0 B" == AdminSite._fmt_bytes(0)
+
+    def test_format_uptime(self):
+        from aquilia.admin.site import AdminSite
+        assert "0s" == AdminSite._format_uptime(0)
+        assert "1m 30s" == AdminSite._format_uptime(90)
+        assert "1h 0s" == AdminSite._format_uptime(3600)
+        assert "1d 0s" == AdminSite._format_uptime(86400)
+
+    def test_safe_env_snapshot_excludes_secrets(self):
+        import os
+        from aquilia.admin.site import AdminSite
+        # Set a secret-like env var
+        os.environ["SECRET_KEY"] = "super_secret"
+        snap = AdminSite._safe_env_snapshot()
+        assert "SECRET_KEY" not in snap
+        del os.environ["SECRET_KEY"]
+
+    def test_monitoring_data_serializable(self):
+        """Monitoring data should be JSON-serializable."""
+        import json
+        from aquilia.admin.site import AdminSite
+        site = AdminSite()
+        data = site.get_monitoring_data()
+        # Should not raise
+        serialized = json.dumps(data, default=str)
+        assert len(serialized) > 100
+
+
+class TestMonitoringRoute:
+    """Controller should have the monitoring routes wired up."""
+
+    def test_controller_imports_render_monitoring(self):
+        from aquilia.admin.controller import render_monitoring_page
+        assert callable(render_monitoring_page)
+
+    def test_admin_controller_has_monitoring_view(self):
+        from aquilia.admin.controller import AdminController
+        assert hasattr(AdminController, "monitoring_view")
+
+    def test_admin_controller_has_monitoring_api(self):
+        from aquilia.admin.controller import AdminController
+        assert hasattr(AdminController, "monitoring_api")
+
+    def test_monitoring_view_is_async(self):
+        import inspect
+        from aquilia.admin.controller import AdminController
+        assert inspect.iscoroutinefunction(AdminController.monitoring_view)
+
+    def test_monitoring_api_is_async(self):
+        import inspect
+        from aquilia.admin.controller import AdminController
+        assert inspect.iscoroutinefunction(AdminController.monitoring_api)
+
+    def test_monitoring_route_delegates_correctly(self):
+        """Test that /monitoring/ URL delegates to monitoring_view."""
+        from aquilia.admin.controller import AdminController
+        assert hasattr(AdminController, '_SYSTEM_PAGES')
+        assert 'monitoring' in AdminController._SYSTEM_PAGES
+
+
+class TestMonitoringSidebar:
+    """Sidebar should include a Monitoring link in the System section."""
+
+    def test_sidebar_has_monitoring_link(self):
+        from pathlib import Path
+        content = (Path(__file__).parent.parent / "aquilia/admin/templates/partials/sidebar_v2.html").read_text()
+        assert "monitoring" in content.lower()
+        assert "/monitoring/" in content
+
+    def test_sidebar_monitoring_appears_on_dashboard(self):
+        """Monitoring link should appear on every page that renders the sidebar."""
+        html = render_dashboard(
+            app_list=[], stats={"total_models": 0, "model_counts": {}, "recent_actions": []},
+            identity_name="admin",
+        )
+        assert "/admin/monitoring/" in html
+
+    def test_monitoring_template_exists(self):
+        from pathlib import Path
+        p = Path(__file__).parent.parent / "aquilia/admin/templates/monitoring.html"
+        assert p.exists()
+
+    def test_monitoring_template_has_tabs(self):
+        from pathlib import Path
+        content = (Path(__file__).parent.parent / "aquilia/admin/templates/monitoring.html").read_text()
+        for tab in ("overview", "cpu", "memory", "network", "process", "health"):
+            assert tab in content.lower(), f"Tab '{tab}' missing from monitoring template"
+
+    def test_monitoring_template_has_gauges(self):
+        from pathlib import Path
+        content = (Path(__file__).parent.parent / "aquilia/admin/templates/monitoring.html").read_text()
+        assert "gaugeCpu" in content
+        assert "gaugeMem" in content
+        assert "gaugeDisk" in content
+
+    def test_monitoring_template_has_live_polling(self):
+        from pathlib import Path
+        content = (Path(__file__).parent.parent / "aquilia/admin/templates/monitoring.html").read_text()
+        assert "/monitoring/api/" in content
+        assert "setInterval" in content
 
     def test_form_modal_has_escape_key(self):
         html = render_form_view(

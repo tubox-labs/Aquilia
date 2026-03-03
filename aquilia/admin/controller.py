@@ -44,6 +44,7 @@ from .templates import (
     render_config_page,
     render_permissions_page,
     render_workspace_page,
+    render_monitoring_page,
 )
 
 if TYPE_CHECKING:
@@ -341,7 +342,7 @@ class AdminController(Controller):
     # Reserved names — system pages that must not be treated as model names
     _SYSTEM_PAGES = frozenset({
         "login", "logout", "orm", "build", "migrations",
-        "config", "workspace", "permissions", "audit",
+        "config", "workspace", "permissions", "audit", "monitoring",
     })
 
     # ── List View ────────────────────────────────────────────────────
@@ -1033,6 +1034,48 @@ class AdminController(Controller):
             total=total,
         )
         return _html_response(html)
+
+    # ── Monitoring Page ──────────────────────────────────────────────
+
+    @GET("/monitoring/")
+    async def monitoring_view(self, request, ctx: RequestCtx) -> Response:
+        """Application monitoring — CPU, memory, disk, network & process metrics."""
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return denied
+
+        self._ensure_initialized()
+
+        monitoring_data = self.site.get_monitoring_data()
+        app_list = self.site.get_app_list(identity)
+
+        html = render_monitoring_page(
+            monitoring=monitoring_data,
+            app_list=app_list,
+            identity_name=_get_identity_name(identity),
+        )
+        return _html_response(html)
+
+    @GET("/monitoring/api/")
+    async def monitoring_api(self, request, ctx: RequestCtx) -> Response:
+        """JSON API endpoint for live-polling monitoring metrics."""
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return Response(
+                content=b'{"error":"unauthorized"}',
+                status=401,
+                headers={"content-type": "application/json"},
+            )
+
+        self._ensure_initialized()
+
+        import json as _json
+        monitoring_data = self.site.get_monitoring_data()
+        return Response(
+            content=_json.dumps(monitoring_data, default=str).encode("utf-8"),
+            status=200,
+            headers={"content-type": "application/json; charset=utf-8"},
+        )
 
     # ── Admin authentication ─────────────────────────────────────────
 
