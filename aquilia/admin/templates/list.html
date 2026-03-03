@@ -79,12 +79,56 @@
                 {% for col in list_display %}
                     {% set val = row[col]|default('—') %}
                     {% set raw_val = row.get('_raw_' ~ col) %}
+                    {% set str_val = val|string %}
                     {% if loop.first %}
                     <td class="cell-pk"><a href="{{ url_prefix|default('/admin') }}/{{ model_name|lower }}/{{ row.pk }}">{{ val }}</a></td>
                     {% elif raw_val is sameas true %}
                     <td class="cell-bool-true"><i class="icon-check-circle" style="font-size:15px;"></i> {{ val }}</td>
                     {% elif raw_val is sameas false %}
                     <td class="cell-bool-false"><i class="icon-x-circle" style="font-size:15px;"></i> {{ val }}</td>
+                    {% elif str_val.startswith(('http://', 'https://')) and str_val.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp', '.ico')) %}
+                    <td class="cell-media">
+                        <div class="media-thumb" onclick="showMediaPreview('{{ str_val }}', 'image')">
+                            <img src="{{ str_val }}" alt="{{ col }}" loading="lazy" onerror="this.parentElement.innerHTML='<i class=\'icon-image\' style=\'font-size:16px;color:var(--text-faint);\'></i>'">
+                        </div>
+                    </td>
+                    {% elif str_val.startswith(('http://', 'https://')) and str_val.lower().endswith('.pdf') %}
+                    <td class="cell-media">
+                        <a href="{{ str_val }}" target="_blank" class="media-file-badge media-file-pdf">
+                            <i class="icon-file-text" style="font-size:14px;"></i> PDF
+                        </a>
+                    </td>
+                    {% elif str_val.startswith(('http://', 'https://')) and str_val.lower().endswith(('.doc', '.docx')) %}
+                    <td class="cell-media">
+                        <a href="{{ str_val }}" target="_blank" class="media-file-badge media-file-doc">
+                            <i class="icon-file-text" style="font-size:14px;"></i> DOCX
+                        </a>
+                    </td>
+                    {% elif str_val.startswith(('http://', 'https://')) and str_val.lower().endswith(('.xls', '.xlsx', '.csv')) %}
+                    <td class="cell-media">
+                        <a href="{{ str_val }}" target="_blank" class="media-file-badge media-file-sheet">
+                            <i class="icon-file-spreadsheet" style="font-size:14px;"></i> Sheet
+                        </a>
+                    </td>
+                    {% elif str_val.startswith(('http://', 'https://')) and str_val.lower().endswith(('.mp4', '.webm', '.mov', '.avi')) %}
+                    <td class="cell-media">
+                        <a href="{{ str_val }}" target="_blank" class="media-file-badge media-file-video">
+                            <i class="icon-video" style="font-size:14px;"></i> Video
+                        </a>
+                    </td>
+                    {% elif str_val.startswith(('http://', 'https://')) and str_val.lower().endswith(('.mp3', '.wav', '.ogg', '.flac')) %}
+                    <td class="cell-media">
+                        <a href="{{ str_val }}" target="_blank" class="media-file-badge media-file-audio">
+                            <i class="icon-music" style="font-size:14px;"></i> Audio
+                        </a>
+                    </td>
+                    {% elif str_val.startswith(('http://', 'https://')) %}
+                    <td class="cell-url">
+                        <a href="{{ str_val }}" target="_blank" rel="noopener" class="cell-url-link">
+                            <i class="icon-external-link" style="font-size:11px;"></i>
+                            {{ str_val|truncate(40, True) }}
+                        </a>
+                    </td>
                     {% else %}
                     <td>{{ val }}</td>
                     {% endif %}
@@ -146,23 +190,59 @@ var BASE_URL = '{{ url_prefix|default("/admin") }}/{{ model_name|lower }}';
         return div.innerHTML;
     }
 
+    var IMG_EXTS = /\.(png|jpg|jpeg|gif|webp|svg|bmp|ico)$/i;
+    var PDF_EXT = /\.pdf$/i;
+    var DOC_EXTS = /\.(doc|docx)$/i;
+    var SHEET_EXTS = /\.(xls|xlsx|csv)$/i;
+    var VIDEO_EXTS = /\.(mp4|webm|mov|avi)$/i;
+    var AUDIO_EXTS = /\.(mp3|wav|ogg|flac)$/i;
+    var URL_RE = /^https?:\/\//i;
+
+    function renderCellValue(val, col, isFirst, row) {
+        var pk = row.pk || row.id || '';
+        var display = (val === null || val === undefined) ? '—' : String(val);
+        var rawKey = '_raw_' + col;
+        if (isFirst) {
+            return '<td class="cell-pk"><a href="' + BASE_URL + '/' + encodeURIComponent(pk) + '">' + escapeHtml(display) + '</a></td>';
+        }
+        if (row[rawKey] === true) {
+            return '<td class="cell-bool-true"><i class="icon-check-circle" style="font-size:15px;"></i> ' + escapeHtml(display) + '</td>';
+        }
+        if (row[rawKey] === false) {
+            return '<td class="cell-bool-false"><i class="icon-x-circle" style="font-size:15px;"></i> ' + escapeHtml(display) + '</td>';
+        }
+        if (URL_RE.test(display)) {
+            if (IMG_EXTS.test(display)) {
+                return '<td class="cell-media"><div class="media-thumb" onclick="showMediaPreview(\'' + escapeHtml(display) + '\', \'image\')"><img src="' + escapeHtml(display) + '" alt="' + escapeHtml(col) + '" loading="lazy" onerror="this.parentElement.innerHTML=\'<i class=\\\'icon-image\\\' style=\\\'font-size:16px;color:var(--text-faint);\\\'></i>\'"></div></td>';
+            }
+            if (PDF_EXT.test(display)) {
+                return '<td class="cell-media"><a href="' + escapeHtml(display) + '" target="_blank" class="media-file-badge media-file-pdf"><i class="icon-file-text" style="font-size:14px;"></i> PDF</a></td>';
+            }
+            if (DOC_EXTS.test(display)) {
+                return '<td class="cell-media"><a href="' + escapeHtml(display) + '" target="_blank" class="media-file-badge media-file-doc"><i class="icon-file-text" style="font-size:14px;"></i> DOCX</a></td>';
+            }
+            if (SHEET_EXTS.test(display)) {
+                return '<td class="cell-media"><a href="' + escapeHtml(display) + '" target="_blank" class="media-file-badge media-file-sheet"><i class="icon-file-spreadsheet" style="font-size:14px;"></i> Sheet</a></td>';
+            }
+            if (VIDEO_EXTS.test(display)) {
+                return '<td class="cell-media"><a href="' + escapeHtml(display) + '" target="_blank" class="media-file-badge media-file-video"><i class="icon-video" style="font-size:14px;"></i> Video</a></td>';
+            }
+            if (AUDIO_EXTS.test(display)) {
+                return '<td class="cell-media"><a href="' + escapeHtml(display) + '" target="_blank" class="media-file-badge media-file-audio"><i class="icon-music" style="font-size:14px;"></i> Audio</a></td>';
+            }
+            // Generic URL
+            var truncUrl = display.length > 40 ? display.substring(0, 37) + '...' : display;
+            return '<td class="cell-url"><a href="' + escapeHtml(display) + '" target="_blank" rel="noopener" class="cell-url-link"><i class="icon-external-link" style="font-size:11px;"></i> ' + escapeHtml(truncUrl) + '</a></td>';
+        }
+        return '<td>' + escapeHtml(display) + '</td>';
+    }
+
     function buildRow(row) {
         var pk = row.pk || row.id || '';
         var html = '<tr data-pk="' + escapeHtml(pk) + '">';
         html += '<td><input type="checkbox" class="row-check" value="' + escapeHtml(pk) + '" onchange="updateBulkBar()" aria-label="Select row"></td>';
         listDisplay.forEach(function(col, idx) {
-            var val = row[col];
-            var display = (val === null || val === undefined) ? '—' : String(val);
-            var rawKey = '_raw_' + col;
-            if (idx === 0) {
-                html += '<td class="cell-pk"><a href="' + BASE_URL + '/' + encodeURIComponent(pk) + '">' + escapeHtml(display) + '</a></td>';
-            } else if (row[rawKey] === true) {
-                html += '<td class="cell-bool-true"><i class="icon-check-circle" style="font-size:15px;"></i> ' + escapeHtml(display) + '</td>';
-            } else if (row[rawKey] === false) {
-                html += '<td class="cell-bool-false"><i class="icon-x-circle" style="font-size:15px;"></i> ' + escapeHtml(display) + '</td>';
-            } else {
-                html += '<td>' + escapeHtml(display) + '</td>';
-            }
+            html += renderCellValue(row[col], col, idx === 0, row);
         });
         html += '<td style="white-space:nowrap;">';
         html += '<a href="' + BASE_URL + '/' + encodeURIComponent(pk) + '" class="btn btn-sm btn-ghost" title="Edit"><i class="icon-edit-3" style="font-size:13px;"></i></a>';

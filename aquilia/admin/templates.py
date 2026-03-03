@@ -254,6 +254,9 @@ def render_audit_page(
     app_list: List[Dict[str, Any]],
     identity_name: str = "Admin",
     total: int = 0,
+    page: int = 1,
+    per_page: int = 50,
+    total_pages: int = 1,
     *,
     site_title: str = "Aquilia Admin",
     url_prefix: str = "/admin",
@@ -264,6 +267,9 @@ def render_audit_page(
             "audit.html",
             entries=entries,
             total=total,
+            page=page,
+            per_page=per_page,
+            total_pages=total_pages,
             app_list=app_list,
             active_page="audit",
             active_model="_audit",
@@ -506,6 +512,66 @@ def render_monitoring_page(
 <meta charset="UTF-8"><title>Monitoring — Aquilia Admin</title><style>{_FALLBACK_CSS}</style></head>
 <body><div style="padding:24px"><h1>Monitoring</h1>
 <p>CPU: {cpu_pct}% · Memory: {mem_pct}%</p></div></body></html>"""
+
+
+def render_admin_users_page(
+    users: List[Dict[str, Any]],
+    app_list: Optional[List[Dict[str, Any]]] = None,
+    identity_name: str = "Admin",
+    *,
+    flash: str = "",
+    flash_type: str = "success",
+    site_title: str = "Aquilia Admin",
+    url_prefix: str = "/admin",
+) -> str:
+    """Render the admin-users management page with hierarchy, roles, and creation form."""
+    if _HAS_JINJA2:
+        return _render_template(
+            "admin_users.html",
+            users=users,
+            app_list=app_list or [],
+            active_page="admin-users",
+            identity_name=identity_name,
+            flash=flash,
+            flash_type=flash_type,
+            site_title=site_title,
+            url_prefix=url_prefix,
+            page_title="Admin Users",
+        )
+    total = len(users)
+    return f"""<!DOCTYPE html><html lang="en" data-theme="dark"><head>
+<meta charset="UTF-8"><title>Admin Users — Aquilia Admin</title><style>{_FALLBACK_CSS}</style></head>
+<body><div style="padding:24px"><h1>Admin Users</h1><p>{total} admin accounts</p></div></body></html>"""
+
+
+def render_profile_page(
+    user: Dict[str, Any],
+    app_list: Optional[List[Dict[str, Any]]] = None,
+    identity_name: str = "Admin",
+    *,
+    flash: str = "",
+    flash_type: str = "success",
+    site_title: str = "Aquilia Admin",
+    url_prefix: str = "/admin",
+) -> str:
+    """Render the admin profile management page."""
+    if _HAS_JINJA2:
+        return _render_template(
+            "profile.html",
+            user=user,
+            app_list=app_list or [],
+            active_page="profile",
+            identity_name=identity_name,
+            flash=flash,
+            flash_type=flash_type,
+            site_title=site_title,
+            url_prefix=url_prefix,
+            page_title="Profile",
+        )
+    uname = html.escape(user.get("username", "Admin"))
+    return f"""<!DOCTYPE html><html lang="en" data-theme="dark"><head>
+<meta charset="UTF-8"><title>Profile — Aquilia Admin</title><style>{_FALLBACK_CSS}</style></head>
+<body><div style="padding:24px"><h1>Profile</h1><p>{uname}</p></div></body></html>"""
 
 
 def render_error_page(

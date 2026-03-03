@@ -53,8 +53,12 @@ class ModelMeta(type):
         # Extract Meta class
         meta_class = namespace.pop("Meta", None)
 
-        # Extract `table = "..."` or `table_name = "..."` attribute
-        table_attr = namespace.pop("table", None) or namespace.pop("table_name", None)
+        # Extract `table = "..."`, `table_name = "..."`, or `__tablename__ = "..."` attribute
+        table_attr = (
+            namespace.pop("table", None)
+            or namespace.pop("table_name", None)
+            or namespace.pop("__tablename__", None)
+        )
 
         # Collect fields from current class
         fields: Dict[str, Field] = {}

@@ -179,24 +179,60 @@
 {# ── Build Logs tab ── #}
 <div class="tab-content" data-tab-content="build" data-tab="logs">
     {% if build_log %}
-    <div class="code-block-container">
-        <div class="code-block-header">
-            <div class="dots">
-                <div class="dot dot-red"></div>
-                <div class="dot dot-yellow"></div>
-                <div class="dot dot-green"></div>
+    <div class="build-terminal" style="background:#0a0a0a;border:1px solid var(--border-color);border-radius:var(--radius);overflow:hidden;font-family:var(--font-mono);">
+        {# Terminal title bar #}
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:rgba(255,255,255,0.03);border-bottom:1px solid var(--border-subtle);">
+            <div style="display:flex;align-items:center;gap:8px;">
+                <div style="display:flex;gap:6px;">
+                    <span style="width:10px;height:10px;border-radius:50%;background:#FF5F56;"></span>
+                    <span style="width:10px;height:10px;border-radius:50%;background:#FFBD2E;"></span>
+                    <span style="width:10px;height:10px;border-radius:50%;background:#27C93F;"></span>
+                </div>
+                <span style="font-size:0.7rem;color:var(--text-faint);margin-left:8px;">aquilia build — output</span>
             </div>
-            <span class="filename">build output</span>
+            <div style="display:flex;align-items:center;gap:8px;">
+                <span style="font-size:0.65rem;color:var(--text-faint);">{{ build_log.split('\n')|length }} lines</span>
+                <button onclick="copyBuildLog()" class="btn btn-sm btn-secondary" style="font-size:0.65rem;padding:2px 8px;" title="Copy log">
+                    <i class="icon-copy" style="font-size:11px;"></i>
+                </button>
+            </div>
         </div>
-        <div class="code-block-body">
-            <pre>{{ build_log }}</pre>
+        {# Terminal body #}
+        <div id="buildLogContent" style="padding:16px;max-height:600px;overflow-y:auto;font-size:0.78rem;line-height:1.8;">
+            {% for line in build_log.split('\n') %}
+            {% if line.strip() %}
+            <div class="log-line" style="display:flex;gap:10px;white-space:pre-wrap;word-break:break-all;
+                {% if '[ERROR]' in line %}color:#ef4444;
+                {% elif '[WARN]' in line or '[WARNING]' in line %}color:#f59e0b;
+                {% elif '[INFO]' in line %}color:#a1a1aa;
+                {% elif '[DEBUG]' in line %}color:#3f3f46;
+                {% else %}color:#71717a;{% endif %}">
+                <span style="color:#3f3f46;user-select:none;min-width:24px;text-align:right;">{{ loop.index }}</span>
+                <span>{% if '[ERROR]' in line %}<i class="icon-x-circle" style="font-size:12px;vertical-align:-1px;margin-right:4px;"></i>{% elif '[WARN]' in line %}<i class="icon-alert-triangle" style="font-size:12px;vertical-align:-1px;margin-right:4px;"></i>{% elif 'succeeded' in line or 'complete' in line %}<i class="icon-check-circle" style="font-size:12px;vertical-align:-1px;margin-right:4px;color:#22c55e;"></i>{% endif %}{{ line }}</span>
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+        {# Terminal status bar #}
+        <div style="padding:6px 16px;background:rgba(255,255,255,0.02);border-top:1px solid var(--border-subtle);display:flex;align-items:center;justify-content:space-between;">
+            <span style="font-size:0.65rem;color:var(--text-faint);">
+                {% if 'succeeded' in build_log %}
+                <i class="icon-check-circle" style="font-size:11px;color:#22c55e;vertical-align:-1px;margin-right:4px;"></i>Build succeeded
+                {% elif 'FAILED' in build_log or '[ERROR]' in build_log %}
+                <i class="icon-x-circle" style="font-size:11px;color:#ef4444;vertical-align:-1px;margin-right:4px;"></i>Build failed
+                {% else %}
+                <i class="icon-terminal" style="font-size:11px;vertical-align:-1px;margin-right:4px;"></i>Build log
+                {% endif %}
+            </span>
+            <span style="font-size:0.65rem;color:var(--text-faint);font-family:var(--font-mono);">build_output.txt</span>
         </div>
     </div>
     {% else %}
     <div class="glass-card">
         <div class="empty-state">
             <i class="icon-terminal" style="font-size:32px;display:block;margin-bottom:12px;opacity:0.3;"></i>
-            No build logs available
+            No build logs available.<br>
+            <span class="meta-text">Run <code style="color:var(--accent);">aquilia build</code> to generate build logs.</span>
         </div>
     </div>
     {% endif %}
@@ -233,6 +269,17 @@ function viewArtifact(name) {
             setTimeout(function() { viewer.style.outline = 'none'; }, 2500);
         }
     }, 150);
+}
+
+function copyBuildLog() {
+    var el = document.getElementById('buildLogContent');
+    if (!el) return;
+    var text = el.innerText || el.textContent;
+    navigator.clipboard.writeText(text).then(function() {
+        if (window.showToast) showToast('Build log copied to clipboard', 'success');
+    }).catch(function() {
+        if (window.showToast) showToast('Failed to copy', 'error');
+    });
 }
 </script>
 {% endblock %}

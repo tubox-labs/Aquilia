@@ -498,13 +498,22 @@ function toggleModule(headerEl) {
     if (!body) return;
     var isCollapsed = body.getAttribute('data-collapsed') === 'true';
     if (isCollapsed) {
-        body.style.maxHeight = body.scrollHeight + 'px';
+        body.style.maxHeight = 'none';
+        body.style.overflow = 'visible';
         body.setAttribute('data-collapsed', 'false');
         if (chevron) chevron.style.transform = 'rotate(180deg)';
     } else {
         body.style.maxHeight = '0';
+        body.style.overflow = 'hidden';
         body.setAttribute('data-collapsed', 'true');
         if (chevron) chevron.style.transform = 'rotate(0deg)';
+        // Also collapse any open manifest sources inside
+        body.querySelectorAll('.manifest-source-body').forEach(function(src) {
+            src.style.maxHeight = '0';
+            src.style.overflow = 'hidden';
+            var ch = src.previousElementSibling ? src.previousElementSibling.querySelector('.manifest-chevron') : null;
+            if (ch) ch.style.transform = 'rotate(0deg)';
+        });
     }
 }
 
@@ -516,10 +525,12 @@ function toggleAllModules() {
         var chevron = card ? card.querySelector('.module-chevron') : null;
         if (allOpen) {
             body.style.maxHeight = '0';
+            body.style.overflow = 'hidden';
             body.setAttribute('data-collapsed', 'true');
             if (chevron) chevron.style.transform = 'rotate(0deg)';
         } else {
-            body.style.maxHeight = body.scrollHeight + 'px';
+            body.style.maxHeight = 'none';
+            body.style.overflow = 'visible';
             body.setAttribute('data-collapsed', 'false');
             if (chevron) chevron.style.transform = 'rotate(180deg)';
         }
@@ -548,12 +559,13 @@ function toggleManifestSource(labelEl) {
     var body = labelEl.nextElementSibling;
     var chevron = labelEl.querySelector('.manifest-chevron');
     if (!body) return;
-    if (body.style.maxHeight && body.style.maxHeight !== '0px') {
+    if (body.style.maxHeight && body.style.maxHeight !== '0px' && body.style.maxHeight !== '0') {
         body.style.maxHeight = '0';
+        body.style.overflow = 'hidden';
         if (chevron) chevron.style.transform = 'rotate(0deg)';
     } else {
-        body.style.maxHeight = '500px';
-        body.style.overflowY = 'auto';
+        body.style.maxHeight = 'none';
+        body.style.overflow = 'visible';
         if (chevron) chevron.style.transform = 'rotate(180deg)';
     }
 }

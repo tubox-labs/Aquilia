@@ -234,7 +234,8 @@ class Model(metaclass=ModelMeta):
     Define models by subclassing and declaring fields:
 
         class User(Model):
-            table = "users"
+            table = "users"                # or: table_name = "users"
+                                           # or: __tablename__ = "users"
 
             name = CharField(max_length=150)
             email = EmailField(unique=True)
@@ -274,6 +275,11 @@ class Model(metaclass=ModelMeta):
     _attr_names: ClassVar[List[str]] = []
     _db: ClassVar[Optional[AquiliaDatabase]] = None
     _using_db: Optional[str] = None  # per-instance DB alias
+
+    # Default Manager — provides User.objects.filter(...) etc.
+    # Auto-injected by metaclass if not declared; annotated here
+    # so IDEs (Pylance, mypy, PyCharm) resolve .objects without errors.
+    objects: ClassVar[Manager]
 
     def __init__(self, **kwargs: Any):
         """Create a model instance (in-memory, not persisted)."""

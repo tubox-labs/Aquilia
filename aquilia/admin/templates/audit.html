@@ -125,6 +125,45 @@
     </div>
     {% endif %}
 </div>
+
+{# ── Pagination ── #}
+{% if total_pages is defined and total_pages > 1 %}
+<div class="pagination" style="margin-top:20px;">
+    <a href="{{ url_prefix|default('/admin') }}/audit/?page={{ [1, page - 1]|max }}"
+       class="page-btn {{ 'disabled' if page <= 1 else '' }}" title="Previous">
+        <i class="icon-chevron-left" style="font-size:14px;"></i>
+    </a>
+
+    {% set start_page = [1, page - 2]|max %}
+    {% set end_page = [total_pages, start_page + 4]|min %}
+    {% if end_page - start_page < 4 %}
+        {% set start_page = [1, end_page - 4]|max %}
+    {% endif %}
+
+    {% if start_page > 1 %}
+    <a href="{{ url_prefix|default('/admin') }}/audit/?page=1" class="page-btn">1</a>
+    {% if start_page > 2 %}<span class="page-btn disabled">…</span>{% endif %}
+    {% endif %}
+
+    {% for p in range(start_page, end_page + 1) %}
+    <a href="{{ url_prefix|default('/admin') }}/audit/?page={{ p }}"
+       class="page-btn {{ 'active' if p == page else '' }}">{{ p }}</a>
+    {% endfor %}
+
+    {% if end_page < total_pages %}
+    {% if end_page < total_pages - 1 %}<span class="page-btn disabled">…</span>{% endif %}
+    <a href="{{ url_prefix|default('/admin') }}/audit/?page={{ total_pages }}" class="page-btn">{{ total_pages }}</a>
+    {% endif %}
+
+    <a href="{{ url_prefix|default('/admin') }}/audit/?page={{ [total_pages, page + 1]|min }}"
+       class="page-btn {{ 'disabled' if page >= total_pages else '' }}" title="Next">
+        <i class="icon-chevron-right" style="font-size:14px;"></i>
+    </a>
+</div>
+<div class="record-count" style="text-align:center;">
+    Showing {{ ((page - 1) * per_page) + 1 }}–{{ [page * per_page, total]|min }} of {{ total }} entries
+</div>
+{% endif %}
 {% endblock %}
 
 {% block extra_js %}

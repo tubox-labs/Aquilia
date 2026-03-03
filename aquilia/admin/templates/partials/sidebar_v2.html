@@ -1,9 +1,5 @@
 {# Sidebar partial — included in base.html #}
 <aside class="admin-sidebar" id="adminSidebar">
-    {# ── Collapse toggle ── #}
-    <button class="sidebar-collapse-btn" id="sidebarCollapseBtn" title="Toggle sidebar" onclick="toggleSidebar()">
-        <i class="icon-chevrons-left" id="sidebarCollapseIcon" style="font-size:12px;transition:transform 0.2s;"></i>
-    </button>
 
     {# ── Brand (matches aqdocx: gradient glow + logo + name + version) ── #}
     <a class="sidebar-brand" href="{{ url_prefix|default('/admin') }}/">
@@ -70,6 +66,9 @@
         <a class="sidebar-link{{ ' active' if active_page == 'audit' else '' }}" href="{{ url_prefix|default('/admin') }}/audit/" data-sidebar-label="audit log activity">
             <i class="icon-scroll-text"></i> <span>Audit Log</span>
         </a>
+        <a class="sidebar-link{{ ' active' if active_page == 'admin-users' else '' }}" href="{{ url_prefix|default('/admin') }}/admin-users/" data-sidebar-label="admin users management hierarchy">
+            <i class="icon-users"></i> <span>Admin Users</span>
+        </a>
     </div>
 
     {# ── ORM Models (per-model links) ── #}
@@ -89,11 +88,13 @@
     {# ── Footer ── #}
     <div class="sidebar-footer">
         <div class="sidebar-user">
-            <div class="sidebar-user-avatar">
+            <a href="{{ url_prefix|default('/admin') }}/profile/" class="sidebar-user-avatar" title="View Profile" style="text-decoration:none;">
                 {{ identity_name|default('A')|truncate(1, True, '') }}
-            </div>
+            </a>
             <div class="sidebar-user-info">
-                <div class="sidebar-user-name">{{ identity_name|default('Admin') }}</div>
+                <a href="{{ url_prefix|default('/admin') }}/profile/" style="text-decoration:none;color:inherit;">
+                    <div class="sidebar-user-name">{{ identity_name|default('Admin') }}</div>
+                </a>
                 <div class="sidebar-user-role">Administrator</div>
             </div>
             <a href="{{ url_prefix|default('/admin') }}/logout" class="btn-ghost" style="padding:4px;color:var(--text-faint);" title="Logout">

@@ -45,6 +45,8 @@ from .templates import (
     render_permissions_page,
     render_workspace_page,
     render_monitoring_page,
+    render_admin_users_page,
+    render_profile_page,
     render_error_page,
 )
 
@@ -344,6 +346,7 @@ class AdminController(Controller):
     _SYSTEM_PAGES = frozenset({
         "login", "logout", "orm", "build", "migrations",
         "config", "workspace", "permissions", "audit", "monitoring",
+        "admin-users", "profile",
     })
 
     # ── List View ────────────────────────────────────────────────────
@@ -1078,14 +1081,25 @@ class AdminController(Controller):
 
         self._ensure_initialized()
 
+        # Pagination params
+        qs = request.query or {}
+        try:
+            page = max(1, int(qs.get("page", 1)))
+        except (ValueError, TypeError):
+            page = 1
+        per_page = 50
+        offset = (page - 1) * per_page
+
         # Use async DB-backed query so persisted entries survive restarts
         audit = self.site.audit_log
         if hasattr(audit, "get_entries_async"):
-            entries = await audit.get_entries_async(limit=200)
+            entries = await audit.get_entries_async(limit=per_page, offset=offset)
             total = await audit.count_async()
         else:
-            entries = audit.get_entries(limit=200)
+            entries = audit.get_entries(limit=per_page, offset=offset)
             total = audit.count()
+
+        total_pages = max(1, (total + per_page - 1) // per_page)
 
         app_list = self.site.get_app_list(identity)
         html = render_audit_page(
@@ -1093,6 +1107,9 @@ class AdminController(Controller):
             app_list=app_list,
             identity_name=_get_identity_name(identity),
             total=total,
+            page=page,
+            per_page=per_page,
+            total_pages=total_pages,
         )
         return _html_response(html)
 
@@ -1137,6 +1154,450 @@ class AdminController(Controller):
             status=200,
             headers={"content-type": "application/json; charset=utf-8"},
         )
+
+    # ── Admin Users Management ───────────────────────────────────────
+
+    @GET("/admin-users/")
+    async def admin_users_view(self, request, ctx: RequestCtx) -> Response:
+        """List and manage admin users with hierarchy."""
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return denied
+
+        if not has_admin_permission(identity, AdminPermission.USER_MANAGE):
+            return _redirect("/admin/")
+
+        self._ensure_initialized()
+
+        # Fetch all admin users via ORM
+        users = []
+        try:
+            from aquilia.admin.models import AdminUser
+            all_users = await AdminUser.objects.all()
+            users = [
+                {
+                    "pk": str(u.pk),
+                    "username": u.username,
+                    "email": getattr(u, "email", ""),
+                    "first_name": getattr(u, "first_name", ""),
+                    "last_name": getattr(u, "last_name", ""),
+                    "is_superuser": getattr(u, "is_superuser", False),
+                    "is_staff": getattr(u, "is_staff", False),
+                    "is_active": getattr(u, "is_active", True),
+                    "last_login": str(getattr(u, "last_login", "") or ""),
+                    "date_joined": str(getattr(u, "date_joined", "") or ""),
+                }
+                for u in all_users
+            ]
+        except Exception:
+            pass
+
+        # Flash
+        flash = ""
+        flash_type = "success"
+        if ctx.session and hasattr(ctx.session, "data"):
+            flash = ctx.session.data.pop("_admin_flash", "")
+            flash_type = ctx.session.data.pop("_admin_flash_type", "success")
+
+        app_list = self.site.get_app_list(identity)
+        html = render_admin_users_page(
+            users=users,
+            app_list=app_list,
+            identity_name=_get_identity_name(identity),
+            flash=flash,
+            flash_type=flash_type,
+        )
+        return _html_response(html)
+
+    @POST("/admin-users/create")
+    async def admin_users_create(self, request, ctx: RequestCtx) -> Response:
+        """Create a new admin user."""
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return denied
+
+        if not has_admin_permission(identity, AdminPermission.USER_MANAGE):
+            return _redirect("/admin/")
+
+        self._ensure_initialized()
+        form_data = await _parse_form(ctx)
+
+        username = (form_data.get("username") or "").strip()
+        email = (form_data.get("email") or "").strip()
+        password = form_data.get("password") or ""
+        first_name = (form_data.get("first_name") or "").strip()
+        last_name = (form_data.get("last_name") or "").strip()
+        role = (form_data.get("role") or "staff").strip()
+
+        if not username or not password:
+            if ctx.session and hasattr(ctx.session, "data"):
+                ctx.session.data["_admin_flash"] = "Username and password are required."
+                ctx.session.data["_admin_flash_type"] = "error"
+            return _redirect("/admin/admin-users/")
+
+        if len(password) < 8:
+            if ctx.session and hasattr(ctx.session, "data"):
+                ctx.session.data["_admin_flash"] = "Password must be at least 8 characters."
+                ctx.session.data["_admin_flash_type"] = "error"
+            return _redirect("/admin/admin-users/")
+
+        try:
+            from aquilia.admin.models import AdminUser
+
+            # Determine flags
+            is_superuser = role == "superadmin"
+            is_staff = role in ("superadmin", "admin", "staff")
+            is_active = role != "viewer" or True  # viewers are also active
+
+            if is_superuser:
+                user = await AdminUser.create_superuser(
+                    username=username,
+                    email=email,
+                    password=password,
+                )
+            else:
+                user = await AdminUser.create_staff_user(
+                    username=username,
+                    email=email,
+                    password=password,
+                )
+
+            # Update extra fields
+            if first_name:
+                user.first_name = first_name
+            if last_name:
+                user.last_name = last_name
+            if not is_staff:
+                user.is_staff = False
+            user.is_active = True
+            await user.save()
+
+            # Audit
+            try:
+                self.site.audit_log.log(
+                    AdminAction.CREATE,
+                    identity=identity,
+                    model="AdminUser",
+                    object_repr=username,
+                    **_extract_request_meta(request),
+                )
+            except Exception:
+                pass
+
+            if ctx.session and hasattr(ctx.session, "data"):
+                ctx.session.data["_admin_flash"] = f"Admin '{username}' created successfully as {role}."
+                ctx.session.data["_admin_flash_type"] = "success"
+        except Exception as e:
+            if ctx.session and hasattr(ctx.session, "data"):
+                ctx.session.data["_admin_flash"] = f"Failed to create admin: {e}"
+                ctx.session.data["_admin_flash_type"] = "error"
+
+        return _redirect("/admin/admin-users/")
+
+    @POST("/admin-users/toggle-status")
+    async def admin_users_toggle_status(self, request, ctx: RequestCtx) -> Response:
+        """Toggle active status of an admin user."""
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return denied
+
+        if not has_admin_permission(identity, AdminPermission.USER_MANAGE):
+            return _redirect("/admin/")
+
+        self._ensure_initialized()
+        form_data = await _parse_form(ctx)
+        user_id = form_data.get("user_id", "")
+
+        try:
+            from aquilia.admin.models import AdminUser
+            user = await AdminUser.objects.get(pk=user_id)
+            user.is_active = not user.is_active
+            await user.save()
+
+            action = "activated" if user.is_active else "deactivated"
+            try:
+                self.site.audit_log.log(
+                    AdminAction.UPDATE,
+                    identity=identity,
+                    model="AdminUser",
+                    object_repr=f"{user.username} {action}",
+                    **_extract_request_meta(request),
+                )
+            except Exception:
+                pass
+
+            if ctx.session and hasattr(ctx.session, "data"):
+                ctx.session.data["_admin_flash"] = f"Admin '{user.username}' {action}."
+                ctx.session.data["_admin_flash_type"] = "success"
+        except Exception as e:
+            if ctx.session and hasattr(ctx.session, "data"):
+                ctx.session.data["_admin_flash"] = f"Failed: {e}"
+                ctx.session.data["_admin_flash_type"] = "error"
+
+        return _redirect("/admin/admin-users/")
+
+    @POST("/admin-users/reset-password")
+    async def admin_users_reset_password(self, request, ctx: RequestCtx) -> Response:
+        """Reset password for an admin user."""
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return denied
+
+        if not has_admin_permission(identity, AdminPermission.USER_MANAGE):
+            return _redirect("/admin/")
+
+        self._ensure_initialized()
+        form_data = await _parse_form(ctx)
+        user_id = form_data.get("user_id", "")
+        new_password = form_data.get("new_password", "")
+
+        if not new_password or len(new_password) < 8:
+            if ctx.session and hasattr(ctx.session, "data"):
+                ctx.session.data["_admin_flash"] = "Password must be at least 8 characters."
+                ctx.session.data["_admin_flash_type"] = "error"
+            return _redirect("/admin/admin-users/")
+
+        try:
+            from aquilia.admin.models import AdminUser
+            user = await AdminUser.objects.get(pk=user_id)
+            user.set_password(new_password)
+            await user.save()
+
+            try:
+                self.site.audit_log.log(
+                    AdminAction.UPDATE,
+                    identity=identity,
+                    model="AdminUser",
+                    object_repr=f"Password reset: {user.username}",
+                    **_extract_request_meta(request),
+                )
+            except Exception:
+                pass
+
+            if ctx.session and hasattr(ctx.session, "data"):
+                ctx.session.data["_admin_flash"] = f"Password for '{user.username}' has been reset."
+                ctx.session.data["_admin_flash_type"] = "success"
+        except Exception as e:
+            if ctx.session and hasattr(ctx.session, "data"):
+                ctx.session.data["_admin_flash"] = f"Failed: {e}"
+                ctx.session.data["_admin_flash_type"] = "error"
+
+        return _redirect("/admin/admin-users/")
+
+    @POST("/admin-users/delete")
+    async def admin_users_delete(self, request, ctx: RequestCtx) -> Response:
+        """Delete an admin user (cannot delete superadmins)."""
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return denied
+
+        if not has_admin_permission(identity, AdminPermission.USER_MANAGE):
+            return _redirect("/admin/")
+
+        self._ensure_initialized()
+        form_data = await _parse_form(ctx)
+        user_id = form_data.get("user_id", "")
+
+        try:
+            from aquilia.admin.models import AdminUser
+            user = await AdminUser.objects.get(pk=user_id)
+
+            if user.is_superuser:
+                if ctx.session and hasattr(ctx.session, "data"):
+                    ctx.session.data["_admin_flash"] = "Cannot delete a superadmin account."
+                    ctx.session.data["_admin_flash_type"] = "error"
+                return _redirect("/admin/admin-users/")
+
+            username = user.username
+            await user.delete()
+
+            try:
+                self.site.audit_log.log(
+                    AdminAction.DELETE,
+                    identity=identity,
+                    model="AdminUser",
+                    object_repr=f"Deleted: {username}",
+                    **_extract_request_meta(request),
+                )
+            except Exception:
+                pass
+
+            if ctx.session and hasattr(ctx.session, "data"):
+                ctx.session.data["_admin_flash"] = f"Admin '{username}' deleted."
+                ctx.session.data["_admin_flash_type"] = "success"
+        except Exception as e:
+            if ctx.session and hasattr(ctx.session, "data"):
+                ctx.session.data["_admin_flash"] = f"Failed: {e}"
+                ctx.session.data["_admin_flash_type"] = "error"
+
+        return _redirect("/admin/admin-users/")
+
+    # ── Profile ──────────────────────────────────────────────────────
+
+    @GET("/profile/")
+    async def profile_view(self, request, ctx: RequestCtx) -> Response:
+        """View the admin profile management page."""
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return denied
+
+        self._ensure_initialized()
+
+        # Build user dict from identity attributes
+        user = {
+            "username": identity.get_attribute("username", identity.id),
+            "email": identity.get_attribute("email", ""),
+            "first_name": identity.get_attribute("first_name", ""),
+            "last_name": identity.get_attribute("last_name", ""),
+            "is_superuser": identity.get_attribute("is_superuser", False),
+            "is_staff": identity.get_attribute("is_staff", False),
+            "admin_role": identity.get_attribute("admin_role", "staff"),
+        }
+
+        # Try to get full user from DB
+        try:
+            from aquilia.admin.models import AdminUser
+            db_user = await AdminUser.objects.filter(
+                username=user["username"]
+            ).first()
+            if db_user:
+                user.update({
+                    "pk": str(db_user.pk),
+                    "email": getattr(db_user, "email", "") or "",
+                    "first_name": getattr(db_user, "first_name", "") or "",
+                    "last_name": getattr(db_user, "last_name", "") or "",
+                    "is_superuser": getattr(db_user, "is_superuser", False),
+                    "is_staff": getattr(db_user, "is_staff", False),
+                    "last_login": str(getattr(db_user, "last_login", "") or ""),
+                    "date_joined": str(getattr(db_user, "date_joined", "") or ""),
+                })
+        except Exception:
+            pass
+
+        flash = ""
+        flash_type = "success"
+        if ctx.session and hasattr(ctx.session, "data"):
+            flash = ctx.session.data.pop("_admin_flash", "")
+            flash_type = ctx.session.data.pop("_admin_flash_type", "success")
+
+        app_list = self.site.get_app_list(identity)
+        html = render_profile_page(
+            user=user,
+            app_list=app_list,
+            identity_name=_get_identity_name(identity),
+            flash=flash,
+            flash_type=flash_type,
+        )
+        return _html_response(html)
+
+    @POST("/profile/update")
+    async def profile_update(self, request, ctx: RequestCtx) -> Response:
+        """Update admin profile data."""
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return denied
+
+        self._ensure_initialized()
+        form_data = await _parse_form(ctx)
+
+        first_name = (form_data.get("first_name") or "").strip()
+        last_name = (form_data.get("last_name") or "").strip()
+        email = (form_data.get("email") or "").strip()
+
+        try:
+            from aquilia.admin.models import AdminUser
+            username = identity.get_attribute("username", identity.id)
+            user = await AdminUser.objects.filter(username=username).first()
+            if user:
+                user.first_name = first_name
+                user.last_name = last_name
+                user.email = email
+                await user.save()
+
+                # Update session identity
+                if ctx.session and hasattr(ctx.session, "data"):
+                    admin_data = ctx.session.data.get("_admin_identity")
+                    if admin_data and isinstance(admin_data, dict):
+                        attrs = admin_data.get("attributes", {})
+                        attrs["first_name"] = first_name
+                        attrs["last_name"] = last_name
+                        attrs["email"] = email
+                        attrs["name"] = f"{first_name} {last_name}".strip() or username
+                        ctx.session.data["_admin_identity"] = admin_data
+
+                if ctx.session and hasattr(ctx.session, "data"):
+                    ctx.session.data["_admin_flash"] = "Profile updated successfully."
+                    ctx.session.data["_admin_flash_type"] = "success"
+            else:
+                if ctx.session and hasattr(ctx.session, "data"):
+                    ctx.session.data["_admin_flash"] = "User not found in database."
+                    ctx.session.data["_admin_flash_type"] = "error"
+        except Exception as e:
+            if ctx.session and hasattr(ctx.session, "data"):
+                ctx.session.data["_admin_flash"] = f"Failed: {e}"
+                ctx.session.data["_admin_flash_type"] = "error"
+
+        return _redirect("/admin/profile/")
+
+    @POST("/profile/change-password")
+    async def profile_change_password(self, request, ctx: RequestCtx) -> Response:
+        """Change password for the currently logged-in admin."""
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return denied
+
+        self._ensure_initialized()
+        form_data = await _parse_form(ctx)
+
+        current_password = form_data.get("current_password", "")
+        new_password = form_data.get("new_password", "")
+        confirm_password = form_data.get("confirm_password", "")
+
+        if not current_password or not new_password:
+            if ctx.session and hasattr(ctx.session, "data"):
+                ctx.session.data["_admin_flash"] = "All password fields are required."
+                ctx.session.data["_admin_flash_type"] = "error"
+            return _redirect("/admin/profile/")
+
+        if new_password != confirm_password:
+            if ctx.session and hasattr(ctx.session, "data"):
+                ctx.session.data["_admin_flash"] = "New passwords do not match."
+                ctx.session.data["_admin_flash_type"] = "error"
+            return _redirect("/admin/profile/")
+
+        if len(new_password) < 8:
+            if ctx.session and hasattr(ctx.session, "data"):
+                ctx.session.data["_admin_flash"] = "Password must be at least 8 characters."
+                ctx.session.data["_admin_flash_type"] = "error"
+            return _redirect("/admin/profile/")
+
+        try:
+            from aquilia.admin.models import AdminUser
+            username = identity.get_attribute("username", identity.id)
+            user = await AdminUser.objects.filter(username=username).first()
+            if user:
+                if not user.check_password(current_password):
+                    if ctx.session and hasattr(ctx.session, "data"):
+                        ctx.session.data["_admin_flash"] = "Current password is incorrect."
+                        ctx.session.data["_admin_flash_type"] = "error"
+                    return _redirect("/admin/profile/")
+
+                user.set_password(new_password)
+                await user.save()
+
+                if ctx.session and hasattr(ctx.session, "data"):
+                    ctx.session.data["_admin_flash"] = "Password changed successfully."
+                    ctx.session.data["_admin_flash_type"] = "success"
+            else:
+                if ctx.session and hasattr(ctx.session, "data"):
+                    ctx.session.data["_admin_flash"] = "User not found in database."
+                    ctx.session.data["_admin_flash_type"] = "error"
+        except Exception as e:
+            if ctx.session and hasattr(ctx.session, "data"):
+                ctx.session.data["_admin_flash"] = f"Failed: {e}"
+                ctx.session.data["_admin_flash_type"] = "error"
+
+        return _redirect("/admin/profile/")
 
     # ── Admin authentication ─────────────────────────────────────────
 
