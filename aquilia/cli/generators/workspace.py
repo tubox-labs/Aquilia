@@ -561,6 +561,11 @@ class WorkspaceGenerator:
                 # .module(Module("auth", version="1.0.0", description="Authentication module").route_prefix("/api/v1/auth").depends_on("core"))
                 # .module(Module("users", version="1.0.0", description="User management").route_prefix("/api/v1/users").depends_on("auth", "core"))
 
+                # Middleware chain -- controls which middleware runs and in what order.
+                # Presets: defaults() (dev), production(), minimal()
+                # Custom: Integration.middleware.chain().use("aquilia.middleware.ExceptionMiddleware", priority=1).use(...)
+                .middleware(Integration.middleware.defaults())
+
                 # Integrations - Configure core systems
                 .integrate(Integration.di(auto_wire=True, manifest_validation=True))
                 .integrate(Integration.registry(
@@ -703,6 +708,9 @@ class WorkspaceGenerator:
                 )
                 # Starter module -- remove once you add GET /
                 .starter("starter")
+
+                # Middleware chain -- presets: defaults(), production(), minimal()
+                .middleware(Integration.middleware.minimal())
 
                 # Integrations -- core only
                 .integrate(Integration.di(auto_wire=True))

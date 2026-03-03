@@ -15,7 +15,7 @@ import logging
 
 from .config import ConfigLoader
 from .engine import RequestCtx
-from .middleware import MiddlewareStack, RequestIdMiddleware, ExceptionMiddleware, LoggingMiddleware
+from .middleware import MiddlewareStack
 from .asgi import ASGIAdapter
 from .controller.router import ControllerRouter
 from .aquilary import Aquilary, RuntimeRegistry, RegistryMode, AquilaryRegistry
@@ -183,30 +183,30 @@ class AquiliaServer:
         return Container(scope="app")
     
     def _setup_middleware(self):
-        """Setup default middleware stack with Aquilary integration."""
-        # Add default middleware in order
-        self.middleware_stack.add(
-            ExceptionMiddleware(debug=self._is_debug()),
-            scope="global",
-            priority=1,
-            name="exception",
-        )
-        
-        # Add Fault engine middleware
+        """Setup middleware stack from workspace config or built-in defaults.
+
+        Resolution order:
+        1. If ``middleware_chain`` is defined in workspace config, instantiate
+           each middleware from its dotted path + kwargs.
+        2. Otherwise, fall back to the hardcoded default stack (ExceptionMiddleware,
+           RequestIdMiddleware) for backwards compatibility.
+
+        Internal middleware (FaultMiddleware, request_scope) are ALWAYS
+        registered regardless of user config -- they are framework plumbing,
+        not user-facing middleware.
+        """
+        # ── Internal plumbing middleware (always registered) ─────────────
         self.middleware_stack.add(
             FaultMiddleware(self.fault_engine),
             scope="global",
             priority=2,
             name="faults",
         )
-        
-        # Add request scope middleware with RuntimeRegistry
-        # Note: The ASGI adapter already creates a request-scoped container.
-        # This middleware just stores references and handles cleanup.
+
         from .middleware_ext.request_scope import SimplifiedRequestScopeMiddleware
-        
+
         runtime_ref = self.runtime  # capture for closure
-        
+
         async def request_scope_mw(request, ctx, next_handler):
             """Request scope middleware -- stores container refs and cleans up."""
             request.state["di_container"] = ctx.container
@@ -217,31 +217,46 @@ class AquiliaServer:
             try:
                 return await next_handler(request, ctx)
             finally:
-                # Cleanup request scope
                 if ctx.container and hasattr(ctx.container, 'shutdown'):
                     await ctx.container.shutdown()
-        
+
         self.middleware_stack.add(
             request_scope_mw,
             scope="global",
             priority=5,
             name="request_scope",
         )
-        
-        self.middleware_stack.add(
-            RequestIdMiddleware(),
-            scope="global",
-            priority=10,
-            name="request_id",
-        )
-        
-        self.middleware_stack.add(
-            LoggingMiddleware(),
-            scope="global",
-            priority=20,
-            name="logging",
-        )
-        
+
+        # ── User-configurable middleware chain ───────────────────────────
+        middleware_chain = self.config.get_middleware_config()
+
+        if middleware_chain is not None:
+            # Config-driven: instantiate each middleware from its path
+            for entry in middleware_chain:
+                mw_instance = self._instantiate_middleware(entry)
+                if mw_instance is not None:
+                    self.middleware_stack.add(
+                        mw_instance,
+                        scope=entry.get("scope", "global"),
+                        priority=entry.get("priority", 50),
+                        name=entry.get("name", "middleware"),
+                    )
+        else:
+            # Legacy fallback: hardcoded defaults for backward compat
+            from .middleware import ExceptionMiddleware, RequestIdMiddleware
+            self.middleware_stack.add(
+                ExceptionMiddleware(debug=self._is_debug()),
+                scope="global",
+                priority=1,
+                name="exception",
+            )
+            self.middleware_stack.add(
+                RequestIdMiddleware(),
+                scope="global",
+                priority=10,
+                name="request_id",
+            )
+
         # Add session/auth middleware if enabled
         session_config = self.config.get_session_config()
         auth_config = self.config.get_auth_config()
@@ -819,7 +834,53 @@ class AquiliaServer:
         if os.environ.get("AQUILIA_ENV", "").lower() == "dev":
             return True
         return False
-    
+
+    # ── middleware instantiation ─────────────────────────────────────
+    def _instantiate_middleware(self, entry: dict):
+        """Resolve a middleware entry dict into a live middleware instance.
+
+        *entry* is a dict produced by ``Integration.middleware.Entry.to_dict()``
+        with keys ``path``, ``priority``, ``scope``, ``name``, and ``kwargs``.
+
+        Special-case handling:
+        - ``ExceptionMiddleware``: if the caller did not supply an explicit
+          ``debug`` kwarg the current server debug state is injected
+          automatically so dev/prod behaviour is always correct.
+
+        Returns ``None`` (with a warning log) when the class cannot be
+        imported or instantiated -- the server continues booting without
+        that middleware rather than crashing.
+        """
+        class_path = entry.get("path", "")
+        kwargs = dict(entry.get("kwargs", {}))
+
+        try:
+            module_path, class_name = class_path.rsplit(".", 1)
+            import importlib
+            module = importlib.import_module(module_path)
+            cls = getattr(module, class_name)
+        except Exception as exc:
+            self.logger.warning(
+                "Could not import middleware '%s': %s -- skipping",
+                class_path,
+                exc,
+            )
+            return None
+
+        # Auto-inject debug flag for ExceptionMiddleware when not explicit
+        if class_name == "ExceptionMiddleware" and "debug" not in kwargs:
+            kwargs["debug"] = self._is_debug()
+
+        try:
+            return cls(**kwargs)
+        except Exception as exc:
+            self.logger.warning(
+                "Could not instantiate middleware '%s': %s -- skipping",
+                class_path,
+                exc,
+            )
+            return None
+
     def _setup_mail(self):
         """
         Initialize AquilaMail subsystem from workspace config.
@@ -1614,6 +1675,8 @@ class AquiliaServer:
             if _mod("profile"):
                 admin_routes.extend([
                     ("GET",  f"{url_prefix}/profile/",               "profile_view",            ctrl.profile_view),
+                    ("GET",  f"{url_prefix}/profile/avatar/<filename:str>", "profile_avatar_serve", ctrl.profile_avatar_serve),
+                    ("POST", f"{url_prefix}/profile/upload-avatar",  "profile_upload_avatar",   ctrl.profile_upload_avatar),
                     ("POST", f"{url_prefix}/profile/update",         "profile_update",          ctrl.profile_update),
                     ("POST", f"{url_prefix}/profile/change-password", "profile_change_password", ctrl.profile_change_password),
                 ])

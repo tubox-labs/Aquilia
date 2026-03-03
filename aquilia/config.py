@@ -712,4 +712,27 @@ class ConfigLoader:
 
         return merged
 
+    def get_middleware_config(self) -> list:
+        """
+        Get middleware chain configuration.
+
+        Returns the user-defined middleware chain from workspace config,
+        or ``None`` if no chain was configured (server falls back to
+        built-in defaults).
+
+        Each entry is a dict with:
+        - ``path``: Dotted import path (e.g. ``aquilia.middleware.RequestIdMiddleware``)
+        - ``priority``: Execution order (lower = runs first)
+        - ``scope``: ``"global"`` or ``"app:<name>"``
+        - ``name``: Display name
+        - ``kwargs``: Constructor keyword arguments
+
+        Returns:
+            List of middleware entry dicts, or None.
+        """
+        chain = self.get("middleware_chain")
+        if chain is not None:
+            return chain
+        return None
+
 

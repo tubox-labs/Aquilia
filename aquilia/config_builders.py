@@ -1515,6 +1515,176 @@ class Integration:
             **kwargs,
         }
 
+    # ── Middleware Chain Builder ──────────────────────────────────────
+    #
+    # Industry-grade middleware configuration via path-based resolution.
+    # Middleware classes are referenced by their dotted import path
+    # (e.g. ``aquilia.middleware.RequestIdMiddleware``) so workspace.py
+    # never imports framework internals directly.
+    #
+    # Usage::
+    #
+    #     .middleware(
+    #         Integration.middleware.chain()
+    #         .use("aquilia.middleware.ExceptionMiddleware", priority=1, debug=True)
+    #         .use("aquilia.middleware.RequestIdMiddleware", priority=10)
+    #         .use("aquilia.middleware.LoggingMiddleware",   priority=20)
+    #     )
+    #
+    #     # Or use preset chains:
+    #     .middleware(Integration.middleware.defaults())
+    #     .middleware(Integration.middleware.production())
+    #
+
+    class middleware:
+        """
+        Middleware configuration builder.
+
+        Provides path-based middleware resolution so workspace.py declares
+        *what* middleware to run without importing framework internals.
+
+        Middleware paths follow the ``aquilia.middleware.<Class>`` or
+        ``aquilia.middleware_ext.<module>.<Class>`` convention.  Custom
+        middleware uses full dotted paths (``myapp.middleware.RateLimiter``).
+        """
+
+        @dataclass
+        class Entry:
+            """A single middleware entry in the chain."""
+            path: str
+            priority: int = 50
+            scope: str = "global"
+            name: Optional[str] = None
+            kwargs: Dict[str, Any] = field(default_factory=dict)
+
+            def to_dict(self) -> Dict[str, Any]:
+                return {
+                    "path": self.path,
+                    "priority": self.priority,
+                    "scope": self.scope,
+                    "name": self.name or self.path.rsplit(".", 1)[-1],
+                    "kwargs": self.kwargs,
+                }
+
+        class Chain(list):
+            """
+            Fluent middleware chain builder.
+
+            Each ``.use()`` call appends a middleware entry.  The chain
+            serializes to a list of dicts consumed by the server at boot.
+
+            Example::
+
+                chain = (
+                    Integration.middleware.chain()
+                    .use("aquilia.middleware.ExceptionMiddleware", priority=1, debug=True)
+                    .use("aquilia.middleware.RequestIdMiddleware", priority=10)
+                    .use("aquilia.middleware.LoggingMiddleware",   priority=20)
+                    .use("myapp.middleware.TenantMiddleware",      priority=30, header="X-Tenant-ID")
+                )
+            """
+
+            def use(
+                self,
+                path: str,
+                *,
+                priority: int = 50,
+                scope: str = "global",
+                name: Optional[str] = None,
+                **kwargs,
+            ) -> "Integration.middleware.Chain":
+                """
+                Append a middleware to the chain.
+
+                Args:
+                    path: Dotted import path to the middleware class.
+                          Examples:
+                          - ``aquilia.middleware.ExceptionMiddleware``
+                          - ``aquilia.middleware.RequestIdMiddleware``
+                          - ``aquilia.middleware.LoggingMiddleware``
+                          - ``aquilia.middleware.TimeoutMiddleware``
+                          - ``aquilia.middleware.CORSMiddleware``
+                          - ``aquilia.middleware.CompressionMiddleware``
+                          - ``myapp.middleware.CustomMiddleware``
+                    priority: Execution order (lower = runs first).
+                    scope: ``"global"`` or ``"app:<name>"``.
+                    name: Display name for debugging / introspection.
+                    **kwargs: Constructor arguments forwarded to the
+                              middleware class's ``__init__``.
+
+                Returns:
+                    Self for chaining.
+                """
+                entry = Integration.middleware.Entry(
+                    path=path,
+                    priority=priority,
+                    scope=scope,
+                    name=name,
+                    kwargs=kwargs,
+                )
+                self.append(entry)
+                return self
+
+            def to_list(self) -> List[Dict[str, Any]]:
+                """Serialize the chain to a config-compatible list."""
+                return [e.to_dict() for e in self]
+
+        @classmethod
+        def chain(cls) -> "Integration.middleware.Chain":
+            """Create an empty middleware chain."""
+            return cls.Chain()
+
+        @classmethod
+        def defaults(cls) -> "Integration.middleware.Chain":
+            """
+            Standard development middleware chain.
+
+            Includes:
+            - ExceptionMiddleware (priority 1) -- catches errors, renders debug pages
+            - RequestIdMiddleware (priority 10) -- adds X-Request-ID header
+            - LoggingMiddleware  (priority 20) -- request/response logging with timing
+            """
+            return (
+                cls.chain()
+                .use("aquilia.middleware.ExceptionMiddleware", priority=1)
+                .use("aquilia.middleware.RequestIdMiddleware", priority=10)
+                .use("aquilia.middleware.LoggingMiddleware",   priority=20)
+            )
+
+        @classmethod
+        def production(cls) -> "Integration.middleware.Chain":
+            """
+            Production-grade middleware chain.
+
+            Includes:
+            - ExceptionMiddleware   (priority 1) -- error handling (debug=False)
+            - RequestIdMiddleware   (priority 10) -- request tracing
+            - CompressionMiddleware (priority 15) -- gzip response compression
+            - TimeoutMiddleware     (priority 18) -- 30s request timeout
+            """
+            return (
+                cls.chain()
+                .use("aquilia.middleware.ExceptionMiddleware",   priority=1, debug=False)
+                .use("aquilia.middleware.RequestIdMiddleware",   priority=10)
+                .use("aquilia.middleware.CompressionMiddleware", priority=15, minimum_size=500)
+                .use("aquilia.middleware.TimeoutMiddleware",     priority=18, timeout_seconds=30.0)
+            )
+
+        @classmethod
+        def minimal(cls) -> "Integration.middleware.Chain":
+            """
+            Minimal middleware chain -- just error handling.
+
+            Includes:
+            - ExceptionMiddleware (priority 1)
+            - RequestIdMiddleware (priority 10)
+            """
+            return (
+                cls.chain()
+                .use("aquilia.middleware.ExceptionMiddleware", priority=1)
+                .use("aquilia.middleware.RequestIdMiddleware", priority=10)
+            )
+
     @staticmethod
     def patterns(**kwargs) -> Dict[str, Any]:
         """Configure patterns."""
@@ -2268,6 +2438,7 @@ class Workspace:
         self._mlops_config: Optional[Dict[str, Any]] = None
         self._cache_config: Optional[Dict[str, Any]] = None
         self._starter: Optional[str] = None
+        self._middleware_chain: Optional[List[Dict[str, Any]]] = None
         self._on_startup: Optional[str] = None
         self._on_shutdown: Optional[str] = None
     
@@ -2308,6 +2479,38 @@ class Workspace:
                          Resolved relative to the workspace root.
         """
         self._starter = module_name
+        return self
+    
+    def middleware(self, chain: "Integration.middleware.Chain") -> "Workspace":
+        """
+        Configure the middleware chain for this workspace.
+
+        Replaces the default hard-coded middleware stack with a
+        user-controlled, path-based chain.  Each middleware is
+        referenced by its dotted import path so workspace.py never
+        needs to import framework internals.
+
+        Args:
+            chain: A middleware chain built via
+                   ``Integration.middleware.chain()`` or one of the
+                   presets (``defaults()``, ``production()``, ``minimal()``).
+
+        Returns:
+            Self for chaining.
+
+        Example::
+
+            workspace = (
+                Workspace("myapp")
+                .middleware(
+                    Integration.middleware.chain()
+                    .use("aquilia.middleware.ExceptionMiddleware", priority=1)
+                    .use("aquilia.middleware.RequestIdMiddleware", priority=10)
+                    .use("aquilia.middleware.LoggingMiddleware",   priority=20)
+                )
+            )
+        """
+        self._middleware_chain = chain.to_list()
         return self
     
     def runtime(
@@ -2603,6 +2806,7 @@ class Workspace:
             },
             "modules": [m.to_dict() for m in self._modules],
             "integrations": self._integrations,
+            "middleware_chain": self._middleware_chain,
             "starter": self._starter,
             "on_startup": self._on_startup,
             "on_shutdown": self._on_shutdown,
