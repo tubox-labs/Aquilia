@@ -109,7 +109,7 @@ class MySQLAdapter(DatabaseAdapter):
             await self._pool.wait_closed()
             self._pool = None
         self._connected = False
-        logger.info("MySQL disconnected")
+        logger.debug("MySQL disconnected")
 
     def adapt_sql(self, sql: str) -> str:
         """Convert ``?`` placeholders to ``%s`` for MySQL (string-literal safe)."""

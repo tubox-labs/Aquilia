@@ -74,7 +74,7 @@
             <div class="profile-avatar-wrap">
                 <div class="profile-avatar" id="profileAvatar">
                     {% if user.avatar_path %}
-                        <img src="{{ url_prefix|default('/admin') }}/profile/avatar/{{ user.avatar_path }}"
+                        <img src="{{ user.avatar_path }}"
                              alt="Profile photo" id="avatarImg">
                     {% else %}
                         <span id="avatarInitials">{{ (user.first_name or user.username)|truncate(1,True,'')|upper }}{{ (user.last_name or '')|truncate(1,True,'')|upper }}</span>
@@ -330,6 +330,15 @@ function updatePasswordStrength(pw) {
                 if (resp.ok || resp.redirected || resp.status === 302 || resp.status === 200) {
                     statusEl.textContent = 'Photo saved \u2713';
                     statusEl.className   = 'avatar-status ok';
+                    /* Sync topbar avatar via localStorage */
+                    var img = avatarEl.querySelector('img');
+                    if (img && img.src) {
+                        localStorage.setItem('aquilia-admin-avatar', img.src);
+                        ['topbarAvatar','topbarAvatarLg'].forEach(function(id) {
+                            var el = document.getElementById(id);
+                            if (el) el.innerHTML = '<img src="' + img.src + '" alt="avatar" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">';
+                        });
+                    }
                 } else {
                     statusEl.textContent = 'Upload failed (' + resp.status + ')';
                     statusEl.className   = 'avatar-status err';

@@ -1642,13 +1642,11 @@ class Integration:
             Includes:
             - ExceptionMiddleware (priority 1) -- catches errors, renders debug pages
             - RequestIdMiddleware (priority 10) -- adds X-Request-ID header
-            - LoggingMiddleware  (priority 20) -- request/response logging with timing
             """
             return (
                 cls.chain()
                 .use("aquilia.middleware.ExceptionMiddleware", priority=1)
                 .use("aquilia.middleware.RequestIdMiddleware", priority=10)
-                .use("aquilia.middleware.LoggingMiddleware",   priority=20)
             )
 
         @classmethod

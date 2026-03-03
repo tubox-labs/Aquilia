@@ -149,7 +149,7 @@ class CacheService:
         
         await self._backend.shutdown()
         self._initialized = False
-        logger.info("Cache service shut down")
+        logger.debug("Cache service shut down")
     
     # DI lifecycle aliases
     async def startup(self) -> None:

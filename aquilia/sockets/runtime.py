@@ -208,7 +208,7 @@ class AquilaSockets:
         
         await self.adapter.shutdown()
         self._initialized = False
-        logger.info("AquilaSockets shut down")
+        logger.debug("AquilaSockets shut down")
     
     async def handle_websocket(self, scope: dict, receive: callable, send: callable):
         """

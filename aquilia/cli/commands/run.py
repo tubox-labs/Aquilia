@@ -994,7 +994,8 @@ logging.basicConfig(level=_LOG_LEVEL, format=_LOG_FORMAT, force=True)
 
 # Silence noisy third-party loggers in dev mode
 for _noisy in ("aiosqlite", "asyncio", "urllib3", "httpcore", "httpx",
-               "watchfiles", "uvicorn.error"):
+               "watchfiles", "uvicorn.error", "python_multipart",
+               "python_multipart.multipart"):
     logging.getLogger(_noisy).setLevel(logging.WARNING)
 
 _logger = logging.getLogger("aquilia.runtime")

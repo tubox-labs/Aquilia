@@ -112,7 +112,7 @@ class PostgresAdapter(DatabaseAdapter):
             await self._pool.close()
             self._pool = None
         self._connected = False
-        logger.info("PostgreSQL disconnected")
+        logger.debug("PostgreSQL disconnected")
 
     def adapt_sql(self, sql: str) -> str:
         """

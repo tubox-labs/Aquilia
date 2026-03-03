@@ -54,7 +54,7 @@ class InMemoryAdapter(Adapter):
         self._connections.clear()
         self._send_callbacks.clear()
         self._initialized = False
-        logger.info("InMemoryAdapter shut down")
+        logger.debug("InMemoryAdapter shut down")
     
     def register_send_callback(
         self,

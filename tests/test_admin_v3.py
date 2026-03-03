@@ -1777,7 +1777,7 @@ class TestDevModeCookieSecureOverride:
             self._cleanup_env(["AQUILIA_ENV"])
 
     def test_apply_override_logs_when_patching(self):
-        """When patching cookie_secure, should log an info message."""
+        """When patching cookie_secure, should log a debug message."""
         from aquilia.sessions.policy import TransportPolicy
         from aquilia.sessions.transport import CookieTransport
 
@@ -1787,10 +1787,15 @@ class TestDevModeCookieSecureOverride:
 
         server._apply_dev_cookie_override(transport)
 
-        server.logger.info.assert_called_once()
-        log_msg = server.logger.info.call_args[0][0]
-        assert "cookie_secure=False" in log_msg
-        assert "Dev mode" in log_msg
+        server.logger.debug.assert_called()
+        # Find the call that contains the cookie_secure message
+        found = False
+        for call in server.logger.debug.call_args_list:
+            log_msg = call[0][0]
+            if "cookie_secure=False" in log_msg and "Dev mode" in log_msg:
+                found = True
+                break
+        assert found, "Expected debug log about cookie_secure=False"
 
 
 class TestTransportPolicyDefault:

@@ -1771,12 +1771,16 @@ class AdminController(Controller):
         except OSError as e:
             return _flash(f"Could not save image: {e}")
 
+        # Build the full serving URL path so templates/JS can use it directly
+        prefix = self.site.url_prefix if hasattr(self, "site") and self.site else "/admin"
+        avatar_url = f"{prefix}/profile/avatar/{filename}"
+
         # Persist path in AdminUser table
         try:
             from aquilia.admin.models import AdminUser
             db_user = await AdminUser.objects.filter(username=username).first()
             if db_user:
-                db_user.avatar_path = filename
+                db_user.avatar_path = avatar_url
                 await db_user.save()
         except Exception:
             pass  # DB may not have the column yet (migration pending)
@@ -1785,7 +1789,7 @@ class AdminController(Controller):
         if ctx.session and hasattr(ctx.session, "data"):
             admin_data = ctx.session.data.get("_admin_identity")
             if admin_data and isinstance(admin_data, dict):
-                admin_data.setdefault("attributes", {})["avatar_path"] = filename
+                admin_data.setdefault("attributes", {})["avatar_path"] = avatar_url
                 ctx.session.data["_admin_identity"] = admin_data
 
         return _flash("Profile photo updated.", "success")

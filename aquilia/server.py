@@ -1100,7 +1100,7 @@ class AquiliaServer:
                 object.__setattr__(policy, "cookie_secure", False)
             except (AttributeError, TypeError, Exception):
                 pass  # frozen dataclass -- can't patch
-            self.logger.info(
+            self.logger.debug(
                 "Dev mode detected -- set cookie_secure=False for session cookies "
                 "(browsers reject Secure cookies over plain HTTP)"
             )
@@ -1198,7 +1198,7 @@ class AquiliaServer:
             policy = policies_list[0]
             
             if len(policies_list) > 1:
-                self.logger.info(
+                self.logger.debug(
                     f"Multiple session policies configured: "
                     f"{[p.name for p in policies_list]}. "
                     f"Using '{policy.name}' as primary engine policy."
@@ -1354,7 +1354,7 @@ class AquiliaServer:
                             )
                             credential_store._passwords[user_id] = credential
                         
-                        self.logger.info(f"Loaded initial user: {attributes.get('email', user_id)}")
+                        self.logger.debug(f"Loaded initial user: {attributes.get('email', user_id)}")
                     except Exception as e:
                         self.logger.warning(f"Failed to load initial user: {e}")
         else:
@@ -2129,7 +2129,7 @@ class AquiliaServer:
                         handler_instance = handler_obj
                         
                     self.fault_engine.register_app(app_ctx.name, handler_instance)
-                    self.logger.info(f"Registered fault handler from {app_ctx.name} manifest")
+                    self.logger.debug(f"Registered fault handler from {app_ctx.name} manifest")
                 except Exception as e:
                     self.logger.error(f"Failed to register fault handler {handler_cfg.handler_path} for app {app_ctx.name}: {e}")
     
@@ -2548,7 +2548,7 @@ class AquiliaServer:
         if not self._startup_complete:
             return  # Nothing to shut down
         
-        self.logger.info("Shutting down Aquilia server...")
+        self.logger.debug("Shutting down Aquilia server...")
         
         # Run lifecycle shutdown hooks
         await self.coordinator.shutdown()
@@ -2557,7 +2557,7 @@ class AquiliaServer:
         if hasattr(self, '_mail_service') and self._mail_service is not None:
             try:
                 await self._mail_service.on_shutdown()
-                self.logger.info("Mail subsystem shut down")
+                self.logger.debug("Mail subsystem shut down")
             except Exception as e:
                 self.logger.warning(f"Error shutting down mail subsystem: {e}")
 
@@ -2565,7 +2565,7 @@ class AquiliaServer:
         if hasattr(self, '_cache_service') and self._cache_service is not None:
             try:
                 await self._cache_service.shutdown()
-                self.logger.info("Cache subsystem shut down")
+                self.logger.debug("Cache subsystem shut down")
             except Exception as e:
                 self.logger.warning(f"Error shutting down cache subsystem: {e}")
 
@@ -2580,7 +2580,7 @@ class AquiliaServer:
         if hasattr(self, '_effect_registry') and self._effect_registry:
             try:
                 await self._effect_registry.finalize_all()
-                self.logger.info("Effect providers finalized")
+                self.logger.debug("Effect providers finalized")
             except Exception as e:
                 self.logger.warning(f"Error finalizing effect providers: {e}")
         
@@ -2588,7 +2588,7 @@ class AquiliaServer:
         if hasattr(self, 'aquila_sockets') and self.aquila_sockets:
             try:
                 await self.aquila_sockets.shutdown()
-                self.logger.info("WebSocket runtime shut down")
+                self.logger.debug("WebSocket runtime shut down")
             except Exception as e:
                 self.logger.warning(f"Error shutting down WebSocket runtime: {e}")
 
@@ -2596,13 +2596,13 @@ class AquiliaServer:
         if hasattr(self, '_amdl_database') and self._amdl_database:
             try:
                 await self._amdl_database.disconnect()
-                self.logger.info("AMDL database disconnected")
+                self.logger.debug("AMDL database disconnected")
             except Exception as e:
                 self.logger.warning(f"Error disconnecting AMDL database: {e}")
 
         # Reset startup state
         self._startup_complete = False
-        self.logger.info("All apps stopped")
+        self.logger.debug("All apps stopped")
     
     def get_health(self) -> dict:
         """
@@ -2626,12 +2626,12 @@ class AquiliaServer:
         """
         import asyncio
         
-        self.logger.info("Initiating graceful shutdown...")
+        self.logger.debug("Initiating graceful shutdown...")
         self._accepting = False
         
         # Wait for in-flight requests to complete
         if self._inflight_requests > 0:
-            self.logger.info(
+            self.logger.debug(
                 f"Draining {self._inflight_requests} in-flight requests "
                 f"(timeout: {timeout}s)..."
             )
@@ -2647,7 +2647,7 @@ class AquiliaServer:
         
         # Run standard shutdown
         await self.shutdown()
-        self.logger.info("Graceful shutdown complete")
+        self.logger.debug("Graceful shutdown complete")
 
     def run(
         self,
@@ -2672,12 +2672,15 @@ class AquiliaServer:
             level=getattr(logging, log_level.upper()),
             format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         )
+        # Silence noisy third-party loggers
+        for _noisy in ("python_multipart", "python_multipart.multipart"):
+            logging.getLogger(_noisy).setLevel(logging.WARNING)
         
         try:
             # Try to import uvicorn
             import uvicorn
             
-            self.logger.info(f"Starting uvicorn server on {host}:{port}")
+            self.logger.debug(f"Starting uvicorn server on {host}:{port}")
             
             # uvicorn manages the event loop and lifespan (startup/shutdown)
             # via the ASGI lifespan protocol -- no need to call startup() manually
