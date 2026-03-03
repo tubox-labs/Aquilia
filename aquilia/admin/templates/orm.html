@@ -5,10 +5,10 @@
 {% block content %}
 <div class="page-header">
     <h1>ORM Models</h1>
-    <p>All registered models and their record counts.</p>
+    <p>Schema inspector, relation graph, indexes, and model analytics.</p>
 </div>
 
-{# ── Stats ── #}
+{# ── Stats Row ── #}
 <div class="stats-row" style="margin-bottom:28px;">
     <div class="stat-item">
         <div class="stat-number">{{ total_models }}</div>
@@ -19,39 +19,531 @@
         <div class="stat-label">Records</div>
     </div>
     <div class="stat-item">
-        <div class="stat-number">{{ app_list|length }}</div>
-        <div class="stat-label">Apps</div>
+        <div class="stat-number">{{ total_fk + total_m2m }}</div>
+        <div class="stat-label">Relations</div>
+    </div>
+    <div class="stat-item">
+        <div class="stat-number">{{ total_indexes }}</div>
+        <div class="stat-label">Indexes</div>
     </div>
 </div>
 
-{# ── Model cards grid ── #}
-{% for app in app_list %}
-<div class="section-label">{{ app.app_name }}</div>
-<div class="model-grid" style="margin-bottom:28px;">
-    {% for model in app.models %}
-    <a class="model-card" href="{{ url_prefix|default('/admin') }}/{{ model.url_name }}/">
-        <div>
-            <div class="model-card-name">
-                <i class="icon-table" style="font-size:14px;vertical-align:-2px;margin-right:4px;opacity:0.4;"></i>
-                {{ model.name_plural }}
+{# ── Tabs ── #}
+<div class="tab-nav" data-tab-group="orm">
+    <button class="tab-btn active" data-tab="overview" onclick="switchTab('orm','overview')">
+        <i class="icon-grid" style="font-size:14px;vertical-align:-2px;margin-right:4px;"></i>Overview
+    </button>
+    <button class="tab-btn" data-tab="graph" onclick="switchTab('orm','graph');initGraph();">
+        <i class="icon-share-2" style="font-size:14px;vertical-align:-2px;margin-right:4px;"></i>Relation Graph
+    </button>
+    <button class="tab-btn" data-tab="schema" onclick="switchTab('orm','schema')">
+        <i class="icon-columns" style="font-size:14px;vertical-align:-2px;margin-right:4px;"></i>Schema Inspector
+    </button>
+    <button class="tab-btn" data-tab="indexes" onclick="switchTab('orm','indexes')">
+        <i class="icon-zap" style="font-size:14px;vertical-align:-2px;margin-right:4px;"></i>Indexes &amp; Constraints
+    </button>
+</div>
+
+{# ═══════════════════════════════════════════════════════════════════ #}
+{# ── TAB 1: Overview (model cards + search) ── #}
+{# ═══════════════════════════════════════════════════════════════════ #}
+<div class="tab-content active" data-tab-content="orm" data-tab="overview">
+    {# ── Search ── #}
+    <div class="toolbar" style="margin-bottom:18px;">
+        <div class="search-box">
+            <i class="icon-search" style="font-size:15px;color:var(--text-faint);flex-shrink:0;"></i>
+            <input type="text" id="modelSearchInput" placeholder="Filter models…" autocomplete="off">
+            <kbd style="font-size:0.6rem;padding:1px 5px;border:1px solid var(--border-color);border-radius:3px;color:var(--text-faint);font-family:var(--font-mono);margin-left:auto;white-space:nowrap;">⌘K</kbd>
+        </div>
+        <span class="meta-text" id="modelSearchCount">{{ total_models }} model{{ 's' if total_models != 1 else '' }}</span>
+    </div>
+
+    {% for app in app_list %}
+    <div class="section-label model-section">{{ app.app_name }}</div>
+    <div class="model-grid" style="margin-bottom:28px;">
+        {% for model in app.models %}
+        <a class="model-card" href="{{ url_prefix|default('/admin') }}/{{ model.url_name }}/"
+           data-model-name="{{ model.model_name|lower }}" data-model-label="{{ model.name_plural|lower }}">
+            <div>
+                <div class="model-card-name">
+                    <i class="icon-table" style="font-size:14px;vertical-align:-2px;margin-right:4px;opacity:0.4;"></i>
+                    {{ model.name_plural }}
+                </div>
+                <div class="model-card-app">{{ model.model_name }}</div>
             </div>
-            <div class="model-card-app">{{ model.model_name }}</div>
+            <div>
+                <div class="model-card-count">{{ model_counts.get(model.model_name, '?') }}</div>
+                <div class="model-card-label">records</div>
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+    {% endfor %}
+
+    {% if not app_list %}
+    <div class="glass-card">
+        <div class="empty-state">
+            <i class="icon-database" style="font-size:32px;display:block;margin-bottom:12px;opacity:0.3;"></i>
+            No models registered yet
         </div>
-        <div>
-            <div class="model-card-count">{{ model_counts.get(model.model_name, '?') }}</div>
-            <div class="model-card-label">records</div>
+    </div>
+    {% endif %}
+</div>
+
+{# ═══════════════════════════════════════════════════════════════════ #}
+{# ── TAB 2: Relation Graph (pure SVG + JS) ── #}
+{# ═══════════════════════════════════════════════════════════════════ #}
+<div class="tab-content" data-tab-content="orm" data-tab="graph">
+    <div class="section-label">Model Relations</div>
+    <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:12px;display:flex;align-items:center;gap:8px;">
+        <i class="icon-info" style="font-size:14px;color:var(--info);"></i>
+        Drag nodes to rearrange. Hover edges for details. FK = Foreign Key, O2O = One-to-One, M2M = Many-to-Many.
+    </div>
+    {# Legend #}
+    <div style="display:flex;gap:18px;margin-bottom:16px;flex-wrap:wrap;">
+        <span style="display:flex;align-items:center;gap:6px;font-size:0.75rem;color:var(--text-secondary);">
+            <span style="width:24px;height:3px;background:var(--accent);border-radius:2px;display:inline-block;"></span> FK (Foreign Key)
+        </span>
+        <span style="display:flex;align-items:center;gap:6px;font-size:0.75rem;color:var(--text-secondary);">
+            <span style="width:24px;height:3px;background:var(--info);border-radius:2px;display:inline-block;"></span> O2O (One-to-One)
+        </span>
+        <span style="display:flex;align-items:center;gap:6px;font-size:0.75rem;color:var(--text-secondary);">
+            <span style="width:24px;height:3px;background:var(--warning);border-radius:2px;display:inline-block;border-style:dashed;border-width:0 0 3px 0;"></span> M2M (Many-to-Many)
+        </span>
+    </div>
+    <div class="glass-card" id="graphContainer" style="padding:0;overflow:hidden;position:relative;min-height:450px;cursor:grab;">
+        <svg id="relationGraph" width="100%" height="450" style="display:block;"></svg>
+    </div>
+    {% if not all_relations %}
+    <div style="text-align:center;padding:32px 0;color:var(--text-faint);font-size:0.85rem;">
+        <i class="icon-git-merge" style="font-size:28px;display:block;margin-bottom:8px;opacity:0.3;"></i>
+        No relations found between registered models.
+    </div>
+    {% endif %}
+</div>
+
+{# ═══════════════════════════════════════════════════════════════════ #}
+{# ── TAB 3: Schema Inspector ── #}
+{# ═══════════════════════════════════════════════════════════════════ #}
+<div class="tab-content" data-tab-content="orm" data-tab="schema">
+    <div class="section-label">Schema Inspector</div>
+    <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:16px;display:flex;align-items:center;gap:8px;">
+        <i class="icon-info" style="font-size:14px;color:var(--info);"></i>
+        Click a model to expand its field schema. Shows types, constraints, defaults, and relation targets.
+    </div>
+
+    {% for model in model_schema %}
+    <div class="schema-model-card" id="schema-{{ model.name }}">
+        <div class="schema-model-header" onclick="this.parentElement.classList.toggle('active')">
+            <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;">
+                <i class="icon-chevron-right schema-chevron" style="font-size:14px;color:var(--text-faint);transition:transform 0.2s;flex-shrink:0;"></i>
+                <span style="font-weight:600;color:var(--text-primary);font-size:0.9rem;">{{ model.name }}</span>
+                <span class="schema-table-badge">{{ model.table_name }}</span>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;">
+                <span class="schema-pill">{{ model.field_count }} fields</span>
+                {% if model.relations %}
+                <span class="schema-pill schema-pill-accent">{{ model.relations|length }} rel{{ 's' if model.relations|length != 1 else '' }}</span>
+                {% endif %}
+                {% if model.indexes %}
+                <span class="schema-pill schema-pill-info">{{ model.indexes|length }} idx</span>
+                {% endif %}
+                {% if model_counts.get(model.name) is not none %}
+                <span class="schema-pill schema-pill-muted">{{ model_counts.get(model.name, '?') }} rows</span>
+                {% endif %}
+            </div>
         </div>
-    </a>
+        <div class="schema-model-body">
+            <div class="table-container" style="border:none;border-radius:0;">
+                <table class="admin-table schema-table">
+                    <thead>
+                        <tr>
+                            <th>Field</th>
+                            <th>Column</th>
+                            <th>Type</th>
+                            <th>Python</th>
+                            <th>Constraints</th>
+                            <th>Default</th>
+                            <th>Relation</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for f in model.fields %}
+                        <tr class="{% if f.primary_key %}schema-pk-row{% endif %}{% if f.get('relation') %} schema-rel-row{% endif %}">
+                            <td>
+                                {% if f.primary_key %}<i class="icon-key" style="font-size:11px;color:var(--warning);margin-right:3px;" title="Primary Key"></i>{% endif %}
+                                <span style="font-family:var(--font-mono);font-size:0.78rem;font-weight:{% if f.primary_key %}600{% else %}400{% endif %};">{{ f.name }}</span>
+                            </td>
+                            <td><span class="schema-col-name">{{ f.column }}</span></td>
+                            <td><span class="schema-type-badge">{{ f.type }}</span></td>
+                            <td style="font-size:0.72rem;color:var(--text-faint);">{{ f.python_type }}</td>
+                            <td>
+                                {% if f.primary_key %}<span class="schema-constraint-tag pk">PK</span>{% endif %}
+                                {% if f.unique and not f.primary_key %}<span class="schema-constraint-tag unique">UQ</span>{% endif %}
+                                {% if not f.null and not f.primary_key %}<span class="schema-constraint-tag notnull">NN</span>{% endif %}
+                                {% if f.db_index and not f.primary_key %}<span class="schema-constraint-tag idx">IDX</span>{% endif %}
+                                {% if f.choices %}<span class="schema-constraint-tag choices">ENUM</span>{% endif %}
+                            </td>
+                            <td>
+                                {% if f.default %}
+                                <code style="font-size:0.7rem;background:var(--bg-surface);padding:1px 5px;border-radius:3px;">{{ f.default }}</code>
+                                {% else %}
+                                <span style="color:var(--text-faint);font-size:0.7rem;">—</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if f.get('relation') %}
+                                <span class="schema-rel-badge schema-rel-{{ f.relation.type|lower }}">
+                                    {{ f.relation.type }} → {{ f.relation.to }}
+                                </span>
+                                {% else %}
+                                <span style="color:var(--text-faint);font-size:0.7rem;">—</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            {# Meta info row #}
+            {% if model.ordering or not model.managed %}
+            <div style="display:flex;gap:16px;padding:10px 16px;border-top:1px solid var(--border-subtle);font-size:0.72rem;color:var(--text-faint);">
+                {% if model.ordering %}
+                <span><strong>Ordering:</strong> {{ model.ordering|join(', ') }}</span>
+                {% endif %}
+                {% if not model.managed %}
+                <span style="color:var(--warning);"><strong>Unmanaged</strong> (no migrations)</span>
+                {% endif %}
+                <span><strong>PK:</strong> {{ model.pk_field }}</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
     {% endfor %}
 </div>
-{% endfor %}
 
-{% if not app_list %}
-<div class="glass-card">
-    <div class="empty-state">
-        <i class="icon-database" style="font-size:32px;display:block;margin-bottom:12px;opacity:0.3;"></i>
-        No models registered yet
+{# ═══════════════════════════════════════════════════════════════════ #}
+{# ── TAB 4: Indexes & Constraints ── #}
+{# ═══════════════════════════════════════════════════════════════════ #}
+<div class="tab-content" data-tab-content="orm" data-tab="indexes">
+    <div class="section-label">Indexes &amp; Constraints</div>
+
+    {% set ns = namespace(has_any=false) %}
+    {% for model in model_schema %}
+        {% if model.indexes or model.constraints %}
+            {% set ns.has_any = true %}
+        {% endif %}
+    {% endfor %}
+
+    {% if ns.has_any %}
+    <div class="table-container">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>Model</th>
+                    <th>Index / Constraint</th>
+                    <th>Fields</th>
+                    <th>Unique</th>
+                    <th>Type</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for model in model_schema %}
+                {% for idx in model.indexes %}
+                <tr>
+                    <td><span style="font-weight:500;">{{ model.name }}</span></td>
+                    <td>
+                        <span style="font-family:var(--font-mono);font-size:0.75rem;">
+                            {{ idx.name or 'auto' }}
+                        </span>
+                    </td>
+                    <td>
+                        {% for f in idx.fields %}
+                        <span class="schema-constraint-tag idx" style="margin-right:3px;">{{ f }}</span>
+                        {% endfor %}
+                    </td>
+                    <td>
+                        {% if idx.unique %}
+                        <i class="icon-check-circle" style="font-size:14px;color:var(--accent);"></i>
+                        {% else %}
+                        <span style="color:var(--text-faint);">—</span>
+                        {% endif %}
+                    </td>
+                    <td><span class="schema-type-badge">INDEX</span></td>
+                </tr>
+                {% endfor %}
+                {% for c in model.constraints %}
+                <tr>
+                    <td><span style="font-weight:500;">{{ model.name }}</span></td>
+                    <td>
+                        <span style="font-family:var(--font-mono);font-size:0.75rem;">
+                            {{ c.name or 'auto' }}
+                        </span>
+                    </td>
+                    <td>
+                        {% for f in c.fields %}
+                        <span class="schema-constraint-tag unique" style="margin-right:3px;">{{ f }}</span>
+                        {% endfor %}
+                    </td>
+                    <td><i class="icon-check-circle" style="font-size:14px;color:var(--accent);"></i></td>
+                    <td><span class="schema-type-badge">{{ c.type }}</span></td>
+                </tr>
+                {% endfor %}
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
+    {% else %}
+    <div class="glass-card">
+        <div class="empty-state">
+            <i class="icon-zap" style="font-size:32px;display:block;margin-bottom:12px;opacity:0.3;"></i>
+            No explicit indexes or constraints defined.<br>
+            <span style="font-size:0.75rem;color:var(--text-faint);">Primary key and unique field indexes are auto-created.</span>
+        </div>
+    </div>
+    {% endif %}
+
+    {# ── Relation table ── #}
+    {% if all_relations %}
+    <div class="section-label" style="margin-top:28px;">Foreign Key &amp; Relation Map</div>
+    <div class="table-container">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>Source Model</th>
+                    <th>Field</th>
+                    <th>Type</th>
+                    <th>Target Model</th>
+                    <th>On Delete</th>
+                    <th>Related Name</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in all_relations %}
+                <tr>
+                    <td><span style="font-weight:500;">{{ r['from'] }}</span></td>
+                    <td><span style="font-family:var(--font-mono);font-size:0.78rem;">{{ r.field }}</span></td>
+                    <td>
+                        <span class="schema-rel-badge schema-rel-{{ r.type|lower }}">{{ r.type }}</span>
+                    </td>
+                    <td><span style="font-weight:500;color:var(--accent);">{{ r.to }}</span></td>
+                    <td>
+                        {% if r.get('on_delete') %}
+                        <code style="font-size:0.72rem;">{{ r.on_delete }}</code>
+                        {% else %}
+                        <span style="color:var(--text-faint);">—</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if r.related_name %}
+                        <span style="font-family:var(--font-mono);font-size:0.72rem;color:var(--text-secondary);">{{ r.related_name }}</span>
+                        {% else %}
+                        <span style="color:var(--text-faint);font-size:0.72rem;">auto</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
 </div>
-{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+// ── Model Search (client-side, instant filter) ──────────────────────
+(function() {
+    var input = document.getElementById('modelSearchInput');
+    var countEl = document.getElementById('modelSearchCount');
+    if (!input) return;
+
+    input.addEventListener('input', function() {
+        var q = this.value.trim().toLowerCase();
+        var cards = document.querySelectorAll('.model-card');
+        var shown = 0;
+        cards.forEach(function(card) {
+            var name = (card.getAttribute('data-model-name') || '') + ' ' +
+                       (card.getAttribute('data-model-label') || '');
+            var match = !q || name.indexOf(q) !== -1;
+            card.style.display = match ? '' : 'none';
+            if (match) shown++;
+        });
+        countEl.textContent = shown + ' model' + (shown !== 1 ? 's' : '');
+        // Hide empty sections
+        document.querySelectorAll('.model-section').forEach(function(sec) {
+            var grid = sec.nextElementSibling;
+            if (!grid) return;
+            var visible = grid.querySelectorAll('.model-card:not([style*="display: none"])');
+            sec.style.display = visible.length ? '' : 'none';
+            grid.style.display = visible.length ? '' : 'none';
+        });
+    });
+
+    document.addEventListener('keydown', function(e) {
+        if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+            e.preventDefault();
+            input.focus();
+            input.select();
+        }
+    });
+})();
+
+// ── Relation Graph (force-directed, SVG, drag) ─────────────────────
+var _graphInitialized = false;
+function initGraph() {
+    if (_graphInitialized) return;
+    _graphInitialized = true;
+
+    var schema = {{ model_schema|tojson }};
+    var relations = {{ all_relations|tojson }};
+    var svg = document.getElementById('relationGraph');
+    if (!svg || !schema.length) return;
+
+    var container = document.getElementById('graphContainer');
+    var W = container.clientWidth || 800;
+    var H = Math.max(450, schema.length * 50);
+    svg.setAttribute('height', H);
+
+    // Build nodes
+    var nodeMap = {};
+    var nodes = [];
+    schema.forEach(function(m, i) {
+        var angle = (2 * Math.PI * i) / schema.length;
+        var cx = W / 2 + (W * 0.32) * Math.cos(angle);
+        var cy = H / 2 + (H * 0.35) * Math.sin(angle);
+        var node = { name: m.name, x: cx, y: cy, vx: 0, vy: 0, fields: m.field_count, rels: m.relations.length };
+        nodes.push(node);
+        nodeMap[m.name] = node;
+    });
+
+    // Build edges
+    var edges = [];
+    relations.forEach(function(r) {
+        var from = nodeMap[r['from']];
+        var to = nodeMap[r.to];
+        if (from && to && from !== to) {
+            edges.push({ from: from, to: to, type: r.type, field: r.field, label: r.type + ': ' + r['from'] + '.' + r.field + ' → ' + r.to });
+        }
+    });
+
+    // Colors
+    var edgeColors = { FK: 'var(--accent)', O2O: 'var(--info)', M2M: 'var(--warning)' };
+
+    // Force simulation (simple spring + repulsion)
+    function simulate() {
+        var REPULSION = 8000;
+        var SPRING = 0.005;
+        var SPRING_LEN = 180;
+        var DAMPING = 0.85;
+        var GRAVITY = 0.002;
+
+        for (var iter = 0; iter < 150; iter++) {
+            for (var i = 0; i < nodes.length; i++) {
+                for (var j = i + 1; j < nodes.length; j++) {
+                    var dx = nodes[j].x - nodes[i].x;
+                    var dy = nodes[j].y - nodes[i].y;
+                    var d2 = dx * dx + dy * dy + 1;
+                    var f = REPULSION / d2;
+                    var fx = f * dx / Math.sqrt(d2);
+                    var fy = f * dy / Math.sqrt(d2);
+                    nodes[i].vx -= fx; nodes[i].vy -= fy;
+                    nodes[j].vx += fx; nodes[j].vy += fy;
+                }
+            }
+            edges.forEach(function(e) {
+                var dx = e.to.x - e.from.x;
+                var dy = e.to.y - e.from.y;
+                var d = Math.sqrt(dx * dx + dy * dy) || 1;
+                var f = SPRING * (d - SPRING_LEN);
+                var fx = f * dx / d;
+                var fy = f * dy / d;
+                e.from.vx += fx; e.from.vy += fy;
+                e.to.vx -= fx; e.to.vy -= fy;
+            });
+            nodes.forEach(function(n) {
+                n.vx += (W / 2 - n.x) * GRAVITY;
+                n.vy += (H / 2 - n.y) * GRAVITY;
+            });
+            nodes.forEach(function(n) {
+                n.vx *= DAMPING; n.vy *= DAMPING;
+                n.x += n.vx; n.y += n.vy;
+                n.x = Math.max(60, Math.min(W - 60, n.x));
+                n.y = Math.max(40, Math.min(H - 40, n.y));
+            });
+        }
+    }
+    simulate();
+
+    function escapeHtml(s) {
+        return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    // Render
+    function render() {
+        var html = '<defs>';
+        html += '<marker id="arrow-fk" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="var(--accent)" opacity="0.7"/></marker>';
+        html += '<marker id="arrow-o2o" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="var(--info)" opacity="0.7"/></marker>';
+        html += '<marker id="arrow-m2m" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="var(--warning)" opacity="0.7"/></marker>';
+        html += '</defs>';
+
+        // Draw edges
+        edges.forEach(function(e) {
+            var col = edgeColors[e.type] || 'var(--text-faint)';
+            var marker = 'url(#arrow-' + e.type.toLowerCase() + ')';
+            var dash = e.type === 'M2M' ? 'stroke-dasharray="6 4"' : '';
+            var dx = e.to.x - e.from.x;
+            var dy = e.to.y - e.from.y;
+            var d = Math.sqrt(dx * dx + dy * dy) || 1;
+            var ox = dx / d * 54;
+            var oy = dy / d * 54;
+            html += '<line x1="' + (e.from.x + ox) + '" y1="' + (e.from.y + oy) + '" x2="' + (e.to.x - ox) + '" y2="' + (e.to.y - oy) + '" stroke="' + col + '" stroke-width="2" ' + dash + ' marker-end="' + marker + '" opacity="0.55">';
+            html += '<title>' + escapeHtml(e.label) + '</title></line>';
+            var mx = (e.from.x + e.to.x) / 2;
+            var my = (e.from.y + e.to.y) / 2 - 6;
+            html += '<text x="' + mx + '" y="' + my + '" text-anchor="middle" fill="' + col + '" font-size="9" font-family="var(--font-mono)" opacity="0.7">' + escapeHtml(e.type) + '</text>';
+        });
+
+        // Draw nodes
+        nodes.forEach(function(n, i) {
+            html += '<circle cx="' + n.x + '" cy="' + n.y + '" r="42" fill="var(--bg-surface)" stroke="var(--border-color)" stroke-width="1.5" class="graph-node" data-idx="' + i + '">';
+            html += '<title>' + escapeHtml(n.name) + ' (' + n.fields + ' fields, ' + n.rels + ' relations)</title></circle>';
+            html += '<circle cx="' + n.x + '" cy="' + n.y + '" r="38" fill="none" stroke="var(--accent)" stroke-width="1" opacity="0.15" pointer-events="none"/>';
+            var label = n.name.length > 12 ? n.name.substring(0, 11) + '\u2026' : n.name;
+            html += '<text x="' + n.x + '" y="' + (n.y - 4) + '" text-anchor="middle" fill="var(--text-primary)" font-size="11" font-weight="600" font-family="var(--font-sans)" pointer-events="none">' + escapeHtml(label) + '</text>';
+            html += '<text x="' + n.x + '" y="' + (n.y + 12) + '" text-anchor="middle" fill="var(--text-faint)" font-size="9" font-family="var(--font-mono)" pointer-events="none">' + n.fields + ' fields</text>';
+        });
+
+        svg.innerHTML = html;
+    }
+    render();
+
+    // Drag support
+    var dragging = null, dragOffX = 0, dragOffY = 0;
+    svg.addEventListener('mousedown', function(e) {
+        var el = e.target.closest('.graph-node');
+        if (!el) return;
+        var idx = parseInt(el.getAttribute('data-idx'), 10);
+        dragging = nodes[idx];
+        var rect = svg.getBoundingClientRect();
+        dragOffX = e.clientX - rect.left - dragging.x;
+        dragOffY = e.clientY - rect.top - dragging.y;
+        container.style.cursor = 'grabbing';
+        e.preventDefault();
+    });
+    document.addEventListener('mousemove', function(e) {
+        if (!dragging) return;
+        var rect = svg.getBoundingClientRect();
+        dragging.x = Math.max(60, Math.min(W - 60, e.clientX - rect.left - dragOffX));
+        dragging.y = Math.max(40, Math.min(H - 40, e.clientY - rect.top - dragOffY));
+        render();
+    });
+    document.addEventListener('mouseup', function() {
+        if (!dragging) return;
+        dragging = null;
+        container.style.cursor = 'grab';
+    });
+}
+
 {% endblock %}

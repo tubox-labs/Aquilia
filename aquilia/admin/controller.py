@@ -758,6 +758,54 @@ class AdminController(Controller):
                 },
             )
 
+    # ── JSON Search API (no page refresh) ──────────────────────────
+
+    @GET("/{model}/search")
+    async def search_api(self, request, ctx: RequestCtx) -> Response:
+        """Return JSON search results for live AJAX search."""
+        import json as _json
+
+        model = request.state.get("path_params", {}).get("model", "")
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return Response(content=b'{"error":"unauthorized"}', status=401,
+                            headers={"content-type": "application/json"})
+
+        self._ensure_initialized()
+
+        search = ctx.query_param("q", "")
+        page_str = ctx.query_param("page", "1")
+        try:
+            page = max(1, int(page_str))
+        except ValueError:
+            page = 1
+
+        try:
+            data = await self.site.list_records(
+                model, page=page, search=search, identity=identity,
+            )
+        except Exception as e:
+            return Response(
+                content=_json.dumps({"error": str(e)}).encode("utf-8"),
+                status=404,
+                headers={"content-type": "application/json"},
+            )
+
+        result = {
+            "rows": data.get("rows", []),
+            "total": data.get("total", 0),
+            "page": data.get("page", 1),
+            "total_pages": data.get("total_pages", 1),
+            "has_next": data.get("has_next", False),
+            "has_prev": data.get("has_prev", False),
+            "list_display": data.get("list_display", []),
+        }
+        return Response(
+            content=_json.dumps(result, default=str).encode("utf-8"),
+            status=200,
+            headers={"content-type": "application/json; charset=utf-8"},
+        )
+
     # ── ORM Models Page ──────────────────────────────────────────────
 
     @GET("/orm/")
@@ -771,11 +819,13 @@ class AdminController(Controller):
 
         app_list = self.site.get_app_list(identity)
         stats = await self.site.get_dashboard_stats()
+        model_schema = self.site.get_model_schema()
 
         html = render_orm_page(
             app_list=app_list,
             model_counts=stats.get("model_counts", {}),
             identity_name=_get_identity_name(identity),
+            model_schema=model_schema,
         )
         return _html_response(html)
 

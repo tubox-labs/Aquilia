@@ -219,6 +219,146 @@ class AdminSite:
         """Get all registered model name -> ModelAdmin pairs."""
         return {cls.__name__: admin for cls, admin in self._registry.items()}
 
+    def get_model_schema(self) -> List[Dict[str, Any]]:
+        """
+        Build rich schema metadata for every registered model.
+
+        Returns per-model: fields, relations, indexes, constraints,
+        Meta options — everything needed by the ORM inspector page.
+        """
+        from aquilia.models.fields_module import (
+            ForeignKey, OneToOneField, ManyToManyField, Field,
+        )
+
+        models_data: List[Dict[str, Any]] = []
+        # Pre-build a lookup: model_name → model_cls
+        model_lookup = {cls.__name__: cls for cls in self._registry}
+
+        for model_cls, admin in self._registry.items():
+            name = model_cls.__name__
+            meta = getattr(model_cls, "_meta", None)
+            fields_info: List[Dict[str, Any]] = []
+            relations: List[Dict[str, Any]] = []
+
+            all_fields = getattr(model_cls, "_fields", {})
+            for fname, field in all_fields.items():
+                field_data: Dict[str, Any] = {
+                    "name": fname,
+                    "column": getattr(field, "column_name", fname),
+                    "type": getattr(field, "_field_type", type(field).__name__),
+                    "python_type": getattr(field, "_python_type", str).__name__
+                        if hasattr(field, "_python_type") else "str",
+                    "null": getattr(field, "null", False),
+                    "unique": getattr(field, "unique", False),
+                    "primary_key": getattr(field, "primary_key", False),
+                    "db_index": getattr(field, "db_index", False),
+                    "default": repr(getattr(field, "default", None))
+                        if hasattr(field, "default") and getattr(field, "default", None) is not None
+                        else None,
+                    "max_length": getattr(field, "max_length", None),
+                    "help_text": getattr(field, "help_text", ""),
+                    "choices": bool(getattr(field, "choices", None)),
+                    "editable": getattr(field, "editable", True),
+                }
+
+                # Relation info
+                if isinstance(field, ManyToManyField):
+                    target = field.to if isinstance(field.to, str) else (
+                        field.to.__name__ if field.to else "?"
+                    )
+                    relations.append({
+                        "type": "M2M",
+                        "field": fname,
+                        "from": name,
+                        "to": target,
+                        "related_name": getattr(field, "related_name", None),
+                        "through": getattr(field, "through", None),
+                    })
+                    field_data["relation"] = {"type": "M2M", "to": target}
+                elif isinstance(field, OneToOneField):
+                    target = field.to if isinstance(field.to, str) else (
+                        field.to.__name__ if field.to else "?"
+                    )
+                    relations.append({
+                        "type": "O2O",
+                        "field": fname,
+                        "from": name,
+                        "to": target,
+                        "on_delete": getattr(field, "on_delete", "CASCADE"),
+                        "related_name": getattr(field, "related_name", None),
+                    })
+                    field_data["relation"] = {"type": "O2O", "to": target}
+                elif isinstance(field, ForeignKey):
+                    target = field.to if isinstance(field.to, str) else (
+                        field.to.__name__ if field.to else "?"
+                    )
+                    relations.append({
+                        "type": "FK",
+                        "field": fname,
+                        "from": name,
+                        "to": target,
+                        "on_delete": getattr(field, "on_delete", "CASCADE"),
+                        "related_name": getattr(field, "related_name", None),
+                    })
+                    field_data["relation"] = {"type": "FK", "to": target}
+
+                fields_info.append(field_data)
+
+            # Indexes from Meta
+            indexes_info: List[Dict[str, Any]] = []
+            if meta:
+                for idx in getattr(meta, "indexes", []):
+                    indexes_info.append({
+                        "fields": getattr(idx, "fields", []),
+                        "name": getattr(idx, "name", None),
+                        "unique": getattr(idx, "unique", False),
+                    })
+                # unique_together → virtual index
+                for ut in getattr(meta, "unique_together", []):
+                    indexes_info.append({
+                        "fields": list(ut),
+                        "name": None,
+                        "unique": True,
+                    })
+
+            # Field-level indexes
+            for fname, field in all_fields.items():
+                if getattr(field, "db_index", False) and not getattr(field, "primary_key", False):
+                    indexes_info.append({
+                        "fields": [fname],
+                        "name": f"idx_{name.lower()}_{fname}",
+                        "unique": getattr(field, "unique", False),
+                    })
+
+            # Constraints from Meta
+            constraints_info: List[Dict[str, Any]] = []
+            if meta:
+                for c in getattr(meta, "constraints", []):
+                    constraints_info.append({
+                        "fields": getattr(c, "fields", []),
+                        "name": getattr(c, "name", None),
+                        "type": type(c).__name__,
+                    })
+
+            models_data.append({
+                "name": name,
+                "table_name": getattr(model_cls, "_table_name", name.lower()),
+                "app_label": admin.get_app_label(),
+                "verbose_name": admin.get_model_name(),
+                "verbose_name_plural": admin.get_model_name_plural(),
+                "fields": fields_info,
+                "field_count": len(fields_info),
+                "relations": relations,
+                "indexes": indexes_info,
+                "constraints": constraints_info,
+                "ordering": getattr(meta, "ordering", []) if meta else [],
+                "managed": getattr(meta, "managed", True) if meta else True,
+                "abstract": getattr(meta, "abstract", False) if meta else False,
+                "pk_field": getattr(model_cls, "_pk_attr", "id"),
+            })
+
+        return models_data
+
     # ── Dashboard data ───────────────────────────────────────────────
 
     async def get_dashboard_stats(self) -> Dict[str, Any]:

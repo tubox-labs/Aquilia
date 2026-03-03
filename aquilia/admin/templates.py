@@ -282,13 +282,29 @@ def render_orm_page(
     app_list: List[Dict[str, Any]],
     model_counts: Dict[str, Any],
     identity_name: str = "Admin",
+    model_schema: Optional[List[Dict[str, Any]]] = None,
     *,
     site_title: str = "Aquilia Admin",
     url_prefix: str = "/admin",
 ) -> str:
-    """Render the ORM models page."""
+    """Render the ORM models page with schema inspector and relation graph."""
     total_models = sum(len(a.get("models", [])) for a in app_list)
     total_records = sum(v for v in model_counts.values() if isinstance(v, int))
+
+    # Build relation edges and index stats from schema
+    schema = model_schema or []
+    all_relations: List[Dict[str, Any]] = []
+    total_indexes = 0
+    total_fk = 0
+    total_m2m = 0
+    for m in schema:
+        total_indexes += len(m.get("indexes", []))
+        for r in m.get("relations", []):
+            all_relations.append(r)
+            if r["type"] == "FK":
+                total_fk += 1
+            elif r["type"] == "M2M":
+                total_m2m += 1
 
     if _HAS_JINJA2:
         return _render_template(
@@ -297,6 +313,11 @@ def render_orm_page(
             model_counts=model_counts,
             total_models=total_models,
             total_records=total_records,
+            model_schema=schema,
+            all_relations=all_relations,
+            total_indexes=total_indexes,
+            total_fk=total_fk,
+            total_m2m=total_m2m,
             active_page="orm",
             identity_name=identity_name,
             site_title=site_title,
