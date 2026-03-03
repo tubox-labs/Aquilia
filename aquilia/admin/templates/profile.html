@@ -4,31 +4,350 @@
 
 {% block extra_head %}
 <style>
-.profile-layout{display:grid;grid-template-columns:320px 1fr;gap:24px;align-items:start;}
+.profile-layout{display:grid;grid-template-columns:300px 1fr;gap:24px;align-items:start;}
 @media(max-width:900px){.profile-layout{grid-template-columns:1fr;}}
-.profile-avatar-card{text-align:center;padding:40px 28px 32px;}
-.profile-avatar{width:96px;height:96px;border-radius:50%;margin:0 auto 16px;display:flex;align-items:center;justify-content:center;font-size:2.2rem;font-weight:700;color:#fff;background:linear-gradient(135deg,var(--accent),#059669);box-shadow:0 4px 20px var(--accent-glow);position:relative;}
-.profile-avatar img{width:100%;height:100%;border-radius:50%;object-fit:cover;}
-.profile-avatar-upload{position:absolute;bottom:0;right:0;width:28px;height:28px;background:var(--bg-elevated);border:2px solid var(--border-color);border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:12px;color:var(--text-secondary);transition:all .2s;}
-.profile-avatar-upload:hover{background:var(--accent);color:#fff;border-color:var(--accent);}
+
+/* ── Avatar card ── */
+.profile-avatar-card{text-align:center;padding:36px 24px 28px;}
+.profile-avatar-wrap{position:relative;width:96px;height:96px;margin:0 auto 16px;}
+.profile-avatar{
+    width:96px;height:96px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    font-size:2.1rem;font-weight:700;color:#fff;
+    background:linear-gradient(135deg,var(--accent),#059669);
+    box-shadow:0 4px 20px var(--accent-glow);
+    overflow:hidden;
+}
+.profile-avatar img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
+.avatar-upload-btn{
+    position:absolute;bottom:0;right:0;
+    width:28px;height:28px;
+    background:var(--bg-elevated);
+    border:2px solid var(--border-color);
+    border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    cursor:pointer;font-size:12px;
+    color:var(--text-secondary);
+    transition:all .2s;
+}
+.avatar-upload-btn:hover{background:var(--accent);color:#fff;border-color:var(--accent);}
+.avatar-upload-btn.uploading{background:var(--accent);color:#fff;border-color:var(--accent);animation:spin 1s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
 .profile-role-tag{display:inline-block;padding:4px 14px;border-radius:20px;font-size:.72rem;font-weight:600;letter-spacing:.03em;text-transform:uppercase;margin-top:8px;}
 .profile-role-superadmin{background:rgba(34,197,94,0.15);color:var(--accent);}
 .profile-role-admin{background:rgba(59,130,246,0.15);color:var(--info);}
 .profile-role-staff{background:rgba(234,179,8,0.15);color:var(--warning);}
+
 .profile-meta-item{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border-subtle);font-size:.82rem;}
 .profile-meta-item:last-child{border:none;}
 .profile-meta-label{color:var(--text-muted);}
-.profile-meta-value{color:var(--text-primary);font-weight:500;}
-.profile-section{margin-bottom:24px;}
-.profile-section-title{font-size:.9rem;font-weight:600;margin-bottom:16px;display:flex;align-items:center;gap:8px;color:var(--text-primary);}
-.profile-section-title i{color:var(--accent);font-size:16px;}
+.profile-meta-value{color:var(--text-primary);font-weight:500;text-align:right;max-width:60%;word-break:break-word;}
+
+.profile-section{margin-bottom:20px;}
+.profile-section-title{font-size:.88rem;font-weight:600;margin-bottom:14px;display:flex;align-items:center;gap:8px;color:var(--text-primary);}
+.profile-section-title i{color:var(--accent);font-size:15px;}
 .profile-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
 @media(max-width:600px){.profile-form-grid{grid-template-columns:1fr;}}
+
 .password-strength{height:4px;border-radius:2px;background:var(--bg-surface);margin-top:6px;overflow:hidden;}
 .password-strength-bar{height:100%;border-radius:2px;transition:width .3s,background .3s;}
 .password-strength-text{font-size:.7rem;margin-top:4px;color:var(--text-muted);}
+
+.avatar-status{font-size:.72rem;margin-top:8px;color:var(--text-muted);min-height:16px;transition:color .2s;}
+.avatar-status.ok{color:var(--success);}
+.avatar-status.err{color:var(--danger);}
 </style>
 {% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Profile</h1>
+    <p>Manage your admin account, update personal information and change your password.</p>
+</div>
+
+<div class="profile-layout">
+
+    {# ── Left Column: Avatar & Meta ── #}
+    <div>
+        <div class="glass-card profile-avatar-card">
+            <div class="profile-avatar-wrap">
+                <div class="profile-avatar" id="profileAvatar">
+                    {% if user.avatar_path %}
+                        <img src="{{ url_prefix|default('/admin') }}/profile/avatar/{{ user.avatar_path }}"
+                             alt="Profile photo" id="avatarImg">
+                    {% else %}
+                        <span id="avatarInitials">{{ (user.first_name or user.username)|truncate(1,True,'')|upper }}{{ (user.last_name or '')|truncate(1,True,'')|upper }}</span>
+                    {% endif %}
+                </div>
+                <label class="avatar-upload-btn" for="avatarFileInput" id="avatarUploadBtn" title="Change profile photo">
+                    <i class="icon-camera" id="avatarBtnIcon"></i>
+                </label>
+                <input type="file" id="avatarFileInput" name="avatar"
+                       accept="image/jpeg,image/png,image/gif,image/webp"
+                       style="display:none;">
+            </div>
+            <div style="font-size:1.05rem;font-weight:700;">{{ user.first_name or '' }} {{ user.last_name or '' }}</div>
+            <div style="font-size:.82rem;color:var(--text-muted);margin-top:2px;">@{{ user.username }}</div>
+            {% if user.is_superuser %}
+            <span class="profile-role-tag profile-role-superadmin">Superadmin</span>
+            {% elif user.is_staff %}
+            <span class="profile-role-tag profile-role-staff">Staff</span>
+            {% else %}
+            <span class="profile-role-tag profile-role-admin">Viewer</span>
+            {% endif %}
+            <div class="avatar-status" id="avatarStatus"></div>
+        </div>
+
+        <div class="glass-card card-padded" style="margin-top:16px;">
+            <div style="font-size:.75rem;font-weight:600;color:var(--text-muted);margin-bottom:12px;text-transform:uppercase;letter-spacing:.05em;">Account Info</div>
+            <div class="profile-meta-item">
+                <span class="profile-meta-label">Username</span>
+                <span class="profile-meta-value">{{ user.username }}</span>
+            </div>
+            <div class="profile-meta-item">
+                <span class="profile-meta-label">Email</span>
+                <span class="profile-meta-value">{{ user.email or '—' }}</span>
+            </div>
+            {% if user.phone %}
+            <div class="profile-meta-item">
+                <span class="profile-meta-label">Phone</span>
+                <span class="profile-meta-value">{{ user.phone }}</span>
+            </div>
+            {% endif %}
+            {% if user.timezone %}
+            <div class="profile-meta-item">
+                <span class="profile-meta-label">Timezone</span>
+                <span class="profile-meta-value">{{ user.timezone }}</span>
+            </div>
+            {% endif %}
+            <div class="profile-meta-item">
+                <span class="profile-meta-label">Status</span>
+                <span class="profile-meta-value"><span style="color:var(--success);">&#9679; Active</span></span>
+            </div>
+            {% if user.last_login %}
+            <div class="profile-meta-item">
+                <span class="profile-meta-label">Last Login</span>
+                <span class="profile-meta-value">{{ user.last_login|truncate(19,True,'') }}</span>
+            </div>
+            {% endif %}
+            {% if user.date_joined %}
+            <div class="profile-meta-item">
+                <span class="profile-meta-label">Joined</span>
+                <span class="profile-meta-value">{{ user.date_joined|truncate(10,True,'') }}</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    {# ── Right Column: Edit Forms ── #}
+    <div>
+
+        {# Personal Information #}
+        <div class="glass-card card-padded profile-section">
+            <div class="profile-section-title">
+                <i class="icon-user"></i>Personal Information
+            </div>
+            <form method="POST" action="{{ url_prefix|default('/admin') }}/profile/update">
+                <div class="profile-form-grid">
+                    <div class="form-group">
+                        <label class="form-label">First Name</label>
+                        <input type="text" name="first_name" class="form-input"
+                               value="{{ user.first_name or '' }}" placeholder="First name">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Last Name</label>
+                        <input type="text" name="last_name" class="form-input"
+                               value="{{ user.last_name or '' }}" placeholder="Last name">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Email Address</label>
+                    <input type="email" name="email" class="form-input"
+                           value="{{ user.email or '' }}" placeholder="you@example.com">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Phone <span style="color:var(--text-muted);font-weight:400;">(optional)</span></label>
+                    <input type="tel" name="phone" class="form-input"
+                           value="{{ user.phone or '' }}" placeholder="+1 555 000 0000">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Bio <span style="color:var(--text-muted);font-weight:400;">(optional)</span></label>
+                    <textarea name="bio" class="form-input" rows="3"
+                              placeholder="A short bio…"
+                              style="resize:vertical;">{{ user.bio or '' }}</textarea>
+                </div>
+                <div class="profile-form-grid">
+                    <div class="form-group">
+                        <label class="form-label">Timezone</label>
+                        <input type="text" name="timezone" class="form-input"
+                               value="{{ user.timezone or 'UTC' }}" placeholder="UTC"
+                               list="tz-list">
+                        <datalist id="tz-list">
+                            <option value="UTC"><option value="America/New_York">
+                            <option value="America/Chicago"><option value="America/Denver">
+                            <option value="America/Los_Angeles"><option value="Europe/London">
+                            <option value="Europe/Paris"><option value="Europe/Berlin">
+                            <option value="Asia/Dubai"><option value="Asia/Kolkata">
+                            <option value="Asia/Singapore"><option value="Asia/Tokyo">
+                            <option value="Australia/Sydney"><option value="Pacific/Auckland">
+                        </datalist>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Locale</label>
+                        <select name="locale" class="form-input">
+                            {% set locales = [('en','English'),('fr','Français'),('de','Deutsch'),('es','Español'),('pt','Português'),('ja','日本語'),('zh','中文'),('ar','العربية')] %}
+                            {% for code, label in locales %}
+                            <option value="{{ code }}" {{ 'selected' if (user.locale or 'en') == code else '' }}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div style="display:flex;justify-content:flex-end;margin-top:8px;">
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </form>
+        </div>
+
+        {# Change Password #}
+        <div class="glass-card card-padded profile-section">
+            <div class="profile-section-title">
+                <i class="icon-lock"></i>Change Password
+            </div>
+            <form method="POST" action="{{ url_prefix|default('/admin') }}/profile/change-password">
+                <div class="form-group">
+                    <label class="form-label">Current Password</label>
+                    <input type="password" name="current_password" class="form-input"
+                           required placeholder="Enter current password">
+                </div>
+                <div class="profile-form-grid">
+                    <div class="form-group">
+                        <label class="form-label">New Password</label>
+                        <input type="password" name="new_password" id="newPassword"
+                               class="form-input" required minlength="8"
+                               placeholder="Min 8 characters"
+                               oninput="updatePasswordStrength(this.value)">
+                        <div class="password-strength">
+                            <div class="password-strength-bar" id="passwordStrengthBar"
+                                 style="width:0;background:var(--danger);"></div>
+                        </div>
+                        <div class="password-strength-text" id="passwordStrengthText"></div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Confirm New Password</label>
+                        <input type="password" name="confirm_password" class="form-input"
+                               required minlength="8" placeholder="Repeat new password">
+                    </div>
+                </div>
+                <div style="display:flex;justify-content:flex-end;margin-top:8px;">
+                    <button type="submit" class="btn btn-primary">Change Password</button>
+                </div>
+            </form>
+        </div>
+
+        {# Danger Zone #}
+        <div class="glass-card card-padded" style="border-color:rgba(239,68,68,0.25);">
+            <div class="profile-section-title" style="color:var(--danger);">
+                <i class="icon-alert-triangle"></i>Danger Zone
+            </div>
+            <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:16px;">
+                Irreversible actions. Proceed with caution.
+            </p>
+            {% set logout_url = (url_prefix if url_prefix else '/admin') + '/logout' %}
+            <div style="display:flex;gap:12px;flex-wrap:wrap;">
+                <button class="btn btn-secondary"
+                    onclick="showConfirmModal('Logout All Sessions?','This will invalidate all active sessions. You will need to log in again.',function(){ window.location.href='{{ logout_url }}'; })">
+                    Logout All Sessions
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+function updatePasswordStrength(pw) {
+    var score = 0;
+    if (pw.length >= 8)  score++;
+    if (pw.length >= 12) score++;
+    if (/[a-z]/.test(pw) && /[A-Z]/.test(pw)) score++;
+    if (/\d/.test(pw))          score++;
+    if (/[^a-zA-Z0-9]/.test(pw)) score++;
+    var bar  = document.getElementById('passwordStrengthBar');
+    var text = document.getElementById('passwordStrengthText');
+    var labels = ['Very Weak','Weak','Fair','Strong','Very Strong'];
+    var colors = ['var(--danger)','#f97316','#eab308','var(--info)','var(--success)'];
+    var widths = ['20%','40%','60%','80%','100%'];
+    var idx = Math.min(score, 4);
+    bar.style.width      = pw ? widths[idx] : '0';
+    bar.style.background = colors[idx];
+    text.textContent     = pw ? labels[idx] : '';
+}
+
+(function() {
+    var fileInput = document.getElementById('avatarFileInput');
+    var uploadBtn = document.getElementById('avatarUploadBtn');
+    var btnIcon   = document.getElementById('avatarBtnIcon');
+    var statusEl  = document.getElementById('avatarStatus');
+    var avatarEl  = document.getElementById('profileAvatar');
+    var uploadUrl = '{{ url_prefix|default("/admin") }}/profile/upload-avatar';
+    if (!fileInput) return;
+
+    fileInput.addEventListener('change', function() {
+        var file = fileInput.files && fileInput.files[0];
+        if (!file) return;
+
+        /* Instant local preview */
+        var reader = new FileReader();
+        reader.onload = function(e) {
+            var existing = avatarEl.querySelector('img');
+            var initials = avatarEl.querySelector('#avatarInitials');
+            if (existing) {
+                existing.src = e.target.result;
+            } else {
+                var img = document.createElement('img');
+                img.src = e.target.result;
+                img.alt = 'Profile photo';
+                if (initials) avatarEl.removeChild(initials);
+                avatarEl.insertBefore(img, avatarEl.firstChild);
+            }
+        };
+        reader.readAsDataURL(file);
+
+        /* Upload via fetch */
+        uploadBtn.classList.add('uploading');
+        btnIcon.className    = 'icon-loader';
+        statusEl.textContent = 'Uploading…';
+        statusEl.className   = 'avatar-status';
+
+        var fd = new FormData();
+        fd.append('avatar', file);
+
+        fetch(uploadUrl, { method: 'POST', body: fd })
+            .then(function(resp) {
+                uploadBtn.classList.remove('uploading');
+                btnIcon.className = 'icon-camera';
+                if (resp.ok || resp.redirected || resp.status === 302 || resp.status === 200) {
+                    statusEl.textContent = 'Photo saved \u2713';
+                    statusEl.className   = 'avatar-status ok';
+                } else {
+                    statusEl.textContent = 'Upload failed (' + resp.status + ')';
+                    statusEl.className   = 'avatar-status err';
+                }
+                setTimeout(function() { statusEl.textContent = ''; statusEl.className = 'avatar-status'; }, 4000);
+                fileInput.value = '';
+            })
+            .catch(function() {
+                uploadBtn.classList.remove('uploading');
+                btnIcon.className    = 'icon-camera';
+                statusEl.textContent = 'Network error';
+                statusEl.className   = 'avatar-status err';
+                fileInput.value      = '';
+            });
+    });
+})();
+{% endblock %}
+
 
 {% block content %}
 <div class="page-header">

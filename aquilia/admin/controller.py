@@ -17,6 +17,8 @@ Auth, and TemplateEngine.
 from __future__ import annotations
 
 import logging
+import os
+from pathlib import Path
 from typing import Any, Dict, Optional, TYPE_CHECKING
 
 from aquilia.controller.base import Controller, RequestCtx
@@ -178,6 +180,39 @@ async def _parse_form(ctx: RequestCtx, *, multi: bool = False) -> Dict[str, Any]
         return {}
     except Exception:
         return {}
+
+
+def _get_avatar_dir() -> Path:
+    """
+    Resolve .aquilia/admin/profile/ under the current workspace root (cwd).
+
+    Creates the directory tree if it does not exist.
+    Returns the absolute Path to the profile avatars directory.
+    """
+    avatar_dir = Path(os.getcwd()) / ".aquilia" / "admin" / "profile"
+    avatar_dir.mkdir(parents=True, exist_ok=True)
+    return avatar_dir
+
+
+_ALLOWED_IMAGE_TYPES: Dict[bytes, tuple] = {
+    b"\xff\xd8\xff":       ("jpg",  "image/jpeg"),
+    b"\x89PNG\r\n\x1a\n": ("png",  "image/png"),
+    b"GIF87a":            ("gif",  "image/gif"),
+    b"GIF89a":            ("gif",  "image/gif"),
+    b"RIFF":              ("webp", "image/webp"),  # RIFF....WEBP
+}
+_MAX_AVATAR_BYTES = 4 * 1024 * 1024  # 4 MB
+
+
+def _sniff_image_ext(data: bytes) -> Optional[str]:
+    """Return file extension for known image magic bytes, or None."""
+    for magic, (ext, _) in _ALLOWED_IMAGE_TYPES.items():
+        if data[:len(magic)] == magic:
+            # Extra check for WebP: bytes 8-12 must be b'WEBP'
+            if ext == "webp" and data[8:12] != b"WEBP":
+                continue
+            return ext
+    return None
 
 
 class AdminController(Controller):
@@ -1585,6 +1620,11 @@ class AdminController(Controller):
             "is_superuser": identity.get_attribute("is_superuser", False),
             "is_staff": identity.get_attribute("is_staff", False),
             "admin_role": identity.get_attribute("admin_role", "staff"),
+            "avatar_path": identity.get_attribute("avatar_path", ""),
+            "bio": identity.get_attribute("bio", ""),
+            "phone": identity.get_attribute("phone", ""),
+            "timezone": identity.get_attribute("timezone", "UTC"),
+            "locale": identity.get_attribute("locale", "en"),
         }
 
         # Try to get full user from DB
@@ -1603,6 +1643,11 @@ class AdminController(Controller):
                     "is_staff": getattr(db_user, "is_staff", False),
                     "last_login": str(getattr(db_user, "last_login", "") or ""),
                     "date_joined": str(getattr(db_user, "date_joined", "") or ""),
+                    "avatar_path": getattr(db_user, "avatar_path", "") or "",
+                    "bio": getattr(db_user, "bio", "") or "",
+                    "phone": getattr(db_user, "phone", "") or "",
+                    "timezone": getattr(db_user, "timezone", "UTC") or "UTC",
+                    "locale": getattr(db_user, "locale", "en") or "en",
                 })
         except Exception:
             pass
@@ -1623,6 +1668,128 @@ class AdminController(Controller):
         )
         return _html_response(html)
 
+    @GET("/profile/avatar/<filename>")
+    async def profile_avatar_serve(self, request, ctx: RequestCtx, filename: str) -> Response:
+        """Serve a stored profile avatar from .aquilia/admin/profile/."""
+        import re
+        # Sanitise: only alphanumeric, dash, underscore, dot
+        if not re.fullmatch(r"[A-Za-z0-9_\-\.]+", filename):
+            return Response(content=b"Not Found", status=404,
+                            headers={"content-type": "text/plain"})
+        avatar_dir = _get_avatar_dir()
+        file_path = avatar_dir / filename
+        if not file_path.is_file():
+            return Response(content=b"Not Found", status=404,
+                            headers={"content-type": "text/plain"})
+        # Determine content-type from extension
+        ext = file_path.suffix.lower().lstrip(".")
+        ct_map = {"jpg": "image/jpeg", "jpeg": "image/jpeg",
+                  "png": "image/png", "gif": "image/gif",
+                  "webp": "image/webp"}
+        ct = ct_map.get(ext, "application/octet-stream")
+        try:
+            data = file_path.read_bytes()
+        except OSError:
+            return Response(content=b"Not Found", status=404,
+                            headers={"content-type": "text/plain"})
+        return Response(
+            content=data,
+            status=200,
+            headers={
+                "content-type": ct,
+                "cache-control": "private, max-age=86400",
+                "content-length": str(len(data)),
+            },
+        )
+
+    @POST("/profile/upload-avatar")
+    async def profile_upload_avatar(self, request, ctx: RequestCtx) -> Response:
+        """Upload a new profile photo and persist it in .aquilia/admin/profile/."""
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return denied
+
+        self._ensure_initialized()
+
+        def _flash(msg: str, kind: str = "error") -> Response:
+            if ctx.session and hasattr(ctx.session, "data"):
+                ctx.session.data["_admin_flash"] = msg
+                ctx.session.data["_admin_flash_type"] = kind
+            return _redirect("/admin/profile/")
+
+        # Parse multipart
+        try:
+            form_data = await ctx.multipart()
+        except Exception as e:
+            return _flash(f"Upload failed: {e}")
+
+        # Retrieve file from the 'avatar' field
+        upload_file = None
+        try:
+            files = form_data.files  # Dict[str, List[UploadFile]]
+            candidates = files.get("avatar") or []
+            if candidates:
+                upload_file = candidates[0]
+        except Exception:
+            pass
+
+        if upload_file is None:
+            return _flash("No file received. Please choose an image.")
+
+        # Read content (cap at max size + 1 byte to detect over-limit)
+        try:
+            raw = await upload_file.read(_MAX_AVATAR_BYTES + 1)
+        except Exception as e:
+            return _flash(f"Could not read file: {e}")
+
+        if len(raw) > _MAX_AVATAR_BYTES:
+            return _flash("Image is too large. Maximum size is 4 MB.")
+
+        ext = _sniff_image_ext(raw)
+        if ext is None:
+            # Fallback: trust Content-Type only if it maps cleanly
+            ct = getattr(upload_file, "content_type", "") or ""
+            fallback = {
+                "image/jpeg": "jpg", "image/png": "png",
+                "image/gif": "gif", "image/webp": "webp",
+            }.get(ct.split(";")[0].strip())
+            if fallback is None:
+                return _flash("Unsupported file type. Please upload a JPEG, PNG, GIF or WebP image.")
+            ext = fallback
+
+        # Derive a stable UUID from the username so each user has one file
+        import uuid as _uuid
+        username = identity.get_attribute("username", identity.id)
+        file_uuid = str(_uuid.uuid5(_uuid.NAMESPACE_URL, f"aquilia-admin-avatar:{username}"))
+        filename = f"{file_uuid}.{ext}"
+
+        # Write to .aquilia/admin/profile/
+        avatar_dir = _get_avatar_dir()
+        dest = avatar_dir / filename
+        try:
+            dest.write_bytes(raw)
+        except OSError as e:
+            return _flash(f"Could not save image: {e}")
+
+        # Persist path in AdminUser table
+        try:
+            from aquilia.admin.models import AdminUser
+            db_user = await AdminUser.objects.filter(username=username).first()
+            if db_user:
+                db_user.avatar_path = filename
+                await db_user.save()
+        except Exception:
+            pass  # DB may not have the column yet (migration pending)
+
+        # Update session identity so the change is reflected immediately
+        if ctx.session and hasattr(ctx.session, "data"):
+            admin_data = ctx.session.data.get("_admin_identity")
+            if admin_data and isinstance(admin_data, dict):
+                admin_data.setdefault("attributes", {})["avatar_path"] = filename
+                ctx.session.data["_admin_identity"] = admin_data
+
+        return _flash("Profile photo updated.", "success")
+
     @POST("/profile/update")
     async def profile_update(self, request, ctx: RequestCtx) -> Response:
         """Update admin profile data."""
@@ -1634,8 +1801,12 @@ class AdminController(Controller):
         form_data = await _parse_form(ctx)
 
         first_name = (form_data.get("first_name") or "").strip()
-        last_name = (form_data.get("last_name") or "").strip()
-        email = (form_data.get("email") or "").strip()
+        last_name  = (form_data.get("last_name")  or "").strip()
+        email      = (form_data.get("email")      or "").strip()
+        bio        = (form_data.get("bio")        or "").strip()
+        phone      = (form_data.get("phone")      or "").strip()
+        timezone   = (form_data.get("timezone")   or "UTC").strip()
+        locale     = (form_data.get("locale")     or "en").strip()
 
         try:
             from aquilia.admin.models import AdminUser
@@ -1643,31 +1814,39 @@ class AdminController(Controller):
             user = await AdminUser.objects.filter(username=username).first()
             if user:
                 user.first_name = first_name
-                user.last_name = last_name
-                user.email = email
+                user.last_name  = last_name
+                user.email      = email
+                user.bio        = bio
+                user.phone      = phone
+                user.timezone   = timezone
+                user.locale     = locale
                 await user.save()
 
-                # Update session identity
+                # Update session identity so the header reflects changes immediately
                 if ctx.session and hasattr(ctx.session, "data"):
                     admin_data = ctx.session.data.get("_admin_identity")
                     if admin_data and isinstance(admin_data, dict):
-                        attrs = admin_data.get("attributes", {})
+                        attrs = admin_data.setdefault("attributes", {})
                         attrs["first_name"] = first_name
-                        attrs["last_name"] = last_name
-                        attrs["email"] = email
-                        attrs["name"] = f"{first_name} {last_name}".strip() or username
+                        attrs["last_name"]  = last_name
+                        attrs["email"]      = email
+                        attrs["bio"]        = bio
+                        attrs["phone"]      = phone
+                        attrs["timezone"]   = timezone
+                        attrs["locale"]     = locale
+                        attrs["name"]       = f"{first_name} {last_name}".strip() or username
                         ctx.session.data["_admin_identity"] = admin_data
 
                 if ctx.session and hasattr(ctx.session, "data"):
-                    ctx.session.data["_admin_flash"] = "Profile updated successfully."
+                    ctx.session.data["_admin_flash"]      = "Profile updated successfully."
                     ctx.session.data["_admin_flash_type"] = "success"
             else:
                 if ctx.session and hasattr(ctx.session, "data"):
-                    ctx.session.data["_admin_flash"] = "User not found in database."
+                    ctx.session.data["_admin_flash"]      = "User not found in database."
                     ctx.session.data["_admin_flash_type"] = "error"
         except Exception as e:
             if ctx.session and hasattr(ctx.session, "data"):
-                ctx.session.data["_admin_flash"] = f"Failed: {e}"
+                ctx.session.data["_admin_flash"]      = f"Failed: {e}"
                 ctx.session.data["_admin_flash_type"] = "error"
 
         return _redirect("/admin/profile/")

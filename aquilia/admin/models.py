@@ -270,6 +270,13 @@ if _HAS_ORM:
         is_active = BooleanField(default=True)
         last_login = DateTimeField(null=True, blank=True)
         date_joined = DateTimeField(auto_now_add=True)
+        # ── Extended profile fields ────────────────────────────────────
+        # Relative path inside .aquilia/admin/profile/, e.g. "<uuid>.png"
+        avatar_path = CharField(max_length=512, blank=True, default="", null=True)
+        bio = TextField(blank=True, default="", null=True)
+        phone = CharField(max_length=32, blank=True, default="", null=True)
+        timezone = CharField(max_length=64, blank=True, default="UTC", null=True)
+        locale = CharField(max_length=16, blank=True, default="en", null=True)
 
         groups = ManyToManyField(
             "AdminGroup",
@@ -355,6 +362,11 @@ if _HAS_ORM:
                     "is_superuser": getattr(self, "is_superuser", False),
                     "is_staff": getattr(self, "is_staff", False),
                     "admin_role": "superadmin" if getattr(self, "is_superuser", False) else "staff",
+                    "avatar_path": getattr(self, "avatar_path", "") or "",
+                    "bio": getattr(self, "bio", "") or "",
+                    "phone": getattr(self, "phone", "") or "",
+                    "timezone": getattr(self, "timezone", "UTC") or "UTC",
+                    "locale": getattr(self, "locale", "en") or "en",
                 },
                 status=IdentityStatus.ACTIVE if getattr(self, "is_active", True) else IdentityStatus.SUSPENDED,
             )
