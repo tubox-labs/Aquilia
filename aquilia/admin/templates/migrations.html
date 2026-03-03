@@ -32,7 +32,7 @@
         <span class="meta-text">{{ migrations_dir|default('migrations/') }}</span>
     </div>
     {% for mig in migrations %}
-    <div class="migration-item" onclick="this.querySelector('.migration-code').classList.toggle('active')">
+    <div class="migration-item">
         <div class="migration-item-header">
             <span class="migration-revision">{{ mig.revision|default('') }}</span>
             <span style="font-size:0.82rem;font-weight:500;color:var(--text-primary);">{{ mig.filename }}</span>
@@ -49,7 +49,7 @@
         {% endif %}
         {# ── Inline source code (collapsible) ── #}
         {% if mig.source %}
-        <div class="migration-code" style="display:none;margin-top:12px;">
+        <div class="migration-code" style="margin-top:12px;">
             <div class="code-block-container" style="margin-bottom:0;">
                 <div class="code-block-header">
                     <div class="dots">
@@ -80,13 +80,11 @@
 {% endblock %}
 
 {% block extra_js %}
-// Toggle migration source code
+// Toggle migration source code via .active class
 document.querySelectorAll('.migration-item').forEach(function(item) {
+    if (!item.querySelector('.migration-code')) return;
     item.addEventListener('click', function() {
-        var code = this.querySelector('.migration-code');
-        if (code) {
-            code.style.display = code.style.display === 'none' ? 'block' : 'none';
-        }
+        this.classList.toggle('active');
     });
 });
 {% endblock %}
