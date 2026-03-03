@@ -234,17 +234,17 @@
     .log-line { display:flex; gap:10px; white-space:pre-wrap; word-break:break-all; }
     .log-ln   { color:rgba(255,255,255,0.12); user-select:none; min-width:28px; text-align:right; flex-shrink:0; padding-top:1px; font-size:0.7rem; }
     .log-text { flex:1; }
-    /* token colours — dark mode */
-    .tok-error   { color:#f87171; }
-    .tok-warn    { color:#fbbf24; }
-    .tok-success { color:#4ade80; }
-    .tok-info    { color:#60a5fa; }
-    .tok-debug   { color:#52525b; }
-    .tok-path    { color:#a78bfa; }
-    .tok-number  { color:#fb923c; }
-    .tok-string  { color:#34d399; }
-    .tok-keyword { color:#e879f9; }
-    .tok-dim     { color:rgba(255,255,255,0.35); }
+    /* ── Token colours — dark mode ───────────────────────────── */
+    .tok-error   { color:#fc8181; }   /* soft coral red     */
+    .tok-warn    { color:#f6ad55; }   /* warm amber         */
+    .tok-success { color:#68d391; }   /* muted emerald      */
+    .tok-info    { color:#76b8f5; }   /* sky blue           */
+    .tok-debug   { color:#718096; }   /* slate              */
+    .tok-path    { color:#b794f4; }   /* soft violet        */
+    .tok-number  { color:#f6a623; }   /* golden orange      */
+    .tok-string  { color:#68d391; }   /* sage green         */
+    .tok-keyword { color:#d4a5f5; }   /* lavender           */
+    .tok-dim     { color:rgba(255,255,255,0.42); }
     .tok-icon    { font-size:11px; vertical-align:-1px; margin-right:4px; }
     /* ── Light mode overrides ───────────────────────────────── */
     [data-theme="light"] .build-terminal {
@@ -252,22 +252,42 @@
         box-shadow: 0 4px 24px rgba(0,0,0,0.08);
     }
     [data-theme="light"] .terminal-chrome {
-        background: #e8e8ed;
-        border-bottom-color: rgba(0,0,0,0.10);
+        background: #f0f0f0;
+        border-bottom: 1px solid rgba(0,0,0,0.10);
     }
-    [data-theme="light"] .terminal-title   { color: rgba(0,0,0,0.40); }
+    [data-theme="light"] .terminal-title   { color: rgba(0,0,0,0.35); }
     [data-theme="light"] .terminal-body {
-        background: #1a1a2e;
-        scrollbar-color: rgba(255,255,255,0.15) transparent;
+        background: #fafafa;
+        color: #1a1a1a;
+        scrollbar-color: rgba(0,0,0,0.15) transparent;
     }
-    [data-theme="light"] .terminal-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); }
+    [data-theme="light"] .terminal-body::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); }
     [data-theme="light"] .terminal-status {
-        background: #f0f0f5;
-        border-top-color: rgba(0,0,0,0.08);
+        background: #f0f0f0;
+        border-top: 1px solid rgba(0,0,0,0.09);
     }
-    [data-theme="light"] .terminal-status span { color: rgba(0,0,0,0.45) !important; }
-    [data-theme="light"] .terminal-status i { color: rgba(0,0,0,0.35) !important; }
-    [data-theme="light"] #termLineCount { color: rgba(0,0,0,0.35) !important; }
+    [data-theme="light"] .terminal-status span { color: rgba(0,0,0,0.50) !important; }
+    [data-theme="light"] .terminal-status i    { color: rgba(0,0,0,0.40) !important; }
+    [data-theme="light"] #termLineCount        { color: rgba(0,0,0,0.35) !important; }
+    /* light mode line numbers */
+    [data-theme="light"] .log-ln { color: rgba(0,0,0,0.20); }
+    /* light mode token colours — darker, legible on white */
+    [data-theme="light"] .tok-error   { color:#c0392b; }
+    [data-theme="light"] .tok-warn    { color:#b7620a; }
+    [data-theme="light"] .tok-success { color:#276749; }
+    [data-theme="light"] .tok-info    { color:#1d5fa8; }
+    [data-theme="light"] .tok-debug   { color:#718096; }
+    [data-theme="light"] .tok-path    { color:#6b46c1; }
+    [data-theme="light"] .tok-number  { color:#c05621; }
+    [data-theme="light"] .tok-string  { color:#276749; }
+    [data-theme="light"] .tok-keyword { color:#6b21a8; }
+    [data-theme="light"] .tok-dim     { color:rgba(0,0,0,0.55); }
+    .term-line-count {
+        font-size: 0.65rem;
+        color: rgba(255,255,255,0.22);
+        font-family: var(--font-mono);
+    }
+    [data-theme="light"] .term-line-count { color: rgba(0,0,0,0.35); }
     </style>
 
     <div class="build-terminal">
@@ -282,7 +302,7 @@
                 <span class="terminal-title">aquilia build — output</span>
             </div>
             <div style="display:flex;align-items:center;gap:8px;">
-                <span style="font-size:0.65rem;color:rgba(255,255,255,0.2);font-family:var(--font-mono);" id="termLineCount"></span>
+                <span class="term-line-count" id="termLineCount"></span>
                 <button onclick="copyBuildLog()" class="btn btn-sm btn-secondary" style="font-size:0.65rem;padding:2px 8px;" title="Copy log">
                     <i class="icon-copy" style="font-size:11px;"></i>
                 </button>
@@ -401,7 +421,7 @@
             var txt = document.createElement('span');
             txt.className = 'log-text ' + (cls ? 'tok-' + cls : 'tok-dim');
 
-            /* Severity icon (safe innerHTML — fully controlled string) */
+            /* Severity icon — error and warn only; success has no icon */
             if (cls === 'error') {
                 var ic = document.createElement('i');
                 ic.className = 'icon-x-circle tok-icon tok-error';
@@ -409,10 +429,6 @@
             } else if (cls === 'warn') {
                 var ic = document.createElement('i');
                 ic.className = 'icon-alert-triangle tok-icon tok-warn';
-                txt.appendChild(ic);
-            } else if (cls === 'success') {
-                var ic = document.createElement('i');
-                ic.className = 'icon-check-circle tok-icon tok-success';
                 txt.appendChild(ic);
             }
 
@@ -440,7 +456,7 @@
             statusEl.appendChild(document.createTextNode(msg));
         }
         if (hasSuccess && errors === 0) {
-            setStatus('icon-check-circle', 'tok-success', 'Build succeeded');
+            setStatus('icon-terminal', '', 'Build succeeded');
         } else if (errors > 0) {
             setStatus('icon-x-circle', 'tok-error',
                 errors + ' error' + (errors > 1 ? 's' : '') +
