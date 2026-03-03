@@ -2777,7 +2777,7 @@ def admin_setup(ctx, non_interactive: bool, database_url: Optional[str]):
     \b
       1. Ensures .sessions(...) is enabled in workspace.py
       2. Ensures Integration.admin(...) is present
-      3. Ensures Integration.database(...) is present
+      3. Ensures Integration.database(...) is present (uncomments or injects)
       4. Ensures Integration.static_files(...) is present
       5. Adds the required imports (SessionPolicy, timedelta)
       6. Runs database migrations for admin tables
@@ -2977,8 +2977,68 @@ def admin_setup(ctx, non_interactive: bool, database_url: Optional[str]):
     # ── Step 4: Ensure Integration.database(...) ─────────────────────
     step(4, "Checking database integration...")
     if "Integration.database(" not in active:
-        warning(f"    ! No database integration found — admin needs a database")
-        info(f"      Add: .integrate(Integration.database(pool_size=5))")
+        # Try to uncomment a commented-out database integration line first
+        if "# .integrate(Integration.database(" in content or "#.integrate(Integration.database(" in content:
+            content = _re.sub(
+                r"#\s*\.integrate\(Integration\.database\(",
+                ".integrate(Integration.database(",
+                content,
+                count=1,
+            )
+            # Uncomment any immediately following commented lines until closing ))
+            lines = content.splitlines()
+            in_db_block = False
+            for i, line in enumerate(lines):
+                if ".integrate(Integration.database(" in line and not line.lstrip().startswith("#"):
+                    in_db_block = True
+                    if "))" in line:
+                        in_db_block = False
+                    continue
+                if in_db_block:
+                    stripped = line.lstrip()
+                    if stripped.startswith("# "):
+                        lines[i] = line.replace("# ", "", 1)
+                    if "))" in line:
+                        in_db_block = False
+            content = "\n".join(lines)
+            active = _active(content)
+            changes_made.append("Uncommented Integration.database(...)")
+            success(f"    {_CHECK} Uncommented database integration")
+        else:
+            # Inject database integration before sessions or admin block, or before closing ')'
+            db_url_val = database_url or "sqlite:///db.sqlite3"
+            db_block = textwrap.dedent(f"""\
+
+    # Database
+    .integrate(Integration.database(url="{db_url_val}"))""")
+            lines = content.splitlines()
+            insert_idx = None
+            # Prefer inserting before the sessions block
+            for i, line in enumerate(lines):
+                if ".sessions(" in line and not line.lstrip().startswith("#"):
+                    insert_idx = i
+                    break
+            # Fall back to before the admin integration
+            if insert_idx is None:
+                for i, line in enumerate(lines):
+                    if "Integration.admin(" in line and not line.lstrip().startswith("#"):
+                        insert_idx = i
+                        break
+            # Last resort: before the closing ')'
+            if insert_idx is None:
+                for i in range(len(lines) - 1, -1, -1):
+                    if lines[i].strip() == ")":
+                        insert_idx = i
+                        break
+            if insert_idx is not None:
+                for j, sline in enumerate(db_block.splitlines()):
+                    lines.insert(insert_idx + j, sline)
+                content = "\n".join(lines)
+                active = _active(content)
+                changes_made.append("Injected Integration.database(...)")
+                success(f"    {_CHECK} Injected database integration (url={db_url_val})")
+            else:
+                warning(f"    ! Could not find insertion point — add Integration.database() manually")
     else:
         dim(f"    {_CHECK} Database integration present")
 
