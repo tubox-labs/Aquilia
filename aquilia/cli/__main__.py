@@ -131,7 +131,7 @@ class AquiliaGroup(click.Group):
         "Database": ["db"],
         "Admin": ["admin"],
         "Inspect": ["inspect", "manifest", "analytics"],
-        "Subsystems": ["ws", "cache", "mail"],
+        "Subsystems": ["ws", "cache", "mail", "i18n"],
         "MLOps": ["pack", "model", "deploy", "observe", "export", "plugin", "lineage", "experiment"],
         "Deploy": ["deploy-gen", "artifact"],
         "Migration": ["migrate"],
@@ -1517,6 +1517,131 @@ def cache_clear(ctx, namespace: Optional[str]):
         cmd_cache_clear(namespace=namespace, verbose=ctx.obj['verbose'])
     except Exception as e:
         error(f"  {_CROSS} cache clear failed: {e}")
+        sys.exit(1)
+
+
+# ============================================================================
+# I18n (Internationalization)
+# ============================================================================
+
+@cli.group(cls=AquiliaGroup)
+def i18n():
+    """AquilaI18n -- init, check, inspect, extract, and coverage."""
+    pass
+
+
+@i18n.command('init')
+@click.option('--locales', '-l', type=str, default='en', help='Comma-separated locale list (e.g. en,fr,de)')
+@click.option('--directory', '-d', type=str, default='locales', help='Base directory for locale files')
+@click.option('--format', '-f', type=click.Choice(['json', 'yaml']), default='json', help='Translation file format')
+@click.pass_context
+def i18n_init(ctx, locales: str, directory: str, format: str):
+    """
+    Initialize i18n in the current workspace.
+
+    Creates locales/ directory with starter translation files.
+
+    Examples:
+      aq i18n init
+      aq i18n init --locales en,fr,de,ja
+      aq i18n init --directory translations --format yaml
+    """
+    from .commands.i18n import cmd_i18n_init
+
+    try:
+        cmd_i18n_init(
+            locales=locales,
+            directory=directory,
+            format=format,
+            verbose=ctx.obj['verbose'],
+        )
+    except Exception as e:
+        error(f"  {_CROSS} i18n init failed: {e}")
+        sys.exit(1)
+
+
+@i18n.command('check')
+@click.pass_context
+def i18n_check(ctx):
+    """
+    Validate i18n configuration and catalog structure.
+
+    Examples:
+      aq i18n check
+    """
+    from .commands.i18n import cmd_i18n_check
+
+    try:
+        cmd_i18n_check(verbose=ctx.obj['verbose'])
+    except Exception as e:
+        error(f"  {_CROSS} i18n check failed: {e}")
+        sys.exit(1)
+
+
+@i18n.command('inspect')
+@click.pass_context
+def i18n_inspect(ctx):
+    """
+    Display current i18n configuration as JSON.
+
+    Examples:
+      aq i18n inspect
+    """
+    from .commands.i18n import cmd_i18n_inspect
+
+    try:
+        cmd_i18n_inspect()
+    except Exception as e:
+        error(f"  {_CROSS} i18n inspect failed: {e}")
+        sys.exit(1)
+
+
+@i18n.command('extract')
+@click.option('--source-dirs', '-s', type=str, default='modules,controllers', help='Comma-separated source directories')
+@click.option('--output', '-o', type=str, default='locales/en/messages.json', help='Output file path')
+@click.option('--no-merge', is_flag=True, default=False, help='Overwrite output instead of merging')
+@click.pass_context
+def i18n_extract(ctx, source_dirs: str, output: str, no_merge: bool):
+    """
+    Extract translation keys from source files.
+
+    Scans Python and Jinja2 template files for _(), _n(), i18n.t(), etc.
+
+    Examples:
+      aq i18n extract
+      aq i18n extract --source-dirs modules,templates --output locales/en/messages.json
+    """
+    from .commands.i18n import cmd_i18n_extract
+
+    try:
+        cmd_i18n_extract(
+            source_dirs=source_dirs,
+            output=output,
+            merge=not no_merge,
+            verbose=ctx.obj['verbose'],
+        )
+    except Exception as e:
+        error(f"  {_CROSS} i18n extract failed: {e}")
+        sys.exit(1)
+
+
+@i18n.command('coverage')
+@click.pass_context
+def i18n_coverage(ctx):
+    """
+    Show translation coverage per locale.
+
+    Reports percentage of default locale keys translated in each locale.
+
+    Examples:
+      aq i18n coverage
+    """
+    from .commands.i18n import cmd_i18n_coverage
+
+    try:
+        cmd_i18n_coverage(verbose=ctx.obj['verbose'])
+    except Exception as e:
+        error(f"  {_CROSS} i18n coverage failed: {e}")
         sys.exit(1)
 
 

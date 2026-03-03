@@ -68,6 +68,9 @@ class WorkspaceGenerator:
                 self._create_deployment_files()
         if self.include_license:
             self._create_license_file()
+        
+        # Create starter locale files (i18n readiness)
+        self._create_locale_files()
     
     def _create_directories(self) -> None:
         """Create workspace directories."""
@@ -75,6 +78,9 @@ class WorkspaceGenerator:
         
         if not self.minimal:
             dirs.extend(['artifacts'])
+        
+        # Always create locales directory for i18n readiness
+        dirs.extend(['locales', 'locales/en'])
         
         if self.template:
             dirs.extend([
@@ -1661,3 +1667,40 @@ class WorkspaceGenerator:
         except Exception:
             # Non-fatal -- the workspace is still usable without these files
             pass
+
+    def _create_locale_files(self) -> None:
+        """Create starter i18n locale files for the workspace.
+
+        Generates ``locales/en/messages.json`` with a minimal set of
+        example translations so new workspaces are i18n-ready from
+        day one.
+        """
+        import json
+
+        locales_dir = self.path / 'locales' / 'en'
+        locales_dir.mkdir(parents=True, exist_ok=True)
+
+        messages_file = locales_dir / 'messages.json'
+        if messages_file.exists():
+            return
+
+        starter = {
+            "welcome": "Welcome to {app_name}!",
+            "goodbye": "Goodbye!",
+            "greeting": "Hello, {name}!",
+            "items_count": {
+                "one": "{count} item",
+                "other": "{count} items",
+            },
+            "errors": {
+                "not_found": "Page not found",
+                "server_error": "Internal server error",
+                "unauthorized": "Please sign in to continue",
+                "forbidden": "You don't have permission to access this",
+            },
+        }
+
+        messages_file.write_text(
+            json.dumps(starter, indent=2, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )

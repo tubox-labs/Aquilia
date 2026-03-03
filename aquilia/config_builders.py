@@ -2366,6 +2366,89 @@ class Integration:
         }
 
     @staticmethod
+    def i18n(
+        *,
+        default_locale: str = "en",
+        available_locales: Optional[List[str]] = None,
+        fallback_locale: str = "en",
+        catalog_dirs: Optional[List[str]] = None,
+        catalog_format: str = "json",
+        missing_key_strategy: str = "log_and_key",
+        auto_reload: bool = False,
+        auto_detect: bool = True,
+        cookie_name: str = "aq_locale",
+        query_param: str = "lang",
+        path_prefix: bool = False,
+        resolver_order: Optional[List[str]] = None,
+        enabled: bool = True,
+        **kwargs,
+    ) -> Dict[str, Any]:
+        """
+        Configure the i18n (internationalization) subsystem.
+
+        Provides locale negotiation, translation catalogs, plural rules,
+        message formatting, and template integration.
+
+        Args:
+            default_locale: Default BCP 47 locale tag.
+            available_locales: List of supported locale tags.
+            fallback_locale: Ultimate fallback locale.
+            catalog_dirs: Directories to scan for translation files.
+            catalog_format: ``"json"`` or ``"yaml"``.
+            missing_key_strategy: How to handle missing keys —
+                ``"return_key"``, ``"return_empty"``, ``"raise"``,
+                ``"log_and_key"``.
+            auto_reload: Hot-reload catalogs on file change.
+            auto_detect: Auto-detect locale from Accept-Language.
+            cookie_name: Cookie name for locale preference.
+            query_param: Query parameter name for locale override.
+            path_prefix: Enable path-based locale (``/en/about``).
+            resolver_order: Locale resolver chain order.
+            enabled: Enable/disable i18n.
+            **kwargs: Additional configuration.
+
+        Returns:
+            I18n configuration dictionary.
+
+        Examples::
+
+            # Basic setup with English and French
+            .integrate(Integration.i18n(
+                default_locale="en",
+                available_locales=["en", "fr", "de"],
+            ))
+
+            # Full production config
+            .integrate(Integration.i18n(
+                default_locale="en",
+                available_locales=["en", "fr", "de", "ja", "zh"],
+                fallback_locale="en",
+                catalog_dirs=["locales", "modules/auth/locales"],
+                missing_key_strategy="log_and_key",
+                auto_detect=True,
+                cookie_name="locale",
+                resolver_order=["query", "cookie", "session", "header"],
+            ))
+        """
+        return {
+            "_integration_type": "i18n",
+            "enabled": enabled,
+            "default_locale": default_locale,
+            "available_locales": available_locales or [default_locale],
+            "fallback_locale": fallback_locale,
+            "catalog_dirs": catalog_dirs or ["locales"],
+            "catalog_format": catalog_format,
+            "missing_key_strategy": missing_key_strategy,
+            "auto_reload": auto_reload,
+            "auto_detect": auto_detect,
+            "cookie_name": cookie_name,
+            "query_param": query_param,
+            "path_prefix": path_prefix,
+            "resolver_order": resolver_order or ["query", "cookie", "header"],
+            **kwargs,
+        }
+
+    @staticmethod
     def serializers(
         *,
         auto_discover: bool = True,
@@ -2435,6 +2518,7 @@ class Workspace:
         self._mail_config: Optional[Dict[str, Any]] = None
         self._mlops_config: Optional[Dict[str, Any]] = None
         self._cache_config: Optional[Dict[str, Any]] = None
+        self._i18n_config: Optional[Dict[str, Any]] = None
         self._starter: Optional[str] = None
         self._middleware_chain: Optional[List[Dict[str, Any]]] = None
         self._on_startup: Optional[str] = None
@@ -2568,6 +2652,9 @@ class Workspace:
             elif integration_type == "cache":
                 self._integrations["cache"] = integration
                 self._cache_config = integration
+            elif integration_type == "i18n":
+                self._integrations["i18n"] = integration
+                self._i18n_config = integration
             return self
 
         # Determine integration type from keys (legacy detection)
@@ -2607,6 +2694,42 @@ class Workspace:
             "policies": policies or [],
             **kwargs
         }
+        return self
+    
+    def i18n(
+        self,
+        default_locale: str = "en",
+        available_locales: Optional[List[str]] = None,
+        **kwargs,
+    ) -> "Workspace":
+        """
+        Configure internationalization (shorthand for ``integrate(Integration.i18n(...))``).
+
+        Args:
+            default_locale: Default BCP 47 locale tag.
+            available_locales: List of supported locale tags.
+            **kwargs: Additional i18n config (see ``Integration.i18n()``).
+
+        Returns:
+            Self for chaining.
+
+        Example::
+
+            workspace = (
+                Workspace("myapp")
+                .i18n(
+                    default_locale="en",
+                    available_locales=["en", "fr", "de", "ja"],
+                )
+            )
+        """
+        config = Integration.i18n(
+            default_locale=default_locale,
+            available_locales=available_locales,
+            **kwargs,
+        )
+        self._i18n_config = config
+        self._integrations["i18n"] = config
         return self
     
     def security(
@@ -2834,6 +2957,9 @@ class Workspace:
         if self._cache_config:
             config["cache"] = self._cache_config
             config["integrations"]["cache"] = self._cache_config
+        if self._i18n_config:
+            config["i18n"] = self._i18n_config
+            config["integrations"]["i18n"] = self._i18n_config
         
         return config
     

@@ -443,6 +443,9 @@ class AquiliaServer:
         # ── Cache subsystem ──────────────────────────────────────────────
         self._setup_cache()
 
+        # ── I18n subsystem ───────────────────────────────────────────────
+        self._setup_i18n()
+
         # ── Security & Infrastructure Middleware ──────────────────────────
         self._setup_security_middleware()
 
@@ -980,6 +983,62 @@ class AquiliaServer:
         except Exception as e:
             self._cache_service = None
             self.logger.error(f"Cache subsystem init failed (non-fatal): {e}", exc_info=True)
+
+    def _setup_i18n(self):
+        """
+        Initialize the i18n subsystem from workspace config.
+
+        Reads ``Integration.i18n()`` configuration, creates an
+        :class:`I18nService`, registers it in every DI container,
+        adds :class:`I18nMiddleware` to the middleware stack, and
+        wires template globals if a template engine is available.
+        """
+        i18n_config = self.config.get_i18n_config()
+        if not i18n_config.get("enabled", False):
+            self._i18n_service = None
+            return
+
+        try:
+            from .i18n.service import I18nConfig, create_i18n_service
+            from .i18n.middleware import I18nMiddleware, build_resolver
+            from .i18n.di_integration import register_i18n_providers
+
+            config_obj = I18nConfig.from_dict(i18n_config)
+            svc = create_i18n_service(config_obj)
+            self._i18n_service = svc
+
+            # Register in every DI container
+            for container in self.runtime.di_containers.values():
+                register_i18n_providers(container, svc, config_obj)
+
+            # Build locale resolver chain
+            resolver = build_resolver(config_obj)
+
+            # Add I18n middleware
+            self.middleware_stack.add(
+                I18nMiddleware(svc, resolver),
+                scope="global",
+                priority=24,  # After auth/session (15), before templates (25)
+                name="i18n",
+            )
+
+            # Wire template globals if template engine exists
+            if hasattr(self, "template_engine") and self.template_engine is not None:
+                try:
+                    from .i18n.template_integration import register_i18n_template_globals
+                    register_i18n_template_globals(self.template_engine.env, svc)
+                except Exception as e:
+                    self.logger.debug(f"I18n template integration skipped: {e}")
+
+            self.logger.info(
+                "I18n subsystem initialized — default=%s locales=%s",
+                config_obj.default_locale,
+                config_obj.available_locales,
+            )
+
+        except Exception as e:
+            self._i18n_service = None
+            self.logger.error(f"I18n subsystem init failed (non-fatal): {e}", exc_info=True)
 
     def _resolve_store_from_name(self, store_name: str, **kwargs):
         """
