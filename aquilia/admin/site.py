@@ -864,6 +864,7 @@ class AdminSite:
                                 "fault_domain": fault_domain.group(1) if fault_domain else "",
                                 "fault_strategy": fault_strategy.group(1) if fault_strategy else "",
                                 "source": manifest_source,
+                                "source_highlighted": self._highlight_python(manifest_source),
                             }
                             mod_info["controllers"] = [c.split(":")[-1].strip('"') for c in controllers]
                             mod_info["services"] = [s.split(":")[-1].strip('"') for s in services]
@@ -901,6 +902,32 @@ class AdminSite:
                 except Exception:
                     pass
 
+        # ── License file ─────────────────────────────────────────────
+        license_text = ""
+        if workspace_root:
+            for lic_name in ("LICENSE", "LICENSE.md", "LICENSE.txt"):
+                lic_path = workspace_root / lic_name
+                if not lic_path.exists():
+                    lic_path = workspace_root.parent / lic_name
+                if lic_path.exists():
+                    try:
+                        license_text = lic_path.read_text(encoding="utf-8")
+                    except Exception:
+                        pass
+                    break
+        result["license_text"] = license_text
+
+        # ── workspace.py source for admin display ────────────────────
+        ws_source = ""
+        if ws_path and ws_path.exists():
+            try:
+                ws_source = ws_path.read_text(encoding="utf-8")
+            except Exception:
+                pass
+        result["workspace_source"] = ws_source
+        if ws_source:
+            result["workspace_source_highlighted"] = self._highlight_python(ws_source)
+
         # ── Registered ORM models ────────────────────────────────────
         for model_cls, admin in self._registry.items():
             result["registered_models"].append({
@@ -912,9 +939,19 @@ class AdminSite:
             })
 
         # ── Stats ────────────────────────────────────────────────────
+        total_controllers = sum(
+            len(m.get("manifest", {}).get("controllers", []))
+            for m in result["modules"]
+        )
+        total_services = sum(
+            len(m.get("manifest", {}).get("services", []))
+            for m in result["modules"]
+        )
         result["stats"] = {
             "total_modules": len(result["modules"]),
             "total_models": len(result["registered_models"]),
+            "total_controllers": total_controllers,
+            "total_services": total_services,
             "total_integrations": len(result["integrations"]),
             "total_files": sum(len(m.get("files", [])) for m in result["modules"]),
         }
@@ -1122,64 +1159,95 @@ class AdminSite:
         """
         Apply simple syntax highlighting to Python source code.
 
-        Uses CSS classes matching the aqdocx code block theme:
-        .kw, .str, .num, .fn, .cls, .cmt, .dec, .op, .var, .prop
+        Uses a tokenize-first approach: scan for comments, strings,
+        decorators, keywords, numbers, and function calls on the RAW
+        source, collect (start, end, css_class) spans, then escape
+        only the non-highlighted portions.  This avoids the old bug
+        where regexes ran on HTML-escaped text and `&#x27;` / `&quot;`
+        caused cascading mismatches.
         """
         import re
         import html as html_mod
 
+        KEYWORDS = {
+            'def', 'class', 'import', 'from', 'return', 'if', 'elif',
+            'else', 'for', 'while', 'with', 'as', 'try', 'except',
+            'finally', 'raise', 'pass', 'break', 'continue', 'yield',
+            'async', 'await', 'not', 'and', 'or', 'in', 'is', 'None',
+            'True', 'False', 'self', 'lambda',
+        }
+        KW_PATTERN = r'\b(' + '|'.join(KEYWORDS) + r')\b'
+
+        def _tokenize_line(line: str):
+            """
+            Return a list of (text, css_class_or_None) for one line.
+            Processes left-to-right so earlier tokens win.
+            """
+            tokens: list = []  # [(start, end, css_class)]
+
+            # 1. Triple-quoted strings (rare on one line, but handle)
+            for m in re.finditer(r'""".*?"""|\'\'\'.*?\'\'\'', line):
+                tokens.append((m.start(), m.end(), 'str'))
+
+            # 2. Single/double-quoted strings
+            for m in re.finditer(r'"[^"\\]*(?:\\.[^"\\]*)*"|\'[^\'\\]*(?:\\.[^\'\\]*)*\'', line):
+                tokens.append((m.start(), m.end(), 'str'))
+
+            # 3. Comments (only if # is NOT inside a string)
+            cm = re.search(r'#', line)
+            if cm:
+                # Check the # is not inside any string token
+                pos = cm.start()
+                inside = any(s <= pos < e for s, e, _ in tokens)
+                if not inside:
+                    tokens.append((pos, len(line), 'cmt'))
+
+            # 4. Decorators
+            dm = re.match(r'^(\s*)(@\w+)', line)
+            if dm:
+                tokens.append((dm.start(2), dm.end(2), 'dec'))
+
+            # 5. Keywords
+            for m in re.finditer(KW_PATTERN, line):
+                tokens.append((m.start(), m.end(), 'kw'))
+
+            # 6. Numbers
+            for m in re.finditer(r'\b\d+\.?\d*\b', line):
+                tokens.append((m.start(), m.end(), 'num'))
+
+            # 7. Function calls  name(
+            for m in re.finditer(r'\b(\w+)\(', line):
+                tokens.append((m.start(1), m.end(1), 'fn'))
+
+            # ── Resolve overlaps: earlier & longer wins ──
+            tokens.sort(key=lambda t: (t[0], -(t[1] - t[0])))
+            merged: list = []
+            used_end = 0
+            for s, e, cls in tokens:
+                if s < used_end:
+                    continue  # overlaps with a previous token
+                merged.append((s, e, cls))
+                used_end = e
+
+            # ── Build output fragments ──
+            parts: list = []
+            pos = 0
+            for s, e, cls in merged:
+                if s > pos:
+                    parts.append(html_mod.escape(line[pos:s]))
+                parts.append(f'<span class="{cls}">{html_mod.escape(line[s:e])}</span>')
+                pos = e
+            if pos < len(line):
+                parts.append(html_mod.escape(line[pos:]))
+
+            return ''.join(parts)
+
         lines = source.split('\n')
         result_lines = []
-
         for i, line in enumerate(lines, 1):
-            escaped = html_mod.escape(line)
-
-            # Order matters — comments first, then strings, then others
-            # Comments
-            escaped = re.sub(
-                r'(#.*?)$',
-                r'<span class="cmt">\1</span>',
-                escaped,
-            )
-
-            # Strings (triple-quoted and single/double)
-            escaped = re.sub(
-                r'(&quot;&quot;&quot;.*?&quot;&quot;&quot;|&#x27;&#x27;&#x27;.*?&#x27;&#x27;&#x27;|&quot;[^&]*?&quot;|&#x27;[^&]*?&#x27;)',
-                r'<span class="str">\1</span>',
-                escaped,
-            )
-
-            # Decorators
-            escaped = re.sub(
-                r'^(\s*)(@\w+)',
-                r'\1<span class="dec">\2</span>',
-                escaped,
-            )
-
-            # Keywords
-            keywords = r'\b(def|class|import|from|return|if|elif|else|for|while|with|as|try|except|finally|raise|pass|break|continue|yield|async|await|not|and|or|in|is|None|True|False|self|lambda)\b'
-            escaped = re.sub(
-                keywords,
-                r'<span class="kw">\1</span>',
-                escaped,
-            )
-
-            # Numbers
-            escaped = re.sub(
-                r'\b(\d+\.?\d*)\b',
-                r'<span class="num">\1</span>',
-                escaped,
-            )
-
-            # Function calls
-            escaped = re.sub(
-                r'\b(\w+)(\()',
-                r'<span class="fn">\1</span>\2',
-                escaped,
-            )
-
+            highlighted = _tokenize_line(line)
             line_num = f'<span class="code-line-num">{i}</span>'
-            result_lines.append(f'{line_num}{escaped}')
+            result_lines.append(f'{line_num}{highlighted}')
 
         return '\n'.join(result_lines)
 

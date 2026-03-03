@@ -1,159 +1,197 @@
 {% extends "base.html" %}
 
-{% block title %}Workspace — {{ site_title|default('Aquilia Admin') }}{% endblock %}
+{% block title %}Workspace{% endblock %}
+{% block breadcrumb %}Workspace{% endblock %}
 
 {% block content %}
-<div class="page-header" style="margin-bottom:24px;">
-    <div>
-        <h1 class="page-title" style="font-size:1.75rem;font-weight:800;letter-spacing:-0.02em;">
-            <i class="icon-layout-template" style="color:var(--accent);margin-right:8px;"></i>Workspace
-        </h1>
-        <p class="page-subtitle" style="color:var(--text-muted);font-size:.875rem;margin-top:4px;">
-            Monitor workspace modules, manifests &amp; project metadata
-        </p>
-    </div>
+<div class="page-header">
+    <h1>Workspace</h1>
+    <p>Monitor workspace modules, manifests, integrations &amp; project metadata.</p>
 </div>
 
 {# ── Stats Row ── #}
 {% if workspace.stats %}
-<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:24px;">
-    <div class="card" style="padding:16px;text-align:center;">
-        <div style="font-size:1.75rem;font-weight:800;color:var(--accent);">{{ workspace.stats.total_modules }}</div>
-        <div style="font-size:.75rem;color:var(--text-muted);margin-top:4px;text-transform:uppercase;letter-spacing:.06em;">Modules</div>
+<div class="stats-row" style="margin-bottom:28px;">
+    <div class="stat-item">
+        <div class="stat-number" data-count="{{ workspace.stats.total_modules }}">{{ workspace.stats.total_modules }}</div>
+        <div class="stat-label">Modules</div>
     </div>
-    <div class="card" style="padding:16px;text-align:center;">
-        <div style="font-size:1.75rem;font-weight:800;color:var(--accent);">{{ workspace.stats.total_models }}</div>
-        <div style="font-size:.75rem;color:var(--text-muted);margin-top:4px;text-transform:uppercase;letter-spacing:.06em;">Models</div>
+    <div class="stat-item">
+        <div class="stat-number" data-count="{{ workspace.stats.total_models }}">{{ workspace.stats.total_models }}</div>
+        <div class="stat-label">Models</div>
     </div>
-    <div class="card" style="padding:16px;text-align:center;">
-        <div style="font-size:1.75rem;font-weight:800;color:var(--accent);">{{ workspace.stats.total_controllers }}</div>
-        <div style="font-size:.75rem;color:var(--text-muted);margin-top:4px;text-transform:uppercase;letter-spacing:.06em;">Controllers</div>
+    <div class="stat-item">
+        <div class="stat-number" data-count="{{ workspace.stats.total_controllers }}">{{ workspace.stats.total_controllers }}</div>
+        <div class="stat-label">Controllers</div>
     </div>
-    <div class="card" style="padding:16px;text-align:center;">
-        <div style="font-size:1.75rem;font-weight:800;color:var(--accent);">{{ workspace.stats.total_services }}</div>
-        <div style="font-size:.75rem;color:var(--text-muted);margin-top:4px;text-transform:uppercase;letter-spacing:.06em;">Services</div>
+    <div class="stat-item">
+        <div class="stat-number" data-count="{{ workspace.stats.total_services }}">{{ workspace.stats.total_services }}</div>
+        <div class="stat-label">Services</div>
     </div>
-    <div class="card" style="padding:16px;text-align:center;">
-        <div style="font-size:1.75rem;font-weight:800;color:var(--accent);">{{ workspace.stats.total_integrations }}</div>
-        <div style="font-size:.75rem;color:var(--text-muted);margin-top:4px;text-transform:uppercase;letter-spacing:.06em;">Integrations</div>
+    <div class="stat-item">
+        <div class="stat-number" data-count="{{ workspace.stats.total_integrations }}">{{ workspace.stats.total_integrations }}</div>
+        <div class="stat-label">Integrations</div>
     </div>
+    {% if workspace.stats.total_files %}
+    <div class="stat-item">
+        <div class="stat-number" data-count="{{ workspace.stats.total_files }}">{{ workspace.stats.total_files }}</div>
+        <div class="stat-label">Files</div>
+    </div>
+    {% endif %}
 </div>
 {% endif %}
 
-{# ── Workspace Overview Card ── #}
-<div class="card" style="padding:24px;margin-bottom:24px;">
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-        <div style="width:42px;height:42px;border-radius:10px;background:rgba(34,197,94,.12);display:flex;align-items:center;justify-content:center;">
-            <i class="icon-layout-template" style="font-size:20px;color:var(--accent);"></i>
-        </div>
-        <div>
-            <h2 style="font-size:1.125rem;font-weight:700;">{{ workspace.name or 'Workspace' }}</h2>
-            <span style="font-size:.75rem;color:var(--text-muted);">
-                {% if workspace.version %}v{{ workspace.version }}{% endif %}
-                {% if workspace.python_version %} · Python {{ workspace.python_version }}{% endif %}
-                {% if workspace.platform %} · {{ workspace.platform }}{% endif %}
-            </span>
-        </div>
-    </div>
-    {% if workspace.description %}
-    <p style="color:var(--text-secondary);font-size:.875rem;line-height:1.6;margin-bottom:16px;">{{ workspace.description }}</p>
-    {% endif %}
+{# ── Tabs ── #}
+<div class="tab-nav" data-tab-group="ws">
+    <button class="tab-btn active" data-tab="overview" onclick="switchTab('ws','overview')">
+        <i class="icon-layout-template" style="font-size:14px;vertical-align:-2px;margin-right:4px;"></i>Overview
+    </button>
+    <button class="tab-btn" data-tab="modules" onclick="switchTab('ws','modules')">
+        <i class="icon-package" style="font-size:14px;vertical-align:-2px;margin-right:4px;"></i>Modules
+    </button>
+    <button class="tab-btn" data-tab="integrations" onclick="switchTab('ws','integrations')">
+        <i class="icon-plug" style="font-size:14px;vertical-align:-2px;margin-right:4px;"></i>Integrations
+    </button>
+    <button class="tab-btn" data-tab="models" onclick="switchTab('ws','models')">
+        <i class="icon-database" style="font-size:14px;vertical-align:-2px;margin-right:4px;"></i>Models
+    </button>
+    <button class="tab-btn" data-tab="config" onclick="switchTab('ws','config')">
+        <i class="icon-file-text" style="font-size:14px;vertical-align:-2px;margin-right:4px;"></i>Source
+    </button>
+</div>
 
-    {# Project metadata from pyproject.toml #}
-    {% if workspace.project_meta %}
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:16px;">
-        {% for key, value in workspace.project_meta.items() %}
-        <div style="padding:10px 14px;border-radius:8px;background:var(--bg-input);border:1px solid var(--border-color);">
-            <div style="font-size:.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">{{ key|replace('_', ' ')|title }}</div>
-            <div style="font-size:.85rem;color:var(--text-primary);word-break:break-all;">
-                {% if value is iterable and value is not string %}
-                {{ value|join(', ') }}
+{# ═══════════════════════════════════════════════════════════════════ #}
+{# ── TAB 1: Overview                                              ── #}
+{# ═══════════════════════════════════════════════════════════════════ #}
+<div class="tab-content active" data-tab-content="ws" data-tab="overview">
+
+    {# ── Workspace Identity Card ── #}
+    <div class="glass-card" style="padding:24px;margin-bottom:20px;">
+        <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px;">
+            <div style="width:48px;height:48px;border-radius:12px;background:var(--accent-subtle);display:flex;align-items:center;justify-content:center;">
+                <i class="icon-layout-template" style="font-size:22px;color:var(--accent);"></i>
+            </div>
+            <div style="flex:1;min-width:0;">
+                <h2 style="font-size:1.15rem;font-weight:700;margin-bottom:2px;">{{ workspace.name or 'Workspace' }}</h2>
+                <div style="font-size:.78rem;color:var(--text-muted);display:flex;gap:12px;flex-wrap:wrap;">
+                    {% if workspace.version %}<span><i class="icon-tag" style="font-size:11px;vertical-align:-1px;margin-right:3px;"></i>v{{ workspace.version }}</span>{% endif %}
+                    {% if workspace.python_version %}<span><i class="icon-terminal" style="font-size:11px;vertical-align:-1px;margin-right:3px;"></i>Python {{ workspace.python_version }}</span>{% endif %}
+                    {% if workspace.platform %}<span><i class="icon-monitor" style="font-size:11px;vertical-align:-1px;margin-right:3px;"></i>{{ workspace.platform }}</span>{% endif %}
+                </div>
+            </div>
+        </div>
+        {% if workspace.description %}
+        <p style="color:var(--text-secondary);font-size:.875rem;line-height:1.6;margin-bottom:16px;">{{ workspace.description }}</p>
+        {% endif %}
+
+        {# ── Project metadata ── #}
+        {% if workspace.project_meta %}
+        <div class="section-label" style="margin-bottom:10px;">Project Metadata</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;">
+            {% for key, value in workspace.project_meta.items() %}
+            {% if value %}
+            <div style="padding:10px 14px;border-radius:var(--radius-sm);background:var(--bg-input);border:1px solid var(--border-color);">
+                <div style="font-size:.65rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px;">{{ key|replace('_', ' ')|title }}</div>
+                <div style="font-size:.82rem;color:var(--text-primary);word-break:break-all;font-family:var(--font-mono);">
+                    {% if value is iterable and value is not string %}{{ value|join(', ') }}{% else %}{{ value }}{% endif %}
+                </div>
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+
+    {# ── Architecture Overview ── #}
+    <div class="section-label">Architecture Overview</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;margin-bottom:24px;">
+        {% for mod in workspace.modules %}
+        <div class="glass-card card-padded" style="cursor:pointer;" onclick="switchTab('ws','modules')">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+                <div style="width:32px;height:32px;border-radius:8px;background:var(--accent-subtle);display:flex;align-items:center;justify-content:center;">
+                    <i class="icon-package" style="font-size:14px;color:var(--accent);"></i>
+                </div>
+                <div>
+                    <div style="font-size:.85rem;font-weight:600;">{{ mod.name }}</div>
+                    <div style="font-size:.7rem;color:var(--text-muted);">
+                        {% if mod.manifest and mod.manifest.version %}v{{ mod.manifest.version }}{% endif %}
+                    </div>
+                </div>
+            </div>
+            {% if mod.manifest %}
+            <div style="display:flex;flex-wrap:wrap;gap:4px;">
+                {% if mod.manifest.controllers %}<span class="schema-constraint-tag idx" style="font-size:.6rem;">{{ mod.manifest.controllers|length }} ctrl</span>{% endif %}
+                {% if mod.manifest.services %}<span class="schema-constraint-tag unique" style="font-size:.6rem;">{{ mod.manifest.services|length }} svc</span>{% endif %}
+                {% if mod.manifest.models %}<span class="schema-constraint-tag pk" style="font-size:.6rem;">{{ mod.manifest.models|length }} model</span>{% endif %}
+                {% if mod.manifest.guards %}<span class="schema-constraint-tag notnull" style="font-size:.6rem;">{{ mod.manifest.guards|length }} guard</span>{% endif %}
+            </div>
+            {% endif %}
+            {% if mod.manifest and mod.manifest.route_prefix %}
+            <div style="margin-top:8px;font-size:.72rem;font-family:var(--font-mono);color:var(--accent);">{{ mod.manifest.route_prefix }}</div>
+            {% endif %}
+        </div>
+        {% endfor %}
+
+        {% if not workspace.modules %}
+        <div class="glass-card card-padded" style="grid-column:1/-1;">
+            <div class="empty-state">
+                <i class="icon-package" style="font-size:28px;display:block;margin-bottom:8px;opacity:.3;"></i>
+                No modules discovered. Create a <code>modules/</code> directory.
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    {# ── License Section (hidden by default) ── #}
+    {% if workspace.license_text %}
+    <div class="section-label">License</div>
+    <div class="glass-card" style="padding:0;margin-bottom:24px;">
+        <div class="card-header" style="cursor:pointer;" onclick="toggleLicense()">
+            <span class="card-title" style="display:flex;align-items:center;gap:8px;">
+                <i class="icon-shield" style="font-size:14px;color:var(--accent);"></i>
+                {% if workspace.project_meta and workspace.project_meta.license %}
+                {{ workspace.project_meta.license }} License
                 {% else %}
-                {{ value }}
+                License
                 {% endif %}
+            </span>
+            <div style="display:flex;align-items:center;gap:8px;">
+                <span class="meta-text" id="licenseToggleHint">Click to view</span>
+                <svg id="licenseChevron" style="width:16px;height:16px;color:var(--text-muted);transition:transform .25s var(--ease);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="6 9 12 15 18 9"/>
+                </svg>
             </div>
         </div>
-        {% endfor %}
+        <div id="licenseBody" style="max-height:0;overflow:hidden;transition:max-height .4s var(--ease);">
+            <pre style="padding:16px 20px;font-family:var(--font-mono);font-size:.75rem;line-height:1.7;color:var(--text-secondary);white-space:pre-wrap;word-break:break-word;margin:0;border-top:1px solid var(--border-subtle);">{{ workspace.license_text }}</pre>
+        </div>
     </div>
     {% endif %}
 </div>
 
-{# ── Integrations Grid ── #}
-{% if workspace.integrations and workspace.integrations|length > 0 %}
-<div class="card" style="padding:24px;margin-bottom:24px;">
-    <h3 style="font-size:1rem;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:8px;">
-        <i class="icon-plug" style="color:var(--accent);"></i> Integrations
-        <span class="sidebar-badge" style="font-size:.7rem;">{{ workspace.integrations|length }}</span>
-    </h3>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;">
-        {% for intg in workspace.integrations %}
-        <div style="padding:14px;border-radius:10px;background:var(--bg-input);border:1px solid var(--border-color);display:flex;align-items:center;gap:12px;">
-            <div style="width:36px;height:36px;border-radius:8px;background:rgba(34,197,94,.1);display:flex;align-items:center;justify-content:center;">
-                <i class="{{ intg.icon }}" style="font-size:16px;color:var(--accent);"></i>
-            </div>
-            <div>
-                <div style="font-size:.85rem;font-weight:600;color:var(--text-primary);">{{ intg.name }}</div>
-                {% if intg.params and intg.params|length > 0 %}
-                <div style="font-size:.7rem;color:var(--text-muted);margin-top:2px;">{{ intg.params|length }} param{{ 's' if intg.params|length != 1 }}</div>
-                {% endif %}
-            </div>
-        </div>
-        {% endfor %}
+{# ═══════════════════════════════════════════════════════════════════ #}
+{# ── TAB 2: Modules (expandable)                                  ── #}
+{# ═══════════════════════════════════════════════════════════════════ #}
+<div class="tab-content" data-tab-content="ws" data-tab="modules">
+    <div class="section-label" style="display:flex;align-items:center;justify-content:space-between;">
+        <span>Modules <span class="meta-text">({{ workspace.modules|length }})</span></span>
+        <button class="btn btn-sm btn-secondary" onclick="toggleAllModules()" title="Expand / Collapse all (E)" style="font-size:.7rem;">
+            <i class="icon-layers" style="font-size:12px;margin-right:4px;"></i>Toggle All
+        </button>
     </div>
-</div>
-{% endif %}
 
-{# ── Registered ORM Models ── #}
-{% if workspace.registered_models and workspace.registered_models|length > 0 %}
-<div class="card" style="padding:24px;margin-bottom:24px;">
-    <h3 style="font-size:1rem;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:8px;">
-        <i class="icon-database" style="color:var(--accent);"></i> Registered ORM Models
-        <span class="sidebar-badge" style="font-size:.7rem;">{{ workspace.registered_models|length }}</span>
-    </h3>
-    <div class="table-container" style="overflow-x:auto;">
-        <table class="data-table" style="width:100%;">
-            <thead>
-                <tr>
-                    <th style="padding:10px 14px;font-size:.75rem;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);">Model</th>
-                    <th style="padding:10px 14px;font-size:.75rem;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);">Table</th>
-                    <th style="padding:10px 14px;font-size:.75rem;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);">Fields</th>
-                    <th style="padding:10px 14px;font-size:.75rem;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);">App</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for m in workspace.registered_models %}
-                <tr style="border-top:1px solid var(--border-color);">
-                    <td style="padding:10px 14px;font-size:.85rem;font-weight:600;">{{ m.name }}</td>
-                    <td style="padding:10px 14px;font-size:.8rem;color:var(--text-secondary);"><code style="padding:2px 6px;border-radius:4px;background:var(--bg-input);font-size:.75rem;">{{ m.table }}</code></td>
-                    <td style="padding:10px 14px;font-size:.8rem;color:var(--text-secondary);">{{ m.field_count }}</td>
-                    <td style="padding:10px 14px;font-size:.8rem;color:var(--text-muted);">{{ m.app_label }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-</div>
-{% endif %}
-
-{# ── Modules ── #}
-{% if workspace.modules and workspace.modules|length > 0 %}
-<div style="margin-bottom:24px;">
-    <h3 style="font-size:1rem;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:8px;">
-        <i class="icon-package" style="color:var(--accent);"></i> Modules
-        <span class="sidebar-badge" style="font-size:.7rem;">{{ workspace.modules|length }}</span>
-    </h3>
-
+    {% if workspace.modules and workspace.modules|length > 0 %}
     {% for mod in workspace.modules %}
-    <div class="card module-card" style="padding:0;margin-bottom:12px;overflow:hidden;" data-module="{{ mod.name }}">
-        {# Module Header — clickable to expand #}
-        <div class="module-header" style="padding:18px 20px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;transition:background .15s;user-select:none;"
+    <div class="glass-card module-card" style="padding:0;margin-bottom:12px;overflow:hidden;" data-module="{{ mod.name }}">
+        {# Module Header #}
+        <div class="module-header" style="padding:16px 20px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;transition:background .15s;user-select:none;"
              onclick="toggleModule(this)">
             <div style="display:flex;align-items:center;gap:12px;">
-                <div style="width:36px;height:36px;border-radius:8px;background:rgba(34,197,94,.1);display:flex;align-items:center;justify-content:center;">
+                <div style="width:36px;height:36px;border-radius:8px;background:var(--accent-subtle);display:flex;align-items:center;justify-content:center;">
                     <i class="icon-package" style="font-size:16px;color:var(--accent);"></i>
                 </div>
                 <div>
-                    <div style="font-size:.9rem;font-weight:700;">{{ mod.name }}</div>
+                    <div style="font-size:.88rem;font-weight:700;">{{ mod.name }}</div>
                     <div style="font-size:.7rem;color:var(--text-muted);margin-top:2px;">
                         {% if mod.manifest %}
                         {% set parts = [] %}
@@ -171,36 +209,51 @@
             <div style="display:flex;align-items:center;gap:8px;">
                 {% if mod.manifest and mod.manifest.tags %}
                 {% for tag in mod.manifest.tags[:3] %}
-                <span style="padding:2px 8px;border-radius:4px;font-size:.65rem;background:rgba(34,197,94,.12);color:var(--accent);font-weight:600;">{{ tag }}</span>
+                <span style="padding:2px 8px;border-radius:var(--radius-xs);font-size:.65rem;background:var(--accent-subtle);color:var(--accent);font-weight:600;">{{ tag }}</span>
                 {% endfor %}
                 {% endif %}
-                <svg class="module-chevron" style="width:18px;height:18px;color:var(--text-muted);transition:transform .25s var(--ease);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                {% if mod.manifest and mod.manifest.version %}
+                <span class="meta-text">v{{ mod.manifest.version }}</span>
+                {% endif %}
+                <svg class="module-chevron" style="width:16px;height:16px;color:var(--text-muted);transition:transform .25s var(--ease);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <polyline points="6 9 12 15 18 9"/>
                 </svg>
             </div>
         </div>
 
-        {# Module Body — hidden by default via CSS class #}
+        {# Module Body #}
         <div class="module-body" style="border-top:1px solid var(--border-color);max-height:0;overflow:hidden;transition:max-height .35s var(--ease);"
              data-collapsed="true">
             {% if mod.manifest %}
-            {# ── Manifest Details Grid ── #}
             <div style="padding:16px 20px;">
-                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-bottom:16px;">
+                {# ── Manifest Metadata Grid ── #}
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:16px;">
                     {% if mod.manifest.route_prefix %}
-                    <div style="padding:10px 12px;border-radius:8px;background:var(--bg-input);border:1px solid var(--border-color);">
+                    <div style="padding:10px 12px;border-radius:var(--radius-sm);background:var(--bg-input);border:1px solid var(--border-color);">
                         <div style="font-size:.65rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px;">Route Prefix</div>
                         <code style="font-size:.8rem;color:var(--accent);">{{ mod.manifest.route_prefix }}</code>
                     </div>
                     {% endif %}
+                    {% if mod.manifest.base_path %}
+                    <div style="padding:10px 12px;border-radius:var(--radius-sm);background:var(--bg-input);border:1px solid var(--border-color);">
+                        <div style="font-size:.65rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px;">Base Path</div>
+                        <code style="font-size:.8rem;color:var(--text-primary);">{{ mod.manifest.base_path }}</code>
+                    </div>
+                    {% endif %}
                     {% if mod.manifest.fault_domain %}
-                    <div style="padding:10px 12px;border-radius:8px;background:var(--bg-input);border:1px solid var(--border-color);">
+                    <div style="padding:10px 12px;border-radius:var(--radius-sm);background:var(--bg-input);border:1px solid var(--border-color);">
                         <div style="font-size:.65rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px;">Fault Domain</div>
                         <code style="font-size:.8rem;color:var(--text-primary);">{{ mod.manifest.fault_domain }}</code>
                     </div>
                     {% endif %}
+                    {% if mod.manifest.fault_strategy %}
+                    <div style="padding:10px 12px;border-radius:var(--radius-sm);background:var(--bg-input);border:1px solid var(--border-color);">
+                        <div style="font-size:.65rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px;">Fault Strategy</div>
+                        <code style="font-size:.8rem;color:var(--text-primary);">{{ mod.manifest.fault_strategy }}</code>
+                    </div>
+                    {% endif %}
                     {% if mod.manifest.auto_discover is not none %}
-                    <div style="padding:10px 12px;border-radius:8px;background:var(--bg-input);border:1px solid var(--border-color);">
+                    <div style="padding:10px 12px;border-radius:var(--radius-sm);background:var(--bg-input);border:1px solid var(--border-color);">
                         <div style="font-size:.65rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px;">Auto Discover</div>
                         <span style="font-size:.8rem;color:{{ 'var(--accent)' if mod.manifest.auto_discover else 'var(--text-muted)' }};display:flex;align-items:center;gap:4px;">
                             <i class="{{ 'icon-check-circle' if mod.manifest.auto_discover else 'icon-x-circle' }}" style="font-size:14px;"></i>
@@ -208,31 +261,36 @@
                         </span>
                     </div>
                     {% endif %}
+                    {% if mod.manifest.description %}
+                    <div style="padding:10px 12px;border-radius:var(--radius-sm);background:var(--bg-input);border:1px solid var(--border-color);grid-column:1/-1;">
+                        <div style="font-size:.65rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px;">Description</div>
+                        <span style="font-size:.8rem;color:var(--text-secondary);">{{ mod.manifest.description }}</span>
+                    </div>
+                    {% endif %}
                 </div>
 
                 {# ── Component Lists ── #}
                 {% set sections = [
-                    ('Controllers', mod.manifest.controllers, 'icon-terminal', '#3b82f6'),
-                    ('Services', mod.manifest.services, 'icon-cpu', '#8b5cf6'),
-                    ('Models', mod.manifest.models, 'icon-database', '#22c55e'),
-                    ('Guards', mod.manifest.guards, 'icon-shield', '#f59e0b'),
+                    ('Controllers', mod.manifest.controllers, 'icon-terminal', 'var(--info)'),
+                    ('Services', mod.manifest.services, 'icon-cpu', 'var(--purple)'),
+                    ('Models', mod.manifest.models, 'icon-database', 'var(--accent)'),
+                    ('Guards', mod.manifest.guards, 'icon-shield', 'var(--warning)'),
                     ('Pipes', mod.manifest.pipes, 'icon-filter', '#ec4899'),
                     ('Interceptors', mod.manifest.interceptors, 'icon-layers', '#06b6d4'),
                     ('Imports', mod.manifest.imports, 'icon-download', '#6366f1'),
                     ('Exports', mod.manifest.exports, 'icon-upload', '#14b8a6'),
                 ] %}
-
                 {% for section_name, items, icon, color in sections %}
                 {% if items and items|length > 0 %}
-                <div style="margin-bottom:12px;">
-                    <div style="font-size:.75rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;display:flex;align-items:center;gap:6px;">
+                <div style="margin-bottom:14px;">
+                    <div style="font-size:.72rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;display:flex;align-items:center;gap:6px;">
                         <i class="{{ icon }}" style="font-size:12px;color:{{ color }};"></i>
                         {{ section_name }}
                         <span style="font-size:.65rem;color:var(--text-faint);">({{ items|length }})</span>
                     </div>
                     <div style="display:flex;flex-wrap:wrap;gap:6px;">
                         {% for item in items %}
-                        <span style="padding:4px 10px;border-radius:6px;font-size:.75rem;background:var(--bg-input);border:1px solid var(--border-color);color:var(--text-secondary);font-family:'JetBrains Mono',monospace;">{{ item }}</span>
+                        <span style="padding:4px 10px;border-radius:var(--radius-xs);font-size:.72rem;background:var(--bg-input);border:1px solid var(--border-color);color:var(--text-secondary);font-family:var(--font-mono);">{{ item }}</span>
                         {% endfor %}
                     </div>
                 </div>
@@ -243,69 +301,195 @@
             {# ── Module Files ── #}
             {% if mod.files and mod.files|length > 0 %}
             <div style="padding:0 20px 16px;">
-                <div style="font-size:.75rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">
+                <div style="font-size:.72rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">
+                    <i class="icon-folder" style="font-size:12px;margin-right:4px;color:var(--text-faint);"></i>
                     Files <span style="font-size:.65rem;color:var(--text-faint);">({{ mod.files|length }})</span>
                 </div>
-                <div style="border-radius:8px;border:1px solid var(--border-color);overflow:hidden;">
+                <div style="border-radius:var(--radius-sm);border:1px solid var(--border-color);overflow:hidden;">
                     {% for f in mod.files %}
-                    <div style="padding:8px 12px;display:flex;align-items:center;justify-content:space-between;font-size:.8rem;{{ 'border-top:1px solid var(--border-color);' if not loop.first }}background:var(--bg-input);">
+                    <div style="padding:7px 12px;display:flex;align-items:center;justify-content:space-between;font-size:.78rem;{{ 'border-top:1px solid var(--border-color);' if not loop.first }}background:var(--bg-input);">
                         <div style="display:flex;align-items:center;gap:8px;">
-                            <i class="icon-file-text" style="font-size:13px;color:var(--text-muted);"></i>
-                            <span style="color:var(--text-primary);font-family:'JetBrains Mono',monospace;font-size:.75rem;">{{ f.name }}</span>
+                            <i class="icon-file-text" style="font-size:12px;color:var(--text-faint);"></i>
+                            <span style="color:var(--text-primary);font-family:var(--font-mono);font-size:.75rem;">{{ f.name }}</span>
                         </div>
-                        <span style="padding:2px 8px;border-radius:4px;font-size:.6rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em;
-                            {% if f.kind == 'controller' %}background:rgba(59,130,246,.12);color:#3b82f6;
-                            {% elif f.kind == 'service' %}background:rgba(139,92,246,.12);color:#8b5cf6;
-                            {% elif f.kind == 'model' %}background:rgba(34,197,94,.12);color:#22c55e;
-                            {% elif f.kind == 'guard' %}background:rgba(245,158,11,.12);color:#f59e0b;
+                        <span style="padding:2px 7px;border-radius:4px;font-size:.6rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em;
+                            {% if f.kind == 'controller' %}background:var(--info-subtle);color:var(--info);
+                            {% elif f.kind == 'service' %}background:var(--purple-subtle);color:var(--purple);
+                            {% elif f.kind == 'model' %}background:var(--success-subtle);color:var(--success);
+                            {% elif f.kind == 'guard' %}background:var(--warning-subtle);color:var(--warning);
                             {% elif f.kind == 'manifest' %}background:rgba(6,182,212,.12);color:#06b6d4;
                             {% elif f.kind == 'migration' %}background:rgba(99,102,241,.12);color:#6366f1;
                             {% elif f.kind == 'test' %}background:rgba(236,72,153,.12);color:#ec4899;
                             {% elif f.kind == 'config' %}background:rgba(251,146,60,.12);color:#fb923c;
-                            {% else %}background:var(--bg-primary);color:var(--text-muted);
-                            {% endif %}
-                        ">{{ f.kind }}</span>
+                            {% elif f.kind == 'fault' %}background:var(--danger-subtle);color:var(--danger);
+                            {% else %}background:var(--bg-surface);color:var(--text-muted);
+                            {% endif %}">{{ f.kind }}</span>
                     </div>
                     {% endfor %}
                 </div>
             </div>
             {% endif %}
 
-            {% else %}
-            {# No manifest #}
-            <div style="padding:20px;text-align:center;color:var(--text-muted);font-size:.85rem;">
-                <i class="icon-alert-circle" style="font-size:24px;margin-bottom:8px;display:block;opacity:.5;"></i>
-                No <code>manifest.py</code> found in this module.
-                {% if mod.files and mod.files|length > 0 %}
-                <div style="margin-top:12px;text-align:left;">
-                    <div style="font-size:.75rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Files</div>
-                    <div style="border-radius:8px;border:1px solid var(--border-color);overflow:hidden;">
-                        {% for f in mod.files %}
-                        <div style="padding:8px 12px;display:flex;align-items:center;gap:8px;font-size:.8rem;{{ 'border-top:1px solid var(--border-color);' if not loop.first }}background:var(--bg-input);">
-                            <i class="icon-file-text" style="font-size:13px;color:var(--text-muted);"></i>
-                            <span style="color:var(--text-primary);font-family:'JetBrains Mono',monospace;font-size:.75rem;">{{ f.name }}</span>
+            {# ── Manifest Source Code (collapsible) ── #}
+            {% if mod.manifest and mod.manifest.source %}
+            <div style="padding:0 20px 16px;">
+                <div style="font-size:.72rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;cursor:pointer;display:flex;align-items:center;gap:6px;"
+                     onclick="toggleManifestSource(this)">
+                    <i class="icon-code" style="font-size:12px;color:var(--text-faint);"></i>
+                    Manifest Source
+                    <svg class="manifest-chevron" style="width:14px;height:14px;color:var(--text-muted);transition:transform .2s var(--ease);margin-left:auto;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="6 9 12 15 18 9"/>
+                    </svg>
+                </div>
+                <div class="manifest-source-body" style="max-height:0;overflow:hidden;transition:max-height .5s ease;">
+                    <div class="code-block-container" style="margin-bottom:0;">
+                        <div class="code-block-header">
+                            <div class="dots"><div class="dot dot-red"></div><div class="dot dot-yellow"></div><div class="dot dot-green"></div></div>
+                            <span class="filename">manifest.py</span>
                         </div>
-                        {% endfor %}
+                        <div class="code-block-body" style="max-height:400px;overflow-y:auto;">
+                            <pre>{{ mod.manifest.source_highlighted|default(mod.manifest.source)|safe }}</pre>
+                        </div>
                     </div>
                 </div>
-                {% endif %}
+            </div>
+            {% endif %}
+
+            {% else %}
+            <div style="padding:20px;text-align:center;color:var(--text-muted);font-size:.82rem;">
+                <i class="icon-alert-circle" style="font-size:22px;margin-bottom:8px;display:block;opacity:.5;"></i>
+                No <code>manifest.py</code> found in this module.
             </div>
             {% endif %}
         </div>
     </div>
     {% endfor %}
+
+    {% else %}
+    <div class="glass-card">
+        <div class="empty-state">
+            <i class="icon-package" style="font-size:32px;display:block;margin-bottom:12px;opacity:.3;"></i>
+            No modules discovered. Create a <code>modules/</code> directory to get started.
+        </div>
+    </div>
+    {% endif %}
 </div>
-{% else %}
-<div class="card" style="padding:40px;text-align:center;color:var(--text-muted);">
-    <i class="icon-package" style="font-size:40px;margin-bottom:12px;display:block;opacity:.4;"></i>
-    <p style="font-size:.9rem;">No modules discovered in the workspace.</p>
-    <p style="font-size:.8rem;margin-top:8px;">Create a <code>modules/</code> directory with module folders to get started.</p>
+
+{# ═══════════════════════════════════════════════════════════════════ #}
+{# ── TAB 3: Integrations                                          ── #}
+{# ═══════════════════════════════════════════════════════════════════ #}
+<div class="tab-content" data-tab-content="ws" data-tab="integrations">
+    <div class="section-label">Active Integrations <span class="meta-text">({{ workspace.integrations|length if workspace.integrations else 0 }})</span></div>
+
+    {% if workspace.integrations and workspace.integrations|length > 0 %}
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;margin-bottom:24px;">
+        {% for intg in workspace.integrations %}
+        <div class="glass-card card-padded">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+                <div style="width:40px;height:40px;border-radius:10px;background:var(--accent-subtle);display:flex;align-items:center;justify-content:center;">
+                    <i class="{{ intg.icon }}" style="font-size:18px;color:var(--accent);"></i>
+                </div>
+                <div>
+                    <div style="font-size:.88rem;font-weight:600;color:var(--text-primary);">{{ intg.display_name|default(intg.name) }}</div>
+                    <div style="font-size:.68rem;color:var(--text-muted);font-family:var(--font-mono);">Integration.{{ intg.name }}()</div>
+                </div>
+            </div>
+            {% if intg.params and intg.params|length > 0 %}
+            <div style="border-top:1px solid var(--border-subtle);padding-top:10px;">
+                <div style="font-size:.65rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">Parameters</div>
+                {% for pk, pv in intg.params.items() %}
+                <div style="display:flex;justify-content:space-between;padding:3px 0;font-size:.75rem;">
+                    <span style="color:var(--text-secondary);font-family:var(--font-mono);">{{ pk }}</span>
+                    <span style="color:var(--accent);font-family:var(--font-mono);">{{ pv }}</span>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="glass-card">
+        <div class="empty-state">
+            <i class="icon-plug" style="font-size:32px;display:block;margin-bottom:12px;opacity:.3;"></i>
+            No integrations configured in workspace.py
+        </div>
+    </div>
+    {% endif %}
 </div>
-{% endif %}
+
+{# ═══════════════════════════════════════════════════════════════════ #}
+{# ── TAB 4: Registered ORM Models                                 ── #}
+{# ═══════════════════════════════════════════════════════════════════ #}
+<div class="tab-content" data-tab-content="ws" data-tab="models">
+    <div class="section-label">Registered ORM Models <span class="meta-text">({{ workspace.registered_models|length if workspace.registered_models else 0 }})</span></div>
+
+    {% if workspace.registered_models and workspace.registered_models|length > 0 %}
+    <div class="table-container">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>Model</th>
+                    <th>Table</th>
+                    <th>Fields</th>
+                    <th>App</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for m in workspace.registered_models %}
+                <tr>
+                    <td>
+                        <i class="icon-database" style="font-size:12px;vertical-align:-1px;margin-right:4px;color:var(--accent);"></i>
+                        <span style="font-weight:600;">{{ m.name }}</span>
+                    </td>
+                    <td><code style="padding:2px 6px;border-radius:4px;background:var(--bg-input);font-size:.75rem;font-family:var(--font-mono);">{{ m.table }}</code></td>
+                    <td><span class="schema-pill">{{ m.field_count }}</span></td>
+                    <td style="color:var(--text-muted);font-size:.82rem;">{{ m.app_label }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="glass-card">
+        <div class="empty-state">
+            <i class="icon-database" style="font-size:32px;display:block;margin-bottom:12px;opacity:.3;"></i>
+            No ORM models registered
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+{# ═══════════════════════════════════════════════════════════════════ #}
+{# ── TAB 5: Source (workspace.py)                                  ── #}
+{# ═══════════════════════════════════════════════════════════════════ #}
+<div class="tab-content" data-tab-content="ws" data-tab="config">
+    <div class="section-label">Workspace Configuration Source</div>
+
+    {% if workspace.workspace_source %}
+    <div class="code-block-container" style="margin-bottom:24px;">
+        <div class="code-block-header">
+            <div class="dots"><div class="dot dot-red"></div><div class="dot dot-yellow"></div><div class="dot dot-green"></div></div>
+            <span class="filename">workspace.py</span>
+        </div>
+        <div class="code-block-body">
+            <pre style="max-height:600px;overflow-y:auto;">{{ workspace.workspace_source_highlighted|default(workspace.workspace_source)|safe }}</pre>
+        </div>
+    </div>
+    {% else %}
+    <div class="glass-card">
+        <div class="empty-state">
+            <i class="icon-file-text" style="font-size:32px;display:block;margin-bottom:12px;opacity:.3;"></i>
+            No workspace.py file found
+        </div>
+    </div>
+    {% endif %}
+</div>
+
 {% endblock %}
 
 {% block extra_js %}
-<script>
+// ── Module expand / collapse ──
 function toggleModule(headerEl) {
     var card = headerEl.closest('.module-card');
     if (!card) return;
@@ -314,19 +498,67 @@ function toggleModule(headerEl) {
     if (!body) return;
     var isCollapsed = body.getAttribute('data-collapsed') === 'true';
     if (isCollapsed) {
-        /* Expand: measure scrollHeight then set max-height */
         body.style.maxHeight = body.scrollHeight + 'px';
         body.setAttribute('data-collapsed', 'false');
         if (chevron) chevron.style.transform = 'rotate(180deg)';
     } else {
-        /* Collapse */
         body.style.maxHeight = '0';
         body.setAttribute('data-collapsed', 'true');
         if (chevron) chevron.style.transform = 'rotate(0deg)';
     }
 }
 
-/* Auto-expand first module */
+function toggleAllModules() {
+    var bodies = document.querySelectorAll('.module-body');
+    var allOpen = Array.from(bodies).every(function(b) { return b.getAttribute('data-collapsed') === 'false'; });
+    bodies.forEach(function(body) {
+        var card = body.closest('.module-card');
+        var chevron = card ? card.querySelector('.module-chevron') : null;
+        if (allOpen) {
+            body.style.maxHeight = '0';
+            body.setAttribute('data-collapsed', 'true');
+            if (chevron) chevron.style.transform = 'rotate(0deg)';
+        } else {
+            body.style.maxHeight = body.scrollHeight + 'px';
+            body.setAttribute('data-collapsed', 'false');
+            if (chevron) chevron.style.transform = 'rotate(180deg)';
+        }
+    });
+}
+
+// ── License toggle ──
+function toggleLicense() {
+    var body = document.getElementById('licenseBody');
+    var chevron = document.getElementById('licenseChevron');
+    var hint = document.getElementById('licenseToggleHint');
+    if (!body) return;
+    if (body.style.maxHeight && body.style.maxHeight !== '0px') {
+        body.style.maxHeight = '0';
+        if (chevron) chevron.style.transform = 'rotate(0deg)';
+        if (hint) hint.textContent = 'Click to view';
+    } else {
+        body.style.maxHeight = body.scrollHeight + 'px';
+        if (chevron) chevron.style.transform = 'rotate(180deg)';
+        if (hint) hint.textContent = 'Click to hide';
+    }
+}
+
+// ── Manifest source toggle ──
+function toggleManifestSource(labelEl) {
+    var body = labelEl.nextElementSibling;
+    var chevron = labelEl.querySelector('.manifest-chevron');
+    if (!body) return;
+    if (body.style.maxHeight && body.style.maxHeight !== '0px') {
+        body.style.maxHeight = '0';
+        if (chevron) chevron.style.transform = 'rotate(0deg)';
+    } else {
+        body.style.maxHeight = '500px';
+        body.style.overflowY = 'auto';
+        if (chevron) chevron.style.transform = 'rotate(180deg)';
+    }
+}
+
+// ── Auto-expand first module on load ──
 document.addEventListener('DOMContentLoaded', function() {
     var firstCard = document.querySelector('.module-card');
     if (firstCard) {
@@ -335,26 +567,27 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-/* Keyboard: press 'e' to expand/collapse all */
+// ── Animated stat counters ──
+document.querySelectorAll('.stat-number[data-count]').forEach(function(el) {
+    var target = parseInt(el.getAttribute('data-count'), 10);
+    if (isNaN(target) || target <= 0) return;
+    var duration = 600;
+    var start = performance.now();
+    el.textContent = '0';
+    function tick(now) {
+        var t = Math.min((now - start) / duration, 1);
+        var ease = 1 - Math.pow(1 - t, 3);
+        el.textContent = Math.round(ease * target);
+        if (t < 1) requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+});
+
+// ── Keyboard: 'e' to expand/collapse all modules ──
 document.addEventListener('keydown', function(e) {
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
     if (e.key === 'e' && !e.ctrlKey && !e.metaKey) {
-        var bodies = document.querySelectorAll('.module-body');
-        var allOpen = Array.from(bodies).every(function(b) { return b.getAttribute('data-collapsed') === 'false'; });
-        bodies.forEach(function(body) {
-            var card = body.closest('.module-card');
-            var chevron = card ? card.querySelector('.module-chevron') : null;
-            if (allOpen) {
-                body.style.maxHeight = '0';
-                body.setAttribute('data-collapsed', 'true');
-                if (chevron) chevron.style.transform = 'rotate(0deg)';
-            } else {
-                body.style.maxHeight = body.scrollHeight + 'px';
-                body.setAttribute('data-collapsed', 'false');
-                if (chevron) chevron.style.transform = 'rotate(180deg)';
-            }
-        });
+        toggleAllModules();
     }
 });
-</script>
 {% endblock %}
