@@ -134,6 +134,13 @@ def _get_identity_name(identity: Optional[Identity]) -> str:
     return identity.get_attribute("name", identity.get_attribute("username", identity.id))
 
 
+def _get_identity_avatar(identity: Optional[Identity]) -> str:
+    """Get avatar path from identity (empty string if none set)."""
+    if identity is None:
+        return ""
+    return identity.get_attribute("avatar_path", "") or ""
+
+
 def _require_identity(ctx: RequestCtx) -> tuple:
     """
     Extract and verify admin identity from request context.
@@ -360,6 +367,7 @@ class AdminController(Controller):
             app_list=app_list,
             stats=stats,
             identity_name=_get_identity_name(identity),
+                identity_avatar=_get_identity_avatar(identity),
         )
         return _html_response(html)
 
@@ -530,6 +538,7 @@ class AdminController(Controller):
                     message=str(e),
                     app_list=app_list,
                     identity_name=_get_identity_name(identity),
+                identity_avatar=_get_identity_avatar(identity),
                 ),
                 404,
             )
@@ -573,6 +582,7 @@ class AdminController(Controller):
             data=data,
             app_list=app_list,
             identity_name=_get_identity_name(identity),
+                identity_avatar=_get_identity_avatar(identity),
             flash=flash,
             flash_type=flash_type,
         )
@@ -602,6 +612,7 @@ class AdminController(Controller):
                     message=str(e),
                     app_list=app_list,
                     identity_name=_get_identity_name(identity),
+                identity_avatar=_get_identity_avatar(identity),
                 ),
                 404,
             )
@@ -629,6 +640,7 @@ class AdminController(Controller):
             data=form_data,
             app_list=app_list,
             identity_name=_get_identity_name(identity),
+                identity_avatar=_get_identity_avatar(identity),
             is_create=True,
         )
         return _html_response(html)
@@ -662,6 +674,7 @@ class AdminController(Controller):
                         message=str(e),
                         app_list=app_list,
                         identity_name=_get_identity_name(identity),
+                identity_avatar=_get_identity_avatar(identity),
                     ),
                     400,
                 )
@@ -686,6 +699,7 @@ class AdminController(Controller):
                 data=data,
                 app_list=app_list,
                 identity_name=_get_identity_name(identity),
+                identity_avatar=_get_identity_avatar(identity),
                 is_create=True,
                 flash=str(e),
                 flash_type="error",
@@ -717,6 +731,7 @@ class AdminController(Controller):
                     message=str(e),
                     app_list=app_list,
                     identity_name=_get_identity_name(identity),
+                identity_avatar=_get_identity_avatar(identity),
                 ),
                 404,
             )
@@ -740,6 +755,7 @@ class AdminController(Controller):
             data=data,
             app_list=app_list,
             identity_name=_get_identity_name(identity),
+                identity_avatar=_get_identity_avatar(identity),
         )
         return _html_response(html)
 
@@ -774,6 +790,7 @@ class AdminController(Controller):
                         message=str(e),
                         app_list=app_list,
                         identity_name=_get_identity_name(identity),
+                identity_avatar=_get_identity_avatar(identity),
                     ),
                     400,
                 )
@@ -783,6 +800,7 @@ class AdminController(Controller):
                 data=data,
                 app_list=app_list,
                 identity_name=_get_identity_name(identity),
+                identity_avatar=_get_identity_avatar(identity),
                 flash=str(e),
                 flash_type="error",
             )
@@ -902,6 +920,7 @@ class AdminController(Controller):
                     message=str(e),
                     app_list=app_list,
                     identity_name=_get_identity_name(identity),
+                identity_avatar=_get_identity_avatar(identity),
                 ),
                 404,
             )
@@ -1024,6 +1043,7 @@ class AdminController(Controller):
             app_list=app_list,
             model_counts=stats.get("model_counts", {}),
             identity_name=_get_identity_name(identity),
+                identity_avatar=_get_identity_avatar(identity),
             model_schema=model_schema,
         )
         return _html_response(html)
@@ -1053,6 +1073,7 @@ class AdminController(Controller):
             build_files=build_data.get("build_files", []),
             app_list=app_list,
             identity_name=_get_identity_name(identity),
+                identity_avatar=_get_identity_avatar(identity),
         )
         return _html_response(html)
 
@@ -1077,6 +1098,7 @@ class AdminController(Controller):
             migrations=migrations,
             app_list=app_list,
             identity_name=_get_identity_name(identity),
+                identity_avatar=_get_identity_avatar(identity),
         )
         return _html_response(html)
 
@@ -1102,6 +1124,7 @@ class AdminController(Controller):
             workspace_info=config_data.get("workspace", None),
             app_list=app_list,
             identity_name=_get_identity_name(identity),
+                identity_avatar=_get_identity_avatar(identity),
         )
         return _html_response(html)
 
@@ -1139,6 +1162,7 @@ class AdminController(Controller):
             workspace=workspace_data,
             app_list=app_list,
             identity_name=_get_identity_name(identity),
+                identity_avatar=_get_identity_avatar(identity),
         )
         return _html_response(html)
 
@@ -1172,6 +1196,7 @@ class AdminController(Controller):
             model_permissions=perms_data.get("model_permissions", []),
             app_list=app_list,
             identity_name=_get_identity_name(identity),
+                identity_avatar=_get_identity_avatar(identity),
             flash=flash,
             flash_type=flash_type,
         )
@@ -1258,6 +1283,7 @@ class AdminController(Controller):
             entries=[e.to_dict() for e in entries],
             app_list=app_list,
             identity_name=_get_identity_name(identity),
+                identity_avatar=_get_identity_avatar(identity),
             total=total,
             page=page,
             per_page=per_page,
@@ -1286,6 +1312,7 @@ class AdminController(Controller):
             monitoring=monitoring_data,
             app_list=app_list,
             identity_name=_get_identity_name(identity),
+                identity_avatar=_get_identity_avatar(identity),
         )
         return _html_response(html)
 
@@ -1369,6 +1396,7 @@ class AdminController(Controller):
             users=users,
             app_list=app_list,
             identity_name=_get_identity_name(identity),
+                identity_avatar=_get_identity_avatar(identity),
             flash=flash,
             flash_type=flash_type,
         )
@@ -1663,6 +1691,7 @@ class AdminController(Controller):
             user=user,
             app_list=app_list,
             identity_name=_get_identity_name(identity),
+                identity_avatar=_get_identity_avatar(identity),
             flash=flash,
             flash_type=flash_type,
         )

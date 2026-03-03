@@ -101,7 +101,11 @@
     <div class="sidebar-footer">
         <div class="sidebar-user">
             <a href="{{ url_prefix|default('/admin') }}/profile/" class="sidebar-user-avatar" title="View Profile" style="text-decoration:none;">
+                {% if identity_avatar %}
+                <img src="{{ identity_avatar }}" alt="avatar" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">
+                {% else %}
                 {{ identity_name|default('A')|truncate(1, True, '') }}
+                {% endif %}
             </a>
             <div class="sidebar-user-info">
                 <a href="{{ url_prefix|default('/admin') }}/profile/" style="text-decoration:none;color:inherit;">
