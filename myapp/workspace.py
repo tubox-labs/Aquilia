@@ -25,7 +25,6 @@ from aquilia.sessions import TransportPolicy
 from aquilia.sessions import PersistencePolicy
 from aquilia.sessions import ConcurrencyPolicy
 
-
 # Define workspace structure
 workspace = (
     Workspace(
@@ -33,7 +32,7 @@ workspace = (
         version="0.1.0",
         description="Aquilia workspace",
     )
-    # Starter module — registered here so the server does not need
+    # Starter module -- registered here so the server does not need
     # to hard-code it. Delete this line (and starter.py) once you
     # add your own modules with a GET "/" route.
     .starter("starter")
@@ -41,6 +40,12 @@ workspace = (
     # Add modules here with explicit configuration:
     # .module(Module("auth", version="1.0.0", description="Authentication module").route_prefix("/api/v1/auth").depends_on("core"))
     # .module(Module("users", version="1.0.0", description="User management").route_prefix("/api/v1/users").depends_on("auth", "core"))
+
+    # ---- Modules ---------------------------------------------------------
+
+    .module(Module("Tubox", version="0.1.0", description="Tubox module")
+        .route_prefix("/Tubox")
+        .tags("Tubox"))
 
     # Integrations - Configure core systems
     .integrate(Integration.di(auto_wire=True, manifest_validation=True))
@@ -60,9 +65,8 @@ workspace = (
     .integrate(Integration.patterns())
 
     # Database - Configure the ORM backend
-    # Uncomment and set the connection URL for your database.
     .integrate(Integration.database(
-        # url="sqlite:///db.sqlite3",     # SQLite (dev)
+        url="sqlite:///db.sqlite3",       # SQLite (dev)
         # url="postgresql://user:pass@localhost:5432/myapp",  # PostgreSQL
         pool_size=5,
         echo=False,
@@ -125,6 +129,10 @@ workspace = (
         ],
     )
 
+    .middleware(
+        Integration.middleware.defaults()
+    )
+
     # Security (uncomment to enable security middleware)
     # Fine-grained: use Integration.cors(), Integration.csp(),
     # Integration.rate_limit() with .integrate().
@@ -150,7 +158,6 @@ workspace = (
         auto_discover=True,
     ))
 )
-
 
 # Export for CLI/server
 __all__ = ["workspace"]

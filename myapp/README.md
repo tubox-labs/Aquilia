@@ -48,9 +48,9 @@ Aquilia separates **structure** from **runtime settings**:
 
 | File              | Purpose                          | Committed? |
 |-------------------|----------------------------------|------------|
-| `workspace.py`    | Modules, integrations, structure | ✅ Yes     |
-| `config/*.yaml`   | Host, port, workers, logging     | ✅ Yes     |
-| `.env`            | Secrets, database URLs           | ❌ No      |
+| `workspace.py`    | Modules, integrations, structure | Yes     |
+| `config/*.yaml`   | Host, port, workers, logging     | Yes     |
+| `.env`            | Secrets, database URLs           | No      |
 
 Config merge order: `base.yaml` → `<mode>.yaml` → environment variables.
 

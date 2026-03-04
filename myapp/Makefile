@@ -22,10 +22,10 @@ prod: ## Start production server
 # ── Testing ───────────────────────────────────────────────────────
 
 test: ## Run all tests
-	$(PYTHON) -m pytest tests/ -v
+	aq test
 
 test-cov: ## Run tests with coverage
-	$(PYTHON) -m pytest tests/ --cov=$(APP) --cov-report=term-missing
+	aq test --coverage
 
 # ── Database ──────────────────────────────────────────────────────
 

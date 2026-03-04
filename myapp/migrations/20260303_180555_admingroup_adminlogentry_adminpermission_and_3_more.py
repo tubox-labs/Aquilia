@@ -1,6 +1,6 @@
 """
-Migration: 20260303_161035_admingroup_adminlogentry_adminpermission_and_3_more
-Generated: 2026-03-03T16:10:35.852562+00:00
+Migration: 20260303_180555_admingroup_adminlogentry_adminpermission_and_3_more
+Generated: 2026-03-03T18:05:55.605320+00:00
 Models: AdminGroup, AdminLogEntry, AdminPermission, AdminSession, AdminUser, ContentType
 """
 
@@ -11,7 +11,7 @@ from aquilia.models.migration_dsl import (
 
 
 class Meta:
-    revision = "20260303_161035"
+    revision = "20260303_180555"
     slug = "admingroup_adminlogentry_adminpermission_and_3_more"
     models = ['AdminGroup', 'AdminLogEntry', 'AdminPermission', 'AdminSession', 'AdminUser', 'ContentType']
 

@@ -1,5 +1,5 @@
 """
-Aquilia Starter Page — shown at / when debug=True.
+Aquilia Starter Page -- shown at / when debug=True.
 
 Replace this controller with your own routes.
 Delete this file once you have real endpoints.
