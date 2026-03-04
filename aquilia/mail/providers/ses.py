@@ -1,5 +1,5 @@
 """
-AWS SES Provider — Async Amazon Simple Email Service delivery.
+AWS SES Provider -- Async Amazon Simple Email Service delivery.
 
 Features:
 - Async AWS SES v2 via aiobotocore (or boto3 sync fallback)
@@ -151,7 +151,6 @@ class SESProvider:
             self._client_ctx = session.create_client(**kwargs)
             self._client = await self._client_ctx.__aenter__()
             self._use_aiobotocore = True
-            logger.debug("SES using aiobotocore (async)")
 
         except ImportError:
             # Fallback to boto3 (sync, run in thread pool)
@@ -172,7 +171,6 @@ class SESProvider:
 
                 self._client = boto3.client(**kwargs)
                 self._use_aiobotocore = False
-                logger.debug("SES using boto3 (sync fallback)")
 
             except ImportError:
                 raise ImportError(
@@ -189,7 +187,7 @@ class SESProvider:
             try:
                 await self._client_ctx.__aexit__(None, None, None)
             except Exception as e:
-                logger.debug(f"SES client close error: {e}")
+                pass
         self._client = None
         self._client_ctx = None
         self._initialized = False

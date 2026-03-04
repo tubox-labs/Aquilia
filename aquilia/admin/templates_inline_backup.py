@@ -1,5 +1,5 @@
 """
-AquilAdmin — Template Renderer.
+AquilAdmin -- Template Renderer.
 
 Renders admin HTML pages using Jinja2 templates from the
 ``aquilia/admin/templates/`` directory.  Falls back to inline
@@ -261,9 +261,9 @@ def _fallback_login(error: str = "", **kw: Any) -> str:
     e = f'<div class="flash flash-error">{html.escape(error)}</div>' if error else ""
     return f"""<!DOCTYPE html><html lang="en" data-theme="dark"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Login — Aquilia Admin</title><style>{_FALLBACK_CSS}</style></head><body>
+<title>Login -- Aquilia Admin</title><style>{_FALLBACK_CSS}</style></head><body>
 <div class="login-container"><div class="card login-card">
-<div style="text-align:center;margin-bottom:32px"><div style="font-size:3rem">🦅</div>
+<div style="text-align:center;margin-bottom:32px"><div style="font-size:3rem"></div>
 <h1 style="font-size:2rem;font-weight:800">Aquilia Admin</h1>
 <p style="color:var(--text-muted);font-size:.85rem;margin-top:8px">Sign in to access the admin dashboard</p></div>
 {e}<form method="POST" action="/admin/login">
@@ -279,7 +279,7 @@ if(s)document.documentElement.setAttribute('data-theme',s);</script></body></htm
 def _fallback_dashboard(app_list: list, stats: dict, identity_name: str = "Admin", **kw: Any) -> str:
     total_models = stats.get("total_models", 0)
     return f"""<!DOCTYPE html><html lang="en" data-theme="dark"><head>
-<meta charset="UTF-8"><title>Dashboard — Aquilia Admin</title><style>{_FALLBACK_CSS}</style></head>
+<meta charset="UTF-8"><title>Dashboard -- Aquilia Admin</title><style>{_FALLBACK_CSS}</style></head>
 <body><div style="padding:24px"><h1>Dashboard</h1><p>{total_models} models registered</p>
 <p>Logged in as {html.escape(identity_name)}</p></div></body></html>"""
 
@@ -289,7 +289,7 @@ def _fallback_list(data: dict, app_list: list, identity_name: str = "Admin",
     model = data.get("model_name", "Model")
     total = data.get("total", 0)
     return f"""<!DOCTYPE html><html lang="en" data-theme="dark"><head>
-<meta charset="UTF-8"><title>{html.escape(model)} — Aquilia Admin</title><style>{_FALLBACK_CSS}</style></head>
+<meta charset="UTF-8"><title>{html.escape(model)} -- Aquilia Admin</title><style>{_FALLBACK_CSS}</style></head>
 <body><div style="padding:24px"><h1>{html.escape(model)}</h1><p>{total} records</p></div></body></html>"""
 
 
@@ -298,12 +298,12 @@ def _fallback_form(data: dict, app_list: list, identity_name: str = "Admin",
     model = data.get("model_name", "Model")
     title = f"{'Add' if is_create else 'Edit'} {model}"
     return f"""<!DOCTYPE html><html lang="en" data-theme="dark"><head>
-<meta charset="UTF-8"><title>{html.escape(title)} — Aquilia Admin</title><style>{_FALLBACK_CSS}</style></head>
+<meta charset="UTF-8"><title>{html.escape(title)} -- Aquilia Admin</title><style>{_FALLBACK_CSS}</style></head>
 <body><div style="padding:24px"><h1>{html.escape(title)}</h1><p>Form view (install Jinja2 for full UI)</p></div></body></html>"""
 
 
 def _fallback_audit(entries: list, app_list: list, identity_name: str = "Admin",
                     total: int = 0, **kw: Any) -> str:
     return f"""<!DOCTYPE html><html lang="en" data-theme="dark"><head>
-<meta charset="UTF-8"><title>Audit Log — Aquilia Admin</title><style>{_FALLBACK_CSS}</style></head>
+<meta charset="UTF-8"><title>Audit Log -- Aquilia Admin</title><style>{_FALLBACK_CSS}</style></head>
 <body><div style="padding:24px"><h1>Audit Log</h1><p>{total} entries</p></div></body></html>"""

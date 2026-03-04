@@ -1,11 +1,11 @@
 """
-Aquilia Pagination System — Django-REST-style pagination backends.
+Aquilia Pagination System -- declarative pagination backends.
 
 Provides three pagination strategies out of the box:
 
-- **PageNumberPagination** — ``?page=2&page_size=20``
-- **LimitOffsetPagination** — ``?limit=20&offset=40``
-- **CursorPagination** — ``?cursor=<opaque>`` (keyset / seek pagination)
+- **PageNumberPagination** -- ``?page=2&page_size=20``
+- **LimitOffsetPagination** -- ``?limit=20&offset=40``
+- **CursorPagination** -- ``?cursor=<opaque>`` (keyset / seek pagination)
 
 Each paginator works with both ORM QuerySets and plain lists.
 
@@ -134,7 +134,7 @@ class BasePagination:
 
 
 class NoPagination(BasePagination):
-    """Passthrough — no pagination applied."""
+    """Passthrough -- no pagination applied."""
 
     def paginate_list(self, data: List[Any], request: Any) -> Dict[str, Any]:
         return {
@@ -247,7 +247,7 @@ class PageNumberPagination(BasePagination):
         request: Any,
     ) -> Dict[str, Any]:
         """
-        Optimised ORM pagination — uses .count() + .offset().limit()
+        Optimised ORM pagination -- uses .count() + .offset().limit()
         instead of fetching all rows.
         """
         page, size = self._parse_page(request)
@@ -431,7 +431,7 @@ class LimitOffsetPagination(BasePagination):
 
 class CursorPagination(BasePagination):
     """
-    Cursor-based (keyset) pagination — efficient for very large datasets.
+    Cursor-based (keyset) pagination -- efficient for very large datasets.
 
     Uses an opaque base64-encoded cursor pointing to the last item's
     ordering key, enabling constant-time page jumps regardless of dataset

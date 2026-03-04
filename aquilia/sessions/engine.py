@@ -379,8 +379,6 @@ class SessionEngine:
                 handler(event_data)
             except Exception as e:
                 self.logger.error(f"Event handler error: {e}")
-        
-        self.logger.debug(f"Session event: {event_name}", extra=event_data)
     
     def on_event(self, handler: callable) -> None:
         """Register event handler for observability."""

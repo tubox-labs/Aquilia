@@ -1,5 +1,5 @@
 """
-Artifact Builder — fluent API for constructing artifacts.
+Artifact Builder -- fluent API for constructing artifacts.
 
 Usage::
 
@@ -192,7 +192,7 @@ class ArtifactBuilder:
         if not self._name or not self._name.strip():
             raise ValueError("Artifact name must not be empty")
 
-        # Provenance — auto-fill only once
+        # Provenance -- auto-fill only once
         if self._provenance is not None:
             prov = self._provenance
         else:

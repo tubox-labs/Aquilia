@@ -1,5 +1,5 @@
 """
-Aquilia Model System — AMDL-based, async-first models.
+Aquilia Model System -- AMDL-based, async-first models.
 
 Public API:
     - AMDL parser: parse_amdl, parse_amdl_file, parse_amdl_directory

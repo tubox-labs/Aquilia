@@ -97,7 +97,7 @@ class ControllerEngine:
         controller_class = route.controller_class
         route_metadata = route.route_metadata
 
-        # Fast path: monkeypatched handler (OpenAPI docs, etc.)
+        # Fast path: monkeypatched handler (OpenAPI docs, admin routes, etc.)
         if hasattr(route, "handler") and callable(route.handler):
             ctx = RequestCtx(
                 request=request,
@@ -105,7 +105,17 @@ class ControllerEngine:
                 session=request.state.get("session"),
                 container=container,
             )
-            result = await route.handler(request, ctx)
+            # Inject any path params the handler declares as positional args
+            if path_params:
+                import inspect as _inspect
+                try:
+                    sig = _inspect.signature(route.handler)
+                    extra = {k: v for k, v in path_params.items() if k in sig.parameters}
+                except (ValueError, TypeError):
+                    extra = {}
+                result = await route.handler(request, ctx, **extra)
+            else:
+                result = await route.handler(request, ctx)
             return self._to_response(result)
 
         # Build RequestCtx
@@ -216,7 +226,7 @@ class ControllerEngine:
             ControllerEngine._simple_route_cache[route_id] = is_simple
 
         if is_simple:
-            # Direct call — skip _bind_parameters, lifecycle hooks, blueprint
+            # Direct call -- skip _bind_parameters, lifecycle hooks, blueprint
             try:
                 # Signature-aware call
                 sig = self._get_cached_signature(handler_method)
@@ -537,7 +547,7 @@ class ControllerEngine:
             if result.value and isinstance(result.value, Response):
                 return result.value
             if result.error:
-                # Guard raised an exception — re-raise for fault engine
+                # Guard raised an exception -- re-raise for fault engine
                 raise result.error
             return Response.json({"error": "Pipeline guard failed"}, status=403)
 
@@ -549,7 +559,7 @@ class ControllerEngine:
         if result.status == FlowStatus.TIMEOUT:
             return Response.json({"error": "Pipeline timeout"}, status=504)
 
-        # SUCCESS — continue to handler
+        # SUCCESS -- continue to handler
         return None
     
     async def _bind_parameters(
@@ -591,7 +601,7 @@ class ControllerEngine:
         it takes precedence and is used for body parsing.
         """
         kwargs = {}
-        request_dag = None  # Lazy — created only if handler uses Dep()
+        request_dag = None  # Lazy -- created only if handler uses Dep()
         
         # Check for request_blueprint from decorator metadata
         decorator_request_blueprint = getattr(route_metadata, 'request_blueprint', None)
@@ -1028,7 +1038,7 @@ class ControllerEngine:
         Returns ``None`` if no renderer_classes are configured (default
         path uses ``_to_response``), or a fully-rendered ``Response``.
         """
-        # Already a Response — skip
+        # Already a Response -- skip
         if isinstance(result, Response):
             return result
 

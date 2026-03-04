@@ -1,5 +1,5 @@
 """
-Model CLI Commands — aq db makemigrations, aq db migrate, aq db dump, aq db shell.
+Model CLI Commands -- aq db makemigrations, aq db migrate, aq db dump, aq db shell.
 
 Integrates model discovery, migration generation/execution, schema inspection,
 and interactive REPL with the Aquilia CLI system.
@@ -120,7 +120,7 @@ def _find_model_files(search_dirs: Optional[List[str]] = None) -> List[Path]:
                     if init not in found:
                         found.append(init)
     else:
-        # modules/*/models/ packages — prefer __init__.py as entry point
+        # modules/*/models/ packages -- prefer __init__.py as entry point
         for init in sorted(cwd.glob("modules/*/models/__init__.py")):
             found.append(init)
         # Non-init siblings inside model packages (additional model files)
@@ -225,8 +225,8 @@ def _discover_models(
 
     When admin integration is enabled in workspace.py, admin models
     (ContentType, AdminPermission, AdminGroup, AdminUser, AdminLogEntry,
-    AdminSession) are automatically included — mirroring Django's
-    ``django.contrib.admin`` model discovery.
+    AdminSession) are automatically included via the built-in
+    admin model discovery.
 
     Args:
         search_dirs: Explicit directories to search
@@ -364,7 +364,7 @@ def cmd_makemigrations(
         model_names = ", ".join(m.__name__ for m in models)
         click.echo(
             click.style(
-                f"✓ Generated DSL migration: {generated.name} "
+                f"Generated DSL migration: {generated.name} "
                 f"({len(models)} model(s): {model_names})",
                 fg="green",
             )
@@ -389,7 +389,7 @@ def cmd_makemigrations(
         model_names = ", ".join(m.__name__ for m in models)
         click.echo(
             click.style(
-                f"✓ Generated migration: {generated.name} "
+                f"Generated migration: {generated.name} "
                 f"({len(models)} model(s): {model_names})",
                 fg="green",
             )
@@ -446,7 +446,7 @@ def cmd_migrate(
                 if revs:
                     click.echo(
                         click.style(
-                            f"✓ {action} {len(revs)} migration(s) to {target}",
+                            f"{action} {len(revs)} migration(s) to {target}",
                             fg="green",
                         )
                     )
@@ -458,7 +458,7 @@ def cmd_migrate(
                 if revs:
                     click.echo(
                         click.style(
-                            f"✓ {action} {len(revs)} migration(s)",
+                            f"{action} {len(revs)} migration(s)",
                             fg="green",
                         )
                     )
@@ -483,7 +483,7 @@ def cmd_model_dump(
     discovered Model subclasses.
 
     Args:
-        emit: Output format — 'python' for annotated schema, 'sql' for raw DDL.
+        emit: Output format -- 'python' for annotated schema, 'sql' for raw DDL.
         output_dir: Directory to write output files (if set).
         verbose: Verbose output.
 
@@ -515,7 +515,7 @@ def cmd_model_dump(
         parts.append("\n".join(sql_lines))
     else:
         # Annotated Python-style schema overview
-        py_lines = ['"""Aquilia Model Schema — auto-generated."""', ""]
+        py_lines = ['"""Aquilia Model Schema -- auto-generated."""', ""]
         for model_cls in models:
             py_lines.append(f"# ── {model_cls.__name__} ──")
             py_lines.append(f"# Table: {model_cls._meta.table_name}")
@@ -560,7 +560,7 @@ def cmd_model_dump(
         ext = ".sql" if emit == "sql" else ".py"
         outfile = out / f"schema{ext}"
         outfile.write_text(source, encoding="utf-8")
-        click.echo(click.style(f"✓ Schema written to {outfile}", fg="green"))
+        click.echo(click.style(f"Schema written to {outfile}", fg="green"))
     else:
         click.echo(source)
 
@@ -728,7 +728,7 @@ def cmd_inspectdb(
                     default_val = col["dflt_value"]
 
                     if pk:
-                        # Skip auto-PK — Model adds it automatically
+                        # Skip auto-PK -- Model adds it automatically
                         continue
 
                     field_type, field_args = _sql_type_to_field(col_type, notnull, default_val)
@@ -839,7 +839,7 @@ def cmd_sqlmigrate(
     Args:
         migration_name: Name of the migration file (without .py)
         migrations_dir: Directory containing migration files
-        database: Database alias — unused today, reserved for multi-db
+        database: Database alias -- unused today, reserved for multi-db
 
     Returns:
         SQL string or None
@@ -926,7 +926,7 @@ def cmd_db_status(
     verbose: bool = False,
 ) -> dict:
     """
-    Show database status — tables, row counts, schema details.
+    Show database status -- tables, row counts, schema details.
 
     Returns:
         Dict with database status information

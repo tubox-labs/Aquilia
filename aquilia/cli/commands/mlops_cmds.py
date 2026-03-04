@@ -1,5 +1,5 @@
 """
-MLOps CLI commands — ``aq pack``, ``aq model``, ``aq deploy``, ``aq observe``,
+MLOps CLI commands -- ``aq pack``, ``aq model``, ``aq deploy``, ``aq observe``,
 ``aq rollout``, ``aq export``, ``aq plugin``, ``aq lineage``, ``aq experiment``.
 
 Registered into the main ``cli`` group by ``__main__.py``.
@@ -19,12 +19,12 @@ import click
 # ── helpers ──────────────────────────────────────────────────────────────
 
 def _run(coro):
-    """Run an awaitable — Python 3.14+ compatible."""
+    """Run an awaitable -- Python 3.14+ compatible."""
     return asyncio.run(coro)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# aq pack — model packaging
+# aq pack -- model packaging
 # ═══════════════════════════════════════════════════════════════════════════
 
 @click.group("pack")
@@ -68,7 +68,7 @@ def pack_save(model_path, name, version, framework, env_lock, output, sign_key):
         return path
 
     path = _run(_save())
-    click.echo(click.style(f"✓ Pack saved: {path}", fg="green"))
+    click.echo(click.style(f"Pack saved: {path}", fg="green"))
 
 
 @pack_group.command("inspect")
@@ -109,12 +109,12 @@ def pack_verify(archive_path, key):
     try:
         valid = _run(_verify())
         if valid:
-            click.echo(click.style("✓ Signature valid", fg="green"))
+            click.echo(click.style("Signature valid", fg="green"))
         else:
-            click.echo(click.style("✗ Signature invalid", fg="red"))
+            click.echo(click.style("Signature invalid", fg="red"))
             sys.exit(1)
     except Exception as e:
-        click.echo(click.style(f"✗ Verification failed: {e}", fg="red"))
+        click.echo(click.style(f"Verification failed: {e}", fg="red"))
         sys.exit(1)
 
 
@@ -158,14 +158,14 @@ def pack_push(archive_path, registry, tag):
 
     try:
         digest = _run(_push())
-        click.echo(click.style(f"✓ Published — digest: {digest}", fg="green"))
+        click.echo(click.style(f"Published -- digest: {digest}", fg="green"))
     except Exception as e:
-        click.echo(click.style(f"✗ Push failed: {e}", fg="red"))
+        click.echo(click.style(f"Push failed: {e}", fg="red"))
         sys.exit(1)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# aq model — model serving
+# aq model -- model serving
 # ═══════════════════════════════════════════════════════════════════════════
 
 @click.group("model")
@@ -225,7 +225,7 @@ def model_serve(model_path, runtime, host, port, batch_size, batch_latency_ms):
         stop = asyncio.Event()
         for sig in (signal.SIGINT, signal.SIGTERM):
             asyncio.get_running_loop().add_signal_handler(sig, stop.set)
-        click.echo(click.style("✓ Server ready — press Ctrl+C to stop", fg="green"))
+        click.echo(click.style("Server ready -- press Ctrl+C to stop", fg="green"))
         await stop.wait()
         await server.stop()
 
@@ -245,12 +245,12 @@ def model_health(url):
             data = json.loads(r.read())
             click.echo(json.dumps(data, indent=2))
     except Exception as e:
-        click.echo(click.style(f"✗ Server unreachable: {e}", fg="red"))
+        click.echo(click.style(f"Server unreachable: {e}", fg="red"))
         sys.exit(1)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# aq deploy — deployment & rollout
+# aq deploy -- deployment & rollout
 # ═══════════════════════════════════════════════════════════════════════════
 
 @click.group("deploy")
@@ -296,7 +296,7 @@ def deploy_rollout(model_name, from_version, to_version, strategy, steps, error_
         return state
 
     state = _run(_rollout())
-    click.echo(click.style(f"✓ Rollout started: {state.id}", fg="green"))
+    click.echo(click.style(f"Rollout started: {state.id}", fg="green"))
     click.echo(json.dumps({
         "model": model_name,
         "from": from_version,
@@ -327,11 +327,11 @@ def deploy_ci_template(registry, output):
 
     (out / "mlops-ci.yml").write_text(workflow)
     (out / "Dockerfile.model").write_text(dockerfile)
-    click.echo(click.style(f"✓ Templates written to {out}/", fg="green"))
+    click.echo(click.style(f"Templates written to {out}/", fg="green"))
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# aq observe — observability
+# aq observe -- observability
 # ═══════════════════════════════════════════════════════════════════════════
 
 @click.group("observe")
@@ -386,7 +386,7 @@ def observe_drift(reference_csv, current_csv, method, threshold):
     if alerts:
         click.echo(click.style(f"\n  ! Drift detected in: {', '.join(alerts)}", fg="yellow"))
     else:
-        click.echo(click.style("\n✓ No drift detected", fg="green"))
+        click.echo(click.style("\nNo drift detected", fg="green"))
 
 
 @observe_group.command("metrics")
@@ -408,7 +408,7 @@ def observe_metrics(fmt):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# aq export — edge / optimised export
+# aq export -- edge / optimised export
 # ═══════════════════════════════════════════════════════════════════════════
 
 @click.group("export")
@@ -438,9 +438,9 @@ def export_onnx(model_path, output, opset):
 
     try:
         result = _run(_export())
-        click.echo(click.style(f"✓ ONNX model saved: {output}", fg="green"))
+        click.echo(click.style(f"ONNX model saved: {output}", fg="green"))
     except Exception as e:
-        click.echo(click.style(f"✗ Export failed: {e}", fg="red"))
+        click.echo(click.style(f"Export failed: {e}", fg="red"))
         sys.exit(1)
 
 
@@ -470,14 +470,14 @@ def export_edge(model_path, target, output):
 
     try:
         path = _run(_export())
-        click.echo(click.style(f"✓ Edge model saved: {path}", fg="green"))
+        click.echo(click.style(f"Edge model saved: {path}", fg="green"))
     except Exception as e:
-        click.echo(click.style(f"✗ Export failed: {e}", fg="red"))
+        click.echo(click.style(f"Export failed: {e}", fg="red"))
         sys.exit(1)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# aq plugin — plugin management
+# aq plugin -- plugin management
 # ═══════════════════════════════════════════════════════════════════════════
 
 @click.group("plugin")
@@ -519,9 +519,9 @@ def plugin_install(package_name):
     mp = PluginMarketplace()
     ok = mp.install(package_name)
     if ok:
-        click.echo(click.style(f"✓ Installed {package_name}", fg="green"))
+        click.echo(click.style(f"Installed {package_name}", fg="green"))
     else:
-        click.echo(click.style(f"✗ Installation failed", fg="red"))
+        click.echo(click.style(f"Installation failed", fg="red"))
         sys.exit(1)
 
 
@@ -534,9 +534,9 @@ def plugin_uninstall(package_name):
     mp = PluginMarketplace()
     ok = mp.uninstall(package_name)
     if ok:
-        click.echo(click.style(f"✓ Uninstalled {package_name}", fg="green"))
+        click.echo(click.style(f"Uninstalled {package_name}", fg="green"))
     else:
-        click.echo(click.style(f"✗ Uninstallation failed", fg="red"))
+        click.echo(click.style(f"Uninstallation failed", fg="red"))
         sys.exit(1)
 
 
@@ -567,15 +567,15 @@ def plugin_search(query, verified_only):
         click.echo(f"{'Name':30s} {'Version':10s} {'Downloads':>10s}  Description")
         click.echo("─" * 90)
         for r in results:
-            v = "✓" if r.verified else " "
+            v = "" if r.verified else " "
             click.echo(f"{r.name:30s} {r.version:10s} {r.downloads:>10d}  {v} {r.description[:40]}")
     except Exception as e:
-        click.echo(click.style(f"✗ Search failed: {e}", fg="red"))
+        click.echo(click.style(f"Search failed: {e}", fg="red"))
         sys.exit(1)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# aq lineage — model lineage tracking
+# aq lineage -- model lineage tracking
 # ═══════════════════════════════════════════════════════════════════════════
 
 @click.group("lineage")
@@ -610,8 +610,8 @@ def lineage_show(fmt):
         click.echo(f"{'Model ID':30s} {'Version':10s} {'Parents':30s} Children")
         click.echo("─" * 90)
         for mid, info in data.items():
-            parents = ", ".join(info.get("parents", [])) or "—"
-            children = ", ".join(info.get("children", [])) or "—"
+            parents = ", ".join(info.get("parents", [])) or "--"
+            children = ", ".join(info.get("children", [])) or "--"
             click.echo(f"{mid:30s} {info['version']:10s} {parents:30s} {children}")
 
 
@@ -678,7 +678,7 @@ def lineage_path(from_model, to_model):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# aq experiment — A/B experiment management
+# aq experiment -- A/B experiment management
 # ═══════════════════════════════════════════════════════════════════════════
 
 @click.group("experiment")
@@ -706,7 +706,7 @@ def experiment_create(experiment_id, description, arm):
     for a in arm:
         parts = a.split(":")
         if len(parts) < 2:
-            click.echo(click.style(f"✗ Invalid arm spec: {a} (expected name:version[:weight])", fg="red"))
+            click.echo(click.style(f"Invalid arm spec: {a} (expected name:version[:weight])", fg="red"))
             sys.exit(1)
         arms.append({
             "name": parts[0],
@@ -715,7 +715,7 @@ def experiment_create(experiment_id, description, arm):
         })
 
     exp = ledger.create(experiment_id, description=description, arms=arms)
-    click.echo(click.style(f"✓ Experiment created: {experiment_id}", fg="green"))
+    click.echo(click.style(f"Experiment created: {experiment_id}", fg="green"))
     click.echo(json.dumps(ledger.summary(experiment_id), indent=2, default=str))
 
 
@@ -740,7 +740,7 @@ def experiment_list():
     for eid, info in data.items():
         status = info.get("status", "?")
         n_arms = len(info.get("arms", []))
-        winner = info.get("metadata", {}).get("winner", "—")
+        winner = info.get("metadata", {}).get("winner", "--")
         click.echo(f"{eid:25s} {status:12s} {n_arms:5d} {winner}")
 
 
@@ -759,11 +759,11 @@ def experiment_conclude(experiment_id, winner):
     ledger = ExperimentLedger()
     exp = ledger.get(experiment_id)
     if not exp:
-        click.echo(click.style(f"✗ Experiment '{experiment_id}' not found", fg="red"))
+        click.echo(click.style(f"Experiment '{experiment_id}' not found", fg="red"))
         sys.exit(1)
 
     ledger.conclude(experiment_id, winner)
-    click.echo(click.style(f"✓ Experiment '{experiment_id}' concluded", fg="green"))
+    click.echo(click.style(f"Experiment '{experiment_id}' concluded", fg="green"))
     if winner:
         click.echo(f"  Winner: {winner}")
 
@@ -782,7 +782,7 @@ def experiment_summary(experiment_id):
     ledger = ExperimentLedger()
     data = ledger.summary(experiment_id)
     if not data:
-        click.echo(click.style(f"✗ Experiment '{experiment_id}' not found", fg="red"))
+        click.echo(click.style(f"Experiment '{experiment_id}' not found", fg="red"))
         sys.exit(1)
 
     click.echo(json.dumps(data, indent=2, default=str))

@@ -1,5 +1,5 @@
 """
-Registry Service — HTTP API for publishing, fetching and managing modelpacks.
+Registry Service -- HTTP API for publishing, fetching and managing modelpacks.
 
 Default backend: SQLite + filesystem.
 Pluggable: Postgres (metadata) + S3/MinIO/OCI (blobs).

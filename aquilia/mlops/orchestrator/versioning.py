@@ -1,5 +1,5 @@
 """
-Version Manager — semantic versioning, promotion, and rollback.
+Version Manager -- semantic versioning, promotion, and rollback.
 
 Tracks version history per model and provides instant rollback
 to previous versions.
@@ -57,7 +57,7 @@ class VersionManager:
         entry = self._registry.get(name, from_version)
         if not entry:
             logger.warning(
-                "Cannot promote %s:%s — not found in registry", name, from_version,
+                "Cannot promote %s:%s -- not found in registry", name, from_version,
             )
             return False
 

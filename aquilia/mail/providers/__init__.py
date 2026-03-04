@@ -1,15 +1,15 @@
 """
-AquilaMail Provider Interface — Protocol + result types for mail providers.
+AquilaMail Provider Interface -- Protocol + result types for mail providers.
 
 All mail delivery backends implement IMailProvider.  The Dispatcher selects
 a provider, calls send(envelope), and handles the ProviderResult.
 
 Included backends:
-- SMTP (aiosmtplib)          — aquilia.mail.providers.smtp
-- AWS SES (aiobotocore)      — aquilia.mail.providers.ses
-- SendGrid (httpx)           — aquilia.mail.providers.sendgrid
-- Console (dev)              — aquilia.mail.providers.console
-- File (dev)                 — aquilia.mail.providers.file
+- SMTP (aiosmtplib)          -- aquilia.mail.providers.smtp
+- AWS SES (aiobotocore)      -- aquilia.mail.providers.ses
+- SendGrid (httpx)           -- aquilia.mail.providers.sendgrid
+- Console (dev)              -- aquilia.mail.providers.console
+- File (dev)                 -- aquilia.mail.providers.file
 """
 
 from __future__ import annotations

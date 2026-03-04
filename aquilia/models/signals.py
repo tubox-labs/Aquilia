@@ -1,5 +1,5 @@
 """
-Aquilia Model Signals — pre/post save, delete, init hooks.
+Aquilia Model Signals -- pre/post save, delete, init hooks.
 
 Provides a lightweight signal/event system for model lifecycle events,
 with support for weak references, priority ordering, sender filtering,
@@ -56,9 +56,9 @@ class Signal:
     A signal that can be connected to receiver functions.
 
     Receivers can be sync or async callables. They receive:
-        sender   — the Model class
-        instance — the model instance (if applicable)
-        **kwargs — signal-specific keyword arguments
+        sender   -- the Model class
+        instance -- the model instance (if applicable)
+        **kwargs -- signal-specific keyword arguments
 
     Features:
         - Sender-based filtering
@@ -162,7 +162,7 @@ class Signal:
 
     @staticmethod
     def _resolve_ref(ref: Any) -> Any:
-        """Resolve a receiver — dereference weakrefs."""
+        """Resolve a receiver -- dereference weakrefs."""
         if isinstance(ref, weakref.ref):
             obj = ref()
             if obj is None:
@@ -254,10 +254,8 @@ class Signal:
         """
         Fire the signal, catching exceptions from each receiver.
 
-        Unlike send(), this does NOT stop on exceptions — every receiver
+        Unlike send(), this does NOT stop on exceptions -- every receiver
         runs regardless. Returns list of (receiver, response_or_exception).
-
-        Like Django's Signal.send_robust().
         """
         results = []
         for ref, filter_sender, _ in self._receivers:

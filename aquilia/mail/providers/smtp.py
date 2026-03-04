@@ -1,5 +1,5 @@
 """
-SMTP Provider — Production-grade async SMTP delivery via aiosmtplib.
+SMTP Provider -- Production-grade async SMTP delivery via aiosmtplib.
 
 Features:
 - Async SMTP with STARTTLS / direct SSL
@@ -145,7 +145,6 @@ class SMTPProvider:
             conn = await self._create_connection()
             self._pool.append(conn)
             self._pool_created[id(conn)] = time.monotonic()
-            logger.debug(f"SMTP pool pre-warmed (1/{self.pool_size})")
         except Exception as e:
             logger.warning(
                 f"SMTP pool pre-warm failed (will retry on send): {e}"
@@ -233,7 +232,7 @@ class SMTPProvider:
                     await self._close_connection(conn)
                     continue
 
-        # Pool exhausted — create a new connection
+        # Pool exhausted -- create a new connection
         conn = await self._create_connection()
         self._pool_created[id(conn)] = time.monotonic()
         return conn

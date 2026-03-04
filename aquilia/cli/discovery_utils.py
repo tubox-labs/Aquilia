@@ -8,7 +8,7 @@ controllers and services, with proper type detection and deduplication.
 import importlib
 import re
 from pathlib import Path
-from typing import List, Dict, Set, Tuple, Optional, Type
+from typing import List, Dict, Set, Tuple, Optional, Type, Any, Union
 from aquilia.utils.scanner import PackageScanner
 
 
@@ -65,7 +65,7 @@ class TypeClassifier:
         if any(hasattr(cls, method) for method in http_methods):
             return True
         
-        # Check for route attributes (Express/FastAPI style)
+        # Check for route attributes
         if any(attr.startswith('route_') for attr in dir(cls)):
             return True
         

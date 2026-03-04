@@ -75,14 +75,22 @@ class RequestCtx:
     async def json(self) -> Any:
         """Parse request body as JSON."""
         return await self.request.json()
-    
+
+    async def body(self) -> bytes:
+        """Read raw request body bytes."""
+        return await self.request.body()
+
     async def form(self) -> Dict[str, Any]:
         """Parse request body as form data."""
         return await self.request.form()
 
+    async def multipart(self):
+        """Parse multipart/form-data (file uploads)."""
+        return await self.request.multipart()
+
 
 # ═══════════════════════════════════════════════════════════════════════════
-#  Exception Filter — NestJS-style
+#  Exception Filter
 # ═══════════════════════════════════════════════════════════════════════════
 
 class ExceptionFilter:
@@ -90,8 +98,7 @@ class ExceptionFilter:
     Base class for exception filters.
 
     Exception filters intercept unhandled exceptions from controller
-    handlers and convert them into proper HTTP responses.  Inspired
-    by NestJS ``ExceptionFilter``.
+    handlers and convert them into proper HTTP responses.
 
     Usage::
 
@@ -125,7 +132,7 @@ class ExceptionFilter:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-#  Interceptor — NestJS-style before/after hooks
+#  Interceptor -- before/after hooks
 # ═══════════════════════════════════════════════════════════════════════════
 
 class Interceptor:
@@ -176,7 +183,7 @@ class Interceptor:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-#  Throttle — Controller-level rate limiting
+#  Throttle -- Controller-level rate limiting
 # ═══════════════════════════════════════════════════════════════════════════
 
 class Throttle:
@@ -249,7 +256,7 @@ class Throttle:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-#  ControllerMeta — descriptor metaclass to fix mutable defaults
+#  ControllerMeta -- descriptor metaclass to fix mutable defaults
 # ═══════════════════════════════════════════════════════════════════════════
 
 class _ControllerMeta(type):

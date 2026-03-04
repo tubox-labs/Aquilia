@@ -89,7 +89,7 @@ class TemplateLoaderProvider:
             )
             paths.extend(manifest_paths)
         except ImportError:
-            logger.debug("Manifest integration not available")
+            pass
         
         # Deduplicate
         unique_paths = list(set(paths))
@@ -227,7 +227,7 @@ class TemplateEngineProvider:
             from .sessions_integration import enhance_engine_with_sessions
             enhance_engine_with_sessions(engine, self.session_engine)
         except ImportError:
-            logger.debug("Session integration not available for templates")
+            pass
     
     def _register_auth_helpers(self, engine: TemplateEngine) -> None:
         """Register auth/identity helpers in templates."""
@@ -235,7 +235,7 @@ class TemplateEngineProvider:
             from .auth_integration import enhance_engine_with_auth
             enhance_engine_with_auth(engine, self.auth_manager)
         except ImportError:
-            logger.debug("Auth integration not available for templates")
+            pass
 
 
 @service(scope="app")

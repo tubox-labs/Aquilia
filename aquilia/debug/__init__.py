@@ -2,7 +2,7 @@
 Aquilia Debug - Beautiful development-mode error and welcome pages.
 
 Provides React-style debug exception pages, styled HTTP error pages,
-and a starter welcome page — all using MongoDB-inspired colors with
+and a starter welcome page -- all using MongoDB-inspired colors with
 dark/light mode support.
 
 Features:

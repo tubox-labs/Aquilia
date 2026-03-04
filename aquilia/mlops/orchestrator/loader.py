@@ -1,5 +1,5 @@
 """
-Model Loader — lazy loading, hot reload, and lifecycle state management.
+Model Loader -- lazy loading, hot reload, and lifecycle state management.
 
 The loader is responsible for actually instantiating model classes,
 calling ``load()``, and managing the ``ModelState`` FSM.
@@ -113,13 +113,13 @@ class ModelLoader:
         """
         key = f"{name}:{version}"
 
-        # Fast path — already loaded
+        # Fast path -- already loaded
         loaded = self._loaded.get(key)
         if loaded and loaded.entry.state == ModelState.LOADED:
             self._last_used[key] = time.time()
             return loaded
 
-        # Slow path — acquire lock and load
+        # Slow path -- acquire lock and load
         lock = self._get_lock(key)
         async with lock:
             # Double-check after acquiring lock
@@ -200,7 +200,7 @@ class ModelLoader:
                     model_version=loaded.entry.version,
                 )
             except Exception as exc:
-                logger.debug("Warmup request %d failed: %s", i, exc)
+                pass
         logger.info("Warmup complete for %s", loaded.entry.key)
 
     async def _load_model(self, entry: ModelEntry) -> LoadedModel:
@@ -236,7 +236,6 @@ class ModelLoader:
                     else:
                         load_fn(loaded_weights, entry.config.artifacts_dir, device)
                 except Exception as e:
-                    logger.debug("Persistence load failed, falling back to basic load: %s", e)
                     load_fn = instance.load
                     if inspect.iscoroutinefunction(load_fn):
                         await load_fn(entry.config.artifacts_dir, device)
@@ -441,11 +440,11 @@ class _InstanceRuntimeAdapter(BaseRuntime):
         self._state = ModelState.LOADED
 
     async def prepare(self, manifest: Any = None, model_dir: str = "") -> None:
-        """No-op — adapter instances are already prepared."""
+        """No-op -- adapter instances are already prepared."""
         pass
 
     async def load(self) -> None:
-        """No-op — adapter instances are already loaded."""
+        """No-op -- adapter instances are already loaded."""
         pass
 
     async def preprocess(self, raw_input: Dict[str, Any]) -> Dict[str, Any]:

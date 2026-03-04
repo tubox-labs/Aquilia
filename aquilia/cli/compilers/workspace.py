@@ -342,7 +342,7 @@ class WorkspaceCompiler:
         return output_path
     
     def _write_artifact(self, path: Path, data: dict) -> None:
-        """Write artifact to Crous binary format (with JSON sidecar)."""
+        """Write artifact to Crous binary format."""
         path.parent.mkdir(parents=True, exist_ok=True)
 
         # Write Crous binary (.crous)
@@ -355,8 +355,3 @@ class WorkspaceCompiler:
             # Fallback to JSON if Crous encoding fails
             with open(path, 'w') as f:
                 json.dump(data, f, indent=2)
-
-        # Always write human-readable JSON sidecar (.aq.json)
-        json_path = path.with_suffix('.aq.json')
-        with open(json_path, 'w') as f:
-            json.dump(data, f, indent=2)

@@ -1,5 +1,5 @@
 """
-Aquilia Model System — Pure Python, Django-grade ORM.
+Aquilia Model System -- Pure Python, production-grade ORM.
 
 The model system has been completely rewritten from the old AMDL DSL
 to a pure Pythonic, metaclass-driven architecture.
@@ -148,7 +148,7 @@ from .expression import (
     Greatest,
     Least,
     NullIf,
-    # Django-style string/math/date functions
+    # String/math/date functions
     OrderBy,
     Length,
     Upper,
@@ -450,7 +450,7 @@ __all__ = [
     "Greatest",
     "Least",
     "NullIf",
-    # Django-style string/math/date functions
+    # String/math/date functions
     "OrderBy",
     "Length",
     "Upper",

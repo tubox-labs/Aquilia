@@ -1,4 +1,4 @@
-"""Artifact inspection commands — live workspace introspection.
+"""Artifact inspection commands -- live workspace introspection.
 
 Provides real-time inspection of the workspace by loading modules
 and analyzing their manifests, controllers, services, routes, DI graph,

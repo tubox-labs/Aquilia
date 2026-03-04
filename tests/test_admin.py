@@ -689,15 +689,15 @@ class TestModelAdmin:
 
     def test_format_value_none(self):
         admin = ModelAdmin(model=UserModel)
-        assert admin.format_value("name", None) == "—"
+        assert admin.format_value("name", None) == "--"
 
     def test_format_value_bool_true(self):
         admin = ModelAdmin(model=UserModel)
-        assert admin.format_value("active", True) == "✓"
+        assert admin.format_value("active", True) == "yes"
 
     def test_format_value_bool_false(self):
         admin = ModelAdmin(model=UserModel)
-        assert admin.format_value("active", False) == "✗"
+        assert admin.format_value("active", False) == "no"
 
     def test_format_value_string(self):
         admin = ModelAdmin(model=UserModel)
@@ -941,8 +941,10 @@ class TestAdminSite:
         assert not site._initialized
 
     def test_audit_log_exists(self):
+        from aquilia.admin.audit import ModelBackedAuditLog
         site = AdminSite()
-        assert isinstance(site.audit_log, AdminAuditLog)
+        # site.audit_log is now a ModelBackedAuditLog (persists to DB)
+        assert isinstance(site.audit_log, (AdminAuditLog, ModelBackedAuditLog))
 
 
 class TestAdminSiteCRUD:
@@ -1313,6 +1315,14 @@ class TestAdminControllerRoutes:
         AdminSite.reset()
         self.site = AdminSite()
         self.site.register(UserModel)
+        # Enable all modules including monitoring & audit (disabled by default)
+        from aquilia.admin.site import AdminConfig
+        self.site.admin_config = AdminConfig(modules={
+            "dashboard": True, "orm": True, "build": True,
+            "migrations": True, "config": True, "workspace": True,
+            "permissions": True, "monitoring": True, "admin_users": True,
+            "profile": True, "audit": True,
+        }, audit_enabled=True, monitoring_enabled=True)
         self.ctrl = AdminController(site=self.site)
 
     def _make_ctx(self, identity=None, session_data=None, query_params=None):

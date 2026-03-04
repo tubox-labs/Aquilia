@@ -1,5 +1,5 @@
 """
-Aquilia DB Backend — Base Adapter Interface.
+Aquilia DB Backend -- Base Adapter Interface.
 
 All database backends must implement this interface. The ``AquiliaDatabase``
 engine delegates to the appropriate adapter based on the connection URL.

@@ -1,7 +1,7 @@
 """
-AquilAdmin — Modern, Auto-Detecting Admin System for Aquilia.
+AquilAdmin -- Modern, Auto-Detecting Admin System for Aquilia.
 
-A comprehensive admin dashboard inspired by Django Admin but built with
+A comprehensive admin dashboard built with
 modern architecture: automatic model detection from ModelRegistry,
 role-based access control, audit logging, and deep integration with
 Aquilia's ORM, Auth, Sessions, DI, Controller, Cache, and Templates.
@@ -9,7 +9,7 @@ Aquilia's ORM, Auth, Sessions, DI, Controller, Cache, and Templates.
 Key Features:
 - Auto-detection: Models registered via ModelRegistry are auto-discovered
 - Zero-config: Works out of the box with sensible defaults
-- ModelAdmin: Declarative configuration per model (like Django but modern)
+- ModelAdmin: Declarative configuration per model
 - AdminSite: Central registry with dashboard, CRUD, search, filters
 - RBAC: Role/permission management using Aquilia Auth
 - Audit Trail: Every admin action logged via AuditTrail
@@ -64,7 +64,7 @@ Usage:
 
 __version__ = "1.0.0"
 
-from .site import AdminSite
+from .site import AdminSite, AdminConfig
 from .options import ModelAdmin
 from .registry import register, autodiscover
 from .permissions import AdminPermission, AdminRole
@@ -95,10 +95,12 @@ from .faults import (
     AdminValidationFault,
     AdminActionFault,
 )
+from .di_providers import register_admin_providers
 
 __all__ = [
     # Core
     "AdminSite",
+    "AdminConfig",
     "ModelAdmin",
     
     # Registration
@@ -140,4 +142,7 @@ __all__ = [
     "AdminRecordNotFoundFault",
     "AdminValidationFault",
     "AdminActionFault",
+    
+    # DI
+    "register_admin_providers",
 ]

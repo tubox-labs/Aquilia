@@ -1,5 +1,5 @@
 """
-AquilaCache — CacheService: High-level API for cache operations.
+AquilaCache -- CacheService: High-level API for cache operations.
 
 DI-injectable service that wraps the configured backend with:
 - Namespace isolation
@@ -40,7 +40,7 @@ T = TypeVar("T")
 
 class CacheService:
     """
-    High-level cache service — the primary API for application code.
+    High-level cache service -- the primary API for application code.
     
     Provides a clean, async interface for all cache operations with
     automatic key prefixing, namespace isolation, TTL jitter, 
@@ -114,7 +114,6 @@ class CacheService:
             await self._backend.initialize()
             self._initialized = True
             self._healthy = True
-            logger.info(f"Cache service initialized (backend={self._backend.name})")
             
             # Start health check loop
             if self._config.health_check_interval > 0:
@@ -150,7 +149,7 @@ class CacheService:
         
         await self._backend.shutdown()
         self._initialized = False
-        logger.info("Cache service shut down")
+        logger.debug("Cache service shut down")
     
     # DI lifecycle aliases
     async def startup(self) -> None:
@@ -178,7 +177,7 @@ class CacheService:
             default: Value to return on miss
             
         Returns:
-            Cached value or default. Never raises — returns default on error.
+            Cached value or default. Never raises -- returns default on error.
         """
         ns = namespace or self._default_namespace
         full_key = self._key_builder.build(ns, key, self._key_prefix)
@@ -292,7 +291,7 @@ class CacheService:
             existing_future = None
             async with self._inflight_lock:
                 if full_key in self._inflight:
-                    # Another coroutine is computing this value — capture the future
+                    # Another coroutine is computing this value -- capture the future
                     existing_future = self._inflight[full_key]
                     try:
                         stats = await self._backend.stats()
@@ -361,7 +360,7 @@ class CacheService:
                 async with self._inflight_lock:
                     self._inflight.pop(full_key, None)
         else:
-            # No stampede prevention — simple get-or-set
+            # No stampede prevention -- simple get-or-set
             if inspect.iscoroutinefunction(loader):
                 value = await loader()
             else:

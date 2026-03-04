@@ -8,7 +8,6 @@ Production-grade artifact freeze using the Aquilia Build Pipeline.
 """
 
 import hashlib
-import json
 from pathlib import Path
 from typing import Optional
 
@@ -46,7 +45,7 @@ def freeze_artifacts(
     artifacts_dir = Path(output)
     artifacts_dir.mkdir(parents=True, exist_ok=True)
 
-    # Step 1 — Production build (strict mode, compressed)
+    # Step 1 -- Production build (strict mode, compressed)
     try:
         from aquilia.build import AquiliaBuildPipeline
 
@@ -59,13 +58,13 @@ def freeze_artifacts(
         )
 
         if not result.success:
-            print("\n  ✗ Freeze FAILED — cannot produce production artifacts.\n")
+            print("\n  Freeze FAILED -- cannot produce production artifacts.\n")
             for err in result.errors:
                 print(f"  {err}")
             return ""
 
         if verbose:
-            print(f"  ✓ {result.summary()}")
+            print(f"  {result.summary()}")
 
         fingerprint = result.fingerprint
 
@@ -86,7 +85,7 @@ def freeze_artifacts(
             hasher.update(data)
         fingerprint = hasher.hexdigest()
 
-    # Step 2 — Write frozen manifest
+    # Step 2 -- Write frozen manifest
     frozen_meta = {
         'fingerprint': fingerprint,
         'artifacts': [
@@ -101,8 +100,12 @@ def freeze_artifacts(
         'format': 'crous-binary',
     }
 
-    frozen_path = artifacts_dir / 'frozen.json'
-    frozen_path.write_text(json.dumps(frozen_meta, indent=2))
+    frozen_path = artifacts_dir / 'frozen.crous'
+    try:
+        import _crous_native as _cb
+    except ImportError:
+        import crous as _cb
+    frozen_path.write_bytes(_cb.encode(frozen_meta))
 
     if verbose:
         print(f"  Frozen manifest: {frozen_path}")

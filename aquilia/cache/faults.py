@@ -1,5 +1,5 @@
 """
-AquilaCache — Fault domain integration.
+AquilaCache -- Fault domain integration.
 
 Defines typed cache faults that integrate with Aquilia's
 FaultEngine for structured error handling, recovery strategies,
@@ -119,7 +119,7 @@ class CacheConfigFault(CacheFault):
 
 
 class CacheStampedeFault(CacheFault):
-    """Cache stampede detected — multiple concurrent loads for same key."""
+    """Cache stampede detected -- multiple concurrent loads for same key."""
     
     def __init__(self, key: str, waiters: int = 0, **kwargs):
         super().__init__(

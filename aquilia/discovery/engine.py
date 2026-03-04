@@ -1,5 +1,5 @@
 """
-Auto-Discovery Engine — AST-based component classification and manifest sync.
+Auto-Discovery Engine -- AST-based component classification and manifest sync.
 
 Architecture v2: Scans module directories for Python classes, classifies them
 by base class / decorator without importing, and can auto-update manifest.py
@@ -110,7 +110,7 @@ class SyncReport:
 
 class ASTClassifier:
     """
-    Classifies Python classes using AST analysis — no imports needed.
+    Classifies Python classes using AST analysis -- no imports needed.
 
     Inspects base classes and decorators to determine component kind.
     Safe for use with untrusted code since it never executes anything.
@@ -482,10 +482,10 @@ class ManifestWriter:
         # Determine insertion point
         stripped = list_content.rstrip()
         if stripped:
-            # List has existing entries — add after last one
+            # List has existing entries -- add after last one
             insertion = f"\n{entry}"
         else:
-            # Empty list — add first entry
+            # Empty list -- add first entry
             insertion = f"\n{entry}\n    "
 
         # Insert before the closing bracket

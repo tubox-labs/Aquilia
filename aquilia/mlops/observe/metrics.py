@@ -58,7 +58,7 @@ class MetricsCollector:
         self._counters: Dict[str, AtomicCounter] = defaultdict(AtomicCounter)
         # Gauges
         self._gauges: Dict[str, float] = {}
-        # Histograms — bounded ring buffers instead of unbounded lists
+        # Histograms -- bounded ring buffers instead of unbounded lists
         self._histograms: Dict[str, RingBuffer[float]] = {}
         # EWMA smoothed latency tracker
         self._ewma: Dict[str, ExponentialDecay] = {}

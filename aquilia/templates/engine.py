@@ -66,6 +66,7 @@ class TemplateEngine:
         filters: Optional[Dict[str, Callable]] = None,
         tests: Optional[Dict[str, Callable]] = None,
         extensions: Optional[list] = None,
+        enable_async: bool = True,
     ):
         self.loader = loader
         self.bytecode_cache = bytecode_cache or InMemoryBytecodeCache()
@@ -105,7 +106,7 @@ class TemplateEngine:
                 loader=self.loader,
                 bytecode_cache=self.bytecode_cache,
                 extensions=extensions or [],
-                enable_async=True,
+                enable_async=enable_async,
             )
         else:
             # Create standard environment
@@ -120,7 +121,7 @@ class TemplateEngine:
                     default_for_string=True,
                 ) if autoescape else False,
                 extensions=extensions or [],
-                enable_async=True,
+                enable_async=enable_async,
             )
             
             # Register custom filters

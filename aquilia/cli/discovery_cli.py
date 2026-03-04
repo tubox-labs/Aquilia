@@ -44,7 +44,7 @@ class DiscoveryCLI:
             discovered = generator._discover_modules()
             validation = generator._validate_modules(discovered)
             
-            print(f"\n✓ Module Validation Report")
+            print(f"\nModule Validation Report")
             print(f"{'='*60}")
             print(f"Workspace: {workspace}")
             print(f"Modules Checked: {len(discovered)}")
@@ -63,9 +63,9 @@ class DiscoveryCLI:
                 print()
             
             if validation['valid']:
-                print(f"✓ All modules valid!")
+                print(f"All modules valid!")
             else:
-                print(f"✗ Validation failed!")
+                print(f"Validation failed!")
                 sys.exit(1)
         
         except Exception as e:

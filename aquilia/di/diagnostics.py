@@ -49,9 +49,9 @@ class ConsoleDiagnosticListener:
         elif event.type == DIEventType.RESOLUTION_START:
             logger.log(self.log_level, f"Resolving token={event.token} (tag={event.tag})...")
         elif event.type == DIEventType.RESOLUTION_SUCCESS:
-            logger.log(self.log_level, f"✓ Resolved token={event.token} in {event.duration:.4f}s")
+            logger.log(self.log_level, f"Resolved token={event.token} in {event.duration:.4f}s")
         elif event.type == DIEventType.RESOLUTION_FAILURE:
-            logger.log(logging.ERROR, f"✗ Failed to resolve token={event.token}: {event.error}")
+            logger.log(logging.ERROR, f"Failed to resolve token={event.token}: {event.error}")
         elif event.type == DIEventType.LIFECYCLE_STARTUP:
             logger.log(logging.INFO, f"Container startup: {event.metadata.get('app_name', 'unknown')}")
 

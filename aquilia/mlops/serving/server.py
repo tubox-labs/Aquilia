@@ -1,17 +1,17 @@
 """
-Model Serving Server — dev and production serving with typed endpoints.
+Model Serving Server -- dev and production serving with typed endpoints.
 
 Integrates with Aquilia's ASGI + controller architecture and provides:
 - Auto-generated ``/predict``, ``/health``, ``/metrics`` endpoints
 - Hot-reload in dev mode
 - Runtime selection and lifecycle management
 - **BloomFilter** request deduplication (reject duplicate request IDs)
-- **Health probes** — K8s ``/healthz`` (liveness) and ``/readyz`` (readiness)
-- **Warm-up** — pre-inference warmup with synthetic payloads on ``start()``
-- **Streaming** — async generator streaming for LLM token-by-token output
-- **Circuit Breaker** — fail-fast protection against cascading failures
-- **Rate Limiting** — token-bucket throttling per endpoint
-- **Memory Management** — GPU/CPU memory tracking with soft/hard limits
+- **Health probes** -- K8s ``/healthz`` (liveness) and ``/readyz`` (readiness)
+- **Warm-up** -- pre-inference warmup with synthetic payloads on ``start()``
+- **Streaming** -- async generator streaming for LLM token-by-token output
+- **Circuit Breaker** -- fail-fast protection against cascading failures
+- **Rate Limiting** -- token-bucket throttling per endpoint
+- **Memory Management** -- GPU/CPU memory tracking with soft/hard limits
 """
 
 from __future__ import annotations
@@ -135,7 +135,7 @@ class ModelServingServer:
             manifest, preferred=runtime_kind
         )
 
-        # Batcher — auto-detect LLM manifests for continuous batching
+        # Batcher -- auto-detect LLM manifests for continuous batching
         is_llm = manifest.is_llm
         use_continuous = is_llm
         token_budget = 0
@@ -150,7 +150,7 @@ class ModelServingServer:
             token_budget=token_budget,
         )
 
-        # Request dedup — BloomFilter
+        # Request dedup -- BloomFilter
         self._dedup = BloomFilter(expected_items=dedup_capacity, fp_rate=0.001)
         self._dedup_hits = 0
 
@@ -225,7 +225,6 @@ class ModelServingServer:
                 await self._runtime.infer(batch)
                 elapsed = (time.monotonic() - start) * 1000
                 warmup_times.append(elapsed)
-                logger.debug("Warmup %d/%d: %.1fms", i + 1, self._warmup.num_requests, elapsed)
             except Exception as exc:
                 logger.warning("Warmup request %d failed: %s", i, exc)
         if warmup_times:
@@ -285,7 +284,7 @@ class ModelServingServer:
         if not self._started:
             raise InferenceFault(
                 "_server",
-                reason="Server not started — call start() first",
+                reason="Server not started -- call start() first",
                 metadata={"model": self.manifest.name},
             )
 
@@ -293,7 +292,7 @@ class ModelServingServer:
         if self._draining:
             raise InferenceFault(
                 "_server",
-                reason="Server is draining — no new requests accepted",
+                reason="Server is draining -- no new requests accepted",
                 metadata={"inflight": self._inflight},
             )
 
@@ -301,7 +300,7 @@ class ModelServingServer:
         if not self._circuit_breaker.allow_request():
             raise InferenceFault(
                 "_circuit_breaker",
-                reason="Circuit breaker OPEN — service degraded",
+                reason="Circuit breaker OPEN -- service degraded",
                 metadata={"state": self._circuit_breaker.state},
             )
 
@@ -364,21 +363,21 @@ class ModelServingServer:
         if not self._started:
             raise InferenceFault(
                 "_server",
-                reason="Server not started — call start() first",
+                reason="Server not started -- call start() first",
                 metadata={"model": self.manifest.name},
             )
 
         if self._draining:
             raise InferenceFault(
                 "_server",
-                reason="Server is draining — no new requests accepted",
+                reason="Server is draining -- no new requests accepted",
                 metadata={"inflight": self._inflight},
             )
 
         if not self._circuit_breaker.allow_request():
             raise InferenceFault(
                 "_circuit_breaker",
-                reason="Circuit breaker OPEN — service degraded",
+                reason="Circuit breaker OPEN -- service degraded",
                 metadata={"state": self._circuit_breaker.state},
             )
 
@@ -437,7 +436,7 @@ class ModelServingServer:
 
     async def liveness(self) -> Dict[str, Any]:
         """
-        K8s liveness probe — ``GET /healthz``.
+        K8s liveness probe -- ``GET /healthz``.
 
         Returns healthy if the process is alive and the runtime is loaded.
         """
@@ -449,7 +448,7 @@ class ModelServingServer:
 
     async def readiness(self) -> Dict[str, Any]:
         """
-        K8s readiness probe — ``GET /readyz``.
+        K8s readiness probe -- ``GET /readyz``.
 
         Returns ready only after warm-up is complete and the batcher
         is accepting requests.

@@ -1,5 +1,5 @@
 """
-Functional Serving — ``@serve`` decorator for minimal model definitions.
+Functional Serving -- ``@serve`` decorator for minimal model definitions.
 
 For rapid prototyping or simple models where a full class is overkill,
 ``@serve`` wraps a plain function into an ``AquiliaModel`` subclass

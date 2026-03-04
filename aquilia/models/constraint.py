@@ -1,5 +1,5 @@
 """
-Aquilia Model Constraints — CheckConstraint, ExclusionConstraint.
+Aquilia Model Constraints -- CheckConstraint, ExclusionConstraint.
 
 Extends the existing Index / UniqueConstraint from fields_module with
 additional constraint types for advanced database constraints.

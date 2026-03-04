@@ -265,8 +265,6 @@ class Connection:
             connection_id=self.connection_id,
         )
         
-        logger.debug(f"Connection {self.connection_id} joined room {room}")
-        
         return True
     
     async def leave(self, room: str) -> bool:
@@ -290,8 +288,6 @@ class Connection:
             room=room,
             connection_id=self.connection_id,
         )
-        
-        logger.debug(f"Connection {self.connection_id} left room {room}")
         
         return True
     

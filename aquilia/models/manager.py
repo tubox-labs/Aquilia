@@ -1,7 +1,7 @@
 """
-Aquilia Model Manager — descriptor-based QuerySet access.
+Aquilia Model Manager -- descriptor-based QuerySet access.
 
-Django-inspired Manager with Aquilia's unique async-first design.
+Manager with async-first design.
 
 Every Model gets a default ``objects`` Manager, which proxies all
 query methods to the Q (QuerySet) class. Custom managers can override
@@ -48,7 +48,7 @@ __all__ = ["Manager", "BaseManager", "QuerySet"]
 
 class QuerySet:
     """
-    Reusable query method set — compose into Manager via from_queryset().
+    Reusable query method set -- compose into Manager via from_queryset().
 
     Define custom chainable query shortcuts here:
 
@@ -84,8 +84,8 @@ class BaseManager:
     Base manager with Python descriptor protocol.
 
     Accessible only from the model CLASS, not from instances:
-        User.objects.filter(...)    # ✓
-        user.objects                # ✗ AttributeError
+        User.objects.filter(...)    # 
+        user.objects                # AttributeError
     """
 
     _model_cls: Optional[Type[Model]] = None
@@ -125,7 +125,7 @@ class BaseManager:
     # ── Forwarded chain methods (return Q) ───────────────────────────
 
     def filter(self, *q_nodes: Any, **kwargs: Any) -> Q:
-        """Django-style filtering. See Q.filter() for details."""
+        """Field filtering. See Q.filter() for details."""
         return self.get_queryset().filter(*q_nodes, **kwargs)
 
     def exclude(self, **kwargs: Any) -> Q:
@@ -137,10 +137,10 @@ class BaseManager:
         return self.get_queryset().where(clause, *args, **kwargs)
 
     def order(self, *fields: Any) -> Q:
-        """ORDER BY. See Q.order() for details — supports str, F().desc(), OrderBy."""
+        """ORDER BY. See Q.order() for details -- supports str, F().desc(), OrderBy."""
         return self.get_queryset().order(*fields)
 
-    # Django-style alias
+    # Alias
     order_by = order
 
     def limit(self, n: int) -> Q:
@@ -404,7 +404,7 @@ class BaseManager:
 
 class Manager(BaseManager):
     """
-    Default manager — auto-attached as ``objects`` on every Model.
+    Default manager -- auto-attached as ``objects`` on every Model.
 
     Override ``get_queryset()`` for custom pre-filtered managers:
 

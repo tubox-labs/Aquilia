@@ -150,19 +150,6 @@ class LoggingMiddleware:
         next: MessageHandler,
     ) -> Optional[dict]:
         """Log message."""
-        identity_id = conn.identity.id if conn.identity else "anonymous"
-        
-        if self.log_payloads:
-            logger.debug(
-                f"Message from {identity_id} ({conn.connection_id}): "
-                f"event={envelope.event} payload={envelope.payload}"
-            )
-        else:
-            logger.debug(
-                f"Message from {identity_id} ({conn.connection_id}): "
-                f"event={envelope.event}"
-            )
-        
         # Call next handler
         result = await next(conn, envelope)
         
@@ -204,7 +191,6 @@ class MetricsMiddleware:
             raise
         finally:
             elapsed = time.time() - start
-            logger.debug(f"Message {envelope.event} took {elapsed*1000:.2f}ms")
 
 
 class MiddlewareChain:

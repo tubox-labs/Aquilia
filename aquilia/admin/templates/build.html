@@ -179,24 +179,316 @@
 {# ── Build Logs tab ── #}
 <div class="tab-content" data-tab-content="build" data-tab="logs">
     {% if build_log %}
-    <div class="code-block-container">
-        <div class="code-block-header">
-            <div class="dots">
-                <div class="dot dot-red"></div>
-                <div class="dot dot-yellow"></div>
-                <div class="dot dot-green"></div>
+
+    <style>
+    /* ── Terminal chrome ─────────────────────────────────────── */
+    .build-terminal {
+        border-radius: var(--radius);
+        overflow: hidden;
+        font-family: var(--font-mono);
+        border: 1px solid rgba(255,255,255,0.07);
+        box-shadow: 0 8px 40px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04);
+    }
+    .terminal-chrome {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 16px;
+        background: #111111;
+        border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .terminal-dots { display:flex; gap:6px; align-items:center; }
+    .terminal-dot  { width:10px; height:10px; border-radius:50%; }
+    .terminal-dot.red    { background:#FF5F56; }
+    .terminal-dot.yellow { background:#FFBD2E; }
+    .terminal-dot.green  { background:#27C93F; }
+    .terminal-title {
+        font-size: 0.68rem;
+        color: rgba(255,255,255,0.25);
+        font-family: var(--font-mono);
+        letter-spacing: 0.02em;
+        margin-left: 12px;
+    }
+    .terminal-body {
+        background: #000000;
+        padding: 18px 20px;
+        max-height: 620px;
+        overflow-y: auto;
+        font-size: 0.775rem;
+        line-height: 1.85;
+        scrollbar-width: thin;
+        scrollbar-color: rgba(255,255,255,0.1) transparent;
+    }
+    .terminal-body::-webkit-scrollbar { width: 6px; }
+    .terminal-body::-webkit-scrollbar-track { background: transparent; }
+    .terminal-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius:3px; }
+    .terminal-status {
+        padding: 7px 16px;
+        background: #0a0a0a;
+        border-top: 1px solid rgba(255,255,255,0.05);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    /* ── Log line tokens ────────────────────────────────────── */
+    .log-line { display:flex; gap:10px; white-space:pre-wrap; word-break:break-all; }
+    .log-ln   { color:rgba(255,255,255,0.12); user-select:none; min-width:28px; text-align:right; flex-shrink:0; padding-top:1px; font-size:0.7rem; }
+    .log-text { flex:1; }
+    /* ── Token colours — dark mode ───────────────────────────── */
+    .tok-error   { color:#fc8181; }   /* soft coral red     */
+    .tok-warn    { color:#f6ad55; }   /* warm amber         */
+    .tok-success { color:#68d391; }   /* muted emerald      */
+    .tok-info    { color:#76b8f5; }   /* sky blue           */
+    .tok-debug   { color:#718096; }   /* slate              */
+    .tok-path    { color:#b794f4; }   /* soft violet        */
+    .tok-number  { color:#f6a623; }   /* golden orange      */
+    .tok-string  { color:#68d391; }   /* sage green         */
+    .tok-keyword { color:#d4a5f5; }   /* lavender           */
+    .tok-dim     { color:rgba(255,255,255,0.42); }
+    .tok-icon    { font-size:11px; vertical-align:-1px; margin-right:4px; }
+    /* ── Light mode overrides ───────────────────────────────── */
+    [data-theme="light"] .build-terminal {
+        border-color: rgba(0,0,0,0.12);
+        box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+    }
+    [data-theme="light"] .terminal-chrome {
+        background: #f0f0f0;
+        border-bottom: 1px solid rgba(0,0,0,0.10);
+    }
+    [data-theme="light"] .terminal-title   { color: rgba(0,0,0,0.35); }
+    [data-theme="light"] .terminal-body {
+        background: #fafafa;
+        color: #1a1a1a;
+        scrollbar-color: rgba(0,0,0,0.15) transparent;
+    }
+    [data-theme="light"] .terminal-body::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); }
+    [data-theme="light"] .terminal-status {
+        background: #f0f0f0;
+        border-top: 1px solid rgba(0,0,0,0.09);
+    }
+    [data-theme="light"] .terminal-status span { color: rgba(0,0,0,0.50) !important; }
+    [data-theme="light"] .terminal-status i    { color: rgba(0,0,0,0.40) !important; }
+    [data-theme="light"] #termLineCount        { color: rgba(0,0,0,0.35) !important; }
+    /* light mode line numbers */
+    [data-theme="light"] .log-ln { color: rgba(0,0,0,0.20); }
+    /* light mode token colours — darker, legible on white */
+    [data-theme="light"] .tok-error   { color:#c0392b; }
+    [data-theme="light"] .tok-warn    { color:#b7620a; }
+    [data-theme="light"] .tok-success { color:#276749; }
+    [data-theme="light"] .tok-info    { color:#1d5fa8; }
+    [data-theme="light"] .tok-debug   { color:#718096; }
+    [data-theme="light"] .tok-path    { color:#6b46c1; }
+    [data-theme="light"] .tok-number  { color:#c05621; }
+    [data-theme="light"] .tok-string  { color:#276749; }
+    [data-theme="light"] .tok-keyword { color:#6b21a8; }
+    [data-theme="light"] .tok-dim     { color:rgba(0,0,0,0.55); }
+    .term-line-count {
+        font-size: 0.65rem;
+        color: rgba(255,255,255,0.22);
+        font-family: var(--font-mono);
+    }
+    [data-theme="light"] .term-line-count { color: rgba(0,0,0,0.35); }
+    </style>
+
+    <div class="build-terminal">
+        {# Chrome / title bar #}
+        <div class="terminal-chrome">
+            <div style="display:flex;align-items:center;">
+                <div class="terminal-dots">
+                    <span class="terminal-dot red"></span>
+                    <span class="terminal-dot yellow"></span>
+                    <span class="terminal-dot green"></span>
+                </div>
+                <span class="terminal-title">aquilia build — output</span>
             </div>
-            <span class="filename">build output</span>
+            <div style="display:flex;align-items:center;gap:8px;">
+                <span class="term-line-count" id="termLineCount"></span>
+                <button onclick="copyBuildLog()" class="btn btn-sm btn-secondary" style="font-size:0.65rem;padding:2px 8px;" title="Copy log">
+                    <i class="icon-copy" style="font-size:11px;"></i>
+                </button>
+            </div>
         </div>
-        <div class="code-block-body">
-            <pre>{{ build_log }}</pre>
+
+        {# Terminal body — lines injected by JS for rich highlighting #}
+        <div class="terminal-body" id="buildLogContent">
+            <noscript>
+            {% for line in build_log.split('\n') %}{% if line.strip() %}<div class="log-line tok-dim"><span class="log-ln">{{ loop.index }}</span><span class="log-text">{{ line }}</span></div>{% endif %}{% endfor %}
+            </noscript>
+        </div>
+
+        {# Status bar #}
+        <div class="terminal-status">
+            <span style="font-size:0.65rem;color:rgba(255,255,255,0.28);" id="termStatus">
+                <i class="icon-terminal tok-icon"></i>build_output.txt
+            </span>
+            <span style="font-size:0.65rem;color:rgba(255,255,255,0.18);font-family:var(--font-mono);">build_output.txt</span>
         </div>
     </div>
+
+    <script id="buildLogData" type="application/json">{{ build_log | tojson }}</script>
+    <script>
+    (function() {
+        var raw = JSON.parse(document.getElementById('buildLogData').textContent);
+        var lines = raw.split('\n');
+        var container = document.getElementById('buildLogContent');
+        var statusEl  = document.getElementById('termStatus');
+        var countEl   = document.getElementById('termLineCount');
+
+        /* ── Line-level classifier (uses raw text, no escaping yet) ── */
+        function classify(line) {
+            var t = line.toLowerCase();
+            if (/\[error\]|traceback|exception|fatal|critical/.test(t)) return 'error';
+            if (/\[warn\]|\[warning\]|deprecated|caution/.test(t))       return 'warn';
+            if (/\bsucceeded\b|success|complete|done|built|ok\b|passed/.test(t)) return 'success';
+            if (/\[info\]|info:/.test(t))   return 'info';
+            if (/\[debug\]|debug:/.test(t)) return 'debug';
+            return null;
+        }
+
+        /* ── DOM-based token splitter ─────────────────────────────────
+         *  Splits a raw line into an array of {text, cls} segments.
+         *  Uses textContent only — never innerHTML — so no escaping bugs.
+         * ─────────────────────────────────────────────────────────── */
+        var TOKEN_RULES = [
+            // Absolute / relative paths
+            { re: /((?:\.{0,2}\/|[A-Za-z]:[\\\/])[^\s,;'"<>()[\]{}]+)/g, cls: 'tok-path' },
+            // Quoted strings  'foo' or "bar"
+            { re: /('[^']*'|"[^"]*")/g,  cls: 'tok-string' },
+            // Timestamps / numbers with optional unit
+            { re: /\b(\d+(?:\.\d+)?(?:ms|s|kb|mb|gb|%)?)\b/gi, cls: 'tok-number' },
+            // Python / JS keywords
+            { re: /\b(import|from|def|class|return|if|else|elif|for|while|try|except|with|async|await|True|False|None|null|undefined|true|false)\b/g, cls: 'tok-keyword' },
+        ];
+
+        function tokenize(line) {
+            /* Build a list of non-overlapping match intervals across all rules */
+            var intervals = [];
+            TOKEN_RULES.forEach(function(rule) {
+                var m, r = new RegExp(rule.re.source, rule.re.flags);
+                while ((m = r.exec(line)) !== null) {
+                    intervals.push({ start: m.index, end: m.index + m[0].length, cls: rule.cls, text: m[0] });
+                }
+            });
+
+            /* Sort by start; remove overlaps (first match wins) */
+            intervals.sort(function(a, b) { return a.start - b.start; });
+            var clean = [], cursor = 0;
+            intervals.forEach(function(iv) {
+                if (iv.start >= cursor) { clean.push(iv); cursor = iv.end; }
+            });
+
+            /* Emit segments as DOM nodes */
+            var nodes = [];
+            var pos = 0;
+            clean.forEach(function(iv) {
+                if (iv.start > pos) {
+                    var t = document.createTextNode(line.slice(pos, iv.start));
+                    nodes.push(t);
+                }
+                var sp = document.createElement('span');
+                sp.className = iv.cls;
+                sp.textContent = iv.text;
+                nodes.push(sp);
+                pos = iv.end;
+            });
+            if (pos < line.length) {
+                nodes.push(document.createTextNode(line.slice(pos)));
+            }
+            return nodes;
+        }
+
+        /* ── Render ─────────────────────────────────────── */
+        var frag = document.createDocumentFragment();
+        var rendered = 0, errors = 0, warnings = 0, hasSuccess = false;
+
+        lines.forEach(function(line) {
+            if (!line.trim()) return;
+            rendered++;
+            var cls = classify(line);
+            if (cls === 'error')   errors++;
+            if (cls === 'warn')    warnings++;
+            if (cls === 'success') hasSuccess = true;
+
+            var row = document.createElement('div');
+            row.className = 'log-line';
+
+            /* Line number gutter */
+            var ln = document.createElement('span');
+            ln.className = 'log-ln';
+            ln.textContent = rendered;
+
+            /* Text span */
+            var txt = document.createElement('span');
+            txt.className = 'log-text ' + (cls ? 'tok-' + cls : 'tok-dim');
+
+            /* Severity icon — error and warn only; success has no icon */
+            if (cls === 'error') {
+                var ic = document.createElement('i');
+                ic.className = 'icon-x-circle tok-icon tok-error';
+                txt.appendChild(ic);
+            } else if (cls === 'warn') {
+                var ic = document.createElement('i');
+                ic.className = 'icon-alert-triangle tok-icon tok-warn';
+                txt.appendChild(ic);
+            }
+
+            /* Tokenized content — all DOM nodes, no innerHTML */
+            var tokens = tokenize(line);
+            tokens.forEach(function(n) { txt.appendChild(n); });
+
+            row.appendChild(ln);
+            row.appendChild(txt);
+            frag.appendChild(row);
+        });
+
+        container.innerHTML = '';
+        container.appendChild(frag);
+
+        /* ── Line count ─────────────────────────────────── */
+        countEl.textContent = rendered + ' lines';
+
+        /* ── Status bar ─────────────────────────────────── */
+        function setStatus(iconCls, tokenCls, msg) {
+            statusEl.innerHTML = '';
+            var ic = document.createElement('i');
+            ic.className = iconCls + ' tok-icon ' + tokenCls;
+            statusEl.appendChild(ic);
+            statusEl.appendChild(document.createTextNode(msg));
+        }
+        if (hasSuccess && errors === 0) {
+            setStatus('icon-terminal', '', 'Build succeeded');
+        } else if (errors > 0) {
+            setStatus('icon-x-circle', 'tok-error',
+                errors + ' error' + (errors > 1 ? 's' : '') +
+                (warnings > 0 ? ', ' + warnings + ' warning' + (warnings > 1 ? 's' : '') : ''));
+        } else if (warnings > 0) {
+            setStatus('icon-alert-triangle', 'tok-warn',
+                warnings + ' warning' + (warnings > 1 ? 's' : ''));
+        } else {
+            setStatus('icon-terminal', '', 'build_output.txt');
+        }
+
+        /* ── Auto-scroll to bottom ───────────────────────── */
+        container.scrollTop = container.scrollHeight;
+    })();
+
+    function copyBuildLog() {
+        var el = document.getElementById('buildLogContent');
+        if (!el) return;
+        navigator.clipboard.writeText(el.innerText || el.textContent).then(function() {
+            if (window.showToast) showToast('Build log copied to clipboard', 'success');
+        }).catch(function() {
+            if (window.showToast) showToast('Failed to copy', 'error');
+        });
+    }
+    </script>
+
     {% else %}
     <div class="glass-card">
         <div class="empty-state">
             <i class="icon-terminal" style="font-size:32px;display:block;margin-bottom:12px;opacity:0.3;"></i>
-            No build logs available
+            No build logs available.<br>
+            <span class="meta-text">Run <code style="color:var(--accent);">aquilia build</code> to generate build logs.</span>
         </div>
     </div>
     {% endif %}

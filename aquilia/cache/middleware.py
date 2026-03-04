@@ -1,5 +1,5 @@
 """
-AquilaCache — HTTP response caching middleware.
+AquilaCache -- HTTP response caching middleware.
 
 Integrates with Aquilia's middleware stack to provide:
 - Automatic response caching for GET/HEAD requests
@@ -125,7 +125,7 @@ class CacheMiddleware:
             
             # Handle no-cache: must revalidate but can serve stale during revalidation
             if "no-cache" in cache_control:
-                # Must revalidate — go to handler
+                # Must revalidate -- go to handler
                 pass
             elif is_stale and self._stale_while_revalidate > 0:
                 # Stale-while-revalidate: serve stale, refresh in background
@@ -148,7 +148,7 @@ class CacheMiddleware:
                         headers=headers,
                     )
             elif not is_stale:
-                # Fresh — serve from cache
+                # Fresh -- serve from cache
                 headers = cached_data.get("headers", {})
                 headers["X-Cache"] = "HIT"
                 headers["ETag"] = etag
@@ -160,7 +160,7 @@ class CacheMiddleware:
                     headers=headers,
                 )
         
-        # Cache miss — call handler
+        # Cache miss -- call handler
         response = await next_handler(request, ctx)
         
         # Only cache successful responses
@@ -243,7 +243,6 @@ class CacheMiddleware:
                     ttl=self._default_ttl + self._stale_while_revalidate,
                     namespace=self._namespace,
                 )
-                logger.debug(f"Background refresh completed for {cache_key}")
         except Exception as e:
             logger.warning(f"Background cache refresh failed: {e}")
     

@@ -1,14 +1,14 @@
 """
-Model Orchestrator — top-level façade for ML inference.
+Model Orchestrator -- top-level façade for ML inference.
 
 The orchestrator ties together:
-- ``ModelRegistry``  — knows what models exist
-- ``VersionRouter``  — picks the right version per request
-- ``ModelLoader``    — lazy-loads models on first request
-- ``InferencePipeline`` — runs preprocess → infer → postprocess
+- ``ModelRegistry``  -- knows what models exist
+- ``VersionRouter``  -- picks the right version per request
+- ``ModelLoader``    -- lazy-loads models on first request
+- ``InferencePipeline`` -- runs preprocess → infer → postprocess
 
 This is the single entry point the API layer calls.  It knows nothing
-about HTTP, controllers, or routing — only model identity and inference.
+about HTTP, controllers, or routing -- only model identity and inference.
 
 Usage::
 
@@ -255,6 +255,6 @@ class ModelOrchestrator:
         return await self._loader.unload(model_name, version)
 
     async def shutdown(self) -> None:
-        """Graceful shutdown — unload all models."""
+        """Graceful shutdown -- unload all models."""
         await self._loader.unload_all()
         logger.info("ModelOrchestrator shutdown complete")

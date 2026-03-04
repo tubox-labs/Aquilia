@@ -1,4 +1,4 @@
-"""Aquilia CLI — UI utilities (re-exports from colors module)."""
+"""Aquilia CLI -- UI utilities (re-exports from colors module)."""
 
 from .colors import (  # noqa: F401
     # Basic output

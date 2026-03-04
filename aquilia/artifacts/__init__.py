@@ -1,16 +1,16 @@
 """
-Aquilia Artifacts — Unified artifact system for the framework.
+Aquilia Artifacts -- Unified artifact system for the framework.
 
 A first-class, content-addressed artifact layer that provides:
 
-- **Envelope format** — every artifact is a typed, versioned, hashed container
-- **Pluggable storage** — filesystem, memory, content-addressed (``ArtifactStore``)
-- **Builder API** — fluent ``ArtifactBuilder`` for constructing artifacts
-- **Reader / inspector** — ``ArtifactReader`` for loading and verifying
-- **Typed kinds** — ``CodeArtifact``, ``ModelArtifact``, ``ConfigArtifact``, etc.
-- **Provenance** — who built it, when, from what source, git sha
-- **Integrity** — SHA-256 content hashing, optional signing
-- **GC** — garbage-collect unreferenced artifacts
+- **Envelope format** -- every artifact is a typed, versioned, hashed container
+- **Pluggable storage** -- filesystem, memory, content-addressed (``ArtifactStore``)
+- **Builder API** -- fluent ``ArtifactBuilder`` for constructing artifacts
+- **Reader / inspector** -- ``ArtifactReader`` for loading and verifying
+- **Typed kinds** -- ``CodeArtifact``, ``ModelArtifact``, ``ConfigArtifact``, etc.
+- **Provenance** -- who built it, when, from what source, git sha
+- **Integrity** -- SHA-256 content hashing, optional signing
+- **GC** -- garbage-collect unreferenced artifacts
 
 Quick start::
 

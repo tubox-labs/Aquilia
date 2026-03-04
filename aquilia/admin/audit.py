@@ -1,5 +1,5 @@
 """
-AquilAdmin — Audit Trail.
+AquilAdmin -- Audit Trail.
 
 Every admin action (create, update, delete, bulk action, login, logout)
 is recorded in an append-only audit log. Uses Aquilia Auth's AuditTrail
@@ -85,7 +85,7 @@ class AdminAuditEntry:
 
 class AdminAuditLog:
     """
-    Admin audit log — records all admin operations.
+    Admin audit log -- records all admin operations.
 
     Thread-safe, append-only log with configurable retention.
     Integrates with Aquilia Auth's AuditTrail when available.
@@ -95,6 +95,8 @@ class AdminAuditLog:
         self._entries: List[AdminAuditEntry] = []
         self._max_entries = max_entries
         self._counter = 0
+        # Admin config reference -- set by AdminSite after config is parsed
+        self._admin_config: Any = None
 
     def log(
         self,
@@ -115,8 +117,35 @@ class AdminAuditLog:
         """
         Record an admin action.
 
+        Respects the admin config's excluded actions, audit category
+        switches (log_logins, log_views, log_searches), and the global
+        audit enabled flag.  If the action is excluded, returns a
+        sentinel entry but does **not** persist it.
+
         Returns the created audit entry.
         """
+        # ── Check admin config filters ──
+        if self._admin_config is not None:
+            if not self._admin_config.is_action_allowed(action):
+                # Return a stub entry without persisting
+                import secrets
+                return AdminAuditEntry(
+                    id=f"audit_skip_{secrets.token_hex(4)}",
+                    timestamp=datetime.now(timezone.utc),
+                    user_id=user_id,
+                    username=username,
+                    role=role,
+                    action=action,
+                    model_name=model_name,
+                    record_pk=record_pk,
+                    changes=changes,
+                    ip_address=ip_address,
+                    user_agent=user_agent,
+                    metadata=metadata or {},
+                    success=success,
+                    error_message=error_message,
+                )
+
         import secrets
 
         self._counter += 1
@@ -203,3 +232,264 @@ class AdminAuditLog:
         self._entries.clear()
         self._counter = 0
         return count
+
+
+class ModelBackedAuditLog:
+    """
+    Model-backed audit log -- persists entries to the AdminAuditEntry ORM table.
+
+    Survives server restarts and user logouts. Falls back gracefully to the
+    in-memory AdminAuditLog when the ORM table is unavailable (e.g. before
+    migrations have been run).
+
+    API is 100% compatible with AdminAuditLog so it can be used as a
+    drop-in replacement on AdminSite.audit_log.
+    """
+
+    def __init__(self, fallback_max: int = 2_000):
+        self._fallback = AdminAuditLog(max_entries=fallback_max)
+        self._db_available: Optional[bool] = None  # None = not yet probed
+        # Admin config reference -- set by AdminSite after config is parsed
+        self._admin_config: Any = None
+
+    @property
+    def admin_config(self):
+        return self._admin_config
+
+    @admin_config.setter
+    def admin_config(self, value):
+        self._admin_config = value
+        # Propagate to fallback
+        self._fallback._admin_config = value
+
+    # ── Internal helpers ─────────────────────────────────────────────
+
+    async def _probe_db(self) -> bool:
+        """Check once whether the DB table is accessible."""
+        if self._db_available is not None:
+            return self._db_available
+        try:
+            from aquilia.admin.models import AdminAuditEntry
+            # Lightweight probe -- count with limit 0
+            await AdminAuditEntry.objects.filter(entry_id="__probe__").count()
+            self._db_available = True
+        except Exception:
+            self._db_available = False
+        return self._db_available  # type: ignore[return-value]
+
+    def _reset_probe(self) -> None:
+        """Reset DB probe so next call will re-probe (e.g. after migration)."""
+        self._db_available = None
+
+    # ── Public API (mirrors AdminAuditLog) ───────────────────────────
+
+    def log(
+        self,
+        user_id: str,
+        username: str,
+        role: str,
+        action: "AdminAction",
+        *,
+        model_name: Optional[str] = None,
+        record_pk: Optional[str] = None,
+        changes: Optional[Dict[str, Any]] = None,
+        ip_address: Optional[str] = None,
+        user_agent: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        success: bool = True,
+        error_message: Optional[str] = None,
+    ) -> "AdminAuditEntry":
+        """
+        Record an audit entry.
+
+        Respects admin config action filtering. Schedules an async DB write.
+        Always also writes to the in-memory fallback so synchronous callers
+        and tests see the entry immediately.
+        """
+        import asyncio
+
+        # Always record in-memory fallback (instant, sync)
+        # The fallback's _admin_config check will handle filtering
+        mem_entry = self._fallback.log(
+            user_id=user_id,
+            username=username,
+            role=role,
+            action=action,
+            model_name=model_name,
+            record_pk=record_pk,
+            changes=changes,
+            ip_address=ip_address,
+            user_agent=user_agent,
+            metadata=metadata,
+            success=success,
+            error_message=error_message,
+        )
+
+        # If the action was filtered out (skip entry), don't write to DB
+        if mem_entry.id.startswith("audit_skip_"):
+            return mem_entry
+
+        # Fire-and-forget async DB write
+        action_str = action.value if hasattr(action, "value") else str(action)
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                asyncio.ensure_future(
+                    self._async_write(
+                        user_id=user_id,
+                        username=username,
+                        role=role,
+                        action=action_str,
+                        model_name=model_name,
+                        record_pk=record_pk,
+                        changes=changes,
+                        ip_address=ip_address,
+                        user_agent=user_agent,
+                        metadata=metadata,
+                        success=success,
+                        error_message=error_message,
+                    )
+                )
+        except RuntimeError:
+            pass  # No event loop running -- fallback-only mode
+
+        return mem_entry
+
+    async def _async_write(self, **kwargs: Any) -> None:
+        """Write one audit entry to the DB table (best-effort)."""
+        try:
+            if not await self._probe_db():
+                return
+            from aquilia.admin.models import AdminAuditEntry
+            await AdminAuditEntry.create_entry(**kwargs)
+        except Exception as exc:
+            logger.debug("ModelBackedAuditLog: DB write failed: %s", exc)
+            # Disable DB writes for this session to avoid noise
+            self._db_available = False
+
+    async def alog(
+        self,
+        user_id: str,
+        username: str,
+        role: str,
+        action: "AdminAction",
+        **kwargs: Any,
+    ) -> "AdminAuditEntry":
+        """
+        Async version of log() -- awaits the DB write directly.
+        Respects admin config action filtering.
+        Use this when you are already inside an async context and want
+        to guarantee the entry is persisted before continuing.
+        """
+        mem_entry = self._fallback.log(
+            user_id=user_id,
+            username=username,
+            role=role,
+            action=action,
+            **kwargs,
+        )
+        # If the action was filtered out, don't write to DB
+        if mem_entry.id.startswith("audit_skip_"):
+            return mem_entry
+        action_str = action.value if hasattr(action, "value") else str(action)
+        await self._async_write(
+            user_id=user_id,
+            username=username,
+            role=role,
+            action=action_str,
+            **kwargs,
+        )
+        return mem_entry
+
+    async def get_entries_async(
+        self,
+        *,
+        action: Optional["AdminAction"] = None,
+        user_id: Optional[str] = None,
+        model_name: Optional[str] = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> List["AdminAuditEntry"]:
+        """
+        Fetch entries from the DB (preferred) or in-memory fallback.
+
+        Returns dicts-compatible objects with a .to_dict() method.
+        """
+        if await self._probe_db():
+            try:
+                from aquilia.admin.models import AdminAuditEntry
+                qs = AdminAuditEntry.objects.get_queryset()
+                if action is not None:
+                    action_str = action.value if hasattr(action, "value") else str(action)
+                    qs = qs.filter(action=action_str)
+                if user_id is not None:
+                    qs = qs.filter(user_id=user_id)
+                if model_name is not None:
+                    qs = qs.filter(model_name=model_name)
+                # Order by newest first
+                qs = qs.order_by("-timestamp")
+                all_rows = await qs.all()
+                return list(all_rows[offset:offset + limit])
+            except Exception as exc:
+                logger.debug("ModelBackedAuditLog.get_entries_async DB error: %s", exc)
+                self._db_available = False
+
+        # Fallback to in-memory
+        return self._fallback.get_entries(
+            action=action, user_id=user_id, model_name=model_name,
+            limit=limit, offset=offset,
+        )  # type: ignore[return-value]
+
+    def get_entries(
+        self,
+        *,
+        action: Optional["AdminAction"] = None,
+        user_id: Optional[str] = None,
+        model_name: Optional[str] = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> List["AdminAuditEntry"]:
+        """
+        Synchronous get_entries -- returns in-memory entries only.
+        Use get_entries_async() when in an async context to also
+        include DB-persisted entries.
+        """
+        return self._fallback.get_entries(
+            action=action, user_id=user_id, model_name=model_name,
+            limit=limit, offset=offset,
+        )  # type: ignore[return-value]
+
+    async def count_async(
+        self,
+        *,
+        action: Optional["AdminAction"] = None,
+        model_name: Optional[str] = None,
+    ) -> int:
+        """Count entries from DB if available, else in-memory."""
+        if await self._probe_db():
+            try:
+                from aquilia.admin.models import AdminAuditEntry
+                qs = AdminAuditEntry.objects.get_queryset()
+                if action is not None:
+                    action_str = action.value if hasattr(action, "value") else str(action)
+                    qs = qs.filter(action=action_str)
+                if model_name is not None:
+                    qs = qs.filter(model_name=model_name)
+                return await qs.count()
+            except Exception as exc:
+                logger.debug("ModelBackedAuditLog.count_async DB error: %s", exc)
+                self._db_available = False
+        return self._fallback.count(action=action, model_name=model_name)
+
+    def count(
+        self,
+        *,
+        action: Optional["AdminAction"] = None,
+        model_name: Optional[str] = None,
+    ) -> int:
+        """Synchronous count -- returns in-memory count only."""
+        return self._fallback.count(action=action, model_name=model_name)
+
+    def clear(self) -> int:
+        """Clear in-memory fallback entries. DB entries are retained."""
+        return self._fallback.clear()

@@ -1,5 +1,5 @@
 """
-Aquilia Model Options — parsed from inner Meta class.
+Aquilia Model Options -- parsed from inner Meta class.
 
 Contains the Options class which stores model metadata like
 table_name, ordering, indexes, constraints, abstract, etc.
@@ -73,7 +73,9 @@ class Options:
         table_attr: Optional[str] = None,
     ):
         self.table_name = table_attr or (
-            getattr(meta, "table", None) or getattr(meta, "table_name", None)
+            getattr(meta, "table", None)
+            or getattr(meta, "table_name", None)
+            or getattr(meta, "__tablename__", None)
             if meta else None
         ) or model_name.lower()
         self.ordering: List[str] = getattr(meta, "ordering", []) if meta else []

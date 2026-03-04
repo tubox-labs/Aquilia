@@ -1,5 +1,5 @@
 """
-Aquilia Blueprint Core — the Blueprint metaclass and base class.
+Aquilia Blueprint Core -- the Blueprint metaclass and base class.
 
 A Blueprint is a contract between a Model and the outside world.
 It declares what the world sees (Facets), what it can send (Casts),
@@ -53,7 +53,7 @@ class _SpecData:
     """
     Parsed Spec (inner class) data for a Blueprint.
 
-    This replaces the DRF-style ``Meta`` class — we call it ``Spec``
+    This replaces the DRF-style ``Meta`` class -- we call it ``Spec``
     to avoid collision with the Model's ``Meta``.
     """
 
@@ -168,7 +168,7 @@ class BlueprintMeta(type):
 
         spec = _SpecData(spec_cls)
 
-        # Build the class — AFTER this, cls.__annotations__ is available
+        # Build the class -- AFTER this, cls.__annotations__ is available
         cls = super().__new__(mcs, name, bases, namespace, **kwargs)
         cls._spec = spec
         cls._declared_facets = declared_facets
@@ -199,7 +199,7 @@ class BlueprintMeta(type):
                         ann_namespace[fname] = val
             annotated_facets = introspect_annotations(cls, ann_namespace, bases)
         except Exception:
-            pass  # Defensive — never break metaclass construction
+            pass  # Defensive -- never break metaclass construction
 
         cls._annotated_facets = annotated_facets
 
@@ -360,7 +360,7 @@ def _derive_relation_facet(model_field: Any, name: str, spec: _SpecData) -> Face
 
 class Blueprint(metaclass=BlueprintMeta):
     """
-    The Blueprint — a contract between a Model and the outside world.
+    The Blueprint -- a contract between a Model and the outside world.
 
     A Blueprint declares:
         - **Facets**: what data points are visible/writable
@@ -449,7 +449,7 @@ class Blueprint(metaclass=BlueprintMeta):
     @property
     def data(self) -> Dict[str, Any] | List[Dict[str, Any]]:
         """
-        The output representation — molded from the instance.
+        The output representation -- molded from the instance.
 
         For inbound usage, returns validated_data after sealing.
         """
@@ -676,7 +676,7 @@ class Blueprint(metaclass=BlueprintMeta):
 
     async def is_sealed_async(self, *, raise_fault: bool = False) -> bool:
         """
-        Async variant of is_sealed — also runs async_seal_* methods.
+        Async variant of is_sealed -- also runs async_seal_* methods.
 
         Pipeline:
             1-4. Same as is_sealed()
@@ -767,14 +767,14 @@ class Blueprint(metaclass=BlueprintMeta):
 
     @property
     def validated_data(self) -> Dict[str, Any] | List[Dict[str, Any]] | None:
-        """The validated data — only available after successful sealing."""
+        """The validated data -- only available after successful sealing."""
         if self._is_sealed is None:
             self.is_sealed()
         return self._validated_data
 
     @property
     def errors(self) -> Dict[str, List[str]]:
-        """Validation errors — available after sealing attempt."""
+        """Validation errors -- available after sealing attempt."""
         if self._is_sealed is None:
             self.is_sealed()
         return self._errors
@@ -801,7 +801,7 @@ class Blueprint(metaclass=BlueprintMeta):
         """
         if self._validated_data is None:
             raise ImprintFault(
-                message="Cannot imprint — data has not been sealed. "
+                message="Cannot imprint -- data has not been sealed. "
                         "Call is_sealed() first.",
             )
 

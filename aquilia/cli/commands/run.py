@@ -54,7 +54,7 @@ def _validate_workspace_config(workspace_root: Path, verbose: bool = False) -> L
         module_names = list(set(module_matches))  # Deduplicate
 
         # The "starter" pseudo-module lives in workspace root (starter.py),
-        # not under modules/.  Skip it during validation — the server
+        # not under modules/.  Skip it during validation -- the server
         # auto-loads it via _load_starter_controller().
         module_names = [m for m in module_names if m != "starter"]
         
@@ -150,9 +150,9 @@ def _discover_and_update_manifests(workspace_root: Path, verbose: bool = False) 
     in all modules and auto-update manifest.py files.
     
     Discovery pipeline (v2.1):
-    1. ``AutoDiscoveryEngine`` (AST-based) — primary scanner for all
+    1. ``AutoDiscoveryEngine`` (AST-based) -- primary scanner for all
        component kinds including models, guards, pipes, interceptors.
-    2. ``EnhancedDiscovery`` — fallback for controllers/services/sockets.
+    2. ``EnhancedDiscovery`` -- fallback for controllers/services/sockets.
     3. Compares with manifest.py declarations.
     4. Automatically updates manifest.py with missing declarations.
     5. Updates workspace.py with module registrations.
@@ -376,7 +376,7 @@ def _inject_component_list(
     match = re.search(pattern, content, re.DOTALL)
     
     if not match:
-        return content  # Field not declared — user hasn't opted in
+        return content  # Field not declared -- user hasn't opted in
     
     # Parse existing items
     existing_items = re.findall(r'"([^"]+)"', match.group(2))
@@ -735,7 +735,7 @@ def run_dev_server(
         print()
         return
     
-    # ===== BUILD PIPELINE — Compile, check, and bundle before serving =====
+    # ===== BUILD PIPELINE -- Compile, check, and bundle before serving =====
     print("  Running build pipeline...")
     try:
         from aquilia.build import AquiliaBuildPipeline
@@ -746,7 +746,7 @@ def run_dev_server(
         )
 
         if not build_result.success:
-            print("\n  ✗ Build FAILED — server will not start.\n")
+            print("\n  Build FAILED -- server will not start.\n")
             for err in build_result.errors:
                 print(f"  {err}")
             if build_result.warnings:
@@ -758,7 +758,7 @@ def run_dev_server(
             return
 
         # Report build success
-        print(f"  ✓ {build_result.summary()}")
+        print(f"  {build_result.summary()}")
 
         if build_result.warnings and verbose:
             for warn in build_result.warnings:
@@ -766,10 +766,10 @@ def run_dev_server(
 
     except ImportError:
         if verbose:
-            print("  ⚠ Build pipeline not available, proceeding without pre-compilation")
+            print("  Build pipeline not available, proceeding without pre-compilation")
     except Exception as e:
         if verbose:
-            print(f"  ⚠ Build pipeline error: {e}, proceeding without pre-compilation")
+            print(f"  Build pipeline error: {e}, proceeding without pre-compilation")
     
     # Strategy 1: Check for workspace configuration (workspace.py) and auto-create app
     workspace_config = workspace_root / "workspace.py"
@@ -874,125 +874,210 @@ def _create_workspace_app(workspace_root: Path, mode: str, verbose: bool = False
 
 def _generate_workspace_app_code(workspace_root: Path, mode: str, verbose: bool = False) -> str:
     """
-    Generate Python code for workspace app loader.
-    
+    Generate the ASGI application entrypoint for the workspace.
+
+    Architecture (v2):
+    1. Set up sys.path and environment variables (AQUILIA_ENV, AQUILIA_WORKSPACE)
+    2. Configure structured logging matching the requested mode
+    3. Load workspace.py via ConfigLoader.load() -- the single source of truth
+    4. Dynamically discover and import module manifests from modules/*/manifest.py
+    5. Resolve RegistryMode from the workspace runtime config
+    6. Construct AquiliaServer with the full manifest list and config
+    7. Export ``app`` (ASGI callable) and ``server`` (AquiliaServer instance)
+
+    The generated code is self-contained, reload-safe (no side-effects at
+    import time that break ``uvicorn --reload``), and compatible with all
+    ASGI servers (uvicorn, hypercorn, granian, daphne, gunicorn+uvicorn).
+
     Returns:
-        Python code as string
+        Python source code as string
     """
     from datetime import datetime
     import re
-    
-    # Load workspace modules from workspace.py
+
+    # ── Introspect workspace.py ──────────────────────────────────────
     workspace_file = workspace_root / "workspace.py"
     workspace_content = workspace_file.read_text()
-    
-    # Extract workspace info
-    name_match = re.search(r'Workspace\("([^"]+)"', workspace_content)
-    workspace_name = name_match.group(1) if name_match else "aquilia-workspace"
-    
-    # Extract modules
-    # (?m) enables multiline mode, ^ matches start of line, \s* matches indentation
-    # Updated regex to handle Module with parameters: Module("name", version=..., ...)
-    modules = re.findall(r'(?m)^\s*\.module\(Module\("([^"]+)"[^)]*\)', workspace_content)
 
-    # The "starter" pseudo-module is loaded automatically by the server
-    # via _load_starter_controller(); don't try to import it as a manifest.
+    # Workspace name
+    name_match = re.search(r'Workspace\(\s*(?:name\s*=\s*)?["\']([^"\']+)["\']', workspace_content)
+    workspace_name = name_match.group(1) if name_match else "aquilia-app"
+
+    # Strip comments before extracting modules to avoid commented-out matches
+    clean_lines = [
+        line for line in workspace_content.splitlines()
+        if not line.strip().startswith("#")
+    ]
+    clean_content = "\n".join(clean_lines)
+
+    # Extract module names from .module(Module("name" ...))
+    modules = re.findall(
+        r'\.module\(\s*Module\(\s*["\']([^"\']+)["\']', clean_content
+    )
+    # Deduplicate while preserving order
+    seen: set = set()
+    modules = [m for m in modules if m not in seen and not seen.add(m)]  # type: ignore[func-returns-value]
+
+    # The starter pseudo-module lives at workspace root, not under modules/
     modules = [m for m in modules if m != "starter"]
-    
+
     if verbose:
-        print(f"  Found modules: {', '.join(modules)}")
-    
-    # Generate timestamp
+        print(f"  Discovered modules: {', '.join(modules) or '(none)'}")
+
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    
-    # Generate the code
-    code = f'''"""
-Auto-generated Aquilia ASGI Application
-========================================
 
-This file is automatically generated by the Aquilia CLI from your workspace configuration.
-It creates an ASGI-compliant application that can be run with any ASGI server.
+    # ── Build import block for known modules ─────────────────────────
+    manifest_imports = ""
+    manifest_vars: list = []
+    for mod in modules:
+        var = f"{mod}_manifest"
+        manifest_imports += (
+            f"from modules.{mod}.manifest import manifest as {var}\n"
+        )
+        manifest_vars.append(var)
 
-Generated by: aq run
-Workspace: {workspace_name}
-Timestamp: {timestamp}
+    manifests_list = ", ".join(manifest_vars)
 
-DO NOT EDIT - This file is regenerated on each run.
+    # Also build a dynamic fallback that picks up any *new* modules the
+    # user may have added since the last ``aq run`` without restarting.
+    known_set_literal = ", ".join(f'"{m}"' for m in modules) if modules else ""
 
-Usage:
-  Development: aq run
-  Production:  uvicorn runtime.app:app --workers 4
-  With gunicorn: gunicorn runtime.app:app -k uvicorn.workers.UvicornWorker
+    code = f'''\
+"""
+Aquilia ASGI Runtime -- {workspace_name}
+{"=" * (23 + len(workspace_name))}
 
-Learn more: https://docs.aquilia.dev/
+Auto-generated by ``aq run``.  DO NOT EDIT -- regenerated on every launch.
+
+Timestamp : {timestamp}
+Workspace : {workspace_name}
+Mode      : {mode}
+Modules   : {len(modules)} ({", ".join(modules) or "none"})
+
+Usage
+-----
+Development  : aq run
+Production   : uvicorn runtime.app:app --host 0.0.0.0 --port 8000 --workers 4
+Gunicorn     : gunicorn runtime.app:app -k uvicorn.workers.UvicornWorker -w 4
+Hypercorn    : hypercorn runtime.app:app --bind 0.0.0.0:8000
+Docker       : CMD ["uvicorn", "runtime.app:app", "--host", "0.0.0.0"]
 """
 
+from __future__ import annotations
+
+import logging
+import os
 import sys
 from pathlib import Path
 
-# Add workspace root to path
-workspace_root = Path(__file__).parent.parent
-if str(workspace_root) not in sys.path:
-    sys.path.insert(0, str(workspace_root))
+# ────────────────────────────────────────────────────────────────────────
+# 1. Path & environment bootstrap
+# ────────────────────────────────────────────────────────────────────────
+_WORKSPACE_ROOT = Path(__file__).resolve().parent.parent
 
-from aquilia import AquiliaServer
+if str(_WORKSPACE_ROOT) not in sys.path:
+    sys.path.insert(0, str(_WORKSPACE_ROOT))
+
+os.environ.setdefault("AQUILIA_ENV", "{mode}")
+os.environ.setdefault("AQUILIA_WORKSPACE", str(_WORKSPACE_ROOT))
+
+# ────────────────────────────────────────────────────────────────────────
+# 2. Logging -- structured, mode-aware
+# ────────────────────────────────────────────────────────────────────────
+_LOG_LEVEL = logging.DEBUG if "{mode}" == "dev" else logging.INFO
+_LOG_FORMAT = (
+    "%(asctime)s | %(levelname)-8s | %(name)s -- %(message)s"
+    if "{mode}" == "prod"
+    else "%(levelname)-8s | %(name)s -- %(message)s"
+)
+logging.basicConfig(level=_LOG_LEVEL, format=_LOG_FORMAT, force=True)
+
+# Silence noisy third-party loggers in dev mode
+for _noisy in ("aiosqlite", "asyncio", "urllib3", "httpcore", "httpx",
+               "watchfiles", "uvicorn.error", "python_multipart",
+               "python_multipart.multipart"):
+    logging.getLogger(_noisy).setLevel(logging.WARNING)
+
+_logger = logging.getLogger("aquilia.runtime")
+
+# ────────────────────────────────────────────────────────────────────────
+# 3. Configuration -- single source of truth from workspace.py
+# ────────────────────────────────────────────────────────────────────────
 from aquilia.config import ConfigLoader
 
-'''
-    
-    # Import module manifests
-    manifest_vars = []
-    
-    for module_name in modules:
-        code += f"from modules.{module_name}.manifest import manifest as {module_name}_manifest\n"
-        manifest_vars.append(f"{module_name}_manifest")
-        
-        if verbose:
-            print(f"  Loaded module: {module_name}")
-            
-    manifests_str = ", ".join(manifest_vars)
-    
-    # Build apps config
-    apps_config = "\n".join([
-        f'config.config_data["apps"]["{m}"] = {{}}'
-        for m in modules
-    ])
-    
-    code += f'''
-# Create configuration
-config = ConfigLoader.load(paths=["workspace.py"])
+config = ConfigLoader.load(
+    paths=["workspace.py"],
+    overrides={{
+        "mode": "{mode}",
+        "debug": {"True" if mode == "dev" else "False"},
+    }},
+)
 
-# Merge config data directly
-config.config_data["debug"] = True
-config.config_data["mode"] = "{mode}"
+# Ensure ``apps`` namespace exists for every known module
+if "apps" not in config.config_data:
+    config.config_data["apps"] = {{}}
+for _mod_name in [{known_set_literal}]:
+    config.config_data["apps"].setdefault(_mod_name, {{}})
 
-# Initialize apps config for each module
-config.config_data["apps"] = {{}}
-{apps_config}
-
-# Build the apps namespace (required by Aquilary)
 config._build_apps_namespace()
 
-# Determine registry mode from config
-from aquilia.aquilary.core import RegistryMode
-_mode_str = config.config_data.get("mode", "dev")
-_registry_mode = RegistryMode(_mode_str) if _mode_str in ("dev", "prod", "test") else RegistryMode.DEV
+# ────────────────────────────────────────────────────────────────────────
+# 4. Manifest discovery
+#    Static imports for known modules (fast path) + dynamic fallback
+#    for modules added after the last ``aq run``.
+# ────────────────────────────────────────────────────────────────────────
+{manifest_imports}
+_manifests: list = [{manifests_list}]
+_known_modules: set = {{{known_set_literal}}}
 
-# Create server with all module manifests
+# Dynamic discovery -- pick up any *new* modules transparently
+_modules_dir = _WORKSPACE_ROOT / "modules"
+if _modules_dir.is_dir():
+    for _pkg in sorted(_modules_dir.iterdir()):
+        if (
+            _pkg.is_dir()
+            and _pkg.name not in _known_modules
+            and (_pkg / "manifest.py").exists()
+            and not _pkg.name.startswith(("_", "."))
+        ):
+            try:
+                import importlib
+                _mod = importlib.import_module(f"modules.{{_pkg.name}}.manifest")
+                _m = getattr(_mod, "manifest", None)
+                if _m is not None:
+                    _manifests.append(_m)
+                    config.config_data["apps"].setdefault(_pkg.name, {{}})
+                    _logger.info("Auto-discovered module: %s", _pkg.name)
+            except Exception as _exc:
+                _logger.warning(
+                    "Could not import manifest for module %s: %s",
+                    _pkg.name, _exc,
+                )
+
+    # Rebuild apps namespace after potential new modules
+    config._build_apps_namespace()
+
+# ────────────────────────────────────────────────────────────────────────
+# 5. Server construction
+# ────────────────────────────────────────────────────────────────────────
+from aquilia import AquiliaServer
+from aquilia.aquilary.core import RegistryMode
+
+_MODE_MAP = {{"dev": RegistryMode.DEV, "prod": RegistryMode.PROD, "test": RegistryMode.TEST}}
+_registry_mode = _MODE_MAP.get("{mode}", RegistryMode.DEV)
+
 server = AquiliaServer(
-    manifests=[{manifests_str}],
+    manifests=_manifests,
     config=config,
     mode=_registry_mode,
 )
 
-# ASGI application
+# ────────────────────────────────────────────────────────────────────────
+# 6. ASGI application export
+# ────────────────────────────────────────────────────────────────────────
 app = server.app
-
-print("✓ Aquilia workspace app loaded")
-print(f"  Workspace: {workspace_name}")
-print(f"  Modules: {len(modules)}")
 '''
-    
+
     return code
 
 
@@ -1028,7 +1113,7 @@ def _find_app_module(workspace_root: Path, verbose: bool = False) -> Optional[st
                     app_ref = f"{module_name}:{var_name}"
                     
                     if verbose:
-                        print(f"✓ Found app: {app_ref}")
+                        print(f"Found app: {app_ref}")
                     
                     return app_ref
     

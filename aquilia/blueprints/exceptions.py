@@ -1,5 +1,5 @@
 """
-Aquilia Blueprint Exceptions — Fault-domain-integrated error hierarchy.
+Aquilia Blueprint Exceptions -- Fault-domain-integrated error hierarchy.
 
 All Blueprint errors participate in Aquilia's fault domain system,
 producing structured error responses with field→message mapping.
@@ -16,7 +16,7 @@ from ..faults.core import Fault, FaultDomain, Severity
 
 BLUEPRINT = FaultDomain(
     name="BLUEPRINT",
-    description="Blueprint contract violations — casting, sealing, imprinting",
+    description="Blueprint contract violations -- casting, sealing, imprinting",
 )
 
 

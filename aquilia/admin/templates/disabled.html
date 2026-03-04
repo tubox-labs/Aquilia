@@ -1,0 +1,420 @@
+{% extends "base.html" %}
+{% block title %}{{ module_name }} (Disabled){% endblock %}
+{% block breadcrumb %}{{ module_name }}{% endblock %}
+
+{% block extra_head %}
+<style>
+/* ── Disabled Module Overlay ── */
+.disabled-container {
+    position: relative;
+    min-height: 70vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Blurred placeholder content behind the overlay */
+.disabled-bg {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    filter: blur(8px) saturate(0.4);
+    opacity: 0.35;
+    pointer-events: none;
+    user-select: none;
+    padding: 32px;
+}
+.disabled-bg-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 16px;
+    margin-bottom: 32px;
+}
+.disabled-bg-card {
+    background: var(--bg-glass);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius, 12px);
+    padding: 24px 16px;
+    height: 110px;
+}
+.disabled-bg-card::after {
+    content: '';
+    display: block;
+    width: 60%;
+    height: 8px;
+    background: var(--border-color);
+    border-radius: 4px;
+    margin-top: 12px;
+}
+.disabled-bg-table {
+    background: var(--bg-glass);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius, 12px);
+    height: 300px;
+}
+.disabled-bg-table-row {
+    height: 44px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    gap: 20px;
+}
+.disabled-bg-table-cell {
+    height: 10px;
+    background: var(--border-color);
+    border-radius: 4px;
+    flex: 1;
+}
+.disabled-bg-table-cell:first-child { max-width: 80px; }
+.disabled-bg-table-cell:nth-child(2) { max-width: 140px; }
+
+/* The frosted-glass overlay card */
+.disabled-overlay {
+    position: relative;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 70vh;
+    padding: 48px 24px;
+}
+.disabled-card {
+    text-align: center;
+    max-width: 560px;
+    width: 100%;
+    background: var(--bg-glass);
+    backdrop-filter: blur(24px) saturate(1.8);
+    -webkit-backdrop-filter: blur(24px) saturate(1.8);
+    border: 1px solid var(--border-color);
+    border-radius: 20px;
+    padding: 48px 40px 40px;
+    box-shadow:
+        0 0 0 1px rgba(34,197,94,0.06),
+        0 24px 80px rgba(0,0,0,0.4),
+        0 0 120px rgba(34,197,94,0.05);
+    position: relative;
+    overflow: hidden;
+    animation: disabled-card-in 0.6s cubic-bezier(0.16,1,0.3,1);
+}
+@keyframes disabled-card-in {
+    from { opacity: 0; transform: translateY(24px) scale(0.96); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.disabled-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--accent, #22c55e), rgba(34,197,94,0.2));
+    border-radius: 20px 20px 0 0;
+}
+
+/* Icon circle */
+.disabled-icon {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    background: rgba(34,197,94,0.08);
+    border: 2px solid rgba(34,197,94,0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 24px;
+    position: relative;
+}
+.disabled-icon i {
+    font-size: 28px;
+    color: var(--accent, #22c55e);
+    opacity: 0.7;
+}
+.disabled-icon .disabled-icon-pause {
+    position: absolute;
+    bottom: -2px;
+    right: -2px;
+    width: 24px;
+    height: 24px;
+    background: var(--bg-card, #09090b);
+    border: 2px solid var(--border-color);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.disabled-icon .disabled-icon-pause i {
+    font-size: 12px;
+    color: var(--text-muted, #71717a);
+    opacity: 1;
+}
+
+/* Title & text */
+.disabled-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+    letter-spacing: -0.02em;
+}
+.disabled-subtitle {
+    font-size: 0.85rem;
+    color: var(--text-secondary, #a1a1aa);
+    margin-bottom: 28px;
+    line-height: 1.6;
+}
+.disabled-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    background: rgba(251,191,36,0.1);
+    border: 1px solid rgba(251,191,36,0.2);
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #fbbf24;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin-bottom: 24px;
+}
+
+/* Code snippet area */
+.disabled-code-block {
+    background: var(--bg-primary, #02040a);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 0;
+    margin-bottom: 28px;
+    text-align: left;
+    overflow: hidden;
+}
+.disabled-code-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border-color);
+    background: rgba(255,255,255,0.02);
+}
+.disabled-code-header-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--text-muted, #71717a);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.disabled-code-header-label i { font-size: 13px; }
+.disabled-code-header-badge {
+    font-size: 0.65rem;
+    padding: 2px 8px;
+    background: rgba(34,197,94,0.1);
+    border: 1px solid rgba(34,197,94,0.15);
+    border-radius: 999px;
+    color: var(--accent, #22c55e);
+    font-weight: 500;
+}
+.disabled-code-body {
+    padding: 16px 20px;
+    font-family: var(--font-mono, 'Space Mono', monospace);
+    font-size: 0.78rem;
+    line-height: 1.7;
+    overflow-x: auto;
+}
+.disabled-code-body .code-comment {
+    color: var(--text-muted, #71717a);
+}
+.disabled-code-body .code-method {
+    color: #60a5fa;
+}
+.disabled-code-body .code-class {
+    color: #c084fc;
+}
+.disabled-code-body .code-string {
+    color: #34d399;
+}
+.disabled-code-body .code-keyword {
+    color: #f472b6;
+}
+
+/* Divider */
+.disabled-or {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 16px 0;
+    font-size: 0.7rem;
+    color: var(--text-muted, #71717a);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+.disabled-or::before,
+.disabled-or::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border-color);
+}
+
+/* Flat hint */
+.disabled-flat-hint {
+    font-family: var(--font-mono, 'Space Mono', monospace);
+    font-size: 0.75rem;
+    color: var(--text-secondary, #a1a1aa);
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 10px 16px;
+    margin-bottom: 28px;
+}
+.disabled-flat-hint .code-keyword { color: #f472b6; }
+.disabled-flat-hint .code-param { color: #60a5fa; }
+.disabled-flat-hint .code-value { color: #34d399; }
+
+/* Actions */
+.disabled-actions {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+.disabled-actions .btn-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 24px;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    font-size: 0.8rem;
+    color: var(--text-primary);
+    text-decoration: none;
+    transition: border-color 0.2s, background 0.2s, transform 0.15s;
+    font-family: var(--font-sans, 'Outfit', sans-serif);
+    background: transparent;
+    cursor: pointer;
+}
+.disabled-actions .btn-back:hover {
+    border-color: var(--accent, #22c55e);
+    background: rgba(34,197,94,0.05);
+    transform: translateY(-1px);
+}
+.disabled-actions .btn-back i { font-size: 14px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="disabled-container">
+
+    {# ── Blurred placeholder content (gives context about what the page would show) ── #}
+    <div class="disabled-bg" aria-hidden="true">
+        <div style="margin-bottom:16px;">
+            <div style="height:28px;width:200px;background:var(--border-color);border-radius:6px;margin-bottom:8px;"></div>
+            <div style="height:14px;width:320px;background:var(--border-color);border-radius:4px;opacity:0.5;"></div>
+        </div>
+        <div class="disabled-bg-grid">
+            <div class="disabled-bg-card"></div>
+            <div class="disabled-bg-card"></div>
+            <div class="disabled-bg-card"></div>
+            <div class="disabled-bg-card"></div>
+            <div class="disabled-bg-card"></div>
+            <div class="disabled-bg-card"></div>
+        </div>
+        <div class="disabled-bg-table">
+            {% for i in range(6) %}
+            <div class="disabled-bg-table-row">
+                <div class="disabled-bg-table-cell"></div>
+                <div class="disabled-bg-table-cell"></div>
+                <div class="disabled-bg-table-cell"></div>
+                <div class="disabled-bg-table-cell"></div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    {# ── Frosted-glass overlay ── #}
+    <div class="disabled-overlay">
+        <div class="disabled-card">
+
+            {# Icon #}
+            <div class="disabled-icon">
+                <i class="{{ icon_class }}"></i>
+                <div class="disabled-icon-pause">
+                    <i class="icon-pause"></i>
+                </div>
+            </div>
+
+            {# Title #}
+            <h1 class="disabled-title">{{ module_name }}</h1>
+
+            {# Badge #}
+            <div class="disabled-badge">
+                <i class="icon-toggle-left" style="font-size:12px;"></i>
+                Module Disabled
+            </div>
+
+            {# Description #}
+            <p class="disabled-subtitle">
+                {{ description }}
+                <br>
+                Enable this module in your <strong>workspace.py</strong> configuration to activate it.
+            </p>
+
+            {# Builder syntax code block #}
+            <div class="disabled-code-block">
+                <div class="disabled-code-header">
+                    <div class="disabled-code-header-label">
+                        <i class="icon-code"></i>
+                        workspace.py
+                    </div>
+                    <div class="disabled-code-header-badge">Recommended</div>
+                </div>
+                <div class="disabled-code-body">
+                    <span class="code-comment"># Add to your Integration.admin() call:</span><br>
+                    {% if 'AdminAudit' in builder_hint %}
+                    <span class="code-keyword">audit</span>=(<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;<span class="code-class">Integration</span>.<span class="code-method">AdminAudit</span>()<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;.<span class="code-method">enable</span>()<br>
+                    ),
+                    {% elif 'AdminMonitoring' in builder_hint %}
+                    <span class="code-keyword">monitoring</span>=(<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;<span class="code-class">Integration</span>.<span class="code-method">AdminMonitoring</span>()<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;.<span class="code-method">enable</span>()<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;.<span class="code-method">metrics</span>(<span class="code-string">"cpu"</span>, <span class="code-string">"memory"</span>, <span class="code-string">"system"</span>)<br>
+                    ),
+                    {% else %}
+                    <span class="code-keyword">modules</span>=(<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;<span class="code-class">Integration</span>.<span class="code-method">AdminModules</span>()<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;.<span class="code-method">{{ builder_hint.split('.')[-1] }}</span><br>
+                    ),
+                    {% endif %}
+                </div>
+            </div>
+
+            {# Or divider #}
+            <div class="disabled-or">or use flat syntax</div>
+
+            {# Flat syntax hint #}
+            <div class="disabled-flat-hint">
+                <span class="code-class">Integration</span>.<span class="code-method">admin</span>(
+                <span class="code-param">{{ flat_hint.split('=')[0] }}</span>=<span class="code-value">True</span>
+                )
+            </div>
+
+            {# Actions #}
+            <div class="disabled-actions">
+                <a href="{{ url_prefix|default('/admin') }}/" class="btn-back">
+                    <i class="icon-home"></i>
+                    Dashboard
+                </a>
+                <button onclick="history.back()" class="btn-back">
+                    <i class="icon-arrow-left"></i>
+                    Go Back
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+</div>
+{% endblock %}

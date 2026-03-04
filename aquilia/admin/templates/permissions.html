@@ -104,7 +104,7 @@
             <button type="submit" class="btn btn-primary">
                 <i class="icon-save" style="font-size:14px;"></i> Save Role Permissions
             </button>
-            <button type="button" class="btn btn-secondary" onclick="document.getElementById('matrixForm').reset();trackMatrixChanges();">
+            <button type="button" class="btn btn-secondary" id="matrixResetBtn">
                 <i class="icon-rotate-ccw" style="font-size:14px;"></i> Reset
             </button>
             <span class="meta-text" id="matrixChanges" style="margin-left:auto;"></span>
@@ -187,7 +187,12 @@
 {% endblock %}
 
 {% block extra_js %}
-// Track changes in the permission matrix
+// ── Permission matrix change tracker ────────────────────────────────
+function _snapshotForm(form) {
+    var snap = {};
+    form.querySelectorAll('input[type="checkbox"]').forEach(function(cb) { snap[cb.name] = cb.checked; });
+    return snap;
+}
 function trackMatrixChanges() {
     var form = document.getElementById('matrixForm');
     if (!form) return;
@@ -202,12 +207,41 @@ function trackMatrixChanges() {
     }
 }
 (function() {
-    var form = document.getElementById('matrixForm');
-    if (!form) return;
-    window._matrixInitial = {};
-    form.querySelectorAll('input[type="checkbox"]').forEach(function(cb) {
-        window._matrixInitial[cb.name] = cb.checked;
-    });
-    form.addEventListener('change', trackMatrixChanges);
+    // Role matrix — track changes and fix reset
+    var matrixForm = document.getElementById('matrixForm');
+    if (matrixForm) {
+        window._matrixInitial = _snapshotForm(matrixForm);
+        matrixForm.addEventListener('change', trackMatrixChanges);
+        // Override reset button so it restores to server state (not browser default)
+        var resetBtn = document.getElementById('matrixResetBtn');
+        if (resetBtn) {
+            resetBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                // Restore each checkbox to its initial (server-saved) state
+                matrixForm.querySelectorAll('input[type="checkbox"]').forEach(function(cb) {
+                    cb.checked = window._matrixInitial[cb.name] || false;
+                });
+                trackMatrixChanges();
+            });
+        }
+    }
+    // Model perms form — track unsaved changes
+    var modelForm = document.getElementById('modelPermsForm');
+    if (modelForm) {
+        window._modelPermsInitial = _snapshotForm(modelForm);
+        modelForm.addEventListener('change', function() {
+            var changed = 0;
+            modelForm.querySelectorAll('input[type="checkbox"]').forEach(function(cb) {
+                if (window._modelPermsInitial[cb.name] !== cb.checked) changed++;
+            });
+            // Re-use matrixChanges element if on same tab, or find a sibling
+            var submitBtn = modelForm.querySelector('button[type="submit"]');
+            if (submitBtn && changed > 0) {
+                submitBtn.textContent = '\u2713 Save (' + changed + ' change' + (changed > 1 ? 's' : '') + ')';
+            } else if (submitBtn) {
+                submitBtn.innerHTML = '<i class="icon-save" style="font-size:14px;"></i> Save Model Permissions';
+            }
+        });
+    }
 })();
 {% endblock %}

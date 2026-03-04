@@ -19,7 +19,8 @@
     <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
     <link rel="shortcut icon" href="/static/favicon.ico">
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;550;600;700&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;450;500;550;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
     <link href="https://unpkg.com/lucide-static@latest/font/lucide.css" rel="stylesheet">
     <style>
     {% block head_css %}
@@ -29,7 +30,18 @@
     {% block extra_head %}{% endblock %}
 </head>
 <body>
+    {# ── Ambient background blobs (green/blue/purple/cyan like aqdocx) ── #}
+    <div class="ambient-blob ambient-blob-green"></div>
+    <div class="ambient-blob ambient-blob-blue"></div>
+    <div class="ambient-blob ambient-blob-purple"></div>
+    <div class="ambient-blob ambient-blob-cyan"></div>
+    {# ── Scroll Progress Bar ── #}
+    <div class="scroll-progress"><div class="scroll-progress-bar" id="scrollProgress"></div></div>
+
     <div class="admin-layout">
+        {# ── Sidebar Backdrop (mobile only) ── #}
+        <div class="sidebar-backdrop" id="sidebarBackdrop" onclick="closeSidebar()"></div>
+
         {# ── Sidebar ── #}
         {% include "partials/sidebar_v2.html" %}
 
@@ -38,7 +50,7 @@
             {# ── Top bar ── #}
             <div class="admin-topbar">
                 <div class="topbar-left">
-                    <button class="btn-ghost" onclick="document.getElementById('adminSidebar').classList.toggle('open')" style="display:none;padding:4px;" id="menuToggle">
+                    <button class="btn-ghost sidebar-mobile-toggle" onclick="toggleMobileSidebar()" style="padding:4px;" id="menuToggle">
                         <i class="icon-menu" style="font-size:20px;"></i>
                     </button>
                     <div class="topbar-breadcrumb">
@@ -51,6 +63,56 @@
                     <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme" aria-label="Toggle theme">
                         <i class="icon-sun"></i>
                     </button>
+                    {# ── Profile dropdown ── #}
+                    <div class="topbar-profile-wrap" id="topbarProfileWrap">
+                        <button class="topbar-profile-btn" id="topbarProfileBtn" onclick="toggleProfileDropdown()" aria-label="Profile menu">
+                            <div class="topbar-avatar" id="topbarAvatar">
+                                {% if identity_avatar %}
+                                <img src="{{ identity_avatar }}" alt="avatar" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">
+                                {% else %}
+                                {{ (identity_name or 'A')|truncate(1, True, '')|upper }}
+                                {% endif %}
+                            </div>
+                            <i class="icon-chevron-down" style="font-size:12px;color:var(--text-muted);transition:transform .2s;" id="topbarChevron"></i>
+                        </button>
+                        <div class="topbar-dropdown" id="topbarDropdown">
+                            <div class="topbar-dropdown-header">
+                                <div class="topbar-avatar topbar-avatar-lg" id="topbarAvatarLg">
+                                    {% if identity_avatar %}
+                                    <img src="{{ identity_avatar }}" alt="avatar" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">
+                                    {% else %}
+                                    {{ (identity_name or 'A')|truncate(1, True, '')|upper }}
+                                    {% endif %}
+                                </div>
+                                <div>
+                                    <div style="font-weight:600;font-size:.85rem;">{{ identity_name }}</div>
+                                    <div style="font-size:.72rem;color:var(--text-muted);">Admin</div>
+                                </div>
+                            </div>
+                            <div class="topbar-dropdown-divider"></div>
+                            {% set _ac = admin_config|default({}) %}
+                            {% set _mods = _ac.get('modules', {}) if _ac is mapping else {} %}
+                            {% if _mods.get('profile', true) %}
+                            <a href="{{ url_prefix|default('/admin') }}/profile/" class="topbar-dropdown-item">
+                                <i class="icon-user" style="font-size:15px;"></i> Profile
+                            </a>
+                            {% endif %}
+                            {% if _mods.get('admin_users', true) %}
+                            <a href="{{ url_prefix|default('/admin') }}/admin-users/" class="topbar-dropdown-item">
+                                <i class="icon-users" style="font-size:15px;"></i> Admin Users
+                            </a>
+                            {% endif %}
+                            {% if _mods.get('permissions', true) %}
+                            <a href="{{ url_prefix|default('/admin') }}/permissions/" class="topbar-dropdown-item">
+                                <i class="icon-shield" style="font-size:15px;"></i> Permissions
+                            </a>
+                            {% endif %}
+                            <div class="topbar-dropdown-divider"></div>
+                            <a href="{{ url_prefix|default('/admin') }}/logout" class="topbar-dropdown-item topbar-dropdown-danger">
+                                <i class="icon-log-out" style="font-size:15px;"></i> Logout
+                            </a>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -85,11 +147,7 @@
         });
     }
     (function() {
-        // Show mobile menu toggle on small screens
-        if (window.innerWidth <= 768) {
-            var btn = document.getElementById('menuToggle');
-            if (btn) btn.style.display = 'block';
-        }
+        // Mobile sidebar is handled entirely by CSS media queries + toggle
     })();
     function toggleAll(source) {
         document.querySelectorAll('.row-check').forEach(function(cb) {
@@ -105,6 +163,62 @@
             c.classList.toggle('active', c.getAttribute('data-tab') === tabName);
         });
     }
+
+    // ── Mobile sidebar toggle ──
+    window.toggleMobileSidebar = function() {
+        var sidebar = document.getElementById('adminSidebar');
+        var backdrop = document.getElementById('sidebarBackdrop');
+        sidebar.classList.toggle('open');
+        backdrop.classList.toggle('visible');
+        document.body.classList.toggle('sidebar-open');
+    };
+    window.closeSidebar = function() {
+        var sidebar = document.getElementById('adminSidebar');
+        var backdrop = document.getElementById('sidebarBackdrop');
+        sidebar.classList.remove('open');
+        backdrop.classList.remove('visible');
+        document.body.classList.remove('sidebar-open');
+    };
+    // Close sidebar on nav link click (mobile)
+    (function() {
+        document.querySelectorAll('.admin-sidebar .sidebar-link').forEach(function(link) {
+            link.addEventListener('click', function() {
+                if (window.innerWidth <= 768) closeSidebar();
+            });
+        });
+        // Close on resize to desktop
+        var mq = window.matchMedia('(min-width: 769px)');
+        mq.addEventListener('change', function(e) {
+            if (e.matches) closeSidebar();
+        });
+    })();
+
+    // ── Sidebar search filter ──
+    (function() {
+        var input = document.getElementById('sidebarSearchInput');
+        if (!input) return;
+        input.addEventListener('input', function() {
+            var q = this.value.trim().toLowerCase();
+            document.querySelectorAll('.sidebar-link[data-sidebar-label]').forEach(function(link) {
+                var label = link.getAttribute('data-sidebar-label') || '';
+                link.style.display = (!q || label.includes(q)) ? '' : 'none';
+            });
+            document.querySelectorAll('[data-sidebar-section]').forEach(function(sec) {
+                var visible = sec.querySelectorAll('.sidebar-link[data-sidebar-label]:not([style*="display: none"])');
+                sec.style.display = visible.length || !q ? '' : 'none';
+            });
+        });
+    })();
+
+    // ── Scroll progress bar ──
+    (function() {
+        var bar = document.getElementById('scrollProgress');
+        if (!bar) return;
+        window.addEventListener('scroll', function() {
+            var h = document.documentElement.scrollHeight - window.innerHeight;
+            bar.style.width = h > 0 ? (window.scrollY / h * 100) + '%' : '0%';
+        }, { passive: true });
+    })();
     // ── Toast notification system ──
     (function() {
         var container = document.createElement('div');
@@ -149,7 +263,7 @@
                 overlay.innerHTML = '<div style="background:var(--bg-elevated);border:1px solid var(--border-color);border-radius:14px;padding:28px 36px;max-width:420px;width:90%;box-shadow:0 24px 64px rgba(0,0,0,0.4);">' +
                     '<h3 style="margin:0 0 18px;color:var(--text-primary);font-size:1rem;font-weight:600;">Keyboard Shortcuts</h3>' +
                     '<div style="display:grid;grid-template-columns:auto 1fr;gap:8px 18px;font-size:0.82rem;color:var(--text-secondary);">' +
-                    '<kbd style="background:var(--bg-surface);padding:2px 8px;border-radius:4px;font-size:0.75rem;color:var(--text-primary);font-family:var(--font-mono);border:1px solid var(--border-color);">⌘K</kbd><span>Focus search</span>' +
+                    '<kbd style="background:var(--bg-surface);padding:2px 8px;border-radius:4px;font-size:0.75rem;color:var(--text-primary);font-family:var(--font-mono);border:1px solid var(--border-color);">⌘K</kbd><span>Focus search / Command palette</span>' +
                     '<kbd style="background:var(--bg-surface);padding:2px 8px;border-radius:4px;font-size:0.75rem;color:var(--text-primary);font-family:var(--font-mono);border:1px solid var(--border-color);">N</kbd><span>Add new record</span>' +
                     '<kbd style="background:var(--bg-surface);padding:2px 8px;border-radius:4px;font-size:0.75rem;color:var(--text-primary);font-family:var(--font-mono);border:1px solid var(--border-color);">Shift+?</kbd><span>Show this help</span>' +
                     '<kbd style="background:var(--bg-surface);padding:2px 8px;border-radius:4px;font-size:0.75rem;color:var(--text-primary);font-family:var(--font-mono);border:1px solid var(--border-color);">Esc</kbd><span>Close dialogs</span>' +
@@ -165,7 +279,63 @@
             }
         });
     })();
+    // ── Media preview (image lightbox) ──
+    function showMediaPreview(url, type) {
+        var overlay = document.createElement('div');
+        overlay.className = 'media-preview-overlay';
+        if (type === 'image') {
+            overlay.innerHTML = '<img src="' + url + '" alt="Preview">';
+        }
+        overlay.addEventListener('click', function() { overlay.remove(); });
+        document.addEventListener('keydown', function handler(e) {
+            if (e.key === 'Escape') { overlay.remove(); document.removeEventListener('keydown', handler); }
+        });
+        document.body.appendChild(overlay);
+    }
+    // ── Topbar profile dropdown ──
+    window.toggleProfileDropdown = function() {
+        var drop = document.getElementById('topbarDropdown');
+        var chevron = document.getElementById('topbarChevron');
+        var isOpen = drop.classList.toggle('open');
+        if (chevron) chevron.style.transform = isOpen ? 'rotate(180deg)' : '';
+    };
+    document.addEventListener('click', function(e) {
+        var wrap = document.getElementById('topbarProfileWrap');
+        if (wrap && !wrap.contains(e.target)) {
+            var drop = document.getElementById('topbarDropdown');
+            var chevron = document.getElementById('topbarChevron');
+            if (drop) drop.classList.remove('open');
+            if (chevron) chevron.style.transform = '';
+        }
+    });
+    // Sync topbar avatar — server URL wins over stale localStorage data-URL
+    (function() {
+        try {
+            // If server rendered a clean avatar URL, keep it and refresh localStorage
+            var serverImg = document.querySelector('#topbarAvatar img');
+            if (serverImg && serverImg.src && !serverImg.src.startsWith('data:')) {
+                var serverUrl = serverImg.src;
+                localStorage.setItem('aquilia-admin-avatar', serverUrl);
+                // Sync the larger dropdown avatar if it wasn't rendered by server
+                var lgEl = document.getElementById('topbarAvatarLg');
+                if (lgEl && !lgEl.querySelector('img')) {
+                    lgEl.innerHTML = '<img src="' + serverUrl + '" alt="avatar" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">';
+                }
+                return;
+            }
+            // No server-side avatar — use localStorage as fallback
+            var saved = localStorage.getItem('aquilia-admin-avatar');
+            if (!saved) return;
+            ['topbarAvatar','topbarAvatarLg'].forEach(function(id) {
+                var el = document.getElementById(id);
+                if (!el) return;
+                el.innerHTML = '<img src="' + saved + '" alt="avatar" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">';
+            });
+        } catch(ex) {}
+    })();
     {% endblock %}
+    </script>
+    <script>
     {% block extra_js %}{% endblock %}
     </script>
 </body>

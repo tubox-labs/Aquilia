@@ -104,22 +104,18 @@ class FaultEngine:
     def register_global(self, handler: FaultHandler):
         """Register global fault handler."""
         self.registry.register_global(handler)
-        self.logger.debug(f"Registered global handler: {handler.__class__.__name__}")
     
     def register_app(self, app: str, handler: FaultHandler):
         """Register app-scoped fault handler."""
         self.registry.register_app(app, handler)
-        self.logger.debug(f"Registered app handler for '{app}': {handler.__class__.__name__}")
     
     def register_controller(self, controller: str, handler: FaultHandler):
         """Register controller-scoped fault handler."""
         self.registry.register_controller(controller, handler)
-        self.logger.debug(f"Registered controller handler for '{controller}': {handler.__class__.__name__}")
     
     def register_route(self, route: str, handler: FaultHandler):
         """Register route-scoped fault handler."""
         self.registry.register_route(route, handler)
-        self.logger.debug(f"Registered route handler for '{route}': {handler.__class__.__name__}")
     
     def on_fault(self, listener: Callable[[FaultContext], None]):
         """
@@ -302,10 +298,6 @@ class FaultEngine:
                 
                 # If handler resolved or transformed, stop
                 if not isinstance(result, Escalate):
-                    self.logger.debug(
-                        f"Handler {handler.__class__.__name__} "
-                        f"{result.__class__.__name__} fault {ctx.fault.code}"
-                    )
                     return result
             
             except Exception as e:
@@ -317,7 +309,6 @@ class FaultEngine:
                 # Continue to next handler
         
         # No handler resolved the fault
-        self.logger.debug(f"No handler resolved fault {ctx.fault.code}, escalating")
         return Escalate()
     
     def _emit(self, ctx: FaultContext):

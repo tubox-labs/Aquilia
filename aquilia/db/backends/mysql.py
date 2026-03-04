@@ -1,5 +1,5 @@
 """
-Aquilia DB Backend — MySQL/MariaDB adapter via aiomysql.
+Aquilia DB Backend -- MySQL/MariaDB adapter via aiomysql.
 
 Provides full async MySQL support with connection pooling,
 proper transaction management, and introspection.
@@ -109,7 +109,7 @@ class MySQLAdapter(DatabaseAdapter):
             await self._pool.wait_closed()
             self._pool = None
         self._connected = False
-        logger.info("MySQL disconnected")
+        logger.debug("MySQL disconnected")
 
     def adapt_sql(self, sql: str) -> str:
         """Convert ``?`` placeholders to ``%s`` for MySQL (string-literal safe)."""

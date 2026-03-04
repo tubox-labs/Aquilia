@@ -1,5 +1,5 @@
 """
-AquilaCache — Cache key builder implementations.
+AquilaCache -- Cache key builder implementations.
 
 Deterministic, collision-free key generation with namespace
 isolation, optional hashing for long keys, and version support

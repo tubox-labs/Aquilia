@@ -1,5 +1,5 @@
 """
-Aquilia DB Backend — PostgreSQL adapter via asyncpg.
+Aquilia DB Backend -- PostgreSQL adapter via asyncpg.
 
 Provides full async PostgreSQL support with connection pooling,
 proper transaction management, and introspection.
@@ -112,13 +112,13 @@ class PostgresAdapter(DatabaseAdapter):
             await self._pool.close()
             self._pool = None
         self._connected = False
-        logger.info("PostgreSQL disconnected")
+        logger.debug("PostgreSQL disconnected")
 
     def adapt_sql(self, sql: str) -> str:
         """
         Convert ``?`` placeholders to ``$1, $2, ...`` for asyncpg.
 
-        String-literal safe — skips ``?`` inside single-quoted strings.
+        String-literal safe -- skips ``?`` inside single-quoted strings.
         """
         result: list[str] = []
         param_idx = 0

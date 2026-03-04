@@ -31,7 +31,7 @@ class RuntimeConfig:
 @dataclass
 class ModuleConfig:
     """
-    Module configuration — workspace-level orchestration metadata.
+    Module configuration -- workspace-level orchestration metadata.
     
     The Module in workspace.py is a **pointer** to the per-module manifest.
     Component declarations (controllers, services, middleware, models,
@@ -55,7 +55,7 @@ class ModuleConfig:
     depends_on: List[str] = field(default_factory=list)
     tags: List[str] = field(default_factory=list)
     
-    # v2: Module encapsulation (NestJS-inspired)
+    # v2: Module encapsulation
     imports: List[str] = field(default_factory=list)   # modules this module depends on
     exports: List[str] = field(default_factory=list)   # services/components exposed to importers
     
@@ -92,7 +92,7 @@ class ModuleConfig:
 
 class Module:
     """
-    Fluent module builder — workspace-level orchestration only.
+    Fluent module builder -- workspace-level orchestration only.
     
     The Module builder configures **how** a module fits into the workspace
     (routing, dependencies, tags, lifecycle). All component declarations
@@ -105,7 +105,7 @@ class Module:
     
     Example::
     
-        # workspace.py — pointer only
+        # workspace.py -- pointer only
         workspace = (
             Workspace("myapp")
             .module(
@@ -120,7 +120,7 @@ class Module:
             )
         )
         
-        # modules/users/manifest.py — source of truth
+        # modules/users/manifest.py -- source of truth
         manifest = AppManifest(
             name="users",
             version="0.1.0",
@@ -163,13 +163,13 @@ class Module:
         return self
     
     def depends_on(self, *modules: str) -> "Module":
-        """Set module dependencies (legacy — prefer imports())."""
+        """Set module dependencies (legacy -- prefer imports())."""
         self._config.depends_on = list(modules)
         return self
     
     def imports(self, *modules: str) -> "Module":
         """
-        Declare module imports (v2 — NestJS-style encapsulation).
+        Declare module imports (v2 encapsulation).
         
         Modules listed here expose their ``exports`` to this module.
         Supersedes ``depends_on()`` for dependency declaration.
@@ -184,7 +184,7 @@ class Module:
     
     def exports(self, *components: str) -> "Module":
         """
-        Declare exported components (v2 — NestJS-style encapsulation).
+        Declare exported components (v2 encapsulation).
         
         Only exported services/components are visible to importing modules.
         Non-exported components are module-private.
@@ -210,7 +210,7 @@ class Module:
     # ──────────────────────────────────────────────────────────────────────
 
     def register_controllers(self, *controllers: str) -> "Module":
-        """DEPRECATED — declare controllers in modules/*/manifest.py instead."""
+        """DEPRECATED -- declare controllers in modules/*/manifest.py instead."""
         import warnings
         warnings.warn(
             "Module.register_controllers() is deprecated. "
@@ -221,7 +221,7 @@ class Module:
         return self
 
     def register_services(self, *services: str) -> "Module":
-        """DEPRECATED — declare services in modules/*/manifest.py instead."""
+        """DEPRECATED -- declare services in modules/*/manifest.py instead."""
         import warnings
         warnings.warn(
             "Module.register_services() is deprecated. "
@@ -232,7 +232,7 @@ class Module:
         return self
         
     def register_providers(self, *providers: Dict[str, Any]) -> "Module":
-        """DEPRECATED — declare providers in modules/*/manifest.py instead."""
+        """DEPRECATED -- declare providers in modules/*/manifest.py instead."""
         import warnings
         warnings.warn(
             "Module.register_providers() is deprecated. "
@@ -243,7 +243,7 @@ class Module:
         return self
         
     def register_routes(self, *routes: Dict[str, Any]) -> "Module":
-        """DEPRECATED — declare routes via controllers in modules/*/manifest.py instead."""
+        """DEPRECATED -- declare routes via controllers in modules/*/manifest.py instead."""
         import warnings
         warnings.warn(
             "Module.register_routes() is deprecated. "
@@ -254,7 +254,7 @@ class Module:
         return self
 
     def register_sockets(self, *sockets: str) -> "Module":
-        """DEPRECATED — declare socket controllers in modules/*/manifest.py instead."""
+        """DEPRECATED -- declare socket controllers in modules/*/manifest.py instead."""
         import warnings
         warnings.warn(
             "Module.register_sockets() is deprecated. "
@@ -265,7 +265,7 @@ class Module:
         return self
 
     def register_middlewares(self, *middlewares: str) -> "Module":
-        """DEPRECATED — declare middleware in modules/*/manifest.py instead."""
+        """DEPRECATED -- declare middleware in modules/*/manifest.py instead."""
         import warnings
         warnings.warn(
             "Module.register_middlewares() is deprecated. "
@@ -276,7 +276,7 @@ class Module:
         return self
     
     def register_models(self, *models: str) -> "Module":
-        """DEPRECATED — declare models in modules/*/manifest.py instead."""
+        """DEPRECATED -- declare models in modules/*/manifest.py instead."""
         import warnings
         warnings.warn(
             "Module.register_models() is deprecated. "
@@ -287,7 +287,7 @@ class Module:
         return self
     
     def register_serializers(self, *serializers: str) -> "Module":
-        """DEPRECATED — declare serializers in modules/*/manifest.py instead."""
+        """DEPRECATED -- declare serializers in modules/*/manifest.py instead."""
         import warnings
         warnings.warn(
             "Module.register_serializers() is deprecated. "
@@ -748,7 +748,7 @@ class Integration:
         backends with pluggable serialization and middleware.
 
         Args:
-            backend: Backend type — ``"memory"``, ``"redis"``,
+            backend: Backend type -- ``"memory"``, ``"redis"``,
                      ``"composite"``, or ``"null"``.
             default_ttl: Default time-to-live in seconds.
             max_size: Maximum entries for memory backend.
@@ -809,6 +809,515 @@ class Integration:
             **kwargs,
         }
 
+    # ── Admin Nested Builder Classes ──────────────────────────────────
+    #
+    # IDE-friendly, type-safe configuration objects for the admin panel.
+    # Each sub-config is a small fluent builder that produces a typed dict.
+    # Developers get autocomplete, doc-strings, and compile-time safety.
+    #
+    # Usage::
+    #
+    #     .integrate(Integration.admin(
+    #         site_title="MyApp Admin",
+    #         modules=(
+    #             Integration.AdminModules()
+    #             .enable_dashboard()
+    #             .enable_orm()
+    #             .disable_build()
+    #             .disable_migrations()
+    #         ),
+    #         audit=(
+    #             Integration.AdminAudit()
+    #             .enable()
+    #             .log_logins()
+    #             .exclude_actions("VIEW", "LIST")
+    #         ),
+    #         monitoring=(
+    #             Integration.AdminMonitoring()
+    #             .enable()
+    #             .metrics("cpu", "memory", "system")
+    #             .refresh_interval(15)
+    #         ),
+    #         sidebar=(
+    #             Integration.AdminSidebar()
+    #             .show_overview()
+    #             .show_data()
+    #             .hide_security()
+    #         ),
+    #     ))
+
+    class AdminModules:
+        """
+        Fluent builder for admin module visibility.
+
+        Controls which pages are visible in the admin panel.
+        All modules default to enabled except monitoring and audit
+        (which must be explicitly opted-in).
+
+        Example::
+
+            modules = (
+                Integration.AdminModules()
+                .enable_orm()
+                .enable_monitoring()   # Opt-in
+                .disable_build()
+            )
+        """
+
+        __slots__ = ("_dashboard", "_orm", "_build", "_migrations",
+                     "_config", "_workspace", "_permissions",
+                     "_monitoring", "_admin_users", "_profile", "_audit")
+
+        def __init__(self) -> None:
+            self._dashboard: bool = True
+            self._orm: bool = True
+            self._build: bool = True
+            self._migrations: bool = True
+            self._config: bool = True
+            self._workspace: bool = True
+            self._permissions: bool = True
+            self._monitoring: bool = False   # disabled by default
+            self._admin_users: bool = True
+            self._profile: bool = True
+            self._audit: bool = False         # disabled by default
+
+        # ── Dashboard ──
+        def enable_dashboard(self) -> "Integration.AdminModules":
+            """Show the Dashboard page."""
+            self._dashboard = True
+            return self
+
+        def disable_dashboard(self) -> "Integration.AdminModules":
+            """Hide the Dashboard page."""
+            self._dashboard = False
+            return self
+
+        # ── ORM ──
+        def enable_orm(self) -> "Integration.AdminModules":
+            """Show the ORM Models page."""
+            self._orm = True
+            return self
+
+        def disable_orm(self) -> "Integration.AdminModules":
+            """Hide the ORM Models page."""
+            self._orm = False
+            return self
+
+        # ── Build ──
+        def enable_build(self) -> "Integration.AdminModules":
+            """Show the Build page."""
+            self._build = True
+            return self
+
+        def disable_build(self) -> "Integration.AdminModules":
+            """Hide the Build page."""
+            self._build = False
+            return self
+
+        # ── Migrations ──
+        def enable_migrations(self) -> "Integration.AdminModules":
+            """Show the Migrations page."""
+            self._migrations = True
+            return self
+
+        def disable_migrations(self) -> "Integration.AdminModules":
+            """Hide the Migrations page."""
+            self._migrations = False
+            return self
+
+        # ── Config ──
+        def enable_config(self) -> "Integration.AdminModules":
+            """Show the Configuration page."""
+            self._config = True
+            return self
+
+        def disable_config(self) -> "Integration.AdminModules":
+            """Hide the Configuration page."""
+            self._config = False
+            return self
+
+        # ── Workspace ──
+        def enable_workspace(self) -> "Integration.AdminModules":
+            """Show the Workspace page."""
+            self._workspace = True
+            return self
+
+        def disable_workspace(self) -> "Integration.AdminModules":
+            """Hide the Workspace page."""
+            self._workspace = False
+            return self
+
+        # ── Permissions ──
+        def enable_permissions(self) -> "Integration.AdminModules":
+            """Show the Permissions page."""
+            self._permissions = True
+            return self
+
+        def disable_permissions(self) -> "Integration.AdminModules":
+            """Hide the Permissions page."""
+            self._permissions = False
+            return self
+
+        # ── Monitoring (disabled by default) ──
+        def enable_monitoring(self) -> "Integration.AdminModules":
+            """Show the Monitoring page. Disabled by default -- opt in."""
+            self._monitoring = True
+            return self
+
+        def disable_monitoring(self) -> "Integration.AdminModules":
+            """Hide the Monitoring page."""
+            self._monitoring = False
+            return self
+
+        # ── Admin Users ──
+        def enable_admin_users(self) -> "Integration.AdminModules":
+            """Show the Admin Users page."""
+            self._admin_users = True
+            return self
+
+        def disable_admin_users(self) -> "Integration.AdminModules":
+            """Hide the Admin Users page."""
+            self._admin_users = False
+            return self
+
+        # ── Profile ──
+        def enable_profile(self) -> "Integration.AdminModules":
+            """Show the Profile page."""
+            self._profile = True
+            return self
+
+        def disable_profile(self) -> "Integration.AdminModules":
+            """Hide the Profile page."""
+            self._profile = False
+            return self
+
+        # ── Audit (disabled by default) ──
+        def enable_audit(self) -> "Integration.AdminModules":
+            """Show the Audit Log page. Disabled by default -- opt in."""
+            self._audit = True
+            return self
+
+        def disable_audit(self) -> "Integration.AdminModules":
+            """Hide the Audit Log page."""
+            self._audit = False
+            return self
+
+        # ── Convenience ──
+        def enable_all(self) -> "Integration.AdminModules":
+            """Enable every admin module (including monitoring & audit)."""
+            for attr in self.__slots__:
+                setattr(self, attr, True)
+            return self
+
+        def disable_all(self) -> "Integration.AdminModules":
+            """Disable every admin module."""
+            for attr in self.__slots__:
+                setattr(self, attr, False)
+            return self
+
+        def to_dict(self) -> Dict[str, bool]:
+            """Serialize to a dict consumed by AdminConfig."""
+            return {
+                "dashboard": self._dashboard,
+                "orm": self._orm,
+                "build": self._build,
+                "migrations": self._migrations,
+                "config": self._config,
+                "workspace": self._workspace,
+                "permissions": self._permissions,
+                "monitoring": self._monitoring,
+                "admin_users": self._admin_users,
+                "profile": self._profile,
+                "audit": self._audit,
+            }
+
+        def __repr__(self) -> str:
+            enabled = [k for k, v in self.to_dict().items() if v]
+            return f"AdminModules(enabled={enabled})"
+
+    class AdminAudit:
+        """
+        Fluent builder for admin audit log configuration.
+
+        Controls whether the audit trail is active, which action
+        categories are recorded, and which specific actions are
+        excluded.
+
+        **Disabled by default** -- call ``.enable()`` to activate.
+
+        Example::
+
+            audit = (
+                Integration.AdminAudit()
+                .enable()
+                .max_entries(50_000)
+                .log_logins()
+                .no_log_views()            # skip VIEW / LIST
+                .exclude_actions("SEARCH")
+            )
+        """
+
+        __slots__ = ("_enabled", "_max_entries", "_log_logins",
+                     "_log_views", "_log_searches", "_excluded_actions")
+
+        def __init__(self) -> None:
+            self._enabled: bool = False      # disabled by default
+            self._max_entries: int = 10_000
+            self._log_logins: bool = True
+            self._log_views: bool = True
+            self._log_searches: bool = True
+            self._excluded_actions: List[str] = []
+
+        def enable(self) -> "Integration.AdminAudit":
+            """Enable audit logging."""
+            self._enabled = True
+            return self
+
+        def disable(self) -> "Integration.AdminAudit":
+            """Disable audit logging entirely."""
+            self._enabled = False
+            return self
+
+        def max_entries(self, n: int) -> "Integration.AdminAudit":
+            """Set the maximum number of audit entries (FIFO eviction)."""
+            self._max_entries = max(100, int(n))
+            return self
+
+        def log_logins(self, enabled: bool = True) -> "Integration.AdminAudit":
+            """Record LOGIN / LOGOUT / LOGIN_FAILED events."""
+            self._log_logins = enabled
+            return self
+
+        def no_log_logins(self) -> "Integration.AdminAudit":
+            """Skip LOGIN / LOGOUT / LOGIN_FAILED events."""
+            self._log_logins = False
+            return self
+
+        def log_views(self, enabled: bool = True) -> "Integration.AdminAudit":
+            """Record VIEW / LIST events."""
+            self._log_views = enabled
+            return self
+
+        def no_log_views(self) -> "Integration.AdminAudit":
+            """Skip VIEW / LIST events."""
+            self._log_views = False
+            return self
+
+        def log_searches(self, enabled: bool = True) -> "Integration.AdminAudit":
+            """Record SEARCH events."""
+            self._log_searches = enabled
+            return self
+
+        def no_log_searches(self) -> "Integration.AdminAudit":
+            """Skip SEARCH events."""
+            self._log_searches = False
+            return self
+
+        def exclude_actions(self, *actions: str) -> "Integration.AdminAudit":
+            """
+            Exclude specific actions from audit logging.
+
+            Valid values: ``"LOGIN"``, ``"LOGOUT"``, ``"LOGIN_FAILED"``,
+            ``"VIEW"``, ``"LIST"``, ``"CREATE"``, ``"UPDATE"``,
+            ``"DELETE"``, ``"BULK_ACTION"``, ``"EXPORT"``,
+            ``"SETTINGS_CHANGE"``, ``"SEARCH"``, ``"PERMISSION_CHANGE"``.
+            """
+            self._excluded_actions = list(actions)
+            return self
+
+        def to_dict(self) -> Dict[str, Any]:
+            """Serialize to a dict consumed by AdminConfig."""
+            return {
+                "enabled": self._enabled,
+                "max_entries": self._max_entries,
+                "log_logins": self._log_logins,
+                "log_views": self._log_views,
+                "log_searches": self._log_searches,
+                "excluded_actions": list(self._excluded_actions),
+            }
+
+        def __repr__(self) -> str:
+            state = "enabled" if self._enabled else "disabled"
+            return f"AdminAudit({state})"
+
+    class AdminMonitoring:
+        """
+        Fluent builder for admin monitoring configuration.
+
+        Controls whether real-time system metrics are collected and
+        which metric categories are shown in the dashboard.
+
+        **Disabled by default** -- call ``.enable()`` to activate.
+
+        Example::
+
+            monitoring = (
+                Integration.AdminMonitoring()
+                .enable()
+                .metrics("cpu", "memory", "system")
+                .refresh_interval(15)
+            )
+        """
+
+        _ALL_METRICS = [
+            "cpu", "memory", "disk", "network",
+            "process", "python", "system", "health_checks",
+        ]
+
+        __slots__ = ("_enabled", "_metrics", "_refresh_interval")
+
+        def __init__(self) -> None:
+            self._enabled: bool = False      # disabled by default
+            self._metrics: List[str] = list(self._ALL_METRICS)
+            self._refresh_interval: int = 30
+
+        def enable(self) -> "Integration.AdminMonitoring":
+            """Enable monitoring dashboard."""
+            self._enabled = True
+            return self
+
+        def disable(self) -> "Integration.AdminMonitoring":
+            """Disable monitoring dashboard."""
+            self._enabled = False
+            return self
+
+        def metrics(self, *names: str) -> "Integration.AdminMonitoring":
+            """
+            Set which metric sections to collect.
+
+            Valid values: ``"cpu"``, ``"memory"``, ``"disk"``,
+            ``"network"``, ``"process"``, ``"python"``, ``"system"``,
+            ``"health_checks"``.
+
+            Pass no arguments to collect all metrics.
+            """
+            self._metrics = list(names) if names else list(self._ALL_METRICS)
+            return self
+
+        def all_metrics(self) -> "Integration.AdminMonitoring":
+            """Collect every available metric."""
+            self._metrics = list(self._ALL_METRICS)
+            return self
+
+        def refresh_interval(self, seconds: int) -> "Integration.AdminMonitoring":
+            """Auto-refresh interval for the monitoring dashboard (min 5s)."""
+            self._refresh_interval = max(5, int(seconds))
+            return self
+
+        def to_dict(self) -> Dict[str, Any]:
+            """Serialize to a dict consumed by AdminConfig."""
+            return {
+                "enabled": self._enabled,
+                "metrics": list(self._metrics),
+                "refresh_interval": self._refresh_interval,
+            }
+
+        def __repr__(self) -> str:
+            state = "enabled" if self._enabled else "disabled"
+            return f"AdminMonitoring({state}, metrics={self._metrics})"
+
+    class AdminSidebar:
+        """
+        Fluent builder for admin sidebar section visibility.
+
+        Controls which sidebar sections are rendered. Individual modules
+        within a section can still be hidden via ``AdminModules``.
+
+        Example::
+
+            sidebar = (
+                Integration.AdminSidebar()
+                .show_overview()
+                .show_data()
+                .hide_security()
+            )
+        """
+
+        __slots__ = ("_overview", "_data", "_system", "_security", "_models")
+
+        def __init__(self) -> None:
+            self._overview: bool = True
+            self._data: bool = True
+            self._system: bool = True
+            self._security: bool = True
+            self._models: bool = True
+
+        def show_overview(self) -> "Integration.AdminSidebar":
+            """Show the Overview section."""
+            self._overview = True
+            return self
+
+        def hide_overview(self) -> "Integration.AdminSidebar":
+            """Hide the Overview section."""
+            self._overview = False
+            return self
+
+        def show_data(self) -> "Integration.AdminSidebar":
+            """Show the Data section (ORM, Migrations)."""
+            self._data = True
+            return self
+
+        def hide_data(self) -> "Integration.AdminSidebar":
+            """Hide the Data section."""
+            self._data = False
+            return self
+
+        def show_system(self) -> "Integration.AdminSidebar":
+            """Show the System section (Monitoring, Workspace, Build, Config)."""
+            self._system = True
+            return self
+
+        def hide_system(self) -> "Integration.AdminSidebar":
+            """Hide the System section."""
+            self._system = False
+            return self
+
+        def show_security(self) -> "Integration.AdminSidebar":
+            """Show the Security section (Permissions, Audit, Admin Users)."""
+            self._security = True
+            return self
+
+        def hide_security(self) -> "Integration.AdminSidebar":
+            """Hide the Security section."""
+            self._security = False
+            return self
+
+        def show_models(self) -> "Integration.AdminSidebar":
+            """Show the Models section (per-model links)."""
+            self._models = True
+            return self
+
+        def hide_models(self) -> "Integration.AdminSidebar":
+            """Hide the Models section."""
+            self._models = False
+            return self
+
+        def show_all(self) -> "Integration.AdminSidebar":
+            """Show every sidebar section."""
+            for attr in self.__slots__:
+                setattr(self, attr, True)
+            return self
+
+        def hide_all(self) -> "Integration.AdminSidebar":
+            """Hide every sidebar section."""
+            for attr in self.__slots__:
+                setattr(self, attr, False)
+            return self
+
+        def to_dict(self) -> Dict[str, bool]:
+            """Serialize to a dict consumed by AdminConfig."""
+            return {
+                "overview": self._overview,
+                "data": self._data,
+                "system": self._system,
+                "security": self._security,
+                "models": self._models,
+            }
+
+        def __repr__(self) -> str:
+            visible = [k for k, v in self.to_dict().items() if v]
+            return f"AdminSidebar(visible={visible})"
+
     @staticmethod
     def admin(
         url_prefix: str = "/admin",
@@ -816,41 +1325,177 @@ class Integration:
         site_header: str = "Aquilia Administration",
         auto_discover: bool = True,
         login_url: Optional[str] = None,
-        enable_audit: bool = True,
-        audit_max_entries: int = 10_000,
         list_per_page: int = 25,
         theme: str = "auto",
+        # ── Nested builder objects (IDE-friendly) ─────────────────
+        modules: Optional["Integration.AdminModules"] = None,
+        audit: Optional["Integration.AdminAudit"] = None,
+        monitoring: Optional["Integration.AdminMonitoring"] = None,
+        sidebar: Optional["Integration.AdminSidebar"] = None,
+        # ── Legacy flat params (backward compat) ─────────────────
+        enable_audit: Optional[bool] = None,
+        audit_max_entries: int = 10_000,
+        enable_dashboard: Optional[bool] = None,
+        enable_orm: Optional[bool] = None,
+        enable_build: Optional[bool] = None,
+        enable_migrations: Optional[bool] = None,
+        enable_config: Optional[bool] = None,
+        enable_workspace: Optional[bool] = None,
+        enable_permissions: Optional[bool] = None,
+        enable_monitoring: Optional[bool] = None,
+        enable_admin_users: Optional[bool] = None,
+        enable_profile: Optional[bool] = None,
+        audit_log_logins: Optional[bool] = None,
+        audit_log_views: Optional[bool] = None,
+        audit_log_searches: Optional[bool] = None,
+        audit_excluded_actions: Optional[List[str]] = None,
+        monitoring_metrics: Optional[List[str]] = None,
+        monitoring_refresh_interval: Optional[int] = None,
+        sidebar_sections: Optional[Dict[str, bool]] = None,
         **kwargs,
     ) -> Dict[str, Any]:
         """
         Configure the admin dashboard integration.
 
-        Provides a Django-admin-like interface with auto-discovered models,
-        RBAC, audit logging, and the aqdocx design system.
+        Accepts either **nested builder objects** (preferred, IDE-friendly)
+        or legacy flat keyword arguments for backward compatibility.
+        When both are provided, the builder object wins.
+
+        **Default change (v2):** ``monitoring`` and ``audit`` are
+        **disabled** by default. Use the builder or set
+        ``enable_monitoring=True`` / ``enable_audit=True`` to opt in.
+        Pages for disabled features show a beautiful blurred overlay
+        prompting the developer to enable the feature in config.
 
         Args:
             url_prefix: URL prefix for admin routes (default "/admin").
             site_title: Title shown in browser tab.
             site_header: Header text in the admin dashboard.
             auto_discover: Auto-register models from ModelRegistry.
-            login_url: Custom login URL (defaults to ``{url_prefix}/login``).
-            enable_audit: Enable the admin audit trail.
-            audit_max_entries: Max audit log entries (FIFO eviction).
+            login_url: Custom login URL.
             list_per_page: Default rows per page in list views.
-            theme: Theme mode — ``"auto"``, ``"dark"``, or ``"light"``.
-            **kwargs: Additional admin configuration.
+            theme: ``"auto"``, ``"dark"``, or ``"light"``.
+            modules: ``AdminModules`` builder -- controls page visibility.
+            audit: ``AdminAudit`` builder -- controls audit logging.
+            monitoring: ``AdminMonitoring`` builder -- controls metrics.
+            sidebar: ``AdminSidebar`` builder -- controls sidebar sections.
 
         Returns:
             Admin configuration dictionary.
 
-        Example::
+        Example -- **builder syntax** (recommended)::
 
             .integrate(Integration.admin(
-                url_prefix="/admin",
                 site_title="MyApp Admin",
-                auto_discover=True,
+                modules=(
+                    Integration.AdminModules()
+                    .enable_orm()
+                    .enable_monitoring()     # opt-in
+                    .disable_build()
+                ),
+                audit=(
+                    Integration.AdminAudit()
+                    .enable()                # opt-in
+                    .no_log_views()
+                    .exclude_actions("SEARCH")
+                ),
+                monitoring=(
+                    Integration.AdminMonitoring()
+                    .enable()                # opt-in
+                    .metrics("cpu", "memory", "system")
+                    .refresh_interval(15)
+                ),
+            ))
+
+        Example -- **flat syntax** (legacy / quick)::
+
+            .integrate(Integration.admin(
+                site_title="MyApp Admin",
+                enable_monitoring=True,
+                enable_audit=True,
+                audit_log_views=False,
+                monitoring_metrics=["cpu", "memory"],
             ))
         """
+        _all_metrics = [
+            "cpu", "memory", "disk", "network",
+            "process", "python", "system", "health_checks",
+        ]
+
+        # ── Resolve modules ──────────────────────────────────────────
+        if modules is not None:
+            mod_dict = modules.to_dict()
+        else:
+            # Build from legacy flat params (defaults: monitoring & audit OFF)
+            mod_dict = {
+                "dashboard": enable_dashboard if enable_dashboard is not None else True,
+                "orm": enable_orm if enable_orm is not None else True,
+                "build": enable_build if enable_build is not None else True,
+                "migrations": enable_migrations if enable_migrations is not None else True,
+                "config": enable_config if enable_config is not None else True,
+                "workspace": enable_workspace if enable_workspace is not None else True,
+                "permissions": enable_permissions if enable_permissions is not None else True,
+                "monitoring": enable_monitoring if enable_monitoring is not None else False,
+                "admin_users": enable_admin_users if enable_admin_users is not None else True,
+                "profile": enable_profile if enable_profile is not None else True,
+                "audit": enable_audit if enable_audit is not None else False,
+            }
+
+        # ── Resolve audit ────────────────────────────────────────────
+        if audit is not None:
+            audit_dict = audit.to_dict()
+        else:
+            _aud_enabled = enable_audit if enable_audit is not None else False
+            audit_dict = {
+                "enabled": _aud_enabled,
+                "max_entries": int(audit_max_entries),
+                "log_logins": audit_log_logins if audit_log_logins is not None else True,
+                "log_views": audit_log_views if audit_log_views is not None else True,
+                "log_searches": audit_log_searches if audit_log_searches is not None else True,
+                "excluded_actions": list(audit_excluded_actions or []),
+            }
+
+        # Keep module audit flag in sync with audit_config.enabled
+        # Only override if the audit builder was explicitly provided,
+        # or if legacy flat enable_audit was given AND no modules builder.
+        if audit is not None:
+            mod_dict["audit"] = bool(audit_dict.get("enabled", mod_dict.get("audit", False)))
+        elif modules is None and enable_audit is not None:
+            mod_dict["audit"] = bool(audit_dict.get("enabled", mod_dict.get("audit", False)))
+
+        # ── Resolve monitoring ───────────────────────────────────────
+        if monitoring is not None:
+            mon_dict = monitoring.to_dict()
+        else:
+            _mon_enabled = enable_monitoring if enable_monitoring is not None else False
+            mon_dict = {
+                "enabled": _mon_enabled,
+                "metrics": list(monitoring_metrics) if monitoring_metrics else list(_all_metrics),
+                "refresh_interval": max(5, int(monitoring_refresh_interval)) if monitoring_refresh_interval is not None else 30,
+            }
+
+        # Keep module monitoring flag in sync
+        # Only override if the monitoring builder was explicitly provided,
+        # or if legacy flat enable_monitoring was given AND no modules builder.
+        if monitoring is not None:
+            mod_dict["monitoring"] = bool(mon_dict.get("enabled", mod_dict.get("monitoring", False)))
+        elif modules is None and enable_monitoring is not None:
+            mod_dict["monitoring"] = bool(mon_dict.get("enabled", mod_dict.get("monitoring", False)))
+
+        # ── Resolve sidebar ──────────────────────────────────────────
+        if sidebar is not None:
+            sidebar_dict = sidebar.to_dict()
+        else:
+            _default_sidebar = {
+                "overview": True, "data": True, "system": True,
+                "security": True, "models": True,
+            }
+            sidebar_dict = {**_default_sidebar}
+            if sidebar_sections:
+                for k, v in sidebar_sections.items():
+                    if k in sidebar_dict:
+                        sidebar_dict[k] = bool(v)
+
         return {
             "_integration_type": "admin",
             "enabled": True,
@@ -859,12 +1504,184 @@ class Integration:
             "site_header": site_header,
             "auto_discover": auto_discover,
             "login_url": login_url or f"{url_prefix.rstrip('/')}/login",
-            "enable_audit": enable_audit,
-            "audit_max_entries": audit_max_entries,
+            "enable_audit": audit_dict.get("enabled", False),
+            "audit_max_entries": audit_dict.get("max_entries", 10_000),
             "list_per_page": list_per_page,
             "theme": theme,
+            "modules": mod_dict,
+            "audit_config": audit_dict,
+            "monitoring_config": mon_dict,
+            "sidebar_sections": sidebar_dict,
             **kwargs,
         }
+
+    # ── Middleware Chain Builder ──────────────────────────────────────
+    #
+    # Industry-grade middleware configuration via path-based resolution.
+    # Middleware classes are referenced by their dotted import path
+    # (e.g. ``aquilia.middleware.RequestIdMiddleware``) so workspace.py
+    # never imports framework internals directly.
+    #
+    # Usage::
+    #
+    #     .middleware(
+    #         Integration.middleware.chain()
+    #         .use("aquilia.middleware.ExceptionMiddleware", priority=1, debug=True)
+    #         .use("aquilia.middleware.RequestIdMiddleware", priority=10)
+    #         .use("aquilia.middleware.LoggingMiddleware",   priority=20)
+    #     )
+    #
+    #     # Or use preset chains:
+    #     .middleware(Integration.middleware.defaults())
+    #     .middleware(Integration.middleware.production())
+    #
+
+    class middleware:
+        """
+        Middleware configuration builder.
+
+        Provides path-based middleware resolution so workspace.py declares
+        *what* middleware to run without importing framework internals.
+
+        Middleware paths follow the ``aquilia.middleware.<Class>`` or
+        ``aquilia.middleware_ext.<module>.<Class>`` convention.  Custom
+        middleware uses full dotted paths (``myapp.middleware.RateLimiter``).
+        """
+
+        @dataclass
+        class Entry:
+            """A single middleware entry in the chain."""
+            path: str
+            priority: int = 50
+            scope: str = "global"
+            name: Optional[str] = None
+            kwargs: Dict[str, Any] = field(default_factory=dict)
+
+            def to_dict(self) -> Dict[str, Any]:
+                return {
+                    "path": self.path,
+                    "priority": self.priority,
+                    "scope": self.scope,
+                    "name": self.name or self.path.rsplit(".", 1)[-1],
+                    "kwargs": self.kwargs,
+                }
+
+        class Chain(list):
+            """
+            Fluent middleware chain builder.
+
+            Each ``.use()`` call appends a middleware entry.  The chain
+            serializes to a list of dicts consumed by the server at boot.
+
+            Example::
+
+                chain = (
+                    Integration.middleware.chain()
+                    .use("aquilia.middleware.ExceptionMiddleware", priority=1, debug=True)
+                    .use("aquilia.middleware.RequestIdMiddleware", priority=10)
+                    .use("aquilia.middleware.LoggingMiddleware",   priority=20)
+                    .use("myapp.middleware.TenantMiddleware",      priority=30, header="X-Tenant-ID")
+                )
+            """
+
+            def use(
+                self,
+                path: str,
+                *,
+                priority: int = 50,
+                scope: str = "global",
+                name: Optional[str] = None,
+                **kwargs,
+            ) -> "Integration.middleware.Chain":
+                """
+                Append a middleware to the chain.
+
+                Args:
+                    path: Dotted import path to the middleware class.
+                          Examples:
+                          - ``aquilia.middleware.ExceptionMiddleware``
+                          - ``aquilia.middleware.RequestIdMiddleware``
+                          - ``aquilia.middleware.LoggingMiddleware``
+                          - ``aquilia.middleware.TimeoutMiddleware``
+                          - ``aquilia.middleware.CORSMiddleware``
+                          - ``aquilia.middleware.CompressionMiddleware``
+                          - ``myapp.middleware.CustomMiddleware``
+                    priority: Execution order (lower = runs first).
+                    scope: ``"global"`` or ``"app:<name>"``.
+                    name: Display name for debugging / introspection.
+                    **kwargs: Constructor arguments forwarded to the
+                              middleware class's ``__init__``.
+
+                Returns:
+                    Self for chaining.
+                """
+                entry = Integration.middleware.Entry(
+                    path=path,
+                    priority=priority,
+                    scope=scope,
+                    name=name,
+                    kwargs=kwargs,
+                )
+                self.append(entry)
+                return self
+
+            def to_list(self) -> List[Dict[str, Any]]:
+                """Serialize the chain to a config-compatible list."""
+                return [e.to_dict() for e in self]
+
+        @classmethod
+        def chain(cls) -> "Integration.middleware.Chain":
+            """Create an empty middleware chain."""
+            return cls.Chain()
+
+        @classmethod
+        def defaults(cls) -> "Integration.middleware.Chain":
+            """
+            Standard development middleware chain.
+
+            Includes:
+            - ExceptionMiddleware (priority 1) -- catches errors, renders debug pages
+            - RequestIdMiddleware (priority 10) -- adds X-Request-ID header
+            """
+            return (
+                cls.chain()
+                .use("aquilia.middleware.ExceptionMiddleware", priority=1)
+                .use("aquilia.middleware.RequestIdMiddleware", priority=10)
+            )
+
+        @classmethod
+        def production(cls) -> "Integration.middleware.Chain":
+            """
+            Production-grade middleware chain.
+
+            Includes:
+            - ExceptionMiddleware   (priority 1) -- error handling (debug=False)
+            - RequestIdMiddleware   (priority 10) -- request tracing
+            - CompressionMiddleware (priority 15) -- gzip response compression
+            - TimeoutMiddleware     (priority 18) -- 30s request timeout
+            """
+            return (
+                cls.chain()
+                .use("aquilia.middleware.ExceptionMiddleware",   priority=1, debug=False)
+                .use("aquilia.middleware.RequestIdMiddleware",   priority=10)
+                .use("aquilia.middleware.CompressionMiddleware", priority=15, minimum_size=500)
+                .use("aquilia.middleware.TimeoutMiddleware",     priority=18, timeout_seconds=30.0)
+            )
+
+        @classmethod
+        def minimal(cls) -> "Integration.middleware.Chain":
+            """
+            Minimal middleware chain -- just error handling.
+
+            Includes:
+            - ExceptionMiddleware (priority 1)
+            - RequestIdMiddleware (priority 10)
+            """
+            return (
+                cls.chain()
+                .use("aquilia.middleware.ExceptionMiddleware", priority=1)
+                .use("aquilia.middleware.RequestIdMiddleware", priority=10)
+            )
 
     @staticmethod
     def patterns(**kwargs) -> Dict[str, Any]:
@@ -1337,7 +2154,7 @@ class Integration:
         **kwargs,
     ) -> Dict[str, Any]:
         """
-        Configure AquilaMail — the production-ready async mail subsystem.
+        Configure AquilaMail -- the production-ready async mail subsystem.
 
         Args:
             default_from: Default sender address.
@@ -1447,14 +2264,14 @@ class Integration:
         framework via DI, lifecycle hooks, and middleware.
 
         Ecosystem wiring:
-        - **CacheService** — MLOps controller caches model metadata,
+        - **CacheService** -- MLOps controller caches model metadata,
           registry listings, and capability introspections.
-        - **FaultEngine** — All MLOps exceptions flow through the engine
+        - **FaultEngine** -- All MLOps exceptions flow through the engine
           with scoped handlers for observability and recovery.
-        - **ArtifactStore** — Model packs are managed via the Aquilia
+        - **ArtifactStore** -- Model packs are managed via the Aquilia
           artifact system with content-addressed storage and integrity
           verification.
-        - **Effects** — Controller methods declare ``CacheEffect`` to
+        - **Effects** -- Controller methods declare ``CacheEffect`` to
           participate in the effect middleware pipeline.
 
         Args:
@@ -1549,6 +2366,89 @@ class Integration:
         }
 
     @staticmethod
+    def i18n(
+        *,
+        default_locale: str = "en",
+        available_locales: Optional[List[str]] = None,
+        fallback_locale: str = "en",
+        catalog_dirs: Optional[List[str]] = None,
+        catalog_format: str = "json",
+        missing_key_strategy: str = "log_and_key",
+        auto_reload: bool = False,
+        auto_detect: bool = True,
+        cookie_name: str = "aq_locale",
+        query_param: str = "lang",
+        path_prefix: bool = False,
+        resolver_order: Optional[List[str]] = None,
+        enabled: bool = True,
+        **kwargs,
+    ) -> Dict[str, Any]:
+        """
+        Configure the i18n (internationalization) subsystem.
+
+        Provides locale negotiation, translation catalogs, plural rules,
+        message formatting, and template integration.
+
+        Args:
+            default_locale: Default BCP 47 locale tag.
+            available_locales: List of supported locale tags.
+            fallback_locale: Ultimate fallback locale.
+            catalog_dirs: Directories to scan for translation files.
+            catalog_format: ``"json"`` or ``"yaml"``.
+            missing_key_strategy: How to handle missing keys —
+                ``"return_key"``, ``"return_empty"``, ``"raise"``,
+                ``"log_and_key"``.
+            auto_reload: Hot-reload catalogs on file change.
+            auto_detect: Auto-detect locale from Accept-Language.
+            cookie_name: Cookie name for locale preference.
+            query_param: Query parameter name for locale override.
+            path_prefix: Enable path-based locale (``/en/about``).
+            resolver_order: Locale resolver chain order.
+            enabled: Enable/disable i18n.
+            **kwargs: Additional configuration.
+
+        Returns:
+            I18n configuration dictionary.
+
+        Examples::
+
+            # Basic setup with English and French
+            .integrate(Integration.i18n(
+                default_locale="en",
+                available_locales=["en", "fr", "de"],
+            ))
+
+            # Full production config
+            .integrate(Integration.i18n(
+                default_locale="en",
+                available_locales=["en", "fr", "de", "ja", "zh"],
+                fallback_locale="en",
+                catalog_dirs=["locales", "modules/auth/locales"],
+                missing_key_strategy="log_and_key",
+                auto_detect=True,
+                cookie_name="locale",
+                resolver_order=["query", "cookie", "session", "header"],
+            ))
+        """
+        return {
+            "_integration_type": "i18n",
+            "enabled": enabled,
+            "default_locale": default_locale,
+            "available_locales": available_locales or [default_locale],
+            "fallback_locale": fallback_locale,
+            "catalog_dirs": catalog_dirs or ["locales"],
+            "catalog_format": catalog_format,
+            "missing_key_strategy": missing_key_strategy,
+            "auto_reload": auto_reload,
+            "auto_detect": auto_detect,
+            "cookie_name": cookie_name,
+            "query_param": query_param,
+            "path_prefix": path_prefix,
+            "resolver_order": resolver_order or ["query", "cookie", "header"],
+            **kwargs,
+        }
+
+    @staticmethod
     def serializers(
         *,
         auto_discover: bool = True,
@@ -1618,7 +2518,9 @@ class Workspace:
         self._mail_config: Optional[Dict[str, Any]] = None
         self._mlops_config: Optional[Dict[str, Any]] = None
         self._cache_config: Optional[Dict[str, Any]] = None
+        self._i18n_config: Optional[Dict[str, Any]] = None
         self._starter: Optional[str] = None
+        self._middleware_chain: Optional[List[Dict[str, Any]]] = None
         self._on_startup: Optional[str] = None
         self._on_shutdown: Optional[str] = None
     
@@ -1659,6 +2561,38 @@ class Workspace:
                          Resolved relative to the workspace root.
         """
         self._starter = module_name
+        return self
+    
+    def middleware(self, chain: "Integration.middleware.Chain") -> "Workspace":
+        """
+        Configure the middleware chain for this workspace.
+
+        Replaces the default hard-coded middleware stack with a
+        user-controlled, path-based chain.  Each middleware is
+        referenced by its dotted import path so workspace.py never
+        needs to import framework internals.
+
+        Args:
+            chain: A middleware chain built via
+                   ``Integration.middleware.chain()`` or one of the
+                   presets (``defaults()``, ``production()``, ``minimal()``).
+
+        Returns:
+            Self for chaining.
+
+        Example::
+
+            workspace = (
+                Workspace("myapp")
+                .middleware(
+                    Integration.middleware.chain()
+                    .use("aquilia.middleware.ExceptionMiddleware", priority=1)
+                    .use("aquilia.middleware.RequestIdMiddleware", priority=10)
+                    .use("aquilia.middleware.LoggingMiddleware",   priority=20)
+                )
+            )
+        """
+        self._middleware_chain = chain.to_list()
         return self
     
     def runtime(
@@ -1718,6 +2652,9 @@ class Workspace:
             elif integration_type == "cache":
                 self._integrations["cache"] = integration
                 self._cache_config = integration
+            elif integration_type == "i18n":
+                self._integrations["i18n"] = integration
+                self._i18n_config = integration
             return self
 
         # Determine integration type from keys (legacy detection)
@@ -1757,6 +2694,42 @@ class Workspace:
             "policies": policies or [],
             **kwargs
         }
+        return self
+    
+    def i18n(
+        self,
+        default_locale: str = "en",
+        available_locales: Optional[List[str]] = None,
+        **kwargs,
+    ) -> "Workspace":
+        """
+        Configure internationalization (shorthand for ``integrate(Integration.i18n(...))``).
+
+        Args:
+            default_locale: Default BCP 47 locale tag.
+            available_locales: List of supported locale tags.
+            **kwargs: Additional i18n config (see ``Integration.i18n()``).
+
+        Returns:
+            Self for chaining.
+
+        Example::
+
+            workspace = (
+                Workspace("myapp")
+                .i18n(
+                    default_locale="en",
+                    available_locales=["en", "fr", "de", "ja"],
+                )
+            )
+        """
+        config = Integration.i18n(
+            default_locale=default_locale,
+            available_locales=available_locales,
+            **kwargs,
+        )
+        self._i18n_config = config
+        self._integrations["i18n"] = config
         return self
     
     def security(
@@ -1954,6 +2927,7 @@ class Workspace:
             },
             "modules": [m.to_dict() for m in self._modules],
             "integrations": self._integrations,
+            "middleware_chain": self._middleware_chain,
             "starter": self._starter,
             "on_startup": self._on_startup,
             "on_shutdown": self._on_shutdown,
@@ -1983,6 +2957,9 @@ class Workspace:
         if self._cache_config:
             config["cache"] = self._cache_config
             config["integrations"]["cache"] = self._cache_config
+        if self._i18n_config:
+            config["i18n"] = self._i18n_config
+            config["integrations"]["i18n"] = self._i18n_config
         
         return config
     

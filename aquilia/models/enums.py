@@ -1,7 +1,7 @@
 """
-Aquilia Model Enums — standard enum helpers for model fields.
+Aquilia Model Enums -- standard enum helpers for model fields.
 
-Provides TextChoices and IntegerChoices similar to Django 3.0+.
+Provides TextChoices and IntegerChoices for model fields.
 
 Usage:
     from aquilia.models.enums import TextChoices, IntegerChoices

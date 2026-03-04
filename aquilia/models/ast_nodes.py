@@ -1,5 +1,5 @@
 """
-AMDL AST Node Types — Aquilia Model Definition Language.
+AMDL AST Node Types -- Aquilia Model Definition Language.
 
 These dataclasses represent the parsed structure of `.amdl` files.
 Each node maps directly to an AMDL directive.
@@ -42,7 +42,7 @@ class LinkKind(str, Enum):
 @dataclass
 class SlotNode:
     """
-    Represents a `slot` directive — a model field/column.
+    Represents a `slot` directive -- a model field/column.
 
     Example AMDL:
         slot username :: Str [max=150, unique]
@@ -64,7 +64,7 @@ class SlotNode:
 @dataclass
 class LinkNode:
     """
-    Represents a `link` directive — a relationship.
+    Represents a `link` directive -- a relationship.
 
     Example AMDL:
         link profile -> ONE Profile [fk=user_id, back=user]
@@ -98,7 +98,7 @@ class IndexNode:
 @dataclass
 class HookNode:
     """
-    Represents a `hook` directive — lifecycle binding.
+    Represents a `hook` directive -- lifecycle binding.
 
     Example AMDL:
         hook before_save -> hash_password
@@ -126,7 +126,7 @@ class MetaNode:
 @dataclass
 class NoteNode:
     """
-    Represents a `note` directive — freeform documentation.
+    Represents a `note` directive -- freeform documentation.
 
     Example AMDL:
         note "This model stores user accounts"

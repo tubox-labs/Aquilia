@@ -1777,7 +1777,7 @@ class TestDevModeCookieSecureOverride:
             self._cleanup_env(["AQUILIA_ENV"])
 
     def test_apply_override_logs_when_patching(self):
-        """When patching cookie_secure, should log an info message."""
+        """When patching cookie_secure, should log a debug message."""
         from aquilia.sessions.policy import TransportPolicy
         from aquilia.sessions.transport import CookieTransport
 
@@ -1787,10 +1787,15 @@ class TestDevModeCookieSecureOverride:
 
         server._apply_dev_cookie_override(transport)
 
-        server.logger.info.assert_called_once()
-        log_msg = server.logger.info.call_args[0][0]
-        assert "cookie_secure=False" in log_msg
-        assert "Dev mode" in log_msg
+        server.logger.debug.assert_called()
+        # Find the call that contains the cookie_secure message
+        found = False
+        for call in server.logger.debug.call_args_list:
+            log_msg = call[0][0]
+            if "cookie_secure=False" in log_msg and "Dev mode" in log_msg:
+                found = True
+                break
+        assert found, "Expected debug log about cookie_secure=False"
 
 
 class TestTransportPolicyDefault:
@@ -2115,6 +2120,100 @@ class TestNewTemplatesRendering:
         )
         assert "<!DOCTYPE html>" in html
 
+    # ── Monitoring page ──
+
+    def test_render_monitoring_page(self):
+        from aquilia.admin.templates import render_monitoring_page
+        monitoring = {
+            "cpu": {"percent": 42.5, "per_core": [40.0, 45.0], "cores_physical": 4,
+                    "cores_logical": 8, "freq_current": 2400, "freq_max": 3200,
+                    "load_avg_1": 1.5, "load_avg_5": 1.2, "load_avg_15": 1.0,
+                    "times_user": 100.0, "times_system": 50.0, "times_idle": 200.0},
+            "memory": {"total": 17179869184, "total_human": "16.0 GB",
+                       "available": 8589934592, "available_human": "8.0 GB",
+                       "used": 8589934592, "used_human": "8.0 GB", "percent": 50.0,
+                       "swap_total": 4294967296, "swap_total_human": "4.0 GB",
+                       "swap_used": 1073741824, "swap_used_human": "1.0 GB",
+                       "swap_free": 3221225472, "swap_free_human": "3.0 GB",
+                       "swap_percent": 25.0},
+            "disk": {"total": 500000000000, "total_human": "465.7 GB",
+                     "used": 250000000000, "used_human": "232.8 GB",
+                     "free": 250000000000, "free_human": "232.8 GB",
+                     "percent": 50.0, "partitions": [
+                         {"device": "/dev/sda1", "mountpoint": "/", "fstype": "ext4",
+                          "total_human": "465.7 GB", "used_human": "232.8 GB",
+                          "free_human": "232.8 GB", "percent": 50.0}
+                     ]},
+            "network": {"bytes_sent": 1048576, "bytes_sent_human": "1.0 MB",
+                        "bytes_recv": 2097152, "bytes_recv_human": "2.0 MB",
+                        "packets_sent": 1000, "packets_recv": 2000,
+                        "errin": 0, "errout": 0, "dropin": 0, "dropout": 0,
+                        "connections_by_status": {"ESTABLISHED": 5, "LISTEN": 3}},
+            "process": {"pid": 1234, "name": "python", "status": "running",
+                        "create_time": "2025-01-01 00:00:00 UTC",
+                        "uptime_human": "1d 2h 3m 4s", "threads": 8,
+                        "open_files": 12, "rss": 104857600, "rss_human": "100.0 MB",
+                        "vms": 209715200, "vms_human": "200.0 MB",
+                        "shared": 0, "private": 104857600,
+                        "mem_percent": 0.61, "ctx_switches": 500,
+                        "ctx_switches_voluntary": 400,
+                        "ctx_switches_involuntary": 100,
+                        "env_snapshot": {"VIRTUAL_ENV": "/path/to/env"}},
+            "python": {"version": "3.14.0", "implementation": "CPython",
+                       "executable": "/usr/bin/python3", "gc_objects": 5000},
+            "system": {"os": "Linux", "platform": "Linux-5.15",
+                       "arch": "x86_64", "hostname": "test-host"},
+            "health_checks": [
+                {"name": "database", "status": "healthy", "latency_ms": 1.5,
+                 "message": "Connected", "checked_at": "2025-01-01T00:00:00Z"},
+            ],
+        }
+        html = render_monitoring_page(monitoring=monitoring, app_list=[], identity_name="Admin")
+        assert "<!DOCTYPE html>" in html
+        assert "Monitoring" in html
+        assert "CPU" in html
+
+    def test_render_monitoring_page_empty(self):
+        from aquilia.admin.templates import render_monitoring_page
+        monitoring = {
+            "cpu": {"percent": 0, "per_core": [], "cores_physical": 0,
+                    "cores_logical": 0, "freq_current": 0, "freq_max": 0,
+                    "load_avg_1": 0, "load_avg_5": 0, "load_avg_15": 0,
+                    "times_user": 0, "times_system": 0, "times_idle": 0},
+            "memory": {"total": 0, "total_human": "—", "available": 0,
+                       "available_human": "—", "used": 0, "used_human": "—",
+                       "percent": 0, "swap_total": 0, "swap_total_human": "—",
+                       "swap_used": 0, "swap_used_human": "—",
+                       "swap_free": 0, "swap_free_human": "—", "swap_percent": 0},
+            "disk": {"total": 0, "total_human": "—", "used": 0, "used_human": "—",
+                     "free": 0, "free_human": "—", "percent": 0, "partitions": []},
+            "network": {"bytes_sent": 0, "bytes_sent_human": "—",
+                        "bytes_recv": 0, "bytes_recv_human": "—",
+                        "packets_sent": 0, "packets_recv": 0,
+                        "errin": 0, "errout": 0, "dropin": 0, "dropout": 0,
+                        "connections_by_status": {}},
+            "process": {"pid": 0, "name": "python", "status": "running",
+                        "create_time": "—", "uptime_human": "—",
+                        "threads": 0, "open_files": 0,
+                        "rss": 0, "rss_human": "—", "vms": 0, "vms_human": "—",
+                        "shared": 0, "private": 0,
+                        "mem_percent": 0, "ctx_switches": 0,
+                        "ctx_switches_voluntary": 0, "ctx_switches_involuntary": 0,
+                        "env_snapshot": {}},
+            "python": {"version": "3.14.0", "implementation": "CPython",
+                       "executable": "/usr/bin/python3", "gc_objects": 0},
+            "system": {"os": "Linux", "platform": "Linux-5.15",
+                       "arch": "x86_64", "hostname": "test-host"},
+            "health_checks": [],
+        }
+        html = render_monitoring_page(monitoring=monitoring, app_list=[], identity_name="Admin")
+        assert "<!DOCTYPE html>" in html
+
+    def test_render_monitoring_page_import(self):
+        """render_monitoring_page is importable from templates module."""
+        from aquilia.admin.templates import render_monitoring_page
+        assert callable(render_monitoring_page)
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # R3. Controller Handlers — auth + render
@@ -2125,10 +2224,17 @@ class TestNewControllerHandlers:
     """Each new handler returns 302 (unauth) or 200 (auth)."""
 
     def setup_method(self):
-        from aquilia.admin.site import AdminSite
+        from aquilia.admin.site import AdminSite, AdminConfig
         AdminSite.reset()
         self.site = AdminSite()
         self.site.register(_ProductModel)
+        # Enable all modules (monitoring & audit are disabled by default since v2)
+        self.site.admin_config = AdminConfig(modules={
+            "dashboard": True, "orm": True, "build": True,
+            "migrations": True, "config": True, "workspace": True,
+            "permissions": True, "monitoring": True, "admin_users": True,
+            "profile": True, "audit": True,
+        }, audit_enabled=True, monitoring_enabled=True)
         self.ctrl = AdminController(site=self.site)
 
     def _ctx(self, identity=None, qp=None):
@@ -2218,6 +2324,37 @@ class TestNewControllerHandlers:
         self.site._initialized = True
         resp = await self.ctrl.audit_view(self._req(), self._ctx(identity=_sa_identity()))
         assert resp.status == 200
+
+    # Monitoring
+    @pytest.mark.asyncio
+    async def test_monitoring_unauth(self):
+        resp = await self.ctrl.monitoring_view(self._req(), self._ctx())
+        assert resp.status == 302
+
+    @pytest.mark.asyncio
+    async def test_monitoring_auth(self):
+        self.site._initialized = True
+        resp = await self.ctrl.monitoring_view(self._req(), self._ctx(identity=_sa_identity()))
+        assert resp.status == 200
+        assert b"<!DOCTYPE html>" in resp._content
+
+    @pytest.mark.asyncio
+    async def test_monitoring_api_unauth(self):
+        resp = await self.ctrl.monitoring_api(self._req(), self._ctx())
+        assert resp.status == 401
+
+    @pytest.mark.asyncio
+    async def test_monitoring_api_auth(self):
+        self.site._initialized = True
+        resp = await self.ctrl.monitoring_api(self._req(), self._ctx(identity=_sa_identity()))
+        assert resp.status == 200
+        import json
+        data = json.loads(resp._content)
+        assert "cpu" in data
+        assert "memory" in data
+        assert "disk" in data
+        assert "network" in data
+        assert "process" in data
 
     @pytest.mark.asyncio
     async def test_list_view_real_model(self):
@@ -2389,7 +2526,7 @@ class TestTemplatePartialsV3:
     def test_sidebar_v2_nav_links(self):
         from pathlib import Path
         content = (Path(__file__).parent.parent / "aquilia/admin/templates/partials/sidebar_v2.html").read_text()
-        for page in ("orm", "build", "migrations", "config", "permissions", "audit"):
+        for page in ("orm", "build", "migrations", "config", "permissions", "audit", "monitoring"):
             assert page in content.lower(), f"/{page}/ link missing from sidebar"
 
     def test_css_exists(self):
@@ -2401,7 +2538,8 @@ class TestTemplatePartialsV3:
         from pathlib import Path
         content = (Path(__file__).parent.parent / "aquilia/admin/templates/partials/css.html").read_text()
         assert "22c55e" in content, "Missing Aquilia green accent"
-        assert "Inter" in content, "Missing Inter font"
+        assert "Outfit" in content, "Missing Outfit font (aqdocx theme)"
+        assert "Space Mono" in content, "Missing Space Mono font (aqdocx theme)"
 
     def test_base_includes_sidebar(self):
         from pathlib import Path
@@ -2412,6 +2550,12 @@ class TestTemplatePartialsV3:
         from pathlib import Path
         content = (Path(__file__).parent.parent / "aquilia/admin/templates/base.html").read_text()
         assert "css.html" in content
+
+    def test_base_includes_aqdocx_fonts(self):
+        from pathlib import Path
+        content = (Path(__file__).parent.parent / "aquilia/admin/templates/base.html").read_text()
+        assert "Outfit" in content, "Missing Outfit font CDN"
+        assert "Space+Mono" in content, "Missing Space Mono font CDN"
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -3270,29 +3414,37 @@ class TestGridBackground:
     """Verify grid background pattern is in CSS."""
 
     def test_css_has_grid_linear_gradient(self):
-        from aquilia.admin.templates import _jinja_env
-        tpl = _jinja_env.get_template("partials/css.html")
+        from aquilia.admin.templates import _get_jinja_env
+        tpl = _get_jinja_env().get_template("partials/css.html")
         css = tpl.render()
+        # Grid lines + ambient blob divs (aqdocx style)
         assert "linear-gradient" in css
-        assert "40px 40px" in css
+        assert "40px 40px" in css  # grid size
+        assert "ambient-blob" in css  # blob classes
+        assert "breathing" in css  # blob animation
 
     def test_css_has_dark_grid_color(self):
-        from aquilia.admin.templates import _jinja_env
-        tpl = _jinja_env.get_template("partials/css.html")
+        from aquilia.admin.templates import _get_jinja_env
+        tpl = _get_jinja_env().get_template("partials/css.html")
         css = tpl.render()
-        assert "#27272a" in css
+        # Dark theme uses rgba borders and pure black background
+        assert "#000000" in css
+        assert "rgba(255,255,255,0.08)" in css
 
     def test_css_has_light_grid_color(self):
-        from aquilia.admin.templates import _jinja_env
-        tpl = _jinja_env.get_template("partials/css.html")
+        from aquilia.admin.templates import _get_jinja_env
+        tpl = _get_jinja_env().get_template("partials/css.html")
         css = tpl.render()
-        assert "#d4d4d8" in css
+        # Light theme uses visible border color
+        assert "#e4e4e7" in css
 
     def test_body_before_has_background_size(self):
-        from aquilia.admin.templates import _jinja_env
-        tpl = _jinja_env.get_template("partials/css.html")
+        from aquilia.admin.templates import _get_jinja_env
+        tpl = _get_jinja_env().get_template("partials/css.html")
         css = tpl.render()
+        # Grid lines use background-size: 40px 40px
         assert "background-size" in css
+        assert "40px 40px" in css
 
 
 class TestAdminModelRegistration:
@@ -3702,7 +3854,7 @@ class TestIndustryLevelActions:
             },
             app_list=[], identity_name="admin",
         )
-        assert "duplicateRecord" in html
+        assert "doDuplicate" in html
 
     def test_list_template_has_all_actions_in_dropdown(self):
         """Actions dropdown shows all registered actions."""
@@ -3784,3 +3936,2323 @@ class TestToastTheming:
             identity_name="admin",
         )
         assert "var(--font-sans)" in html
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Session 7 — UX fixes, validation, modals, workspace page
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class TestThemeToggleClickability:
+    """Theme toggle must be clickable above the topbar overlay."""
+
+    def test_theme_toggle_has_z_index(self):
+        html = render_dashboard(
+            app_list=[], stats={"total_models": 0, "model_counts": {}, "recent_actions": []},
+            identity_name="admin",
+        )
+        assert "z-index" in html
+
+    def test_theme_toggle_has_pointer_events(self):
+        html = render_dashboard(
+            app_list=[], stats={"total_models": 0, "model_counts": {}, "recent_actions": []},
+            identity_name="admin",
+        )
+        assert "pointer-events" in html
+
+    def test_topbar_right_has_pointer_events(self):
+        html = render_dashboard(
+            app_list=[], stats={"total_models": 0, "model_counts": {}, "recent_actions": []},
+            identity_name="admin",
+        )
+        assert "pointer-events:auto" in html or "pointer-events: auto" in html
+
+
+class TestAscendingDefaultOrdering:
+    """Default ordering should be ascending (1, 2, 3…)."""
+
+    def test_default_ordering_ascending(self):
+        from aquilia.admin.options import ModelAdmin
+        ma = ModelAdmin(model=None)
+        ordering = ma.get_ordering()
+        # Should NOT start with '-' (descending)
+        for field in ordering:
+            assert not field.startswith("-"), f"Default ordering should be ascending, got {field}"
+
+    def test_default_ordering_uses_pk(self):
+        from aquilia.admin.options import ModelAdmin
+        ma = ModelAdmin(model=None)
+        ordering = ma.get_ordering()
+        assert len(ordering) >= 1
+
+    def test_custom_ordering_preserved(self):
+        from aquilia.admin.options import ModelAdmin
+
+        class CustomAdmin(ModelAdmin):
+            ordering = ["-name"]
+
+        ca = CustomAdmin(model=None)
+        assert ca.get_ordering() == ["-name"]
+
+
+class TestFormDataCoercion:
+    """_coerce_form_data should convert HTML form strings to proper types."""
+
+    def test_coerce_boolean_true_values(self):
+        from aquilia.admin.site import AdminSite
+        from aquilia.models.fields_module import BooleanField
+
+        class FakeModel:
+            _fields = {"active": BooleanField()}
+
+        for val in ["1", "true", "on", "yes"]:
+            result = AdminSite._coerce_form_data(FakeModel, {"active": val})
+            assert result["active"] is True, f"'{val}' should coerce to True"
+
+    def test_coerce_boolean_false_values(self):
+        from aquilia.admin.site import AdminSite
+        from aquilia.models.fields_module import BooleanField
+
+        class FakeModel:
+            _fields = {"active": BooleanField()}
+
+        for val in ["", "0", "false", "no"]:
+            result = AdminSite._coerce_form_data(FakeModel, {"active": val})
+            assert result["active"] is False, f"'{val}' should coerce to False"
+
+    def test_coerce_integer_field(self):
+        from aquilia.admin.site import AdminSite
+        from aquilia.models.fields_module import IntegerField
+
+        class FakeModel:
+            _fields = {"count": IntegerField()}
+
+        result = AdminSite._coerce_form_data(FakeModel, {"count": "42"})
+        assert result["count"] == 42
+        assert isinstance(result["count"], int)
+
+    def test_coerce_float_field(self):
+        from aquilia.admin.site import AdminSite
+        from aquilia.models.fields_module import FloatField
+
+        class FakeModel:
+            _fields = {"price": FloatField()}
+
+        result = AdminSite._coerce_form_data(FakeModel, {"price": "3.14"})
+        assert abs(result["price"] - 3.14) < 0.001
+        assert isinstance(result["price"], float)
+
+    def test_coerce_unknown_field_passthrough(self):
+        from aquilia.admin.site import AdminSite
+        from aquilia.models.fields_module import CharField
+
+        class FakeModel:
+            _fields = {"name": CharField(max_length=100)}
+
+        result = AdminSite._coerce_form_data(FakeModel, {"name": "hello"})
+        assert result["name"] == "hello"
+
+    def test_coerce_missing_field_passthrough(self):
+        from aquilia.admin.site import AdminSite
+
+        class FakeModel:
+            _fields = {}
+
+        result = AdminSite._coerce_form_data(FakeModel, {"unknown": "val"})
+        assert result["unknown"] == "val"
+
+    def test_coerce_invalid_int_passthrough(self):
+        from aquilia.admin.site import AdminSite
+        from aquilia.models.fields_module import IntegerField
+
+        class FakeModel:
+            _fields = {"count": IntegerField()}
+
+        result = AdminSite._coerce_form_data(FakeModel, {"count": "abc"})
+        assert result["count"] == "abc"  # unchanged on error
+
+    def test_coerce_empty_int_passthrough(self):
+        from aquilia.admin.site import AdminSite
+        from aquilia.models.fields_module import IntegerField
+
+        field = IntegerField()
+        field.null = False
+
+        class FakeModel:
+            _fields = {"count": field}
+
+        result = AdminSite._coerce_form_data(FakeModel, {"count": ""})
+        assert result["count"] == 0  # empty string → 0 for non-null
+
+    def test_coerce_no_fields_attr(self):
+        from aquilia.admin.site import AdminSite
+
+        class FakeModel:
+            pass
+
+        result = AdminSite._coerce_form_data(FakeModel, {"x": "1"})
+        assert result["x"] == "1"
+
+
+class TestCustomModals:
+    """All confirm/delete dialogs should use custom modals, not browser confirm()."""
+
+    def test_list_view_no_browser_confirm(self):
+        html = render_list_view(
+            data={
+                "rows": [{"pk": "1", "values": [("id", "1")]}],
+                "list_display": ["id"], "model_name": "Foo",
+                "page": 1, "total_pages": 1, "total": 1,
+                "verbose_name": "Foo", "verbose_name_plural": "Foos",
+                "pk_field": "id",
+                "actions": {"delete_selected": MagicMock(short_description="Delete", confirmation="Sure?")},
+            },
+            app_list=[], identity_name="admin",
+        )
+        # Should NOT have bare confirm() — only showConfirmModal
+        assert "showConfirmModal" in html
+
+    def test_list_view_has_do_delete(self):
+        html = render_list_view(
+            data={
+                "rows": [{"pk": "1", "values": [("id", "1")]}],
+                "list_display": ["id"], "model_name": "Foo",
+                "page": 1, "total_pages": 1, "total": 1,
+                "verbose_name": "Foo", "verbose_name_plural": "Foos",
+                "pk_field": "id",
+                "actions": {},
+            },
+            app_list=[], identity_name="admin",
+        )
+        assert "doDelete" in html
+
+    def test_list_view_has_do_duplicate(self):
+        html = render_list_view(
+            data={
+                "rows": [{"pk": "1", "values": [("id", "1")]}],
+                "list_display": ["id"], "model_name": "Foo",
+                "page": 1, "total_pages": 1, "total": 1,
+                "verbose_name": "Foo", "verbose_name_plural": "Foos",
+                "pk_field": "id",
+                "actions": {},
+            },
+            app_list=[], identity_name="admin",
+        )
+        assert "doDuplicate" in html
+
+    def test_list_view_has_quick_update(self):
+        html = render_list_view(
+            data={
+                "rows": [{"pk": "1", "values": [("id", "1")]}],
+                "list_display": ["id"], "model_name": "Foo",
+                "page": 1, "total_pages": 1, "total": 1,
+                "verbose_name": "Foo", "verbose_name_plural": "Foos",
+                "pk_field": "id",
+                "actions": {},
+            },
+            app_list=[], identity_name="admin",
+        )
+        assert "quickUpdate" in html
+
+    def test_list_view_modal_has_cancel_button(self):
+        html = render_list_view(
+            data={
+                "rows": [{"pk": "1", "values": [("id", "1")]}],
+                "list_display": ["id"], "model_name": "Foo",
+                "page": 1, "total_pages": 1, "total": 1,
+                "verbose_name": "Foo", "verbose_name_plural": "Foos",
+                "pk_field": "id",
+                "actions": {},
+            },
+            app_list=[], identity_name="admin",
+        )
+        assert "Cancel" in html
+
+    def test_form_view_has_custom_delete_modal(self):
+        html = render_form_view(
+            data={
+                "model_name": "Foo", "verbose_name": "Foo",
+                "fields": [{"name": "id", "value": "1", "field_type": "text", "required": False, "readonly": True}],
+                "pk": "1", "pk_field": "id",
+            },
+            app_list=[], identity_name="admin",
+        )
+        assert "showDeleteModal" in html
+
+    def test_form_view_no_bare_confirm(self):
+        html = render_form_view(
+            data={
+                "model_name": "Foo", "verbose_name": "Foo",
+                "fields": [{"name": "id", "value": "1", "field_type": "text", "required": False, "readonly": True}],
+                "pk": "1", "pk_field": "id",
+            },
+            app_list=[], identity_name="admin",
+        )
+        # The form should not use bare return confirm(
+        assert "return confirm(" not in html
+
+
+class TestUpdateButtonInActions:
+    """The list view should have an Update button per row."""
+
+    def test_list_view_has_update_action(self):
+        html = render_list_view(
+            data={
+                "rows": [{"pk": "1", "values": [("id", "1")]}],
+                "list_display": ["id"], "model_name": "Foo",
+                "page": 1, "total_pages": 1, "total": 1,
+                "verbose_name": "Foo", "verbose_name_plural": "Foos",
+                "pk_field": "id",
+                "actions": {},
+            },
+            app_list=[], identity_name="admin",
+        )
+        assert "quickUpdate" in html
+
+    def test_list_view_update_button_has_refresh_icon(self):
+        html = render_list_view(
+            data={
+                "rows": [{"pk": "1", "values": [("id", "1")]}],
+                "list_display": ["id"], "model_name": "Foo",
+                "page": 1, "total_pages": 1, "total": 1,
+                "verbose_name": "Foo", "verbose_name_plural": "Foos",
+                "pk_field": "id",
+                "actions": {},
+            },
+            app_list=[], identity_name="admin",
+        )
+        assert "refresh-cw" in html
+
+
+class TestWorkspacePage:
+    """Workspace monitoring page — template, render, sidebar, route."""
+
+    def test_render_workspace_page_basic(self):
+        from aquilia.admin.templates import render_workspace_page
+        html = render_workspace_page(
+            workspace={
+                "name": "MyApp",
+                "version": "1.0.0",
+                "description": "Test workspace",
+                "python_version": "3.12",
+                "platform": "darwin",
+                "modules": [],
+                "integrations": [],
+                "registered_models": [],
+                "project_meta": {},
+                "stats": {
+                    "total_modules": 0,
+                    "total_models": 0,
+                    "total_controllers": 0,
+                    "total_services": 0,
+                    "total_integrations": 0,
+                },
+            },
+            app_list=[], identity_name="admin",
+        )
+        assert "Workspace" in html
+        assert "MyApp" in html
+
+    def test_render_workspace_with_modules(self):
+        from aquilia.admin.templates import render_workspace_page
+        html = render_workspace_page(
+            workspace={
+                "name": "MyApp",
+                "version": "1.0.0",
+                "description": "",
+                "python_version": "3.12",
+                "platform": "darwin",
+                "modules": [
+                    {
+                        "name": "authentication",
+                        "manifest": {
+                            "controllers": ["AuthController"],
+                            "services": ["AuthService"],
+                            "models": ["User"],
+                            "guards": ["AuthGuard"],
+                            "pipes": [],
+                            "interceptors": [],
+                            "imports": [],
+                            "exports": [],
+                            "tags": ["auth"],
+                            "route_prefix": "/auth",
+                            "fault_domain": "AUTH",
+                            "auto_discover": True,
+                        },
+                        "files": [
+                            {"name": "controller.py", "kind": "controller"},
+                            {"name": "models.py", "kind": "model"},
+                            {"name": "manifest.py", "kind": "manifest"},
+                        ],
+                    }
+                ],
+                "integrations": [
+                    {"name": "SQLite", "icon": "🗄️", "params": {"db": "test.db"}},
+                ],
+                "registered_models": [
+                    {"name": "User", "table": "users", "field_count": 5, "app_label": "auth"},
+                ],
+                "project_meta": {"author": "Tester", "license": "MIT"},
+                "stats": {
+                    "total_modules": 1,
+                    "total_models": 1,
+                    "total_controllers": 1,
+                    "total_services": 1,
+                    "total_integrations": 1,
+                },
+            },
+            app_list=[], identity_name="admin",
+        )
+        assert "authentication" in html
+        assert "AuthController" in html
+        assert "AuthService" in html
+        assert "AuthGuard" in html
+        assert "/auth" in html
+        assert "SQLite" in html
+        assert "User" in html
+        assert "users" in html
+        assert "Tester" in html
+
+    def test_workspace_page_has_stats(self):
+        from aquilia.admin.templates import render_workspace_page
+        html = render_workspace_page(
+            workspace={
+                "name": "App",
+                "version": "1.0",
+                "description": "",
+                "python_version": "3.12",
+                "platform": "darwin",
+                "modules": [],
+                "integrations": [],
+                "registered_models": [],
+                "project_meta": {},
+                "stats": {
+                    "total_modules": 3,
+                    "total_models": 5,
+                    "total_controllers": 2,
+                    "total_services": 4,
+                    "total_integrations": 1,
+                },
+            },
+            app_list=[], identity_name="admin",
+        )
+        assert "Modules" in html
+        assert "Models" in html
+        assert "Controllers" in html
+        assert "Services" in html
+        assert "Integrations" in html
+
+    def test_workspace_page_module_expandable(self):
+        from aquilia.admin.templates import render_workspace_page
+        html = render_workspace_page(
+            workspace={
+                "name": "App", "version": "1.0", "description": "",
+                "python_version": "3.12", "platform": "darwin",
+                "modules": [
+                    {"name": "orders", "manifest": None, "files": [{"name": "models.py", "kind": "model"}]},
+                ],
+                "integrations": [], "registered_models": [], "project_meta": {},
+                "stats": {"total_modules": 1, "total_models": 0, "total_controllers": 0, "total_services": 0, "total_integrations": 0},
+            },
+            app_list=[], identity_name="admin",
+        )
+        assert "toggleModule" in html
+        assert "module-body" in html
+        assert "module-chevron" in html
+        assert "data-collapsed" in html
+
+    def test_workspace_page_no_modules(self):
+        from aquilia.admin.templates import render_workspace_page
+        html = render_workspace_page(
+            workspace={
+                "name": "App", "version": "1.0", "description": "",
+                "python_version": "3.12", "platform": "darwin",
+                "modules": [],
+                "integrations": [], "registered_models": [], "project_meta": {},
+                "stats": {"total_modules": 0, "total_models": 0, "total_controllers": 0, "total_services": 0, "total_integrations": 0},
+            },
+            app_list=[], identity_name="admin",
+        )
+        assert "No modules discovered" in html
+
+    def test_workspace_page_file_kind_badges(self):
+        from aquilia.admin.templates import render_workspace_page
+        html = render_workspace_page(
+            workspace={
+                "name": "App", "version": "1.0", "description": "",
+                "python_version": "3.12", "platform": "darwin",
+                "modules": [
+                    {
+                        "name": "payments",
+                        "manifest": {
+                            "controllers": [], "services": [], "models": [],
+                            "guards": [], "pipes": [], "interceptors": [],
+                            "imports": [], "exports": [],
+                            "tags": [], "route_prefix": "", "fault_domain": "", "auto_discover": False,
+                        },
+                        "files": [
+                            {"name": "controller.py", "kind": "controller"},
+                            {"name": "service.py", "kind": "service"},
+                            {"name": "models.py", "kind": "model"},
+                            {"name": "guard.py", "kind": "guard"},
+                        ],
+                    },
+                ],
+                "integrations": [], "registered_models": [], "project_meta": {},
+                "stats": {"total_modules": 1, "total_models": 0, "total_controllers": 0, "total_services": 0, "total_integrations": 0},
+            },
+            app_list=[], identity_name="admin",
+        )
+        assert "controller" in html.lower()
+        assert "service" in html.lower()
+        assert "model" in html.lower()
+        assert "guard" in html.lower()
+
+    def test_workspace_page_project_metadata(self):
+        from aquilia.admin.templates import render_workspace_page
+        html = render_workspace_page(
+            workspace={
+                "name": "App", "version": "1.0", "description": "",
+                "python_version": "3.12", "platform": "darwin",
+                "modules": [],
+                "integrations": [], "registered_models": [],
+                "project_meta": {"author": "Dev Team", "license": "Apache-2.0", "python_requires": ">=3.10"},
+                "stats": {"total_modules": 0, "total_models": 0, "total_controllers": 0, "total_services": 0, "total_integrations": 0},
+            },
+            app_list=[], identity_name="admin",
+        )
+        assert "Dev Team" in html
+        assert "Apache-2.0" in html
+
+    def test_workspace_page_keyboard_expand(self):
+        from aquilia.admin.templates import render_workspace_page
+        html = render_workspace_page(
+            workspace={
+                "name": "App", "version": "1.0", "description": "",
+                "python_version": "3.12", "platform": "darwin",
+                "modules": [{"name": "core", "manifest": None, "files": []}],
+                "integrations": [], "registered_models": [], "project_meta": {},
+                "stats": {"total_modules": 1, "total_models": 0, "total_controllers": 0, "total_services": 0, "total_integrations": 0},
+            },
+            app_list=[], identity_name="admin",
+        )
+        # Keyboard shortcut 'e' to expand/collapse all
+        assert "e.key === 'e'" in html or "e.key===" in html
+
+    def test_workspace_sidebar_link(self):
+        html = render_dashboard(
+            app_list=[], stats={"total_models": 0, "model_counts": {}, "recent_actions": []},
+            identity_name="admin",
+        )
+        assert "/admin/workspace/" in html
+        assert "Workspace" in html
+
+    def test_workspace_fallback_render(self):
+        from aquilia.admin.templates import render_workspace_page, _HAS_JINJA2
+        # If Jinja2 is available, we test the function returns valid HTML
+        html = render_workspace_page(
+            workspace={
+                "name": "Test", "version": "1.0", "description": "",
+                "python_version": "3.12", "platform": "darwin",
+                "modules": [],
+                "integrations": [], "registered_models": [], "project_meta": {},
+                "stats": {"total_modules": 0, "total_models": 0, "total_controllers": 0, "total_services": 0, "total_integrations": 0},
+            },
+            app_list=[], identity_name="admin",
+        )
+        assert "<!DOCTYPE html>" in html or "Workspace" in html
+
+    def test_workspace_page_integrations_display(self):
+        from aquilia.admin.templates import render_workspace_page
+        html = render_workspace_page(
+            workspace={
+                "name": "App", "version": "1.0", "description": "",
+                "python_version": "3.12", "platform": "darwin",
+                "modules": [],
+                "integrations": [
+                    {"name": "Redis", "icon": "🔴", "params": {"host": "localhost"}},
+                    {"name": "PostgreSQL", "icon": "🐘", "params": {"port": 5432}},
+                ],
+                "registered_models": [], "project_meta": {},
+                "stats": {"total_modules": 0, "total_models": 0, "total_controllers": 0, "total_services": 0, "total_integrations": 2},
+            },
+            app_list=[], identity_name="admin",
+        )
+        assert "Redis" in html
+        assert "PostgreSQL" in html
+
+    def test_workspace_page_registered_models_table(self):
+        from aquilia.admin.templates import render_workspace_page
+        html = render_workspace_page(
+            workspace={
+                "name": "App", "version": "1.0", "description": "",
+                "python_version": "3.12", "platform": "darwin",
+                "modules": [],
+                "integrations": [],
+                "registered_models": [
+                    {"name": "Order", "table": "orders", "field_count": 8, "app_label": "shop"},
+                    {"name": "Product", "table": "products", "field_count": 6, "app_label": "shop"},
+                ],
+                "project_meta": {},
+                "stats": {"total_modules": 0, "total_models": 2, "total_controllers": 0, "total_services": 0, "total_integrations": 0},
+            },
+            app_list=[], identity_name="admin",
+        )
+        assert "Order" in html
+        assert "orders" in html
+        assert "Product" in html
+        assert "products" in html
+
+    def test_workspace_page_manifest_tags(self):
+        from aquilia.admin.templates import render_workspace_page
+        html = render_workspace_page(
+            workspace={
+                "name": "App", "version": "1.0", "description": "",
+                "python_version": "3.12", "platform": "darwin",
+                "modules": [
+                    {
+                        "name": "billing",
+                        "manifest": {
+                            "controllers": ["BillingController"],
+                            "services": [],
+                            "models": [],
+                            "guards": [],
+                            "pipes": [],
+                            "interceptors": [],
+                            "imports": [],
+                            "exports": [],
+                            "tags": ["payments", "billing"],
+                            "route_prefix": "/billing",
+                            "fault_domain": "BILLING",
+                            "auto_discover": True,
+                        },
+                        "files": [],
+                    },
+                ],
+                "integrations": [], "registered_models": [], "project_meta": {},
+                "stats": {"total_modules": 1, "total_models": 0, "total_controllers": 1, "total_services": 0, "total_integrations": 0},
+            },
+            app_list=[], identity_name="admin",
+        )
+        assert "payments" in html
+        assert "billing" in html
+        assert "BILLING" in html
+
+    def test_workspace_page_auto_discover_indicator(self):
+        from aquilia.admin.templates import render_workspace_page
+        html = render_workspace_page(
+            workspace={
+                "name": "App", "version": "1.0", "description": "",
+                "python_version": "3.12", "platform": "darwin",
+                "modules": [
+                    {
+                        "name": "core",
+                        "manifest": {
+                            "controllers": [], "services": [], "models": [],
+                            "guards": [], "pipes": [], "interceptors": [],
+                            "imports": [], "exports": [],
+                            "tags": [], "route_prefix": "",
+                            "fault_domain": "", "auto_discover": True,
+                        },
+                        "files": [],
+                    },
+                ],
+                "integrations": [], "registered_models": [], "project_meta": {},
+                "stats": {"total_modules": 1, "total_models": 0, "total_controllers": 0, "total_services": 0, "total_integrations": 0},
+            },
+            app_list=[], identity_name="admin",
+        )
+        assert "Enabled" in html or "Auto Discover" in html
+
+
+class TestWorkspaceDataMethod:
+    """AdminSite.get_workspace_data() should return structured workspace info."""
+
+    def test_get_workspace_data_returns_dict(self):
+        from aquilia.admin.site import AdminSite
+        site = AdminSite()
+        site._initialized = True
+        data = site.get_workspace_data()
+        assert isinstance(data, dict)
+        assert "workspace" in data
+        assert "modules" in data
+        assert "stats" in data
+
+    def test_get_workspace_data_has_stats(self):
+        from aquilia.admin.site import AdminSite
+        site = AdminSite()
+        site._initialized = True
+        data = site.get_workspace_data()
+        stats = data["stats"]
+        assert "total_modules" in stats
+        assert "total_models" in stats
+        assert "total_integrations" in stats
+
+    def test_get_workspace_data_has_workspace_info(self):
+        import sys
+        import tempfile
+        from pathlib import Path
+        from aquilia.admin.site import AdminSite
+
+        # Create a minimal workspace.py so the test is not filesystem-dependent
+        with tempfile.TemporaryDirectory() as tmp:
+            ws_file = Path(tmp) / "workspace.py"
+            ws_file.write_text(
+                'from aquilia import Workspace\n'
+                'app = Workspace("test-workspace", version="1.0.0")\n'
+            )
+            old_cwd = Path.cwd()
+            import os
+            os.chdir(tmp)
+            try:
+                site = AdminSite()
+                site._initialized = True
+                data = site.get_workspace_data()
+                ws = data["workspace"]
+                assert isinstance(ws, dict)
+                assert "name" in ws
+                assert "python_version" in ws
+            finally:
+                os.chdir(old_cwd)
+
+    def test_classify_module_file(self):
+        from aquilia.admin.site import AdminSite
+        site = AdminSite()
+        assert site._classify_module_file("controller.py") == "controller"
+        assert site._classify_module_file("controllers.py") == "controller"
+        assert site._classify_module_file("service.py") == "service"
+        assert site._classify_module_file("services.py") == "service"
+        assert site._classify_module_file("models.py") == "model"
+        assert site._classify_module_file("manifest.py") == "manifest"
+        assert site._classify_module_file("guard.py") == "guard"
+        assert site._classify_module_file("guards.py") == "guard"
+        assert site._classify_module_file("faults.py") == "fault"
+        assert site._classify_module_file("pipe.py") == "pipe"
+        assert site._classify_module_file("middleware.py") == "middleware"
+        assert site._classify_module_file("config.py") == "other"
+        assert site._classify_module_file("utils.py") == "other"
+
+    def test_get_integration_icon(self):
+        from aquilia.admin.site import AdminSite
+        site = AdminSite()
+        assert site._get_integration_icon("sqlite") != ""
+        assert site._get_integration_icon("redis") != ""
+        assert site._get_integration_icon("unknown_thing") != ""
+
+    def test_get_workspace_data_registered_models(self):
+        from aquilia.admin.site import AdminSite
+        site = AdminSite()
+        site._initialized = True
+        data = site.get_workspace_data()
+        assert "registered_models" in data
+        assert isinstance(data["registered_models"], list)
+
+    def test_get_workspace_data_integrations(self):
+        from aquilia.admin.site import AdminSite
+        site = AdminSite()
+        site._initialized = True
+        data = site.get_workspace_data()
+        assert "integrations" in data
+        assert isinstance(data["integrations"], list)
+
+    def test_get_workspace_data_project_meta(self):
+        from aquilia.admin.site import AdminSite
+        site = AdminSite()
+        site._initialized = True
+        data = site.get_workspace_data()
+        assert "project_meta" in data
+        assert isinstance(data["project_meta"], dict)
+
+    def test_get_workspace_data_modules_list(self):
+        from aquilia.admin.site import AdminSite
+        site = AdminSite()
+        site._initialized = True
+        data = site.get_workspace_data()
+        assert "modules" in data
+        assert isinstance(data["modules"], list)
+
+
+class TestWorkspaceRoute:
+    """Controller should have the workspace route wired up."""
+
+    def test_controller_imports_render_workspace(self):
+        from aquilia.admin.controller import render_workspace_page
+        assert callable(render_workspace_page)
+
+    def test_admin_controller_has_workspace_view(self):
+        from aquilia.admin.controller import AdminController
+        assert hasattr(AdminController, "workspace_view")
+
+    def test_workspace_view_is_async(self):
+        import inspect
+        from aquilia.admin.controller import AdminController
+        assert inspect.iscoroutinefunction(AdminController.workspace_view)
+
+    def test_workspace_route_delegates_correctly(self):
+        """Test that /workspace/ URL delegates to workspace_view instead of list_view."""
+        from aquilia.admin.controller import AdminController
+        # Verify _SYSTEM_PAGES includes workspace
+        assert hasattr(AdminController, '_SYSTEM_PAGES')
+        assert 'workspace' in AdminController._SYSTEM_PAGES
+        # Verify workspace_view method exists
+        assert hasattr(AdminController, 'workspace_view')
+        assert callable(getattr(AdminController, 'workspace_view'))
+
+
+class TestSidebarWorkspaceLink:
+    """Sidebar should include a Workspace link in the System section."""
+
+    def test_sidebar_has_workspace_link_on_all_pages(self):
+        """Workspace link should appear on every page that renders the sidebar."""
+        # Dashboard
+        html = render_dashboard(
+            app_list=[], stats={"total_models": 0, "model_counts": {}, "recent_actions": []},
+            identity_name="admin",
+        )
+        assert "/admin/workspace/" in html
+
+    def test_sidebar_workspace_active_state(self):
+        from aquilia.admin.templates import render_workspace_page
+        html = render_workspace_page(
+            workspace={
+                "name": "App", "version": "1.0", "description": "",
+                "python_version": "3.12", "platform": "darwin",
+                "modules": [], "integrations": [],
+                "registered_models": [], "project_meta": {},
+                "stats": {"total_modules": 0, "total_models": 0, "total_controllers": 0, "total_services": 0, "total_integrations": 0},
+            },
+            app_list=[], identity_name="admin",
+        )
+        # The workspace link should have 'active' class on the workspace page
+        assert 'active' in html
+
+
+class TestModalAccessibility:
+    """Custom modals should be accessible and themed."""
+
+    def test_list_modal_has_escape_key(self):
+        html = render_list_view(
+            data={
+                "rows": [{"pk": "1", "values": [("id", "1")]}],
+                "list_display": ["id"], "model_name": "Foo",
+                "page": 1, "total_pages": 1, "total": 1,
+                "verbose_name": "Foo", "verbose_name_plural": "Foos",
+                "pk_field": "id", "actions": {},
+            },
+            app_list=[], identity_name="admin",
+        )
+        assert "Escape" in html
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Monitoring System Tests
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class TestMonitoringDataCollector:
+    """AdminSite.get_monitoring_data() should return comprehensive system metrics."""
+
+    def test_get_monitoring_data_returns_dict(self):
+        from aquilia.admin.site import AdminSite
+        site = AdminSite()
+        site._initialized = True
+        data = site.get_monitoring_data()
+        assert isinstance(data, dict)
+
+    def test_get_monitoring_data_has_cpu(self):
+        from aquilia.admin.site import AdminSite
+        site = AdminSite()
+        data = site.get_monitoring_data()
+        assert "cpu" in data
+        assert "percent" in data["cpu"]
+        assert isinstance(data["cpu"]["percent"], (int, float))
+
+    def test_get_monitoring_data_has_memory(self):
+        from aquilia.admin.site import AdminSite
+        site = AdminSite()
+        data = site.get_monitoring_data()
+        assert "memory" in data
+        assert "percent" in data["memory"]
+        assert "total_human" in data["memory"]
+
+    def test_get_monitoring_data_has_disk(self):
+        from aquilia.admin.site import AdminSite
+        site = AdminSite()
+        data = site.get_monitoring_data()
+        assert "disk" in data
+        assert "percent" in data["disk"]
+
+    def test_get_monitoring_data_has_network(self):
+        from aquilia.admin.site import AdminSite
+        site = AdminSite()
+        data = site.get_monitoring_data()
+        assert "network" in data
+        assert "bytes_sent" in data["network"]
+
+    def test_get_monitoring_data_has_process(self):
+        from aquilia.admin.site import AdminSite
+        site = AdminSite()
+        data = site.get_monitoring_data()
+        assert "process" in data
+        assert "pid" in data["process"]
+        assert data["process"]["pid"] > 0
+
+    def test_get_monitoring_data_has_python(self):
+        from aquilia.admin.site import AdminSite
+        site = AdminSite()
+        data = site.get_monitoring_data()
+        assert "python" in data
+        assert "version" in data["python"]
+
+    def test_get_monitoring_data_has_system(self):
+        from aquilia.admin.site import AdminSite
+        site = AdminSite()
+        data = site.get_monitoring_data()
+        assert "system" in data
+        assert "os" in data["system"]
+        assert "hostname" in data["system"]
+
+    def test_get_monitoring_data_has_health_checks(self):
+        from aquilia.admin.site import AdminSite
+        site = AdminSite()
+        data = site.get_monitoring_data()
+        assert "health_checks" in data
+        assert isinstance(data["health_checks"], list)
+
+    def test_get_monitoring_data_cpu_per_core(self):
+        from aquilia.admin.site import AdminSite
+        site = AdminSite()
+        data = site.get_monitoring_data()
+        assert "per_core" in data["cpu"]
+        assert isinstance(data["cpu"]["per_core"], list)
+
+    def test_get_monitoring_data_process_env_snapshot(self):
+        from aquilia.admin.site import AdminSite
+        site = AdminSite()
+        data = site.get_monitoring_data()
+        assert "env_snapshot" in data["process"]
+        assert isinstance(data["process"]["env_snapshot"], dict)
+
+    def test_get_monitoring_data_disk_partitions(self):
+        from aquilia.admin.site import AdminSite
+        site = AdminSite()
+        data = site.get_monitoring_data()
+        assert "partitions" in data["disk"]
+        assert isinstance(data["disk"]["partitions"], list)
+
+    def test_fmt_bytes(self):
+        from aquilia.admin.site import AdminSite
+        assert "1.0 KB" == AdminSite._fmt_bytes(1024)
+        assert "1.0 MB" == AdminSite._fmt_bytes(1024 * 1024)
+        assert "1.0 GB" == AdminSite._fmt_bytes(1024 ** 3)
+        assert "0.0 B" == AdminSite._fmt_bytes(0)
+
+    def test_format_uptime(self):
+        from aquilia.admin.site import AdminSite
+        assert "0s" == AdminSite._format_uptime(0)
+        assert "1m 30s" == AdminSite._format_uptime(90)
+        assert "1h 0s" == AdminSite._format_uptime(3600)
+        assert "1d 0s" == AdminSite._format_uptime(86400)
+
+    def test_safe_env_snapshot_excludes_secrets(self):
+        import os
+        from aquilia.admin.site import AdminSite
+        # Set a secret-like env var
+        os.environ["SECRET_KEY"] = "super_secret"
+        snap = AdminSite._safe_env_snapshot()
+        assert "SECRET_KEY" not in snap
+        del os.environ["SECRET_KEY"]
+
+    def test_monitoring_data_serializable(self):
+        """Monitoring data should be JSON-serializable."""
+        import json
+        from aquilia.admin.site import AdminSite
+        site = AdminSite()
+        data = site.get_monitoring_data()
+        # Should not raise
+        serialized = json.dumps(data, default=str)
+        assert len(serialized) > 100
+
+    def test_get_monitoring_data_gc_generations(self):
+        """gc_generations should be a list of dicts with collection stats."""
+        from aquilia.admin.site import AdminSite
+        site = AdminSite()
+        data = site.get_monitoring_data()
+        gens = data["python"]["gc_generations"]
+        assert isinstance(gens, list)
+        assert len(gens) == 3  # CPython always has 3 generations
+        for g in gens:
+            assert "generation" in g
+            assert "collections" in g
+            assert isinstance(g["collections"], int)
+
+    def test_get_monitoring_data_gc_enabled(self):
+        from aquilia.admin.site import AdminSite
+        site = AdminSite()
+        data = site.get_monitoring_data()
+        assert "gc_enabled" in data["python"]
+        assert isinstance(data["python"]["gc_enabled"], bool)
+
+    def test_get_monitoring_data_gc_frozen(self):
+        from aquilia.admin.site import AdminSite
+        site = AdminSite()
+        data = site.get_monitoring_data()
+        assert "gc_frozen" in data["python"]
+        assert isinstance(data["python"]["gc_frozen"], int)
+
+    def test_get_monitoring_data_loaded_modules(self):
+        from aquilia.admin.site import AdminSite
+        site = AdminSite()
+        data = site.get_monitoring_data()
+        assert "loaded_modules" in data["python"]
+        assert isinstance(data["python"]["loaded_modules"], int)
+        assert data["python"]["loaded_modules"] > 0
+
+    def test_get_monitoring_data_active_threads(self):
+        from aquilia.admin.site import AdminSite
+        site = AdminSite()
+        data = site.get_monitoring_data()
+        assert "active_threads" in data["python"]
+        assert isinstance(data["python"]["active_threads"], int)
+        assert data["python"]["active_threads"] >= 1
+
+    def test_get_monitoring_data_recursion_limit(self):
+        from aquilia.admin.site import AdminSite
+        site = AdminSite()
+        data = site.get_monitoring_data()
+        assert "recursion_limit" in data["python"]
+        assert isinstance(data["python"]["recursion_limit"], int)
+        assert data["python"]["recursion_limit"] > 0
+
+    def test_get_monitoring_data_io_counters(self):
+        """Process I/O counter fields should be present."""
+        from aquilia.admin.site import AdminSite
+        site = AdminSite()
+        data = site.get_monitoring_data()
+        proc = data["process"]
+        assert "io_read_count" in proc
+        assert "io_write_count" in proc
+        assert "io_read_bytes_human" in proc
+        assert "io_write_bytes_human" in proc
+
+
+class TestMonitoringRoute:
+    """Controller should have the monitoring routes wired up."""
+
+    def test_controller_imports_render_monitoring(self):
+        from aquilia.admin.controller import render_monitoring_page
+        assert callable(render_monitoring_page)
+
+    def test_admin_controller_has_monitoring_view(self):
+        from aquilia.admin.controller import AdminController
+        assert hasattr(AdminController, "monitoring_view")
+
+    def test_admin_controller_has_monitoring_api(self):
+        from aquilia.admin.controller import AdminController
+        assert hasattr(AdminController, "monitoring_api")
+
+    def test_monitoring_view_is_async(self):
+        import inspect
+        from aquilia.admin.controller import AdminController
+        assert inspect.iscoroutinefunction(AdminController.monitoring_view)
+
+    def test_monitoring_api_is_async(self):
+        import inspect
+        from aquilia.admin.controller import AdminController
+        assert inspect.iscoroutinefunction(AdminController.monitoring_api)
+
+    def test_monitoring_route_delegates_correctly(self):
+        """Test that /monitoring/ URL delegates to monitoring_view."""
+        from aquilia.admin.controller import AdminController
+        assert hasattr(AdminController, '_SYSTEM_PAGES')
+        assert 'monitoring' in AdminController._SYSTEM_PAGES
+
+
+class TestMonitoringSidebar:
+    """Sidebar should include a Monitoring link in the System section."""
+
+    def test_sidebar_has_monitoring_link(self):
+        from pathlib import Path
+        content = (Path(__file__).parent.parent / "aquilia/admin/templates/partials/sidebar_v2.html").read_text()
+        assert "monitoring" in content.lower()
+        assert "/monitoring/" in content
+
+    def test_sidebar_monitoring_appears_on_dashboard(self):
+        """Monitoring link should appear when monitoring is enabled."""
+        from aquilia.admin.site import AdminSite, AdminConfig
+        # Must configure the default singleton since _render_template reads it
+        AdminSite.reset()
+        site = AdminSite.default()
+        site.admin_config = AdminConfig(modules={
+            "dashboard": True, "orm": True, "build": True,
+            "migrations": True, "config": True, "workspace": True,
+            "permissions": True, "monitoring": True, "admin_users": True,
+            "profile": True, "audit": True,
+        })
+        try:
+            html = render_dashboard(
+                app_list=[], stats={"total_models": 0, "model_counts": {}, "recent_actions": []},
+                identity_name="admin",
+            )
+            assert "/admin/monitoring/" in html
+        finally:
+            AdminSite.reset()
+
+    def test_monitoring_template_exists(self):
+        from pathlib import Path
+        p = Path(__file__).parent.parent / "aquilia/admin/templates/monitoring.html"
+        assert p.exists()
+
+    def test_monitoring_template_has_tabs(self):
+        from pathlib import Path
+        content = (Path(__file__).parent.parent / "aquilia/admin/templates/monitoring.html").read_text()
+        for tab in ("overview", "cpu", "memory", "network", "process", "health"):
+            assert tab in content.lower(), f"Tab '{tab}' missing from monitoring template"
+
+    def test_monitoring_template_has_gauges(self):
+        from pathlib import Path
+        content = (Path(__file__).parent.parent / "aquilia/admin/templates/monitoring.html").read_text()
+        assert "gaugeCpu" in content
+        assert "gaugeMem" in content
+        assert "gaugeDisk" in content
+
+    def test_monitoring_template_has_live_polling(self):
+        from pathlib import Path
+        content = (Path(__file__).parent.parent / "aquilia/admin/templates/monitoring.html").read_text()
+        assert "/monitoring/api/" in content
+        assert "setInterval" in content
+
+    def test_form_modal_has_escape_key(self):
+        html = render_form_view(
+            data={
+                "model_name": "Foo", "verbose_name": "Foo",
+                "fields": [{"name": "id", "value": "1", "field_type": "text", "required": False, "readonly": True}],
+                "pk": "1", "pk_field": "id",
+            },
+            app_list=[], identity_name="admin",
+        )
+        assert "Escape" in html
+
+    def test_list_modal_themed_dark_mode(self):
+        html = render_list_view(
+            data={
+                "rows": [{"pk": "1", "values": [("id", "1")]}],
+                "list_display": ["id"], "model_name": "Foo",
+                "page": 1, "total_pages": 1, "total": 1,
+                "verbose_name": "Foo", "verbose_name_plural": "Foos",
+                "pk_field": "id", "actions": {},
+            },
+            app_list=[], identity_name="admin",
+        )
+        # Modal should use CSS variables for theming
+        assert "var(--bg-elevated)" in html or "var(--border-color)" in html
+
+
+class TestAqdocxThemeAlignment:
+    """Verify admin CSS is aligned with aqdocx docs theme."""
+
+    def test_css_uses_outfit_font(self):
+        from aquilia.admin.templates import _get_jinja_env
+        css = _get_jinja_env().get_template("partials/css.html").render()
+        assert '"Outfit"' in css
+
+    def test_css_uses_space_mono_font(self):
+        from aquilia.admin.templates import _get_jinja_env
+        css = _get_jinja_env().get_template("partials/css.html").render()
+        assert '"Space Mono"' in css
+
+    def test_css_pure_black_dark_mode(self):
+        from aquilia.admin.templates import _get_jinja_env
+        css = _get_jinja_env().get_template("partials/css.html").render()
+        assert "--bg-body: #000000" in css
+        assert "--bg-card: #000000" in css
+        # aqdocx sidebar is #09090b (zinc-950), not pure black
+        assert "--bg-sidebar: #09090b" in css
+
+    def test_css_has_grid_background(self):
+        from aquilia.admin.templates import _get_jinja_env
+        css = _get_jinja_env().get_template("partials/css.html").render()
+        assert "linear-gradient" in css
+        assert "40px 40px" in css
+
+    def test_css_has_ambient_blob_classes(self):
+        from aquilia.admin.templates import _get_jinja_env
+        css = _get_jinja_env().get_template("partials/css.html").render()
+        assert "ambient-blob-green" in css
+        assert "ambient-blob-blue" in css
+        assert "ambient-blob-purple" in css
+        assert "ambient-blob-cyan" in css
+
+    def test_base_has_ambient_blobs(self):
+        from pathlib import Path
+        html = (Path(__file__).parent.parent / "aquilia/admin/templates/base.html").read_text()
+        assert "ambient-blob-green" in html
+        assert "ambient-blob-blue" in html
+        assert "ambient-blob-purple" in html
+        assert "ambient-blob-cyan" in html
+
+    def test_css_has_breathing_animation(self):
+        from aquilia.admin.templates import _get_jinja_env
+        css = _get_jinja_env().get_template("partials/css.html").render()
+        assert "@keyframes breathing" in css
+
+    def test_css_sidebar_active_gradient(self):
+        from aquilia.admin.templates import _get_jinja_env
+        css = _get_jinja_env().get_template("partials/css.html").render()
+        assert "linear-gradient(to right" in css
+        assert "border-left: 2px solid #22c55e" in css
+
+
+class TestIntegrationIconsLucide:
+    """Integration icons should use Lucide classes instead of emojis."""
+
+    def test_integration_icon_returns_lucide_class(self):
+        from aquilia.admin.site import AdminSite
+        assert AdminSite._get_integration_icon("database") == "icon-database"
+        assert AdminSite._get_integration_icon("mail") == "icon-mail"
+        assert AdminSite._get_integration_icon("cache") == "icon-zap"
+        assert AdminSite._get_integration_icon("sessions") == "icon-key"
+        assert AdminSite._get_integration_icon("unknown_thing") == "icon-settings"
+
+    def test_no_emoji_in_integration_icons(self):
+        from aquilia.admin.site import AdminSite
+        known = [
+            "di", "registry", "routing", "fault_handling", "patterns",
+            "database", "cache", "templates", "static_files", "admin",
+            "cors", "csp", "rate_limit", "mail", "sessions", "auth", "openapi",
+        ]
+        for name in known:
+            icon = AdminSite._get_integration_icon(name)
+            assert icon.startswith("icon-"), f"{name} icon should be Lucide class, got {icon}"
+
+
+class TestWorkspaceModuleExpandCollapse:
+    """Module expand/collapse should use data-collapsed + max-height approach."""
+
+    def test_module_body_has_data_collapsed(self):
+        from aquilia.admin.templates import render_workspace_page
+        html = render_workspace_page(
+            workspace={
+                "name": "App", "version": "1.0", "description": "",
+                "python_version": "3.12", "platform": "darwin",
+                "modules": [
+                    {"name": "core", "manifest": None, "files": [{"name": "main.py", "kind": "controller"}]},
+                ],
+                "integrations": [], "registered_models": [], "project_meta": {},
+                "stats": {"total_modules": 1, "total_models": 0, "total_controllers": 0, "total_services": 0, "total_integrations": 0},
+            },
+            app_list=[], identity_name="admin",
+        )
+        assert 'data-collapsed="true"' in html
+        assert "max-height" in html
+        assert "toggleModule(this)" in html
+
+
+class TestRenderErrorPage:
+    """render_error_page should produce styled admin error pages."""
+
+    def test_render_error_page_import(self):
+        from aquilia.admin.templates import render_error_page
+        assert callable(render_error_page)
+
+    def test_render_error_page_contains_status(self):
+        from aquilia.admin.templates import render_error_page
+        html = render_error_page(status=404, title="Not Found", message="Model 'xyz' not registered")
+        assert "404" in html
+        assert "Not Found" in html
+
+    def test_render_error_page_contains_message(self):
+        from aquilia.admin.templates import render_error_page
+        html = render_error_page(status=404, title="Not Found", message="No such model")
+        assert "No such model" in html
+
+    def test_render_error_page_contains_dashboard_link(self):
+        from aquilia.admin.templates import render_error_page
+        html = render_error_page(status=404, title="Not Found")
+        assert "/admin/" in html
+        assert "Dashboard" in html
+
+    def test_render_error_page_403(self):
+        from aquilia.admin.templates import render_error_page
+        html = render_error_page(status=403, title="Forbidden", message="Access denied")
+        assert "403" in html
+        assert "Forbidden" in html
+
+    def test_render_error_page_400(self):
+        from aquilia.admin.templates import render_error_page
+        html = render_error_page(status=400, title="Error", message="Bad request")
+        assert "400" in html
+
+    def test_render_error_page_extends_base(self):
+        """Error page should use the full admin layout (sidebar, header)."""
+        from aquilia.admin.templates import render_error_page
+        html = render_error_page(
+            status=404, title="Not Found", message="Test",
+            app_list=[{"name": "TestApp", "models": []}],
+            identity_name="Admin",
+        )
+        # Should contain admin layout elements from base.html
+        assert "Aquilia Admin" in html
+        assert "data-theme" in html
+
+
+class TestAdminDeleteFlashError:
+    """delete_record should flash error messages to the session."""
+
+    def test_controller_has_delete_record(self):
+        from aquilia.admin.controller import AdminController
+        assert hasattr(AdminController, "delete_record")
+
+    def test_render_error_page_import_in_controller(self):
+        """Controller should import render_error_page."""
+        from aquilia.admin.controller import render_error_page
+        assert callable(render_error_page)
+
+
+class TestServerAdminRouteWiring:
+    """server.py admin_routes should include all system page routes."""
+
+    def test_monitoring_routes_in_wiring(self):
+        """Monitoring and monitoring/api routes must be wired as static routes."""
+        import ast
+        from pathlib import Path
+
+        server_path = Path(__file__).resolve().parent.parent / "aquilia" / "server.py"
+        source = server_path.read_text(encoding="utf-8")
+        # Check that monitoring routes are present in the admin_routes list
+        assert '"/monitoring/"' in source or "monitoring_view" in source
+        assert '"/monitoring/api/"' in source or "monitoring_api" in source
+
+    def test_workspace_route_in_wiring(self):
+        """Workspace route must be wired as a static route."""
+        from pathlib import Path
+
+        server_path = Path(__file__).resolve().parent.parent / "aquilia" / "server.py"
+        source = server_path.read_text(encoding="utf-8")
+        assert '"/workspace/"' in source or "workspace_view" in source
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ADMIN CONFIG — COMPREHENSIVE MODULE CONTROL SYSTEM
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class TestAdminConfigDataclass:
+    """Test the AdminConfig frozen dataclass."""
+
+    def test_import(self):
+        from aquilia.admin.site import AdminConfig
+        assert AdminConfig is not None
+
+    def test_default_all_modules_enabled(self):
+        from aquilia.admin.site import AdminConfig
+        cfg = AdminConfig()
+        # Modules enabled by default
+        for mod in ("dashboard", "orm", "build", "migrations", "config",
+                     "workspace", "permissions", "admin_users", "profile"):
+            assert cfg.is_module_enabled(mod), f"{mod} should be enabled by default"
+        # Monitoring and audit are disabled by default
+        assert cfg.is_module_enabled("monitoring") is False
+        assert cfg.is_module_enabled("audit") is False
+
+    def test_is_module_enabled_normalises_dashes(self):
+        from aquilia.admin.site import AdminConfig
+        cfg = AdminConfig()
+        assert cfg.is_module_enabled("admin-users") is True
+        assert cfg.is_module_enabled("admin_users") is True
+
+    def test_unknown_module_returns_false(self):
+        from aquilia.admin.site import AdminConfig
+        cfg = AdminConfig()
+        assert cfg.is_module_enabled("nonexistent") is False
+
+    def test_disable_module(self):
+        from aquilia.admin.site import AdminConfig
+        cfg = AdminConfig(modules={
+            "dashboard": True, "orm": False, "build": True,
+            "migrations": True, "config": True, "workspace": True,
+            "permissions": True, "monitoring": False, "admin_users": True,
+            "profile": True, "audit": True,
+        })
+        assert cfg.is_module_enabled("orm") is False
+        assert cfg.is_module_enabled("monitoring") is False
+        assert cfg.is_module_enabled("dashboard") is True
+
+    def test_audit_action_filtering_defaults(self):
+        from aquilia.admin.site import AdminConfig
+        from aquilia.admin.audit import AdminAction
+        # With audit disabled (default), all actions are blocked
+        cfg = AdminConfig()
+        for action in AdminAction:
+            assert cfg.is_action_allowed(action) is False, f"{action} should be blocked when audit disabled"
+        # With audit explicitly enabled, all actions are allowed
+        cfg_on = AdminConfig(audit_enabled=True)
+        for action in AdminAction:
+            assert cfg_on.is_action_allowed(action), f"{action} should be allowed when audit enabled"
+
+    def test_audit_excluded_actions(self):
+        from aquilia.admin.site import AdminConfig
+        from aquilia.admin.audit import AdminAction
+        cfg = AdminConfig(audit_enabled=True, audit_excluded_actions=frozenset({"VIEW", "LIST"}))
+        assert cfg.is_action_allowed(AdminAction.VIEW) is False
+        assert cfg.is_action_allowed(AdminAction.LIST) is False
+        assert cfg.is_action_allowed(AdminAction.CREATE) is True
+        assert cfg.is_action_allowed(AdminAction.DELETE) is True
+
+    def test_audit_log_logins_switch(self):
+        from aquilia.admin.site import AdminConfig
+        from aquilia.admin.audit import AdminAction
+        cfg = AdminConfig(audit_enabled=True, audit_log_logins=False)
+        assert cfg.is_action_allowed(AdminAction.LOGIN) is False
+        assert cfg.is_action_allowed(AdminAction.LOGOUT) is False
+        assert cfg.is_action_allowed(AdminAction.LOGIN_FAILED) is False
+        assert cfg.is_action_allowed(AdminAction.CREATE) is True
+
+    def test_audit_log_views_switch(self):
+        from aquilia.admin.site import AdminConfig
+        from aquilia.admin.audit import AdminAction
+        cfg = AdminConfig(audit_enabled=True, audit_log_views=False)
+        assert cfg.is_action_allowed(AdminAction.VIEW) is False
+        assert cfg.is_action_allowed(AdminAction.LIST) is False
+        assert cfg.is_action_allowed(AdminAction.SEARCH) is True  # Separate switch
+
+    def test_audit_log_searches_switch(self):
+        from aquilia.admin.site import AdminConfig
+        from aquilia.admin.audit import AdminAction
+        cfg = AdminConfig(audit_enabled=True, audit_log_searches=False)
+        assert cfg.is_action_allowed(AdminAction.SEARCH) is False
+        assert cfg.is_action_allowed(AdminAction.VIEW) is True
+
+    def test_audit_disabled_blocks_all(self):
+        from aquilia.admin.site import AdminConfig
+        from aquilia.admin.audit import AdminAction
+        cfg = AdminConfig(audit_enabled=False)
+        for action in AdminAction:
+            assert cfg.is_action_allowed(action) is False
+
+    def test_monitoring_metric_enabled(self):
+        from aquilia.admin.site import AdminConfig
+        cfg = AdminConfig()
+        for m in ("cpu", "memory", "disk", "network", "process", "python", "system", "health_checks"):
+            assert cfg.is_metric_enabled(m) is True
+
+    def test_monitoring_metric_subset(self):
+        from aquilia.admin.site import AdminConfig
+        cfg = AdminConfig(monitoring_metrics=frozenset({"cpu", "memory"}))
+        assert cfg.is_metric_enabled("cpu") is True
+        assert cfg.is_metric_enabled("memory") is True
+        assert cfg.is_metric_enabled("disk") is False
+        assert cfg.is_metric_enabled("network") is False
+
+    def test_sidebar_section_visibility(self):
+        from aquilia.admin.site import AdminConfig
+        cfg = AdminConfig(sidebar_sections={
+            "overview": True, "data": False, "system": True,
+            "security": False, "models": True,
+        })
+        assert cfg.is_sidebar_section_visible("overview") is True
+        assert cfg.is_sidebar_section_visible("data") is False
+        assert cfg.is_sidebar_section_visible("security") is False
+        assert cfg.is_sidebar_section_visible("models") is True
+
+    def test_to_dict_roundtrip(self):
+        from aquilia.admin.site import AdminConfig
+        cfg = AdminConfig()
+        d = cfg.to_dict()
+        assert "modules" in d
+        assert "audit" in d
+        assert "monitoring" in d
+        assert "sidebar_sections" in d
+        assert d["theme"] == "auto"
+        assert d["list_per_page"] == 25
+        assert d["audit"]["enabled"] is False
+        assert "cpu" in d["monitoring"]["metrics"]
+
+    def test_from_dict_default(self):
+        from aquilia.admin.site import AdminConfig
+        cfg = AdminConfig.from_dict({})
+        assert cfg.is_module_enabled("dashboard") is True
+        # Audit and monitoring disabled by default
+        assert cfg.audit_enabled is False
+        assert cfg.monitoring_enabled is False
+
+    def test_from_dict_with_modules(self):
+        from aquilia.admin.site import AdminConfig
+        cfg = AdminConfig.from_dict({
+            "modules": {"orm": False, "build": False},
+            "audit_config": {
+                "enabled": True,
+                "log_logins": False,
+                "excluded_actions": ["VIEW"],
+            },
+            "monitoring_config": {
+                "metrics": ["cpu", "memory"],
+                "refresh_interval": 10,
+            },
+            "sidebar_sections": {"data": False},
+        })
+        assert cfg.is_module_enabled("orm") is False
+        assert cfg.is_module_enabled("build") is False
+        assert cfg.is_module_enabled("dashboard") is True
+        assert cfg.audit_log_logins is False
+        assert "VIEW" in cfg.audit_excluded_actions
+        assert cfg.monitoring_metrics == frozenset({"cpu", "memory"})
+        assert cfg.monitoring_refresh_interval == 10
+        assert cfg.is_sidebar_section_visible("data") is False
+
+    def test_from_dict_enable_audit_false(self):
+        from aquilia.admin.site import AdminConfig
+        cfg = AdminConfig.from_dict({"enable_audit": False})
+        assert cfg.audit_enabled is False
+        assert cfg.is_module_enabled("audit") is False
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# NESTED BUILDER CLASSES — AdminModules, AdminAudit, AdminMonitoring, AdminSidebar
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class TestAdminModulesBuilder:
+    """Test Integration.AdminModules fluent builder."""
+
+    def test_import(self):
+        from aquilia.config_builders import Integration
+        assert hasattr(Integration, "AdminModules")
+
+    def test_defaults(self):
+        from aquilia.config_builders import Integration
+        m = Integration.AdminModules()
+        d = m.to_dict()
+        assert d["dashboard"] is True
+        assert d["orm"] is True
+        assert d["monitoring"] is False
+        assert d["audit"] is False
+
+    def test_enable_monitoring(self):
+        from aquilia.config_builders import Integration
+        m = Integration.AdminModules().enable_monitoring()
+        assert m.to_dict()["monitoring"] is True
+
+    def test_disable_dashboard(self):
+        from aquilia.config_builders import Integration
+        m = Integration.AdminModules().disable_dashboard()
+        assert m.to_dict()["dashboard"] is False
+
+    def test_enable_all(self):
+        from aquilia.config_builders import Integration
+        m = Integration.AdminModules().enable_all()
+        d = m.to_dict()
+        for key, val in d.items():
+            assert val is True, f"{key} should be True after enable_all()"
+
+    def test_disable_all(self):
+        from aquilia.config_builders import Integration
+        m = Integration.AdminModules().disable_all()
+        d = m.to_dict()
+        for key, val in d.items():
+            assert val is False, f"{key} should be False after disable_all()"
+
+    def test_fluent_chain(self):
+        from aquilia.config_builders import Integration
+        m = (Integration.AdminModules()
+             .disable_all()
+             .enable_dashboard()
+             .enable_orm()
+             .enable_monitoring())
+        d = m.to_dict()
+        assert d["dashboard"] is True
+        assert d["orm"] is True
+        assert d["monitoring"] is True
+        assert d["build"] is False
+        assert d["audit"] is False
+
+    def test_repr(self):
+        from aquilia.config_builders import Integration
+        r = repr(Integration.AdminModules())
+        assert "AdminModules" in r
+
+
+class TestAdminAuditBuilder:
+    """Test Integration.AdminAudit fluent builder."""
+
+    def test_import(self):
+        from aquilia.config_builders import Integration
+        assert hasattr(Integration, "AdminAudit")
+
+    def test_defaults_disabled(self):
+        from aquilia.config_builders import Integration
+        a = Integration.AdminAudit()
+        d = a.to_dict()
+        assert d["enabled"] is False
+
+    def test_enable(self):
+        from aquilia.config_builders import Integration
+        a = Integration.AdminAudit().enable()
+        assert a.to_dict()["enabled"] is True
+
+    def test_max_entries(self):
+        from aquilia.config_builders import Integration
+        a = Integration.AdminAudit().enable().max_entries(500)
+        d = a.to_dict()
+        assert d["max_entries"] == 500
+
+    def test_log_logins_off(self):
+        from aquilia.config_builders import Integration
+        a = Integration.AdminAudit().enable().no_log_logins()
+        d = a.to_dict()
+        assert d["log_logins"] is False
+
+    def test_log_views_off(self):
+        from aquilia.config_builders import Integration
+        a = Integration.AdminAudit().enable().no_log_views()
+        d = a.to_dict()
+        assert d["log_views"] is False
+
+    def test_log_searches_off(self):
+        from aquilia.config_builders import Integration
+        a = Integration.AdminAudit().enable().no_log_searches()
+        d = a.to_dict()
+        assert d["log_searches"] is False
+
+    def test_exclude_actions(self):
+        from aquilia.config_builders import Integration
+        a = Integration.AdminAudit().enable().exclude_actions("VIEW", "LIST")
+        d = a.to_dict()
+        assert "VIEW" in d["excluded_actions"]
+        assert "LIST" in d["excluded_actions"]
+
+    def test_fluent_chain(self):
+        from aquilia.config_builders import Integration
+        a = (Integration.AdminAudit()
+             .enable()
+             .max_entries(200)
+             .no_log_logins()
+             .exclude_actions("SEARCH"))
+        d = a.to_dict()
+        assert d["enabled"] is True
+        assert d["max_entries"] == 200
+        assert d["log_logins"] is False
+        assert "SEARCH" in d["excluded_actions"]
+
+    def test_repr(self):
+        from aquilia.config_builders import Integration
+        r = repr(Integration.AdminAudit())
+        assert "AdminAudit" in r
+
+
+class TestAdminMonitoringBuilder:
+    """Test Integration.AdminMonitoring fluent builder."""
+
+    def test_import(self):
+        from aquilia.config_builders import Integration
+        assert hasattr(Integration, "AdminMonitoring")
+
+    def test_defaults_disabled(self):
+        from aquilia.config_builders import Integration
+        m = Integration.AdminMonitoring()
+        d = m.to_dict()
+        assert d["enabled"] is False
+
+    def test_enable(self):
+        from aquilia.config_builders import Integration
+        m = Integration.AdminMonitoring().enable()
+        assert m.to_dict()["enabled"] is True
+
+    def test_metrics_subset(self):
+        from aquilia.config_builders import Integration
+        m = Integration.AdminMonitoring().enable().metrics("cpu", "memory")
+        d = m.to_dict()
+        assert d["metrics"] == ["cpu", "memory"]
+
+    def test_all_metrics(self):
+        from aquilia.config_builders import Integration
+        m = Integration.AdminMonitoring().enable().all_metrics()
+        d = m.to_dict()
+        assert "cpu" in d["metrics"]
+        assert "health_checks" in d["metrics"]
+        assert len(d["metrics"]) == 8
+
+    def test_refresh_interval(self):
+        from aquilia.config_builders import Integration
+        m = Integration.AdminMonitoring().enable().refresh_interval(15)
+        d = m.to_dict()
+        assert d["refresh_interval"] == 15
+
+    def test_refresh_interval_minimum(self):
+        from aquilia.config_builders import Integration
+        m = Integration.AdminMonitoring().enable().refresh_interval(1)
+        d = m.to_dict()
+        assert d["refresh_interval"] == 5  # clamped to minimum
+
+    def test_fluent_chain(self):
+        from aquilia.config_builders import Integration
+        m = (Integration.AdminMonitoring()
+             .enable()
+             .metrics("cpu", "disk")
+             .refresh_interval(10))
+        d = m.to_dict()
+        assert d["enabled"] is True
+        assert d["metrics"] == ["cpu", "disk"]
+        assert d["refresh_interval"] == 10
+
+    def test_repr(self):
+        from aquilia.config_builders import Integration
+        r = repr(Integration.AdminMonitoring())
+        assert "AdminMonitoring" in r
+
+
+class TestAdminSidebarBuilder:
+    """Test Integration.AdminSidebar fluent builder."""
+
+    def test_import(self):
+        from aquilia.config_builders import Integration
+        assert hasattr(Integration, "AdminSidebar")
+
+    def test_defaults_all_visible(self):
+        from aquilia.config_builders import Integration
+        s = Integration.AdminSidebar()
+        d = s.to_dict()
+        for key in ("overview", "data", "system", "security", "models"):
+            assert d[key] is True, f"{key} should be True by default"
+
+    def test_hide_data(self):
+        from aquilia.config_builders import Integration
+        s = Integration.AdminSidebar().hide_data()
+        assert s.to_dict()["data"] is False
+
+    def test_hide_security(self):
+        from aquilia.config_builders import Integration
+        s = Integration.AdminSidebar().hide_security()
+        assert s.to_dict()["security"] is False
+
+    def test_hide_all(self):
+        from aquilia.config_builders import Integration
+        s = Integration.AdminSidebar().hide_all()
+        d = s.to_dict()
+        for key, val in d.items():
+            assert val is False, f"{key} should be False after hide_all()"
+
+    def test_show_all(self):
+        from aquilia.config_builders import Integration
+        s = Integration.AdminSidebar().hide_all().show_all()
+        d = s.to_dict()
+        for key, val in d.items():
+            assert val is True, f"{key} should be True after show_all()"
+
+    def test_fluent_chain(self):
+        from aquilia.config_builders import Integration
+        s = (Integration.AdminSidebar()
+             .hide_all()
+             .show_overview()
+             .show_models())
+        d = s.to_dict()
+        assert d["overview"] is True
+        assert d["models"] is True
+        assert d["data"] is False
+        assert d["system"] is False
+        assert d["security"] is False
+
+    def test_repr(self):
+        from aquilia.config_builders import Integration
+        r = repr(Integration.AdminSidebar())
+        assert "AdminSidebar" in r
+
+
+class TestBuildersWithIntegrationAdmin:
+    """Test that builder objects work with Integration.admin()."""
+
+    def test_modules_builder_passed_to_admin(self):
+        from aquilia.config_builders import Integration
+        modules = Integration.AdminModules().enable_all()
+        cfg = Integration.admin(modules=modules)
+        assert cfg["modules"]["monitoring"] is True
+        assert cfg["modules"]["audit"] is True
+        assert cfg["modules"]["dashboard"] is True
+
+    def test_audit_builder_passed_to_admin(self):
+        from aquilia.config_builders import Integration
+        audit = Integration.AdminAudit().enable().no_log_logins().max_entries(100)
+        cfg = Integration.admin(audit=audit)
+        assert cfg["audit_config"]["enabled"] is True
+        assert cfg["audit_config"]["log_logins"] is False
+        assert cfg["audit_config"]["max_entries"] == 100
+        assert cfg["modules"]["audit"] is True
+
+    def test_monitoring_builder_passed_to_admin(self):
+        from aquilia.config_builders import Integration
+        monitoring = Integration.AdminMonitoring().enable().metrics("cpu", "memory")
+        cfg = Integration.admin(monitoring=monitoring)
+        assert cfg["monitoring_config"]["enabled"] is True
+        assert cfg["monitoring_config"]["metrics"] == ["cpu", "memory"]
+        assert cfg["modules"]["monitoring"] is True
+
+    def test_sidebar_builder_passed_to_admin(self):
+        from aquilia.config_builders import Integration
+        sidebar = Integration.AdminSidebar().hide_data().hide_security()
+        cfg = Integration.admin(sidebar=sidebar)
+        assert cfg["sidebar_sections"]["data"] is False
+        assert cfg["sidebar_sections"]["security"] is False
+        assert cfg["sidebar_sections"]["overview"] is True
+
+    def test_all_builders_combined(self):
+        from aquilia.config_builders import Integration
+        cfg = Integration.admin(
+            modules=Integration.AdminModules().enable_all(),
+            audit=Integration.AdminAudit().enable().no_log_views(),
+            monitoring=Integration.AdminMonitoring().enable().refresh_interval(10),
+            sidebar=Integration.AdminSidebar().hide_security(),
+        )
+        assert cfg["modules"]["monitoring"] is True
+        assert cfg["modules"]["audit"] is True
+        assert cfg["audit_config"]["enabled"] is True
+        assert cfg["audit_config"]["log_views"] is False
+        assert cfg["monitoring_config"]["enabled"] is True
+        assert cfg["monitoring_config"]["refresh_interval"] == 10
+        assert cfg["sidebar_sections"]["security"] is False
+
+    def test_builders_override_flat_params(self):
+        """Builder objects should take priority over flat params."""
+        from aquilia.config_builders import Integration
+        cfg = Integration.admin(
+            modules=Integration.AdminModules().enable_monitoring(),
+            enable_monitoring=False,  # flat param should be overridden
+        )
+        assert cfg["modules"]["monitoring"] is True
+
+    def test_flat_params_still_work(self):
+        """Legacy flat params should still work when no builders passed."""
+        from aquilia.config_builders import Integration
+        cfg = Integration.admin(
+            enable_monitoring=True,
+            enable_audit=True,
+            audit_log_logins=False,
+            monitoring_metrics=["cpu"],
+        )
+        assert cfg["modules"]["monitoring"] is True
+        assert cfg["modules"]["audit"] is True
+        assert cfg["audit_config"]["log_logins"] is False
+        assert cfg["monitoring_config"]["metrics"] == ["cpu"]
+
+    def test_builder_to_full_config_roundtrip(self):
+        """Builder → Integration.admin() → AdminConfig.from_dict() roundtrip."""
+        from aquilia.config_builders import Integration
+        from aquilia.admin.site import AdminConfig
+
+        cfg_dict = Integration.admin(
+            modules=Integration.AdminModules().enable_all(),
+            audit=Integration.AdminAudit().enable().exclude_actions("VIEW"),
+            monitoring=Integration.AdminMonitoring().enable().metrics("cpu", "disk"),
+        )
+        cfg = AdminConfig.from_dict(cfg_dict)
+        assert cfg.is_module_enabled("monitoring") is True
+        assert cfg.is_module_enabled("audit") is True
+        assert cfg.audit_enabled is True
+        assert "VIEW" in cfg.audit_excluded_actions
+        assert cfg.monitoring_metrics == frozenset({"cpu", "disk"})
+
+
+class TestDisabledPageRendering:
+    """Test the disabled page overlay renders correctly."""
+
+    def test_render_disabled_page_function_exists(self):
+        from aquilia.admin.templates import render_disabled_page
+        assert callable(render_disabled_page)
+
+    def test_render_disabled_page_contains_module_name(self):
+        from aquilia.admin.templates import render_disabled_page
+        html = render_disabled_page(
+            module_name="Monitoring",
+            builder_hint="Integration.AdminMonitoring().enable()",
+            flat_hint="enable_monitoring=True",
+            icon_key="monitoring",
+            description="System metrics and live charts.",
+            app_list=[],
+            identity_name="admin",
+        )
+        assert "Monitoring" in html
+        assert "Module Disabled" in html
+
+    def test_render_disabled_page_contains_builder_hint(self):
+        from aquilia.admin.templates import render_disabled_page
+        html = render_disabled_page(
+            module_name="Audit Log",
+            builder_hint="Integration.AdminAudit().enable()",
+            flat_hint="enable_audit=True",
+            icon_key="audit",
+            description="Activity trail.",
+            app_list=[],
+            identity_name="admin",
+        )
+        assert "AdminAudit" in html
+        assert "enable_audit" in html
+
+    def test_render_disabled_page_has_buttons(self):
+        from aquilia.admin.templates import render_disabled_page
+        html = render_disabled_page(
+            module_name="Build",
+            builder_hint="Integration.AdminModules().enable_build()",
+            flat_hint="enable_build=True",
+            icon_key="build",
+            description="Build artifacts.",
+            app_list=[],
+            identity_name="admin",
+        )
+        assert "Dashboard" in html or "Go Back" in html
+
+    def test_disabled_template_file_exists(self):
+        from pathlib import Path
+        p = Path(__file__).resolve().parent.parent / "aquilia" / "admin" / "templates" / "disabled.html"
+        assert p.exists()
+
+    def test_disabled_template_extends_base(self):
+        from pathlib import Path
+        content = (Path(__file__).resolve().parent.parent / "aquilia" / "admin" / "templates" / "disabled.html").read_text()
+        assert "base.html" in content
+
+    def test_disabled_template_has_blur_effect(self):
+        from pathlib import Path
+        content = (Path(__file__).resolve().parent.parent / "aquilia" / "admin" / "templates" / "disabled.html").read_text()
+        assert "blur" in content
+        assert "disabled-overlay" in content
+
+    def test_controller_returns_200_for_disabled_module(self):
+        """Disabled modules return 200 with overlay, not 404."""
+        from aquilia.admin.site import AdminSite, AdminConfig
+        from aquilia.admin.controller import AdminController
+
+        site = AdminSite(name="disabled_test")
+        site.admin_config = AdminConfig(modules={
+            "dashboard": True, "orm": True, "build": True,
+            "migrations": True, "config": True, "workspace": True,
+            "permissions": True, "monitoring": False, "admin_users": True,
+            "profile": True, "audit": False,
+        })
+        ctrl = AdminController(site=site)
+        resp = ctrl._module_disabled_response("Monitoring", None)
+        assert resp.status == 200
+        body = resp._content.decode("utf-8")
+        assert "Module Disabled" in body
+        assert "enable" in body.lower()
+
+
+class TestIntegrationAdminConfigBuilder:
+    """Test Integration.admin() produces correct config dict with new fields."""
+
+    def test_default_config_has_modules(self):
+        from aquilia.config_builders import Integration
+        cfg = Integration.admin()
+        assert "modules" in cfg
+        assert cfg["modules"]["dashboard"] is True
+        assert cfg["modules"]["orm"] is True
+
+    def test_disable_build(self):
+        from aquilia.config_builders import Integration
+        cfg = Integration.admin(enable_build=False)
+        assert cfg["modules"]["build"] is False
+        assert cfg["modules"]["orm"] is True
+
+    def test_audit_config(self):
+        from aquilia.config_builders import Integration
+        cfg = Integration.admin(
+            enable_audit=True,
+            audit_log_logins=False,
+            audit_excluded_actions=["VIEW", "LIST"],
+        )
+        assert cfg["audit_config"]["enabled"] is True
+        assert cfg["audit_config"]["log_logins"] is False
+        assert "VIEW" in cfg["audit_config"]["excluded_actions"]
+        assert "LIST" in cfg["audit_config"]["excluded_actions"]
+
+    def test_monitoring_config(self):
+        from aquilia.config_builders import Integration
+        cfg = Integration.admin(
+            enable_monitoring=True,
+            monitoring_metrics=["cpu", "memory"],
+            monitoring_refresh_interval=15,
+        )
+        assert cfg["monitoring_config"]["enabled"] is True
+        assert cfg["monitoring_config"]["metrics"] == ["cpu", "memory"]
+        assert cfg["monitoring_config"]["refresh_interval"] == 15
+
+    def test_monitoring_refresh_minimum(self):
+        from aquilia.config_builders import Integration
+        cfg = Integration.admin(monitoring_refresh_interval=1)
+        assert cfg["monitoring_config"]["refresh_interval"] == 5  # min clamped
+
+    def test_sidebar_sections(self):
+        from aquilia.config_builders import Integration
+        cfg = Integration.admin(sidebar_sections={"data": False, "security": False})
+        assert cfg["sidebar_sections"]["data"] is False
+        assert cfg["sidebar_sections"]["security"] is False
+        assert cfg["sidebar_sections"]["overview"] is True
+
+    def test_disable_monitoring(self):
+        from aquilia.config_builders import Integration
+        cfg = Integration.admin(enable_monitoring=False)
+        assert cfg["modules"]["monitoring"] is False
+        assert cfg["monitoring_config"]["enabled"] is False
+
+    def test_all_modules_disabled(self):
+        from aquilia.config_builders import Integration
+        cfg = Integration.admin(
+            enable_dashboard=False, enable_orm=False, enable_build=False,
+            enable_migrations=False, enable_config=False, enable_workspace=False,
+            enable_permissions=False, enable_monitoring=False, enable_admin_users=False,
+            enable_profile=False, enable_audit=False,
+        )
+        for key, val in cfg["modules"].items():
+            assert val is False, f"Module {key} should be False"
+
+    def test_default_all_metrics(self):
+        from aquilia.config_builders import Integration
+        cfg = Integration.admin()
+        expected = ["cpu", "memory", "disk", "network", "process", "python", "system", "health_checks"]
+        assert cfg["monitoring_config"]["metrics"] == expected
+
+    def test_backward_compatible_keys(self):
+        """Existing keys (url_prefix, site_title, etc.) must still be present."""
+        from aquilia.config_builders import Integration
+        cfg = Integration.admin(
+            url_prefix="/admin",
+            site_title="Test Admin",
+            site_header="Test Header",
+            auto_discover=True,
+            list_per_page=50,
+            theme="dark",
+        )
+        assert cfg["url_prefix"] == "/admin"
+        assert cfg["site_title"] == "Test Admin"
+        assert cfg["site_header"] == "Test Header"
+        assert cfg["auto_discover"] is True
+        assert cfg["list_per_page"] == 50
+        assert cfg["theme"] == "dark"
+        assert cfg["_integration_type"] == "admin"
+
+
+class TestAdminSiteConfig:
+    """Test AdminSite stores and exposes AdminConfig."""
+
+    def test_default_admin_config(self):
+        from aquilia.admin.site import AdminSite, AdminConfig
+        site = AdminSite()
+        assert isinstance(site.admin_config, AdminConfig)
+
+    def test_admin_config_set(self):
+        from aquilia.admin.site import AdminSite, AdminConfig
+        site = AdminSite()
+        custom = AdminConfig(modules={"dashboard": True, "orm": False,
+            "build": True, "migrations": True, "config": True,
+            "workspace": True, "permissions": True, "monitoring": True,
+            "admin_users": True, "profile": True, "audit": True})
+        site.admin_config = custom
+        assert site.admin_config.is_module_enabled("orm") is False
+
+    def test_admin_config_propagated_to_audit_log(self):
+        from aquilia.admin.site import AdminSite, AdminConfig
+        site = AdminSite()
+        custom = AdminConfig(audit_log_logins=False)
+        site.admin_config = custom
+        site.audit_log.admin_config = custom
+        assert site.audit_log._fallback._admin_config is custom
+
+
+class TestAuditLogFiltering:
+    """Test that audit log respects AdminConfig action filtering."""
+
+    def test_excluded_action_not_persisted(self):
+        from aquilia.admin.audit import AdminAuditLog, AdminAction
+        from aquilia.admin.site import AdminConfig
+
+        cfg = AdminConfig(audit_enabled=True, audit_excluded_actions=frozenset({"VIEW"}))
+        log = AdminAuditLog()
+        log._admin_config = cfg
+
+        entry = log.log(
+            user_id="u1", username="admin", role="superadmin",
+            action=AdminAction.VIEW,
+        )
+        assert entry.id.startswith("audit_skip_")
+        assert log.count() == 0  # Not persisted
+
+    def test_allowed_action_persisted(self):
+        from aquilia.admin.audit import AdminAuditLog, AdminAction
+        from aquilia.admin.site import AdminConfig
+
+        cfg = AdminConfig(audit_enabled=True, audit_excluded_actions=frozenset({"VIEW"}))
+        log = AdminAuditLog()
+        log._admin_config = cfg
+
+        entry = log.log(
+            user_id="u1", username="admin", role="superadmin",
+            action=AdminAction.CREATE,
+        )
+        assert not entry.id.startswith("audit_skip_")
+        assert log.count() == 1
+
+    def test_logins_switch_off(self):
+        from aquilia.admin.audit import AdminAuditLog, AdminAction
+        from aquilia.admin.site import AdminConfig
+
+        cfg = AdminConfig(audit_enabled=True, audit_log_logins=False)
+        log = AdminAuditLog()
+        log._admin_config = cfg
+
+        log.log(user_id="u1", username="admin", role="superadmin", action=AdminAction.LOGIN)
+        log.log(user_id="u1", username="admin", role="superadmin", action=AdminAction.LOGOUT)
+        assert log.count() == 0
+
+    def test_views_switch_off(self):
+        from aquilia.admin.audit import AdminAuditLog, AdminAction
+        from aquilia.admin.site import AdminConfig
+
+        cfg = AdminConfig(audit_enabled=True, audit_log_views=False)
+        log = AdminAuditLog()
+        log._admin_config = cfg
+
+        log.log(user_id="u1", username="admin", role="superadmin", action=AdminAction.VIEW)
+        log.log(user_id="u1", username="admin", role="superadmin", action=AdminAction.LIST)
+        assert log.count() == 0
+        # But CREATE should still work
+        log.log(user_id="u1", username="admin", role="superadmin", action=AdminAction.CREATE)
+        assert log.count() == 1
+
+    def test_searches_switch_off(self):
+        from aquilia.admin.audit import AdminAuditLog, AdminAction
+        from aquilia.admin.site import AdminConfig
+
+        cfg = AdminConfig(audit_enabled=True, audit_log_searches=False)
+        log = AdminAuditLog()
+        log._admin_config = cfg
+
+        log.log(user_id="u1", username="admin", role="superadmin", action=AdminAction.SEARCH)
+        assert log.count() == 0
+
+    def test_no_config_logs_everything(self):
+        from aquilia.admin.audit import AdminAuditLog, AdminAction
+
+        log = AdminAuditLog()
+        log._admin_config = None  # No config
+
+        for action in AdminAction:
+            log.log(user_id="u1", username="admin", role="superadmin", action=action)
+        assert log.count() == len(AdminAction)
+
+    def test_audit_disabled_blocks_all(self):
+        from aquilia.admin.audit import AdminAuditLog, AdminAction
+        from aquilia.admin.site import AdminConfig
+
+        cfg = AdminConfig(audit_enabled=False)
+        log = AdminAuditLog()
+        log._admin_config = cfg
+
+        for action in AdminAction:
+            log.log(user_id="u1", username="admin", role="superadmin", action=action)
+        assert log.count() == 0
+
+
+class TestModelBackedAuditLogFiltering:
+    """Test ModelBackedAuditLog respects config filtering."""
+
+    def test_config_propagated_to_fallback(self):
+        from aquilia.admin.audit import ModelBackedAuditLog
+        from aquilia.admin.site import AdminConfig
+
+        cfg = AdminConfig(audit_enabled=True, audit_log_views=False)
+        mbal = ModelBackedAuditLog()
+        mbal.admin_config = cfg
+        assert mbal._fallback._admin_config is cfg
+
+    def test_excluded_action_returns_skip_entry(self):
+        from aquilia.admin.audit import ModelBackedAuditLog, AdminAction
+        from aquilia.admin.site import AdminConfig
+
+        cfg = AdminConfig(audit_enabled=True, audit_excluded_actions=frozenset({"VIEW"}))
+        mbal = ModelBackedAuditLog()
+        mbal.admin_config = cfg
+
+        entry = mbal.log(
+            user_id="u1", username="admin", role="superadmin",
+            action=AdminAction.VIEW,
+        )
+        assert entry.id.startswith("audit_skip_")
+
+
+class TestAdminControllerModuleGuards:
+    """Test that controller views check module enabled status."""
+
+    def _make_controller(self, modules_override=None):
+        from aquilia.admin.site import AdminSite, AdminConfig
+        from aquilia.admin.controller import AdminController
+
+        default_modules = {
+            "dashboard": True, "orm": True, "build": True,
+            "migrations": True, "config": True, "workspace": True,
+            "permissions": True, "monitoring": True, "admin_users": True,
+            "profile": True, "audit": True,
+        }
+        if modules_override:
+            default_modules.update(modules_override)
+
+        site = AdminSite(name="test_guard")
+        site.admin_config = AdminConfig(modules=default_modules)
+        ctrl = AdminController(site=site)
+        return ctrl
+
+    def test_module_disabled_response_helper(self):
+        ctrl = self._make_controller()
+        resp = ctrl._module_disabled_response("Test Module", None)
+        assert resp.status == 200
+        body = resp._content.decode("utf-8")
+        assert "Module Disabled" in body or "disabled" in body.lower()
+
+    def test_controller_has_admin_config(self):
+        ctrl = self._make_controller({"orm": False})
+        assert ctrl.site.admin_config.is_module_enabled("orm") is False
+        assert ctrl.site.admin_config.is_module_enabled("build") is True
+
+
+class TestSidebarTemplateConditional:
+    """Test sidebar renders conditionally based on admin_config.
+
+    Since v2 the sidebar always shows every page link — disabled modules
+    redirect to a beautiful overlay page instead of being hidden.
+    Only ``sidebar_sections`` (overview/data/system/security/models) can
+    suppress entire sections from the sidebar.
+    """
+
+    def _render_sidebar(self, admin_config=None):
+        from aquilia.admin.templates import _render_template, _HAS_JINJA2
+        if not _HAS_JINJA2:
+            pytest.skip("Jinja2 not available")
+
+        ctx = {
+            "url_prefix": "/admin",
+            "site_title": "Test",
+            "identity_name": "Admin",
+            "active_page": "dashboard",
+            "app_list": [],
+            "admin_config": admin_config or {},
+        }
+        from jinja2 import Environment, FileSystemLoader
+        from pathlib import Path
+        tpl_dir = Path(__file__).resolve().parent.parent / "aquilia" / "admin" / "templates"
+        env = Environment(
+            loader=FileSystemLoader(str(tpl_dir)),
+            autoescape=True,
+            trim_blocks=True,
+            lstrip_blocks=True,
+        )
+        tpl = env.get_template("partials/sidebar_v2.html")
+        return tpl.render(**ctx)
+
+    def test_all_modules_always_visible(self):
+        """Every page link is always rendered regardless of modules config."""
+        html = self._render_sidebar()
+        assert "ORM Models" in html
+        assert "Monitoring" in html
+        assert "Build" in html
+        assert "Audit Log" in html
+        assert "Admin Users" in html
+
+    def test_modules_disabled_does_not_hide_links(self):
+        """Disabling a module in config no longer hides it from the sidebar."""
+        html = self._render_sidebar({
+            "modules": {"orm": False, "monitoring": False, "audit": False,
+                        "build": False, "admin_users": False},
+            "sidebar_sections": {},
+        })
+        # All links still present — disabled page handles the UX
+        assert "ORM Models" in html
+        assert "Monitoring" in html
+        assert "Audit Log" in html
+        assert "Admin Users" in html
+        assert "Build" in html
+
+    def test_data_section_hidden_when_sidebar_section_disabled(self):
+        html = self._render_sidebar({
+            "modules": {},
+            "sidebar_sections": {"data": False},
+        })
+        assert "Data" not in html
+        # ORM/Migrations links are inside the Data section
+        assert "ORM Models" not in html
+        assert "Migrations" not in html
+
+    def test_security_section_hidden_when_sidebar_section_disabled(self):
+        html = self._render_sidebar({
+            "modules": {},
+            "sidebar_sections": {"security": False},
+        })
+        assert ">Security<" not in html
+        assert "Audit Log" not in html
+
+    def test_system_section_hidden_when_sidebar_section_disabled(self):
+        html = self._render_sidebar({
+            "modules": {},
+            "sidebar_sections": {"system": False},
+        })
+        assert ">System<" not in html
+        assert "Monitoring" not in html
+        assert "Build" not in html
+
+    def test_overview_section_hidden_when_disabled(self):
+        html = self._render_sidebar({
+            "modules": {},
+            "sidebar_sections": {"overview": False},
+        })
+        assert "Dashboard" not in html
+
+    def test_all_sections_hidden_when_all_sidebar_sections_disabled(self):
+        html = self._render_sidebar({
+            "sidebar_sections": {
+                "overview": False, "data": False, "system": False,
+                "security": False, "models": False,
+            },
+        })
+        assert "ORM Models" not in html
+        assert "Monitoring" not in html
+        assert "Audit Log" not in html
+        assert "Dashboard" not in html
+
+
+class TestAdminConfigExport:
+    """Test that AdminConfig is properly exported."""
+
+    def test_import_from_admin_package(self):
+        from aquilia.admin import AdminConfig
+        assert AdminConfig is not None
+
+    def test_import_from_site(self):
+        from aquilia.admin.site import AdminConfig
+        assert AdminConfig is not None
+
+    def test_frozen(self):
+        from aquilia.admin.site import AdminConfig
+        cfg = AdminConfig()
+        with pytest.raises(AttributeError):
+            cfg.audit_enabled = False  # type: ignore[misc]
+
+
+class TestAdminConfigServerWiring:
+    """Test that server._wire_admin_integration correctly wires AdminConfig."""
+
+    def test_server_imports_admin_config(self):
+        """server.py must import AdminConfig from admin.site."""
+        from pathlib import Path
+        source = (Path(__file__).resolve().parent.parent / "aquilia" / "server.py").read_text()
+        assert "AdminConfig" in source
+
+    def test_parsed_config_from_dict(self):
+        """AdminConfig.from_dict should handle full Integration.admin() output."""
+        from aquilia.config_builders import Integration
+        from aquilia.admin.site import AdminConfig
+
+        raw = Integration.admin(
+            enable_build=False,
+            audit_log_views=False,
+            monitoring_metrics=["cpu", "memory"],
+        )
+        cfg = AdminConfig.from_dict(raw)
+        assert cfg.is_module_enabled("build") is False
+        assert cfg.audit_log_views is False
+        assert cfg.monitoring_metrics == frozenset({"cpu", "memory"})

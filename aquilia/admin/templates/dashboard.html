@@ -8,19 +8,23 @@
     <p>Overview of your application data and recent activity.</p>
 </div>
 
-{# ── Metric stats row (Sarvam-style counters) ── #}
+{# ── Metric stats row (Sarvam-style counters with animated counters) ── #}
 <div class="stats-row">
     <div class="stat-item">
-        <div class="stat-number">{{ total_models }}</div>
+        <div class="stat-number" data-count="{{ total_models }}">0</div>
         <div class="stat-label"><i class="icon-layers" style="font-size:12px;vertical-align:-1px;margin-right:3px;opacity:0.5;"></i>Models</div>
     </div>
     <div class="stat-item">
-        <div class="stat-number">{{ total_records }}</div>
+        <div class="stat-number" data-count="{{ total_records }}">0</div>
         <div class="stat-label"><i class="icon-database" style="font-size:12px;vertical-align:-1px;margin-right:3px;opacity:0.5;"></i>Records</div>
     </div>
     <div class="stat-item">
-        <div class="stat-number">{{ recent_actions|length }}</div>
+        <div class="stat-number" data-count="{{ recent_actions|length }}">0</div>
         <div class="stat-label"><i class="icon-activity" style="font-size:12px;vertical-align:-1px;margin-right:3px;opacity:0.5;"></i>Changes</div>
+    </div>
+    <div class="stat-item">
+        <div class="stat-number" data-count="{{ app_list|length }}">0</div>
+        <div class="stat-label"><i class="icon-box" style="font-size:12px;vertical-align:-1px;margin-right:3px;opacity:0.5;"></i>Apps</div>
     </div>
 </div>
 
@@ -60,28 +64,32 @@
     </a>
 </div>
 
-{# ── Recent activity ── #}
+{# ── Recent activity (timeline view) ── #}
 {% if recent_actions %}
 <div class="section-label">Recent Activity</div>
-<div class="glass-card">
-    {% for entry in recent_actions[:8] %}
-    <div class="audit-entry" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-        {% set action_cls = 'audit-create' if entry.action in ('create', 'login') else ('audit-update' if entry.action in ('update', 'bulk_action') else ('audit-delete' if entry.action == 'delete' else 'audit-login')) %}
-        <span class="audit-action {{ action_cls }}">
-            {{ entry.action }}
-        </span>
-        <span style="font-size:0.84rem;color:var(--text-secondary);">
-            {{ entry.username|default('') }}
-            {% if entry.model_name %}on {{ entry.model_name }}{% endif %}
-        </span>
-        {% if entry.record_pk %}
-        <span style="font-family:var(--font-mono);font-size:0.75rem;color:var(--accent);">#{{ entry.record_pk }}</span>
-        {% endif %}
-        <span class="meta-text" style="margin-left:auto;">
-            {{ entry.timestamp|default('')|string|truncate(19, True, '') }}
-        </span>
+<div class="glass-card" style="padding:16px 20px;">
+    <div class="activity-timeline">
+        {% for entry in recent_actions[:10] %}
+        <div style="position:relative;padding-bottom:{{ '0' if loop.last else '20' }}px;padding-left:20px;">
+            {% set dot_cls = 'create' if entry.action in ('create', 'login') else ('update' if entry.action in ('update', 'bulk_action') else ('delete' if entry.action == 'delete' else 'login')) %}
+            <div class="timeline-dot {{ dot_cls }}"></div>
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                {% set action_cls = 'audit-create' if entry.action in ('create', 'login') else ('audit-update' if entry.action in ('update', 'bulk_action') else ('audit-delete' if entry.action == 'delete' else 'audit-login')) %}
+                <span class="audit-action {{ action_cls }}">{{ entry.action }}</span>
+                <span style="font-size:0.84rem;color:var(--text-secondary);">
+                    {{ entry.username|default('') }}
+                    {% if entry.model_name %}on <strong style="color:var(--text-primary);">{{ entry.model_name }}</strong>{% endif %}
+                </span>
+                {% if entry.record_pk %}
+                <span style="font-family:var(--font-mono);font-size:0.75rem;color:var(--accent);">#{{ entry.record_pk }}</span>
+                {% endif %}
+                <span class="meta-text" style="margin-left:auto;" data-timestamp="{{ entry.timestamp|default('')|string }}">
+                    {{ entry.timestamp|default('')|string|truncate(19, True, '') }}
+                </span>
+            </div>
+        </div>
+        {% endfor %}
     </div>
-    {% endfor %}
 </div>
 {% else %}
 <div class="glass-card">
@@ -127,6 +135,57 @@
 
 {% block extra_js %}
 <script>
+// ── Animated stat counters ──
+(function() {
+    document.querySelectorAll('.stat-number[data-count]').forEach(function(el) {
+        var target = parseInt(el.getAttribute('data-count'), 10);
+        if (isNaN(target) || target <= 0) { el.textContent = target || '0'; return; }
+        var duration = 800;
+        var start = null;
+        function step(ts) {
+            if (!start) start = ts;
+            var progress = Math.min((ts - start) / duration, 1);
+            var ease = 1 - Math.pow(1 - progress, 3); // ease-out cubic
+            el.textContent = Math.floor(ease * target);
+            if (progress < 1) requestAnimationFrame(step);
+            else el.textContent = target;
+        }
+        requestAnimationFrame(step);
+    });
+})();
+
+// ── Relative timestamps ("2 min ago") ──
+(function() {
+    function relativeTime(ts) {
+        if (!ts) return '';
+        var d = new Date(ts);
+        if (isNaN(d.getTime())) return ts;
+        var now = Date.now();
+        var diff = (now - d.getTime()) / 1000;
+        if (diff < 60) return 'just now';
+        if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+        if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+        if (diff < 604800) return Math.floor(diff / 86400) + 'd ago';
+        return ts.substring(0, 10);
+    }
+    document.querySelectorAll('[data-timestamp]').forEach(function(el) {
+        var ts = el.getAttribute('data-timestamp');
+        var rel = relativeTime(ts);
+        if (rel) el.textContent = rel;
+    });
+})();
+
+// ── Model card hover glow tracking ──
+(function() {
+    document.querySelectorAll('.model-card').forEach(function(card) {
+        card.addEventListener('mousemove', function(e) {
+            var rect = card.getBoundingClientRect();
+            card.style.setProperty('--mouse-x', (e.clientX - rect.left) + 'px');
+            card.style.setProperty('--mouse-y', (e.clientY - rect.top) + 'px');
+        });
+    });
+})();
+
 // Command palette (light/dark mode aware)
 window.showCommandPalette = function() {
     var existing = document.getElementById('cmd-palette');

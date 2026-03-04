@@ -1,5 +1,5 @@
 """
-Optimization Pipeline — orchestrates quantization, pruning, fusion, compilation.
+Optimization Pipeline -- orchestrates quantization, pruning, fusion, compilation.
 """
 
 from __future__ import annotations

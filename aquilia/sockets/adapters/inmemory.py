@@ -47,7 +47,6 @@ class InMemoryAdapter(Adapter):
     async def initialize(self) -> None:
         """Initialize adapter."""
         self._initialized = True
-        logger.info("InMemoryAdapter initialized")
     
     async def shutdown(self) -> None:
         """Shutdown adapter."""
@@ -55,7 +54,7 @@ class InMemoryAdapter(Adapter):
         self._connections.clear()
         self._send_callbacks.clear()
         self._initialized = False
-        logger.info("InMemoryAdapter shut down")
+        logger.debug("InMemoryAdapter shut down")
     
     def register_send_callback(
         self,
@@ -95,7 +94,6 @@ class InMemoryAdapter(Adapter):
         room_members = self._rooms[namespace].get(room, set())
         
         if not room_members:
-            logger.debug(f"No members in room {namespace}/{room}")
             return
         
         # Encode message once
@@ -115,8 +113,6 @@ class InMemoryAdapter(Adapter):
         if tasks:
             await asyncio.gather(*tasks, return_exceptions=True)
         
-        logger.debug(f"Published to {len(tasks)} members in {namespace}/{room}")
-    
     async def broadcast(
         self,
         namespace: str,
@@ -147,8 +143,6 @@ class InMemoryAdapter(Adapter):
         if tasks:
             await asyncio.gather(*tasks, return_exceptions=True)
         
-        logger.debug(f"Broadcast to {len(connections)} connections in {namespace}")
-    
     async def join_room(
         self,
         namespace: str,
@@ -157,7 +151,6 @@ class InMemoryAdapter(Adapter):
     ) -> None:
         """Register connection as room member."""
         self._rooms[namespace][room].add(connection_id)
-        logger.debug(f"Connection {connection_id} joined {namespace}/{room}")
     
     async def leave_room(
         self,
@@ -173,8 +166,6 @@ class InMemoryAdapter(Adapter):
             if not self._rooms[namespace][room]:
                 del self._rooms[namespace][room]
         
-        logger.debug(f"Connection {connection_id} left {namespace}/{room}")
-    
     async def get_room_members(
         self,
         namespace: str,
@@ -213,7 +204,6 @@ class InMemoryAdapter(Adapter):
     ) -> None:
         """Register active connection."""
         self._connections[namespace][connection_id] = worker_id
-        logger.debug(f"Registered connection {connection_id} in {namespace}")
     
     async def unregister_connection(
         self,
@@ -232,8 +222,6 @@ class InMemoryAdapter(Adapter):
             if not self._rooms[namespace][room]:
                 del self._rooms[namespace][room]
         
-        logger.debug(f"Unregistered connection {connection_id} from {namespace}")
-    
     async def get_connection_count(self, namespace: str) -> int:
         """Get active connection count."""
         return len(self._connections[namespace])

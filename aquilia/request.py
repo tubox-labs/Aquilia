@@ -45,6 +45,23 @@ try:
 except ImportError:
     MULTIPART_AVAILABLE = False
 
+# Import Crous binary serializer
+try:
+    import crous as _crous_mod
+    _HAS_CROUS = True
+except ImportError:
+    _crous_mod = None  # type: ignore[assignment]
+    _HAS_CROUS = False
+
+# CROUS media type constants
+CROUS_MEDIA_TYPE = "application/x-crous"
+CROUS_MEDIA_TYPES = frozenset({
+    "application/x-crous",
+    "application/crous",
+    "application/vnd.crous",
+})
+CROUS_MAGIC = b"CROUSv1"
+
 # Type vars
 T = TypeVar("T")
 PathLike = Union[str, Path]
@@ -128,6 +145,35 @@ class InvalidJSON(RequestFault):
         )
 
 
+class InvalidCrous(RequestFault):
+    """Invalid CROUS binary payload (400)."""
+    code = "INVALID_CROUS"
+    message = "Invalid CROUS payload"
+
+    def __init__(self, message: str = None, **metadata):
+        super().__init__(
+            code=self.code,
+            message=message or self.message,
+            metadata=metadata
+        )
+
+
+class CrousUnavailable(RequestFault):
+    """CROUS library not installed (500-level)."""
+    code = "CROUS_UNAVAILABLE"
+    message = "CROUS serializer not available"
+    severity = Severity.ERROR
+    public = False
+
+    def __init__(self, message: str = None, **metadata):
+        super().__init__(
+            code=self.code,
+            message=message or self.message,
+            severity=self.severity,
+            metadata=metadata
+        )
+
+
 class InvalidHeader(RequestFault):
     """Invalid header format (400)."""
     code = "INVALID_HEADER"
@@ -179,12 +225,12 @@ class Request:
         'upload_tempdir', 'trust_proxy', 'chunk_size',
         'json_max_size', 'json_max_depth', 'form_memory_threshold',
         'state',
-        '_body', '_body_consumed', '_json', '_form_data',
+        '_body', '_body_consumed', '_json', '_crous', '_form_data',
         '_query_params', '_headers', '_cookies', '_url',
         '_disconnected', '_temp_files',
     )
 
-    # Class-level defaults — avoid setting per instance when unchanged
+    # Class-level defaults -- avoid setting per instance when unchanged
     _DEFAULT_MAX_BODY_SIZE = 10_485_760
     _DEFAULT_MAX_FIELD_COUNT = 1000
     _DEFAULT_MAX_FILE_SIZE = 2_147_483_648
@@ -213,7 +259,7 @@ class Request:
         self._receive = receive
         self._send = send
 
-        # Configuration — only set non-defaults
+        # Configuration -- only set non-defaults
         self.max_body_size = max_body_size
         self.max_field_count = max_field_count
         self.max_file_size = max_file_size
@@ -231,6 +277,7 @@ class Request:
         self._body: Optional[bytes] = None
         self._body_consumed = False
         self._json: Optional[Any] = None
+        self._crous: Optional[Any] = None
         self._form_data: Optional[FormData] = None
         self._query_params: Optional[MultiDict] = None
         self._headers: Optional[Headers] = None
@@ -479,6 +526,22 @@ class Request:
                 )
         return False
     
+    def is_crous(self) -> bool:
+        """Check if request content type is CROUS binary.
+
+        Detects both the media-type header and the ``CROUSv1`` magic
+        prefix when no Content-Type is set.
+        """
+        ct = self.content_type()
+        if ct:
+            parsed = ParsedContentType.parse(ct)
+            if parsed and parsed.media_type in CROUS_MEDIA_TYPES:
+                return True
+        # Fallback: peek at cached body magic bytes
+        if self._body is not None:
+            return self._body[:7] == CROUS_MAGIC
+        return False
+
     def accepts(self, *media_types: str) -> bool:
         """
         Check if client accepts any of the given media types.
@@ -497,6 +560,76 @@ class Request:
                 return True
         
         return False
+
+    def accepts_crous(self) -> bool:
+        """Check if the client accepts CROUS binary responses.
+
+        Returns ``True`` when any recognised CROUS media type appears
+        in the ``Accept`` header **or** the wildcard ``*/*`` is present.
+        """
+        return self.accepts(*CROUS_MEDIA_TYPES)
+
+    def prefers_crous(self) -> bool:
+        """Check if the client prefers CROUS over JSON.
+
+        Parses quality values from the ``Accept`` header.  Returns
+        ``True`` only when an explicit CROUS media type appears with a
+        quality factor strictly greater than ``application/json``.
+
+        If CROUS is absent from the header, always returns ``False``.
+
+        Example Accept headers::
+
+            application/x-crous;q=1.0, application/json;q=0.9  →  True
+            application/json, application/x-crous;q=0.5        →  False
+            application/x-crous                                →  True
+            */*                                                →  False
+        """
+        accept = self.header("accept", "")
+        if not accept:
+            return False
+
+        crous_q = 0.0
+        json_q = 0.0
+        crous_found = False
+
+        for part in accept.split(","):
+            part = part.strip()
+            if not part:
+                continue
+
+            # Split media type from parameters
+            segments = part.split(";")
+            media = segments[0].strip().lower()
+
+            # Extract quality factor
+            q = 1.0
+            for param in segments[1:]:
+                param = param.strip()
+                if param.startswith("q="):
+                    try:
+                        q = float(param[2:])
+                    except ValueError:
+                        q = 0.0
+
+            if media in CROUS_MEDIA_TYPES:
+                crous_q = max(crous_q, q)
+                crous_found = True
+            elif media == "application/json":
+                json_q = max(json_q, q)
+
+        return crous_found and crous_q > json_q
+
+    def best_response_format(self) -> str:
+        """Negotiate the best response format between CROUS and JSON.
+
+        Returns:
+            ``"crous"`` when the client explicitly prefers CROUS and
+            the library is available, otherwise ``"json"``.
+        """
+        if _HAS_CROUS and self.prefers_crous():
+            return "crous"
+        return "json"
     
     # ========================================================================
     # Range & Conditional Headers
@@ -760,6 +893,115 @@ class Request:
         
         return self._json
     
+    async def crous(
+        self,
+        model: Optional[Type[T]] = None,
+        *,
+        strict: bool = True,
+    ) -> Union[Any, T]:
+        """
+        Parse request body as CROUS binary format.
+
+        Provides an API symmetrical to :meth:`json` — read the body,
+        decode via the ``crous`` library, optionally validate against
+        a model (Pydantic, dataclass, plain callable).
+
+        Args:
+            model: Optional model class for validation
+            strict: When ``True`` (default), reject payloads that do
+                    not start with the ``CROUSv1`` magic header.
+
+        Returns:
+            Decoded Python object (dict / list / scalar) or validated
+            model instance.
+
+        Raises:
+            CrousUnavailable: If the ``crous`` library is not installed.
+            InvalidCrous: If the payload is malformed or fails magic
+                          header validation.
+            PayloadTooLarge: If body exceeds ``json_max_size`` (shared
+                             limit with JSON).
+            BadRequest: If model validation fails.
+
+        Example::
+
+            @POST("/ingest")
+            async def ingest(self, ctx):
+                data = await ctx.request.crous()
+                # data is a regular Python dict/list
+        """
+        if not _HAS_CROUS:
+            raise CrousUnavailable(
+                "The 'crous' library is required to parse CROUS payloads. "
+                "Install with: pip install crous"
+            )
+
+        if self._crous is not None:
+            if model:
+                return self._validate_json_model(self._crous, model)
+            return self._crous
+
+        # Read body with shared size limit
+        body_bytes = await self.body()
+
+        if len(body_bytes) > self.json_max_size:
+            raise PayloadTooLarge(
+                "CROUS payload exceeds maximum size",
+                max_allowed=self.json_max_size,
+                actual=len(body_bytes),
+            )
+
+        if not body_bytes:
+            raise InvalidCrous("Empty CROUS payload")
+
+        # Validate magic header
+        if strict and body_bytes[:7] != CROUS_MAGIC:
+            raise InvalidCrous(
+                "Payload does not start with CROUSv1 magic header",
+                magic=body_bytes[:7].hex(),
+            )
+
+        # Decode
+        try:
+            self._crous = _crous_mod.decode(body_bytes)
+        except Exception as e:
+            raise InvalidCrous(
+                f"CROUS decode failed: {e}",
+                error_type=type(e).__name__,
+            )
+
+        if model:
+            return self._validate_json_model(self._crous, model)
+        return self._crous
+
+    async def data(
+        self,
+        model: Optional[Type[T]] = None,
+        *,
+        strict: bool = True,
+    ) -> Union[Any, T]:
+        """Parse request body as JSON **or** CROUS, auto-detected.
+
+        Uses Content-Type to decide:
+
+        * ``application/x-crous`` (or body starting with ``CROUSv1``)
+          → :meth:`crous`
+        * Everything else → :meth:`json`
+
+        This is the recommended single entry-point when your API
+        accepts both formats.
+
+        Args:
+            model: Optional model class for validation.
+            strict: Passed through to the underlying parser.
+
+        Returns:
+            Decoded Python object or validated model instance.
+        """
+        if self.is_crous():
+            return await self.crous(model=model, strict=strict)
+        return await self.json(model=model, strict=strict)
+
     def _check_json_depth(self, obj: Any, max_depth: int, current_depth: int = 0) -> bool:
         """Check if JSON nesting depth is within limits."""
         if current_depth > max_depth:

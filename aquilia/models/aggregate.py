@@ -1,5 +1,5 @@
 """
-Aquilia Aggregates — Sum, Avg, Count, Max, Min for QuerySet.
+Aquilia Aggregates -- Sum, Avg, Count, Max, Min for QuerySet.
 
 Usage:
     from aquilia.models.aggregate import Sum, Avg, Count, Max, Min
@@ -140,7 +140,7 @@ class Variance(Aggregate):
 
 class ArrayAgg(Aggregate):
     """
-    PostgreSQL ARRAY_AGG() — collect values into an array.
+    PostgreSQL ARRAY_AGG() -- collect values into an array.
 
     Falls back to GROUP_CONCAT on SQLite.
 
@@ -187,7 +187,7 @@ class ArrayAgg(Aggregate):
 
 class StringAgg(Aggregate):
     """
-    PostgreSQL STRING_AGG() — concatenate strings with a delimiter.
+    PostgreSQL STRING_AGG() -- concatenate strings with a delimiter.
 
     Falls back to GROUP_CONCAT on SQLite/MySQL.
 
@@ -263,7 +263,7 @@ class GroupConcat(Aggregate):
 
 class BoolAnd(Aggregate):
     """
-    PostgreSQL BOOL_AND() — returns true if ALL values are true.
+    PostgreSQL BOOL_AND() -- returns true if ALL values are true.
 
     Falls back to MIN() on SQLite (treating 0/1).
 
@@ -281,7 +281,7 @@ class BoolAnd(Aggregate):
 
 class BoolOr(Aggregate):
     """
-    PostgreSQL BOOL_OR() — returns true if ANY value is true.
+    PostgreSQL BOOL_OR() -- returns true if ANY value is true.
 
     Falls back to MAX() on SQLite (treating 0/1).
 

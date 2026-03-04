@@ -1,5 +1,5 @@
 """
-MLOps Lifecycle Hooks — Startup / shutdown integration with Aquilia's
+MLOps Lifecycle Hooks -- Startup / shutdown integration with Aquilia's
 LifecycleCoordinator.
 
 Hooks registered:
@@ -10,13 +10,13 @@ Hooks registered:
   plugins, close registry connections.
 
 Ecosystem integration:
-- :class:`~aquilia.faults.FaultEngine` — MLOps fault handlers are registered
+- :class:`~aquilia.faults.FaultEngine` -- MLOps fault handlers are registered
   at the ``app:mlops`` scope during startup.
-- :class:`~aquilia.cache.CacheService` — Cache is initialized / warmed
+- :class:`~aquilia.cache.CacheService` -- Cache is initialized / warmed
   during startup and flushed during shutdown.
-- :class:`~aquilia.artifacts.FilesystemArtifactStore` — Artifact store
+- :class:`~aquilia.artifacts.FilesystemArtifactStore` -- Artifact store
   directory is created during startup.
-- :class:`~aquilia.effects.CacheEffect` — Cache effect provider is
+- :class:`~aquilia.effects.CacheEffect` -- Cache effect provider is
   registered if the effect system is active.
 
 Usage::
@@ -59,9 +59,9 @@ async def mlops_on_startup(
             # Flatten nested config into DI-friendly dict
             flat_config = _flatten_mlops_config(cfg)
             register_mlops_providers(di_container, flat_config)
-            logger.info("  ✓ DI providers registered")
+            logger.info("  DI providers registered")
         except Exception as exc:
-            logger.warning("  ✗ DI registration failed: %s", exc)
+            logger.warning("  DI registration failed: %s", exc)
 
     # 2. Initialize registry
     try:
@@ -74,9 +74,9 @@ async def mlops_on_startup(
                 blob_root=registry_cfg.get("blob_root", ".aquilia-store"),
             )
             await registry.initialize()
-            logger.info("  ✓ Registry initialized")
+            logger.info("  Registry initialized")
     except Exception as exc:
-        logger.warning("  ✗ Registry init failed: %s", exc)
+        logger.warning("  Registry init failed: %s", exc)
 
     # 3. Discover plugins
     try:
@@ -88,9 +88,9 @@ async def mlops_on_startup(
             found = host.discover_entrypoints()
             if found:
                 host.activate_all()
-                logger.info("  ✓ Discovered %d plugins", len(found))
+                logger.info("  Discovered %d plugins", len(found))
     except Exception as exc:
-        logger.warning("  ✗ Plugin discovery failed: %s", exc)
+        logger.warning("  Plugin discovery failed: %s", exc)
 
     # 4. Initialize CacheService (if resolved from DI)
     try:
@@ -100,9 +100,9 @@ async def mlops_on_startup(
             cache = await di_container.resolve_async(CacheService, optional=True)
             if cache and hasattr(cache, "initialize"):
                 await cache.initialize()
-                logger.info("  ✓ CacheService initialized")
+                logger.info("  CacheService initialized")
     except Exception as exc:
-        logger.debug("  CacheService init: %s", exc)
+        pass
 
     # 5. Ensure artifact store directory exists
     try:
@@ -111,9 +111,9 @@ async def mlops_on_startup(
         artifact_dir = cfg.get("artifact_store_dir",
                                cfg.get("registry", {}).get("blob_root", "artifacts"))
         os.makedirs(artifact_dir, exist_ok=True)
-        logger.info("  ✓ Artifact store directory ready (%s)", artifact_dir)
+        logger.info("  Artifact store directory ready (%s)", artifact_dir)
     except Exception as exc:
-        logger.debug("  Artifact store dir: %s", exc)
+        pass
 
     # 6. Register MLOps fault event listener for metrics observability
     try:
@@ -140,21 +140,21 @@ async def mlops_on_startup(
                             )
 
                 fault_engine.on_fault(_fault_metrics_listener)
-                logger.info("  ✓ FaultEngine → MetricsCollector listener registered")
+                logger.info("  FaultEngine → MetricsCollector listener registered")
     except Exception as exc:
-        logger.debug("  Fault metrics listener: %s", exc)
+        pass
 
     # 7. Detect GPU/device capabilities
     try:
         device_info = _detect_device_capabilities()
         logger.info(
-            "  ✓ Device: %s (GPUs: %d, memory: %s)",
+            "  Device: %s (GPUs: %d, memory: %s)",
             device_info.get("device", "cpu"),
             device_info.get("gpu_count", 0),
             device_info.get("gpu_memory", "N/A"),
         )
     except Exception as exc:
-        logger.debug("  Device detection: %s", exc)
+        pass
 
     logger.info("MLOps startup complete")
 
@@ -179,9 +179,9 @@ async def mlops_on_shutdown(
             cb = di_container.resolve(CircuitBreaker)
             if cb:
                 cb.force_open()
-                logger.info("  ✓ Circuit breaker opened (draining)")
+                logger.info("  Circuit breaker opened (draining)")
     except Exception as exc:
-        logger.debug("  Circuit breaker shutdown: %s", exc)
+        pass
 
     try:
         if di_container is not None and hasattr(di_container, "resolve"):
@@ -191,12 +191,12 @@ async def mlops_on_shutdown(
             if metrics:
                 summary = metrics.get_summary()
                 logger.info(
-                    "  ✓ Metrics flushed (total_inferences=%d, tokens=%d)",
+                    "  Metrics flushed (total_inferences=%d, tokens=%d)",
                     summary.get("total_inferences", 0),
                     summary.get("total_tokens", 0),
                 )
     except Exception as exc:
-        logger.debug("  Metrics flush: %s", exc)
+        pass
 
     # 3. Gracefully unload models / release GPU memory
     try:
@@ -208,7 +208,7 @@ async def mlops_on_shutdown(
                 runtime = server._runtime
                 if hasattr(runtime, "unload"):
                     await runtime.unload()
-                    logger.info("  ✓ Model runtime unloaded")
+                    logger.info("  Model runtime unloaded")
         # Release GPU cache if torch available
         try:
             import torch
@@ -216,11 +216,11 @@ async def mlops_on_shutdown(
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
                 torch.cuda.synchronize()
-                logger.info("  ✓ GPU cache released")
+                logger.info("  GPU cache released")
         except ImportError:
             pass
     except Exception as exc:
-        logger.debug("  Model unload: %s", exc)
+        pass
 
     try:
         if di_container is not None and hasattr(di_container, "resolve"):
@@ -229,9 +229,9 @@ async def mlops_on_shutdown(
             host = di_container.resolve(PluginHost)
             if host:
                 host.deactivate_all()
-                logger.info("  ✓ Plugins deactivated")
+                logger.info("  Plugins deactivated")
     except Exception as exc:
-        logger.debug("  Plugin shutdown: %s", exc)
+        pass
 
     # 5. Shutdown CacheService
     try:
@@ -241,9 +241,9 @@ async def mlops_on_shutdown(
             cache = di_container.resolve(CacheService)
             if cache and hasattr(cache, "shutdown"):
                 await cache.shutdown()
-                logger.info("  ✓ CacheService shutdown")
+                logger.info("  CacheService shutdown")
     except Exception as exc:
-        logger.debug("  CacheService shutdown: %s", exc)
+        pass
 
     try:
         if di_container is not None and hasattr(di_container, "resolve"):
@@ -252,9 +252,9 @@ async def mlops_on_shutdown(
             registry = di_container.resolve(RegistryService)
             if registry:
                 await registry.close()
-                logger.info("  ✓ Registry closed")
+                logger.info("  Registry closed")
     except Exception as exc:
-        logger.debug("  Registry shutdown: %s", exc)
+        pass
 
     logger.info("MLOps shutdown complete")
 

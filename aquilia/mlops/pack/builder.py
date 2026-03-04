@@ -1,12 +1,12 @@
 """
-Modelpack Builder — Creates ``.aquilia`` archive artifacts.
+Modelpack Builder -- Creates ``.aquilia`` archive artifacts.
 
 A modelpack is a TAR.GZ archive containing:
-- ``model/``         — binary blobs (model.pt, model.onnx, …)
-- ``manifest.json``  — model metadata and inference signature
-- ``env.lock``       — pip/conda lock file
-- ``provenance.json``— git sha, dataset checksum
-- ``signature.sig``  — optional artifact signature (GPG/RSA)
+- ``model/``         -- binary blobs (model.pt, model.onnx, …)
+- ``manifest.json``  -- model metadata and inference signature
+- ``env.lock``       -- pip/conda lock file
+- ``provenance.json``-- git sha, dataset checksum
+- ``signature.sig``  -- optional artifact signature (GPG/RSA)
 """
 
 from __future__ import annotations
@@ -263,7 +263,7 @@ class ModelpackBuilder:
                 model_artifact.digest,
             )
         except Exception as exc:
-            logger.debug("Skipped ModelArtifact creation: %s", exc)
+            pass
 
         return str(archive_path.resolve())
 

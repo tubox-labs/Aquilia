@@ -1,5 +1,5 @@
 """
-Aquilia Expression System — F(), Value(), RawSQL() for query expressions.
+Aquilia Expression System -- F(), Value(), RawSQL() for query expressions.
 
 Expressions are composable objects that can be used in filter(), annotate(),
 aggregate(), and order_by() calls on QuerySets.
@@ -42,7 +42,7 @@ __all__ = [
     "Greatest",
     "Least",
     "NullIf",
-    # Django-style string/math functions
+    # String/math functions
     "Length",
     "Upper",
     "Lower",
@@ -135,7 +135,7 @@ class Expression(Combinable):
 
 class OrderBy:
     """
-    Ordering directive — wraps an expression with ASC/DESC.
+    Ordering directive -- wraps an expression with ASC/DESC.
 
     Created by F("field").asc() or F("field").desc().
     Can be passed to .order() when expression-based ordering is needed.
@@ -228,7 +228,7 @@ class Value(Expression):
 
 class RawSQL(Expression):
     """
-    Raw SQL expression — use with caution.
+    Raw SQL expression -- use with caution.
 
     Params are bound using the standard ? placeholder.
 
@@ -472,7 +472,7 @@ class OuterRef(F):
     """
     Reference to a field from the outer query (for use in Subquery/Exists).
 
-    In SQL this just renders as a quoted field name — the resolution happens
+    In SQL this just renders as a quoted field name -- the resolution happens
     contextually when the subquery is embedded.
     """
 
@@ -552,7 +552,7 @@ class Cast(Expression):
 
 class Coalesce(Func):
     """
-    SQL COALESCE() — returns first non-NULL argument.
+    SQL COALESCE() -- returns first non-NULL argument.
 
     Usage:
         Coalesce(F("nickname"), F("name"), Value("Anonymous"))
@@ -564,7 +564,7 @@ class Coalesce(Func):
 
 class Greatest(Func):
     """
-    SQL GREATEST() (MAX on SQLite) — returns largest argument.
+    SQL GREATEST() (MAX on SQLite) -- returns largest argument.
 
     Usage:
         Greatest(F("price"), F("min_price"), Value(0))
@@ -588,7 +588,7 @@ class Greatest(Func):
 
 class Least(Func):
     """
-    SQL LEAST() (MIN on SQLite) — returns smallest argument.
+    SQL LEAST() (MIN on SQLite) -- returns smallest argument.
 
     Usage:
         Least(F("price"), F("max_price"), Value(100))
@@ -612,7 +612,7 @@ class Least(Func):
 
 class NullIf(Expression):
     """
-    SQL NULLIF() — returns NULL if expression1 equals expression2.
+    SQL NULLIF() -- returns NULL if expression1 equals expression2.
 
     Usage:
         NullIf(F("value"), Value(0))  → NULLIF("value", ?)
@@ -631,12 +631,12 @@ class NullIf(Expression):
         return f"NullIf({self.expr1!r}, {self.expr2!r})"
 
 
-# ── Django-style String Functions ────────────────────────────────────────────
+# ── String Functions ─────────────────────────────────────────────────────────
 
 
 class Length(Func):
     """
-    SQL LENGTH() — return string length.
+    SQL LENGTH() -- return string length.
 
     Usage:
         User.objects.annotate(name_len=Length("name"))
@@ -647,7 +647,7 @@ class Length(Func):
 
 class Upper(Func):
     """
-    SQL UPPER() — convert to uppercase.
+    SQL UPPER() -- convert to uppercase.
 
     Usage:
         User.objects.annotate(upper_name=Upper("name"))
@@ -658,7 +658,7 @@ class Upper(Func):
 
 class Lower(Func):
     """
-    SQL LOWER() — convert to lowercase.
+    SQL LOWER() -- convert to lowercase.
 
     Usage:
         User.objects.annotate(lower_email=Lower("email"))
@@ -669,7 +669,7 @@ class Lower(Func):
 
 class Trim(Func):
     """
-    SQL TRIM() — remove leading and trailing whitespace.
+    SQL TRIM() -- remove leading and trailing whitespace.
 
     Usage:
         User.objects.annotate(clean_name=Trim("name"))
@@ -680,7 +680,7 @@ class Trim(Func):
 
 class LTrim(Func):
     """
-    SQL LTRIM() — remove leading whitespace.
+    SQL LTRIM() -- remove leading whitespace.
 
     Usage:
         User.objects.annotate(left_trimmed=LTrim("name"))
@@ -691,7 +691,7 @@ class LTrim(Func):
 
 class RTrim(Func):
     """
-    SQL RTRIM() — remove trailing whitespace.
+    SQL RTRIM() -- remove trailing whitespace.
 
     Usage:
         User.objects.annotate(right_trimmed=RTrim("name"))
@@ -702,7 +702,7 @@ class RTrim(Func):
 
 class Concat(Expression):
     """
-    SQL concatenation — dialect-aware (|| for SQLite/PG, CONCAT for MySQL).
+    SQL concatenation -- dialect-aware (|| for SQLite/PG, CONCAT for MySQL).
 
     Usage:
         Concat(F("first_name"), Value(" "), F("last_name"))
@@ -730,7 +730,7 @@ class Concat(Expression):
 
 class Left(Expression):
     """
-    SQL LEFT() / SUBSTR() — extract leftmost characters.
+    SQL LEFT() / SUBSTR() -- extract leftmost characters.
 
     Usage:
         User.objects.annotate(initials=Left("name", 1))
@@ -751,7 +751,7 @@ class Left(Expression):
 
 class Right(Expression):
     """
-    SQL RIGHT() / SUBSTR() — extract rightmost characters.
+    SQL RIGHT() / SUBSTR() -- extract rightmost characters.
 
     Usage:
         User.objects.annotate(suffix=Right("domain", 3))
@@ -772,7 +772,7 @@ class Right(Expression):
 
 class Substr(Func):
     """
-    SQL SUBSTR() — extract substring.
+    SQL SUBSTR() -- extract substring.
 
     Usage:
         Substr("name", 1, 3)  → SUBSTR("name", 1, 3)
@@ -789,7 +789,7 @@ class Substr(Func):
 
 class Replace(Func):
     """
-    SQL REPLACE() — replace occurrences in a string.
+    SQL REPLACE() -- replace occurrences in a string.
 
     Usage:
         Replace("email", Value("@old.com"), Value("@new.com"))
@@ -801,12 +801,12 @@ class Replace(Func):
         super().__init__("REPLACE", expr, old_v, new_v)
 
 
-# ── Django-style Math Functions ──────────────────────────────────────────────
+# ── Math Functions ───────────────────────────────────────────────────────────
 
 
 class Abs(Func):
     """
-    SQL ABS() — absolute value.
+    SQL ABS() -- absolute value.
 
     Usage:
         Product.objects.annotate(abs_diff=Abs(F("price") - F("cost")))
@@ -817,7 +817,7 @@ class Abs(Func):
 
 class Round(Expression):
     """
-    SQL ROUND() — round to specified decimal places.
+    SQL ROUND() -- round to specified decimal places.
 
     Usage:
         Product.objects.annotate(rounded_price=Round("price", 2))
@@ -836,7 +836,7 @@ class Round(Expression):
 
 class Power(Expression):
     """
-    SQL POWER() — raise to a power.
+    SQL POWER() -- raise to a power.
 
     Usage:
         Product.objects.annotate(squared=Power("value", 2))
@@ -857,12 +857,12 @@ class Power(Expression):
         return f"Power({self.expression!r}, {self.exponent!r})"
 
 
-# ── Django-style Date Functions ──────────────────────────────────────────────
+# ── Date Functions ───────────────────────────────────────────────────────────
 
 
 class Now(Expression):
     """
-    SQL current timestamp — dialect-aware.
+    SQL current timestamp -- dialect-aware.
 
     Usage:
         User.objects.filter(expires_at__lt=Now())

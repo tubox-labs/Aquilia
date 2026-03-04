@@ -659,6 +659,42 @@ class ConfigLoader:
 
         return merged
 
+    def get_i18n_config(self) -> dict:
+        """
+        Get i18n (internationalization) configuration with defaults.
+
+        Returns:
+            I18n configuration dictionary
+        """
+        default_i18n_config = {
+            "enabled": False,
+            "default_locale": "en",
+            "available_locales": ["en"],
+            "fallback_locale": "en",
+            "catalog_dirs": ["locales"],
+            "catalog_format": "crous",
+            "missing_key_strategy": "log_and_key",
+            "auto_reload": False,
+            "auto_detect": True,
+            "cookie_name": "aq_locale",
+            "query_param": "lang",
+            "path_prefix": False,
+            "resolver_order": ["query", "cookie", "header"],
+        }
+
+        # Get user-provided i18n config
+        user_config = self.get("i18n", {})
+        if not user_config:
+            user_config = self.get("integrations.i18n", {})
+
+        # Merge with defaults
+        merged = default_i18n_config.copy()
+        if user_config:
+            merged["enabled"] = user_config.get("enabled", True)
+            self._merge_dict(merged, user_config)
+
+        return merged
+
     def get_mail_config(self) -> dict:
         """
         Get mail configuration with defaults.
@@ -711,5 +747,28 @@ class ConfigLoader:
             self._merge_dict(merged, user_config)
 
         return merged
+
+    def get_middleware_config(self) -> list:
+        """
+        Get middleware chain configuration.
+
+        Returns the user-defined middleware chain from workspace config,
+        or ``None`` if no chain was configured (server falls back to
+        built-in defaults).
+
+        Each entry is a dict with:
+        - ``path``: Dotted import path (e.g. ``aquilia.middleware.RequestIdMiddleware``)
+        - ``priority``: Execution order (lower = runs first)
+        - ``scope``: ``"global"`` or ``"app:<name>"``
+        - ``name``: Display name
+        - ``kwargs``: Constructor keyword arguments
+
+        Returns:
+            List of middleware entry dicts, or None.
+        """
+        chain = self.get("middleware_chain")
+        if chain is not None:
+            return chain
+        return None
 
 

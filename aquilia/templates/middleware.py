@@ -6,7 +6,7 @@ Injects common variables into template context:
 - session: Active session (if available)
 - identity: Authenticated identity (if available)
 - url_for: URL generation helper
-- static: Static asset URL generator (like Django's {% static %})
+- static: Static asset URL generator
 - csrf_token: CSRF token (if available)
 - config: Safe config subset
 - csp_nonce: CSP nonce (if CSPMiddleware is active)
@@ -92,7 +92,7 @@ class TemplateMiddleware:
         request.state["template_url_for"] = self.url_for
         request.state["template_config"] = self._get_safe_config()
         
-        # Static URL function — available as {{ static('css/app.css') }} in templates
+        # Static URL function -- available as {{ static('css/app.css') }} in templates
         if self._static_url_func:
             request.state["template_static"] = self._static_url_func
         else:

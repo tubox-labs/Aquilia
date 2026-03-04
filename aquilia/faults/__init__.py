@@ -1,7 +1,7 @@
 """
 AquilaFaults - Production-grade fault handling system.
 
-Exceptions in Aquilia are NOT just errors — they are **typed fault signals**
+Exceptions in Aquilia are NOT just errors -- they are **typed fault signals**
 that flow through the system with context, lifecycle, and intent.
 
 Philosophy:

@@ -1,5 +1,5 @@
 """
-ONNX Runtime adapter — high-performance inference via onnxruntime.
+ONNX Runtime adapter -- high-performance inference via onnxruntime.
 
 Requires ``onnxruntime`` or ``onnxruntime-gpu`` (optional dependency).
 """

@@ -90,7 +90,6 @@ def discover_template_directories(
                 continue
             
             discovered.append(templates_dir)
-            logger.debug(f"Discovered template directory: {templates_dir}")
     
     # Strategy 2: Manifest-based discovery
     if scan_manifests:
@@ -143,9 +142,6 @@ def discover_from_manifests(root_path: Path) -> List[Path]:
                 path = manifest_dir / search_path
                 if path.exists():
                     manifest_dirs.append(path.resolve())
-                    logger.debug(
-                        f"Discovered from manifest {manifest_file}: {path}"
-                    )
         
         except Exception as e:
             logger.warning(f"Error processing manifest {manifest_file}: {e}")
@@ -177,7 +173,6 @@ class ModuleTemplateRegistry:
             templates_dir: Path to module's templates directory
         """
         self.registry[module_name] = templates_dir
-        logger.debug(f"Registered template namespace: {module_name} -> {templates_dir}")
     
     def resolve(self, module_name: str) -> Optional[Path]:
         """

@@ -1,5 +1,5 @@
 """
-Drift detection — PSI, KS-test, and distribution tracking.
+Drift detection -- PSI, KS-test, and distribution tracking.
 
 Monitors feature and prediction distributions over time to detect
 model staleness and trigger retrain alerts.

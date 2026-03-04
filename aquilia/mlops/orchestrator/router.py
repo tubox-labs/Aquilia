@@ -1,5 +1,5 @@
 """
-Version Router — routes inference requests to the correct model version.
+Version Router -- routes inference requests to the correct model version.
 
 Supports:
 - Default routing → active version
@@ -85,7 +85,7 @@ class VersionRouter:
                 return canary.canary_version
             return canary.base_version
 
-        # 3. Default — active version
+        # 3. Default -- active version
         active = self._registry.get_active_version(model_name)
         if active is None:
             raise KeyError(f"Model '{model_name}' is not registered")

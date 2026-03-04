@@ -1,5 +1,5 @@
 """
-Aquilia Migration Runner — executes DSL and raw-SQL migrations.
+Aquilia Migration Runner -- executes DSL and raw-SQL migrations.
 
 Compiles DSL operations to backend SQL, runs migrations transactionally
 where possible, and records applied migrations in ``aquilia_migrations``.
@@ -109,7 +109,7 @@ class MigrationRunner:
         return pending
 
     async def status(self) -> Dict[str, Any]:
-        """Get migration status — applied, pending, totals."""
+        """Get migration status -- applied, pending, totals."""
         applied = await self.get_applied()
         pending = await self.get_pending()
         return {
@@ -179,7 +179,7 @@ class MigrationRunner:
             migration_obj = _build_migration_from_module(module)
             return migration_obj.compile_upgrade(self.dialect)
         else:
-            # Legacy — try to extract SQL from source
+            # Legacy -- try to extract SQL from source
             return _extract_sql_from_source(path)
 
     async def migrate(

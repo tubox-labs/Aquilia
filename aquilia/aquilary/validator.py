@@ -97,7 +97,7 @@ class RegistryValidator:
                     "is not valid semver (expected X.Y.Z)"
                 )
         
-        # Controllers type — v2: accepts str or ComponentRef
+        # Controllers type -- v2: accepts str or ComponentRef
         if hasattr(manifest, "controllers"):
             if not isinstance(manifest.controllers, list):
                 errors.append("Field 'controllers' must be a list")
@@ -134,7 +134,7 @@ class RegistryValidator:
                             f"services[{i}] has invalid import path: {svc_path}"
                         )
         
-        # Dependencies type — v2: validate both depends_on and imports
+        # Dependencies type -- v2: validate both depends_on and imports
         if hasattr(manifest, "depends_on"):
             if not isinstance(manifest.depends_on, list):
                 errors.append("Field 'depends_on' must be a list")
@@ -304,10 +304,10 @@ class RegistryValidator:
                 if prefix_b.startswith(prefix_a + "/") and prefix_a != "/":
                     owners_a = prefix_owners[prefix_a]
                     owners_b = prefix_owners[prefix_b]
-                    # Only warn, not error — nested prefixes are often intentional
+                    # Only warn, not error -- nested prefixes are often intentional
                     report.add_warning(
                         f"Nested route prefixes: '{prefix_a}' ({', '.join(owners_a)}) "
-                        f"contains '{prefix_b}' ({', '.join(owners_b)}) — "
+                        f"contains '{prefix_b}' ({', '.join(owners_b)}) -- "
                         f"ensure routes don't overlap"
                     )
     

@@ -1,18 +1,18 @@
 """
-Pipeline Hooks — decorator-based lifecycle and inference hooks.
+Pipeline Hooks -- decorator-based lifecycle and inference hooks.
 
 Hooks are attached to model classes and collected at registration time.
 The ``InferencePipeline`` calls them in order at each stage.
 
 Decorators::
 
-    @on_load       — called after model is loaded
-    @on_unload     — called before model is unloaded
-    @preprocess    — transforms raw inputs before inference
-    @postprocess   — transforms raw outputs after inference
-    @before_predict — cross-cutting hook called before each prediction
-    @after_predict  — cross-cutting hook called after each prediction
-    @on_error      — error handler for inference failures
+    @on_load       -- called after model is loaded
+    @on_unload     -- called before model is unloaded
+    @preprocess    -- transforms raw inputs before inference
+    @postprocess   -- transforms raw outputs after inference
+    @before_predict -- cross-cutting hook called before each prediction
+    @after_predict  -- cross-cutting hook called after each prediction
+    @on_error      -- error handler for inference failures
 
 Usage::
 

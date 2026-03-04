@@ -1,5 +1,5 @@
 """
-AquilaCache — Decorators for declarative caching.
+AquilaCache -- Decorators for declarative caching.
 
 Provides ``@cached``, ``@cache_aside``, and ``@invalidate``
 decorators for controller methods and service functions.
@@ -71,8 +71,8 @@ def cached(
         key: Explicit cache key (auto-generated from args if None)
         key_func: Custom key builder ``(func, args, kwargs) → str``
         tags: Tags for group invalidation
-        unless: Callable ``(*args, **kwargs) → bool`` — skip caching if True
-        condition: Callable ``(result) → bool`` — only cache if True.
+        unless: Callable ``(*args, **kwargs) → bool`` -- skip caching if True
+        condition: Callable ``(result) → bool`` -- only cache if True.
                    Useful for skipping error results or empty lists.
         
     Usage::
@@ -90,7 +90,7 @@ def cached(
         async def get_user_profile(user_id: int):
             ...
         
-        # Conditional caching — don't cache empty results
+        # Conditional caching -- don't cache empty results
         @cached(ttl=60, condition=lambda result: result is not None and len(result) > 0)
         async def search_products(query: str):
             ...
@@ -102,7 +102,7 @@ def cached(
             cache_service = _resolve_cache_service(args)
             
             if cache_service is None:
-                # No cache available — just call the function
+                # No cache available -- just call the function
                 return await _call_func(func, args, kwargs)
             
             # Check unless condition
@@ -129,7 +129,7 @@ def cached(
             if cached_value is not None:
                 return cached_value
             
-            # Cache miss — compute
+            # Cache miss -- compute
             result = await _call_func(func, args, kwargs)
             
             # Check condition before caching
@@ -168,7 +168,7 @@ def cache_aside(
     tags: Tuple[str, ...] = (),
 ):
     """
-    Cache-aside decorator — identical to @cached but semantically
+    Cache-aside decorator -- identical to @cached but semantically
     indicates the function is the authoritative data source.
     
     Usage::

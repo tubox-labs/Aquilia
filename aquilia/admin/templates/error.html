@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}{{ title|default('Error') }}{% endblock %}
+{% block breadcrumb %}{{ title|default('Error') }}{% endblock %}
+
+{% block content %}
+<div style="display:flex;align-items:center;justify-content:center;min-height:60vh;">
+    <div style="text-align:center;max-width:520px;padding:48px 32px;">
+        {# ── Big status code ── #}
+        <div style="font-size:6rem;font-weight:800;line-height:1;color:var(--accent);opacity:0.15;margin-bottom:-10px;user-select:none;">
+            {{ status|default(404) }}
+        </div>
+
+        {# ── Title ── #}
+        <h1 style="font-size:1.8rem;font-weight:700;color:var(--text-primary);margin-bottom:12px;">
+            {% if status|default(404) == 404 %}
+            <i class="icon-search" style="font-size:24px;vertical-align:-3px;margin-right:8px;opacity:0.5;"></i>
+            {% elif status|default(404) == 403 %}
+            <i class="icon-lock" style="font-size:24px;vertical-align:-3px;margin-right:8px;opacity:0.5;"></i>
+            {% else %}
+            <i class="icon-alert-circle" style="font-size:24px;vertical-align:-3px;margin-right:8px;opacity:0.5;"></i>
+            {% endif %}
+            {{ title|default('Something went wrong') }}
+        </h1>
+
+        {# ── Message ── #}
+        {% if message %}
+        <div style="background:var(--bg-glass);border:1px solid var(--border-color);border-radius:var(--radius);padding:16px 20px;margin-bottom:24px;text-align:left;">
+            <div style="font-size:0.78rem;color:var(--text-faint);margin-bottom:6px;font-weight:500;">Details</div>
+            <div style="font-size:0.85rem;color:var(--text-secondary);font-family:var(--font-mono);word-break:break-word;line-height:1.6;">
+                {{ message }}
+            </div>
+        </div>
+        {% endif %}
+
+        {# ── Actions ── #}
+        <div style="display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;">
+            <a href="{{ url_prefix|default('/admin') }}/"
+               class="btn-ghost"
+               style="display:inline-flex;align-items:center;gap:6px;padding:8px 20px;border:1px solid var(--border-color);border-radius:var(--radius-sm);font-size:0.8rem;color:var(--text-primary);text-decoration:none;transition:border-color 0.2s,background 0.2s;">
+                <i class="icon-home" style="font-size:14px;"></i>
+                Dashboard
+            </a>
+            <button onclick="history.back()"
+                    class="btn-ghost"
+                    style="display:inline-flex;align-items:center;gap:6px;padding:8px 20px;border:1px solid var(--border-color);border-radius:var(--radius-sm);font-size:0.8rem;color:var(--text-primary);background:transparent;cursor:pointer;transition:border-color 0.2s,background 0.2s;font-family:var(--font-sans);">
+                <i class="icon-arrow-left" style="font-size:14px;"></i>
+                Go Back
+            </button>
+        </div>
+
+        {# ── Subtle hint ── #}
+        <div style="margin-top:32px;font-size:0.68rem;color:var(--text-muted);">
+            If this error persists, check the server logs or contact your administrator.
+        </div>
+    </div>
+</div>
+{% endblock %}

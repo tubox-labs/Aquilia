@@ -108,12 +108,13 @@ class TestTraceRemoval:
         assert "trace.journal" not in source, "shutdown() still references trace.journal"
         assert "trace.snapshot" not in source, "shutdown() still references trace.snapshot"
 
-    def test_server_startup_uses_logger_debug(self):
-        """startup() should use self.logger.debug for timing."""
+    def test_server_startup_no_trace(self):
+        """startup() should not reference old trace system."""
         import inspect
         from aquilia.server import AquiliaServer
         source = inspect.getsource(AquiliaServer.startup)
-        assert "self.logger.debug" in source, "startup() should use logger.debug for timing"
+        assert "self.trace" not in source, "startup() still references self.trace"
+        assert "trace.journal" not in source, "startup() still references trace.journal"
 
     def test_cache_cli_no_trace_path(self):
         """cmd_cache_stats() must not reference .aquilia/diagnostics.json."""
@@ -188,7 +189,7 @@ class TestStaticChecker:
         assert "app.py:42:10" in s
         assert "[E001]" in s
         assert "Syntax error" in s
-        assert "✗" in s
+        assert "[!!]" in s
 
     def test_check_error_str_without_location(self):
         from aquilia.build.checker import CheckError, CheckSeverity
@@ -197,7 +198,7 @@ class TestStaticChecker:
             message="Unused import",
         )
         s = str(err)
-        assert "⚠" in s
+        assert "[??]" in s
         assert "Unused import" in s
 
     def test_check_error_with_hint(self):
@@ -509,11 +510,11 @@ class TestArtifactStoreCrous:
         crous_files = list(Path(store.root).glob("*.crous"))
         assert len(crous_files) >= 1, "No .crous file was created"
 
-    def test_store_saves_json_sidecar(self, store, sample_artifact):
-        """save() should also write a .aq.json sidecar."""
+    def test_store_does_not_write_json_sidecar(self, store, sample_artifact):
+        """save() must NOT write a .aq.json sidecar (Crous-only store)."""
         store.save(sample_artifact)
         json_files = list(Path(store.root).glob("*.aq.json"))
-        assert len(json_files) >= 1, "No .aq.json sidecar was created"
+        assert len(json_files) == 0, "Unexpected .aq.json sidecar was created"
 
     def test_store_save_and_load_roundtrip(self, store, sample_artifact):
         """save() then load() should return identical artifact."""
@@ -539,14 +540,14 @@ class TestArtifactStoreCrous:
         assert store.exists("test-config", version="1.0.0")
         assert not store.exists("test-config", version="2.0.0")
 
-    def test_store_delete_removes_both_formats(self, store, sample_artifact):
-        """delete() should remove both .crous and .aq.json files."""
+    def test_store_delete_removes_crous_file(self, store, sample_artifact):
+        """delete() should remove the .crous file."""
         store.save(sample_artifact)
         assert store.exists("test-config")
         removed = store.delete("test-config", version="1.0.0")
         assert removed >= 1
         assert not store.exists("test-config", version="1.0.0")
-        # Verify both files are gone
+        # Verify the crous file is gone
         assert len(list(Path(store.root).glob("test*"))) == 0
 
     def test_store_list_artifacts(self, store):
@@ -623,29 +624,32 @@ class TestArtifactStoreCrous:
 
     def test_store_legacy_json_fallback(self, tmp_path):
         """Store should still read legacy .aq.json files without .crous counterparts."""
+        import json as _json
         from aquilia.artifacts.store import FilesystemArtifactStore
-        from aquilia.artifacts.core import Artifact, ArtifactEnvelope, ArtifactIntegrity
 
-        # Save an artifact normally, then remove only the .crous file
-        # This simulates a legacy state where only .aq.json exists
         store = FilesystemArtifactStore(root=str(tmp_path / "artifacts"))
-        art = Artifact(ArtifactEnvelope(
-            kind="config", name="legacy-art", version="1.0.0",
-            integrity=ArtifactIntegrity(digest="legacy_digest"),
-            payload={"legacy": True},
-        ))
-        store.save(art)
+        Path(store.root).mkdir(parents=True, exist_ok=True)
 
-        # Remove the .crous file to simulate legacy state
-        for f in Path(store.root).glob("*.crous"):
-            f.unlink()
+        # Write a legacy .aq.json directly — simulates an old artifact directory
+        # where save() wrote sidecars before this migration.
+        legacy_data = {
+            "kind": "config",
+            "name": "legacy-art",
+            "version": "1.0.0",
+            "integrity": {"algorithm": "sha256", "digest": "legacy_digest"},
+            "payload": {"legacy": True},
+            "tags": {},
+            "created_at": None,
+        }
+        legacy_file = Path(store.root) / "legacy-art-1.0.0.aq.json"
+        legacy_file.write_text(_json.dumps(legacy_data), encoding="utf-8")
 
-        # The .aq.json sidecar should be yielded by _iter_files (no .crous counterpart)
+        # _iter_files should yield the .aq.json when no .crous counterpart exists
         files = list(store._iter_files())
         assert len(files) == 1
         assert files[0].name.endswith(".aq.json")
 
-        # Load without version uses _iter_files which does the legacy fallback
+        # load() without version uses _iter_files which does the legacy fallback
         loaded = store.load("legacy-art")
         assert loaded is not None
         assert loaded.name == "legacy-art"

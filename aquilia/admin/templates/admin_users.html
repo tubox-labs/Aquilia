@@ -1,0 +1,245 @@
+{% extends "base.html" %}
+{% block title %}Admin Users{% endblock %}
+{% block breadcrumb %}Admin Users{% endblock %}
+
+{% block content %}
+<div class="page-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+    <div>
+        <h1>Admin Users</h1>
+        <p>Manage admin accounts, assign roles, and define the admin hierarchy.</p>
+    </div>
+    <button class="btn btn-primary" onclick="document.getElementById('createUserModal').style.display='flex'">
+        <i class="icon-user-plus" style="font-size:14px;"></i> Create Admin
+    </button>
+</div>
+
+{# ── Stats ── #}
+<div class="stats-row" style="margin-bottom:28px;">
+    <div class="stat-item">
+        <div class="stat-number">{{ users|length }}</div>
+        <div class="stat-label">Total Admins</div>
+    </div>
+    <div class="stat-item">
+        <div class="stat-number">{{ users|selectattr('is_superuser')|list|length }}</div>
+        <div class="stat-label"><span style="color:var(--accent);">●</span> Superadmins</div>
+    </div>
+    <div class="stat-item">
+        <div class="stat-number">{{ users|rejectattr('is_superuser')|selectattr('is_staff')|list|length }}</div>
+        <div class="stat-label"><span style="color:var(--info);">●</span> Staff</div>
+    </div>
+    <div class="stat-item">
+        <div class="stat-number">{{ users|selectattr('is_active')|list|length }}</div>
+        <div class="stat-label"><span style="color:var(--success);">●</span> Active</div>
+    </div>
+</div>
+
+{# ── Hierarchy Legend ── #}
+<div class="glass-card card-padded" style="margin-bottom:20px;">
+    <div style="font-size:.82rem;font-weight:600;margin-bottom:12px;color:var(--text-secondary);">Role Hierarchy</div>
+    <div style="display:flex;gap:20px;flex-wrap:wrap;align-items:center;">
+        <div style="display:flex;align-items:center;gap:8px;">
+            <span class="perm-role perm-role-superadmin">Superadmin</span>
+            <span style="font-size:.75rem;color:var(--text-muted);">— Full system access, can manage all admins</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+            <span class="perm-role perm-role-admin">Admin</span>
+            <span style="font-size:.75rem;color:var(--text-muted);">— Can manage staff, limited system access</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+            <span class="perm-role perm-role-staff">Staff</span>
+            <span style="font-size:.75rem;color:var(--text-muted);">— Content management, no admin creation</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+            <span class="perm-role perm-role-viewer">Viewer</span>
+            <span style="font-size:.75rem;color:var(--text-muted);">— Read-only access</span>
+        </div>
+    </div>
+</div>
+
+{# ── Users Table ── #}
+<div class="table-container">
+    <table class="admin-table">
+        <thead>
+            <tr>
+                <th>User</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Status</th>
+                <th>Last Login</th>
+                <th>Joined</th>
+                <th style="width:140px;">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for user in users %}
+            <tr>
+                <td>
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <div style="width:32px;height:32px;border-radius:50%;background:{% if user.is_superuser %}var(--accent-subtle){% elif user.is_staff %}var(--info-subtle){% else %}var(--bg-surface){% endif %};display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:600;color:{% if user.is_superuser %}var(--accent){% elif user.is_staff %}var(--info){% else %}var(--text-muted){% endif %};">
+                            {{ (user.first_name or user.username)|truncate(1, True, '')|upper }}
+                        </div>
+                        <div>
+                            <div style="font-weight:600;font-size:.85rem;">{{ user.username }}</div>
+                            {% if user.first_name or user.last_name %}
+                            <div style="font-size:.72rem;color:var(--text-muted);">{{ user.first_name }} {{ user.last_name }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </td>
+                <td style="font-size:.82rem;color:var(--text-secondary);">{{ user.email or '—' }}</td>
+                <td>
+                    {% if user.is_superuser %}
+                    <span class="perm-role perm-role-superadmin">Superadmin</span>
+                    {% elif user.is_staff %}
+                    <span class="perm-role perm-role-staff">Staff</span>
+                    {% else %}
+                    <span class="perm-role perm-role-viewer">Viewer</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if user.is_active %}
+                    <span class="perm-badge perm-granted"><i class="icon-check" style="font-size:10px;"></i> Active</span>
+                    {% else %}
+                    <span class="perm-badge perm-denied"><i class="icon-x" style="font-size:10px;"></i> Inactive</span>
+                    {% endif %}
+                </td>
+                <td style="font-size:.78rem;color:var(--text-faint);">{{ user.last_login|default('Never')|string|truncate(19, True, '') }}</td>
+                <td style="font-size:.78rem;color:var(--text-faint);">{{ user.date_joined|default('')|string|truncate(10, True, '') }}</td>
+                <td style="white-space:nowrap;">
+                    <button class="btn btn-sm btn-ghost" title="Toggle Active" onclick="toggleUserStatus('{{ user.pk }}', {{ 'true' if user.is_active else 'false' }})">
+                        <i class="icon-{% if user.is_active %}user-x{% else %}user-check{% endif %}" style="font-size:13px;"></i>
+                    </button>
+                    <button class="btn btn-sm btn-ghost" title="Reset Password" onclick="showResetPasswordModal('{{ user.pk }}', '{{ user.username }}')">
+                        <i class="icon-key" style="font-size:13px;"></i>
+                    </button>
+                    {% if not user.is_superuser %}
+                    <button class="btn btn-sm btn-ghost" title="Delete" style="color:var(--danger);" onclick="confirmDeleteUser('{{ user.pk }}', '{{ user.username }}')">
+                        <i class="icon-trash-2" style="font-size:13px;"></i>
+                    </button>
+                    {% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="7" class="empty-state">
+                    <i class="icon-users" style="font-size:28px;display:block;margin-bottom:8px;opacity:.3;"></i>
+                    No admin users found
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{# ═══ Create User Modal ═══ #}
+<div id="createUserModal" style="display:none;position:fixed;inset:0;z-index:10003;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);" onclick="if(event.target===this)this.style.display='none'">
+    <div style="background:var(--bg-elevated);border:1px solid var(--border-color);border-radius:14px;padding:32px;max-width:480px;width:90%;box-shadow:0 24px 64px rgba(0,0,0,0.5);">
+        <h3 style="margin:0 0 20px;font-size:1rem;font-weight:600;display:flex;align-items:center;gap:8px;">
+            <i class="icon-user-plus" style="font-size:18px;color:var(--accent);"></i>
+            Create Admin User
+        </h3>
+        <form method="POST" action="{{ url_prefix|default('/admin') }}/admin-users/create">
+            <div class="form-group">
+                <label class="form-label">Username *</label>
+                <input type="text" name="username" class="form-input" required placeholder="e.g. john_admin" autocomplete="off">
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                <div class="form-group">
+                    <label class="form-label">First Name</label>
+                    <input type="text" name="first_name" class="form-input" placeholder="John">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Last Name</label>
+                    <input type="text" name="last_name" class="form-input" placeholder="Doe">
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Email</label>
+                <input type="email" name="email" class="form-input" placeholder="john@example.com">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Password *</label>
+                <input type="password" name="password" class="form-input" required minlength="8" placeholder="Min 8 characters">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Role *</label>
+                <select name="role" class="form-input" required>
+                    <option value="staff">Staff — Content management</option>
+                    <option value="admin">Admin — Can manage staff</option>
+                    <option value="superadmin">Superadmin — Full system access</option>
+                    <option value="viewer">Viewer — Read-only access</option>
+                </select>
+            </div>
+            <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:24px;padding-top:16px;border-top:1px solid var(--border-subtle);">
+                <button type="button" class="btn btn-secondary" onclick="document.getElementById('createUserModal').style.display='none'">Cancel</button>
+                <button type="submit" class="btn btn-primary">Create Admin</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{# ═══ Reset Password Modal ═══ #}
+<div id="resetPasswordModal" style="display:none;position:fixed;inset:0;z-index:10003;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);" onclick="if(event.target===this)this.style.display='none'">
+    <div style="background:var(--bg-elevated);border:1px solid var(--border-color);border-radius:14px;padding:32px;max-width:420px;width:90%;box-shadow:0 24px 64px rgba(0,0,0,0.5);">
+        <h3 style="margin:0 0 20px;font-size:1rem;font-weight:600;display:flex;align-items:center;gap:8px;">
+            <i class="icon-key" style="font-size:18px;color:var(--warning);"></i>
+            Reset Password — <span id="resetPasswordUsername"></span>
+        </h3>
+        <form method="POST" action="{{ url_prefix|default('/admin') }}/admin-users/reset-password" id="resetPasswordForm">
+            <input type="hidden" name="user_id" id="resetPasswordUserId">
+            <div class="form-group">
+                <label class="form-label">New Password</label>
+                <input type="password" name="new_password" class="form-input" required minlength="8" placeholder="Min 8 characters">
+            </div>
+            <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px;padding-top:16px;border-top:1px solid var(--border-subtle);">
+                <button type="button" class="btn btn-secondary" onclick="document.getElementById('resetPasswordModal').style.display='none'">Cancel</button>
+                <button type="submit" class="btn btn-primary">Reset Password</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+function showResetPasswordModal(userId, username) {
+    document.getElementById('resetPasswordUserId').value = userId;
+    document.getElementById('resetPasswordUsername').textContent = username;
+    document.getElementById('resetPasswordModal').style.display = 'flex';
+}
+
+function toggleUserStatus(userId, isActive) {
+    var action = isActive ? 'deactivate' : 'activate';
+    showConfirmModal(
+        (isActive ? 'Deactivate' : 'Activate') + ' this admin?',
+        'The user will be ' + (isActive ? 'prevented from logging in' : 'able to log in again') + '.',
+        function() {
+            var form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '{{ url_prefix|default("/admin") }}/admin-users/toggle-status';
+            var input = document.createElement('input');
+            input.type = 'hidden'; input.name = 'user_id'; input.value = userId;
+            form.appendChild(input);
+            document.body.appendChild(form);
+            form.submit();
+        }
+    );
+}
+
+function confirmDeleteUser(userId, username) {
+    showConfirmModal(
+        'Delete admin "' + username + '"?',
+        'This action cannot be undone. The admin account will be permanently removed.',
+        function() {
+            var form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '{{ url_prefix|default("/admin") }}/admin-users/delete';
+            var input = document.createElement('input');
+            input.type = 'hidden'; input.name = 'user_id'; input.value = userId;
+            form.appendChild(input);
+            document.body.appendChild(form);
+            form.submit();
+        },
+        true
+    );
+}
+{% endblock %}

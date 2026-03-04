@@ -779,7 +779,7 @@ class SecurityHeadersMiddleware:
 
 class CSRFError(CSRFViolationFault):
     """
-    CSRF validation fault — raised when CSRF protection detects a violation.
+    CSRF validation fault -- raised when CSRF protection detects a violation.
 
     Inherits from CSRFViolationFault (aquilia.faults.domains) to integrate
     with the Aquilia fault handling pipeline. This is a proper Fault, not
@@ -820,8 +820,8 @@ class CSRFMiddleware:
         5. Token is injected into ``request.state["csrf_token"]`` for template access.
 
     Token Storage Priority:
-        1. Session (``request.state["session"]``) — preferred, most secure.
-        2. Double-submit cookie (``_csrf_cookie``) — fallback when sessions are
+        1. Session (``request.state["session"]``) -- preferred, most secure.
+        2. Double-submit cookie (``_csrf_cookie``) -- fallback when sessions are
            unavailable. Uses HMAC-signed tokens for integrity.
 
     Security Features:
@@ -830,7 +830,7 @@ class CSRFMiddleware:
         - Configurable safe methods, exempt paths, exempt content types
         - Optional AJAX trust (``X-Requested-With`` header)
         - Constant-time comparison to prevent timing attacks
-        - Token rotation support (new token after each validation — optional)
+        - Token rotation support (new token after each validation -- optional)
         - SameSite cookie attribute for defense-in-depth
 
     Args:
@@ -856,7 +856,7 @@ class CSRFMiddleware:
                     same-origin (browser same-origin policy prevents custom headers
                     from cross-origin requests).
         rotate_token: Generate a new token after each successful validation
-                     (one-time-use tokens — stronger but may break back-button).
+                     (one-time-use tokens -- stronger but may break back-button).
         failure_status: HTTP status code on CSRF failure (default 403).
 
     Example::
@@ -1016,8 +1016,8 @@ class CSRFMiddleware:
 
         Checks in order:
         1. HTTP header (X-CSRF-Token)
-        2. Form field (_csrf_token) — from request body/state
-        3. Query parameter (_csrf_token) — last resort
+        2. Form field (_csrf_token) -- from request body/state
+        3. Query parameter (_csrf_token) -- last resort
         """
         # 1. Header
         token = request.header(self._header_name)

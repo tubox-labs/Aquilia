@@ -1,16 +1,15 @@
 """
-Aquilia Query Builder — chainable, immutable, async-terminal Q object.
+Aquilia Query Builder -- chainable, immutable, async-terminal Q object.
 
-Inspired by Django's QuerySet architecture — every chain method returns
-a NEW Q instance (immutable cloning), and terminal methods (all, first,
-count, etc.) are async and execute the query.
+Every chain method returns a NEW Q instance (immutable cloning), and
+terminal methods (all, first, count, etc.) are async and execute the query.
 
-Unique Aquilia syntax differences from Django:
-    - .query()  starts a chain   (Django: .objects.all())
-    - .order()  for ordering     (Django: .order_by())
-    - .where()  for raw clauses  (Aquilia-only: raw parameterized WHERE)
-    - .one()    for strict get   (Aquilia-only: raises if != 1 result)
-    - .apply_q()  for QNode      (Aquilia-only: composable QNode objects)
+Key API:
+    - .query()    starts a chain
+    - .order()    for ordering
+    - .where()    raw parameterized WHERE clauses
+    - .one()      strict get -- raises if != 1 result
+    - .apply_q()  composable QNode filter objects
     - All terminal methods are async (await qs.all(), await qs.count())
 
 Usage:
@@ -32,7 +31,7 @@ logger = logging.getLogger("aquilia.models.query")
 # Regex for validating field names in order() to prevent injection
 _SAFE_FIELD_RE = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*$')
 
-# Module-level cached lookup registry — avoid calling lookup_registry()
+# Module-level cached lookup registry -- avoid calling lookup_registry()
 # on every filter clause.
 _cached_lookup_registry = None
 
@@ -56,8 +55,7 @@ class QNode:
     """
     Composable filter node for complex WHERE clauses.
 
-    Similar to Django's Q objects but named QNode to avoid confusion
-    with Aquilia's Q (QuerySet) class.
+    Named QNode to avoid confusion with Aquilia's Q (QuerySet) class.
 
     Usage:
         from aquilia.models.query import QNode as QF
@@ -140,7 +138,7 @@ class QNode:
 QCombination = QNode
 
 
-# ── Prefetch Object (Django-style custom prefetch) ───────────────────────────
+# ── Prefetch Object ──────────────────────────────────────────────────────────
 
 
 class Prefetch:
@@ -185,7 +183,7 @@ def _build_filter_clause(key: str, value: Any) -> Tuple[str, List[Any]]:
     from .expression import Expression, Combinable
 
     def _render_value(val: Any) -> Tuple[str, List[Any]]:
-        """Render a value — returns (sql_fragment, params)."""
+        """Render a value -- returns (sql_fragment, params)."""
         if isinstance(val, (Expression, Combinable)):
             return val.as_sql("sqlite")
         return "?", [val]
@@ -231,52 +229,52 @@ def _build_filter_clause(key: str, value: Any) -> Tuple[str, List[Any]]:
         return f'"{key}" = {rhs}', params
 
 
-# ── Q (QuerySet) — Immutable, Chainable, Async-Terminal ─────────────────────
+# ── Q (QuerySet) -- Immutable, Chainable, Async-Terminal ─────────────────────
 
 
 class Q:
     """
-    Aquilia QuerySet — chainable, immutable, async-terminal query builder.
+    Aquilia QuerySet -- chainable, immutable, async-terminal query builder.
 
-    Every chain method returns a NEW Q instance (Django-style immutability).
+    Every chain method returns a NEW Q instance (immutable cloning).
     Terminal methods (all, first, count, etc.) are async and execute SQL.
 
     Chain methods (return new Q):
-        filter(**kwargs)          — Django-style field lookups
-        exclude(**kwargs)         — Negated filter
-        where(clause, *args)     — Raw parameterized WHERE (Aquilia-only)
-        order(*fields)           — ORDER BY ("-field" for DESC, "?" for RANDOM)
-        limit(n)                 — LIMIT
-        offset(n)                — OFFSET
-        distinct()               — SELECT DISTINCT
-        only(*fields)            — Load only specified fields
-        defer(*fields)           — Defer loading of fields
-        annotate(**exprs)        — Add computed annotations
-        group_by(*fields)        — GROUP BY
-        having(clause, *args)    — HAVING
-        select_related(*fields)  — JOIN-based eager loading
-        prefetch_related(*fields)— Separate-query prefetching
-        apply_q(QNode)           — Apply composable QNode filter
-        using(db_alias)          — Target specific database
-        select_for_update()      — SELECT ... FOR UPDATE (locking)
-        none()                   — Return empty queryset
+        filter(**kwargs)          -- Field lookup filter
+        exclude(**kwargs)         -- Negated filter
+        where(clause, *args)     -- Raw parameterized WHERE (Aquilia-only)
+        order(*fields)           -- ORDER BY ("-field" for DESC, "?" for RANDOM)
+        limit(n)                 -- LIMIT
+        offset(n)                -- OFFSET
+        distinct()               -- SELECT DISTINCT
+        only(*fields)            -- Load only specified fields
+        defer(*fields)           -- Defer loading of fields
+        annotate(**exprs)        -- Add computed annotations
+        group_by(*fields)        -- GROUP BY
+        having(clause, *args)    -- HAVING
+        select_related(*fields)  -- JOIN-based eager loading
+        prefetch_related(*fields)-- Separate-query prefetching
+        apply_q(QNode)           -- Apply composable QNode filter
+        using(db_alias)          -- Target specific database
+        select_for_update()      -- SELECT ... FOR UPDATE (locking)
+        none()                   -- Return empty queryset
 
     Terminal methods (async, execute query):
-        all()                    — List[Model]
-        first()                  — Optional[Model]
-        last()                   — Optional[Model]
-        one()                    — Model (raises if != 1)
-        count()                  — int
-        exists()                 — bool
-        update(**kwargs)         — int (rows affected)
-        delete()                 — int (rows deleted)
-        values(*fields)          — List[Dict]
-        values_list(*fields)     — List[Tuple] or flat list
-        in_bulk(id_list)         — Dict[pk, Model]
-        aggregate(**exprs)       — Dict[str, Any]
-        explain()                — str (query plan)
-        latest(field)            — Model
-        earliest(field)          — Model
+        all()                    -- List[Model]
+        first()                  -- Optional[Model]
+        last()                   -- Optional[Model]
+        one()                    -- Model (raises if != 1)
+        count()                  -- int
+        exists()                 -- bool
+        update(**kwargs)         -- int (rows affected)
+        delete()                 -- int (rows deleted)
+        values(*fields)          -- List[Dict]
+        values_list(*fields)     -- List[Tuple] or flat list
+        in_bulk(id_list)         -- Dict[pk, Model]
+        aggregate(**exprs)       -- Dict[str, Any]
+        explain()                -- str (query plan)
+        latest(field)            -- Model
+        earliest(field)          -- Model
     """
 
     __slots__ = (
@@ -376,7 +374,7 @@ class Q:
 
     def filter(self, *q_nodes: Any, **kwargs: Any) -> Q:
         """
-        Django-style field lookup filter.
+        Field lookup filter.
 
         Supports all lookups: exact, gt, gte, lt, lte, ne, contains,
         icontains, startswith, endswith, in, isnull, range, regex, etc.
@@ -412,7 +410,7 @@ class Q:
 
     def exclude(self, *q_nodes: Any, **kwargs: Any) -> Q:
         """
-        Negated filter — exclude matching records.
+        Negated filter -- exclude matching records.
 
         Supports QNode objects for complex exclusions:
             .exclude(QNode(role="banned") | QNode(role="suspended"))
@@ -438,7 +436,7 @@ class Q:
 
     def order(self, *fields: Any) -> Q:
         """
-        ORDER BY — Aquilia's primary ordering method.
+        ORDER BY -- Aquilia's primary ordering method.
 
         Prefix with '-' for DESC. Use '?' for RANDOM.
         Also accepts F().desc() / F().asc() OrderBy objects.
@@ -457,7 +455,7 @@ class Q:
                 sql, _ = f.as_sql(dialect)
                 new._order_clauses.append(sql)
             elif isinstance(f, FExpr):
-                # Bare F() object — treat as ASC
+                # Bare F() object -- treat as ASC
                 sql, _ = f.as_sql(dialect)
                 new._order_clauses.append(f"{sql} ASC")
             elif isinstance(f, str):
@@ -481,10 +479,10 @@ class Q:
                     new._order_clauses.append(sql)
         return new
 
-    # Django-style alias
+    # Alias
     order_by = order
 
-    # ── Set Operations (Django-style) ────────────────────────────────
+    # ── Set Operations ────────────────────────────────────────────────
 
     def union(self, *querysets: Q, all: bool = False) -> Q:
         """
@@ -506,7 +504,7 @@ class Q:
 
     def intersection(self, *querysets: Q) -> Q:
         """
-        Combine with INTERSECT — only rows in ALL querysets.
+        Combine with INTERSECT -- only rows in ALL querysets.
 
         Usage:
             admins = User.objects.filter(role="admin")
@@ -520,7 +518,7 @@ class Q:
 
     def difference(self, *querysets: Q) -> Q:
         """
-        Combine with EXCEPT — rows in this set but not in others.
+        Combine with EXCEPT -- rows in this set but not in others.
 
         Usage:
             all_users = User.objects.filter(active=True)
@@ -554,7 +552,7 @@ class Q:
         """
         Load only specified fields (deferred loading for others).
 
-        ⚠️ Accessing deferred fields will NOT trigger lazy load in Aquilia.
+        Accessing deferred fields will NOT trigger lazy load in Aquilia.
 
         Usage:
             users = await User.objects.only("id", "name").all()
@@ -612,7 +610,7 @@ class Q:
         """
         Eager-load FK/OneToOne relations via JOINs.
 
-        Like Django's select_related — reduces N+1 queries for FK.
+        Reduces N+1 queries for FK relationships.
 
         Usage:
             orders = await Order.objects.select_related("user").all()
@@ -666,7 +664,7 @@ class Q:
 
     def using(self, db_alias: str) -> Q:
         """
-        Target a specific database for this query (Django-style).
+        Target a specific database for this query.
 
         Usage:
             users = await User.objects.using("replica").filter(active=True).all()
@@ -702,7 +700,7 @@ class Q:
 
     def none(self) -> Q:
         """
-        Return an empty queryset that evaluates to [] (Django-style).
+        Return an empty queryset that evaluates to [].
 
         Useful for conditional query building.
 
@@ -733,7 +731,7 @@ class Q:
 
     def __getitem__(self, key: Any) -> Q:
         """
-        Support Python slicing on querysets (Django-style).
+        Support Python slicing on querysets.
 
         Usage:
             top_5 = User.objects.order("-score")[:5]
@@ -1436,7 +1434,7 @@ class Q:
 
     async def create(self, **data: Any) -> Model:
         """
-        Create a new record (Django-style shortcut on queryset).
+        Create a new record (shortcut on queryset).
 
         Usage:
             user = await User.objects.filter(role="admin").create(
@@ -1449,7 +1447,7 @@ class Q:
         self, defaults: Optional[Dict[str, Any]] = None, **lookup: Any
     ) -> Tuple[Model, bool]:
         """
-        Get existing or create new (Django-style on queryset).
+        Get existing or create new.
 
         Returns (instance, created) tuple.
         """
@@ -1459,7 +1457,7 @@ class Q:
         self, defaults: Optional[Dict[str, Any]] = None, **lookup: Any
     ) -> Tuple[Model, bool]:
         """
-        Update existing or create new (Django-style on queryset).
+        Update existing or create new.
 
         Returns (instance, created) tuple.
         """
@@ -1522,7 +1520,7 @@ class Q:
     @property
     def query(self) -> str:
         """
-        Return the raw SQL that would be executed (Django-style introspection).
+        Return the raw SQL that would be executed.
 
         Usage:
             print(User.objects.filter(active=True).query)
@@ -1532,7 +1530,7 @@ class Q:
 
 
 class _QueryIterator:
-    """Async iterator for Q querysets — loads all results on first iteration."""
+    """Async iterator for Q querysets -- loads all results on first iteration."""
 
     def __init__(self, query: Q):
         self._query = query

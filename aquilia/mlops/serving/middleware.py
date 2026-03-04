@@ -1,5 +1,5 @@
 """
-MLOps Middleware — Inference metrics, rate limiting, and circuit breaker
+MLOps Middleware -- Inference metrics, rate limiting, and circuit breaker
 integration as Aquilia middleware.
 
 Integrates with Aquilia's :class:`~aquilia.middleware.MiddlewareStack` using
@@ -66,7 +66,7 @@ def register_mlops_middleware(
         fault_engine: Optional ``FaultEngine`` for structured error handling.
         path_prefix: URL prefix filter.
     """
-    # Outermost — always add request-id
+    # Outermost -- always add request-id
     stack.add(
         mlops_request_id_middleware(),
         scope="app:mlops",
@@ -265,7 +265,7 @@ def mlops_circuit_breaker_middleware(
 
             return Response(
                 {
-                    "error": "Service unavailable — circuit breaker open",
+                    "error": "Service unavailable -- circuit breaker open",
                     "circuit_state": circuit_breaker.state,
                 },
                 status=status_code,

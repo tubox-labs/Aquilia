@@ -1,24 +1,24 @@
 """
-Aquilia Migration DSL — declarative, human-readable migration operations.
+Aquilia Migration DSL -- declarative, human-readable migration operations.
 
 Provides a clean, Aquilia-native DSL for expressing schema changes as
 composable Python objects. Each operation knows how to compile itself
 to SQL for any supported backend (SQLite, PostgreSQL, MySQL).
 
 DSL Primitives:
-    CreateModel      — Create a new table with columns
-    DropModel        — Drop a table
-    RenameModel      — Rename a table
-    AddField         — Add a column to a table
-    RemoveField      — Remove a column from a table
-    AlterField       — Change column type/constraints
-    RenameField      — Rename a column
-    CreateIndex      — Create an index
-    DropIndex        — Drop an index
-    AddConstraint    — Add a constraint
-    RemoveConstraint — Drop a constraint
-    RunSQL           — Execute raw SQL (forward + reverse)
-    RunPython        — Execute a Python callable
+    CreateModel      -- Create a new table with columns
+    DropModel        -- Drop a table
+    RenameModel      -- Rename a table
+    AddField         -- Add a column to a table
+    RemoveField      -- Remove a column from a table
+    AlterField       -- Change column type/constraints
+    RenameField      -- Rename a column
+    CreateIndex      -- Create an index
+    DropIndex        -- Drop an index
+    AddConstraint    -- Add a constraint
+    RemoveConstraint -- Drop a constraint
+    RunSQL           -- Execute raw SQL (forward + reverse)
+    RunPython        -- Execute a Python callable
 
 Usage in migration files:
 
@@ -216,7 +216,7 @@ class ColumnDef:
 
 class _ColumnBuilder:
     """
-    Fluent column builder — the ``columns`` (aliased as ``C``) namespace.
+    Fluent column builder -- the ``columns`` (aliased as ``C``) namespace.
 
     Usage:
         from aquilia.models.migration_dsl import columns as C
@@ -385,7 +385,7 @@ class DropModel(Operation):
         return [f'DROP TABLE IF EXISTS "{self.table}";']
 
     def reverse_sql(self, dialect: str = "sqlite") -> List[str]:
-        raise NotImplementedError("DropModel is not auto-reversible — provide a CreateModel")
+        raise NotImplementedError("DropModel is not auto-reversible -- provide a CreateModel")
 
     def describe(self) -> str:
         return f"DropModel({self.name}, table={self.table})"
@@ -676,7 +676,7 @@ class RunPython(Operation):
     """
     Execute a Python callable as a data migration step.
 
-    The callable receives (conn) as argument — the AquiliaDatabase instance.
+    The callable receives (conn) as argument -- the AquiliaDatabase instance.
     """
 
     forward: Optional[Callable] = None
@@ -685,7 +685,7 @@ class RunPython(Operation):
     reversible = True
 
     def to_sql(self, dialect: str = "sqlite") -> List[str]:
-        return []  # Not SQL — handled by runner
+        return []  # Not SQL -- handled by runner
 
     def reverse_sql(self, dialect: str = "sqlite") -> List[str]:
         return []

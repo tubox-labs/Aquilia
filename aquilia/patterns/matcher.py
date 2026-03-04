@@ -6,7 +6,7 @@ Performance notes (v1.0.0):
   int(), str(), and typical constraint lambdas are trivial CPU-bound
   operations that complete in < 100 ns.  Dispatching them to a thread
   pool via anyio.to_thread.run_sync added 10-50 us of overhead **per
-  parameter per match** — completely unacceptable on the hot path.
+  parameter per match** -- completely unacceptable on the hot path.
 - Regex-based matching is preferred when available (compiled during
   pattern compilation) for single-shot matching.
 """

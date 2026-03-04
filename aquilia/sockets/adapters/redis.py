@@ -239,8 +239,6 @@ class RedisAdapter(Adapter):
         
         # Set TTL on room key
         await self._redis.expire(key, self.connection_ttl * 2)
-        
-        logger.debug(f"Connection {connection_id} joined {namespace}/{room}")
     
     async def leave_room(
         self,
@@ -252,8 +250,6 @@ class RedisAdapter(Adapter):
         key = f"{self.prefix}members:{namespace}:{room}"
         
         await self._redis.zrem(key, connection_id)
-        
-        logger.debug(f"Connection {connection_id} left {namespace}/{room}")
     
     async def get_room_members(
         self,
@@ -320,8 +316,6 @@ class RedisAdapter(Adapter):
         
         # Set TTL
         await self._redis.expire(key, self.connection_ttl)
-        
-        logger.debug(f"Registered connection {connection_id} in {namespace}")
     
     async def unregister_connection(
         self,
@@ -337,8 +331,6 @@ class RedisAdapter(Adapter):
         rooms = await self.list_rooms(namespace)
         for room in rooms:
             await self.leave_room(namespace, room, connection_id)
-        
-        logger.debug(f"Unregistered connection {connection_id} from {namespace}")
     
     async def get_connection_count(self, namespace: str) -> int:
         """Get active connection count."""

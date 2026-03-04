@@ -1,16 +1,16 @@
 """
-Artifact Reader — load, inspect, verify, and query artifacts.
+Artifact Reader -- load, inspect, verify, and query artifacts.
 
 Sits on top of any :class:`ArtifactStoreProtocol` and adds
 higher-level operations:
 
-- ``load`` / ``load_or_fail`` — retrieve with optional version
-- ``inspect`` — print a human-readable summary
-- ``verify`` / ``batch_verify`` — integrity verification
-- ``diff`` — compare two artifact versions
-- ``history`` — list all versions of a named artifact
-- ``search`` — find by kind, tags, metadata
-- ``stats`` — aggregate statistics
+- ``load`` / ``load_or_fail`` -- retrieve with optional version
+- ``inspect`` -- print a human-readable summary
+- ``verify`` / ``batch_verify`` -- integrity verification
+- ``diff`` -- compare two artifact versions
+- ``history`` -- list all versions of a named artifact
+- ``search`` -- find by kind, tags, metadata
+- ``stats`` -- aggregate statistics
 """
 
 from __future__ import annotations

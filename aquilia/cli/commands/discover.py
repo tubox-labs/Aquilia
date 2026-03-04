@@ -93,7 +93,7 @@ class DiscoveryInspector:
                 existing = manifest_refs.get(field_name, [])
                 is_synced = engine.differ._is_declared(comp, existing)
                 
-                status = f"{_CHECK} synced" if is_synced else "⚡ NEW"
+                status = f"{_CHECK} synced" if is_synced else "NEW"
                 rows.append((
                     module_name,
                     comp.kind.value,
@@ -117,7 +117,7 @@ class DiscoveryInspector:
             
             if sync:
                 if dry_run:
-                    info("  Dry run — no files modified.")
+                    info("  Dry run -- no files modified.")
                 
                 reports = engine.sync_all(dry_run=dry_run)
                 for report in reports:
@@ -125,7 +125,7 @@ class DiscoveryInspector:
                         action_str = "would add" if dry_run else "added"
                         for action in report.added:
                             success(
-                                f"  {_CHECK} {report.manifest_path.name} — "
+                                f"  {_CHECK} {report.manifest_path.name} -- "
                                 f"{action_str} {action.component.name}"
                             )
                 
@@ -134,7 +134,7 @@ class DiscoveryInspector:
             else:
                 dim(f"  Run `aq discover --sync` to update manifests.")
         else:
-            success(f"  {_CHECK} All components synced — manifests up to date.")
+            success(f"  {_CHECK} All components synced -- manifests up to date.")
     
     def _print_summary(self, discovered: dict, validation: dict, sorted_names: list) -> None:
         """Print summary of discovered modules."""

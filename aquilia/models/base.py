@@ -1,8 +1,7 @@
 """
-Aquilia Model Base — Pure Python, metaclass-driven, async-first ORM.
+Aquilia Model Base -- Pure Python, metaclass-driven, async-first ORM.
 
-Inspired by Django's model architecture but with Aquilia's unique
-async-first, chainable query syntax.
+Async-first model architecture with chainable query syntax.
 
 Usage:
     from aquilia.models import Model
@@ -104,14 +103,14 @@ if TYPE_CHECKING:
 logger = logging.getLogger("aquilia.models")
 
 
-# ── Model Options — delegate to options.py ───────────────────────────────────
+# ── Model Options -- delegate to options.py ───────────────────────────────────
 # Keep this import for backward compatibility; the canonical Options is
 # in options.py (imported by metaclass.py).
 
 from .options import Options
 
 
-# ── Model Registry — delegate to registry.py ────────────────────────────────
+# ── Model Registry -- delegate to registry.py ────────────────────────────────
 # Keep ModelRegistry importable from base.py for backward compat, but the
 # canonical implementation lives in registry.py.
 
@@ -191,7 +190,7 @@ class ModelRegistry(metaclass=_ModelRegistryMeta):
 
     async def on_startup(self) -> None:
         """
-        Lifecycle hook — called by LifecycleCoordinator at app start.
+        Lifecycle hook -- called by LifecycleCoordinator at app start.
 
         If AQUILIA_AUTO_MIGRATE=1 is set, tables are created automatically.
         Otherwise, the startup guard checks that the DB exists and
@@ -209,13 +208,13 @@ class ModelRegistry(metaclass=_ModelRegistryMeta):
         pass
 
 
-# ── Model Metaclass — delegate to metaclass.py ──────────────────────────────
+# ── Model Metaclass -- delegate to metaclass.py ──────────────────────────────
 # Import the canonical ModelMeta for backward compatibility.
 
 from .metaclass import ModelMeta
 
 
-# ── Q (Query Builder) — delegate to query.py ─────────────────────────────────
+# ── Q (Query Builder) -- delegate to query.py ─────────────────────────────────
 # The canonical Q class lives in query.py. Import it here for backward compat.
 
 from .query import Q
@@ -226,15 +225,15 @@ from .query import Q
 
 class Model(metaclass=ModelMeta):
     """
-    Aquilia Model base class — pure Python, async-first ORM.
+    Aquilia Model base class -- pure Python, async-first ORM.
 
-    Inspired by Django's Model class but with Aquilia's unique async-first
-    syntax and chainable query API.
+    Async-first syntax with chainable query API.
 
     Define models by subclassing and declaring fields:
 
         class User(Model):
-            table = "users"
+            table = "users"                # or: table_name = "users"
+                                           # or: __tablename__ = "users"
 
             name = CharField(max_length=150)
             email = EmailField(unique=True)
@@ -245,14 +244,14 @@ class Model(metaclass=ModelMeta):
                 ordering = ["-created_at"]
                 get_latest_by = "created_at"
 
-    API — Django-style via objects Manager:
+    API -- via objects Manager:
         user  = await User.objects.create(name="Alice", email="alice@test.com")
         user  = await User.objects.get(pk=1)
         users = await User.objects.filter(active=True).order("-created_at").all()
         await User.objects.filter(pk=1).update(name="Bob")
         await User.objects.filter(pk=1).delete()
 
-    API — Aquilia shorthand (class-level convenience):
+    API -- Aquilia shorthand (class-level convenience):
         user  = await User.create(name="Alice", email="alice@test.com")
         user  = await User.get(pk=1)
         users = await User.query().filter(active=True).all()
@@ -274,6 +273,11 @@ class Model(metaclass=ModelMeta):
     _attr_names: ClassVar[List[str]] = []
     _db: ClassVar[Optional[AquiliaDatabase]] = None
     _using_db: Optional[str] = None  # per-instance DB alias
+
+    # Default Manager -- provides User.objects.filter(...) etc.
+    # Auto-injected by metaclass if not declared; annotated here
+    # so IDEs (Pylance, mypy, PyCharm) resolve .objects without errors.
+    objects: ClassVar[Manager]
 
     def __init__(self, **kwargs: Any):
         """Create a model instance (in-memory, not persisted)."""
@@ -314,11 +318,11 @@ class Model(metaclass=ModelMeta):
     def __hash__(self) -> int:
         return hash((self.__class__.__name__, getattr(self, self._pk_attr, None)))
 
-    # ── pk property (Django-style shortcut) ──────────────────────────
+    # ── pk property ──────────────────────────────────────────────────
 
     @property
     def pk(self) -> Any:
-        """Shortcut for accessing the primary key value (Django-style)."""
+        """Shortcut for accessing the primary key value."""
         return getattr(self, self._pk_attr, None)
 
     @pk.setter
@@ -489,10 +493,10 @@ class Model(metaclass=ModelMeta):
         """
         Create multiple records efficiently using batched inserts.
 
-        Like Django's bulk_create — faster than individual create() calls.
+        Faster than individual create() calls.
 
-        Note: Signals (pre_save/post_save) are NOT fired for bulk_create
-        (same behavior as Django). Use individual create() if you need signals.
+        Note: Signals (pre_save/post_save) are NOT fired for bulk_create.
+        Use individual create() if you need signals.
 
         Usage:
             users = await User.bulk_create([
@@ -557,9 +561,9 @@ class Model(metaclass=ModelMeta):
         """
         Update specific fields on multiple model instances efficiently.
 
-        Like Django's bulk_update — updates only specified fields.
+        Updates only specified fields.
 
-        Note: Signals are NOT fired (same as Django). Auto-now fields
+        Note: Signals are NOT fired. Auto-now fields
         are NOT updated automatically.
 
         Usage:
@@ -630,7 +634,7 @@ class Model(metaclass=ModelMeta):
     @classmethod
     async def latest(cls, field_name: Optional[str] = None) -> Model:
         """
-        Return the latest record by date field (Django-style).
+        Return the latest record by date field.
 
         Uses Meta.get_latest_by if field_name is not provided.
 
@@ -653,7 +657,7 @@ class Model(metaclass=ModelMeta):
     @classmethod
     async def earliest(cls, field_name: Optional[str] = None) -> Model:
         """
-        Return the earliest record by date field (Django-style).
+        Return the earliest record by date field.
 
         Uses Meta.get_latest_by if field_name is not provided.
 
@@ -676,7 +680,7 @@ class Model(metaclass=ModelMeta):
     @classmethod
     async def raw(cls, sql: str, params: Optional[List[Any]] = None) -> List[Model]:
         """
-        Execute raw SQL and return model instances (Django-style).
+        Execute raw SQL and return model instances.
 
         The SQL must return columns matching the model's fields.
 
@@ -686,7 +690,7 @@ class Model(metaclass=ModelMeta):
                 [18]
             )
 
-        ⚠️ Use parameterized queries to prevent SQL injection.
+        Use parameterized queries to prevent SQL injection.
         """
         db = cls._get_db()
         rows = await db.fetch_all(sql, params or [])
@@ -695,7 +699,7 @@ class Model(metaclass=ModelMeta):
     @classmethod
     def using(cls, db_alias: str) -> Q:
         """
-        Target a specific database for this query (Django-style).
+        Target a specific database for this query.
 
         Usage:
             users = await User.using("replica").filter(active=True).all()
@@ -722,8 +726,8 @@ class Model(metaclass=ModelMeta):
         If PK is set, updates. Otherwise, inserts.
 
         Args:
-            update_fields: Only update these specific fields (Django-style).
-                          More efficient — generates SET for only these columns.
+            update_fields: Only update these specific fields.
+                          More efficient -- generates SET for only these columns.
             force_insert: Force INSERT even if PK is set.
             force_update: Force UPDATE even if PK is None (raises if no PK).
             validate: Run full_clean() before saving (default False for perf).
@@ -752,7 +756,7 @@ class Model(metaclass=ModelMeta):
         await pre_save.send(sender=self.__class__, instance=self, created=is_create)
 
         if not is_create:
-            # Update — use dirty tracking if update_fields not explicit
+            # Update -- use dirty tracking if update_fields not explicit
             data: Dict[str, Any] = {}
             if update_fields:
                 target_fields = update_fields
@@ -788,7 +792,7 @@ class Model(metaclass=ModelMeta):
             if self._meta.select_on_save:
                 await self.refresh()
         else:
-            # Insert — build and execute directly to avoid
+            # Insert -- build and execute directly to avoid
             # double signal firing from cls.create()
             final_data: Dict[str, Any] = {}
             for attr_name, field in self._non_m2m_fields:
@@ -888,11 +892,11 @@ class Model(metaclass=ModelMeta):
 
     def full_clean(self, exclude: Optional[List[str]] = None) -> None:
         """
-        Validate instance completely — like Django's Model.full_clean().
+        Validate instance completely.
 
         Calls:
-        1. clean_fields() — per-field validation (type, null, choices, validators)
-        2. clean() — model-level cross-field validation (override in subclass)
+        1. clean_fields() -- per-field validation (type, null, choices, validators)
+        2. clean() -- model-level cross-field validation (override in subclass)
 
         Raises:
             FieldValidationError: If any field fails validation
@@ -927,7 +931,7 @@ class Model(metaclass=ModelMeta):
 
     def clean(self) -> None:
         """
-        Model-level validation hook — override in subclasses.
+        Model-level validation hook -- override in subclasses.
 
         Called by full_clean() after clean_fields(). Use for cross-field
         validation logic.
@@ -948,15 +952,14 @@ class Model(metaclass=ModelMeta):
 
         Args:
             fields: Optional list of field names to refresh. If None,
-                    refreshes all fields. Matches Django's
-                    ``refresh_from_db(fields=...)`` API.
+                    refreshes all fields.
         """
         pk_val = getattr(self, self._pk_attr)
         if pk_val is None:
             raise ValueError("Cannot refresh unsaved instance")
 
         if fields is not None:
-            # Partial refresh — SELECT only requested columns
+            # Partial refresh -- SELECT only requested columns
             cols = []
             for attr_name in fields:
                 field = self._fields.get(attr_name)
@@ -986,7 +989,7 @@ class Model(metaclass=ModelMeta):
         self._snapshot_original()
         return self
 
-    # Django-style alias
+    # Alias
     refresh_from_db = refresh
 
     def _snapshot_original(self) -> None:
@@ -1003,7 +1006,7 @@ class Model(metaclass=ModelMeta):
         """
         original = getattr(self, '_original_values', None)
         if original is None:
-            # No snapshot — treat all non-PK fields as dirty
+            # No snapshot -- treat all non-PK fields as dirty
             return {
                 attr: getattr(self, attr, None)
                 for attr in self._attr_names
@@ -1253,7 +1256,7 @@ class Model(metaclass=ModelMeta):
             col_list = ", ".join(f'"{f}"' for f in ut)
             builder.constraint(f"UNIQUE ({col_list})")
 
-        # Meta.constraints — CheckConstraint, UniqueConstraint, etc.
+        # Meta.constraints -- CheckConstraint, UniqueConstraint, etc.
         for constraint in cls._meta.constraints:
             if isinstance(constraint, CheckConstraint):
                 builder.constraint(constraint.sql(cls._table_name, dialect))

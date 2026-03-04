@@ -1,5 +1,5 @@
 """
-File Provider — Writes emails to .eml files on disk.
+File Provider -- Writes emails to .eml files on disk.
 
 Useful for local development, CI/CD testing, and audit logging.
 Each email is written as a standard RFC 2822 .eml file that can be
@@ -104,7 +104,6 @@ class FileProvider:
 
         try:
             self.output_dir.mkdir(parents=True, exist_ok=True)
-            logger.debug(f"Output directory ready: {self.output_dir}")
         except OSError as e:
             logger.error(f"Cannot create output directory: {e}")
             raise
@@ -269,11 +268,10 @@ class FileProvider:
                 if excess > 0:
                     for f in eml_files[:excess]:
                         f.unlink(missing_ok=True)
-                    logger.debug(f"Rotated {excess} old mail files")
 
             await loop.run_in_executor(None, _count_and_rotate)
         except Exception as e:
-            logger.debug(f"File rotation error: {e}")
+            pass
 
     # ── Send ────────────────────────────────────────────────────────
 

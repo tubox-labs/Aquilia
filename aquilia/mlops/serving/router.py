@@ -1,5 +1,5 @@
 """
-Traffic router — canary, A/B, shadow, sticky routing for model deployments.
+Traffic router -- canary, A/B, shadow, sticky routing for model deployments.
 
 Supports:
 - Canary release (X% traffic to new version)
@@ -42,7 +42,7 @@ class TrafficRouter:
     shadow mode, and **sticky routing** via consistent hashing.
 
     The embedded :class:`TopKHeap` tracks the most-requested models
-    (hot-model tracking) — accessible via :meth:`hot_models`.
+    (hot-model tracking) -- accessible via :meth:`hot_models`.
     """
 
     def __init__(self, sticky_buckets: int = 64):

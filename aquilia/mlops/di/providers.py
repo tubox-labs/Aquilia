@@ -1,8 +1,8 @@
 """
-MLOps DI Integration — Wires all MLOps services into Aquilia's DI container.
+MLOps DI Integration -- Wires all MLOps services into Aquilia's DI container.
 
 Provides:
-- ``register_mlops_providers(container, config)`` — one-call setup
+- ``register_mlops_providers(container, config)`` -- one-call setup
 - ``@service`` decorated singletons for each major subsystem
 - Scoped providers for per-request inference context
 - Factory providers for configurable components
@@ -122,35 +122,35 @@ def register_mlops_providers(
     """
     Register all MLOps services as DI providers.
 
-    This is the main integration point — call once during app startup
+    This is the main integration point -- call once during app startup
     to wire the entire MLOps subsystem into Aquilia's DI.
 
     Registered services:
-    - ``MLOpsConfig`` — typed config (singleton)
-    - ``MetricsCollector`` — metrics (singleton)
-    - ``DriftDetector`` — drift detection (singleton)
-    - ``PredictionLogger`` — prediction logging (singleton)
-    - ``RegistryService`` — model registry (singleton)
-    - ``PluginHost`` — plugin manager (singleton)
-    - ``TrafficRouter`` — traffic routing (singleton)
-    - ``RolloutEngine`` — release management (singleton)
-    - ``Autoscaler`` — autoscaling engine (singleton)
-    - ``PlacementScheduler`` — placement (singleton)
-    - ``RBACManager`` — access control (singleton)
-    - ``ArtifactSigner`` — signing (singleton)
-    - ``EncryptionManager`` — encryption (singleton)
-    - ``BlobEncryptor`` — blob encryption (singleton)
-    - ``CircuitBreaker`` — circuit breaker (singleton)
-    - ``TokenBucketRateLimiter`` — rate limiter (singleton)
-    - ``MemoryTracker`` — memory management (singleton)
-    - ``ModelLineageDAG`` — lineage tracking (singleton)
-    - ``ExperimentLedger`` — A/B experiments (singleton)
-    - ``MLOpsController`` — HTTP controller (singleton)
+    - ``MLOpsConfig`` -- typed config (singleton)
+    - ``MetricsCollector`` -- metrics (singleton)
+    - ``DriftDetector`` -- drift detection (singleton)
+    - ``PredictionLogger`` -- prediction logging (singleton)
+    - ``RegistryService`` -- model registry (singleton)
+    - ``PluginHost`` -- plugin manager (singleton)
+    - ``TrafficRouter`` -- traffic routing (singleton)
+    - ``RolloutEngine`` -- release management (singleton)
+    - ``Autoscaler`` -- autoscaling engine (singleton)
+    - ``PlacementScheduler`` -- placement (singleton)
+    - ``RBACManager`` -- access control (singleton)
+    - ``ArtifactSigner`` -- signing (singleton)
+    - ``EncryptionManager`` -- encryption (singleton)
+    - ``BlobEncryptor`` -- blob encryption (singleton)
+    - ``CircuitBreaker`` -- circuit breaker (singleton)
+    - ``TokenBucketRateLimiter`` -- rate limiter (singleton)
+    - ``MemoryTracker`` -- memory management (singleton)
+    - ``ModelLineageDAG`` -- lineage tracking (singleton)
+    - ``ExperimentLedger`` -- A/B experiments (singleton)
+    - ``MLOpsController`` -- HTTP controller (singleton)
 
     Ecosystem services (from Aquilia core, shared or created):
-    - ``FaultEngine`` — fault processing (resolve from container or create)
-    - ``CacheService`` — caching layer (resolve from container or skip)
-    - ``FilesystemArtifactStore`` — artifact storage (singleton)
+    - ``FaultEngine`` -- fault processing (resolve from container or create)
+    - ``CacheService`` -- caching layer (resolve from container or skip)
+    - ``FilesystemArtifactStore`` -- artifact storage (singleton)
     """
     from ..observe.metrics import MetricsCollector
     from ..observe.drift import DriftDetector
@@ -396,7 +396,7 @@ def register_mlops_providers(
 
     # ── Aquilia Ecosystem Services ───────────────────────────────────
 
-    # FaultEngine — resolve from container or create dedicated instance
+    # FaultEngine -- resolve from container or create dedicated instance
     fault_engine = None
     try:
         from aquilia.faults import FaultEngine
@@ -432,11 +432,11 @@ def register_mlops_providers(
                 return Escalate()
 
         fault_engine.register_app("mlops", MLOpsFaultHandler())
-        logger.info("  ✓ FaultEngine wired with MLOps handler")
+        logger.info("  FaultEngine wired with MLOps handler")
     except Exception as exc:
-        logger.debug("  FaultEngine integration skipped: %s", exc)
+        pass
 
-    # CacheService — resolve from container if available
+    # CacheService -- resolve from container if available
     cache_service = None
     try:
         from aquilia.cache import CacheService
@@ -445,7 +445,7 @@ def register_mlops_providers(
         cached = container._cache.get(token_key) if token_key and hasattr(container, '_cache') else None
         if cached is not None:
             cache_service = cached
-            logger.info("  ✓ CacheService resolved from DI container")
+            logger.info("  CacheService resolved from DI container")
         elif cfg.cache_enabled:
             from aquilia.cache import MemoryBackend, CacheConfig
             backend = MemoryBackend(max_size=1024)
@@ -459,11 +459,11 @@ def register_mlops_providers(
                 token=CacheService,
                 scope="singleton",
             ))
-            logger.info("  ✓ CacheService created (memory backend)")
+            logger.info("  CacheService created (memory backend)")
     except Exception as exc:
-        logger.debug("  CacheService integration skipped: %s", exc)
+        pass
 
-    # ArtifactStore — for model artifact management
+    # ArtifactStore -- for model artifact management
     artifact_store = None
     try:
         from aquilia.artifacts import FilesystemArtifactStore
@@ -473,9 +473,9 @@ def register_mlops_providers(
             token=FilesystemArtifactStore,
             scope="singleton",
         ))
-        logger.info("  ✓ ArtifactStore registered (%s)", cfg.artifact_store_dir)
+        logger.info("  ArtifactStore registered (%s)", cfg.artifact_store_dir)
     except Exception as exc:
-        logger.debug("  ArtifactStore integration skipped: %s", exc)
+        pass
 
     # MLOps Controller (with ecosystem services injected)
     controller = MLOpsController(

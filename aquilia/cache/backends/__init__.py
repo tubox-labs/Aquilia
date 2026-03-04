@@ -1,5 +1,5 @@
 """
-AquilaCache Backends — Storage implementations.
+AquilaCache Backends -- Storage implementations.
 """
 
 from .memory import MemoryBackend

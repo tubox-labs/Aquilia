@@ -67,8 +67,25 @@ try:
 except ImportError:
     AIOFILES_AVAILABLE = False
 
+# Import Crous binary serializer
+try:
+    import crous as _crous_mod
+    _HAS_CROUS = True
+except ImportError:
+    _crous_mod = None  # type: ignore[assignment]
+    _HAS_CROUS = False
+
 # Import Aquilia components
 from .faults import Fault, FaultDomain, Severity
+
+# CROUS media type constants
+CROUS_MEDIA_TYPE = "application/x-crous"
+CROUS_MAGIC = b"CROUSv1"
+
+
+def has_crous() -> bool:
+    """Return ``True`` if the ``crous`` library is importable."""
+    return _HAS_CROUS
 
 
 logger = logging.getLogger("aquilia.response")
@@ -325,7 +342,7 @@ class Response:
             # Auto-detect media type
             self._headers["content-type"] = self._detect_media_type(content)
         
-        # Background tasks — avoid list allocation when empty (common case)
+        # Background tasks -- avoid list allocation when empty (common case)
         if background is None:
             self._background_tasks: List[BackgroundTask] = []
         elif isinstance(background, list):
@@ -343,12 +360,15 @@ class Response:
     
     def _detect_media_type(self, content: Any) -> str:
         """Auto-detect media type from content."""
-        if isinstance(content, (dict, list)):
+        if isinstance(content, bytes):
+            # Detect CROUS binary by magic header
+            if len(content) >= 7 and content[:7] == CROUS_MAGIC:
+                return CROUS_MEDIA_TYPE
+            return "application/octet-stream"
+        elif isinstance(content, (dict, list)):
             return "application/json; charset=utf-8"
         elif isinstance(content, str):
             return "text/plain; charset=utf-8"
-        elif isinstance(content, bytes):
-            return "application/octet-stream"
         elif hasattr(content, "__aiter__") or hasattr(content, "__iter__"):
             return "application/octet-stream"
         elif inspect.iscoroutine(content) or inspect.isawaitable(content):
@@ -512,6 +532,160 @@ class Response:
             headers=headers,
             **kwargs
         )
+
+    @classmethod
+    def crous(
+        cls,
+        obj: Any,
+        status: int = 200,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        compression: Optional[str] = None,
+        dedup: bool = True,
+        **kwargs,
+    ) -> "Response":
+        """
+        Create a CROUS binary response.
+
+        Serialises ``obj`` into Crous wire format (``CROUSv1`` header,
+        XXH64-checksummed blocks) and returns a ``Response`` with
+        ``Content-Type: application/x-crous``.
+
+        Falls back to JSON automatically when the ``crous`` library
+        is not installed.
+
+        Args:
+            obj: Python object to serialise (dict, list, str, int, …)
+            status: HTTP status code.
+            headers: Additional response headers.
+            compression: Optional block compression
+                         (``"lz4"``, ``"zstd"``, ``"snappy"``
+                         or ``None`` for no compression).
+            dedup: Enable string deduplication (default ``True``).
+            **kwargs: Forwarded to ``Response.__init__``.
+
+        Returns:
+            Response with CROUS binary body.
+
+        Example::
+
+            @GET("/users")
+            async def list_users(self, ctx):
+                return Response.crous({"users": users})
+        """
+        if not _HAS_CROUS:
+            # Graceful degradation — fall back to JSON
+            logger.debug(
+                "crous library not installed; falling back to JSON response"
+            )
+            return cls.json(obj, status=status, headers=headers, **kwargs)
+
+        try:
+            # Use Encoder for fine-grained control when compression
+            # or dedup is requested.
+            if compression or dedup:
+                from crous.encoder import Encoder
+
+                enc = Encoder()
+                if dedup:
+                    enc.enable_dedup()
+                if compression:
+                    from crous.wire import CompressionType
+
+                    comp_map = {
+                        "zstd": CompressionType.ZSTD,
+                        "snappy": CompressionType.SNAPPY,
+                        "none": CompressionType.NONE,
+                    }
+                    # Also support LZ4 if available in the
+                    # installed version of the crous library.
+                    if hasattr(CompressionType, "LZ4"):
+                        comp_map["lz4"] = CompressionType.LZ4
+
+                    comp = comp_map.get(compression.lower())
+                    if comp is not None:
+                        enc.set_compression(comp)
+
+                from crous.value import Value
+
+                enc.encode_value(Value.from_python(obj))
+                content = enc.finish()
+            else:
+                content = _crous_mod.encode(obj)
+        except Exception as exc:
+            logger.warning("CROUS encode failed (%s); falling back to JSON", exc)
+            return cls.json(obj, status=status, headers=headers, **kwargs)
+
+        merged_headers: Dict[str, str] = dict(headers or {})
+        merged_headers.setdefault(
+            "content-length", str(len(content))
+        )
+        # Signal the wire format version for proxies / CDNs
+        merged_headers.setdefault("x-crous-version", "1")
+
+        return cls(
+            content=content,
+            status=status,
+            headers=merged_headers,
+            media_type=CROUS_MEDIA_TYPE,
+            **kwargs,
+        )
+
+    @classmethod
+    def negotiated(
+        cls,
+        obj: Any,
+        request: Any,
+        status: int = 200,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        **kwargs,
+    ) -> "Response":
+        """Create a response with automatic content negotiation.
+
+        Inspects the ``Accept`` header on *request* and returns
+        either a CROUS or JSON response.
+
+        Resolution order:
+        1. If the handler is decorated with ``@requires_crous`` and
+           the client accepts CROUS → CROUS.
+        2. If ``request.prefers_crous()`` → CROUS.
+        3. Otherwise → JSON.
+
+        Args:
+            obj: Python object to serialise.
+            request: The incoming :class:`~aquilia.request.Request`.
+            status: HTTP status code.
+            headers: Additional response headers.
+            **kwargs: Forwarded to the underlying factory.
+
+        Returns:
+            Response in the negotiated format.
+
+        Example::
+
+            @GET("/users")
+            async def list_users(self, ctx):
+                return Response.negotiated(users, ctx.request)
+        """
+        use_crous = False
+
+        if _HAS_CROUS:
+            # Check handler-level preference (stored in state by router)
+            handler = None
+            if hasattr(request, "state") and isinstance(request.state, dict):
+                handler = request.state.get("matched_handler")
+            if handler and getattr(handler, "__crous_response__", False):
+                if hasattr(request, "accepts_crous") and request.accepts_crous():
+                    use_crous = True
+
+            # Check client preference
+            if not use_crous and hasattr(request, "prefers_crous"):
+                use_crous = request.prefers_crous()
+
+        if use_crous:
+            return cls.crous(obj, status=status, headers=headers, **kwargs)
+        return cls.json(obj, status=status, headers=headers, **kwargs)
     
     @classmethod
     def file(
@@ -1135,7 +1309,7 @@ class Response:
         - Minimize time.time() calls for metrics.
         """
         try:
-            # Range request handling — only for file responses
+            # Range request handling -- only for file responses
             if (
                 request is not None
                 and hasattr(self, "_file_path")
@@ -1229,7 +1403,7 @@ class Response:
                 self._file_path, range_start, range_end,
             )
         except (ValueError, IndexError):
-            pass  # Malformed range — send full response
+            pass  # Malformed range -- send full response
     
     @staticmethod
     def _create_range_stream(
@@ -1608,6 +1782,33 @@ def not_modified_response(etag: Optional[str] = None) -> Response:
     return response
 
 
+# ============================================================================
+# CROUS Decorator
+# ============================================================================
+
+def requires_crous(func: Callable) -> Callable:
+    """Mark a handler as preferring CROUS binary responses.
+
+    When combined with :meth:`Response.negotiated`, responses will be
+    encoded as CROUS when the client includes a CROUS media type in
+    its ``Accept`` header.
+
+    The decorator simply sets ``func.__crous_response__ = True`` — it
+    does **not** alter control flow or enforce CROUS.  If the client
+    does not accept CROUS (or the library is unavailable), JSON is
+    returned transparently.
+
+    Example::
+
+        @requires_crous
+        @GET("/metrics")
+        async def metrics(self, ctx):
+            return Response.negotiated(data, ctx.request)
+    """
+    func.__crous_response__ = True  # type: ignore[attr-defined]
+    return func
+
+
 __all__ = [
     "Response",
     "BackgroundTask",
@@ -1631,4 +1832,9 @@ __all__ = [
     "generate_etag_from_file",
     "check_not_modified",
     "not_modified_response",
+    # CROUS support
+    "CROUS_MEDIA_TYPE",
+    "CROUS_MAGIC",
+    "has_crous",
+    "requires_crous",
 ]

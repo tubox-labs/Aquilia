@@ -1,5 +1,5 @@
 """
-Aquilia Blueprint Facets — the field-level primitives of a Blueprint.
+Aquilia Blueprint Facets -- the field-level primitives of a Blueprint.
 
 A Facet is a single aspect of a model exposed through a Blueprint.
 Facets auto-derive from Model fields but can be overridden, composed,
@@ -93,7 +93,7 @@ UNSET = _Unset()
 
 class Facet:
     """
-    Base facet — a single data point in a Blueprint.
+    Base facet -- a single data point in a Blueprint.
 
     Lifecycle::
 
@@ -871,7 +871,7 @@ class JSONFacet(Facet):
 # ── File Facet ───────────────────────────────────────────────────────────
 
 class FileFacet(Facet):
-    """File reference facet — stores path/URL string."""
+    """File reference facet -- stores path/URL string."""
 
     _type_name = "string"
 
@@ -991,7 +991,7 @@ class PolymorphicFacet(Facet):
 
 class Computed(Facet):
     """
-    A facet whose value is computed at output time — never accepted as input.
+    A facet whose value is computed at output time -- never accepted as input.
 
     Usage::
 
@@ -1027,7 +1027,7 @@ class Computed(Facet):
 
 class Constant(Facet):
     """
-    A facet that always returns a fixed value — useful for type
+    A facet that always returns a fixed value -- useful for type
     discriminators, API versioning, etc.
 
     Usage::
@@ -1095,7 +1095,7 @@ class ReadOnly(Facet):
 
 class Hidden(Facet):
     """
-    A hidden facet — populated from default/DI, never in input or output.
+    A hidden facet -- populated from default/DI, never in input or output.
 
     Usage::
 
@@ -1114,7 +1114,7 @@ class Inject(Facet):
     """
     A facet that resolves its value from the DI container at validation time.
 
-    This is Aquilia's native approach to computed defaults — the value
+    This is Aquilia's native approach to computed defaults -- the value
     comes from a registered service rather than from user input.
 
     Usage::
@@ -1148,7 +1148,7 @@ class Inject(Facet):
 
         Resolution order:
         1. DI container (container.resolve(token))
-        2. Direct context key (context[token]) — handles "identity",
+        2. Direct context key (context[token]) -- handles "identity",
            "request", and other context-injected objects without a
            full DI container.
         """

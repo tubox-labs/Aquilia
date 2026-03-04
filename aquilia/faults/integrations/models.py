@@ -94,14 +94,6 @@ class ModelFaultHandler(FaultHandler):
                 )
                 return Transformed(fault, preserve_context=True)
         
-        # Query failures: log details if enabled
-        if isinstance(fault, QueryFault) and self._log_queries:
-            logger.debug(
-                f"Failed query on model={fault.metadata.get('model')}, "
-                f"op={fault.metadata.get('operation')}"
-            )
-        
-        # Parse errors and schema faults are fatal — escalate
         if isinstance(fault, (AMDLParseFault, SchemaFault)):
             logger.critical(
                 f"Fatal model fault: {fault.message}"
@@ -161,7 +153,7 @@ def patch_model_registry() -> None:
     try:
         from aquilia.models.runtime import ModelRegistry as LegacyRegistry
     except ImportError:
-        logger.debug("Legacy ModelRegistry not available — skipping patch")
+        pass
     else:
         _original_register = LegacyRegistry.register_model
         _original_get_proxy = LegacyRegistry.get_proxy
@@ -194,13 +186,12 @@ def patch_model_registry() -> None:
         LegacyRegistry.register_model = _patched_register
         LegacyRegistry.get_proxy = _patched_get_proxy
         LegacyRegistry.create_tables = _patched_create_tables_legacy
-        logger.debug("Patched legacy ModelRegistry with fault integration")
     
     # --- New Python ORM ModelRegistry ---
     try:
         from aquilia.models.base import ModelRegistry as NewRegistry
     except ImportError:
-        logger.debug("New ModelRegistry not available — skipping patch")
+        pass
     else:
         _original_create_tables_new = NewRegistry.create_tables
         
@@ -215,7 +206,6 @@ def patch_model_registry() -> None:
                 ) from e
         
         NewRegistry.create_tables = _patched_create_tables_new
-        logger.debug("Patched new ModelRegistry with fault integration")
 
 
 def patch_database_engine() -> None:
@@ -225,7 +215,6 @@ def patch_database_engine() -> None:
     try:
         from aquilia.db.engine import AquiliaDatabase
     except ImportError:
-        logger.debug("AquiliaDatabase not available — skipping patch")
         return
     
     _original_connect = AquiliaDatabase.connect
@@ -240,8 +229,6 @@ def patch_database_engine() -> None:
             ) from e
     
     AquiliaDatabase.connect = _patched_connect
-    
-    logger.debug("Patched AquiliaDatabase with fault integration")
 
 
 def patch_all_model_subsystems() -> None:

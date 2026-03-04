@@ -1,5 +1,5 @@
 """
-RequestDAG — Per-request dependency graph resolver.
+RequestDAG -- Per-request dependency graph resolver.
 
 Builds a DAG from handler parameter annotations, resolves the full
 sub-dependency tree with deduplication, parallel independent branches,

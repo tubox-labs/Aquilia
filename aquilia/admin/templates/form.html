@@ -36,7 +36,7 @@
             {% if field_type == 'checkbox' %}
             <div class="form-group">
                 <label class="form-label" style="display:flex;align-items:center;gap:8px;cursor:pointer;">
-                    <input type="hidden" name="{{ name }}" value="">
+                    <input type="hidden" name="_checkbox_{{ name }}" value="1">
                     <input type="checkbox" name="{{ name }}" value="1"
                         {{ 'checked' if value else '' }}
                         {{ 'disabled' if readonly else '' }}
@@ -106,13 +106,12 @@
 </div>
 
 {% if can_delete and not is_create %}
-<form method="POST" action="{{ url_prefix|default('/admin') }}/{{ model_name|lower }}/{{ pk }}/delete"
-    onsubmit="return confirm('Are you sure you want to delete this record? This cannot be undone.');"
-    style="margin-top:24px;">
-    <button type="submit" class="btn btn-danger">
+<div style="margin-top:24px;">
+    <button type="button" class="btn btn-danger" onclick="showDeleteModal()">
         <i class="icon-trash-2" style="font-size:14px;"></i> Delete this {{ verbose_name }}
     </button>
-</form>
+    <form method="POST" action="{{ url_prefix|default('/admin') }}/{{ model_name|lower }}/{{ pk }}/delete" id="deleteRecordForm" style="display:none;"></form>
+</div>
 {% endif %}
 
 {% block extra_js %}
@@ -207,6 +206,46 @@
             }
         }
     });
+
+    // ── Custom delete confirmation modal ────────────────────────────
+    window.showDeleteModal = function() {
+        var isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+        var overlay = document.createElement('div');
+        overlay.id = 'delete-modal-overlay';
+        overlay.style.cssText = 'position:fixed;inset:0;background:' + (isDark ? 'rgba(0,0,0,0.65)' : 'rgba(0,0,0,0.35)') + ';z-index:10003;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);';
+
+        var box = document.createElement('div');
+        box.style.cssText = 'background:' + (isDark ? 'var(--bg-elevated)' : '#fff') + ';border:1px solid var(--border-color);border-radius:14px;padding:28px 32px;max-width:420px;width:90%;box-shadow:0 24px 64px rgba(0,0,0,0.4);';
+
+        box.innerHTML =
+            '<div style="display:flex;align-items:flex-start;gap:14px;">' +
+                '<div style="width:40px;height:40px;border-radius:10px;background:rgba(239,68,68,0.1);display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
+                    '<i class="icon-alert-triangle" style="font-size:20px;color:var(--danger);"></i>' +
+                '</div>' +
+                '<div style="flex:1;">' +
+                    '<h3 style="margin:0 0 6px;font-size:0.95rem;font-weight:600;color:var(--text-primary);">Delete this record?</h3>' +
+                    '<p style="margin:0;font-size:0.82rem;color:var(--text-secondary);line-height:1.5;">This action cannot be undone. The record will be permanently removed from the database.</p>' +
+                '</div>' +
+            '</div>' +
+            '<div style="display:flex;gap:10px;justify-content:flex-end;margin-top:24px;padding-top:18px;border-top:1px solid var(--border-subtle);">' +
+                '<button id="del-cancel" style="padding:8px 20px;border-radius:8px;border:1px solid var(--border-color);background:var(--bg-surface);color:var(--text-secondary);font-size:0.82rem;font-weight:500;cursor:pointer;font-family:var(--font-sans);">Cancel</button>' +
+                '<button id="del-confirm" style="padding:8px 20px;border-radius:8px;border:none;background:var(--danger);color:#fff;font-size:0.82rem;font-weight:600;cursor:pointer;font-family:var(--font-sans);">Delete</button>' +
+            '</div>';
+
+        overlay.appendChild(box);
+        document.body.appendChild(overlay);
+
+        overlay.querySelector('#del-cancel').onclick = function() { overlay.remove(); };
+        overlay.querySelector('#del-confirm').onclick = function() {
+            overlay.remove();
+            document.getElementById('deleteRecordForm').submit();
+        };
+        overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
+        document.addEventListener('keydown', function handler(e) {
+            if (e.key === 'Escape') { overlay.remove(); document.removeEventListener('keydown', handler); }
+        });
+        overlay.querySelector('#del-confirm').focus();
+    };
 })();
 </script>
 {% endblock %}

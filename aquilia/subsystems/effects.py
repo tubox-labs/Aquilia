@@ -1,5 +1,5 @@
 """
-Effect Subsystem — Subsystem initializer for the effect system.
+Effect Subsystem -- Subsystem initializer for the effect system.
 
 Integrates effects into the Aquilia boot lifecycle:
 1. Discovers effect providers from manifests and configuration
@@ -176,9 +176,6 @@ class EffectSubsystem(BaseSubsystem):
                     provider = provider_cls()
 
                 self._registry.register(effect_name, provider)
-                self._logger.debug(
-                    "Registered effect provider: %s (%s)", effect_name, cls_path,
-                )
 
             except Exception as exc:
                 self._logger.warning(
@@ -257,7 +254,6 @@ class EffectSubsystem(BaseSubsystem):
         try:
             flow_ctx_mw = FlowContextMiddleware(self._registry)
             ctx.middleware_stack.add(flow_ctx_mw, scope="request", priority=priority - 1)
-            self._logger.debug("Registered FlowContextMiddleware at priority %d", priority - 1)
         except Exception as exc:
             self._logger.warning("Failed to register FlowContextMiddleware: %s", exc)
 
@@ -267,7 +263,6 @@ class EffectSubsystem(BaseSubsystem):
                 effect_mw = EffectMiddleware(self._registry, auto_detect=auto_detect)
                 ctx.middleware_stack.add(effect_mw, scope="request", priority=priority)
                 self._middleware_registered = True
-                self._logger.debug("Registered EffectMiddleware at priority %d", priority)
             except Exception as exc:
                 self._logger.warning("Failed to register EffectMiddleware: %s", exc)
 
@@ -281,7 +276,6 @@ class EffectSubsystem(BaseSubsystem):
         if container:
             try:
                 self._registry.register_with_container(container)
-                self._logger.debug("Registered EffectRegistry with DI container")
             except Exception as exc:
                 self._logger.warning("Failed to register with DI: %s", exc)
 

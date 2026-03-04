@@ -2,56 +2,1083 @@
 {% block title %}ORM Models{% endblock %}
 {% block breadcrumb %}ORM Models{% endblock %}
 
+{% block extra_head %}
+<script src="//cdn.jsdelivr.net/npm/force-graph"></script>
+{% endblock %}
+
 {% block content %}
 <div class="page-header">
     <h1>ORM Models</h1>
-    <p>All registered models and their record counts.</p>
+    <p>Schema inspector, relation graph, indexes, and model analytics.</p>
 </div>
 
-{# ── Stats ── #}
+{# ── Stats Row ── #}
 <div class="stats-row" style="margin-bottom:28px;">
     <div class="stat-item">
-        <div class="stat-number">{{ total_models }}</div>
+        <div class="stat-number" data-count="{{ total_models }}">{{ total_models }}</div>
         <div class="stat-label">Models</div>
     </div>
     <div class="stat-item">
-        <div class="stat-number">{{ total_records }}</div>
+        <div class="stat-number" data-count="{{ total_records }}">{{ total_records }}</div>
         <div class="stat-label">Records</div>
     </div>
     <div class="stat-item">
-        <div class="stat-number">{{ app_list|length }}</div>
-        <div class="stat-label">Apps</div>
+        <div class="stat-number" data-count="{{ total_fk + total_m2m }}">{{ total_fk + total_m2m }}</div>
+        <div class="stat-label">Relations</div>
+    </div>
+    <div class="stat-item">
+        <div class="stat-number" data-count="{{ total_indexes }}">{{ total_indexes }}</div>
+        <div class="stat-label">Indexes</div>
     </div>
 </div>
 
-{# ── Model cards grid ── #}
-{% for app in app_list %}
-<div class="section-label">{{ app.app_name }}</div>
-<div class="model-grid" style="margin-bottom:28px;">
-    {% for model in app.models %}
-    <a class="model-card" href="{{ url_prefix|default('/admin') }}/{{ model.url_name }}/">
-        <div>
-            <div class="model-card-name">
-                <i class="icon-table" style="font-size:14px;vertical-align:-2px;margin-right:4px;opacity:0.4;"></i>
-                {{ model.name_plural }}
+{# ── Tabs ── #}
+<div class="tab-nav" data-tab-group="orm">
+    <button class="tab-btn active" data-tab="overview" onclick="switchTab('orm','overview')">
+        <i class="icon-grid" style="font-size:14px;vertical-align:-2px;margin-right:4px;"></i>Overview
+    </button>
+    <button class="tab-btn" data-tab="graph" onclick="switchTab('orm','graph');initForceGraph();">
+        <i class="icon-share-2" style="font-size:14px;vertical-align:-2px;margin-right:4px;"></i>Relation Graph
+    </button>
+    <button class="tab-btn" data-tab="analytics" onclick="switchTab('orm','analytics');initAnalytics();">
+        <i class="icon-bar-chart-2" style="font-size:14px;vertical-align:-2px;margin-right:4px;"></i>Analytics
+    </button>
+    <button class="tab-btn" data-tab="schema" onclick="switchTab('orm','schema')">
+        <i class="icon-columns" style="font-size:14px;vertical-align:-2px;margin-right:4px;"></i>Schema Inspector
+    </button>
+    <button class="tab-btn" data-tab="indexes" onclick="switchTab('orm','indexes')">
+        <i class="icon-zap" style="font-size:14px;vertical-align:-2px;margin-right:4px;"></i>Indexes &amp; Constraints
+    </button>
+</div>
+
+{# ═══════════════════════════════════════════════════════════════════ #}
+{# ── TAB 1: Overview (model cards + search)                       ── #}
+{# ═══════════════════════════════════════════════════════════════════ #}
+<div class="tab-content active" data-tab-content="orm" data-tab="overview">
+    {# ── Search ── #}
+    <div class="toolbar" style="margin-bottom:18px;">
+        <div class="search-box">
+            <i class="icon-search" style="font-size:15px;color:var(--text-faint);flex-shrink:0;"></i>
+            <input type="text" id="modelSearchInput" placeholder="Filter models…" autocomplete="off">
+            <kbd style="font-size:0.6rem;padding:1px 5px;border:1px solid var(--border-color);border-radius:3px;color:var(--text-faint);font-family:var(--font-mono);margin-left:auto;white-space:nowrap;">⌘K</kbd>
+        </div>
+        <span class="meta-text" id="modelSearchCount">{{ total_models }} model{{ 's' if total_models != 1 else '' }}</span>
+    </div>
+
+    {% for app in app_list %}
+    <div class="section-label model-section">{{ app.app_name }}</div>
+    <div class="model-grid" style="margin-bottom:28px;">
+        {% for model in app.models %}
+        <a class="model-card" href="{{ url_prefix|default('/admin') }}/{{ model.url_name }}/"
+           data-model-name="{{ model.model_name|lower }}" data-model-label="{{ model.name_plural|lower }}">
+            <div>
+                <div class="model-card-name">
+                    <i class="icon-table" style="font-size:14px;vertical-align:-2px;margin-right:4px;opacity:0.4;"></i>
+                    {{ model.name_plural }}
+                </div>
+                <div class="model-card-app">{{ model.model_name }}</div>
             </div>
-            <div class="model-card-app">{{ model.model_name }}</div>
+            <div>
+                <div class="model-card-count">{{ model_counts.get(model.model_name, '?') }}</div>
+                <div class="model-card-label">records</div>
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+    {% endfor %}
+
+    {% if not app_list %}
+    <div class="glass-card">
+        <div class="empty-state">
+            <i class="icon-database" style="font-size:32px;display:block;margin-bottom:12px;opacity:0.3;"></i>
+            No models registered yet
         </div>
-        <div>
-            <div class="model-card-count">{{ model_counts.get(model.model_name, '?') }}</div>
-            <div class="model-card-label">records</div>
+    </div>
+    {% endif %}
+</div>
+
+{# ═══════════════════════════════════════════════════════════════════ #}
+{# ── TAB 2: Relation Graph (Force-Graph 2D)                       ── #}
+{# ═══════════════════════════════════════════════════════════════════ #}
+<div class="tab-content" data-tab-content="orm" data-tab="graph">
+    <div class="section-label">Model Relations</div>
+    {# ── Graph Stats Strip ── #}
+    <div class="graph-stats-strip">
+        <span class="graph-stat-chip">
+            <span class="graph-stat-dot" style="background:var(--accent);"></span>
+            <strong>{{ all_relations|selectattr('type','equalto','FK')|list|length }}</strong> FK
+        </span>
+        <span class="graph-stat-chip">
+            <span class="graph-stat-dot" style="background:var(--info);"></span>
+            <strong>{{ all_relations|selectattr('type','equalto','O2O')|list|length }}</strong> O2O
+        </span>
+        <span class="graph-stat-chip">
+            <span class="graph-stat-dot" style="background:var(--warning);"></span>
+            <strong>{{ all_relations|selectattr('type','equalto','M2M')|list|length }}</strong> M2M
+        </span>
+        <span class="graph-stat-chip">
+            <i class="icon-share-2" style="font-size:11px;color:var(--text-faint);"></i>
+            <strong>{{ model_schema|length }}</strong> nodes
+        </span>
+    </div>
+    {# ── Graph Search ── #}
+    <div class="graph-search-bar">
+        <i class="icon-search" style="font-size:13px;color:var(--text-faint);"></i>
+        <input type="text" id="graphSearchInput" placeholder="Search nodes…" autocomplete="off">
+    </div>
+    {# Legend #}
+    <div style="display:flex;gap:18px;margin-bottom:16px;flex-wrap:wrap;">
+        <span style="display:flex;align-items:center;gap:6px;font-size:0.75rem;color:var(--text-secondary);">
+            <span style="width:24px;height:3px;background:var(--accent);border-radius:2px;display:inline-block;"></span> FK (Foreign Key)
+        </span>
+        <span style="display:flex;align-items:center;gap:6px;font-size:0.75rem;color:var(--text-secondary);">
+            <span style="width:24px;height:3px;background:var(--info);border-radius:2px;display:inline-block;"></span> O2O (One-to-One)
+        </span>
+        <span style="display:flex;align-items:center;gap:6px;font-size:0.75rem;color:var(--text-secondary);">
+            <span style="width:24px;height:3px;background:var(--warning);border-radius:2px;display:inline-block;border-style:dashed;border-width:0 0 3px 0;"></span> M2M (Many-to-Many)
+        </span>
+    </div>
+    <div class="glass-card" id="fgContainer" style="padding:0;overflow:hidden;position:relative;min-height:550px;border-radius:var(--radius-md);">
+        {# ── Graph Controls Toolbar ── #}
+        <div class="graph-controls">
+            <button class="graph-ctrl-btn" id="fgZoomIn" title="Zoom in"><i class="icon-plus" style="font-size:14px;"></i></button>
+            <button class="graph-ctrl-btn" id="fgZoomOut" title="Zoom out"><i class="icon-minus" style="font-size:14px;"></i></button>
+            <button class="graph-ctrl-btn" id="fgCenter" title="Fit to view"><i class="icon-maximize-2" style="font-size:14px;"></i></button>
+            <button class="graph-ctrl-btn" id="fgFullscreen" title="Toggle fullscreen"><i class="icon-maximize" style="font-size:14px;"></i></button>
         </div>
-    </a>
+        <div id="fgMount" style="width:100%;height:550px;"></div>
+        {# ── Tooltip ── #}
+        <div class="graph-tooltip" id="fgTooltip"></div>
+    </div>
+    {% if not all_relations %}
+    <div style="text-align:center;padding:32px 0;color:var(--text-faint);font-size:0.85rem;">
+        <i class="icon-git-merge" style="font-size:28px;display:block;margin-bottom:8px;opacity:0.3;"></i>
+        No relations found between registered models.
+    </div>
+    {% endif %}
+</div>
+
+{# ═══════════════════════════════════════════════════════════════════ #}
+{# ── TAB 3: Analytics (charts & insights)                         ── #}
+{# ═══════════════════════════════════════════════════════════════════ #}
+<div class="tab-content" data-tab-content="orm" data-tab="analytics">
+    <div class="section-label">Model Analytics</div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px;margin-bottom:24px;">
+        {# ── Field Type Distribution (donut chart) ── #}
+        <div class="glass-card card-padded">
+            <div style="font-size:.82rem;font-weight:600;margin-bottom:14px;display:flex;align-items:center;gap:8px;">
+                <i class="icon-pie-chart" style="font-size:14px;color:var(--accent);"></i>
+                Field Type Distribution
+            </div>
+            <div style="display:flex;align-items:center;gap:20px;">
+                <canvas id="fieldTypeDonut" width="160" height="160" style="flex-shrink:0;"></canvas>
+                <div id="fieldTypeLegend" style="font-size:.72rem;line-height:2;"></div>
+            </div>
+        </div>
+
+        {# ── Model Complexity ── #}
+        <div class="glass-card card-padded">
+            <div style="font-size:.82rem;font-weight:600;margin-bottom:14px;display:flex;align-items:center;gap:8px;">
+                <i class="icon-activity" style="font-size:14px;color:var(--info);"></i>
+                Model Complexity
+                <span class="meta-text" style="margin-left:auto;">fields + relations + indexes</span>
+            </div>
+            <div id="complexityBars" style="max-height:300px;overflow-y:auto;"></div>
+        </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px;margin-bottom:24px;">
+        {# ── Relation Density ── #}
+        <div class="glass-card card-padded">
+            <div style="font-size:.82rem;font-weight:600;margin-bottom:14px;display:flex;align-items:center;gap:8px;">
+                <i class="icon-git-merge" style="font-size:14px;color:var(--warning);"></i>
+                Relation Density
+                <span class="meta-text" style="margin-left:auto;">per model</span>
+            </div>
+            <div id="relationDensity" style="max-height:300px;overflow-y:auto;"></div>
+        </div>
+
+        {# ── Field Coverage Report ── #}
+        <div class="glass-card card-padded">
+            <div style="font-size:.82rem;font-weight:600;margin-bottom:14px;display:flex;align-items:center;gap:8px;">
+                <i class="icon-check-square" style="font-size:14px;color:var(--accent);"></i>
+                Field Coverage Report
+            </div>
+            <div id="coverageReport"></div>
+        </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px;margin-bottom:24px;">
+        {# ── Nullable Fields Analysis ── #}
+        <div class="glass-card card-padded">
+            <div style="font-size:.82rem;font-weight:600;margin-bottom:14px;display:flex;align-items:center;gap:8px;">
+                <i class="icon-alert-triangle" style="font-size:14px;color:var(--warning);"></i>
+                Nullable Fields Overview
+            </div>
+            <div id="nullableChart"></div>
+        </div>
+
+        {# ── Index Coverage per Model ── #}
+        <div class="glass-card card-padded">
+            <div style="font-size:.82rem;font-weight:600;margin-bottom:14px;display:flex;align-items:center;gap:8px;">
+                <i class="icon-zap" style="font-size:14px;color:#6366f1;"></i>
+                Index Coverage
+                <span class="meta-text" style="margin-left:auto;">indexed ÷ total fields</span>
+            </div>
+            <div id="indexCoverage" style="max-height:300px;overflow-y:auto;"></div>
+        </div>
+    </div>
+</div>
+
+{# ═══════════════════════════════════════════════════════════════════ #}
+{# ── TAB 4: Schema Inspector                                      ── #}
+{# ═══════════════════════════════════════════════════════════════════ #}
+<div class="tab-content" data-tab-content="orm" data-tab="schema">
+    <div class="section-label">Schema Inspector</div>
+    <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:16px;display:flex;align-items:center;gap:8px;">
+        <i class="icon-info" style="font-size:14px;color:var(--info);"></i>
+        Click a model to expand its field schema. Shows types, constraints, defaults, and relation targets.
+    </div>
+
+    {% for model in model_schema %}
+    <div class="schema-model-card" id="schema-{{ model.name }}">
+        <div class="schema-model-header" onclick="this.parentElement.classList.toggle('active')">
+            <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;">
+                <i class="icon-chevron-right schema-chevron" style="font-size:14px;color:var(--text-faint);transition:transform 0.2s;flex-shrink:0;"></i>
+                <span style="font-weight:600;color:var(--text-primary);font-size:0.9rem;">{{ model.name }}</span>
+                <span class="schema-table-badge">{{ model.table_name }}</span>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;">
+                <span class="schema-pill">{{ model.field_count }} fields</span>
+                {% if model.relations %}
+                <span class="schema-pill schema-pill-accent">{{ model.relations|length }} rel{{ 's' if model.relations|length != 1 else '' }}</span>
+                {% endif %}
+                {% if model.indexes %}
+                <span class="schema-pill schema-pill-info">{{ model.indexes|length }} idx</span>
+                {% endif %}
+                {% if model_counts.get(model.name) is not none %}
+                <span class="schema-pill schema-pill-muted">{{ model_counts.get(model.name, '?') }} rows</span>
+                {% endif %}
+            </div>
+        </div>
+        <div class="schema-model-body">
+            <div class="table-container" style="border:none;border-radius:0;">
+                <table class="admin-table schema-table">
+                    <thead>
+                        <tr>
+                            <th>Field</th>
+                            <th>Column</th>
+                            <th>Type</th>
+                            <th>Python</th>
+                            <th>Constraints</th>
+                            <th>Default</th>
+                            <th>Relation</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for f in model.fields %}
+                        <tr class="{% if f.primary_key %}schema-pk-row{% endif %}{% if f.get('relation') %} schema-rel-row{% endif %}">
+                            <td>
+                                {% if f.primary_key %}<i class="icon-key" style="font-size:11px;color:var(--warning);margin-right:3px;" title="Primary Key"></i>{% endif %}
+                                <span style="font-family:var(--font-mono);font-size:0.78rem;font-weight:{% if f.primary_key %}600{% else %}400{% endif %};">{{ f.name }}</span>
+                            </td>
+                            <td><span class="schema-col-name">{{ f.column }}</span></td>
+                            <td><span class="schema-type-badge">{{ f.type }}</span></td>
+                            <td style="font-size:0.72rem;color:var(--text-faint);">{{ f.python_type }}</td>
+                            <td>
+                                {% if f.primary_key %}<span class="schema-constraint-tag pk">PK</span>{% endif %}
+                                {% if f.unique and not f.primary_key %}<span class="schema-constraint-tag unique">UQ</span>{% endif %}
+                                {% if not f.null and not f.primary_key %}<span class="schema-constraint-tag notnull">NN</span>{% endif %}
+                                {% if f.db_index and not f.primary_key %}<span class="schema-constraint-tag idx">IDX</span>{% endif %}
+                                {% if f.choices %}<span class="schema-constraint-tag choices">ENUM</span>{% endif %}
+                            </td>
+                            <td>
+                                {% if f.default %}
+                                <code style="font-size:0.7rem;background:var(--bg-surface);padding:1px 5px;border-radius:3px;">{{ f.default }}</code>
+                                {% else %}
+                                <span style="color:var(--text-faint);font-size:0.7rem;">—</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if f.get('relation') %}
+                                <span class="schema-rel-badge schema-rel-{{ f.relation.type|lower }}">
+                                    {{ f.relation.type }} → {{ f.relation.to }}
+                                </span>
+                                {% else %}
+                                <span style="color:var(--text-faint);font-size:0.7rem;">—</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            {# Meta info row #}
+            {% if model.ordering or not model.managed %}
+            <div style="display:flex;gap:16px;padding:10px 16px;border-top:1px solid var(--border-subtle);font-size:0.72rem;color:var(--text-faint);">
+                {% if model.ordering %}
+                <span><strong>Ordering:</strong> {{ model.ordering|join(', ') }}</span>
+                {% endif %}
+                {% if not model.managed %}
+                <span style="color:var(--warning);"><strong>Unmanaged</strong> (no migrations)</span>
+                {% endif %}
+                <span><strong>PK:</strong> {{ model.pk_field }}</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
     {% endfor %}
 </div>
-{% endfor %}
 
-{% if not app_list %}
-<div class="glass-card">
-    <div class="empty-state">
-        <i class="icon-database" style="font-size:32px;display:block;margin-bottom:12px;opacity:0.3;"></i>
-        No models registered yet
+{# ═══════════════════════════════════════════════════════════════════ #}
+{# ── TAB 5: Indexes & Constraints                                 ── #}
+{# ═══════════════════════════════════════════════════════════════════ #}
+<div class="tab-content" data-tab-content="orm" data-tab="indexes">
+    <div class="section-label">Indexes &amp; Constraints</div>
+
+    {% set ns = namespace(has_any=false) %}
+    {% for model in model_schema %}
+        {% if model.indexes or model.constraints %}
+            {% set ns.has_any = true %}
+        {% endif %}
+    {% endfor %}
+
+    {% if ns.has_any %}
+    <div class="table-container">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>Model</th>
+                    <th>Index / Constraint</th>
+                    <th>Fields</th>
+                    <th>Unique</th>
+                    <th>Type</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for model in model_schema %}
+                {% for idx in model.indexes %}
+                <tr>
+                    <td><span style="font-weight:500;">{{ model.name }}</span></td>
+                    <td>
+                        <span style="font-family:var(--font-mono);font-size:0.75rem;">
+                            {{ idx.name or 'auto' }}
+                        </span>
+                    </td>
+                    <td>
+                        {% for f in idx.fields %}
+                        <span class="schema-constraint-tag idx" style="margin-right:3px;">{{ f }}</span>
+                        {% endfor %}
+                    </td>
+                    <td>
+                        {% if idx.unique %}
+                        <i class="icon-check-circle" style="font-size:14px;color:var(--accent);"></i>
+                        {% else %}
+                        <span style="color:var(--text-faint);">—</span>
+                        {% endif %}
+                    </td>
+                    <td><span class="schema-type-badge">INDEX</span></td>
+                </tr>
+                {% endfor %}
+                {% for c in model.constraints %}
+                <tr>
+                    <td><span style="font-weight:500;">{{ model.name }}</span></td>
+                    <td>
+                        <span style="font-family:var(--font-mono);font-size:0.75rem;">
+                            {{ c.name or 'auto' }}
+                        </span>
+                    </td>
+                    <td>
+                        {% for f in c.fields %}
+                        <span class="schema-constraint-tag unique" style="margin-right:3px;">{{ f }}</span>
+                        {% endfor %}
+                    </td>
+                    <td><i class="icon-check-circle" style="font-size:14px;color:var(--accent);"></i></td>
+                    <td><span class="schema-type-badge">{{ c.type }}</span></td>
+                </tr>
+                {% endfor %}
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
+    {% else %}
+    <div class="glass-card">
+        <div class="empty-state">
+            <i class="icon-zap" style="font-size:32px;display:block;margin-bottom:12px;opacity:0.3;"></i>
+            No explicit indexes or constraints defined.<br>
+            <span style="font-size:0.75rem;color:var(--text-faint);">Primary key and unique field indexes are auto-created.</span>
+        </div>
+    </div>
+    {% endif %}
+
+    {# ── Relation table ── #}
+    {% if all_relations %}
+    <div class="section-label" style="margin-top:28px;">Foreign Key &amp; Relation Map</div>
+    <div class="table-container">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>Source Model</th>
+                    <th>Field</th>
+                    <th>Type</th>
+                    <th>Target Model</th>
+                    <th>On Delete</th>
+                    <th>Related Name</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in all_relations %}
+                <tr>
+                    <td><span style="font-weight:500;">{{ r['from'] }}</span></td>
+                    <td><span style="font-family:var(--font-mono);font-size:0.78rem;">{{ r.field }}</span></td>
+                    <td>
+                        <span class="schema-rel-badge schema-rel-{{ r.type|lower }}">{{ r.type }}</span>
+                    </td>
+                    <td><span style="font-weight:500;color:var(--accent);">{{ r.to }}</span></td>
+                    <td>
+                        {% if r.get('on_delete') %}
+                        <code style="font-size:0.72rem;">{{ r.on_delete }}</code>
+                        {% else %}
+                        <span style="color:var(--text-faint);">—</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if r.related_name %}
+                        <span style="font-family:var(--font-mono);font-size:0.72rem;color:var(--text-secondary);">{{ r.related_name }}</span>
+                        {% else %}
+                        <span style="color:var(--text-faint);font-size:0.72rem;">auto</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
 </div>
-{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+// ── Model Search (client-side, instant filter) ──────────────────────
+(function() {
+    var input = document.getElementById('modelSearchInput');
+    var countEl = document.getElementById('modelSearchCount');
+    if (!input) return;
+
+    input.addEventListener('input', function() {
+        var q = this.value.trim().toLowerCase();
+        var cards = document.querySelectorAll('.model-card');
+        var shown = 0;
+        cards.forEach(function(card) {
+            var name = (card.getAttribute('data-model-name') || '') + ' ' +
+                       (card.getAttribute('data-model-label') || '');
+            var match = !q || name.indexOf(q) !== -1;
+            card.style.display = match ? '' : 'none';
+            if (match) shown++;
+        });
+        countEl.textContent = shown + ' model' + (shown !== 1 ? 's' : '');
+        document.querySelectorAll('.model-section').forEach(function(sec) {
+            var grid = sec.nextElementSibling;
+            if (!grid) return;
+            var visible = grid.querySelectorAll('.model-card:not([style*="display: none"])');
+            sec.style.display = visible.length ? '' : 'none';
+            grid.style.display = visible.length ? '' : 'none';
+        });
+    });
+
+    document.addEventListener('keydown', function(e) {
+        if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+            e.preventDefault();
+            input.focus();
+            input.select();
+        }
+    });
+})();
+
+// ── Animated stat counters ──
+document.querySelectorAll('.stat-number[data-count]').forEach(function(el) {
+    var target = parseInt(el.getAttribute('data-count'), 10);
+    if (isNaN(target) || target <= 0) return;
+    var duration = 600, start = performance.now();
+    el.textContent = '0';
+    function tick(now) {
+        var t = Math.min((now - start) / duration, 1);
+        var ease = 1 - Math.pow(1 - t, 3);
+        el.textContent = Math.round(ease * target);
+        if (t < 1) requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// ── Force-Graph 2D Relation Graph (vasturiano/force-graph)       ──
+// ═══════════════════════════════════════════════════════════════════
+var _fgInit = false;
+var _fgInstance = null;
+
+function initForceGraph() {
+    if (_fgInit) return;
+    _fgInit = true;
+
+    var schema = {{ model_schema|tojson }};
+    var relations = {{ all_relations|tojson }};
+    var mountEl = document.getElementById('fgMount');
+    var containerEl = document.getElementById('fgContainer');
+    var tooltip = document.getElementById('fgTooltip');
+    if (!mountEl || !schema.length) return;
+
+    var accentHex = '#22c55e';
+    var infoHex   = '#3b82f6';
+    var warningHex = '#f59e0b';
+    var typeColors = { FK: accentHex, O2O: infoHex, M2M: warningHex };
+
+    function isDark() {
+        return document.documentElement.getAttribute('data-theme') === 'dark';
+    }
+    function themeColors() {
+        var d = isDark();
+        return {
+            bg:       d ? '#0f1117' : '#f8fafc',
+            nodeBg:   d ? '#1e2130' : '#ffffff',
+            border:   accentHex,
+            text:     d ? '#e2e8f0' : '#1e293b',
+            textSub:  d ? '#94a3b8' : '#64748b'
+        };
+    }
+
+    // ── Build graph data ──
+    var nodeDataMap = {};
+    var nodes = [];
+    var links = [];
+    var maxFields = 1;
+
+    schema.forEach(function(m) {
+        nodeDataMap[m.name] = m;
+        if (m.field_count > maxFields) maxFields = m.field_count;
+        nodes.push({ id: m.name, fieldCount: m.field_count, relCount: m.relations.length });
+    });
+
+    relations.forEach(function(r) {
+        if (!nodeDataMap[r['from']] || !nodeDataMap[r.to]) return;
+        links.push({
+            source: r['from'],
+            target: r.to,
+            relType: r.type,
+            field: r.field,
+            onDelete: r.on_delete || '',
+            relatedName: r.related_name || '',
+            color: typeColors[r.type] || '#64748b'
+        });
+    });
+
+    // ── Node size helper ──
+    function nodeRadius(n) {
+        return 8 + (n.fieldCount / maxFields) * 18;
+    }
+
+    // ── Hover state ──
+    var hoveredNode = null;
+    var highlightNodes = new Set();
+    var highlightLinks = new Set();
+
+    function updateHighlight(node) {
+        highlightNodes.clear();
+        highlightLinks.clear();
+        if (node) {
+            highlightNodes.add(node.id);
+            links.forEach(function(l) {
+                var sid = typeof l.source === 'object' ? l.source.id : l.source;
+                var tid = typeof l.target === 'object' ? l.target.id : l.target;
+                if (sid === node.id || tid === node.id) {
+                    highlightNodes.add(sid);
+                    highlightNodes.add(tid);
+                    highlightLinks.add(l);
+                }
+            });
+        }
+        hoveredNode = node;
+    }
+
+    // ── Tooltip builder ──
+    function showTooltip(node) {
+        if (!tooltip || !node) return;
+        var m = nodeDataMap[node.id];
+        if (!m) return;
+        var fieldsHtml = '';
+        var maxF = 6;
+        (m.fields || []).slice(0, maxF).forEach(function(f) {
+            fieldsHtml += '<div class="graph-tooltip-field">' + f.name + ' <span style="color:var(--accent);opacity:.7;">' + f.type + '</span></div>';
+        });
+        if ((m.fields || []).length > maxF) {
+            fieldsHtml += '<div class="graph-tooltip-field" style="color:var(--text-faint);">+' + ((m.fields || []).length - maxF) + ' more…</div>';
+        }
+        var relHtml = '';
+        (m.relations || []).forEach(function(r) {
+            var c = r.type === 'FK' ? 'var(--accent)' : r.type === 'O2O' ? 'var(--info)' : 'var(--warning)';
+            relHtml += '<div class="graph-tooltip-field"><span style="color:' + c + ';">' + r.type + '</span> → ' + r.to + '</div>';
+        });
+        tooltip.innerHTML = '<div class="graph-tooltip-title">' + node.id + '</div>'
+            + '<div style="font-size:.65rem;color:var(--text-faint);margin-bottom:6px;">' + m.field_count + ' fields · ' + m.relations.length + ' relations</div>'
+            + fieldsHtml
+            + (relHtml ? '<div style="margin-top:4px;padding-top:4px;border-top:1px solid var(--border-subtle);">' + relHtml + '</div>' : '');
+        tooltip.classList.add('visible');
+        tooltip.style.right = '16px';
+        tooltip.style.top = '16px';
+        tooltip.style.left = 'auto';
+    }
+
+    function hideTooltip() {
+        if (tooltip) tooltip.classList.remove('visible');
+    }
+
+    // ── Create Force-Graph instance ──
+    var tc = themeColors();
+    var graph = new ForceGraph(mountEl)
+        .graphData({ nodes: nodes, links: links })
+        .width(mountEl.offsetWidth)
+        .height(mountEl.offsetHeight)
+        .backgroundColor(tc.bg)
+
+        // ── Nodes ──
+        .nodeRelSize(1)
+        .nodeVal(function(n) { return nodeRadius(n); })
+        .nodeCanvasObject(function(node, ctx, globalScale) {
+            var tc2 = themeColors();
+            var r = nodeRadius(node);
+            var isHl = highlightNodes.has(node.id);
+            var dimmed = hoveredNode && !isHl;
+            var alpha = dimmed ? 0.12 : 1;
+
+            ctx.globalAlpha = alpha;
+
+            // Glow for highlighted
+            if (isHl && hoveredNode) {
+                ctx.beginPath();
+                ctx.arc(node.x, node.y, r + 4, 0, 2 * Math.PI);
+                ctx.fillStyle = accentHex + '33';
+                ctx.fill();
+            }
+
+            // Node circle
+            ctx.beginPath();
+            ctx.arc(node.x, node.y, r, 0, 2 * Math.PI);
+            ctx.fillStyle = (isHl && node.id === (hoveredNode && hoveredNode.id)) ? accentHex : tc2.nodeBg;
+            ctx.fill();
+            ctx.strokeStyle = accentHex;
+            ctx.lineWidth = isHl ? 2.5 : 1.5;
+            ctx.stroke();
+
+            // Label
+            var fontSize = Math.max(10 / globalScale, 3);
+            ctx.font = '600 ' + fontSize + 'px Outfit, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'top';
+            ctx.fillStyle = (isHl && node.id === (hoveredNode && hoveredNode.id)) ? '#ffffff' : tc2.text;
+            ctx.fillText(node.id, node.x, node.y + r + 3 / globalScale);
+
+            ctx.globalAlpha = 1;
+        })
+        .nodeCanvasObjectMode(function() { return 'replace'; })
+
+        // ── Links ──
+        .linkColor(function(l) { return l.color; })
+        .linkWidth(function(l) {
+            return highlightLinks.has(l) ? 3 : 1.5;
+        })
+        .linkLineDash(function(l) {
+            return l.relType === 'M2M' ? [6, 3] : null;
+        })
+        .linkDirectionalArrowLength(8)
+        .linkDirectionalArrowRelPos(0.85)
+        .linkDirectionalArrowColor(function(l) { return l.color; })
+        .linkDirectionalParticles(function(l) {
+            return highlightLinks.has(l) ? 5 : 2;
+        })
+        .linkDirectionalParticleWidth(function(l) {
+            return highlightLinks.has(l) ? 4 : 2;
+        })
+        .linkDirectionalParticleColor(function(l) { return l.color; })
+        .linkDirectionalParticleSpeed(0.005)
+        .linkCanvasObjectMode(function() { return 'after'; })
+        .linkCanvasObject(function(link, ctx, globalScale) {
+            if (!link.source || !link.target) return;
+            var sx = typeof link.source === 'object' ? link.source.x : 0;
+            var sy = typeof link.source === 'object' ? link.source.y : 0;
+            var tx = typeof link.target === 'object' ? link.target.x : 0;
+            var ty = typeof link.target === 'object' ? link.target.y : 0;
+            var mx = (sx + tx) / 2;
+            var my = (sy + ty) / 2;
+            var dimmed = hoveredNode && !highlightLinks.has(link);
+            if (dimmed) return;
+            var fontSize = Math.max(9 / globalScale, 2.5);
+            ctx.font = '500 ' + fontSize + 'px Outfit, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            var tc2 = themeColors();
+            // Text background
+            var txt = link.relType;
+            var tw = ctx.measureText(txt).width;
+            ctx.fillStyle = tc2.bg;
+            ctx.fillRect(mx - tw / 2 - 2, my - fontSize / 2 - 1, tw + 4, fontSize + 2);
+            ctx.fillStyle = link.color;
+            ctx.fillText(txt, mx, my);
+        })
+
+        .linkVisibility(function(l) {
+            if (!hoveredNode) return true;
+            return highlightLinks.has(l);
+        })
+
+        // ── Interaction ──
+        .onNodeHover(function(node) {
+            mountEl.style.cursor = node ? 'pointer' : 'default';
+            updateHighlight(node);
+            if (node) showTooltip(node); else hideTooltip();
+        })
+        .onNodeClick(function(node) {
+            graph.centerAt(node.x, node.y, 400);
+            graph.zoom(4, 400);
+        })
+        .onNodeDragEnd(function(node) {
+            node.fx = node.x;
+            node.fy = node.y;
+        })
+
+        // ── Force tuning ──
+        .d3AlphaDecay(0.02)
+        .d3VelocityDecay(0.3)
+        .cooldownTicks(200)
+        .warmupTicks(50);
+
+    // Tweak forces after creation
+    graph.d3Force('charge').strength(-300).distanceMax(400);
+    graph.d3Force('link').distance(100);
+    graph.d3Force('center', null);
+
+    // Re-add a center force manually for better grouping
+    var d3 = window.d3 || (graph.d3Force('x') && graph.d3Force('x').constructor && { forceCenter: null });
+    if (typeof d3 !== 'undefined' && d3 && d3.forceCenter) {
+        graph.d3Force('center', d3.forceCenter());
+    }
+
+    _fgInstance = graph;
+
+    // ── Show all links when not hovering ──
+    // Force-graph renders all links by default; our linkVisibility above handles dimming.
+    // Override to show all when no hover:
+    // (already handled in linkVisibility callback)
+
+    // ── Controls ──
+    document.getElementById('fgZoomIn').addEventListener('click', function() {
+        graph.zoom(graph.zoom() * 1.5, 300);
+    });
+    document.getElementById('fgZoomOut').addEventListener('click', function() {
+        graph.zoom(graph.zoom() * 0.67, 300);
+    });
+    document.getElementById('fgCenter').addEventListener('click', function() {
+        graph.zoomToFit(400, 40);
+    });
+    document.getElementById('fgFullscreen').addEventListener('click', function() {
+        if (!document.fullscreenElement) {
+            containerEl.requestFullscreen().catch(function() {});
+        } else {
+            document.exitFullscreen();
+        }
+    });
+
+    // ── Resize handler ──
+    var resizeTimer;
+    new ResizeObserver(function() {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(function() {
+            graph.width(mountEl.offsetWidth).height(mountEl.offsetHeight);
+        }, 100);
+    }).observe(mountEl);
+
+    // ── Graph node search ──
+    var searchInput = document.getElementById('graphSearchInput');
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            var q = this.value.trim().toLowerCase();
+            updateHighlight(null);
+            if (!q) return;
+            var found = nodes.filter(function(n) { return n.id.toLowerCase().indexOf(q) !== -1; });
+            if (found.length) {
+                var target = found[0];
+                updateHighlight(target);
+                showTooltip(target);
+                graph.centerAt(target.x, target.y, 400);
+                graph.zoom(3, 400);
+            }
+        });
+    }
+
+    // ── Theme change listener ──
+    new MutationObserver(function() {
+        var t = themeColors();
+        graph.backgroundColor(t.bg);
+    }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+    // ── Fit after stabilization ──
+    setTimeout(function() { graph.zoomToFit(600, 40); }, 1500);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// ── Analytics Charts ──
+// ═══════════════════════════════════════════════════════════════════
+var _analyticsInit = false;
+function initAnalytics() {
+    if (_analyticsInit) return;
+    _analyticsInit = true;
+
+    var schema = {{ model_schema|tojson }};
+    var relations = {{ all_relations|tojson }};
+    var modelCounts = {{ model_counts|tojson }};
+    var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    var accentHex = '#22c55e';
+    var infoHex = '#3b82f6';
+    var warningHex = '#f59e0b';
+
+    // ── Palette for charts ──
+    var palette = ['#22c55e','#3b82f6','#f59e0b','#ec4899','#8b5cf6','#06b6d4','#f97316','#14b8a6','#6366f1','#a855f7','#e11d48','#eab308'];
+
+    // ════════════════════════════════════════
+    // 1. Field Type Distribution — Donut
+    // ════════════════════════════════════════
+    var typeCounts = {};
+    schema.forEach(function(m) {
+        (m.fields || []).forEach(function(f) {
+            var t = f.type || 'Unknown';
+            typeCounts[t] = (typeCounts[t] || 0) + 1;
+        });
+    });
+    var typeEntries = Object.entries(typeCounts).sort(function(a,b){ return b[1]-a[1]; });
+    var totalFields = typeEntries.reduce(function(s,e){ return s+e[1]; }, 0);
+
+    var canvas = document.getElementById('fieldTypeDonut');
+    if (canvas && typeEntries.length > 0) {
+        var ctx = canvas.getContext('2d');
+        var cx = 80, cy = 80, R = 65, r = 38;
+        var startAngle = -Math.PI / 2;
+
+        // Animate donut
+        var progress = 0;
+        function drawDonut() {
+            progress = Math.min(progress + 0.03, 1);
+            var ease = 1 - Math.pow(1 - progress, 3);
+            ctx.clearRect(0, 0, 160, 160);
+
+            var angle = startAngle;
+            typeEntries.forEach(function(entry, i) {
+                var sliceAngle = (entry[1] / totalFields) * 2 * Math.PI * ease;
+                ctx.beginPath();
+                ctx.arc(cx, cy, R, angle, angle + sliceAngle);
+                ctx.arc(cx, cy, r, angle + sliceAngle, angle, true);
+                ctx.closePath();
+                ctx.fillStyle = palette[i % palette.length];
+                ctx.fill();
+                angle += sliceAngle;
+            });
+
+            // Center text
+            ctx.fillStyle = isDark ? '#e2e8f0' : '#1e293b';
+            ctx.font = '700 18px Outfit, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(totalFields, cx, cy - 6);
+            ctx.fillStyle = isDark ? '#64748b' : '#94a3b8';
+            ctx.font = '500 10px Outfit, sans-serif';
+            ctx.fillText('fields', cx, cy + 10);
+
+            if (progress < 1) requestAnimationFrame(drawDonut);
+        }
+        drawDonut();
+
+        // Legend
+        var legendEl = document.getElementById('fieldTypeLegend');
+        if (legendEl) {
+            var lhtml = '';
+            typeEntries.slice(0, 10).forEach(function(e, i) {
+                var pct = ((e[1] / totalFields) * 100).toFixed(0);
+                lhtml += '<div style="display:flex;align-items:center;gap:6px;">'
+                    + '<span style="width:8px;height:8px;border-radius:2px;background:'+palette[i%palette.length]+';flex-shrink:0;"></span>'
+                    + '<span style="color:'+(isDark?'#e2e8f0':'#1e293b')+';font-weight:500;">'+e[0]+'</span>'
+                    + '<span style="color:'+(isDark?'#64748b':'#94a3b8')+';margin-left:auto;">'+e[1]+' ('+pct+'%)</span>'
+                    + '</div>';
+            });
+            if (typeEntries.length > 10) {
+                var rest = typeEntries.slice(10).reduce(function(s,e){ return s+e[1]; }, 0);
+                lhtml += '<div style="color:'+(isDark?'#475569':'#cbd5e1')+';">+' + (typeEntries.length - 10) + ' more (' + rest + ')</div>';
+            }
+            legendEl.innerHTML = lhtml;
+        }
+    }
+
+    // ════════════════════════════════════════
+    // 2. Model Complexity — Horizontal bars
+    // ════════════════════════════════════════
+    var complexEl = document.getElementById('complexityBars');
+    if (complexEl && schema.length > 0) {
+        var items = schema.map(function(m) {
+            return { name: m.name, score: m.field_count + m.relations.length * 3 + (m.indexes || []).length * 2, fields: m.field_count, rels: m.relations.length, idxs: (m.indexes||[]).length };
+        }).sort(function(a,b){ return b.score - a.score; });
+        var maxScore = items[0].score || 1;
+
+        var bhtml = '';
+        items.forEach(function(it, i) {
+            var pct = Math.max(4, (it.score / maxScore) * 100);
+            var color = palette[i % palette.length];
+            bhtml += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">'
+                + '<span style="width:90px;font-size:.72rem;font-weight:500;color:'+(isDark?'#e2e8f0':'#1e293b')+';text-align:right;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+it.name+'">'+it.name+'</span>'
+                + '<div style="flex:1;height:20px;background:'+(isDark?'#1e2130':'#f1f5f9')+';border-radius:4px;overflow:hidden;position:relative;">'
+                + '<div style="height:100%;width:'+pct+'%;background:'+color+';border-radius:4px;transition:width .8s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:6px;">'
+                + '<span style="font-size:.6rem;font-weight:600;color:#fff;">'+it.score+'</span>'
+                + '</div>'
+                + '</div>'
+                + '<span style="font-size:.6rem;color:'+(isDark?'#64748b':'#94a3b8')+';white-space:nowrap;">'+it.fields+'f '+it.rels+'r '+it.idxs+'i</span>'
+                + '</div>';
+        });
+        complexEl.innerHTML = bhtml;
+    }
+
+    // ════════════════════════════════════════
+    // 3. Relation Density — per model
+    // ════════════════════════════════════════
+    var relDensity = document.getElementById('relationDensity');
+    if (relDensity && schema.length > 0) {
+        var relItems = schema.map(function(m) {
+            var fk = 0, o2o = 0, m2m = 0;
+            m.relations.forEach(function(r) {
+                if (r.type === 'FK') fk++;
+                else if (r.type === 'O2O') o2o++;
+                else if (r.type === 'M2M') m2m++;
+            });
+            return { name: m.name, fk: fk, o2o: o2o, m2m: m2m, total: fk+o2o+m2m };
+        }).filter(function(it){ return it.total > 0; }).sort(function(a,b){ return b.total - a.total; });
+        var maxRel = relItems.length ? relItems[0].total : 1;
+
+        var rhtml = '';
+        relItems.forEach(function(it) {
+            var totalW = Math.max(8, (it.total / maxRel) * 100);
+            var fkW = it.fk / it.total * totalW;
+            var o2oW = it.o2o / it.total * totalW;
+            var m2mW = it.m2m / it.total * totalW;
+            rhtml += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">'
+                + '<span style="width:90px;font-size:.72rem;font-weight:500;color:'+(isDark?'#e2e8f0':'#1e293b')+';text-align:right;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+it.name+'</span>'
+                + '<div style="flex:1;height:20px;background:'+(isDark?'#1e2130':'#f1f5f9')+';border-radius:4px;overflow:hidden;display:flex;">';
+            if (it.fk > 0) rhtml += '<div style="width:'+fkW+'%;height:100%;background:'+accentHex+';"></div>';
+            if (it.o2o > 0) rhtml += '<div style="width:'+o2oW+'%;height:100%;background:'+infoHex+';"></div>';
+            if (it.m2m > 0) rhtml += '<div style="width:'+m2mW+'%;height:100%;background:'+warningHex+';"></div>';
+            rhtml += '</div>'
+                + '<span style="font-size:.6rem;color:'+(isDark?'#64748b':'#94a3b8')+';white-space:nowrap;">'+it.fk+'FK '+it.o2o+'O2O '+it.m2m+'M2M</span>'
+                + '</div>';
+        });
+        if (!relItems.length) rhtml = '<div style="text-align:center;color:'+(isDark?'#475569':'#94a3b8')+';font-size:.78rem;padding:16px 0;">No relations found.</div>';
+        relDensity.innerHTML = rhtml;
+    }
+
+    // ════════════════════════════════════════
+    // 4. Field Coverage Report
+    // ════════════════════════════════════════
+    var coverageEl = document.getElementById('coverageReport');
+    if (coverageEl && schema.length > 0) {
+        var totalF = 0, nullableF = 0, indexedF = 0, uniqueF = 0, pkF = 0, choicesF = 0, defaultF = 0;
+        schema.forEach(function(m) {
+            (m.fields || []).forEach(function(f) {
+                totalF++;
+                if (f.null) nullableF++;
+                if (f.db_index) indexedF++;
+                if (f.unique) uniqueF++;
+                if (f.primary_key) pkF++;
+                if (f.choices) choicesF++;
+                if (f['default']) defaultF++;
+            });
+        });
+
+        function pctBar(label, count, color) {
+            var p = totalF > 0 ? ((count / totalF) * 100).toFixed(1) : 0;
+            return '<div style="margin-bottom:10px;">'
+                + '<div style="display:flex;justify-content:space-between;font-size:.72rem;margin-bottom:3px;">'
+                + '<span style="font-weight:500;color:'+(isDark?'#e2e8f0':'#1e293b')+';">'+label+'</span>'
+                + '<span style="color:'+(isDark?'#64748b':'#94a3b8')+';">'+count+'/'+totalF+' ('+p+'%)</span></div>'
+                + '<div style="height:8px;background:'+(isDark?'#1e2130':'#f1f5f9')+';border-radius:4px;overflow:hidden;">'
+                + '<div style="width:'+p+'%;height:100%;background:'+color+';border-radius:4px;transition:width .6s ease;"></div>'
+                + '</div></div>';
+        }
+
+        var chtml = pctBar('Nullable', nullableF, warningHex)
+            + pctBar('Indexed', indexedF, infoHex)
+            + pctBar('Unique', uniqueF, '#8b5cf6')
+            + pctBar('Has Default', defaultF, accentHex)
+            + pctBar('Primary Key', pkF, '#f97316')
+            + pctBar('Choices/Enum', choicesF, '#ec4899');
+        coverageEl.innerHTML = chtml;
+    }
+
+    // ════════════════════════════════════════
+    // 5. Nullable Fields Overview
+    // ════════════════════════════════════════
+    var nullableEl = document.getElementById('nullableChart');
+    if (nullableEl && schema.length > 0) {
+        var nullItems = schema.map(function(m) {
+            var total = m.field_count, nullable = 0;
+            (m.fields || []).forEach(function(f) { if (f.null) nullable++; });
+            return { name: m.name, nullable: nullable, total: total };
+        }).filter(function(it){ return it.nullable > 0; }).sort(function(a,b){ return (b.nullable/b.total) - (a.nullable/a.total); });
+
+        var nhtml = '';
+        if (nullItems.length > 0) {
+            nullItems.forEach(function(it) {
+                var pct = ((it.nullable / it.total) * 100).toFixed(0);
+                var barColor = it.nullable / it.total > 0.5 ? '#ef4444' : it.nullable / it.total > 0.25 ? warningHex : accentHex;
+                nhtml += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">'
+                    + '<span style="width:90px;font-size:.72rem;font-weight:500;color:'+(isDark?'#e2e8f0':'#1e293b')+';text-align:right;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+it.name+'</span>'
+                    + '<div style="flex:1;height:16px;background:'+(isDark?'#1e2130':'#f1f5f9')+';border-radius:4px;overflow:hidden;">'
+                    + '<div style="width:'+pct+'%;height:100%;background:'+barColor+';border-radius:4px;transition:width .6s ease;"></div>'
+                    + '</div>'
+                    + '<span style="font-size:.6rem;color:'+(isDark?'#64748b':'#94a3b8')+';white-space:nowrap;">'+it.nullable+'/'+it.total+' ('+pct+'%)</span>'
+                    + '</div>';
+            });
+        } else {
+            nhtml = '<div style="text-align:center;color:'+accentHex+';font-size:.82rem;padding:20px 0;"><i class="icon-check-circle" style="font-size:24px;display:block;margin-bottom:6px;"></i>No nullable fields found — great schema hygiene!</div>';
+        }
+        nullableEl.innerHTML = nhtml;
+    }
+
+    // ════════════════════════════════════════
+    // 6. Index Coverage per Model
+    // ════════════════════════════════════════
+    var idxCovEl = document.getElementById('indexCoverage');
+    if (idxCovEl && schema.length > 0) {
+        var idxItems = schema.map(function(m) {
+            var total = m.field_count;
+            var indexedFields = new Set();
+            (m.indexes || []).forEach(function(idx) {
+                (idx.fields || []).forEach(function(f) { indexedFields.add(f); });
+            });
+            (m.fields || []).forEach(function(f) {
+                if (f.db_index || f.primary_key) indexedFields.add(f.name);
+            });
+            return { name: m.name, indexed: indexedFields.size, total: total };
+        }).sort(function(a,b){ return (b.indexed/b.total) - (a.indexed/a.total); });
+
+        var ihtml = '';
+        idxItems.forEach(function(it) {
+            var pct = it.total > 0 ? ((it.indexed / it.total) * 100).toFixed(0) : 0;
+            var color = pct > 60 ? accentHex : pct > 30 ? infoHex : (isDark ? '#475569' : '#94a3b8');
+            ihtml += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">'
+                + '<span style="width:90px;font-size:.72rem;font-weight:500;color:'+(isDark?'#e2e8f0':'#1e293b')+';text-align:right;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+it.name+'</span>'
+                + '<div style="flex:1;height:16px;background:'+(isDark?'#1e2130':'#f1f5f9')+';border-radius:4px;overflow:hidden;">'
+                + '<div style="width:'+pct+'%;height:100%;background:'+color+';border-radius:4px;transition:width .6s ease;"></div>'
+                + '</div>'
+                + '<span style="font-size:.6rem;color:'+(isDark?'#64748b':'#94a3b8')+';white-space:nowrap;">'+it.indexed+'/'+it.total+' ('+pct+'%)</span>'
+                + '</div>';
+        });
+        idxCovEl.innerHTML = ihtml;
+    }
+}
+
 {% endblock %}

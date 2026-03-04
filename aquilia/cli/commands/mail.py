@@ -1,5 +1,5 @@
 """
-AquilaMail CLI commands — ``aq mail`` group.
+AquilaMail CLI commands -- ``aq mail`` group.
 
 Commands:
     send-test   Send a test email to verify provider configuration.
@@ -45,7 +45,7 @@ def cmd_mail_check(verbose: bool = False) -> None:
     config = _load_mail_config()
 
     if not config or not config.get("enabled", False):
-        click.echo(click.style("✗ Mail integration is not enabled.", fg="yellow"))
+        click.echo(click.style("Mail integration is not enabled.", fg="yellow"))
         click.echo("  Add .integrate(Integration.mail(...)) to your workspace.py")
         return
 
@@ -67,11 +67,11 @@ def cmd_mail_check(verbose: bool = False) -> None:
             name = p.get("name", "unnamed") if isinstance(p, dict) else getattr(p, "name", "unnamed")
             ptype = p.get("type", "?") if isinstance(p, dict) else getattr(p, "type", "?")
             enabled = p.get("enabled", True) if isinstance(p, dict) else getattr(p, "enabled", True)
-            status = click.style("✓", fg="green") if enabled else click.style("✗", fg="red")
+            status = click.style("", fg="green") if enabled else click.style("", fg="red")
             click.echo(f"    {status} {name} ({ptype})")
     else:
         if config.get("console_backend"):
-            click.echo(click.style("\n  ✓ Console backend will be auto-created", fg="green"))
+            click.echo(click.style("\n  Console backend will be auto-created", fg="green"))
         else:
             click.echo(click.style("\n  ! No providers configured", fg="yellow"))
 
@@ -85,16 +85,16 @@ def cmd_mail_check(verbose: bool = False) -> None:
 
     issues = []
     if not config.get("default_from") or config["default_from"] == "noreply@localhost":
-        issues.append("default_from is set to 'noreply@localhost' — update for production")
+        issues.append("default_from is set to 'noreply@localhost' -- update for production")
     if not providers and not config.get("console_backend"):
-        issues.append("No providers and console_backend=False — mail won't be sent")
+        issues.append("No providers and console_backend=False -- mail won't be sent")
 
     if issues:
         click.echo(click.style(f"\n  Warnings ({len(issues)}):", fg="yellow"))
         for issue in issues:
             click.echo(f"    ! {issue}")
     else:
-        click.echo(click.style("\n  ✓ Configuration looks good!", fg="green"))
+        click.echo(click.style("\n  Configuration looks good!", fg="green"))
 
 
 def cmd_mail_send_test(
@@ -107,7 +107,7 @@ def cmd_mail_send_test(
     config = _load_mail_config()
 
     if not config or not config.get("enabled", False):
-        click.echo(click.style("✗ Mail integration is not enabled.", fg="red"))
+        click.echo(click.style("Mail integration is not enabled.", fg="red"))
         sys.exit(1)
 
     from aquilia.mail.config import MailConfig
@@ -136,14 +136,14 @@ def cmd_mail_send_test(
                 to=[to],
             )
             envelope_id = await svc.send_message(msg)
-            click.echo(click.style(f"✓ Test email sent (envelope: {envelope_id})", fg="green"))
+            click.echo(click.style(f"Test email sent (envelope: {envelope_id})", fg="green"))
         finally:
             await svc.on_shutdown()
 
     try:
         asyncio.run(_send())
     except Exception as e:
-        click.echo(click.style(f"✗ Send failed: {e}", fg="red"))
+        click.echo(click.style(f"Send failed: {e}", fg="red"))
         if verbose:
             import traceback
 
@@ -156,7 +156,7 @@ def cmd_mail_inspect(verbose: bool = False) -> None:
     config = _load_mail_config()
 
     if not config or not config.get("enabled", False):
-        click.echo(click.style("✗ Mail integration is not enabled.", fg="yellow"))
+        click.echo(click.style("Mail integration is not enabled.", fg="yellow"))
         return
 
     # Clean up non-serializable values

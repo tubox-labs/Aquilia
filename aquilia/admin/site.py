@@ -1,5 +1,5 @@
 """
-AquilAdmin — AdminSite (Central Registry).
+AquilAdmin -- AdminSite (Central Registry).
 
 The AdminSite is the central coordination point for the admin system.
 It manages:
@@ -8,6 +8,7 @@ It manages:
 - Audit log
 - Template rendering integration
 - Permission checks
+- Module visibility configuration (AdminConfig)
 
 Design: Singleton pattern with lazy initialization.
 """
@@ -15,7 +16,8 @@ Design: Singleton pattern with lazy initialization.
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional, Tuple, Type, TYPE_CHECKING
+from dataclasses import dataclass, field
+from typing import Any, Dict, FrozenSet, List, Optional, Tuple, Type, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from aquilia.models.base import Model
@@ -24,7 +26,7 @@ if TYPE_CHECKING:
 from .options import ModelAdmin
 from .permissions import AdminRole, AdminPermission, get_admin_role, has_admin_permission, has_model_permission
 from .permissions import update_role_permissions, set_model_permission_override, get_model_permission_overrides
-from .audit import AdminAuditLog, AdminAction
+from .audit import AdminAuditLog, ModelBackedAuditLog, AdminAction
 from .faults import (
     AdminAuthorizationFault,
     AdminModelNotFoundFault,
@@ -36,9 +38,159 @@ from aquilia.controller.pagination import PageNumberPagination
 logger = logging.getLogger("aquilia.admin.site")
 
 
+# ── AdminConfig -- Parsed, immutable admin configuration ──────────────────────
+
+@dataclass(frozen=True)
+class AdminConfig:
+    """
+    Immutable admin configuration parsed from ``Integration.admin()`` config dict.
+
+    Provides a clean, typed API for checking which modules/features
+    are enabled without digging through raw config dicts.
+    """
+
+    # Module visibility
+    modules: Dict[str, bool] = field(default_factory=lambda: {
+        "dashboard": True, "orm": True, "build": True,
+        "migrations": True, "config": True, "workspace": True,
+        "permissions": True, "monitoring": False, "admin_users": True,
+        "profile": True, "audit": False,
+    })
+
+    # Audit settings (disabled by default -- opt in)
+    audit_enabled: bool = False
+    audit_max_entries: int = 10_000
+    audit_log_logins: bool = True
+    audit_log_views: bool = True
+    audit_log_searches: bool = True
+    audit_excluded_actions: FrozenSet[str] = field(default_factory=frozenset)
+
+    # Monitoring settings (disabled by default -- opt in)
+    monitoring_enabled: bool = False
+    monitoring_metrics: FrozenSet[str] = field(default_factory=lambda: frozenset({
+        "cpu", "memory", "disk", "network", "process", "python", "system", "health_checks",
+    }))
+    monitoring_refresh_interval: int = 30
+
+    # Sidebar section visibility
+    sidebar_sections: Dict[str, bool] = field(default_factory=lambda: {
+        "overview": True, "data": True, "system": True,
+        "security": True, "models": True,
+    })
+
+    # UI
+    theme: str = "auto"
+    list_per_page: int = 25
+
+    def is_module_enabled(self, module_name: str) -> bool:
+        """Check if an admin module is enabled.
+
+        Normalises ``admin-users`` → ``admin_users`` for convenience.
+        """
+        key = module_name.replace("-", "_")
+        return self.modules.get(key, False)
+
+    def is_action_allowed(self, action: "AdminAction") -> bool:
+        """Return True if the given audit action should be recorded."""
+        if not self.audit_enabled:
+            return False
+        action_name = action.value if hasattr(action, "value") else str(action)
+        # Normalise to uppercase for comparison -- AdminAction values are
+        # lowercase (e.g. "view") but config uses uppercase (e.g. "VIEW").
+        action_upper = action_name.upper()
+        if action_upper in self.audit_excluded_actions:
+            return False
+        # Also check the original value in case user passed lowercase
+        if action_name in self.audit_excluded_actions:
+            return False
+        # Category-level switches
+        if action_upper in ("LOGIN", "LOGOUT", "LOGIN_FAILED") and not self.audit_log_logins:
+            return False
+        if action_upper in ("VIEW", "LIST") and not self.audit_log_views:
+            return False
+        if action_upper == "SEARCH" and not self.audit_log_searches:
+            return False
+        return True
+
+    def is_metric_enabled(self, metric: str) -> bool:
+        """Check if a monitoring metric section is enabled."""
+        return metric in self.monitoring_metrics
+
+    def is_sidebar_section_visible(self, section: str) -> bool:
+        """Check if a sidebar section is visible."""
+        return self.sidebar_sections.get(section, True)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Serialise the config for template consumption."""
+        return {
+            "modules": dict(self.modules),
+            "audit": {
+                "enabled": self.audit_enabled,
+                "max_entries": self.audit_max_entries,
+                "log_logins": self.audit_log_logins,
+                "log_views": self.audit_log_views,
+                "log_searches": self.audit_log_searches,
+                "excluded_actions": sorted(self.audit_excluded_actions),
+            },
+            "monitoring": {
+                "enabled": self.monitoring_enabled,
+                "metrics": sorted(self.monitoring_metrics),
+                "refresh_interval": self.monitoring_refresh_interval,
+            },
+            "sidebar_sections": dict(self.sidebar_sections),
+            "theme": self.theme,
+            "list_per_page": self.list_per_page,
+        }
+
+    @classmethod
+    def from_dict(cls, raw: Dict[str, Any]) -> "AdminConfig":
+        """Build an AdminConfig from the raw Integration.admin() config dict."""
+        modules_raw = raw.get("modules", {})
+        audit_raw = raw.get("audit_config", {})
+        monitoring_raw = raw.get("monitoring_config", {})
+        sidebar_raw = raw.get("sidebar_sections", {})
+
+        # Defaults for modules (monitoring & audit disabled by default)
+        default_modules = {
+            "dashboard": True, "orm": True, "build": True,
+            "migrations": True, "config": True, "workspace": True,
+            "permissions": True, "monitoring": False, "admin_users": True,
+            "profile": True, "audit": False,
+        }
+        modules = {**default_modules, **modules_raw}
+
+        # If enable_audit is explicitly provided at top level, honour it
+        if "enable_audit" in raw:
+            modules["audit"] = bool(raw["enable_audit"])
+
+        return cls(
+            modules=modules,
+            audit_enabled=audit_raw.get("enabled", raw.get("enable_audit", False)),
+            audit_max_entries=audit_raw.get("max_entries", raw.get("audit_max_entries", 10_000)),
+            audit_log_logins=audit_raw.get("log_logins", True),
+            audit_log_views=audit_raw.get("log_views", True),
+            audit_log_searches=audit_raw.get("log_searches", True),
+            audit_excluded_actions=frozenset(audit_raw.get("excluded_actions", [])),
+            monitoring_enabled=monitoring_raw.get("enabled", False),
+            monitoring_metrics=frozenset(monitoring_raw.get("metrics", [
+                "cpu", "memory", "disk", "network", "process", "python", "system", "health_checks",
+            ])),
+            monitoring_refresh_interval=monitoring_raw.get("refresh_interval", 30),
+            sidebar_sections={
+                "overview": sidebar_raw.get("overview", True),
+                "data": sidebar_raw.get("data", True),
+                "system": sidebar_raw.get("system", True),
+                "security": sidebar_raw.get("security", True),
+                "models": sidebar_raw.get("models", True),
+            },
+            theme=raw.get("theme", "auto"),
+            list_per_page=raw.get("list_per_page", 25),
+        )
+
+
 class AdminSite:
     """
-    Central admin site — manages all registered models.
+    Central admin site -- manages all registered models.
 
     Singleton-safe with a default() class method.
     Multiple AdminSite instances can coexist for multi-tenant scenarios.
@@ -71,8 +223,11 @@ class AdminSite:
         # Registry: model_class -> ModelAdmin instance
         self._registry: Dict[Type[Model], ModelAdmin] = {}
 
-        # Audit log
-        self.audit_log = AdminAuditLog()
+        # Admin configuration -- populated by server._wire_admin_integration()
+        self.admin_config: AdminConfig = AdminConfig()
+
+        # Audit log -- model-backed (persists to DB), falls back to in-memory
+        self.audit_log: ModelBackedAuditLog = ModelBackedAuditLog()
 
         # Initialization state
         self._initialized = False
@@ -103,20 +258,11 @@ class AdminSite:
 
         # Flush any @register decorators that fired before init
         flushed = flush_pending_registrations()
-        if flushed:
-            logger.debug("Flushed %d pending admin registrations", flushed)
 
         # Auto-discover remaining models
         auto = autodiscover()
-        if auto:
-            logger.debug("Auto-discovered %d models for admin", len(auto))
 
         self._initialized = True
-        logger.info(
-            "AdminSite '%s' initialized with %d models",
-            self.name,
-            len(self._registry),
-        )
 
     # ── Registration ─────────────────────────────────────────────────
 
@@ -124,7 +270,6 @@ class AdminSite:
         """Register a model with its ModelAdmin configuration."""
         admin.model = model_cls
         self._registry[model_cls] = admin
-        logger.debug("Registered admin for %s", model_cls.__name__)
 
     def register(self, model_cls: Type[Model], admin_class: Optional[Type[ModelAdmin]] = None) -> None:
         """
@@ -219,6 +364,146 @@ class AdminSite:
         """Get all registered model name -> ModelAdmin pairs."""
         return {cls.__name__: admin for cls, admin in self._registry.items()}
 
+    def get_model_schema(self) -> List[Dict[str, Any]]:
+        """
+        Build rich schema metadata for every registered model.
+
+        Returns per-model: fields, relations, indexes, constraints,
+        Meta options -- everything needed by the ORM inspector page.
+        """
+        from aquilia.models.fields_module import (
+            ForeignKey, OneToOneField, ManyToManyField, Field,
+        )
+
+        models_data: List[Dict[str, Any]] = []
+        # Pre-build a lookup: model_name → model_cls
+        model_lookup = {cls.__name__: cls for cls in self._registry}
+
+        for model_cls, admin in self._registry.items():
+            name = model_cls.__name__
+            meta = getattr(model_cls, "_meta", None)
+            fields_info: List[Dict[str, Any]] = []
+            relations: List[Dict[str, Any]] = []
+
+            all_fields = getattr(model_cls, "_fields", {})
+            for fname, field in all_fields.items():
+                field_data: Dict[str, Any] = {
+                    "name": fname,
+                    "column": getattr(field, "column_name", fname),
+                    "type": getattr(field, "_field_type", type(field).__name__),
+                    "python_type": getattr(field, "_python_type", str).__name__
+                        if hasattr(field, "_python_type") else "str",
+                    "null": getattr(field, "null", False),
+                    "unique": getattr(field, "unique", False),
+                    "primary_key": getattr(field, "primary_key", False),
+                    "db_index": getattr(field, "db_index", False),
+                    "default": repr(getattr(field, "default", None))
+                        if hasattr(field, "default") and getattr(field, "default", None) is not None
+                        else None,
+                    "max_length": getattr(field, "max_length", None),
+                    "help_text": getattr(field, "help_text", ""),
+                    "choices": bool(getattr(field, "choices", None)),
+                    "editable": getattr(field, "editable", True),
+                }
+
+                # Relation info
+                if isinstance(field, ManyToManyField):
+                    target = field.to if isinstance(field.to, str) else (
+                        field.to.__name__ if field.to else "?"
+                    )
+                    relations.append({
+                        "type": "M2M",
+                        "field": fname,
+                        "from": name,
+                        "to": target,
+                        "related_name": getattr(field, "related_name", None),
+                        "through": getattr(field, "through", None),
+                    })
+                    field_data["relation"] = {"type": "M2M", "to": target}
+                elif isinstance(field, OneToOneField):
+                    target = field.to if isinstance(field.to, str) else (
+                        field.to.__name__ if field.to else "?"
+                    )
+                    relations.append({
+                        "type": "O2O",
+                        "field": fname,
+                        "from": name,
+                        "to": target,
+                        "on_delete": getattr(field, "on_delete", "CASCADE"),
+                        "related_name": getattr(field, "related_name", None),
+                    })
+                    field_data["relation"] = {"type": "O2O", "to": target}
+                elif isinstance(field, ForeignKey):
+                    target = field.to if isinstance(field.to, str) else (
+                        field.to.__name__ if field.to else "?"
+                    )
+                    relations.append({
+                        "type": "FK",
+                        "field": fname,
+                        "from": name,
+                        "to": target,
+                        "on_delete": getattr(field, "on_delete", "CASCADE"),
+                        "related_name": getattr(field, "related_name", None),
+                    })
+                    field_data["relation"] = {"type": "FK", "to": target}
+
+                fields_info.append(field_data)
+
+            # Indexes from Meta
+            indexes_info: List[Dict[str, Any]] = []
+            if meta:
+                for idx in getattr(meta, "indexes", []):
+                    indexes_info.append({
+                        "fields": getattr(idx, "fields", []),
+                        "name": getattr(idx, "name", None),
+                        "unique": getattr(idx, "unique", False),
+                    })
+                # unique_together → virtual index
+                for ut in getattr(meta, "unique_together", []):
+                    indexes_info.append({
+                        "fields": list(ut),
+                        "name": None,
+                        "unique": True,
+                    })
+
+            # Field-level indexes
+            for fname, field in all_fields.items():
+                if getattr(field, "db_index", False) and not getattr(field, "primary_key", False):
+                    indexes_info.append({
+                        "fields": [fname],
+                        "name": f"idx_{name.lower()}_{fname}",
+                        "unique": getattr(field, "unique", False),
+                    })
+
+            # Constraints from Meta
+            constraints_info: List[Dict[str, Any]] = []
+            if meta:
+                for c in getattr(meta, "constraints", []):
+                    constraints_info.append({
+                        "fields": getattr(c, "fields", []),
+                        "name": getattr(c, "name", None),
+                        "type": type(c).__name__,
+                    })
+
+            models_data.append({
+                "name": name,
+                "table_name": getattr(model_cls, "_table_name", name.lower()),
+                "app_label": admin.get_app_label(),
+                "verbose_name": admin.get_model_name(),
+                "verbose_name_plural": admin.get_model_name_plural(),
+                "fields": fields_info,
+                "field_count": len(fields_info),
+                "relations": relations,
+                "indexes": indexes_info,
+                "constraints": constraints_info,
+                "ordering": getattr(meta, "ordering", []) if meta else [],
+                "managed": getattr(meta, "managed", True) if meta else True,
+                "abstract": getattr(meta, "abstract", False) if meta else False,
+                "pk_field": getattr(model_cls, "_pk_attr", "id"),
+            })
+
+        return models_data
+
     # ── Dashboard data ───────────────────────────────────────────────
 
     async def get_dashboard_stats(self) -> Dict[str, Any]:
@@ -255,7 +540,7 @@ class AdminSite:
         Gather build information from Crous artifacts in the build directory.
 
         Scans the workspace build/ directory for .crous files and
-        bundle.manifest.json, returning artifact metadata.
+        bundle.manifest.crous, returning artifact metadata.
         """
         import os
 
@@ -266,17 +551,20 @@ class AdminSite:
             "build_log": "",
         }
 
-        # Find workspace root — look for build/ directory
+        # Find workspace root -- look for build/ directory
         build_dir = self._find_workspace_path("build")
         if build_dir is None or not build_dir.is_dir():
             return result
 
         # Read bundle manifest if it exists
-        manifest_path = build_dir / "bundle.manifest.json"
+        manifest_path = build_dir / "bundle.manifest.crous"
         if manifest_path.exists():
             try:
-                import json
-                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+                try:
+                    import _crous_native as _cb
+                except ImportError:
+                    import crous as _cb
+                manifest = _cb.decode(manifest_path.read_bytes())
                 result["info"] = {
                     "workspace_name": manifest.get("workspace_name", ""),
                     "workspace_version": manifest.get("workspace_version", ""),
@@ -288,7 +576,7 @@ class AdminSite:
             except Exception:
                 pass
 
-        # Scan for .crous files (ignore .aq.json — Crous only)
+        # Scan for .crous files (ignore .aq.json -- Crous only)
         for fpath in sorted(build_dir.iterdir()):
             if fpath.suffix == ".crous" and fpath.is_file():
                 try:
@@ -409,7 +697,7 @@ class AdminSite:
         # Also scan for other build files (non-.crous)
         result["build_files"] = []
         for fpath in sorted(build_dir.iterdir()):
-            if fpath.is_file() and fpath.suffix != ".crous" and fpath.name != "bundle.manifest.json":
+            if fpath.is_file() and fpath.suffix != ".crous":
                 try:
                     content = fpath.read_text(encoding="utf-8")
                     result["build_files"].append({
@@ -553,6 +841,723 @@ class AdminSite:
 
         return result
 
+    # ── Workspace data ───────────────────────────────────────────────
+
+    @staticmethod
+    def _fmt_bytes(b: int) -> str:
+        """Format bytes into human-readable string."""
+        for unit in ("B", "KB", "MB", "GB", "TB"):
+            if abs(b) < 1024:
+                return f"{b:.1f} {unit}"
+            b /= 1024  # type: ignore[assignment]
+        return f"{b:.1f} PB"
+
+    def get_monitoring_data(self) -> Dict[str, Any]:
+        """
+        Gather comprehensive system monitoring data.
+
+        Collects CPU, memory, disk, network, process, Python runtime,
+        and health-check information using ``psutil`` (with graceful
+        fallbacks when it is not installed) and stdlib introspection.
+
+        Returns a dict with sections:
+            - cpu: percent, per_core, load_avg, freq, times, cores
+            - memory: total, used, available, percent, swap_*
+            - disk: total, used, free, percent, partitions
+            - network: bytes_sent/recv, packets, errors, connections
+            - process: pid, name, status, uptime, threads, rss, vms,
+              fds, io_read/write_count/bytes
+            - python: version, implementation, executable, gc_objects,
+              gc_generations, gc_enabled, gc_frozen, loaded_modules,
+              active_threads, recursion_limit, allocator_blocks
+            - system: os, platform, arch, hostname
+            - health_checks: list from HealthRegistry
+        """
+        import gc
+        import os
+        import platform
+        import sys
+        import time
+        from datetime import datetime, timezone
+
+        result: Dict[str, Any] = {
+            "cpu": {},
+            "memory": {},
+            "disk": {},
+            "network": {},
+            "process": {},
+            "python": {},
+            "system": {},
+            "health_checks": [],
+        }
+
+        # ── System info (always available) ──
+        result["system"] = {
+            "os": platform.system(),
+            "platform": platform.platform(),
+            "arch": platform.machine(),
+            "hostname": platform.node(),
+        }
+
+        # ── Python runtime ──
+        gc_gens = []
+        try:
+            for i, stats in enumerate(gc.get_stats()):
+                gc_gens.append({
+                    "generation": i,
+                    "collections": stats.get("collections", 0),
+                    "collected": stats.get("collected", 0),
+                    "uncollectable": stats.get("uncollectable", 0),
+                })
+        except Exception:
+            pass
+
+        try:
+            gc_frozen = gc.get_freeze_count()
+        except (AttributeError, TypeError):
+            gc_frozen = 0
+
+        import threading
+
+        result["python"] = {
+            "version": platform.python_version(),
+            "implementation": platform.python_implementation(),
+            "executable": sys.executable,
+            "gc_objects": len(gc.get_objects()),
+            "gc_generations": gc_gens,
+            "gc_enabled": gc.isenabled(),
+            "gc_frozen": gc_frozen,
+            "loaded_modules": len(sys.modules),
+            "active_threads": threading.active_count(),
+            "recursion_limit": sys.getrecursionlimit(),
+            "allocator_blocks": "--",
+        }
+
+        # ── psutil-based metrics ──
+        try:
+            import psutil
+
+            # CPU
+            cpu_percent = psutil.cpu_percent(interval=0.1)
+            per_core = psutil.cpu_percent(interval=0, percpu=True)
+            cpu_freq = psutil.cpu_freq()
+            cpu_times = psutil.cpu_times()
+            try:
+                load_avg = os.getloadavg()
+            except (AttributeError, OSError):
+                load_avg = (0.0, 0.0, 0.0)
+
+            result["cpu"] = {
+                "percent": cpu_percent,
+                "per_core": per_core,
+                "cores_physical": psutil.cpu_count(logical=False) or 0,
+                "cores_logical": psutil.cpu_count(logical=True) or 0,
+                "freq_current": round(cpu_freq.current, 0) if cpu_freq else 0,
+                "freq_max": round(cpu_freq.max, 0) if cpu_freq else 0,
+                "load_avg_1": round(load_avg[0], 2),
+                "load_avg_5": round(load_avg[1], 2),
+                "load_avg_15": round(load_avg[2], 2),
+                "times_user": round(cpu_times.user, 1),
+                "times_system": round(cpu_times.system, 1),
+                "times_idle": round(cpu_times.idle, 1),
+            }
+
+            # Memory
+            vm = psutil.virtual_memory()
+            sw = psutil.swap_memory()
+            result["memory"] = {
+                "total": vm.total,
+                "total_human": self._fmt_bytes(vm.total),
+                "available": vm.available,
+                "available_human": self._fmt_bytes(vm.available),
+                "used": vm.used,
+                "used_human": self._fmt_bytes(vm.used),
+                "percent": vm.percent,
+                "swap_total": sw.total,
+                "swap_total_human": self._fmt_bytes(sw.total),
+                "swap_used": sw.used,
+                "swap_used_human": self._fmt_bytes(sw.used),
+                "swap_free": sw.free,
+                "swap_free_human": self._fmt_bytes(sw.free),
+                "swap_percent": sw.percent,
+            }
+
+            # Disk
+            try:
+                disk = psutil.disk_usage("/")
+                result["disk"] = {
+                    "total": disk.total,
+                    "total_human": self._fmt_bytes(disk.total),
+                    "used": disk.used,
+                    "used_human": self._fmt_bytes(disk.used),
+                    "free": disk.free,
+                    "free_human": self._fmt_bytes(disk.free),
+                    "percent": disk.percent,
+                    "partitions": [],
+                }
+            except Exception:
+                result["disk"] = {
+                    "total": 0, "total_human": "--",
+                    "used": 0, "used_human": "--",
+                    "free": 0, "free_human": "--",
+                    "percent": 0, "partitions": [],
+                }
+
+            # Disk partitions
+            try:
+                for p in psutil.disk_partitions(all=False):
+                    try:
+                        usage = psutil.disk_usage(p.mountpoint)
+                        result["disk"]["partitions"].append({
+                            "device": p.device,
+                            "mountpoint": p.mountpoint,
+                            "fstype": p.fstype,
+                            "total_human": self._fmt_bytes(usage.total),
+                            "used_human": self._fmt_bytes(usage.used),
+                            "free_human": self._fmt_bytes(usage.free),
+                            "percent": usage.percent,
+                        })
+                    except (PermissionError, OSError):
+                        continue
+            except Exception:
+                pass
+
+            # Network
+            try:
+                net = psutil.net_io_counters()
+                result["network"] = {
+                    "bytes_sent": net.bytes_sent,
+                    "bytes_sent_human": self._fmt_bytes(net.bytes_sent),
+                    "bytes_recv": net.bytes_recv,
+                    "bytes_recv_human": self._fmt_bytes(net.bytes_recv),
+                    "packets_sent": net.packets_sent,
+                    "packets_recv": net.packets_recv,
+                    "errin": net.errin,
+                    "errout": net.errout,
+                    "dropin": net.dropin,
+                    "dropout": net.dropout,
+                    "connections_by_status": {},
+                }
+            except Exception:
+                result["network"] = {
+                    "bytes_sent": 0, "bytes_sent_human": "--",
+                    "bytes_recv": 0, "bytes_recv_human": "--",
+                    "packets_sent": 0, "packets_recv": 0,
+                    "errin": 0, "errout": 0, "dropin": 0, "dropout": 0,
+                    "connections_by_status": {},
+                }
+
+            # Connections by status
+            try:
+                conns = psutil.net_connections(kind="inet")
+                status_counts: Dict[str, int] = {}
+                for c in conns:
+                    s = c.status if c.status else "NONE"
+                    status_counts[s] = status_counts.get(s, 0) + 1
+                result["network"]["connections_by_status"] = status_counts
+            except (psutil.AccessDenied, OSError):
+                pass
+
+            # Process
+            proc = psutil.Process(os.getpid())
+            try:
+                mem_info = proc.memory_info()
+                rss = mem_info.rss
+                vms = mem_info.vms
+            except Exception:
+                rss = 0
+                vms = 0
+
+            try:
+                ctx_sw = proc.num_ctx_switches()
+                ctx_vol = ctx_sw.voluntary
+                ctx_invol = ctx_sw.involuntary
+            except Exception:
+                ctx_vol = 0
+                ctx_invol = 0
+
+            try:
+                open_files_count = len(proc.open_files())
+            except (psutil.AccessDenied, OSError):
+                open_files_count = 0
+
+            try:
+                create_time = proc.create_time()
+                uptime_s = time.time() - create_time
+                uptime_human = self._format_uptime(uptime_s)
+                create_time_str = datetime.fromtimestamp(
+                    create_time, tz=timezone.utc
+                ).strftime("%Y-%m-%d %H:%M:%S UTC")
+            except Exception:
+                uptime_human = "--"
+                create_time_str = "--"
+
+            # Shared / private memory (platform-specific)
+            shared_mem = 0
+            private_mem = 0
+            try:
+                ext = proc.memory_info()
+                if hasattr(ext, "shared"):
+                    shared_mem = ext.shared
+                    private_mem = rss - shared_mem
+                else:
+                    private_mem = rss
+            except Exception:
+                private_mem = rss
+
+            result["process"] = {
+                "pid": os.getpid(),
+                "name": proc.name(),
+                "status": proc.status(),
+                "create_time": create_time_str,
+                "uptime_human": uptime_human,
+                "threads": proc.num_threads(),
+                "open_files": open_files_count,
+                "rss": rss,
+                "rss_human": self._fmt_bytes(rss),
+                "vms": vms,
+                "vms_human": self._fmt_bytes(vms),
+                "shared": shared_mem,
+                "private": private_mem,
+                "mem_percent": proc.memory_percent(),
+                "ctx_switches": ctx_vol + ctx_invol,
+                "ctx_switches_voluntary": ctx_vol,
+                "ctx_switches_involuntary": ctx_invol,
+                "env_snapshot": self._safe_env_snapshot(),
+            }
+
+            # I/O counters (platform-specific; may raise AccessDenied)
+            try:
+                io_counters = proc.io_counters()
+                result["process"]["io_read_count"] = io_counters.read_count
+                result["process"]["io_write_count"] = io_counters.write_count
+                result["process"]["io_read_bytes"] = io_counters.read_bytes
+                result["process"]["io_read_bytes_human"] = self._fmt_bytes(
+                    io_counters.read_bytes,
+                )
+                result["process"]["io_write_bytes"] = io_counters.write_bytes
+                result["process"]["io_write_bytes_human"] = self._fmt_bytes(
+                    io_counters.write_bytes,
+                )
+            except (psutil.AccessDenied, AttributeError, OSError):
+                result["process"]["io_read_count"] = "--"
+                result["process"]["io_write_count"] = "--"
+                result["process"]["io_read_bytes_human"] = "--"
+                result["process"]["io_write_bytes_human"] = "--"
+
+        except ImportError:
+            # psutil not available -- provide minimal data
+            result["cpu"] = {
+                "percent": 0, "per_core": [], "cores_physical": 0,
+                "cores_logical": os.cpu_count() or 0,
+                "freq_current": 0, "freq_max": 0,
+                "load_avg_1": 0, "load_avg_5": 0, "load_avg_15": 0,
+                "times_user": 0, "times_system": 0, "times_idle": 0,
+            }
+            result["memory"] = {
+                "total": 0, "total_human": "--",
+                "available": 0, "available_human": "--",
+                "used": 0, "used_human": "--", "percent": 0,
+                "swap_total": 0, "swap_total_human": "--",
+                "swap_used": 0, "swap_used_human": "--",
+                "swap_free": 0, "swap_free_human": "--",
+                "swap_percent": 0,
+            }
+            result["disk"] = {
+                "total": 0, "total_human": "--",
+                "used": 0, "used_human": "--",
+                "free": 0, "free_human": "--",
+                "percent": 0, "partitions": [],
+            }
+            result["network"] = {
+                "bytes_sent": 0, "bytes_sent_human": "--",
+                "bytes_recv": 0, "bytes_recv_human": "--",
+                "packets_sent": 0, "packets_recv": 0,
+                "errin": 0, "errout": 0, "dropin": 0, "dropout": 0,
+                "connections_by_status": {},
+            }
+            result["process"] = {
+                "pid": os.getpid(), "name": "python", "status": "running",
+                "create_time": "--", "uptime_human": "--",
+                "threads": 0, "open_files": 0,
+                "rss": 0, "rss_human": "--", "vms": 0, "vms_human": "--",
+                "shared": 0, "private": 0,
+                "mem_percent": 0, "ctx_switches": 0,
+                "ctx_switches_voluntary": 0, "ctx_switches_involuntary": 0,
+                "env_snapshot": self._safe_env_snapshot(),
+                "io_read_count": "--", "io_write_count": "--",
+                "io_read_bytes_human": "--", "io_write_bytes_human": "--",
+            }
+
+        # ── Health checks ──
+        try:
+            from aquilia.health import HealthRegistry
+            # Try to find a HealthRegistry in the DI container or global
+            registry = getattr(self, "_health_registry", None)
+            if registry is None:
+                # Look for a global instance
+                import aquilia
+                registry = getattr(aquilia, "_health_registry", None)
+            if registry and isinstance(registry, HealthRegistry):
+                for name, status in registry.all_statuses.items():
+                    result["health_checks"].append(status.to_dict())
+        except Exception:
+            pass
+
+        # ── Filter by admin_config.monitoring_metrics ──
+        # Only keep metric sections the user has opted-in to.
+        cfg = self.admin_config
+        all_sections = ("cpu", "memory", "disk", "network", "process", "python", "system", "health_checks")
+        for section in all_sections:
+            if not cfg.is_metric_enabled(section):
+                result[section] = {} if section != "health_checks" else []
+
+        # Attach refresh interval for the frontend
+        result["_refresh_interval"] = cfg.monitoring_refresh_interval
+
+        return result
+
+    @staticmethod
+    def _format_uptime(seconds: float) -> str:
+        """Format seconds into human-readable uptime string."""
+        days = int(seconds // 86400)
+        hours = int((seconds % 86400) // 3600)
+        minutes = int((seconds % 3600) // 60)
+        secs = int(seconds % 60)
+        parts = []
+        if days > 0:
+            parts.append(f"{days}d")
+        if hours > 0:
+            parts.append(f"{hours}h")
+        if minutes > 0:
+            parts.append(f"{minutes}m")
+        parts.append(f"{secs}s")
+        return " ".join(parts)
+
+    @staticmethod
+    def _safe_env_snapshot() -> Dict[str, str]:
+        """Capture a safe subset of environment variables (no secrets)."""
+        import os
+        safe_keys = [
+            "VIRTUAL_ENV", "PYTHONPATH", "PATH", "HOME", "USER",
+            "SHELL", "TERM", "LANG", "LC_ALL", "TZ",
+            "AQUILIA_ENV", "AQUILIA_DEBUG",
+        ]
+        result: Dict[str, str] = {}
+        for key in safe_keys:
+            val = os.environ.get(key)
+            if val:
+                # Truncate long values
+                if len(val) > 200:
+                    val = val[:200] + "…"
+                result[key] = val
+        return result
+
+    def get_workspace_data(self) -> Dict[str, Any]:
+        """
+        Gather comprehensive workspace data for the admin workspace page.
+
+        Reads workspace.py, discovers all modules and their manifests,
+        collects project metadata, registered models, integrations,
+        and overall project health/structure information.
+
+        Returns a dict with:
+            - workspace: name, version, description, path
+            - modules: list of module dicts with manifest data
+            - integrations: list of active integrations
+            - project_meta: pyproject.toml / setup.py data
+            - registered_models: list of all ORM models
+            - stats: module counts, model counts, etc.
+        """
+        import os
+        import sys
+        from pathlib import Path
+
+        result: Dict[str, Any] = {
+            "workspace": None,
+            "modules": [],
+            "integrations": [],
+            "project_meta": {},
+            "registered_models": [],
+            "stats": {},
+        }
+
+        # ── Read workspace.py ────────────────────────────────────────
+        ws_path = self._find_workspace_path("workspace.py", is_file=True)
+        workspace_root = None
+        if ws_path and ws_path.exists():
+            workspace_root = ws_path.parent
+            try:
+                ws_source = ws_path.read_text(encoding="utf-8")
+                import re
+
+                name_match = re.search(r'(?:Workspace\(\s*["\'](\w+)|name\s*=\s*["\'](\w+))', ws_source)
+                ws_name = (name_match.group(1) or name_match.group(2)) if name_match else "unknown"
+
+                ver_match = re.search(r'version\s*=\s*["\']([^"\']+)', ws_source)
+                ws_version = ver_match.group(1) if ver_match else "0.0.0"
+
+                desc_match = re.search(r'description\s*=\s*["\']([^"\']+)', ws_source)
+                ws_desc = desc_match.group(1) if desc_match else ""
+
+                # Extract integrations from workspace
+                intg_matches = re.findall(r'Integration\.(\w+)', ws_source)
+                integrations_list = []
+                seen = set()
+                for intg in intg_matches:
+                    if intg not in seen:
+                        seen.add(intg)
+                        # Extract inline params for the integration
+                        pattern = rf'Integration\.{intg}\((.*?)\)'
+                        param_match = re.search(pattern, ws_source, re.DOTALL)
+                        params = {}
+                        if param_match:
+                            param_str = param_match.group(1)
+                            for kv in re.findall(r'(\w+)\s*=\s*([^,\)]+)', param_str):
+                                params[kv[0]] = kv[1].strip().strip('"\'')
+                        integrations_list.append({
+                            "name": intg,
+                            "display_name": intg.replace("_", " ").title(),
+                            "params": params,
+                            "icon": self._get_integration_icon(intg),
+                        })
+
+                result["workspace"] = {
+                    "name": ws_name,
+                    "version": ws_version,
+                    "description": ws_desc,
+                    "path": str(workspace_root),
+                    "python_version": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
+                    "platform": sys.platform,
+                }
+                result["integrations"] = integrations_list
+
+            except Exception as exc:
+                logger.debug("Failed to read workspace.py: %s", exc)
+
+        # ── Discover modules ─────────────────────────────────────────
+        if workspace_root:
+            modules_dir = workspace_root / "modules"
+            if modules_dir.is_dir():
+                for module_path in sorted(modules_dir.iterdir()):
+                    if not module_path.is_dir() or module_path.name.startswith(("_", ".")):
+                        continue
+
+                    mod_info: Dict[str, Any] = {
+                        "name": module_path.name,
+                        "path": str(module_path.relative_to(workspace_root)),
+                        "has_manifest": False,
+                        "manifest": {},
+                        "files": [],
+                        "models": [],
+                        "controllers": [],
+                        "services": [],
+                    }
+
+                    # List all files in the module
+                    for f in sorted(module_path.iterdir()):
+                        if f.is_file() and f.suffix == ".py" and not f.name.startswith("_"):
+                            mod_info["files"].append({
+                                "name": f.name,
+                                "size": f.stat().st_size,
+                                "kind": self._classify_module_file(f.name),
+                            })
+                        elif f.name == "__init__.py":
+                            mod_info["files"].append({
+                                "name": f.name,
+                                "size": f.stat().st_size,
+                                "kind": "init",
+                            })
+
+                    # Read manifest.py
+                    manifest_path = module_path / "manifest.py"
+                    if manifest_path.exists():
+                        mod_info["has_manifest"] = True
+                        try:
+                            manifest_source = manifest_path.read_text(encoding="utf-8")
+                            import re as _re
+
+                            # Extract manifest fields
+                            name_m = _re.search(r'name\s*=\s*["\']([^"\']+)', manifest_source)
+                            ver_m = _re.search(r'version\s*=\s*["\']([^"\']+)', manifest_source)
+                            desc_m = _re.search(r'description\s*=\s*["\']([^"\']+)', manifest_source)
+                            prefix_m = _re.search(r'route_prefix\s*=\s*["\']([^"\']+)', manifest_source)
+                            base_m = _re.search(r'base_path\s*=\s*["\']([^"\']+)', manifest_source)
+
+                            # Extract component lists
+                            controllers = _re.findall(r'"modules\.[^"]+controllers[^"]*"', manifest_source)
+                            services = _re.findall(r'"modules\.[^"]+services[^"]*"', manifest_source)
+                            models = _re.findall(r'"modules\.[^"]+models[^"]*"', manifest_source)
+                            guards = _re.findall(r'"modules\.[^"]+guards[^"]*"', manifest_source)
+                            pipes = _re.findall(r'"modules\.[^"]+pipes[^"]*"', manifest_source)
+                            imports = _re.findall(r'imports\s*=\s*\[(.*?)\]', manifest_source, _re.DOTALL)
+                            exports = _re.findall(r'exports\s*=\s*\[(.*?)\]', manifest_source, _re.DOTALL)
+
+                            # Tags
+                            tags = _re.findall(r'tags\s*=\s*\[(.*?)\]', manifest_source, _re.DOTALL)
+                            tag_list = []
+                            if tags:
+                                tag_list = _re.findall(r'["\']([^"\']+)["\']', tags[0])
+
+                            # Auto-discover
+                            auto_disc = _re.search(r'auto_discover\s*=\s*(True|False)', manifest_source)
+
+                            # Fault handling
+                            fault_domain = _re.search(r'default_domain\s*=\s*["\']([^"\']+)', manifest_source)
+                            fault_strategy = _re.search(r'strategy\s*=\s*["\']([^"\']+)', manifest_source)
+
+                            mod_info["manifest"] = {
+                                "name": name_m.group(1) if name_m else module_path.name,
+                                "version": ver_m.group(1) if ver_m else "0.0.0",
+                                "description": desc_m.group(1) if desc_m else "",
+                                "route_prefix": prefix_m.group(1) if prefix_m else "",
+                                "base_path": base_m.group(1) if base_m else "",
+                                "controllers": [c.strip('"') for c in controllers],
+                                "services": [s.strip('"') for s in services],
+                                "models": [m.strip('"') for m in models],
+                                "guards": [g.strip('"') for g in guards],
+                                "pipes": [p.strip('"') for p in pipes],
+                                "tags": tag_list,
+                                "auto_discover": auto_disc.group(1) == "True" if auto_disc else True,
+                                "fault_domain": fault_domain.group(1) if fault_domain else "",
+                                "fault_strategy": fault_strategy.group(1) if fault_strategy else "",
+                                "source": manifest_source,
+                                "source_highlighted": self._highlight_python(manifest_source),
+                            }
+                            mod_info["controllers"] = [c.split(":")[-1].strip('"') for c in controllers]
+                            mod_info["services"] = [s.split(":")[-1].strip('"') for s in services]
+                            mod_info["models"] = [m.split(":")[-1].strip('"') for m in models]
+
+                        except Exception as exc:
+                            logger.debug("Failed to read manifest %s: %s", manifest_path, exc)
+
+                    result["modules"].append(mod_info)
+
+        # ── Project metadata (pyproject.toml) ────────────────────────
+        if workspace_root:
+            pyproject = workspace_root / "pyproject.toml"
+            if not pyproject.exists():
+                # Try one directory up (framework root)
+                pyproject = workspace_root.parent / "pyproject.toml"
+
+            if pyproject.exists():
+                try:
+                    content = pyproject.read_text(encoding="utf-8")
+                    import re as _re
+                    name_m = _re.search(r'name\s*=\s*"([^"]+)"', content)
+                    ver_m = _re.search(r'version\s*=\s*"([^"]+)"', content)
+                    desc_m = _re.search(r'description\s*=\s*"([^"]+)"', content)
+                    py_req = _re.search(r'requires-python\s*=\s*"([^"]+)"', content)
+                    license_m = _re.search(r'license\s*=\s*"([^"]+)"', content)
+
+                    result["project_meta"] = {
+                        "name": name_m.group(1) if name_m else "",
+                        "version": ver_m.group(1) if ver_m else "",
+                        "description": desc_m.group(1) if desc_m else "",
+                        "python_requires": py_req.group(1) if py_req else "",
+                        "license": license_m.group(1) if license_m else "",
+                    }
+                except Exception:
+                    pass
+
+        # ── License file ─────────────────────────────────────────────
+        license_text = ""
+        if workspace_root:
+            for lic_name in ("LICENSE", "LICENSE.md", "LICENSE.txt"):
+                lic_path = workspace_root / lic_name
+                if not lic_path.exists():
+                    lic_path = workspace_root.parent / lic_name
+                if lic_path.exists():
+                    try:
+                        license_text = lic_path.read_text(encoding="utf-8")
+                    except Exception:
+                        pass
+                    break
+        result["license_text"] = license_text
+
+        # ── workspace.py source for admin display ────────────────────
+        ws_source = ""
+        if ws_path and ws_path.exists():
+            try:
+                ws_source = ws_path.read_text(encoding="utf-8")
+            except Exception:
+                pass
+        result["workspace_source"] = ws_source
+        if ws_source:
+            result["workspace_source_highlighted"] = self._highlight_python(ws_source)
+
+        # ── Registered ORM models ────────────────────────────────────
+        for model_cls, admin in self._registry.items():
+            result["registered_models"].append({
+                "name": model_cls.__name__,
+                "table": getattr(model_cls, "table", ""),
+                "app_label": admin.get_app_label(),
+                "field_count": len(model_cls._fields) if hasattr(model_cls, "_fields") else 0,
+                "icon": admin.icon or "box",
+            })
+
+        # ── Stats ────────────────────────────────────────────────────
+        total_controllers = sum(
+            len(m.get("manifest", {}).get("controllers", []))
+            for m in result["modules"]
+        )
+        total_services = sum(
+            len(m.get("manifest", {}).get("services", []))
+            for m in result["modules"]
+        )
+        result["stats"] = {
+            "total_modules": len(result["modules"]),
+            "total_models": len(result["registered_models"]),
+            "total_controllers": total_controllers,
+            "total_services": total_services,
+            "total_integrations": len(result["integrations"]),
+            "total_files": sum(len(m.get("files", [])) for m in result["modules"]),
+        }
+
+        return result
+
+    @staticmethod
+    def _classify_module_file(filename: str) -> str:
+        """Classify a Python file by its conventional name."""
+        name = filename.replace(".py", "")
+        mapping = {
+            "controllers": "controller", "controller": "controller",
+            "services": "service", "service": "service",
+            "models": "model", "model": "model",
+            "faults": "fault", "fault": "fault",
+            "guards": "guard", "guard": "guard",
+            "pipes": "pipe", "pipe": "pipe",
+            "interceptors": "interceptor", "interceptor": "interceptor",
+            "middleware": "middleware",
+            "manifest": "manifest",
+            "views": "view", "schemas": "schema", "serializers": "serializer",
+        }
+        return mapping.get(name, "other")
+
+    @staticmethod
+    def _get_integration_icon(name: str) -> str:
+        """Get a Lucide icon class for an integration type."""
+        icons = {
+            "di": "icon-plug",
+            "registry": "icon-clipboard-list",
+            "routing": "icon-git-branch",
+            "fault_handling": "icon-shield",
+            "patterns": "icon-puzzle",
+            "database": "icon-database",
+            "cache": "icon-zap",
+            "templates": "icon-file-text",
+            "static_files": "icon-folder",
+            "admin": "icon-user",
+            "cors": "icon-globe",
+            "csp": "icon-lock",
+            "rate_limit": "icon-clock",
+            "mail": "icon-mail",
+            "sessions": "icon-key",
+            "auth": "icon-shield-check",
+            "openapi": "icon-book-open",
+        }
+        return icons.get(name, "icon-settings")
+
     # ── Permissions data ─────────────────────────────────────────────
 
     def get_permissions_data(self, identity: Optional["Identity"] = None) -> Dict[str, Any]:
@@ -563,9 +1568,9 @@ class AdminSite:
 
         roles = []
         role_descriptions = {
-            AdminRole.SUPERADMIN: "Full access to everything — all admin operations.",
+            AdminRole.SUPERADMIN: "Full access to everything -- all admin operations.",
             AdminRole.ADMIN: "Full CRUD on all models, audit log, user management.",
-            AdminRole.STAFF: "View and edit access — no delete by default.",
+            AdminRole.STAFF: "View and edit access -- no delete by default.",
             AdminRole.VIEWER: "Read-only access to admin dashboard and data.",
         }
 
@@ -712,64 +1717,95 @@ class AdminSite:
         """
         Apply simple syntax highlighting to Python source code.
 
-        Uses CSS classes matching the aqdocx code block theme:
-        .kw, .str, .num, .fn, .cls, .cmt, .dec, .op, .var, .prop
+        Uses a tokenize-first approach: scan for comments, strings,
+        decorators, keywords, numbers, and function calls on the RAW
+        source, collect (start, end, css_class) spans, then escape
+        only the non-highlighted portions.  This avoids the old bug
+        where regexes ran on HTML-escaped text and `&#x27;` / `&quot;`
+        caused cascading mismatches.
         """
         import re
         import html as html_mod
 
+        KEYWORDS = {
+            'def', 'class', 'import', 'from', 'return', 'if', 'elif',
+            'else', 'for', 'while', 'with', 'as', 'try', 'except',
+            'finally', 'raise', 'pass', 'break', 'continue', 'yield',
+            'async', 'await', 'not', 'and', 'or', 'in', 'is', 'None',
+            'True', 'False', 'self', 'lambda',
+        }
+        KW_PATTERN = r'\b(' + '|'.join(KEYWORDS) + r')\b'
+
+        def _tokenize_line(line: str):
+            """
+            Return a list of (text, css_class_or_None) for one line.
+            Processes left-to-right so earlier tokens win.
+            """
+            tokens: list = []  # [(start, end, css_class)]
+
+            # 1. Triple-quoted strings (rare on one line, but handle)
+            for m in re.finditer(r'""".*?"""|\'\'\'.*?\'\'\'', line):
+                tokens.append((m.start(), m.end(), 'str'))
+
+            # 2. Single/double-quoted strings
+            for m in re.finditer(r'"[^"\\]*(?:\\.[^"\\]*)*"|\'[^\'\\]*(?:\\.[^\'\\]*)*\'', line):
+                tokens.append((m.start(), m.end(), 'str'))
+
+            # 3. Comments (only if # is NOT inside a string)
+            cm = re.search(r'#', line)
+            if cm:
+                # Check the # is not inside any string token
+                pos = cm.start()
+                inside = any(s <= pos < e for s, e, _ in tokens)
+                if not inside:
+                    tokens.append((pos, len(line), 'cmt'))
+
+            # 4. Decorators
+            dm = re.match(r'^(\s*)(@\w+)', line)
+            if dm:
+                tokens.append((dm.start(2), dm.end(2), 'dec'))
+
+            # 5. Keywords
+            for m in re.finditer(KW_PATTERN, line):
+                tokens.append((m.start(), m.end(), 'kw'))
+
+            # 6. Numbers
+            for m in re.finditer(r'\b\d+\.?\d*\b', line):
+                tokens.append((m.start(), m.end(), 'num'))
+
+            # 7. Function calls  name(
+            for m in re.finditer(r'\b(\w+)\(', line):
+                tokens.append((m.start(1), m.end(1), 'fn'))
+
+            # ── Resolve overlaps: earlier & longer wins ──
+            tokens.sort(key=lambda t: (t[0], -(t[1] - t[0])))
+            merged: list = []
+            used_end = 0
+            for s, e, cls in tokens:
+                if s < used_end:
+                    continue  # overlaps with a previous token
+                merged.append((s, e, cls))
+                used_end = e
+
+            # ── Build output fragments ──
+            parts: list = []
+            pos = 0
+            for s, e, cls in merged:
+                if s > pos:
+                    parts.append(html_mod.escape(line[pos:s]))
+                parts.append(f'<span class="{cls}">{html_mod.escape(line[s:e])}</span>')
+                pos = e
+            if pos < len(line):
+                parts.append(html_mod.escape(line[pos:]))
+
+            return ''.join(parts)
+
         lines = source.split('\n')
         result_lines = []
-
         for i, line in enumerate(lines, 1):
-            escaped = html_mod.escape(line)
-
-            # Order matters — comments first, then strings, then others
-            # Comments
-            escaped = re.sub(
-                r'(#.*?)$',
-                r'<span class="cmt">\1</span>',
-                escaped,
-            )
-
-            # Strings (triple-quoted and single/double)
-            escaped = re.sub(
-                r'(&quot;&quot;&quot;.*?&quot;&quot;&quot;|&#x27;&#x27;&#x27;.*?&#x27;&#x27;&#x27;|&quot;[^&]*?&quot;|&#x27;[^&]*?&#x27;)',
-                r'<span class="str">\1</span>',
-                escaped,
-            )
-
-            # Decorators
-            escaped = re.sub(
-                r'^(\s*)(@\w+)',
-                r'\1<span class="dec">\2</span>',
-                escaped,
-            )
-
-            # Keywords
-            keywords = r'\b(def|class|import|from|return|if|elif|else|for|while|with|as|try|except|finally|raise|pass|break|continue|yield|async|await|not|and|or|in|is|None|True|False|self|lambda)\b'
-            escaped = re.sub(
-                keywords,
-                r'<span class="kw">\1</span>',
-                escaped,
-            )
-
-            # Numbers
-            escaped = re.sub(
-                r'\b(\d+\.?\d*)\b',
-                r'<span class="num">\1</span>',
-                escaped,
-            )
-
-            # Function calls
-            escaped = re.sub(
-                r'\b(\w+)(\()',
-                r'<span class="fn">\1</span>\2',
-                escaped,
-            )
-
+            highlighted = _tokenize_line(line)
             line_num = f'<span class="code-line-num">{i}</span>'
-            result_lines.append(f'{line_num}{escaped}')
+            result_lines.append(f'{line_num}{highlighted}')
 
         return '\n'.join(result_lines)
 
@@ -959,6 +1995,94 @@ class AdminSite:
 
     # ── CRUD operations ──────────────────────────────────────────────
 
+    @staticmethod
+    def _coerce_form_data(model_cls: type, data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Coerce form string values to the correct Python types for ORM fields.
+
+        HTML forms submit everything as strings. This converts:
+        - BooleanField: "1", "true", "on" → True; "", "0", "false" → False
+        - IntegerField/BigIntegerField/SmallIntegerField: "42" → 42
+        - FloatField/DecimalField: "3.14" → 3.14
+        - DateTimeField: kept as string (ORM handles parsing)
+        - JSON values: attempted parse
+
+        Checkbox handling:
+        - The form template sends ``_checkbox_{name}=1`` as a sentinel marker
+          for every checkbox field.  When the checkbox is checked the browser
+          also sends ``{name}=1``.  When it is unchecked, the browser does NOT
+          send the ``{name}`` key at all.  We detect unchecked checkboxes by
+          looking for the sentinel marker and the absence of the value key.
+
+        Prevents: "Field 'active': Expected boolean, got str"
+        """
+        if not hasattr(model_cls, '_fields'):
+            return data
+
+        from aquilia.models.fields_module import (
+            BooleanField, IntegerField, BigIntegerField, SmallIntegerField,
+            FloatField, DecimalField, PositiveIntegerField, PositiveSmallIntegerField,
+        )
+
+        # Detect checkbox sentinel markers (_checkbox_{name}) and inject
+        # False for unchecked checkboxes that the browser didn't send.
+        checkbox_sentinels = [
+            k[len("_checkbox_"):] for k in data if k.startswith("_checkbox_")
+        ]
+        for cb_name in checkbox_sentinels:
+            if cb_name not in data:
+                # Checkbox was rendered but NOT checked → explicitly False
+                data[cb_name] = False
+
+        coerced = {}
+        for field_name, value in data.items():
+            # Skip sentinel markers -- they are not real model fields
+            if field_name.startswith("_checkbox_"):
+                continue
+
+            if field_name not in model_cls._fields:
+                coerced[field_name] = value
+                continue
+
+            field = model_cls._fields[field_name]
+
+            if isinstance(field, BooleanField):
+                if isinstance(value, bool):
+                    coerced[field_name] = value
+                elif isinstance(value, str):
+                    coerced[field_name] = value.lower() in ("1", "true", "on", "yes")
+                elif isinstance(value, (int, float)):
+                    coerced[field_name] = bool(value)
+                else:
+                    coerced[field_name] = bool(value)
+            elif isinstance(field, (IntegerField, BigIntegerField, SmallIntegerField,
+                                     PositiveIntegerField, PositiveSmallIntegerField)):
+                if isinstance(value, str):
+                    if value.strip() == "":
+                        coerced[field_name] = None if field.null else 0
+                    else:
+                        try:
+                            coerced[field_name] = int(value)
+                        except (ValueError, TypeError):
+                            coerced[field_name] = value
+                else:
+                    coerced[field_name] = value
+            elif isinstance(field, (FloatField, DecimalField)):
+                if isinstance(value, str):
+                    if value.strip() == "":
+                        coerced[field_name] = None if field.null else 0.0
+                    else:
+                        try:
+                            coerced[field_name] = float(value)
+                        except (ValueError, TypeError):
+                            coerced[field_name] = value
+                else:
+                    coerced[field_name] = value
+            else:
+                coerced[field_name] = value
+
+        return coerced
+
     async def list_records(
         self,
         model_name: str,
@@ -1040,7 +2164,15 @@ class AdminSite:
         for record_data in records_raw:
             # paginate_queryset calls to_dict(); we may get dicts or model instances
             if isinstance(record_data, dict):
-                row = {"pk": record_data.get("pk") or record_data.get("id")}
+                # Prefer explicit 'pk' key; fall back to integer 'id'; avoid
+                # using a non-integer 'id' (e.g. entry_id = 'audit_xxxx') as pk.
+                _raw_pk = record_data.get("pk")
+                if _raw_pk is None:
+                    _id = record_data.get("id")
+                    # Only use 'id' as pk when it looks like an integer
+                    if isinstance(_id, int) or (isinstance(_id, str) and _id.isdigit()):
+                        _raw_pk = _id
+                row = {"pk": _raw_pk}
                 for field_name in list_display:
                     raw_val = record_data.get(field_name)
                     row[field_name] = admin.format_value(field_name, raw_val)
@@ -1139,6 +2271,9 @@ class AdminSite:
         editable = set(admin.get_fields()) - set(admin.get_readonly_fields())
         clean_data = {k: v for k, v in data.items() if k in editable}
 
+        # Coerce string values from HTML forms to correct Python types
+        clean_data = self._coerce_form_data(model_cls, clean_data)
+
         try:
             record = await model_cls.create(**clean_data)
         except Exception as e:
@@ -1194,10 +2329,14 @@ class AdminSite:
 
         # Filter to editable fields and track changes
         editable = set(admin.get_fields()) - set(admin.get_readonly_fields())
+
+        # Coerce string values from HTML forms to correct Python types
+        coerced_data = self._coerce_form_data(model_cls, data)
+
         changes: Dict[str, Dict[str, Any]] = {}
         update_data: Dict[str, Any] = {}
 
-        for field_name, new_value in data.items():
+        for field_name, new_value in coerced_data.items():
             if field_name not in editable:
                 continue
             old_value = getattr(record, field_name, None)

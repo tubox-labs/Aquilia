@@ -43,7 +43,7 @@ def aquilia_fixtures():
         from aquilia.testing.fixtures import aquilia_fixtures
         aquilia_fixtures()
 
-    This is a no-op — the fixtures are registered by the module being
+    This is a no-op -- the fixtures are registered by the module being
     imported.  The function exists as a documentation anchor and to
     ensure the module's side-effects run.
     """
@@ -118,7 +118,7 @@ def mail_outbox():
 @pytest.fixture
 def test_request():
     """
-    Factory fixture — call with kwargs to create test requests.
+    Factory fixture -- call with kwargs to create test requests.
 
     Usage::
 
@@ -131,7 +131,7 @@ def test_request():
 @pytest.fixture
 def test_scope():
     """
-    Factory fixture — call with kwargs to create ASGI scopes.
+    Factory fixture -- call with kwargs to create ASGI scopes.
 
     Usage::
 

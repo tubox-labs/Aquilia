@@ -1,5 +1,5 @@
 """
-AMDL Parser — Aquilia Model Definition Language.
+AMDL Parser -- Aquilia Model Definition Language.
 
 Single-pass, line-oriented parser that reads `.amdl` files and produces
 a list of `ModelNode` AST nodes.  Designed to be <300 LOC.
@@ -125,7 +125,7 @@ def _parse_modifiers(raw: Optional[str]) -> Dict[str, Any]:
         return {}
 
     mods: Dict[str, Any] = {}
-    # Split carefully — handle default:=expr which may contain commas inside parens
+    # Split carefully -- handle default:=expr which may contain commas inside parens
     tokens = _split_modifier_tokens(raw.strip())
 
     for token in tokens:

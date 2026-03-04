@@ -1,5 +1,5 @@
 """
-AquiliaModel — declarative base class and ``@model`` decorator.
+AquiliaModel -- declarative base class and ``@model`` decorator.
 
 The primary developer interface for defining ML models within Aquilia.
 
@@ -37,7 +37,7 @@ logger = logging.getLogger("aquilia.mlops.api.model_class")
 
 T = TypeVar("T", bound="AquiliaModel")
 
-# Global registry reference — set by the DI/lifecycle layer
+# Global registry reference -- set by the DI/lifecycle layer
 _global_registry: Any = None
 
 
@@ -64,7 +64,7 @@ class AquiliaModel:
     Override ``load()``, ``unload()``, ``preprocess()``,
     ``postprocess()``, ``health()``, and ``metrics()`` as needed.
 
-    All methods can be sync or async — the pipeline adapts automatically.
+    All methods can be sync or async -- the pipeline adapts automatically.
     """
 
     # ── Lifecycle ────────────────────────────────────────────────────

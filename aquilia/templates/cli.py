@@ -107,7 +107,7 @@ async def cmd_compile(
     try:
         result = await manager.compile_all(output_path=output)
         
-        print(f"✓ Compiled {result['count']} templates")
+        print(f"Compiled {result['count']} templates")
         print(f"  Fingerprint: {result['fingerprint']}")
         print(f"  Output: {result['output']}")
         
@@ -119,7 +119,7 @@ async def cmd_compile(
         return 0
     
     except Exception as e:
-        print(f"✗ Compilation failed: {e}")
+        print(f"Compilation failed: {e}")
         if verbose:
             import traceback
             traceback.print_exc()
@@ -169,7 +169,7 @@ async def cmd_lint(
         
         # Human-readable output
         if not issues:
-            print("✓ No issues found")
+            print("No issues found")
             return 0
         
         # Group by severity
@@ -189,7 +189,7 @@ async def cmd_lint(
         return 1 if errors or (strict and warnings) else 0
     
     except Exception as e:
-        print(f"✗ Lint failed: {e}")
+        print(f"Lint failed: {e}")
         if verbose:
             import traceback
             traceback.print_exc()
@@ -230,7 +230,7 @@ async def cmd_inspect(
         info = await manager.inspect(template_name)
         
         if "error" in info:
-            print(f"✗ {info['error']}")
+            print(f"{info['error']}")
             return 1
         
         print(f"Template: {info['name']}")
@@ -244,7 +244,7 @@ async def cmd_inspect(
         return 0
     
     except Exception as e:
-        print(f"✗ Inspect failed: {e}")
+        print(f"Inspect failed: {e}")
         if verbose:
             import traceback
             traceback.print_exc()
@@ -272,17 +272,17 @@ async def cmd_clear_cache(
         
         if template_name:
             bytecode_cache.invalidate(template_name)
-            print(f"✓ Cleared cache for {template_name}")
+            print(f"Cleared cache for {template_name}")
         else:
             bytecode_cache.clear()
-            print("✓ Cleared all bytecode caches")
+            print("Cleared all bytecode caches")
         
         bytecode_cache.save()
         
         return 0
     
     except Exception as e:
-        print(f"✗ Clear cache failed: {e}")
+        print(f"Clear cache failed: {e}")
         if verbose:
             import traceback
             traceback.print_exc()

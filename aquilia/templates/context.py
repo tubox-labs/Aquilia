@@ -143,7 +143,7 @@ def inject_url_helpers(context: Dict[str, Any], url_for_func: Any) -> None:
     """
     context["url_for"] = url_for_func
     
-    # Static URL helper (legacy fallback — prefer inject_static_helper)
+    # Static URL helper (legacy fallback -- prefer inject_static_helper)
     if "static" not in context:
         def static_url(path: str) -> str:
             """Generate static asset URL."""
@@ -161,7 +161,7 @@ def inject_static_helper(context: Dict[str, Any], static_func: Any) -> None:
         {{ static('css/app.css') }}
         {{ static('js/main.js') }}
 
-    This is the Aquilia equivalent of Django's {% static %} tag.
+    This is the Aquilia equivalent of a template ``static`` tag.
 
     Args:
         context: Template context dictionary

@@ -1,8 +1,8 @@
 """
-Aquilia Clearance System — Unique declarative access control.
+Aquilia Clearance System -- Unique declarative access control.
 
 Unlike DRF's simple ``permission_classes = [...]`` list, Aquilia uses a
-*Clearance Matrix* — a multi-dimensional, composable, declarative access
+*Clearance Matrix* -- a multi-dimensional, composable, declarative access
 control system that combines:
 
 - **Access Levels**: Hierarchical clearance tiers (PUBLIC → CONFIDENTIAL)
@@ -83,7 +83,7 @@ logger = logging.getLogger("aquilia.auth.clearance")
 
 class AccessLevel(enum.IntEnum):
     """
-    Hierarchical access tiers — higher ordinal = stricter.
+    Hierarchical access tiers -- higher ordinal = stricter.
     
     Each level implicitly grants access to all lower levels.
     A handler at INTERNAL allows identities with INTERNAL, CONFIDENTIAL, 
@@ -142,7 +142,7 @@ def is_owner_or_admin(identity: Any, request: Any, ctx: Any) -> bool:
     roles = getattr(identity, "roles", set()) or set()
     if "admin" in roles or "superuser" in roles:
         return True
-    # Owner check — look for resource_owner_id in ctx.state
+    # Owner check -- look for resource_owner_id in ctx.state
     state = getattr(ctx, "state", {}) or {}
     owner_id = state.get("resource_owner_id")
     if owner_id is not None:
@@ -649,7 +649,7 @@ class ClearanceEngine:
                 parts.append(f"failed conditions: {', '.join(failed_conditions)}")
             if not compartment_ok:
                 parts.append("compartment mismatch")
-            message = clearance.deny_message + " — " + "; ".join(parts)
+            message = clearance.deny_message + " -- " + "; ".join(parts)
         
         verdict = ClearanceVerdict(
             granted=granted,
@@ -741,7 +741,7 @@ class ClearanceGuard:
         return True
     
     def for_controller(self) -> ClearanceGuard:
-        """Return self — already works as controller pipeline guard."""
+        """Return self -- already works as controller pipeline guard."""
         return self
 
 

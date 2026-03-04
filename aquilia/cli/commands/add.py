@@ -14,7 +14,7 @@ def _ensure_docker_files(workspace_root: Path, verbose: bool = False) -> None:
 
     Called automatically by ``aq add module`` to keep deployment
     files in sync with the workspace structure.  Only generates files
-    that do not already exist — existing files are never overwritten.
+    that do not already exist -- existing files are never overwritten.
     """
     from ..generators.deployment import (
         WorkspaceIntrospector,
@@ -112,7 +112,7 @@ def add_module(
     workspace_content = workspace_file.read_text()
     existing_modules = []
 
-    # Simple regex to find .module() calls — match Module("name"...)
+    # Simple regex to find .module() calls -- match Module("name"...)
     import re
     module_pattern = r'Module\("([^"]+)"'
     existing_modules = re.findall(module_pattern, workspace_content)
@@ -175,7 +175,7 @@ def add_module(
         try:
             _ensure_docker_files(workspace_root, verbose=verbose)
         except Exception:
-            # Non-fatal — deployment files are a convenience
+            # Non-fatal -- deployment files are a convenience
             pass
 
     return module_path

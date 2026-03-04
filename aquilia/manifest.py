@@ -7,7 +7,7 @@ Provides precise control over middleware, sessions, DI, lifecycle, and error han
 Architecture v2:
 - ComponentRef: Universal typed reference for all component kinds
 - ComponentKind: Enum for component classification
-- exports/imports: NestJS-style cross-module provider visibility
+- exports/imports: Cross-module provider visibility
 - auto_discover: Convention-over-configuration file scanning
 - guards/pipes/interceptors: First-class request pipeline components
 """
@@ -351,7 +351,7 @@ class AppManifest:
     Production-grade application manifest for complete app configuration.
     
     Architecture v2 additions:
-    - exports/imports: Cross-module provider visibility (NestJS-style)
+    - exports/imports: Cross-module provider visibility
     - guards/pipes/interceptors: First-class request pipeline components
     - auto_discover: Convention-over-configuration file scanning
     - All component lists accept Union[str, ComponentRef] for flexibility
@@ -374,7 +374,7 @@ class AppManifest:
     description: str = ""                 # Module description
     author: str = ""                      # Module author
     
-    # Component declarations — all accept str or ComponentRef
+    # Component declarations -- all accept str or ComponentRef
     services: List[Union[str, ServiceConfig, ComponentRef]] = field(default_factory=list)
     controllers: List[Union[str, ComponentRef]] = field(default_factory=list)
     socket_controllers: List[Union[str, ComponentRef]] = field(default_factory=list)
@@ -411,7 +411,7 @@ class AppManifest:
     # Feature flags
     features: List[FeatureConfig] = field(default_factory=list)
     
-    # v2: Cross-module dependency management (NestJS-style)
+    # v2: Cross-module dependency management
     exports: List[str] = field(default_factory=list)       # Services visible to importing modules
     imports: List[str] = field(default_factory=list)        # Modules this module depends on
     
@@ -428,7 +428,7 @@ class AppManifest:
         "controllers", "services", "middleware", "guards", "models"
     ])
     
-    # Legacy support (for backward compatibility — will emit warnings)
+    # Legacy support (for backward compatibility -- will emit warnings)
     middlewares: List[Tuple[str, dict]] = field(default_factory=list)  # Old format
     default_fault_domain: Optional[str] = None  # Old format
     on_startup: Optional[Callable] = None  # Old format
@@ -557,6 +557,6 @@ class AppManifest:
         return hashlib.sha256(data.encode()).hexdigest()[:16]
 
 
-# Legacy ManifestLoader removed — use aquilia.aquilary.ManifestLoader instead.
+# Legacy ManifestLoader removed -- use aquilia.aquilary.ManifestLoader instead.
 # The aquilary pipeline (loader → validator → graph → fingerprint → registry)
 # is the canonical manifest processing system.

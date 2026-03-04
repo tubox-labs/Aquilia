@@ -211,7 +211,7 @@ from .auth.integration.middleware import (
     create_auth_middleware_stack,
 )
 
-# Flow guards — re-enabled with FlowPipeline integration
+# Flow guards -- re-enabled with FlowPipeline integration
 from .auth.integration.flow_guards import (
     FlowGuard,
     RequireAuthGuard,
@@ -302,6 +302,54 @@ from .cache import (
     # Serializers
     JsonCacheSerializer,
     PickleCacheSerializer,
+)
+
+# ============================================================================
+# I18n (Internationalization)
+# ============================================================================
+
+from .i18n import (
+    # Locale
+    Locale,
+    parse_locale,
+    normalize_locale,
+    match_locale,
+    negotiate_locale,
+    # Catalog
+    TranslationCatalog,
+    MemoryCatalog,
+    FileCatalog,
+    NamespacedCatalog,
+    MergedCatalog,
+    # Plural
+    PluralCategory,
+    select_plural,
+    # Formatting
+    MessageFormatter,
+    format_message,
+    format_number,
+    format_currency,
+    format_date,
+    format_time,
+    format_datetime,
+    format_percent,
+    format_ordinal,
+    # Service
+    I18nService,
+    I18nConfig,
+    create_i18n_service,
+    # Lazy
+    LazyString,
+    lazy_t,
+    lazy_tn,
+    # Middleware
+    I18nMiddleware,
+    # Faults
+    I18nFault,
+    MissingTranslationFault,
+    InvalidLocaleFault,
+    CatalogLoadFault,
+    PluralRuleFault,
 )
 
 # ============================================================================
@@ -674,7 +722,7 @@ from .artifacts import (
 )
 
 # ============================================================================
-# Testing Framework (Django-style test infrastructure)
+# Testing Framework
 # ============================================================================
 
 try:
@@ -693,7 +741,7 @@ except ImportError:
     pass
 
 # ============================================================================
-# Admin System (AquilAdmin — Django-style auto-detecting admin)
+# Admin System (AquilAdmin -- auto-detecting admin)
 # ============================================================================
 
 from .admin import (
@@ -899,6 +947,41 @@ __all__ = [
     "HashKeyBuilder",
     "JsonCacheSerializer",
     "PickleCacheSerializer",
+    
+    # I18n
+    "Locale",
+    "parse_locale",
+    "normalize_locale",
+    "match_locale",
+    "negotiate_locale",
+    "TranslationCatalog",
+    "MemoryCatalog",
+    "FileCatalog",
+    "NamespacedCatalog",
+    "MergedCatalog",
+    "PluralCategory",
+    "select_plural",
+    "MessageFormatter",
+    "format_message",
+    "format_number",
+    "format_currency",
+    "format_date",
+    "format_time",
+    "format_datetime",
+    "format_percent",
+    "format_ordinal",
+    "I18nService",
+    "I18nConfig",
+    "create_i18n_service",
+    "LazyString",
+    "lazy_t",
+    "lazy_tn",
+    "I18nMiddleware",
+    "I18nFault",
+    "MissingTranslationFault",
+    "InvalidLocaleFault",
+    "CatalogLoadFault",
+    "PluralRuleFault",
     
     # Faults
     "Fault",

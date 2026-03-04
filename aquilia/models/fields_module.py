@@ -1,5 +1,5 @@
 """
-Aquilia Model Fields — Pure Python, Django-grade field system.
+Aquilia Model Fields -- Pure Python, production-grade field system.
 
 Every field is production-ready with full validation, SQL generation,
 and serialization. Aquilia fields use a unique descriptive API:
@@ -13,7 +13,7 @@ and serialization. Aquilia fields use a unique descriptive API:
         bio = Text(blank=True)
         joined = DateTime(auto_now_add=True)
 
-No $ prefixes, no AMDL — just clean, expressive Python.
+No $ prefixes, no AMDL -- just clean, expressive Python.
 """
 
 from __future__ import annotations
@@ -84,7 +84,7 @@ UNSET = _Unset()
 
 class Field:
     """
-    Base field descriptor — all Aquilia fields inherit from this.
+    Base field descriptor -- all Aquilia fields inherit from this.
 
     Core parameters (shared by every field):
         null        – Allow NULL in database (default False)
@@ -269,7 +269,7 @@ class Field:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# 🔢 NUMERIC FIELDS
+# NUMERIC FIELDS
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
@@ -322,7 +322,7 @@ class AutoField(Field):
 
 
 class BigAutoField(Field):
-    """Auto-incrementing 64-bit integer primary key (Django 3.2+ default)."""
+    """Auto-incrementing 64-bit integer primary key."""
 
     _field_type = "BIGAUTO"
     _python_type = int
@@ -616,14 +616,14 @@ class DecimalField(Field):
             except (TypeError, ValueError, decimal.InvalidOperation):
                 raise FieldValidationError(self.name, f"Expected decimal, got {type(value).__name__}")
 
-        # Check digits — correctly count whole and decimal parts
+        # Check digits -- correctly count whole and decimal parts
         sign, digits, exponent = value.as_tuple()
         if exponent >= 0:
-            # No decimal places — e.g. Decimal('123') has exponent=0, digits=(1,2,3)
+            # No decimal places -- e.g. Decimal('123') has exponent=0, digits=(1,2,3)
             whole_digits = len(digits) + exponent
             dec_digits = 0
         else:
-            # Negative exponent — e.g. Decimal('12.34') has exponent=-2
+            # Negative exponent -- e.g. Decimal('12.34') has exponent=-2
             dec_digits = abs(exponent)
             whole_digits = max(0, len(digits) - dec_digits)
 
@@ -669,12 +669,12 @@ class DecimalField(Field):
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# 🔤 TEXT / STRING FIELDS
+# TEXT / STRING FIELDS
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
 class CharField(Field):
-    """Short text field — requires max_length."""
+    """Short text field -- requires max_length."""
 
     _field_type = "CHAR"
     _python_type = str
@@ -716,7 +716,7 @@ class CharField(Field):
         if not isinstance(value, str):
             value = str(value)
         # blank=True allows empty/whitespace-only strings;
-        # blank=False rejects them (like Django)
+        # blank=False rejects them
         if not value.strip() and not self.blank:
             raise FieldValidationError(self.name, "Cannot be blank")
         if len(value) > self.max_length:
@@ -743,7 +743,7 @@ class VarcharField(CharField):
 
 
 class TextField(Field):
-    """Long text field — no length restriction."""
+    """Long text field -- no length restriction."""
 
     _field_type = "TEXT"
     _python_type = str
@@ -908,7 +908,7 @@ class URLField(CharField):
 
 
 class UUIDField(Field):
-    """UUID field — stored as VARCHAR(36) in database."""
+    """UUID field -- stored as VARCHAR(36) in database."""
 
     _field_type = "UUID"
     _python_type = uuid.UUID
@@ -1001,7 +1001,7 @@ class FilePathField(CharField):
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# 📅 DATE & TIME FIELDS
+# DATE & TIME FIELDS
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
@@ -1257,7 +1257,7 @@ class DateTimeField(Field):
 
 
 class DurationField(Field):
-    """Stores timedelta — as microseconds in database."""
+    """Stores timedelta -- as microseconds in database."""
 
     _field_type = "DURATION"
     _python_type = datetime.timedelta
@@ -1295,12 +1295,12 @@ class DurationField(Field):
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# ✅ BOOLEAN FIELDS
+# BOOLEAN FIELDS
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
 class BooleanField(Field):
-    """Boolean field — stored as INTEGER 0/1 in SQLite."""
+    """Boolean field -- stored as INTEGER 0/1 in SQLite."""
 
     _field_type = "BOOL"
     _python_type = bool
@@ -1338,12 +1338,12 @@ class BooleanField(Field):
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# 📦 BINARY / SPECIAL DATA FIELDS
+# BINARY / SPECIAL DATA FIELDS
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
 class BinaryField(Field):
-    """Binary data field — stored as BLOB."""
+    """Binary data field -- stored as BLOB."""
 
     _field_type = "BINARY"
     _python_type = bytes
@@ -1400,7 +1400,7 @@ class BinaryField(Field):
 
 
 class JSONField(Field):
-    """JSON data field — native on PostgreSQL, TEXT elsewhere."""
+    """JSON data field -- native on PostgreSQL, TEXT elsewhere."""
 
     _field_type = "JSON"
     _python_type = dict
@@ -1471,7 +1471,7 @@ class JSONField(Field):
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# 🔗 RELATIONSHIP FIELDS
+# RELATIONSHIP FIELDS
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
@@ -1638,7 +1638,7 @@ class ManyToManyField(RelationField):
     """
     Many-to-many relationship field.
 
-    Creates a junction table automatically. Not a real column — virtual.
+    Creates a junction table automatically. Not a real column -- virtual.
 
     Usage:
         class Post(Model):
@@ -1701,7 +1701,7 @@ class ManyToManyField(RelationField):
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# 📍 IP & NETWORK FIELDS
+# IP & NETWORK FIELDS
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
@@ -1765,12 +1765,12 @@ class GenericIPAddressField(Field):
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# 📁 FILE & MEDIA FIELDS
+# FILE & MEDIA FIELDS
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
 class FileField(CharField):
-    """File path/URL field — stores the path to the uploaded file."""
+    """File path/URL field -- stores the path to the uploaded file."""
 
     _field_type = "FILE"
 
@@ -1786,7 +1786,7 @@ class FileField(CharField):
 
 
 class ImageField(FileField):
-    """Image file field — extends FileField with image validation."""
+    """Image file field -- extends FileField with image validation."""
 
     _field_type = "IMAGE"
 
@@ -1803,7 +1803,7 @@ class ImageField(FileField):
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# 🧬 ADVANCED / POSTGRESQL-SPECIFIC FIELDS
+# ADVANCED / POSTGRESQL-SPECIFIC FIELDS
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
@@ -1998,18 +1998,18 @@ class CITextField(TextField):
 
 
 class InetAddressField(GenericIPAddressField):
-    """PostgreSQL INET field — stores IP address with optional netmask."""
+    """PostgreSQL INET field -- stores IP address with optional netmask."""
     _field_type = "INET"
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# 🧠 META / SPECIAL-PURPOSE FIELDS
+# META / SPECIAL-PURPOSE FIELDS
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
 class GeneratedField(Field):
     """
-    Database-computed generated field (Django 5+).
+    Database-computed generated field.
 
     The value is computed from an expression and stored (STORED)
     or computed on read (VIRTUAL).

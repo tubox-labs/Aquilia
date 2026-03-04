@@ -79,28 +79,73 @@
                 {% for col in list_display %}
                     {% set val = row[col]|default('—') %}
                     {% set raw_val = row.get('_raw_' ~ col) %}
+                    {% set str_val = val|string %}
                     {% if loop.first %}
                     <td class="cell-pk"><a href="{{ url_prefix|default('/admin') }}/{{ model_name|lower }}/{{ row.pk }}">{{ val }}</a></td>
                     {% elif raw_val is sameas true %}
                     <td class="cell-bool-true"><i class="icon-check-circle" style="font-size:15px;"></i> {{ val }}</td>
                     {% elif raw_val is sameas false %}
                     <td class="cell-bool-false"><i class="icon-x-circle" style="font-size:15px;"></i> {{ val }}</td>
+                    {% elif str_val.startswith(('http://', 'https://')) and str_val.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp', '.ico')) %}
+                    <td class="cell-media">
+                        <div class="media-thumb" onclick="showMediaPreview('{{ str_val }}', 'image')">
+                            <img src="{{ str_val }}" alt="{{ col }}" loading="lazy" onerror="this.parentElement.innerHTML='<i class=\'icon-image\' style=\'font-size:16px;color:var(--text-faint);\'></i>'">
+                        </div>
+                    </td>
+                    {% elif str_val.startswith(('http://', 'https://')) and str_val.lower().endswith('.pdf') %}
+                    <td class="cell-media">
+                        <a href="{{ str_val }}" target="_blank" class="media-file-badge media-file-pdf">
+                            <i class="icon-file-text" style="font-size:14px;"></i> PDF
+                        </a>
+                    </td>
+                    {% elif str_val.startswith(('http://', 'https://')) and str_val.lower().endswith(('.doc', '.docx')) %}
+                    <td class="cell-media">
+                        <a href="{{ str_val }}" target="_blank" class="media-file-badge media-file-doc">
+                            <i class="icon-file-text" style="font-size:14px;"></i> DOCX
+                        </a>
+                    </td>
+                    {% elif str_val.startswith(('http://', 'https://')) and str_val.lower().endswith(('.xls', '.xlsx', '.csv')) %}
+                    <td class="cell-media">
+                        <a href="{{ str_val }}" target="_blank" class="media-file-badge media-file-sheet">
+                            <i class="icon-file-spreadsheet" style="font-size:14px;"></i> Sheet
+                        </a>
+                    </td>
+                    {% elif str_val.startswith(('http://', 'https://')) and str_val.lower().endswith(('.mp4', '.webm', '.mov', '.avi')) %}
+                    <td class="cell-media">
+                        <a href="{{ str_val }}" target="_blank" class="media-file-badge media-file-video">
+                            <i class="icon-video" style="font-size:14px;"></i> Video
+                        </a>
+                    </td>
+                    {% elif str_val.startswith(('http://', 'https://')) and str_val.lower().endswith(('.mp3', '.wav', '.ogg', '.flac')) %}
+                    <td class="cell-media">
+                        <a href="{{ str_val }}" target="_blank" class="media-file-badge media-file-audio">
+                            <i class="icon-music" style="font-size:14px;"></i> Audio
+                        </a>
+                    </td>
+                    {% elif str_val.startswith(('http://', 'https://')) %}
+                    <td class="cell-url">
+                        <a href="{{ str_val }}" target="_blank" rel="noopener" class="cell-url-link">
+                            <i class="icon-external-link" style="font-size:11px;"></i>
+                            {{ str_val|truncate(40, True) }}
+                        </a>
+                    </td>
                     {% else %}
                     <td>{{ val }}</td>
                     {% endif %}
                 {% endfor %}
                 <td style="white-space:nowrap;">
-                    <a href="{{ url_prefix|default('/admin') }}/{{ model_name|lower }}/{{ row.pk }}" class="btn btn-sm btn-ghost" title="View / Edit">
+                    <a href="{{ url_prefix|default('/admin') }}/{{ model_name|lower }}/{{ row.pk }}" class="btn btn-sm btn-ghost" title="Edit">
                         <i class="icon-edit-3" style="font-size:13px;"></i>
                     </a>
-                    <button type="button" class="btn btn-sm btn-ghost" title="Duplicate" onclick="duplicateRecord('{{ row.pk }}')">
+                    <button type="button" class="btn btn-sm btn-ghost" title="Update" onclick="quickUpdate('{{ row.pk }}')">
+                        <i class="icon-refresh-cw" style="font-size:13px;"></i>
+                    </button>
+                    <button type="button" class="btn btn-sm btn-ghost" title="Duplicate" onclick="showConfirmModal('Duplicate record #{{ row.pk }}?', 'This will create an exact copy of this record.', function(){ doDuplicate('{{ row.pk }}'); })">
                         <i class="icon-copy" style="font-size:13px;"></i>
                     </button>
-                    <form method="POST" action="{{ url_prefix|default('/admin') }}/{{ model_name|lower }}/{{ row.pk }}/delete" style="display:inline;" onsubmit="return confirm('Delete record #{{ row.pk }}? This cannot be undone.');">
-                        <button type="submit" class="btn btn-sm btn-ghost" title="Delete" style="color:var(--danger);">
-                            <i class="icon-trash-2" style="font-size:13px;"></i>
-                        </button>
-                    </form>
+                    <button type="button" class="btn btn-sm btn-ghost" title="Delete" style="color:var(--danger);" onclick="showConfirmModal('Delete record #{{ row.pk }}?', 'This action cannot be undone. The record will be permanently removed.', function(){ doDelete('{{ row.pk }}'); }, true)">
+                        <i class="icon-trash-2" style="font-size:13px;"></i>
+                    </button>
                 </td>
             </tr>
         {% else %}
@@ -122,29 +167,149 @@
 {% endblock %}
 
 {% block extra_js %}
-// ── Live Search (debounced, optimized) ──────────────────────────────
+// ── URL constants (single source of truth) ──────────────────────────
+var BASE_URL = '{{ url_prefix|default("/admin") }}/{{ model_name|lower }}';
+
+// ── Live Search (AJAX, no page refresh) ─────────────────────────────
 (function() {
     var input = document.getElementById('liveSearchInput');
     var spinner = document.getElementById('searchSpinner');
-    if (!input) return;
+    var resultCount = document.getElementById('resultCount');
+    var tbody = document.getElementById('recordsBody');
+    if (!input || !tbody) return;
 
     var debounceTimer = null;
-    var DEBOUNCE_MS = 400;
+    var DEBOUNCE_MS = 350;
     var lastQuery = input.value.trim();
+    var listDisplay = {{ list_display|tojson }};
+
+    function escapeHtml(s) {
+        if (s == null) return '';
+        var div = document.createElement('div');
+        div.textContent = String(s);
+        return div.innerHTML;
+    }
+
+    var IMG_EXTS = /\.(png|jpg|jpeg|gif|webp|svg|bmp|ico)$/i;
+    var PDF_EXT = /\.pdf$/i;
+    var DOC_EXTS = /\.(doc|docx)$/i;
+    var SHEET_EXTS = /\.(xls|xlsx|csv)$/i;
+    var VIDEO_EXTS = /\.(mp4|webm|mov|avi)$/i;
+    var AUDIO_EXTS = /\.(mp3|wav|ogg|flac)$/i;
+    var URL_RE = /^https?:\/\//i;
+
+    function renderCellValue(val, col, isFirst, row) {
+        var pk = row.pk || row.id || '';
+        var display = (val === null || val === undefined) ? '—' : String(val);
+        var rawKey = '_raw_' + col;
+        if (isFirst) {
+            return '<td class="cell-pk"><a href="' + BASE_URL + '/' + encodeURIComponent(pk) + '">' + escapeHtml(display) + '</a></td>';
+        }
+        if (row[rawKey] === true) {
+            return '<td class="cell-bool-true"><i class="icon-check-circle" style="font-size:15px;"></i> ' + escapeHtml(display) + '</td>';
+        }
+        if (row[rawKey] === false) {
+            return '<td class="cell-bool-false"><i class="icon-x-circle" style="font-size:15px;"></i> ' + escapeHtml(display) + '</td>';
+        }
+        if (URL_RE.test(display)) {
+            if (IMG_EXTS.test(display)) {
+                return '<td class="cell-media"><div class="media-thumb" onclick="showMediaPreview(\'' + escapeHtml(display) + '\', \'image\')"><img src="' + escapeHtml(display) + '" alt="' + escapeHtml(col) + '" loading="lazy" onerror="this.parentElement.innerHTML=\'<i class=\\\'icon-image\\\' style=\\\'font-size:16px;color:var(--text-faint);\\\'></i>\'"></div></td>';
+            }
+            if (PDF_EXT.test(display)) {
+                return '<td class="cell-media"><a href="' + escapeHtml(display) + '" target="_blank" class="media-file-badge media-file-pdf"><i class="icon-file-text" style="font-size:14px;"></i> PDF</a></td>';
+            }
+            if (DOC_EXTS.test(display)) {
+                return '<td class="cell-media"><a href="' + escapeHtml(display) + '" target="_blank" class="media-file-badge media-file-doc"><i class="icon-file-text" style="font-size:14px;"></i> DOCX</a></td>';
+            }
+            if (SHEET_EXTS.test(display)) {
+                return '<td class="cell-media"><a href="' + escapeHtml(display) + '" target="_blank" class="media-file-badge media-file-sheet"><i class="icon-file-spreadsheet" style="font-size:14px;"></i> Sheet</a></td>';
+            }
+            if (VIDEO_EXTS.test(display)) {
+                return '<td class="cell-media"><a href="' + escapeHtml(display) + '" target="_blank" class="media-file-badge media-file-video"><i class="icon-video" style="font-size:14px;"></i> Video</a></td>';
+            }
+            if (AUDIO_EXTS.test(display)) {
+                return '<td class="cell-media"><a href="' + escapeHtml(display) + '" target="_blank" class="media-file-badge media-file-audio"><i class="icon-music" style="font-size:14px;"></i> Audio</a></td>';
+            }
+            // Generic URL
+            var truncUrl = display.length > 40 ? display.substring(0, 37) + '...' : display;
+            return '<td class="cell-url"><a href="' + escapeHtml(display) + '" target="_blank" rel="noopener" class="cell-url-link"><i class="icon-external-link" style="font-size:11px;"></i> ' + escapeHtml(truncUrl) + '</a></td>';
+        }
+        return '<td>' + escapeHtml(display) + '</td>';
+    }
+
+    function buildRow(row) {
+        var pk = row.pk || row.id || '';
+        var html = '<tr data-pk="' + escapeHtml(pk) + '">';
+        html += '<td><input type="checkbox" class="row-check" value="' + escapeHtml(pk) + '" onchange="updateBulkBar()" aria-label="Select row"></td>';
+        listDisplay.forEach(function(col, idx) {
+            html += renderCellValue(row[col], col, idx === 0, row);
+        });
+        html += '<td style="white-space:nowrap;">';
+        html += '<a href="' + BASE_URL + '/' + encodeURIComponent(pk) + '" class="btn btn-sm btn-ghost" title="Edit"><i class="icon-edit-3" style="font-size:13px;"></i></a>';
+        html += '<button type="button" class="btn btn-sm btn-ghost" title="Update" onclick="quickUpdate(\'' + escapeHtml(pk) + '\')"><i class="icon-refresh-cw" style="font-size:13px;"></i></button>';
+        html += '<button type="button" class="btn btn-sm btn-ghost" title="Duplicate" onclick="showConfirmModal(\'Duplicate record #' + escapeHtml(pk) + '?\', \'This will create an exact copy.\', function(){ doDuplicate(\'' + escapeHtml(pk) + '\'); })"><i class="icon-copy" style="font-size:13px;"></i></button>';
+        html += '<button type="button" class="btn btn-sm btn-ghost" title="Delete" style="color:var(--danger);" onclick="showConfirmModal(\'Delete record #' + escapeHtml(pk) + '?\', \'This action cannot be undone.\', function(){ doDelete(\'' + escapeHtml(pk) + '\'); }, true)"><i class="icon-trash-2" style="font-size:13px;"></i></button>';
+        html += '</td></tr>';
+        return html;
+    }
+
+    function doSearch(q) {
+        spinner.style.display = 'inline';
+        var url = BASE_URL + '/search?q=' + encodeURIComponent(q);
+        fetch(url)
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                spinner.style.display = 'none';
+                // Update URL without reload
+                var newUrl = q ? BASE_URL + '/?q=' + encodeURIComponent(q) : BASE_URL + '/';
+                history.replaceState(null, '', newUrl);
+
+                // Render rows
+                if (data.rows && data.rows.length) {
+                    var rowsHtml = '';
+                    data.rows.forEach(function(row) { rowsHtml += buildRow(row); });
+                    tbody.innerHTML = rowsHtml;
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="' + (listDisplay.length + 2) + '" class="empty-state">' +
+                        '<i class="icon-inbox" style="font-size:28px;display:block;margin-bottom:8px;opacity:0.3;"></i>No records found</td></tr>';
+                }
+
+                // Update count
+                var total = data.total || 0;
+                resultCount.textContent = total + ' result' + (total !== 1 ? 's' : '');
+                var recCount = document.querySelector('.record-count');
+                if (recCount) recCount.textContent = total + ' record(s) found';
+
+                // Update pagination
+                var pagContainer = document.querySelector('.pagination');
+                if (pagContainer && data.total_pages !== undefined) {
+                    if (data.total_pages <= 1) {
+                        pagContainer.style.display = 'none';
+                    } else {
+                        pagContainer.style.display = '';
+                    }
+                }
+
+                // Reset bulk bar
+                var bar = document.getElementById('bulkActionsBar');
+                if (bar) bar.style.display = 'none';
+                var selectAll = document.getElementById('selectAllCb');
+                if (selectAll) { selectAll.checked = false; selectAll.indeterminate = false; }
+            })
+            .catch(function() {
+                spinner.style.display = 'none';
+            });
+    }
 
     input.addEventListener('input', function() {
         var q = input.value.trim();
         if (q === lastQuery) return;
         clearTimeout(debounceTimer);
-
-        // Don't search for single character — wait for 2+
         if (q.length === 1) return;
         spinner.style.display = 'inline';
-
         debounceTimer = setTimeout(function() {
             lastQuery = q;
-            var url = '{{ url_prefix|default("/admin") }}/{{ model_name|lower }}/' + (q ? '?q=' + encodeURIComponent(q) : '');
-            window.location.href = url;
+            doSearch(q);
         }, DEBOUNCE_MS);
     });
 
@@ -189,10 +354,16 @@ function toggleAll(source) {
 
 function confirmBulkAction() {
     var sel = document.querySelector('#bulkActionForm select[name="action"]');
-    if (!sel.value) { alert('Please select an action first.'); return false; }
+    if (!sel.value) { showToast('Please select an action first.', 'warning'); return false; }
     var count = document.querySelectorAll('.row-check:checked').length;
-    if (!count) { alert('No records selected.'); return false; }
-    return confirm('Execute "' + sel.options[sel.selectedIndex].text + '" on ' + count + ' record(s)?');
+    if (!count) { showToast('No records selected.', 'warning'); return false; }
+    var actionLabel = sel.options[sel.selectedIndex].text;
+    showConfirmModal(
+        'Execute "' + actionLabel + '"?',
+        'This action will be applied to ' + count + ' selected record(s).',
+        function() { document.getElementById('bulkActionForm').submit(); }
+    );
+    return false;
 }
 
 // ── Export dropdown ─────────────────────────────────────────────────
@@ -228,15 +399,94 @@ function sortColumn(col) {
 // ── Keyboard shortcuts ──────────────────────────────────────────────
 document.addEventListener('keydown', function(e) {
     if (['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName)) return;
-    if (e.key === 'n') window.location.href = '{{ url_prefix|default("/admin") }}/{{ model_name|lower }}/add';
+    // 'n' — new record (only without modifier keys to avoid conflicts)
+    if (e.key === 'n' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        window.location.href = BASE_URL + '/add';
+    }
+    // j/k — navigate rows
+    if (e.key === 'j' || e.key === 'k') {
+        var rows = Array.from(document.querySelectorAll('#recordsBody tr[data-pk]'));
+        if (!rows.length) return;
+        var current = document.querySelector('#recordsBody tr.row-focused');
+        var idx = current ? rows.indexOf(current) : -1;
+        if (e.key === 'j') idx = Math.min(rows.length - 1, idx + 1);
+        else idx = Math.max(0, idx - 1);
+        rows.forEach(function(r) { r.classList.remove('row-focused'); r.style.background = ''; });
+        rows[idx].classList.add('row-focused');
+        rows[idx].style.background = 'var(--accent-subtle)';
+        rows[idx].scrollIntoView({ block: 'nearest' });
+    }
+    // Enter — open focused row
+    if (e.key === 'Enter') {
+        var focused = document.querySelector('#recordsBody tr.row-focused');
+        if (focused) {
+            var pk = focused.getAttribute('data-pk');
+            if (pk) window.location.href = BASE_URL + '/' + pk;
+        }
+    }
 });
 
-// ── Inline duplicate via bulk action ────────────────────────────────
-function duplicateRecord(pk) {
-    if (!confirm('Duplicate record #' + pk + '?')) return;
+// ── Custom Confirmation Modal (replaces browser confirm/alert) ──────
+function showConfirmModal(title, message, onConfirm, isDanger) {
+    var existing = document.getElementById('confirm-modal-overlay');
+    if (existing) existing.remove();
+
+    var isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+    var overlay = document.createElement('div');
+    overlay.id = 'confirm-modal-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:' + (isDark ? 'rgba(0,0,0,0.65)' : 'rgba(0,0,0,0.35)') + ';z-index:10003;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);animation:fadeIn 0.15s ease;';
+
+    var box = document.createElement('div');
+    box.style.cssText = 'background:' + (isDark ? 'var(--bg-elevated)' : '#fff') + ';border:1px solid var(--border-color);border-radius:14px;padding:28px 32px;max-width:420px;width:90%;box-shadow:0 24px 64px rgba(0,0,0,0.4);animation:scaleIn 0.15s ease;';
+
+    var iconColor = isDanger ? 'var(--danger)' : 'var(--accent)';
+    var iconName = isDanger ? 'alert-triangle' : 'help-circle';
+
+    box.innerHTML =
+        '<div style="display:flex;align-items:flex-start;gap:14px;">' +
+            '<div style="width:40px;height:40px;border-radius:10px;background:' + (isDanger ? 'rgba(239,68,68,0.1)' : 'rgba(34,197,94,0.1)') + ';display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
+                '<i class="icon-' + iconName + '" style="font-size:20px;color:' + iconColor + ';"></i>' +
+            '</div>' +
+            '<div style="flex:1;">' +
+                '<h3 style="margin:0 0 6px;font-size:0.95rem;font-weight:600;color:var(--text-primary);">' + title + '</h3>' +
+                '<p style="margin:0;font-size:0.82rem;color:var(--text-secondary);line-height:1.5;">' + message + '</p>' +
+            '</div>' +
+        '</div>' +
+        '<div style="display:flex;gap:10px;justify-content:flex-end;margin-top:24px;padding-top:18px;border-top:1px solid var(--border-subtle);">' +
+            '<button id="modal-cancel-btn" style="padding:8px 20px;border-radius:8px;border:1px solid var(--border-color);background:var(--bg-surface);color:var(--text-secondary);font-size:0.82rem;font-weight:500;cursor:pointer;font-family:var(--font-sans);transition:all 0.15s;">Cancel</button>' +
+            '<button id="modal-confirm-btn" style="padding:8px 20px;border-radius:8px;border:none;background:' + (isDanger ? 'var(--danger)' : 'var(--accent)') + ';color:' + (isDanger ? '#fff' : '#000') + ';font-size:0.82rem;font-weight:600;cursor:pointer;font-family:var(--font-sans);transition:all 0.15s;">Confirm</button>' +
+        '</div>';
+
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+
+    overlay.querySelector('#modal-cancel-btn').onclick = function() { overlay.remove(); };
+    overlay.querySelector('#modal-confirm-btn').onclick = function() {
+        overlay.remove();
+        if (onConfirm) onConfirm();
+    };
+    overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
+    document.addEventListener('keydown', function handler(e) {
+        if (e.key === 'Escape') { overlay.remove(); document.removeEventListener('keydown', handler); }
+    });
+    // Focus confirm button for keyboard accessibility
+    overlay.querySelector('#modal-confirm-btn').focus();
+}
+
+// ── Delete via custom modal ─────────────────────────────────────────
+function doDelete(pk) {
     var form = document.createElement('form');
     form.method = 'POST';
-    form.action = '{{ url_prefix|default("/admin") }}/{{ model_name|lower }}/action';
+    form.action = BASE_URL + '/' + pk + '/delete';
+    document.body.appendChild(form);
+    form.submit();
+}
+
+// ── Duplicate via custom modal ──────────────────────────────────────
+function doDuplicate(pk) {
+    var form = document.createElement('form');
+    form.method = 'POST';
+    form.action = BASE_URL + '/action';
     var actionInput = document.createElement('input');
     actionInput.type = 'hidden'; actionInput.name = 'action'; actionInput.value = 'duplicate_selected';
     form.appendChild(actionInput);
@@ -245,6 +495,11 @@ function duplicateRecord(pk) {
     form.appendChild(selectedInput);
     document.body.appendChild(form);
     form.submit();
+}
+
+// ── Quick Update (redirects to edit form) ───────────────────────────
+function quickUpdate(pk) {
+    window.location.href = BASE_URL + '/' + pk;
 }
 
 // ── Dropdown CSS injection ──────────────────────────────────────────

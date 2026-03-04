@@ -1,5 +1,5 @@
 """
-Aquilia DB Backend — SQLite adapter via aiosqlite.
+Aquilia DB Backend -- SQLite adapter via aiosqlite.
 
 This is the default backend. It wraps aiosqlite and implements
 the full DatabaseAdapter interface including introspection.
@@ -28,7 +28,7 @@ logger = logging.getLogger("aquilia.db.backends.sqlite")
 
 __all__ = ["SQLiteAdapter"]
 
-# Savepoint name validation — prevent SQL injection
+# Savepoint name validation -- prevent SQL injection
 _SP_NAME_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
 
 
@@ -82,7 +82,6 @@ class SQLiteAdapter(DatabaseAdapter):
             await self._connection.execute("PRAGMA foreign_keys=ON")
             self._connection.row_factory = aiosqlite.Row
             self._connected = True
-            logger.info(f"SQLite connected: {db_path}")
 
     async def disconnect(self) -> None:
         if not self._connected:
@@ -92,7 +91,7 @@ class SQLiteAdapter(DatabaseAdapter):
                 await self._connection.close()
                 self._connection = None
             self._connected = False
-            logger.info("SQLite disconnected")
+            logger.debug("SQLite disconnected")
 
     async def execute(self, sql: str, params: Optional[Sequence[Any]] = None) -> Any:
         if not self._connected:

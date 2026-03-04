@@ -1,5 +1,5 @@
 """
-Aquilia Blueprints — first-class model↔world contracts.
+Aquilia Blueprints -- first-class model↔world contracts.
 
 A Blueprint declares the contract between a Model and the outside world:
 what the world sees (Facets), named subsets (Projections), how data

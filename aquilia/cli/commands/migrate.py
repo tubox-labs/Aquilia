@@ -1,6 +1,6 @@
 """Legacy project migration command.
 
-Scans a Django-style / flat-file project layout and converts it to
+Scans a legacy flat-file project layout and converts it to
 the Aquilia workspace structure:
   - Detects app directories with views.py / urls.py
   - Creates modules/ with manifest.py for each detected app
@@ -24,7 +24,7 @@ def migrate_legacy(
     verbose: bool = False,
 ) -> MigrationResult:
     """
-    Migrate from Django-style layout to Aquilia workspace.
+    Migrate from legacy layout to Aquilia workspace.
 
     Looks for directories containing views.py / urls.py and treats them
     as candidate modules.
@@ -50,7 +50,7 @@ def migrate_legacy(
             candidates.append(child)
 
     if not candidates:
-        result.changes.append("No Django-style app directories detected (no views.py/urls.py found)")
+        result.changes.append("No legacy app directories detected (no views.py/urls.py found)")
         return result
 
     # Ensure modules/ directory

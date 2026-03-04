@@ -1,5 +1,5 @@
 """
-Model Persistence System — Robust loading and saving for production models.
+Model Persistence System -- Robust loading and saving for production models.
 
 Provides abstractions and implementations for serializing model weights,
 metadata, and runtime state across restarts.

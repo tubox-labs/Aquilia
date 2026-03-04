@@ -1,0 +1,1075 @@
+{% extends "base.html" %}
+{% block title %}Monitoring{% endblock %}
+{% block breadcrumb %}Monitoring{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<style>
+/* ── Monitoring-specific styles ── */
+.mon-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(155px, 1fr));
+    gap: 14px;
+    margin-bottom: 28px;
+}
+.mon-stat-card {
+    background: var(--bg-glass);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    padding: 18px 16px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.25s var(--ease), transform 0.18s var(--ease), box-shadow 0.25s var(--ease);
+}
+.mon-stat-card:hover {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 32px rgba(34,197,94,0.08);
+}
+.mon-stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    border-radius: var(--radius) var(--radius) 0 0;
+    opacity: 0.8;
+}
+.mon-stat-card[data-color="green"]::before { background: linear-gradient(90deg, #22c55e, #16a34a); }
+.mon-stat-card[data-color="blue"]::before { background: linear-gradient(90deg, #3b82f6, #2563eb); }
+.mon-stat-card[data-color="amber"]::before { background: linear-gradient(90deg, #f59e0b, #d97706); }
+.mon-stat-card[data-color="purple"]::before { background: linear-gradient(90deg, #a855f7, #7c3aed); }
+.mon-stat-card[data-color="cyan"]::before { background: linear-gradient(90deg, #06b6d4, #0891b2); }
+.mon-stat-card[data-color="rose"]::before { background: linear-gradient(90deg, #f43f5e, #e11d48); }
+.mon-stat-card[data-color="teal"]::before { background: linear-gradient(90deg, #14b8a6, #0d9488); }
+.mon-stat-value {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1.2;
+    margin-bottom: 4px;
+    font-variant-numeric: tabular-nums;
+    transition: color 0.3s;
+}
+.mon-stat-label {
+    font-size: 0.7rem;
+    color: var(--text-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    font-weight: 500;
+}
+.mon-stat-sub {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    margin-top: 2px;
+    font-variant-numeric: tabular-nums;
+}
+.mon-chart-card {
+    background: var(--bg-glass);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    padding: 20px;
+    transition: border-color 0.2s var(--ease), box-shadow 0.2s var(--ease);
+}
+.mon-chart-card:hover {
+    box-shadow: 0 0 0 1px rgba(34,197,94,0.06), 0 4px 24px rgba(0,0,0,0.15);
+}
+.mon-chart-title {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.mon-chart-title .mon-badge {
+    font-size: 0.6rem;
+    padding: 2px 8px;
+    border-radius: var(--radius-full);
+    font-weight: 500;
+}
+.mon-chart-wrap { position: relative; width: 100%; }
+.mon-chart-wrap canvas { width: 100% !important; }
+.mon-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px; }
+.mon-grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-bottom: 24px; }
+.mon-grid-4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
+.mon-info-table { width: 100%; font-size: 0.75rem; border-collapse: collapse; }
+.mon-info-table tr { transition: background 0.15s; }
+.mon-info-table tr:hover { background: var(--bg-surface-hover); }
+.mon-info-table td { padding: 6px 0; border-bottom: 1px solid var(--border-subtle); }
+.mon-info-table td:first-child { color: var(--text-faint); white-space: nowrap; padding-right: 12px; }
+.mon-info-table td:last-child { color: var(--text-primary); text-align: right; font-variant-numeric: tabular-nums; }
+.mon-info-table tr:last-child td { border-bottom: none; }
+.mon-live-dot {
+    display: inline-block;
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--accent);
+    margin-right: 6px;
+    animation: monPulse 2s ease-in-out infinite;
+}
+@keyframes monPulse {
+    0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(34,197,94,0.5); }
+    50% { opacity: 0.7; box-shadow: 0 0 0 6px rgba(34,197,94,0); }
+}
+.mon-health-card {
+    background: var(--bg-glass);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    padding: 18px;
+    transition: border-color 0.2s, transform 0.15s;
+}
+.mon-health-card:hover { transform: translateY(-1px); }
+.mon-health-card[data-status="healthy"] { border-left: 3px solid #22c55e; }
+.mon-health-card[data-status="degraded"] { border-left: 3px solid #f59e0b; }
+.mon-health-card[data-status="unhealthy"] { border-left: 3px solid #ef4444; }
+.mon-health-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+    flex-shrink: 0;
+}
+.mon-health-dot.healthy { background: #22c55e; box-shadow: 0 0 8px rgba(34,197,94,0.5); }
+.mon-health-dot.degraded { background: #f59e0b; box-shadow: 0 0 8px rgba(245,158,11,0.5); }
+.mon-health-dot.unhealthy { background: #ef4444; box-shadow: 0 0 8px rgba(239,68,68,0.5); }
+.mon-conn-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 12px;
+}
+.mon-conn-item {
+    padding: 14px 8px;
+    background: var(--bg-surface);
+    border-radius: var(--radius-sm);
+    text-align: center;
+    border: 1px solid var(--border-subtle);
+    transition: border-color 0.2s, background 0.2s;
+}
+.mon-conn-item:hover { border-color: var(--accent); background: var(--accent-subtle); }
+.mon-conn-value { font-size: 1.2rem; font-weight: 700; color: var(--text-primary); }
+.mon-conn-label { font-size: 0.62rem; color: var(--text-faint); margin-top: 2px; text-transform: uppercase; letter-spacing: 0.5px; }
+.mon-progress-bar {
+    width: 60px; height: 6px;
+    background: var(--bg-surface);
+    border-radius: 3px;
+    overflow: hidden;
+    display: inline-block;
+    vertical-align: middle;
+}
+.mon-progress-fill { height: 100%; border-radius: 3px; transition: width 0.6s var(--ease); }
+.mon-env-key { color: var(--accent); font-family: var(--font-mono); font-size: 0.68rem; word-break: break-all; vertical-align: top; padding: 4px 8px 4px 0; }
+.mon-env-val { color: var(--text-primary); font-family: var(--font-mono); font-size: 0.68rem; word-break: break-all; padding: 4px 0; }
+.mon-alert-strip {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    border-radius: var(--radius-sm);
+    font-size: 0.78rem;
+    margin-bottom: 16px;
+    border: 1px solid;
+}
+.mon-alert-strip.ok { background: var(--success-subtle); border-color: rgba(34,197,94,0.2); color: #22c55e; }
+.mon-alert-strip.warn { background: var(--warning-subtle); border-color: rgba(245,158,11,0.2); color: #f59e0b; }
+.mon-alert-strip.crit { background: var(--danger-subtle); border-color: rgba(239,68,68,0.2); color: #ef4444; }
+.mon-gc-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 0.72rem; }
+.mon-gc-label { width: 80px; color: var(--text-faint); flex-shrink: 0; }
+.mon-gc-track { flex: 1; height: 8px; background: var(--bg-surface); border-radius: 4px; overflow: hidden; }
+.mon-gc-fill { height: 100%; border-radius: 4px; transition: width 0.6s var(--ease); }
+.mon-gc-count { width: 60px; text-align: right; font-variant-numeric: tabular-nums; color: var(--text-secondary); font-family: var(--font-mono); font-size: 0.68rem; }
+@media (max-width: 768px) {
+    .mon-grid-2 { grid-template-columns: 1fr; }
+    .mon-stats-grid { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+        <div>
+            <h1 style="display:flex;align-items:center;gap:10px;">
+                Application Monitoring
+                <span style="font-size:0.55rem;padding:3px 10px;border-radius:var(--radius-full);background:var(--accent-subtle);color:var(--accent);font-weight:500;vertical-align:middle;">LIVE</span>
+            </h1>
+            <p>Real-time system metrics, resource utilisation, and health diagnostics for this Aquilia instance.</p>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;">
+            <span style="font-size:0.72rem;color:var(--text-faint);" id="pollStatus">
+                <span class="mon-live-dot"></span>Polling every 3s
+            </span>
+            <button class="btn-ghost" style="font-size:0.72rem;padding:4px 12px;border:1px solid var(--border-color);border-radius:var(--radius-sm);" onclick="togglePolling()" id="pollToggle">
+                <i class="icon-pause" style="font-size:12px;vertical-align:-1px;margin-right:4px;" id="pollIcon"></i>Pause
+            </button>
+        </div>
+    </div>
+</div>
+
+{# ── Alert Strip — dynamic threshold alerts ── #}
+<div id="monAlertStrip" style="display:none;"></div>
+
+{# ── Stats Row ── #}
+<div class="mon-stats-grid">
+    <div class="mon-stat-card" data-color="green">
+        <div class="mon-stat-value" id="statCpu">{{ monitoring.cpu.percent|default(0)|round(1) }}%</div>
+        <div class="mon-stat-label">CPU Usage</div>
+        <div class="mon-stat-sub" id="statCpuSub">{{ monitoring.cpu.cores_logical|default(0) }} cores</div>
+    </div>
+    <div class="mon-stat-card" data-color="blue">
+        <div class="mon-stat-value" id="statMem">{{ monitoring.memory.percent|default(0)|round(1) }}%</div>
+        <div class="mon-stat-label">Memory</div>
+        <div class="mon-stat-sub" id="statMemSub">{{ monitoring.memory.used_human|default('—') }} / {{ monitoring.memory.total_human|default('—') }}</div>
+    </div>
+    <div class="mon-stat-card" data-color="amber">
+        <div class="mon-stat-value" id="statDisk">{{ monitoring.disk.percent|default(0)|round(1) }}%</div>
+        <div class="mon-stat-label">Disk</div>
+        <div class="mon-stat-sub" id="statDiskSub">{{ monitoring.disk.used_human|default('—') }} / {{ monitoring.disk.total_human|default('—') }}</div>
+    </div>
+    <div class="mon-stat-card" data-color="purple">
+        <div class="mon-stat-value" id="statThreads">{{ monitoring.process.threads|default(0) }}</div>
+        <div class="mon-stat-label">Threads</div>
+        <div class="mon-stat-sub">PID {{ monitoring.process.pid|default('—') }}</div>
+    </div>
+    <div class="mon-stat-card" data-color="cyan">
+        <div class="mon-stat-value" id="statRSS">{{ monitoring.process.rss_human|default('—') }}</div>
+        <div class="mon-stat-label">Process RSS</div>
+        <div class="mon-stat-sub" id="statMemPct">{{ monitoring.process.mem_percent|default(0)|round(2) }}% of system</div>
+    </div>
+    <div class="mon-stat-card" data-color="teal">
+        <div class="mon-stat-value" id="statGC">{{ monitoring.python.gc_objects|default(0) }}</div>
+        <div class="mon-stat-label">GC Objects</div>
+        <div class="mon-stat-sub" id="statGCSub">{{ monitoring.python.gc_gen0|default(0) }} gen0 collections</div>
+    </div>
+    <div class="mon-stat-card" data-color="rose">
+        <div class="mon-stat-value" id="statUptime">{{ monitoring.process.uptime_human|default('—') }}</div>
+        <div class="mon-stat-label">Uptime</div>
+        <div class="mon-stat-sub">{{ monitoring.process.status|default('—') }}</div>
+    </div>
+</div>
+
+{# ── Tabs ── #}
+<div class="tab-nav" data-tab-group="mon">
+    <button class="tab-btn active" data-tab="overview" onclick="switchTab('mon','overview')">
+        <i class="icon-activity" style="font-size:14px;vertical-align:-2px;margin-right:4px;"></i>Overview
+    </button>
+    <button class="tab-btn" data-tab="cpu" onclick="switchTab('mon','cpu')">
+        <i class="icon-cpu" style="font-size:14px;vertical-align:-2px;margin-right:4px;"></i>CPU
+    </button>
+    <button class="tab-btn" data-tab="memory" onclick="switchTab('mon','memory')">
+        <i class="icon-hard-drive" style="font-size:14px;vertical-align:-2px;margin-right:4px;"></i>Memory
+    </button>
+    <button class="tab-btn" data-tab="network" onclick="switchTab('mon','network')">
+        <i class="icon-wifi" style="font-size:14px;vertical-align:-2px;margin-right:4px;"></i>Network
+    </button>
+    <button class="tab-btn" data-tab="process" onclick="switchTab('mon','process')">
+        <i class="icon-terminal" style="font-size:14px;vertical-align:-2px;margin-right:4px;"></i>Process
+    </button>
+    <button class="tab-btn" data-tab="gc" onclick="switchTab('mon','gc')">
+        <i class="icon-recycle" style="font-size:14px;vertical-align:-2px;margin-right:4px;"></i>GC &amp; Runtime
+    </button>
+    <button class="tab-btn" data-tab="health" onclick="switchTab('mon','health')">
+        <i class="icon-heart" style="font-size:14px;vertical-align:-2px;margin-right:4px;"></i>Health
+    </button>
+</div>
+
+{# ═══════════════════════════════════════════════════════════════════ #}
+{# ── TAB 1: Overview — live line charts + gauges + system info    ── #}
+{# ═══════════════════════════════════════════════════════════════════ #}
+<div class="tab-content active" data-tab-content="mon" data-tab="overview">
+    <div class="section-label">Live Metrics <span style="font-size:0.62rem;color:var(--text-faint);font-weight:400;margin-left:6px;">60-second rolling window</span></div>
+
+    {# ── 2-column live charts ── #}
+    <div class="mon-grid-2">
+        <div class="mon-chart-card">
+            <div class="mon-chart-title">
+                CPU History
+                <span class="mon-badge" style="background:var(--success-subtle);color:var(--accent);" id="cpuBadge">{{ monitoring.cpu.percent|default(0)|round(1) }}%</span>
+            </div>
+            <div class="mon-chart-wrap" style="height:220px;"><canvas id="chartCpuHistory"></canvas></div>
+        </div>
+        <div class="mon-chart-card">
+            <div class="mon-chart-title">
+                Memory History
+                <span class="mon-badge" style="background:var(--info-subtle);color:var(--info);" id="memBadge">{{ monitoring.memory.percent|default(0)|round(1) }}%</span>
+            </div>
+            <div class="mon-chart-wrap" style="height:220px;"><canvas id="chartMemHistory"></canvas></div>
+        </div>
+    </div>
+
+    {# ── 4-column gauge row ── #}
+    <div class="section-label">Resource Gauges</div>
+    <div class="mon-grid-4">
+        <div class="mon-chart-card" style="text-align:center;">
+            <div class="mon-chart-wrap" style="height:160px;"><canvas id="gaugeCpu"></canvas></div>
+            <div style="font-size:0.72rem;color:var(--text-faint);margin-top:4px;">CPU</div>
+        </div>
+        <div class="mon-chart-card" style="text-align:center;">
+            <div class="mon-chart-wrap" style="height:160px;"><canvas id="gaugeMem"></canvas></div>
+            <div style="font-size:0.72rem;color:var(--text-faint);margin-top:4px;">Memory</div>
+        </div>
+        <div class="mon-chart-card" style="text-align:center;">
+            <div class="mon-chart-wrap" style="height:160px;"><canvas id="gaugeDisk"></canvas></div>
+            <div style="font-size:0.72rem;color:var(--text-faint);margin-top:4px;">Disk</div>
+        </div>
+        <div class="mon-chart-card" style="text-align:center;">
+            <div class="mon-chart-wrap" style="height:160px;"><canvas id="gaugeSwap"></canvas></div>
+            <div style="font-size:0.72rem;color:var(--text-faint);margin-top:4px;">Swap</div>
+        </div>
+    </div>
+
+    {# ── System Information ── #}
+    <div class="section-label">System Information</div>
+    <div class="mon-grid-3">
+        <div class="mon-chart-card">
+            <div class="mon-chart-title"><i class="icon-monitor" style="font-size:14px;"></i> Platform</div>
+            <table class="mon-info-table">
+                <tr><td>OS</td><td>{{ monitoring.system.os|default('—') }}</td></tr>
+                <tr><td>Platform</td><td style="font-size:0.68rem;">{{ monitoring.system.platform|default('—') }}</td></tr>
+                <tr><td>Architecture</td><td>{{ monitoring.system.arch|default('—') }}</td></tr>
+                <tr><td>Hostname</td><td>{{ monitoring.system.hostname|default('—') }}</td></tr>
+                <tr><td>CPU Cores</td><td>{{ monitoring.cpu.cores_physical|default('—') }}P / {{ monitoring.cpu.cores_logical|default('—') }}L</td></tr>
+            </table>
+        </div>
+        <div class="mon-chart-card">
+            <div class="mon-chart-title"><i class="icon-code" style="font-size:14px;"></i> Python Runtime</div>
+            <table class="mon-info-table">
+                <tr><td>Version</td><td>{{ monitoring.python.version|default('—') }}</td></tr>
+                <tr><td>Implementation</td><td>{{ monitoring.python.implementation|default('—') }}</td></tr>
+                <tr><td>PID</td><td style="font-family:var(--font-mono);">{{ monitoring.process.pid|default('—') }}</td></tr>
+                <tr><td>GC Objects</td><td>{{ monitoring.python.gc_objects|default(0)|int }}</td></tr>
+                <tr><td>Executable</td><td style="font-size:0.6rem;font-family:var(--font-mono);word-break:break-all;">{{ monitoring.python.executable|default('—') }}</td></tr>
+            </table>
+        </div>
+        <div class="mon-chart-card">
+            <div class="mon-chart-title"><i class="icon-bar-chart-3" style="font-size:14px;"></i> Load Average</div>
+            <table class="mon-info-table">
+                <tr><td>1 min</td><td>{{ monitoring.cpu.load_avg_1|default('—') }}</td></tr>
+                <tr><td>5 min</td><td>{{ monitoring.cpu.load_avg_5|default('—') }}</td></tr>
+                <tr><td>15 min</td><td>{{ monitoring.cpu.load_avg_15|default('—') }}</td></tr>
+                <tr><td>CPU Freq</td><td>{{ monitoring.cpu.freq_current|default('—') }} MHz</td></tr>
+                <tr><td>Ctx Switches</td><td id="overviewCtxSw">{{ monitoring.process.ctx_switches|default('—') }}</td></tr>
+            </table>
+        </div>
+    </div>
+</div>
+
+{# ═══════════════════════════════════════════════════════════════════ #}
+{# ── TAB 2: CPU — per-core chart & times breakdown                ── #}
+{# ═══════════════════════════════════════════════════════════════════ #}
+<div class="tab-content" data-tab-content="mon" data-tab="cpu">
+    <div class="section-label">Per-Core Utilisation</div>
+    <div class="mon-chart-card" style="margin-bottom:24px;">
+        <div class="mon-chart-wrap" style="height:280px;"><canvas id="chartCpuCores"></canvas></div>
+    </div>
+
+    <div class="section-label">CPU Times Breakdown</div>
+    <div class="mon-grid-2">
+        <div class="mon-chart-card">
+            <div class="mon-chart-title">Time Distribution</div>
+            <div class="mon-chart-wrap" style="height:280px;"><canvas id="chartCpuTimes"></canvas></div>
+        </div>
+        <div class="mon-chart-card">
+            <div class="mon-chart-title">CPU Details</div>
+            <table class="mon-info-table">
+                <tr><td>Physical Cores</td><td>{{ monitoring.cpu.cores_physical|default('—') }}</td></tr>
+                <tr><td>Logical Cores</td><td>{{ monitoring.cpu.cores_logical|default('—') }}</td></tr>
+                <tr><td>Current Freq</td><td>{{ monitoring.cpu.freq_current|default('—') }} MHz</td></tr>
+                <tr><td>Max Freq</td><td>{{ monitoring.cpu.freq_max|default('—') }} MHz</td></tr>
+                <tr><td>User Time</td><td>{{ monitoring.cpu.times_user|default('—') }}s</td></tr>
+                <tr><td>System Time</td><td>{{ monitoring.cpu.times_system|default('—') }}s</td></tr>
+                <tr><td>Idle Time</td><td>{{ monitoring.cpu.times_idle|default('—') }}s</td></tr>
+                <tr><td>Load Avg (1m)</td><td>{{ monitoring.cpu.load_avg_1|default('—') }}</td></tr>
+            </table>
+        </div>
+    </div>
+</div>
+
+{# ═══════════════════════════════════════════════════════════════════ #}
+{# ── TAB 3: Memory — breakdown & swap                             ── #}
+{# ═══════════════════════════════════════════════════════════════════ #}
+<div class="tab-content" data-tab-content="mon" data-tab="memory">
+    <div class="section-label">Memory Allocation</div>
+    <div class="mon-grid-2">
+        <div class="mon-chart-card">
+            <div class="mon-chart-title">Physical Memory</div>
+            <div class="mon-chart-wrap" style="height:280px;"><canvas id="chartMemBreakdown"></canvas></div>
+        </div>
+        <div class="mon-chart-card">
+            <div class="mon-chart-title">Process Memory</div>
+            <div class="mon-chart-wrap" style="height:280px;"><canvas id="chartProcMem"></canvas></div>
+        </div>
+    </div>
+
+    <div class="section-label">Memory Details</div>
+    <div class="mon-grid-3">
+        <div class="mon-chart-card">
+            <div class="mon-chart-title">System RAM</div>
+            <table class="mon-info-table">
+                <tr><td>Total</td><td id="memTotal">{{ monitoring.memory.total_human|default('—') }}</td></tr>
+                <tr><td>Available</td><td id="memAvail">{{ monitoring.memory.available_human|default('—') }}</td></tr>
+                <tr><td>Used</td><td id="memUsed">{{ monitoring.memory.used_human|default('—') }}</td></tr>
+                <tr><td>Utilisation</td><td id="memPct">{{ monitoring.memory.percent|default(0)|round(1) }}%</td></tr>
+            </table>
+        </div>
+        <div class="mon-chart-card">
+            <div class="mon-chart-title">Swap</div>
+            <table class="mon-info-table">
+                <tr><td>Total</td><td>{{ monitoring.memory.swap_total_human|default('—') }}</td></tr>
+                <tr><td>Used</td><td>{{ monitoring.memory.swap_used_human|default('—') }}</td></tr>
+                <tr><td>Free</td><td>{{ monitoring.memory.swap_free_human|default('—') }}</td></tr>
+                <tr><td>Utilisation</td><td>{{ monitoring.memory.swap_percent|default(0)|round(1) }}%</td></tr>
+            </table>
+        </div>
+        <div class="mon-chart-card">
+            <div class="mon-chart-title">Process (RSS)</div>
+            <table class="mon-info-table">
+                <tr><td>RSS</td><td id="procRSS">{{ monitoring.process.rss_human|default('—') }}</td></tr>
+                <tr><td>VMS</td><td id="procVMS">{{ monitoring.process.vms_human|default('—') }}</td></tr>
+                <tr><td>Shared</td><td>{{ monitoring.process.shared|default(0) }}</td></tr>
+                <tr><td>% of System</td><td id="procMemPct">{{ monitoring.process.mem_percent|default(0)|round(2) }}%</td></tr>
+            </table>
+        </div>
+    </div>
+</div>
+
+{# ═══════════════════════════════════════════════════════════════════ #}
+{# ── TAB 4: Network — I/O, throughput, connections                ── #}
+{# ═══════════════════════════════════════════════════════════════════ #}
+<div class="tab-content" data-tab-content="mon" data-tab="network">
+    <div class="section-label">Network I/O</div>
+    <div class="mon-grid-2">
+        <div class="mon-chart-card">
+            <div class="mon-chart-title">Throughput (KB/s)</div>
+            <div class="mon-chart-wrap" style="height:240px;"><canvas id="chartNetThroughput"></canvas></div>
+        </div>
+        <div class="mon-chart-card">
+            <div class="mon-chart-title">Cumulative I/O</div>
+            <div class="mon-chart-wrap" style="height:240px;"><canvas id="chartNetIO"></canvas></div>
+        </div>
+    </div>
+
+    <div class="section-label">Network Counters</div>
+    <div class="mon-grid-2">
+        <div class="mon-chart-card">
+            <table class="mon-info-table">
+                <tr><td>Bytes Sent</td><td id="netBytesSent">{{ monitoring.network.bytes_sent_human|default('—') }}</td></tr>
+                <tr><td>Bytes Received</td><td id="netBytesRecv">{{ monitoring.network.bytes_recv_human|default('—') }}</td></tr>
+                <tr><td>Packets Sent</td><td id="netPktsSent">{{ monitoring.network.packets_sent|default('—') }}</td></tr>
+                <tr><td>Packets Received</td><td id="netPktsRecv">{{ monitoring.network.packets_recv|default('—') }}</td></tr>
+            </table>
+        </div>
+        <div class="mon-chart-card">
+            <table class="mon-info-table">
+                <tr><td>Errors In</td><td>{{ monitoring.network.errin|default(0) }}</td></tr>
+                <tr><td>Errors Out</td><td>{{ monitoring.network.errout|default(0) }}</td></tr>
+                <tr><td>Drops In</td><td>{{ monitoring.network.dropin|default(0) }}</td></tr>
+                <tr><td>Drops Out</td><td>{{ monitoring.network.dropout|default(0) }}</td></tr>
+            </table>
+        </div>
+    </div>
+
+    <div class="section-label">Active Connections</div>
+    <div class="mon-chart-card" style="margin-bottom:24px;">
+        <div class="mon-conn-grid" id="connGrid">
+            {% for status, count in monitoring.network.connections_by_status.items() %}
+            <div class="mon-conn-item">
+                <div class="mon-conn-value">{{ count }}</div>
+                <div class="mon-conn-label">{{ status }}</div>
+            </div>
+            {% endfor %}
+            {% if not monitoring.network.connections_by_status %}
+            <div style="grid-column:1/-1;padding:14px;color:var(--text-faint);font-size:0.8rem;text-align:center;">No connection data available</div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{# ═══════════════════════════════════════════════════════════════════ #}
+{# ── TAB 5: Process — detailed info & environment                 ── #}
+{# ═══════════════════════════════════════════════════════════════════ #}
+<div class="tab-content" data-tab-content="mon" data-tab="process">
+    <div class="section-label">Process Details</div>
+    <div class="mon-grid-2">
+        <div class="mon-chart-card">
+            <div class="mon-chart-title"><i class="icon-terminal" style="font-size:14px;"></i> Current Process</div>
+            <table class="mon-info-table">
+                <tr><td>PID</td><td style="font-family:var(--font-mono);">{{ monitoring.process.pid|default('—') }}</td></tr>
+                <tr><td>Name</td><td>{{ monitoring.process.name|default('—') }}</td></tr>
+                <tr><td>Status</td><td><span style="color:{{ '#22c55e' if monitoring.process.status|default('') == 'running' else 'var(--warning)' }};font-weight:600;">{{ monitoring.process.status|default('—') }}</span></td></tr>
+                <tr><td>Started</td><td style="font-size:0.68rem;">{{ monitoring.process.create_time|default('—') }}</td></tr>
+                <tr><td>Uptime</td><td id="procUptime">{{ monitoring.process.uptime_human|default('—') }}</td></tr>
+                <tr><td>Threads</td><td id="procThreads">{{ monitoring.process.threads|default('—') }}</td></tr>
+                <tr><td>Open Files</td><td id="procFDs">{{ monitoring.process.open_files|default('—') }}</td></tr>
+                <tr><td>Ctx Switches (vol)</td><td>{{ monitoring.process.ctx_switches_voluntary|default('—') }}</td></tr>
+                <tr><td>Ctx Switches (invol)</td><td>{{ monitoring.process.ctx_switches_involuntary|default('—') }}</td></tr>
+            </table>
+        </div>
+        <div class="mon-chart-card">
+            <div class="mon-chart-title">Process Memory Map</div>
+            <div class="mon-chart-wrap" style="height:280px;"><canvas id="chartProcMemMap"></canvas></div>
+        </div>
+    </div>
+
+    <div class="section-label">Environment Snapshot</div>
+    <div class="mon-chart-card" style="margin-bottom:24px;">
+        <table style="width:100%;table-layout:fixed;border-collapse:collapse;">
+            <colgroup><col style="width:28%;"><col style="width:72%;"></colgroup>
+            {% for key, val in monitoring.process.env_snapshot.items() %}
+            <tr style="border-bottom:1px solid var(--border-subtle);">
+                <td class="mon-env-key">{{ key }}</td>
+                <td class="mon-env-val">{{ val }}</td>
+            </tr>
+            {% endfor %}
+            {% if not monitoring.process.env_snapshot %}
+            <tr><td colspan="2" style="color:var(--text-faint);padding:12px 0;text-align:center;font-size:0.78rem;">No environment variables captured</td></tr>
+            {% endif %}
+        </table>
+    </div>
+</div>
+
+{# ═══════════════════════════════════════════════════════════════════ #}
+{# ── TAB 6: GC & Runtime — garbage collector, IO counters         ── #}
+{# ═══════════════════════════════════════════════════════════════════ #}
+<div class="tab-content" data-tab-content="mon" data-tab="gc">
+    <div class="section-label">Garbage Collector</div>
+    <div class="mon-grid-2">
+        <div class="mon-chart-card">
+            <div class="mon-chart-title"><i class="icon-recycle" style="font-size:14px;"></i> GC Generations</div>
+            <div style="margin-top:8px;" id="gcBars">
+                {% for gen in monitoring.python.gc_generations|default([]) %}
+                <div class="mon-gc-bar">
+                    <span class="mon-gc-label">Gen {{ loop.index0 }}</span>
+                    <div class="mon-gc-track">
+                        <div class="mon-gc-fill" style="width:{{ [gen.collections * 2, 100]|min }}%;background:{{ ['#22c55e','#3b82f6','#a855f7'][loop.index0 % 3] }};"></div>
+                    </div>
+                    <span class="mon-gc-count">{{ gen.collections }}</span>
+                </div>
+                {% endfor %}
+                {% if not monitoring.python.gc_generations|default([]) %}
+                <div style="color:var(--text-faint);font-size:0.78rem;padding:8px 0;">GC generation data not available</div>
+                {% endif %}
+            </div>
+            <table class="mon-info-table" style="margin-top:14px;">
+                <tr><td>Tracked Objects</td><td id="gcTracked">{{ monitoring.python.gc_objects|default(0) }}</td></tr>
+                <tr><td>GC Enabled</td><td>{{ 'Yes' if monitoring.python.gc_enabled|default(true) else 'No' }}</td></tr>
+                <tr><td>Freeze Count</td><td>{{ monitoring.python.gc_frozen|default(0) }}</td></tr>
+            </table>
+        </div>
+        <div class="mon-chart-card">
+            <div class="mon-chart-title">GC Objects Over Time</div>
+            <div class="mon-chart-wrap" style="height:260px;"><canvas id="chartGCHistory"></canvas></div>
+        </div>
+    </div>
+
+    <div class="section-label">I/O Counters</div>
+    <div class="mon-grid-2">
+        <div class="mon-chart-card">
+            <div class="mon-chart-title"><i class="icon-hard-drive" style="font-size:14px;"></i> Process I/O</div>
+            <table class="mon-info-table">
+                <tr><td>Read Count</td><td>{{ monitoring.process.io_read_count|default('—') }}</td></tr>
+                <tr><td>Write Count</td><td>{{ monitoring.process.io_write_count|default('—') }}</td></tr>
+                <tr><td>Read Bytes</td><td>{{ monitoring.process.io_read_bytes_human|default('—') }}</td></tr>
+                <tr><td>Write Bytes</td><td>{{ monitoring.process.io_write_bytes_human|default('—') }}</td></tr>
+            </table>
+        </div>
+        <div class="mon-chart-card">
+            <div class="mon-chart-title"><i class="icon-layers" style="font-size:14px;"></i> Python Internals</div>
+            <table class="mon-info-table">
+                <tr><td>Loaded Modules</td><td>{{ monitoring.python.loaded_modules|default(0) }}</td></tr>
+                <tr><td>Thread Count</td><td>{{ monitoring.python.active_threads|default(0) }}</td></tr>
+                <tr><td>Recursion Limit</td><td>{{ monitoring.python.recursion_limit|default(0) }}</td></tr>
+                <tr><td>Allocated Blocks</td><td>{{ monitoring.python.allocator_blocks|default('—') }}</td></tr>
+            </table>
+        </div>
+    </div>
+</div>
+
+{# ═══════════════════════════════════════════════════════════════════ #}
+{# ── TAB 7: Health — subsystem checks & disk partitions           ── #}
+{# ═══════════════════════════════════════════════════════════════════ #}
+<div class="tab-content" data-tab-content="mon" data-tab="health">
+    <div class="section-label">Subsystem Health</div>
+    {% if monitoring.health_checks %}
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;margin-bottom:24px;">
+        {% for check in monitoring.health_checks %}
+        <div class="mon-health-card" data-status="{{ check.status|default('unknown') }}">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+                <span class="mon-health-dot {{ check.status|default('unhealthy') }}"></span>
+                <span style="font-weight:600;color:var(--text-primary);font-size:0.85rem;">{{ check.name }}</span>
+                <span style="margin-left:auto;font-size:0.65rem;color:var(--text-faint);font-family:var(--font-mono);">{{ check.latency_ms|default(0)|round(1) }}ms</span>
+            </div>
+            <div style="font-size:0.72rem;color:var(--text-secondary);">{{ check.message|default('No details') }}</div>
+            <div style="font-size:0.6rem;color:var(--text-faint);margin-top:6px;">{{ check.checked_at|default('—') }}</div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="mon-chart-card" style="text-align:center;padding:48px;margin-bottom:24px;">
+        <i class="icon-heart" style="font-size:36px;display:block;margin-bottom:12px;opacity:0.2;color:var(--text-faint);"></i>
+        <div style="font-size:0.88rem;color:var(--text-faint);font-weight:500;">No health checks registered yet</div>
+        <div style="font-size:0.72rem;color:var(--text-muted);margin-top:6px;">Subsystems will appear here once they register with the HealthRegistry.</div>
+    </div>
+    {% endif %}
+
+    <div class="section-label">Disk Partitions</div>
+    {% if monitoring.disk.partitions %}
+    <div class="mon-chart-card" style="margin-bottom:24px;overflow-x:auto;">
+        <table style="width:100%;font-size:0.72rem;border-collapse:collapse;">
+            <thead>
+                <tr style="border-bottom:1px solid var(--border-color);">
+                    <th style="text-align:left;padding:8px 10px;color:var(--text-faint);font-weight:500;">Device</th>
+                    <th style="text-align:left;padding:8px 10px;color:var(--text-faint);font-weight:500;">Mount</th>
+                    <th style="text-align:left;padding:8px 10px;color:var(--text-faint);font-weight:500;">FS</th>
+                    <th style="text-align:right;padding:8px 10px;color:var(--text-faint);font-weight:500;">Total</th>
+                    <th style="text-align:right;padding:8px 10px;color:var(--text-faint);font-weight:500;">Used</th>
+                    <th style="text-align:right;padding:8px 10px;color:var(--text-faint);font-weight:500;">Free</th>
+                    <th style="text-align:right;padding:8px 10px;color:var(--text-faint);font-weight:500;">Use%</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in monitoring.disk.partitions %}
+                <tr style="border-bottom:1px solid var(--border-subtle);transition:background 0.15s;" onmouseenter="this.style.background='var(--bg-surface-hover)'" onmouseleave="this.style.background=''">
+                    <td style="padding:8px 10px;font-family:var(--font-mono);color:var(--accent);font-size:0.68rem;">{{ p.device }}</td>
+                    <td style="padding:8px 10px;color:var(--text-primary);">{{ p.mountpoint }}</td>
+                    <td style="padding:8px 10px;color:var(--text-secondary);">{{ p.fstype }}</td>
+                    <td style="padding:8px 10px;text-align:right;color:var(--text-primary);">{{ p.total_human }}</td>
+                    <td style="padding:8px 10px;text-align:right;color:var(--text-primary);">{{ p.used_human }}</td>
+                    <td style="padding:8px 10px;text-align:right;color:var(--text-primary);">{{ p.free_human }}</td>
+                    <td style="padding:8px 10px;text-align:right;">
+                        <div style="display:flex;align-items:center;justify-content:flex-end;gap:8px;">
+                            <div class="mon-progress-bar">
+                                <div class="mon-progress-fill" style="width:{{ p.percent }}%;background:{{ '#22c55e' if p.percent < 70 else '#f59e0b' if p.percent < 90 else '#ef4444' }};"></div>
+                            </div>
+                            <span style="font-size:0.7rem;color:var(--text-primary);font-variant-numeric:tabular-nums;width:32px;text-align:right;">{{ p.percent }}%</span>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="mon-chart-card" style="text-align:center;padding:24px;color:var(--text-faint);font-size:0.8rem;margin-bottom:24px;">
+        No partition data available.
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+
+// ═══════════════════════════════════════════════════════════════════
+// ── Chart.js Monitoring Dashboard — Live Polling                ──
+// ═══════════════════════════════════════════════════════════════════
+
+var _monData = {{ monitoring|tojson }};
+var _urlPrefix = '{{ url_prefix|default("/admin") }}';
+var _pollInterval = null;
+var _polling = true;
+var MAX_POINTS = 20;
+
+// ── Color palette ──
+var C = {
+    green: '#22c55e', greenFade: 'rgba(34,197,94,0.15)',
+    blue: '#3b82f6',  blueFade: 'rgba(59,130,246,0.15)',
+    amber: '#f59e0b', amberFade: 'rgba(245,158,11,0.15)',
+    purple: '#a855f7', purpleFade: 'rgba(168,85,247,0.15)',
+    cyan: '#06b6d4',  cyanFade: 'rgba(6,182,212,0.15)',
+    rose: '#f43f5e',  roseFade: 'rgba(244,63,94,0.15)',
+    gray: '#64748b',  grayFade: 'rgba(100,116,139,0.15)',
+    teal: '#14b8a6'
+};
+
+// ── Theme-aware defaults ──
+function isDark() { return document.documentElement.getAttribute('data-theme') === 'dark'; }
+function gridColor() { return isDark() ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'; }
+function textColor() { return isDark() ? '#94a3b8' : '#64748b'; }
+
+// ── Chart.js global defaults ──
+Chart.defaults.font.family = "'Outfit', sans-serif";
+Chart.defaults.font.size = 11;
+Chart.defaults.color = textColor();
+Chart.defaults.animation.duration = 600;
+Chart.defaults.animation.easing = 'easeOutQuart';
+Chart.defaults.responsive = true;
+Chart.defaults.maintainAspectRatio = false;
+Chart.defaults.plugins.legend.display = false;
+Chart.defaults.plugins.tooltip.backgroundColor = isDark() ? 'rgba(0,0,0,0.85)' : 'rgba(255,255,255,0.95)';
+Chart.defaults.plugins.tooltip.titleColor = isDark() ? '#e4e4e7' : '#18181b';
+Chart.defaults.plugins.tooltip.bodyColor = isDark() ? '#a1a1aa' : '#52525b';
+Chart.defaults.plugins.tooltip.borderColor = isDark() ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)';
+Chart.defaults.plugins.tooltip.borderWidth = 1;
+Chart.defaults.plugins.tooltip.cornerRadius = 8;
+Chart.defaults.plugins.tooltip.padding = 10;
+
+// ── History arrays ──
+var _cpuHistory = [_monData.cpu.percent || 0];
+var _memHistory = [_monData.memory.percent || 0];
+var _netSentKBs = [0];
+var _netRecvKBs = [0];
+var _gcHistory = [_monData.python.gc_objects || 0];
+var _prevNetSent = _monData.network.bytes_sent || 0;
+var _prevNetRecv = _monData.network.bytes_recv || 0;
+var _timeLabels = ['0'];
+
+// ── Chart instances ──
+var charts = {};
+
+function scaleOpts(maxVal, unit) {
+    return {
+        x: { display: true, grid: { color: gridColor(), drawBorder: false }, ticks: { color: textColor(), maxTicksLimit: 6, font: { size: 9 } } },
+        y: { display: true, min: 0, max: maxVal || undefined, grid: { color: gridColor(), drawBorder: false }, ticks: { color: textColor(), callback: function(v) { return v + (unit||''); }, font: { size: 9 } } }
+    };
+}
+
+function lineDataset(label, data, color, fade) {
+    return {
+        label: label, data: data,
+        borderColor: color, backgroundColor: fade,
+        borderWidth: 2, pointRadius: 0, pointHoverRadius: 4,
+        fill: true, tension: 0.35
+    };
+}
+
+function initCharts() {
+    // ── CPU History (line) ──
+    charts.cpuHistory = new Chart(document.getElementById('chartCpuHistory'), {
+        type: 'line',
+        data: { labels: _timeLabels.slice(), datasets: [lineDataset('CPU %', _cpuHistory.slice(), C.green, C.greenFade)] },
+        options: { scales: scaleOpts(100, '%'), plugins: { tooltip: { callbacks: { label: function(c) { return 'CPU: ' + c.raw.toFixed(1) + '%'; } } } } }
+    });
+
+    // ── Memory History (line) ──
+    charts.memHistory = new Chart(document.getElementById('chartMemHistory'), {
+        type: 'line',
+        data: { labels: _timeLabels.slice(), datasets: [lineDataset('Memory %', _memHistory.slice(), C.blue, C.blueFade)] },
+        options: { scales: scaleOpts(100, '%'), plugins: { tooltip: { callbacks: { label: function(c) { return 'Mem: ' + c.raw.toFixed(1) + '%'; } } } } }
+    });
+
+    // ── Gauges (doughnut) ──
+    function gaugeData(pct, color) {
+        return {
+            type: 'doughnut',
+            data: { labels: ['Used', 'Free'], datasets: [{ data: [pct, 100 - pct], backgroundColor: [color, gridColor()], borderWidth: 0, cutout: '72%' }] },
+            options: {
+                circumference: 180, rotation: 270,
+                plugins: {
+                    tooltip: { enabled: false },
+                    legend: { display: false }
+                },
+                animation: { animateRotate: true, duration: 800 }
+            },
+            plugins: [{
+                id: 'gaugeCenter',
+                afterDraw: function(chart) {
+                    var ctx = chart.ctx, w = chart.width, h = chart.height;
+                    ctx.save();
+                    ctx.font = '700 1.3rem Outfit, sans-serif';
+                    ctx.fillStyle = textColor();
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(chart.data.datasets[0].data[0].toFixed(1) + '%', w/2, h * 0.65);
+                    ctx.restore();
+                }
+            }]
+        };
+    }
+
+    charts.gaugeCpu = new Chart(document.getElementById('gaugeCpu'), gaugeData(_monData.cpu.percent || 0, C.green));
+    charts.gaugeMem = new Chart(document.getElementById('gaugeMem'), gaugeData(_monData.memory.percent || 0, C.blue));
+    charts.gaugeDisk = new Chart(document.getElementById('gaugeDisk'), gaugeData(_monData.disk.percent || 0, C.amber));
+    charts.gaugeSwap = new Chart(document.getElementById('gaugeSwap'), gaugeData(_monData.memory.swap_percent || 0, C.purple));
+
+    // ── CPU Per-Core (bar) ──
+    var coreLabels = (_monData.cpu.per_core || []).map(function(_, i) { return 'Core ' + i; });
+    var coreColors = (_monData.cpu.per_core || []).map(function(_, i) { return i % 2 === 0 ? C.green : C.cyan; });
+    charts.cpuCores = new Chart(document.getElementById('chartCpuCores'), {
+        type: 'bar',
+        data: { labels: coreLabels, datasets: [{ label: 'Usage %', data: _monData.cpu.per_core || [], backgroundColor: coreColors, borderRadius: 4, maxBarThickness: 40 }] },
+        options: { scales: scaleOpts(100, '%'), plugins: { tooltip: { callbacks: { label: function(c) { return c.label + ': ' + c.raw.toFixed(1) + '%'; } } } } }
+    });
+
+    // ── CPU Times (doughnut) ──
+    charts.cpuTimes = new Chart(document.getElementById('chartCpuTimes'), {
+        type: 'doughnut',
+        data: {
+            labels: ['User', 'System', 'Idle'],
+            datasets: [{ data: [_monData.cpu.times_user||0, _monData.cpu.times_system||0, _monData.cpu.times_idle||0], backgroundColor: [C.green, C.amber, C.gray], borderWidth: 0, cutout: '55%' }]
+        },
+        options: { plugins: { legend: { display: true, position: 'bottom', labels: { padding: 14, usePointStyle: true, pointStyle: 'circle', font: { size: 10 } } } } }
+    });
+
+    // ── Memory Breakdown (doughnut) ──
+    charts.memBreakdown = new Chart(document.getElementById('chartMemBreakdown'), {
+        type: 'doughnut',
+        data: {
+            labels: ['Used', 'Available'],
+            datasets: [{ data: [_monData.memory.used||0, _monData.memory.available||0], backgroundColor: [C.blue, C.gray], borderWidth: 0, cutout: '55%' }]
+        },
+        options: { plugins: { legend: { display: true, position: 'bottom', labels: { padding: 14, usePointStyle: true, pointStyle: 'circle', font: { size: 10 } } } } }
+    });
+
+    // ── Process Memory (doughnut) ──
+    var procRss = _monData.process.rss || 0;
+    var procVms = _monData.process.vms || 0;
+    charts.procMem = new Chart(document.getElementById('chartProcMem'), {
+        type: 'doughnut',
+        data: {
+            labels: ['RSS', 'VMS (other)'],
+            datasets: [{ data: [procRss, Math.max(0, procVms - procRss)], backgroundColor: [C.green, C.gray], borderWidth: 0, cutout: '55%' }]
+        },
+        options: { plugins: { legend: { display: true, position: 'bottom', labels: { padding: 14, usePointStyle: true, pointStyle: 'circle', font: { size: 10 } } } } }
+    });
+
+    // ── Network Throughput (line) ──
+    charts.netThroughput = new Chart(document.getElementById('chartNetThroughput'), {
+        type: 'line',
+        data: {
+            labels: _timeLabels.slice(),
+            datasets: [
+                lineDataset('Sent KB/s', _netSentKBs.slice(), C.green, C.greenFade),
+                lineDataset('Recv KB/s', _netRecvKBs.slice(), C.cyan, C.cyanFade)
+            ]
+        },
+        options: {
+            scales: scaleOpts(null, ''),
+            plugins: { legend: { display: true, position: 'top', labels: { padding: 10, usePointStyle: true, pointStyle: 'circle', font: { size: 10 } } } }
+        }
+    });
+
+    // ── Network I/O cumulative (bar) ──
+    charts.netIO = new Chart(document.getElementById('chartNetIO'), {
+        type: 'bar',
+        data: {
+            labels: ['Sent', 'Received'],
+            datasets: [{ label: 'MB', data: [(_monData.network.bytes_sent||0)/1048576, (_monData.network.bytes_recv||0)/1048576], backgroundColor: [C.green, C.cyan], borderRadius: 6, maxBarThickness: 80 }]
+        },
+        options: { indexAxis: 'y', scales: { x: { grid: { color: gridColor() }, ticks: { color: textColor(), callback: function(v) { return v.toFixed(0) + ' MB'; } } }, y: { grid: { display: false }, ticks: { color: textColor() } } } }
+    });
+
+    // ── Process Memory Map (doughnut) ──
+    charts.procMemMap = new Chart(document.getElementById('chartProcMemMap'), {
+        type: 'doughnut',
+        data: {
+            labels: ['RSS', 'Shared', 'Private'],
+            datasets: [{ data: [_monData.process.rss||0, _monData.process.shared||0, _monData.process.private||0], backgroundColor: [C.green, C.blue, C.purple], borderWidth: 0, cutout: '55%' }]
+        },
+        options: { plugins: { legend: { display: true, position: 'bottom', labels: { padding: 14, usePointStyle: true, pointStyle: 'circle', font: { size: 10 } } } } }
+    });
+
+    // ── GC History (line) ──
+    charts.gcHistory = new Chart(document.getElementById('chartGCHistory'), {
+        type: 'line',
+        data: { labels: _timeLabels.slice(), datasets: [lineDataset('GC Objects', _gcHistory.slice(), C.purple, C.purpleFade)] },
+        options: { scales: scaleOpts(null, '') }
+    });
+}
+
+// ── Gauge updater ──
+function updateGauge(chart, pct, color) {
+    chart.data.datasets[0].data = [pct, Math.max(0, 100 - pct)];
+    var effectiveColor = pct < 60 ? color : (pct < 85 ? C.amber : C.rose);
+    chart.data.datasets[0].backgroundColor = [effectiveColor, gridColor()];
+    chart.update('none');
+}
+
+// ── Alerts ──
+function updateAlerts(d) {
+    var strip = document.getElementById('monAlertStrip');
+    var alerts = [];
+    var cpuP = d.cpu.percent || 0;
+    var memP = d.memory.percent || 0;
+    var diskP = d.disk.percent || 0;
+    if (cpuP > 90) alerts.push({ cls: 'crit', msg: '⚠ CPU usage critical: ' + cpuP.toFixed(1) + '%' });
+    else if (cpuP > 75) alerts.push({ cls: 'warn', msg: '⚡ CPU usage elevated: ' + cpuP.toFixed(1) + '%' });
+    if (memP > 90) alerts.push({ cls: 'crit', msg: '⚠ Memory usage critical: ' + memP.toFixed(1) + '%' });
+    else if (memP > 80) alerts.push({ cls: 'warn', msg: '⚡ Memory usage elevated: ' + memP.toFixed(1) + '%' });
+    if (diskP > 90) alerts.push({ cls: 'crit', msg: '⚠ Disk usage critical: ' + diskP.toFixed(1) + '%' });
+    else if (diskP > 80) alerts.push({ cls: 'warn', msg: '⚡ Disk usage elevated: ' + diskP.toFixed(1) + '%' });
+    if (alerts.length === 0) {
+        alerts.push({ cls: 'ok', msg: '✓ All systems operating within normal parameters' });
+    }
+    strip.style.display = 'block';
+    strip.innerHTML = alerts.map(function(a) { return '<div class="mon-alert-strip ' + a.cls + '">' + a.msg + '</div>'; }).join('');
+}
+
+// ── Update stat cards ──
+function updateStats(d) {
+    var el;
+    el = document.getElementById('statCpu');    if (el) el.textContent = (d.cpu.percent||0).toFixed(1) + '%';
+    el = document.getElementById('statMem');     if (el) el.textContent = (d.memory.percent||0).toFixed(1) + '%';
+    el = document.getElementById('statDisk');    if (el) el.textContent = (d.disk.percent||0).toFixed(1) + '%';
+    el = document.getElementById('statThreads'); if (el) el.textContent = d.process.threads || 0;
+    el = document.getElementById('statRSS');     if (el) el.textContent = d.process.rss_human || '—';
+    el = document.getElementById('statGC');      if (el) el.textContent = d.python.gc_objects || 0;
+    el = document.getElementById('statUptime');  if (el) el.textContent = d.process.uptime_human || '—';
+    el = document.getElementById('statMemSub');  if (el) el.textContent = (d.memory.used_human||'—') + ' / ' + (d.memory.total_human||'—');
+    el = document.getElementById('statDiskSub'); if (el) el.textContent = (d.disk.used_human||'—') + ' / ' + (d.disk.total_human||'—');
+    el = document.getElementById('statMemPct');  if (el) el.textContent = (d.process.mem_percent||0).toFixed(2) + '% of system';
+    el = document.getElementById('statGCSub');   if (el) el.textContent = ((d.python.gc_generations||[])[0]||{}).collections + ' gen0 collections';
+    el = document.getElementById('cpuBadge');    if (el) el.textContent = (d.cpu.percent||0).toFixed(1) + '%';
+    el = document.getElementById('memBadge');    if (el) el.textContent = (d.memory.percent||0).toFixed(1) + '%';
+    el = document.getElementById('netBytesSent'); if (el) el.textContent = d.network.bytes_sent_human || '—';
+    el = document.getElementById('netBytesRecv'); if (el) el.textContent = d.network.bytes_recv_human || '—';
+    el = document.getElementById('netPktsSent');  if (el) el.textContent = d.network.packets_sent || '—';
+    el = document.getElementById('netPktsRecv');  if (el) el.textContent = d.network.packets_recv || '—';
+    el = document.getElementById('overviewCtxSw'); if (el) el.textContent = d.process.ctx_switches || '—';
+    el = document.getElementById('gcTracked');   if (el) el.textContent = d.python.gc_objects || 0;
+    el = document.getElementById('procUptime');  if (el) el.textContent = d.process.uptime_human || '—';
+    el = document.getElementById('procThreads'); if (el) el.textContent = d.process.threads || '—';
+    el = document.getElementById('procFDs');     if (el) el.textContent = d.process.open_files || '—';
+    el = document.getElementById('procRSS');     if (el) el.textContent = d.process.rss_human || '—';
+    el = document.getElementById('procVMS');     if (el) el.textContent = d.process.vms_human || '—';
+    el = document.getElementById('procMemPct');  if (el) el.textContent = (d.process.mem_percent||0).toFixed(2) + '%';
+    el = document.getElementById('memTotal');    if (el) el.textContent = d.memory.total_human || '—';
+    el = document.getElementById('memAvail');    if (el) el.textContent = d.memory.available_human || '—';
+    el = document.getElementById('memUsed');     if (el) el.textContent = d.memory.used_human || '—';
+    el = document.getElementById('memPct');      if (el) el.textContent = (d.memory.percent||0).toFixed(1) + '%';
+}
+
+// ── Live polling ──
+function pollOnce() {
+    fetch(_urlPrefix + '/monitoring/api/')
+        .then(function(r) {
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            return r.json();
+        })
+        .then(function(data) {
+            _monData = data;
+
+            // ── History push ──
+            _cpuHistory.push(data.cpu.percent || 0);
+            _memHistory.push(data.memory.percent || 0);
+            _gcHistory.push(data.python.gc_objects || 0);
+            if (_cpuHistory.length > MAX_POINTS) _cpuHistory.shift();
+            if (_memHistory.length > MAX_POINTS) _memHistory.shift();
+            if (_gcHistory.length > MAX_POINTS) _gcHistory.shift();
+
+            // Network delta
+            var deltaSent = Math.max(0, ((data.network.bytes_sent||0) - _prevNetSent) / 1024);
+            var deltaRecv = Math.max(0, ((data.network.bytes_recv||0) - _prevNetRecv) / 1024);
+            _netSentKBs.push(deltaSent);
+            _netRecvKBs.push(deltaRecv);
+            if (_netSentKBs.length > MAX_POINTS) _netSentKBs.shift();
+            if (_netRecvKBs.length > MAX_POINTS) _netRecvKBs.shift();
+            _prevNetSent = data.network.bytes_sent || 0;
+            _prevNetRecv = data.network.bytes_recv || 0;
+
+            // ── Update line charts ──
+            if (charts.cpuHistory) {
+                charts.cpuHistory.data.labels = _cpuHistory.map(function() { return ''; });
+                charts.cpuHistory.data.datasets[0].data = _cpuHistory.slice();
+                charts.cpuHistory.update('none');
+            }
+            if (charts.memHistory) {
+                charts.memHistory.data.labels = _memHistory.map(function() { return ''; });
+                charts.memHistory.data.datasets[0].data = _memHistory.slice();
+                charts.memHistory.update('none');
+            }
+            if (charts.gcHistory) {
+                charts.gcHistory.data.labels = _gcHistory.map(function() { return ''; });
+                charts.gcHistory.data.datasets[0].data = _gcHistory.slice();
+                charts.gcHistory.update('none');
+            }
+            if (charts.netThroughput) {
+                charts.netThroughput.data.labels = _netSentKBs.map(function() { return ''; });
+                charts.netThroughput.data.datasets[0].data = _netSentKBs.slice();
+                charts.netThroughput.data.datasets[1].data = _netRecvKBs.slice();
+                charts.netThroughput.update('none');
+            }
+
+            // ── Update gauges ──
+            if (charts.gaugeCpu) updateGauge(charts.gaugeCpu, data.cpu.percent||0, C.green);
+            if (charts.gaugeMem) updateGauge(charts.gaugeMem, data.memory.percent||0, C.blue);
+            if (charts.gaugeDisk) updateGauge(charts.gaugeDisk, data.disk.percent||0, C.amber);
+            if (charts.gaugeSwap) updateGauge(charts.gaugeSwap, data.memory.swap_percent||0, C.purple);
+
+            // ── Update bar charts ──
+            if (charts.cpuCores && data.cpu.per_core) {
+                charts.cpuCores.data.datasets[0].data = data.cpu.per_core;
+                charts.cpuCores.update('none');
+            }
+            if (charts.netIO) {
+                charts.netIO.data.datasets[0].data = [(data.network.bytes_sent||0)/1048576, (data.network.bytes_recv||0)/1048576];
+                charts.netIO.update('none');
+            }
+
+            // ── Update doughnuts ──
+            if (charts.cpuTimes) {
+                charts.cpuTimes.data.datasets[0].data = [data.cpu.times_user||0, data.cpu.times_system||0, data.cpu.times_idle||0];
+                charts.cpuTimes.update('none');
+            }
+            if (charts.memBreakdown) {
+                charts.memBreakdown.data.datasets[0].data = [data.memory.used||0, data.memory.available||0];
+                charts.memBreakdown.update('none');
+            }
+            if (charts.procMem) {
+                var rss = data.process.rss||0, vms = data.process.vms||0;
+                charts.procMem.data.datasets[0].data = [rss, Math.max(0, vms - rss)];
+                charts.procMem.update('none');
+            }
+            if (charts.procMemMap) {
+                charts.procMemMap.data.datasets[0].data = [data.process.rss||0, data.process.shared||0, data.process.private||0];
+                charts.procMemMap.update('none');
+            }
+
+            // ── Update stat cards + alerts ──
+            updateStats(data);
+            updateAlerts(data);
+
+            // ── Pulse indicator ──
+            var ps = document.getElementById('pollStatus');
+            if (ps) { ps.style.color = C.green; setTimeout(function() { ps.style.color = ''; }, 350); }
+        })
+        .catch(function(err) {
+            var ps = document.getElementById('pollStatus');
+            if (ps) { ps.innerHTML = '<span style="color:' + C.rose + ';">● Connection lost</span>'; }
+        });
+}
+
+function startPolling() {
+    if (_pollInterval) clearInterval(_pollInterval);
+    _pollInterval = setInterval(pollOnce, 3000);
+}
+
+function togglePolling() {
+    _polling = !_polling;
+    var btn = document.getElementById('pollToggle');
+    var ps = document.getElementById('pollStatus');
+    if (_polling) {
+        startPolling();
+        if (btn) btn.innerHTML = '<i class="icon-pause" style="font-size:12px;vertical-align:-1px;margin-right:4px;"></i>Pause';
+        if (ps) ps.innerHTML = '<span class="mon-live-dot"></span>Polling every 3s';
+    } else {
+        if (_pollInterval) clearInterval(_pollInterval);
+        _pollInterval = null;
+        if (btn) btn.innerHTML = '<i class="icon-play" style="font-size:12px;vertical-align:-1px;margin-right:4px;"></i>Resume';
+        if (ps) ps.innerHTML = '<span style="color:var(--text-faint);">● Paused</span>';
+    }
+}
+
+// ── Initialize ──
+initCharts();
+updateAlerts(_monData);
+startPolling();
+
+// ── Theme observer — update Chart.js on theme toggle ──
+new MutationObserver(function() {
+    Chart.defaults.color = textColor();
+    Object.keys(charts).forEach(function(k) {
+        var ch = charts[k];
+        if (ch && ch.options && ch.options.scales) {
+            if (ch.options.scales.x) ch.options.scales.x.grid.color = gridColor();
+            if (ch.options.scales.y) ch.options.scales.y.grid.color = gridColor();
+            if (ch.options.scales.x) ch.options.scales.x.ticks.color = textColor();
+            if (ch.options.scales.y) ch.options.scales.y.ticks.color = textColor();
+        }
+        ch.update('none');
+    });
+}).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+// ── Cleanup ──
+window.addEventListener('beforeunload', function() { if (_pollInterval) clearInterval(_pollInterval); });
+
+{% endblock %}

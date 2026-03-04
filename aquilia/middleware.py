@@ -207,7 +207,7 @@ class ExceptionMiddleware:
             return await next(request, ctx)
         
         except ValueError as e:
-            # Client error — 400
+            # Client error -- 400
             self.logger.warning(f"ValueError: {e}")
             if self.debug and self._wants_html(request):
                 return self._render_debug_http_error(400, "Bad Request", str(e), request)
@@ -217,7 +217,7 @@ class ExceptionMiddleware:
             )
         
         except PermissionError as e:
-            # Forbidden — 403
+            # Forbidden -- 403
             self.logger.warning(f"PermissionError: {e}")
             if self.debug and self._wants_html(request):
                 return self._render_debug_http_error(403, "Forbidden", str(e), request)
@@ -294,7 +294,7 @@ class ExceptionMiddleware:
             )
         
         except Exception as e:
-            # Internal error — 500
+            # Internal error -- 500
             self.logger.error(f"Unhandled exception: {e}", exc_info=True)
 
             if self.debug and self._wants_html(request):

@@ -1,23 +1,23 @@
 """
-Artifact Store — pluggable storage backends for artifacts.
+Artifact Store -- pluggable storage backends for artifacts.
 
 Provides three implementations:
 
-- **MemoryArtifactStore** — ephemeral, test-friendly
-- **FilesystemArtifactStore** — persistent, writes ``.crous`` binary files
-  with ``.aq.json`` sidecars into a configurable directory (default ``artifacts/``)
-- **ArtifactStore** — convenience alias that auto-detects
+- **MemoryArtifactStore** -- ephemeral, test-friendly
+- **FilesystemArtifactStore** -- persistent, writes ``.crous`` binary files
+  into a configurable directory (default ``artifacts/``)
+- **ArtifactStore** -- convenience alias that auto-detects
 
 All stores support:
 
-- ``save(artifact)``            — idempotent upsert
-- ``load(name, version=)``      — load by name (+ optional version)
-- ``load_by_digest(digest)``    — content-addressed lookup
-- ``list(kind=, tag=)``         — filtered listing
-- ``delete(name, version=)``    — remove artifact(s)
-- ``exists(name, version=)``    — existence check
-- ``gc(referenced)``            — garbage-collect unreferenced
-- ``export_bundle(names, path)``— export subset as a ``.aq-bundle``
+- ``save(artifact)``            -- idempotent upsert
+- ``load(name, version=)``      -- load by name (+ optional version)
+- ``load_by_digest(digest)``    -- content-addressed lookup
+- ``list(kind=, tag=)``         -- filtered listing
+- ``delete(name, version=)``    -- remove artifact(s)
+- ``exists(name, version=)``    -- existence check
+- ``gc(referenced)``            -- garbage-collect unreferenced
+- ``export_bundle(names, path)``-- export subset as a ``.aq-bundle``
 """
 
 from __future__ import annotations
@@ -170,12 +170,10 @@ class FilesystemArtifactStore(ArtifactStoreProtocol):
     """
     Persistent filesystem artifact store.
 
-    Writes each artifact as a ``.crous`` binary file with a
-    ``.aq.json`` sidecar for human-readable inspection::
+    Writes each artifact as a ``.crous`` binary file::
 
         <root>/
           <name>-<version>.crous      ← Crous binary (primary)
-          <name>-<version>.aq.json    ← JSON sidecar (metadata)
           ...
 
     Reads ``.crous`` first, falls back to ``.aq.json`` for legacy compat.
@@ -213,10 +211,8 @@ class FilesystemArtifactStore(ArtifactStoreProtocol):
     def _artifact_path(self, name: str, version: str) -> Path:
         return self.root / self._safe_filename(name, version, ".crous")
 
-    def _sidecar_path(self, name: str, version: str) -> Path:
-        return self.root / self._safe_filename(name, version, ".aq.json")
-
     def _legacy_path(self, name: str, version: str) -> Path:
+        """Legacy .aq.json path -- read-only fallback for old stores."""
         return self.root / self._safe_filename(name, version, ".aq.json")
 
     def _iter_files(self):
@@ -254,13 +250,6 @@ class FilesystemArtifactStore(ArtifactStoreProtocol):
                 tmp.unlink()
             raise
 
-        # Write .aq.json sidecar (human-readable metadata)
-        sidecar_path = self._sidecar_path(artifact.name, artifact.version)
-        try:
-            sidecar_path.write_text(artifact.to_json(), encoding="utf-8")
-        except Exception as exc:
-            logger.debug("Sidecar write failed (non-fatal): %s", exc)
-
         logger.info("Saved artifact: %s → %s", artifact.qualified_name, crous_path)
         return artifact.digest
 
@@ -271,7 +260,7 @@ class FilesystemArtifactStore(ArtifactStoreProtocol):
                 return None
             return self._read(path)
 
-        # No version — find latest by name prefix
+        # No version -- find latest by name prefix
         prefix = name.replace("/", "_").replace(":", "_").replace(" ", "_") + "-"
         matches: List[Artifact] = []
         for f in self._iter_files():
@@ -312,7 +301,11 @@ class FilesystemArtifactStore(ArtifactStoreProtocol):
     def delete(self, name: str, *, version: str = "") -> int:
         removed = 0
         if version:
-            for path in [self._artifact_path(name, version), self._sidecar_path(name, version)]:
+            # Remove .crous file; also clean up any legacy .aq.json if present
+            for path in [
+                self._artifact_path(name, version),
+                self._legacy_path(name, version),
+            ]:
                 if path.exists():
                     path.unlink()
                     removed += 1
@@ -455,7 +448,7 @@ class FilesystemArtifactStore(ArtifactStoreProtocol):
 
 def ArtifactStore(root: str = "artifacts") -> FilesystemArtifactStore:
     """
-    Convenience constructor — returns a :class:`FilesystemArtifactStore`.
+    Convenience constructor -- returns a :class:`FilesystemArtifactStore`.
 
     Use ``MemoryArtifactStore()`` for tests.
     """

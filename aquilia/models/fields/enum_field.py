@@ -1,5 +1,5 @@
 """
-Aquilia EnumField — store Python enums with database mapping.
+Aquilia EnumField -- store Python enums with database mapping.
 
 Usage:
     from enum import Enum

@@ -1,14 +1,14 @@
 """
-AquilAdmin — Comprehensive Admin Models (Django-grade Architecture).
+AquilAdmin -- Comprehensive Admin Models.
 
-Provides a full-featured admin model hierarchy inspired by Django:
+Provides a full-featured admin model hierarchy:
 
-    - ``ContentType``      — tracks every model/table in the project
-    - ``AdminPermission``  — codename-based permissions tied to content types
-    - ``AdminGroup``       — named groups with M2M permissions
-    - ``AdminUser``        — staff/superuser accounts with groups & permissions
-    - ``AdminLogEntry``    — immutable audit trail of every admin action
-    - ``AdminSession``     — server-side session storage for admin auth
+    - ``ContentType``      -- tracks every model/table in the project
+    - ``AdminPermission``  -- codename-based permissions tied to content types
+    - ``AdminGroup``       -- named groups with M2M permissions
+    - ``AdminUser``        -- staff/superuser accounts with groups & permissions
+    - ``AdminLogEntry``    -- immutable audit trail of every admin action
+    - ``AdminSession``     -- server-side session storage for admin auth
 
 All models use the Aquilia ORM with proper relationships (ForeignKey,
 ManyToManyField), composite indexes, unique constraints, and db_index
@@ -117,7 +117,6 @@ if _HAS_ORM:
         """
         Tracks every model registered in the project.
 
-        Analogous to Django's ``django.contrib.contenttypes.models.ContentType``.
         Used by AdminPermission and AdminLogEntry to reference models generically.
         """
 
@@ -175,7 +174,7 @@ if _HAS_ORM:
         """
         A single permission tied to a ContentType.
 
-        Follows Django's ``auth.Permission`` pattern:
+        Pattern:
             codename = "change_user"
             name     = "Can change user"
             content_type → ContentType (app_label="auth", model="user")
@@ -224,7 +223,6 @@ if _HAS_ORM:
         Named group of permissions.
 
         Users can belong to multiple groups, inheriting all group permissions.
-        Analogous to Django's ``auth.Group``.
         """
 
         table = "admin_groups"
@@ -270,6 +268,13 @@ if _HAS_ORM:
         is_active = BooleanField(default=True)
         last_login = DateTimeField(null=True, blank=True)
         date_joined = DateTimeField(auto_now_add=True)
+        # ── Extended profile fields ────────────────────────────────────
+        # Relative path inside .aquilia/admin/profile/, e.g. "<uuid>.png"
+        avatar_path = CharField(max_length=512, blank=True, default="", null=True)
+        bio = TextField(blank=True, default="", null=True)
+        phone = CharField(max_length=32, blank=True, default="", null=True)
+        timezone = CharField(max_length=64, blank=True, default="UTC", null=True)
+        locale = CharField(max_length=16, blank=True, default="en", null=True)
 
         groups = ManyToManyField(
             "AdminGroup",
@@ -355,6 +360,11 @@ if _HAS_ORM:
                     "is_superuser": getattr(self, "is_superuser", False),
                     "is_staff": getattr(self, "is_staff", False),
                     "admin_role": "superadmin" if getattr(self, "is_superuser", False) else "staff",
+                    "avatar_path": getattr(self, "avatar_path", "") or "",
+                    "bio": getattr(self, "bio", "") or "",
+                    "phone": getattr(self, "phone", "") or "",
+                    "timezone": getattr(self, "timezone", "UTC") or "UTC",
+                    "locale": getattr(self, "locale", "en") or "en",
                 },
                 status=IdentityStatus.ACTIVE if getattr(self, "is_active", True) else IdentityStatus.SUSPENDED,
             )
@@ -495,6 +505,123 @@ if _HAS_ORM:
                 action_flag=action_flag, change_message=change_message,
             )
 
+    # ── AdminAuditEntry ──────────────────────────────────────────────────
+
+    class AdminAuditEntry(Model):
+        """
+        Persistent, model-backed audit log entry for every admin action.
+
+        Replaces the in-memory AdminAuditLog list so audit history
+        survives server restarts and user logouts.
+
+        Fields mirror the AdminAuditEntry dataclass in audit.py so
+        existing serialization / rendering code continues to work.
+        """
+
+        table = "admin_audit_entries"
+
+        entry_id = CharField(max_length=32, unique=True, db_index=True)
+        timestamp = DateTimeField(auto_now_add=True, db_index=True)
+        user_id = CharField(max_length=255, db_index=True, blank=True, default="")
+        username = CharField(max_length=255, blank=True, default="")
+        role = CharField(max_length=100, blank=True, default="")
+        action = CharField(max_length=50, db_index=True)
+        model_name = CharField(max_length=255, null=True, blank=True)
+        record_pk = CharField(max_length=255, null=True, blank=True)
+        changes_json = TextField(blank=True, default="")  # JSON-encoded changes dict
+        ip_address = CharField(max_length=45, blank=True, default="")
+        user_agent = TextField(blank=True, default="")
+        metadata_json = TextField(blank=True, default="")  # JSON-encoded metadata dict
+        success = BooleanField(default=True)
+        error_message = TextField(null=True, blank=True)
+
+        class Meta:
+            ordering = ["-timestamp"]
+            verbose_name = "Audit Entry"
+            verbose_name_plural = "Audit Entries"
+            get_latest_by = "timestamp"
+            indexes = [
+                Index(fields=["timestamp"], name="idx_audit_entry_timestamp"),
+                Index(fields=["user_id", "timestamp"], name="idx_audit_entry_user_ts"),
+                Index(fields=["action", "timestamp"], name="idx_audit_entry_action_ts"),
+                Index(fields=["model_name", "timestamp"], name="idx_audit_entry_model_ts"),
+            ]
+
+        def __str__(self) -> str:
+            return f"[{self.action}] {self.username} @ {self.timestamp}"
+
+        def to_dict(self) -> Dict[str, Any]:
+            """Serialize to dict compatible with existing audit templates."""
+            import json as _json
+            changes = None
+            if self.changes_json:
+                try:
+                    changes = _json.loads(self.changes_json)
+                except (ValueError, TypeError):
+                    pass
+            metadata: Dict[str, Any] = {}
+            if self.metadata_json:
+                try:
+                    metadata = _json.loads(self.metadata_json)
+                except (ValueError, TypeError):
+                    pass
+            ts = self.timestamp
+            ts_str = ts.isoformat() if hasattr(ts, "isoformat") else str(ts)
+            return {
+                "pk": self.pk,  # real integer primary key for admin URLs
+                "id": self.entry_id,
+                "timestamp": ts_str,
+                "user_id": self.user_id,
+                "username": self.username,
+                "role": self.role,
+                "action": self.action,
+                "model_name": self.model_name,
+                "record_pk": self.record_pk,
+                "changes": changes,
+                "ip_address": self.ip_address,
+                "user_agent": self.user_agent,
+                "metadata": metadata,
+                "success": bool(self.success),
+                "error_message": self.error_message,
+            }
+
+        @classmethod
+        async def create_entry(
+            cls,
+            user_id: str,
+            username: str,
+            role: str,
+            action: str,
+            *,
+            model_name: Optional[str] = None,
+            record_pk: Optional[str] = None,
+            changes: Optional[Dict[str, Any]] = None,
+            ip_address: Optional[str] = None,
+            user_agent: Optional[str] = None,
+            metadata: Optional[Dict[str, Any]] = None,
+            success: bool = True,
+            error_message: Optional[str] = None,
+        ) -> "AdminAuditEntry":
+            """Create and persist an audit entry to the database."""
+            import json as _json
+            import secrets as _sec
+            entry_id = f"audit_{_sec.token_hex(8)}"
+            return await cls.create(
+                entry_id=entry_id,
+                user_id=user_id or "",
+                username=username or "",
+                role=role or "",
+                action=action if isinstance(action, str) else str(action),
+                model_name=model_name,
+                record_pk=str(record_pk) if record_pk is not None else None,
+                changes_json=_json.dumps(changes, default=str) if changes else "",
+                ip_address=ip_address or "",
+                user_agent=user_agent or "",
+                metadata_json=_json.dumps(metadata or {}, default=str),
+                success=success,
+                error_message=error_message,
+            )
+
     # ── AdminSession ─────────────────────────────────────────────────────
 
     class AdminSession(Model):
@@ -604,10 +731,10 @@ else:
             return None
         @classmethod
         async def create_superuser(cls, username: str, password: str, email: str = "", **kw: Any) -> "AdminUser":
-            raise RuntimeError("ORM not available — cannot create superuser without database models")
+            raise RuntimeError("ORM not available -- cannot create superuser without database models")
         @classmethod
         async def create_staff_user(cls, username: str, password: str, email: str = "", **kw: Any) -> "AdminUser":
-            raise RuntimeError("ORM not available — cannot create staff user without database models")
+            raise RuntimeError("ORM not available -- cannot create staff user without database models")
 
     class AdminLogEntry:  # type: ignore[no-redef]
         """Stub AdminLogEntry when ORM is not available."""
@@ -620,6 +747,22 @@ else:
                 setattr(self, k, v)
         @classmethod
         async def log_action(cls, **kwargs: Any) -> "AdminLogEntry":
+            return cls(**kwargs)
+
+    class AdminAuditEntry:  # type: ignore[no-redef]
+        """Stub AdminAuditEntry when ORM is not available."""
+        _HAS_ORM = False
+        def __init__(self, **kwargs: Any):
+            for k, v in kwargs.items():
+                setattr(self, k, v)
+        def to_dict(self) -> Dict[str, Any]:
+            return {k: getattr(self, k, None) for k in (
+                "id", "timestamp", "user_id", "username", "role", "action",
+                "model_name", "record_pk", "changes", "ip_address",
+                "user_agent", "metadata", "success", "error_message",
+            )}
+        @classmethod
+        async def create_entry(cls, **kwargs: Any) -> "AdminAuditEntry":
             return cls(**kwargs)
 
     class AdminSession:  # type: ignore[no-redef]
@@ -643,6 +786,7 @@ __all__ = [
     "AdminGroup",
     "AdminUser",
     "AdminLogEntry",
+    "AdminAuditEntry",
     "AdminSession",
     "_hash_password",
     "_verify_password",

@@ -1,5 +1,5 @@
 """
-Subsystem Initializers — Protocol and base classes for server decomposition.
+Subsystem Initializers -- Protocol and base classes for server decomposition.
 
 Architecture v2: Each subsystem is an isolated unit with its own lifecycle.
 The server orchestrates subsystems in priority order, with graceful degradation

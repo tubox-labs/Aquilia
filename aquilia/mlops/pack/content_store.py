@@ -40,14 +40,13 @@ class ContentStore:
 
     async def store(self, digest: str, data: bytes) -> str:
         """
-        Store blob by digest. Idempotent — skips if already exists.
+        Store blob by digest. Idempotent -- skips if already exists.
 
         Returns:
             The storage path as a string.
         """
         path = self._blob_path(digest)
         if path.exists():
-            logger.debug("Blob already exists: %s", digest)
             return str(path)
 
         path.parent.mkdir(parents=True, exist_ok=True)

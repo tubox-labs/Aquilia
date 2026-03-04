@@ -1,5 +1,5 @@
 """
-AquilaMail — DI Providers
+AquilaMail -- DI Providers
 
 Dependency injection providers for the mail subsystem.
 Enables proper lifecycle management and dependency resolution
@@ -64,7 +64,7 @@ class MailConfigProvider:
 @service(scope="app", name="MailServiceProvider")
 class MailServiceProvider:
     """
-    DI provider for MailService — the central mail orchestrator.
+    DI provider for MailService -- the central mail orchestrator.
 
     Accepts a MailConfig (resolved from DI or provided directly)
     and produces a configured MailService singleton.
@@ -88,7 +88,7 @@ class MailServiceProvider:
 
 
 # ============================================================================
-# Provider Registry — Discovery-based
+# Provider Registry -- Discovery-based
 # ============================================================================
 
 
@@ -102,7 +102,7 @@ class MailProviderRegistry:
     - ``aquilia.mail.providers`` (built-in providers)
     - User-specified packages (via config)
 
-    This enables plugin-style mail providers — drop a module into your
+    This enables plugin-style mail providers -- drop a module into your
     project's ``mail_providers/`` package and it's auto-discovered.
     """
 
@@ -150,14 +150,11 @@ class MailProviderRegistry:
                         if ptype is None:
                             ptype = cls.__name__.lower().replace("provider", "")
                         self._discovered[ptype] = cls
-                        logger.debug(
-                            f"Discovered mail provider: {ptype} → {cls.__qualname__}"
-                        )
                 except Exception as e:
-                    logger.debug(f"Could not scan {package}: {e}")
+                    pass
 
         except ImportError:
-            logger.debug("PackageScanner not available, skipping auto-discovery")
+            pass
 
         return self._discovered
 

@@ -1,5 +1,5 @@
 """
-BentoML exporter — generates BentoML-compatible service bundles.
+BentoML exporter -- generates BentoML-compatible service bundles.
 """
 
 from __future__ import annotations

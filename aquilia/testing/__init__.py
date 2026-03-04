@@ -1,5 +1,5 @@
 """
-Aquilia Testing Framework - Django-style test infrastructure.
+Aquilia Testing Framework.
 
 Provides a comprehensive, batteries-included testing module tightly
 integrated with every Aquilia subsystem: Server, Config, DI, Faults,
@@ -17,7 +17,7 @@ Usage:
             self.assert_status(response, 200)
 
 Components:
-    - TestClient:          HTTP client for controller testing (like Django's Client)
+    - TestClient:          HTTP client for controller testing
     - AquiliaTestCase:     Base test case with server lifecycle management
     - TransactionTestCase: Test case with DB transaction rollback
     - LiveServerTestCase:  Test case that starts a real ASGI server

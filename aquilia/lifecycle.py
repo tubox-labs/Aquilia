@@ -100,13 +100,10 @@ class LifecycleCoordinator:
         self.phase = LifecyclePhase.STARTING
         self._emit_event(LifecycleEvent(LifecyclePhase.STARTING))
         
-        self.logger.info("Starting application lifecycle...")
-        
         try:
             # 1. Execute global workspace-level startup hook if present
             global_startup = self.config.get("on_startup") if self.config else None
             if global_startup:
-                self.logger.info("Executing global workspace startup hook...")
                 hook = self._resolve_hook(global_startup)
                 if hook:
                     if inspect.iscoroutinefunction(hook):
@@ -121,7 +118,6 @@ class LifecycleCoordinator:
             
             self.phase = LifecyclePhase.READY
             self._emit_event(LifecycleEvent(LifecyclePhase.READY))
-            self.logger.info(f"✅ All apps started successfully ({len(self.started_apps)} apps)")
         
         except Exception as e:
             self.phase = LifecyclePhase.ERROR
@@ -130,10 +126,10 @@ class LifecycleCoordinator:
                 message="Startup failed",
                 error=e
             ))
-            self.logger.error(f"❌ Startup failed: {e}")
+            self.logger.error(f"Startup failed: {e}")
             
             # Rollback - shutdown already started apps
-            self.logger.info("Rolling back started apps...")
+            self.logger.debug("Rolling back started apps...")
             await self.shutdown()
             
             raise LifecycleError(f"Startup failed: {e}") from e
@@ -150,10 +146,9 @@ class LifecycleCoordinator:
         if ctx.on_startup is None:
             # No startup hook - skip
             self.started_apps.append(app_name)
-            self.logger.debug(f"  ↳ {app_name}: no startup hook")
             return
         
-        self.logger.info(f"  ↳ Starting {app_name}...")
+        self.logger.debug(f"  ↳ Starting {app_name}...")
         
         try:
             # Get config namespace for this app
@@ -179,10 +174,10 @@ class LifecycleCoordinator:
                 app_name=app_name,
                 message=f"{app_name} started"
             ))
-            self.logger.info(f"     ✓ {app_name} started")
+            self.logger.debug(f"     {app_name} started")
         
         except Exception as e:
-            self.logger.error(f"     ✗ {app_name} startup failed: {e}")
+            self.logger.error(f"     {app_name} startup failed: {e}")
             raise LifecycleError(f"Startup failed for app '{app_name}': {e}") from e
     
     async def shutdown(self):
@@ -192,13 +187,12 @@ class LifecycleCoordinator:
         Does not raise exceptions - logs errors and continues cleanup.
         """
         if self.phase == LifecyclePhase.STOPPED:
-            self.logger.debug("Already stopped")
             return
         
         self.phase = LifecyclePhase.STOPPING
         self._emit_event(LifecycleEvent(LifecyclePhase.STOPPING))
         
-        self.logger.info("Stopping application...")
+        self.logger.debug("Stopping application...")
         
         # 1. Shutdown in reverse order
         for app_name in reversed(self.started_apps):
@@ -207,7 +201,7 @@ class LifecycleCoordinator:
         # 2. Execute global workspace-level shutdown hook if present
         global_shutdown = self.config.get("on_shutdown") if self.config else None
         if global_shutdown:
-            self.logger.info("Executing global workspace shutdown hook...")
+            self.logger.debug("Executing global workspace shutdown hook...")
             try:
                 hook = self._resolve_hook(global_shutdown)
                 if hook:
@@ -220,7 +214,7 @@ class LifecycleCoordinator:
         
         self.phase = LifecyclePhase.STOPPED
         self._emit_event(LifecycleEvent(LifecyclePhase.STOPPED))
-        self.logger.info("✅ All apps stopped")
+        self.logger.debug("All apps stopped")
     
     async def _shutdown_app(self, app_name: str):
         """
@@ -233,10 +227,9 @@ class LifecycleCoordinator:
         ctx = next((c for c in self.runtime.meta.app_contexts if c.name == app_name), None)
         
         if ctx is None or ctx.on_shutdown is None:
-            self.logger.debug(f"  ↳ {app_name}: no shutdown hook")
             return
         
-        self.logger.info(f"  ↳ Stopping {app_name}...")
+        self.logger.debug(f"  ↳ Stopping {app_name}...")
         
         try:
             # Get config namespace
@@ -257,11 +250,11 @@ class LifecycleCoordinator:
                 app_name=app_name,
                 message=f"{app_name} stopped"
             ))
-            self.logger.info(f"     ✓ {app_name} stopped")
+            self.logger.debug(f"     {app_name} stopped")
         
         except Exception as e:
             # Log but don't raise - continue cleanup
-            self.logger.error(f"     ✗ {app_name} shutdown error: {e}")
+            self.logger.error(f"     {app_name} shutdown error: {e}")
             self._emit_event(LifecycleEvent(
                 LifecyclePhase.STOPPING,
                 app_name=app_name,
@@ -271,7 +264,7 @@ class LifecycleCoordinator:
     
     async def restart(self):
         """Restart the application (shutdown then startup)."""
-        self.logger.info("Restarting application...")
+        self.logger.debug("Restarting application...")
         await self.shutdown()
         self.phase = LifecyclePhase.INIT
         self.started_apps.clear()

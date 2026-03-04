@@ -1,5 +1,5 @@
 """
-Effect System — Typed Capabilities with Providers and Layers.
+Effect System -- Typed Capabilities with Providers and Layers.
 
 Effects represent side-effects (DB, Cache, Queue, HTTP, Storage) that handlers
 declare via ``@requires()``. The runtime automatically acquires and releases
@@ -9,15 +9,15 @@ Inspired by Effect-TS:
 - Effects declare requirements, not implementations (no dependency leakage)
 - Layers separate construction from usage
 - Resources have guaranteed acquire/release lifecycle
-- Type safety — effects visible in handler signatures
+- Type safety -- effects visible in handler signatures
 
 Architecture:
-    Effect          — Typed token representing a capability
-    EffectKind      — Category enum (DB, CACHE, QUEUE, HTTP, STORAGE, CUSTOM)
-    EffectProvider  — ABC for provider implementations (acquire/release lifecycle)
-    EffectRegistry  — Central registry with DI integration
-    EffectScope     — Per-request scoped resource manager
-    @requires       — Declared on handlers/nodes (lives in flow.py)
+    Effect          -- Typed token representing a capability
+    EffectKind      -- Category enum (DB, CACHE, QUEUE, HTTP, STORAGE, CUSTOM)
+    EffectProvider  -- ABC for provider implementations (acquire/release lifecycle)
+    EffectRegistry  -- Central registry with DI integration
+    EffectScope     -- Per-request scoped resource manager
+    @requires       -- Declared on handlers/nodes (lives in flow.py)
 
 Integration:
     - FlowPipeline auto-acquires effects declared by ``@requires()``
@@ -81,10 +81,10 @@ class EffectProvider(ABC):
 
     Providers implement the actual capability (e.g., database connection).
     Lifecycle:
-        1. initialize()  — called once at startup
-        2. acquire(mode)  — called per-request to get a resource
-        3. release(resource, success) — called at end of request
-        4. finalize()    — called once at shutdown
+        1. initialize()  -- called once at startup
+        2. acquire(mode)  -- called per-request to get a resource
+        3. release(resource, success) -- called at end of request
+        4. finalize()    -- called once at shutdown
     """
 
     @abstractmethod
@@ -493,7 +493,7 @@ class StorageHandle:
 
 
 # ============================================================================
-# EffectRegistry — Central registry with lifecycle and DI integration
+# EffectRegistry -- Central registry with lifecycle and DI integration
 # ============================================================================
 
 
@@ -505,10 +505,10 @@ class EffectRegistry:
     and integrates with the DI system.
 
     Lifecycle:
-        1. register() — register providers at setup time
-        2. initialize_all() — called at startup (initializes all providers)
-        3. acquire/release — per-request via FlowPipeline or EffectScope
-        4. finalize_all() — called at shutdown
+        1. register() -- register providers at setup time
+        2. initialize_all() -- called at startup (initializes all providers)
+        3. acquire/release -- per-request via FlowPipeline or EffectScope
+        4. finalize_all() -- called at shutdown
 
     DI Integration:
         - Registered as app-scoped singleton via register_with_container()
@@ -528,7 +528,6 @@ class EffectRegistry:
         """Register an effect provider."""
         self.providers[effect_name] = provider
         self._metrics[effect_name] = {"acquires": 0, "releases": 0, "errors": 0}
-        logger.debug("Registered effect provider: %s", effect_name)
 
     def unregister(self, effect_name: str) -> Optional[EffectProvider]:
         """Unregister and return an effect provider."""
@@ -542,7 +541,6 @@ class EffectRegistry:
         for name, provider in self.providers.items():
             try:
                 await provider.initialize()
-                logger.debug("Initialized effect provider: %s", name)
             except Exception as exc:
                 logger.error("Failed to initialize effect '%s': %s", name, exc)
                 raise
@@ -553,7 +551,6 @@ class EffectRegistry:
         for name, provider in self.providers.items():
             try:
                 await provider.finalize()
-                logger.debug("Finalized effect provider: %s", name)
             except Exception as exc:
                 logger.warning("Error finalizing effect '%s': %s", name, exc)
         self._initialized = False

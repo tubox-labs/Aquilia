@@ -1,5 +1,5 @@
 """
-AquilaCache CLI commands — ``aq cache`` group.
+AquilaCache CLI commands -- ``aq cache`` group.
 
 Commands:
     check     Validate cache configuration without starting the server.
@@ -46,7 +46,7 @@ def cmd_cache_check(verbose: bool = False) -> None:
     config = _load_cache_config()
 
     if not config or not config.get("enabled", False):
-        click.echo(click.style("✗ Cache integration is not enabled.", fg="yellow"))
+        click.echo(click.style("Cache integration is not enabled.", fg="yellow"))
         click.echo("  Add .integrate(Integration.cache(...)) to your workspace.py")
         return
 
@@ -81,15 +81,15 @@ def cmd_cache_check(verbose: bool = False) -> None:
 
             r = _redis.from_url(url, socket_timeout=3)
             r.ping()
-            click.echo(click.style("  ✓ Redis connection OK", fg="green"))
+            click.echo(click.style("  Redis connection OK", fg="green"))
             info = r.info("memory")
             click.echo(f"    Used Memory: {info.get('used_memory_human', 'N/A')}")
             r.close()
         except ImportError:
-            click.echo(click.style("  ✗ redis package not installed", fg="red"))
+            click.echo(click.style("  redis package not installed", fg="red"))
             click.echo("    pip install redis")
         except Exception as e:
-            click.echo(click.style(f"  ✗ Redis connection failed: {e}", fg="red"))
+            click.echo(click.style(f"  Redis connection failed: {e}", fg="red"))
 
     elif backend == "composite":
         click.echo()
@@ -109,7 +109,7 @@ def cmd_cache_check(verbose: bool = False) -> None:
         click.echo(f"    Namespace:      {mw_cfg.get('namespace', 'http')!r}")
 
     click.echo()
-    click.echo(click.style("✓ Cache configuration valid", fg="green"))
+    click.echo(click.style("Cache configuration valid", fg="green"))
 
 
 def cmd_cache_inspect(verbose: bool = False) -> None:
@@ -126,7 +126,7 @@ def cmd_cache_stats(verbose: bool = False) -> None:
     """Display cache statistics by connecting to the live cache backend."""
     config = _load_cache_config()
     if not config or not config.get("enabled", False):
-        click.echo(click.style("✗ Cache is not enabled.", fg="yellow"))
+        click.echo(click.style("Cache is not enabled.", fg="yellow"))
         return
 
     try:
@@ -143,7 +143,7 @@ def cmd_cache_stats(verbose: bool = False) -> None:
 
         cache_data = asyncio.run(_stats())
         if not cache_data:
-            click.echo(click.style("✗ No cache statistics available.", fg="yellow"))
+            click.echo(click.style("No cache statistics available.", fg="yellow"))
             return
 
         click.echo(click.style("Cache Statistics", fg="cyan", bold=True))
@@ -151,7 +151,7 @@ def cmd_cache_stats(verbose: bool = False) -> None:
         for key, value in cache_data.items():
             click.echo(f"  {key:18s} {value}")
     except Exception as e:
-        click.echo(click.style(f"✗ Failed to get cache stats: {e}", fg="red"))
+        click.echo(click.style(f"Failed to get cache stats: {e}", fg="red"))
         if verbose:
             import traceback
             traceback.print_exc()
@@ -166,7 +166,7 @@ def cmd_cache_clear(namespace: Optional[str] = None, verbose: bool = False) -> N
     """
     config = _load_cache_config()
     if not config or not config.get("enabled", False):
-        click.echo(click.style("✗ Cache is not enabled.", fg="yellow"))
+        click.echo(click.style("Cache is not enabled.", fg="yellow"))
         return
 
     try:
@@ -179,15 +179,15 @@ def cmd_cache_clear(namespace: Optional[str] = None, verbose: bool = False) -> N
             await svc.initialize()
             if namespace:
                 await svc.invalidate_namespace(namespace)
-                click.echo(click.style(f"✓ Cleared namespace '{namespace}'", fg="green"))
+                click.echo(click.style(f"Cleared namespace '{namespace}'", fg="green"))
             else:
                 await svc.clear()
-                click.echo(click.style("✓ Cache cleared", fg="green"))
+                click.echo(click.style("Cache cleared", fg="green"))
             await svc.shutdown()
 
         asyncio.run(_clear())
     except Exception as e:
-        click.echo(click.style(f"✗ Cache clear failed: {e}", fg="red"))
+        click.echo(click.style(f"Cache clear failed: {e}", fg="red"))
         if verbose:
             import traceback
             traceback.print_exc()

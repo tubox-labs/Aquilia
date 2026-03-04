@@ -1,15 +1,15 @@
 """
-MLOps Aquilary Module — register MLOps as an Aquilary application module.
+MLOps Aquilary Module -- register MLOps as an Aquilary application module.
 
 Provides an ``MLOpsManifest`` that the Aquilary registry can discover,
 validate, and load alongside other application manifests.
 
 Ecosystem integration:
-- **Effects** — declares ``CacheEffect("mlops")`` so that the effect
+- **Effects** -- declares ``CacheEffect("mlops")`` so that the effect
   middleware acquires a cache handle for every MLOps request.
-- **Fault domains** — imports ``faults`` to register all MLOps fault
+- **Fault domains** -- imports ``faults`` to register all MLOps fault
   domains with the FaultEngine at import time.
-- **Middleware** — uses :func:`register_mlops_middleware` to add
+- **Middleware** -- uses :func:`register_mlops_middleware` to add
   middleware via ``MiddlewareDescriptor`` with scoped ordering.
 
 Usage::
@@ -39,7 +39,7 @@ class MLOpsManifest:
 
     name = "mlops"
     version = "1.0.0"
-    description = "Aquilia MLOps Platform — model packaging, registry, serving & observability"
+    description = "Aquilia MLOps Platform -- model packaging, registry, serving & observability"
     depends_on: List[str] = []
 
     controllers: List[str] = [

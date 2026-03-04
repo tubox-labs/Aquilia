@@ -1,5 +1,5 @@
 """
-Artifact Core — the foundational types for Aquilia's artifact system.
+Artifact Core -- the foundational types for Aquilia's artifact system.
 
 Every artifact in Aquilia (compiled manifests, modelpacks, templates,
 config snapshots, migration checkpoints) shares the same envelope format:

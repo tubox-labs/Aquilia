@@ -1,8 +1,8 @@
 """
 Aquilia MLOps Platform
 
-Production-grade ML serving with TorchServe-class capabilities and
-FastAPI-level simplicity — fully integrated with the Aquilia framework.
+Production-grade ML serving with TorchServe-class capabilities --
+fully integrated with the Aquilia framework.
 
 Quick start (class-based)::
 
@@ -161,7 +161,7 @@ from .serving.middleware import (
 from .engine.lifecycle import mlops_on_startup, mlops_on_shutdown
 
 __all__ = [
-    # Types — Enums
+    # Types -- Enums
     "Framework",
     "RuntimeKind",
     "QuantizePreset",
@@ -173,7 +173,7 @@ __all__ = [
     "InferenceMode",
     "DeviceType",
     "CircuitState",
-    # Types — Data classes
+    # Types -- Data classes
     "TensorSpec",
     "BlobRef",
     "Provenance",
@@ -188,7 +188,7 @@ __all__ = [
     "DriftReport",
     "CircuitBreakerConfig",
     "TokenUsage",
-    # Types — Protocols
+    # Types -- Protocols
     "StorageAdapter",
     "Runtime",
     "StreamingRuntime",

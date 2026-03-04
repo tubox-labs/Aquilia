@@ -14,11 +14,24 @@ class WorkspaceGenerator:
         path: Path,
         minimal: bool = False,
         template: Optional[str] = None,
+        *,
+        include_docker: bool = True,
+        include_readme: bool = True,
+        include_makefile: bool = True,
+        include_tests: bool = True,
+        include_gitignore: bool = True,
+        include_license: Optional[str] = None,
     ):
         self.name = name
         self.path = path
         self.minimal = minimal
         self.template = template
+        self.include_docker = include_docker
+        self.include_readme = include_readme
+        self.include_makefile = include_makefile
+        self.include_tests = include_tests
+        self.include_gitignore = include_gitignore
+        self.include_license = include_license
     
     def generate(self) -> None:
         """Generate workspace structure."""
@@ -34,30 +47,40 @@ class WorkspaceGenerator:
         # Create starter page
         self._create_starter_page()
         
-        # Create default scaffold files
-        self._create_models_dir()
-        
         # Template files (--template flag or full mode)
         if self.template:
             self._create_template_files()
         
         # Create additional files (industry-standard project structure)
-        self._create_gitignore()
+        if self.include_gitignore:
+            self._create_gitignore()
         self._create_env_example()
         self._create_editorconfig()
         self._create_requirements()
-        self._create_tests_dir()
+        if self.include_tests:
+            self._create_tests_dir()
         if not self.minimal:
-            self._create_readme()
-            self._create_makefile()
-            self._create_deployment_files()
+            if self.include_readme:
+                self._create_readme()
+            if self.include_makefile:
+                self._create_makefile()
+            if self.include_docker:
+                self._create_deployment_files()
+        if self.include_license:
+            self._create_license_file()
+        
+        # Create starter locale files (i18n readiness)
+        self._create_locale_files()
     
     def _create_directories(self) -> None:
         """Create workspace directories."""
-        dirs = ['modules', 'config', 'models']
+        dirs = ['modules', 'config']
         
         if not self.minimal:
             dirs.extend(['artifacts'])
+        
+        # Always create locales directory for i18n readiness
+        dirs.extend(['locales', 'locales/en'])
         
         if self.template:
             dirs.extend([
@@ -109,7 +132,7 @@ class WorkspaceGenerator:
         lines = []
         
         for mod_name, mod_data in discovered_modules.items():
-            # Generate module configuration — pointer only
+            # Generate module configuration -- pointer only
             version = mod_data.get('version', '0.1.0')
             description = mod_data.get('description', f'{mod_name.capitalize()} module')
             route_prefix = mod_data.get('route_prefix', f'/{mod_name}')
@@ -455,7 +478,7 @@ class WorkspaceGenerator:
         """Create aquilia.py configuration (Python-based, production-grade).
 
         When ``self.minimal`` is True, generates a lean workspace with just
-        the bare essentials: DI, routing, fault handling, and patterns —
+        the bare essentials: DI, routing, fault handling, and patterns --
         no sessions, no security middleware, no telemetry, no templates,
         no static files.
         """
@@ -478,7 +501,7 @@ class WorkspaceGenerator:
             for mod_name in sorted_names:
                 mod = discovered[mod_name]
                 
-                # Build slim module registration — pointer only
+                # Build slim module registration -- pointer only
                 # Component declarations (controllers, services, etc.) live in manifest.py
                 
                 base_config = f'Module("{mod["name"]}", version="{mod["version"]}", description="{mod["description"]}")'
@@ -535,7 +558,7 @@ class WorkspaceGenerator:
                     version="0.1.0",
                     description="Aquilia workspace",
                 )
-                # Starter module — registered here so the server does not need
+                # Starter module -- registered here so the server does not need
                 # to hard-code it. Delete this line (and starter.py) once you
                 # add your own modules with a GET "/" route.
                 .starter("starter")
@@ -543,6 +566,11 @@ class WorkspaceGenerator:
                 # Add modules here with explicit configuration:
                 # .module(Module("auth", version="1.0.0", description="Authentication module").route_prefix("/api/v1/auth").depends_on("core"))
                 # .module(Module("users", version="1.0.0", description="User management").route_prefix("/api/v1/users").depends_on("auth", "core"))
+
+                # Middleware chain -- controls which middleware runs and in what order.
+                # Presets: defaults() (dev), production(), minimal()
+                # Custom: Integration.middleware.chain().use("aquilia.middleware.ExceptionMiddleware", priority=1).use(...)
+                .middleware(Integration.middleware.defaults())
 
                 # Integrations - Configure core systems
                 .integrate(Integration.di(auto_wire=True, manifest_validation=True))
@@ -562,9 +590,8 @@ class WorkspaceGenerator:
                 .integrate(Integration.patterns())
 
                 # Database - Configure the ORM backend
-                # Uncomment and set the connection URL for your database.
                 .integrate(Integration.database(
-                    # url="sqlite:///db.sqlite3",     # SQLite (dev)
+                    url="sqlite:///db.sqlite3",       # SQLite (dev)
                     # url="postgresql://user:pass@localhost:5432/{self.name}",  # PostgreSQL
                     pool_size=5,
                     echo=False,
@@ -602,6 +629,27 @@ class WorkspaceGenerator:
                 #             name="default",
                 #             ttl=timedelta(days=7),
                 #             idle_timeout=timedelta(hours=1),
+                #             absolute_timeout=timedelta(days=30),
+                #             rotate_on_use=False,
+                #             rotate_on_privilege_change=True,
+                #             fingerprint_binding=False,
+                #             scope="user",
+                #             persistence=PersistencePolicy(
+                #                 enabled=True,
+                #                 store_name="default",
+                #                 write_through=True,
+                #                 compress=False,
+                #             ),
+                #             concurrency=ConcurrencyPolicy(
+                #                 max_sessions_per_principal=5,
+                #                 behavior_on_limit="evict_oldest",
+                #             ),
+                #             transport=TransportPolicy(
+                #                 cookie_name="{self.name}_session",
+                #                 cookie_secure=False,
+                #                 cookie_httponly=True,
+                #                 cookie_samesite="lax",
+                #             ),
                 #         ),
                 #     ],
                 # )
@@ -640,7 +688,7 @@ class WorkspaceGenerator:
         (self.path / 'workspace.py').write_text(content)
 
     def _create_minimal_workspace_manifest(self) -> None:
-        """Create a minimal workspace.py — just enough to run.
+        """Create a minimal workspace.py -- just enough to run.
 
         No sessions, no security, no telemetry, no templates, no static
         files. Users can add integrations later with ``aq add module``
@@ -648,11 +696,14 @@ class WorkspaceGenerator:
         """
         content = textwrap.dedent(f'''\
             """
-            Aquilia Workspace — {self.name} (minimal)
+            Aquilia Workspace -- {self.name} (minimal)
             Generated by: aq init workspace {self.name} --minimal
             """
 
             from aquilia import Workspace, Module, Integration
+            from datetime import timedelta
+            from aquilia.sessions import SessionPolicy, TransportPolicy
+            from aquilia.sessions import PersistencePolicy, ConcurrencyPolicy
 
 
             workspace = (
@@ -661,20 +712,55 @@ class WorkspaceGenerator:
                     version="0.1.0",
                     description="{self.name} workspace",
                 )
-                # Starter module — remove once you add GET /
+                # Starter module -- remove once you add GET /
                 .starter("starter")
 
-                # Integrations — core only
+                # Middleware chain -- presets: defaults(), production(), minimal()
+                .middleware(Integration.middleware.minimal())
+
+                # Integrations -- core only
                 .integrate(Integration.di(auto_wire=True))
                 .integrate(Integration.routing(strict_matching=True))
                 .integrate(Integration.fault_handling(default_strategy="propagate"))
                 .integrate(Integration.patterns())
 
-                # Database (uncomment to enable)
-                # .integrate(Integration.database(url="sqlite:///db.sqlite3"))
+                # Database
+                .integrate(Integration.database(url="sqlite:///db.sqlite3"))
 
                 # Add modules:
                 #   .module(Module("users").route_prefix("/users"))
+
+                # Sessions
+                .sessions(
+                    policies=[
+                        SessionPolicy(
+                            name="default",
+                            ttl=timedelta(days=7),
+                            idle_timeout=timedelta(hours=1),
+                            absolute_timeout=timedelta(days=30),
+                            rotate_on_use=False,
+                            rotate_on_privilege_change=True,
+                            fingerprint_binding=False,
+                            scope="user",
+                            persistence=PersistencePolicy(
+                                enabled=True,
+                                store_name="default",
+                                write_through=True,
+                                compress=False,
+                            ),
+                            concurrency=ConcurrencyPolicy(
+                                max_sessions_per_principal=5,
+                                behavior_on_limit="evict_oldest",
+                            ),
+                            transport=TransportPolicy(
+                                cookie_name="{self.name}_session",
+                                cookie_secure=False,
+                                cookie_httponly=True,
+                                cookie_samesite="lax",
+                            ),
+                        ),
+                    ],
+                )
             )
 
 
@@ -753,15 +839,14 @@ class WorkspaceGenerator:
     def _create_starter_page(self) -> None:
         """Create a starter welcome controller that renders the Aquilia welcome page.
 
-        This gives new workspaces a default landing page visible at ``/``
-        similar to Django's rocket page or React's spinning logo.
-        The page is only shown when ``debug=True`` — in production it
+        This gives new workspaces a default landing page visible at ``/``.
+        The page is only shown when ``debug=True`` -- in production it
         should be replaced by real routes.
         """
         # Create the starter controller file in the workspace root
         content = textwrap.dedent('''\
             """
-            Aquilia Starter Page — shown at / when debug=True.
+            Aquilia Starter Page -- shown at / when debug=True.
 
             Replace this controller with your own routes.
             Delete this file once you have real endpoints.
@@ -826,7 +911,7 @@ class WorkspaceGenerator:
 
         model_content = textwrap.dedent(f'''\
             """
-            {model_name} models — Aquilia ORM.
+            {model_name} models -- Aquilia ORM.
 
             Define your database models here. Models are auto-discovered
             when ``auto_discover=True`` in the workspace or module manifest.
@@ -885,7 +970,7 @@ class WorkspaceGenerator:
         """Create .env.example with documented environment variables."""
         content = textwrap.dedent(f"""\
             # ──────────────────────────────────────────────────────────────────
-            # {self.name} — Environment Variables
+            # {self.name} -- Environment Variables
             # ──────────────────────────────────────────────────────────────────
             # Copy this file to .env and fill in your values:
             #   cp .env.example .env
@@ -979,57 +1064,136 @@ class WorkspaceGenerator:
         (self.path / 'requirements.txt').write_text(content)
 
     def _create_tests_dir(self) -> None:
-        """Create tests/ directory with conftest.py and an example test."""
+        """Create tests/ directory with conftest.py and example tests using aquilia.testing."""
         tests_dir = self.path / 'tests'
         tests_dir.mkdir(exist_ok=True)
 
         # __init__.py
         (tests_dir / '__init__.py').write_text("")
 
-        # conftest.py — shared test fixtures
+        # conftest.py -- registers Aquilia fixtures + any workspace-level overrides
         conftest = textwrap.dedent(f'''\
             """
-            Shared test fixtures for {self.name}.
+            Shared test configuration for {self.name}.
+
+            Registers all Aquilia testing fixtures (TestServer, TestClient,
+            MockFaultEngine, MockEffectRegistry, etc.) and provides
+            workspace-level overrides.
 
             Run tests with:
+                aq test
+            Or directly:
                 pytest tests/ -v
             """
 
             import pytest
 
+            # Register all built-in Aquilia fixtures:
+            #   test_server, test_client, ws_client, fault_engine,
+            #   effect_registry, di_container, identity_factory,
+            #   mail_outbox, test_request, test_scope, settings_override
+            from aquilia.testing.fixtures import aquilia_fixtures
+            aquilia_fixtures()
+
+
+            # ── Workspace-level overrides ─────────────────────────────────────
 
             @pytest.fixture
-            def app_config():
-                """Base application configuration for tests."""
+            def app_settings():
+                """
+                Base settings applied to every test server in this workspace.
+                Override per-test via the ``settings_override`` fixture or
+                by setting ``settings = {{...}}`` on an :class:`AquiliaTestCase`.
+                """
                 return {{
-                    "name": "{self.name}",
-                    "mode": "test",
                     "debug": True,
+                    "runtime": {{"mode": "test"}},
                 }}
         ''')
 
         (tests_dir / 'conftest.py').write_text(conftest)
 
-        # Example test
-        test_content = textwrap.dedent(f'''\
+        # Smoke tests -- SimpleTestCase (no server) + AquiliaTestCase (full stack)
+        test_smoke = textwrap.dedent(f'''\
             """
             Smoke tests for {self.name} workspace.
+
+            Demonstrates both testing styles available in aquilia.testing:
+            - SimpleTestCase  -- pure unit tests, no server overhead
+            - AquiliaTestCase -- full async test case with live TestServer
+            - pytest fixtures -- functional style via aquilia_fixtures()
             """
 
+            import aquilia
+            from aquilia.testing import (
+                AquiliaTestCase,
+                SimpleTestCase,
+                TestClient,
+            )
 
-            def test_workspace_config(app_config):
-                """Verify test configuration is loaded."""
-                assert app_config["name"] == "{self.name}"
-                assert app_config["mode"] == "test"
+
+            # ── Unit-style tests (no server) ──────────────────────────────────
+
+            class TestWorkspace(SimpleTestCase):
+                """Verify the workspace boots without errors."""
+
+                def test_aquilia_importable(self):
+                    """Aquilia framework must be importable."""
+                    self.assertIsNotNone(aquilia.__version__)
+
+                def test_aquilia_version_is_string(self):
+                    self.assertIsInstance(aquilia.__version__, str)
 
 
-            def test_aquilia_importable():
-                """Verify Aquilia framework is installed."""
-                import aquilia
-                assert hasattr(aquilia, "__version__")
+            # ── Integration-style tests (full server lifecycle) ───────────────
+
+            class TestSmoke(AquiliaTestCase):
+                """
+                End-to-end smoke tests against a live TestServer.
+
+                ``self.client`` is a :class:`TestClient` pre-wired to the server.
+                Add your manifests via ``manifests = [my_manifest]``.
+                """
+
+                settings = {{"debug": True}}
+
+                async def test_health_endpoint(self):
+                    """Built-in /health endpoint must return 200."""
+                    resp = await self.client.get("/health")
+                    self.assert_status(resp, 200)
+
+                async def test_response_is_json(self):
+                    """Health response should be valid JSON."""
+                    resp = await self.client.get("/health")
+                    self.assert_json(resp)
+
+
+            # ── Pytest-fixture style tests ────────────────────────────────────
+
+            async def test_health_with_fixture(test_client):
+                """
+                Same smoke test using the ``test_client`` pytest fixture.
+
+                Registered automatically by ``aquilia_fixtures()`` in conftest.py.
+                """
+                resp = await test_client.get("/health")
+                assert resp.status_code == 200
+
+
+            async def test_fault_engine_captures(test_server, fault_engine):
+                """MockFaultEngine records faults for assertion in tests."""
+                fault_engine.raise_on_next("not_found", message="Resource missing")
+                assert fault_engine.has_pending()
+
+
+            async def test_settings_override(test_client, settings_override):
+                """settings_override context manager lets you flip config mid-test."""
+                with settings_override(debug=False):
+                    resp = await test_client.get("/health")
+                    assert resp.status_code == 200
         ''')
 
-        (tests_dir / 'test_smoke.py').write_text(test_content)
+        (tests_dir / 'test_smoke.py').write_text(test_smoke)
 
     def _create_makefile(self) -> None:
         """Create Makefile with common development commands."""
@@ -1058,10 +1222,10 @@ class WorkspaceGenerator:
             # ── Testing ───────────────────────────────────────────────────────
 
             test: ## Run all tests
-            \t$(PYTHON) -m pytest tests/ -v
+            \taq test
 
             test-cov: ## Run tests with coverage
-            \t$(PYTHON) -m pytest tests/ --cov=$(APP) --cov-report=term-missing
+            \taq test --coverage
 
             # ── Database ──────────────────────────────────────────────────────
 
@@ -1156,7 +1320,7 @@ class WorkspaceGenerator:
         index_html = textwrap.dedent(f'''\
             {{% extends "includes/base.html" %}}
 
-            {{% block title %}}Home — {self.name.capitalize()}{{% endblock %}}
+            {{% block title %}}Home -- {self.name.capitalize()}{{% endblock %}}
 
             {{% block content %}}
             <section class="hero">
@@ -1361,9 +1525,9 @@ class WorkspaceGenerator:
 
             | File              | Purpose                          | Committed? |
             |-------------------|----------------------------------|------------|
-            | `workspace.py`    | Modules, integrations, structure | ✅ Yes     |
-            | `config/*.yaml`   | Host, port, workers, logging     | ✅ Yes     |
-            | `.env`            | Secrets, database URLs           | ❌ No      |
+            | `workspace.py`    | Modules, integrations, structure | Yes     |
+            | `config/*.yaml`   | Host, port, workers, logging     | Yes     |
+            | `.env`            | Secrets, database URLs           | No      |
 
             Config merge order: `base.yaml` → `<mode>.yaml` → environment variables.
 
@@ -1396,6 +1560,88 @@ class WorkspaceGenerator:
 
         (self.path / 'README.md').write_text(content)
 
+    def _create_license_file(self) -> None:
+        """Create a LICENSE file based on the selected license type."""
+        import datetime
+        year = datetime.datetime.now().year
+
+        if self.include_license == 'MIT':
+            content = textwrap.dedent(f"""\
+                MIT License
+
+                Copyright (c) {year} {self.name}
+
+                Permission is hereby granted, free of charge, to any person obtaining a copy
+                of this software and associated documentation files (the "Software"), to deal
+                in the Software without restriction, including without limitation the rights
+                to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+                copies of the Software, and to permit persons to whom the Software is
+                furnished to do so, subject to the following conditions:
+
+                The above copyright notice and this permission notice shall be included in all
+                copies or substantial portions of the Software.
+
+                THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+                IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+                FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+                AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+                LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+                OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+                SOFTWARE.
+            """)
+        elif self.include_license == 'Apache-2.0':
+            content = textwrap.dedent(f"""\
+                Copyright {year} {self.name}
+
+                Licensed under the Apache License, Version 2.0 (the "License");
+                you may not use this file except in compliance with the License.
+                You may obtain a copy of the License at
+
+                    http://www.apache.org/licenses/LICENSE-2.0
+
+                Unless required by applicable law or agreed to in writing, software
+                distributed under the License is distributed on an "AS IS" BASIS,
+                WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+                See the License for the specific language governing permissions and
+                limitations under the License.
+            """)
+        elif self.include_license == 'BSD-3':
+            content = textwrap.dedent(f"""\
+                BSD 3-Clause License
+
+                Copyright (c) {year}, {self.name}
+                All rights reserved.
+
+                Redistribution and use in source and binary forms, with or without
+                modification, are permitted provided that the following conditions are met:
+
+                1. Redistributions of source code must retain the above copyright notice, this
+                   list of conditions and the following disclaimer.
+
+                2. Redistributions in binary form must reproduce the above copyright notice,
+                   this list of conditions and the following disclaimer in the documentation
+                   and/or other materials provided with the distribution.
+
+                3. Neither the name of the copyright holder nor the names of its
+                   contributors may be used to endorse or promote products derived from
+                   this software without specific prior written permission.
+
+                THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+                AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+                IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+                DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+                FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+                DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+                SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+                CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+                OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+                OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+            """)
+        else:
+            return  # Unknown license -- skip
+
+        (self.path / 'LICENSE').write_text(content)
+
     def _create_deployment_files(self) -> None:
         """Create default Docker and docker-compose files for the workspace.
 
@@ -1419,5 +1665,42 @@ class WorkspaceGenerator:
                 compose_gen.generate_compose(include_monitoring=False)
             )
         except Exception:
-            # Non-fatal — the workspace is still usable without these files
+            # Non-fatal -- the workspace is still usable without these files
             pass
+
+    def _create_locale_files(self) -> None:
+        """Create starter i18n locale files for the workspace.
+
+        Generates ``locales/en/messages.json`` with a minimal set of
+        example translations so new workspaces are i18n-ready from
+        day one.
+        """
+        import json
+
+        locales_dir = self.path / 'locales' / 'en'
+        locales_dir.mkdir(parents=True, exist_ok=True)
+
+        messages_file = locales_dir / 'messages.json'
+        if messages_file.exists():
+            return
+
+        starter = {
+            "welcome": "Welcome to {app_name}!",
+            "goodbye": "Goodbye!",
+            "greeting": "Hello, {name}!",
+            "items_count": {
+                "one": "{count} item",
+                "other": "{count} items",
+            },
+            "errors": {
+                "not_found": "Page not found",
+                "server_error": "Internal server error",
+                "unauthorized": "Please sign in to continue",
+                "forbidden": "You don't have permission to access this",
+            },
+        }
+
+        messages_file.write_text(
+            json.dumps(starter, indent=2, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )

@@ -55,13 +55,13 @@ def compile_workspace(
         )
 
         if not result.success:
-            print("\n  ✗ Compilation FAILED\n")
+            print("\n  Compilation FAILED\n")
             for err in result.errors:
                 print(f"  {err}")
             return []
 
         if verbose:
-            print(f"  ✓ {result.summary()}")
+            print(f"  {result.summary()}")
 
         # Return paths of generated artifacts
         crous_files = sorted(output.glob("*.crous"))

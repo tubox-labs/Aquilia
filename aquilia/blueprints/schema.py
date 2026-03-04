@@ -1,5 +1,5 @@
 """
-Aquilia Blueprint Schema — OpenAPI/JSON Schema generation.
+Aquilia Blueprint Schema -- OpenAPI/JSON Schema generation.
 
 Generates OpenAPI 3.x compatible schemas from Blueprint classes,
 including per-projection schemas and $ref for Lens'd Blueprints.

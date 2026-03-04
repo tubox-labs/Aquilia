@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{% block title %}Myapp{% endblock %}</title>
+    <link rel="stylesheet" href="/static/css/style.css" />
+    {% block head %}{% endblock %}
+</head>
+<body>
+    <header>
+        {% block header %}
+        <nav>
+            <a href="/">Myapp</a>
+        </nav>
+        {% endblock %}
+    </header>
+
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer>
+        {% block footer %}
+        <p>&copy; {{ year }} Myapp. Powered by Aquilia.</p>
+        {% endblock %}
+    </footer>
+
+    <script src="/static/js/app.js"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

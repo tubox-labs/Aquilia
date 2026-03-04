@@ -137,8 +137,7 @@ class override_settings:
     """
     Temporarily override Aquilia config values.
 
-    Works as both a **context manager** and a **decorator** – inspired by
-    Django's ``override_settings``.
+    Works as both a **context manager** and a **decorator**.
 
     Context manager::
 

@@ -1,5 +1,5 @@
 """
-Aquilia DB Backends Package — pluggable database adapters.
+Aquilia DB Backends Package -- pluggable database adapters.
 
 Provides a common adapter interface and implementations for:
 - SQLite (default, via aiosqlite)

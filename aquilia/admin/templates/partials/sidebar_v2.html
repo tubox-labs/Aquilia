@@ -1,63 +1,96 @@
 {# Sidebar partial — included in base.html #}
 <aside class="admin-sidebar" id="adminSidebar">
+
+    {# ── Brand (matches aqdocx: gradient glow + logo + name + version) ── #}
     <a class="sidebar-brand" href="{{ url_prefix|default('/admin') }}/">
+        <div class="sidebar-brand-glow"></div>
         <img src="/static/logo.png" alt="" onerror="this.style.display='none'">
-        <span class="sidebar-brand-text">{{ site_title|default('Aquilia') }}</span>
+        <div class="sidebar-brand-info">
+            <div class="sidebar-brand-text">{{ site_title|default('Aquilia') }}</div>
+            <div class="sidebar-brand-version">Admin Panel</div>
+        </div>
         <span class="badge">Admin</span>
     </a>
 
-    {# ── Overview ── #}
-    <div class="sidebar-section">
-        <span class="sidebar-section-label">Overview</span>
-        <a class="sidebar-link{{ ' active' if active_page == 'dashboard' else '' }}" href="{{ url_prefix|default('/admin') }}/">
-            <i class="icon-layout-dashboard"></i> Dashboard
-        </a>
+    {# ── Sidebar Search ── #}
+    <div class="sidebar-search" style="position:relative;">
+        <i class="sidebar-search-icon icon-search"></i>
+        <input type="text" class="sidebar-search-input" id="sidebarSearchInput" placeholder="Filter pages…" autocomplete="off">
     </div>
 
+    {# ── Resolve admin_config with safe defaults ── #}
+    {% set ac = admin_config|default({}) %}
+    {% set sections = ac.get('sidebar_sections', {}) if ac is mapping else {} %}
+
+    {# ── Overview ── #}
+    {% if sections.get('overview', true) %}
+    <div class="sidebar-section" data-sidebar-section>
+        <span class="sidebar-section-label">Overview</span>
+        <a class="sidebar-link{{ ' active' if active_page == 'dashboard' else '' }}" href="{{ url_prefix|default('/admin') }}/" data-sidebar-label="dashboard">
+            <i class="icon-layout-dashboard"></i> <span>Dashboard</span>
+        </a>
+    </div>
+    {% endif %}
+
     {# ── Data ── #}
-    <div class="sidebar-section">
+    {% if sections.get('data', true) %}
+    <div class="sidebar-section" data-sidebar-section>
         <span class="sidebar-section-label">Data</span>
-        <a class="sidebar-link{{ ' active' if active_page == 'orm' else '' }}" href="{{ url_prefix|default('/admin') }}/orm/">
-            <i class="icon-database"></i> ORM Models
+        <a class="sidebar-link{{ ' active' if active_page == 'orm' else '' }}" href="{{ url_prefix|default('/admin') }}/orm/" data-sidebar-label="orm models">
+            <i class="icon-database"></i> <span>ORM Models</span>
             {% if total_models is defined %}
             <span class="sidebar-badge">{{ total_models }}</span>
             {% endif %}
         </a>
-        <a class="sidebar-link{{ ' active' if active_page == 'migrations' else '' }}" href="{{ url_prefix|default('/admin') }}/migrations/">
-            <i class="icon-git-branch"></i> Migrations
+        <a class="sidebar-link{{ ' active' if active_page == 'migrations' else '' }}" href="{{ url_prefix|default('/admin') }}/migrations/" data-sidebar-label="migrations">
+            <i class="icon-git-branch"></i> <span>Migrations</span>
         </a>
     </div>
+    {% endif %}
 
     {# ── System ── #}
-    <div class="sidebar-section">
+    {% if sections.get('system', true) %}
+    <div class="sidebar-section" data-sidebar-section>
         <span class="sidebar-section-label">System</span>
-        <a class="sidebar-link{{ ' active' if active_page == 'build' else '' }}" href="{{ url_prefix|default('/admin') }}/build/">
-            <i class="icon-package"></i> Build
+        <a class="sidebar-link{{ ' active' if active_page == 'monitoring' else '' }}" href="{{ url_prefix|default('/admin') }}/monitoring/" data-sidebar-label="monitoring metrics cpu memory">
+            <i class="icon-activity"></i> <span>Monitoring</span>
         </a>
-        <a class="sidebar-link{{ ' active' if active_page == 'config' else '' }}" href="{{ url_prefix|default('/admin') }}/config/">
-            <i class="icon-settings"></i> Configuration
+        <a class="sidebar-link{{ ' active' if active_page == 'workspace' else '' }}" href="{{ url_prefix|default('/admin') }}/workspace/" data-sidebar-label="workspace">
+            <i class="icon-layout-template"></i> <span>Workspace</span>
+        </a>
+        <a class="sidebar-link{{ ' active' if active_page == 'build' else '' }}" href="{{ url_prefix|default('/admin') }}/build/" data-sidebar-label="build">
+            <i class="icon-package"></i> <span>Build</span>
+        </a>
+        <a class="sidebar-link{{ ' active' if active_page == 'config' else '' }}" href="{{ url_prefix|default('/admin') }}/config/" data-sidebar-label="configuration config settings">
+            <i class="icon-settings"></i> <span>Configuration</span>
         </a>
     </div>
+    {% endif %}
 
     {# ── Security ── #}
-    <div class="sidebar-section">
+    {% if sections.get('security', true) %}
+    <div class="sidebar-section" data-sidebar-section>
         <span class="sidebar-section-label">Security</span>
-        <a class="sidebar-link{{ ' active' if active_page == 'permissions' else '' }}" href="{{ url_prefix|default('/admin') }}/permissions/">
-            <i class="icon-shield"></i> Permissions
+        <a class="sidebar-link{{ ' active' if active_page == 'permissions' else '' }}" href="{{ url_prefix|default('/admin') }}/permissions/" data-sidebar-label="permissions roles access">
+            <i class="icon-shield"></i> <span>Permissions</span>
         </a>
-        <a class="sidebar-link{{ ' active' if active_page == 'audit' else '' }}" href="{{ url_prefix|default('/admin') }}/audit/">
-            <i class="icon-scroll-text"></i> Audit Log
+        <a class="sidebar-link{{ ' active' if active_page == 'audit' else '' }}" href="{{ url_prefix|default('/admin') }}/audit/" data-sidebar-label="audit log activity">
+            <i class="icon-scroll-text"></i> <span>Audit Log</span>
+        </a>
+        <a class="sidebar-link{{ ' active' if active_page == 'admin-users' else '' }}" href="{{ url_prefix|default('/admin') }}/admin-users/" data-sidebar-label="admin users management hierarchy">
+            <i class="icon-users"></i> <span>Admin Users</span>
         </a>
     </div>
+    {% endif %}
 
     {# ── ORM Models (per-model links) ── #}
-    {% if app_list is defined and app_list|length > 0 %}
-    <div class="sidebar-section">
+    {% if sections.get('models', true) and app_list is defined and app_list|length > 0 %}
+    <div class="sidebar-section" data-sidebar-section>
         <span class="sidebar-section-label">Models</span>
         {% for app in app_list %}
         {% for model in app.models %}
-        <a class="sidebar-link{{ ' active' if active_model == model.model_name|lower else '' }}" href="{{ url_prefix|default('/admin') }}/{{ model.url_name }}/">
-            <i class="icon-table"></i> {{ model.name_plural }}
+        <a class="sidebar-link{{ ' active' if active_model == model.model_name|lower else '' }}" href="{{ url_prefix|default('/admin') }}/{{ model.url_name }}/" data-sidebar-label="{{ model.name_plural|lower }} {{ model.model_name|lower }}">
+            <i class="icon-table"></i> <span>{{ model.name_plural }}</span>
         </a>
         {% endfor %}
         {% endfor %}
@@ -67,11 +100,17 @@
     {# ── Footer ── #}
     <div class="sidebar-footer">
         <div class="sidebar-user">
-            <div class="sidebar-user-avatar">
+            <a href="{{ url_prefix|default('/admin') }}/profile/" class="sidebar-user-avatar" title="View Profile" style="text-decoration:none;">
+                {% if identity_avatar %}
+                <img src="{{ identity_avatar }}" alt="avatar" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">
+                {% else %}
                 {{ identity_name|default('A')|truncate(1, True, '') }}
-            </div>
+                {% endif %}
+            </a>
             <div class="sidebar-user-info">
-                <div class="sidebar-user-name">{{ identity_name|default('Admin') }}</div>
+                <a href="{{ url_prefix|default('/admin') }}/profile/" style="text-decoration:none;color:inherit;">
+                    <div class="sidebar-user-name">{{ identity_name|default('Admin') }}</div>
+                </a>
                 <div class="sidebar-user-role">Administrator</div>
             </div>
             <a href="{{ url_prefix|default('/admin') }}/logout" class="btn-ghost" style="padding:4px;color:var(--text-faint);" title="Logout">
@@ -80,3 +119,4 @@
         </div>
     </div>
 </aside>
+
