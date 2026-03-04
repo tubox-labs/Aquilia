@@ -866,7 +866,8 @@ class Integration:
 
         __slots__ = ("_dashboard", "_orm", "_build", "_migrations",
                      "_config", "_workspace", "_permissions",
-                     "_monitoring", "_admin_users", "_profile", "_audit")
+                     "_monitoring", "_admin_users", "_profile", "_audit",
+                     "_containers", "_pods")
 
         def __init__(self) -> None:
             self._dashboard: bool = True
@@ -880,6 +881,8 @@ class Integration:
             self._admin_users: bool = True
             self._profile: bool = True
             self._audit: bool = False         # disabled by default
+            self._containers: bool = True
+            self._pods: bool = True
 
         # ── Dashboard ──
         def enable_dashboard(self) -> "Integration.AdminModules":
@@ -991,6 +994,28 @@ class Integration:
             self._profile = False
             return self
 
+        # ── Containers ──
+        def enable_containers(self) -> "Integration.AdminModules":
+            """Show the Containers page (Docker containers, compose, images)."""
+            self._containers = True
+            return self
+
+        def disable_containers(self) -> "Integration.AdminModules":
+            """Hide the Containers page."""
+            self._containers = False
+            return self
+
+        # ── Pods ──
+        def enable_pods(self) -> "Integration.AdminModules":
+            """Show the Pods page (Kubernetes pods, deployments, services)."""
+            self._pods = True
+            return self
+
+        def disable_pods(self) -> "Integration.AdminModules":
+            """Hide the Pods page."""
+            self._pods = False
+            return self
+
         # ── Audit (disabled by default) ──
         def enable_audit(self) -> "Integration.AdminModules":
             """Show the Audit Log page. Disabled by default -- opt in."""
@@ -1029,6 +1054,8 @@ class Integration:
                 "admin_users": self._admin_users,
                 "profile": self._profile,
                 "audit": self._audit,
+                "containers": self._containers,
+                "pods": self._pods,
             }
 
         def __repr__(self) -> str:
@@ -1233,12 +1260,13 @@ class Integration:
             )
         """
 
-        __slots__ = ("_overview", "_data", "_system", "_security", "_models")
+        __slots__ = ("_overview", "_data", "_system", "_infrastructure", "_security", "_models")
 
         def __init__(self) -> None:
             self._overview: bool = True
             self._data: bool = True
             self._system: bool = True
+            self._infrastructure: bool = True
             self._security: bool = True
             self._models: bool = True
 
@@ -1270,6 +1298,16 @@ class Integration:
         def hide_system(self) -> "Integration.AdminSidebar":
             """Hide the System section."""
             self._system = False
+            return self
+
+        def show_infrastructure(self) -> "Integration.AdminSidebar":
+            """Show the Infrastructure section (Containers, Pods)."""
+            self._infrastructure = True
+            return self
+
+        def hide_infrastructure(self) -> "Integration.AdminSidebar":
+            """Hide the Infrastructure section."""
+            self._infrastructure = False
             return self
 
         def show_security(self) -> "Integration.AdminSidebar":
@@ -1310,6 +1348,7 @@ class Integration:
                 "overview": self._overview,
                 "data": self._data,
                 "system": self._system,
+                "infrastructure": self._infrastructure,
                 "security": self._security,
                 "models": self._models,
             }
@@ -1344,6 +1383,8 @@ class Integration:
         enable_permissions: Optional[bool] = None,
         enable_monitoring: Optional[bool] = None,
         enable_admin_users: Optional[bool] = None,
+        enable_containers: Optional[bool] = None,
+        enable_pods: Optional[bool] = None,
         enable_profile: Optional[bool] = None,
         audit_log_logins: Optional[bool] = None,
         audit_log_views: Optional[bool] = None,
@@ -1439,6 +1480,8 @@ class Integration:
                 "admin_users": enable_admin_users if enable_admin_users is not None else True,
                 "profile": enable_profile if enable_profile is not None else True,
                 "audit": enable_audit if enable_audit is not None else False,
+                "containers": enable_containers if enable_containers is not None else True,
+                "pods": enable_pods if enable_pods is not None else True,
             }
 
         # ── Resolve audit ────────────────────────────────────────────
@@ -1488,7 +1531,7 @@ class Integration:
         else:
             _default_sidebar = {
                 "overview": True, "data": True, "system": True,
-                "security": True, "models": True,
+                "infrastructure": True, "security": True, "models": True,
             }
             sidebar_dict = {**_default_sidebar}
             if sidebar_sections:

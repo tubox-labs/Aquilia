@@ -1522,12 +1522,10 @@ class AdminSite:
                 result["system_info"] = {"raw": info_out}
 
         # ── List containers (all, including stopped) ──
+        # Use {{json .}} to avoid broken JSON from embedded quotes
+        # in Command/Labels fields. Docker escapes properly with json.
         ok, ps_out, _ = _run_docker(
-            "ps", "-a", "--format",
-            '{"id":"{{.ID}}","name":"{{.Names}}","image":"{{.Image}}",'
-            '"status":"{{.Status}}","state":"{{.State}}","ports":"{{.Ports}}",'
-            '"created":"{{.CreatedAt}}","size":"{{.Size}}",'
-            '"command":"{{.Command}}","labels":"{{.Labels}}"}'
+            "ps", "-a", "--no-trunc", "--format", "{{json .}}"
         )
         if ok and ps_out:
             for line in ps_out.splitlines():
@@ -1535,7 +1533,24 @@ class AdminSite:
                 if not line:
                     continue
                 try:
-                    container = _json.loads(line)
+                    raw = _json.loads(line)
+                    # Normalize PascalCase → lowercase keys
+                    container = {
+                        "id": raw.get("ID", ""),
+                        "name": raw.get("Names", ""),
+                        "image": raw.get("Image", ""),
+                        "status": raw.get("Status", ""),
+                        "state": raw.get("State", ""),
+                        "ports": raw.get("Ports", ""),
+                        "created": raw.get("CreatedAt", ""),
+                        "size": raw.get("Size", ""),
+                        "command": raw.get("Command", ""),
+                        "labels": raw.get("Labels", ""),
+                        "networks": raw.get("Networks", ""),
+                        "mounts": raw.get("Mounts", ""),
+                        "running_for": raw.get("RunningFor", ""),
+                        "local_volumes": raw.get("LocalVolumes", ""),
+                    }
                     # Parse state for status classification
                     state = container.get("state", "").lower()
                     if state == "running":
@@ -1568,11 +1583,7 @@ class AdminSite:
                        if c.get("status_class") == "running"]
         if running_ids:
             ok, stats_out, _ = _run_docker(
-                "stats", "--no-stream", "--format",
-                '{"id":"{{.ID}}","name":"{{.Name}}","cpu":"{{.CPUPerc}}",'
-                '"memory":"{{.MemUsage}}","mem_perc":"{{.MemPerc}}",'
-                '"net_io":"{{.NetIO}}","block_io":"{{.BlockIO}}",'
-                '"pids":"{{.PIDs}}"}',
+                "stats", "--no-stream", "--format", "{{json .}}",
                 timeout=15,
             )
             if ok and stats_out:
@@ -1582,7 +1593,17 @@ class AdminSite:
                     if not line:
                         continue
                     try:
-                        stat = _json.loads(line)
+                        raw_stat = _json.loads(line)
+                        stat = {
+                            "id": raw_stat.get("ID", ""),
+                            "name": raw_stat.get("Name", ""),
+                            "cpu": raw_stat.get("CPUPerc", "0%"),
+                            "memory": raw_stat.get("MemUsage", ""),
+                            "mem_perc": raw_stat.get("MemPerc", "0%"),
+                            "net_io": raw_stat.get("NetIO", ""),
+                            "block_io": raw_stat.get("BlockIO", ""),
+                            "pids": raw_stat.get("PIDs", ""),
+                        }
                         stats_map[stat["id"][:12]] = stat
                     except _json.JSONDecodeError:
                         continue
@@ -1594,9 +1615,7 @@ class AdminSite:
 
         # ── Docker images ──
         ok, img_out, _ = _run_docker(
-            "images", "--format",
-            '{"id":"{{.ID}}","repository":"{{.Repository}}","tag":"{{.Tag}}",'
-            '"size":"{{.Size}}","created":"{{.CreatedAt}}"}'
+            "images", "--format", "{{json .}}"
         )
         if ok and img_out:
             for line in img_out.splitlines():
@@ -1604,14 +1623,20 @@ class AdminSite:
                 if not line:
                     continue
                 try:
-                    result["images"].append(_json.loads(line))
+                    raw_img = _json.loads(line)
+                    result["images"].append({
+                        "id": raw_img.get("ID", ""),
+                        "repository": raw_img.get("Repository", ""),
+                        "tag": raw_img.get("Tag", ""),
+                        "size": raw_img.get("Size", ""),
+                        "created": raw_img.get("CreatedAt", ""),
+                    })
                 except _json.JSONDecodeError:
                     continue
 
         # ── Docker volumes ──
         ok, vol_out, _ = _run_docker(
-            "volume", "ls", "--format",
-            '{"name":"{{.Name}}","driver":"{{.Driver}}","mountpoint":"{{.Mountpoint}}"}'
+            "volume", "ls", "--format", "{{json .}}"
         )
         if ok and vol_out:
             for line in vol_out.splitlines():
@@ -1619,14 +1644,18 @@ class AdminSite:
                 if not line:
                     continue
                 try:
-                    result["volumes"].append(_json.loads(line))
+                    raw_vol = _json.loads(line)
+                    result["volumes"].append({
+                        "name": raw_vol.get("Name", ""),
+                        "driver": raw_vol.get("Driver", ""),
+                        "mountpoint": raw_vol.get("Mountpoint", ""),
+                    })
                 except _json.JSONDecodeError:
                     continue
 
         # ── Docker networks ──
         ok, net_out, _ = _run_docker(
-            "network", "ls", "--format",
-            '{"id":"{{.ID}}","name":"{{.Name}}","driver":"{{.Driver}}","scope":"{{.Scope}}"}'
+            "network", "ls", "--format", "{{json .}}"
         )
         if ok and net_out:
             for line in net_out.splitlines():
@@ -1634,7 +1663,13 @@ class AdminSite:
                 if not line:
                     continue
                 try:
-                    result["networks"].append(_json.loads(line))
+                    raw_net = _json.loads(line)
+                    result["networks"].append({
+                        "id": raw_net.get("ID", ""),
+                        "name": raw_net.get("Name", ""),
+                        "driver": raw_net.get("Driver", ""),
+                        "scope": raw_net.get("Scope", ""),
+                    })
                 except _json.JSONDecodeError:
                     continue
 
@@ -1708,13 +1743,25 @@ class AdminSite:
                     "copy_count": 0,
                     "run_count": 0,
                 }
+                # Extract ARG defaults so we can resolve ${VAR} in FROM lines
+                arg_defaults = dict(
+                    re.findall(r'^ARG\s+(\w+)=(\S+)', content, re.MULTILINE)
+                )
+
+                def _resolve_args(s: str) -> str:
+                    """Resolve ${VAR} and $VAR references using ARG defaults."""
+                    for var, val in arg_defaults.items():
+                        s = s.replace("${" + var + "}", val).replace("$" + var, val)
+                    return s
+
                 # Extract FROM instructions (multi-stage)
                 froms = re.findall(r'^FROM\s+(\S+)(?:\s+AS\s+(\S+))?',
                                    content, re.MULTILINE | re.IGNORECASE)
                 if froms:
-                    result["dockerfile_info"]["base_image"] = froms[0][0]
+                    resolved_base = _resolve_args(froms[0][0])
+                    result["dockerfile_info"]["base_image"] = resolved_base
                     result["dockerfile_info"]["stages"] = [
-                        {"image": img, "alias": alias or ""}
+                        {"image": _resolve_args(img), "alias": alias or ""}
                         for img, alias in froms
                     ]
                 # Exposed ports
@@ -1737,6 +1784,752 @@ class AdminSite:
             result["dockerfile_info"] = {"exists": False}
 
         return result
+
+    # ── Docker Action Helpers ────────────────────────────────────────
+
+    def execute_container_action(
+        self, container_id: str, action: str,
+        run_params: str = "",
+    ) -> Dict[str, Any]:
+        """
+        Execute a Docker container lifecycle action.
+
+        Supported actions: start, stop, restart, pause, unpause, kill, rm, run
+        """
+        import subprocess
+
+        ALLOWED = {"start", "stop", "restart", "pause", "unpause", "kill", "rm", "run"}
+        if action not in ALLOWED:
+            return {"success": False, "error": f"Unknown action: {action}"}
+
+        # ── docker run (create+start a new container) ──
+        if action == "run":
+            import json as _json
+            import shlex
+
+            try:
+                params = _json.loads(run_params) if run_params else {}
+            except _json.JSONDecodeError:
+                return {"success": False, "error": "Invalid run_params JSON"}
+
+            image = params.get("image", "").strip()
+            if not image:
+                return {"success": False, "error": "Image name is required"}
+
+            args = ["docker", "run"]
+            if params.get("detach"):
+                args.append("-d")
+            if params.get("auto_remove"):
+                args.append("--rm")
+            name = params.get("name", "").strip()
+            if name:
+                args.extend(["--name", name])
+            ports = params.get("ports", "").strip()
+            if ports:
+                args.extend(["-p", ports])
+            env_vars = params.get("env_vars", "").strip()
+            if env_vars:
+                for ev in env_vars.splitlines():
+                    ev = ev.strip()
+                    if ev and "=" in ev:
+                        args.extend(["-e", ev])
+            extra_flags = params.get("extra_flags", "").strip()
+            if extra_flags:
+                args.extend(shlex.split(extra_flags))
+            args.append(image)
+
+            try:
+                proc = subprocess.run(
+                    args, capture_output=True, text=True, timeout=120,
+                )
+                if proc.returncode == 0:
+                    cid = proc.stdout.strip()[:12] or "started"
+                    return {
+                        "success": True,
+                        "message": f"Container {cid} started from {image}",
+                    }
+                return {
+                    "success": False,
+                    "error": proc.stderr.strip() or "docker run failed",
+                }
+            except subprocess.TimeoutExpired:
+                return {"success": False, "error": "docker run timed out"}
+            except Exception as e:
+                return {"success": False, "error": str(e)}
+
+        # Sanitize container_id (only allow hex + short names)
+        cid = container_id.strip()
+        if not cid:
+            return {"success": False, "error": "Empty container ID"}
+
+        try:
+            args = ["docker", action]
+            if action == "rm":
+                args.append("-f")
+            args.append(cid)
+            proc = subprocess.run(
+                args, capture_output=True, text=True, timeout=30,
+            )
+            if proc.returncode == 0:
+                return {"success": True, "message": f"Container {action} successful"}
+            return {"success": False, "error": proc.stderr.strip() or f"{action} failed"}
+        except subprocess.TimeoutExpired:
+            return {"success": False, "error": "Command timed out"}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def get_container_inspect(self, container_id: str) -> Dict[str, Any]:
+        """Return full ``docker inspect`` output for a container."""
+        import json as _json
+        import subprocess
+
+        try:
+            proc = subprocess.run(
+                ["docker", "inspect", container_id.strip()],
+                capture_output=True, text=True, timeout=10,
+            )
+            if proc.returncode == 0:
+                data = _json.loads(proc.stdout)
+                if isinstance(data, list) and data:
+                    return {"success": True, "data": data[0]}
+                return {"success": True, "data": data}
+            return {"success": False, "error": proc.stderr.strip()}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def get_container_logs(
+        self, container_id: str, *, tail: int = 200, since: str = "",
+    ) -> Dict[str, Any]:
+        """Fetch recent logs from a container via ``docker logs``."""
+        import subprocess
+
+        args = ["docker", "logs", "--tail", str(tail), "--timestamps"]
+        if since:
+            args.extend(["--since", since])
+        args.append(container_id.strip())
+
+        try:
+            proc = subprocess.run(
+                args, capture_output=True, text=True, timeout=15,
+            )
+            # docker logs outputs to both stdout and stderr
+            output = proc.stdout + proc.stderr
+            return {"success": True, "logs": output}
+        except subprocess.TimeoutExpired:
+            return {"success": False, "error": "Logs fetch timed out"}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def get_volume_inspect(self, volume_name: str) -> Dict[str, Any]:
+        """Return ``docker volume inspect`` output."""
+        import json as _json
+        import subprocess
+
+        try:
+            proc = subprocess.run(
+                ["docker", "volume", "inspect", volume_name.strip()],
+                capture_output=True, text=True, timeout=10,
+            )
+            if proc.returncode == 0:
+                data = _json.loads(proc.stdout)
+                if isinstance(data, list) and data:
+                    return {"success": True, "data": data[0]}
+                return {"success": True, "data": data}
+            return {"success": False, "error": proc.stderr.strip()}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def get_network_inspect(self, network_id: str) -> Dict[str, Any]:
+        """Return ``docker network inspect`` output."""
+        import json as _json
+        import subprocess
+
+        try:
+            proc = subprocess.run(
+                ["docker", "network", "inspect", network_id.strip()],
+                capture_output=True, text=True, timeout=10,
+            )
+            if proc.returncode == 0:
+                data = _json.loads(proc.stdout)
+                if isinstance(data, list) and data:
+                    return {"success": True, "data": data[0]}
+                return {"success": True, "data": data}
+            return {"success": False, "error": proc.stderr.strip()}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def get_image_inspect(self, image_id: str) -> Dict[str, Any]:
+        """Return ``docker image inspect`` output."""
+        import json as _json
+        import subprocess
+
+        try:
+            proc = subprocess.run(
+                ["docker", "image", "inspect", image_id.strip()],
+                capture_output=True, text=True, timeout=10,
+            )
+            if proc.returncode == 0:
+                data = _json.loads(proc.stdout)
+                if isinstance(data, list) and data:
+                    return {"success": True, "data": data[0]}
+                return {"success": True, "data": data}
+            return {"success": False, "error": proc.stderr.strip()}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def execute_image_action(
+        self, image_id: str, action: str,
+    ) -> Dict[str, Any]:
+        """
+        Execute a Docker image action.
+
+        Supported actions: rm (remove), pull
+        """
+        import subprocess
+
+        ALLOWED = {"rm", "pull"}
+        if action not in ALLOWED:
+            return {"success": False, "error": f"Unknown action: {action}"}
+
+        try:
+            if action == "rm":
+                proc = subprocess.run(
+                    ["docker", "rmi", "-f", image_id.strip()],
+                    capture_output=True, text=True, timeout=30,
+                )
+            else:  # pull
+                proc = subprocess.run(
+                    ["docker", "pull", image_id.strip()],
+                    capture_output=True, text=True, timeout=120,
+                )
+
+            if proc.returncode == 0:
+                return {"success": True, "message": f"Image {action} successful"}
+            return {"success": False, "error": proc.stderr.strip() or f"{action} failed"}
+        except subprocess.TimeoutExpired:
+            return {"success": False, "error": "Command timed out"}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def execute_compose_action(self, action: str) -> Dict[str, Any]:
+        """
+        Execute a Docker Compose action.
+
+        Supported actions: up, down, restart, build, pull, stop, start
+        """
+        import subprocess
+        from pathlib import Path
+
+        ALLOWED = {"up", "down", "restart", "build", "pull", "stop", "start"}
+        if action not in ALLOWED:
+            return {"success": False, "error": f"Unknown compose action: {action}"}
+
+        compose_path = self._find_workspace_path("docker-compose.yml", is_file=True)
+        if not compose_path or not compose_path.is_file():
+            return {"success": False, "error": "No docker-compose.yml found"}
+
+        compose_dir = compose_path.parent
+
+        # If docker-compose.yml references env_file: .env but no .env exists,
+        # create an empty one so docker compose doesn't fail.
+        env_file = compose_dir / ".env"
+        if not env_file.exists():
+            try:
+                env_file.write_text("# Auto-created by Aquilia admin\n")
+            except OSError:
+                pass  # non-fatal: compose may still work
+
+        try:
+            args = ["docker", "compose", "-f", str(compose_path)]
+            if action == "up":
+                args.extend(["up", "-d", "--remove-orphans"])
+            elif action == "down":
+                args.append("down")
+            else:
+                args.append(action)
+
+            proc = subprocess.run(
+                args, capture_output=True, text=True, timeout=120,
+                cwd=str(compose_dir),
+            )
+            output = proc.stdout + proc.stderr
+            if proc.returncode == 0:
+                return {"success": True, "message": f"Compose {action} successful", "output": output}
+            return {"success": False, "error": output or f"Compose {action} failed"}
+        except subprocess.TimeoutExpired:
+            return {"success": False, "error": "Command timed out"}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def execute_volume_action(
+        self, volume_name: str, action: str,
+    ) -> Dict[str, Any]:
+        """Execute a Docker volume action. Supported: rm"""
+        import subprocess
+
+        if action != "rm":
+            return {"success": False, "error": f"Unknown action: {action}"}
+
+        try:
+            proc = subprocess.run(
+                ["docker", "volume", "rm", "-f", volume_name.strip()],
+                capture_output=True, text=True, timeout=15,
+            )
+            if proc.returncode == 0:
+                return {"success": True, "message": "Volume removed"}
+            return {"success": False, "error": proc.stderr.strip() or "Remove failed"}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def execute_network_action(
+        self, network_id: str, action: str,
+    ) -> Dict[str, Any]:
+        """Execute a Docker network action. Supported: rm"""
+        import subprocess
+
+        if action != "rm":
+            return {"success": False, "error": f"Unknown action: {action}"}
+
+        try:
+            proc = subprocess.run(
+                ["docker", "network", "rm", network_id.strip()],
+                capture_output=True, text=True, timeout=15,
+            )
+            if proc.returncode == 0:
+                return {"success": True, "message": "Network removed"}
+            return {"success": False, "error": proc.stderr.strip() or "Remove failed"}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    # ── Advanced Docker Features ─────────────────────────────────────
+
+    def get_docker_disk_usage(self) -> Dict[str, Any]:
+        """
+        Return ``docker system df -v`` data: images, containers, volumes,
+        build cache with reclaimable space information.
+        """
+        import json as _json
+        import subprocess
+
+        try:
+            proc = subprocess.run(
+                ["docker", "system", "df", "-v", "--format", "{{json .}}"],
+                capture_output=True, text=True, timeout=15,
+            )
+            if proc.returncode != 0:
+                return {"success": False, "error": proc.stderr.strip()}
+
+            # docker system df -v --format {{json .}} outputs multiple lines
+            items = []
+            for line in proc.stdout.strip().splitlines():
+                line = line.strip()
+                if line:
+                    try:
+                        items.append(_json.loads(line))
+                    except _json.JSONDecodeError:
+                        continue
+            return {"success": True, "data": items, "raw": proc.stdout.strip()}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def get_docker_disk_usage_summary(self) -> Dict[str, Any]:
+        """Return a human-friendly summary of docker disk usage."""
+        import subprocess
+
+        try:
+            proc = subprocess.run(
+                ["docker", "system", "df"],
+                capture_output=True, text=True, timeout=10,
+            )
+            if proc.returncode == 0:
+                return {"success": True, "output": proc.stdout.strip()}
+            return {"success": False, "error": proc.stderr.strip()}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def execute_docker_prune(self, target: str) -> Dict[str, Any]:
+        """
+        Execute docker prune commands.
+
+        Supported targets: system, images, containers, volumes, builder
+        """
+        import subprocess
+
+        ALLOWED = {
+            "system": ["docker", "system", "prune", "-a", "-f"],
+            "images": ["docker", "image", "prune", "-a", "-f"],
+            "containers": ["docker", "container", "prune", "-f"],
+            "volumes": ["docker", "volume", "prune", "-f"],
+            "builder": ["docker", "builder", "prune", "-a", "-f"],
+        }
+        if target not in ALLOWED:
+            return {"success": False, "error": f"Unknown prune target: {target}"}
+
+        try:
+            proc = subprocess.run(
+                ALLOWED[target],
+                capture_output=True, text=True, timeout=120,
+            )
+            output = (proc.stdout + proc.stderr).strip()
+            if proc.returncode == 0:
+                return {"success": True, "message": f"Prune {target} complete", "output": output}
+            return {"success": False, "error": output or f"Prune {target} failed"}
+        except subprocess.TimeoutExpired:
+            return {"success": False, "error": "Prune timed out"}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def execute_container_exec(
+        self, container_id: str, command: str,
+    ) -> Dict[str, Any]:
+        """Execute a command inside a running container via ``docker exec``."""
+        import shlex
+        import subprocess
+
+        cid = container_id.strip()
+        if not cid:
+            return {"success": False, "error": "Empty container ID"}
+        if not command.strip():
+            return {"success": False, "error": "Empty command"}
+
+        try:
+            args = ["docker", "exec", cid] + shlex.split(command)
+            proc = subprocess.run(
+                args, capture_output=True, text=True, timeout=30,
+            )
+            output = proc.stdout + proc.stderr
+            return {
+                "success": proc.returncode == 0,
+                "output": output.strip(),
+                "exit_code": proc.returncode,
+            }
+        except subprocess.TimeoutExpired:
+            return {"success": False, "error": "Command timed out (30s)", "exit_code": -1}
+        except Exception as e:
+            return {"success": False, "error": str(e), "exit_code": -1}
+
+    def get_image_history(self, image_id: str) -> Dict[str, Any]:
+        """Return ``docker history`` for an image with layer sizes."""
+        import json as _json
+        import subprocess
+
+        try:
+            proc = subprocess.run(
+                ["docker", "history", image_id.strip(), "--no-trunc",
+                 "--format", "{{json .}}"],
+                capture_output=True, text=True, timeout=10,
+            )
+            if proc.returncode != 0:
+                return {"success": False, "error": proc.stderr.strip()}
+
+            layers = []
+            for line in proc.stdout.strip().splitlines():
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    raw = _json.loads(line)
+                    layers.append({
+                        "id": raw.get("ID", ""),
+                        "created_by": raw.get("CreatedBy", ""),
+                        "created_at": raw.get("CreatedAt", ""),
+                        "size": raw.get("Size", "0B"),
+                        "comment": raw.get("Comment", ""),
+                    })
+                except _json.JSONDecodeError:
+                    continue
+            return {"success": True, "layers": layers}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def execute_image_tag(
+        self, source_image: str, target_tag: str,
+    ) -> Dict[str, Any]:
+        """Tag an image with a new name via ``docker tag``."""
+        import subprocess
+
+        src = source_image.strip()
+        tgt = target_tag.strip()
+        if not src or not tgt:
+            return {"success": False, "error": "Source and target are required"}
+
+        try:
+            proc = subprocess.run(
+                ["docker", "tag", src, tgt],
+                capture_output=True, text=True, timeout=10,
+            )
+            if proc.returncode == 0:
+                return {"success": True, "message": f"Tagged {src} as {tgt}"}
+            return {"success": False, "error": proc.stderr.strip() or "Tag failed"}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def execute_container_export(
+        self, container_id: str,
+    ) -> Dict[str, Any]:
+        """Export a container filesystem as a tar (returns path info)."""
+        import subprocess
+        import tempfile
+
+        cid = container_id.strip()
+        if not cid:
+            return {"success": False, "error": "Empty container ID"}
+
+        outpath = f"/tmp/docker-export-{cid[:12]}.tar"
+        try:
+            proc = subprocess.run(
+                ["docker", "export", "-o", outpath, cid],
+                capture_output=True, text=True, timeout=120,
+            )
+            if proc.returncode == 0:
+                import os
+                size = os.path.getsize(outpath)
+                size_mb = size / (1024 * 1024)
+                return {
+                    "success": True,
+                    "message": f"Exported to {outpath} ({size_mb:.1f} MB)",
+                    "path": outpath,
+                    "size": f"{size_mb:.1f} MB",
+                }
+            return {"success": False, "error": proc.stderr.strip() or "Export failed"}
+        except subprocess.TimeoutExpired:
+            return {"success": False, "error": "Export timed out"}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def create_docker_network(
+        self, name: str, driver: str = "bridge",
+        subnet: str = "", gateway: str = "",
+        internal: bool = False,
+    ) -> Dict[str, Any]:
+        """Create a new Docker network."""
+        import subprocess
+
+        if not name.strip():
+            return {"success": False, "error": "Network name is required"}
+
+        args = ["docker", "network", "create"]
+        if driver:
+            args.extend(["--driver", driver.strip()])
+        if subnet:
+            args.extend(["--subnet", subnet.strip()])
+        if gateway:
+            args.extend(["--gateway", gateway.strip()])
+        if internal:
+            args.append("--internal")
+        args.append(name.strip())
+
+        try:
+            proc = subprocess.run(
+                args, capture_output=True, text=True, timeout=15,
+            )
+            if proc.returncode == 0:
+                nid = proc.stdout.strip()[:12]
+                return {"success": True, "message": f"Network '{name}' created ({nid})"}
+            return {"success": False, "error": proc.stderr.strip() or "Create failed"}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def create_docker_volume(
+        self, name: str, driver: str = "local",
+        labels: str = "",
+    ) -> Dict[str, Any]:
+        """Create a new Docker volume."""
+        import subprocess
+
+        if not name.strip():
+            return {"success": False, "error": "Volume name is required"}
+
+        args = ["docker", "volume", "create"]
+        if driver:
+            args.extend(["--driver", driver.strip()])
+        if labels:
+            for lbl in labels.split(","):
+                lbl = lbl.strip()
+                if lbl:
+                    args.extend(["--label", lbl])
+        args.append(name.strip())
+
+        try:
+            proc = subprocess.run(
+                args, capture_output=True, text=True, timeout=15,
+            )
+            if proc.returncode == 0:
+                return {"success": True, "message": f"Volume '{name}' created"}
+            return {"success": False, "error": proc.stderr.strip() or "Create failed"}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def get_docker_events(self, since: str = "10m") -> Dict[str, Any]:
+        """
+        Return recent docker events (from last N minutes).
+        Uses ``docker events --since Nm --until now``.
+        """
+        import json as _json
+        import subprocess
+
+        try:
+            proc = subprocess.run(
+                ["docker", "events", "--since", since, "--until", "0s",
+                 "--format", "{{json .}}"],
+                capture_output=True, text=True, timeout=10,
+            )
+            events = []
+            for line in proc.stdout.strip().splitlines():
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    raw = _json.loads(line)
+                    events.append({
+                        "type": raw.get("Type", ""),
+                        "action": raw.get("Action", ""),
+                        "actor": raw.get("Actor", {}).get("Attributes", {}).get("name", "")
+                            or raw.get("Actor", {}).get("ID", "")[:12],
+                        "time": raw.get("time", ""),
+                        "timeNano": raw.get("timeNano", ""),
+                        "status": raw.get("status", raw.get("Action", "")),
+                    })
+                except _json.JSONDecodeError:
+                    continue
+            return {"success": True, "events": events}
+        except subprocess.TimeoutExpired:
+            return {"success": True, "events": []}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def execute_docker_build(
+        self, *, tag: str = "", no_cache: bool = False,
+        build_args: str = "", target: str = "",
+    ) -> Dict[str, Any]:
+        """
+        Execute ``docker build`` in the workspace directory.
+        Returns the full build output.
+        """
+        import subprocess
+
+        dockerfile_path = self._find_workspace_path("Dockerfile", is_file=True)
+        if not dockerfile_path or not dockerfile_path.is_file():
+            return {"success": False, "error": "No Dockerfile found in workspace"}
+
+        build_dir = dockerfile_path.parent
+        args = ["docker", "build"]
+
+        if tag:
+            args.extend(["-t", tag.strip()])
+        if no_cache:
+            args.append("--no-cache")
+        if target:
+            args.extend(["--target", target.strip()])
+        if build_args:
+            for ba in build_args.split("\n"):
+                ba = ba.strip()
+                if ba and "=" in ba:
+                    args.extend(["--build-arg", ba])
+
+        args.append(".")
+
+        try:
+            proc = subprocess.run(
+                args, capture_output=True, text=True, timeout=600,
+                cwd=str(build_dir),
+            )
+            output = proc.stdout + proc.stderr
+            if proc.returncode == 0:
+                return {
+                    "success": True,
+                    "message": "Build completed successfully",
+                    "output": output,
+                }
+            return {
+                "success": False,
+                "error": "Build failed",
+                "output": output,
+            }
+        except subprocess.TimeoutExpired:
+            return {"success": False, "error": "Build timed out (10 min limit)"}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def get_container_top(self, container_id: str) -> Dict[str, Any]:
+        """Return ``docker top`` output — processes running inside a container."""
+        import json as _json
+        import subprocess
+
+        try:
+            proc = subprocess.run(
+                ["docker", "top", container_id.strip(), "-eo", "pid,user,%cpu,%mem,vsz,rss,tty,stat,start,time,command"],
+                capture_output=True, text=True, timeout=10,
+            )
+            if proc.returncode != 0:
+                return {"success": False, "error": proc.stderr.strip()}
+            lines = proc.stdout.strip().splitlines()
+            if len(lines) < 2:
+                return {"success": True, "processes": [], "headers": []}
+            headers = lines[0].split()
+            processes = []
+            for line in lines[1:]:
+                parts = line.split(None, len(headers) - 1)
+                processes.append(parts)
+            return {"success": True, "headers": headers, "processes": processes}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def get_container_diff(self, container_id: str) -> Dict[str, Any]:
+        """Return ``docker diff`` — filesystem changes in a container."""
+        import subprocess
+
+        try:
+            proc = subprocess.run(
+                ["docker", "diff", container_id.strip()],
+                capture_output=True, text=True, timeout=10,
+            )
+            if proc.returncode != 0:
+                return {"success": False, "error": proc.stderr.strip()}
+            changes = []
+            for line in proc.stdout.strip().splitlines():
+                line = line.strip()
+                if not line:
+                    continue
+                kind = line[0]  # A=added, C=changed, D=deleted
+                path = line[2:] if len(line) > 2 else line
+                changes.append({"kind": kind, "path": path})
+            return {"success": True, "changes": changes}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def get_container_stats_stream(self, container_id: str) -> Dict[str, Any]:
+        """Return a single snapshot of ``docker stats`` for one container."""
+        import json as _json
+        import subprocess
+
+        try:
+            proc = subprocess.run(
+                ["docker", "stats", "--no-stream", "--format", "{{json .}}",
+                 container_id.strip()],
+                capture_output=True, text=True, timeout=10,
+            )
+            if proc.returncode != 0:
+                return {"success": False, "error": proc.stderr.strip()}
+            for line in proc.stdout.strip().splitlines():
+                try:
+                    raw = _json.loads(line.strip())
+                    return {
+                        "success": True,
+                        "stats": {
+                            "cpu": raw.get("CPUPerc", "0%"),
+                            "memory": raw.get("MemUsage", ""),
+                            "mem_perc": raw.get("MemPerc", "0%"),
+                            "net_io": raw.get("NetIO", ""),
+                            "block_io": raw.get("BlockIO", ""),
+                            "pids": raw.get("PIDs", ""),
+                        },
+                    }
+                except _json.JSONDecodeError:
+                    continue
+            return {"success": False, "error": "No stats available"}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
 
     def get_pods_data(self) -> Dict[str, Any]:
         """

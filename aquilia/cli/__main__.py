@@ -2200,6 +2200,24 @@ def admin_check(ctx, fix: bool, as_json: bool):
             "won't resolve. Add: .integrate(Integration.templates(directories=['templates']))"
         ),
     })
+    # Infrastructure: Docker and kubectl availability
+    import shutil
+    docker_path = shutil.which("docker")
+    kubectl_path = shutil.which("kubectl")
+    checks.append({
+        "name": "Docker CLI",
+        "status": "ok" if docker_path else "warn",
+        "detail": (
+            f"docker found at {docker_path}" if docker_path else "Docker CLI not found. Containers page will be disabled. Install Docker to enable full functionality."
+        ),
+    })
+    checks.append({
+        "name": "kubectl CLI",
+        "status": "ok" if kubectl_path else "warn",
+        "detail": (
+            f"kubectl found at {kubectl_path}" if kubectl_path else "kubectl CLI not found. Pods page will be disabled. Install kubectl to enable full functionality."
+        ),
+        })
 
     # 6. Superuser exists?
     has_superuser = False

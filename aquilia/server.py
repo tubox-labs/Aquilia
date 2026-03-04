@@ -1739,6 +1739,40 @@ class AquiliaServer:
                     ("POST", f"{url_prefix}/profile/update",         "profile_update",          ctrl.profile_update),
                     ("POST", f"{url_prefix}/profile/change-password", "profile_change_password", ctrl.profile_change_password),
                 ])
+            if _mod("containers"):
+                admin_routes.extend([
+                    ("GET",  f"{url_prefix}/containers/",                "containers_view",    ctrl.containers_view),
+                    ("GET",  f"{url_prefix}/containers/api/",            "containers_api",     ctrl.containers_api),
+                    ("POST", f"{url_prefix}/containers/action/",         "containers_action",  ctrl.containers_action),
+                    ("POST", f"{url_prefix}/containers/inspect/",        "containers_inspect", ctrl.containers_inspect),
+                    ("POST", f"{url_prefix}/containers/logs/",           "containers_logs",    ctrl.containers_logs),
+                    ("POST", f"{url_prefix}/containers/volume-inspect/", "volume_inspect",     ctrl.volume_inspect),
+                    ("POST", f"{url_prefix}/containers/network-inspect/","network_inspect",    ctrl.network_inspect),
+                    ("POST", f"{url_prefix}/containers/image-inspect/",  "image_inspect",      ctrl.image_inspect),
+                    ("POST", f"{url_prefix}/containers/image-action/",   "image_action",       ctrl.image_action),
+                    ("POST", f"{url_prefix}/containers/compose-action/", "compose_action",     ctrl.compose_action),
+                    ("POST", f"{url_prefix}/containers/volume-action/",  "volume_action",      ctrl.volume_action),
+                    ("POST", f"{url_prefix}/containers/network-action/", "network_action",     ctrl.network_action),
+                    # Advanced Docker features
+                    ("POST", f"{url_prefix}/containers/disk-usage/",     "docker_disk_usage",  ctrl.docker_disk_usage),
+                    ("POST", f"{url_prefix}/containers/prune/",          "docker_prune",       ctrl.docker_prune),
+                    ("POST", f"{url_prefix}/containers/exec/",           "container_exec",     ctrl.container_exec),
+                    ("POST", f"{url_prefix}/containers/image-history/",  "image_history",      ctrl.image_history),
+                    ("POST", f"{url_prefix}/containers/image-tag/",      "image_tag",          ctrl.image_tag),
+                    ("POST", f"{url_prefix}/containers/export/",         "container_export",   ctrl.container_export),
+                    ("POST", f"{url_prefix}/containers/create-network/", "create_network",     ctrl.create_network),
+                    ("POST", f"{url_prefix}/containers/create-volume/",  "create_volume",      ctrl.create_volume),
+                    ("POST", f"{url_prefix}/containers/events/",         "docker_events",      ctrl.docker_events),
+                    ("POST", f"{url_prefix}/containers/build/",          "docker_build",       ctrl.docker_build),
+                    ("POST", f"{url_prefix}/containers/top/",            "container_top",      ctrl.container_top),
+                    ("POST", f"{url_prefix}/containers/diff/",           "container_diff",     ctrl.container_diff),
+                    ("POST", f"{url_prefix}/containers/container-stats/","container_stats_single", ctrl.container_stats_single),
+                ])
+            if _mod("pods"):
+                admin_routes.extend([
+                    ("GET", f"{url_prefix}/pods/",     "pods_view", ctrl.pods_view),
+                    ("GET", f"{url_prefix}/pods/api/", "pods_api",  ctrl.pods_api),
+                ])
 
             # Model CRUD routes -- always registered
             admin_routes.extend([
