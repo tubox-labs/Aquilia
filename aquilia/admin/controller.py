@@ -135,10 +135,34 @@ def _get_identity_name(identity: Optional[Identity]) -> str:
 
 
 def _get_identity_avatar(identity: Optional[Identity]) -> str:
-    """Get avatar path from identity (empty string if none set)."""
+    """Get avatar URL from identity (empty string if none set).
+
+    Normalises legacy ``avatar_path`` values that were stored before the
+    ``/profile/avatar/<filename>`` sub-path was introduced:
+
+    * Bare filename          ``abc123.jpg``          → ``/admin/profile/avatar/abc123.jpg``
+    * Old prefix (no /avatar) ``/admin/profile/abc123.jpg`` → ``/admin/profile/avatar/abc123.jpg``
+    * Already-correct URL   ``/admin/profile/avatar/abc123.jpg`` → unchanged
+    """
     if identity is None:
         return ""
-    return identity.get_attribute("avatar_path", "") or ""
+    raw = identity.get_attribute("avatar_path", "") or ""
+    if not raw:
+        return ""
+    # Already correct form: contains /profile/avatar/
+    if "/profile/avatar/" in raw:
+        return raw
+    import re as _re
+    # Legacy: stored as /admin/profile/<filename> (missing /avatar/ segment)
+    legacy = _re.match(r"^(/[^/]+)/profile/([^/]+\.[a-zA-Z0-9]+)$", raw)
+    if legacy:
+        prefix, fname = legacy.group(1), legacy.group(2)
+        return f"{prefix}/profile/avatar/{fname}"
+    # Bare filename with no path component
+    if "/" not in raw and "." in raw:
+        return f"/admin/profile/avatar/{raw}"
+    # Unknown format — return as-is and let the browser deal with it
+    return raw
 
 
 def _require_identity(ctx: RequestCtx) -> tuple:
@@ -1696,6 +1720,31 @@ class AdminController(Controller):
             flash_type=flash_type,
         )
         return _html_response(html)
+
+    @GET("/profile/<filename>")
+    async def profile_avatar_legacy_redirect(self, request, ctx: RequestCtx, filename: str) -> Response:
+        """Redirect legacy avatar URLs (/admin/profile/<file>) to the canonical path.
+
+        Old code stored ``avatar_path`` without the ``/avatar/`` sub-segment,
+        so browsers may still have the wrong URL cached.  A permanent (301)
+        redirect keeps images working without breaking bookmarks.
+
+        Only activates for filenames that look like image files
+        (``<name>.<ext>``).  Pure path segments like ``avatar`` or ``upload``
+        are left for their own routes and fall through to a 404.
+        """
+        import re
+        # Must look like a filename with an extension; "avatar" itself is not
+        # an image filename, so sub-routes are unaffected.
+        if not re.fullmatch(r"[A-Za-z0-9_\-]+\.[a-zA-Z0-9]{2,5}", filename):
+            return Response(content=b"Not Found", status=404,
+                            headers={"content-type": "text/plain"})
+        prefix = self.site.url_prefix if hasattr(self, "site") and self.site else "/admin"
+        return Response(
+            content=b"",
+            status=301,
+            headers={"location": f"{prefix}/profile/avatar/{filename}"},
+        )
 
     @GET("/profile/avatar/<filename>")
     async def profile_avatar_serve(self, request, ctx: RequestCtx, filename: str) -> Response:
