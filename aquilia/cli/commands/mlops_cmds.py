@@ -250,12 +250,12 @@ def model_health(url):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# aq deploy -- deployment & rollout
+# aq mlops-deploy -- MLOps deployment & rollout
 # ═══════════════════════════════════════════════════════════════════════════
 
-@click.group("deploy")
+@click.group("mlops-deploy")
 def deploy_group():
-    """Deployment and rollout commands."""
+    """MLOps model deployment and rollout commands."""
     pass
 
 

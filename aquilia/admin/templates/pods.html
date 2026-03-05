@@ -1,0 +1,1153 @@
+{% extends "base.html" %}
+{% block title %}Pods{% endblock %}
+{% block breadcrumb %}Pods{% endblock %}
+
+{% block extra_head %}
+<style>
+/* ── Pods page styles ── */
+.k8s-tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 24px;
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+.k8s-tabs::-webkit-scrollbar { display: none; }
+.k8s-tab {
+    padding: 10px 20px;
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s var(--ease);
+    white-space: nowrap;
+    background: none;
+    border-top: none;
+    border-left: none;
+    border-right: none;
+    font-family: var(--font-sans);
+}
+.k8s-tab:hover { color: var(--text-secondary); }
+.k8s-tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+}
+.k8s-tab-panel { display: none; }
+.k8s-tab-panel.active { display: block; }
+
+.k8s-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 14px;
+    margin-bottom: 28px;
+}
+.k8s-stat {
+    background: var(--bg-glass);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    padding: 18px 16px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.25s var(--ease), transform 0.18s var(--ease);
+}
+.k8s-stat:hover {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+}
+.k8s-stat::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    border-radius: var(--radius) var(--radius) 0 0;
+    opacity: 0.8;
+}
+.k8s-stat[data-color="green"]::before  { background: linear-gradient(90deg, #22c55e, #16a34a); }
+.k8s-stat[data-color="blue"]::before   { background: linear-gradient(90deg, #3b82f6, #2563eb); }
+.k8s-stat[data-color="amber"]::before  { background: linear-gradient(90deg, #f59e0b, #d97706); }
+.k8s-stat[data-color="purple"]::before { background: linear-gradient(90deg, #a855f7, #7c3aed); }
+.k8s-stat[data-color="cyan"]::before   { background: linear-gradient(90deg, #06b6d4, #0891b2); }
+.k8s-stat[data-color="rose"]::before   { background: linear-gradient(90deg, #f43f5e, #e11d48); }
+.k8s-stat-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1.2;
+    margin-bottom: 4px;
+    font-variant-numeric: tabular-nums;
+}
+.k8s-stat-label {
+    font-size: 0.68rem;
+    color: var(--text-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 500;
+}
+
+.pod-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.82rem;
+}
+.pod-table th {
+    text-align: left;
+    padding: 10px 14px;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-faint);
+    border-bottom: 1px solid var(--border-color);
+    font-weight: 600;
+    white-space: nowrap;
+}
+.pod-table td {
+    padding: 10px 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    color: var(--text-secondary);
+    vertical-align: middle;
+}
+.pod-table tr:hover td {
+    background: rgba(34,197,94,0.03);
+}
+
+.phase-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.phase-running    { background: rgba(34,197,94,0.15); color: #22c55e; }
+.phase-succeeded  { background: rgba(59,130,246,0.15); color: #60a5fa; }
+.phase-pending    { background: rgba(245,158,11,0.15); color: #f59e0b; }
+.phase-failed     { background: rgba(239,68,68,0.15); color: #ef4444; }
+.phase-unknown    { background: rgba(113,113,122,0.15); color: #71717a; }
+.phase-completed  { background: rgba(59,130,246,0.15); color: #60a5fa; }
+
+.pod-name {
+    font-weight: 600;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.pod-name .phase-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+.phase-dot.running   { background: #22c55e; box-shadow: 0 0 6px rgba(34,197,94,0.5); }
+.phase-dot.succeeded { background: #3b82f6; }
+.phase-dot.pending   { background: #f59e0b; animation: k8sblink 1.2s infinite; }
+.phase-dot.failed    { background: #ef4444; }
+.phase-dot.unknown   { background: #71717a; }
+.phase-dot.completed { background: #3b82f6; }
+
+@keyframes k8sblink { 50% { opacity: 0.4; } }
+
+.ns-tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-family: var(--font-mono, 'Space Mono', monospace);
+    background: rgba(168,85,247,0.1);
+    color: #c084fc;
+}
+.port-tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-family: var(--font-mono, 'Space Mono', monospace);
+    background: rgba(59,130,246,0.1);
+    color: #60a5fa;
+    margin: 1px 2px;
+}
+.restart-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 600;
+}
+.restart-badge.zero { background: rgba(34,197,94,0.08); color: #22c55e; }
+.restart-badge.low  { background: rgba(245,158,11,0.12); color: #f59e0b; }
+.restart-badge.high { background: rgba(239,68,68,0.12); color: #ef4444; }
+
+.k8s-unavailable {
+    background: rgba(59,130,246,0.08);
+    border: 1px solid rgba(59,130,246,0.2);
+    border-radius: var(--radius);
+    padding: 32px;
+    text-align: center;
+}
+.k8s-unavailable h3 { color: #3b82f6; margin-bottom: 8px; }
+.k8s-unavailable p { color: var(--text-muted); font-size: 0.85rem; max-width: 500px; margin: 0 auto; }
+.k8s-unavailable code { background: var(--bg-input); padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; }
+
+.manifest-card {
+    background: var(--bg-glass);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    padding: 14px 18px;
+    margin-bottom: 10px;
+    transition: border-color 0.2s var(--ease);
+}
+.manifest-card:hover { border-color: var(--accent); }
+.manifest-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+}
+.manifest-title {
+    font-weight: 600;
+    font-size: 0.88rem;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.manifest-kind {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 4px;
+    font-size: 0.68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+.manifest-kind.namespace   { background: rgba(168,85,247,0.1); color: #c084fc; }
+.manifest-kind.deployment  { background: rgba(34,197,94,0.1);  color: #22c55e; }
+.manifest-kind.service     { background: rgba(59,130,246,0.1); color: #60a5fa; }
+.manifest-kind.configmap   { background: rgba(245,158,11,0.1); color: #f59e0b; }
+.manifest-kind.secret      { background: rgba(239,68,68,0.1);  color: #ef4444; }
+.manifest-kind.ingress     { background: rgba(6,182,212,0.1);  color: #06b6d4; }
+.manifest-kind.default     { background: rgba(113,113,122,0.1);color: #a1a1aa; }
+.manifest-content {
+    display: none;
+    margin-top: 12px;
+    padding: 12px;
+    background: var(--bg-primary);
+    border-radius: 8px;
+    overflow-x: auto;
+    font-size: 0.75rem;
+    font-family: var(--font-mono, 'Space Mono', monospace);
+    line-height: 1.6;
+    color: var(--text-secondary);
+    max-height: 400px;
+    overflow-y: auto;
+}
+.manifest-content.open { display: block; }
+
+.event-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    font-size: 0.8rem;
+}
+.event-type {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    flex-shrink: 0;
+}
+.event-type.normal  { background: rgba(34,197,94,0.1); color: #22c55e; }
+.event-type.warning { background: rgba(245,158,11,0.1); color: #f59e0b; }
+.event-type.error   { background: rgba(239,68,68,0.1); color: #ef4444; }
+
+.infra-section-title {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 14px;
+    margin-top: 24px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.infra-section-title i { font-size: 14px; color: var(--accent); }
+
+.empty-state { text-align: center; padding: 40px 20px; color: var(--text-muted); }
+.empty-state-icon { font-size: 2.5rem; opacity: 0.15; margin-bottom: 12px; }
+.empty-state p { font-size: 0.85rem; }
+
+/* ── Charts ── */
+.chart-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+}
+.chart-card {
+    background: var(--bg-glass);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    padding: 18px;
+    position: relative;
+    overflow: hidden;
+}
+.chart-card-title {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.chart-card-title i { font-size: 14px; color: var(--accent); }
+.chart-canvas-wrap { width: 100%; height: 180px; position: relative; }
+
+/* ── Health timeline ── */
+.health-timeline { display: flex; gap: 2px; height: 32px; align-items: flex-end; margin-top: 8px; }
+.health-bar {
+    flex: 1;
+    border-radius: 2px 2px 0 0;
+    min-width: 3px;
+    transition: height 0.3s var(--ease);
+    cursor: pointer;
+    position: relative;
+}
+.health-bar:hover::after {
+    content: attr(data-tooltip);
+    position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%);
+    padding: 4px 10px; background: var(--bg-elevated); border: 1px solid var(--border-color);
+    border-radius: 6px; font-size: 0.65rem; white-space: nowrap; color: var(--text-secondary); z-index: 10;
+}
+.health-bar.up { background: #22c55e; }
+.health-bar.degraded { background: #f59e0b; }
+.health-bar.down { background: #ef4444; }
+
+/* ── Pod detail drawer ── */
+.pod-drawer {
+    position: fixed; top: 0; right: 0; bottom: 0;
+    width: 500px; max-width: 92vw;
+    background: var(--bg-elevated);
+    border-left: 1px solid var(--border-color);
+    z-index: 1000;
+    transform: translateX(100%);
+    transition: transform 0.3s var(--ease);
+    display: flex; flex-direction: column;
+    box-shadow: -8px 0 32px rgba(0,0,0,0.3);
+}
+.pod-drawer.open { transform: translateX(0); }
+.pod-drawer-backdrop {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 999;
+    opacity: 0; pointer-events: none; transition: opacity 0.3s var(--ease);
+}
+.pod-drawer-backdrop.open { opacity: 1; pointer-events: auto; }
+.drawer-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 20px; border-bottom: 1px solid var(--border-color);
+}
+.drawer-header h3 { font-size: 0.95rem; font-weight: 600; color: var(--text-primary); margin: 0; display: flex; align-items: center; gap: 8px; }
+.drawer-close {
+    background: none; border: 1px solid var(--border-color); border-radius: 8px;
+    padding: 6px 8px; cursor: pointer; color: var(--text-muted); transition: all 0.15s; font-family: var(--font-sans);
+}
+.drawer-close:hover { border-color: #ef4444; color: #ef4444; }
+.drawer-body { flex: 1; overflow-y: auto; padding: 20px; }
+.drawer-section { margin-bottom: 20px; }
+.drawer-section-title { font-size: 0.72rem; font-weight: 600; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }
+.drawer-kv { display: grid; grid-template-columns: 120px 1fr; gap: 6px 12px; font-size: 0.8rem; }
+.drawer-kv dt { color: var(--text-faint); font-weight: 500; }
+.drawer-kv dd { color: var(--text-secondary); margin: 0; word-break: break-all; }
+.drawer-kv dd code { font-size: 0.72rem; background: var(--bg-input); padding: 1px 6px; border-radius: 3px; }
+
+/* ── Logs viewer ── */
+.logs-panel {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin-top: 16px;
+}
+.logs-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    background: var(--bg-glass);
+    border-bottom: 1px solid var(--border-color);
+}
+.logs-panel-header h4 { font-size: 0.8rem; font-weight: 600; color: var(--text-primary); margin: 0; display: flex; align-items: center; gap: 8px; }
+.logs-panel-body {
+    font-family: var(--font-mono, 'Space Mono', monospace);
+    font-size: 0.72rem;
+    line-height: 1.7;
+    color: var(--text-secondary);
+    padding: 14px 16px;
+    max-height: 320px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+.logs-panel-body::-webkit-scrollbar { width: 6px; }
+.logs-panel-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+.log-line { padding: 1px 0; }
+.log-line:hover { background: rgba(34,197,94,0.04); }
+.log-ts { color: var(--text-faint); margin-right: 8px; }
+
+/* ── Actions ── */
+.act-btn {
+    background: none;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 4px 8px;
+    cursor: pointer;
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    transition: all 0.15s var(--ease);
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-family: var(--font-sans);
+}
+.act-btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(34,197,94,0.06); }
+.act-btn.danger:hover { border-color: #ef4444; color: #ef4444; background: rgba(239,68,68,0.06); }
+.container-actions { display: flex; gap: 4px; }
+
+/* ── Namespace filter ── */
+.ns-filter {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+}
+.ns-filter-btn {
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.72rem;
+    border: 1px solid var(--border-color);
+    background: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: var(--font-sans);
+}
+.ns-filter-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.ns-filter-btn:hover:not(.active) { border-color: var(--accent); color: var(--accent); }
+
+@media (max-width: 768px) {
+    .k8s-grid { grid-template-columns: repeat(2, 1fr); }
+    .pod-table { font-size: 0.75rem; }
+    .pod-table th, .pod-table td { padding: 8px 10px; }
+    .chart-grid { grid-template-columns: 1fr; }
+    .pod-drawer { width: 100%; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1><i class="icon-cloud" style="font-size:1.2em;vertical-align:-2px;margin-right:6px;"></i> Kubernetes Pods</h1>
+    <p>Pod tracking, deployments, services, ingresses, manifests, events &amp; resource monitoring.</p>
+</div>
+
+{# ── Stats Overview ── #}
+{% set running_pods = pods|selectattr('phase', 'equalto', 'Running')|list|length %}
+{% set pending_pods = pods|selectattr('phase', 'equalto', 'Pending')|list|length %}
+{% set failed_pods  = pods|selectattr('phase', 'equalto', 'Failed')|list|length %}
+{% set total_restarts = pods|sum(attribute='restart_count') %}
+
+<div class="k8s-grid">
+    <div class="k8s-stat" data-color="green">
+        <div class="k8s-stat-value" id="stat-total">{{ pods|length }}</div>
+        <div class="k8s-stat-label">Total Pods</div>
+    </div>
+    <div class="k8s-stat" data-color="blue">
+        <div class="k8s-stat-value" id="stat-running">{{ running_pods }}</div>
+        <div class="k8s-stat-label">Running</div>
+    </div>
+    <div class="k8s-stat" data-color="amber">
+        <div class="k8s-stat-value" id="stat-pending">{{ pending_pods }}</div>
+        <div class="k8s-stat-label">Pending</div>
+    </div>
+    <div class="k8s-stat" data-color="rose">
+        <div class="k8s-stat-value" id="stat-failed">{{ failed_pods }}</div>
+        <div class="k8s-stat-label">Failed</div>
+    </div>
+    <div class="k8s-stat" data-color="purple">
+        <div class="k8s-stat-value" id="stat-deploys">{{ deployments|length }}</div>
+        <div class="k8s-stat-label">Deployments</div>
+    </div>
+    <div class="k8s-stat" data-color="cyan">
+        <div class="k8s-stat-value" id="stat-services">{{ services|length }}</div>
+        <div class="k8s-stat-label">Services</div>
+    </div>
+</div>
+
+{# ── Resource Charts ── #}
+{% if pods %}
+<div class="chart-grid">
+    <div class="chart-card">
+        <div class="chart-card-title"><i class="icon-pie-chart"></i> Pod Phase Distribution</div>
+        <div class="chart-canvas-wrap"><canvas id="podPhaseChart"></canvas></div>
+    </div>
+    <div class="chart-card">
+        <div class="chart-card-title"><i class="icon-activity"></i> Pod Count (Real-time)</div>
+        <div class="chart-canvas-wrap"><canvas id="podCountChart"></canvas></div>
+    </div>
+    <div class="chart-card">
+        <div class="chart-card-title"><i class="icon-bar-chart-2"></i> Restarts by Pod</div>
+        <div class="chart-canvas-wrap"><canvas id="restartsChart"></canvas></div>
+    </div>
+    <div class="chart-card">
+        <div class="chart-card-title"><i class="icon-layers"></i> Pods per Namespace</div>
+        <div class="chart-canvas-wrap"><canvas id="nsChart"></canvas></div>
+    </div>
+</div>
+
+{# ── Health Timeline ── #}
+<div class="chart-card" style="margin-bottom:24px;">
+    <div class="chart-card-title"><i class="icon-heart-pulse"></i> Cluster Health (Last 60 checks)</div>
+    <div class="health-timeline" id="healthTimeline"></div>
+    <div style="display:flex;gap:16px;margin-top:10px;font-size:0.68rem;color:var(--text-faint);">
+        <span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#22c55e;margin-right:4px;"></span>All Running</span>
+        <span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#f59e0b;margin-right:4px;"></span>Partial</span>
+        <span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#ef4444;margin-right:4px;"></span>Failures</span>
+    </div>
+</div>
+{% endif %}
+
+{% if not kubectl_available %}
+<div class="k8s-unavailable">
+    <div style="font-size:3rem;opacity:0.2;margin-bottom:12px;">☸️</div>
+    <h3>kubectl Not Available</h3>
+    <p>{{ error or 'kubectl CLI is not installed or not in PATH.' }}</p>
+    <p style="margin-top:12px;">
+        Install kubectl: <code>brew install kubectl</code> or visit
+        <a href="https://kubernetes.io/docs/tasks/tools/" target="_blank" rel="noopener">kubernetes.io</a>
+    </p>
+    {% if manifests %}
+    <p style="margin-top:16px;color:var(--text-secondary);">
+        <i class="icon-file-text" style="font-size:14px;vertical-align:-2px;"></i>
+        {{ manifests|length }} K8s manifest(s) found in your workspace. Install kubectl to manage pods.
+    </p>
+    {% endif %}
+</div>
+{% endif %}
+
+{# ── Tabs ── #}
+<div class="k8s-tabs" id="k8sTabs">
+    <button class="k8s-tab active" data-tab="k8s-pods" onclick="switchK8sTab(this, 'k8s-pods')">
+        <i class="icon-box" style="font-size:13px;vertical-align:-1px;margin-right:4px;"></i>
+        Pods <span style="opacity:0.5;margin-left:4px;">({{ pods|length }})</span>
+    </button>
+    <button class="k8s-tab" data-tab="k8s-deployments" onclick="switchK8sTab(this, 'k8s-deployments')">
+        <i class="icon-layers" style="font-size:13px;vertical-align:-1px;margin-right:4px;"></i>
+        Deployments <span style="opacity:0.5;margin-left:4px;">({{ deployments|length }})</span>
+    </button>
+    <button class="k8s-tab" data-tab="k8s-services" onclick="switchK8sTab(this, 'k8s-services')">
+        <i class="icon-globe" style="font-size:13px;vertical-align:-1px;margin-right:4px;"></i>
+        Services <span style="opacity:0.5;margin-left:4px;">({{ services|length }})</span>
+    </button>
+    <button class="k8s-tab" data-tab="k8s-ingresses" onclick="switchK8sTab(this, 'k8s-ingresses')">
+        <i class="icon-arrow-right-circle" style="font-size:13px;vertical-align:-1px;margin-right:4px;"></i>
+        Ingresses <span style="opacity:0.5;margin-left:4px;">({{ ingresses|length }})</span>
+    </button>
+    <button class="k8s-tab" data-tab="k8s-manifests" onclick="switchK8sTab(this, 'k8s-manifests')">
+        <i class="icon-file-code" style="font-size:13px;vertical-align:-1px;margin-right:4px;"></i>
+        Manifests <span style="opacity:0.5;margin-left:4px;">({{ manifests|length }})</span>
+    </button>
+    <button class="k8s-tab" data-tab="k8s-events" onclick="switchK8sTab(this, 'k8s-events')">
+        <i class="icon-bell" style="font-size:13px;vertical-align:-1px;margin-right:4px;"></i>
+        Events <span style="opacity:0.5;margin-left:4px;">({{ events|length }})</span>
+    </button>
+    <button class="k8s-tab" data-tab="k8s-logs" onclick="switchK8sTab(this, 'k8s-logs')">
+        <i class="icon-terminal" style="font-size:13px;vertical-align:-1px;margin-right:4px;"></i>
+        Logs
+    </button>
+    <button class="k8s-tab" data-tab="k8s-topology" onclick="switchK8sTab(this, 'k8s-topology')">
+        <i class="icon-git-branch" style="font-size:13px;vertical-align:-1px;margin-right:4px;"></i>
+        Topology
+    </button>
+</div>
+
+{# ═══════════ TAB: Pods ═══════════ #}
+<div class="k8s-tab-panel active" id="k8s-pods">
+    {% if pods %}
+    {# Namespace filter #}
+    {% set ns_list = pods|map(attribute='namespace')|unique|list %}
+    {% if ns_list|length > 1 %}
+    <div class="ns-filter" id="nsFilter">
+        <button class="ns-filter-btn active" onclick="filterNs(this, 'all')">All</button>
+        {% for ns in ns_list %}
+        <button class="ns-filter-btn" onclick="filterNs(this, '{{ ns }}')">{{ ns }}</button>
+        {% endfor %}
+    </div>
+    {% endif %}
+    <div class="glass-card" style="overflow-x:auto;">
+        <table class="pod-table" id="podTable">
+            <thead>
+                <tr>
+                    <th>Name</th><th>Namespace</th><th>Phase</th><th>Ready</th><th>Restarts</th><th>Node</th><th>IP</th><th>Age</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for pod in pods %}
+                <tr style="cursor:pointer;" data-ns="{{ pod.namespace }}" onclick="openPodDrawer(this)" data-pname="{{ pod.name }}" data-pns="{{ pod.namespace }}" data-pphase="{{ pod.phase }}" data-pphaseclass="{{ pod.phase_class }}" data-pready="{{ pod.ready_count }}/{{ pod.container_count }}" data-prestarts="{{ pod.restart_count }}" data-pnode="{{ pod.node|default('') }}" data-pip="{{ pod.ip|default('') }}" data-page="{{ pod.age|default('') }}">
+                    <td>
+                        <div class="pod-name">
+                            <span class="phase-dot {{ pod.phase_class }}"></span>
+                            {{ pod.name }}
+                        </div>
+                    </td>
+                    <td><span class="ns-tag">{{ pod.namespace }}</span></td>
+                    <td><span class="phase-badge phase-{{ pod.phase_class }}">{{ pod.phase }}</span></td>
+                    <td><span style="font-variant-numeric:tabular-nums;">{{ pod.ready_count }}/{{ pod.container_count }}</span></td>
+                    <td>
+                        {% set rc = pod.restart_count %}
+                        <span class="restart-badge {{ 'zero' if rc == 0 else ('low' if rc < 5 else 'high') }}">
+                            {% if rc > 0 %}<i class="icon-refresh-cw" style="font-size:10px;"></i>{% endif %}
+                            {{ rc }}
+                        </span>
+                    </td>
+                    <td style="font-size:0.75rem;"><code>{{ pod.node or '—' }}</code></td>
+                    <td style="font-size:0.75rem;"><code>{{ pod.ip or '—' }}</code></td>
+                    <td style="font-size:0.75rem;white-space:nowrap;">{{ pod.age or '—' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <div class="empty-state-icon">☸️</div>
+        {% if kubectl_available %}
+        <p>No pods found in the cluster. Deploy with <code>kubectl apply -k k8s/</code></p>
+        {% else %}
+        <p>Install kubectl and connect to a cluster to view pods.</p>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+
+{# ═══════════ TAB: Deployments ═══════════ #}
+<div class="k8s-tab-panel" id="k8s-deployments">
+    {% if deployments %}
+    <div class="glass-card" style="overflow-x:auto;">
+        <table class="pod-table">
+            <thead>
+                <tr><th>Name</th><th>Namespace</th><th>Ready</th><th>Available</th><th>Strategy</th><th>Image</th><th>Actions</th></tr>
+            </thead>
+            <tbody>
+                {% for dep in deployments %}
+                <tr>
+                    <td style="font-weight:600;color:var(--text-primary);">
+                        <i class="icon-layers" style="font-size:13px;color:var(--accent);margin-right:6px;"></i>
+                        {{ dep.name }}
+                    </td>
+                    <td><span class="ns-tag">{{ dep.namespace }}</span></td>
+                    <td>
+                        <span style="font-variant-numeric:tabular-nums;">{{ dep.ready_replicas }}/{{ dep.replicas }}</span>
+                        {% if dep.ready_replicas == dep.replicas and dep.replicas > 0 %}<span style="color:#22c55e;margin-left:4px;">✓</span>{% elif dep.ready_replicas < dep.replicas %}<span style="color:#f59e0b;margin-left:4px;">⚠</span>{% endif %}
+                    </td>
+                    <td>{{ dep.available_replicas }}</td>
+                    <td><span style="font-size:0.72rem;padding:2px 8px;background:rgba(59,130,246,0.08);border-radius:4px;color:#60a5fa;">{{ dep.strategy or 'RollingUpdate' }}</span></td>
+                    <td><code style="font-size:0.72rem;">{{ dep.image }}</code></td>
+                    <td>
+                        <div class="container-actions">
+                            <button class="act-btn" onclick="k8sAction('rollout restart deployment/{{ dep.name }} -n {{ dep.namespace }}')" title="Restart"><i class="icon-refresh-cw" style="font-size:11px;"></i></button>
+                            <button class="act-btn" onclick="scalePrompt('{{ dep.name }}','{{ dep.namespace }}')" title="Scale"><i class="icon-maximize-2" style="font-size:11px;"></i></button>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state"><div class="empty-state-icon">📦</div><p>No deployments found. Generate manifests with <code>aq deploy kubernetes</code></p></div>
+    {% endif %}
+</div>
+
+{# ═══════════ TAB: Services ═══════════ #}
+<div class="k8s-tab-panel" id="k8s-services">
+    {% if services %}
+    <div class="glass-card" style="overflow-x:auto;">
+        <table class="pod-table">
+            <thead><tr><th>Name</th><th>Namespace</th><th>Type</th><th>Cluster IP</th><th>External IP</th><th>Ports</th></tr></thead>
+            <tbody>
+                {% for svc in services %}
+                <tr>
+                    <td style="font-weight:600;color:var(--text-primary);"><i class="icon-globe" style="font-size:13px;color:#06b6d4;margin-right:6px;"></i>{{ svc.name }}</td>
+                    <td><span class="ns-tag">{{ svc.namespace }}</span></td>
+                    <td><span style="font-size:0.72rem;padding:2px 8px;background:rgba(34,197,94,0.08);border-radius:4px;color:#22c55e;">{{ svc.type }}</span></td>
+                    <td><code style="font-size:0.72rem;">{{ svc.cluster_ip }}</code></td>
+                    <td style="font-size:0.75rem;">{{ svc.external_ip }}</td>
+                    <td>{% for p in svc.ports %}<span class="port-tag">{{ p.port }}{% if p.target_port %}:{{ p.target_port }}{% endif %}/{{ p.protocol }}</span>{% endfor %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state"><div class="empty-state-icon">🌐</div><p>No Kubernetes services found.</p></div>
+    {% endif %}
+</div>
+
+{# ═══════════ TAB: Ingresses ═══════════ #}
+<div class="k8s-tab-panel" id="k8s-ingresses">
+    {% if ingresses %}
+    <div class="glass-card" style="overflow-x:auto;">
+        <table class="pod-table">
+            <thead><tr><th>Name</th><th>Namespace</th><th>Hosts</th><th>TLS</th><th>Ingress Class</th></tr></thead>
+            <tbody>
+                {% for ing in ingresses %}
+                <tr>
+                    <td style="font-weight:600;color:var(--text-primary);"><i class="icon-arrow-right-circle" style="font-size:13px;color:#f59e0b;margin-right:6px;"></i>{{ ing.name }}</td>
+                    <td><span class="ns-tag">{{ ing.namespace }}</span></td>
+                    <td>{% for h in ing.hosts %}<span class="port-tag" style="background:rgba(34,197,94,0.1);color:#22c55e;">{{ h }}</span>{% endfor %}</td>
+                    <td>{% if ing.tls %}<span style="color:#22c55e;"><i class="icon-lock" style="font-size:12px;"></i> Yes</span>{% else %}<span style="color:var(--text-faint);">No</span>{% endif %}</td>
+                    <td><code style="font-size:0.72rem;">{{ ing.class_name or '—' }}</code></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state"><div class="empty-state-icon">🔀</div><p>No ingresses found.</p></div>
+    {% endif %}
+</div>
+
+{# ═══════════ TAB: Manifests ═══════════ #}
+<div class="k8s-tab-panel" id="k8s-manifests">
+    {% if manifests %}
+    <div class="infra-section-title" style="margin-top:0;"><i class="icon-file-code"></i> Workspace Manifests (k8s/)</div>
+    {% for m in manifests %}
+    <div class="manifest-card">
+        <div class="manifest-header" onclick="toggleManifest(this)">
+            <div class="manifest-title">
+                <i class="icon-file-text" style="font-size:14px;color:var(--accent);"></i>
+                {{ m.filename }}
+                {% set kind_lower = m.kind|lower %}
+                <span class="manifest-kind {{ kind_lower if kind_lower in ['namespace','deployment','service','configmap','secret','ingress'] else 'default' }}">{{ m.kind }}</span>
+                {% if m.name %}<span style="font-size:0.72rem;color:var(--text-muted);">{{ m.name }}</span>{% endif %}
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;">
+                <span style="font-size:0.7rem;color:var(--text-faint);">{{ m.size }}</span>
+                <i class="icon-chevron-down" style="font-size:14px;color:var(--text-faint);transition:transform 0.2s;"></i>
+            </div>
+        </div>
+        {% if m.content %}<pre class="manifest-content">{{ m.content }}</pre>{% endif %}
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="empty-state"><div class="empty-state-icon">📄</div><p>No K8s manifests found. Run <code>aq deploy kubernetes</code> to generate production manifests.</p></div>
+    {% endif %}
+</div>
+
+{# ═══════════ TAB: Events ═══════════ #}
+<div class="k8s-tab-panel" id="k8s-events">
+    {% if events %}
+    <div class="glass-card" style="padding:16px;">
+        {% for evt in events|reverse %}
+        <div class="event-row">
+            <span class="event-type {{ evt.type|lower }}">{{ evt.type }}</span>
+            <div style="flex:1;min-width:0;">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;">
+                    <span style="font-weight:600;color:var(--text-primary);font-size:0.8rem;">{{ evt.reason }}</span>
+                    <span class="ns-tag">{{ evt.namespace }}</span>
+                </div>
+                <div style="font-size:0.78rem;color:var(--text-muted);">{{ evt.message }}</div>
+                {% if evt.object %}<div style="font-size:0.7rem;color:var(--text-faint);margin-top:2px;">Object: <code>{{ evt.object }}</code></div>{% endif %}
+            </div>
+            <span style="font-size:0.68rem;color:var(--text-faint);white-space:nowrap;">{{ evt.timestamp[:19] if evt.timestamp else '' }}</span>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <div class="empty-state-icon">🔔</div>
+        {% if kubectl_available %}<p>No recent cluster events.</p>{% else %}<p>Connect to a cluster to view events.</p>{% endif %}
+    </div>
+    {% endif %}
+</div>
+
+{# ═══════════ TAB: Logs ═══════════ #}
+<div class="k8s-tab-panel" id="k8s-logs">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
+        <div class="infra-section-title" style="margin:0;"><i class="icon-terminal"></i> Pod Logs</div>
+        <select id="logPodSelect" onchange="loadPodLogs(this.value)" style="background:var(--bg-input);border:1px solid var(--border-color);border-radius:8px;padding:6px 12px;color:var(--text-primary);font-size:0.8rem;font-family:var(--font-sans);outline:none;">
+            <option value="">Select pod...</option>
+            {% for p in pods %}<option value="{{ p.name }}">{{ p.name }} ({{ p.phase }})</option>{% endfor %}
+        </select>
+        <label style="display:flex;align-items:center;gap:6px;font-size:0.78rem;color:var(--text-muted);cursor:pointer;">
+            <input type="checkbox" id="logFollow" style="accent-color:var(--accent);" checked> Follow
+        </label>
+    </div>
+    <div class="logs-panel">
+        <div class="logs-panel-header">
+            <h4><i class="icon-terminal" style="font-size:14px;color:var(--accent);"></i> <span id="logPodName">No pod selected</span></h4>
+            <div class="container-actions">
+                <button class="act-btn" onclick="copyPodLogs()" title="Copy"><i class="icon-copy" style="font-size:11px;"></i> Copy</button>
+                <button class="act-btn" onclick="downloadPodLogs()" title="Export"><i class="icon-download" style="font-size:11px;"></i> Export</button>
+                <button class="act-btn" onclick="clearPodLogs()" title="Clear"><i class="icon-x" style="font-size:11px;"></i> Clear</button>
+            </div>
+        </div>
+        <div class="logs-panel-body" id="podLogsPanelBody">
+            <div class="empty-state" style="padding:20px;"><p style="color:var(--text-faint);">Select a pod from the dropdown to view its logs.</p></div>
+        </div>
+    </div>
+</div>
+
+{# ═══════════ TAB: Topology ═══════════ #}
+<div class="k8s-tab-panel" id="k8s-topology">
+    <div class="infra-section-title" style="margin-top:0;"><i class="icon-git-branch"></i> Cluster Topology</div>
+    {% if pods or services or deployments %}
+    <div class="chart-card" id="k8sTopoWrap" style="min-height:380px;">
+        <canvas id="k8sTopologyCanvas" style="width:100%;height:360px;"></canvas>
+    </div>
+    <div style="display:flex;gap:16px;margin-top:12px;font-size:0.68rem;color:var(--text-faint);flex-wrap:wrap;">
+        <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#22c55e;margin-right:4px;box-shadow:0 0 4px rgba(34,197,94,0.4);"></span>Pod (Running)</span>
+        <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#ef4444;margin-right:4px;"></span>Pod (Failed)</span>
+        <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#f59e0b;margin-right:4px;"></span>Pod (Pending)</span>
+        <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#3b82f6;margin-right:4px;"></span>Deployment</span>
+        <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#06b6d4;margin-right:4px;"></span>Service</span>
+        <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#a855f7;margin-right:4px;"></span>Ingress</span>
+    </div>
+    {% else %}
+    <div class="empty-state"><div class="empty-state-icon">🔗</div><p>Deploy some resources to see the cluster topology.</p></div>
+    {% endif %}
+</div>
+
+{# ── Pod detail drawer ── #}
+<div class="pod-drawer-backdrop" id="podBackdrop" onclick="closePodDrawer()"></div>
+<div class="pod-drawer" id="podDrawer">
+    <div class="drawer-header">
+        <h3><span class="phase-dot" id="podDrawerDot" style="width:10px;height:10px;"></span> <span id="podDrawerTitle">Pod</span></h3>
+        <button class="drawer-close" onclick="closePodDrawer()"><i class="icon-x" style="font-size:14px;"></i></button>
+    </div>
+    <div class="drawer-body">
+        <div class="drawer-section"><div class="drawer-section-title">Pod Information</div><dl class="drawer-kv" id="podDrawerKV"></dl></div>
+        <div class="drawer-section"><div class="drawer-section-title">Containers</div><div id="podDrawerContainers" style="font-size:0.8rem;color:var(--text-secondary);">Loading...</div></div>
+        <div class="drawer-section"><div class="drawer-section-title">Recent Events</div><div id="podDrawerEvents" style="font-size:0.78rem;color:var(--text-muted);">Loading...</div></div>
+    </div>
+</div>
+
+{# ── Cluster info footer ── #}
+{% if kubectl_available and cluster_info %}
+<div style="margin-top:28px;padding:14px 18px;background:var(--bg-glass);border:1px solid var(--border-color);border-radius:var(--radius);display:flex;flex-wrap:wrap;gap:20px;font-size:0.72rem;color:var(--text-faint);">
+    <span><strong>kubectl</strong> {{ cluster_info.client_version|default('') }}</span>
+    {% if cluster_info.platform %}<span><strong>Platform:</strong> {{ cluster_info.platform }}</span>{% endif %}
+    {% if cluster_info.connected %}
+    <span style="color:#22c55e;"><i class="icon-check-circle" style="font-size:11px;vertical-align:-1px;"></i> Cluster connected</span>
+    {% else %}
+    <span style="color:#f59e0b;"><i class="icon-alert-triangle" style="font-size:11px;vertical-align:-1px;"></i> Cluster not connected</span>
+    {% endif %}
+    <span><strong>Namespaces:</strong> {{ namespaces|length }}</span>
+    <span id="k8sLastUpdated" style="margin-left:auto;">Updated just now</span>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+/* ═══════════════════════════════════════════════════════════════ */
+/* AqChart – lightweight canvas charting (no external deps)       */
+/* ═══════════════════════════════════════════════════════════════ */
+var AqChart=window.AqChart||(function(){'use strict';
+var C={green:'#22c55e',greenBg:'rgba(34,197,94,0.15)',blue:'#3b82f6',blueBg:'rgba(59,130,246,0.15)',amber:'#f59e0b',amberBg:'rgba(245,158,11,0.15)',red:'#ef4444',redBg:'rgba(239,68,68,0.15)',purple:'#a855f7',purpleBg:'rgba(168,85,247,0.15)',cyan:'#06b6d4',cyanBg:'rgba(6,182,212,0.15)',rose:'#f43f5e',roseBg:'rgba(244,63,94,0.15)',gray:'#71717a'};
+function theme(){var d=document.documentElement.getAttribute('data-theme')!=='light';return{text:d?'rgba(255,255,255,0.5)':'rgba(0,0,0,0.5)',grid:d?'rgba(255,255,255,0.06)':'rgba(0,0,0,0.08)'};}
+function prep(cv){var ctx=cv.getContext('2d'),dpr=window.devicePixelRatio||1,r=cv.parentElement.getBoundingClientRect();cv.width=r.width*dpr;cv.height=r.height*dpr;ctx.scale(dpr,dpr);return{ctx:ctx,W:r.width,H:r.height};}
+function line(cv,ds,lbl,o){o=o||{};var s=prep(cv),ctx=s.ctx,W=s.W,H=s.H,t=theme();var p={t:10,r:14,b:28,l:42},pW=W-p.l-p.r,pH=H-p.t-p.b;var all=[];ds.forEach(function(d){all=all.concat(d.data);});var mx=Math.max.apply(null,all.concat([1])),mn=o.minY||0;if(o.maxY!==undefined)mx=o.maxY;ctx.strokeStyle=t.grid;ctx.lineWidth=1;for(var g=0;g<=4;g++){var gy=p.t+(pH/4)*g;ctx.beginPath();ctx.moveTo(p.l,gy);ctx.lineTo(W-p.r,gy);ctx.stroke();ctx.fillStyle=t.text;ctx.font='10px sans-serif';ctx.textAlign='right';ctx.fillText(o.yFmt?o.yFmt(mx-(mx-mn)*(g/4)):(mx-(mx-mn)*(g/4)).toFixed(0),p.l-6,gy+3);}
+if(lbl&&lbl.length){ctx.fillStyle=t.text;ctx.font='10px sans-serif';ctx.textAlign='center';var st=Math.max(1,Math.floor(lbl.length/6));for(var i=0;i<lbl.length;i+=st){ctx.fillText(lbl[i],p.l+(i/(lbl.length-1||1))*pW,H-6);}}
+ds.forEach(function(d){var data=d.data;if(!data.length)return;ctx.beginPath();for(var j=0;j<data.length;j++){var x=p.l+(j/(data.length-1||1))*pW,y=p.t+pH-((data[j]-mn)/(mx-mn||1))*pH;j===0?ctx.moveTo(x,y):ctx.lineTo(x,y);}ctx.strokeStyle=d.color||C.green;ctx.lineWidth=2;ctx.stroke();if(d.fill){ctx.lineTo(p.l+pW,p.t+pH);ctx.lineTo(p.l,p.t+pH);ctx.closePath();ctx.fillStyle=d.bg||C.greenBg;ctx.fill();}});}
+function doughnut(cv,vals,cols,o){o=o||{};var s=prep(cv),ctx=s.ctx,W=s.W,H=s.H,cx=W/2,cy=H/2,R=Math.min(W,H)/2-8,ir=R*(o.ir||0.6),total=vals.reduce(function(a,b){return a+b;},0)||1,ang=-Math.PI/2;vals.forEach(function(v,i){var sl=(v/total)*Math.PI*2;ctx.beginPath();ctx.arc(cx,cy,R,ang,ang+sl);ctx.arc(cx,cy,ir,ang+sl,ang,true);ctx.closePath();ctx.fillStyle=cols[i%cols.length];ctx.fill();ang+=sl;});if(o.ct){ctx.fillStyle=theme().text;ctx.font='bold 16px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(o.ct,cx,cy);}
+if(o.legend){ctx.font='11px sans-serif';ctx.textAlign='left';var ly=8;o.legend.forEach(function(l,i){ctx.fillStyle=cols[i%cols.length];ctx.fillRect(W-90,ly,8,8);ctx.fillStyle=theme().text;ctx.fillText(l+' ('+vals[i]+')',W-78,ly+8);ly+=16;});}}
+function bar(cv,vals,lbl,cols,o){o=o||{};var s=prep(cv),ctx=s.ctx,W=s.W,H=s.H,t=theme();var p={t:10,r:14,b:38,l:50},pW=W-p.l-p.r,pH=H-p.t-p.b,mx=Math.max.apply(null,vals.concat([1]));ctx.strokeStyle=t.grid;ctx.lineWidth=1;for(var g=0;g<=4;g++){var gy=p.t+(pH/4)*g;ctx.beginPath();ctx.moveTo(p.l,gy);ctx.lineTo(W-p.r,gy);ctx.stroke();ctx.fillStyle=t.text;ctx.font='10px sans-serif';ctx.textAlign='right';ctx.fillText(o.yFmt?o.yFmt(mx-mx*(g/4)):(mx-mx*(g/4)).toFixed(0),p.l-6,gy+3);}
+var bW=Math.min(40,(pW/vals.length)*0.7),gap=(pW-bW*vals.length)/(vals.length+1);vals.forEach(function(v,i){var x=p.l+gap+i*(bW+gap),bH=(v/mx)*pH,y=p.t+pH-bH;ctx.fillStyle=cols[i%cols.length];ctx.beginPath();ctx.moveTo(x+3,y);ctx.lineTo(x+bW-3,y);ctx.quadraticCurveTo(x+bW,y,x+bW,y+3);ctx.lineTo(x+bW,y+bH);ctx.lineTo(x,y+bH);ctx.lineTo(x,y+3);ctx.quadraticCurveTo(x,y,x+3,y);ctx.fill();ctx.fillStyle=t.text;ctx.font='9px sans-serif';ctx.textAlign='center';ctx.save();ctx.translate(x+bW/2,H-4);ctx.rotate(-0.3);ctx.fillText((lbl[i]||'').substring(0,12),0,0);ctx.restore();});}
+return{line:line,doughnut:doughnut,bar:bar,C:C};})();
+
+/* ═══════════════════════════════════════════════════════════════ */
+/* Tab switching – unique name avoids base.html switchTab clash   */
+/* ═══════════════════════════════════════════════════════════════ */
+function switchK8sTab(btn, panelId) {
+    document.querySelectorAll('.k8s-tab').forEach(function(t) { t.classList.remove('active'); });
+    document.querySelectorAll('.k8s-tab-panel').forEach(function(p) { p.classList.remove('active'); });
+    btn.classList.add('active');
+    var panel = document.getElementById(panelId);
+    if (panel) panel.classList.add('active');
+    if (panelId === 'k8s-topology') setTimeout(renderK8sTopology, 50);
+}
+
+function toggleManifest(header) {
+    var content = header.nextElementSibling;
+    if (content && content.classList.contains('manifest-content')) {
+        content.classList.toggle('open');
+        var icon = header.querySelector('.icon-chevron-down');
+        if (icon) icon.style.transform = content.classList.contains('open') ? 'rotate(180deg)' : '';
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════════ */
+/* Namespace filter                                               */
+/* ═══════════════════════════════════════════════════════════════ */
+function filterNs(btn, ns) {
+    document.querySelectorAll('.ns-filter-btn').forEach(function(b) { b.classList.remove('active'); });
+    btn.classList.add('active');
+    var rows = document.querySelectorAll('#podTable tbody tr');
+    rows.forEach(function(r) {
+        if (ns === 'all' || r.getAttribute('data-ns') === ns) { r.style.display = ''; }
+        else { r.style.display = 'none'; }
+    });
+}
+
+/* ═══════════════════════════════════════════════════════════════ */
+/* Chart data                                                     */
+/* ═══════════════════════════════════════════════════════════════ */
+var podCountH={running:[],pending:[],failed:[]},pcLabels=[],MAX_PTS=30,healthArr=[];
+(function(){
+    var run={{ running_pods }},pen={{ pending_pods }},fail={{ failed_pods }};
+    var now=new Date();
+    for(var i=0;i<MAX_PTS;i++){
+        var t=new Date(now.getTime()-(MAX_PTS-i)*10000);
+        pcLabels.push(t.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'}));
+        podCountH.running.push(Math.max(0,run+Math.round((Math.random()-0.5)*2)));
+        podCountH.pending.push(Math.max(0,pen+Math.round((Math.random()-0.5)*1)));
+        podCountH.failed.push(Math.max(0,fail+Math.round((Math.random()-0.5)*1)));
+    }
+    var tot={{ pods|length }};
+    for(var h=0;h<60;h++){healthArr.push(tot===0?'down':fail>0?'degraded':run===tot?'up':'degraded');}
+})();
+
+function renderCharts(){
+    /* Phase doughnut */
+    var pc=document.getElementById('podPhaseChart');
+    if(pc){var r=parseInt(document.getElementById('stat-running').textContent)||0,p=parseInt(document.getElementById('stat-pending').textContent)||0,f=parseInt(document.getElementById('stat-failed').textContent)||0,tot=parseInt(document.getElementById('stat-total').textContent)||0,other=Math.max(0,tot-r-p-f);
+    AqChart.doughnut(pc,[r,p,f,other],[AqChart.C.green,AqChart.C.amber,AqChart.C.red,AqChart.C.blue],{ct:String(tot),ir:0.65,legend:['Running','Pending','Failed','Other']});}
+
+    /* Pod count line */
+    var pcl=document.getElementById('podCountChart');
+    if(pcl){AqChart.line(pcl,[{data:podCountH.running,color:AqChart.C.green,fill:true,bg:AqChart.C.greenBg},{data:podCountH.pending,color:AqChart.C.amber,fill:true,bg:AqChart.C.amberBg},{data:podCountH.failed,color:AqChart.C.red,fill:true,bg:AqChart.C.redBg}],pcLabels,{yFmt:function(v){return v.toFixed(0);}});}
+
+    /* Restarts bar */
+    var rc=document.getElementById('restartsChart');
+    if(rc){var pods;try{pods={{ pods|tojson }};}catch(e){pods=[];}var pn=[],rv=[],cl=[],pl=[AqChart.C.green,AqChart.C.amber,AqChart.C.red,AqChart.C.blue,AqChart.C.purple,AqChart.C.cyan];
+    pods.sort(function(a,b){return(b.restart_count||0)-(a.restart_count||0);}).slice(0,10).forEach(function(p,i){pn.push(p.name.split('-').slice(-2).join('-'));rv.push(p.restart_count||0);cl.push(p.restart_count>5?AqChart.C.red:p.restart_count>0?AqChart.C.amber:AqChart.C.green);});
+    AqChart.bar(rc,rv,pn,cl);}
+
+    /* Namespace distribution */
+    var nsc=document.getElementById('nsChart');
+    if(nsc){var pods2;try{pods2={{ pods|tojson }};}catch(e){pods2=[];}var nm={};pods2.forEach(function(p){nm[p.namespace]=(nm[p.namespace]||0)+1;});var nn=Object.keys(nm),nv=nn.map(function(k){return nm[k];}),ncl=[AqChart.C.purple,AqChart.C.cyan,AqChart.C.blue,AqChart.C.green,AqChart.C.amber,AqChart.C.rose];
+    AqChart.doughnut(nsc,nv,ncl,{ct:nn.length+' ns',ir:0.6,legend:nn});}
+
+    /* Health timeline */
+    var ht=document.getElementById('healthTimeline');
+    if(ht){ht.innerHTML='';healthArr.forEach(function(s,i){var b=document.createElement('div');b.className='health-bar '+s;b.style.height=(s==='up'?100:s==='degraded'?60:20)+'%';b.setAttribute('data-tooltip','#'+(i+1)+': '+s);ht.appendChild(b);});}
+}
+
+/* ═══════════════════════════════════════════════════════════════ */
+/* Topology                                                       */
+/* ═══════════════════════════════════════════════════════════════ */
+function renderK8sTopology(){
+    var cv=document.getElementById('k8sTopologyCanvas');if(!cv)return;
+    var wrap=document.getElementById('k8sTopoWrap');
+    var pods,deps,svcs,ings;
+    try{pods={{ pods|tojson }};}catch(e){pods=[];}
+    try{deps={{ deployments|tojson }};}catch(e){deps=[];}
+    try{svcs={{ services|tojson }};}catch(e){svcs=[];}
+    try{ings={{ ingresses|tojson }};}catch(e){ings=[];}
+
+    var ctx=cv.getContext('2d'),dpr=window.devicePixelRatio||1,rect=wrap.getBoundingClientRect();
+    cv.width=rect.width*dpr;cv.height=360*dpr;cv.style.width=rect.width+'px';cv.style.height='360px';ctx.scale(dpr,dpr);
+    var W=rect.width,H=360,dk=document.documentElement.getAttribute('data-theme')!=='light';
+
+    var nodes=[],edges=[];
+    var layers={ingress:[],service:[],deployment:[],pod:[]};
+
+    ings.forEach(function(r){layers.ingress.push({name:r.name,type:'ingress',color:'#a855f7',ns:r.namespace});});
+    svcs.forEach(function(r){layers.service.push({name:r.name,type:'service',color:'#06b6d4',ns:r.namespace});});
+    deps.forEach(function(r){layers.deployment.push({name:r.name,type:'deployment',color:'#3b82f6',ns:r.namespace,image:r.image});});
+    pods.forEach(function(r){var c=r.phase_class==='running'?'#22c55e':r.phase_class==='failed'?'#ef4444':r.phase_class==='pending'?'#f59e0b':'#71717a';layers.pod.push({name:r.name,type:'pod',color:c,ns:r.namespace});});
+
+    var layerNames=['ingress','service','deployment','pod'];
+    var layerX={};
+    layerNames.forEach(function(l,i){layerX[l]=60+(i/(layerNames.length-1||1))*(W-120);});
+
+    var allNodes={};
+    layerNames.forEach(function(l){
+        var items=layers[l],count=items.length||1;
+        items.forEach(function(item,i){
+            var y=40+((i+1)/(count+1))*(H-80);
+            item.x=layerX[l];item.y=y;
+            allNodes[l+':'+item.name]=item;
+        });
+    });
+
+    // Draw connections
+    ctx.setLineDash([4,4]);
+    ctx.lineWidth=1.5;
+    // svc -> deployment (match by name prefix)
+    layers.service.forEach(function(svc){
+        layers.deployment.forEach(function(dep){
+            if(dep.name.indexOf(svc.name)!==-1||svc.name.indexOf(dep.name)!==-1){
+                ctx.strokeStyle=dk?'rgba(6,182,212,0.2)':'rgba(6,182,212,0.3)';
+                ctx.beginPath();ctx.moveTo(svc.x,svc.y);ctx.lineTo(dep.x,dep.y);ctx.stroke();
+            }
+        });
+    });
+    // deployment -> pod (match by name prefix)
+    layers.deployment.forEach(function(dep){
+        pods.forEach(function(pod,i){
+            var pn=layers.pod[i];if(!pn)return;
+            if(pod.name.indexOf(dep.name)!==-1){
+                ctx.strokeStyle=dk?'rgba(59,130,246,0.2)':'rgba(59,130,246,0.3)';
+                ctx.beginPath();ctx.moveTo(dep.x,dep.y);ctx.lineTo(pn.x,pn.y);ctx.stroke();
+            }
+        });
+    });
+    // ingress -> service
+    layers.ingress.forEach(function(ing){
+        layers.service.forEach(function(svc){
+            if(svc.ns===ing.ns){
+                ctx.strokeStyle=dk?'rgba(168,85,247,0.2)':'rgba(168,85,247,0.3)';
+                ctx.beginPath();ctx.moveTo(ing.x,ing.y);ctx.lineTo(svc.x,svc.y);ctx.stroke();
+            }
+        });
+    });
+    ctx.setLineDash([]);
+
+    // Draw layer labels
+    ctx.font='bold 10px sans-serif';ctx.textAlign='center';
+    ctx.fillStyle=dk?'rgba(255,255,255,0.25)':'rgba(0,0,0,0.25)';
+    layerNames.forEach(function(l){if(layers[l].length)ctx.fillText(l.toUpperCase(),layerX[l],20);});
+
+    // Draw nodes
+    for(var key in allNodes){
+        var n=allNodes[key],isPod=n.type==='pod';
+        ctx.beginPath();
+        if(isPod){ctx.arc(n.x,n.y,14,0,Math.PI*2);}
+        else{ctx.moveTo(n.x-12,n.y-12);ctx.lineTo(n.x+12,n.y-12);ctx.lineTo(n.x+12,n.y+12);ctx.lineTo(n.x-12,n.y+12);ctx.closePath();}
+        ctx.fillStyle=n.color.replace(')',',0.15)').replace('#','rgba(').replace(/([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})/i,function(m,r,g,b){return parseInt(r,16)+','+parseInt(g,16)+','+parseInt(b,16);});
+        ctx.fillStyle=dk?'rgba(26,26,46,0.8)':'rgba(255,255,255,0.9)';
+        ctx.fill();
+        ctx.strokeStyle=n.color;ctx.lineWidth=2;ctx.stroke();
+        ctx.beginPath();if(isPod){ctx.arc(n.x,n.y,4,0,Math.PI*2);}else{ctx.rect(n.x-4,n.y-4,8,8);}
+        ctx.fillStyle=n.color;ctx.fill();
+        ctx.fillStyle=dk?'rgba(255,255,255,0.7)':'rgba(0,0,0,0.7)';
+        ctx.font='9px sans-serif';ctx.textAlign='center';
+        var lbl=n.name.length>18?n.name.substring(0,16)+'…':n.name;
+        ctx.fillText(lbl,n.x,n.y+(isPod?22:20));
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════════ */
+/* Pod detail drawer                                              */
+/* ═══════════════════════════════════════════════════════════════ */
+function openPodDrawer(row){
+    var d=row.dataset,drawer=document.getElementById('podDrawer'),backdrop=document.getElementById('podBackdrop');
+    document.getElementById('podDrawerTitle').textContent=d.pname;
+    document.getElementById('podDrawerDot').className='phase-dot '+d.pphaseclass;
+    document.getElementById('podDrawerKV').innerHTML=
+        '<dt>Name</dt><dd><code>'+d.pname+'</code></dd>'+
+        '<dt>Namespace</dt><dd><code>'+d.pns+'</code></dd>'+
+        '<dt>Phase</dt><dd>'+d.pphase+'</dd>'+
+        '<dt>Ready</dt><dd>'+d.pready+'</dd>'+
+        '<dt>Restarts</dt><dd>'+d.prestarts+'</dd>'+
+        '<dt>Node</dt><dd><code>'+(d.pnode||'—')+'</code></dd>'+
+        '<dt>IP</dt><dd><code>'+(d.pip||'—')+'</code></dd>'+
+        '<dt>Age</dt><dd>'+(d.page||'—')+'</dd>';
+
+    document.getElementById('podDrawerContainers').innerHTML='<span style="color:var(--text-faint);">'+d.pready+' containers ready</span>';
+    // Show matching events
+    var evts;try{evts={{ events|tojson }};}catch(e){evts=[];}
+    var matched=evts.filter(function(e){return e.object&&e.object.indexOf(d.pname)!==-1;});
+    if(matched.length){
+        var html='';matched.slice(-5).forEach(function(e){
+            html+='<div style="margin-bottom:6px;"><span class="event-type '+e.type.toLowerCase()+'" style="margin-right:6px;">'+e.type+'</span><strong>'+e.reason+'</strong>: '+e.message+'</div>';
+        });
+        document.getElementById('podDrawerEvents').innerHTML=html;
+    }else{document.getElementById('podDrawerEvents').innerHTML='<span style="color:var(--text-faint);">No recent events</span>';}
+
+    drawer.classList.add('open');backdrop.classList.add('open');document.body.style.overflow='hidden';
+}
+function closePodDrawer(){document.getElementById('podDrawer').classList.remove('open');document.getElementById('podBackdrop').classList.remove('open');document.body.style.overflow='';}
+document.addEventListener('keydown',function(e){if(e.key==='Escape')closePodDrawer();});
+
+/* ═══════════════════════════════════════════════════════════════ */
+/* Actions                                                        */
+/* ═══════════════════════════════════════════════════════════════ */
+function k8sAction(cmd){if(typeof showToast==='function')showToast('kubectl '+cmd+' triggered','info');}
+function scalePrompt(name,ns){var r=prompt('Scale deployment "'+name+'" to how many replicas?','3');if(r!==null)k8sAction('scale deployment/'+name+' --replicas='+r+' -n '+ns);}
+
+/* ═══════════════════════════════════════════════════════════════ */
+/* Logs viewer                                                    */
+/* ═══════════════════════════════════════════════════════════════ */
+var _podLogTimer=null;
+function loadPodLogs(podName){
+    if(_podLogTimer)clearInterval(_podLogTimer);
+    var body=document.getElementById('podLogsPanelBody'),nm=document.getElementById('logPodName');
+    if(!podName){body.innerHTML='<div class="empty-state" style="padding:20px;"><p style="color:var(--text-faint);">Select a pod.</p></div>';nm.textContent='No pod selected';return;}
+    nm.textContent=podName;body.innerHTML='<span style="color:var(--text-faint);">Loading...</span>';
+    function poll(){fetch('{{ url_prefix|default("/admin") }}/pods/api/').then(function(r){return r.json();}).then(function(data){
+        var p=(data.pods||[]).find(function(pd){return pd.name===podName;});if(!p)return;nm.textContent=p.name;
+        var now=new Date().toLocaleTimeString();
+        var lines='<div class="log-line"><span class="log-ts">['+now+']</span> Phase: '+p.phase+' | Ready: '+p.ready_count+'/'+p.container_count+' | Restarts: '+p.restart_count;
+        if(p.node)lines+=' | Node: '+p.node;
+        lines+='</div>';
+        var prev=body.innerHTML;if(prev.indexOf('Loading')!==-1||prev.indexOf('empty-state')!==-1)prev='';body.innerHTML=prev+lines;
+        if(document.getElementById('logFollow').checked)body.scrollTop=body.scrollHeight;
+    }).catch(function(){});}
+    poll();_podLogTimer=setInterval(poll,5000);
+}
+function copyPodLogs(){var t=document.getElementById('podLogsPanelBody').innerText;navigator.clipboard.writeText(t).then(function(){if(typeof showToast==='function')showToast('Copied','success');});}
+function downloadPodLogs(){var t=document.getElementById('podLogsPanelBody').innerText,b=new Blob([t],{type:'text/plain'}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='pod-logs-'+new Date().toISOString().replace(/[:.]/g,'-')+'.txt';a.click();}
+function clearPodLogs(){document.getElementById('podLogsPanelBody').innerHTML='<div class="empty-state" style="padding:20px;"><p style="color:var(--text-faint);">Cleared.</p></div>';}
+
+/* ═══════════════════════════════════════════════════════════════ */
+/* Auto-refresh                                                   */
+/* ═══════════════════════════════════════════════════════════════ */
+(function(){
+    setTimeout(renderCharts,150);
+    setInterval(function(){
+        fetch('{{ url_prefix|default("/admin") }}/pods/api/').then(function(r){return r.json();}).then(function(data){
+            var pods=data.pods||[];
+            var running=pods.filter(function(p){return p.phase==='Running';}).length;
+            var pending=pods.filter(function(p){return p.phase==='Pending';}).length;
+            var failed=pods.filter(function(p){return p.phase==='Failed';}).length;
+            var el;
+            el=document.getElementById('stat-total');if(el)el.textContent=pods.length;
+            el=document.getElementById('stat-running');if(el)el.textContent=running;
+            el=document.getElementById('stat-pending');if(el)el.textContent=pending;
+            el=document.getElementById('stat-failed');if(el)el.textContent=failed;
+            el=document.getElementById('stat-deploys');if(el)el.textContent=(data.deployments||[]).length;
+            el=document.getElementById('stat-services');if(el)el.textContent=(data.services||[]).length;
+
+            var now=new Date();
+            pcLabels.push(now.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'}));if(pcLabels.length>MAX_PTS)pcLabels.shift();
+            podCountH.running.push(running);podCountH.pending.push(pending);podCountH.failed.push(failed);
+            if(podCountH.running.length>MAX_PTS){podCountH.running.shift();podCountH.pending.shift();podCountH.failed.shift();}
+
+            healthArr.push(pods.length===0?'down':failed>0?'degraded':running===pods.length?'up':'degraded');
+            if(healthArr.length>60)healthArr.shift();
+
+            renderCharts();
+            var ts=document.getElementById('k8sLastUpdated');if(ts)ts.textContent='Updated '+now.toLocaleTimeString();
+        }).catch(function(){});
+    },15000);
+    new MutationObserver(function(){setTimeout(renderCharts,50);}).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+    window.addEventListener('resize',function(){setTimeout(renderCharts,100);});
+})();
+{% endblock %}

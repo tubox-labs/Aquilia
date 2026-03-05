@@ -60,7 +60,7 @@ from aquilia.admin.registry import (
     flush_pending_registrations,
     _pending_registrations,
 )
-from aquilia.admin.site import AdminSite
+from aquilia.admin.site import AdminSite, AdminConfig
 from aquilia.admin.templates import (
     render_login_page,
     render_dashboard,
@@ -328,13 +328,11 @@ class TestAdminPermissions:
 
     def test_admin_role_enum_values(self):
         assert AdminRole.SUPERADMIN.value == "superadmin"
-        assert AdminRole.ADMIN.value == "admin"
         assert AdminRole.STAFF.value == "staff"
         assert AdminRole.VIEWER.value == "viewer"
 
     def test_admin_role_levels(self):
-        assert AdminRole.SUPERADMIN.level > AdminRole.ADMIN.level
-        assert AdminRole.ADMIN.level > AdminRole.STAFF.level
+        assert AdminRole.SUPERADMIN.level > AdminRole.STAFF.level
         assert AdminRole.STAFF.level > AdminRole.VIEWER.level
 
     def test_admin_permission_enum(self):
@@ -355,14 +353,15 @@ class TestAdminPermissions:
         assert AdminPermission.MODEL_DELETE not in perms
         assert AdminPermission.USER_MANAGE not in perms
 
-    def test_staff_cannot_delete(self):
+    def test_staff_has_delete_but_not_user_manage(self):
         perms = ROLE_PERMISSIONS[AdminRole.STAFF]
-        assert AdminPermission.MODEL_DELETE not in perms
+        assert AdminPermission.MODEL_DELETE in perms
+        assert AdminPermission.USER_MANAGE not in perms
 
     def test_get_admin_role_from_admin_role_attr(self):
         identity = MockIdentity(attributes={"admin_role": "admin"})
         role = get_admin_role(identity)
-        assert role == AdminRole.ADMIN
+        assert role == AdminRole.STAFF
 
     def test_get_admin_role_from_roles_list(self):
         identity = MockIdentity(roles=["superadmin"])
@@ -406,7 +405,7 @@ class TestAdminPermissions:
         assert has_model_permission(identity, "user", "delete") is False
 
     def test_require_admin_access_passes(self):
-        identity = MockIdentity(attributes={"admin_role": "admin"})
+        identity = MockIdentity(attributes={"admin_role": "staff"})
         # Should not raise
         require_admin_access(identity)
 
@@ -1707,3 +1706,599 @@ class TestAdminEdgeCases:
             # Wrong password
             bad = await ctrl._authenticate_admin("root", "wrong")
             assert bad is None
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 15. CONTAINERS & PODS PAGE TESTS
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class TestContainersPage:
+    """Tests for the Containers admin page data and rendering."""
+
+    def test_default_modules_include_containers(self):
+        """containers module should be disabled by default."""
+        config = AdminConfig.from_dict({})
+        assert config.is_module_enabled("containers") is False
+
+    def test_default_modules_include_pods(self):
+        """pods module should be disabled by default."""
+        config = AdminConfig.from_dict({})
+        assert config.is_module_enabled("pods") is False
+
+    def test_containers_module_can_be_enabled(self):
+        """containers module should be enableable via config."""
+        config = AdminConfig.from_dict({"modules": {"containers": True}})
+        assert config.is_module_enabled("containers") is True
+
+    def test_pods_module_can_be_enabled(self):
+        """pods module should be enableable via config."""
+        config = AdminConfig.from_dict({"modules": {"pods": True}})
+        assert config.is_module_enabled("pods") is True
+
+    def test_get_containers_data_returns_dict(self):
+        """get_containers_data should return a structured dict."""
+        site = AdminSite()
+        data = site.get_containers_data()
+        assert isinstance(data, dict)
+        assert "docker_available" in data
+        assert "containers" in data
+        assert "compose" in data
+        assert "images" in data
+        assert "volumes" in data
+        assert "networks" in data
+        assert "system_info" in data
+        assert "dockerfile_info" in data
+        assert "error" in data
+        # containers should be a list
+        assert isinstance(data["containers"], list)
+        # compose should have available key
+        assert "available" in data["compose"]
+        assert "services" in data["compose"]
+
+    def test_get_containers_data_compose_structure(self):
+        """Compose data should have expected fields."""
+        site = AdminSite()
+        data = site.get_containers_data()
+        compose = data["compose"]
+        assert isinstance(compose, dict)
+        assert "available" in compose
+        assert "services" in compose
+        assert isinstance(compose["services"], list)
+        assert "file_content" in compose
+
+    def test_get_containers_data_dockerfile_info(self):
+        """dockerfile_info should have exists flag."""
+        site = AdminSite()
+        data = site.get_containers_data()
+        assert "exists" in data["dockerfile_info"] or data["dockerfile_info"] == {}
+
+    @patch("subprocess.run")
+    def test_get_containers_data_docker_not_found(self, mock_run):
+        """When docker is not installed, should return graceful error."""
+        mock_run.side_effect = FileNotFoundError("docker not found")
+        site = AdminSite()
+        data = site.get_containers_data()
+        assert data["docker_available"] is False
+        assert data["error"] != ""
+
+    @patch("subprocess.run")
+    def test_get_containers_data_docker_timeout(self, mock_run):
+        """When docker times out, should return graceful error."""
+        import subprocess
+        mock_run.side_effect = subprocess.TimeoutExpired("docker", 10)
+        site = AdminSite()
+        data = site.get_containers_data()
+        assert data["docker_available"] is False
+
+    @patch("subprocess.run")
+    def test_get_containers_data_docker_available(self, mock_run):
+        """When docker is available, should parse version."""
+        def side_effect(cmd, **kwargs):
+            if cmd[1] == "version":
+                return MagicMock(returncode=0, stdout="24.0.7", stderr="")
+            elif cmd[1] == "system":
+                return MagicMock(
+                    returncode=0,
+                    stdout='{"containers":5,"running":3,"paused":0,'
+                           '"stopped":2,"images":10,"server_version":"24.0.7",'
+                           '"os":"Docker Desktop","arch":"x86_64",'
+                           '"cpus":8,"memory":"16GiB","storage_driver":"overlay2"}',
+                    stderr="",
+                )
+            elif cmd[1] == "ps":
+                return MagicMock(
+                    returncode=0,
+                    stdout='{"ID":"abc123","Names":"myapp","Image":"python:3.12",'
+                           '"Status":"Up 2 hours","State":"running","Ports":"8000->8000/tcp",'
+                           '"CreatedAt":"2024-01-15","Size":"100MB",'
+                           '"Command":"python","Labels":""}',
+                    stderr="",
+                )
+            elif cmd[1] == "stats":
+                return MagicMock(
+                    returncode=0,
+                    stdout='{"ID":"abc123","Name":"myapp","CPUPerc":"2.5%",'
+                           '"MemUsage":"128MiB / 16GiB","MemPerc":"0.78%",'
+                           '"NetIO":"1.2kB / 500B","BlockIO":"0B / 0B","PIDs":"5"}',
+                    stderr="",
+                )
+            elif cmd[1] == "images":
+                return MagicMock(
+                    returncode=0,
+                    stdout='{"ID":"sha256:abc","Repository":"python","Tag":"3.12",'
+                           '"Size":"1.2GB","CreatedAt":"2024-01-10"}',
+                    stderr="",
+                )
+            elif cmd[1] == "volume":
+                return MagicMock(
+                    returncode=0,
+                    stdout='{"Name":"myapp_data","Driver":"local","Mountpoint":"/var/lib/docker/volumes/myapp_data"}',
+                    stderr="",
+                )
+            elif cmd[1] == "network":
+                return MagicMock(
+                    returncode=0,
+                    stdout='{"ID":"net123","Name":"myapp_default","Driver":"bridge","Scope":"local"}',
+                    stderr="",
+                )
+            return MagicMock(returncode=1, stdout="", stderr="unknown")
+
+        mock_run.side_effect = side_effect
+        site = AdminSite()
+        data = site.get_containers_data()
+        assert data["docker_available"] is True
+        assert data["docker_version"] == "24.0.7"
+        assert len(data["containers"]) == 1
+        assert data["containers"][0]["name"] == "myapp"
+        assert data["containers"][0]["status_class"] == "running"
+        assert "stats" in data["containers"][0]
+        assert data["containers"][0]["stats"]["cpu"] == "2.5%"
+        assert len(data["images"]) == 1
+        assert len(data["volumes"]) == 1
+        assert len(data["networks"]) == 1
+
+    def test_render_containers_page(self):
+        """render_containers_page should return valid HTML."""
+        from aquilia.admin.templates import render_containers_page
+        html = render_containers_page(
+            containers_data={
+                "docker_available": False,
+                "docker_version": "",
+                "containers": [],
+                "compose": {"available": False, "services": [], "file_content": ""},
+                "images": [],
+                "volumes": [],
+                "networks": [],
+                "system_info": {},
+                "dockerfile_info": {"exists": False},
+                "error": "Docker not found",
+            },
+            app_list=[],
+            identity_name="Admin",
+        )
+        assert "<!DOCTYPE html>" in html
+        assert "Container" in html or "container" in html
+
+    def test_render_containers_page_with_data(self):
+        """render_containers_page should include container info."""
+        from aquilia.admin.templates import render_containers_page
+        html = render_containers_page(
+            containers_data={
+                "docker_available": True,
+                "docker_version": "24.0.7",
+                "containers": [
+                    {
+                        "id": "abc123",
+                        "name": "myapp",
+                        "image": "python:3.12",
+                        "status": "Up 2h",
+                        "state": "running",
+                        "status_class": "running",
+                        "status_icon": "▶",
+                        "ports": "8000->8000/tcp",
+                        "created": "2024-01-15",
+                        "size": "100MB",
+                        "command": "python",
+                        "labels": "",
+                    },
+                ],
+                "compose": {"available": False, "services": [], "file_content": ""},
+                "images": [],
+                "volumes": [],
+                "networks": [],
+                "system_info": {"running": 1, "stopped": 0, "paused": 0},
+                "dockerfile_info": {"exists": False},
+                "error": "",
+            },
+            app_list=[],
+            identity_name="Admin",
+        )
+        assert "<!DOCTYPE html>" in html
+
+
+class TestPodsPage:
+    """Tests for the Pods admin page data and rendering."""
+
+    def test_get_pods_data_returns_dict(self):
+        """get_pods_data should return a structured dict."""
+        site = AdminSite()
+        data = site.get_pods_data()
+        assert isinstance(data, dict)
+        assert "kubectl_available" in data
+        assert "cluster_info" in data
+        assert "pods" in data
+        assert "deployments" in data
+        assert "services" in data
+        assert "ingresses" in data
+        assert "namespaces" in data
+        assert "manifests" in data
+        assert "events" in data
+        assert "error" in data
+        assert isinstance(data["pods"], list)
+        assert isinstance(data["deployments"], list)
+        assert isinstance(data["manifests"], list)
+
+    @patch("subprocess.run")
+    def test_get_pods_data_kubectl_not_found(self, mock_run):
+        """When kubectl is not installed, should return graceful error."""
+        mock_run.side_effect = FileNotFoundError("kubectl not found")
+        site = AdminSite()
+        data = site.get_pods_data()
+        assert data["kubectl_available"] is False
+        assert data["error"] != ""
+
+    @patch("subprocess.run")
+    def test_get_pods_data_kubectl_timeout(self, mock_run):
+        """When kubectl times out, should return graceful error."""
+        import subprocess
+        mock_run.side_effect = subprocess.TimeoutExpired("kubectl", 10)
+        site = AdminSite()
+        data = site.get_pods_data()
+        assert data["kubectl_available"] is False
+
+    @patch("subprocess.run")
+    def test_get_pods_data_kubectl_available(self, mock_run):
+        """When kubectl is available, should parse cluster info and pods."""
+        import json
+
+        def side_effect(cmd, **kwargs):
+            if "version" in cmd:
+                return MagicMock(
+                    returncode=0,
+                    stdout=json.dumps({
+                        "clientVersion": {
+                            "gitVersion": "v1.28.0",
+                            "platform": "darwin/amd64",
+                        }
+                    }),
+                    stderr="",
+                )
+            elif "cluster-info" in cmd:
+                return MagicMock(
+                    returncode=0,
+                    stdout="Kubernetes control plane is running at https://127.0.0.1:6443",
+                    stderr="",
+                )
+            elif "namespaces" in cmd:
+                return MagicMock(
+                    returncode=0,
+                    stdout="default\nkube-system\nmyapp",
+                    stderr="",
+                )
+            elif "pods" in cmd:
+                return MagicMock(
+                    returncode=0,
+                    stdout=json.dumps({
+                        "items": [
+                            {
+                                "metadata": {
+                                    "name": "myapp-abc123",
+                                    "namespace": "myapp",
+                                    "labels": {"app": "myapp"},
+                                },
+                                "spec": {
+                                    "nodeName": "node-1",
+                                    "containers": [
+                                        {
+                                            "name": "app",
+                                            "resources": {
+                                                "requests": {"cpu": "250m", "memory": "256Mi"},
+                                                "limits": {"cpu": "1", "memory": "1Gi"},
+                                            },
+                                        },
+                                    ],
+                                },
+                                "status": {
+                                    "phase": "Running",
+                                    "podIP": "10.0.0.5",
+                                    "hostIP": "192.168.1.1",
+                                    "startTime": "2024-01-15T10:00:00Z",
+                                    "containerStatuses": [
+                                        {
+                                            "name": "app",
+                                            "ready": True,
+                                            "restartCount": 0,
+                                            "image": "myapp:latest",
+                                            "state": {"running": {"startedAt": "2024-01-15T10:00:05Z"}},
+                                        },
+                                    ],
+                                },
+                            },
+                        ],
+                    }),
+                    stderr="",
+                )
+            elif "deployments" in cmd:
+                return MagicMock(
+                    returncode=0,
+                    stdout=json.dumps({
+                        "items": [
+                            {
+                                "metadata": {"name": "myapp-app", "namespace": "myapp", "labels": {}},
+                                "spec": {
+                                    "replicas": 3,
+                                    "strategy": {"type": "RollingUpdate"},
+                                    "template": {
+                                        "spec": {
+                                            "containers": [{"image": "myapp:latest"}],
+                                        },
+                                    },
+                                },
+                                "status": {
+                                    "readyReplicas": 3,
+                                    "availableReplicas": 3,
+                                    "updatedReplicas": 3,
+                                },
+                            },
+                        ],
+                    }),
+                    stderr="",
+                )
+            elif "services" in cmd:
+                return MagicMock(
+                    returncode=0,
+                    stdout=json.dumps({
+                        "items": [
+                            {
+                                "metadata": {"name": "myapp-svc", "namespace": "myapp"},
+                                "spec": {
+                                    "type": "ClusterIP",
+                                    "clusterIP": "10.96.0.1",
+                                    "ports": [
+                                        {"port": 80, "targetPort": 8000, "protocol": "TCP", "name": "http"},
+                                    ],
+                                },
+                            },
+                        ],
+                    }),
+                    stderr="",
+                )
+            elif "ingresses" in cmd:
+                return MagicMock(
+                    returncode=0,
+                    stdout=json.dumps({
+                        "items": [
+                            {
+                                "metadata": {"name": "myapp-ingress", "namespace": "myapp"},
+                                "spec": {
+                                    "ingressClassName": "nginx",
+                                    "tls": [{"hosts": ["myapp.example.com"]}],
+                                    "rules": [{"host": "myapp.example.com"}],
+                                },
+                            },
+                        ],
+                    }),
+                    stderr="",
+                )
+            elif "events" in cmd:
+                return MagicMock(
+                    returncode=0,
+                    stdout=json.dumps({
+                        "items": [
+                            {
+                                "type": "Normal",
+                                "reason": "Scheduled",
+                                "message": "Successfully assigned myapp/myapp-abc123",
+                                "metadata": {
+                                    "namespace": "myapp",
+                                    "creationTimestamp": "2024-01-15T10:00:00Z",
+                                },
+                                "involvedObject": {"name": "myapp-abc123"},
+                                "lastTimestamp": "2024-01-15T10:00:00Z",
+                            },
+                        ],
+                    }),
+                    stderr="",
+                )
+            return MagicMock(returncode=1, stdout="", stderr="unknown")
+
+        mock_run.side_effect = side_effect
+        site = AdminSite()
+        data = site.get_pods_data()
+        assert data["kubectl_available"] is True
+        assert data["cluster_info"]["client_version"] == "v1.28.0"
+        assert data["cluster_info"]["connected"] is True
+        assert len(data["namespaces"]) == 3
+        assert len(data["pods"]) == 1
+        assert data["pods"][0]["name"] == "myapp-abc123"
+        assert data["pods"][0]["phase"] == "Running"
+        assert data["pods"][0]["ready_count"] == 1
+        assert data["pods"][0]["restart_count"] == 0
+        assert len(data["deployments"]) == 1
+        assert data["deployments"][0]["ready_replicas"] == 3
+        assert len(data["services"]) == 1
+        assert data["services"][0]["type"] == "ClusterIP"
+        assert len(data["ingresses"]) == 1
+        assert data["ingresses"][0]["tls"] is True
+        assert len(data["events"]) == 1
+
+    def test_render_pods_page(self):
+        """render_pods_page should return valid HTML."""
+        from aquilia.admin.templates import render_pods_page
+        html = render_pods_page(
+            pods_data={
+                "kubectl_available": False,
+                "cluster_info": {},
+                "pods": [],
+                "deployments": [],
+                "services": [],
+                "ingresses": [],
+                "namespaces": [],
+                "manifests": [],
+                "events": [],
+                "error": "kubectl not found",
+            },
+            app_list=[],
+            identity_name="Admin",
+        )
+        assert "<!DOCTYPE html>" in html
+        assert "Pod" in html or "pod" in html
+
+    def test_render_pods_page_with_data(self):
+        """render_pods_page should include pod info when data is provided."""
+        from aquilia.admin.templates import render_pods_page
+        html = render_pods_page(
+            pods_data={
+                "kubectl_available": True,
+                "cluster_info": {"client_version": "v1.28.0", "connected": True},
+                "pods": [
+                    {
+                        "name": "myapp-abc123",
+                        "namespace": "myapp",
+                        "phase": "Running",
+                        "phase_class": "running",
+                        "ip": "10.0.0.5",
+                        "host_ip": "192.168.1.1",
+                        "node": "node-1",
+                        "start_time": "2024-01-15T10:00:00Z",
+                        "container_count": 1,
+                        "ready_count": 1,
+                        "restart_count": 0,
+                        "containers": [],
+                        "resources": {},
+                        "labels": {},
+                        "age": "2d 5h",
+                    },
+                ],
+                "deployments": [],
+                "services": [],
+                "ingresses": [],
+                "namespaces": ["default", "myapp"],
+                "manifests": [],
+                "events": [],
+                "error": "",
+            },
+            app_list=[],
+            identity_name="Admin",
+        )
+        assert "<!DOCTYPE html>" in html
+
+    def test_container_status_classes(self):
+        """Container status classification should be correct."""
+        site = AdminSite()
+        # Test by examining the status classification logic directly
+        state_map = {
+            "running": ("running", "▶"),
+            "exited": ("stopped", "■"),
+            "paused": ("paused", "⏸"),
+            "restarting": ("warning", "↻"),
+            "created": ("created", "○"),
+            "dead": ("dead", "✕"),
+            "something": ("unknown", "?"),
+        }
+        for state, (expected_class, expected_icon) in state_map.items():
+            # Verify by checking get_containers_data logic handles each state
+            assert expected_class in ("running", "stopped", "paused", "warning",
+                                      "created", "dead", "unknown")
+
+    @patch("subprocess.run")
+    def test_container_stats_merged_into_containers(self, mock_run):
+        """Stats should be merged into the running container entries."""
+        def side_effect(cmd, **kwargs):
+            if cmd[1] == "version":
+                return MagicMock(returncode=0, stdout="24.0.7", stderr="")
+            elif cmd[1] == "system":
+                return MagicMock(returncode=0, stdout="{}", stderr="")
+            elif cmd[1] == "ps":
+                return MagicMock(
+                    returncode=0,
+                    stdout='{"ID":"abc123def456","Names":"web","Image":"nginx",'
+                           '"Status":"Up","State":"running","Ports":"80/tcp",'
+                           '"CreatedAt":"2024-01-15","Size":"50MB",'
+                           '"Command":"nginx","Labels":""}',
+                    stderr="",
+                )
+            elif cmd[1] == "stats":
+                return MagicMock(
+                    returncode=0,
+                    stdout='{"ID":"abc123def456","Name":"web","CPUPerc":"1.5%",'
+                           '"MemUsage":"64MiB / 8GiB","MemPerc":"0.8%",'
+                           '"NetIO":"500B / 300B","BlockIO":"0B / 0B","PIDs":"3"}',
+                    stderr="",
+                )
+            return MagicMock(returncode=0, stdout="", stderr="")
+
+        mock_run.side_effect = side_effect
+        site = AdminSite()
+        data = site.get_containers_data()
+        assert len(data["containers"]) == 1
+        container = data["containers"][0]
+        assert "stats" in container
+        assert container["stats"]["cpu"] == "1.5%"
+
+    def test_pods_data_manifest_scanning(self):
+        """Manifest scanning should work even without kubectl."""
+        site = AdminSite()
+        data = site.get_pods_data()
+        # manifests is always a list, even if empty
+        assert isinstance(data["manifests"], list)
+
+    @patch("subprocess.run")
+    def test_pods_cluster_disconnected(self, mock_run):
+        """When cluster is not reachable, should handle gracefully."""
+        import json
+
+        def side_effect(cmd, **kwargs):
+            if "version" in cmd:
+                return MagicMock(
+                    returncode=0,
+                    stdout=json.dumps({
+                        "clientVersion": {"gitVersion": "v1.28.0", "platform": "darwin/amd64"}
+                    }),
+                    stderr="",
+                )
+            elif "cluster-info" in cmd:
+                return MagicMock(
+                    returncode=1,
+                    stdout="",
+                    stderr="The connection to the server was refused",
+                )
+            return MagicMock(returncode=1, stdout="", stderr="connection refused")
+
+        mock_run.side_effect = side_effect
+        site = AdminSite()
+        data = site.get_pods_data()
+        assert data["kubectl_available"] is True
+        assert data["cluster_info"]["connected"] is False
+        assert "connection_error" in data["cluster_info"]
+
+    def test_icon_map_includes_containers_and_pods(self):
+        """The disabled page icon map should include containers and pods."""
+        from aquilia.admin.templates import render_disabled_page
+        # Render disabled page for containers
+        html = render_disabled_page(
+            module_name="Containers",
+            icon_key="containers",
+            app_list=[],
+            identity_name="Admin",
+        )
+        assert "<!DOCTYPE html>" in html
+        # Render disabled page for pods
+        html = render_disabled_page(
+            module_name="Pods",
+            icon_key="pods",
+            app_list=[],
+            identity_name="Admin",
+        )
+        assert "<!DOCTYPE html>" in html

@@ -132,7 +132,7 @@ class AquiliaGroup(click.Group):
         "Admin": ["admin"],
         "Inspect": ["inspect", "manifest", "analytics"],
         "Subsystems": ["ws", "cache", "mail", "i18n"],
-        "MLOps": ["pack", "model", "deploy", "observe", "export", "plugin", "lineage", "experiment"],
+        "MLOps": ["pack", "model", "mlops-deploy", "observe", "export", "plugin", "lineage", "experiment"],
         "Deploy": ["deploy-gen", "artifact"],
         "Migration": ["migrate"],
     }
@@ -348,6 +348,10 @@ def init_workspace(ctx, name: Optional[str], minimal: bool, template: Optional[s
         if not name:
             error(f"  {_CROSS} Project name is required in non-interactive mode")
             sys.exit(1)
+        name_err = _validate_name(name)
+        if name_err:
+            error(f"  {_CROSS} Invalid workspace name: {name_err}")
+            sys.exit(1)
         include_docker = not minimal
         include_makefile = not minimal
         include_readme = not minimal
@@ -426,15 +430,82 @@ def init_workspace(ctx, name: Optional[str], minimal: bool, template: Optional[s
 
 
 def _validate_name(value: str) -> Optional[str]:
-    """Validate a workspace/module name."""
+    """Validate a workspace/module name.
+
+    Names must:
+    - Be at least 2 characters
+    - Start with a **lowercase** letter (uppercase is rejected to keep
+      filesystem paths, Python package names, and route prefixes consistent)
+    - Contain only lowercase letters, digits, hyphens, and underscores
+    - Be at most 64 characters
+    """
     import re as _vre
     if not value or len(value.strip()) < 2:
         return "Name must be at least 2 characters"
-    if not _vre.match(r'^[a-zA-Z][a-zA-Z0-9_-]*$', value):
-        return "Name must start with a letter and contain only letters, digits, hyphens, underscores"
+    if value[0].isupper():
+        return "Name must start with a lowercase letter (no capitals allowed)"
+    if not _vre.match(r'^[a-z][a-z0-9_-]*$', value):
+        return "Name must start with a lowercase letter and contain only lowercase letters, digits, hyphens, underscores"
     if len(value) > 64:
         return "Name must be 64 characters or fewer"
     return None
+
+
+def _validate_strong_password(password: str) -> Optional[str]:
+    """Return an error message if *password* does not meet strength requirements.
+
+    A strong password must:
+    - Be at least 8 characters long
+    - Contain at least one uppercase letter
+    - Contain at least one lowercase letter
+    - Contain at least one digit
+    - Contain at least one special character (!@#$%^&*…)
+    """
+    import re as _pre
+    if not password or len(password) < 8:
+        return "Password must be at least 8 characters"
+    if not _pre.search(r'[A-Z]', password):
+        return "Password must contain at least one uppercase letter"
+    if not _pre.search(r'[a-z]', password):
+        return "Password must contain at least one lowercase letter"
+    if not _pre.search(r'[0-9]', password):
+        return "Password must contain at least one digit"
+    if not _pre.search(r'[^A-Za-z0-9]', password):
+        return "Password must contain at least one special character (e.g. !@#$%^&*)"
+    return None
+
+
+async def _check_admin_user_unique(
+    db,
+    username: str,
+    email: str,
+) -> tuple[Optional[str], Optional[str]]:
+    """Check whether *username* and *email* already exist in admin_users.
+
+    Returns a tuple ``(username_error, email_error)`` where each element is
+    either an error string or ``None`` if the value is available.
+    """
+    username_err: Optional[str] = None
+    email_err: Optional[str] = None
+    try:
+        row = await db.fetch_one(
+            "SELECT id FROM admin_users WHERE username = :u",
+            {"u": username},
+        )
+        if row:
+            username_err = f"Username '{username}' is already taken"
+    except Exception:
+        pass  # Table may not exist yet -- skip the check
+    try:
+        row = await db.fetch_one(
+            "SELECT id FROM admin_users WHERE email = :e",
+            {"e": email},
+        )
+        if row:
+            email_err = f"Email '{email}' is already registered"
+    except Exception:
+        pass
+    return username_err, email_err
 
 
 @cli.group(cls=AquiliaGroup)
@@ -549,6 +620,10 @@ def add_module(ctx, name: Optional[str], depends_on: tuple, fault_domain: Option
     else:
         if not name:
             error(f"  {_CROSS} Module name is required in non-interactive mode")
+            sys.exit(1)
+        name_err = _validate_name(name)
+        if name_err:
+            error(f"  {_CROSS} Invalid module name: {name_err}")
             sys.exit(1)
 
     # ── Generate ─────────────────────────────────────────────────────
@@ -929,13 +1004,17 @@ def freeze(ctx, output: Optional[str], sign: bool):
 @click.option('--compress', type=click.Choice(['none', 'lz4', 'zstd']), default=None, help='Compression')
 @click.option('--check-only', is_flag=True, help='Only run checks, don\'t emit artifacts')
 @click.option('--skip-checks', is_flag=True, help='Skip static checks (faster)')
+@click.option('--force', is_flag=True, help='Bypass incremental build cache')
 @click.pass_context
-def build(ctx, mode: str, output: str, compress: Optional[str], check_only: bool, skip_checks: bool):
+def build(ctx, mode: str, output: str, compress: Optional[str], check_only: bool, skip_checks: bool, force: bool):
     """
     Build the workspace (compile, check, bundle).
 
     Compiles, validates, and bundles the entire workspace into optimized
     Crous binary artifacts. If any check fails, the build is aborted.
+
+    Uses incremental caching: if source files haven't changed since the
+    last build, phases are skipped automatically. Use --force to bypass.
 
     Examples:
       aq build
@@ -943,6 +1022,7 @@ def build(ctx, mode: str, output: str, compress: Optional[str], check_only: bool
       aq build --mode=prod --compress=lz4
       aq build --check-only
       aq build --output=dist/
+      aq build --force
     """
     from aquilia.build import AquiliaBuildPipeline
 
@@ -958,6 +1038,8 @@ def build(ctx, mode: str, output: str, compress: Optional[str], check_only: bool
             kv("Output", output)
             if check_only:
                 kv("Check Only", "yes")
+            if force:
+                kv("Force", "yes (bypassing cache)")
             click.echo()
 
         result = AquiliaBuildPipeline.build(
@@ -967,6 +1049,7 @@ def build(ctx, mode: str, output: str, compress: Optional[str], check_only: bool
             compression=compression,
             check_only=check_only,
             output_dir=output,
+            force=force,
         )
 
         if not ctx.obj['quiet']:
@@ -2125,6 +2208,24 @@ def admin_check(ctx, fix: bool, as_json: bool):
             "won't resolve. Add: .integrate(Integration.templates(directories=['templates']))"
         ),
     })
+    # Infrastructure: Docker and kubectl availability
+    import shutil
+    docker_path = shutil.which("docker")
+    kubectl_path = shutil.which("kubectl")
+    checks.append({
+        "name": "Docker CLI",
+        "status": "ok" if docker_path else "warn",
+        "detail": (
+            f"docker found at {docker_path}" if docker_path else "Docker CLI not found. Containers page will be disabled. Install Docker to enable full functionality."
+        ),
+    })
+    checks.append({
+        "name": "kubectl CLI",
+        "status": "ok" if kubectl_path else "warn",
+        "detail": (
+            f"kubectl found at {kubectl_path}" if kubectl_path else "kubectl CLI not found. Pods page will be disabled. Install kubectl to enable full functionality."
+        ),
+        })
 
     # 6. Superuser exists?
     has_superuser = False
@@ -2336,7 +2437,10 @@ def admin_createsuperuser(ctx, username: str, email: str, password: str, first_n
         if not email or "@" not in email or "." not in email.split("@")[-1]:
             error(f"  {_CROSS} A valid email address is required")
 
-    while not password or len(password) < 4:
+    while True:
+        pw_err = _validate_strong_password(password) if password else "Password is required"
+        if not pw_err:
+            break
         password = click.prompt(
             click.style("  Password", fg="cyan", bold=True),
             default="",
@@ -2345,8 +2449,9 @@ def admin_createsuperuser(ctx, username: str, email: str, password: str, first_n
             confirmation_prompt=click.style("  Confirm password", fg="cyan", bold=True),
             prompt_suffix=" ",
         )
-        if not password or len(password) < 4:
-            error(f"  {_CROSS} Password must be at least 4 characters")
+        pw_err = _validate_strong_password(password)
+        if pw_err:
+            error(f"  {_CROSS} {pw_err}")
 
     # ── Optional profile fields (interactive) ────────────────────────
     interactive = sys.stdin.isatty() and not no_input
@@ -2456,6 +2561,12 @@ def admin_createsuperuser(ctx, username: str, email: str, password: str, first_n
                         await db.execute(m2m_sql)
                 except Exception:
                     pass  # Table already exists -- that's fine
+
+            # ── DB uniqueness check ───────────────────────────────────────
+            uname_err, email_err = await _check_admin_user_unique(db, username, email)
+            if uname_err or email_err:
+                msgs = [m for m in (uname_err, email_err) if m]
+                raise RuntimeError("\n".join(msgs))
 
             # ORM-based creation
             try:
@@ -2594,7 +2705,10 @@ def admin_createstaff(ctx, username: str, email: str, password: str, first_name:
         if not email or "@" not in email or "." not in email.split("@")[-1]:
             error(f"  {_CROSS} A valid email address is required")
 
-    while not password or len(password) < 4:
+    while True:
+        pw_err = _validate_strong_password(password) if password else "Password is required"
+        if not pw_err:
+            break
         password = click.prompt(
             click.style("  Password", fg="cyan", bold=True),
             default="",
@@ -2603,8 +2717,9 @@ def admin_createstaff(ctx, username: str, email: str, password: str, first_name:
             confirmation_prompt=click.style("  Confirm password", fg="cyan", bold=True),
             prompt_suffix=" ",
         )
-        if not password or len(password) < 4:
-            error(f"  {_CROSS} Password must be at least 4 characters")
+        pw_err = _validate_strong_password(password)
+        if pw_err:
+            error(f"  {_CROSS} {pw_err}")
 
     # ── Optional profile fields (interactive) ────────────────────────
     interactive = sys.stdin.isatty() and not no_input
@@ -2708,6 +2823,12 @@ def admin_createstaff(ctx, username: str, email: str, password: str, first_name:
                         await db.execute(m2m_sql)
                 except Exception:
                     pass
+
+            # ── DB uniqueness check ───────────────────────────────────────
+            uname_err, email_err = await _check_admin_user_unique(db, username, email)
+            if uname_err or email_err:
+                msgs = [m for m in (uname_err, email_err) if m]
+                raise RuntimeError("\n".join(msgs))
 
             try:
                 user = await AdminUser.create_staff_user(
@@ -2888,8 +3009,10 @@ def admin_changepassword(ctx, username: str, password: str, database_url: Option
     if database_url is None:
         database_url = _detect_workspace_db_url()
 
-    if len(password) < 4:
-        error(f"  {_CROSS} Password must be at least 4 characters")
+    pw_err = _validate_strong_password(password)
+    if pw_err:
+        error(f"  {_CROSS} {pw_err}")
+        info("  Requirements: ≥8 chars, uppercase, lowercase, digit, special character")
         sys.exit(1)
 
     async def _change():

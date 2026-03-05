@@ -1,0 +1,767 @@
+{% extends "base.html" %}
+{% block title %}Containers{% endblock %}
+{% block breadcrumb %}Containers{% endblock %}
+
+{% block extra_head %}
+<style>
+/* ── Containers page styles ── */
+.infra-tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 24px;
+    overflow-x: auto;
+}
+.infra-tab {
+    padding: 10px 20px;
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s var(--ease);
+    white-space: nowrap;
+    background: none;
+    border-top: none;
+    border-left: none;
+    border-right: none;
+    font-family: var(--font-sans);
+}
+.infra-tab:hover { color: var(--text-secondary); }
+.infra-tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+}
+.infra-tab-panel { display: none; }
+.infra-tab-panel.active { display: block; }
+
+.infra-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.badge-running { background: rgba(34,197,94,0.15); color: #22c55e; }
+.badge-stopped { background: rgba(239,68,68,0.15); color: #ef4444; }
+.badge-paused  { background: rgba(245,158,11,0.15); color: #f59e0b; }
+.badge-warning { background: rgba(245,158,11,0.15); color: #f59e0b; }
+.badge-created { background: rgba(59,130,246,0.15); color: #3b82f6; }
+.badge-dead    { background: rgba(239,68,68,0.15); color: #ef4444; }
+.badge-unknown { background: rgba(113,113,122,0.15); color: #71717a; }
+
+.container-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 14px;
+    margin-bottom: 28px;
+}
+.container-stat {
+    background: var(--bg-glass);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    padding: 18px 16px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.25s var(--ease), transform 0.18s var(--ease);
+}
+.container-stat:hover {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+}
+.container-stat::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    border-radius: var(--radius) var(--radius) 0 0;
+    opacity: 0.8;
+}
+.container-stat[data-color="green"]::before { background: linear-gradient(90deg, #22c55e, #16a34a); }
+.container-stat[data-color="blue"]::before { background: linear-gradient(90deg, #3b82f6, #2563eb); }
+.container-stat[data-color="amber"]::before { background: linear-gradient(90deg, #f59e0b, #d97706); }
+.container-stat[data-color="purple"]::before { background: linear-gradient(90deg, #a855f7, #7c3aed); }
+.container-stat[data-color="cyan"]::before { background: linear-gradient(90deg, #06b6d4, #0891b2); }
+.container-stat[data-color="rose"]::before { background: linear-gradient(90deg, #f43f5e, #e11d48); }
+.container-stat-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1.2;
+    margin-bottom: 4px;
+    font-variant-numeric: tabular-nums;
+}
+.container-stat-label {
+    font-size: 0.68rem;
+    color: var(--text-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 500;
+}
+
+.container-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.82rem;
+}
+.container-table th {
+    text-align: left;
+    padding: 10px 14px;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-faint);
+    border-bottom: 1px solid var(--border-color);
+    font-weight: 600;
+    white-space: nowrap;
+}
+.container-table td {
+    padding: 10px 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    color: var(--text-secondary);
+    vertical-align: middle;
+}
+.container-table tr:hover td {
+    background: rgba(34,197,94,0.03);
+}
+.container-name {
+    font-weight: 600;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.container-name .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+.status-dot.running  { background: #22c55e; box-shadow: 0 0 6px rgba(34,197,94,0.5); }
+.status-dot.stopped  { background: #ef4444; }
+.status-dot.paused   { background: #f59e0b; }
+.status-dot.warning  { background: #f59e0b; animation: blink 1s infinite; }
+.status-dot.created  { background: #3b82f6; }
+.status-dot.dead     { background: #ef4444; }
+.status-dot.unknown  { background: #71717a; }
+
+@keyframes blink { 50% { opacity: 0.4; } }
+
+.port-tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-family: var(--font-mono, 'Space Mono', monospace);
+    background: rgba(59,130,246,0.1);
+    color: #60a5fa;
+    margin: 1px 2px;
+}
+.resource-bar {
+    width: 100%;
+    height: 6px;
+    background: var(--bg-input);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-top: 4px;
+}
+.resource-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.5s var(--ease);
+}
+.resource-bar-fill.green { background: linear-gradient(90deg, #22c55e, #16a34a); }
+.resource-bar-fill.amber { background: linear-gradient(90deg, #f59e0b, #d97706); }
+.resource-bar-fill.red   { background: linear-gradient(90deg, #ef4444, #dc2626); }
+
+.compose-service {
+    background: var(--bg-glass);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin-bottom: 10px;
+    transition: border-color 0.2s var(--ease);
+}
+.compose-service:hover { border-color: var(--accent); }
+.compose-service-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+.compose-service-name {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--text-primary);
+}
+.compose-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+.compose-meta-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.compose-meta-item i { font-size: 12px; color: var(--text-faint); }
+
+.image-card {
+    background: var(--bg-glass);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    padding: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: border-color 0.2s var(--ease);
+}
+.image-card:hover { border-color: var(--accent); }
+
+.docker-unavailable {
+    background: rgba(239,68,68,0.08);
+    border: 1px solid rgba(239,68,68,0.2);
+    border-radius: var(--radius);
+    padding: 32px;
+    text-align: center;
+}
+.docker-unavailable h3 {
+    color: #ef4444;
+    margin-bottom: 8px;
+}
+.docker-unavailable p {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    max-width: 500px;
+    margin: 0 auto;
+}
+.docker-unavailable code {
+    background: var(--bg-input);
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+}
+
+.dockerfile-info {
+    background: var(--bg-glass);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    padding: 18px;
+}
+.dockerfile-stage {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    background: rgba(168,85,247,0.1);
+    color: #c084fc;
+    margin: 3px 4px 3px 0;
+}
+
+.infra-section-title {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 14px;
+    margin-top: 24px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.infra-section-title i { font-size: 14px; color: var(--accent); }
+
+.empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-muted);
+}
+.empty-state-icon {
+    font-size: 2.5rem;
+    opacity: 0.15;
+    margin-bottom: 12px;
+}
+.empty-state p { font-size: 0.85rem; }
+
+@media (max-width: 768px) {
+    .container-grid { grid-template-columns: repeat(2, 1fr); }
+    .container-table { font-size: 0.75rem; }
+    .container-table th, .container-table td { padding: 8px 10px; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1><i class="icon-container" style="font-size:1.2em;vertical-align:-2px;margin-right:6px;"></i> Containers</h1>
+    <p>Docker container management, images, volumes &amp; compose services.</p>
+</div>
+
+{% if not docker_available %}
+{# ── Docker Not Available ── #}
+<div class="docker-unavailable">
+    <div style="font-size:3rem;opacity:0.2;margin-bottom:12px;">🐳</div>
+    <h3>Docker Not Available</h3>
+    <p>{{ error or 'Docker daemon is not running or the Docker CLI is not installed.' }}</p>
+    <p style="margin-top:12px;">
+        Install Docker: <code>brew install docker</code> or visit
+        <a href="https://docs.docker.com/get-docker/" target="_blank" rel="noopener">docs.docker.com</a>
+    </p>
+    {% if dockerfile_info and dockerfile_info.exists %}
+    <p style="margin-top:16px;color:var(--text-secondary);">
+        <i class="icon-file-text" style="font-size:14px;vertical-align:-2px;"></i>
+        A Dockerfile was found in your workspace. Start Docker to manage containers.
+    </p>
+    {% endif %}
+</div>
+
+{% else %}
+
+{# ── Stats Overview ── #}
+<div class="container-grid">
+    <div class="container-stat" data-color="green">
+        <div class="container-stat-value">{{ system_info.running|default(0) }}</div>
+        <div class="container-stat-label">Running</div>
+    </div>
+    <div class="container-stat" data-color="rose">
+        <div class="container-stat-value">{{ system_info.stopped|default(0) }}</div>
+        <div class="container-stat-label">Stopped</div>
+    </div>
+    <div class="container-stat" data-color="amber">
+        <div class="container-stat-value">{{ system_info.paused|default(0) }}</div>
+        <div class="container-stat-label">Paused</div>
+    </div>
+    <div class="container-stat" data-color="blue">
+        <div class="container-stat-value">{{ images|length }}</div>
+        <div class="container-stat-label">Images</div>
+    </div>
+    <div class="container-stat" data-color="purple">
+        <div class="container-stat-value">{{ volumes|length }}</div>
+        <div class="container-stat-label">Volumes</div>
+    </div>
+    <div class="container-stat" data-color="cyan">
+        <div class="container-stat-value">{{ networks|length }}</div>
+        <div class="container-stat-label">Networks</div>
+    </div>
+</div>
+
+{# ── Tabs ── #}
+<div class="infra-tabs" id="containerTabs">
+    <button class="infra-tab active" data-tab="tab-containers" onclick="switchTab(this, 'tab-containers')">
+        <i class="icon-box" style="font-size:13px;vertical-align:-1px;margin-right:4px;"></i>
+        Containers <span style="opacity:0.5;margin-left:4px;">({{ containers|length }})</span>
+    </button>
+    <button class="infra-tab" data-tab="tab-compose" onclick="switchTab(this, 'tab-compose')">
+        <i class="icon-layers" style="font-size:13px;vertical-align:-1px;margin-right:4px;"></i>
+        Compose <span style="opacity:0.5;margin-left:4px;">({{ compose.services|length }})</span>
+    </button>
+    <button class="infra-tab" data-tab="tab-images" onclick="switchTab(this, 'tab-images')">
+        <i class="icon-hard-drive" style="font-size:13px;vertical-align:-1px;margin-right:4px;"></i>
+        Images <span style="opacity:0.5;margin-left:4px;">({{ images|length }})</span>
+    </button>
+    <button class="infra-tab" data-tab="tab-volumes" onclick="switchTab(this, 'tab-volumes')">
+        <i class="icon-database" style="font-size:13px;vertical-align:-1px;margin-right:4px;"></i>
+        Volumes <span style="opacity:0.5;margin-left:4px;">({{ volumes|length }})</span>
+    </button>
+    <button class="infra-tab" data-tab="tab-networks" onclick="switchTab(this, 'tab-networks')">
+        <i class="icon-globe" style="font-size:13px;vertical-align:-1px;margin-right:4px;"></i>
+        Networks <span style="opacity:0.5;margin-left:4px;">({{ networks|length }})</span>
+    </button>
+    <button class="infra-tab" data-tab="tab-dockerfile" onclick="switchTab(this, 'tab-dockerfile')">
+        <i class="icon-file-code" style="font-size:13px;vertical-align:-1px;margin-right:4px;"></i>
+        Dockerfile
+    </button>
+</div>
+
+{# ═══════════════════════════════════════════════════════════════ #}
+{# TAB: Containers                                                #}
+{# ═══════════════════════════════════════════════════════════════ #}
+<div class="infra-tab-panel active" id="tab-containers">
+    {% if containers %}
+    <div class="glass-card" style="overflow-x:auto;">
+        <table class="container-table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Image</th>
+                    <th>Status</th>
+                    <th>Ports</th>
+                    <th>CPU</th>
+                    <th>Memory</th>
+                    <th>Net I/O</th>
+                    <th>Created</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in containers %}
+                <tr>
+                    <td>
+                        <div class="container-name">
+                            <span class="status-dot {{ c.status_class }}"></span>
+                            {{ c.name }}
+                        </div>
+                    </td>
+                    <td><code style="font-size:0.75rem;">{{ c.image }}</code></td>
+                    <td>
+                        <span class="infra-badge badge-{{ c.status_class }}">
+                            {{ c.status_icon }} {{ c.state }}
+                        </span>
+                    </td>
+                    <td>
+                        {% if c.ports %}
+                            {% for port in c.ports.split(', ') if port %}
+                            <span class="port-tag">{{ port }}</span>
+                            {% endfor %}
+                        {% else %}
+                            <span style="color:var(--text-faint);">—</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if c.stats %}
+                            <span style="font-variant-numeric:tabular-nums;">{{ c.stats.cpu }}</span>
+                            {% set cpu_val = c.stats.cpu|replace('%','')|float %}
+                            <div class="resource-bar">
+                                <div class="resource-bar-fill {{ 'green' if cpu_val < 50 else ('amber' if cpu_val < 80 else 'red') }}"
+                                     style="width:{{ [cpu_val, 100]|min }}%;"></div>
+                            </div>
+                        {% else %}
+                            <span style="color:var(--text-faint);">—</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if c.stats %}
+                            <span style="font-size:0.75rem;font-variant-numeric:tabular-nums;">{{ c.stats.memory }}</span>
+                            {% set mem_val = c.stats.mem_perc|replace('%','')|float %}
+                            <div class="resource-bar">
+                                <div class="resource-bar-fill {{ 'green' if mem_val < 60 else ('amber' if mem_val < 85 else 'red') }}"
+                                     style="width:{{ [mem_val, 100]|min }}%;"></div>
+                            </div>
+                        {% else %}
+                            <span style="color:var(--text-faint);">—</span>
+                        {% endif %}
+                    </td>
+                    <td style="font-size:0.75rem;">
+                        {% if c.stats %}{{ c.stats.net_io }}{% else %}<span style="color:var(--text-faint);">—</span>{% endif %}
+                    </td>
+                    <td style="font-size:0.75rem;white-space:nowrap;">{{ c.created[:19] if c.created else '—' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <div class="empty-state-icon">📦</div>
+        <p>No containers found. Run <code>docker compose up -d</code> to start containers.</p>
+    </div>
+    {% endif %}
+</div>
+
+{# ═══════════════════════════════════════════════════════════════ #}
+{# TAB: Compose                                                   #}
+{# ═══════════════════════════════════════════════════════════════ #}
+<div class="infra-tab-panel" id="tab-compose">
+    {% if compose.available %}
+    <div class="infra-section-title"><i class="icon-layers"></i> Compose Services</div>
+    {% for svc in compose.services %}
+    <div class="compose-service">
+        <div class="compose-service-header">
+            <div class="compose-service-name">
+                <i class="icon-box" style="font-size:14px;color:var(--accent);margin-right:6px;"></i>
+                {{ svc.name }}
+            </div>
+            {% if svc.profiles %}
+            <div>
+                {% for p in svc.profiles %}
+                <span class="infra-badge" style="background:rgba(168,85,247,0.1);color:#c084fc;">profile: {{ p }}</span>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+        <div class="compose-meta">
+            {% if svc.image %}
+            <div class="compose-meta-item"><i class="icon-hard-drive"></i> {{ svc.image }}</div>
+            {% elif svc.build %}
+            <div class="compose-meta-item"><i class="icon-hammer"></i> build: {{ svc.build }}</div>
+            {% endif %}
+            {% if svc.ports %}
+            <div class="compose-meta-item">
+                <i class="icon-globe"></i>
+                {% for p in svc.ports %}
+                <span class="port-tag">{{ p }}</span>
+                {% endfor %}
+            </div>
+            {% endif %}
+            {% if svc.depends_on %}
+            <div class="compose-meta-item"><i class="icon-link"></i> depends: {{ svc.depends_on|join(', ') }}</div>
+            {% endif %}
+            {% if svc.restart %}
+            <div class="compose-meta-item"><i class="icon-refresh-cw"></i> {{ svc.restart }}</div>
+            {% endif %}
+            {% if svc.healthcheck %}
+            <div class="compose-meta-item"><i class="icon-heart-pulse"></i> healthcheck</div>
+            {% endif %}
+            {% if svc.volumes %}
+            <div class="compose-meta-item"><i class="icon-database"></i> {{ svc.volumes|length }} volume(s)</div>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="empty-state">
+        <div class="empty-state-icon">📋</div>
+        <p>No <code>docker-compose.yml</code> found. Run <code>aq deploy compose</code> to generate one.</p>
+    </div>
+    {% endif %}
+</div>
+
+{# ═══════════════════════════════════════════════════════════════ #}
+{# TAB: Images                                                    #}
+{# ═══════════════════════════════════════════════════════════════ #}
+<div class="infra-tab-panel" id="tab-images">
+    {% if images %}
+    <div class="glass-card" style="overflow-x:auto;">
+        <table class="container-table">
+            <thead>
+                <tr>
+                    <th>Repository</th>
+                    <th>Tag</th>
+                    <th>Image ID</th>
+                    <th>Size</th>
+                    <th>Created</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for img in images %}
+                <tr>
+                    <td style="font-weight:600;color:var(--text-primary);">
+                        <i class="icon-hard-drive" style="font-size:13px;color:var(--accent);margin-right:6px;"></i>
+                        {{ img.repository }}
+                    </td>
+                    <td>
+                        <span class="port-tag" style="background:rgba(34,197,94,0.1);color:#22c55e;">{{ img.tag }}</span>
+                    </td>
+                    <td><code style="font-size:0.72rem;">{{ img.id[:12] }}</code></td>
+                    <td>{{ img.size }}</td>
+                    <td style="font-size:0.75rem;white-space:nowrap;">{{ img.created[:19] if img.created else '—' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <div class="empty-state-icon">💿</div>
+        <p>No Docker images found.</p>
+    </div>
+    {% endif %}
+</div>
+
+{# ═══════════════════════════════════════════════════════════════ #}
+{# TAB: Volumes                                                   #}
+{# ═══════════════════════════════════════════════════════════════ #}
+<div class="infra-tab-panel" id="tab-volumes">
+    {% if volumes %}
+    <div class="glass-card" style="overflow-x:auto;">
+        <table class="container-table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Driver</th>
+                    <th>Mountpoint</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for vol in volumes %}
+                <tr>
+                    <td style="font-weight:600;color:var(--text-primary);">
+                        <i class="icon-database" style="font-size:13px;color:#a855f7;margin-right:6px;"></i>
+                        {{ vol.name }}
+                    </td>
+                    <td><span class="infra-badge" style="background:rgba(59,130,246,0.1);color:#60a5fa;">{{ vol.driver }}</span></td>
+                    <td><code style="font-size:0.72rem;">{{ vol.mountpoint }}</code></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <div class="empty-state-icon">💾</div>
+        <p>No Docker volumes found.</p>
+    </div>
+    {% endif %}
+</div>
+
+{# ═══════════════════════════════════════════════════════════════ #}
+{# TAB: Networks                                                  #}
+{# ═══════════════════════════════════════════════════════════════ #}
+<div class="infra-tab-panel" id="tab-networks">
+    {% if networks %}
+    <div class="glass-card" style="overflow-x:auto;">
+        <table class="container-table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Driver</th>
+                    <th>Scope</th>
+                    <th>Network ID</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for net in networks %}
+                <tr>
+                    <td style="font-weight:600;color:var(--text-primary);">
+                        <i class="icon-globe" style="font-size:13px;color:#06b6d4;margin-right:6px;"></i>
+                        {{ net.name }}
+                    </td>
+                    <td><span class="infra-badge" style="background:rgba(34,197,94,0.1);color:#22c55e;">{{ net.driver }}</span></td>
+                    <td>{{ net.scope }}</td>
+                    <td><code style="font-size:0.72rem;">{{ net.id[:12] }}</code></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <div class="empty-state-icon">🌐</div>
+        <p>No Docker networks found.</p>
+    </div>
+    {% endif %}
+</div>
+
+{# ═══════════════════════════════════════════════════════════════ #}
+{# TAB: Dockerfile                                                #}
+{# ═══════════════════════════════════════════════════════════════ #}
+<div class="infra-tab-panel" id="tab-dockerfile">
+    {% if dockerfile_info and dockerfile_info.exists %}
+    <div class="dockerfile-info">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+            <div>
+                <h3 style="font-size:0.95rem;font-weight:600;color:var(--text-primary);">
+                    <i class="icon-file-code" style="color:var(--accent);margin-right:6px;"></i> Dockerfile
+                </h3>
+                <span style="font-size:0.72rem;color:var(--text-muted);">{{ dockerfile_info.path }}</span>
+            </div>
+            <span style="font-size:0.72rem;color:var(--text-faint);">{{ dockerfile_info.size }}</span>
+        </div>
+
+        {# Stage info #}
+        {% if dockerfile_info.stages %}
+        <div class="infra-section-title" style="margin-top:0;"><i class="icon-layers"></i> Build Stages</div>
+        <div style="margin-bottom:16px;">
+            {% for stage in dockerfile_info.stages %}
+            <span class="dockerfile-stage">
+                <i class="icon-box" style="font-size:11px;"></i>
+                {{ stage.image }}{% if stage.alias %} → {{ stage.alias }}{% endif %}
+            </span>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {# Quick stats #}
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;">
+            <div class="container-stat" data-color="blue" style="padding:12px;">
+                <div class="container-stat-value" style="font-size:1.2rem;">{{ dockerfile_info.base_image|default('—') }}</div>
+                <div class="container-stat-label">Base Image</div>
+            </div>
+            <div class="container-stat" data-color="green" style="padding:12px;">
+                <div class="container-stat-value" style="font-size:1.2rem;">{{ dockerfile_info.stages|length }}</div>
+                <div class="container-stat-label">Stages</div>
+            </div>
+            <div class="container-stat" data-color="amber" style="padding:12px;">
+                <div class="container-stat-value" style="font-size:1.2rem;">{{ dockerfile_info.exposed_ports|length }}</div>
+                <div class="container-stat-label">Exposed Ports</div>
+            </div>
+            <div class="container-stat" data-color="purple" style="padding:12px;">
+                <div class="container-stat-value" style="font-size:1.2rem;">{{ dockerfile_info.run_count|default(0) }}</div>
+                <div class="container-stat-label">RUN</div>
+            </div>
+            <div class="container-stat" data-color="cyan" style="padding:12px;">
+                <div class="container-stat-value" style="font-size:1.2rem;">{{ dockerfile_info.copy_count|default(0) }}</div>
+                <div class="container-stat-label">COPY</div>
+            </div>
+        </div>
+
+        {% if dockerfile_info.exposed_ports %}
+        <div class="infra-section-title"><i class="icon-globe"></i> Exposed Ports</div>
+        <div>
+            {% for p in dockerfile_info.exposed_ports %}
+            <span class="port-tag">{{ p }}</span>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {% if dockerfile_info.env_vars %}
+        <div class="infra-section-title"><i class="icon-key"></i> Environment Variables</div>
+        <div>
+            {% for e in dockerfile_info.env_vars %}
+            <span class="port-tag" style="background:rgba(168,85,247,0.1);color:#c084fc;">{{ e }}</span>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <div class="empty-state-icon">📄</div>
+        <p>No Dockerfile found. Run <code>aq deploy dockerfile</code> or <code>aq init workspace</code> to generate one.</p>
+    </div>
+    {% endif %}
+</div>
+
+{% endif %}
+
+{# ── Docker system info footer ── #}
+{% if docker_available and system_info %}
+<div style="margin-top:28px;padding:14px 18px;background:var(--bg-glass);border:1px solid var(--border-color);border-radius:var(--radius);display:flex;flex-wrap:wrap;gap:20px;font-size:0.72rem;color:var(--text-faint);">
+    <span><strong>Docker</strong> v{{ docker_version }}</span>
+    {% if system_info.os %}<span><strong>OS:</strong> {{ system_info.os }}</span>{% endif %}
+    {% if system_info.arch %}<span><strong>Arch:</strong> {{ system_info.arch }}</span>{% endif %}
+    {% if system_info.cpus %}<span><strong>CPUs:</strong> {{ system_info.cpus }}</span>{% endif %}
+    {% if system_info.storage_driver %}<span><strong>Storage:</strong> {{ system_info.storage_driver }}</span>{% endif %}
+</div>
+{% endif %}
+
+<script>
+function switchTab(btn, panelId) {
+    // Deactivate all tabs and panels
+    document.querySelectorAll('.infra-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.infra-tab-panel').forEach(p => p.classList.remove('active'));
+    // Activate selected
+    btn.classList.add('active');
+    var panel = document.getElementById(panelId);
+    if (panel) panel.classList.add('active');
+}
+
+// Auto-refresh every 30 seconds
+(function() {
+    var refreshInterval = 30000;
+    setInterval(function() {
+        fetch('{{ url_prefix|default("/admin") }}/containers/api/')
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                // Update running count
+                var si = data.system_info || {};
+                var stats = document.querySelectorAll('.container-stat-value');
+                if (stats.length >= 3) {
+                    stats[0].textContent = si.running || 0;
+                    stats[1].textContent = si.stopped || 0;
+                    stats[2].textContent = si.paused || 0;
+                }
+            })
+            .catch(function() {});
+    }, refreshInterval);
+})();
+</script>
+{% endblock %}

@@ -16,8 +16,8 @@
     <meta property="og:type" content="website">
     <meta name="referrer" content="strict-origin-when-cross-origin">
     <title>{% block title %}Dashboard{% endblock %} — {{ site_title|default('Aquilia Admin') }}</title>
-    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
-    <link rel="shortcut icon" href="/static/favicon.ico">
+    <link rel="icon" type="image/x-icon" href="https://raw.githubusercontent.com/tubox-labs/Aquilia/master/assets/favicon.ico">
+    <link rel="shortcut icon" href="https://raw.githubusercontent.com/tubox-labs/Aquilia/master/assets/favicon.ico">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;450;500;550;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
@@ -37,6 +37,15 @@
     <div class="ambient-blob ambient-blob-cyan"></div>
     {# ── Scroll Progress Bar ── #}
     <div class="scroll-progress"><div class="scroll-progress-bar" id="scrollProgress"></div></div>
+
+    {# ── Global Spinner Overlay ── #}
+    <div id="aq-progress-bar"></div>
+    <div id="aq-spinner-overlay" role="status" aria-live="polite" aria-label="Loading">
+        <div class="aq-spinner-box">
+            <div class="aq-spinner-ring"></div>
+            <span class="aq-spinner-label" id="aq-spinner-label">Loading…</span>
+        </div>
+    </div>
 
     <div class="admin-layout">
         {# ── Sidebar Backdrop (mobile only) ── #}
@@ -337,6 +346,183 @@
     </script>
     <script>
     {% block extra_js %}{% endblock %}
+    </script>
+
+    {# ── Global Spinner API ── #}
+    <script>
+    (function(){
+        'use strict';
+        var bar     = document.getElementById('aq-progress-bar');
+        var overlay = document.getElementById('aq-spinner-overlay');
+        var label   = document.getElementById('aq-spinner-label');
+        var _overlayTimer = null;
+        var _barTimer     = null;
+        var _active       = 0;   // ref-count so nested calls are safe
+
+        /* ── Progress bar only (fast, non-blocking) ── */
+        function barStart() {
+            if (!bar) return;
+            clearTimeout(_barTimer);
+            bar.style.width = '0';
+            bar.classList.add('running');
+            bar.style.opacity = '1';
+            // fake-fill to 80% then stall
+            var pct = 0;
+            var tick = setInterval(function(){
+                pct = pct < 70 ? pct + Math.random()*15 : pct + Math.random()*2;
+                if (pct >= 90) { clearInterval(tick); pct = 90; }
+                bar.style.width = pct + '%';
+            }, 180);
+            bar._tick = tick;
+        }
+        function barDone() {
+            if (!bar) return;
+            clearInterval(bar._tick);
+            bar.style.width = '100%';
+            _barTimer = setTimeout(function(){
+                bar.style.opacity = '0';
+                bar.classList.remove('running');
+                setTimeout(function(){ bar.style.width='0'; }, 300);
+            }, 300);
+        }
+
+        /* ── Full overlay (for long-running / explicit) ── */
+        function overlayShow(msg, delay) {
+            delay = (delay === undefined) ? 250 : delay;   // grace period ms
+            _active++;
+            _overlayTimer = setTimeout(function(){
+                if (label) label.textContent = msg || 'Loading\u2026';
+                overlay.classList.add('visible');
+            }, delay);
+        }
+        function overlayHide() {
+            _active = Math.max(0, _active - 1);
+            if (_active > 0) return;
+            clearTimeout(_overlayTimer);
+            overlay.classList.remove('visible');
+        }
+
+        /* ── Public API ── */
+        window.AqSpinner = {
+            /** Show only the top progress bar (for quick navigations) */
+            bar:   function(){ barStart(); },
+            /** Complete the top progress bar */
+            done:  function(){ barDone(); },
+            /** Show full overlay spinner with optional message + grace delay */
+            show:  function(msg, delay){ barStart(); overlayShow(msg, delay); },
+            /** Hide overlay and complete bar */
+            hide:  function(){ overlayHide(); barDone(); },
+            /** Run an async fn with spinner around it */
+            wrap:  function(fn, msg){
+                AqSpinner.show(msg);
+                var result;
+                try { result = fn(); } catch(e){ AqSpinner.hide(); throw e; }
+                if (result && typeof result.then === 'function') {
+                    result.then(function(){ AqSpinner.hide(); }, function(){ AqSpinner.hide(); });
+                } else {
+                    AqSpinner.hide();
+                }
+                return result;
+            }
+        };
+
+        /* ════ AUTO-WIRE ════════════════════════════════════════════ */
+
+        /* 1. All navigation links — top bar + sidebar inline spinner */
+        document.addEventListener('click', function(e){
+            var a = e.target.closest('a[href]');
+            if (!a) return;
+            var href = a.getAttribute('href');
+            // Skip anchors, external, javascript:, tab buttons, dropdown toggles
+            if (!href || href.startsWith('#') || href.startsWith('javascript') ||
+                href.startsWith('http') || href.startsWith('//') ||
+                a.target === '_blank' || a.classList.contains('no-spinner') ||
+                e.ctrlKey || e.metaKey || e.shiftKey) return;
+            barStart();
+
+            /* Sidebar link — add inline spinner next to the link text */
+            if (a.classList.contains('sidebar-link')) {
+                // Remove any previous sidebar spinner
+                var prev = document.querySelector('.sidebar-nav-spinner');
+                if (prev) prev.remove();
+                // Mark active immediately for instant feedback
+                document.querySelectorAll('.sidebar-link.active').forEach(function(el){ el.classList.remove('active'); });
+                a.classList.add('active');
+                // Inject a tiny CSS spinner after the label
+                var dot = document.createElement('span');
+                dot.className = 'sidebar-nav-spinner';
+                a.appendChild(dot);
+            }
+        }, true);
+
+        /* 2. All <form> submits — full overlay */
+        document.addEventListener('submit', function(e){
+            var form = e.target;
+            if (form.classList.contains('no-spinner')) return;
+            var label = form.getAttribute('data-spinner-label') || 'Saving\u2026';
+            AqSpinner.show(label, 150);
+            // Safety timeout — hide after 30 s no matter what
+            var guard = setTimeout(function(){ AqSpinner.hide(); }, 30000);
+            form._aqGuard = guard;
+        }, true);
+
+        /* 3. Buttons with data-spinner or .btn-spinner class — inline spinner */
+        document.addEventListener('click', function(e){
+            var btn = e.target.closest('button[data-spinner], [data-spinner], .btn-spinner');
+            if (!btn) return;
+            if (btn.classList.contains('aq-btn-loading')) return;
+            var msg = btn.getAttribute('data-spinner-label') || null;
+            btn.classList.add('aq-btn-loading');
+            btn._aqSpinnerMsg = msg;
+            if (msg) AqSpinner.show(msg, 300);
+            // Auto-restore on next page paint if navigation didn't happen
+            var restore = setTimeout(function(){
+                btn.classList.remove('aq-btn-loading');
+                if (msg) AqSpinner.hide();
+            }, 15000);
+            btn._aqRestore = restore;
+        }, true);
+
+        /* 4. Intercept fetch / XHR globally — progress bar only */
+        (function(){
+            var _pending = 0;
+            function inc(){ if(++_pending === 1) barStart(); }
+            function dec(){ if(--_pending <= 0){ _pending=0; barDone(); } }
+
+            /* Patch fetch */
+            var _fetch = window.fetch;
+            window.fetch = function(){
+                inc();
+                var p = _fetch.apply(this, arguments);
+                p.then(dec, dec);
+                return p;
+            };
+
+            /* Patch XMLHttpRequest */
+            var _open = XMLHttpRequest.prototype.open;
+            var _send = XMLHttpRequest.prototype.send;
+            XMLHttpRequest.prototype.open = function(){
+                this._aqTracked = true;
+                return _open.apply(this, arguments);
+            };
+            XMLHttpRequest.prototype.send = function(){
+                if (this._aqTracked) {
+                    inc();
+                    this.addEventListener('loadend', dec);
+                }
+                return _send.apply(this, arguments);
+            };
+        })();
+
+        /* 5. Hide overlay if page is fully loaded (handles bfcache / hard nav) */
+        window.addEventListener('pageshow', function(e){
+            if (e.persisted) { AqSpinner.hide(); }
+        });
+        window.addEventListener('load', function(){
+            // Complete bar in case it was started by link click
+            barDone();
+        });
+    })();
     </script>
 </body>
 </html>

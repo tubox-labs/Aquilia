@@ -3,74 +3,374 @@
 {% block breadcrumb %}Dashboard{% endblock %}
 
 {% block content %}
-<div class="page-header">
-    <h1>Dashboard</h1>
-    <p>Overview of your application data and recent activity.</p>
+{# ═══════════════════════════════════════════════════════════════════
+   AQUILIA ADMIN — INDUSTRY-GRADE DASHBOARD
+   Greeting → Health bar → Stat cards → Grid (charts, activity,
+   model distribution, active users, environment, quick access)
+   ═══════════════════════════════════════════════════════════════════ #}
+
+{# ── Personalised greeting with time-of-day ── #}
+<div class="dash-greeting">
+    <h1>
+        <span id="dash-greeting-text">Welcome back</span>, {{ identity_name }}
+    </h1>
+    <p>Here's what's happening across your application
+        <span class="greeting-time" id="dash-date"></span>
+    </p>
 </div>
 
-{# ── Metric stats row (Sarvam-style counters with animated counters) ── #}
-<div class="stats-row">
-    <div class="stat-item">
-        <div class="stat-number" data-count="{{ total_models }}">0</div>
-        <div class="stat-label"><i class="icon-layers" style="font-size:12px;vertical-align:-1px;margin-right:3px;opacity:0.5;"></i>Models</div>
+{# ── System health bar ── #}
+{% set health = system_health %}
+{% if health.checks is defined and health.checks|length > 0 %}
+<div class="health-bar">
+    <span style="font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-faint);margin-right:4px;">
+        <i class="icon-activity" style="font-size:12px;vertical-align:-1px;margin-right:2px;"></i>System
+    </span>
+    {% for check in health.checks %}
+    <div class="health-check" title="{{ check.detail|default('') }}">
+        <div class="health-dot {{ check.status }}"></div>
+        <span style="color:var(--text-secondary);">{{ check.name }}</span>
+        {% if check.detail is defined %}
+        <span style="color:var(--text-faint);font-family:var(--font-mono);font-size:0.65rem;">{{ check.detail }}</span>
+        {% endif %}
     </div>
-    <div class="stat-item">
-        <div class="stat-number" data-count="{{ total_records }}">0</div>
-        <div class="stat-label"><i class="icon-database" style="font-size:12px;vertical-align:-1px;margin-right:3px;opacity:0.5;"></i>Records</div>
-    </div>
-    <div class="stat-item">
-        <div class="stat-number" data-count="{{ recent_actions|length }}">0</div>
-        <div class="stat-label"><i class="icon-activity" style="font-size:12px;vertical-align:-1px;margin-right:3px;opacity:0.5;"></i>Changes</div>
-    </div>
-    <div class="stat-item">
-        <div class="stat-number" data-count="{{ app_list|length }}">0</div>
-        <div class="stat-label"><i class="icon-box" style="font-size:12px;vertical-align:-1px;margin-right:3px;opacity:0.5;"></i>Apps</div>
-    </div>
+    {% endfor %}
+    <div style="flex:1;"></div>
+    <span style="font-size:0.65rem;color:var(--text-faint);font-family:var(--font-mono);" id="dash-clock"></span>
 </div>
+{% endif %}
 
-{# ── Global command palette trigger ── #}
+{# ── Command palette trigger ── #}
 <div id="cmd-trigger" onclick="showCommandPalette()" style="margin-bottom:24px;padding:12px 18px;background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius);cursor:pointer;display:flex;align-items:center;gap:10px;transition:border-color 0.2s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border-subtle)'">
     <i class="icon-search" style="font-size:16px;color:var(--text-faint);"></i>
     <span style="font-size:0.84rem;color:var(--text-faint);flex:1;">Quick navigation…</span>
     <kbd style="background:var(--bg-surface);padding:2px 8px;border-radius:4px;font-size:0.7rem;color:var(--text-faint);font-family:var(--font-mono);border:1px solid var(--border-color);">⌘K</kbd>
 </div>
 
-{# ── Quick navigation cards ── #}
-<div class="section-label">Quick Access</div>
-<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-bottom:36px;">
-    <a class="model-card" href="{{ url_prefix|default('/admin') }}/orm/" style="padding:18px;">
-        <div>
-            <div class="model-card-name"><i class="icon-database" style="font-size:14px;vertical-align:-2px;margin-right:4px;opacity:0.5;"></i>ORM Models</div>
-            <div class="model-card-app" style="margin-top:4px;">{{ total_models }} registered</div>
+{# ═══ METRIC CARDS ROW ═══════════════════════════════════════════ #}
+<div class="dash-stats">
+    <div class="dash-stat-card">
+        <div class="stat-icon-wrap green"><i class="icon-layers"></i></div>
+        <div class="dash-stat-value" data-count="{{ total_models }}">0</div>
+        <div class="dash-stat-label">Models</div>
+        <div class="dash-stat-sub">
+            {{ app_list|length }} app{{ 's' if app_list|length != 1 else '' }} registered
         </div>
-    </a>
-    <a class="model-card" href="{{ url_prefix|default('/admin') }}/build/" style="padding:18px;">
-        <div>
-            <div class="model-card-name"><i class="icon-package" style="font-size:14px;vertical-align:-2px;margin-right:4px;opacity:0.5;"></i>Build</div>
-            <div class="model-card-app" style="margin-top:4px;">Crous artifacts</div>
+    </div>
+    <div class="dash-stat-card">
+        <div class="stat-icon-wrap blue"><i class="icon-database"></i></div>
+        <div class="dash-stat-value" data-count="{{ total_records }}">0</div>
+        <div class="dash-stat-label">Records</div>
+        <div class="dash-stat-sub">
+            Across all models
         </div>
-    </a>
-    <a class="model-card" href="{{ url_prefix|default('/admin') }}/config/" style="padding:18px;">
-        <div>
-            <div class="model-card-name"><i class="icon-settings" style="font-size:14px;vertical-align:-2px;margin-right:4px;opacity:0.5;"></i>Config</div>
-            <div class="model-card-app" style="margin-top:4px;">YAML settings</div>
+    </div>
+    <div class="dash-stat-card">
+        <div class="stat-icon-wrap purple"><i class="icon-activity"></i></div>
+        <div class="dash-stat-value" data-count="{{ audit_summary.total_entries|default(0) }}">0</div>
+        <div class="dash-stat-label">Audit Events</div>
+        <div class="dash-stat-sub">
+            {% if audit_summary.logins_24h is defined and audit_summary.logins_24h > 0 %}
+            <span class="up">↑ {{ audit_summary.logins_24h }}</span> logins today
+            {% else %}
+            All-time entries
+            {% endif %}
         </div>
-    </a>
-    <a class="model-card" href="{{ url_prefix|default('/admin') }}/audit/" style="padding:18px;">
-        <div>
-            <div class="model-card-name"><i class="icon-scroll-text" style="font-size:14px;vertical-align:-2px;margin-right:4px;opacity:0.5;"></i>Audit Log</div>
-            <div class="model-card-app" style="margin-top:4px;">Activity trail</div>
+    </div>
+    <div class="dash-stat-card">
+        <div class="stat-icon-wrap amber"><i class="icon-shield"></i></div>
+        <div class="dash-stat-value" data-count="{{ audit_summary.logins|default(0) }}">0</div>
+        <div class="dash-stat-label">Logins</div>
+        <div class="dash-stat-sub">
+            {% if audit_summary.failed_logins is defined and audit_summary.failed_logins > 0 %}
+            <span class="down">{{ audit_summary.failed_logins }} failed</span>
+            {% else %}
+            No failed attempts
+            {% endif %}
         </div>
-    </a>
+    </div>
 </div>
 
-{# ── Recent activity (timeline view) ── #}
-{% if recent_actions %}
+{# ═══ INFRASTRUCTURE OVERVIEW ════════════════════════════════════ #}
+{% set ac = admin_config|default({}) %}
+{% set modules = ac.get('modules', {}) if ac is mapping else {} %}
+{% if modules.get('containers', false) or modules.get('pods', false) %}
+<div class="section-label" style="margin-top:4px;">Infrastructure</div>
+<div class="dash-grid">
+
+    {# ── Docker Containers widget ── #}
+    {% if modules.get('containers', false) %}
+    <div class="glass-card" style="padding:0;">
+        <div class="card-header">
+            <span class="card-title"><i class="icon-container" style="font-size:14px;vertical-align:-2px;margin-right:6px;opacity:0.5;"></i>Docker Containers</span>
+            <a href="{{ url_prefix|default('/admin') }}/containers/" style="font-size:0.72rem;color:var(--accent);text-decoration:none;">Manage →</a>
+        </div>
+        <div style="padding:20px;">
+            {% if containers_summary.get('available', false) %}
+            <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:14px;">
+                <div style="text-align:center;padding:14px;background:var(--bg-surface);border-radius:var(--radius);border:1px solid var(--border-subtle);">
+                    <div style="font-size:1.6rem;font-weight:700;color:var(--text-primary);font-family:var(--font-mono);">{{ containers_summary.get('total', 0) }}</div>
+                    <div style="font-size:0.72rem;color:var(--text-faint);margin-top:2px;text-transform:uppercase;letter-spacing:0.04em;">Containers</div>
+                </div>
+                <div style="text-align:center;padding:14px;background:var(--bg-surface);border-radius:var(--radius);border:1px solid var(--border-subtle);">
+                    <div style="font-size:1.6rem;font-weight:700;font-family:var(--font-mono);">
+                        <span style="color:var(--success);">{{ containers_summary.get('running', 0) }}</span>
+                        <span style="color:var(--text-faint);font-size:0.8rem;font-weight:400;"> / </span>
+                        <span style="color:var(--danger);">{{ containers_summary.get('stopped', 0) }}</span>
+                    </div>
+                    <div style="font-size:0.72rem;color:var(--text-faint);margin-top:2px;text-transform:uppercase;letter-spacing:0.04em;">Running / Stopped</div>
+                </div>
+            </div>
+            <div style="display:flex;gap:16px;margin-top:14px;flex-wrap:wrap;">
+                <div style="display:flex;align-items:center;gap:6px;">
+                    <i class="icon-layers" style="font-size:13px;color:var(--info);opacity:0.7;"></i>
+                    <span style="font-size:0.78rem;color:var(--text-secondary);">{{ containers_summary.get('images', 0) }} images</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:6px;">
+                    <i class="icon-hard-drive" style="font-size:13px;color:var(--purple);opacity:0.7;"></i>
+                    <span style="font-size:0.78rem;color:var(--text-secondary);">{{ containers_summary.get('volumes', 0) }} volumes</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:6px;">
+                    <i class="icon-git-branch" style="font-size:13px;color:var(--warning);opacity:0.7;"></i>
+                    <span style="font-size:0.78rem;color:var(--text-secondary);">{{ containers_summary.get('networks', 0) }} networks</span>
+                </div>
+            </div>
+            {% if containers_summary.get('version', '') %}
+            <div style="margin-top:12px;font-size:0.7rem;color:var(--text-faint);font-family:var(--font-mono);">Docker {{ containers_summary.get('version', '') }}</div>
+            {% endif %}
+            {% elif containers_summary.get('error', '') %}
+            <div class="empty-state" style="padding:20px;">
+                <i class="icon-alert-triangle" style="font-size:24px;display:block;margin-bottom:8px;opacity:0.3;color:var(--warning);"></i>
+                <span style="font-size:0.8rem;">{{ containers_summary.get('error', 'Docker unavailable') }}</span>
+            </div>
+            {% else %}
+            <div class="empty-state" style="padding:20px;">
+                <i class="icon-container" style="font-size:28px;display:block;margin-bottom:8px;opacity:0.2;"></i>
+                Docker is not available on this host
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    {# ── Kubernetes Pods widget ── #}
+    {% if modules.get('pods', false) %}
+    <div class="glass-card" style="padding:0;">
+        <div class="card-header">
+            <span class="card-title"><i class="icon-cloud" style="font-size:14px;vertical-align:-2px;margin-right:6px;opacity:0.5;"></i>Kubernetes</span>
+            <a href="{{ url_prefix|default('/admin') }}/pods/" style="font-size:0.72rem;color:var(--accent);text-decoration:none;">Manage →</a>
+        </div>
+        <div style="padding:20px;">
+            {% if pods_summary.get('available', false) %}
+            <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:14px;">
+                <div style="text-align:center;padding:14px;background:var(--bg-surface);border-radius:var(--radius);border:1px solid var(--border-subtle);">
+                    <div style="font-size:1.6rem;font-weight:700;font-family:var(--font-mono);">
+                        <span style="color:var(--success);">{{ pods_summary.get('running_pods', 0) }}</span>
+                        <span style="color:var(--text-faint);font-size:0.8rem;font-weight:400;"> / </span>
+                        <span style="color:var(--text-primary);">{{ pods_summary.get('total_pods', 0) }}</span>
+                    </div>
+                    <div style="font-size:0.72rem;color:var(--text-faint);margin-top:2px;text-transform:uppercase;letter-spacing:0.04em;">Pods Running</div>
+                </div>
+                <div style="text-align:center;padding:14px;background:var(--bg-surface);border-radius:var(--radius);border:1px solid var(--border-subtle);">
+                    <div style="font-size:1.6rem;font-weight:700;color:var(--info);font-family:var(--font-mono);">{{ pods_summary.get('deployments', 0) }}</div>
+                    <div style="font-size:0.72rem;color:var(--text-faint);margin-top:2px;text-transform:uppercase;letter-spacing:0.04em;">Deployments</div>
+                </div>
+            </div>
+            <div style="display:flex;gap:16px;margin-top:14px;flex-wrap:wrap;">
+                <div style="display:flex;align-items:center;gap:6px;">
+                    <i class="icon-globe" style="font-size:13px;color:var(--info);opacity:0.7;"></i>
+                    <span style="font-size:0.78rem;color:var(--text-secondary);">{{ pods_summary.get('services', 0) }} services</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:6px;">
+                    <i class="icon-folder" style="font-size:13px;color:var(--purple);opacity:0.7;"></i>
+                    <span style="font-size:0.78rem;color:var(--text-secondary);">{{ pods_summary.get('namespaces', 0) }} namespaces</span>
+                </div>
+            </div>
+            {% elif pods_summary.get('error', '') %}
+            <div class="empty-state" style="padding:20px;">
+                <i class="icon-alert-triangle" style="font-size:24px;display:block;margin-bottom:8px;opacity:0.3;color:var(--warning);"></i>
+                <span style="font-size:0.8rem;">{{ pods_summary.get('error', 'kubectl unavailable') }}</span>
+            </div>
+            {% else %}
+            <div class="empty-state" style="padding:20px;">
+                <i class="icon-cloud" style="font-size:28px;display:block;margin-bottom:8px;opacity:0.2;"></i>
+                kubectl is not available on this host
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+{% endif %}
+
+{# ═══ MAIN DASHBOARD GRID ═══════════════════════════════════════ #}
+<div class="dash-grid">
+
+    {# ── LEFT: Activity breakdown (donut + legend) ── #}
+    <div class="glass-card" style="padding:0;">
+        <div class="card-header">
+            <span class="card-title"><i class="icon-pie-chart" style="font-size:14px;vertical-align:-2px;margin-right:6px;opacity:0.5;"></i>Activity Breakdown</span>
+        </div>
+        <div style="padding:20px;display:flex;align-items:center;gap:24px;flex-wrap:wrap;">
+            {# SVG Donut chart #}
+            {% set creates = audit_summary.creates|default(0) %}
+            {% set updates = audit_summary.updates|default(0) %}
+            {% set deletes = audit_summary.deletes|default(0) %}
+            {% set logins = audit_summary.logins|default(0) %}
+            {% set exports = audit_summary.exports|default(0) %}
+            {% set total_act = creates + updates + deletes + logins + exports %}
+            <div class="donut-chart">
+                <svg viewBox="0 0 42 42">
+                    <circle cx="21" cy="21" r="15.9" fill="none" stroke="var(--border-subtle)" stroke-width="3.5"/>
+                    {% if total_act > 0 %}
+                    {% set r = 15.9 %}
+                    {% set circ = 99.9 %}
+                    {% set p_create = (creates / total_act * 100) %}
+                    {% set p_update = (updates / total_act * 100) %}
+                    {% set p_delete = (deletes / total_act * 100) %}
+                    {% set p_login = (logins / total_act * 100) %}
+                    {% set off1 = 25 %}
+                    <circle cx="21" cy="21" r="{{ r }}" fill="none" stroke="var(--success)" stroke-width="3.5"
+                            stroke-dasharray="{{ p_create * circ / 100 }} {{ circ - p_create * circ / 100 }}"
+                            stroke-dashoffset="{{ off1 }}" stroke-linecap="round"/>
+                    {% set off2 = off1 - p_create * circ / 100 %}
+                    <circle cx="21" cy="21" r="{{ r }}" fill="none" stroke="var(--info)" stroke-width="3.5"
+                            stroke-dasharray="{{ p_update * circ / 100 }} {{ circ - p_update * circ / 100 }}"
+                            stroke-dashoffset="{{ off2 }}" stroke-linecap="round"/>
+                    {% set off3 = off2 - p_update * circ / 100 %}
+                    <circle cx="21" cy="21" r="{{ r }}" fill="none" stroke="var(--danger)" stroke-width="3.5"
+                            stroke-dasharray="{{ p_delete * circ / 100 }} {{ circ - p_delete * circ / 100 }}"
+                            stroke-dashoffset="{{ off3 }}" stroke-linecap="round"/>
+                    {% set off4 = off3 - p_delete * circ / 100 %}
+                    <circle cx="21" cy="21" r="{{ r }}" fill="none" stroke="var(--purple)" stroke-width="3.5"
+                            stroke-dasharray="{{ p_login * circ / 100 }} {{ circ - p_login * circ / 100 }}"
+                            stroke-dashoffset="{{ off4 }}" stroke-linecap="round"/>
+                    {% endif %}
+                </svg>
+                <div class="donut-center">
+                    <span class="donut-center-val">{{ total_act }}</span>
+                    <span class="donut-center-label">Events</span>
+                </div>
+            </div>
+            {# Legend #}
+            <div style="flex:1;min-width:140px;">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+                    <span style="width:8px;height:8px;border-radius:50%;background:var(--success);flex-shrink:0;"></span>
+                    <span style="font-size:0.78rem;color:var(--text-secondary);flex:1;">Creates</span>
+                    <span style="font-family:var(--font-mono);font-size:0.78rem;color:var(--text-muted);">{{ creates }}</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+                    <span style="width:8px;height:8px;border-radius:50%;background:var(--info);flex-shrink:0;"></span>
+                    <span style="font-size:0.78rem;color:var(--text-secondary);flex:1;">Updates</span>
+                    <span style="font-family:var(--font-mono);font-size:0.78rem;color:var(--text-muted);">{{ updates }}</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+                    <span style="width:8px;height:8px;border-radius:50%;background:var(--danger);flex-shrink:0;"></span>
+                    <span style="font-size:0.78rem;color:var(--text-secondary);flex:1;">Deletes</span>
+                    <span style="font-family:var(--font-mono);font-size:0.78rem;color:var(--text-muted);">{{ deletes }}</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+                    <span style="width:8px;height:8px;border-radius:50%;background:var(--purple);flex-shrink:0;"></span>
+                    <span style="font-size:0.78rem;color:var(--text-secondary);flex:1;">Logins</span>
+                    <span style="font-family:var(--font-mono);font-size:0.78rem;color:var(--text-muted);">{{ logins }}</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <span style="width:8px;height:8px;border-radius:50%;background:var(--warning);flex-shrink:0;"></span>
+                    <span style="font-size:0.78rem;color:var(--text-secondary);flex:1;">Exports</span>
+                    <span style="font-family:var(--font-mono);font-size:0.78rem;color:var(--text-muted);">{{ exports }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# ── RIGHT: Hourly activity chart ── #}
+    <div class="glass-card" style="padding:0;">
+        <div class="card-header">
+            <span class="card-title"><i class="icon-bar-chart-2" style="font-size:14px;vertical-align:-2px;margin-right:6px;opacity:0.5;"></i>Activity — Last 24h</span>
+        </div>
+        <div style="padding:20px 16px 30px;">
+            {% set hourly = audit_summary.hourly_activity|default({}) %}
+            {% if hourly|length > 0 %}
+            {% set max_h = hourly.values()|max if hourly.values()|list|length > 0 else 1 %}
+            <div class="activity-bars">
+                {% for hour, count in hourly.items() %}
+                <div class="activity-bar" style="height:{{ (count / max_h * 100) if max_h > 0 else 4 }}%;" title="{{ hour }}: {{ count }} events">
+                    {% if loop.index0 % 4 == 0 %}
+                    <span class="activity-bar-label">{{ hour }}</span>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="empty-state" style="padding:24px;">
+                <i class="icon-bar-chart-2" style="font-size:28px;display:block;margin-bottom:8px;opacity:0.2;"></i>
+                No activity in the last 24 hours
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    {# ── LEFT: Top models by record count ── #}
+    <div class="glass-card" style="padding:0;">
+        <div class="card-header">
+            <span class="card-title"><i class="icon-trending-up" style="font-size:14px;vertical-align:-2px;margin-right:6px;opacity:0.5;"></i>Top Models</span>
+            <a href="{{ url_prefix|default('/admin') }}/orm/" style="font-size:0.72rem;color:var(--accent);text-decoration:none;">View all →</a>
+        </div>
+        <div style="padding:16px 20px;">
+            {% set colors = ['green', 'blue', 'purple', 'amber', 'green', 'blue'] %}
+            {% if top_models|length > 0 %}
+            {% set max_count = top_models[0].count if top_models[0].count > 0 else 1 %}
+            {% for model in top_models %}
+            <div class="dist-row">
+                <div class="dist-name">
+                    <i class="icon-{{ model.icon|default('table') }}" style="font-size:13px;opacity:0.4;"></i>
+                    <a href="{{ url_prefix|default('/admin') }}/{{ model.name|lower }}/" style="color:var(--text-secondary);text-decoration:none;">{{ model.verbose_name }}</a>
+                </div>
+                <div class="dist-bar-wrap">
+                    <div class="dist-bar-fill {{ colors[loop.index0 % 6] }}" style="width:{{ (model.count / max_count * 100)|round }}%;"></div>
+                </div>
+                <div class="dist-count">{{ model.count }}</div>
+            </div>
+            {% endfor %}
+            {% else %}
+            <div class="empty-state" style="padding:20px;">No models registered</div>
+            {% endif %}
+        </div>
+    </div>
+
+    {# ── RIGHT: Active users ── #}
+    <div class="glass-card" style="padding:0;">
+        <div class="card-header">
+            <span class="card-title"><i class="icon-users" style="font-size:14px;vertical-align:-2px;margin-right:6px;opacity:0.5;"></i>Most Active Users</span>
+            <a href="{{ url_prefix|default('/admin') }}/admin-users/" style="font-size:0.72rem;color:var(--accent);text-decoration:none;">Manage →</a>
+        </div>
+        <div style="padding:16px 20px;">
+            {% if active_users|length > 0 %}
+            {% for user in active_users %}
+            <div class="user-activity-row">
+                <div class="user-avatar-sm">{{ user.username[:1]|upper }}</div>
+                <div class="user-name">{{ user.username }}</div>
+                <div class="user-actions-count">{{ user.actions }}</div>
+            </div>
+            {% endfor %}
+            {% else %}
+            <div class="empty-state" style="padding:20px;">
+                <i class="icon-users" style="font-size:24px;display:block;margin-bottom:8px;opacity:0.2;"></i>
+                No user activity recorded yet
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{# ═══ RECENT ACTIVITY TIMELINE ══════════════════════════════════ #}
 <div class="section-label">Recent Activity</div>
-<div class="glass-card" style="padding:16px 20px;">
+{% if recent_actions %}
+<div class="glass-card" style="padding:16px 20px;margin-bottom:24px;">
     <div class="activity-timeline">
         {% for entry in recent_actions[:10] %}
-        <div style="position:relative;padding-bottom:{{ '0' if loop.last else '20' }}px;padding-left:20px;">
+        <div style="position:relative;padding-bottom:{{ '0' if loop.last else '20' }}px;padding-left:20px;animation:slide-up 0.3s ease backwards;animation-delay:{{ loop.index0 * 0.04 }}s;">
             {% set dot_cls = 'create' if entry.action in ('create', 'login') else ('update' if entry.action in ('update', 'bulk_action') else ('delete' if entry.action == 'delete' else 'login')) %}
             <div class="timeline-dot {{ dot_cls }}"></div>
             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
@@ -90,25 +390,129 @@
         </div>
         {% endfor %}
     </div>
+    {% if audit_summary.total_entries|default(0) > 10 %}
+    <div style="padding-top:14px;border-top:1px solid var(--border-subtle);margin-top:12px;text-align:center;">
+        <a href="{{ url_prefix|default('/admin') }}/audit/" style="font-size:0.78rem;color:var(--accent);text-decoration:none;">
+            View all {{ audit_summary.total_entries }} audit entries →
+        </a>
+    </div>
+    {% endif %}
 </div>
 {% else %}
-<div class="glass-card">
+<div class="glass-card" style="margin-bottom:24px;">
     <div class="empty-state">
         <i class="icon-activity" style="font-size:32px;display:block;margin-bottom:12px;opacity:0.3;"></i>
-        No recent activity
+        No recent activity recorded yet
     </div>
 </div>
 {% endif %}
 
-{# ── Registered models table ── #}
+{# ═══ QUICK ACCESS + ENVIRONMENT ════════════════════════════════ #}
+<div class="dash-grid">
+
+    {# ── Quick Access navigation cards ── #}
+    <div>
+        <div class="section-label">Quick Access</div>
+        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;">
+            <a class="model-card" href="{{ url_prefix|default('/admin') }}/orm/" style="padding:18px;">
+                <div>
+                    <div class="model-card-name"><i class="icon-database" style="font-size:14px;vertical-align:-2px;margin-right:4px;opacity:0.5;"></i>ORM Models</div>
+                    <div class="model-card-app" style="margin-top:4px;">{{ total_models }} registered</div>
+                </div>
+            </a>
+            <a class="model-card" href="{{ url_prefix|default('/admin') }}/build/" style="padding:18px;">
+                <div>
+                    <div class="model-card-name"><i class="icon-package" style="font-size:14px;vertical-align:-2px;margin-right:4px;opacity:0.5;"></i>Build</div>
+                    <div class="model-card-app" style="margin-top:4px;">Crous artifacts</div>
+                </div>
+            </a>
+            <a class="model-card" href="{{ url_prefix|default('/admin') }}/config/" style="padding:18px;">
+                <div>
+                    <div class="model-card-name"><i class="icon-settings" style="font-size:14px;vertical-align:-2px;margin-right:4px;opacity:0.5;"></i>Config</div>
+                    <div class="model-card-app" style="margin-top:4px;">YAML settings</div>
+                </div>
+            </a>
+            <a class="model-card" href="{{ url_prefix|default('/admin') }}/audit/" style="padding:18px;">
+                <div>
+                    <div class="model-card-name"><i class="icon-scroll-text" style="font-size:14px;vertical-align:-2px;margin-right:4px;opacity:0.5;"></i>Audit Log</div>
+                    <div class="model-card-app" style="margin-top:4px;">{{ audit_summary.total_entries|default(0) }} entries</div>
+                </div>
+            </a>
+            <a class="model-card" href="{{ url_prefix|default('/admin') }}/permissions/" style="padding:18px;">
+                <div>
+                    <div class="model-card-name"><i class="icon-shield" style="font-size:14px;vertical-align:-2px;margin-right:4px;opacity:0.5;"></i>Permissions</div>
+                    <div class="model-card-app" style="margin-top:4px;">Role management</div>
+                </div>
+            </a>
+            <a class="model-card" href="{{ url_prefix|default('/admin') }}/migrations/" style="padding:18px;">
+                <div>
+                    <div class="model-card-name"><i class="icon-git-branch" style="font-size:14px;vertical-align:-2px;margin-right:4px;opacity:0.5;"></i>Migrations</div>
+                    <div class="model-card-app" style="margin-top:4px;">Schema changes</div>
+                </div>
+            </a>
+            {% if modules.get('containers', false) %}
+            <a class="model-card" href="{{ url_prefix|default('/admin') }}/containers/" style="padding:18px;">
+                <div>
+                    <div class="model-card-name"><i class="icon-container" style="font-size:14px;vertical-align:-2px;margin-right:4px;opacity:0.5;"></i>Containers</div>
+                    <div class="model-card-app" style="margin-top:4px;">Docker management</div>
+                </div>
+            </a>
+            {% endif %}
+            {% if modules.get('pods', false) %}
+            <a class="model-card" href="{{ url_prefix|default('/admin') }}/pods/" style="padding:18px;">
+                <div>
+                    <div class="model-card-name"><i class="icon-cloud" style="font-size:14px;vertical-align:-2px;margin-right:4px;opacity:0.5;"></i>Pods</div>
+                    <div class="model-card-app" style="margin-top:4px;">Kubernetes cluster</div>
+                </div>
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    {# ── Environment info panel ── #}
+    <div>
+        <div class="section-label">Environment</div>
+        <div class="glass-card" style="padding:20px;">
+            <div class="env-grid">
+                <div class="env-item">
+                    <div class="env-label">Python</div>
+                    <div class="env-value">{{ environment.python_version|default('--') }}</div>
+                </div>
+                <div class="env-item">
+                    <div class="env-label">Platform</div>
+                    <div class="env-value">{{ environment.platform|default('--') }}</div>
+                </div>
+                <div class="env-item">
+                    <div class="env-label">Arch</div>
+                    <div class="env-value">{{ environment.architecture|default('--') }}</div>
+                </div>
+                <div class="env-item">
+                    <div class="env-label">Uptime</div>
+                    <div class="env-value">{{ environment.uptime|default('--') }}</div>
+                </div>
+                <div class="env-item">
+                    <div class="env-label">Memory</div>
+                    <div class="env-value">{{ environment.memory_mb|default('--') }} MB</div>
+                </div>
+                <div class="env-item">
+                    <div class="env-label">PID</div>
+                    <div class="env-value">{{ environment.pid|default('--') }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# ═══ REGISTERED MODELS TABLE ═══════════════════════════════════ #}
 {% if app_list %}
-<div class="section-label" style="margin-top:32px;">Registered Models</div>
+<div class="section-label" style="margin-top:12px;">Registered Models</div>
 <div class="glass-card" style="padding:0;">
     <table class="data-table" style="width:100%;">
         <thead>
             <tr>
                 <th style="text-align:left;padding:12px 16px;font-size:0.75rem;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;color:var(--text-faint);">Model</th>
                 <th style="text-align:left;padding:12px 16px;font-size:0.75rem;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;color:var(--text-faint);">App</th>
+                <th style="text-align:right;padding:12px 16px;font-size:0.75rem;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;color:var(--text-faint);">Records</th>
                 <th style="text-align:right;padding:12px 16px;font-size:0.75rem;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;color:var(--text-faint);">Actions</th>
             </tr>
         </thead>
@@ -117,9 +521,14 @@
                 {% for model_info in app_info.models|default([]) %}
                 <tr style="border-top:1px solid var(--border-subtle);">
                     <td style="padding:10px 16px;">
-                        <a href="{{ url_prefix|default('/admin') }}/{{ model_info.name|default('')|lower }}/" style="color:var(--accent);text-decoration:none;font-weight:500;font-size:0.84rem;">{{ model_info.verbose_name|default(model_info.name|default('')) }}</a>
+                        <a href="{{ url_prefix|default('/admin') }}/{{ model_info.name|default('')|lower }}/" style="color:var(--accent);text-decoration:none;font-weight:500;font-size:0.84rem;">
+                            <i class="icon-{{ model_info.icon|default('table') }}" style="font-size:13px;vertical-align:-1px;margin-right:5px;opacity:0.4;"></i>{{ model_info.verbose_name|default(model_info.name|default('')) }}
+                        </a>
                     </td>
                     <td style="padding:10px 16px;font-size:0.78rem;color:var(--text-muted);">{{ app_info.app_label|default('') }}</td>
+                    <td style="padding:10px 16px;text-align:right;font-family:var(--font-mono);font-size:0.78rem;color:var(--text-secondary);">
+                        {{ model_counts.get(model_info.model_name|default(''), '?') if model_counts is mapping else '?' }}
+                    </td>
                     <td style="padding:10px 16px;text-align:right;">
                         <a href="{{ url_prefix|default('/admin') }}/{{ model_info.name|default('')|lower }}/add" class="btn-ghost" style="font-size:0.75rem;padding:3px 10px;border-radius:var(--radius-sm);color:var(--accent);">
                             <i class="icon-plus" style="font-size:12px;vertical-align:-1px;margin-right:3px;"></i>Add
@@ -137,24 +546,24 @@
 <script>
 // ── Animated stat counters ──
 (function() {
-    document.querySelectorAll('.stat-number[data-count]').forEach(function(el) {
+    document.querySelectorAll('[data-count]').forEach(function(el) {
         var target = parseInt(el.getAttribute('data-count'), 10);
         if (isNaN(target) || target <= 0) { el.textContent = target || '0'; return; }
-        var duration = 800;
+        var duration = 900;
         var start = null;
         function step(ts) {
             if (!start) start = ts;
             var progress = Math.min((ts - start) / duration, 1);
-            var ease = 1 - Math.pow(1 - progress, 3); // ease-out cubic
-            el.textContent = Math.floor(ease * target);
+            var ease = 1 - Math.pow(1 - progress, 3);
+            el.textContent = Math.floor(ease * target).toLocaleString();
             if (progress < 1) requestAnimationFrame(step);
-            else el.textContent = target;
+            else el.textContent = target.toLocaleString();
         }
         requestAnimationFrame(step);
     });
 })();
 
-// ── Relative timestamps ("2 min ago") ──
+// ── Relative timestamps ──
 (function() {
     function relativeTime(ts) {
         if (!ts) return '';
@@ -175,6 +584,34 @@
     });
 })();
 
+// ── Greeting based on time of day ──
+(function() {
+    var h = new Date().getHours();
+    var g = h < 12 ? 'Good morning' : (h < 17 ? 'Good afternoon' : 'Good evening');
+    var el = document.getElementById('dash-greeting-text');
+    if (el) el.textContent = g;
+
+    // Date display
+    var dateEl = document.getElementById('dash-date');
+    if (dateEl) {
+        var now = new Date();
+        var opts = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+        dateEl.textContent = '— ' + now.toLocaleDateString(undefined, opts);
+    }
+})();
+
+// ── Live clock in health bar ──
+(function() {
+    var clockEl = document.getElementById('dash-clock');
+    if (!clockEl) return;
+    function tick() {
+        var now = new Date();
+        clockEl.textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    }
+    tick();
+    setInterval(tick, 1000);
+})();
+
 // ── Model card hover glow tracking ──
 (function() {
     document.querySelectorAll('.model-card').forEach(function(card) {
@@ -186,7 +623,21 @@
     });
 })();
 
-// Command palette (light/dark mode aware)
+// ── Distribution bars animate on scroll ──
+(function() {
+    var observer = new IntersectionObserver(function(entries) {
+        entries.forEach(function(e) {
+            if (e.isIntersecting) {
+                e.target.style.transition = 'width 0.8s cubic-bezier(0.4,0,0.2,1)';
+            }
+        });
+    }, { threshold: 0.2 });
+    document.querySelectorAll('.dist-bar-fill').forEach(function(bar) {
+        observer.observe(bar);
+    });
+})();
+
+// ── Command palette ──
 window.showCommandPalette = function() {
     var existing = document.getElementById('cmd-palette');
     if (existing) { existing.remove(); return; }
@@ -199,6 +650,10 @@ window.showCommandPalette = function() {
         { label: 'Audit Log', icon: 'scroll-text', url: '{{ url_prefix|default("/admin") }}/audit/' },
         { label: 'Permissions', icon: 'shield', url: '{{ url_prefix|default("/admin") }}/permissions/' },
         { label: 'Migrations', icon: 'git-branch', url: '{{ url_prefix|default("/admin") }}/migrations/' },
+        { label: 'Admin Users', icon: 'users', url: '{{ url_prefix|default("/admin") }}/admin-users/' },
+        { label: 'Monitoring', icon: 'activity', url: '{{ url_prefix|default("/admin") }}/monitoring/' },
+        { label: 'Containers', icon: 'container', url: '{{ url_prefix|default("/admin") }}/containers/' },
+        { label: 'Pods', icon: 'cloud', url: '{{ url_prefix|default("/admin") }}/pods/' },
         {% for app_info in app_list|default([]) %}{% for model_info in app_info.models|default([]) %}
         { label: '{{ model_info.verbose_name|default(model_info.name|default("")) }}', icon: 'table', url: '{{ url_prefix|default("/admin") }}/{{ model_info.name|default("")|lower }}/' },
         {% endfor %}{% endfor %}
@@ -219,7 +674,7 @@ window.showCommandPalette = function() {
     function render(filter) {
         list.innerHTML = '';
         var filtered = items.filter(function(i) { return !filter || i.label.toLowerCase().includes(filter.toLowerCase()); });
-        filtered.forEach(function(item, idx) {
+        filtered.forEach(function(item) {
             var a = document.createElement('a');
             a.href = item.url;
             a.style.cssText = 'display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:8px;text-decoration:none;color:' + textColor + ';font-size:0.84rem;transition:background 0.15s;';

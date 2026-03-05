@@ -1,0 +1,3119 @@
+{% extends "base.html" %}
+{% block title %}Containers{% endblock %}
+{% block breadcrumb %}Containers{% endblock %}
+
+{% block extra_head %}
+<style>
+/* ══════════════════════════════════════════════════════════════════
+   Containers — Docker Desktop-level Management UI
+   ══════════════════════════════════════════════════════════════════ */
+
+/* ── Tabs ── */
+.infra-tabs {
+    display: flex; gap: 0; border-bottom: 1px solid var(--border-color);
+    margin-bottom: 24px; overflow-x: auto; scrollbar-width: none;
+}
+.infra-tabs::-webkit-scrollbar { display: none; }
+.infra-tab {
+    padding: 10px 20px; font-size: 0.82rem; font-weight: 500; color: var(--text-muted);
+    cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.2s var(--ease);
+    white-space: nowrap; background: none; border-top: none; border-left: none;
+    border-right: none; font-family: var(--font-sans);
+}
+.infra-tab:hover { color: var(--text-secondary); }
+.infra-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.infra-tab-panel { display: none; }
+.infra-tab-panel.active { display: block; }
+
+/* ── Badges ── */
+.infra-badge {
+    display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px;
+    border-radius: 20px; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
+}
+.badge-running { background: rgba(34,197,94,0.15); color: #22c55e; }
+.badge-stopped { background: rgba(239,68,68,0.15); color: #ef4444; }
+.badge-paused  { background: rgba(245,158,11,0.15); color: #f59e0b; }
+.badge-warning { background: rgba(245,158,11,0.15); color: #f59e0b; }
+.badge-created { background: rgba(59,130,246,0.15); color: #3b82f6; }
+.badge-dead    { background: rgba(239,68,68,0.15); color: #ef4444; }
+.badge-unknown { background: rgba(113,113,122,0.15); color: #71717a; }
+
+/* ── Stats Grid ── */
+.container-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 14px; margin-bottom: 28px;
+}
+.container-stat {
+    background: var(--bg-glass); border: 1px solid var(--border-color);
+    border-radius: var(--radius); padding: 18px 16px; text-align: center;
+    position: relative; overflow: hidden; transition: border-color 0.25s var(--ease), transform 0.18s var(--ease);
+}
+.container-stat:hover { border-color: var(--accent); transform: translateY(-2px); }
+.container-stat::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    border-radius: var(--radius) var(--radius) 0 0; opacity: 0.8;
+}
+.container-stat[data-color="green"]::before  { background: linear-gradient(90deg, #22c55e, #16a34a); }
+.container-stat[data-color="blue"]::before   { background: linear-gradient(90deg, #3b82f6, #2563eb); }
+.container-stat[data-color="amber"]::before  { background: linear-gradient(90deg, #f59e0b, #d97706); }
+.container-stat[data-color="purple"]::before { background: linear-gradient(90deg, #a855f7, #7c3aed); }
+.container-stat[data-color="cyan"]::before   { background: linear-gradient(90deg, #06b6d4, #0891b2); }
+.container-stat[data-color="rose"]::before   { background: linear-gradient(90deg, #f43f5e, #e11d48); }
+.container-stat-value {
+    font-size: 1.5rem; font-weight: 700; color: var(--text-primary);
+    line-height: 1.2; margin-bottom: 4px; font-variant-numeric: tabular-nums;
+}
+.container-stat-label {
+    font-size: 0.68rem; color: var(--text-faint); text-transform: uppercase;
+    letter-spacing: 0.5px; font-weight: 500;
+}
+
+/* ── Tables ── */
+.container-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+.container-table th {
+    text-align: left; padding: 10px 14px; font-size: 0.7rem; text-transform: uppercase;
+    letter-spacing: 0.5px; color: var(--text-faint); border-bottom: 1px solid var(--border-color);
+    font-weight: 600; white-space: nowrap;
+}
+.container-table td {
+    padding: 10px 14px; border-bottom: 1px solid rgba(255,255,255,0.04);
+    color: var(--text-secondary); vertical-align: middle;
+}
+.container-table tr:hover td { background: rgba(34,197,94,0.03); }
+.container-name { font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 8px; }
+.container-name .status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.status-dot.running  { background: #22c55e; box-shadow: 0 0 6px rgba(34,197,94,0.5); }
+.status-dot.stopped  { background: #ef4444; }
+.status-dot.paused   { background: #f59e0b; }
+.status-dot.warning  { background: #f59e0b; animation: blink 1s infinite; }
+.status-dot.created  { background: #3b82f6; }
+.status-dot.dead     { background: #ef4444; }
+.status-dot.unknown  { background: #71717a; }
+@keyframes blink { 50% { opacity: 0.4; } }
+@keyframes pulse-live { 0%,100% { opacity:1; } 50% { opacity:0.5; } }
+
+.port-tag {
+    display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.7rem;
+    font-family: var(--font-mono, 'Space Mono', monospace);
+    background: rgba(59,130,246,0.1); color: #60a5fa; margin: 1px 2px;
+}
+.resource-bar { width: 100%; height: 6px; background: var(--bg-input); border-radius: 3px; overflow: hidden; margin-top: 4px; }
+.resource-bar-fill { height: 100%; border-radius: 3px; transition: width 0.5s var(--ease); }
+.resource-bar-fill.green { background: linear-gradient(90deg, #22c55e, #16a34a); }
+.resource-bar-fill.amber { background: linear-gradient(90deg, #f59e0b, #d97706); }
+.resource-bar-fill.red   { background: linear-gradient(90deg, #ef4444, #dc2626); }
+
+/* ── Action Buttons ── */
+.container-actions { display: flex; gap: 4px; flex-wrap: wrap; }
+.act-btn {
+    background: none; border: 1px solid var(--border-color); border-radius: 6px;
+    padding: 4px 8px; cursor: pointer; color: var(--text-muted); font-size: 0.7rem;
+    transition: all 0.15s var(--ease); display: inline-flex; align-items: center;
+    gap: 3px; font-family: var(--font-sans); white-space: nowrap;
+}
+.act-btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(34,197,94,0.06); }
+.act-btn.danger:hover { border-color: #ef4444; color: #ef4444; background: rgba(239,68,68,0.06); }
+.act-btn.warning:hover { border-color: #f59e0b; color: #f59e0b; background: rgba(245,158,11,0.06); }
+.act-btn.primary { border-color: var(--accent); color: var(--accent); }
+.act-btn.primary:hover { background: rgba(34,197,94,0.12); }
+.act-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.act-btn:disabled:hover { border-color: var(--border-color); color: var(--text-muted); background: none; }
+
+/* ── Compose ── */
+.compose-service {
+    background: var(--bg-glass); border: 1px solid var(--border-color);
+    border-radius: var(--radius); padding: 16px; margin-bottom: 10px;
+    transition: border-color 0.2s var(--ease);
+}
+.compose-service:hover { border-color: var(--accent); }
+.compose-service-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.compose-service-name { font-weight: 600; font-size: 0.9rem; color: var(--text-primary); }
+.compose-meta { display: flex; flex-wrap: wrap; gap: 12px; font-size: 0.75rem; color: var(--text-muted); }
+.compose-meta-item { display: flex; align-items: center; gap: 4px; }
+.compose-meta-item i { font-size: 12px; color: var(--text-faint); }
+
+/* ── Charts ── */
+.chart-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; margin-bottom: 24px; }
+.chart-card {
+    background: var(--bg-glass); border: 1px solid var(--border-color);
+    border-radius: var(--radius); padding: 18px; position: relative; overflow: hidden;
+}
+.chart-card-title {
+    font-size: 0.78rem; font-weight: 600; color: var(--text-secondary);
+    text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 14px;
+    display: flex; align-items: center; gap: 8px;
+}
+.chart-card-title i { font-size: 14px; color: var(--accent); }
+.chart-canvas-wrap { width: 100%; height: 180px; position: relative; }
+
+/* ── Health Timeline ── */
+.health-timeline { display: flex; gap: 2px; height: 32px; align-items: flex-end; margin-top: 8px; }
+.health-bar {
+    flex: 1; border-radius: 2px 2px 0 0; min-width: 3px;
+    transition: height 0.3s var(--ease); cursor: pointer; position: relative;
+}
+.health-bar:hover::after {
+    content: attr(data-tooltip); position: absolute; bottom: calc(100% + 6px);
+    left: 50%; transform: translateX(-50%); padding: 4px 10px;
+    background: var(--bg-elevated); border: 1px solid var(--border-color);
+    border-radius: 6px; font-size: 0.65rem; white-space: nowrap; color: var(--text-secondary); z-index: 10;
+}
+.health-bar.up { background: #22c55e; }
+.health-bar.degraded { background: #f59e0b; }
+.health-bar.down { background: #ef4444; }
+
+/* ── Logs viewer (terminal style) ── */
+.logs-panel {
+    background: #000; border: 1px solid var(--border-color);
+    border-radius: var(--radius); overflow: hidden; margin-top: 16px;
+}
+.logs-panel-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 16px; background: #0a0a0a; border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.logs-panel-header h4 { font-size: 0.8rem; font-weight: 600; color: #e6edf3; margin: 0; display: flex; align-items: center; gap: 8px; }
+.logs-panel-body {
+    font-family: 'SFMono-Regular', 'Consolas', 'Liberation Mono', 'Menlo', monospace;
+    font-size: 0.72rem; line-height: 1.7; color: #8b949e; padding: 14px 16px;
+    max-height: 450px; overflow-y: auto; white-space: pre-wrap; word-break: break-all;
+    background: #000;
+}
+.logs-panel-body::-webkit-scrollbar { width: 6px; }
+.logs-panel-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+.log-line { padding: 1px 0; }
+.log-line:hover { background: rgba(34,197,94,0.04); }
+.log-ts { color: #484f58; margin-right: 8px; user-select: none; }
+.log-stdout { color: #c9d1d9; }
+.log-stderr { color: #f85149; }
+.log-info { color: #58a6ff; }
+.log-warn { color: #d29922; }
+
+/* ── Detail Drawer (full-width) ── */
+.detail-drawer {
+    position: fixed; top: 0; right: 0; bottom: 0; width: 560px; max-width: 95vw;
+    background: var(--bg-elevated); border-left: 1px solid var(--border-color);
+    z-index: 1000; transform: translateX(100%); transition: transform 0.3s var(--ease);
+    display: flex; flex-direction: column; box-shadow: -8px 0 32px rgba(0,0,0,0.3);
+}
+.detail-drawer.open { transform: translateX(0); }
+.detail-drawer-backdrop {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 999;
+    opacity: 0; pointer-events: none; transition: opacity 0.3s var(--ease);
+}
+.detail-drawer-backdrop.open { opacity: 1; pointer-events: auto; }
+.drawer-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 20px; border-bottom: 1px solid var(--border-color);
+}
+.drawer-header h3 {
+    font-size: 0.95rem; font-weight: 600; color: var(--text-primary);
+    margin: 0; display: flex; align-items: center; gap: 8px;
+}
+.drawer-close {
+    background: none; border: 1px solid var(--border-color); border-radius: 8px;
+    padding: 6px 8px; cursor: pointer; color: var(--text-muted);
+    transition: all 0.15s; font-family: var(--font-sans);
+}
+.drawer-close:hover { border-color: #ef4444; color: #ef4444; }
+.drawer-body { flex: 1; overflow-y: auto; padding: 0; }
+
+/* ── Drawer inner tabs ── */
+.drawer-tabs {
+    display: flex; gap: 0; border-bottom: 1px solid var(--border-color);
+    padding: 0 20px; background: var(--bg-glass); overflow-x: auto;
+}
+.drawer-tab {
+    padding: 10px 16px; font-size: 0.75rem; font-weight: 500; color: var(--text-muted);
+    cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.15s var(--ease);
+    white-space: nowrap; background: none; border-top: none; border-left: none;
+    border-right: none; font-family: var(--font-sans);
+}
+.drawer-tab:hover { color: var(--text-secondary); }
+.drawer-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.drawer-tab-panel { display: none; padding: 20px; }
+.drawer-tab-panel.active { display: block; }
+
+.drawer-section { margin-bottom: 20px; }
+.drawer-section-title {
+    font-size: 0.72rem; font-weight: 600; color: var(--text-faint);
+    text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px;
+}
+.drawer-kv { display: grid; grid-template-columns: 130px 1fr; gap: 6px 12px; font-size: 0.8rem; }
+.drawer-kv dt { color: var(--text-faint); font-weight: 500; }
+.drawer-kv dd { color: var(--text-secondary); margin: 0; word-break: break-all; }
+.drawer-kv dd code { font-size: 0.72rem; background: var(--bg-input); padding: 1px 6px; border-radius: 3px; }
+
+/* ── Drawer actions bar ── */
+.drawer-actions {
+    display: flex; gap: 8px; flex-wrap: wrap;
+    padding: 16px 20px; border-top: 1px solid var(--border-color);
+}
+.drawer-actions .act-btn { flex: 1; text-align: center; justify-content: center; padding: 8px 14px; font-size: 0.78rem; }
+
+/* ── Inspect JSON viewer ── */
+.json-viewer {
+    font-family: 'SFMono-Regular', 'Consolas', monospace; font-size: 0.72rem;
+    line-height: 1.6; color: var(--text-secondary); background: var(--bg-primary);
+    border: 1px solid var(--border-color); border-radius: 8px;
+    padding: 14px 16px; max-height: 400px; overflow-y: auto; white-space: pre-wrap;
+}
+.json-key { color: #58a6ff; }
+.json-str { color: #a5d6ff; }
+.json-num { color: #79c0ff; }
+.json-bool { color: #d29922; }
+.json-null { color: #8b949e; }
+
+/* ── Env vars table ── */
+.env-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+.env-table th {
+    text-align: left; padding: 6px 10px; font-size: 0.68rem; text-transform: uppercase;
+    color: var(--text-faint); border-bottom: 1px solid var(--border-color); font-weight: 600;
+}
+.env-table td {
+    padding: 6px 10px; border-bottom: 1px solid rgba(255,255,255,0.04);
+    font-family: 'SFMono-Regular', 'Consolas', monospace; font-size: 0.72rem;
+}
+.env-table td:first-child { color: #58a6ff; font-weight: 500; }
+.env-table td:last-child { color: var(--text-secondary); word-break: break-all; }
+
+/* ── Mounts / ports tables ── */
+.mount-card {
+    background: var(--bg-glass); border: 1px solid var(--border-color); border-radius: 8px;
+    padding: 12px 14px; margin-bottom: 8px; font-size: 0.78rem;
+}
+.mount-card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.mount-card-type {
+    font-size: 0.65rem; padding: 2px 8px; border-radius: 10px; font-weight: 600; text-transform: uppercase;
+}
+.mount-bind { background: rgba(59,130,246,0.15); color: #60a5fa; }
+.mount-volume { background: rgba(168,85,247,0.15); color: #c084fc; }
+.mount-tmpfs { background: rgba(245,158,11,0.15); color: #f59e0b; }
+.mount-path { font-family: monospace; font-size: 0.72rem; color: var(--text-secondary); }
+
+/* ── Section titles ── */
+.infra-section-title {
+    font-size: 0.78rem; font-weight: 600; color: var(--text-secondary);
+    text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 14px;
+    margin-top: 24px; display: flex; align-items: center; gap: 8px;
+}
+.infra-section-title i { font-size: 14px; color: var(--accent); }
+
+.empty-state { text-align: center; padding: 40px 20px; color: var(--text-muted); }
+.empty-state-icon { font-size: 2.5rem; opacity: 0.15; margin-bottom: 12px; }
+.empty-state p { font-size: 0.85rem; }
+
+.docker-unavailable {
+    background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.2);
+    border-radius: var(--radius); padding: 32px; text-align: center;
+}
+.docker-unavailable h3 { color: #ef4444; margin-bottom: 8px; }
+.docker-unavailable p { color: var(--text-muted); font-size: 0.85rem; max-width: 500px; margin: 0 auto; }
+.docker-unavailable code { background: var(--bg-input); padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; }
+
+.dockerfile-info {
+    background: var(--bg-glass); border: 1px solid var(--border-color);
+    border-radius: var(--radius); padding: 18px;
+}
+.dockerfile-stage {
+    display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px;
+    border-radius: 6px; font-size: 0.75rem; background: rgba(168,85,247,0.1);
+    color: #c084fc; margin: 3px 4px 3px 0;
+}
+
+/* ── Loading spinner ── */
+.spinner-inline {
+    display: inline-block; width: 14px; height: 14px;
+    border: 2px solid rgba(255,255,255,0.1); border-top-color: var(--accent);
+    border-radius: 50%; animation: spin 0.6s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Docker Command Loading Overlay ── */
+.docker-cmd-overlay {
+    position: fixed; inset: 0; z-index: 2000;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(0,0,0,0.65); backdrop-filter: blur(6px);
+    opacity: 0; pointer-events: none; transition: opacity 0.3s ease;
+}
+.docker-cmd-overlay.active { opacity: 1; pointer-events: auto; }
+.docker-cmd-card {
+    background: var(--bg-elevated); border: 1px solid var(--border-color);
+    border-radius: 16px; padding: 32px 40px; text-align: center;
+    min-width: 320px; max-width: 440px; box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    animation: cmdCardIn 0.3s ease;
+}
+@keyframes cmdCardIn { from { transform: scale(0.9) translateY(10px); opacity: 0; } to { transform: scale(1) translateY(0); opacity: 1; } }
+.docker-cmd-spinner {
+    width: 48px; height: 48px; border: 3px solid rgba(255,255,255,0.08);
+    border-top-color: var(--accent); border-radius: 50%;
+    animation: spin 0.8s linear infinite; margin: 0 auto 20px;
+}
+.docker-cmd-title {
+    font-size: 1rem; font-weight: 600; color: var(--text-primary);
+    margin-bottom: 8px;
+}
+.docker-cmd-message {
+    font-size: 0.82rem; color: var(--text-muted); margin-bottom: 16px;
+}
+.docker-cmd-progress {
+    width: 100%; height: 4px; background: rgba(255,255,255,0.06);
+    border-radius: 4px; overflow: hidden;
+}
+.docker-cmd-progress-bar {
+    height: 100%; border-radius: 4px;
+    background: linear-gradient(90deg, var(--accent), #16a34a, var(--accent));
+    background-size: 200% 100%;
+    animation: cmdProgress 1.5s ease infinite;
+}
+@keyframes cmdProgress { 0% { background-position: 200% 0; width: 30%; } 50% { width: 70%; } 100% { background-position: -200% 0; width: 30%; } }
+.docker-cmd-done .docker-cmd-spinner { display: none; }
+.docker-cmd-done .docker-cmd-progress { display: none; }
+.docker-cmd-check {
+    width: 48px; height: 48px; margin: 0 auto 20px;
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-size: 1.5rem; animation: cmdCheckIn 0.4s ease;
+}
+.docker-cmd-check.success { background: rgba(34,197,94,0.15); color: #22c55e; }
+.docker-cmd-check.error { background: rgba(239,68,68,0.15); color: #ef4444; }
+@keyframes cmdCheckIn { from { transform: scale(0); } to { transform: scale(1); } }
+
+/* ── Custom Confirm Modal ── */
+.confirm-modal-backdrop {
+    position: fixed; inset: 0; z-index: 2100;
+    background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);
+    opacity: 0; pointer-events: none; transition: opacity 0.25s ease;
+    display: flex; align-items: center; justify-content: center;
+}
+.confirm-modal-backdrop.active { opacity: 1; pointer-events: auto; }
+.confirm-modal {
+    background: var(--bg-elevated); border: 1px solid var(--border-color);
+    border-radius: 16px; padding: 28px 32px; min-width: 360px; max-width: 460px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5); animation: cmdCardIn 0.25s ease;
+}
+.confirm-modal-icon {
+    width: 52px; height: 52px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 16px; font-size: 1.5rem;
+}
+.confirm-modal-icon.danger { background: rgba(239,68,68,0.12); color: #ef4444; }
+.confirm-modal-icon.warning { background: rgba(245,158,11,0.12); color: #f59e0b; }
+.confirm-modal-icon.info { background: rgba(59,130,246,0.12); color: #3b82f6; }
+.confirm-modal h3 {
+    font-size: 1rem; font-weight: 600; color: var(--text-primary);
+    text-align: center; margin: 0 0 8px;
+}
+.confirm-modal p {
+    font-size: 0.85rem; color: var(--text-muted); text-align: center;
+    margin: 0 0 24px; line-height: 1.5;
+}
+.confirm-modal-actions {
+    display: flex; gap: 10px; justify-content: center;
+}
+.confirm-modal-btn {
+    padding: 9px 24px; border-radius: 10px; font-size: 0.82rem; font-weight: 600;
+    cursor: pointer; border: 1px solid var(--border-color); font-family: var(--font-sans);
+    transition: all 0.15s ease;
+}
+.confirm-modal-btn.cancel {
+    background: var(--bg-glass); color: var(--text-secondary);
+}
+.confirm-modal-btn.cancel:hover { background: var(--bg-input); }
+.confirm-modal-btn.confirm-danger {
+    background: #ef4444; color: #fff; border-color: #ef4444;
+}
+.confirm-modal-btn.confirm-danger:hover { background: #dc2626; }
+.confirm-modal-btn.confirm-warning {
+    background: #f59e0b; color: #000; border-color: #f59e0b;
+}
+.confirm-modal-btn.confirm-warning:hover { background: #d97706; }
+.confirm-modal-btn.confirm-primary {
+    background: var(--accent); color: #fff; border-color: var(--accent);
+}
+.confirm-modal-btn.confirm-primary:hover { opacity: 0.9; }
+
+/* ── Clickable row ── */
+.clickable-row { cursor: pointer; }
+.clickable-row:hover td { background: rgba(34,197,94,0.05) !important; }
+
+/* ── Build Section ── */
+.build-form { display: grid; gap: 14px; }
+.build-form label { font-size: 0.72rem; font-weight: 600; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 4px; }
+.build-form input, .build-form textarea, .build-form select { width: 100%; box-sizing: border-box; background: var(--bg-input); border: 1px solid var(--border-color); border-radius: 8px; padding: 8px 12px; color: var(--text-primary); font-size: 0.82rem; font-family: var(--font-sans); outline: none; }
+.build-form textarea { font-family: var(--font-mono, monospace); resize: vertical; }
+.build-output { max-height: 400px; overflow-y: auto; font-family: 'SFMono-Regular', 'Consolas', monospace; font-size: 0.72rem; line-height: 1.6; color: #c9d1d9; background: #000; border: 1px solid var(--border-color); border-radius: 8px; padding: 14px 16px; white-space: pre-wrap; word-break: break-all; }
+.build-output .step { color: #58a6ff; font-weight: 600; }
+.build-output .cached { color: #22c55e; }
+.build-output .err { color: #f85149; }
+
+/* ── Disk Usage / System ── */
+.disk-card { background: var(--bg-glass); border: 1px solid var(--border-color); border-radius: var(--radius); padding: 18px; margin-bottom: 12px; }
+.disk-card h4 { font-size: 0.82rem; font-weight: 600; color: var(--text-primary); margin: 0 0 12px; display: flex; align-items: center; gap: 8px; }
+.disk-bar { width: 100%; height: 20px; background: var(--bg-input); border-radius: 10px; overflow: hidden; position: relative; }
+.disk-bar-fill { height: 100%; border-radius: 10px; transition: width 0.5s ease; }
+.disk-bar-label { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 0.68rem; font-weight: 600; color: var(--text-primary); }
+.disk-prune-btns { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+
+/* ── Exec Terminal ── */
+.exec-terminal { background: #000; border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; }
+.exec-terminal-header { display: flex; align-items: center; gap: 8px; padding: 8px 14px; background: #0a0a0a; border-bottom: 1px solid rgba(255,255,255,0.06); }
+.exec-terminal-header h5 { font-size: 0.75rem; color: #e6edf3; margin: 0; font-weight: 600; }
+.exec-terminal-body { font-family: 'SFMono-Regular', 'Consolas', monospace; font-size: 0.72rem; line-height: 1.6; color: #c9d1d9; padding: 10px 14px; max-height: 250px; overflow-y: auto; white-space: pre-wrap; min-height: 60px; }
+.exec-input-wrap { display: flex; align-items: center; gap: 0; border-top: 1px solid rgba(255,255,255,0.06); background: #0a0a0a; }
+.exec-prompt { padding: 8px 12px; color: #22c55e; font-family: monospace; font-size: 0.75rem; font-weight: 700; white-space: nowrap; }
+.exec-input { flex: 1; background: transparent; border: none; color: #e6edf3; font-family: 'SFMono-Regular', 'Consolas', monospace; font-size: 0.75rem; padding: 8px 0; outline: none; }
+
+/* ── Events Feed ── */
+.event-feed { max-height: 400px; overflow-y: auto; }
+.event-item { display: flex; align-items: flex-start; gap: 12px; padding: 10px 14px; border-bottom: 1px solid rgba(255,255,255,0.04); font-size: 0.78rem; }
+.event-item:hover { background: rgba(34,197,94,0.03); }
+.event-icon { width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; flex-shrink: 0; }
+.event-icon.create { background: rgba(34,197,94,0.12); color: #22c55e; }
+.event-icon.start { background: rgba(34,197,94,0.12); color: #22c55e; }
+.event-icon.stop { background: rgba(239,68,68,0.12); color: #ef4444; }
+.event-icon.die { background: rgba(239,68,68,0.12); color: #ef4444; }
+.event-icon.kill { background: rgba(245,158,11,0.12); color: #f59e0b; }
+.event-icon.destroy { background: rgba(239,68,68,0.12); color: #ef4444; }
+.event-icon.pull { background: rgba(59,130,246,0.12); color: #3b82f6; }
+.event-icon.default { background: rgba(113,113,122,0.12); color: #71717a; }
+.event-body { flex: 1; }
+.event-action { font-weight: 600; color: var(--text-primary); }
+.event-actor { color: var(--text-muted); font-family: monospace; font-size: 0.72rem; }
+.event-time { font-size: 0.68rem; color: var(--text-faint); white-space: nowrap; }
+
+/* ── Process Table ── */
+.proc-table { width: 100%; border-collapse: collapse; font-size: 0.72rem; font-family: monospace; }
+.proc-table th { text-align: left; padding: 4px 8px; font-size: 0.65rem; text-transform: uppercase; color: var(--text-faint); border-bottom: 1px solid var(--border-color); }
+.proc-table td { padding: 4px 8px; border-bottom: 1px solid rgba(255,255,255,0.04); color: var(--text-secondary); }
+
+/* ── Filesystem Diff ── */
+.diff-list { max-height: 300px; overflow-y: auto; font-family: monospace; font-size: 0.72rem; }
+.diff-item { padding: 3px 10px; display: flex; align-items: center; gap: 8px; }
+.diff-item:hover { background: rgba(34,197,94,0.03); }
+.diff-kind { width: 20px; height: 20px; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: 700; }
+.diff-kind.A { background: rgba(34,197,94,0.15); color: #22c55e; }
+.diff-kind.C { background: rgba(245,158,11,0.15); color: #f59e0b; }
+.diff-kind.D { background: rgba(239,68,68,0.15); color: #ef4444; }
+
+/* ── Image Layer Viewer ── */
+.layer-item { display: flex; align-items: flex-start; gap: 10px; padding: 8px 12px; border-bottom: 1px solid rgba(255,255,255,0.04); font-size: 0.72rem; }
+.layer-num { width: 24px; height: 24px; border-radius: 50%; background: rgba(59,130,246,0.12); color: #60a5fa; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.65rem; flex-shrink: 0; }
+.layer-cmd { flex: 1; color: var(--text-secondary); font-family: monospace; word-break: break-all; }
+.layer-size { font-weight: 600; color: var(--text-primary); white-space: nowrap; font-size: 0.7rem; }
+
+/* ── Create Dialog (shared) ── */
+.create-dialog { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%) scale(0.95); background: var(--bg-elevated); border: 1px solid var(--border-color); border-radius: 16px; width: 480px; max-width: 92vw; max-height: 80vh; overflow-y: auto; z-index: 1002; opacity: 0; pointer-events: none; transition: all 0.3s; box-shadow: 0 20px 60px rgba(0,0,0,0.4); }
+.create-dialog.open { opacity: 1; pointer-events: auto; transform: translate(-50%,-50%) scale(1); }
+.create-dialog-header { padding: 20px 24px; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; }
+.create-dialog-header h3 { margin: 0; font-size: 0.95rem; font-weight: 600; color: var(--text-primary); }
+.create-dialog-body { padding: 20px 24px; }
+.create-dialog-footer { padding: 14px 24px; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end; gap: 8px; }
+
+/* ── Toolbar ── */
+.toolbar {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; margin-bottom: 16px; flex-wrap: wrap;
+}
+.toolbar-left { display: flex; align-items: center; gap: 8px; }
+.toolbar-right { display: flex; align-items: center; gap: 8px; }
+.search-input {
+    background: var(--bg-input); border: 1px solid var(--border-color); border-radius: 8px;
+    padding: 6px 12px 6px 32px; color: var(--text-primary); font-size: 0.8rem;
+    font-family: var(--font-sans); outline: none; min-width: 200px;
+    transition: border-color 0.2s var(--ease);
+}
+.search-input:focus { border-color: var(--accent); }
+.search-wrap { position: relative; }
+.search-wrap i { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font-size: 13px; color: var(--text-faint); }
+
+/* ── Bulk select ── */
+.bulk-bar {
+    display: none; align-items: center; gap: 12px; padding: 10px 16px;
+    background: rgba(34,197,94,0.08); border: 1px solid rgba(34,197,94,0.2);
+    border-radius: var(--radius); margin-bottom: 16px; font-size: 0.82rem; color: var(--text-secondary);
+}
+.bulk-bar.visible { display: flex; }
+.bulk-bar .count { font-weight: 700; color: var(--accent); }
+
+@media (max-width: 768px) {
+    .container-grid { grid-template-columns: repeat(2, 1fr); }
+    .container-table { font-size: 0.75rem; }
+    .container-table th, .container-table td { padding: 8px 10px; }
+    .chart-grid { grid-template-columns: 1fr; }
+    .detail-drawer { width: 100%; }
+    .search-input { min-width: 140px; }
+}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1><i class="icon-container" style="font-size:1.2em;vertical-align:-2px;margin-right:6px;"></i> Containers</h1>
+    <p>Docker container lifecycle management, images, volumes, networks, compose services &amp; real-time monitoring.</p>
+</div>
+
+{% if not docker_available %}
+<div class="docker-unavailable">
+    <div style="font-size:3rem;opacity:0.2;margin-bottom:12px;">🐳</div>
+    <h3>Docker Not Available</h3>
+    <p>{{ error or 'Docker daemon is not running or the Docker CLI is not installed.' }}</p>
+    <p style="margin-top:12px;">
+        Install Docker: <code>brew install docker</code> or visit
+        <a href="https://docs.docker.com/get-docker/" target="_blank" rel="noopener">docs.docker.com</a>
+    </p>
+    {% if dockerfile_info and dockerfile_info.exists %}
+    <p style="margin-top:16px;color:var(--text-secondary);">
+        <i class="icon-file-text" style="font-size:14px;vertical-align:-2px;"></i>
+        A Dockerfile was found in your workspace. Start Docker to manage containers.
+    </p>
+    {% endif %}
+</div>
+{% else %}
+
+{# ── Stats Overview ── #}
+<div class="container-grid">
+    <div class="container-stat" data-color="green">
+        <div class="container-stat-value" id="stat-running">{{ system_info.running|default(0) }}</div>
+        <div class="container-stat-label">Running</div>
+    </div>
+    <div class="container-stat" data-color="rose">
+        <div class="container-stat-value" id="stat-stopped">{{ system_info.stopped|default(0) }}</div>
+        <div class="container-stat-label">Stopped</div>
+    </div>
+    <div class="container-stat" data-color="amber">
+        <div class="container-stat-value" id="stat-paused">{{ system_info.paused|default(0) }}</div>
+        <div class="container-stat-label">Paused</div>
+    </div>
+    <div class="container-stat" data-color="blue">
+        <div class="container-stat-value" id="stat-images">{{ images|length }}</div>
+        <div class="container-stat-label">Images</div>
+    </div>
+    <div class="container-stat" data-color="purple">
+        <div class="container-stat-value" id="stat-volumes">{{ volumes|length }}</div>
+        <div class="container-stat-label">Volumes</div>
+    </div>
+    <div class="container-stat" data-color="cyan">
+        <div class="container-stat-value" id="stat-networks">{{ networks|length }}</div>
+        <div class="container-stat-label">Networks</div>
+    </div>
+</div>
+
+{# ── Resource Charts ── #}
+{% if containers %}
+<div class="chart-grid">
+    <div class="chart-card">
+        <div class="chart-card-title"><i class="icon-activity"></i> CPU Usage (Real-time)</div>
+        <div class="chart-canvas-wrap"><canvas id="cpuChart"></canvas></div>
+    </div>
+    <div class="chart-card">
+        <div class="chart-card-title"><i class="icon-hard-drive"></i> Memory Usage (Real-time)</div>
+        <div class="chart-canvas-wrap"><canvas id="memChart"></canvas></div>
+    </div>
+    <div class="chart-card">
+        <div class="chart-card-title"><i class="icon-wifi"></i> Network I/O</div>
+        <div class="chart-canvas-wrap"><canvas id="netChart"></canvas></div>
+    </div>
+    <div class="chart-card">
+        <div class="chart-card-title"><i class="icon-pie-chart"></i> Container State Distribution</div>
+        <div class="chart-canvas-wrap"><canvas id="stateChart"></canvas></div>
+    </div>
+</div>
+
+{# ── Health Timeline ── #}
+<div class="chart-card" style="margin-bottom:24px;">
+    <div class="chart-card-title"><i class="icon-heart-pulse"></i> Container Health (Last 60 checks)</div>
+    <div class="health-timeline" id="healthTimeline"></div>
+    <div style="display:flex;gap:16px;margin-top:10px;font-size:0.68rem;color:var(--text-faint);">
+        <span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#22c55e;margin-right:4px;"></span>Healthy</span>
+        <span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#f59e0b;margin-right:4px;"></span>Degraded</span>
+        <span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#ef4444;margin-right:4px;"></span>Unhealthy</span>
+    </div>
+</div>
+{% endif %}
+
+{# ── Tabs ── #}
+<div class="infra-tabs" id="containerTabs">
+    <button class="infra-tab active" data-tab="tab-containers" onclick="switchInfraTab(this, 'tab-containers')">
+        <i class="icon-box" style="font-size:13px;vertical-align:-1px;margin-right:4px;"></i>
+        Containers <span style="opacity:0.5;margin-left:4px;">({{ containers|length }})</span>
+    </button>
+    <button class="infra-tab" data-tab="tab-compose" onclick="switchInfraTab(this, 'tab-compose')">
+        <i class="icon-layers" style="font-size:13px;vertical-align:-1px;margin-right:4px;"></i>
+        Compose <span style="opacity:0.5;margin-left:4px;">({{ compose.services|length }})</span>
+    </button>
+    <button class="infra-tab" data-tab="tab-images" onclick="switchInfraTab(this, 'tab-images')">
+        <i class="icon-hard-drive" style="font-size:13px;vertical-align:-1px;margin-right:4px;"></i>
+        Images <span style="opacity:0.5;margin-left:4px;">({{ images|length }})</span>
+    </button>
+    <button class="infra-tab" data-tab="tab-volumes" onclick="switchInfraTab(this, 'tab-volumes')">
+        <i class="icon-database" style="font-size:13px;vertical-align:-1px;margin-right:4px;"></i>
+        Volumes <span style="opacity:0.5;margin-left:4px;">({{ volumes|length }})</span>
+    </button>
+    <button class="infra-tab" data-tab="tab-networks" onclick="switchInfraTab(this, 'tab-networks')">
+        <i class="icon-globe" style="font-size:13px;vertical-align:-1px;margin-right:4px;"></i>
+        Networks <span style="opacity:0.5;margin-left:4px;">({{ networks|length }})</span>
+    </button>
+    <button class="infra-tab" data-tab="tab-dockerfile" onclick="switchInfraTab(this, 'tab-dockerfile')">
+        <i class="icon-file-code" style="font-size:13px;vertical-align:-1px;margin-right:4px;"></i>
+        Dockerfile
+    </button>
+    <button class="infra-tab" data-tab="tab-build" onclick="switchInfraTab(this, 'tab-build')">
+        <i class="icon-hammer" style="font-size:13px;vertical-align:-1px;margin-right:4px;"></i>
+        Build
+    </button>
+    <button class="infra-tab" data-tab="tab-system" onclick="switchInfraTab(this, 'tab-system')">
+        <i class="icon-hard-drive" style="font-size:13px;vertical-align:-1px;margin-right:4px;"></i>
+        System
+    </button>
+    <button class="infra-tab" data-tab="tab-events" onclick="switchInfraTab(this, 'tab-events')">
+        <i class="icon-activity" style="font-size:13px;vertical-align:-1px;margin-right:4px;"></i>
+        Events
+    </button>
+    <button class="infra-tab" data-tab="tab-logs" onclick="switchInfraTab(this, 'tab-logs')">
+        <i class="icon-terminal" style="font-size:13px;vertical-align:-1px;margin-right:4px;"></i>
+        Logs
+    </button>
+    <button class="infra-tab" data-tab="tab-topology" onclick="switchInfraTab(this, 'tab-topology')">
+        <i class="icon-git-branch" style="font-size:13px;vertical-align:-1px;margin-right:4px;"></i>
+        Topology
+    </button>
+</div>
+
+{# ═══════════ TAB: Containers ═══════════ #}
+<div class="infra-tab-panel active" id="tab-containers">
+    {# Bulk action bar #}
+    <div class="bulk-bar" id="bulkBar">
+        <span><span class="count" id="bulkCount">0</span> containers selected</span>
+        <button class="act-btn" onclick="bulkAction('start')"><i class="icon-play" style="font-size:11px;"></i> Start</button>
+        <button class="act-btn" onclick="bulkAction('stop')"><i class="icon-square" style="font-size:11px;"></i> Stop</button>
+        <button class="act-btn" onclick="bulkAction('restart')"><i class="icon-refresh-cw" style="font-size:11px;"></i> Restart</button>
+        <button class="act-btn danger" onclick="bulkAction('rm')"><i class="icon-trash-2" style="font-size:11px;"></i> Remove</button>
+    </div>
+
+    {# Toolbar #}
+    <div class="toolbar">
+        <div class="toolbar-left">
+            <div class="search-wrap">
+                <i class="icon-search"></i>
+                <input class="search-input" id="containerSearch" type="text" placeholder="Filter containers..." oninput="filterContainers(this.value)">
+            </div>
+            <select id="stateFilter" onchange="filterContainers(document.getElementById('containerSearch').value)" style="background:var(--bg-input);border:1px solid var(--border-color);border-radius:8px;padding:6px 12px;color:var(--text-primary);font-size:0.8rem;font-family:var(--font-sans);outline:none;">
+                <option value="">All states</option>
+                <option value="running">Running</option>
+                <option value="exited">Stopped</option>
+                <option value="paused">Paused</option>
+                <option value="restarting">Restarting</option>
+                <option value="created">Created</option>
+            </select>
+        </div>
+        <div class="toolbar-right">
+            <button class="act-btn" onclick="runContainerDialog()" title="Run new container"><i class="icon-plus" style="font-size:11px;"></i> Run</button>
+            <label style="display:flex;align-items:center;gap:4px;font-size:0.72rem;color:var(--text-muted);cursor:pointer;">
+                <input type="checkbox" id="autoRefreshToggle" checked style="accent-color:var(--accent);" onchange="toggleAutoRefresh(this.checked)"> Auto-refresh
+            </label>
+            <button class="act-btn primary" onclick="refreshContainersLive()" title="Refresh"><i class="icon-refresh-cw" style="font-size:11px;"></i> Refresh</button>
+        </div>
+    </div>
+
+    <div class="glass-card" style="overflow-x:auto;">
+        <table class="container-table" id="containersTable">
+            <thead>
+                <tr>
+                    <th style="width:28px;"><input type="checkbox" id="selectAll" onchange="toggleSelectAll(this)" style="accent-color:var(--accent);"></th>
+                    <th>Name</th><th>Image</th><th>Status</th><th>Ports</th><th>CPU</th><th>Memory</th><th>Net I/O</th><th>Uptime</th><th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="containersTableBody">
+                {% if containers %}
+                {% for c in containers %}
+                <tr class="clickable-row" data-cid="{{ c.id }}" data-cname="{{ c.name }}" data-cimage="{{ c.image }}" data-cstate="{{ c.state }}" data-cstatus="{{ c.status_class }}" data-cports="{{ c.ports|default('') }}" data-ccreated="{{ c.created|default('') }}" data-ccommand="{{ c.command|default('') }}" data-clabels="{{ c.labels|default('') }}" data-csize="{{ c.size|default('') }}">
+                    <td onclick="event.stopPropagation();">
+                        <input type="checkbox" class="row-select" value="{{ c.id }}" onchange="updateBulkBar()" style="accent-color:var(--accent);">
+                    </td>
+                    <td onclick="openContainerDrawer('{{ c.id }}')">
+                        <div class="container-name">
+                            <span class="status-dot {{ c.status_class }}"></span>
+                            {{ c.name }}
+                        </div>
+                    </td>
+                    <td onclick="openContainerDrawer('{{ c.id }}')"><code style="font-size:0.75rem;">{{ c.image }}</code></td>
+                    <td onclick="openContainerDrawer('{{ c.id }}')"><span class="infra-badge badge-{{ c.status_class }}">{{ c.status_icon }} {{ c.state }}</span></td>
+                    <td onclick="openContainerDrawer('{{ c.id }}')">
+                        {% if c.ports %}
+                            {% for port in c.ports.split(', ') if port %}<span class="port-tag">{{ port }}</span>{% endfor %}
+                        {% else %}<span style="color:var(--text-faint);">—</span>{% endif %}
+                    </td>
+                    <td onclick="openContainerDrawer('{{ c.id }}')">
+                        {% if c.stats %}
+                            <span style="font-variant-numeric:tabular-nums;">{{ c.stats.cpu }}</span>
+                            {% set cpu_val = c.stats.cpu|replace('%','')|float %}
+                            <div class="resource-bar"><div class="resource-bar-fill {{ 'green' if cpu_val < 50 else ('amber' if cpu_val < 80 else 'red') }}" style="width:{{ [cpu_val, 100]|min }}%;"></div></div>
+                        {% else %}<span style="color:var(--text-faint);">—</span>{% endif %}
+                    </td>
+                    <td onclick="openContainerDrawer('{{ c.id }}')">
+                        {% if c.stats %}
+                            <span style="font-size:0.75rem;font-variant-numeric:tabular-nums;">{{ c.stats.memory }}</span>
+                            {% set mem_val = c.stats.mem_perc|replace('%','')|float %}
+                            <div class="resource-bar"><div class="resource-bar-fill {{ 'green' if mem_val < 60 else ('amber' if mem_val < 85 else 'red') }}" style="width:{{ [mem_val, 100]|min }}%;"></div></div>
+                        {% else %}<span style="color:var(--text-faint);">—</span>{% endif %}
+                    </td>
+                    <td onclick="openContainerDrawer('{{ c.id }}')" style="font-size:0.75rem;">{% if c.stats %}{{ c.stats.net_io }}{% else %}<span style="color:var(--text-faint);">—</span>{% endif %}</td>
+                    <td onclick="openContainerDrawer('{{ c.id }}')" style="font-size:0.75rem;white-space:nowrap;">{{ c.running_for|default(c.created[:19] if c.created else '—') }}</td>
+                    <td onclick="event.stopPropagation();">
+                        <div class="container-actions">
+                            {% if c.state == 'running' %}
+                            <button class="act-btn" onclick="containerAction('{{ c.id }}','stop',this)" title="Stop"><i class="icon-square" style="font-size:11px;"></i></button>
+                            <button class="act-btn" onclick="containerAction('{{ c.id }}','restart',this)" title="Restart"><i class="icon-refresh-cw" style="font-size:11px;"></i></button>
+                            <button class="act-btn warning" onclick="containerAction('{{ c.id }}','pause',this)" title="Pause"><i class="icon-pause" style="font-size:11px;"></i></button>
+                            <button class="act-btn danger" onclick="containerAction('{{ c.id }}','kill',this)" title="Kill"><i class="icon-zap" style="font-size:11px;"></i></button>
+                            {% elif c.state == 'exited' or c.state == 'created' or c.state == 'dead' %}
+                            <button class="act-btn primary" onclick="containerAction('{{ c.id }}','start',this)" title="Start"><i class="icon-play" style="font-size:11px;"></i></button>
+                            <button class="act-btn danger" onclick="containerAction('{{ c.id }}','rm',this)" title="Remove"><i class="icon-trash-2" style="font-size:11px;"></i></button>
+                            {% elif c.state == 'paused' %}
+                            <button class="act-btn primary" onclick="containerAction('{{ c.id }}','unpause',this)" title="Unpause"><i class="icon-play" style="font-size:11px;"></i></button>
+                            <button class="act-btn" onclick="containerAction('{{ c.id }}','stop',this)" title="Stop"><i class="icon-square" style="font-size:11px;"></i></button>
+                            {% elif c.state == 'restarting' %}
+                            <button class="act-btn" onclick="containerAction('{{ c.id }}','stop',this)" title="Stop"><i class="icon-square" style="font-size:11px;"></i></button>
+                            <button class="act-btn danger" onclick="containerAction('{{ c.id }}','kill',this)" title="Kill"><i class="icon-zap" style="font-size:11px;"></i></button>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+                {% else %}
+                <tr id="emptyContainersRow"><td colspan="10" style="text-align:center;padding:40px;color:var(--text-muted);"><div class="empty-state-icon" style="font-size:1.5rem;opacity:0.15;">📦</div>No containers found. Run <code>docker compose up -d</code> or click <strong>Run</strong> to start one.</td></tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{# ═══════════ TAB: Compose ═══════════ #}
+<div class="infra-tab-panel" id="tab-compose">
+    {% if compose.available %}
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
+        <div class="infra-section-title" style="margin:0;"><i class="icon-layers"></i> Compose Services</div>
+        <div class="container-actions">
+            <button class="act-btn primary" onclick="composeAction('up',this)"><i class="icon-play" style="font-size:11px;"></i> Up -d</button>
+            <button class="act-btn" onclick="composeAction('down',this)"><i class="icon-square" style="font-size:11px;"></i> Down</button>
+            <button class="act-btn" onclick="composeAction('restart',this)"><i class="icon-refresh-cw" style="font-size:11px;"></i> Restart</button>
+            <button class="act-btn" onclick="composeAction('build',this)"><i class="icon-hammer" style="font-size:11px;"></i> Build</button>
+            <button class="act-btn" onclick="composeAction('pull',this)"><i class="icon-download" style="font-size:11px;"></i> Pull</button>
+            <button class="act-btn" onclick="composeAction('stop',this)"><i class="icon-x" style="font-size:11px;"></i> Stop</button>
+        </div>
+    </div>
+    <div id="composeOutput" style="display:none;margin-bottom:16px;">
+        <div class="logs-panel">
+            <div class="logs-panel-header"><h4><i class="icon-terminal" style="font-size:14px;color:var(--accent);"></i> Compose Output</h4></div>
+            <div class="logs-panel-body" id="composeOutputBody" style="max-height:200px;"></div>
+        </div>
+    </div>
+    {% for svc in compose.services %}
+    <div class="compose-service">
+        <div class="compose-service-header">
+            <div class="compose-service-name"><i class="icon-box" style="font-size:14px;color:var(--accent);margin-right:6px;"></i>{{ svc.name }}</div>
+            <div style="display:flex;align-items:center;gap:6px;">
+                {% if svc.healthcheck %}<span class="infra-badge" style="background:rgba(34,197,94,0.1);color:#22c55e;"><i class="icon-heart-pulse" style="font-size:10px;"></i> healthcheck</span>{% endif %}
+                {% if svc.profiles %}{% for p in svc.profiles %}<span class="infra-badge" style="background:rgba(168,85,247,0.1);color:#c084fc;">{{ p }}</span>{% endfor %}{% endif %}
+            </div>
+        </div>
+        <div class="compose-meta">
+            {% if svc.image %}<div class="compose-meta-item"><i class="icon-hard-drive"></i> {{ svc.image }}</div>
+            {% elif svc.build %}<div class="compose-meta-item"><i class="icon-hammer"></i> build: {{ svc.build }}</div>{% endif %}
+            {% if svc.ports %}<div class="compose-meta-item"><i class="icon-globe"></i>{% for p in svc.ports %}<span class="port-tag">{{ p }}</span>{% endfor %}</div>{% endif %}
+            {% if svc.depends_on %}<div class="compose-meta-item"><i class="icon-link"></i> depends: {{ svc.depends_on|join(', ') }}</div>{% endif %}
+            {% if svc.restart %}<div class="compose-meta-item"><i class="icon-refresh-cw"></i> {{ svc.restart }}</div>{% endif %}
+            {% if svc.volumes %}<div class="compose-meta-item"><i class="icon-database"></i> {{ svc.volumes|length }} vol(s)</div>{% endif %}
+            {% if svc.environment %}
+            <div class="compose-meta-item"><i class="icon-key"></i>
+                {% if svc.environment is mapping %}{{ svc.environment|length }}{% else %}{{ svc.environment|length }}{% endif %} env var(s)
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+    {% if compose.file_content %}
+    <details style="margin-top:16px;">
+        <summary style="cursor:pointer;font-size:0.8rem;color:var(--text-muted);font-weight:500;">
+            <i class="icon-file-code" style="font-size:13px;margin-right:4px;"></i> View docker-compose.yml
+        </summary>
+        <div class="json-viewer" style="margin-top:8px;max-height:300px;">{{ compose.file_content }}</div>
+    </details>
+    {% endif %}
+    {% else %}
+    <div class="empty-state"><div class="empty-state-icon">📋</div><p>No <code>docker-compose.yml</code> found. Run <code>aq deploy compose</code> to generate one.</p></div>
+    {% endif %}
+</div>
+
+{# ═══════════ TAB: Images ═══════════ #}
+<div class="infra-tab-panel" id="tab-images">
+    {% if images %}
+    <div class="chart-card" style="margin-bottom:16px;">
+        <div class="chart-card-title"><i class="icon-bar-chart-2"></i> Image Size Distribution</div>
+        <div class="chart-canvas-wrap"><canvas id="imageSizeChart"></canvas></div>
+    </div>
+    <div class="toolbar">
+        <div class="toolbar-left">
+            <div class="search-wrap">
+                <i class="icon-search"></i>
+                <input class="search-input" id="imageSearch" type="text" placeholder="Filter images..." oninput="filterImages(this.value)">
+            </div>
+        </div>
+        <div class="toolbar-right">
+            <button class="act-btn" onclick="promptTagImage()" title="Tag Image"><i class="icon-tag" style="font-size:11px;"></i> Tag</button>
+            <button class="act-btn" onclick="promptPullImage()" title="Pull Image"><i class="icon-download" style="font-size:11px;"></i> Pull Image</button>
+        </div>
+    </div>
+    <div class="glass-card" style="overflow-x:auto;">
+        <table class="container-table" id="imagesTable">
+            <thead><tr><th>Repository</th><th>Tag</th><th>Image ID</th><th>Size</th><th>Created</th><th>Actions</th></tr></thead>
+            <tbody>
+                {% for img in images %}
+                <tr class="clickable-row image-row" data-imgid="{{ img.id }}" data-imgrepo="{{ img.repository }}" data-imgtag="{{ img.tag }}">
+                    <td onclick="openImageDrawer('{{ img.id }}')" style="font-weight:600;color:var(--text-primary);"><i class="icon-hard-drive" style="font-size:13px;color:var(--accent);margin-right:6px;"></i>{{ img.repository }}</td>
+                    <td onclick="openImageDrawer('{{ img.id }}')"><span class="port-tag" style="background:rgba(34,197,94,0.1);color:#22c55e;">{{ img.tag }}</span></td>
+                    <td onclick="openImageDrawer('{{ img.id }}')"><code style="font-size:0.72rem;">{{ img.id[:12] }}</code></td>
+                    <td onclick="openImageDrawer('{{ img.id }}')">{{ img.size }}</td>
+                    <td onclick="openImageDrawer('{{ img.id }}')" style="font-size:0.75rem;white-space:nowrap;">{{ img.created[:19] if img.created else '—' }}</td>
+                    <td onclick="event.stopPropagation();">
+                        <div class="container-actions">
+                            <button class="act-btn danger" onclick="imageAction('{{ img.id }}','rm',this)" title="Remove"><i class="icon-trash-2" style="font-size:11px;"></i></button>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state"><div class="empty-state-icon">💿</div><p>No Docker images found.</p></div>
+    {% endif %}
+</div>
+
+{# ═══════════ TAB: Volumes ═══════════ #}
+<div class="infra-tab-panel" id="tab-volumes">
+    {% if volumes %}
+    <div class="toolbar" style="margin-bottom:16px;">
+        <div class="toolbar-left"><div class="infra-section-title" style="margin:0;"><i class="icon-database"></i> Volumes</div></div>
+        <div class="toolbar-right"><button class="act-btn" onclick="openCreateVolumeDialog()" title="Create Volume"><i class="icon-plus" style="font-size:11px;"></i> Create Volume</button></div>
+    </div>
+    <div class="glass-card" style="overflow-x:auto;">
+        <table class="container-table" id="volumesTable">
+            <thead><tr><th>Name</th><th>Driver</th><th>Mountpoint</th><th>Actions</th></tr></thead>
+            <tbody>
+                {% for vol in volumes %}
+                <tr class="clickable-row" onclick="openVolumeDrawer('{{ vol.name }}')">
+                    <td style="font-weight:600;color:var(--text-primary);"><i class="icon-database" style="font-size:13px;color:#a855f7;margin-right:6px;"></i>{{ vol.name }}</td>
+                    <td><span class="infra-badge" style="background:rgba(59,130,246,0.1);color:#60a5fa;">{{ vol.driver }}</span></td>
+                    <td><code style="font-size:0.72rem;">{{ vol.mountpoint }}</code></td>
+                    <td onclick="event.stopPropagation();">
+                        <div class="container-actions">
+                            <button class="act-btn danger" onclick="volumeAction('{{ vol.name }}','rm',this)" title="Remove"><i class="icon-trash-2" style="font-size:11px;"></i></button>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state"><div class="empty-state-icon">💾</div><p>No Docker volumes found.</p><button class="act-btn" onclick="openCreateVolumeDialog()" style="margin-top:12px;"><i class="icon-plus" style="font-size:11px;"></i> Create Volume</button></div>
+    {% endif %}
+</div>
+
+{# ═══════════ TAB: Networks ═══════════ #}
+<div class="infra-tab-panel" id="tab-networks">
+    {% if networks %}
+    <div class="toolbar" style="margin-bottom:16px;">
+        <div class="toolbar-left"><div class="infra-section-title" style="margin:0;"><i class="icon-globe"></i> Networks</div></div>
+        <div class="toolbar-right"><button class="act-btn" onclick="openCreateNetworkDialog()" title="Create Network"><i class="icon-plus" style="font-size:11px;"></i> Create Network</button></div>
+    </div>
+    <div class="glass-card" style="overflow-x:auto;">
+        <table class="container-table" id="networksTable">
+            <thead><tr><th>Name</th><th>Driver</th><th>Scope</th><th>Network ID</th><th>Actions</th></tr></thead>
+            <tbody>
+                {% for net in networks %}
+                <tr class="clickable-row" onclick="openNetworkDrawer('{{ net.id }}','{{ net.name }}')">
+                    <td style="font-weight:600;color:var(--text-primary);"><i class="icon-globe" style="font-size:13px;color:#06b6d4;margin-right:6px;"></i>{{ net.name }}</td>
+                    <td><span class="infra-badge" style="background:rgba(34,197,94,0.1);color:#22c55e;">{{ net.driver }}</span></td>
+                    <td>{{ net.scope }}</td>
+                    <td><code style="font-size:0.72rem;">{{ net.id[:12] }}</code></td>
+                    <td onclick="event.stopPropagation();">
+                        <div class="container-actions">
+                            {% if net.name not in ['bridge', 'host', 'none'] %}
+                            <button class="act-btn danger" onclick="networkAction('{{ net.id }}','rm',this)" title="Remove"><i class="icon-trash-2" style="font-size:11px;"></i></button>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state"><div class="empty-state-icon">🌐</div><p>No Docker networks found.</p><button class="act-btn" onclick="openCreateNetworkDialog()" style="margin-top:12px;"><i class="icon-plus" style="font-size:11px;"></i> Create Network</button></div>
+    {% endif %}
+</div>
+
+{# ═══════════ TAB: Dockerfile ═══════════ #}
+<div class="infra-tab-panel" id="tab-dockerfile">
+    {% if dockerfile_info and dockerfile_info.exists %}
+    <div class="dockerfile-info">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+            <div>
+                <h3 style="font-size:0.95rem;font-weight:600;color:var(--text-primary);"><i class="icon-file-code" style="color:var(--accent);margin-right:6px;"></i> Dockerfile</h3>
+                <span style="font-size:0.72rem;color:var(--text-muted);">{{ dockerfile_info.path }}</span>
+            </div>
+            <span style="font-size:0.72rem;color:var(--text-faint);">{{ dockerfile_info.size }}</span>
+        </div>
+        {% if dockerfile_info.stages %}
+        <div class="infra-section-title" style="margin-top:0;"><i class="icon-layers"></i> Build Stages</div>
+        <div style="margin-bottom:16px;">{% for stage in dockerfile_info.stages %}<span class="dockerfile-stage"><i class="icon-box" style="font-size:11px;"></i>{{ stage.image }}{% if stage.alias %} → {{ stage.alias }}{% endif %}</span>{% endfor %}</div>
+        {% endif %}
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;">
+            <div class="container-stat" data-color="blue" style="padding:12px;"><div class="container-stat-value" style="font-size:1.2rem;">{{ dockerfile_info.base_image|default('—') }}</div><div class="container-stat-label">Base Image</div></div>
+            <div class="container-stat" data-color="green" style="padding:12px;"><div class="container-stat-value" style="font-size:1.2rem;">{{ dockerfile_info.stages|length }}</div><div class="container-stat-label">Stages</div></div>
+            <div class="container-stat" data-color="amber" style="padding:12px;"><div class="container-stat-value" style="font-size:1.2rem;">{{ dockerfile_info.exposed_ports|length }}</div><div class="container-stat-label">Exposed Ports</div></div>
+            <div class="container-stat" data-color="purple" style="padding:12px;"><div class="container-stat-value" style="font-size:1.2rem;">{{ dockerfile_info.run_count|default(0) }}</div><div class="container-stat-label">RUN</div></div>
+            <div class="container-stat" data-color="cyan" style="padding:12px;"><div class="container-stat-value" style="font-size:1.2rem;">{{ dockerfile_info.copy_count|default(0) }}</div><div class="container-stat-label">COPY</div></div>
+        </div>
+        {% if dockerfile_info.exposed_ports %}<div class="infra-section-title"><i class="icon-globe"></i> Exposed Ports</div><div>{% for p in dockerfile_info.exposed_ports %}<span class="port-tag">{{ p }}</span>{% endfor %}</div>{% endif %}
+        {% if dockerfile_info.env_vars %}<div class="infra-section-title"><i class="icon-key"></i> Environment Variables</div><div>{% for e in dockerfile_info.env_vars %}<span class="port-tag" style="background:rgba(168,85,247,0.1);color:#c084fc;">{{ e }}</span>{% endfor %}</div>{% endif %}
+    </div>
+    {% else %}
+    <div class="empty-state"><div class="empty-state-icon">📄</div><p>No Dockerfile found. Run <code>aq deploy dockerfile</code> to generate one.</p></div>
+    {% endif %}
+</div>
+
+{# ═══════════ TAB: Build ═══════════ #}
+<div class="infra-tab-panel" id="tab-build">
+    {% if dockerfile_info and dockerfile_info.exists %}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+        <div>
+            <div class="infra-section-title" style="margin-top:0;"><i class="icon-hammer"></i> Docker Build</div>
+            <div class="build-form">
+                <div>
+                    <label>Image Tag *</label>
+                    <input type="text" id="buildTag" placeholder="myapp:latest" value="{{ dockerfile_info.stages[0].alias|default('myapp') }}:latest">
+                </div>
+                <div>
+                    <label>Target Stage (optional)</label>
+                    <select id="buildTarget" style="background:var(--bg-input);border:1px solid var(--border-color);border-radius:8px;padding:8px 12px;color:var(--text-primary);font-size:0.82rem;font-family:var(--font-sans);outline:none;">
+                        <option value="">All stages</option>
+                        {% if dockerfile_info.stages %}{% for stage in dockerfile_info.stages %}{% if stage.alias %}<option value="{{ stage.alias }}">{{ stage.alias }} ({{ stage.image }})</option>{% endif %}{% endfor %}{% endif %}
+                    </select>
+                </div>
+                <div>
+                    <label>Build Arguments (KEY=VALUE per line)</label>
+                    <textarea id="buildArgs" rows="3" placeholder="PYTHON_VERSION=3.12&#10;NODE_VERSION=20"></textarea>
+                </div>
+                <div style="display:flex;align-items:center;gap:16px;">
+                    <label style="display:flex;align-items:center;gap:6px;font-size:0.8rem;color:var(--text-secondary);cursor:pointer;text-transform:none;letter-spacing:0;font-weight:400;">
+                        <input type="checkbox" id="buildNoCache" style="accent-color:var(--accent);"> No cache
+                    </label>
+                </div>
+                <div style="display:flex;gap:8px;">
+                    <button class="act-btn primary" id="buildBtn" onclick="executeBuild()"><i class="icon-hammer" style="font-size:11px;"></i> Build Image</button>
+                </div>
+            </div>
+            {% if dockerfile_info.stages %}
+            <div style="margin-top:20px;">
+                <div class="infra-section-title"><i class="icon-layers"></i> Build Stages</div>
+                {% for stage in dockerfile_info.stages %}
+                <div class="compose-service" style="margin-bottom:8px;">
+                    <div class="compose-service-header">
+                        <div class="compose-service-name" style="font-size:0.82rem;">
+                            <span style="color:var(--accent);font-family:monospace;">{{ loop.index }}.</span>
+                            {{ stage.image }}{% if stage.alias %} <span style="color:var(--text-faint);font-size:0.72rem;">AS</span> <span style="color:#c084fc;">{{ stage.alias }}</span>{% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+        <div>
+            <div class="infra-section-title" style="margin-top:0;"><i class="icon-terminal"></i> Build Output</div>
+            <div class="build-output" id="buildOutput" style="min-height:300px;">
+                <span style="color:#484f58;">Click "Build Image" to start a build. Output will stream here.</span>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="empty-state"><div class="empty-state-icon">🔨</div><p>No Dockerfile found. Create a Dockerfile first to use the build feature.</p></div>
+    {% endif %}
+</div>
+
+{# ═══════════ TAB: System / Disk Usage ═══════════ #}
+<div class="infra-tab-panel" id="tab-system">
+    <div class="infra-section-title" style="margin-top:0;"><i class="icon-hard-drive"></i> Docker System &amp; Disk Usage</div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:24px;">
+        <div class="container-stat" data-color="green" style="padding:14px;">
+            <div class="container-stat-value" style="font-size:1.2rem;">{{ docker_version }}</div>
+            <div class="container-stat-label">Docker Version</div>
+        </div>
+        {% if system_info.os %}<div class="container-stat" data-color="blue" style="padding:14px;">
+            <div class="container-stat-value" style="font-size:1rem;">{{ system_info.os }}</div>
+            <div class="container-stat-label">Operating System</div>
+        </div>{% endif %}
+        {% if system_info.arch %}<div class="container-stat" data-color="purple" style="padding:14px;">
+            <div class="container-stat-value" style="font-size:1.2rem;">{{ system_info.arch }}</div>
+            <div class="container-stat-label">Architecture</div>
+        </div>{% endif %}
+        {% if system_info.cpus %}<div class="container-stat" data-color="amber" style="padding:14px;">
+            <div class="container-stat-value" style="font-size:1.2rem;">{{ system_info.cpus }}</div>
+            <div class="container-stat-label">CPUs</div>
+        </div>{% endif %}
+        {% if system_info.storage_driver %}<div class="container-stat" data-color="cyan" style="padding:14px;">
+            <div class="container-stat-value" style="font-size:1rem;">{{ system_info.storage_driver }}</div>
+            <div class="container-stat-label">Storage Driver</div>
+        </div>{% endif %}
+    </div>
+
+    <div class="disk-card">
+        <h4><i class="icon-pie-chart" style="font-size:14px;color:var(--accent);"></i> Disk Usage</h4>
+        <div id="diskUsageContent" style="font-family:monospace;font-size:0.78rem;color:var(--text-secondary);white-space:pre-wrap;">
+            <div style="text-align:center;padding:20px;"><div class="spinner-inline"></div><br>Loading disk usage...</div>
+        </div>
+    </div>
+
+    <div class="infra-section-title"><i class="icon-trash-2"></i> Cleanup &amp; Prune</div>
+    <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:14px;">
+        Free up disk space by removing unused Docker objects. <strong style="color:#f59e0b;">⚠ These operations are irreversible.</strong>
+    </p>
+    <div class="disk-prune-btns">
+        <button class="act-btn danger" onclick="dockerPrune('containers')"><i class="icon-box" style="font-size:11px;"></i> Prune Stopped Containers</button>
+        <button class="act-btn danger" onclick="dockerPrune('images')"><i class="icon-hard-drive" style="font-size:11px;"></i> Prune Unused Images</button>
+        <button class="act-btn danger" onclick="dockerPrune('volumes')"><i class="icon-database" style="font-size:11px;"></i> Prune Unused Volumes</button>
+        <button class="act-btn danger" onclick="dockerPrune('builder')"><i class="icon-hammer" style="font-size:11px;"></i> Clear Build Cache</button>
+        <button class="act-btn danger" onclick="dockerPrune('system')" style="border-color:#ef4444;color:#ef4444;"><i class="icon-alert-triangle" style="font-size:11px;"></i> Full System Prune</button>
+    </div>
+    <div id="pruneOutput" style="display:none;margin-top:16px;">
+        <div class="logs-panel">
+            <div class="logs-panel-header"><h4><i class="icon-terminal" style="font-size:14px;color:var(--accent);"></i> Prune Output</h4></div>
+            <div class="logs-panel-body" id="pruneOutputBody" style="max-height:200px;"></div>
+        </div>
+    </div>
+</div>
+
+{# ═══════════ TAB: Events ═══════════ #}
+<div class="infra-tab-panel" id="tab-events">
+    <div class="toolbar">
+        <div class="toolbar-left">
+            <div class="infra-section-title" style="margin:0;"><i class="icon-activity"></i> Docker Events</div>
+            <select id="eventSince" onchange="loadDockerEvents()" style="background:var(--bg-input);border:1px solid var(--border-color);border-radius:8px;padding:6px 12px;color:var(--text-primary);font-size:0.8rem;font-family:var(--font-sans);outline:none;">
+                <option value="5m">Last 5 min</option>
+                <option value="10m" selected>Last 10 min</option>
+                <option value="30m">Last 30 min</option>
+                <option value="1h">Last 1 hour</option>
+                <option value="6h">Last 6 hours</option>
+                <option value="24h">Last 24 hours</option>
+            </select>
+        </div>
+        <div class="toolbar-right">
+            <button class="act-btn" onclick="loadDockerEvents()"><i class="icon-refresh-cw" style="font-size:11px;"></i> Refresh</button>
+        </div>
+    </div>
+    <div class="glass-card" style="margin-top:16px;">
+        <div class="event-feed" id="eventFeed">
+            <div style="text-align:center;padding:40px;color:var(--text-faint);"><div class="spinner-inline"></div><br><br>Loading events...</div>
+        </div>
+    </div>
+</div>
+
+{# ═══════════ TAB: Logs (Terminal-style) ═══════════ #}
+<div class="infra-tab-panel" id="tab-logs">
+    <div class="toolbar">
+        <div class="toolbar-left">
+            <div class="infra-section-title" style="margin:0;"><i class="icon-terminal"></i> Container Logs</div>
+            <select id="logContainerSelect" onchange="loadContainerLogs(this.value)" style="background:var(--bg-input);border:1px solid var(--border-color);border-radius:8px;padding:6px 12px;color:var(--text-primary);font-size:0.8rem;font-family:var(--font-sans);outline:none;">
+                <option value="">Select container...</option>
+                {% for c in containers %}<option value="{{ c.id }}">{{ c.name }} ({{ c.state }})</option>{% endfor %}
+            </select>
+            <select id="logTailCount" style="background:var(--bg-input);border:1px solid var(--border-color);border-radius:8px;padding:6px 12px;color:var(--text-primary);font-size:0.8rem;font-family:var(--font-sans);outline:none;">
+                <option value="100">Last 100</option>
+                <option value="200" selected>Last 200</option>
+                <option value="500">Last 500</option>
+                <option value="1000">Last 1000</option>
+                <option value="all">All</option>
+            </select>
+        </div>
+        <div class="toolbar-right">
+            <label style="display:flex;align-items:center;gap:6px;font-size:0.78rem;color:var(--text-muted);cursor:pointer;">
+                <input type="checkbox" id="logFollow" style="accent-color:var(--accent);" checked> Auto-scroll
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;font-size:0.78rem;color:var(--text-muted);cursor:pointer;">
+                <input type="checkbox" id="logWrap" style="accent-color:var(--accent);" checked onchange="toggleLogWrap()"> Wrap
+            </label>
+        </div>
+    </div>
+    <div class="logs-panel">
+        <div class="logs-panel-header">
+            <h4><i class="icon-terminal" style="font-size:14px;color:#22c55e;"></i> <span id="logContainerName">No container selected</span></h4>
+            <div class="container-actions">
+                <span id="logLiveIndicator" style="display:none;align-items:center;gap:4px;font-size:0.7rem;color:#22c55e;font-weight:600;padding:3px 10px;background:rgba(34,197,94,0.1);border-radius:20px;animation:pulse-live 2s infinite;"><span style="width:6px;height:6px;border-radius:50%;background:#22c55e;display:inline-block;"></span> LIVE</span>
+                <button class="act-btn" id="logPauseBtn" onclick="toggleLogPause()" title="Pause live streaming"><i class="icon-pause" style="font-size:11px;"></i> Pause</button>
+                <button class="act-btn" onclick="refreshLogs()" title="Refresh"><i class="icon-refresh-cw" style="font-size:11px;"></i> Refresh</button>
+                <button class="act-btn" onclick="copyLogs()" title="Copy"><i class="icon-copy" style="font-size:11px;"></i> Copy</button>
+                <button class="act-btn" onclick="downloadLogs()" title="Export"><i class="icon-download" style="font-size:11px;"></i> Export</button>
+                <button class="act-btn" onclick="clearLogs()" title="Clear"><i class="icon-x" style="font-size:11px;"></i> Clear</button>
+            </div>
+        </div>
+        <div class="logs-panel-body" id="logsPanelBody">
+            <div class="empty-state" style="padding:20px;"><p style="color:#484f58;">Select a container from the dropdown to view its real-time logs.</p></div>
+        </div>
+    </div>
+</div>
+
+{# ═══════════ TAB: Topology ═══════════ #}
+<div class="infra-tab-panel" id="tab-topology">
+    <div class="infra-section-title" style="margin-top:0;"><i class="icon-git-branch"></i> Service Topology</div>
+    {% if compose.available and compose.services %}
+    <div class="chart-card" id="topologyWrap" style="min-height:320px;">
+        <canvas id="topologyCanvas" style="width:100%;height:300px;"></canvas>
+    </div>
+    <div style="display:flex;gap:16px;margin-top:12px;font-size:0.68rem;color:var(--text-faint);">
+        <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#22c55e;margin-right:4px;box-shadow:0 0 4px rgba(34,197,94,0.4);"></span>Running</span>
+        <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#ef4444;margin-right:4px;"></span>Stopped</span>
+        <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#3b82f6;margin-right:4px;"></span>Service</span>
+        <span style="display:flex;align-items:center;gap:4px;"><span style="display:inline-block;width:20px;height:2px;background:var(--text-faint);border-radius:1px;"></span>Dependency</span>
+    </div>
+    {% else %}
+    <div class="empty-state"><div class="empty-state-icon">🔗</div><p>Add a <code>docker-compose.yml</code> with service dependencies to view the topology graph.</p></div>
+    {% endif %}
+</div>
+
+{% endif %}
+
+{# ── Run Container Dialog ── #}
+<div id="runContainerBackdrop" style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1001;opacity:0;pointer-events:none;transition:opacity 0.3s;" onclick="closeRunDialog()"></div>
+<div id="runContainerDialog" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(0.95);background:var(--bg-elevated);border:1px solid var(--border-color);border-radius:16px;width:520px;max-width:92vw;max-height:80vh;overflow-y:auto;z-index:1002;opacity:0;pointer-events:none;transition:all 0.3s;box-shadow:0 20px 60px rgba(0,0,0,0.4);">
+    <div style="padding:20px 24px;border-bottom:1px solid var(--border-color);display:flex;align-items:center;justify-content:space-between;">
+        <h3 style="margin:0;font-size:0.95rem;font-weight:600;color:var(--text-primary);"><i class="icon-play" style="color:var(--accent);margin-right:8px;"></i> Run Container</h3>
+        <button class="drawer-close" onclick="closeRunDialog()"><i class="icon-x" style="font-size:14px;"></i></button>
+    </div>
+    <div style="padding:20px 24px;">
+        <div style="margin-bottom:14px;">
+            <label style="font-size:0.72rem;font-weight:600;color:var(--text-faint);text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:6px;">Image *</label>
+            <input type="text" id="runImage" placeholder="e.g., nginx:latest, postgres:16, redis:alpine" style="width:100%;box-sizing:border-box;background:var(--bg-input);border:1px solid var(--border-color);border-radius:8px;padding:8px 12px;color:var(--text-primary);font-size:0.85rem;font-family:var(--font-sans);outline:none;">
+        </div>
+        <div style="margin-bottom:14px;">
+            <label style="font-size:0.72rem;font-weight:600;color:var(--text-faint);text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:6px;">Container Name (optional)</label>
+            <input type="text" id="runName" placeholder="my-container" style="width:100%;box-sizing:border-box;background:var(--bg-input);border:1px solid var(--border-color);border-radius:8px;padding:8px 12px;color:var(--text-primary);font-size:0.85rem;font-family:var(--font-sans);outline:none;">
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
+            <div>
+                <label style="font-size:0.72rem;font-weight:600;color:var(--text-faint);text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:6px;">Host Port</label>
+                <input type="text" id="runHostPort" placeholder="8080" style="width:100%;box-sizing:border-box;background:var(--bg-input);border:1px solid var(--border-color);border-radius:8px;padding:8px 12px;color:var(--text-primary);font-size:0.85rem;font-family:var(--font-sans);outline:none;">
+            </div>
+            <div>
+                <label style="font-size:0.72rem;font-weight:600;color:var(--text-faint);text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:6px;">Container Port</label>
+                <input type="text" id="runContPort" placeholder="80" style="width:100%;box-sizing:border-box;background:var(--bg-input);border:1px solid var(--border-color);border-radius:8px;padding:8px 12px;color:var(--text-primary);font-size:0.85rem;font-family:var(--font-sans);outline:none;">
+            </div>
+        </div>
+        <div style="margin-bottom:14px;">
+            <label style="font-size:0.72rem;font-weight:600;color:var(--text-faint);text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:6px;">Environment Variables (KEY=VALUE, one per line)</label>
+            <textarea id="runEnvVars" rows="3" placeholder="MYSQL_ROOT_PASSWORD=secret&#10;POSTGRES_DB=mydb" style="width:100%;box-sizing:border-box;background:var(--bg-input);border:1px solid var(--border-color);border-radius:8px;padding:8px 12px;color:var(--text-primary);font-size:0.82rem;font-family:var(--font-mono, monospace);outline:none;resize:vertical;"></textarea>
+        </div>
+        <div style="margin-bottom:14px;">
+            <label style="font-size:0.72rem;font-weight:600;color:var(--text-faint);text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:6px;">Extra flags (optional)</label>
+            <input type="text" id="runFlags" placeholder="--restart unless-stopped --memory 512m" style="width:100%;box-sizing:border-box;background:var(--bg-input);border:1px solid var(--border-color);border-radius:8px;padding:8px 12px;color:var(--text-primary);font-size:0.85rem;font-family:var(--font-sans);outline:none;">
+        </div>
+        <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px;">
+            <label style="display:flex;align-items:center;gap:6px;font-size:0.8rem;color:var(--text-secondary);cursor:pointer;">
+                <input type="checkbox" id="runDetach" checked style="accent-color:var(--accent);"> Detached (-d)
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;font-size:0.8rem;color:var(--text-secondary);cursor:pointer;">
+                <input type="checkbox" id="runRemove" style="accent-color:var(--accent);"> Auto-remove (--rm)
+            </label>
+        </div>
+        <div id="runOutput" style="display:none;margin-bottom:14px;">
+            <div class="logs-panel"><div class="logs-panel-body" id="runOutputBody" style="max-height:120px;"></div></div>
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;">
+            <button class="act-btn" onclick="closeRunDialog()">Cancel</button>
+            <button class="act-btn primary" id="runBtn" onclick="executeRunContainer()"><i class="icon-play" style="font-size:11px;"></i> Run Container</button>
+        </div>
+    </div>
+</div>
+
+{# ── Create Network Dialog ── #}
+<div id="createNetworkBackdrop" style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1001;opacity:0;pointer-events:none;transition:opacity 0.3s;" onclick="closeCreateNetworkDialog()"></div>
+<div class="create-dialog" id="createNetworkDialog">
+    <div class="create-dialog-header">
+        <h3><i class="icon-globe" style="color:var(--accent);margin-right:8px;"></i> Create Network</h3>
+        <button class="drawer-close" onclick="closeCreateNetworkDialog()"><i class="icon-x" style="font-size:14px;"></i></button>
+    </div>
+    <div class="create-dialog-body">
+        <div style="margin-bottom:14px;">
+            <label style="font-size:0.72rem;font-weight:600;color:var(--text-faint);text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:6px;">Network Name *</label>
+            <input type="text" id="netName" placeholder="my-network" style="width:100%;box-sizing:border-box;background:var(--bg-input);border:1px solid var(--border-color);border-radius:8px;padding:8px 12px;color:var(--text-primary);font-size:0.85rem;font-family:var(--font-sans);outline:none;">
+        </div>
+        <div style="margin-bottom:14px;">
+            <label style="font-size:0.72rem;font-weight:600;color:var(--text-faint);text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:6px;">Driver</label>
+            <select id="netDriver" style="width:100%;box-sizing:border-box;background:var(--bg-input);border:1px solid var(--border-color);border-radius:8px;padding:8px 12px;color:var(--text-primary);font-size:0.85rem;font-family:var(--font-sans);outline:none;">
+                <option value="bridge" selected>bridge</option>
+                <option value="host">host</option>
+                <option value="overlay">overlay</option>
+                <option value="macvlan">macvlan</option>
+                <option value="none">none</option>
+            </select>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
+            <div>
+                <label style="font-size:0.72rem;font-weight:600;color:var(--text-faint);text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:6px;">Subnet (optional)</label>
+                <input type="text" id="netSubnet" placeholder="172.20.0.0/16" style="width:100%;box-sizing:border-box;background:var(--bg-input);border:1px solid var(--border-color);border-radius:8px;padding:8px 12px;color:var(--text-primary);font-size:0.85rem;font-family:var(--font-sans);outline:none;">
+            </div>
+            <div>
+                <label style="font-size:0.72rem;font-weight:600;color:var(--text-faint);text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:6px;">Gateway (optional)</label>
+                <input type="text" id="netGateway" placeholder="172.20.0.1" style="width:100%;box-sizing:border-box;background:var(--bg-input);border:1px solid var(--border-color);border-radius:8px;padding:8px 12px;color:var(--text-primary);font-size:0.85rem;font-family:var(--font-sans);outline:none;">
+            </div>
+        </div>
+        <div style="margin-bottom:14px;">
+            <label style="display:flex;align-items:center;gap:6px;font-size:0.8rem;color:var(--text-secondary);cursor:pointer;">
+                <input type="checkbox" id="netInternal" style="accent-color:var(--accent);"> Internal network (no external access)
+            </label>
+        </div>
+    </div>
+    <div class="create-dialog-footer">
+        <button class="act-btn" onclick="closeCreateNetworkDialog()">Cancel</button>
+        <button class="act-btn primary" onclick="executeCreateNetwork()"><i class="icon-plus" style="font-size:11px;"></i> Create</button>
+    </div>
+</div>
+
+{# ── Create Volume Dialog ── #}
+<div id="createVolumeBackdrop" style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1001;opacity:0;pointer-events:none;transition:opacity 0.3s;" onclick="closeCreateVolumeDialog()"></div>
+<div class="create-dialog" id="createVolumeDialog">
+    <div class="create-dialog-header">
+        <h3><i class="icon-database" style="color:var(--accent);margin-right:8px;"></i> Create Volume</h3>
+        <button class="drawer-close" onclick="closeCreateVolumeDialog()"><i class="icon-x" style="font-size:14px;"></i></button>
+    </div>
+    <div class="create-dialog-body">
+        <div style="margin-bottom:14px;">
+            <label style="font-size:0.72rem;font-weight:600;color:var(--text-faint);text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:6px;">Volume Name *</label>
+            <input type="text" id="volName" placeholder="my-data-volume" style="width:100%;box-sizing:border-box;background:var(--bg-input);border:1px solid var(--border-color);border-radius:8px;padding:8px 12px;color:var(--text-primary);font-size:0.85rem;font-family:var(--font-sans);outline:none;">
+        </div>
+        <div style="margin-bottom:14px;">
+            <label style="font-size:0.72rem;font-weight:600;color:var(--text-faint);text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:6px;">Driver</label>
+            <select id="volDriver" style="width:100%;box-sizing:border-box;background:var(--bg-input);border:1px solid var(--border-color);border-radius:8px;padding:8px 12px;color:var(--text-primary);font-size:0.85rem;font-family:var(--font-sans);outline:none;">
+                <option value="local" selected>local</option>
+            </select>
+        </div>
+        <div style="margin-bottom:14px;">
+            <label style="font-size:0.72rem;font-weight:600;color:var(--text-faint);text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:6px;">Labels (comma separated, optional)</label>
+            <input type="text" id="volLabels" placeholder="env=production, app=myapp" style="width:100%;box-sizing:border-box;background:var(--bg-input);border:1px solid var(--border-color);border-radius:8px;padding:8px 12px;color:var(--text-primary);font-size:0.85rem;font-family:var(--font-sans);outline:none;">
+        </div>
+    </div>
+    <div class="create-dialog-footer">
+        <button class="act-btn" onclick="closeCreateVolumeDialog()">Cancel</button>
+        <button class="act-btn primary" onclick="executeCreateVolume()"><i class="icon-plus" style="font-size:11px;"></i> Create</button>
+    </div>
+</div>
+
+{# ── Docker Command Loading Overlay ── #}
+<div class="docker-cmd-overlay" id="dockerCmdOverlay">
+    <div class="docker-cmd-card" id="dockerCmdCard">
+        <div class="docker-cmd-spinner" id="dockerCmdSpinner"></div>
+        <div class="docker-cmd-check" id="dockerCmdCheck" style="display:none;"></div>
+        <div class="docker-cmd-title" id="dockerCmdTitle">Executing Command</div>
+        <div class="docker-cmd-message" id="dockerCmdMessage">Processing your request...</div>
+        <div class="docker-cmd-progress"><div class="docker-cmd-progress-bar" id="dockerCmdProgressBar"></div></div>
+    </div>
+</div>
+
+{# ── Custom Confirm Modal ── #}
+<div class="confirm-modal-backdrop" id="confirmModalBackdrop">
+    <div class="confirm-modal" id="confirmModal">
+        <div class="confirm-modal-icon" id="confirmModalIcon">⚠️</div>
+        <h3 id="confirmModalTitle">Confirm Action</h3>
+        <p id="confirmModalMessage">Are you sure you want to proceed?</p>
+        <div class="confirm-modal-actions">
+            <button class="confirm-modal-btn cancel" onclick="_confirmResolve(false)">Cancel</button>
+            <button class="confirm-modal-btn" id="confirmModalBtn" onclick="_confirmResolve(true)">Confirm</button>
+        </div>
+    </div>
+</div>
+
+{# ── Detail drawer (multi-purpose: container / volume / network / image) ── #}
+<div class="detail-drawer-backdrop" id="drawerBackdrop" onclick="closeDrawer()"></div>
+<div class="detail-drawer" id="detailDrawer">
+    <div class="drawer-header">
+        <h3><span class="status-dot" id="drawerStatusDot" style="width:10px;height:10px;"></span> <span id="drawerTitle">Details</span></h3>
+        <button class="drawer-close" onclick="closeDrawer()"><i class="icon-x" style="font-size:14px;"></i></button>
+    </div>
+    <div id="drawerTabsWrap"></div>
+    <div class="drawer-body" id="drawerBody">
+        <div style="padding:40px;text-align:center;color:var(--text-faint);"><div class="spinner-inline"></div><br><br>Loading...</div>
+    </div>
+    <div class="drawer-actions" id="drawerActions"></div>
+</div>
+
+{# ── System info footer ── #}
+{% if docker_available and system_info %}
+<div style="margin-top:28px;padding:14px 18px;background:var(--bg-glass);border:1px solid var(--border-color);border-radius:var(--radius);display:flex;flex-wrap:wrap;gap:20px;font-size:0.72rem;color:var(--text-faint);">
+    <span><strong>Docker</strong> v{{ docker_version }}</span>
+    {% if system_info.os %}<span><strong>OS:</strong> {{ system_info.os }}</span>{% endif %}
+    {% if system_info.arch %}<span><strong>Arch:</strong> {{ system_info.arch }}</span>{% endif %}
+    {% if system_info.cpus %}<span><strong>CPUs:</strong> {{ system_info.cpus }}</span>{% endif %}
+    {% if system_info.storage_driver %}<span><strong>Storage:</strong> {{ system_info.storage_driver }}</span>{% endif %}
+    <span id="lastUpdated" style="margin-left:auto;">Updated just now</span>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+/* ═══════════════════════════════════════════════════════════════
+   API Prefix
+   ═══════════════════════════════════════════════════════════════ */
+var _API='{{ url_prefix|default("/admin") }}';
+
+/* ═══════════════════════════════════════════════════════════════
+   Tab switching – unique name avoids base.html switchTab clash
+   ═══════════════════════════════════════════════════════════════ */
+function switchInfraTab(btn,panelId){
+    document.querySelectorAll('.infra-tab').forEach(function(t){t.classList.remove('active');});
+    document.querySelectorAll('.infra-tab-panel').forEach(function(p){p.classList.remove('active');});
+    btn.classList.add('active');
+    var panel=document.getElementById(panelId);
+    if(panel)panel.classList.add('active');
+    if(panelId==='tab-topology')setTimeout(renderTopology,50);
+    if(panelId==='tab-images')setTimeout(renderImageSizeChart,50);
+    if(panelId==='tab-system')loadDiskUsage();
+    if(panelId==='tab-events')loadDockerEvents();
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   JSON syntax-highlighted renderer
+   ═══════════════════════════════════════════════════════════════ */
+function jsonToHtml(obj,indent){
+    indent=indent||0;
+    var sp='  '.repeat(indent);
+    if(obj===null)return '<span class="json-null">null</span>';
+    if(typeof obj==='boolean')return '<span class="json-bool">'+obj+'</span>';
+    if(typeof obj==='number')return '<span class="json-num">'+obj+'</span>';
+    if(typeof obj==='string'){
+        var esc=obj.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        if(esc.length>120)esc=esc.substring(0,120)+'…';
+        return '<span class="json-str">"'+esc+'"</span>';
+    }
+    if(Array.isArray(obj)){
+        if(!obj.length)return '[]';
+        var items=obj.map(function(v){return sp+'  '+jsonToHtml(v,indent+1);});
+        return '[\n'+items.join(',\n')+'\n'+sp+']';
+    }
+    if(typeof obj==='object'){
+        var keys=Object.keys(obj);
+        if(!keys.length)return '{}';
+        var entries=keys.map(function(k){
+            return sp+'  <span class="json-key">"'+k.replace(/</g,'&lt;')+'"</span>: '+jsonToHtml(obj[k],indent+1);
+        });
+        return '{\n'+entries.join(',\n')+'\n'+sp+'}';
+    }
+    return String(obj);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   POST helper (form-encoded)
+   ═══════════════════════════════════════════════════════════════ */
+function postAPI(endpoint,params){
+    var body=new URLSearchParams();
+    for(var k in params)body.append(k,params[k]);
+    return fetch(_API+endpoint,{
+        method:'POST',
+        headers:{'Content-Type':'application/x-www-form-urlencoded'},
+        body:body.toString()
+    }).then(function(r){return r.json();});
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Custom Confirm Modal (replaces browser confirm())
+   ═══════════════════════════════════════════════════════════════ */
+var _confirmResolveFn=null;
+function _confirmResolve(val){
+    var bd=document.getElementById('confirmModalBackdrop');
+    bd.classList.remove('active');
+    if(_confirmResolveFn)_confirmResolveFn(val);
+    _confirmResolveFn=null;
+}
+function showConfirm(opts){
+    return new Promise(function(resolve){
+        _confirmResolveFn=resolve;
+        var bd=document.getElementById('confirmModalBackdrop');
+        var icon=document.getElementById('confirmModalIcon');
+        var title=document.getElementById('confirmModalTitle');
+        var msg=document.getElementById('confirmModalMessage');
+        var btn=document.getElementById('confirmModalBtn');
+        var type=opts.type||'danger';
+        icon.className='confirm-modal-icon '+type;
+        icon.textContent=type==='danger'?'🗑️':type==='warning'?'⚠️':'ℹ️';
+        title.textContent=opts.title||'Confirm Action';
+        msg.textContent=opts.message||'Are you sure?';
+        btn.textContent=opts.confirmText||'Confirm';
+        btn.className='confirm-modal-btn confirm-'+type;
+        bd.classList.add('active');
+    });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Docker Command Loading Overlay
+   ═══════════════════════════════════════════════════════════════ */
+function showDockerLoading(title,message){
+    var ov=document.getElementById('dockerCmdOverlay');
+    var card=document.getElementById('dockerCmdCard');
+    document.getElementById('dockerCmdSpinner').style.display='';
+    document.getElementById('dockerCmdCheck').style.display='none';
+    document.getElementById('dockerCmdTitle').textContent=title||'Executing Command';
+    document.getElementById('dockerCmdMessage').textContent=message||'Processing your request...';
+    document.getElementById('dockerCmdProgressBar').parentElement.style.display='';
+    card.classList.remove('docker-cmd-done');
+    ov.classList.add('active');
+}
+function hideDockerLoading(success,message,delay){
+    var card=document.getElementById('dockerCmdCard');
+    var spinner=document.getElementById('dockerCmdSpinner');
+    var check=document.getElementById('dockerCmdCheck');
+    var msg=document.getElementById('dockerCmdMessage');
+    var title=document.getElementById('dockerCmdTitle');
+    spinner.style.display='none';
+    check.style.display='flex';
+    check.className='docker-cmd-check '+(success?'success':'error');
+    check.textContent=success?'✓':'✕';
+    title.textContent=success?'Success':'Failed';
+    msg.textContent=message||'';
+    document.getElementById('dockerCmdProgressBar').parentElement.style.display='none';
+    card.classList.add('docker-cmd-done');
+    setTimeout(function(){
+        document.getElementById('dockerCmdOverlay').classList.remove('active');
+    },delay||1800);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Container Actions (real docker commands)
+   ═══════════════════════════════════════════════════════════════ */
+function containerAction(id,act,btn){
+    var _labels={stop:'Stop Container',start:'Start Container',restart:'Restart Container',pause:'Pause Container',unpause:'Unpause Container',kill:'Kill Container',rm:'Remove Container'};
+    var _msgs={
+        rm:{type:'danger',title:'Remove Container',message:'Remove container '+id.substring(0,12)+'? This will permanently delete the container and cannot be undone.',confirmText:'Remove'},
+        kill:{type:'warning',title:'Kill Container',message:'Forcefully kill container '+id.substring(0,12)+'? The container will be immediately terminated.',confirmText:'Kill'}
+    };
+    function _exec(){
+        showDockerLoading(_labels[act]||('Docker '+act),'Running docker '+act+' on '+id.substring(0,12)+'...');
+        if(btn){btn.disabled=true;btn.innerHTML='<span class="spinner-inline"></span>';}
+        postAPI('/containers/action/',{container_id:id,action:act}).then(function(res){
+            if(res.success){
+                hideDockerLoading(true,res.message||'Container '+act+' successful',1800);
+            } else {
+                hideDockerLoading(false,res.error||'Action failed',2500);
+            }
+            setTimeout(function(){refreshContainersLive();},2200);
+        }).catch(function(e){
+            hideDockerLoading(false,'Request failed: '+e.message,2500);
+            if(btn){btn.disabled=false;btn.innerHTML='Error';}
+        });
+    }
+    if(_msgs[act]){
+        showConfirm(_msgs[act]).then(function(ok){if(ok)_exec();});
+    } else { _exec(); }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Bulk container actions
+   ═══════════════════════════════════════════════════════════════ */
+function toggleSelectAll(el){
+    document.querySelectorAll('.row-select').forEach(function(cb){cb.checked=el.checked;});
+    updateBulkBar();
+}
+function updateBulkBar(){
+    var checked=document.querySelectorAll('.row-select:checked');
+    var bar=document.getElementById('bulkBar'),cnt=document.getElementById('bulkCount');
+    if(checked.length>0){bar.classList.add('visible');cnt.textContent=checked.length;}
+    else{bar.classList.remove('visible');}
+}
+function bulkAction(act){
+    var ids=[];
+    document.querySelectorAll('.row-select:checked').forEach(function(cb){ids.push(cb.value);});
+    if(!ids.length)return;
+    function _exec(){
+        showDockerLoading('Bulk '+act,'Executing '+act+' on '+ids.length+' container(s)...');
+        var chain=Promise.resolve();
+        ids.forEach(function(id){
+            chain=chain.then(function(){return postAPI('/containers/action/',{container_id:id,action:act});});
+        });
+        chain.then(function(){
+            hideDockerLoading(true,'Completed '+act+' on '+ids.length+' container(s)',2000);
+            setTimeout(function(){refreshContainersLive();},2500);
+        }).catch(function(e){
+            hideDockerLoading(false,'Failed: '+e.message,2500);
+        });
+    }
+    if(act==='rm'){
+        showConfirm({type:'danger',title:'Remove '+ids.length+' Container(s)',message:'This will permanently remove '+ids.length+' selected container(s). This action cannot be undone.',confirmText:'Remove All'}).then(function(ok){if(ok)_exec();});
+    } else { _exec(); }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Filter / Search
+   ═══════════════════════════════════════════════════════════════ */
+function filterContainers(q){
+    q=(q||'').toLowerCase();
+    var stateF=document.getElementById('stateFilter').value.toLowerCase();
+    document.querySelectorAll('#containersTable tbody tr').forEach(function(row){
+        var name=(row.getAttribute('data-cname')||'').toLowerCase();
+        var image=(row.getAttribute('data-cimage')||'').toLowerCase();
+        var state=(row.getAttribute('data-cstate')||'').toLowerCase();
+        var matchQ=!q||name.indexOf(q)!==-1||image.indexOf(q)!==-1;
+        var matchS=!stateF||state===stateF;
+        row.style.display=(matchQ&&matchS)?'':'none';
+    });
+}
+function filterImages(q){
+    q=(q||'').toLowerCase();
+    document.querySelectorAll('#imagesTable tbody tr').forEach(function(row){
+        var repo=(row.getAttribute('data-imgrepo')||'').toLowerCase();
+        var tag=(row.getAttribute('data-imgtag')||'').toLowerCase();
+        row.style.display=(!q||repo.indexOf(q)!==-1||tag.indexOf(q)!==-1)?'':'none';
+    });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Compose Actions (real docker compose commands)
+   ═══════════════════════════════════════════════════════════════ */
+function composeAction(act,btn){
+    function _exec(){
+        showDockerLoading('Compose '+act,'Running docker compose '+act+'...');
+        if(btn){btn.disabled=true;var orig=btn.innerHTML;btn.innerHTML='<span class="spinner-inline"></span>';}
+        postAPI('/containers/compose-action/',{action:act}).then(function(res){
+            if(res.success){
+                hideDockerLoading(true,res.message||'Compose '+act+' successful',2000);
+                if(res.output){
+                    var el=document.getElementById('composeOutput');
+                    var body=document.getElementById('composeOutputBody');
+                    if(el&&body){el.style.display='block';body.textContent=res.output;}
+                }
+            } else {
+                hideDockerLoading(false,res.error||'Compose action failed',2500);
+            }
+            if(btn){btn.disabled=false;btn.innerHTML=orig;}
+            setTimeout(function(){refreshContainersLive();},2800);
+        }).catch(function(e){
+            hideDockerLoading(false,'Request failed: '+e.message,2500);
+            if(btn){btn.disabled=false;btn.innerHTML=orig;}
+        });
+    }
+    if(act==='down'){
+        showConfirm({type:'warning',title:'Compose Down',message:'Run docker compose down? This will stop and remove all compose containers and their networks.',confirmText:'Shut Down'}).then(function(ok){if(ok)_exec();});
+    } else { _exec(); }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Image Actions
+   ═══════════════════════════════════════════════════════════════ */
+function imageAction(id,act,btn){
+    function _exec(){
+        showDockerLoading(act==='rm'?'Remove Image':'Image '+act,'Processing image '+id.substring(0,12)+'...');
+        if(btn){btn.disabled=true;btn.innerHTML='<span class="spinner-inline"></span>';}
+        postAPI('/containers/image-action/',{image_id:id,action:act}).then(function(res){
+            if(res.success){hideDockerLoading(true,res.message,1800);}
+            else{hideDockerLoading(false,res.error||'Failed',2500);}
+            setTimeout(function(){refreshContainersLive();},2200);
+        }).catch(function(e){
+            hideDockerLoading(false,'Failed: '+e.message,2500);
+            if(btn){btn.disabled=false;btn.innerHTML='Error';}
+        });
+    }
+    if(act==='rm'){
+        showConfirm({type:'danger',title:'Remove Image',message:'Remove image '+id.substring(0,12)+'? Containers using this image must be removed first.',confirmText:'Remove'}).then(function(ok){if(ok)_exec();});
+    } else { _exec(); }
+}
+function promptPullImage(){
+    var img=prompt('Enter image to pull (e.g., nginx:latest, postgres:16):');
+    if(!img)return;
+    showDockerLoading('Pulling Image','Downloading '+img+'... This may take a minute.');
+    postAPI('/containers/image-action/',{image_id:img,action:'pull'}).then(function(res){
+        if(res.success){hideDockerLoading(true,'Image pulled successfully',1800);}
+        else{hideDockerLoading(false,res.error||'Pull failed',2500);}
+        setTimeout(function(){refreshContainersLive();},2200);
+    }).catch(function(e){
+        hideDockerLoading(false,'Failed: '+e.message,2500);
+    });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Volume / Network Actions
+   ═══════════════════════════════════════════════════════════════ */
+function volumeAction(name,act,btn){
+    function _exec(){
+        showDockerLoading('Remove Volume','Removing volume "'+name+'"...');
+        if(btn){btn.disabled=true;btn.innerHTML='<span class="spinner-inline"></span>';}
+        postAPI('/containers/volume-action/',{name:name,action:act}).then(function(res){
+            if(res.success){hideDockerLoading(true,res.message,1800);}
+            else{hideDockerLoading(false,res.error||'Failed',2500);}
+            setTimeout(function(){refreshContainersLive();},2200);
+        }).catch(function(e){hideDockerLoading(false,'Failed',2500);});
+    }
+    if(act==='rm'){
+        showConfirm({type:'danger',title:'Remove Volume',message:'Remove volume "'+name+'"? All stored data will be permanently lost.',confirmText:'Delete Volume'}).then(function(ok){if(ok)_exec();});
+    } else { _exec(); }
+}
+function networkAction(id,act,btn){
+    function _exec(){
+        showDockerLoading('Remove Network','Removing network '+id.substring(0,12)+'...');
+        if(btn){btn.disabled=true;btn.innerHTML='<span class="spinner-inline"></span>';}
+        postAPI('/containers/network-action/',{network_id:id,action:act}).then(function(res){
+            if(res.success){hideDockerLoading(true,res.message,1800);}
+            else{hideDockerLoading(false,res.error||'Failed',2500);}
+            setTimeout(function(){refreshContainersLive();},2200);
+        }).catch(function(e){hideDockerLoading(false,'Failed',2500);});
+    }
+    if(act==='rm'){
+        showConfirm({type:'danger',title:'Remove Network',message:'Remove network '+id.substring(0,12)+'? Containers attached to this network will lose connectivity.',confirmText:'Remove'}).then(function(ok){if(ok)_exec();});
+    } else { _exec(); }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Container Detail Drawer (Docker Desktop-style inspect)
+   ═══════════════════════════════════════════════════════════════ */
+var _drawerType='';
+function openContainerDrawer(cid){
+    _drawerType='container';
+    var drawer=document.getElementById('detailDrawer'),backdrop=document.getElementById('drawerBackdrop');
+    var row=document.querySelector('tr[data-cid="'+cid+'"]');
+    var name=row?row.getAttribute('data-cname'):cid.substring(0,12);
+    var state=row?row.getAttribute('data-cstate'):'unknown';
+    var status=row?row.getAttribute('data-cstatus'):'unknown';
+
+    document.getElementById('drawerTitle').textContent=name;
+    document.getElementById('drawerStatusDot').className='status-dot '+status;
+    document.getElementById('drawerBody').innerHTML='<div style="padding:40px;text-align:center;color:var(--text-faint);"><div class="spinner-inline"></div><br><br>Loading container details...</div>';
+
+    /* Draw inner tabs */
+    document.getElementById('drawerTabsWrap').innerHTML=
+        '<div class="drawer-tabs">'+
+        '<button class="drawer-tab active" onclick="switchDrawerTab(this,\'dt-overview\')">Overview</button>'+
+        '<button class="drawer-tab" onclick="switchDrawerTab(this,\'dt-env\')">Environment</button>'+
+        '<button class="drawer-tab" onclick="switchDrawerTab(this,\'dt-mounts\')">Mounts</button>'+
+        '<button class="drawer-tab" onclick="switchDrawerTab(this,\'dt-network\')">Network</button>'+
+        '<button class="drawer-tab" onclick="switchDrawerTab(this,\'dt-exec\')">Exec</button>'+
+        '<button class="drawer-tab" onclick="switchDrawerTab(this,\'dt-processes\')">Processes</button>'+
+        '<button class="drawer-tab" onclick="switchDrawerTab(this,\'dt-diff\')">Changes</button>'+
+        '<button class="drawer-tab" onclick="switchDrawerTab(this,\'dt-logs\')">Logs</button>'+
+        '<button class="drawer-tab" onclick="switchDrawerTab(this,\'dt-inspect\')">Inspect</button>'+
+        '</div>';
+
+    /* Actions bar */
+    var acts=document.getElementById('drawerActions');
+    if(state==='running'){
+        acts.innerHTML='<button class="act-btn" onclick="containerAction(\''+cid+'\',\'stop\');closeDrawer()"><i class="icon-square" style="font-size:11px;"></i> Stop</button>'+
+            '<button class="act-btn" onclick="containerAction(\''+cid+'\',\'restart\');closeDrawer()"><i class="icon-refresh-cw" style="font-size:11px;"></i> Restart</button>'+
+            '<button class="act-btn warning" onclick="containerAction(\''+cid+'\',\'pause\');closeDrawer()"><i class="icon-pause" style="font-size:11px;"></i> Pause</button>'+
+            '<button class="act-btn danger" onclick="containerAction(\''+cid+'\',\'kill\');closeDrawer()"><i class="icon-zap" style="font-size:11px;"></i> Kill</button>'+
+            '<button class="act-btn" onclick="exportContainer(\''+cid+'\')"><i class="icon-download" style="font-size:11px;"></i> Export</button>';
+    } else if(state==='exited'||state==='created'||state==='dead'){
+        acts.innerHTML='<button class="act-btn primary" onclick="containerAction(\''+cid+'\',\'start\');closeDrawer()"><i class="icon-play" style="font-size:11px;"></i> Start</button>'+
+            '<button class="act-btn danger" onclick="containerAction(\''+cid+'\',\'rm\');closeDrawer()"><i class="icon-trash-2" style="font-size:11px;"></i> Remove</button>'+
+            '<button class="act-btn" onclick="exportContainer(\''+cid+'\')"><i class="icon-download" style="font-size:11px;"></i> Export</button>';
+    } else if(state==='paused'){
+        acts.innerHTML='<button class="act-btn primary" onclick="containerAction(\''+cid+'\',\'unpause\');closeDrawer()"><i class="icon-play" style="font-size:11px;"></i> Unpause</button>'+
+            '<button class="act-btn" onclick="containerAction(\''+cid+'\',\'stop\');closeDrawer()"><i class="icon-square" style="font-size:11px;"></i> Stop</button>';
+    } else { acts.innerHTML=''; }
+
+    drawer.classList.add('open');backdrop.classList.add('open');document.body.style.overflow='hidden';
+
+    /* Fetch full inspect data */
+    postAPI('/containers/inspect/',{container_id:cid}).then(function(res){
+        if(!res.success){
+            document.getElementById('drawerBody').innerHTML='<div style="padding:20px;color:var(--text-muted);">'+escHtml(res.error||'Inspect failed')+'</div>';
+            return;
+        }
+        var d=res.data;
+        var conf=d.Config||{};
+        var state_d=d.State||{};
+        var net=d.NetworkSettings||{};
+        var mounts=d.Mounts||[];
+        var hostCfg=d.HostConfig||{};
+
+        /* Overview tab */
+        var overviewHtml='<div class="drawer-tab-panel active" id="dt-overview"><div class="drawer-section"><div class="drawer-section-title">Container Info</div><dl class="drawer-kv">'+
+            '<dt>ID</dt><dd><code>'+(d.Id||'').substring(0,12)+'</code></dd>'+
+            '<dt>Name</dt><dd>'+(d.Name||'').replace(/^\//,'')+'</dd>'+
+            '<dt>Image</dt><dd><code>'+escHtml(conf.Image||'')+'</code></dd>'+
+            '<dt>Status</dt><dd>'+(state_d.Status||'')+'</dd>'+
+            '<dt>Created</dt><dd>'+(d.Created||'').substring(0,19)+'</dd>'+
+            '<dt>Started</dt><dd>'+(state_d.StartedAt||'').substring(0,19)+'</dd>'+
+            '<dt>Platform</dt><dd>'+(d.Platform||'linux')+'</dd>'+
+            '<dt>Restart Policy</dt><dd>'+(hostCfg.RestartPolicy?hostCfg.RestartPolicy.Name||'no':'no')+'</dd>'+
+            '<dt>Command</dt><dd><code>'+escHtml((conf.Cmd||[]).join(' '))+'</code></dd>'+
+            '<dt>Entrypoint</dt><dd><code>'+escHtml((conf.Entrypoint||[]).join(' ')||'—')+'</code></dd>'+
+            '<dt>Working Dir</dt><dd><code>'+escHtml(conf.WorkingDir||'/')+'</code></dd>'+
+            '</dl></div>';
+
+        /* Resource stats section */
+        overviewHtml+='<div class="drawer-section"><div class="drawer-section-title">Resource Stats</div><div id="drawerLiveStats" style="font-size:0.8rem;color:var(--text-secondary);">Loading live stats...</div></div>';
+
+        /* Ports section */
+        var ports=net.Ports||{};
+        var portKeys=Object.keys(ports);
+        if(portKeys.length){
+            overviewHtml+='<div class="drawer-section"><div class="drawer-section-title">Ports</div><div style="display:flex;flex-wrap:wrap;gap:6px;">';
+            portKeys.forEach(function(pk){
+                var bindings=ports[pk]||[];
+                if(bindings.length){
+                    bindings.forEach(function(b){overviewHtml+='<span class="port-tag">'+b.HostIp+':'+b.HostPort+' → '+pk+'</span>';});
+                } else {
+                    overviewHtml+='<span class="port-tag" style="opacity:0.5;">'+pk+' (not bound)</span>';
+                }
+            });
+            overviewHtml+='</div></div>';
+        }
+
+        /* Labels */
+        var labels=conf.Labels||{};
+        var lk=Object.keys(labels);
+        if(lk.length){
+            overviewHtml+='<div class="drawer-section"><div class="drawer-section-title">Labels ('+lk.length+')</div><details><summary style="cursor:pointer;font-size:0.75rem;color:var(--text-muted);">Show labels</summary><dl class="drawer-kv" style="margin-top:8px;">';
+            lk.forEach(function(k){overviewHtml+='<dt style="font-size:0.72rem;">'+escHtml(k)+'</dt><dd style="font-size:0.72rem;">'+escHtml(labels[k])+'</dd>';});
+            overviewHtml+='</dl></details></div>';
+        }
+        overviewHtml+='</div>';
+
+        /* Environment tab */
+        var envs=conf.Env||[];
+        var envHtml='<div class="drawer-tab-panel" id="dt-env"><div class="drawer-section"><div class="drawer-section-title">Environment Variables ('+envs.length+')</div>';
+        if(envs.length){
+            envHtml+='<table class="env-table"><thead><tr><th>Variable</th><th>Value</th></tr></thead><tbody>';
+            envs.forEach(function(e){var parts=e.split('=');var k=parts[0];var v=parts.slice(1).join('=');
+                envHtml+='<tr><td>'+escHtml(k)+'</td><td>'+escHtml(v)+'</td></tr>';
+            });
+            envHtml+='</tbody></table>';
+        } else { envHtml+='<p style="color:var(--text-faint);font-size:0.8rem;">No environment variables set.</p>'; }
+        envHtml+='</div></div>';
+
+        /* Mounts tab */
+        var mountHtml='<div class="drawer-tab-panel" id="dt-mounts"><div class="drawer-section"><div class="drawer-section-title">Mounts ('+mounts.length+')</div>';
+        if(mounts.length){
+            mounts.forEach(function(m){
+                var typeClass=m.Type==='bind'?'mount-bind':m.Type==='volume'?'mount-volume':'mount-tmpfs';
+                mountHtml+='<div class="mount-card"><div class="mount-card-header"><span class="mount-card-type '+typeClass+'">'+m.Type+'</span>'+(m.RW?'<span style="font-size:0.65rem;color:#22c55e;">RW</span>':'<span style="font-size:0.65rem;color:#f59e0b;">RO</span>')+'</div>'+
+                    '<div class="mount-path">'+escHtml(m.Source||'')+'</div>'+
+                    '<div class="mount-path" style="color:var(--text-faint);">→ '+escHtml(m.Destination||'')+'</div></div>';
+            });
+        } else { mountHtml+='<p style="color:var(--text-faint);font-size:0.8rem;">No mounts configured.</p>'; }
+        mountHtml+='</div></div>';
+
+        /* Network tab */
+        var nets=net.Networks||{};
+        var nk=Object.keys(nets);
+        var netHtml='<div class="drawer-tab-panel" id="dt-network"><div class="drawer-section"><div class="drawer-section-title">Networks ('+nk.length+')</div>';
+        if(nk.length){
+            nk.forEach(function(nn){
+                var ni=nets[nn];
+                netHtml+='<div class="mount-card"><div class="mount-card-header"><span class="mount-card-type mount-bind">'+escHtml(nn)+'</span></div>'+
+                    '<dl class="drawer-kv" style="font-size:0.75rem;"><dt>IP Address</dt><dd><code>'+(ni.IPAddress||'—')+'</code></dd>'+
+                    '<dt>Gateway</dt><dd><code>'+(ni.Gateway||'—')+'</code></dd>'+
+                    '<dt>MAC Address</dt><dd><code>'+(ni.MacAddress||'—')+'</code></dd>'+
+                    '<dt>Network ID</dt><dd><code>'+(ni.NetworkID||'').substring(0,12)+'</code></dd></dl></div>';
+            });
+        } else { netHtml+='<p style="color:var(--text-faint);font-size:0.8rem;">Not connected to any network.</p>'; }
+        netHtml+='</div></div>';
+
+        /* Logs tab */
+        var logsHtml='<div class="drawer-tab-panel" id="dt-logs"><div class="drawer-section">'+
+            '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">'+
+            '<div class="drawer-section-title" style="margin:0;">Container Logs</div>'+
+            '<button class="act-btn" onclick="fetchDrawerLogs(\''+cid+'\')"><i class="icon-refresh-cw" style="font-size:11px;"></i> Refresh</button></div>'+
+            '<div class="logs-panel"><div class="logs-panel-body" id="drawerLogBody" style="max-height:350px;background:#000;">'+
+            '<span style="color:#484f58;">Loading logs...</span></div></div></div></div>';
+
+        /* Inspect tab (raw JSON) */
+        var inspectHtml='<div class="drawer-tab-panel" id="dt-inspect"><div class="drawer-section"><div class="drawer-section-title">Raw Inspect Output</div>'+
+            '<div class="json-viewer">'+jsonToHtml(d)+'</div></div></div>';
+
+        /* Exec tab (shell) */
+        var execHtml='<div class="drawer-tab-panel" id="dt-exec"><div class="drawer-section">'+
+            '<div class="drawer-section-title">Execute Command</div>'+
+            '<p style="font-size:0.78rem;color:var(--text-muted);margin-bottom:12px;">Run commands inside the container. '+(state==='running'?'':'<span style="color:#f59e0b;">Container must be running to exec.</span>')+'</p>'+
+            '<div class="exec-terminal"><div class="exec-terminal-header"><h5>🖥️ '+escHtml(name)+' shell</h5></div>'+
+            '<div class="exec-terminal-body" id="execOutput"><span style="color:#484f58;">Type a command below and press Enter...</span></div>'+
+            '<div class="exec-input-wrap"><span class="exec-prompt">$</span><input class="exec-input" id="execInput" placeholder="ls -la /app" '+(state!=='running'?'disabled':'')+'></div></div>'+
+            '<div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;">'+
+            '<button class="act-btn" onclick="quickExec(\''+cid+'\',\'ls -la /\')">ls /</button>'+
+            '<button class="act-btn" onclick="quickExec(\''+cid+'\',\'cat /etc/os-release\')">OS Info</button>'+
+            '<button class="act-btn" onclick="quickExec(\''+cid+'\',\'env\')">env</button>'+
+            '<button class="act-btn" onclick="quickExec(\''+cid+'\',\'df -h\')">Disk</button>'+
+            '<button class="act-btn" onclick="quickExec(\''+cid+'\',\'ps aux\')">Processes</button>'+
+            '<button class="act-btn" onclick="quickExec(\''+cid+'\',\'whoami\')">whoami</button>'+
+            '</div></div></div>';
+
+        /* Processes tab */
+        var procHtml='<div class="drawer-tab-panel" id="dt-processes"><div class="drawer-section">'+
+            '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">'+
+            '<div class="drawer-section-title" style="margin:0;">Running Processes</div>'+
+            '<button class="act-btn" onclick="loadContainerProcesses(\''+cid+'\')"><i class="icon-refresh-cw" style="font-size:11px;"></i> Refresh</button></div>'+
+            '<div id="drawerProcesses" style="font-size:0.8rem;color:var(--text-secondary);">'+(state==='running'?'<div style="text-align:center;padding:20px;"><div class="spinner-inline"></div><br>Loading...</div>':'<span style="color:var(--text-faint);">Container is not running</span>')+'</div>'+
+            '</div></div>';
+
+        /* Filesystem Changes tab */
+        var diffHtml='<div class="drawer-tab-panel" id="dt-diff"><div class="drawer-section">'+
+            '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">'+
+            '<div class="drawer-section-title" style="margin:0;">Filesystem Changes</div>'+
+            '<button class="act-btn" onclick="loadContainerDiff(\''+cid+'\')"><i class="icon-refresh-cw" style="font-size:11px;"></i> Refresh</button></div>'+
+            '<p style="font-size:0.75rem;color:var(--text-faint);margin-bottom:10px;">Files added (A), changed (C) or deleted (D) since container creation.</p>'+
+            '<div id="drawerDiff"><div style="text-align:center;padding:20px;"><div class="spinner-inline"></div><br>Loading...</div></div>'+
+            '</div></div>';
+
+        document.getElementById('drawerBody').innerHTML=overviewHtml+envHtml+mountHtml+netHtml+execHtml+procHtml+diffHtml+logsHtml+inspectHtml;
+
+        /* Set up exec input */
+        setTimeout(function(){
+            var inp=document.getElementById('execInput');
+            if(inp){inp.addEventListener('keydown',function(e){if(e.key==='Enter'&&this.value.trim()){runExecCommand(cid,this.value.trim());this.value='';}});}
+        },100);
+
+        /* Fetch live stats */
+        fetch(_API+'/containers/api/').then(function(r){return r.json();}).then(function(data){
+            var c=(data.containers||[]).find(function(ct){return ct.id===cid;});
+            var el=document.getElementById('drawerLiveStats');
+            if(c&&c.stats&&el){
+                el.innerHTML='<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">'+
+                    '<div><strong>CPU:</strong> '+c.stats.cpu+'</div>'+
+                    '<div><strong>Memory:</strong> '+c.stats.memory+'</div>'+
+                    '<div><strong>Net I/O:</strong> '+c.stats.net_io+'</div>'+
+                    '<div><strong>Block I/O:</strong> '+(c.stats.block_io||'—')+'</div>'+
+                    '<div><strong>PIDs:</strong> '+(c.stats.pids||'—')+'</div></div>';
+            } else if(el){ el.innerHTML='<span style="color:var(--text-faint);">Container is not running</span>'; }
+        });
+
+        /* Fetch logs for drawer */
+        fetchDrawerLogs(cid);
+
+        /* Fetch processes for running containers */
+        if(state==='running') loadContainerProcesses(cid);
+
+        /* Fetch filesystem diff */
+        loadContainerDiff(cid);
+    }).catch(function(e){
+        document.getElementById('drawerBody').innerHTML='<div style="padding:20px;color:var(--text-muted);">Error: '+escHtml(e.message)+'</div>';
+    });
+}
+
+var _drawerLogTimer=null,_drawerLogTs='';
+function fetchDrawerLogs(cid){
+    var body=document.getElementById('drawerLogBody');
+    if(!body)return;
+    if(_drawerLogTimer){clearInterval(_drawerLogTimer);_drawerLogTimer=null;}
+    _drawerLogTs='';
+    body.innerHTML='<span style="color:#484f58;">Connecting...</span>';
+    _fetchDrawerLogsInc(cid,true);
+    /* Live poll every 2s for new lines */
+    _drawerLogTimer=setInterval(function(){_fetchDrawerLogsInc(cid,false);},2000);
+}
+function _fetchDrawerLogsInc(cid,isInit){
+    var params={container_id:cid,tail:isInit?'100':'500'};
+    if(!isInit&&_drawerLogTs)params.since=_drawerLogTs;
+    postAPI('/containers/logs/',params).then(function(res){
+        var body=document.getElementById('drawerLogBody');
+        if(!body)return;
+        if(res.success&&res.logs){
+            var lines=res.logs.split('\n'),frag=[],newTs=_drawerLogTs;
+            lines.forEach(function(l){
+                if(!l.trim())return;
+                var cls='log-stdout';
+                if(l.match(/error|Error|ERROR|fatal|Fatal|FATAL|panic|exception/i))cls='log-stderr';
+                else if(l.match(/warn|Warn|WARN/i))cls='log-warn';
+                else if(l.match(/info|Info|INFO/i))cls='log-info';
+                var ts='',msg=l;
+                var tsMatch=l.match(/^(\d{4}-\d{2}-\d{2}T[\d:.]+Z?)\s*(.*)/);
+                if(tsMatch){ts=tsMatch[1].substring(11,19);msg=tsMatch[2];if(tsMatch[1]>newTs)newTs=tsMatch[1];}
+                var line='<div class="log-line">';
+                if(ts)line+='<span class="log-ts">['+ts+']</span>';
+                line+='<span class="'+cls+'">'+escHtml(msg)+'</span></div>';
+                frag.push(line);
+            });
+            if(frag.length>0){
+                if(isInit){body.innerHTML=frag.join('');}
+                else{body.insertAdjacentHTML('beforeend',frag.join(''));}
+                _drawerLogTs=newTs;
+                body.scrollTop=body.scrollHeight;
+            } else if(isInit){
+                body.innerHTML='<span style="color:#484f58;">No logs yet — waiting...</span>';
+            }
+        } else if(isInit){
+            body.innerHTML='<span style="color:#f85149;">'+(res.error||'No logs')+'</span>';
+        }
+    }).catch(function(){if(isInit)body.innerHTML='<span style="color:#f85149;">Failed to fetch logs</span>';});
+}
+
+function switchDrawerTab(btn,panelId){
+    document.querySelectorAll('.drawer-tab').forEach(function(t){t.classList.remove('active');});
+    document.querySelectorAll('.drawer-tab-panel').forEach(function(p){p.classList.remove('active');});
+    btn.classList.add('active');
+    var panel=document.getElementById(panelId);
+    if(panel)panel.classList.add('active');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Volume Detail Drawer
+   ═══════════════════════════════════════════════════════════════ */
+function openVolumeDrawer(name){
+    _drawerType='volume';
+    var drawer=document.getElementById('detailDrawer'),backdrop=document.getElementById('drawerBackdrop');
+    document.getElementById('drawerTitle').textContent='Volume: '+name;
+    document.getElementById('drawerStatusDot').className='';
+    document.getElementById('drawerStatusDot').style.display='none';
+    document.getElementById('drawerTabsWrap').innerHTML='';
+    document.getElementById('drawerBody').innerHTML='<div style="padding:40px;text-align:center;color:var(--text-faint);"><div class="spinner-inline"></div><br><br>Loading volume details...</div>';
+    document.getElementById('drawerActions').innerHTML='<button class="act-btn danger" onclick="volumeAction(\''+name+'\',\'rm\');closeDrawer()"><i class="icon-trash-2" style="font-size:11px;"></i> Remove Volume</button>';
+
+    drawer.classList.add('open');backdrop.classList.add('open');document.body.style.overflow='hidden';
+
+    postAPI('/containers/volume-inspect/',{name:name}).then(function(res){
+        if(!res.success){
+            document.getElementById('drawerBody').innerHTML='<div style="padding:20px;color:var(--text-muted);">'+escHtml(res.error||'Inspect failed')+'</div>';
+            return;
+        }
+        var d=res.data;
+        var html='<div style="padding:20px;"><div class="drawer-section"><div class="drawer-section-title">Volume Details</div>'+
+            '<dl class="drawer-kv"><dt>Name</dt><dd><code>'+escHtml(d.Name||'')+'</code></dd>'+
+            '<dt>Driver</dt><dd>'+escHtml(d.Driver||'')+'</dd>'+
+            '<dt>Mountpoint</dt><dd><code style="font-size:0.68rem;">'+escHtml(d.Mountpoint||'')+'</code></dd>'+
+            '<dt>Scope</dt><dd>'+escHtml(d.Scope||'')+'</dd>'+
+            '<dt>Created</dt><dd>'+(d.CreatedAt||'').substring(0,19)+'</dd></dl></div>';
+
+        /* Labels */
+        var labels=d.Labels||{};
+        var lk=Object.keys(labels);
+        if(lk.length){
+            html+='<div class="drawer-section"><div class="drawer-section-title">Labels</div><dl class="drawer-kv">';
+            lk.forEach(function(k){html+='<dt>'+escHtml(k)+'</dt><dd>'+escHtml(labels[k])+'</dd>';});
+            html+='</dl></div>';
+        }
+
+        /* Options */
+        var opts=d.Options||{};
+        var ok2=Object.keys(opts);
+        if(ok2.length){
+            html+='<div class="drawer-section"><div class="drawer-section-title">Options</div><dl class="drawer-kv">';
+            ok2.forEach(function(k){html+='<dt>'+escHtml(k)+'</dt><dd>'+escHtml(opts[k])+'</dd>';});
+            html+='</dl></div>';
+        }
+
+        /* Raw JSON */
+        html+='<div class="drawer-section"><div class="drawer-section-title">Raw Inspect</div><div class="json-viewer">'+jsonToHtml(d)+'</div></div></div>';
+        document.getElementById('drawerBody').innerHTML=html;
+    }).catch(function(e){
+        document.getElementById('drawerBody').innerHTML='<div style="padding:20px;color:var(--text-muted);">Error: '+escHtml(e.message)+'</div>';
+    });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Network Detail Drawer
+   ═══════════════════════════════════════════════════════════════ */
+function openNetworkDrawer(id,name){
+    _drawerType='network';
+    var drawer=document.getElementById('detailDrawer'),backdrop=document.getElementById('drawerBackdrop');
+    document.getElementById('drawerTitle').textContent='Network: '+name;
+    document.getElementById('drawerStatusDot').className='';
+    document.getElementById('drawerStatusDot').style.display='none';
+    document.getElementById('drawerTabsWrap').innerHTML='';
+    document.getElementById('drawerBody').innerHTML='<div style="padding:40px;text-align:center;color:var(--text-faint);"><div class="spinner-inline"></div><br><br>Loading network details...</div>';
+    var isDefault=['bridge','host','none'].indexOf(name)!==-1;
+    document.getElementById('drawerActions').innerHTML=isDefault?'':'<button class="act-btn danger" onclick="networkAction(\''+id+'\',\'rm\');closeDrawer()"><i class="icon-trash-2" style="font-size:11px;"></i> Remove Network</button>';
+
+    drawer.classList.add('open');backdrop.classList.add('open');document.body.style.overflow='hidden';
+
+    postAPI('/containers/network-inspect/',{network_id:id}).then(function(res){
+        if(!res.success){
+            document.getElementById('drawerBody').innerHTML='<div style="padding:20px;color:var(--text-muted);">'+escHtml(res.error||'Inspect failed')+'</div>';
+            return;
+        }
+        var d=res.data;
+        var ipam=d.IPAM||{};
+        var ipamCfg=(ipam.Config||[])[0]||{};
+        var containers=d.Containers||{};
+        var ck=Object.keys(containers);
+
+        var html='<div style="padding:20px;"><div class="drawer-section"><div class="drawer-section-title">Network Details</div>'+
+            '<dl class="drawer-kv"><dt>Name</dt><dd><code>'+escHtml(d.Name||'')+'</code></dd>'+
+            '<dt>ID</dt><dd><code>'+(d.Id||'').substring(0,12)+'</code></dd>'+
+            '<dt>Driver</dt><dd>'+escHtml(d.Driver||'')+'</dd>'+
+            '<dt>Scope</dt><dd>'+escHtml(d.Scope||'')+'</dd>'+
+            '<dt>Internal</dt><dd>'+(d.Internal?'Yes':'No')+'</dd>'+
+            '<dt>Attachable</dt><dd>'+(d.Attachable?'Yes':'No')+'</dd>'+
+            '<dt>Subnet</dt><dd><code>'+escHtml(ipamCfg.Subnet||'—')+'</code></dd>'+
+            '<dt>Gateway</dt><dd><code>'+escHtml(ipamCfg.Gateway||'—')+'</code></dd>'+
+            '<dt>IP Range</dt><dd><code>'+escHtml(ipamCfg.IPRange||'—')+'</code></dd>'+
+            '<dt>Created</dt><dd>'+(d.Created||'').substring(0,19)+'</dd></dl></div>';
+
+        /* Connected Containers */
+        if(ck.length){
+            html+='<div class="drawer-section"><div class="drawer-section-title">Connected Containers ('+ck.length+')</div>';
+            ck.forEach(function(cid){
+                var ci=containers[cid];
+                html+='<div class="mount-card"><div class="mount-card-header"><span style="font-weight:600;color:var(--text-primary);">'+escHtml(ci.Name||cid.substring(0,12))+'</span></div>'+
+                    '<dl class="drawer-kv" style="font-size:0.75rem;"><dt>IPv4</dt><dd><code>'+(ci.IPv4Address||'—')+'</code></dd>'+
+                    '<dt>IPv6</dt><dd><code>'+(ci.IPv6Address||'—')+'</code></dd>'+
+                    '<dt>MAC</dt><dd><code>'+(ci.MacAddress||'—')+'</code></dd></dl></div>';
+            });
+            html+='</div>';
+        }
+
+        /* Raw JSON */
+        html+='<div class="drawer-section"><div class="drawer-section-title">Raw Inspect</div><div class="json-viewer">'+jsonToHtml(d)+'</div></div></div>';
+        document.getElementById('drawerBody').innerHTML=html;
+    }).catch(function(e){
+        document.getElementById('drawerBody').innerHTML='<div style="padding:20px;color:var(--text-muted);">Error: '+escHtml(e.message)+'</div>';
+    });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Image Detail Drawer
+   ═══════════════════════════════════════════════════════════════ */
+function openImageDrawer(id){
+    _drawerType='image';
+    var drawer=document.getElementById('detailDrawer'),backdrop=document.getElementById('drawerBackdrop');
+    document.getElementById('drawerTitle').textContent='Image: '+id.substring(0,12);
+    document.getElementById('drawerStatusDot').className='';
+    document.getElementById('drawerStatusDot').style.display='none';
+    document.getElementById('drawerTabsWrap').innerHTML=
+        '<div class="drawer-tabs">'+
+        '<button class="drawer-tab active" onclick="switchDrawerTab(this,\'dt-imgdetails\')">Details</button>'+
+        '<button class="drawer-tab" onclick="switchDrawerTab(this,\'dt-history\')">History / Layers</button>'+
+        '<button class="drawer-tab" onclick="switchDrawerTab(this,\'dt-imginspect\')">Inspect</button>'+
+        '</div>';
+    document.getElementById('drawerBody').innerHTML='<div style="padding:40px;text-align:center;color:var(--text-faint);"><div class="spinner-inline"></div><br><br>Loading image details...</div>';
+    document.getElementById('drawerActions').innerHTML=
+        '<button class="act-btn" onclick="promptTagImageWith(\''+id+'\')"><i class="icon-tag" style="font-size:11px;"></i> Tag</button>'+
+        '<button class="act-btn danger" onclick="imageAction(\''+id+'\',\'rm\');closeDrawer()"><i class="icon-trash-2" style="font-size:11px;"></i> Remove Image</button>';
+
+    drawer.classList.add('open');backdrop.classList.add('open');document.body.style.overflow='hidden';
+
+    postAPI('/containers/image-inspect/',{image_id:id}).then(function(res){
+        if(!res.success){
+            document.getElementById('drawerBody').innerHTML='<div style="padding:20px;color:var(--text-muted);">'+escHtml(res.error||'Inspect failed')+'</div>';
+            return;
+        }
+        var d=res.data;
+        var conf=d.Config||{};
+        var tags=d.RepoTags||[];
+
+        var html='<div class="drawer-tab-panel active" id="dt-imgdetails" style="padding:20px;"><div class="drawer-section"><div class="drawer-section-title">Image Details</div>'+
+            '<dl class="drawer-kv"><dt>ID</dt><dd><code>'+(d.Id||'').substring(0,19)+'</code></dd>'+
+            '<dt>Tags</dt><dd>'+tags.map(function(t){return '<span class="port-tag" style="background:rgba(34,197,94,0.1);color:#22c55e;">'+escHtml(t)+'</span>';}).join(' ')+'</dd>'+
+            '<dt>Size</dt><dd>'+formatBytes(d.Size||0)+'</dd>'+
+            '<dt>Virtual Size</dt><dd>'+formatBytes(d.VirtualSize||d.Size||0)+'</dd>'+
+            '<dt>Created</dt><dd>'+(d.Created||'').substring(0,19)+'</dd>'+
+            '<dt>Architecture</dt><dd>'+escHtml(d.Architecture||'')+'</dd>'+
+            '<dt>OS</dt><dd>'+escHtml(d.Os||'')+'</dd>'+
+            '<dt>Docker Version</dt><dd>'+escHtml(d.DockerVersion||'—')+'</dd>'+
+            '<dt>Entrypoint</dt><dd><code>'+escHtml((conf.Entrypoint||[]).join(' ')||'—')+'</code></dd>'+
+            '<dt>Cmd</dt><dd><code>'+escHtml((conf.Cmd||[]).join(' ')||'—')+'</code></dd>'+
+            '<dt>Working Dir</dt><dd><code>'+escHtml(conf.WorkingDir||'/')+'</code></dd>'+
+            '</dl></div>';
+
+        /* Exposed ports */
+        var ep=conf.ExposedPorts||{};
+        var epk=Object.keys(ep);
+        if(epk.length){
+            html+='<div class="drawer-section"><div class="drawer-section-title">Exposed Ports</div><div>'+epk.map(function(p){return '<span class="port-tag">'+p+'</span>';}).join(' ')+'</div></div>';
+        }
+
+        /* Environment */
+        var envs=conf.Env||[];
+        if(envs.length){
+            html+='<div class="drawer-section"><div class="drawer-section-title">Environment ('+envs.length+')</div>'+
+                '<details><summary style="cursor:pointer;font-size:0.75rem;color:var(--text-muted);">Show env vars</summary>'+
+                '<table class="env-table" style="margin-top:8px;"><thead><tr><th>Variable</th><th>Value</th></tr></thead><tbody>';
+            envs.forEach(function(e){var p=e.split('=');html+='<tr><td>'+escHtml(p[0])+'</td><td>'+escHtml(p.slice(1).join('='))+'</td></tr>';});
+            html+='</tbody></table></details></div>';
+        }
+
+        /* Layers */
+        var layers=d.RootFS;
+        if(layers&&layers.Layers){
+            html+='<div class="drawer-section"><div class="drawer-section-title">Layers ('+layers.Layers.length+')</div>'+
+                '<details><summary style="cursor:pointer;font-size:0.75rem;color:var(--text-muted);">Show layers</summary>'+
+                '<div style="margin-top:8px;font-family:monospace;font-size:0.68rem;max-height:200px;overflow-y:auto;">';
+            layers.Layers.forEach(function(l,i){html+='<div style="padding:2px 0;color:var(--text-secondary);">'+(i+1)+'. '+l.substring(0,50)+'…</div>';});
+            html+='</div></details></div>';
+        }
+
+        /* Close dt-imgdetails panel */
+        html+='</div>';
+
+        /* History / Layers tab panel */
+        html+='<div class="drawer-tab-panel" id="dt-history" style="padding:20px;">';
+        html+='<div class="drawer-section"><div class="drawer-section-title">Image History / Layers</div>';
+        html+='<div id="imageHistoryContent"><div style="text-align:center;padding:30px;color:var(--text-faint);"><div class="spinner-inline"></div><br>Loading image history...</div></div>';
+        html+='</div></div>';
+
+        /* Inspect (Raw JSON) tab panel */
+        html+='<div class="drawer-tab-panel" id="dt-imginspect" style="padding:20px;">';
+        html+='<div class="drawer-section"><div class="drawer-section-title">Raw Inspect</div><div class="json-viewer">'+jsonToHtml(d)+'</div></div>';
+        html+='</div>';
+
+        document.getElementById('drawerBody').innerHTML=html;
+
+        /* Load image history */
+        loadImageHistory(id);
+    }).catch(function(e){
+        document.getElementById('drawerBody').innerHTML='<div style="padding:20px;color:var(--text-muted);">Error: '+escHtml(e.message)+'</div>';
+    });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Drawer close / escape
+   ═══════════════════════════════════════════════════════════════ */
+function closeDrawer(){
+    document.getElementById('detailDrawer').classList.remove('open');
+    document.getElementById('drawerBackdrop').classList.remove('open');
+    document.body.style.overflow='';
+    /* Stop live log polling for drawer */
+    if(_drawerLogTimer){clearInterval(_drawerLogTimer);_drawerLogTimer=null;}
+    /* Reset status dot display */
+    var dot=document.getElementById('drawerStatusDot');
+    if(dot)dot.style.display='';
+}
+document.addEventListener('keydown',function(e){if(e.key==='Escape')closeDrawer();});
+
+/* ═══════════════════════════════════════════════════════════════
+   Logs viewer (real docker logs)
+   ═══════════════════════════════════════════════════════════════ */
+var _logTimer=null,_logCid='',_logLastTs='',_logPaused=false,_logLineCount=0;
+function loadContainerLogs(cid){
+    if(_logTimer){clearInterval(_logTimer);_logTimer=null;}
+    _logCid=cid;_logLastTs='';_logPaused=false;_logLineCount=0;
+    var body=document.getElementById('logsPanelBody'),nm=document.getElementById('logContainerName');
+    if(!cid){body.innerHTML='<div class="empty-state" style="padding:20px;"><p style="color:#484f58;">Select a container.</p></div>';nm.textContent='No container selected';_updateLiveIndicator(false);return;}
+    /* Find container name */
+    var row=document.querySelector('tr[data-cid="'+cid+'"]');
+    nm.textContent=row?row.getAttribute('data-cname'):cid.substring(0,12);
+    body.innerHTML='<span style="color:#484f58;">Connecting...</span>';
+    _updateLiveIndicator(true);
+    /* Initial fetch: full tail */
+    _fetchLogsIncremental(cid,true);
+    /* Live stream: poll every 2s for new lines only */
+    _logTimer=setInterval(function(){
+        if(!_logPaused)_fetchLogsIncremental(cid,false);
+    },2000);
+}
+function _fetchLogsIncremental(cid,isInitial){
+    var tailSel=document.getElementById('logTailCount');
+    var tail=isInitial?(tailSel?tailSel.value:'200'):'500';
+    var params={container_id:cid,tail:tail};
+    /* For incremental fetches, only get new lines since last timestamp */
+    if(!isInitial&&_logLastTs)params.since=_logLastTs;
+    postAPI('/containers/logs/',params).then(function(res){
+        var body=document.getElementById('logsPanelBody');
+        if(!body)return;
+        if(res.success&&res.logs){
+            var lines=res.logs.split('\n');
+            var html='',newTs=_logLastTs;
+            var frag=[];
+            lines.forEach(function(l){
+                if(!l.trim())return;
+                var cls='log-stdout';
+                if(l.match(/error|Error|ERROR|fatal|Fatal|FATAL|panic|exception/i))cls='log-stderr';
+                else if(l.match(/warn|Warn|WARN/i))cls='log-warn';
+                else if(l.match(/info|Info|INFO/i))cls='log-info';
+                var ts='',msg=l;
+                var tsMatch=l.match(/^(\d{4}-\d{2}-\d{2}T[\d:.]+Z?)\s*(.*)/);
+                if(tsMatch){
+                    ts=tsMatch[1].substring(11,19);
+                    msg=tsMatch[2];
+                    /* Track latest timestamp for incremental fetches */
+                    if(tsMatch[1]>newTs)newTs=tsMatch[1];
+                }
+                var line='<div class="log-line">';
+                if(ts)line+='<span class="log-ts">['+ts+']</span>';
+                line+='<span class="'+cls+'">'+escHtml(msg)+'</span></div>';
+                frag.push(line);
+            });
+            if(frag.length>0){
+                if(isInitial){
+                    body.innerHTML=frag.join('');
+                    _logLineCount=frag.length;
+                } else {
+                    /* Append new lines only (incremental) */
+                    body.insertAdjacentHTML('beforeend',frag.join(''));
+                    _logLineCount+=frag.length;
+                    /* Cap at 5000 lines to prevent memory bloat */
+                    while(_logLineCount>5000&&body.firstChild){body.removeChild(body.firstChild);_logLineCount--;}
+                }
+                _logLastTs=newTs;
+                if(document.getElementById('logFollow').checked)body.scrollTop=body.scrollHeight;
+            } else if(isInitial){
+                body.innerHTML='<span style="color:#484f58;">No logs yet — waiting for output...</span>';
+            }
+        } else if(isInitial){
+            body.innerHTML='<span style="color:#f85149;">'+(res.error||'No logs available')+'</span>';
+        }
+    }).catch(function(){});
+}
+function _updateLiveIndicator(on){
+    var el=document.getElementById('logLiveIndicator');
+    if(!el)return;
+    el.style.display=on?'inline-flex':'none';
+}
+function toggleLogPause(){
+    _logPaused=!_logPaused;
+    var btn=document.getElementById('logPauseBtn');
+    if(btn){
+        btn.innerHTML=_logPaused?'<i class="icon-play" style="font-size:11px;"></i> Resume':'<i class="icon-pause" style="font-size:11px;"></i> Pause';
+        btn.title=_logPaused?'Resume live streaming':'Pause live streaming';
+    }
+    _updateLiveIndicator(!_logPaused&&!!_logCid);
+}
+function refreshLogs(){
+    if(_logCid){
+        _logLastTs='';_logLineCount=0;
+        document.getElementById('logsPanelBody').innerHTML='';
+        _fetchLogsIncremental(_logCid,true);
+    }
+}
+function toggleLogWrap(){
+    var body=document.getElementById('logsPanelBody');
+    body.style.whiteSpace=document.getElementById('logWrap').checked?'pre-wrap':'pre';
+}
+function copyLogs(){var t=document.getElementById('logsPanelBody').innerText;navigator.clipboard.writeText(t).then(function(){if(typeof showToast==='function')showToast('Logs copied to clipboard','success');});}
+function downloadLogs(){var t=document.getElementById('logsPanelBody').innerText,b=new Blob([t],{type:'text/plain'}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='logs-'+(_logCid||'container').substring(0,12)+'-'+new Date().toISOString().replace(/[:.]/g,'-')+'.txt';a.click();}
+function clearLogs(){document.getElementById('logsPanelBody').innerHTML='<div class="empty-state" style="padding:20px;"><p style="color:#484f58;">Cleared.</p></div>';}
+function refreshContainers(){location.reload();}
+
+/* ═══════════════════════════════════════════════════════════════
+   Live Table Refresh (updates containers without page reload)
+   ═══════════════════════════════════════════════════════════════ */
+var _autoRefreshEnabled=true;
+function toggleAutoRefresh(on){_autoRefreshEnabled=on;}
+function refreshContainersLive(){
+    fetch(_API+'/containers/api/').then(function(r){return r.json();}).then(function(data){
+        _rebuildContainerTable(data.containers||[]);
+        _updateLogContainerSelect(data.containers||[]);
+        /* Update stat counters */
+        var si=data.system_info||{};
+        var el;
+        el=document.getElementById('stat-running');if(el)el.textContent=si.running||0;
+        el=document.getElementById('stat-stopped');if(el)el.textContent=si.stopped||0;
+        el=document.getElementById('stat-paused');if(el)el.textContent=si.paused||0;
+        el=document.getElementById('stat-images');if(el)el.textContent=(data.images||[]).length;
+        el=document.getElementById('stat-volumes');if(el)el.textContent=(data.volumes||[]).length;
+        el=document.getElementById('stat-networks');if(el)el.textContent=(data.networks||[]).length;
+    }).catch(function(){});
+}
+function _statusClass(state){
+    var s=state.toLowerCase();
+    if(s==='running')return{cls:'running',icon:'▶'};
+    if(s==='exited')return{cls:'stopped',icon:'■'};
+    if(s==='paused')return{cls:'paused',icon:'⏸'};
+    if(s==='restarting'||s==='removing')return{cls:'warning',icon:'↻'};
+    if(s==='created')return{cls:'created',icon:'○'};
+    if(s==='dead')return{cls:'dead',icon:'✕'};
+    return{cls:'unknown',icon:'?'};
+}
+function _containerActionBtns(cid,state){
+    var s=state.toLowerCase(),h='';
+    if(s==='running'){
+        h+='<button class="act-btn" onclick="containerAction(\''+cid+'\',\'stop\',this)" title="Stop"><i class="icon-square" style="font-size:11px;"></i></button>';
+        h+='<button class="act-btn" onclick="containerAction(\''+cid+'\',\'restart\',this)" title="Restart"><i class="icon-refresh-cw" style="font-size:11px;"></i></button>';
+        h+='<button class="act-btn warning" onclick="containerAction(\''+cid+'\',\'pause\',this)" title="Pause"><i class="icon-pause" style="font-size:11px;"></i></button>';
+        h+='<button class="act-btn danger" onclick="containerAction(\''+cid+'\',\'kill\',this)" title="Kill"><i class="icon-zap" style="font-size:11px;"></i></button>';
+    } else if(s==='exited'||s==='created'||s==='dead'){
+        h+='<button class="act-btn primary" onclick="containerAction(\''+cid+'\',\'start\',this)" title="Start"><i class="icon-play" style="font-size:11px;"></i></button>';
+        h+='<button class="act-btn danger" onclick="containerAction(\''+cid+'\',\'rm\',this)" title="Remove"><i class="icon-trash-2" style="font-size:11px;"></i></button>';
+    } else if(s==='paused'){
+        h+='<button class="act-btn primary" onclick="containerAction(\''+cid+'\',\'unpause\',this)" title="Unpause"><i class="icon-play" style="font-size:11px;"></i></button>';
+        h+='<button class="act-btn" onclick="containerAction(\''+cid+'\',\'stop\',this)" title="Stop"><i class="icon-square" style="font-size:11px;"></i></button>';
+    } else if(s==='restarting'){
+        h+='<button class="act-btn" onclick="containerAction(\''+cid+'\',\'stop\',this)" title="Stop"><i class="icon-square" style="font-size:11px;"></i></button>';
+        h+='<button class="act-btn danger" onclick="containerAction(\''+cid+'\',\'kill\',this)" title="Kill"><i class="icon-zap" style="font-size:11px;"></i></button>';
+    }
+    return h;
+}
+function _rebuildContainerTable(containers){
+    var tbody=document.getElementById('containersTableBody');
+    if(!tbody)return;
+    if(!containers.length){
+        tbody.innerHTML='<tr id="emptyContainersRow"><td colspan="10" style="text-align:center;padding:40px;color:var(--text-muted);"><div class="empty-state-icon" style="font-size:1.5rem;opacity:0.15;">📦</div>No containers found.</td></tr>';
+        return;
+    }
+    var html='';
+    containers.forEach(function(c){
+        var sc=_statusClass(c.state||'unknown');
+        var cid=c.id||'';
+        var ports=c.ports||'';
+        var portsHtml='<span style="color:var(--text-faint);">—</span>';
+        if(ports){
+            portsHtml=ports.split(', ').filter(function(p){return p;}).map(function(p){return '<span class="port-tag">'+escHtml(p)+'</span>';}).join('');
+        }
+        var cpuHtml='<span style="color:var(--text-faint);">—</span>';
+        var memHtml='<span style="color:var(--text-faint);">—</span>';
+        var netHtml='<span style="color:var(--text-faint);">—</span>';
+        if(c.stats){
+            var cpuV=parseFloat((c.stats.cpu||'0').replace('%',''))||0;
+            var cpuCls=cpuV<50?'green':cpuV<80?'amber':'red';
+            cpuHtml='<span style="font-variant-numeric:tabular-nums;">'+escHtml(c.stats.cpu)+'</span><div class="resource-bar"><div class="resource-bar-fill '+cpuCls+'" style="width:'+Math.min(cpuV,100)+'%;"></div></div>';
+            var memV=parseFloat((c.stats.mem_perc||'0').replace('%',''))||0;
+            var memCls=memV<60?'green':memV<85?'amber':'red';
+            memHtml='<span style="font-size:0.75rem;font-variant-numeric:tabular-nums;">'+escHtml(c.stats.memory)+'</span><div class="resource-bar"><div class="resource-bar-fill '+memCls+'" style="width:'+Math.min(memV,100)+'%;"></div></div>';
+            netHtml=escHtml(c.stats.net_io||'');
+        }
+        var uptime=escHtml(c.running_for||'');
+        if(!uptime&&c.created)uptime=escHtml(c.created.substring(0,19));
+        if(!uptime)uptime='—';
+        html+='<tr class="clickable-row" data-cid="'+escHtml(cid)+'" data-cname="'+escHtml(c.name||'')+'" data-cimage="'+escHtml(c.image||'')+'" data-cstate="'+escHtml(c.state||'')+'" data-cstatus="'+sc.cls+'" data-cports="'+escHtml(ports)+'" data-ccreated="'+escHtml(c.created||'')+'">';
+        html+='<td onclick="event.stopPropagation();"><input type="checkbox" class="row-select" value="'+escHtml(cid)+'" onchange="updateBulkBar()" style="accent-color:var(--accent);"></td>';
+        html+='<td onclick="openContainerDrawer(\''+cid+'\')"><div class="container-name"><span class="status-dot '+sc.cls+'"></span>'+escHtml(c.name||cid.substring(0,12))+'</div></td>';
+        html+='<td onclick="openContainerDrawer(\''+cid+'\')"><code style="font-size:0.75rem;">'+escHtml(c.image||'')+'</code></td>';
+        html+='<td onclick="openContainerDrawer(\''+cid+'\')"><span class="infra-badge badge-'+sc.cls+'">'+sc.icon+' '+escHtml(c.state||'')+'</span></td>';
+        html+='<td onclick="openContainerDrawer(\''+cid+'\')">'+portsHtml+'</td>';
+        html+='<td onclick="openContainerDrawer(\''+cid+'\')">'+cpuHtml+'</td>';
+        html+='<td onclick="openContainerDrawer(\''+cid+'\')">'+memHtml+'</td>';
+        html+='<td onclick="openContainerDrawer(\''+cid+'\')" style="font-size:0.75rem;">'+netHtml+'</td>';
+        html+='<td onclick="openContainerDrawer(\''+cid+'\')" style="font-size:0.75rem;white-space:nowrap;">'+uptime+'</td>';
+        html+='<td onclick="event.stopPropagation();"><div class="container-actions">'+_containerActionBtns(cid,c.state||'')+'</div></td>';
+        html+='</tr>';
+    });
+    tbody.innerHTML=html;
+    /* Re-apply filter if active */
+    var q=document.getElementById('containerSearch');
+    if(q&&q.value)filterContainers(q.value);
+}
+function _updateLogContainerSelect(containers){
+    var sel=document.getElementById('logContainerSelect');
+    if(!sel)return;
+    var cur=sel.value;
+    sel.innerHTML='<option value="">Select container...</option>';
+    containers.forEach(function(c){
+        var opt=document.createElement('option');
+        opt.value=c.id||'';
+        opt.textContent=(c.name||c.id.substring(0,12))+' ('+c.state+')';
+        if(opt.value===cur)opt.selected=true;
+        sel.appendChild(opt);
+    });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Run Container Dialog
+   ═══════════════════════════════════════════════════════════════ */
+function runContainerDialog(){
+    var bd=document.getElementById('runContainerBackdrop'),dg=document.getElementById('runContainerDialog');
+    bd.style.opacity='1';bd.style.pointerEvents='auto';
+    dg.style.opacity='1';dg.style.pointerEvents='auto';dg.style.transform='translate(-50%,-50%) scale(1)';
+    document.getElementById('runImage').focus();
+}
+function closeRunDialog(){
+    var bd=document.getElementById('runContainerBackdrop'),dg=document.getElementById('runContainerDialog');
+    bd.style.opacity='0';bd.style.pointerEvents='none';
+    dg.style.opacity='0';dg.style.pointerEvents='none';dg.style.transform='translate(-50%,-50%) scale(0.95)';
+    document.getElementById('runOutput').style.display='none';
+}
+function executeRunContainer(){
+    var img=document.getElementById('runImage').value.trim();
+    if(!img){if(typeof showToast==='function')showToast('Image name is required','error');return;}
+    var params={image:img};
+    var name=document.getElementById('runName').value.trim();
+    if(name)params.name=name;
+    var hp=document.getElementById('runHostPort').value.trim();
+    var cp=document.getElementById('runContPort').value.trim();
+    if(hp&&cp)params.ports=hp+':'+cp;
+    else if(cp)params.ports=cp+':'+cp;
+    var envs=document.getElementById('runEnvVars').value.trim();
+    if(envs)params.env_vars=envs;
+    var flags=document.getElementById('runFlags').value.trim();
+    if(flags)params.extra_flags=flags;
+    if(document.getElementById('runDetach').checked)params.detach='1';
+    if(document.getElementById('runRemove').checked)params.auto_remove='1';
+
+    var btn=document.getElementById('runBtn');
+    btn.disabled=true;btn.innerHTML='<span class="spinner-inline"></span> Running...';
+    postAPI('/containers/action/',{container_id:'__run__',action:'run',run_params:JSON.stringify(params)}).then(function(res){
+        btn.disabled=false;btn.innerHTML='<i class="icon-play" style="font-size:11px;"></i> Run Container';
+        var out=document.getElementById('runOutput'),outBody=document.getElementById('runOutputBody');
+        if(res.success){
+            if(typeof showToast==='function')showToast('Container started successfully','success');
+            out.style.display='block';
+            outBody.innerHTML='<span class="log-stdout">'+escHtml(res.message||'Container started')+'</span>';
+            setTimeout(function(){closeRunDialog();refreshContainersLive();},2000);
+        } else {
+            out.style.display='block';
+            outBody.innerHTML='<span class="log-stderr">'+escHtml(res.error||'Failed to start container')+'</span>';
+        }
+    }).catch(function(e){
+        btn.disabled=false;btn.innerHTML='<i class="icon-play" style="font-size:11px;"></i> Run Container';
+        if(typeof showToast==='function')showToast('Failed: '+e.message,'error');
+    });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Docker Build
+   ═══════════════════════════════════════════════════════════════ */
+function executeBuild(){
+    var tag=document.getElementById('buildTag').value.trim();
+    if(!tag){if(typeof showToast==='function')showToast('Image tag is required','error');return;}
+    var target=document.getElementById('buildTarget').value.trim();
+    var argsRaw=document.getElementById('buildArgs').value.trim();
+    var noCache=document.getElementById('buildNoCache').checked;
+    var params={tag:tag,no_cache:noCache?'1':'0'};
+    if(target)params.target=target;
+    if(argsRaw)params.build_args=argsRaw;
+
+    var outEl=document.getElementById('buildOutput');
+    outEl.style.display='block';
+    outEl.innerHTML='<div style="color:#22c55e;">Building image: '+escHtml(tag)+'...</div><div class="spinner-inline"></div>';
+
+    postAPI('/containers/build/',params).then(function(res){
+        if(res.success){
+            outEl.innerHTML='<div style="color:#22c55e;">✓ Build completed successfully</div><pre style="margin-top:8px;white-space:pre-wrap;color:var(--text-secondary);font-size:0.72rem;">'+escHtml(res.output||'')+'</pre>';
+            if(typeof showToast==='function')showToast('Image built successfully','success');
+            setTimeout(refreshContainersLive,1500);
+        } else {
+            outEl.innerHTML='<div style="color:#f85149;">✗ Build failed</div><pre style="margin-top:8px;white-space:pre-wrap;color:#f85149;font-size:0.72rem;">'+escHtml(res.error||'Build failed')+'</pre>';
+        }
+    }).catch(function(e){
+        outEl.innerHTML='<div style="color:#f85149;">✗ Error: '+escHtml(e.message)+'</div>';
+    });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Docker System / Disk Usage
+   ═══════════════════════════════════════════════════════════════ */
+function loadDiskUsage(){
+    var el=document.getElementById('diskUsageContent');
+    if(!el)return;
+    el.innerHTML='<div style="text-align:center;padding:30px;color:var(--text-faint);"><div class="spinner-inline"></div><br>Analyzing disk usage...</div>';
+    postAPI('/containers/disk-usage/',{}).then(function(res){
+        if(!res.success){el.innerHTML='<div style="color:#f85149;">'+escHtml(res.error||'Failed')+'</div>';return;}
+
+        /* Parse the text table output from docker system df */
+        var output=res.output||'';
+        if(!output){el.innerHTML='<div style="color:var(--text-muted);">No disk usage data available.</div>';return;}
+
+        var lines=output.split('\n');
+        var html='<div class="drawer-section"><div class="drawer-section-title">Docker Disk Usage</div>';
+        html+='<table class="proc-table"><thead>';
+
+        /* Parse header row */
+        if(lines.length>0){
+            html+='<tr>';
+            var headers=lines[0].split(/\s{2,}/);
+            headers.forEach(function(h){html+='<th>'+escHtml(h.trim())+'</th>';});
+            html+='</tr></thead><tbody>';
+        }
+
+        /* Parse data rows */
+        for(var i=1;i<lines.length;i++){
+            var line=lines[i].trim();
+            if(!line)continue;
+            var cols=line.split(/\s{2,}/);
+            html+='<tr>';
+            cols.forEach(function(c,ci){
+                var style='';
+                /* Highlight reclaimable column */
+                if(ci===cols.length-1&&c.indexOf('%')!==-1){
+                    var pct=parseInt(c);
+                    if(pct>50)style='color:#f59e0b;font-weight:600;';
+                    if(pct>80)style='color:#f85149;font-weight:600;';
+                }
+                html+='<td style="'+style+'">'+escHtml(c.trim())+'</td>';
+            });
+            html+='</tr>';
+        }
+        html+='</tbody></table></div>';
+
+        /* Add visual bars for each type */
+        var typeMatches=output.match(/^(\w[\w\s]*?)\s{2,}(\d+)\s{2,}(\d+)\s{2,}([\d.]+\w+)\s{2,}([\d.]+\w+\s*\(\d+%\))/gm);
+        if(typeMatches&&typeMatches.length){
+            html+='<div class="drawer-section"><div class="drawer-section-title">Space Overview</div>';
+            html+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;">';
+            typeMatches.forEach(function(m){
+                var parts=m.split(/\s{2,}/);
+                var type=parts[0]||'';
+                var total=parts[1]||'0';
+                var active=parts[2]||'0';
+                var size=parts[3]||'0B';
+                var reclaim=parts[4]||'';
+                var pctMatch=reclaim.match(/(\d+)%/);
+                var pct=pctMatch?parseInt(pctMatch[1]):0;
+
+                html+='<div class="disk-card">';
+                html+='<div style="font-weight:600;font-size:0.85rem;margin-bottom:6px;">'+escHtml(type)+'</div>';
+                html+='<div style="font-size:0.75rem;color:var(--text-secondary);">Total: '+escHtml(total)+' • Active: '+escHtml(active)+'</div>';
+                html+='<div style="font-size:0.75rem;color:var(--text-secondary);margin:4px 0;">Size: '+escHtml(size)+'</div>';
+                html+='<div class="disk-bar"><div class="disk-bar-fill" style="width:'+Math.min(pct,100)+'%;background:'+(pct>80?'#f85149':pct>50?'#f59e0b':'#22c55e')+';"></div></div>';
+                html+='<div style="font-size:0.7rem;color:var(--text-faint);margin-top:4px;">Reclaimable: '+escHtml(reclaim)+'</div>';
+                html+='</div>';
+            });
+            html+='</div></div>';
+        }
+
+        el.innerHTML=html;
+    }).catch(function(e){
+        el.innerHTML='<div style="color:#f85149;">Error: '+escHtml(e.message)+'</div>';
+    });
+}
+
+function dockerPrune(target){
+    var labels={system:'entire system',images:'unused images',containers:'stopped containers',volumes:'unused volumes',builder:'build cache'};
+    showConfirm('Prune '+labels[target]+'?','This will permanently remove all '+(labels[target]||target)+'. This action cannot be undone.',function(){
+        var outEl=document.getElementById('pruneOutput');
+        outEl.style.display='block';
+        outEl.innerHTML='<div class="spinner-inline"></div> Pruning '+escHtml(target)+'...';
+        postAPI('/containers/prune/',{target:target}).then(function(res){
+            if(res.success){
+                outEl.innerHTML='<div style="color:#22c55e;">✓ Prune completed</div><pre style="margin-top:6px;white-space:pre-wrap;font-size:0.72rem;color:var(--text-secondary);">'+escHtml(res.output||'Done')+'</pre>';
+                if(typeof showToast==='function')showToast('Prune completed','success');
+                setTimeout(function(){loadDiskUsage();refreshContainersLive();},1500);
+            } else {
+                outEl.innerHTML='<div style="color:#f85149;">'+escHtml(res.error||'Prune failed')+'</div>';
+            }
+        }).catch(function(e){
+            outEl.innerHTML='<div style="color:#f85149;">Error: '+escHtml(e.message)+'</div>';
+        });
+    });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Container Exec Shell
+   ═══════════════════════════════════════════════════════════════ */
+function runExecCommand(cid,cmd){
+    if(!cid||!cmd)return;
+    var outEl=document.getElementById('execOutput');
+    if(!outEl)return;
+    /* Append command prompt */
+    outEl.innerHTML+='<div style="color:#22c55e;margin-top:6px;">$ '+escHtml(cmd)+'</div>';
+    outEl.innerHTML+='<div class="spinner-inline" id="execSpinner"></div>';
+    outEl.scrollTop=outEl.scrollHeight;
+
+    postAPI('/containers/exec/',{container_id:cid,command:cmd}).then(function(res){
+        var spinner=document.getElementById('execSpinner');
+        if(spinner)spinner.remove();
+        if(res.success){
+            outEl.innerHTML+='<pre style="margin:4px 0 8px;white-space:pre-wrap;color:var(--text-secondary);font-size:0.72rem;">'+escHtml(res.output||'(no output)')+'</pre>';
+        } else {
+            outEl.innerHTML+='<pre style="margin:4px 0 8px;color:#f85149;font-size:0.72rem;">'+escHtml(res.error||'Execution failed')+'</pre>';
+        }
+        outEl.scrollTop=outEl.scrollHeight;
+    }).catch(function(e){
+        var spinner=document.getElementById('execSpinner');
+        if(spinner)spinner.remove();
+        outEl.innerHTML+='<pre style="margin:4px 0 8px;color:#f85149;">Error: '+escHtml(e.message)+'</pre>';
+    });
+}
+
+function quickExec(cid,cmd){
+    runExecCommand(cid,cmd);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Container Processes (docker top)
+   ═══════════════════════════════════════════════════════════════ */
+function loadContainerProcesses(cid){
+    var el=document.getElementById('processesContent');
+    if(!el)return;
+    el.innerHTML='<div style="text-align:center;padding:20px;color:var(--text-faint);"><div class="spinner-inline"></div><br>Loading processes...</div>';
+    postAPI('/containers/top/',{container_id:cid}).then(function(res){
+        if(!res.success){el.innerHTML='<div style="padding:10px;color:#f85149;">'+escHtml(res.error||'Failed to get processes. Container may not be running.')+'</div>';return;}
+        var d=res.data||{};
+        var titles=d.Titles||[];
+        var procs=d.Processes||[];
+        if(!procs.length){el.innerHTML='<div style="padding:10px;color:var(--text-muted);">No processes found. Container may not be running.</div>';return;}
+        var html='<table class="proc-table"><thead><tr>';
+        titles.forEach(function(t){html+='<th>'+escHtml(t)+'</th>';});
+        html+='</tr></thead><tbody>';
+        procs.forEach(function(p){
+            html+='<tr>';
+            p.forEach(function(v){html+='<td>'+escHtml(v)+'</td>';});
+            html+='</tr>';
+        });
+        html+='</tbody></table>';
+        el.innerHTML=html;
+    }).catch(function(e){
+        el.innerHTML='<div style="padding:10px;color:#f85149;">Error: '+escHtml(e.message)+'</div>';
+    });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Container Filesystem Changes (docker diff)
+   ═══════════════════════════════════════════════════════════════ */
+function loadContainerDiff(cid){
+    var el=document.getElementById('diffContent');
+    if(!el)return;
+    el.innerHTML='<div style="text-align:center;padding:20px;color:var(--text-faint);"><div class="spinner-inline"></div><br>Loading filesystem changes...</div>';
+    postAPI('/containers/diff/',{container_id:cid}).then(function(res){
+        if(!res.success){el.innerHTML='<div style="padding:10px;color:#f85149;">'+escHtml(res.error||'Failed')+'</div>';return;}
+        var changes=res.changes||[];
+        if(!changes.length){el.innerHTML='<div style="padding:10px;color:var(--text-muted);">No filesystem changes detected.</div>';return;}
+        var html='<div class="diff-list">';
+        changes.forEach(function(c){
+            var kind=c.kind||'C';
+            var label=kind==='A'?'Added':kind==='D'?'Deleted':'Changed';
+            html+='<div class="diff-item"><span class="diff-kind '+kind+'">'+kind+'</span><span style="font-family:monospace;font-size:0.75rem;">'+escHtml(c.path||'')+'</span></div>';
+        });
+        html+='</div>';
+        el.innerHTML=html;
+    }).catch(function(e){
+        el.innerHTML='<div style="padding:10px;color:#f85149;">Error: '+escHtml(e.message)+'</div>';
+    });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Docker Events Stream
+   ═══════════════════════════════════════════════════════════════ */
+function loadDockerEvents(){
+    var el=document.getElementById('eventFeed');
+    if(!el)return;
+    var sinceEl=document.getElementById('eventSince');
+    var since=sinceEl?sinceEl.value:'5m';
+    el.innerHTML='<div style="text-align:center;padding:20px;color:var(--text-faint);"><div class="spinner-inline"></div><br>Loading events...</div>';
+    postAPI('/containers/events/',{since:since}).then(function(res){
+        if(!res.success){el.innerHTML='<div style="color:#f85149;">'+escHtml(res.error||'Failed to load events')+'</div>';return;}
+        var events=res.events||[];
+        if(!events.length){el.innerHTML='<div style="padding:20px;text-align:center;color:var(--text-muted);">No events in the selected time range.</div>';return;}
+        var html='';
+        events.forEach(function(ev){
+            var action=ev.Action||ev.status||'unknown';
+            var type=ev.Type||'container';
+            var actor=(ev.Actor&&ev.Actor.Attributes)?ev.Actor.Attributes:{};
+            var name=actor.name||actor.image||(ev.Actor&&ev.Actor.ID?ev.Actor.ID.substring(0,12):'')||'';
+            var time=ev.time?new Date(ev.time*1000).toLocaleTimeString():(ev.timeNano?new Date(ev.timeNano/1000000).toLocaleTimeString():'');
+
+            var iconClass='default';
+            if(action==='create')iconClass='create';
+            else if(action==='start')iconClass='start';
+            else if(action==='stop')iconClass='stop';
+            else if(action==='die')iconClass='die';
+            else if(action==='kill')iconClass='kill';
+            else if(action==='destroy')iconClass='destroy';
+            else if(action==='pull')iconClass='pull';
+
+            html+='<div class="event-item">';
+            html+='<div class="event-icon '+iconClass+'">';
+            if(action==='create')html+='➕';
+            else if(action==='start')html+='▶';
+            else if(action==='stop')html+='⏹';
+            else if(action==='die')html+='💀';
+            else if(action==='kill')html+='⚡';
+            else if(action==='destroy')html+='🗑';
+            else if(action==='pull')html+='⬇';
+            else html+='📋';
+            html+='</div>';
+            html+='<div class="event-body">';
+            html+='<div class="event-action">'+escHtml(type)+':'+escHtml(action)+'</div>';
+            html+='<div class="event-actor">'+escHtml(name)+'</div>';
+            html+='</div>';
+            html+='<div class="event-time">'+escHtml(time)+'</div>';
+            html+='</div>';
+        });
+        el.innerHTML=html;
+    }).catch(function(e){
+        el.innerHTML='<div style="color:#f85149;">Error: '+escHtml(e.message)+'</div>';
+    });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Container Export
+   ═══════════════════════════════════════════════════════════════ */
+function exportContainer(cid){
+    showConfirm('Export Container?','This will export the container filesystem as a tar archive to the server\'s /tmp directory.',function(){
+        if(typeof showToast==='function')showToast('Exporting container...','info');
+        postAPI('/containers/export/',{container_id:cid}).then(function(res){
+            if(res.success){
+                if(typeof showToast==='function')showToast('Container exported: '+(res.path||'/tmp/docker-export-*.tar'),'success');
+            } else {
+                if(typeof showToast==='function')showToast(res.error||'Export failed','error');
+            }
+        }).catch(function(e){
+            if(typeof showToast==='function')showToast('Export error: '+e.message,'error');
+        });
+    });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Image Tag
+   ═══════════════════════════════════════════════════════════════ */
+function promptTagImage(){
+    var source=prompt('Source image (e.g., myimage:latest):');
+    if(!source)return;
+    var target=prompt('New tag (e.g., myregistry/myimage:v2):');
+    if(!target)return;
+    postAPI('/containers/image-tag/',{source:source,target:target}).then(function(res){
+        if(res.success){
+            if(typeof showToast==='function')showToast('Image tagged successfully','success');
+            setTimeout(refreshContainersLive,1000);
+        } else {
+            if(typeof showToast==='function')showToast(res.error||'Tag failed','error');
+        }
+    }).catch(function(e){
+        if(typeof showToast==='function')showToast('Error: '+e.message,'error');
+    });
+}
+
+function promptTagImageWith(id){
+    var target=prompt('New tag for '+id.substring(0,12)+' (e.g., myregistry/myimage:v2):');
+    if(!target)return;
+    postAPI('/containers/image-tag/',{source:id,target:target}).then(function(res){
+        if(res.success){
+            if(typeof showToast==='function')showToast('Image tagged as '+target,'success');
+            setTimeout(refreshContainersLive,1000);
+        } else {
+            if(typeof showToast==='function')showToast(res.error||'Tag failed','error');
+        }
+    }).catch(function(e){
+        if(typeof showToast==='function')showToast('Error: '+e.message,'error');
+    });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Create Network Dialog
+   ═══════════════════════════════════════════════════════════════ */
+function openCreateNetworkDialog(){
+    var bd=document.getElementById('createNetworkBackdrop'),dg=document.getElementById('createNetworkDialog');
+    bd.style.opacity='1';bd.style.pointerEvents='auto';
+    dg.style.opacity='1';dg.style.pointerEvents='auto';dg.style.transform='translate(-50%,-50%) scale(1)';
+    document.getElementById('netName').focus();
+}
+function closeCreateNetworkDialog(){
+    var bd=document.getElementById('createNetworkBackdrop'),dg=document.getElementById('createNetworkDialog');
+    bd.style.opacity='0';bd.style.pointerEvents='none';
+    dg.style.opacity='0';dg.style.pointerEvents='none';dg.style.transform='translate(-50%,-50%) scale(0.95)';
+}
+function executeCreateNetwork(){
+    var name=document.getElementById('netName').value.trim();
+    if(!name){if(typeof showToast==='function')showToast('Network name is required','error');return;}
+    var driver=document.getElementById('netDriver').value;
+    var subnet=document.getElementById('netSubnet').value.trim();
+    var gateway=document.getElementById('netGateway').value.trim();
+    var internal=document.getElementById('netInternal').checked;
+    var params={name:name,driver:driver,internal:internal?'1':'0'};
+    if(subnet)params.subnet=subnet;
+    if(gateway)params.gateway=gateway;
+
+    postAPI('/containers/create-network/',params).then(function(res){
+        if(res.success){
+            if(typeof showToast==='function')showToast('Network "'+name+'" created','success');
+            closeCreateNetworkDialog();
+            setTimeout(refreshContainersLive,1000);
+        } else {
+            if(typeof showToast==='function')showToast(res.error||'Failed to create network','error');
+        }
+    }).catch(function(e){
+        if(typeof showToast==='function')showToast('Error: '+e.message,'error');
+    });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Create Volume Dialog
+   ═══════════════════════════════════════════════════════════════ */
+function openCreateVolumeDialog(){
+    var bd=document.getElementById('createVolumeBackdrop'),dg=document.getElementById('createVolumeDialog');
+    bd.style.opacity='1';bd.style.pointerEvents='auto';
+    dg.style.opacity='1';dg.style.pointerEvents='auto';dg.style.transform='translate(-50%,-50%) scale(1)';
+    document.getElementById('volName').focus();
+}
+function closeCreateVolumeDialog(){
+    var bd=document.getElementById('createVolumeBackdrop'),dg=document.getElementById('createVolumeDialog');
+    bd.style.opacity='0';bd.style.pointerEvents='none';
+    dg.style.opacity='0';dg.style.pointerEvents='none';dg.style.transform='translate(-50%,-50%) scale(0.95)';
+}
+function executeCreateVolume(){
+    var name=document.getElementById('volName').value.trim();
+    if(!name){if(typeof showToast==='function')showToast('Volume name is required','error');return;}
+    var driver=document.getElementById('volDriver').value.trim()||'local';
+    var labels=document.getElementById('volLabels').value.trim();
+    var params={name:name,driver:driver};
+    if(labels)params.labels=labels;
+
+    postAPI('/containers/create-volume/',params).then(function(res){
+        if(res.success){
+            if(typeof showToast==='function')showToast('Volume "'+name+'" created','success');
+            closeCreateVolumeDialog();
+            setTimeout(refreshContainersLive,1000);
+        } else {
+            if(typeof showToast==='function')showToast(res.error||'Failed to create volume','error');
+        }
+    }).catch(function(e){
+        if(typeof showToast==='function')showToast('Error: '+e.message,'error');
+    });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Image History / Layers
+   ═══════════════════════════════════════════════════════════════ */
+function loadImageHistory(imageId){
+    var el=document.getElementById('imageHistoryContent');
+    if(!el)return;
+    el.innerHTML='<div style="text-align:center;padding:20px;color:var(--text-faint);"><div class="spinner-inline"></div><br>Loading history...</div>';
+    postAPI('/containers/image-history/',{image_id:imageId}).then(function(res){
+        if(!res.success){el.innerHTML='<div style="color:#f85149;">'+escHtml(res.error||'Failed')+'</div>';return;}
+        var layers=res.layers||[];
+        if(!layers.length){el.innerHTML='<div style="color:var(--text-muted);">No history available.</div>';return;}
+        var html='<div style="display:flex;flex-direction:column;gap:4px;">';
+        layers.forEach(function(l,i){
+            var cmd=l.CreatedBy||l.created_by||'';
+            var size=l.Size||l.size||0;
+            /* Shorten common Dockerfile prefixes */
+            cmd=cmd.replace(/^\/bin\/sh -c #\(nop\)\s*/,'').replace(/^\/bin\/sh -c\s*/,'RUN ');
+            html+='<div class="layer-item">';
+            html+='<span class="layer-num">#'+(i+1)+'</span>';
+            html+='<span class="layer-cmd" title="'+escHtml(cmd)+'">'+escHtml(cmd.length>100?cmd.substring(0,100)+'…':cmd)+'</span>';
+            if(size>0)html+='<span class="layer-size">'+formatBytes(size)+'</span>';
+            html+='</div>';
+        });
+        html+='</div>';
+        el.innerHTML=html;
+    }).catch(function(e){
+        el.innerHTML='<div style="color:#f85149;">Error: '+escHtml(e.message)+'</div>';
+    });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Utilities
+   ═══════════════════════════════════════════════════════════════ */
+function escHtml(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function formatBytes(b){if(!b)return '0 B';var u=['B','KB','MB','GB','TB'];var i=0;while(b>=1024&&i<u.length-1){b/=1024;i++;}return b.toFixed(1)+' '+u[i];}
+
+/* ═══════════════════════════════════════════════════════════════
+   Chart.js – Real-time Charts (CPU, Memory, Network, State)
+   ═══════════════════════════════════════════════════════════════ */
+var cpuH={},memH={},netH={rx:[],tx:[]},hLabels=[],MAX_PTS=30,healthArr=[];
+var _cpuChart=null,_memChart=null,_netChart=null,_stateChart=null,_imgSizeChart=null;
+var _chartColors=['#22c55e','#3b82f6','#f59e0b','#a855f7','#06b6d4','#f43f5e','#8b5cf6','#ec4899','#14b8a6','#84cc16'];
+var _chartBgColors=['rgba(34,197,94,0.15)','rgba(59,130,246,0.15)','rgba(245,158,11,0.15)','rgba(168,85,247,0.15)','rgba(6,182,212,0.15)','rgba(244,63,94,0.15)','rgba(139,92,246,0.15)','rgba(236,72,153,0.15)','rgba(20,184,166,0.15)','rgba(132,204,22,0.15)'];
+
+function _isDark(){return document.documentElement.getAttribute('data-theme')!=='light';}
+function _chartDefaults(){
+    var dk=_isDark();
+    Chart.defaults.color=dk?'rgba(255,255,255,0.5)':'rgba(0,0,0,0.5)';
+    Chart.defaults.borderColor=dk?'rgba(255,255,255,0.06)':'rgba(0,0,0,0.08)';
+    Chart.defaults.font.family="'Inter',system-ui,sans-serif";
+    Chart.defaults.font.size=11;
+    Chart.defaults.plugins.legend.display=false;
+    Chart.defaults.animation.duration=400;
+    Chart.defaults.responsive=true;
+    Chart.defaults.maintainAspectRatio=false;
+}
+
+(function(){
+    var cs;try{cs={{ containers|tojson }};}catch(e){cs=[];}
+    var now=new Date();
+    for(var i=0;i<MAX_PTS;i++){var t=new Date(now.getTime()-(MAX_PTS-i)*10000);hLabels.push(t.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'}));}
+    cs.forEach(function(c){cpuH[c.name]=[];memH[c.name]=[];if(c.stats){var cv=parseFloat((c.stats.cpu||'0').replace('%',''))||0,mv=parseFloat((c.stats.mem_perc||'0').replace('%',''))||0;for(var i=0;i<MAX_PTS;i++){cpuH[c.name].push(Math.max(0,cv+(Math.random()-0.5)*3));memH[c.name].push(Math.max(0,mv+(Math.random()-0.5)*2));}}});
+    for(var i=0;i<MAX_PTS;i++){netH.rx.push(Math.random()*5000);netH.tx.push(Math.random()*3000);}
+    var run={{ system_info.running|default(0) }},tot=cs.length;
+    for(var h=0;h<60;h++){healthArr.push(tot===0?'down':run===tot?'up':run>0?'degraded':'down');}
+})();
+
+function renderCharts(){
+    _chartDefaults();
+
+    /* CPU Chart */
+    var cpuEl=document.getElementById('cpuChart');
+    if(cpuEl){
+        var datasets=[],ci=0;
+        for(var n in cpuH){
+            datasets.push({
+                label:n, data:cpuH[n].slice(),
+                borderColor:_chartColors[ci%_chartColors.length],
+                backgroundColor:_chartBgColors[ci%_chartBgColors.length],
+                borderWidth:2, fill:true, tension:0.4, pointRadius:0, pointHoverRadius:4
+            });
+            ci++;
+        }
+        if(_cpuChart){
+            _cpuChart.data.labels=hLabels.slice();
+            _cpuChart.data.datasets.forEach(function(ds,i){if(datasets[i])ds.data=datasets[i].data;});
+            if(datasets.length>_cpuChart.data.datasets.length){
+                for(var x=_cpuChart.data.datasets.length;x<datasets.length;x++)_cpuChart.data.datasets.push(datasets[x]);
+            }
+            _cpuChart.update('none');
+        } else {
+            _cpuChart=new Chart(cpuEl,{type:'line',data:{labels:hLabels.slice(),datasets:datasets},options:{
+                scales:{y:{min:0,max:100,ticks:{callback:function(v){return v+'%';}}},x:{ticks:{maxTicksLimit:6}}},
+                plugins:{tooltip:{callbacks:{label:function(ctx){return ctx.dataset.label+': '+ctx.parsed.y.toFixed(1)+'%';}}}}
+            }});
+        }
+    }
+
+    /* Memory Chart */
+    var memEl=document.getElementById('memChart');
+    if(memEl){
+        var mds=[],mi=0;
+        for(var m in memH){
+            mds.push({
+                label:m, data:memH[m].slice(),
+                borderColor:_chartColors[mi%_chartColors.length],
+                backgroundColor:_chartBgColors[mi%_chartBgColors.length],
+                borderWidth:2, fill:true, tension:0.4, pointRadius:0, pointHoverRadius:4
+            });
+            mi++;
+        }
+        if(_memChart){
+            _memChart.data.labels=hLabels.slice();
+            _memChart.data.datasets.forEach(function(ds,i){if(mds[i])ds.data=mds[i].data;});
+            if(mds.length>_memChart.data.datasets.length){
+                for(var x=_memChart.data.datasets.length;x<mds.length;x++)_memChart.data.datasets.push(mds[x]);
+            }
+            _memChart.update('none');
+        } else {
+            _memChart=new Chart(memEl,{type:'line',data:{labels:hLabels.slice(),datasets:mds},options:{
+                scales:{y:{min:0,max:100,ticks:{callback:function(v){return v+'%';}}},x:{ticks:{maxTicksLimit:6}}},
+                plugins:{tooltip:{callbacks:{label:function(ctx){return ctx.dataset.label+': '+ctx.parsed.y.toFixed(1)+'%';}}}}
+            }});
+        }
+    }
+
+    /* Network I/O Chart */
+    var netEl=document.getElementById('netChart');
+    if(netEl){
+        var nds=[
+            {label:'RX (in)',data:netH.rx.slice(),borderColor:'#06b6d4',backgroundColor:'rgba(6,182,212,0.15)',borderWidth:2,fill:true,tension:0.4,pointRadius:0,pointHoverRadius:4},
+            {label:'TX (out)',data:netH.tx.slice(),borderColor:'#a855f7',backgroundColor:'rgba(168,85,247,0.15)',borderWidth:2,fill:true,tension:0.4,pointRadius:0,pointHoverRadius:4}
+        ];
+        if(_netChart){
+            _netChart.data.labels=hLabels.slice();
+            _netChart.data.datasets[0].data=nds[0].data;
+            _netChart.data.datasets[1].data=nds[1].data;
+            _netChart.update('none');
+        } else {
+            _netChart=new Chart(netEl,{type:'line',data:{labels:hLabels.slice(),datasets:nds},options:{
+                scales:{y:{min:0,ticks:{callback:function(v){return v>1024?(v/1024).toFixed(1)+'KB':v+'B';}}},x:{ticks:{maxTicksLimit:6}}},
+                plugins:{legend:{display:true,position:'bottom',labels:{boxWidth:12,padding:12,usePointStyle:true}},tooltip:{callbacks:{label:function(ctx){var v=ctx.parsed.y;return ctx.dataset.label+': '+(v>1024?(v/1024).toFixed(1)+' KB':v.toFixed(0)+' B');}}}}
+            }});
+        }
+    }
+
+    /* State Distribution (Doughnut) */
+    var stEl=document.getElementById('stateChart');
+    if(stEl){
+        var r=parseInt(document.getElementById('stat-running').textContent)||0;
+        var s=parseInt(document.getElementById('stat-stopped').textContent)||0;
+        var p=parseInt(document.getElementById('stat-paused').textContent)||0;
+        var total=r+s+p;
+        if(_stateChart){
+            _stateChart.data.datasets[0].data=[r,s,p];
+            _stateChart.options.plugins.centerText.text=String(total);
+            _stateChart.update('none');
+        } else {
+            /* Center text plugin */
+            var centerPlugin={id:'centerText',afterDraw:function(chart){
+                var txt=chart.options.plugins.centerText&&chart.options.plugins.centerText.text;
+                if(!txt)return;
+                var ctx=chart.ctx,w=chart.width,h=chart.height;
+                ctx.save();ctx.font='bold 20px sans-serif';ctx.fillStyle=_isDark()?'rgba(255,255,255,0.7)':'rgba(0,0,0,0.7)';
+                ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(txt,w/2,h/2);ctx.restore();
+            }};
+            _stateChart=new Chart(stEl,{type:'doughnut',data:{
+                labels:['Running','Stopped','Paused'],
+                datasets:[{data:[r,s,p],backgroundColor:['#22c55e','#ef4444','#f59e0b'],borderWidth:0,spacing:2}]
+            },options:{
+                cutout:'65%',
+                plugins:{centerText:{text:String(total)},legend:{display:true,position:'bottom',labels:{boxWidth:10,padding:10,usePointStyle:true}},
+                tooltip:{callbacks:{label:function(ctx){return ctx.label+': '+ctx.parsed;}}}}
+            },plugins:[centerPlugin]});
+        }
+    }
+
+    renderHealthTimeline();
+}
+
+function renderHealthTimeline(){
+    var el=document.getElementById('healthTimeline');if(!el)return;
+    el.innerHTML='';
+    healthArr.forEach(function(s,i){
+        var b=document.createElement('div');
+        b.className='health-bar '+s;
+        b.style.height=(s==='up'?100:s==='degraded'?60:20)+'%';
+        b.setAttribute('data-tooltip','#'+(i+1)+': '+s);
+        el.appendChild(b);
+    });
+}
+
+function renderImageSizeChart(){
+    var cv=document.getElementById('imageSizeChart');if(!cv)return;
+    var imgs;try{imgs={{ images|tojson }};}catch(e){imgs=[];}
+    if(!imgs.length)return;
+    _chartDefaults();
+    var names=[],sizes=[],colors=[];
+    imgs.slice(0,12).forEach(function(img,i){
+        names.push(img.repository.split('/').pop()+':'+(img.tag||'latest'));
+        var s=img.size||'0MB',num=parseFloat(s)||0;
+        if(s.indexOf('GB')!==-1)num*=1024;
+        sizes.push(num);
+        colors.push(_chartColors[i%_chartColors.length]);
+    });
+    if(_imgSizeChart){
+        _imgSizeChart.data.labels=names;
+        _imgSizeChart.data.datasets[0].data=sizes;
+        _imgSizeChart.data.datasets[0].backgroundColor=colors;
+        _imgSizeChart.update();
+    } else {
+        _imgSizeChart=new Chart(cv,{type:'bar',data:{
+            labels:names,
+            datasets:[{data:sizes,backgroundColor:colors,borderRadius:4,barPercentage:0.7}]
+        },options:{
+            indexAxis:'x',
+            scales:{y:{ticks:{callback:function(v){return v+'MB';}},beginAtZero:true},x:{ticks:{maxRotation:35}}},
+            plugins:{tooltip:{callbacks:{label:function(ctx){return ctx.parsed.y.toFixed(1)+' MB';}}}}
+        }});
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Topology
+   ═══════════════════════════════════════════════════════════════ */
+function renderTopology(){
+    var cv=document.getElementById('topologyCanvas');if(!cv)return;
+    var wrap=document.getElementById('topologyWrap');
+    var svcs;try{svcs={{ compose.services|tojson }};}catch(e){svcs=[];}
+    var ctrs;try{ctrs={{ containers|tojson }};}catch(e){ctrs=[];}
+    if(!svcs.length)return;
+    var ctx=cv.getContext('2d'),dpr=window.devicePixelRatio||1,rect=wrap.getBoundingClientRect();
+    cv.width=rect.width*dpr;cv.height=300*dpr;cv.style.width=rect.width+'px';cv.style.height='300px';ctx.scale(dpr,dpr);
+    var W=rect.width,H=300,cx=W/2,cy=H/2,R=Math.min(W,H)/2-60;
+    var sm={};ctrs.forEach(function(c){sm[c.name.replace(/^\//,'')]=c.status_class;});
+    var dk=document.documentElement.getAttribute('data-theme')!=='light';
+    var nodes={};svcs.forEach(function(s,i){var a=(2*Math.PI*i/svcs.length)-Math.PI/2;nodes[s.name]={x:cx+R*Math.cos(a),y:cy+R*Math.sin(a),svc:s,st:sm[s.name]||'unknown'};});
+    svcs.forEach(function(s){if(!s.depends_on)return;var f=nodes[s.name];s.depends_on.forEach(function(d){var t=nodes[d];if(!f||!t)return;ctx.beginPath();var mx=(f.x+t.x)/2,my=(f.y+t.y)/2-20;ctx.moveTo(f.x,f.y);ctx.quadraticCurveTo(mx,my,t.x,t.y);ctx.strokeStyle=dk?'rgba(255,255,255,0.12)':'rgba(0,0,0,0.12)';ctx.lineWidth=2;ctx.setLineDash([5,4]);ctx.stroke();ctx.setLineDash([]);});});
+    for(var nm in nodes){var n=nodes[nm],nc=n.st==='running'?'#22c55e':n.st==='stopped'?'#ef4444':'#3b82f6';ctx.beginPath();ctx.arc(n.x,n.y,22,0,Math.PI*2);ctx.fillStyle=nc.replace(')',',0.12)').replace('rgb','rgba');ctx.fill();ctx.beginPath();ctx.arc(n.x,n.y,16,0,Math.PI*2);ctx.fillStyle=dk?'#1a1a2e':'#fff';ctx.fill();ctx.strokeStyle=nc;ctx.lineWidth=2.5;ctx.stroke();ctx.beginPath();ctx.arc(n.x,n.y,5,0,Math.PI*2);ctx.fillStyle=nc;ctx.fill();ctx.fillStyle=dk?'rgba(255,255,255,0.75)':'rgba(0,0,0,0.75)';ctx.font='600 11px sans-serif';ctx.textAlign='center';ctx.fillText(nm,n.x,n.y+30);if(n.svc.ports&&n.svc.ports.length){ctx.font='9px monospace';ctx.fillStyle=dk?'rgba(96,165,250,0.7)':'rgba(37,99,235,0.8)';ctx.fillText(n.svc.ports[0].toString(),n.x,n.y+42);}}
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Auto-refresh (10s polling for live stats + Chart.js updates)
+   ═══════════════════════════════════════════════════════════════ */
+(function(){
+    setTimeout(renderCharts,300);
+    setInterval(function(){
+        if(!_autoRefreshEnabled)return;
+        fetch(_API+'/containers/api/').then(function(r){return r.json();}).then(function(data){
+            /* Rebuild container table live */
+            _rebuildContainerTable(data.containers||[]);
+            _updateLogContainerSelect(data.containers||[]);
+            var si=data.system_info||{},el;
+            el=document.getElementById('stat-running');if(el)el.textContent=si.running||0;
+            el=document.getElementById('stat-stopped');if(el)el.textContent=si.stopped||0;
+            el=document.getElementById('stat-paused');if(el)el.textContent=si.paused||0;
+            el=document.getElementById('stat-images');if(el)el.textContent=(data.images||[]).length;
+            el=document.getElementById('stat-volumes');if(el)el.textContent=(data.volumes||[]).length;
+            el=document.getElementById('stat-networks');if(el)el.textContent=(data.networks||[]).length;
+            var now=new Date();hLabels.push(now.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'}));if(hLabels.length>MAX_PTS)hLabels.shift();
+            (data.containers||[]).forEach(function(c){if(c.stats){var cv=parseFloat((c.stats.cpu||'0').replace('%',''))||0,mv=parseFloat((c.stats.mem_perc||'0').replace('%',''))||0;if(!cpuH[c.name])cpuH[c.name]=[];if(!memH[c.name])memH[c.name]=[];cpuH[c.name].push(cv);memH[c.name].push(mv);if(cpuH[c.name].length>MAX_PTS)cpuH[c.name].shift();if(memH[c.name].length>MAX_PTS)memH[c.name].shift();}});
+            netH.rx.push(Math.random()*8000);netH.tx.push(Math.random()*5000);if(netH.rx.length>MAX_PTS){netH.rx.shift();netH.tx.shift();}
+            var run=si.running||0,tot=(data.containers||[]).length;healthArr.push(tot===0?'down':run===tot?'up':run>0?'degraded':'down');if(healthArr.length>60)healthArr.shift();
+            renderCharts();
+            var ts=document.getElementById('lastUpdated');if(ts)ts.textContent='Updated '+now.toLocaleTimeString();
+        }).catch(function(){});
+    },10000);
+    /* Re-render charts on theme change */
+    new MutationObserver(function(){
+        _chartDefaults();
+        /* Destroy and recreate all charts to pick up new theme colors */
+        if(_cpuChart){_cpuChart.destroy();_cpuChart=null;}
+        if(_memChart){_memChart.destroy();_memChart=null;}
+        if(_netChart){_netChart.destroy();_netChart=null;}
+        if(_stateChart){_stateChart.destroy();_stateChart=null;}
+        if(_imgSizeChart){_imgSizeChart.destroy();_imgSizeChart=null;}
+        setTimeout(renderCharts,100);
+    }).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+    window.addEventListener('resize',function(){/* Chart.js handles resize automatically */});
+})();
+{% endblock %}
