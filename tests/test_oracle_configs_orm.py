@@ -3605,3 +3605,216 @@ class TestAdminModelObjectIdField:
         field = AdminLogEntry._fields.get("object_id")
         assert hasattr(field, "max_length")
         assert field.max_length == 255
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Module 21 — CLI URL Detection + Migration State for Non-SQLite Backends
+# ═══════════════════════════════════════════════════════════════════════════════
+# Two bugs surfaced when running `aq run` and `aq admin createsuperuser` against
+# MySQL:
+#
+# 1.  check_migrations_applied() was SQLite-only — it used sqlite3.connect()
+#     unconditionally.  For non-SQLite URLs the function now returns True early
+#     (the async MigrationRunner handles tracking at runtime).
+#
+# 2.  _detect_workspace_db_url() only matched  .database(url="...")  patterns.
+#     If workspace.py uses a typed config like  MysqlConfig(host=..., ...)  the
+#     function fell back to sqlite:///db.sqlite3 causing CLI commands to query
+#     the wrong database.  It now also parses MysqlConfig / PostgresConfig /
+#     OracleConfig blocks via regex and reconstructs the URL.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TestCheckMigrationsAppliedNonSQLite:
+    """check_migrations_applied() must return True for non-SQLite URLs."""
+
+    def test_mysql_url_returns_true(self):
+        from aquilia.models.migration_runner import check_migrations_applied
+        result = check_migrations_applied("mysql://user:pass@localhost:3306/mydb")
+        assert result is True
+
+    def test_postgresql_url_returns_true(self):
+        from aquilia.models.migration_runner import check_migrations_applied
+        result = check_migrations_applied("postgresql://user:pass@localhost:5432/mydb")
+        assert result is True
+
+    def test_oracle_url_returns_true(self):
+        from aquilia.models.migration_runner import check_migrations_applied
+        result = check_migrations_applied("oracle://user:pass@localhost:1521/orcl")
+        assert result is True
+
+    def test_postgres_asyncpg_url_returns_true(self):
+        from aquilia.models.migration_runner import check_migrations_applied
+        result = check_migrations_applied("postgresql+asyncpg://u:p@host/db")
+        assert result is True
+
+    def test_sqlite_url_still_probed(self, tmp_path):
+        """SQLite URLs should still go through the probe logic."""
+        from aquilia.models.migration_runner import check_migrations_applied
+        # Non-existent SQLite file → check_db_exists returns False → returns False
+        result = check_migrations_applied(f"sqlite:///{tmp_path / 'nonexistent.db'}")
+        assert result is False
+
+    def test_sqlite_memory_returns_true(self):
+        from aquilia.models.migration_runner import check_migrations_applied
+        result = check_migrations_applied("sqlite:///:memory:")
+        assert result is True
+
+
+class TestDetectWorkspaceDbUrl:
+    """_detect_workspace_db_url() must parse typed config patterns."""
+
+    def _run_detect(self, workspace_content: str, tmp_path):
+        """Helper: write workspace.py, chdir, call _detect_workspace_db_url."""
+        import os
+        ws_file = tmp_path / "workspace.py"
+        ws_file.write_text(workspace_content)
+        old_cwd = os.getcwd()
+        try:
+            os.chdir(tmp_path)
+            from aquilia.cli.__main__ import _detect_workspace_db_url
+            return _detect_workspace_db_url()
+        finally:
+            os.chdir(old_cwd)
+
+    def test_mysql_config_detected(self, tmp_path):
+        content = '''
+from aquilia.db.configs import MysqlConfig
+app.database(
+    config=MysqlConfig(
+        host="db.example.com",
+        port=3307,
+        user="root",
+        password="secret",
+        database="shop",
+    )
+)
+'''
+        url = self._run_detect(content, tmp_path)
+        assert url == "mysql://root:secret@db.example.com:3307/shop"
+
+    def test_postgres_config_detected(self, tmp_path):
+        content = '''
+from aquilia.db.configs import PostgresConfig
+app.database(
+    config=PostgresConfig(
+        host="pg.local",
+        port=5433,
+        user="pguser",
+        password="pgpass",
+        name="analytics",
+    )
+)
+'''
+        url = self._run_detect(content, tmp_path)
+        assert url == "postgresql://pguser:pgpass@pg.local:5433/analytics"
+
+    def test_oracle_config_detected(self, tmp_path):
+        content = '''
+from aquilia.db.configs import OracleConfig
+app.database(
+    config=OracleConfig(
+        host="oracle.prod",
+        port=1522,
+        user="sys",
+        password="oracle123",
+        service_name="ORCL",
+    )
+)
+'''
+        url = self._run_detect(content, tmp_path)
+        assert url == "oracle://sys:oracle123@oracle.prod:1522/ORCL"
+
+    def test_mysql_config_database_alias(self, tmp_path):
+        """database= alias is picked up."""
+        content = '''
+app.database(config=MysqlConfig(host="localhost", port=3306, user="admin", password="admin123", database="mydb"))
+'''
+        url = self._run_detect(content, tmp_path)
+        assert url == "mysql://admin:admin123@localhost:3306/mydb"
+
+    def test_mysql_config_name_field(self, tmp_path):
+        """name= field works too."""
+        content = '''
+app.database(config=MysqlConfig(host="localhost", port=3306, user="admin", password="pw", name="testdb"))
+'''
+        url = self._run_detect(content, tmp_path)
+        assert url == "mysql://admin:pw@localhost:3306/testdb"
+
+    def test_url_pattern_still_works(self, tmp_path):
+        """The original .database(url="...") pattern still works."""
+        content = '''
+app.database(url="sqlite:///mytest.db")
+'''
+        url = self._run_detect(content, tmp_path)
+        assert url == "sqlite:///mytest.db"
+
+    def test_url_pattern_takes_priority(self, tmp_path):
+        """If both url= and config= are present, url= wins."""
+        content = '''
+app.database(url="sqlite:///priority.db")
+app.database(config=MysqlConfig(host="localhost", port=3306, user="u", password="p", name="db"))
+'''
+        url = self._run_detect(content, tmp_path)
+        assert url == "sqlite:///priority.db"
+
+    def test_no_workspace_file_returns_default(self, tmp_path):
+        """Missing workspace.py returns the default SQLite URL."""
+        import os
+        old_cwd = os.getcwd()
+        try:
+            os.chdir(tmp_path)
+            from aquilia.cli.__main__ import _detect_workspace_db_url
+            url = _detect_workspace_db_url()
+            assert url == "sqlite:///db.sqlite3"
+        finally:
+            os.chdir(old_cwd)
+
+    def test_defaults_for_mysql_port(self, tmp_path):
+        """Port defaults to 3306 for MySQL when not specified."""
+        content = '''
+app.database(config=MysqlConfig(host="localhost", user="u", password="p", database="db"))
+'''
+        url = self._run_detect(content, tmp_path)
+        assert ":3306/" in url
+
+    def test_defaults_for_postgres_port(self, tmp_path):
+        """Port defaults to 5432 for PostgreSQL when not specified."""
+        content = '''
+app.database(config=PostgresConfig(host="localhost", user="u", password="p", name="db"))
+'''
+        url = self._run_detect(content, tmp_path)
+        assert ":5432/" in url
+
+    def test_defaults_for_oracle_port(self, tmp_path):
+        """Port defaults to 1521 for Oracle when not specified."""
+        content = '''
+app.database(config=OracleConfig(host="localhost", user="u", password="p", service_name="XE"))
+'''
+        url = self._run_detect(content, tmp_path)
+        assert ":1521/" in url
+
+    def test_multiline_config_block(self, tmp_path):
+        """Config spread across many lines is still parsed."""
+        content = '''
+app.database(
+    config=MysqlConfig(
+        host="myhost",
+        port=3308,
+        user="myuser",
+        password="mypass",
+        database="mydb",
+    )
+)
+'''
+        url = self._run_detect(content, tmp_path)
+        assert url == "mysql://myuser:mypass@myhost:3308/mydb"
+
+    def test_no_user_no_creds_in_url(self, tmp_path):
+        """If user is empty, no credentials section in URL."""
+        content = '''
+app.database(config=MysqlConfig(host="localhost", port=3306, database="testdb"))
+'''
+        url = self._run_detect(content, tmp_path)
+        assert url == "mysql://localhost:3306/testdb"
+        assert "@" not in url

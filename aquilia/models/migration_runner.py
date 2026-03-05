@@ -400,12 +400,22 @@ def check_migrations_applied(db_url: str, migrations_dir: str | Path = "migratio
     Check if there are unapplied migrations WITHOUT creating WAL/SHM.
 
     For SQLite, uses file:...?mode=ro URI to read-only probe.
+    For non-SQLite databases (PostgreSQL, MySQL, Oracle), the synchronous
+    startup guard cannot probe the async adapter, so we return True and
+    let the async MigrationRunner handle tracking at runtime.
+
     Returns True if all migrations are applied (or no migrations exist).
     """
     import asyncio
 
     if not check_db_exists(db_url):
         return False
+
+    # Non-SQLite databases: the sync startup guard cannot probe async
+    # adapters.  The MigrationRunner (async) already tracks state via
+    # the aquilia_migrations table during `aq db migrate`.
+    if not db_url.startswith("sqlite"):
+        return True
 
     path = _extract_sqlite_path(db_url)
     if path == ":memory:":

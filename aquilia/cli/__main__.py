@@ -98,8 +98,12 @@ def _detect_workspace_db_url() -> str:
     """Auto-detect the database URL from workspace.py in the current directory.
 
     Scans workspace.py for ``.database(url="...")`` or
-    ``Integration.database(url="...")`` patterns and returns the first URL
-    found.  Falls back to the framework default ``sqlite:///db.sqlite3``.
+    ``Integration.database(url="...")`` patterns first.  If not found,
+    looks for typed config patterns like ``MysqlConfig(...)``,
+    ``PostgresConfig(...)``, or ``OracleConfig(...)`` and reconstructs
+    the URL from the extracted parameters.
+
+    Falls back to the framework default ``sqlite:///db.sqlite3``.
     """
     workspace_file = Path("workspace.py")
     if not workspace_file.exists():
@@ -110,6 +114,45 @@ def _detect_workspace_db_url() -> str:
         m = _re.search(r'\.database\(\s*url\s*=\s*["\']([^"\']+)["\']', text)
         if m:
             return m.group(1)
+
+        # Match typed config: MysqlConfig(...), PostgresConfig(...), OracleConfig(...)
+        cfg_match = _re.search(
+            r'(Mysql|Postgres|Oracle)Config\s*\((.*?)\)',
+            text,
+            _re.DOTALL,
+        )
+        if cfg_match:
+            backend = cfg_match.group(1).lower()
+            block = cfg_match.group(2)
+
+            def _extract(key: str, default: str = "") -> str:
+                m = _re.search(rf'{key}\s*=\s*["\']([^"\']*)["\']', block)
+                return m.group(1) if m else default
+
+            def _extract_int(key: str, default: int = 0) -> int:
+                m = _re.search(rf'{key}\s*=\s*(\d+)', block)
+                return int(m.group(1)) if m else default
+
+            host = _extract("host", "localhost")
+            user = _extract("user", "")
+            password = _extract("password", "")
+            # Support both name= and database= aliases
+            name = _extract("name") or _extract("database") or _extract("service_name")
+
+            if backend == "mysql":
+                port = _extract_int("port", 3306)
+                scheme = "mysql"
+            elif backend == "postgres":
+                port = _extract_int("port", 5432)
+                scheme = "postgresql"
+            elif backend == "oracle":
+                port = _extract_int("port", 1521)
+                scheme = "oracle"
+            else:
+                return _DEFAULT_DB_URL
+
+            creds = f"{user}:{password}@" if user else ""
+            return f"{scheme}://{creds}{host}:{port}/{name}"
     except Exception:
         pass
     return _DEFAULT_DB_URL
