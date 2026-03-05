@@ -891,8 +891,30 @@ class AdminController(Controller):
 
         try:
             await self.site.update_record(model, pk, form_data, identity=identity)
-            # Redirect back to edit page with success message
-            return _redirect(f"/admin/{model.lower()}/")
+
+            # ── Capture query inspection data from the update ────────
+            qi_queries = getattr(self.site, "_last_update_queries", [])
+            self.site._last_update_queries = []  # Reset
+
+            qi_enabled = self.site.admin_config.is_module_enabled("query_inspector")
+
+            # Re-render the form with success flash + query inspector panel
+            try:
+                data = await self.site.get_record(model, pk, identity=identity)
+            except Exception:
+                return _redirect(f"/admin/{model.lower()}/")
+
+            app_list = self.site.get_app_list(identity)
+            html = render_form_view(
+                data=data,
+                app_list=app_list,
+                identity_name=_get_identity_name(identity),
+                identity_avatar=_get_identity_avatar(identity),
+                flash="Record updated successfully.",
+                flash_type="success",
+                query_inspection=qi_queries if qi_enabled else None,
+            )
+            return _html_response(html)
         except Exception as e:
             # Re-render form with error
             try:

@@ -295,6 +295,28 @@ class AquiliaDatabase:
         await self.ensure_connected()
         await self._adapter.rollback_to_savepoint(name)
 
+    # ── Query Inspector integration ──────────────────────────────────
+
+    @staticmethod
+    def _notify_inspector(
+        sql: str,
+        params: Any,
+        duration_ms: float,
+        rows_affected: int = 0,
+    ) -> None:
+        """Record a query in the admin QueryInspector (if available)."""
+        try:
+            from aquilia.admin.query_inspector import get_query_inspector
+            inspector = get_query_inspector()
+            inspector.record(
+                sql=sql,
+                params=params,
+                duration_ms=duration_ms,
+                rows_affected=rows_affected,
+            )
+        except Exception:  # pragma: no cover
+            pass  # Never let inspector errors break the DB engine
+
     # ── Query execution ──────────────────────────────────────────────
 
     async def execute(self, sql: str, params: Optional[Sequence[Any]] = None) -> Any:
@@ -317,7 +339,13 @@ class AquiliaDatabase:
             params = []
         try:
             self._last_activity = time.monotonic()
+            _t0 = time.perf_counter()
             result = await self._adapter.execute(sql, params)
+            _dur = (time.perf_counter() - _t0) * 1000
+            self._notify_inspector(
+                sql, params, _dur,
+                rows_affected=getattr(result, "rowcount", 0),
+            )
             return result
         except (DatabaseConnectionFault, QueryFault, SchemaFault):
             raise
@@ -367,7 +395,11 @@ class AquiliaDatabase:
             params = []
         try:
             self._last_activity = time.monotonic()
-            return await self._adapter.fetch_all(sql, params)
+            _t0 = time.perf_counter()
+            rows = await self._adapter.fetch_all(sql, params)
+            _dur = (time.perf_counter() - _t0) * 1000
+            self._notify_inspector(sql, params, _dur, rows_affected=len(rows))
+            return rows
         except (DatabaseConnectionFault, QueryFault, SchemaFault):
             raise
         except Exception as exc:
@@ -393,7 +425,11 @@ class AquiliaDatabase:
             params = []
         try:
             self._last_activity = time.monotonic()
-            return await self._adapter.fetch_one(sql, params)
+            _t0 = time.perf_counter()
+            row = await self._adapter.fetch_one(sql, params)
+            _dur = (time.perf_counter() - _t0) * 1000
+            self._notify_inspector(sql, params, _dur, rows_affected=1 if row else 0)
+            return row
         except (DatabaseConnectionFault, QueryFault, SchemaFault):
             raise
         except Exception as exc:
@@ -419,7 +455,11 @@ class AquiliaDatabase:
             params = []
         try:
             self._last_activity = time.monotonic()
-            return await self._adapter.fetch_val(sql, params)
+            _t0 = time.perf_counter()
+            val = await self._adapter.fetch_val(sql, params)
+            _dur = (time.perf_counter() - _t0) * 1000
+            self._notify_inspector(sql, params, _dur, rows_affected=1 if val is not None else 0)
+            return val
         except (DatabaseConnectionFault, QueryFault, SchemaFault):
             raise
         except Exception as exc:

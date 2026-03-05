@@ -114,9 +114,143 @@
 </div>
 {% endif %}
 
+{# ── Query Inspector Panel ─────────────────────────────────────── #}
+{% if query_inspection and query_inspection|length > 0 %}
+<div class="glass-card card-padded" id="query-inspector-panel" style="margin-top:24px;max-width:640px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;cursor:pointer;" onclick="toggleQueryInspector()">
+        <div style="display:flex;align-items:center;gap:10px;">
+            <div style="width:32px;height:32px;border-radius:8px;background:rgba(139,92,246,0.12);display:flex;align-items:center;justify-content:center;">
+                <i class="icon-terminal" style="font-size:16px;color:#8b5cf6;"></i>
+            </div>
+            <div>
+                <h3 style="margin:0;font-size:0.88rem;font-weight:600;color:var(--text-primary);">Query Inspector</h3>
+                <span style="font-size:0.72rem;color:var(--text-muted);">{{ query_inspection|length }} quer{{ 'y' if query_inspection|length == 1 else 'ies' }} executed during this update</span>
+            </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;">
+            {% set total_ms = query_inspection | map(attribute='duration_ms') | sum %}
+            <span style="font-size:0.72rem;font-weight:600;padding:3px 10px;border-radius:var(--radius-full);background:rgba(139,92,246,0.1);color:#8b5cf6;">
+                {{ "%.2f"|format(total_ms) }} ms total
+            </span>
+            <i class="icon-chevron-down" id="qi-chevron" style="font-size:16px;color:var(--text-faint);transition:transform 0.2s;"></i>
+        </div>
+    </div>
+
+    <div id="qi-content" style="display:block;">
+        {# ── Summary badges ── #}
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
+            {% set slow_count = query_inspection | selectattr('is_slow') | list | length %}
+            {% set operations = {} %}
+            {% for q in query_inspection %}
+                {% if q.operation in operations %}
+                    {% set _ = operations.update({q.operation: operations[q.operation] + 1}) %}
+                {% else %}
+                    {% set _ = operations.update({q.operation: 1}) %}
+                {% endif %}
+            {% endfor %}
+            {% for op in ['SELECT', 'UPDATE', 'INSERT', 'DELETE'] %}
+                {% set count = 0 %}
+                {% for q in query_inspection if q.operation == op %}
+                    {% set count = count + 1 %}
+                {% endfor %}
+                {% if count > 0 %}
+                <span style="font-size:0.7rem;font-weight:600;padding:2px 8px;border-radius:var(--radius-full);
+                    {% if op == 'SELECT' %}background:rgba(59,130,246,0.1);color:#3b82f6;
+                    {% elif op == 'UPDATE' %}background:rgba(245,158,11,0.1);color:#f59e0b;
+                    {% elif op == 'INSERT' %}background:rgba(34,197,94,0.1);color:#22c55e;
+                    {% elif op == 'DELETE' %}background:rgba(239,68,68,0.1);color:#ef4444;
+                    {% endif %}">
+                    {{ count }} {{ op }}
+                </span>
+                {% endif %}
+            {% endfor %}
+            {% if slow_count > 0 %}
+            <span style="font-size:0.7rem;font-weight:600;padding:2px 8px;border-radius:var(--radius-full);background:rgba(239,68,68,0.1);color:#ef4444;">
+                ⚠ {{ slow_count }} slow
+            </span>
+            {% endif %}
+        </div>
+
+        {# ── Query list ── #}
+        <div style="display:flex;flex-direction:column;gap:8px;">
+        {% for q in query_inspection %}
+            <div style="padding:12px;background:rgba(0,0,0,0.25);border:1px solid var(--border-subtle);border-radius:var(--radius);
+                {% if q.is_slow %}border-left:3px solid #ef4444;{% else %}border-left:3px solid
+                    {% if q.operation == 'SELECT' %}#3b82f6{% elif q.operation == 'UPDATE' %}#f59e0b{% elif q.operation == 'INSERT' %}#22c55e{% elif q.operation == 'DELETE' %}#ef4444{% else %}#6b7280{% endif %};
+                {% endif %}">
+                {# Header row #}
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <span style="font-size:0.65rem;font-weight:700;padding:2px 6px;border-radius:4px;letter-spacing:0.05em;
+                            {% if q.operation == 'SELECT' %}background:rgba(59,130,246,0.15);color:#60a5fa;
+                            {% elif q.operation == 'UPDATE' %}background:rgba(245,158,11,0.15);color:#fbbf24;
+                            {% elif q.operation == 'INSERT' %}background:rgba(34,197,94,0.15);color:#4ade80;
+                            {% elif q.operation == 'DELETE' %}background:rgba(239,68,68,0.15);color:#f87171;
+                            {% else %}background:rgba(107,114,128,0.15);color:#9ca3af;
+                            {% endif %}">
+                            {{ q.operation }}
+                        </span>
+                        <span style="font-size:0.7rem;color:var(--text-faint);">{{ q.id }}</span>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        {% if q.rows_affected is defined and q.rows_affected > 0 %}
+                        <span style="font-size:0.68rem;color:var(--text-muted);">
+                            {{ q.rows_affected }} row{{ 's' if q.rows_affected != 1 else '' }}
+                        </span>
+                        {% endif %}
+                        <span style="font-size:0.72rem;font-weight:600;font-family:var(--font-mono);
+                            {% if q.is_slow %}color:#ef4444;{% elif q.duration_ms > 10 %}color:#f59e0b;{% else %}color:#22c55e;{% endif %}">
+                            {{ "%.3f"|format(q.duration_ms) }} ms
+                        </span>
+                    </div>
+                </div>
+                {# SQL #}
+                <div style="font-family:var(--font-mono);font-size:0.74rem;line-height:1.6;color:var(--text-secondary);
+                    word-break:break-all;white-space:pre-wrap;background:rgba(0,0,0,0.2);padding:8px 10px;border-radius:6px;">{{ q.sql }}</div>
+                {# Params #}
+                {% if q.params %}
+                <div style="margin-top:6px;font-family:var(--font-mono);font-size:0.68rem;color:var(--text-faint);">
+                    <span style="font-weight:600;">Params:</span> {{ q.params }}
+                </div>
+                {% endif %}
+                {# Source location #}
+                {% if q.stack_summary %}
+                <div style="margin-top:4px;font-size:0.66rem;color:var(--text-faint);">
+                    <i class="icon-map-pin" style="font-size:11px;vertical-align:-1px;margin-right:3px;"></i>{{ q.stack_summary }}
+                </div>
+                {% endif %}
+            </div>
+        {% endfor %}
+        </div>
+
+        {# ── Footer link ── #}
+        <div style="margin-top:12px;text-align:right;">
+            <a href="{{ url_prefix|default('/admin') }}/query-inspector/" style="font-size:0.72rem;color:#8b5cf6;text-decoration:none;">
+                Open full Query Inspector →
+            </a>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 {% block extra_js %}
 <script>
 (function() {
+    // ── Query Inspector toggle ──────────────────────────────────────
+    window.toggleQueryInspector = function() {
+        var content = document.getElementById('qi-content');
+        var chevron = document.getElementById('qi-chevron');
+        if (!content) return;
+        if (content.style.display === 'none') {
+            content.style.display = 'block';
+            if (chevron) chevron.style.transform = 'rotate(0deg)';
+        } else {
+            content.style.display = 'none';
+            if (chevron) chevron.style.transform = 'rotate(-90deg)';
+        }
+    };
+
+    // ── Form dirty tracking ─────────────────────────────────────────
     var form = document.getElementById('adminForm');
     if (!form) return;
     var initialValues = {};

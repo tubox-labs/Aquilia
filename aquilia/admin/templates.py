@@ -301,11 +301,18 @@ def render_form_view(
     is_create: bool = False,
     flash: str = "",
     flash_type: str = "success",
+    query_inspection: Optional[List[Dict[str, Any]]] = None,
     *,
     site_title: str = "Aquilia Admin",
     url_prefix: str = "/admin",
 ) -> str:
-    """Render the add/edit form view."""
+    """Render the add/edit form view.
+
+    Args:
+        query_inspection: Optional list of query dicts captured during
+            the update operation (shown in a collapsible Query Inspector
+            panel when the module is enabled).
+    """
     model_name = data.get("model_name", "")
     verbose_name = data.get("verbose_name", model_name)
     pk = data.get("pk", "")
@@ -329,6 +336,7 @@ def render_form_view(
             flash_type=flash_type,
             site_title=site_title,
             url_prefix=url_prefix,
+            query_inspection=query_inspection or [],
             page_title=f"{'Add' if is_create else 'Edit'} {verbose_name}" + (f" #{pk}" if not is_create else ""),
         )
     return _fallback_form(

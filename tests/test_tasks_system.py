@@ -1628,3 +1628,744 @@ class TestRegressions:
         )
         assert status.name == "tasks"
         assert status.status == SubsystemStatus.HEALTHY
+
+
+# ============================================================================
+# 14. QUERY INSPECTOR — CRUD INTEGRATION
+# ============================================================================
+
+
+class TestQueryInspectorCRUDIntegration:
+    """
+    Tests for the Query Inspector integration into model CRUD operations.
+
+    Phase 29: When the user updates a model record, the admin should capture
+    and display the SQL queries that were executed during the update operation.
+    """
+
+    # ── DB Engine _notify_inspector ──────────────────────────────────
+
+    def test_notify_inspector_records_query(self):
+        """_notify_inspector should record a query in the QueryInspector."""
+        from aquilia.db.engine import AquiliaDatabase
+        from aquilia.admin.query_inspector import get_query_inspector
+
+        inspector = get_query_inspector()
+        before = inspector._counter
+
+        AquiliaDatabase._notify_inspector(
+            sql="SELECT * FROM users WHERE id = ?",
+            params=(1,),
+            duration_ms=1.23,
+            rows_affected=1,
+        )
+
+        assert inspector._counter == before + 1
+        last = list(inspector._queries)[-1]
+        assert last.sql == "SELECT * FROM users WHERE id = ?"
+        assert last.duration_ms == 1.23
+        assert last.rows_affected == 1
+        assert last.operation == "SELECT"
+
+    def test_notify_inspector_records_update_operation(self):
+        """_notify_inspector correctly identifies UPDATE operations."""
+        from aquilia.db.engine import AquiliaDatabase
+        from aquilia.admin.query_inspector import get_query_inspector
+
+        inspector = get_query_inspector()
+        AquiliaDatabase._notify_inspector(
+            sql="UPDATE products SET name = ? WHERE id = ?",
+            params=("Widget X", 42),
+            duration_ms=0.5,
+            rows_affected=1,
+        )
+
+        last = list(inspector._queries)[-1]
+        assert last.operation == "UPDATE"
+        assert "products" in last.sql
+
+    def test_notify_inspector_records_insert_operation(self):
+        """_notify_inspector correctly identifies INSERT operations."""
+        from aquilia.db.engine import AquiliaDatabase
+        from aquilia.admin.query_inspector import get_query_inspector
+
+        inspector = get_query_inspector()
+        AquiliaDatabase._notify_inspector(
+            sql="INSERT INTO logs (msg) VALUES (?)",
+            params=("hello",),
+            duration_ms=0.1,
+        )
+
+        last = list(inspector._queries)[-1]
+        assert last.operation == "INSERT"
+
+    def test_notify_inspector_records_delete_operation(self):
+        """_notify_inspector correctly identifies DELETE operations."""
+        from aquilia.db.engine import AquiliaDatabase
+        from aquilia.admin.query_inspector import get_query_inspector
+
+        inspector = get_query_inspector()
+        AquiliaDatabase._notify_inspector(
+            sql="DELETE FROM sessions WHERE expired = 1",
+            params=None,
+            duration_ms=2.0,
+            rows_affected=5,
+        )
+
+        last = list(inspector._queries)[-1]
+        assert last.operation == "DELETE"
+        assert last.rows_affected == 5
+
+    def test_notify_inspector_never_raises(self):
+        """_notify_inspector should silently swallow errors."""
+        from aquilia.db.engine import AquiliaDatabase
+
+        # Even with weird params, it should never raise
+        AquiliaDatabase._notify_inspector(
+            sql=None,  # type: ignore
+            params=object(),
+            duration_ms=-1.0,
+            rows_affected=-1,
+        )
+        # No exception -- test passes
+
+    def test_notify_inspector_generates_sequential_ids(self):
+        """Each query should get a monotonically increasing ID."""
+        from aquilia.db.engine import AquiliaDatabase
+        from aquilia.admin.query_inspector import get_query_inspector
+
+        inspector = get_query_inspector()
+        c_before = inspector._counter
+
+        AquiliaDatabase._notify_inspector("SELECT 1", None, 0.0)
+        AquiliaDatabase._notify_inspector("SELECT 2", None, 0.0)
+
+        queries = list(inspector._queries)
+        q1 = queries[-2]
+        q2 = queries[-1]
+        assert q1.id < q2.id
+
+    # ── QueryRecord.to_dict() ────────────────────────────────────────
+
+    def test_query_record_to_dict_structure(self):
+        """QueryRecord.to_dict() should contain all expected keys."""
+        from aquilia.admin.query_inspector import QueryRecord
+
+        rec = QueryRecord(
+            id="q-000001",
+            sql="SELECT * FROM items",
+            params=(1, 2),
+            duration_ms=3.456,
+            rows_affected=2,
+            operation="SELECT",
+            is_slow=False,
+            source="app.py:42",
+        )
+        d = rec.to_dict()
+
+        assert d["id"] == "q-000001"
+        assert d["sql"] == "SELECT * FROM items"
+        assert d["duration_ms"] == 3.456
+        assert d["rows_affected"] == 2
+        assert d["operation"] == "SELECT"
+        assert d["is_slow"] is False
+        assert d["source"] == "app.py:42"
+        assert "fingerprint" in d
+        assert "timestamp" in d
+        assert "params" in d
+
+    def test_query_record_to_dict_none_params(self):
+        """to_dict() with None params should return None for params key."""
+        from aquilia.admin.query_inspector import QueryRecord
+
+        rec = QueryRecord(sql="SELECT 1", params=None)
+        d = rec.to_dict()
+        assert d["params"] is None
+
+    def test_query_record_to_dict_with_params(self):
+        """to_dict() with params should repr() them."""
+        from aquilia.admin.query_inspector import QueryRecord
+
+        rec = QueryRecord(sql="SELECT ?", params=(42,))
+        d = rec.to_dict()
+        assert d["params"] == "(42,)"
+
+    # ── Counter-based delta capture ──────────────────────────────────
+
+    def test_counter_delta_captures_only_new_queries(self):
+        """The counter-based delta mechanism should capture only queries
+        recorded between two counter snapshots."""
+        from aquilia.admin.query_inspector import get_query_inspector
+        from aquilia.db.engine import AquiliaDatabase
+
+        inspector = get_query_inspector()
+
+        # Record some "old" queries
+        AquiliaDatabase._notify_inspector("SELECT old_1", None, 0.0)
+        AquiliaDatabase._notify_inspector("SELECT old_2", None, 0.0)
+
+        # Snapshot before
+        before = inspector._counter
+
+        # Record "new" queries (the ones we want to capture)
+        AquiliaDatabase._notify_inspector("UPDATE t SET x=1", None, 1.5)
+        AquiliaDatabase._notify_inspector("SELECT * FROM t WHERE id=1", None, 0.3)
+
+        # Snapshot after
+        after = inspector._counter
+
+        # Extract delta
+        assert after > before
+        all_queries = list(inspector._queries)
+        captured = [
+            q.to_dict() for q in all_queries
+            if q.id > f"q-{before:06d}"
+        ]
+
+        assert len(captured) >= 2
+        sqls = [c["sql"] for c in captured]
+        assert "UPDATE t SET x=1" in sqls
+        assert "SELECT * FROM t WHERE id=1" in sqls
+        # Old queries not in delta
+        assert "SELECT old_1" not in sqls
+        assert "SELECT old_2" not in sqls
+
+    # ── AdminSite._last_update_queries ───────────────────────────────
+
+    def test_admin_site_stores_queries_on_instance(self):
+        """_last_update_queries is stored on AdminSite instance (mutable),
+        NOT on frozen AdminConfig."""
+        from aquilia.admin.site import AdminSite
+
+        site = AdminSite()
+        # AdminSite is a normal class — attribute assignment works
+        site._last_update_queries = [{"sql": "SELECT 1"}]
+        assert site._last_update_queries == [{"sql": "SELECT 1"}]
+
+        # Reset
+        site._last_update_queries = []
+        assert site._last_update_queries == []
+
+    def test_admin_config_is_frozen(self):
+        """AdminConfig is a frozen dataclass — cannot assign new attributes."""
+        from aquilia.admin.site import AdminConfig
+        import dataclasses
+
+        config = AdminConfig()
+        with pytest.raises(dataclasses.FrozenInstanceError):
+            config._last_update_queries = []  # type: ignore
+
+    # ── Controller edit_submit — query inspector path ────────────────
+
+    @pytest.mark.asyncio
+    async def test_edit_submit_reads_queries_from_site(self):
+        """edit_submit should read _last_update_queries from self.site,
+        not from admin_config."""
+        from aquilia.admin.controller import AdminController
+        from aquilia.admin.site import AdminSite, AdminConfig
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        site = AdminSite()
+        site.update_record = AsyncMock(return_value=True)
+        site._last_update_queries = [
+            {"id": "q-000001", "sql": "UPDATE t SET x=1", "operation": "UPDATE",
+             "duration_ms": 1.0, "rows_affected": 1, "is_slow": False,
+             "params": None, "source": "test:1", "timestamp": "2024-01-01T00:00:00"},
+        ]
+
+        ctrl = AdminController(site=site)
+
+        # Build a minimal mock request/ctx
+        mock_request = MagicMock()
+        mock_request.state = {"path_params": {"model": "Product", "pk": "1"}}
+
+        mock_ctx = MagicMock()
+        mock_ctx.identity = MagicMock()
+        mock_ctx.identity.id = "user1"
+        mock_ctx.identity.get_attribute = MagicMock(return_value="")
+
+        # After update succeeds, get_record is called
+        site.get_record = AsyncMock(return_value={
+            "model_name": "Product",
+            "verbose_name": "Product",
+            "pk": "1",
+            "fields": [],
+            "fieldsets": [],
+            "can_delete": False,
+        })
+
+        with patch("aquilia.admin.controller._parse_form", new_callable=AsyncMock, return_value={"name": "X"}), \
+             patch("aquilia.admin.controller._require_identity", return_value=(mock_ctx.identity, None)):
+            resp = await ctrl.edit_submit(mock_request, mock_ctx)
+
+        # Should render the form (200), not redirect
+        assert resp.status == 200
+        # Queries should have been reset
+        assert site._last_update_queries == []
+
+    @pytest.mark.asyncio
+    async def test_edit_submit_without_query_inspector_module(self):
+        """When query_inspector module is disabled, query_inspection
+        should be None in the rendered template."""
+        from aquilia.admin.controller import AdminController
+        from aquilia.admin.site import AdminSite, AdminConfig
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        site = AdminSite()
+        site.admin_config = AdminConfig(modules={"query_inspector": False})
+        site.update_record = AsyncMock(return_value=True)
+        site._last_update_queries = [
+            {"sql": "SELECT 1", "operation": "SELECT", "duration_ms": 0.1},
+        ]
+
+        ctrl = AdminController(site=site)
+
+        mock_request = MagicMock()
+        mock_request.state = {"path_params": {"model": "Item", "pk": "5"}}
+        mock_ctx = MagicMock()
+        mock_ctx.identity = MagicMock()
+        mock_ctx.identity.id = "admin"
+        mock_ctx.identity.get_attribute = MagicMock(return_value="")
+
+        site.get_record = AsyncMock(return_value={
+            "model_name": "Item", "verbose_name": "Item", "pk": "5",
+            "fields": [], "fieldsets": [], "can_delete": False,
+        })
+
+        with patch("aquilia.admin.controller._parse_form", new_callable=AsyncMock, return_value={"x": "1"}), \
+             patch("aquilia.admin.controller._require_identity", return_value=(mock_ctx.identity, None)), \
+             patch("aquilia.admin.controller.render_form_view") as mock_render:
+            mock_render.return_value = "<html>form</html>"
+            resp = await ctrl.edit_submit(mock_request, mock_ctx)
+
+        # query_inspection should be None (disabled module)
+        mock_render.assert_called_once()
+        call_kwargs = mock_render.call_args
+        assert call_kwargs.kwargs.get("query_inspection") is None or \
+               call_kwargs[1].get("query_inspection") is None
+
+    @pytest.mark.asyncio
+    async def test_edit_submit_with_query_inspector_enabled(self):
+        """When query_inspector module is enabled, query_inspection
+        should contain the captured queries."""
+        from aquilia.admin.controller import AdminController
+        from aquilia.admin.site import AdminSite, AdminConfig
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        site = AdminSite()
+        site.admin_config = AdminConfig(modules={"query_inspector": True})
+        site.update_record = AsyncMock(return_value=True)
+        captured = [
+            {"id": "q-000010", "sql": "UPDATE p SET name=?", "operation": "UPDATE",
+             "duration_ms": 2.5, "rows_affected": 1, "is_slow": False,
+             "params": "('Widget',)", "source": "app:10", "timestamp": "2024-01-01T00:00:00"},
+        ]
+        site._last_update_queries = list(captured)
+
+        ctrl = AdminController(site=site)
+
+        mock_request = MagicMock()
+        mock_request.state = {"path_params": {"model": "Product", "pk": "7"}}
+        mock_ctx = MagicMock()
+        mock_ctx.identity = MagicMock()
+        mock_ctx.identity.id = "admin"
+        mock_ctx.identity.get_attribute = MagicMock(return_value="")
+
+        site.get_record = AsyncMock(return_value={
+            "model_name": "Product", "verbose_name": "Product", "pk": "7",
+            "fields": [], "fieldsets": [], "can_delete": False,
+        })
+
+        with patch("aquilia.admin.controller._parse_form", new_callable=AsyncMock, return_value={"name": "X"}), \
+             patch("aquilia.admin.controller._require_identity", return_value=(mock_ctx.identity, None)), \
+             patch("aquilia.admin.controller.render_form_view") as mock_render:
+            mock_render.return_value = "<html>form with inspector</html>"
+            resp = await ctrl.edit_submit(mock_request, mock_ctx)
+
+        assert resp.status == 200
+        mock_render.assert_called_once()
+        call_kwargs = mock_render.call_args
+        qi = call_kwargs.kwargs.get("query_inspection") or call_kwargs[1].get("query_inspection")
+        assert qi is not None
+        assert len(qi) == 1
+        assert qi[0]["operation"] == "UPDATE"
+
+    @pytest.mark.asyncio
+    async def test_edit_submit_get_record_fails_redirects(self):
+        """If get_record fails after successful update, should redirect
+        to model list (302) rather than crash."""
+        from aquilia.admin.controller import AdminController
+        from aquilia.admin.site import AdminSite
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        site = AdminSite()
+        site.update_record = AsyncMock(return_value=True)
+        site._last_update_queries = []
+
+        # get_record raises
+        site.get_record = AsyncMock(side_effect=Exception("model not found"))
+
+        ctrl = AdminController(site=site)
+
+        mock_request = MagicMock()
+        mock_request.state = {"path_params": {"model": "Widget", "pk": "99"}}
+        mock_ctx = MagicMock()
+        mock_ctx.identity = MagicMock()
+        mock_ctx.identity.id = "admin"
+        mock_ctx.identity.get_attribute = MagicMock(return_value="")
+
+        with patch("aquilia.admin.controller._parse_form", new_callable=AsyncMock, return_value={"a": "b"}), \
+             patch("aquilia.admin.controller._require_identity", return_value=(mock_ctx.identity, None)):
+            resp = await ctrl.edit_submit(mock_request, mock_ctx)
+
+        assert resp.status == 302
+
+    @pytest.mark.asyncio
+    async def test_edit_submit_resets_last_update_queries(self):
+        """After reading _last_update_queries, the site attribute should
+        be reset to an empty list."""
+        from aquilia.admin.controller import AdminController
+        from aquilia.admin.site import AdminSite
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        site = AdminSite()
+        site.update_record = AsyncMock(return_value=True)
+        site._last_update_queries = [
+            {"sql": "SELECT 1", "operation": "SELECT", "duration_ms": 0.1},
+            {"sql": "UPDATE t SET x=1", "operation": "UPDATE", "duration_ms": 0.2},
+        ]
+
+        site.get_record = AsyncMock(return_value={
+            "model_name": "Foo", "verbose_name": "Foo", "pk": "1",
+            "fields": [], "fieldsets": [], "can_delete": False,
+        })
+
+        ctrl = AdminController(site=site)
+
+        mock_request = MagicMock()
+        mock_request.state = {"path_params": {"model": "Foo", "pk": "1"}}
+        mock_ctx = MagicMock()
+        mock_ctx.identity = MagicMock()
+        mock_ctx.identity.id = "admin"
+        mock_ctx.identity.get_attribute = MagicMock(return_value="")
+
+        with patch("aquilia.admin.controller._parse_form", new_callable=AsyncMock, return_value={"x": "1"}), \
+             patch("aquilia.admin.controller._require_identity", return_value=(mock_ctx.identity, None)):
+            await ctrl.edit_submit(mock_request, mock_ctx)
+
+        assert site._last_update_queries == []
+
+    # ── render_form_view with query_inspection ───────────────────────
+
+    def test_render_form_view_accepts_query_inspection(self):
+        """render_form_view should accept query_inspection parameter."""
+        from aquilia.admin.templates import render_form_view
+        import inspect
+
+        sig = inspect.signature(render_form_view)
+        assert "query_inspection" in sig.parameters
+
+    def test_render_form_view_none_query_inspection(self):
+        """render_form_view with query_inspection=None should not crash."""
+        from aquilia.admin.templates import render_form_view
+
+        html = render_form_view(
+            data={
+                "model_name": "Test",
+                "verbose_name": "Test",
+                "pk": "1",
+                "fields": [],
+                "fieldsets": [],
+                "can_delete": False,
+            },
+            app_list=[],
+            query_inspection=None,
+        )
+        assert isinstance(html, str)
+        assert len(html) > 0
+
+    def test_render_form_view_empty_query_inspection(self):
+        """render_form_view with empty list should not show inspector panel."""
+        from aquilia.admin.templates import render_form_view
+
+        html = render_form_view(
+            data={
+                "model_name": "Widget",
+                "verbose_name": "Widget",
+                "pk": "5",
+                "fields": [],
+                "fieldsets": [],
+                "can_delete": False,
+            },
+            app_list=[],
+            query_inspection=[],
+        )
+        assert isinstance(html, str)
+        # Empty inspection list should not render the panel
+        assert "query-inspector-panel" not in html
+
+    def test_render_form_view_with_query_data(self):
+        """render_form_view with query data should render the inspector panel."""
+        from aquilia.admin.templates import render_form_view
+
+        qi = [
+            {
+                "id": "q-000001",
+                "sql": "UPDATE products SET name = 'Test' WHERE id = 1",
+                "operation": "UPDATE",
+                "duration_ms": 1.234,
+                "rows_affected": 1,
+                "is_slow": False,
+                "params": "('Test', 1)",
+                "source": "myapp/views.py:42",
+                "timestamp": "2024-06-01T12:00:00+00:00",
+                "fingerprint": "abc123",
+            },
+            {
+                "id": "q-000002",
+                "sql": "SELECT * FROM products WHERE id = 1",
+                "operation": "SELECT",
+                "duration_ms": 0.567,
+                "rows_affected": 1,
+                "is_slow": False,
+                "params": "(1,)",
+                "source": "myapp/views.py:43",
+                "timestamp": "2024-06-01T12:00:00+00:00",
+                "fingerprint": "def456",
+            },
+        ]
+
+        html = render_form_view(
+            data={
+                "model_name": "Product",
+                "verbose_name": "Product",
+                "pk": "1",
+                "fields": [
+                    {"name": "name", "type": "text", "value": "Test", "editable": True},
+                ],
+                "fieldsets": [],
+                "can_delete": True,
+            },
+            app_list=[],
+            query_inspection=qi,
+        )
+
+        assert "Query Inspector" in html
+        assert "UPDATE products" in html
+        assert "SELECT * FROM products" in html
+        assert "1.234" in html or "1.23" in html
+        assert "UPDATE" in html
+        assert "SELECT" in html
+
+    def test_render_form_view_shows_slow_query_warning(self):
+        """Slow queries should be visually flagged in the inspector panel."""
+        from aquilia.admin.templates import render_form_view
+
+        qi = [
+            {
+                "id": "q-000001",
+                "sql": "SELECT * FROM huge_table",
+                "operation": "SELECT",
+                "duration_ms": 1500.0,
+                "rows_affected": 50000,
+                "is_slow": True,
+                "params": None,
+                "source": "app.py:99",
+                "timestamp": "2024-06-01T12:00:00+00:00",
+                "fingerprint": "slow123",
+            },
+        ]
+
+        html = render_form_view(
+            data={
+                "model_name": "HugeTable",
+                "verbose_name": "Huge Table",
+                "pk": "1",
+                "fields": [],
+                "fieldsets": [],
+                "can_delete": False,
+            },
+            app_list=[],
+            query_inspection=qi,
+        )
+
+        assert "Query Inspector" in html
+        # Should show the slow indicator
+        assert "1500" in html or "slow" in html.lower()
+
+    def test_render_form_view_multiple_operations(self):
+        """Inspector should show badges for different operation types."""
+        from aquilia.admin.templates import render_form_view
+
+        qi = [
+            {"id": "q-1", "sql": "SELECT 1", "operation": "SELECT",
+             "duration_ms": 0.1, "rows_affected": 1, "is_slow": False,
+             "params": None, "source": "", "timestamp": "2024-01-01T00:00:00"},
+            {"id": "q-2", "sql": "UPDATE t SET x=1", "operation": "UPDATE",
+             "duration_ms": 0.2, "rows_affected": 1, "is_slow": False,
+             "params": None, "source": "", "timestamp": "2024-01-01T00:00:00"},
+            {"id": "q-3", "sql": "INSERT INTO t VALUES(1)", "operation": "INSERT",
+             "duration_ms": 0.3, "rows_affected": 1, "is_slow": False,
+             "params": None, "source": "", "timestamp": "2024-01-01T00:00:00"},
+        ]
+
+        html = render_form_view(
+            data={
+                "model_name": "Multi",
+                "verbose_name": "Multi",
+                "pk": "1",
+                "fields": [],
+                "fieldsets": [],
+                "can_delete": False,
+            },
+            app_list=[],
+            query_inspection=qi,
+        )
+
+        assert "Query Inspector" in html
+        # Should mention 3 queries
+        assert "3 queries" in html or "3 quer" in html
+
+    def test_render_form_view_toggle_js_present(self):
+        """The toggle JS function should be in the rendered output."""
+        from aquilia.admin.templates import render_form_view
+
+        qi = [
+            {"id": "q-1", "sql": "SELECT 1", "operation": "SELECT",
+             "duration_ms": 0.1, "rows_affected": 1, "is_slow": False,
+             "params": None, "source": "", "timestamp": "2024-01-01T00:00:00"},
+        ]
+
+        html = render_form_view(
+            data={
+                "model_name": "T",
+                "verbose_name": "T",
+                "pk": "1",
+                "fields": [],
+                "fieldsets": [],
+                "can_delete": False,
+            },
+            app_list=[],
+            query_inspection=qi,
+        )
+
+        assert "toggleQueryInspector" in html
+
+    # ── update_record docstring / attribute check ────────────────────
+
+    def test_update_record_docstring_mentions_site_attribute(self):
+        """update_record docstring should reference site instance, not admin_config."""
+        from aquilia.admin.site import AdminSite
+
+        doc = AdminSite.update_record.__doc__
+        assert doc is not None
+        assert "site instance" in doc.lower() or "_last_update_queries" in doc
+
+    # ── Frozen AdminConfig regression ────────────────────────────────
+
+    def test_admin_config_frozen_no_arbitrary_attrs(self):
+        """Ensure we don't accidentally try to set attrs on frozen AdminConfig."""
+        import dataclasses
+        from aquilia.admin.site import AdminConfig
+
+        config = AdminConfig()
+
+        # Should raise for any new attribute
+        with pytest.raises(dataclasses.FrozenInstanceError):
+            config.some_random_attr = True  # type: ignore
+
+    def test_admin_config_module_defaults(self):
+        """Default AdminConfig should have query_inspector disabled."""
+        from aquilia.admin.site import AdminConfig
+
+        config = AdminConfig()
+        assert config.is_module_enabled("query_inspector") is False
+
+    def test_admin_config_with_query_inspector_enabled(self):
+        """AdminConfig with query_inspector=True should report enabled."""
+        from aquilia.admin.site import AdminConfig
+
+        config = AdminConfig(modules={"query_inspector": True})
+        assert config.is_module_enabled("query_inspector") is True
+
+    # ── Integration: full round-trip ────────────────────────────────
+
+    def test_inspector_record_then_to_dict_roundtrip(self):
+        """Record a query through the engine, verify it appears in inspector
+        with correct to_dict() output that the template can consume."""
+        from aquilia.db.engine import AquiliaDatabase
+        from aquilia.admin.query_inspector import get_query_inspector
+
+        inspector = get_query_inspector()
+        before = inspector._counter
+
+        AquiliaDatabase._notify_inspector(
+            sql="UPDATE orders SET status = ? WHERE id = ?",
+            params=("shipped", 42),
+            duration_ms=3.14,
+            rows_affected=1,
+        )
+
+        after = inspector._counter
+        assert after == before + 1
+
+        # Capture delta (same logic as site.update_record)
+        all_queries = list(inspector._queries)
+        captured = [
+            q.to_dict() for q in all_queries
+            if q.id > f"q-{before:06d}"
+        ]
+
+        assert len(captured) >= 1
+        q = captured[-1]
+        assert q["sql"] == "UPDATE orders SET status = ? WHERE id = ?"
+        assert q["operation"] == "UPDATE"
+        assert q["duration_ms"] == 3.14
+        assert q["rows_affected"] == 1
+        assert q["params"] == "('shipped', 42)"
+        assert "id" in q
+        assert "timestamp" in q
+        assert "fingerprint" in q
+
+    def test_inspector_multiple_queries_different_operations(self):
+        """Multiple queries of different types are correctly categorised."""
+        from aquilia.db.engine import AquiliaDatabase
+        from aquilia.admin.query_inspector import get_query_inspector
+
+        inspector = get_query_inspector()
+        before = inspector._counter
+
+        AquiliaDatabase._notify_inspector("SELECT * FROM t", None, 0.1)
+        AquiliaDatabase._notify_inspector("UPDATE t SET x=1", None, 0.2)
+        AquiliaDatabase._notify_inspector("INSERT INTO t VALUES(1)", None, 0.3)
+        AquiliaDatabase._notify_inspector("DELETE FROM t WHERE id=1", None, 0.4)
+
+        all_queries = list(inspector._queries)
+        captured = [
+            q.to_dict() for q in all_queries
+            if q.id > f"q-{before:06d}"
+        ]
+
+        ops = [c["operation"] for c in captured]
+        assert "SELECT" in ops
+        assert "UPDATE" in ops
+        assert "INSERT" in ops
+        assert "DELETE" in ops
+
+    def test_inspector_timing_is_preserved(self):
+        """Duration values are accurately preserved through the pipeline."""
+        from aquilia.db.engine import AquiliaDatabase
+        from aquilia.admin.query_inspector import get_query_inspector
+
+        inspector = get_query_inspector()
+        before = inspector._counter
+
+        AquiliaDatabase._notify_inspector("SELECT 1", None, 42.567)
+
+        all_queries = list(inspector._queries)
+        captured = [
+            q.to_dict() for q in all_queries
+            if q.id > f"q-{before:06d}"
+        ]
+
+        assert captured[-1]["duration_ms"] == 42.567

@@ -4634,7 +4634,13 @@ class AdminSite:
         *,
         identity: Optional[Identity] = None,
     ) -> Any:
-        """Update an existing record."""
+        """Update an existing record.
+
+        Returns the updated record.  As a side-effect the site instance
+        attribute ``_last_update_queries`` is populated with a list of
+        ``QueryRecord.to_dict()`` dicts captured during the update so
+        the controller can feed them to the query inspection panel.
+        """
         model_cls = self.get_model_class(model_name)
         admin = self.get_model_admin(model_cls)
 
@@ -4662,6 +4668,16 @@ class AdminSite:
                 changes[field_name] = {"old": old_value, "new": new_value}
                 update_data[field_name] = new_value
 
+        # ── Snapshot query inspector BEFORE the update ───────────────
+        _captured_queries: list = []
+        try:
+            from .query_inspector import get_query_inspector
+            _inspector = get_query_inspector()
+            _qi_before = _inspector._counter
+        except Exception:
+            _inspector = None
+            _qi_before = 0
+
         if update_data:
             try:
                 await model_cls.objects.filter(**{model_cls._pk_attr: pk}).update(update_data)
@@ -4669,6 +4685,23 @@ class AdminSite:
                 record = await model_cls.get(pk=pk)
             except Exception as e:
                 raise AdminValidationFault(str(e))
+
+        # ── Snapshot query inspector AFTER and capture delta ─────────
+        if _inspector is not None:
+            try:
+                _qi_after = _inspector._counter
+                if _qi_after > _qi_before:
+                    all_queries = list(_inspector._queries)
+                    # Grab only the queries that were recorded during this update
+                    _captured_queries = [
+                        q.to_dict() for q in all_queries
+                        if q.id > f"q-{_qi_before:06d}"
+                    ]
+            except Exception:
+                pass
+
+        # Stash captured queries so the controller can read them
+        self._last_update_queries = _captured_queries
 
         # Audit log (in-memory + ORM-backed)
         if identity and changes:
