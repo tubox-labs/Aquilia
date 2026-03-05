@@ -281,7 +281,19 @@ class MigrationRunner:
                 for sql in stmts:
                     if sql.startswith("--"):
                         continue  # Skip comments
-                    await self.db.execute(sql)
+                    try:
+                        await self.db.execute(sql)
+                    except Exception as idx_exc:
+                        # MySQL error 1061: duplicate key name — index already
+                        # exists (e.g. tables were created by ``create_tables``
+                        # before the migration was recorded).  Skip silently.
+                        cause = getattr(idx_exc, "__cause__", idx_exc)
+                        if (
+                            self.dialect == "mysql"
+                            and getattr(cause, "args", (None,))[0] == 1061
+                        ):
+                            continue
+                        raise
 
                 for py_op in python_ops:
                     if py_op.forward:
@@ -323,7 +335,16 @@ class MigrationRunner:
                             for sql in stmts:
                                 if sql.startswith("--"):
                                     continue
-                                await self.db.execute(sql)
+                                try:
+                                    await self.db.execute(sql)
+                                except Exception as idx_exc:
+                                    # MySQL 1091: Can't DROP index; check that
+                                    # it exists.  Skip silently during rollback.
+                                    cause = getattr(idx_exc, "__cause__", idx_exc)
+                                    code = getattr(cause, "args", (None,))[0]
+                                    if self.dialect == "mysql" and code in (1061, 1091):
+                                        continue
+                                    raise
                     except Exception as exc:
                         raise MigrationFault(migration=rev, reason=f"Rollback failed: {exc}") from exc
                 elif hasattr(module, "downgrade"):

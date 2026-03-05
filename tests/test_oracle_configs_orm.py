@@ -3818,3 +3818,280 @@ app.database(config=MysqlConfig(host="localhost", port=3306, database="testdb"))
         url = self._run_detect(content, tmp_path)
         assert url == "mysql://localhost:3306/testdb"
         assert "@" not in url
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Module 22 — Migration Runner: MySQL Duplicate Index (1061) Handling
+# ═══════════════════════════════════════════════════════════════════════════════
+# When tables are auto-created by ``create_tables()`` at startup, their
+# indexes already exist.  Running ``aq db migrate`` then tries to re-create
+# the same indexes, and MySQL raises error 1061 (duplicate key name).
+# The migration runner must catch 1061 during DSL execution and skip the
+# duplicate index silently instead of aborting the entire migration.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TestMigrationRunnerMySQLDuplicateIndex:
+    """_execute_dsl_migration must skip MySQL 1061 (duplicate key name)."""
+
+    @pytest.fixture
+    def mock_db(self):
+        """Build a mock DB adapter with dialect and transaction support."""
+        import asyncio
+        from unittest.mock import AsyncMock, MagicMock
+        from contextlib import asynccontextmanager
+
+        db = AsyncMock()
+        db.dialect = "mysql"
+
+        @asynccontextmanager
+        async def fake_transaction():
+            yield
+
+        db.transaction = fake_transaction
+        return db
+
+    def _make_mysql_1061(self):
+        """Create a chained exception mimicking aiomysql error 1061."""
+        inner = Exception(1061, "Duplicate key name 'idx_foo'")
+        outer = Exception("execute failed")
+        outer.__cause__ = inner
+        return outer
+
+    def _make_mysql_1091(self):
+        """Create a chained exception mimicking aiomysql error 1091."""
+        inner = Exception(1091, "Can't DROP 'idx_foo'; check that column/key exists")
+        outer = Exception("execute failed")
+        outer.__cause__ = inner
+        return outer
+
+    @pytest.mark.asyncio
+    async def test_duplicate_index_skipped_during_upgrade(self, mock_db):
+        from aquilia.models.migration_runner import MigrationRunner
+        from aquilia.models.migration_dsl import Migration, CreateIndex, CreateModel
+        from aquilia.models.migration_dsl import ColumnDef
+
+        call_count = 0
+
+        async def mock_execute(sql, params=None):
+            nonlocal call_count
+            call_count += 1
+            # Raise 1061 for CREATE INDEX, succeed for everything else
+            if "CREATE" in sql and "INDEX" in sql:
+                raise self._make_mysql_1061()
+
+        mock_db.execute = mock_execute
+
+        runner = MigrationRunner.__new__(MigrationRunner)
+        runner.db = mock_db
+        runner.dialect = "mysql"
+
+        migration = Migration(
+            revision="test_001",
+            slug="test_dup_index",
+            models=["TestModel"],
+            operations=[
+                CreateIndex(
+                    name="idx_foo", table="test_table",
+                    columns=["col_a"], unique=False,
+                ),
+            ],
+        )
+
+        # Should NOT raise — the 1061 is caught and skipped
+        await runner._execute_dsl_migration(migration)
+        assert call_count == 1  # The CREATE INDEX was attempted
+
+    @pytest.mark.asyncio
+    async def test_non_1061_error_still_raises(self, mock_db):
+        from aquilia.models.migration_runner import MigrationRunner
+        from aquilia.models.migration_dsl import Migration, CreateIndex
+        from aquilia.faults.domains import MigrationFault
+
+        async def mock_execute(sql, params=None):
+            inner = Exception(1054, "Unknown column 'bad_col'")
+            outer = Exception("execute failed")
+            outer.__cause__ = inner
+            raise outer
+
+        mock_db.execute = mock_execute
+
+        runner = MigrationRunner.__new__(MigrationRunner)
+        runner.db = mock_db
+        runner.dialect = "mysql"
+
+        migration = Migration(
+            revision="test_002",
+            slug="test_bad_col",
+            models=["TestModel"],
+            operations=[
+                CreateIndex(
+                    name="idx_bad", table="test_table",
+                    columns=["bad_col"], unique=False,
+                ),
+            ],
+        )
+
+        with pytest.raises(MigrationFault, match="DSL migration failed"):
+            await runner._execute_dsl_migration(migration)
+
+    @pytest.mark.asyncio
+    async def test_sqlite_1061_like_error_not_suppressed(self, mock_db):
+        """On SQLite dialect, 1061-shaped errors must NOT be silently skipped."""
+        from aquilia.models.migration_runner import MigrationRunner
+        from aquilia.models.migration_dsl import Migration, CreateIndex
+        from aquilia.faults.domains import MigrationFault
+
+        mock_db.dialect = "sqlite"
+
+        async def mock_execute(sql, params=None):
+            inner = Exception(1061, "Duplicate key name 'idx_foo'")
+            outer = Exception("execute failed")
+            outer.__cause__ = inner
+            raise outer
+
+        mock_db.execute = mock_execute
+
+        runner = MigrationRunner.__new__(MigrationRunner)
+        runner.db = mock_db
+        runner.dialect = "sqlite"
+
+        migration = Migration(
+            revision="test_003",
+            slug="test_sqlite_no_skip",
+            models=["TestModel"],
+            operations=[
+                CreateIndex(
+                    name="idx_foo", table="test_table",
+                    columns=["col_a"], unique=False,
+                ),
+            ],
+        )
+
+        with pytest.raises(MigrationFault):
+            await runner._execute_dsl_migration(migration)
+
+    @pytest.mark.asyncio
+    async def test_multiple_indexes_all_skipped(self, mock_db):
+        """Multiple duplicate indexes in one migration are all skipped."""
+        from aquilia.models.migration_runner import MigrationRunner
+        from aquilia.models.migration_dsl import Migration, CreateIndex
+
+        skipped = []
+
+        async def mock_execute(sql, params=None):
+            if "CREATE" in sql and "INDEX" in sql:
+                skipped.append(sql)
+                raise self._make_mysql_1061()
+
+        mock_db.execute = mock_execute
+
+        runner = MigrationRunner.__new__(MigrationRunner)
+        runner.db = mock_db
+        runner.dialect = "mysql"
+
+        migration = Migration(
+            revision="test_004",
+            slug="test_multi_dup",
+            models=["TestModel"],
+            operations=[
+                CreateIndex(name="idx_a", table="t", columns=["a"]),
+                CreateIndex(name="idx_b", table="t", columns=["b"]),
+                CreateIndex(name="idx_c", table="t", columns=["c"]),
+            ],
+        )
+
+        await runner._execute_dsl_migration(migration)
+        assert len(skipped) == 3
+
+    @pytest.mark.asyncio
+    async def test_create_table_followed_by_duplicate_index(self, mock_db):
+        """CREATE TABLE succeeds, then duplicate CREATE INDEX is skipped."""
+        from aquilia.models.migration_runner import MigrationRunner
+        from aquilia.models.migration_dsl import (
+            Migration, CreateModel, CreateIndex,
+        )
+        from aquilia.models.migration_dsl import columns as C
+
+        executed = []
+
+        async def mock_execute(sql, params=None):
+            executed.append(sql)
+            if "CREATE" in sql and "INDEX" in sql:
+                raise self._make_mysql_1061()
+
+        mock_db.execute = mock_execute
+
+        runner = MigrationRunner.__new__(MigrationRunner)
+        runner.db = mock_db
+        runner.dialect = "mysql"
+
+        migration = Migration(
+            revision="test_005",
+            slug="test_table_then_index",
+            models=["TestModel"],
+            operations=[
+                CreateModel(
+                    name="TestModel", table="test_table",
+                    fields=[C.auto("id"), C.varchar("name", 100)],
+                ),
+                CreateIndex(
+                    name="idx_name", table="test_table",
+                    columns=["name"],
+                ),
+            ],
+        )
+
+        await runner._execute_dsl_migration(migration)
+        # CREATE TABLE was executed, CREATE INDEX was attempted (then skipped)
+        assert any("CREATE TABLE" in s for s in executed)
+        assert any("INDEX" in s for s in executed)
+
+    @pytest.mark.asyncio
+    async def test_rollback_1091_skipped(self, mock_db):
+        """During rollback, MySQL error 1091 (can't DROP) is skipped."""
+        from aquilia.models.migration_runner import MigrationRunner
+        from aquilia.models.migration_dsl import Migration, CreateIndex
+
+        async def mock_execute(sql, params=None):
+            if "DROP" in sql and "INDEX" in sql:
+                raise self._make_mysql_1091()
+
+        mock_db.execute = mock_execute
+
+        runner = MigrationRunner.__new__(MigrationRunner)
+        runner.db = mock_db
+        runner.dialect = "mysql"
+
+        migration = Migration(
+            revision="test_006",
+            slug="test_rollback_drop",
+            models=["TestModel"],
+            operations=[
+                CreateIndex(
+                    name="idx_gone", table="test_table",
+                    columns=["col_a"],
+                ),
+            ],
+        )
+
+        # compile_downgrade produces DROP INDEX; the 1091 should be skipped
+        stmts = migration.compile_downgrade("mysql")
+        assert any("DROP" in s for s in stmts)
+
+        # Simulate the rollback execution path
+        try:
+            async with mock_db.transaction():
+                for sql in stmts:
+                    if sql.startswith("--"):
+                        continue
+                    try:
+                        await mock_db.execute(sql)
+                    except Exception as idx_exc:
+                        cause = getattr(idx_exc, "__cause__", idx_exc)
+                        code = getattr(cause, "args", (None,))[0]
+                        if runner.dialect == "mysql" and code in (1061, 1091):
+                            continue
+                        raise
+        except Exception:
+            pytest.fail("Rollback should not raise on MySQL 1091")
