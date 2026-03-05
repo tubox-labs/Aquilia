@@ -446,6 +446,12 @@ class AquiliaServer:
         # ── I18n subsystem ───────────────────────────────────────────────
         self._setup_i18n()
 
+        # ── Tasks subsystem ──────────────────────────────────────────────
+        self._setup_tasks()
+
+        # ── Error Tracker subsystem ──────────────────────────────────────
+        self._setup_error_tracker()
+
         # ── Security & Infrastructure Middleware ──────────────────────────
         self._setup_security_middleware()
 
@@ -1039,6 +1045,108 @@ class AquiliaServer:
         except Exception as e:
             self._i18n_service = None
             self.logger.error(f"I18n subsystem init failed (non-fatal): {e}", exc_info=True)
+
+    def _setup_tasks(self):
+        """
+        Initialize the background task subsystem from workspace config.
+
+        Reads ``Integration.tasks()`` configuration, creates a
+        :class:`TaskManager`, registers it in every DI container,
+        and wires event hooks for FaultEngine and admin integration.
+
+        The actual manager ``start()`` happens during :meth:`startup`
+        (async), not here. This method only creates and wires the objects.
+        """
+        tasks_config = self.config.get_tasks_config()
+        if not tasks_config.get("enabled", False):
+            self._task_manager = None
+            return
+
+        try:
+            from .tasks import TaskManager, MemoryBackend
+            from .di.providers import ValueProvider
+
+            # Select backend
+            backend_type = tasks_config.get("backend", "memory")
+            if backend_type == "memory":
+                backend = MemoryBackend()
+            else:
+                backend = MemoryBackend()  # Fallback; Redis backend is future
+
+            # Create TaskManager
+            manager = TaskManager(
+                backend=backend,
+                num_workers=tasks_config.get("num_workers", 4),
+                default_queue=tasks_config.get("default_queue", "default"),
+                cleanup_interval=tasks_config.get("cleanup_interval", 300.0),
+                cleanup_max_age=tasks_config.get("cleanup_max_age", 3600.0),
+            )
+
+            self._task_manager = manager
+
+            # Register TaskManager in every DI container
+            for container in self.runtime.di_containers.values():
+                container.register(ValueProvider(
+                    value=manager,
+                    token=TaskManager,
+                    scope="app",
+                ))
+
+            # Wire dead-letter hook to FaultEngine for observability
+            if hasattr(self, "fault_engine") and self.fault_engine:
+                def _task_dead_letter_fault(job):
+                    """Emit a fault when a task exhausts retries."""
+                    from .faults.core import Fault
+                    fault = Fault(
+                        code="TASK_DEAD_LETTER",
+                        message=f"Task {job.name or job.func_ref} permanently failed after {job.retry_count} retries",
+                        domain="tasks",
+                        severity="error",
+                    )
+                    self.fault_engine.handle(fault)
+
+                manager.on_dead_letter(_task_dead_letter_fault)
+
+            # Wire the QueueEffect to use TaskManager via TaskQueueProvider
+            try:
+                from .effects import TaskQueueProvider
+                self._task_queue_provider = TaskQueueProvider(task_manager=manager)
+            except ImportError:
+                self._task_queue_provider = None
+
+            self.logger.info(
+                "Tasks subsystem initialized — workers=%d backend=%s queue=%s",
+                manager.num_workers,
+                backend.__class__.__name__,
+                manager.default_queue,
+            )
+
+        except Exception as e:
+            self._task_manager = None
+            self.logger.error(f"Tasks subsystem init failed (non-fatal): {e}", exc_info=True)
+
+    def _setup_error_tracker(self):
+        """
+        Initialize the error tracker and wire it to the FaultEngine.
+
+        The ErrorTracker listens on every fault emitted by the FaultEngine
+        and records it for the admin error monitoring page.
+        """
+        try:
+            from .admin.error_tracker import get_error_tracker
+
+            tracker = get_error_tracker()
+            self._error_tracker = tracker
+
+            # Wire to FaultEngine listener — tracker.capture IS the callback
+            if hasattr(self, "fault_engine") and self.fault_engine:
+                self.fault_engine.on_fault(tracker.capture)
+
+            self.logger.debug("Error tracker wired to FaultEngine")
+
+        except Exception as e:
+            self._error_tracker = None
+            self.logger.debug(f"Error tracker init skipped: {e}")
 
     def _resolve_store_from_name(self, store_name: str, **kwargs):
         """
@@ -1774,6 +1882,23 @@ class AquiliaServer:
                     ("GET", f"{url_prefix}/pods/api/", "pods_api",  ctrl.pods_api),
                 ])
 
+            # DevTools module routes
+            if _mod("query_inspector"):
+                admin_routes.extend([
+                    ("GET", f"{url_prefix}/query-inspector/",    "query_inspector_view", ctrl.query_inspector_view),
+                    ("GET", f"{url_prefix}/query-inspector/api/", "query_inspector_api",  ctrl.query_inspector_api),
+                ])
+            if _mod("tasks"):
+                admin_routes.extend([
+                    ("GET",  f"{url_prefix}/tasks/",    "tasks_view",    ctrl.tasks_view),
+                    ("GET",  f"{url_prefix}/tasks/api/", "tasks_api",    ctrl.tasks_api),
+                ])
+            if _mod("errors"):
+                admin_routes.extend([
+                    ("GET", f"{url_prefix}/errors/",    "errors_view",    ctrl.errors_view),
+                    ("GET", f"{url_prefix}/errors/api/", "errors_api",    ctrl.errors_api),
+                ])
+
             # Model CRUD routes -- always registered
             admin_routes.extend([
                 ("GET",  f"{url_prefix}/<model:str>/export", "export_view",     ctrl.export_view),
@@ -1812,6 +1937,13 @@ class AquiliaServer:
             # Re-initialize the router to rebuild indexes
             self.controller_router._initialized = False
             self.controller_router.initialize()
+
+            # ── Wire task manager into admin site ────────────────────────
+            if hasattr(self, '_task_manager') and self._task_manager is not None:
+                try:
+                    site.set_task_manager(self._task_manager)
+                except Exception:
+                    pass  # Non-critical
 
             # ── Register admin DI providers ──────────────────────────────
             try:
@@ -2559,6 +2691,15 @@ class AquiliaServer:
                     self.logger.error(f"Mail startup failed: {e}")
                     # Non-fatal -- app can run without mail
 
+            # Step 3.3: Start background task manager
+            if hasattr(self, '_task_manager') and self._task_manager is not None:
+                try:
+                    await self._task_manager.start()
+                    self.logger.info("Background task manager started")
+                except Exception as e:
+                    self.logger.error(f"Task manager startup failed: {e}")
+                    # Non-fatal -- app can run without background tasks
+
             # Step 3.5: Register effects from manifests and initialize providers
             self.runtime._register_effects()
             try:
@@ -2623,6 +2764,16 @@ class AquiliaServer:
                 self.health_registry.register("mail", HealthStatus(
                     name="mail", status=SubsystemStatus.HEALTHY,
                 ))
+            if hasattr(self, '_task_manager') and self._task_manager is not None:
+                self.health_registry.register("tasks", HealthStatus(
+                    name="tasks", status=SubsystemStatus.HEALTHY,
+                    message=f"{self._task_manager.num_workers} workers running",
+                ))
+            if hasattr(self, '_error_tracker') and self._error_tracker is not None:
+                self.health_registry.register("error_tracker", HealthStatus(
+                    name="error_tracker", status=SubsystemStatus.HEALTHY,
+                    message="Monitoring faults",
+                ))
 
 
     
@@ -2653,6 +2804,14 @@ class AquiliaServer:
                 self.logger.debug("Mail subsystem shut down")
             except Exception as e:
                 self.logger.warning(f"Error shutting down mail subsystem: {e}")
+
+        # Shutdown background task manager
+        if hasattr(self, '_task_manager') and self._task_manager is not None:
+            try:
+                await self._task_manager.stop()
+                self.logger.debug("Task manager shut down")
+            except Exception as e:
+                self.logger.warning(f"Error shutting down task manager: {e}")
 
         # Shutdown cache subsystem
         if hasattr(self, '_cache_service') and self._cache_service is not None:

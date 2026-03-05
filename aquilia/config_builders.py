@@ -892,6 +892,80 @@ class Integration:
             **kwargs,
         }
 
+    @staticmethod
+    def tasks(
+        backend: str = "memory",
+        num_workers: int = 4,
+        default_queue: str = "default",
+        cleanup_interval: float = 300.0,
+        cleanup_max_age: float = 3600.0,
+        max_retries: int = 3,
+        retry_delay: float = 1.0,
+        retry_backoff: float = 2.0,
+        retry_max_delay: float = 300.0,
+        default_timeout: float = 300.0,
+        auto_start: bool = True,
+        dead_letter_max: int = 1000,
+        **kwargs,
+    ) -> Dict[str, Any]:
+        """
+        Configure the background task subsystem.
+
+        Provides an async-native task queue with priority scheduling,
+        retry with exponential backoff, dead-letter handling, and
+        admin dashboard integration.
+
+        Args:
+            backend: Backend type -- ``"memory"`` (default) or
+                     ``"redis"`` (future).
+            num_workers: Number of concurrent worker coroutines.
+            default_queue: Default queue name for tasks without
+                           explicit queue assignment.
+            cleanup_interval: Seconds between old job cleanup sweeps.
+            cleanup_max_age: Max age (seconds) for terminal jobs
+                             before cleanup removes them.
+            max_retries: Default max retry attempts for tasks.
+            retry_delay: Default base retry delay in seconds.
+            retry_backoff: Exponential backoff multiplier.
+            retry_max_delay: Maximum retry delay cap.
+            default_timeout: Default task execution timeout.
+            auto_start: Start workers automatically on server boot.
+            dead_letter_max: Maximum dead-letter queue size.
+            **kwargs: Additional overrides.
+
+        Returns:
+            Tasks configuration dictionary.
+
+        Examples::
+
+            # Default in-memory task queue
+            .integrate(Integration.tasks())
+
+            # Custom worker pool
+            .integrate(Integration.tasks(
+                num_workers=8,
+                default_timeout=600,
+                max_retries=5,
+            ))
+        """
+        return {
+            "_integration_type": "tasks",
+            "enabled": True,
+            "backend": backend,
+            "num_workers": num_workers,
+            "default_queue": default_queue,
+            "cleanup_interval": cleanup_interval,
+            "cleanup_max_age": cleanup_max_age,
+            "max_retries": max_retries,
+            "retry_delay": retry_delay,
+            "retry_backoff": retry_backoff,
+            "retry_max_delay": retry_max_delay,
+            "default_timeout": default_timeout,
+            "auto_start": auto_start,
+            "dead_letter_max": dead_letter_max,
+            **kwargs,
+        }
+
     # ── Admin Nested Builder Classes ──────────────────────────────────
     #
     # IDE-friendly, type-safe configuration objects for the admin panel.
@@ -950,7 +1024,8 @@ class Integration:
         __slots__ = ("_dashboard", "_orm", "_build", "_migrations",
                      "_config", "_workspace", "_permissions",
                      "_monitoring", "_admin_users", "_profile", "_audit",
-                     "_containers", "_pods")
+                     "_containers", "_pods",
+                     "_query_inspector", "_tasks", "_errors")
 
         def __init__(self) -> None:
             self._dashboard: bool = True
@@ -966,6 +1041,9 @@ class Integration:
             self._audit: bool = False         # disabled by default
             self._containers: bool = False    # disabled by default
             self._pods: bool = False           # disabled by default
+            self._query_inspector: bool = False  # disabled by default
+            self._tasks: bool = False             # disabled by default
+            self._errors: bool = False            # disabled by default
 
         # ── Dashboard ──
         def enable_dashboard(self) -> "Integration.AdminModules":
@@ -1110,6 +1188,39 @@ class Integration:
             self._audit = False
             return self
 
+        # ── Query Inspector (disabled by default) ──
+        def enable_query_inspector(self) -> "Integration.AdminModules":
+            """Show the Query Inspector page (SQL profiling, N+1 detection). Disabled by default -- opt in."""
+            self._query_inspector = True
+            return self
+
+        def disable_query_inspector(self) -> "Integration.AdminModules":
+            """Hide the Query Inspector page."""
+            self._query_inspector = False
+            return self
+
+        # ── Background Tasks (disabled by default) ──
+        def enable_tasks(self) -> "Integration.AdminModules":
+            """Show the Background Tasks page. Disabled by default -- opt in."""
+            self._tasks = True
+            return self
+
+        def disable_tasks(self) -> "Integration.AdminModules":
+            """Hide the Background Tasks page."""
+            self._tasks = False
+            return self
+
+        # ── Error Monitoring (disabled by default) ──
+        def enable_errors(self) -> "Integration.AdminModules":
+            """Show the Error Monitoring page. Disabled by default -- opt in."""
+            self._errors = True
+            return self
+
+        def disable_errors(self) -> "Integration.AdminModules":
+            """Hide the Error Monitoring page."""
+            self._errors = False
+            return self
+
         # ── Convenience ──
         def enable_all(self) -> "Integration.AdminModules":
             """Enable every admin module (including monitoring & audit)."""
@@ -1139,6 +1250,9 @@ class Integration:
                 "audit": self._audit,
                 "containers": self._containers,
                 "pods": self._pods,
+                "query_inspector": self._query_inspector,
+                "tasks": self._tasks,
+                "errors": self._errors,
             }
 
         def __repr__(self) -> str:
@@ -1343,7 +1457,7 @@ class Integration:
             )
         """
 
-        __slots__ = ("_overview", "_data", "_system", "_infrastructure", "_security", "_models")
+        __slots__ = ("_overview", "_data", "_system", "_infrastructure", "_security", "_models", "_devtools")
 
         def __init__(self) -> None:
             self._overview: bool = True
@@ -1352,6 +1466,7 @@ class Integration:
             self._infrastructure: bool = True
             self._security: bool = True
             self._models: bool = True
+            self._devtools: bool = True
 
         def show_overview(self) -> "Integration.AdminSidebar":
             """Show the Overview section."""
@@ -1413,6 +1528,16 @@ class Integration:
             self._models = False
             return self
 
+        def show_devtools(self) -> "Integration.AdminSidebar":
+            """Show the DevTools section (Query Inspector, Tasks, Errors)."""
+            self._devtools = True
+            return self
+
+        def hide_devtools(self) -> "Integration.AdminSidebar":
+            """Hide the DevTools section."""
+            self._devtools = False
+            return self
+
         def show_all(self) -> "Integration.AdminSidebar":
             """Show every sidebar section."""
             for attr in self.__slots__:
@@ -1434,6 +1559,7 @@ class Integration:
                 "infrastructure": self._infrastructure,
                 "security": self._security,
                 "models": self._models,
+                "devtools": self._devtools,
             }
 
         def __repr__(self) -> str:
@@ -1975,6 +2101,9 @@ class Integration:
                 "audit": enable_audit if enable_audit is not None else False,
                 "containers": enable_containers if enable_containers is not None else False,
                 "pods": enable_pods if enable_pods is not None else False,
+                "query_inspector": kwargs.pop("enable_query_inspector", False),
+                "tasks": kwargs.pop("enable_tasks", False),
+                "errors": kwargs.pop("enable_errors", False),
             }
 
         # ── Resolve audit ────────────────────────────────────────────
@@ -2025,6 +2154,7 @@ class Integration:
             _default_sidebar = {
                 "overview": True, "data": True, "system": True,
                 "infrastructure": True, "security": True, "models": True,
+                "devtools": True,
             }
             sidebar_dict = {**_default_sidebar}
             if sidebar_sections:
@@ -3104,6 +3234,7 @@ class Workspace:
         self._mlops_config: Optional[Dict[str, Any]] = None
         self._cache_config: Optional[Dict[str, Any]] = None
         self._i18n_config: Optional[Dict[str, Any]] = None
+        self._tasks_config: Optional[Dict[str, Any]] = None
         self._starter: Optional[str] = None
         self._middleware_chain: Optional[List[Dict[str, Any]]] = None
         self._on_startup: Optional[str] = None
@@ -3240,6 +3371,9 @@ class Workspace:
             elif integration_type == "i18n":
                 self._integrations["i18n"] = integration
                 self._i18n_config = integration
+            elif integration_type == "tasks":
+                self._integrations["tasks"] = integration
+                self._tasks_config = integration
             return self
 
         # Determine integration type from keys (legacy detection)
@@ -3316,7 +3450,40 @@ class Workspace:
         self._i18n_config = config
         self._integrations["i18n"] = config
         return self
-    
+
+    def tasks(
+        self,
+        num_workers: int = 4,
+        backend: str = "memory",
+        **kwargs,
+    ) -> "Workspace":
+        """
+        Configure background tasks (shorthand for ``integrate(Integration.tasks(...))``).
+
+        Args:
+            num_workers: Number of concurrent worker coroutines.
+            backend: Backend type (``"memory"`` or ``"redis"``).
+            **kwargs: Additional task config (see ``Integration.tasks()``).
+
+        Returns:
+            Self for chaining.
+
+        Example::
+
+            workspace = (
+                Workspace("myapp")
+                .tasks(num_workers=8, max_retries=5)
+            )
+        """
+        config = Integration.tasks(
+            num_workers=num_workers,
+            backend=backend,
+            **kwargs,
+        )
+        self._tasks_config = config
+        self._integrations["tasks"] = config
+        return self
+
     def security(
         self,
         cors_enabled: bool = False,
@@ -3574,6 +3741,9 @@ class Workspace:
         if self._i18n_config:
             config["i18n"] = self._i18n_config
             config["integrations"]["i18n"] = self._i18n_config
+        if self._tasks_config:
+            config["tasks"] = self._tasks_config
+            config["integrations"]["tasks"] = self._tasks_config
         
         return config
     

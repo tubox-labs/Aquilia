@@ -748,6 +748,42 @@ class ConfigLoader:
 
         return merged
 
+    def get_tasks_config(self) -> dict:
+        """
+        Get background tasks configuration with defaults.
+
+        Returns:
+            Tasks configuration dictionary
+        """
+        default_tasks_config = {
+            "enabled": False,
+            "backend": "memory",
+            "num_workers": 4,
+            "default_queue": "default",
+            "cleanup_interval": 300.0,
+            "cleanup_max_age": 3600.0,
+            "max_retries": 3,
+            "retry_delay": 1.0,
+            "retry_backoff": 2.0,
+            "retry_max_delay": 300.0,
+            "default_timeout": 300.0,
+            "auto_start": True,
+            "dead_letter_max": 1000,
+        }
+
+        # Get user-provided tasks config
+        user_config = self.get("tasks", {})
+        if not user_config:
+            user_config = self.get("integrations.tasks", {})
+
+        # Merge with defaults
+        merged = default_tasks_config.copy()
+        if user_config:
+            merged["enabled"] = user_config.get("enabled", True)
+            self._merge_dict(merged, user_config)
+
+        return merged
+
     def get_middleware_config(self) -> list:
         """
         Get middleware chain configuration.

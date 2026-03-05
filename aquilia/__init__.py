@@ -536,6 +536,22 @@ from .mail import (
 from .mail.service import MailService
 
 # ============================================================================
+# Tasks (Background Jobs)
+# ============================================================================
+
+from .tasks import (
+    TaskManager,
+    TaskBackend,
+    MemoryBackend,
+    Job,
+    JobState,
+    Priority as TaskPriority,
+    JobResult,
+    Worker,
+    task,
+)
+
+# ============================================================================
 # Patterns
 # ============================================================================
 
@@ -1104,6 +1120,17 @@ __all__ = [
     "MailSuppressedFault",
     "MailRateLimitFault",
     "MailValidationFault",
+    
+    # Tasks (Background Jobs)
+    "TaskManager",
+    "TaskBackend",
+    "MemoryBackend",
+    "Job",
+    "JobState",
+    "TaskPriority",
+    "JobResult",
+    "Worker",
+    "task",
     
     # Patterns
     "PatternCompiler",
