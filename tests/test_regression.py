@@ -1222,3 +1222,197 @@ class TestFullImportChain:
         trace_modules = [k for k in keys_after if "aquilia.trace" in k]
         assert len(trace_modules) == 0, \
             f"Trace modules found in sys.modules: {trace_modules}"
+
+
+# ════════════════════════════════════════════════════════════════════════
+# MODULE 9: BUILD-FIRST DEPLOY SYSTEM
+# ════════════════════════════════════════════════════════════════════════
+
+
+class TestBuildFirstDeploy:
+    """Test the build-first deploy gate (React/Vite/Next.js-style).
+
+    The deploy system requires a production build before generating
+    deployment files. These tests verify the build gate logic.
+    """
+
+    def test_has_production_build_no_dir(self, tmp_path):
+        """_has_production_build returns False when build/ doesn't exist."""
+        from aquilia.cli.commands.deploy_gen import _has_production_build
+        assert _has_production_build(tmp_path) is False
+
+    def test_has_production_build_partial(self, tmp_path):
+        """_has_production_build returns False with only manifest.json."""
+        from aquilia.cli.commands.deploy_gen import _has_production_build
+        build_dir = tmp_path / "build"
+        build_dir.mkdir()
+        (build_dir / "manifest.json").write_text("{}")
+        assert _has_production_build(tmp_path) is False
+
+    def test_has_production_build_partial_bundle(self, tmp_path):
+        """_has_production_build returns False with only bundle.crous."""
+        from aquilia.cli.commands.deploy_gen import _has_production_build
+        build_dir = tmp_path / "build"
+        build_dir.mkdir()
+        (build_dir / "bundle.crous").write_bytes(b"CROUS")
+        assert _has_production_build(tmp_path) is False
+
+    def test_has_production_build_complete(self, tmp_path):
+        """_has_production_build returns True with both files."""
+        from aquilia.cli.commands.deploy_gen import _has_production_build
+        build_dir = tmp_path / "build"
+        build_dir.mkdir()
+        (build_dir / "manifest.json").write_text("{}")
+        (build_dir / "bundle.crous").write_bytes(b"CROUS")
+        assert _has_production_build(tmp_path) is True
+
+    def test_is_build_stale_no_manifest(self, tmp_path):
+        """_is_build_stale returns True when manifest doesn't exist."""
+        from aquilia.cli.commands.deploy_gen import _is_build_stale
+        assert _is_build_stale(tmp_path) is True
+
+    def test_is_build_stale_fresh_build(self, tmp_path):
+        """_is_build_stale returns False when build is newer than sources."""
+        from aquilia.cli.commands.deploy_gen import _is_build_stale
+        import time as _time
+
+        # Create source files first
+        (tmp_path / "workspace.py").write_text("# workspace")
+        modules_dir = tmp_path / "modules" / "auth"
+        modules_dir.mkdir(parents=True)
+        (modules_dir / "manifest.py").write_text("# manifest")
+
+        # Small delay to ensure mtime difference
+        _time.sleep(0.05)
+
+        # Create build after sources
+        build_dir = tmp_path / "build"
+        build_dir.mkdir()
+        (build_dir / "manifest.json").write_text("{}")
+
+        assert _is_build_stale(tmp_path) is False
+
+    def test_is_build_stale_modified_source(self, tmp_path):
+        """_is_build_stale returns True when source is newer than build."""
+        from aquilia.cli.commands.deploy_gen import _is_build_stale
+        import time as _time
+
+        # Create build first
+        build_dir = tmp_path / "build"
+        build_dir.mkdir()
+        (build_dir / "manifest.json").write_text("{}")
+
+        # Small delay to ensure mtime difference
+        _time.sleep(0.05)
+
+        # Modify source after build
+        (tmp_path / "workspace.py").write_text("# modified")
+
+        assert _is_build_stale(tmp_path) is True
+
+    def test_is_build_stale_modified_module(self, tmp_path):
+        """_is_build_stale returns True when module .py file is newer."""
+        from aquilia.cli.commands.deploy_gen import _is_build_stale
+        import time as _time
+
+        # Create build first
+        build_dir = tmp_path / "build"
+        build_dir.mkdir()
+        (build_dir / "manifest.json").write_text("{}")
+
+        # Small delay to ensure mtime difference
+        _time.sleep(0.05)
+
+        # Add module source after build
+        modules_dir = tmp_path / "modules" / "users"
+        modules_dir.mkdir(parents=True)
+        (modules_dir / "controller.py").write_text("# new controller")
+
+        assert _is_build_stale(tmp_path) is True
+
+    def test_is_build_stale_modified_config(self, tmp_path):
+        """_is_build_stale returns True when config file is newer."""
+        from aquilia.cli.commands.deploy_gen import _is_build_stale
+        import time as _time
+
+        # Create build first
+        build_dir = tmp_path / "build"
+        build_dir.mkdir()
+        (build_dir / "manifest.json").write_text("{}")
+
+        # Small delay to ensure mtime difference
+        _time.sleep(0.05)
+
+        # Add config after build
+        config_dir = tmp_path / "config"
+        config_dir.mkdir()
+        (config_dir / "prod.yaml").write_text("db:\n  url: postgres://")
+
+        assert _is_build_stale(tmp_path) is True
+
+    def test_ensure_build_skips_when_flag_set(self):
+        """_ensure_production_build returns True when skip_build_check=True."""
+        from aquilia.cli.commands.deploy_gen import _ensure_production_build
+        # Should return True regardless of workspace state
+        result = _ensure_production_build(
+            Path("/nonexistent"),
+            interactive=False,
+            skip_build_check=True,
+        )
+        assert result is True
+
+    def test_ensure_build_passes_with_fresh_build(self, tmp_path):
+        """_ensure_production_build returns True when build is fresh."""
+        from aquilia.cli.commands.deploy_gen import _ensure_production_build
+
+        # Create a fresh build
+        build_dir = tmp_path / "build"
+        build_dir.mkdir()
+        (build_dir / "manifest.json").write_text("{}")
+        (build_dir / "bundle.crous").write_bytes(b"CROUS")
+
+        result = _ensure_production_build(
+            tmp_path,
+            interactive=False,
+            skip_build_check=False,
+        )
+        assert result is True
+
+    def test_deploy_gen_imports_build_gate_functions(self):
+        """Build gate functions should be importable from deploy_gen."""
+        from aquilia.cli.commands.deploy_gen import (
+            _has_production_build,
+            _is_build_stale,
+            _ensure_production_build,
+            _auto_build,
+            _subcommand_build_gate,
+        )
+        assert callable(_has_production_build)
+        assert callable(_is_build_stale)
+        assert callable(_ensure_production_build)
+        assert callable(_auto_build)
+        assert callable(_subcommand_build_gate)
+
+    def test_deploy_group_has_skip_build_check_option(self):
+        """The deploy group should have --skip-build-check flag."""
+        import inspect
+        from aquilia.cli.commands.deploy_gen import deploy_gen_group
+        source = inspect.getsource(deploy_gen_group.callback)
+        assert "skip_build_check" in source
+
+    def test_build_manifest_deploy_context_has_flag(self):
+        """to_deploy_context should set _from_build_manifest=True."""
+        from aquilia.build.pipeline import BuildManifest
+        manifest = BuildManifest(
+            workspace_name="test-app",
+            workspace_version="1.0.0",
+            build_mode="prod",
+            features={"db": True, "cache": False},
+        )
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmpdir:
+            ctx = manifest.to_deploy_context(Path(tmpdir))
+        assert ctx["_from_build_manifest"] is True
+        assert ctx["name"] == "test-app"
+        assert ctx["has_db"] is True
+        assert ctx["has_cache"] is False

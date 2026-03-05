@@ -584,6 +584,16 @@ aq deploy ci                          # Generate CI workflow file
 - [x] Consolidate Phase 6 (Fingerprint) into Phase 5 (Bundling)
 - [x] Remove redundant MLOps deploy group or namespace it clearly
 
+### Phase 6: Build-First Deploy (React/Vite/Next.js-style)
+
+- [x] Build gate: `_ensure_production_build()` checks for `build/manifest.json` + `build/bundle.crous`
+- [x] Staleness detection: `_is_build_stale()` compares source mtimes against build timestamp
+- [x] Auto-build: prompt user to `aq build --mode=prod` before deploy (interactive + auto with `-y`)
+- [x] `--skip-build-check` escape hatch for dev-mode / live introspection
+- [x] Build gate enforced on all 9 subcommands + interactive wizard
+- [x] Deploy context shows source (build manifest vs live introspection)
+- [x] Comprehensive test suite (14 tests) for build gate logic
+
 ---
 
 *This document is a living architecture reference. Update it as phases are implemented.*
