@@ -1,0 +1,29 @@
+# MANIFEST.in — include non-Python files in source distributions
+# =============================================================================
+
+# Package data (HTML templates, deploy manifests)
+recursive-include aquilia/admin/templates *.html
+recursive-include aquilia/mlops/deploy/grafana *.json
+recursive-include aquilia/mlops/deploy/k8s *.yaml
+include aquilia/patterns/README.md
+include aquilia/templates/README.md
+
+# Project files
+include LICENSE
+include README.md
+include CHANGELOG.md
+include pyproject.toml
+include setup.py
+include requirements.txt
+
+# Exclude dev/test artifacts
+prune tests
+prune benchmark
+prune myapp
+prune docs
+prune aqdocx
+prune assets
+prune __pycache__
+global-exclude *.pyc
+global-exclude *.pyo
+global-exclude .DS_Store

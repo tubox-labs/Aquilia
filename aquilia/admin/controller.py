@@ -47,6 +47,8 @@ from .templates import (
     render_permissions_page,
     render_workspace_page,
     render_monitoring_page,
+    render_containers_page,
+    render_pods_page,
     render_admin_users_page,
     render_profile_page,
     render_error_page,
@@ -351,6 +353,18 @@ class AdminController(Controller):
                 "profile",
                 "Your admin profile, avatar, and password management.",
             ),
+            "Containers": (
+                "Integration.AdminModules().enable_containers()",
+                "enable_containers=True",
+                "container",
+                "Docker containers, images, volumes, networks, and Compose services.",
+            ),
+            "Pods": (
+                "Integration.AdminModules().enable_pods()",
+                "enable_pods=True",
+                "cloud",
+                "Kubernetes pods, deployments, services, and cluster management.",
+            ),
         }
 
         hint = _config_hints.get(module, (
@@ -379,6 +393,7 @@ class AdminController(Controller):
     async def dashboard(self, request, ctx: RequestCtx) -> Response:
         """Admin dashboard -- model overview with stats."""
         identity, denied = _require_identity(ctx)
+        # print(identity)
         if denied:
             return denied
 
@@ -387,11 +402,48 @@ class AdminController(Controller):
         app_list = self.site.get_app_list(identity)
         stats = await self.site.get_dashboard_stats()
 
+        # Gather infrastructure summaries for dashboard widgets
+        containers_summary = {}
+        pods_summary = {}
+        if self.site.admin_config.is_module_enabled("containers"):
+            try:
+                cd = self.site.get_containers_data()
+                containers_summary = {
+                    "available": cd.get("docker_available", False),
+                    "total": len(cd.get("containers", [])),
+                    "running": sum(1 for c in cd.get("containers", []) if c.get("state", "").lower() == "running"),
+                    "stopped": sum(1 for c in cd.get("containers", []) if c.get("state", "").lower() != "running"),
+                    "images": len(cd.get("images", [])),
+                    "volumes": len(cd.get("volumes", [])),
+                    "networks": len(cd.get("networks", [])),
+                    "version": cd.get("docker_version", ""),
+                    "error": cd.get("error", ""),
+                }
+            except Exception:
+                containers_summary = {"available": False, "error": "Failed to fetch"}
+
+        if self.site.admin_config.is_module_enabled("pods"):
+            try:
+                pd = self.site.get_pods_data()
+                pods_summary = {
+                    "available": pd.get("kubectl_available", False),
+                    "total_pods": len(pd.get("pods", [])),
+                    "running_pods": sum(1 for p in pd.get("pods", []) if p.get("status", "").lower() == "running"),
+                    "deployments": len(pd.get("deployments", [])),
+                    "services": len(pd.get("services", [])),
+                    "namespaces": len(pd.get("namespaces", [])),
+                    "error": pd.get("error", ""),
+                }
+            except Exception:
+                pods_summary = {"available": False, "error": "Failed to fetch"}
+
         html = render_dashboard(
             app_list=app_list,
             stats=stats,
             identity_name=_get_identity_name(identity),
-                identity_avatar=_get_identity_avatar(identity),
+            identity_avatar=_get_identity_avatar(identity),
+            containers_summary=containers_summary,
+            pods_summary=pods_summary,
         )
         return _html_response(html)
 
@@ -509,7 +561,7 @@ class AdminController(Controller):
     _SYSTEM_PAGES = frozenset({
         "login", "logout", "orm", "build", "migrations",
         "config", "workspace", "permissions", "audit", "monitoring",
-        "admin-users", "profile",
+        "admin-users", "profile", "containers", "pods",
     })
 
     # ── List View ────────────────────────────────────────────────────
@@ -1368,6 +1420,681 @@ class AdminController(Controller):
             headers={"content-type": "application/json; charset=utf-8"},
         )
 
+    # ── Containers Page ──────────────────────────────────────────────
+
+    @GET("/containers/")
+    async def containers_view(self, request, ctx: RequestCtx) -> Response:
+        """Docker containers -- images, volumes, networks & compose services."""
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return denied
+
+        if not self.site.admin_config.is_module_enabled("containers"):
+            return self._module_disabled_response("Containers", identity)
+
+        self._ensure_initialized()
+
+        containers_data = self.site.get_containers_data()
+        app_list = self.site.get_app_list(identity)
+
+        html = render_containers_page(
+            containers_data=containers_data,
+            app_list=app_list,
+            identity_name=_get_identity_name(identity),
+                identity_avatar=_get_identity_avatar(identity),
+        )
+        return _html_response(html)
+
+    @GET("/containers/api/")
+    async def containers_api(self, request, ctx: RequestCtx) -> Response:
+        """JSON API endpoint for live-polling container metrics."""
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return Response(
+                content=b'{"error":"unauthorized"}',
+                status=401,
+                headers={"content-type": "application/json"},
+            )
+
+        if not self.site.admin_config.is_module_enabled("containers"):
+            return Response(
+                content=b'{"error":"containers disabled"}',
+                status=404,
+                headers={"content-type": "application/json"},
+            )
+
+        self._ensure_initialized()
+
+        import json as _json
+        containers_data = self.site.get_containers_data()
+        return Response(
+            content=_json.dumps(containers_data, default=str).encode("utf-8"),
+            status=200,
+            headers={"content-type": "application/json; charset=utf-8"},
+        )
+
+    @POST("/containers/action/")
+    async def containers_action(self, request, ctx: RequestCtx) -> Response:
+        """Execute a container lifecycle action (start/stop/restart/pause/unpause/kill/rm)."""
+        import json as _json
+
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return Response(content=b'{"error":"unauthorized"}', status=401,
+                            headers={"content-type": "application/json"})
+
+        if not self.site.admin_config.is_module_enabled("containers"):
+            return Response(content=b'{"error":"containers disabled"}', status=404,
+                            headers={"content-type": "application/json"})
+
+        self._ensure_initialized()
+
+        form_data = await _parse_form(ctx)
+        container_id = form_data.get("container_id", "")
+        action = form_data.get("action", "")
+        run_params = form_data.get("run_params", "")
+
+        if not container_id or not action:
+            return Response(
+                content=_json.dumps({"success": False, "error": "Missing container_id or action"}).encode(),
+                status=400, headers={"content-type": "application/json"},
+            )
+
+        result = self.site.execute_container_action(container_id, action, run_params=run_params)
+        return Response(
+            content=_json.dumps(result, default=str).encode("utf-8"),
+            status=200, headers={"content-type": "application/json; charset=utf-8"},
+        )
+
+    @POST("/containers/inspect/")
+    async def containers_inspect(self, request, ctx: RequestCtx) -> Response:
+        """Return full docker inspect for a container."""
+        import json as _json
+
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return Response(content=b'{"error":"unauthorized"}', status=401,
+                            headers={"content-type": "application/json"})
+
+        if not self.site.admin_config.is_module_enabled("containers"):
+            return Response(content=b'{"error":"containers disabled"}', status=404,
+                            headers={"content-type": "application/json"})
+
+        self._ensure_initialized()
+        form_data = await _parse_form(ctx)
+        container_id = form_data.get("container_id", "")
+
+        if not container_id:
+            return Response(
+                content=_json.dumps({"success": False, "error": "Missing container_id"}).encode(),
+                status=400, headers={"content-type": "application/json"},
+            )
+
+        result = self.site.get_container_inspect(container_id)
+        return Response(
+            content=_json.dumps(result, default=str).encode("utf-8"),
+            status=200, headers={"content-type": "application/json; charset=utf-8"},
+        )
+
+    @POST("/containers/logs/")
+    async def containers_logs(self, request, ctx: RequestCtx) -> Response:
+        """Fetch real docker logs for a container."""
+        import json as _json
+
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return Response(content=b'{"error":"unauthorized"}', status=401,
+                            headers={"content-type": "application/json"})
+
+        if not self.site.admin_config.is_module_enabled("containers"):
+            return Response(content=b'{"error":"containers disabled"}', status=404,
+                            headers={"content-type": "application/json"})
+
+        self._ensure_initialized()
+        form_data = await _parse_form(ctx)
+        container_id = form_data.get("container_id", "")
+        tail = form_data.get("tail", "200")
+        since = form_data.get("since", "")
+
+        if not container_id:
+            return Response(
+                content=_json.dumps({"success": False, "error": "Missing container_id"}).encode(),
+                status=400, headers={"content-type": "application/json"},
+            )
+
+        try:
+            tail = int(tail)
+        except (ValueError, TypeError):
+            tail = 200
+
+        result = self.site.get_container_logs(container_id, tail=tail, since=since)
+        return Response(
+            content=_json.dumps(result, default=str).encode("utf-8"),
+            status=200, headers={"content-type": "application/json; charset=utf-8"},
+        )
+
+    @POST("/containers/volume-inspect/")
+    async def volume_inspect(self, request, ctx: RequestCtx) -> Response:
+        """Return docker volume inspect output."""
+        import json as _json
+
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return Response(content=b'{"error":"unauthorized"}', status=401,
+                            headers={"content-type": "application/json"})
+
+        self._ensure_initialized()
+        form_data = await _parse_form(ctx)
+        name = form_data.get("name", "")
+
+        if not name:
+            return Response(
+                content=_json.dumps({"success": False, "error": "Missing volume name"}).encode(),
+                status=400, headers={"content-type": "application/json"},
+            )
+
+        result = self.site.get_volume_inspect(name)
+        return Response(
+            content=_json.dumps(result, default=str).encode("utf-8"),
+            status=200, headers={"content-type": "application/json; charset=utf-8"},
+        )
+
+    @POST("/containers/network-inspect/")
+    async def network_inspect(self, request, ctx: RequestCtx) -> Response:
+        """Return docker network inspect output."""
+        import json as _json
+
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return Response(content=b'{"error":"unauthorized"}', status=401,
+                            headers={"content-type": "application/json"})
+
+        self._ensure_initialized()
+        form_data = await _parse_form(ctx)
+        network_id = form_data.get("network_id", "")
+
+        if not network_id:
+            return Response(
+                content=_json.dumps({"success": False, "error": "Missing network_id"}).encode(),
+                status=400, headers={"content-type": "application/json"},
+            )
+
+        result = self.site.get_network_inspect(network_id)
+        return Response(
+            content=_json.dumps(result, default=str).encode("utf-8"),
+            status=200, headers={"content-type": "application/json; charset=utf-8"},
+        )
+
+    @POST("/containers/image-inspect/")
+    async def image_inspect(self, request, ctx: RequestCtx) -> Response:
+        """Return docker image inspect output."""
+        import json as _json
+
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return Response(content=b'{"error":"unauthorized"}', status=401,
+                            headers={"content-type": "application/json"})
+
+        self._ensure_initialized()
+        form_data = await _parse_form(ctx)
+        image_id = form_data.get("image_id", "")
+
+        if not image_id:
+            return Response(
+                content=_json.dumps({"success": False, "error": "Missing image_id"}).encode(),
+                status=400, headers={"content-type": "application/json"},
+            )
+
+        result = self.site.get_image_inspect(image_id)
+        return Response(
+            content=_json.dumps(result, default=str).encode("utf-8"),
+            status=200, headers={"content-type": "application/json; charset=utf-8"},
+        )
+
+    @POST("/containers/image-action/")
+    async def image_action(self, request, ctx: RequestCtx) -> Response:
+        """Execute image action (rm/pull)."""
+        import json as _json
+
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return Response(content=b'{"error":"unauthorized"}', status=401,
+                            headers={"content-type": "application/json"})
+
+        self._ensure_initialized()
+        form_data = await _parse_form(ctx)
+        image_id = form_data.get("image_id", "")
+        action = form_data.get("action", "")
+
+        if not image_id or not action:
+            return Response(
+                content=_json.dumps({"success": False, "error": "Missing image_id or action"}).encode(),
+                status=400, headers={"content-type": "application/json"},
+            )
+
+        result = self.site.execute_image_action(image_id, action)
+        return Response(
+            content=_json.dumps(result, default=str).encode("utf-8"),
+            status=200, headers={"content-type": "application/json; charset=utf-8"},
+        )
+
+    @POST("/containers/compose-action/")
+    async def compose_action(self, request, ctx: RequestCtx) -> Response:
+        """Execute compose action (up/down/restart/build/pull/stop/start)."""
+        import json as _json
+
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return Response(content=b'{"error":"unauthorized"}', status=401,
+                            headers={"content-type": "application/json"})
+
+        self._ensure_initialized()
+        form_data = await _parse_form(ctx)
+        action = form_data.get("action", "")
+
+        if not action:
+            return Response(
+                content=_json.dumps({"success": False, "error": "Missing action"}).encode(),
+                status=400, headers={"content-type": "application/json"},
+            )
+
+        result = self.site.execute_compose_action(action)
+        return Response(
+            content=_json.dumps(result, default=str).encode("utf-8"),
+            status=200, headers={"content-type": "application/json; charset=utf-8"},
+        )
+
+    @POST("/containers/volume-action/")
+    async def volume_action(self, request, ctx: RequestCtx) -> Response:
+        """Execute volume action (rm)."""
+        import json as _json
+
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return Response(content=b'{"error":"unauthorized"}', status=401,
+                            headers={"content-type": "application/json"})
+
+        self._ensure_initialized()
+        form_data = await _parse_form(ctx)
+        name = form_data.get("name", "")
+        action = form_data.get("action", "")
+
+        if not name or not action:
+            return Response(
+                content=_json.dumps({"success": False, "error": "Missing name or action"}).encode(),
+                status=400, headers={"content-type": "application/json"},
+            )
+
+        result = self.site.execute_volume_action(name, action)
+        return Response(
+            content=_json.dumps(result, default=str).encode("utf-8"),
+            status=200, headers={"content-type": "application/json; charset=utf-8"},
+        )
+
+    @POST("/containers/network-action/")
+    async def network_action(self, request, ctx: RequestCtx) -> Response:
+        """Execute network action (rm)."""
+        import json as _json
+
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return Response(content=b'{"error":"unauthorized"}', status=401,
+                            headers={"content-type": "application/json"})
+
+        self._ensure_initialized()
+        form_data = await _parse_form(ctx)
+        network_id = form_data.get("network_id", "")
+        action = form_data.get("action", "")
+
+        if not network_id or not action:
+            return Response(
+                content=_json.dumps({"success": False, "error": "Missing network_id or action"}).encode(),
+                status=400, headers={"content-type": "application/json"},
+            )
+
+        result = self.site.execute_network_action(network_id, action)
+        return Response(
+            content=_json.dumps(result, default=str).encode("utf-8"),
+            status=200, headers={"content-type": "application/json; charset=utf-8"},
+        )
+
+    # ── Advanced Docker Endpoints ────────────────────────────────────
+
+    @POST("/containers/disk-usage/")
+    async def docker_disk_usage(self, request, ctx: RequestCtx) -> Response:
+        """Return docker system df output."""
+        import json as _json
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return Response(content=b'{"error":"unauthorized"}', status=401,
+                            headers={"content-type": "application/json"})
+        self._ensure_initialized()
+        result = self.site.get_docker_disk_usage_summary()
+        return Response(
+            content=_json.dumps(result, default=str).encode("utf-8"),
+            status=200, headers={"content-type": "application/json; charset=utf-8"},
+        )
+
+    @POST("/containers/prune/")
+    async def docker_prune(self, request, ctx: RequestCtx) -> Response:
+        """Execute docker prune (system/images/containers/volumes/builder)."""
+        import json as _json
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return Response(content=b'{"error":"unauthorized"}', status=401,
+                            headers={"content-type": "application/json"})
+        self._ensure_initialized()
+        form_data = await _parse_form(ctx)
+        target = form_data.get("target", "")
+        if not target:
+            return Response(
+                content=_json.dumps({"success": False, "error": "Missing target"}).encode(),
+                status=400, headers={"content-type": "application/json"},
+            )
+        result = self.site.execute_docker_prune(target)
+        return Response(
+            content=_json.dumps(result, default=str).encode("utf-8"),
+            status=200, headers={"content-type": "application/json; charset=utf-8"},
+        )
+
+    @POST("/containers/exec/")
+    async def container_exec(self, request, ctx: RequestCtx) -> Response:
+        """Execute a command inside a running container."""
+        import json as _json
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return Response(content=b'{"error":"unauthorized"}', status=401,
+                            headers={"content-type": "application/json"})
+        self._ensure_initialized()
+        form_data = await _parse_form(ctx)
+        container_id = form_data.get("container_id", "")
+        command = form_data.get("command", "")
+        if not container_id or not command:
+            return Response(
+                content=_json.dumps({"success": False, "error": "Missing container_id or command"}).encode(),
+                status=400, headers={"content-type": "application/json"},
+            )
+        result = self.site.execute_container_exec(container_id, command)
+        return Response(
+            content=_json.dumps(result, default=str).encode("utf-8"),
+            status=200, headers={"content-type": "application/json; charset=utf-8"},
+        )
+
+    @POST("/containers/image-history/")
+    async def image_history(self, request, ctx: RequestCtx) -> Response:
+        """Return docker history for an image."""
+        import json as _json
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return Response(content=b'{"error":"unauthorized"}', status=401,
+                            headers={"content-type": "application/json"})
+        self._ensure_initialized()
+        form_data = await _parse_form(ctx)
+        image_id = form_data.get("image_id", "")
+        if not image_id:
+            return Response(
+                content=_json.dumps({"success": False, "error": "Missing image_id"}).encode(),
+                status=400, headers={"content-type": "application/json"},
+            )
+        result = self.site.get_image_history(image_id)
+        return Response(
+            content=_json.dumps(result, default=str).encode("utf-8"),
+            status=200, headers={"content-type": "application/json; charset=utf-8"},
+        )
+
+    @POST("/containers/image-tag/")
+    async def image_tag(self, request, ctx: RequestCtx) -> Response:
+        """Tag an image with a new name."""
+        import json as _json
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return Response(content=b'{"error":"unauthorized"}', status=401,
+                            headers={"content-type": "application/json"})
+        self._ensure_initialized()
+        form_data = await _parse_form(ctx)
+        source = form_data.get("source", "")
+        target = form_data.get("target", "")
+        if not source or not target:
+            return Response(
+                content=_json.dumps({"success": False, "error": "Missing source or target"}).encode(),
+                status=400, headers={"content-type": "application/json"},
+            )
+        result = self.site.execute_image_tag(source, target)
+        return Response(
+            content=_json.dumps(result, default=str).encode("utf-8"),
+            status=200, headers={"content-type": "application/json; charset=utf-8"},
+        )
+
+    @POST("/containers/export/")
+    async def container_export(self, request, ctx: RequestCtx) -> Response:
+        """Export a container filesystem as tar."""
+        import json as _json
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return Response(content=b'{"error":"unauthorized"}', status=401,
+                            headers={"content-type": "application/json"})
+        self._ensure_initialized()
+        form_data = await _parse_form(ctx)
+        container_id = form_data.get("container_id", "")
+        if not container_id:
+            return Response(
+                content=_json.dumps({"success": False, "error": "Missing container_id"}).encode(),
+                status=400, headers={"content-type": "application/json"},
+            )
+        result = self.site.execute_container_export(container_id)
+        return Response(
+            content=_json.dumps(result, default=str).encode("utf-8"),
+            status=200, headers={"content-type": "application/json; charset=utf-8"},
+        )
+
+    @POST("/containers/create-network/")
+    async def create_network(self, request, ctx: RequestCtx) -> Response:
+        """Create a new Docker network."""
+        import json as _json
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return Response(content=b'{"error":"unauthorized"}', status=401,
+                            headers={"content-type": "application/json"})
+        self._ensure_initialized()
+        form_data = await _parse_form(ctx)
+        name = form_data.get("name", "")
+        driver = form_data.get("driver", "bridge")
+        subnet = form_data.get("subnet", "")
+        gateway = form_data.get("gateway", "")
+        internal = form_data.get("internal", "") in ("1", "true", "on")
+        if not name:
+            return Response(
+                content=_json.dumps({"success": False, "error": "Missing network name"}).encode(),
+                status=400, headers={"content-type": "application/json"},
+            )
+        result = self.site.create_docker_network(name, driver, subnet, gateway, internal)
+        return Response(
+            content=_json.dumps(result, default=str).encode("utf-8"),
+            status=200, headers={"content-type": "application/json; charset=utf-8"},
+        )
+
+    @POST("/containers/create-volume/")
+    async def create_volume(self, request, ctx: RequestCtx) -> Response:
+        """Create a new Docker volume."""
+        import json as _json
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return Response(content=b'{"error":"unauthorized"}', status=401,
+                            headers={"content-type": "application/json"})
+        self._ensure_initialized()
+        form_data = await _parse_form(ctx)
+        name = form_data.get("name", "")
+        driver = form_data.get("driver", "local")
+        labels = form_data.get("labels", "")
+        if not name:
+            return Response(
+                content=_json.dumps({"success": False, "error": "Missing volume name"}).encode(),
+                status=400, headers={"content-type": "application/json"},
+            )
+        result = self.site.create_docker_volume(name, driver, labels)
+        return Response(
+            content=_json.dumps(result, default=str).encode("utf-8"),
+            status=200, headers={"content-type": "application/json; charset=utf-8"},
+        )
+
+    @POST("/containers/events/")
+    async def docker_events(self, request, ctx: RequestCtx) -> Response:
+        """Return recent docker events."""
+        import json as _json
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return Response(content=b'{"error":"unauthorized"}', status=401,
+                            headers={"content-type": "application/json"})
+        self._ensure_initialized()
+        form_data = await _parse_form(ctx)
+        since = form_data.get("since", "10m")
+        result = self.site.get_docker_events(since)
+        return Response(
+            content=_json.dumps(result, default=str).encode("utf-8"),
+            status=200, headers={"content-type": "application/json; charset=utf-8"},
+        )
+
+    @POST("/containers/build/")
+    async def docker_build(self, request, ctx: RequestCtx) -> Response:
+        """Execute docker build in the workspace."""
+        import json as _json
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return Response(content=b'{"error":"unauthorized"}', status=401,
+                            headers={"content-type": "application/json"})
+        self._ensure_initialized()
+        form_data = await _parse_form(ctx)
+        tag = form_data.get("tag", "")
+        no_cache = form_data.get("no_cache", "") in ("1", "true", "on")
+        build_args = form_data.get("build_args", "")
+        target = form_data.get("target", "")
+        result = self.site.execute_docker_build(
+            tag=tag, no_cache=no_cache, build_args=build_args, target=target,
+        )
+        return Response(
+            content=_json.dumps(result, default=str).encode("utf-8"),
+            status=200, headers={"content-type": "application/json; charset=utf-8"},
+        )
+
+    @POST("/containers/top/")
+    async def container_top(self, request, ctx: RequestCtx) -> Response:
+        """Return processes running inside a container."""
+        import json as _json
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return Response(content=b'{"error":"unauthorized"}', status=401,
+                            headers={"content-type": "application/json"})
+        self._ensure_initialized()
+        form_data = await _parse_form(ctx)
+        container_id = form_data.get("container_id", "")
+        if not container_id:
+            return Response(
+                content=_json.dumps({"success": False, "error": "Missing container_id"}).encode(),
+                status=400, headers={"content-type": "application/json"},
+            )
+        result = self.site.get_container_top(container_id)
+        return Response(
+            content=_json.dumps(result, default=str).encode("utf-8"),
+            status=200, headers={"content-type": "application/json; charset=utf-8"},
+        )
+
+    @POST("/containers/diff/")
+    async def container_diff(self, request, ctx: RequestCtx) -> Response:
+        """Return filesystem changes in a container."""
+        import json as _json
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return Response(content=b'{"error":"unauthorized"}', status=401,
+                            headers={"content-type": "application/json"})
+        self._ensure_initialized()
+        form_data = await _parse_form(ctx)
+        container_id = form_data.get("container_id", "")
+        if not container_id:
+            return Response(
+                content=_json.dumps({"success": False, "error": "Missing container_id"}).encode(),
+                status=400, headers={"content-type": "application/json"},
+            )
+        result = self.site.get_container_diff(container_id)
+        return Response(
+            content=_json.dumps(result, default=str).encode("utf-8"),
+            status=200, headers={"content-type": "application/json; charset=utf-8"},
+        )
+
+    @POST("/containers/container-stats/")
+    async def container_stats_single(self, request, ctx: RequestCtx) -> Response:
+        """Return single-shot stats for one container."""
+        import json as _json
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return Response(content=b'{"error":"unauthorized"}', status=401,
+                            headers={"content-type": "application/json"})
+        self._ensure_initialized()
+        form_data = await _parse_form(ctx)
+        container_id = form_data.get("container_id", "")
+        if not container_id:
+            return Response(
+                content=_json.dumps({"success": False, "error": "Missing container_id"}).encode(),
+                status=400, headers={"content-type": "application/json"},
+            )
+        result = self.site.get_container_stats_stream(container_id)
+        return Response(
+            content=_json.dumps(result, default=str).encode("utf-8"),
+            status=200, headers={"content-type": "application/json; charset=utf-8"},
+        )
+
+    # ── Pods Page ────────────────────────────────────────────────────
+
+    @GET("/pods/")
+    async def pods_view(self, request, ctx: RequestCtx) -> Response:
+        """Kubernetes pods -- deployments, services, ingresses & manifests."""
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return denied
+
+        if not self.site.admin_config.is_module_enabled("pods"):
+            return self._module_disabled_response("Pods", identity)
+
+        self._ensure_initialized()
+
+        pods_data = self.site.get_pods_data()
+        app_list = self.site.get_app_list(identity)
+
+        html = render_pods_page(
+            pods_data=pods_data,
+            app_list=app_list,
+            identity_name=_get_identity_name(identity),
+                identity_avatar=_get_identity_avatar(identity),
+        )
+        return _html_response(html)
+
+    @GET("/pods/api/")
+    async def pods_api(self, request, ctx: RequestCtx) -> Response:
+        """JSON API endpoint for live-polling pod metrics."""
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return Response(
+                content=b'{"error":"unauthorized"}',
+                status=401,
+                headers={"content-type": "application/json"},
+            )
+
+        if not self.site.admin_config.is_module_enabled("pods"):
+            return Response(
+                content=b'{"error":"pods disabled"}',
+                status=404,
+                headers={"content-type": "application/json"},
+            )
+
+        self._ensure_initialized()
+
+        import json as _json
+        pods_data = self.site.get_pods_data()
+        return Response(
+            content=_json.dumps(pods_data, default=str).encode("utf-8"),
+            status=200,
+            headers={"content-type": "application/json; charset=utf-8"},
+        )
+
     # ── Admin Users Management ───────────────────────────────────────
 
     @GET("/admin-users/")
@@ -1461,10 +2188,9 @@ class AdminController(Controller):
         try:
             from aquilia.admin.models import AdminUser
 
-            # Determine flags
+            # Three roles: superadmin, staff, viewer
             is_superuser = role == "superadmin"
-            is_staff = role in ("superadmin", "admin", "staff")
-            is_active = role != "viewer" or True  # viewers are also active
+            is_staff = role in ("superadmin", "staff")
 
             if is_superuser:
                 user = await AdminUser.create_superuser(
@@ -1484,7 +2210,8 @@ class AdminController(Controller):
                 user.first_name = first_name
             if last_name:
                 user.last_name = last_name
-            if not is_staff:
+            # Viewer: is_staff=False so they get read-only access
+            if role == "viewer":
                 user.is_staff = False
             user.is_active = True
             await user.save()

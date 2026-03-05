@@ -580,9 +580,22 @@ COPY --chown=aquilia:aquilia . .
 # Cleanup: remove local framework source if it was copied into host context
 RUN rm -rf aquilia* pyproject.toml* setup.py*
 
-# Create directories for runtime data
+        # Create directories for runtime data
 RUN mkdir -p /app/artifacts /app/runtime && \\
     chown -R aquilia:aquilia /app
+
+# Pre-generate runtime/app.py so uvicorn can import runtime.app:app
+RUN python -c "
+import sys, os
+from pathlib import Path
+root = Path('/app')
+sys.path.insert(0, str(root))
+os.environ.setdefault('AQUILIA_ENV', 'prod')
+os.environ.setdefault('AQUILIA_WORKSPACE', str(root))
+from aquilia.cli.commands.run import _create_workspace_app
+_create_workspace_app(root, 'prod')
+print('runtime/app.py generated')
+"
 {migration_comment}
 # Switch to non-root user
 USER aquilia
@@ -600,20 +613,19 @@ ENV PYTHONUNBUFFERED=1 \\
 EXPOSE {port}
 
 # Health check -- integrated with Aquilia fault system
-HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \\
-    CMD curl -f http://localhost:{port}/health || exit 1
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \\
+    CMD curl -f http://localhost:{port}/_health || exit 1
 
 # Use tini as init system for proper signal handling
 ENTRYPOINT ["tini", "--"]
 
-# Start Aquilia production server with gunicorn + uvicorn workers
-CMD ["gunicorn", "{name}.asgi:app", \\
-     "-k", "uvicorn.workers.UvicornWorker", \\
+# Start Aquilia production server
+# runtime.app:app is pre-generated during the build step above.
+CMD ["uvicorn", "runtime.app:app", \\
+     "--host", "0.0.0.0", \\
+     "--port", "{port}", \\
      "--workers", "{workers}", \\
-     "--bind", "0.0.0.0:{port}", \\
-     "--timeout", "120", \\
-     "--graceful-timeout", "30", \\
-     "--access-logfile", "-"]
+     "--no-access-log"]
 """
 
     def generate_dockerfile_dev(self) -> str:
@@ -948,7 +960,7 @@ class ComposeGenerator:
         if needs_mysql:
             app_env_lines.append('      DATABASE_URL: "mysql+aiomysql://aquilia:${DB_PASSWORD:-aquilia}@db:3306/aquilia"')
         if uses_sqlite:
-            app_env_lines.append('      DATABASE_URL: "sqlite:///data/db.sqlite3"')
+            app_env_lines.append('      DATABASE_URL: "sqlite:////app/data/db.sqlite3"')
         if needs_redis:
             app_env_lines.append('      REDIS_URL: "redis://redis:6379/0"')
             if has_sessions and session_store == "redis":
@@ -974,7 +986,7 @@ class ComposeGenerator:
             )
             depends_block = f"    depends_on:\n{depends_entries}"
 
-        app_volumes = ['      - ./:/app']
+        app_volumes = []
         if uses_sqlite:
             app_volumes.append('      - app-data:/app/data')
         app_volumes.append('      - app-artifacts:/app/artifacts')
@@ -1001,11 +1013,11 @@ class ComposeGenerator:
             compose_lines.append(depends_block)
         compose_lines.extend([
             f"    healthcheck:",
-            f"      test: ['CMD', 'curl', '-f', 'http://localhost:{port}/health']",
+            f"      test: ['CMD', 'curl', '-f', 'http://localhost:{port}/_health']",
             f"      interval: 30s",
             f"      timeout: 10s",
             f"      retries: 3",
-            f"      start_period: 15s",
+            f"      start_period: 30s",
             f"    logging:",
             f"      driver: json-file",
             f"      options:",
@@ -1034,7 +1046,7 @@ class ComposeGenerator:
             elif needs_mysql:
                 compose_lines.append('      DATABASE_URL: "mysql+aiomysql://aquilia:${DB_PASSWORD:-aquilia}@db:3306/aquilia"')
             elif uses_sqlite:
-                compose_lines.append('      DATABASE_URL: "sqlite:///data/db.sqlite3"')
+                compose_lines.append('      DATABASE_URL: "sqlite:////app/data/db.sqlite3"')
 
             if uses_sqlite:
                 compose_lines.append('    volumes:')
@@ -1503,108 +1515,111 @@ class KubernetesGenerator:
                 """))
             init_containers = "\n".join(init_sections)
 
-        return textwrap.dedent(f"""\
-            apiVersion: apps/v1
-            kind: Deployment
-            metadata:
-              name: {name}-app
-              namespace: {name}
-              labels:
-                app.kubernetes.io/name: {name}
-                app.kubernetes.io/component: app
-                app.kubernetes.io/managed-by: aquilia-cli
-            spec:
-              replicas: {min_replicas}
-              revisionHistoryLimit: 5
-              strategy:
-                type: RollingUpdate
-                rollingUpdate:
-                  maxSurge: 1
-                  maxUnavailable: 0
-              selector:
-                matchLabels:
-                  app.kubernetes.io/name: {name}
-                  app.kubernetes.io/component: app
-              template:
-                metadata:
-                  labels:
-                    app.kubernetes.io/name: {name}
-                    app.kubernetes.io/component: app
-                  annotations:
-        """) + "\n".join(annotations) + textwrap.dedent(f"""
-                spec:
-                  serviceAccountName: {name}-sa
-                  securityContext:
-                    runAsNonRoot: true
-                    runAsUser: 1000
-                    runAsGroup: 1000
-                    fsGroup: 1000
-                    seccompProfile:
-                      type: RuntimeDefault
-        """) + (init_containers if init_containers else "") + textwrap.dedent(f"""
-                  affinity:
-                    podAntiAffinity:
-                      preferredDuringSchedulingIgnoredDuringExecution:
-                        - weight: 100
-                          podAffinityTerm:
-                            labelSelector:
-                              matchExpressions:
-                                - key: app.kubernetes.io/name
-                                  operator: In
-                                  values:
-                                    - {name}
-                            topologyKey: kubernetes.io/hostname
-                  containers:
-                    - name: app
-                      image: ghcr.io/YOUR_ORG/{name}:latest
-                      imagePullPolicy: Always
-                      ports:
-                        - name: http
-                          containerPort: {port}
-                          protocol: TCP
-                      envFrom:
-                        - configMapRef:
-                            name: {name}-config
-                        - secretRef:
-                            name: {name}-secrets
-                      resources:
-                        requests:
-                          cpu: "250m"
-                          memory: "256Mi"
-                        limits:
-                          cpu: "1000m"
-                          memory: "1Gi"
-                      readinessProbe:
-                        httpGet:
-                          path: /health
-                          port: http
-                        initialDelaySeconds: 10
-                        periodSeconds: 5
-                        timeoutSeconds: 3
-                        failureThreshold: 3
-                      livenessProbe:
-                        httpGet:
-                          path: /health
-                          port: http
-                        initialDelaySeconds: 30
-                        periodSeconds: 10
-                        timeoutSeconds: 5
-                        failureThreshold: 3
-                      startupProbe:
-                        httpGet:
-                          path: /health
-                          port: http
-                        initialDelaySeconds: 5
-                        periodSeconds: 5
-                        failureThreshold: 10
-                      volumeMounts:
-                        - name: artifacts
-                          mountPath: /app/artifacts
-                  volumes:
-                    - name: artifacts
-                      emptyDir: {{}}
-                  terminationGracePeriodSeconds: 30
-        """)
+        annotations_str = "\n".join(annotations)
+        init_str = init_containers if init_containers else ""
+
+        return (
+            f"apiVersion: apps/v1\n"
+            f"kind: Deployment\n"
+            f"metadata:\n"
+            f"  name: {name}-app\n"
+            f"  namespace: {name}\n"
+            f"  labels:\n"
+            f"    app.kubernetes.io/name: {name}\n"
+            f"    app.kubernetes.io/component: app\n"
+            f"    app.kubernetes.io/managed-by: aquilia-cli\n"
+            f"spec:\n"
+            f"  replicas: {min_replicas}\n"
+            f"  revisionHistoryLimit: 5\n"
+            f"  strategy:\n"
+            f"    type: RollingUpdate\n"
+            f"    rollingUpdate:\n"
+            f"      maxSurge: 1\n"
+            f"      maxUnavailable: 0\n"
+            f"  selector:\n"
+            f"    matchLabels:\n"
+            f"      app.kubernetes.io/name: {name}\n"
+            f"      app.kubernetes.io/component: app\n"
+            f"  template:\n"
+            f"    metadata:\n"
+            f"      labels:\n"
+            f"        app.kubernetes.io/name: {name}\n"
+            f"        app.kubernetes.io/component: app\n"
+            f"      annotations:\n"
+            + annotations_str + "\n"
+            + init_str
+            + f"    spec:\n"
+            f"      serviceAccountName: {name}-sa\n"
+            f"      securityContext:\n"
+            f"        runAsNonRoot: true\n"
+            f"        runAsUser: 1000\n"
+            f"        runAsGroup: 1000\n"
+            f"        fsGroup: 1000\n"
+            f"        seccompProfile:\n"
+            f"          type: RuntimeDefault\n"
+            f"      affinity:\n"
+            f"        podAntiAffinity:\n"
+            f"          preferredDuringSchedulingIgnoredDuringExecution:\n"
+            f"            - weight: 100\n"
+            f"              podAffinityTerm:\n"
+            f"                labelSelector:\n"
+            f"                  matchExpressions:\n"
+            f"                    - key: app.kubernetes.io/name\n"
+            f"                      operator: In\n"
+            f"                      values:\n"
+            f"                        - {name}\n"
+            f"                topologyKey: kubernetes.io/hostname\n"
+            f"      containers:\n"
+            f"        - name: app\n"
+            f"          image: ghcr.io/YOUR_ORG/{name}:latest\n"
+            f"          imagePullPolicy: Always\n"
+            f"          ports:\n"
+            f"            - name: http\n"
+            f"              containerPort: {port}\n"
+            f"              protocol: TCP\n"
+            f"          envFrom:\n"
+            f"            - configMapRef:\n"
+            f"                name: {name}-config\n"
+            f"            - secretRef:\n"
+            f"                name: {name}-secrets\n"
+            f"          resources:\n"
+            f"            requests:\n"
+            f"              cpu: \"250m\"\n"
+            f"              memory: \"256Mi\"\n"
+            f"            limits:\n"
+            f"              cpu: \"1000m\"\n"
+            f"              memory: \"1Gi\"\n"
+            f"          readinessProbe:\n"
+            f"            httpGet:\n"
+            f"              path: /health\n"
+            f"              port: http\n"
+            f"            initialDelaySeconds: 10\n"
+            f"            periodSeconds: 5\n"
+            f"            timeoutSeconds: 3\n"
+            f"            failureThreshold: 3\n"
+            f"          livenessProbe:\n"
+            f"            httpGet:\n"
+            f"              path: /health\n"
+            f"              port: http\n"
+            f"            initialDelaySeconds: 30\n"
+            f"            periodSeconds: 10\n"
+            f"            timeoutSeconds: 5\n"
+            f"            failureThreshold: 3\n"
+            f"          startupProbe:\n"
+            f"            httpGet:\n"
+            f"              path: /health\n"
+            f"              port: http\n"
+            f"            initialDelaySeconds: 5\n"
+            f"            periodSeconds: 5\n"
+            f"            failureThreshold: 10\n"
+            f"          volumeMounts:\n"
+            f"            - name: artifacts\n"
+            f"              mountPath: /app/artifacts\n"
+            f"      volumes:\n"
+            f"        - name: artifacts\n"
+            f"          emptyDir: {{}}\n"
+            f"      terminationGracePeriodSeconds: 30\n"
+        )
 
     def generate_service(self) -> str:
         """Generate Service manifest."""

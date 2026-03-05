@@ -27,6 +27,7 @@ Usage::
 
 from __future__ import annotations
 
+import ast
 import importlib.util
 import json
 import logging
@@ -57,8 +58,189 @@ class BuildPhase(str, Enum):
     STATIC_CHECK = "static_check"
     COMPILATION = "compilation"
     BUNDLING = "bundling"
-    FINGERPRINT = "fingerprint"
     DONE = "done"
+
+
+@dataclass
+class BuildManifest:
+    """
+    Typed representation of ``build/manifest.json``.
+
+    This is the **build → deploy contract**: the build pipeline writes
+    this file, and the deploy system reads it to avoid re-introspecting
+    the workspace.  If a valid ``BuildManifest`` exists the deploy CLI
+    can skip ``WorkspaceIntrospector`` entirely.
+
+    Use ``BuildManifest.load(build_dir)`` to deserialise from disk, or
+    ``BuildManifest.to_deploy_context()`` to convert into the dict
+    format expected by deployment generators.
+    """
+    schema_version: str = "2.0"
+    workspace_name: str = ""
+    workspace_version: str = "0.1.0"
+    build_mode: str = "dev"
+    build_fingerprint: str = ""
+    build_timestamp: str = ""
+    modules: List[Dict[str, Any]] = field(default_factory=list)
+    features: Dict[str, bool] = field(default_factory=dict)
+    dependency_graph: Dict[str, List[str]] = field(default_factory=dict)
+    artifacts: List[Dict[str, Any]] = field(default_factory=list)
+    bundle_path: str = "bundle.crous"
+    warnings_count: int = 0
+
+    # ── Factory ──────────────────────────────────────────────────────
+
+    @classmethod
+    def load(cls, build_dir: Path) -> "BuildManifest":
+        """
+        Load a ``BuildManifest`` from ``build/manifest.json``.
+
+        Raises:
+            FileNotFoundError: manifest.json does not exist
+            ValueError: manifest.json has an invalid format
+        """
+        manifest_path = build_dir / "manifest.json"
+        if not manifest_path.exists():
+            raise FileNotFoundError(f"No build manifest at {manifest_path}")
+
+        data = json.loads(manifest_path.read_text(encoding="utf-8"))
+
+        fmt = data.get("__format__", "")
+        if fmt != "aquilia-build-manifest":
+            raise ValueError(
+                f"Invalid build manifest format: {fmt!r} "
+                f"(expected 'aquilia-build-manifest')"
+            )
+
+        return cls(
+            schema_version=data.get("schema_version", "2.0"),
+            workspace_name=data.get("workspace_name", ""),
+            workspace_version=data.get("workspace_version", "0.1.0"),
+            build_mode=data.get("build_mode", "dev"),
+            build_fingerprint=data.get("build_fingerprint", ""),
+            build_timestamp=data.get("build_timestamp", ""),
+            modules=data.get("modules", []),
+            features=data.get("features", {}),
+            dependency_graph=data.get("dependency_graph", {}),
+            artifacts=data.get("artifacts", []),
+            bundle_path=data.get("bundle_path", "bundle.crous"),
+            warnings_count=data.get("warnings_count", 0),
+        )
+
+    # ── Deploy context conversion ────────────────────────────────────
+
+    def to_deploy_context(self, workspace_root: Path) -> Dict[str, Any]:
+        """
+        Convert the build manifest into the ``wctx`` dict used by
+        ``WorkspaceIntrospector.introspect()`` and all deployment
+        generators.
+
+        This is the canonical bridge: when a build manifest exists
+        the deploy CLI calls this instead of re-scanning the workspace.
+        """
+        from datetime import datetime, timezone
+
+        feat = self.features
+
+        # Count controllers + services from module metadata
+        total_controllers = 0
+        total_services = 0
+        module_names: List[str] = []
+        for mod in self.modules:
+            module_names.append(mod.get("name", ""))
+            total_controllers += len(mod.get("controllers", []))
+            total_services += len(mod.get("services", []))
+
+        # Detect DB driver from workspace (fast filesystem check)
+        db_driver = "sqlite"
+        for cfg_name in ("prod.yaml", "production.yaml", "base.yaml"):
+            cfg_path = workspace_root / "config" / cfg_name
+            if cfg_path.exists():
+                try:
+                    import re as _re
+                    cfg_text = cfg_path.read_text(encoding="utf-8")
+                    m = _re.search(r'url:\s*"?([^"\s]+)', cfg_text)
+                    if m:
+                        url_lower = m.group(1).lower()
+                        if "postgres" in url_lower:
+                            db_driver = "postgres"
+                        elif "mysql" in url_lower or "mariadb" in url_lower:
+                            db_driver = "mysql"
+                    break
+                except Exception:
+                    pass
+
+        # Detect Python version from pyproject.toml
+        python_version = "3.12"
+        pyproject = workspace_root / "pyproject.toml"
+        if pyproject.exists():
+            try:
+                import re as _re
+                txt = pyproject.read_text(encoding="utf-8")
+                m = _re.search(r'requires-python\s*=\s*">=(\d+\.\d+)"', txt)
+                if m:
+                    major, minor = m.group(1).split(".")
+                    python_version = m.group(1) if int(minor) >= 12 else "3.12"
+            except Exception:
+                pass
+
+        # Worker sizing heuristic
+        workers = min(8, max(2, 2 + len(module_names) // 4))
+
+        return {
+            # Identity
+            "name": self.workspace_name,
+            "version": self.workspace_version,
+            "python_version": python_version,
+            # Server
+            "port": 8000,
+            "host": "0.0.0.0",
+            "workers": workers,
+            # Modules
+            "modules": module_names,
+            "module_count": len(module_names),
+            "controller_count": total_controllers,
+            "service_count": total_services,
+            # Features — map build manifest feature flags → wctx keys
+            "has_db": feat.get("db", False),
+            "db_url": "",
+            "db_driver": db_driver,
+            "has_cache": feat.get("cache", False),
+            "cache_backend": "redis" if feat.get("cache") else "memory",
+            "has_sessions": feat.get("sessions", False),
+            "session_store": "redis" if feat.get("sessions") else "memory",
+            "has_websockets": feat.get("websockets", False),
+            "has_mlops": feat.get("mlops", False),
+            "has_mail": feat.get("mail", False),
+            "has_auth": feat.get("auth", False),
+            "has_templates": feat.get("templates", False),
+            "has_static": feat.get("static", False),
+            "has_migrations": feat.get("migrations", False),
+            "has_openapi": False,
+            "has_effects": feat.get("effects", False),
+            "has_faults": feat.get("faults", False),
+            "cors_enabled": feat.get("cors", False),
+            "csrf_protection": feat.get("csrf", False),
+            "helmet_enabled": False,
+            "rate_limiting": False,
+            "tracing_enabled": feat.get("tracing", False),
+            "metrics_enabled": feat.get("metrics", False),
+            "logging_enabled": False,
+            # Dependency info
+            "has_pyproject": (workspace_root / "pyproject.toml").exists(),
+            "dependencies": [],
+            "has_requirements_txt": (workspace_root / "requirements.txt").exists(),
+            # Deployment-relevant paths
+            "has_dockerfile": (workspace_root / "Dockerfile").exists(),
+            "has_compose": (workspace_root / "docker-compose.yml").exists(),
+            "has_k8s": (workspace_root / "k8s").exists(),
+            # Build metadata
+            "build_fingerprint": self.build_fingerprint,
+            "build_mode": self.build_mode,
+            "build_timestamp": self.build_timestamp,
+            "generated_at": datetime.now(tz=timezone.utc).isoformat(),
+            "_from_build_manifest": True,
+        }
 
 
 @dataclass
@@ -72,6 +254,7 @@ class BuildConfig:
     check_only: bool = False                # Only run checks, don't emit artifacts
     skip_checks: bool = False               # Skip static checks (for speed in dev)
     strict: bool = False                    # Treat warnings as errors
+    force: bool = False                     # Bypass incremental build cache
 
     @classmethod
     def dev(cls, workspace_root: str = ".", verbose: bool = False) -> "BuildConfig":
@@ -280,8 +463,8 @@ class AquiliaBuildPipeline:
     2. **Validation** -- Validate manifests, route conflicts, dependencies
     3. **Static Check** -- Check Python syntax, import resolution
     4. **Compilation** -- Compile manifests to artifact payloads
-    5. **Bundling** -- Serialize to Crous binary with dedup + compression
-    6. **Fingerprint** -- Generate deterministic build fingerprint
+    5. **Bundling** -- Serialize to Crous binary with dedup + compression,
+       compute fingerprint, and write build manifest
 
     If any phase fails, subsequent phases are skipped and the build
     result reports all errors with file:line references.
@@ -302,6 +485,7 @@ class AquiliaBuildPipeline:
         compression: str = "",
         check_only: bool = False,
         output_dir: str = "build",
+        force: bool = False,
     ) -> BuildResult:
         """
         Execute the complete build pipeline.
@@ -313,6 +497,7 @@ class AquiliaBuildPipeline:
             compression: Compression type ("none", "lz4", "zstd")
             check_only: Only run checks, don't emit artifacts
             output_dir: Output directory for build artifacts
+            force: Bypass incremental build cache
 
         Returns:
             BuildResult with success status, errors, and bundle manifest
@@ -328,6 +513,7 @@ class AquiliaBuildPipeline:
             verbose=verbose,
             check_only=check_only,
             strict=(mode == "prod"),
+            force=force,
         )
 
         pipeline = cls(config)
@@ -358,9 +544,42 @@ class AquiliaBuildPipeline:
 
         _log("info", f"Build started -- workspace: {self.workspace_root}")
         _log("info", f"Mode: {self.config.mode} | Compression: {self.config.compression}")
+        if self.config.force:
+            _log("info", "Force build -- ignoring cache")
+
+        # ── Incremental: check if full rebuild is needed ─────────────
+        # If all phase hashes match and a bundle already exists, the
+        # build can be skipped entirely.  Discovery + Validation still
+        # run (they're fast and produce essential in-memory state), but
+        # static-check, compilation, and bundling are skippable.
+        all_cached = (
+            not self.config.force
+            and not self.config.check_only
+            and self._phase_is_cached("discovery")
+            and self._phase_is_cached("static_check")
+            and self._phase_is_cached("compilation")
+            and (self.output_dir / "bundle.crous").exists()
+            and (self.output_dir / "manifest.json").exists()
+        )
+        if all_cached:
+            _log("info", "Incremental build: all inputs unchanged -- skipping rebuild")
+            result.success = True
+            result.total_ms = (time.monotonic() - total_start) * 1000
+            # Load fingerprint from existing manifest
+            try:
+                manifest_data = json.loads(
+                    (self.output_dir / "manifest.json").read_text(encoding="utf-8")
+                )
+                result.fingerprint = manifest_data.get("build_fingerprint", "")
+                result.artifacts_count = len(manifest_data.get("artifacts", []))
+            except Exception:
+                pass
+            _log("info", f"Build skipped (cached) in {result.total_ms:.0f}ms")
+            self._write_build_log(result)
+            return result
 
         # Phase 1: Discovery
-        _log("info", "Phase 1/6: Discovery -- scanning modules/")
+        _log("info", "Phase 1/5: Discovery -- scanning modules/")
         phase_start = time.monotonic()
         workspace_meta, module_names, module_manifests = self._phase_discovery(result)
         result.phases["discovery"] = (time.monotonic() - phase_start) * 1000
@@ -370,6 +589,7 @@ class AquiliaBuildPipeline:
             for e in result.errors:
                 _log("error", str(e))
             _log("error", "Build aborted due to discovery errors")
+            self._invalidate_cache()
             result.total_ms = (time.monotonic() - total_start) * 1000
             self._write_build_log(result)
             return result
@@ -380,7 +600,7 @@ class AquiliaBuildPipeline:
         result._module_manifests = module_manifests
 
         # Phase 2: Validation
-        _log("info", "Phase 2/6: Validation -- checking manifests & dependencies")
+        _log("info", "Phase 2/5: Validation -- checking manifests & dependencies")
         phase_start = time.monotonic()
         self._phase_validation(result, module_manifests)
         result.phases["validation"] = (time.monotonic() - phase_start) * 1000
@@ -390,27 +610,36 @@ class AquiliaBuildPipeline:
             for e in result.errors:
                 _log("error", str(e))
             _log("error", "Build aborted due to validation errors")
+            self._invalidate_cache()
             result.total_ms = (time.monotonic() - total_start) * 1000
             self._write_build_log(result)
             return result
 
+        self._save_phase_hash("discovery")
+
         # Phase 3: Static Check
         if not self.config.skip_checks:
-            _log("info", "Phase 3/6: Static Check -- analyzing source files")
-            phase_start = time.monotonic()
-            self._phase_static_check(result)
-            result.phases["static_check"] = (time.monotonic() - phase_start) * 1000
-            _log("info", f"Static check complete -- {result.files_checked} files ({result.phases['static_check']:.0f}ms)")
+            if self._phase_is_cached("static_check"):
+                _log("info", "Phase 3/5: Static Check -- SKIPPED (cached, inputs unchanged)")
+            else:
+                _log("info", "Phase 3/5: Static Check -- analyzing source files")
+                phase_start = time.monotonic()
+                self._phase_static_check(result)
+                result.phases["static_check"] = (time.monotonic() - phase_start) * 1000
+                _log("info", f"Static check complete -- {result.files_checked} files ({result.phases['static_check']:.0f}ms)")
 
-            if result.errors:
-                for e in result.errors:
-                    _log("error", str(e))
-                _log("error", "Build aborted due to static check errors")
-                result.total_ms = (time.monotonic() - total_start) * 1000
-                self._write_build_log(result)
-                return result
+                if result.errors:
+                    for e in result.errors:
+                        _log("error", str(e))
+                    _log("error", "Build aborted due to static check errors")
+                    self._invalidate_cache()
+                    result.total_ms = (time.monotonic() - total_start) * 1000
+                    self._write_build_log(result)
+                    return result
+
+                self._save_phase_hash("static_check")
         else:
-            _log("warn", "Phase 3/6: Static Check -- SKIPPED (skip_checks=True)")
+            _log("warn", "Phase 3/5: Static Check -- SKIPPED (skip_checks=True)")
 
         # If check_only, stop here
         if self.config.check_only:
@@ -421,7 +650,7 @@ class AquiliaBuildPipeline:
             return result
 
         # Phase 4: Compilation
-        _log("info", "Phase 4/6: Compilation -- compiling modules to artifacts")
+        _log("info", "Phase 4/5: Compilation -- compiling modules to artifacts")
         phase_start = time.monotonic()
         compiled_artifacts = self._phase_compilation(
             result, workspace_meta, module_names, module_manifests,
@@ -433,12 +662,15 @@ class AquiliaBuildPipeline:
             for e in result.errors:
                 _log("error", str(e))
             _log("error", "Build aborted due to compilation errors")
+            self._invalidate_cache()
             result.total_ms = (time.monotonic() - total_start) * 1000
             self._write_build_log(result)
             return result
 
-        # Phase 5: Bundling
-        _log("info", "Phase 5/6: Bundling -- serializing to Crous binary format")
+        self._save_phase_hash("compilation")
+
+        # Phase 5: Bundling + Fingerprint
+        _log("info", "Phase 5/5: Bundling -- serializing to Crous binary + fingerprint")
         phase_start = time.monotonic()
         bundle = self._phase_bundling(result, compiled_artifacts, workspace_meta)
         result.phases["bundling"] = (time.monotonic() - phase_start) * 1000
@@ -448,17 +680,29 @@ class AquiliaBuildPipeline:
             for e in result.errors:
                 _log("error", str(e))
             _log("error", "Build aborted due to bundling errors")
+            self._invalidate_cache()
             result.total_ms = (time.monotonic() - total_start) * 1000
             self._write_build_log(result)
             return result
 
-        # Phase 6: Fingerprint
-        _log("info", "Phase 6/6: Fingerprint -- computing content hash")
+        # Finalize build result
         result.bundle = bundle
         result.fingerprint = bundle.fingerprint if bundle else ""
         result.artifacts_count = len(bundle.artifacts) if bundle else 0
         result.success = True
         result.total_ms = (time.monotonic() - total_start) * 1000
+
+        # Write build/manifest.json (build → deploy contract)
+        try:
+            self._write_build_manifest(result, workspace_meta, module_manifests)
+            _log("info", "Build manifest written to build/manifest.json")
+        except Exception as e:
+            _log("warn", f"Could not write build manifest: {e}")
+            result.warnings.append(BuildError(
+                phase=BuildPhase.BUNDLING,
+                message=f"Could not write build/manifest.json: {e}",
+                fatal=False,
+            ))
 
         _log("info", f"Build succeeded in {result.total_ms:.0f}ms -- {result.artifacts_count} artifacts, fingerprint:{result.fingerprint[:12]}…")
         if result.warnings:
@@ -480,6 +724,101 @@ class AquiliaBuildPipeline:
         except Exception:
             pass
 
+    # ── Incremental Build Cache ──────────────────────────────────────
+
+    def _cache_dir(self) -> Path:
+        """Return the .build-cache directory path."""
+        return self.output_dir / ".build-cache"
+
+    def _compute_input_hash(self, phase: str) -> str:
+        """
+        Compute a content-hash of the inputs relevant to a build phase.
+
+        Phase → input mapping:
+        - ``discovery``: workspace.py + modules/*/manifest.py
+        - ``validation``: same as discovery (manifests drive validation)
+        - ``static_check``: all .py files under modules/
+        - ``compilation``: discovery hash + mode + compression
+        - ``bundling``: compilation hash
+
+        Returns:
+            hex SHA-256 digest of the concatenated input content
+        """
+        import hashlib as _hl
+
+        hasher = _hl.sha256()
+
+        # Always include the build mode and compression in the hash
+        hasher.update(f"mode={self.config.mode}\n".encode())
+        hasher.update(f"compression={self.config.compression}\n".encode())
+        hasher.update(f"strict={self.config.strict}\n".encode())
+
+        if phase in ("discovery", "validation", "compilation", "bundling"):
+            # Hash workspace.py
+            ws_file = self.workspace_root / "workspace.py"
+            if ws_file.exists():
+                hasher.update(ws_file.read_bytes())
+            else:
+                hasher.update(b"__no_workspace__")
+
+            # Hash all manifest.py files
+            if self.modules_dir.exists():
+                for manifest_file in sorted(self.modules_dir.glob("*/manifest.py")):
+                    hasher.update(str(manifest_file.relative_to(self.workspace_root)).encode())
+                    hasher.update(manifest_file.read_bytes())
+
+        if phase == "static_check":
+            # Hash all .py source files under modules/
+            if self.modules_dir.exists():
+                for py_file in sorted(self.modules_dir.rglob("*.py")):
+                    hasher.update(str(py_file.relative_to(self.workspace_root)).encode())
+                    hasher.update(py_file.read_bytes())
+
+        return hasher.hexdigest()
+
+    def _phase_is_cached(self, phase: str) -> bool:
+        """
+        Check if a phase can be skipped because its inputs haven't changed.
+
+        Returns True if the phase hash matches the stored hash AND
+        ``--force`` was not specified.
+        """
+        if self.config.force:
+            return False
+
+        cache_dir = self._cache_dir()
+        cache_file = cache_dir / f"{phase}.hash"
+        if not cache_file.exists():
+            return False
+
+        try:
+            stored_hash = cache_file.read_text(encoding="utf-8").strip()
+            current_hash = self._compute_input_hash(phase)
+            return stored_hash == current_hash
+        except Exception:
+            return False
+
+    def _save_phase_hash(self, phase: str) -> None:
+        """Persist the current input hash for a phase."""
+        try:
+            cache_dir = self._cache_dir()
+            cache_dir.mkdir(parents=True, exist_ok=True)
+            cache_file = cache_dir / f"{phase}.hash"
+            current_hash = self._compute_input_hash(phase)
+            cache_file.write_text(current_hash + "\n", encoding="utf-8")
+        except Exception:
+            pass
+
+    def _invalidate_cache(self) -> None:
+        """Remove all cached hashes (used on build failure)."""
+        try:
+            cache_dir = self._cache_dir()
+            if cache_dir.exists():
+                for f in cache_dir.glob("*.hash"):
+                    f.unlink(missing_ok=True)
+        except Exception:
+            pass
+
     # ── Phase 1: Discovery ───────────────────────────────────────────
 
     def _phase_discovery(
@@ -487,6 +826,10 @@ class AquiliaBuildPipeline:
     ) -> Tuple[Dict[str, Any], List[str], Dict[str, Any]]:
         """
         Discover workspace structure and load manifests.
+
+        Uses AST-based parsing for reliable extraction of workspace
+        metadata and module declarations. Falls back to regex if AST
+        parsing fails (e.g. syntax errors in workspace.py).
 
         Returns:
             (workspace_meta, module_names, module_manifests)
@@ -517,26 +860,28 @@ class AquiliaBuildPipeline:
             ))
             return workspace_meta, module_names, module_manifests
 
-        # Strip comments
-        clean = "\n".join(
-            line for line in content.splitlines()
-            if not line.strip().startswith("#")
-        )
+        # ── AST-based discovery (preferred) ──────────────────────────
+        ast_ok = False
+        try:
+            workspace_meta, module_names = self._discover_workspace_ast(content)
+            ast_ok = True
+            if self.config.verbose:
+                logger.info("  Discovery method: AST")
+        except Exception as e:
+            # AST failed — fall back to regex
+            if self.config.verbose:
+                logger.info(f"  AST discovery failed ({e}), falling back to regex")
+            result.warnings.append(BuildError(
+                phase=BuildPhase.DISCOVERY,
+                message=f"AST discovery failed, using regex fallback: {e}",
+                fatal=False,
+            ))
 
-        # Extract workspace info
-        name_match = re.search(r'Workspace\("([^"]+)"', content)
-        version_match = re.search(r'version="([^"]+)"', content)
-        desc_match = re.search(r'description="([^"]+)"', content)
-
-        workspace_meta = {
-            "name": name_match.group(1) if name_match else "aquilia-workspace",
-            "version": version_match.group(1) if version_match else "0.1.0",
-            "description": desc_match.group(1) if desc_match else "",
-        }
-
-        # Extract module names
-        raw_modules = re.findall(r'Module\("([^"]+)"', clean)
-        module_names = [m for m in raw_modules if m != "starter"]
+        # ── Regex fallback ───────────────────────────────────────────
+        if not ast_ok:
+            workspace_meta, module_names = self._discover_workspace_regex(content)
+            if self.config.verbose:
+                logger.info("  Discovery method: regex (fallback)")
 
         workspace_meta["modules"] = module_names
 
@@ -577,6 +922,369 @@ class AquiliaBuildPipeline:
                 ))
 
         return workspace_meta, module_names, module_manifests
+
+    # ── AST Discovery ────────────────────────────────────────────────
+
+    def _discover_workspace_ast(
+        self, content: str,
+    ) -> Tuple[Dict[str, Any], List[str]]:
+        """
+        AST-based workspace discovery.
+
+        Parses workspace.py as an AST and walks the tree for:
+        - ``Workspace("name", version="…", description="…")`` calls
+        - ``Module("name", …)`` calls
+
+        This is safe (no code execution) and correctly handles:
+        - Multi-line chained calls (``.module(Module("x"))``)
+        - Keyword arguments in any order
+        - Nested call chains
+        - Comments and decorators (ignored by AST)
+
+        Returns:
+            (workspace_meta, module_names)
+        """
+        tree = ast.parse(content, filename="workspace.py")
+
+        workspace_name = "aquilia-workspace"
+        workspace_version = "0.1.0"
+        workspace_description = ""
+        module_names: List[str] = []
+
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+
+            func_name = self._resolve_ast_call_name(node)
+
+            if func_name == "Workspace":
+                # Extract positional name arg
+                if node.args and isinstance(node.args[0], ast.Constant):
+                    workspace_name = str(node.args[0].value)
+                # Extract keyword args
+                for kw in node.keywords:
+                    if not isinstance(kw.value, ast.Constant):
+                        continue
+                    if kw.arg == "name" and not node.args:
+                        workspace_name = str(kw.value.value)
+                    elif kw.arg == "version":
+                        workspace_version = str(kw.value.value)
+                    elif kw.arg == "description":
+                        workspace_description = str(kw.value.value)
+
+            elif func_name == "Module":
+                # Extract module name from first positional arg
+                if node.args and isinstance(node.args[0], ast.Constant):
+                    mod_name = str(node.args[0].value)
+                    if mod_name != "starter":
+                        module_names.append(mod_name)
+                else:
+                    # Try keyword: Module(name="x")
+                    for kw in node.keywords:
+                        if kw.arg == "name" and isinstance(kw.value, ast.Constant):
+                            mod_name = str(kw.value.value)
+                            if mod_name != "starter":
+                                module_names.append(mod_name)
+                            break
+
+        workspace_meta = {
+            "name": workspace_name,
+            "version": workspace_version,
+            "description": workspace_description,
+        }
+
+        return workspace_meta, module_names
+
+    @staticmethod
+    def _resolve_ast_call_name(node: ast.Call) -> str:
+        """
+        Resolve the function name from an ast.Call node.
+
+        Handles:
+        - Simple calls: ``Workspace(...)`` → ``"Workspace"``
+        - Attribute calls: ``Integration.di(...)`` → ``"Integration.di"``
+        - Chained method calls: ``.module(Module(...))`` → ``"module"``
+
+        Returns the resolved name, or "" if unresolvable.
+        """
+        func = node.func
+        if isinstance(func, ast.Name):
+            return func.id
+        elif isinstance(func, ast.Attribute):
+            # e.g. Integration.di  or  obj.module
+            if isinstance(func.value, ast.Name):
+                return f"{func.value.id}.{func.attr}"
+            # Chained: something.something.method — return just the method
+            return func.attr
+        return ""
+
+    # ── Regex fallback ───────────────────────────────────────────────
+
+    def _discover_workspace_regex(
+        self, content: str,
+    ) -> Tuple[Dict[str, Any], List[str]]:
+        """
+        Regex-based workspace discovery (legacy fallback).
+
+        Used when AST parsing fails (e.g. due to syntax errors or
+        dynamic constructs). Less reliable than AST for multi-line
+        and complex expressions.
+
+        Returns:
+            (workspace_meta, module_names)
+        """
+        # Strip comments
+        clean = "\n".join(
+            line for line in content.splitlines()
+            if not line.strip().startswith("#")
+        )
+
+        name_match = re.search(r'Workspace\("([^"]+)"', content)
+        version_match = re.search(r'version="([^"]+)"', content)
+        desc_match = re.search(r'description="([^"]+)"', content)
+
+        workspace_meta = {
+            "name": name_match.group(1) if name_match else "aquilia-workspace",
+            "version": version_match.group(1) if version_match else "0.1.0",
+            "description": desc_match.group(1) if desc_match else "",
+        }
+
+        raw_modules = re.findall(r'Module\("([^"]+)"', clean)
+        module_names = [m for m in raw_modules if m != "starter"]
+
+        return workspace_meta, module_names
+
+    # ── Build Manifest (JSON) ────────────────────────────────────────
+
+    def _write_build_manifest(
+        self,
+        result: BuildResult,
+        workspace_meta: Dict[str, Any],
+        module_manifests: Dict[str, Any],
+    ) -> None:
+        """
+        Write build/manifest.json — the build → deploy contract.
+
+        This JSON file captures everything the deploy system needs
+        so it can skip re-introspection when a build is available.
+        """
+        import datetime as _dt
+
+        modules_list = []
+        for mod_name in result._modules:
+            manifest = module_manifests.get(mod_name)
+            if not manifest:
+                continue
+            controllers = []
+            for c in (getattr(manifest, "controllers", []) or []):
+                controllers.append(c if isinstance(c, str) else str(c))
+            services = []
+            for s in (getattr(manifest, "services", []) or []):
+                if isinstance(s, str):
+                    services.append(s)
+                elif hasattr(s, "class_path"):
+                    services.append(s.class_path)
+                else:
+                    services.append(str(s))
+            modules_list.append({
+                "name": getattr(manifest, "name", mod_name),
+                "version": getattr(manifest, "version", "0.1.0"),
+                "description": getattr(manifest, "description", ""),
+                "route_prefix": getattr(manifest, "route_prefix", f"/{mod_name}"),
+                "depends_on": getattr(manifest, "depends_on", []) or [],
+                "controllers": controllers,
+                "services": services,
+            })
+
+        # Detect workspace features by scanning manifest attributes
+        features: Dict[str, bool] = {}
+        ws_content = ""
+        ws_file = self.workspace_root / "workspace.py"
+        if ws_file.exists():
+            try:
+                ws_content = ws_file.read_text(encoding="utf-8")
+            except Exception:
+                pass
+        features = self._detect_workspace_features(ws_content)
+
+        # Artifacts list
+        artifacts_list = []
+        if result.bundle:
+            for a in result.bundle.artifacts:
+                artifacts_list.append({
+                    "name": a.name,
+                    "kind": a.kind,
+                    "version": a.version,
+                    "size_bytes": a.size_bytes,
+                    "digest": a.digest,
+                })
+
+        build_manifest = {
+            "__format__": "aquilia-build-manifest",
+            "schema_version": "2.0",
+            "workspace_name": workspace_meta.get("name", ""),
+            "workspace_version": workspace_meta.get("version", ""),
+            "build_mode": self.config.mode,
+            "build_fingerprint": result.fingerprint,
+            "build_timestamp": _dt.datetime.now(_dt.timezone.utc).isoformat(),
+            "modules": modules_list,
+            "features": features,
+            "dependency_graph": {
+                mod["name"]: mod["depends_on"] for mod in modules_list
+            },
+            "artifacts": artifacts_list,
+            "bundle_path": "bundle.crous",
+            "warnings_count": len(result.warnings),
+        }
+
+        manifest_path = self.output_dir / "manifest.json"
+        manifest_path.write_text(
+            json.dumps(build_manifest, indent=2, default=str) + "\n",
+            encoding="utf-8",
+        )
+
+    def _detect_workspace_features(self, ws_content: str) -> Dict[str, bool]:
+        """
+        Detect workspace ecosystem features via AST, with regex fallback.
+
+        Scans workspace.py for Integration.xyz() calls (AST) or
+        known patterns (regex) to build a features dict.
+
+        Returns:
+            Dict of feature_name → bool
+        """
+        features: Dict[str, bool] = {
+            "db": False,
+            "cache": False,
+            "sessions": False,
+            "websockets": False,
+            "mlops": False,
+            "mail": False,
+            "auth": False,
+            "templates": False,
+            "static": False,
+            "migrations": False,
+            "faults": False,
+            "effects": False,
+            "cors": False,
+            "csrf": False,
+            "tracing": False,
+            "metrics": False,
+            "admin": False,
+            "i18n": False,
+        }
+
+        if not ws_content:
+            return features
+
+        # ── AST-based detection (preferred) ──────────────────────────
+        try:
+            tree = ast.parse(ws_content, filename="workspace.py")
+            integration_methods: set = set()
+            top_level_methods: set = set()
+
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.Call):
+                    continue
+                func = node.func
+
+                # Integration.xyz() calls
+                if isinstance(func, ast.Attribute):
+                    if isinstance(func.value, ast.Name) and func.value.id == "Integration":
+                        integration_methods.add(func.attr)
+                    # Chained calls like .sessions(), .middleware()
+                    elif isinstance(func.value, ast.Call):
+                        top_level_methods.add(func.attr)
+                    # Nested attribute: Integration.templates.source() etc
+                    elif isinstance(func.value, ast.Attribute):
+                        if isinstance(func.value.value, ast.Name) and func.value.value.id == "Integration":
+                            integration_methods.add(func.value.attr)
+
+            # Map Integration method names → features
+            _integration_to_feature = {
+                "database": "db", "db": "db",
+                "cache": "cache",
+                "sessions": "sessions",
+                "websockets": "websockets", "sockets": "websockets",
+                "mlops": "mlops",
+                "mail": "mail",
+                "auth": "auth",
+                "templates": "templates",
+                "static_files": "static", "static": "static",
+                "fault_handling": "faults", "faults": "faults",
+                "effects": "effects",
+                "cors": "cors",
+                "csrf": "csrf",
+                "tracing": "tracing",
+                "metrics": "metrics",
+                "admin": "admin",
+                "i18n": "i18n",
+                "routing": None,  # routing is always present
+                "di": None,
+                "registry": None,
+                "patterns": None,
+                "middleware": None,
+            }
+            for method_name in integration_methods:
+                feat = _integration_to_feature.get(method_name)
+                if feat and feat in features:
+                    features[feat] = True
+
+            # Chained workspace methods: .sessions(), .middleware(), etc.
+            _toplevel_to_feature = {
+                "sessions": "sessions",
+                "security": "cors",
+                "telemetry": "tracing",
+            }
+            for method_name in top_level_methods:
+                feat = _toplevel_to_feature.get(method_name)
+                if feat and feat in features:
+                    features[feat] = True
+
+            # Check for migrations directory
+            if (self.workspace_root / "migrations").is_dir():
+                features["migrations"] = True
+
+            return features
+
+        except Exception:
+            pass
+
+        # ── Regex fallback ───────────────────────────────────────────
+        # Strip comment lines
+        active_lines = [
+            line for line in ws_content.splitlines()
+            if not line.strip().startswith("#")
+        ]
+        active = "\n".join(active_lines)
+
+        _regex_patterns = {
+            "db": r"Integration\.database\(",
+            "cache": r"Integration\.cache\(",
+            "sessions": r"\.sessions\(|Integration\.sessions\(",
+            "websockets": r"Integration\.(?:websockets|sockets)\(",
+            "mlops": r"Integration\.mlops\(",
+            "mail": r"Integration\.mail\(",
+            "auth": r"Integration\.auth\(",
+            "templates": r"Integration\.templates",
+            "static": r"Integration\.static_files\(",
+            "faults": r"Integration\.fault_handling\(",
+            "effects": r"Integration\.effects\(",
+            "cors": r"Integration\.cors\(|cors_enabled\s*=\s*True",
+            "csrf": r"Integration\.csrf\(|csrf_protection\s*=\s*True",
+            "tracing": r"tracing_enabled\s*=\s*True|Integration\.tracing\(",
+            "metrics": r"metrics_enabled\s*=\s*True|Integration\.metrics\(",
+            "admin": r"Integration\.admin\(",
+            "i18n": r"Integration\.i18n\(",
+        }
+        for feat_name, pattern in _regex_patterns.items():
+            if re.search(pattern, active):
+                features[feat_name] = True
+
+        if (self.workspace_root / "migrations").is_dir():
+            features["migrations"] = True
+
+        return features
 
     def _safe_load_manifest(self, module_name: str, manifest_path: Path) -> Any:
         """
@@ -634,9 +1342,12 @@ class AquiliaBuildPipeline:
             if not manifests:
                 return
 
-            # Create a minimal config for validation
+            # Create a minimal config for validation, seeded with app
+            # namespaces so _validate_config_namespace doesn't false-positive.
             from aquilia.config import ConfigLoader
             config = ConfigLoader()
+            config.config_data["apps"] = {m: {} for m in module_manifests}
+            config._build_apps_namespace()
 
             report = validator.validate_manifests(manifests, config)
 
@@ -900,6 +1611,14 @@ class AquiliaBuildPipeline:
                 workspace_version=workspace_meta["version"],
                 mode=self.config.mode,
             )
+
+            # Propagate per-artifact errors from bundler
+            for err_msg in bundler.bundle_errors:
+                result.errors.append(BuildError(
+                    phase=BuildPhase.BUNDLING,
+                    message=err_msg,
+                    fatal=True,
+                ))
 
             bundle.build_time_ms = sum(result.phases.values())
 

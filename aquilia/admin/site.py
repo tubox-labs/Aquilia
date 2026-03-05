@@ -55,6 +55,7 @@ class AdminConfig:
         "migrations": True, "config": True, "workspace": True,
         "permissions": True, "monitoring": False, "admin_users": True,
         "profile": True, "audit": False,
+        "containers": False, "pods": False,
     })
 
     # Audit settings (disabled by default -- opt in)
@@ -72,10 +73,51 @@ class AdminConfig:
     }))
     monitoring_refresh_interval: int = 30
 
+    # Containers (Docker) settings
+    containers_config: Dict[str, Any] = field(default_factory=lambda: {
+        "docker_host": None,
+        "allowed_actions": [
+            "start", "stop", "restart", "pause", "unpause",
+            "kill", "rm", "logs", "inspect", "exec", "export",
+        ],
+        "log_tail": 200,
+        "log_since": "",
+        "refresh_interval": 15,
+        "compose_files": [],
+        "compose_project_dir": None,
+        "show_system_containers": False,
+        "capabilities": {
+            "exec": True, "prune": True, "build": True,
+            "export": True, "image_actions": True,
+            "volume_actions": True, "network_actions": True,
+        },
+    })
+
+    # Pods (Kubernetes) settings
+    pods_config: Dict[str, Any] = field(default_factory=lambda: {
+        "kubeconfig": None,
+        "namespace": "default",
+        "contexts": [],
+        "resources": [
+            "pods", "deployments", "services", "ingresses",
+            "configmaps", "secrets", "namespaces", "events",
+            "daemonsets", "statefulsets", "jobs", "cronjobs",
+            "persistentvolumeclaims", "nodes",
+        ],
+        "manifest_dirs": ["k8s"],
+        "manifest_patterns": ["*.yaml", "*.yml"],
+        "refresh_interval": 15,
+        "log_tail": 200,
+        "capabilities": {
+            "logs": True, "exec": True, "delete": True,
+            "scale": True, "restart": True, "apply": True,
+        },
+    })
+
     # Sidebar section visibility
     sidebar_sections: Dict[str, bool] = field(default_factory=lambda: {
         "overview": True, "data": True, "system": True,
-        "security": True, "models": True,
+        "infrastructure": True, "security": True, "models": True,
     })
 
     # UI
@@ -120,6 +162,52 @@ class AdminConfig:
         """Check if a sidebar section is visible."""
         return self.sidebar_sections.get(section, True)
 
+    # ── Containers (Docker) helpers ──────────────────────────────────
+
+    def get_docker_host(self) -> Optional[str]:
+        """Return the configured Docker host, or None for auto-detect."""
+        return self.containers_config.get("docker_host")
+
+    def get_container_refresh_interval(self) -> int:
+        """Return the auto-refresh interval for the containers page."""
+        return self.containers_config.get("refresh_interval", 15)
+
+    def get_container_log_tail(self) -> int:
+        """Return the default log tail lines for container logs."""
+        return self.containers_config.get("log_tail", 200)
+
+    def is_container_action_allowed(self, action: str) -> bool:
+        """Check if a container lifecycle action is permitted."""
+        return action in self.containers_config.get("allowed_actions", [])
+
+    def is_container_capability_enabled(self, capability: str) -> bool:
+        """Check if a container capability (exec/prune/build/export/etc.) is enabled."""
+        caps = self.containers_config.get("capabilities", {})
+        return caps.get(capability, True)
+
+    # ── Pods (Kubernetes) helpers ────────────────────────────────────
+
+    def get_kube_namespace(self) -> str:
+        """Return the configured Kubernetes namespace."""
+        return self.pods_config.get("namespace", "default")
+
+    def get_pod_refresh_interval(self) -> int:
+        """Return the auto-refresh interval for the pods page."""
+        return self.pods_config.get("refresh_interval", 15)
+
+    def get_pod_log_tail(self) -> int:
+        """Return the default log tail lines for pod logs."""
+        return self.pods_config.get("log_tail", 200)
+
+    def is_pod_resource_enabled(self, resource: str) -> bool:
+        """Check if a K8s resource type is enabled for display."""
+        return resource in self.pods_config.get("resources", [])
+
+    def is_pod_capability_enabled(self, capability: str) -> bool:
+        """Check if a pod capability (logs/exec/delete/scale/restart/apply) is enabled."""
+        caps = self.pods_config.get("capabilities", {})
+        return caps.get(capability, True)
+
     def to_dict(self) -> Dict[str, Any]:
         """Serialise the config for template consumption."""
         return {
@@ -137,6 +225,8 @@ class AdminConfig:
                 "metrics": sorted(self.monitoring_metrics),
                 "refresh_interval": self.monitoring_refresh_interval,
             },
+            "containers": dict(self.containers_config),
+            "pods": dict(self.pods_config),
             "sidebar_sections": dict(self.sidebar_sections),
             "theme": self.theme,
             "list_per_page": self.list_per_page,
@@ -148,20 +238,77 @@ class AdminConfig:
         modules_raw = raw.get("modules", {})
         audit_raw = raw.get("audit_config", {})
         monitoring_raw = raw.get("monitoring_config", {})
+        containers_raw = raw.get("containers_config", {})
+        pods_raw = raw.get("pods_config", {})
         sidebar_raw = raw.get("sidebar_sections", {})
 
-        # Defaults for modules (monitoring & audit disabled by default)
+        # Defaults for modules (monitoring, audit, containers, pods disabled by default)
         default_modules = {
             "dashboard": True, "orm": True, "build": True,
             "migrations": True, "config": True, "workspace": True,
             "permissions": True, "monitoring": False, "admin_users": True,
             "profile": True, "audit": False,
+            "containers": False, "pods": False,
         }
         modules = {**default_modules, **modules_raw}
 
         # If enable_audit is explicitly provided at top level, honour it
         if "enable_audit" in raw:
             modules["audit"] = bool(raw["enable_audit"])
+
+        # ── Containers config defaults ──
+        _default_containers = {
+            "docker_host": None,
+            "allowed_actions": [
+                "start", "stop", "restart", "pause", "unpause",
+                "kill", "rm", "logs", "inspect", "exec", "export",
+            ],
+            "log_tail": 200,
+            "log_since": "",
+            "refresh_interval": 15,
+            "compose_files": [],
+            "compose_project_dir": None,
+            "show_system_containers": False,
+            "capabilities": {
+                "exec": True, "prune": True, "build": True,
+                "export": True, "image_actions": True,
+                "volume_actions": True, "network_actions": True,
+            },
+        }
+        # Deep merge capabilities
+        merged_containers = {**_default_containers, **containers_raw}
+        if "capabilities" in containers_raw and isinstance(containers_raw["capabilities"], dict):
+            merged_containers["capabilities"] = {
+                **_default_containers["capabilities"],
+                **containers_raw["capabilities"],
+            }
+
+        # ── Pods config defaults ──
+        _default_pods = {
+            "kubeconfig": None,
+            "namespace": "default",
+            "contexts": [],
+            "resources": [
+                "pods", "deployments", "services", "ingresses",
+                "configmaps", "secrets", "namespaces", "events",
+                "daemonsets", "statefulsets", "jobs", "cronjobs",
+                "persistentvolumeclaims", "nodes",
+            ],
+            "manifest_dirs": ["k8s"],
+            "manifest_patterns": ["*.yaml", "*.yml"],
+            "refresh_interval": 15,
+            "log_tail": 200,
+            "capabilities": {
+                "logs": True, "exec": True, "delete": True,
+                "scale": True, "restart": True, "apply": True,
+            },
+        }
+        merged_pods = {**_default_pods, **pods_raw}
+        if "capabilities" in pods_raw and isinstance(pods_raw["capabilities"], dict):
+            merged_pods["capabilities"] = {
+                **_default_pods["capabilities"],
+                **pods_raw["capabilities"],
+            }
 
         return cls(
             modules=modules,
@@ -176,10 +323,13 @@ class AdminConfig:
                 "cpu", "memory", "disk", "network", "process", "python", "system", "health_checks",
             ])),
             monitoring_refresh_interval=monitoring_raw.get("refresh_interval", 30),
+            containers_config=merged_containers,
+            pods_config=merged_pods,
             sidebar_sections={
                 "overview": sidebar_raw.get("overview", True),
                 "data": sidebar_raw.get("data", True),
                 "system": sidebar_raw.get("system", True),
+                "infrastructure": sidebar_raw.get("infrastructure", True),
                 "security": sidebar_raw.get("security", True),
                 "models": sidebar_raw.get("models", True),
             },
@@ -508,28 +658,208 @@ class AdminSite:
 
     async def get_dashboard_stats(self) -> Dict[str, Any]:
         """
-        Aggregate dashboard statistics.
+        Aggregate comprehensive dashboard statistics.
 
-        Returns model counts and recent audit entries.
+        Returns model counts, audit breakdowns, system health,
+        environment info, and recent activity for a rich dashboard.
         """
+        import os
+        import platform
+        import sys
+        import time
+        from collections import Counter
+        from datetime import datetime, timezone
+
         stats: Dict[str, Any] = {
             "total_models": len(self._registry),
             "model_counts": {},
             "recent_actions": [],
+            "audit_summary": {},
+            "environment": {},
+            "top_models": [],
+            "active_users": [],
+            "system_health": {},
         }
 
-        # Count records per model (best effort)
+        # ── Count records per model (best effort) ──
+        total_records = 0
+        model_record_list: list = []
         for model_cls, admin in self._registry.items():
             try:
                 count = await model_cls.objects.count()
                 stats["model_counts"][model_cls.__name__] = count
+                total_records += count if isinstance(count, int) else 0
+                model_record_list.append({
+                    "name": model_cls.__name__,
+                    "verbose_name": admin.get_model_name(),
+                    "count": count if isinstance(count, int) else 0,
+                    "icon": getattr(admin, "icon", "table"),
+                    "app_label": admin.get_app_label(),
+                })
             except Exception:
                 stats["model_counts"][model_cls.__name__] = "?"
+                model_record_list.append({
+                    "name": model_cls.__name__,
+                    "verbose_name": admin.get_model_name(),
+                    "count": 0,
+                    "icon": getattr(admin, "icon", "table"),
+                    "app_label": admin.get_app_label(),
+                })
 
-        # Recent audit entries
-        stats["recent_actions"] = [
-            e.to_dict() for e in self.audit_log.get_entries(limit=10)
+        stats["total_records"] = total_records
+
+        # Top models by record count (descending, max 6)
+        model_record_list.sort(key=lambda m: m["count"], reverse=True)
+        stats["top_models"] = model_record_list[:6]
+
+        # ── Audit breakdown ──
+        all_audit = self.audit_log.get_entries(limit=500)
+        stats["recent_actions"] = [e.to_dict() for e in all_audit[:10]]
+
+        action_counter: Counter = Counter()
+        user_counter: Counter = Counter()
+        hourly_counter: Counter = Counter()
+        now = datetime.now(timezone.utc)
+        logins_24h = 0
+        failed_logins = 0
+
+        for entry in all_audit:
+            action_counter[entry.action.value] += 1
+            if entry.username:
+                user_counter[entry.username] += 1
+
+            # Hourly distribution (last 24h)
+            try:
+                ts = entry.timestamp
+                if ts.tzinfo is None:
+                    from datetime import timezone as _tz
+                    ts = ts.replace(tzinfo=_tz.utc)
+                diff_h = (now - ts).total_seconds() / 3600
+                if diff_h <= 24:
+                    hour_label = ts.strftime("%H:00")
+                    hourly_counter[hour_label] += 1
+                    if entry.action.value == "login":
+                        logins_24h += 1
+                    if entry.action.value == "login_failed":
+                        failed_logins += 1
+            except Exception:
+                pass
+
+        stats["audit_summary"] = {
+            "total_entries": len(all_audit),
+            "creates": action_counter.get("create", 0),
+            "updates": action_counter.get("update", 0),
+            "deletes": action_counter.get("delete", 0),
+            "logins": action_counter.get("login", 0),
+            "exports": action_counter.get("export", 0),
+            "logins_24h": logins_24h,
+            "failed_logins": failed_logins,
+            "action_breakdown": dict(action_counter.most_common(10)),
+            "hourly_activity": dict(sorted(hourly_counter.items())),
+        }
+
+        # Active users (top 5 by activity)
+        stats["active_users"] = [
+            {"username": u, "actions": c}
+            for u, c in user_counter.most_common(5)
         ]
+
+        # ── Environment info ──
+        stats["environment"] = {
+            "python_version": platform.python_version(),
+            "platform": platform.system(),
+            "architecture": platform.machine(),
+            "pid": os.getpid(),
+        }
+
+        # Server uptime via process start time
+        try:
+            import psutil
+            proc = psutil.Process(os.getpid())
+            uptime_secs = time.time() - proc.create_time()
+            if uptime_secs >= 86400:
+                uptime_str = f"{int(uptime_secs // 86400)}d {int((uptime_secs % 86400) // 3600)}h"
+            elif uptime_secs >= 3600:
+                uptime_str = f"{int(uptime_secs // 3600)}h {int((uptime_secs % 3600) // 60)}m"
+            else:
+                uptime_str = f"{int(uptime_secs // 60)}m {int(uptime_secs % 60)}s"
+            stats["environment"]["uptime"] = uptime_str
+            stats["environment"]["memory_mb"] = round(proc.memory_info().rss / (1024 * 1024), 1)
+            stats["environment"]["cpu_percent"] = proc.cpu_percent(interval=0.05)
+        except Exception:
+            stats["environment"]["uptime"] = "--"
+            stats["environment"]["memory_mb"] = "--"
+            stats["environment"]["cpu_percent"] = "--"
+
+        # ── System health quick-checks ──
+        health_status = "healthy"
+        health_checks: list = []
+
+        # Database check
+        db_ok = True
+        try:
+            first_model = next(iter(self._registry), None)
+            if first_model:
+                await first_model.objects.count()
+        except Exception:
+            db_ok = False
+
+        health_checks.append({
+            "name": "Database",
+            "status": "ok" if db_ok else "error",
+            "icon": "database",
+        })
+
+        # Audit log check (not overflowing)
+        try:
+            audit_log = self.audit_log
+            # Support both AdminAuditLog (has _entries) and ModelBackedAuditLog (has _fallback)
+            if hasattr(audit_log, '_entries'):
+                current = len(audit_log._entries)
+                capacity = audit_log._max_entries
+            elif hasattr(audit_log, '_fallback'):
+                current = len(audit_log._fallback._entries)
+                capacity = audit_log._fallback._max_entries
+            else:
+                current = 0
+                capacity = 10000
+            audit_ok = current < capacity * 0.9
+            health_checks.append({
+                "name": "Audit Log",
+                "status": "ok" if audit_ok else "warning",
+                "icon": "scroll-text",
+                "detail": f"{current}/{capacity}",
+            })
+        except Exception:
+            health_checks.append({
+                "name": "Audit Log",
+                "status": "ok",
+                "icon": "scroll-text",
+            })
+
+        # Memory check (if available)
+        try:
+            mem_mb = stats["environment"]["memory_mb"]
+            if isinstance(mem_mb, (int, float)):
+                mem_ok = mem_mb < 512
+                health_checks.append({
+                    "name": "Memory",
+                    "status": "ok" if mem_ok else "warning",
+                    "icon": "cpu",
+                    "detail": f"{mem_mb} MB",
+                })
+        except Exception:
+            pass
+
+        if any(c["status"] == "error" for c in health_checks):
+            health_status = "error"
+        elif any(c["status"] == "warning" for c in health_checks):
+            health_status = "warning"
+
+        stats["system_health"] = {
+            "status": health_status,
+            "checks": health_checks,
+        }
 
         return stats
 
@@ -1253,6 +1583,1432 @@ class AdminSite:
                 result[key] = val
         return result
 
+    # ── Containers & Pods data ───────────────────────────────────────
+
+    def get_containers_data(self) -> Dict[str, Any]:
+        """
+        Gather comprehensive Docker container and compose data.
+
+        Discovers:
+        - Running/stopped containers via ``docker ps``
+        - Compose services from ``docker-compose.yml``
+        - Docker system info (version, images, volumes, networks)
+        - Dockerfile metadata from workspace
+        - Container resource usage via ``docker stats``
+
+        Returns a dict with sections:
+            - docker_available: bool
+            - docker_version: str
+            - containers: list of container dicts
+            - compose: compose file metadata
+            - images: list of image dicts
+            - volumes: list of volume dicts
+            - networks: list of network dicts
+            - system_info: Docker system overview
+            - dockerfile_info: Dockerfile analysis
+            - error: optional error string
+        """
+        import json as _json
+        import os
+        import subprocess
+        from datetime import datetime, timezone
+        from pathlib import Path
+
+        result: Dict[str, Any] = {
+            "docker_available": False,
+            "docker_version": "",
+            "containers": [],
+            "compose": {"available": False, "services": [], "file_content": ""},
+            "images": [],
+            "volumes": [],
+            "networks": [],
+            "system_info": {},
+            "dockerfile_info": {},
+            "error": "",
+        }
+
+        def _run_docker(*args: str, timeout: int = 10) -> tuple:
+            """Run a docker command and return (success, stdout, stderr)."""
+            try:
+                proc = subprocess.run(
+                    ["docker", *args],
+                    capture_output=True, text=True, timeout=timeout,
+                )
+                return proc.returncode == 0, proc.stdout.strip(), proc.stderr.strip()
+            except FileNotFoundError:
+                return False, "", "Docker CLI not found"
+            except subprocess.TimeoutExpired:
+                return False, "", "Command timed out"
+            except Exception as e:
+                return False, "", str(e)
+
+        # ── Check Docker availability ──
+        ok, ver_out, ver_err = _run_docker("version", "--format", "{{.Server.Version}}")
+        if not ok:
+            # Try just docker info to see if daemon is reachable
+            ok2, _, _ = _run_docker("info", "--format", "{{.ServerVersion}}")
+            if not ok2:
+                result["error"] = ver_err or "Docker is not available"
+                return result
+
+        result["docker_available"] = True
+        result["docker_version"] = ver_out or "unknown"
+
+        # ── Docker system info ──
+        ok, info_out, _ = _run_docker(
+            "system", "info", "--format",
+            '{"containers":{{.Containers}},"running":{{.ContainersRunning}},'
+            '"paused":{{.ContainersPaused}},"stopped":{{.ContainersStopped}},'
+            '"images":{{.Images}},"server_version":"{{.ServerVersion}}",'
+            '"os":"{{.OperatingSystem}}","arch":"{{.Architecture}}",'
+            '"cpus":{{.NCPU}},"memory":"{{.MemTotal}}",'
+            '"storage_driver":"{{.Driver}}"}'
+        )
+        if ok and info_out:
+            try:
+                result["system_info"] = _json.loads(info_out)
+            except _json.JSONDecodeError:
+                result["system_info"] = {"raw": info_out}
+
+        # ── List containers (all, including stopped) ──
+        # Use {{json .}} to avoid broken JSON from embedded quotes
+        # in Command/Labels fields. Docker escapes properly with json.
+        ok, ps_out, _ = _run_docker(
+            "ps", "-a", "--no-trunc", "--format", "{{json .}}"
+        )
+        if ok and ps_out:
+            for line in ps_out.splitlines():
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    raw = _json.loads(line)
+                    # Normalize PascalCase → lowercase keys
+                    container = {
+                        "id": raw.get("ID", ""),
+                        "name": raw.get("Names", ""),
+                        "image": raw.get("Image", ""),
+                        "status": raw.get("Status", ""),
+                        "state": raw.get("State", ""),
+                        "ports": raw.get("Ports", ""),
+                        "created": raw.get("CreatedAt", ""),
+                        "size": raw.get("Size", ""),
+                        "command": raw.get("Command", ""),
+                        "labels": raw.get("Labels", ""),
+                        "networks": raw.get("Networks", ""),
+                        "mounts": raw.get("Mounts", ""),
+                        "running_for": raw.get("RunningFor", ""),
+                        "local_volumes": raw.get("LocalVolumes", ""),
+                    }
+                    # Parse state for status classification
+                    state = container.get("state", "").lower()
+                    if state == "running":
+                        container["status_class"] = "running"
+                        container["status_icon"] = "▶"
+                    elif state == "exited":
+                        container["status_class"] = "stopped"
+                        container["status_icon"] = "■"
+                    elif state == "paused":
+                        container["status_class"] = "paused"
+                        container["status_icon"] = "⏸"
+                    elif state in ("restarting", "removing"):
+                        container["status_class"] = "warning"
+                        container["status_icon"] = "↻"
+                    elif state == "created":
+                        container["status_class"] = "created"
+                        container["status_icon"] = "○"
+                    elif state == "dead":
+                        container["status_class"] = "dead"
+                        container["status_icon"] = "✕"
+                    else:
+                        container["status_class"] = "unknown"
+                        container["status_icon"] = "?"
+                    result["containers"].append(container)
+                except _json.JSONDecodeError:
+                    continue
+
+        # ── Container stats (CPU/memory for running containers) ──
+        running_ids = [c["id"] for c in result["containers"]
+                       if c.get("status_class") == "running"]
+        if running_ids:
+            ok, stats_out, _ = _run_docker(
+                "stats", "--no-stream", "--format", "{{json .}}",
+                timeout=15,
+            )
+            if ok and stats_out:
+                stats_map: Dict[str, Dict] = {}
+                for line in stats_out.splitlines():
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        raw_stat = _json.loads(line)
+                        stat = {
+                            "id": raw_stat.get("ID", ""),
+                            "name": raw_stat.get("Name", ""),
+                            "cpu": raw_stat.get("CPUPerc", "0%"),
+                            "memory": raw_stat.get("MemUsage", ""),
+                            "mem_perc": raw_stat.get("MemPerc", "0%"),
+                            "net_io": raw_stat.get("NetIO", ""),
+                            "block_io": raw_stat.get("BlockIO", ""),
+                            "pids": raw_stat.get("PIDs", ""),
+                        }
+                        stats_map[stat["id"][:12]] = stat
+                    except _json.JSONDecodeError:
+                        continue
+                # Merge stats into containers
+                for c in result["containers"]:
+                    cid = c["id"][:12]
+                    if cid in stats_map:
+                        c["stats"] = stats_map[cid]
+
+        # ── Docker images ──
+        ok, img_out, _ = _run_docker(
+            "images", "--format", "{{json .}}"
+        )
+        if ok and img_out:
+            for line in img_out.splitlines():
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    raw_img = _json.loads(line)
+                    result["images"].append({
+                        "id": raw_img.get("ID", ""),
+                        "repository": raw_img.get("Repository", ""),
+                        "tag": raw_img.get("Tag", ""),
+                        "size": raw_img.get("Size", ""),
+                        "created": raw_img.get("CreatedAt", ""),
+                    })
+                except _json.JSONDecodeError:
+                    continue
+
+        # ── Docker volumes ──
+        ok, vol_out, _ = _run_docker(
+            "volume", "ls", "--format", "{{json .}}"
+        )
+        if ok and vol_out:
+            for line in vol_out.splitlines():
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    raw_vol = _json.loads(line)
+                    result["volumes"].append({
+                        "name": raw_vol.get("Name", ""),
+                        "driver": raw_vol.get("Driver", ""),
+                        "mountpoint": raw_vol.get("Mountpoint", ""),
+                    })
+                except _json.JSONDecodeError:
+                    continue
+
+        # ── Docker networks ──
+        ok, net_out, _ = _run_docker(
+            "network", "ls", "--format", "{{json .}}"
+        )
+        if ok and net_out:
+            for line in net_out.splitlines():
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    raw_net = _json.loads(line)
+                    result["networks"].append({
+                        "id": raw_net.get("ID", ""),
+                        "name": raw_net.get("Name", ""),
+                        "driver": raw_net.get("Driver", ""),
+                        "scope": raw_net.get("Scope", ""),
+                    })
+                except _json.JSONDecodeError:
+                    continue
+
+        # ── Compose file analysis ──
+        compose_path = self._find_workspace_path("docker-compose.yml", is_file=True)
+        if compose_path and compose_path.is_file():
+            result["compose"]["available"] = True
+            try:
+                content = compose_path.read_text(encoding="utf-8", errors="replace")
+                result["compose"]["file_content"] = content
+                # Parse services from YAML
+                try:
+                    import yaml
+                    parsed = yaml.safe_load(content)
+                    if isinstance(parsed, dict) and "services" in parsed:
+                        for svc_name, svc_conf in parsed["services"].items():
+                            result["compose"]["services"].append({
+                                "name": svc_name,
+                                "image": svc_conf.get("image", ""),
+                                "build": str(svc_conf.get("build", "")),
+                                "ports": svc_conf.get("ports", []),
+                                "volumes": svc_conf.get("volumes", []),
+                                "depends_on": (
+                                    list(svc_conf["depends_on"].keys())
+                                    if isinstance(svc_conf.get("depends_on"), dict)
+                                    else svc_conf.get("depends_on", [])
+                                ),
+                                "environment": svc_conf.get("environment", {}),
+                                "profiles": svc_conf.get("profiles", []),
+                                "restart": svc_conf.get("restart", ""),
+                                "healthcheck": bool(svc_conf.get("healthcheck")),
+                            })
+                except ImportError:
+                    # PyYAML not installed -- basic regex parsing
+                    import re
+                    svc_matches = re.findall(
+                        r'^\s{2}(\w[\w-]*):\s*$', content, re.MULTILINE,
+                    )
+                    for svc_name in svc_matches:
+                        result["compose"]["services"].append({
+                            "name": svc_name,
+                            "image": "",
+                            "build": "",
+                            "ports": [],
+                            "volumes": [],
+                            "depends_on": [],
+                            "environment": {},
+                            "profiles": [],
+                            "restart": "",
+                            "healthcheck": False,
+                        })
+                except Exception:
+                    pass
+            except Exception:
+                pass
+
+        # ── Dockerfile analysis ──
+        dockerfile_path = self._find_workspace_path("Dockerfile", is_file=True)
+        if dockerfile_path and dockerfile_path.is_file():
+            try:
+                content = dockerfile_path.read_text(encoding="utf-8", errors="replace")
+                import re
+                result["dockerfile_info"] = {
+                    "exists": True,
+                    "path": str(dockerfile_path),
+                    "size": f"{dockerfile_path.stat().st_size / 1024:.1f} KB",
+                    "base_image": "",
+                    "stages": [],
+                    "exposed_ports": [],
+                    "env_vars": [],
+                    "copy_count": 0,
+                    "run_count": 0,
+                }
+                # Extract ARG defaults so we can resolve ${VAR} in FROM lines
+                arg_defaults = dict(
+                    re.findall(r'^ARG\s+(\w+)=(\S+)', content, re.MULTILINE)
+                )
+
+                def _resolve_args(s: str) -> str:
+                    """Resolve ${VAR} and $VAR references using ARG defaults."""
+                    for var, val in arg_defaults.items():
+                        s = s.replace("${" + var + "}", val).replace("$" + var, val)
+                    return s
+
+                # Extract FROM instructions (multi-stage)
+                froms = re.findall(r'^FROM\s+(\S+)(?:\s+AS\s+(\S+))?',
+                                   content, re.MULTILINE | re.IGNORECASE)
+                if froms:
+                    resolved_base = _resolve_args(froms[0][0])
+                    result["dockerfile_info"]["base_image"] = resolved_base
+                    result["dockerfile_info"]["stages"] = [
+                        {"image": _resolve_args(img), "alias": alias or ""}
+                        for img, alias in froms
+                    ]
+                # Exposed ports
+                ports = re.findall(r'^EXPOSE\s+(.+)', content, re.MULTILINE | re.IGNORECASE)
+                for p in ports:
+                    result["dockerfile_info"]["exposed_ports"].extend(p.split())
+                # ENV vars
+                envs = re.findall(r'^ENV\s+(\S+)', content, re.MULTILINE | re.IGNORECASE)
+                result["dockerfile_info"]["env_vars"] = envs
+                # Instruction counts
+                result["dockerfile_info"]["copy_count"] = len(
+                    re.findall(r'^COPY\s', content, re.MULTILINE | re.IGNORECASE)
+                )
+                result["dockerfile_info"]["run_count"] = len(
+                    re.findall(r'^RUN\s', content, re.MULTILINE | re.IGNORECASE)
+                )
+            except Exception:
+                result["dockerfile_info"] = {"exists": True, "path": str(dockerfile_path)}
+        else:
+            result["dockerfile_info"] = {"exists": False}
+
+        return result
+
+    # ── Docker Action Helpers ────────────────────────────────────────
+
+    def execute_container_action(
+        self, container_id: str, action: str,
+        run_params: str = "",
+    ) -> Dict[str, Any]:
+        """
+        Execute a Docker container lifecycle action.
+
+        Supported actions: start, stop, restart, pause, unpause, kill, rm, run
+        """
+        import subprocess
+
+        ALLOWED = {"start", "stop", "restart", "pause", "unpause", "kill", "rm", "run"}
+        if action not in ALLOWED:
+            return {"success": False, "error": f"Unknown action: {action}"}
+
+        # ── docker run (create+start a new container) ──
+        if action == "run":
+            import json as _json
+            import shlex
+
+            try:
+                params = _json.loads(run_params) if run_params else {}
+            except _json.JSONDecodeError:
+                return {"success": False, "error": "Invalid run_params JSON"}
+
+            image = params.get("image", "").strip()
+            if not image:
+                return {"success": False, "error": "Image name is required"}
+
+            args = ["docker", "run"]
+            if params.get("detach"):
+                args.append("-d")
+            if params.get("auto_remove"):
+                args.append("--rm")
+            name = params.get("name", "").strip()
+            if name:
+                args.extend(["--name", name])
+            ports = params.get("ports", "").strip()
+            if ports:
+                args.extend(["-p", ports])
+            env_vars = params.get("env_vars", "").strip()
+            if env_vars:
+                for ev in env_vars.splitlines():
+                    ev = ev.strip()
+                    if ev and "=" in ev:
+                        args.extend(["-e", ev])
+            extra_flags = params.get("extra_flags", "").strip()
+            if extra_flags:
+                args.extend(shlex.split(extra_flags))
+            args.append(image)
+
+            try:
+                proc = subprocess.run(
+                    args, capture_output=True, text=True, timeout=120,
+                )
+                if proc.returncode == 0:
+                    cid = proc.stdout.strip()[:12] or "started"
+                    return {
+                        "success": True,
+                        "message": f"Container {cid} started from {image}",
+                    }
+                return {
+                    "success": False,
+                    "error": proc.stderr.strip() or "docker run failed",
+                }
+            except subprocess.TimeoutExpired:
+                return {"success": False, "error": "docker run timed out"}
+            except Exception as e:
+                return {"success": False, "error": str(e)}
+
+        # Sanitize container_id (only allow hex + short names)
+        cid = container_id.strip()
+        if not cid:
+            return {"success": False, "error": "Empty container ID"}
+
+        try:
+            args = ["docker", action]
+            if action == "rm":
+                args.append("-f")
+            args.append(cid)
+            proc = subprocess.run(
+                args, capture_output=True, text=True, timeout=30,
+            )
+            if proc.returncode == 0:
+                return {"success": True, "message": f"Container {action} successful"}
+            return {"success": False, "error": proc.stderr.strip() or f"{action} failed"}
+        except subprocess.TimeoutExpired:
+            return {"success": False, "error": "Command timed out"}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def get_container_inspect(self, container_id: str) -> Dict[str, Any]:
+        """Return full ``docker inspect`` output for a container."""
+        import json as _json
+        import subprocess
+
+        try:
+            proc = subprocess.run(
+                ["docker", "inspect", container_id.strip()],
+                capture_output=True, text=True, timeout=10,
+            )
+            if proc.returncode == 0:
+                data = _json.loads(proc.stdout)
+                if isinstance(data, list) and data:
+                    return {"success": True, "data": data[0]}
+                return {"success": True, "data": data}
+            return {"success": False, "error": proc.stderr.strip()}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def get_container_logs(
+        self, container_id: str, *, tail: int = 200, since: str = "",
+    ) -> Dict[str, Any]:
+        """Fetch recent logs from a container via ``docker logs``."""
+        import subprocess
+
+        args = ["docker", "logs", "--tail", str(tail), "--timestamps"]
+        if since:
+            args.extend(["--since", since])
+        args.append(container_id.strip())
+
+        try:
+            proc = subprocess.run(
+                args, capture_output=True, text=True, timeout=15,
+            )
+            # docker logs outputs to both stdout and stderr
+            output = proc.stdout + proc.stderr
+            return {"success": True, "logs": output}
+        except subprocess.TimeoutExpired:
+            return {"success": False, "error": "Logs fetch timed out"}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def get_volume_inspect(self, volume_name: str) -> Dict[str, Any]:
+        """Return ``docker volume inspect`` output."""
+        import json as _json
+        import subprocess
+
+        try:
+            proc = subprocess.run(
+                ["docker", "volume", "inspect", volume_name.strip()],
+                capture_output=True, text=True, timeout=10,
+            )
+            if proc.returncode == 0:
+                data = _json.loads(proc.stdout)
+                if isinstance(data, list) and data:
+                    return {"success": True, "data": data[0]}
+                return {"success": True, "data": data}
+            return {"success": False, "error": proc.stderr.strip()}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def get_network_inspect(self, network_id: str) -> Dict[str, Any]:
+        """Return ``docker network inspect`` output."""
+        import json as _json
+        import subprocess
+
+        try:
+            proc = subprocess.run(
+                ["docker", "network", "inspect", network_id.strip()],
+                capture_output=True, text=True, timeout=10,
+            )
+            if proc.returncode == 0:
+                data = _json.loads(proc.stdout)
+                if isinstance(data, list) and data:
+                    return {"success": True, "data": data[0]}
+                return {"success": True, "data": data}
+            return {"success": False, "error": proc.stderr.strip()}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def get_image_inspect(self, image_id: str) -> Dict[str, Any]:
+        """Return ``docker image inspect`` output."""
+        import json as _json
+        import subprocess
+
+        try:
+            proc = subprocess.run(
+                ["docker", "image", "inspect", image_id.strip()],
+                capture_output=True, text=True, timeout=10,
+            )
+            if proc.returncode == 0:
+                data = _json.loads(proc.stdout)
+                if isinstance(data, list) and data:
+                    return {"success": True, "data": data[0]}
+                return {"success": True, "data": data}
+            return {"success": False, "error": proc.stderr.strip()}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def execute_image_action(
+        self, image_id: str, action: str,
+    ) -> Dict[str, Any]:
+        """
+        Execute a Docker image action.
+
+        Supported actions: rm (remove), pull
+        """
+        import subprocess
+
+        ALLOWED = {"rm", "pull"}
+        if action not in ALLOWED:
+            return {"success": False, "error": f"Unknown action: {action}"}
+
+        try:
+            if action == "rm":
+                proc = subprocess.run(
+                    ["docker", "rmi", "-f", image_id.strip()],
+                    capture_output=True, text=True, timeout=30,
+                )
+            else:  # pull
+                proc = subprocess.run(
+                    ["docker", "pull", image_id.strip()],
+                    capture_output=True, text=True, timeout=120,
+                )
+
+            if proc.returncode == 0:
+                return {"success": True, "message": f"Image {action} successful"}
+            return {"success": False, "error": proc.stderr.strip() or f"{action} failed"}
+        except subprocess.TimeoutExpired:
+            return {"success": False, "error": "Command timed out"}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def execute_compose_action(self, action: str) -> Dict[str, Any]:
+        """
+        Execute a Docker Compose action.
+
+        Supported actions: up, down, restart, build, pull, stop, start
+        """
+        import subprocess
+        from pathlib import Path
+
+        ALLOWED = {"up", "down", "restart", "build", "pull", "stop", "start"}
+        if action not in ALLOWED:
+            return {"success": False, "error": f"Unknown compose action: {action}"}
+
+        compose_path = self._find_workspace_path("docker-compose.yml", is_file=True)
+        if not compose_path or not compose_path.is_file():
+            return {"success": False, "error": "No docker-compose.yml found"}
+
+        compose_dir = compose_path.parent
+
+        # If docker-compose.yml references env_file: .env but no .env exists,
+        # create an empty one so docker compose doesn't fail.
+        env_file = compose_dir / ".env"
+        if not env_file.exists():
+            try:
+                env_file.write_text("# Auto-created by Aquilia admin\n")
+            except OSError:
+                pass  # non-fatal: compose may still work
+
+        try:
+            args = ["docker", "compose", "-f", str(compose_path)]
+            if action == "up":
+                args.extend(["up", "-d", "--remove-orphans"])
+            elif action == "down":
+                args.append("down")
+            else:
+                args.append(action)
+
+            proc = subprocess.run(
+                args, capture_output=True, text=True, timeout=120,
+                cwd=str(compose_dir),
+            )
+            output = proc.stdout + proc.stderr
+            if proc.returncode == 0:
+                return {"success": True, "message": f"Compose {action} successful", "output": output}
+            return {"success": False, "error": output or f"Compose {action} failed"}
+        except subprocess.TimeoutExpired:
+            return {"success": False, "error": "Command timed out"}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def execute_volume_action(
+        self, volume_name: str, action: str,
+    ) -> Dict[str, Any]:
+        """Execute a Docker volume action. Supported: rm"""
+        import subprocess
+
+        if action != "rm":
+            return {"success": False, "error": f"Unknown action: {action}"}
+
+        try:
+            proc = subprocess.run(
+                ["docker", "volume", "rm", "-f", volume_name.strip()],
+                capture_output=True, text=True, timeout=15,
+            )
+            if proc.returncode == 0:
+                return {"success": True, "message": "Volume removed"}
+            return {"success": False, "error": proc.stderr.strip() or "Remove failed"}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def execute_network_action(
+        self, network_id: str, action: str,
+    ) -> Dict[str, Any]:
+        """Execute a Docker network action. Supported: rm"""
+        import subprocess
+
+        if action != "rm":
+            return {"success": False, "error": f"Unknown action: {action}"}
+
+        try:
+            proc = subprocess.run(
+                ["docker", "network", "rm", network_id.strip()],
+                capture_output=True, text=True, timeout=15,
+            )
+            if proc.returncode == 0:
+                return {"success": True, "message": "Network removed"}
+            return {"success": False, "error": proc.stderr.strip() or "Remove failed"}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    # ── Advanced Docker Features ─────────────────────────────────────
+
+    def get_docker_disk_usage(self) -> Dict[str, Any]:
+        """
+        Return ``docker system df -v`` data: images, containers, volumes,
+        build cache with reclaimable space information.
+        """
+        import json as _json
+        import subprocess
+
+        try:
+            proc = subprocess.run(
+                ["docker", "system", "df", "-v", "--format", "{{json .}}"],
+                capture_output=True, text=True, timeout=15,
+            )
+            if proc.returncode != 0:
+                return {"success": False, "error": proc.stderr.strip()}
+
+            # docker system df -v --format {{json .}} outputs multiple lines
+            items = []
+            for line in proc.stdout.strip().splitlines():
+                line = line.strip()
+                if line:
+                    try:
+                        items.append(_json.loads(line))
+                    except _json.JSONDecodeError:
+                        continue
+            return {"success": True, "data": items, "raw": proc.stdout.strip()}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def get_docker_disk_usage_summary(self) -> Dict[str, Any]:
+        """Return a human-friendly summary of docker disk usage."""
+        import subprocess
+
+        try:
+            proc = subprocess.run(
+                ["docker", "system", "df"],
+                capture_output=True, text=True, timeout=10,
+            )
+            if proc.returncode == 0:
+                return {"success": True, "output": proc.stdout.strip()}
+            return {"success": False, "error": proc.stderr.strip()}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def execute_docker_prune(self, target: str) -> Dict[str, Any]:
+        """
+        Execute docker prune commands.
+
+        Supported targets: system, images, containers, volumes, builder
+        """
+        import subprocess
+
+        ALLOWED = {
+            "system": ["docker", "system", "prune", "-a", "-f"],
+            "images": ["docker", "image", "prune", "-a", "-f"],
+            "containers": ["docker", "container", "prune", "-f"],
+            "volumes": ["docker", "volume", "prune", "-f"],
+            "builder": ["docker", "builder", "prune", "-a", "-f"],
+        }
+        if target not in ALLOWED:
+            return {"success": False, "error": f"Unknown prune target: {target}"}
+
+        try:
+            proc = subprocess.run(
+                ALLOWED[target],
+                capture_output=True, text=True, timeout=120,
+            )
+            output = (proc.stdout + proc.stderr).strip()
+            if proc.returncode == 0:
+                return {"success": True, "message": f"Prune {target} complete", "output": output}
+            return {"success": False, "error": output or f"Prune {target} failed"}
+        except subprocess.TimeoutExpired:
+            return {"success": False, "error": "Prune timed out"}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def execute_container_exec(
+        self, container_id: str, command: str,
+    ) -> Dict[str, Any]:
+        """Execute a command inside a running container via ``docker exec``."""
+        import shlex
+        import subprocess
+
+        cid = container_id.strip()
+        if not cid:
+            return {"success": False, "error": "Empty container ID"}
+        if not command.strip():
+            return {"success": False, "error": "Empty command"}
+
+        try:
+            args = ["docker", "exec", cid] + shlex.split(command)
+            proc = subprocess.run(
+                args, capture_output=True, text=True, timeout=30,
+            )
+            output = proc.stdout + proc.stderr
+            return {
+                "success": proc.returncode == 0,
+                "output": output.strip(),
+                "exit_code": proc.returncode,
+            }
+        except subprocess.TimeoutExpired:
+            return {"success": False, "error": "Command timed out (30s)", "exit_code": -1}
+        except Exception as e:
+            return {"success": False, "error": str(e), "exit_code": -1}
+
+    def get_image_history(self, image_id: str) -> Dict[str, Any]:
+        """Return ``docker history`` for an image with layer sizes."""
+        import json as _json
+        import subprocess
+
+        try:
+            proc = subprocess.run(
+                ["docker", "history", image_id.strip(), "--no-trunc",
+                 "--format", "{{json .}}"],
+                capture_output=True, text=True, timeout=10,
+            )
+            if proc.returncode != 0:
+                return {"success": False, "error": proc.stderr.strip()}
+
+            layers = []
+            for line in proc.stdout.strip().splitlines():
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    raw = _json.loads(line)
+                    layers.append({
+                        "id": raw.get("ID", ""),
+                        "created_by": raw.get("CreatedBy", ""),
+                        "created_at": raw.get("CreatedAt", ""),
+                        "size": raw.get("Size", "0B"),
+                        "comment": raw.get("Comment", ""),
+                    })
+                except _json.JSONDecodeError:
+                    continue
+            return {"success": True, "layers": layers}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def execute_image_tag(
+        self, source_image: str, target_tag: str,
+    ) -> Dict[str, Any]:
+        """Tag an image with a new name via ``docker tag``."""
+        import subprocess
+
+        src = source_image.strip()
+        tgt = target_tag.strip()
+        if not src or not tgt:
+            return {"success": False, "error": "Source and target are required"}
+
+        try:
+            proc = subprocess.run(
+                ["docker", "tag", src, tgt],
+                capture_output=True, text=True, timeout=10,
+            )
+            if proc.returncode == 0:
+                return {"success": True, "message": f"Tagged {src} as {tgt}"}
+            return {"success": False, "error": proc.stderr.strip() or "Tag failed"}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def execute_container_export(
+        self, container_id: str,
+    ) -> Dict[str, Any]:
+        """Export a container filesystem as a tar (returns path info)."""
+        import subprocess
+        import tempfile
+
+        cid = container_id.strip()
+        if not cid:
+            return {"success": False, "error": "Empty container ID"}
+
+        outpath = f"/tmp/docker-export-{cid[:12]}.tar"
+        try:
+            proc = subprocess.run(
+                ["docker", "export", "-o", outpath, cid],
+                capture_output=True, text=True, timeout=120,
+            )
+            if proc.returncode == 0:
+                import os
+                size = os.path.getsize(outpath)
+                size_mb = size / (1024 * 1024)
+                return {
+                    "success": True,
+                    "message": f"Exported to {outpath} ({size_mb:.1f} MB)",
+                    "path": outpath,
+                    "size": f"{size_mb:.1f} MB",
+                }
+            return {"success": False, "error": proc.stderr.strip() or "Export failed"}
+        except subprocess.TimeoutExpired:
+            return {"success": False, "error": "Export timed out"}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def create_docker_network(
+        self, name: str, driver: str = "bridge",
+        subnet: str = "", gateway: str = "",
+        internal: bool = False,
+    ) -> Dict[str, Any]:
+        """Create a new Docker network."""
+        import subprocess
+
+        if not name.strip():
+            return {"success": False, "error": "Network name is required"}
+
+        args = ["docker", "network", "create"]
+        if driver:
+            args.extend(["--driver", driver.strip()])
+        if subnet:
+            args.extend(["--subnet", subnet.strip()])
+        if gateway:
+            args.extend(["--gateway", gateway.strip()])
+        if internal:
+            args.append("--internal")
+        args.append(name.strip())
+
+        try:
+            proc = subprocess.run(
+                args, capture_output=True, text=True, timeout=15,
+            )
+            if proc.returncode == 0:
+                nid = proc.stdout.strip()[:12]
+                return {"success": True, "message": f"Network '{name}' created ({nid})"}
+            return {"success": False, "error": proc.stderr.strip() or "Create failed"}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def create_docker_volume(
+        self, name: str, driver: str = "local",
+        labels: str = "",
+    ) -> Dict[str, Any]:
+        """Create a new Docker volume."""
+        import subprocess
+
+        if not name.strip():
+            return {"success": False, "error": "Volume name is required"}
+
+        args = ["docker", "volume", "create"]
+        if driver:
+            args.extend(["--driver", driver.strip()])
+        if labels:
+            for lbl in labels.split(","):
+                lbl = lbl.strip()
+                if lbl:
+                    args.extend(["--label", lbl])
+        args.append(name.strip())
+
+        try:
+            proc = subprocess.run(
+                args, capture_output=True, text=True, timeout=15,
+            )
+            if proc.returncode == 0:
+                return {"success": True, "message": f"Volume '{name}' created"}
+            return {"success": False, "error": proc.stderr.strip() or "Create failed"}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def get_docker_events(self, since: str = "10m") -> Dict[str, Any]:
+        """
+        Return recent docker events (from last N minutes).
+        Uses ``docker events --since Nm --until now``.
+        """
+        import json as _json
+        import subprocess
+
+        try:
+            proc = subprocess.run(
+                ["docker", "events", "--since", since, "--until", "0s",
+                 "--format", "{{json .}}"],
+                capture_output=True, text=True, timeout=10,
+            )
+            events = []
+            for line in proc.stdout.strip().splitlines():
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    raw = _json.loads(line)
+                    events.append({
+                        "type": raw.get("Type", ""),
+                        "action": raw.get("Action", ""),
+                        "actor": raw.get("Actor", {}).get("Attributes", {}).get("name", "")
+                            or raw.get("Actor", {}).get("ID", "")[:12],
+                        "time": raw.get("time", ""),
+                        "timeNano": raw.get("timeNano", ""),
+                        "status": raw.get("status", raw.get("Action", "")),
+                    })
+                except _json.JSONDecodeError:
+                    continue
+            return {"success": True, "events": events}
+        except subprocess.TimeoutExpired:
+            return {"success": True, "events": []}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def execute_docker_build(
+        self, *, tag: str = "", no_cache: bool = False,
+        build_args: str = "", target: str = "",
+    ) -> Dict[str, Any]:
+        """
+        Execute ``docker build`` in the workspace directory.
+        Returns the full build output.
+        """
+        import subprocess
+
+        dockerfile_path = self._find_workspace_path("Dockerfile", is_file=True)
+        if not dockerfile_path or not dockerfile_path.is_file():
+            return {"success": False, "error": "No Dockerfile found in workspace"}
+
+        build_dir = dockerfile_path.parent
+        args = ["docker", "build"]
+
+        if tag:
+            args.extend(["-t", tag.strip()])
+        if no_cache:
+            args.append("--no-cache")
+        if target:
+            args.extend(["--target", target.strip()])
+        if build_args:
+            for ba in build_args.split("\n"):
+                ba = ba.strip()
+                if ba and "=" in ba:
+                    args.extend(["--build-arg", ba])
+
+        args.append(".")
+
+        try:
+            proc = subprocess.run(
+                args, capture_output=True, text=True, timeout=600,
+                cwd=str(build_dir),
+            )
+            output = proc.stdout + proc.stderr
+            if proc.returncode == 0:
+                return {
+                    "success": True,
+                    "message": "Build completed successfully",
+                    "output": output,
+                }
+            return {
+                "success": False,
+                "error": "Build failed",
+                "output": output,
+            }
+        except subprocess.TimeoutExpired:
+            return {"success": False, "error": "Build timed out (10 min limit)"}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def get_container_top(self, container_id: str) -> Dict[str, Any]:
+        """Return ``docker top`` output — processes running inside a container."""
+        import json as _json
+        import subprocess
+
+        try:
+            proc = subprocess.run(
+                ["docker", "top", container_id.strip(), "-eo", "pid,user,%cpu,%mem,vsz,rss,tty,stat,start,time,command"],
+                capture_output=True, text=True, timeout=10,
+            )
+            if proc.returncode != 0:
+                return {"success": False, "error": proc.stderr.strip()}
+            lines = proc.stdout.strip().splitlines()
+            if len(lines) < 2:
+                return {"success": True, "processes": [], "headers": []}
+            headers = lines[0].split()
+            processes = []
+            for line in lines[1:]:
+                parts = line.split(None, len(headers) - 1)
+                processes.append(parts)
+            return {"success": True, "headers": headers, "processes": processes}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def get_container_diff(self, container_id: str) -> Dict[str, Any]:
+        """Return ``docker diff`` — filesystem changes in a container."""
+        import subprocess
+
+        try:
+            proc = subprocess.run(
+                ["docker", "diff", container_id.strip()],
+                capture_output=True, text=True, timeout=10,
+            )
+            if proc.returncode != 0:
+                return {"success": False, "error": proc.stderr.strip()}
+            changes = []
+            for line in proc.stdout.strip().splitlines():
+                line = line.strip()
+                if not line:
+                    continue
+                kind = line[0]  # A=added, C=changed, D=deleted
+                path = line[2:] if len(line) > 2 else line
+                changes.append({"kind": kind, "path": path})
+            return {"success": True, "changes": changes}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def get_container_stats_stream(self, container_id: str) -> Dict[str, Any]:
+        """Return a single snapshot of ``docker stats`` for one container."""
+        import json as _json
+        import subprocess
+
+        try:
+            proc = subprocess.run(
+                ["docker", "stats", "--no-stream", "--format", "{{json .}}",
+                 container_id.strip()],
+                capture_output=True, text=True, timeout=10,
+            )
+            if proc.returncode != 0:
+                return {"success": False, "error": proc.stderr.strip()}
+            for line in proc.stdout.strip().splitlines():
+                try:
+                    raw = _json.loads(line.strip())
+                    return {
+                        "success": True,
+                        "stats": {
+                            "cpu": raw.get("CPUPerc", "0%"),
+                            "memory": raw.get("MemUsage", ""),
+                            "mem_perc": raw.get("MemPerc", "0%"),
+                            "net_io": raw.get("NetIO", ""),
+                            "block_io": raw.get("BlockIO", ""),
+                            "pids": raw.get("PIDs", ""),
+                        },
+                    }
+                except _json.JSONDecodeError:
+                    continue
+            return {"success": False, "error": "No stats available"}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def get_pods_data(self) -> Dict[str, Any]:
+        """
+        Gather comprehensive Kubernetes pod and manifest data.
+
+        Discovers:
+        - Active pods via ``kubectl get pods``
+        - K8s manifest files from workspace ``k8s/`` directory
+        - Cluster info via ``kubectl cluster-info``
+        - Namespaces, deployments, services, ingresses
+        - Resource quotas and events
+
+        Returns a dict with sections:
+            - kubectl_available: bool
+            - cluster_info: cluster connection details
+            - pods: list of pod dicts with status/resources
+            - deployments: list of deployment dicts
+            - services: list of K8s service dicts
+            - ingresses: list of ingress dicts
+            - namespaces: list of namespace names
+            - manifests: parsed k8s/ directory manifests
+            - events: recent cluster events
+            - error: optional error string
+        """
+        import json as _json
+        import os
+        import re
+        import subprocess
+        from datetime import datetime, timezone
+        from pathlib import Path
+
+        result: Dict[str, Any] = {
+            "kubectl_available": False,
+            "cluster_info": {},
+            "pods": [],
+            "deployments": [],
+            "services": [],
+            "ingresses": [],
+            "namespaces": [],
+            "manifests": [],
+            "events": [],
+            "error": "",
+        }
+
+        def _run_kubectl(*args: str, timeout: int = 10) -> tuple:
+            """Run a kubectl command and return (success, stdout, stderr)."""
+            try:
+                proc = subprocess.run(
+                    ["kubectl", *args],
+                    capture_output=True, text=True, timeout=timeout,
+                )
+                return proc.returncode == 0, proc.stdout.strip(), proc.stderr.strip()
+            except FileNotFoundError:
+                return False, "", "kubectl CLI not found"
+            except subprocess.TimeoutExpired:
+                return False, "", "Command timed out"
+            except Exception as e:
+                return False, "", str(e)
+
+        # ── Check kubectl availability ──
+        ok, ver_out, ver_err = _run_kubectl("version", "--client", "--output=json")
+        if not ok:
+            result["error"] = ver_err or "kubectl is not available"
+            # Still scan manifests even without kubectl
+        else:
+            result["kubectl_available"] = True
+            try:
+                ver_data = _json.loads(ver_out)
+                client_ver = ver_data.get("clientVersion", {})
+                result["cluster_info"]["client_version"] = client_ver.get("gitVersion", "")
+                result["cluster_info"]["platform"] = client_ver.get("platform", "")
+            except _json.JSONDecodeError:
+                result["cluster_info"]["client_version"] = ver_out
+
+        # ── Cluster connection check ──
+        if result["kubectl_available"]:
+            ok, cluster_out, cluster_err = _run_kubectl(
+                "cluster-info", "--request-timeout=5s"
+            )
+            if ok:
+                result["cluster_info"]["connected"] = True
+                result["cluster_info"]["summary"] = cluster_out[:500]
+            else:
+                result["cluster_info"]["connected"] = False
+                result["cluster_info"]["connection_error"] = cluster_err[:200]
+
+            # ── Namespaces ──
+            ok, ns_out, _ = _run_kubectl(
+                "get", "namespaces", "-o",
+                "jsonpath={range .items[*]}{.metadata.name}{\"\\n\"}{end}",
+            )
+            if ok and ns_out:
+                result["namespaces"] = [
+                    n.strip() for n in ns_out.splitlines() if n.strip()
+                ]
+
+            # ── Pods (all namespaces) ──
+            ok, pods_out, _ = _run_kubectl(
+                "get", "pods", "--all-namespaces", "-o", "json",
+                "--request-timeout=8s",
+            )
+            if ok and pods_out:
+                try:
+                    pods_data = _json.loads(pods_out)
+                    for item in pods_data.get("items", []):
+                        meta = item.get("metadata", {})
+                        spec = item.get("spec", {})
+                        status = item.get("status", {})
+
+                        # Container statuses
+                        container_statuses = []
+                        for cs in status.get("containerStatuses", []):
+                            state_info = {}
+                            for st_key in ("running", "waiting", "terminated"):
+                                if st_key in cs.get("state", {}):
+                                    state_info = {"state": st_key,
+                                                  **cs["state"][st_key]}
+                                    break
+                            container_statuses.append({
+                                "name": cs.get("name", ""),
+                                "ready": cs.get("ready", False),
+                                "restart_count": cs.get("restartCount", 0),
+                                "image": cs.get("image", ""),
+                                "state_info": state_info,
+                            })
+
+                        # Resource requests/limits
+                        resources = {}
+                        containers = spec.get("containers", [])
+                        if containers:
+                            res = containers[0].get("resources", {})
+                            resources = {
+                                "requests": res.get("requests", {}),
+                                "limits": res.get("limits", {}),
+                            }
+
+                        phase = status.get("phase", "Unknown")
+                        pod_dict = {
+                            "name": meta.get("name", ""),
+                            "namespace": meta.get("namespace", ""),
+                            "node": spec.get("nodeName", ""),
+                            "phase": phase,
+                            "phase_class": phase.lower(),
+                            "ip": status.get("podIP", ""),
+                            "host_ip": status.get("hostIP", ""),
+                            "start_time": status.get("startTime", ""),
+                            "containers": container_statuses,
+                            "container_count": len(containers),
+                            "ready_count": sum(
+                                1 for cs in container_statuses if cs.get("ready")
+                            ),
+                            "restart_count": sum(
+                                cs.get("restart_count", 0)
+                                for cs in container_statuses
+                            ),
+                            "resources": resources,
+                            "labels": meta.get("labels", {}),
+                            "age": "",
+                        }
+
+                        # Calculate age
+                        start_time = status.get("startTime")
+                        if start_time:
+                            try:
+                                st = datetime.fromisoformat(
+                                    start_time.replace("Z", "+00:00")
+                                )
+                                delta = datetime.now(tz=timezone.utc) - st
+                                pod_dict["age"] = self._format_uptime(
+                                    delta.total_seconds()
+                                )
+                            except Exception:
+                                pass
+
+                        result["pods"].append(pod_dict)
+                except _json.JSONDecodeError:
+                    pass
+
+            # ── Deployments ──
+            ok, dep_out, _ = _run_kubectl(
+                "get", "deployments", "--all-namespaces", "-o", "json",
+                "--request-timeout=8s",
+            )
+            if ok and dep_out:
+                try:
+                    dep_data = _json.loads(dep_out)
+                    for item in dep_data.get("items", []):
+                        meta = item.get("metadata", {})
+                        spec = item.get("spec", {})
+                        status = item.get("status", {})
+                        result["deployments"].append({
+                            "name": meta.get("name", ""),
+                            "namespace": meta.get("namespace", ""),
+                            "replicas": spec.get("replicas", 0),
+                            "ready_replicas": status.get("readyReplicas", 0),
+                            "available_replicas": status.get("availableReplicas", 0),
+                            "updated_replicas": status.get("updatedReplicas", 0),
+                            "strategy": spec.get("strategy", {}).get("type", ""),
+                            "image": "",
+                            "labels": meta.get("labels", {}),
+                        })
+                        # Extract image from first container
+                        containers = (
+                            spec.get("template", {})
+                            .get("spec", {})
+                            .get("containers", [])
+                        )
+                        if containers:
+                            result["deployments"][-1]["image"] = containers[0].get(
+                                "image", ""
+                            )
+                except _json.JSONDecodeError:
+                    pass
+
+            # ── Services ──
+            ok, svc_out, _ = _run_kubectl(
+                "get", "services", "--all-namespaces", "-o", "json",
+                "--request-timeout=8s",
+            )
+            if ok and svc_out:
+                try:
+                    svc_data = _json.loads(svc_out)
+                    for item in svc_data.get("items", []):
+                        meta = item.get("metadata", {})
+                        spec = item.get("spec", {})
+                        ports = []
+                        for p in spec.get("ports", []):
+                            ports.append({
+                                "port": p.get("port"),
+                                "target_port": p.get("targetPort"),
+                                "protocol": p.get("protocol", "TCP"),
+                                "name": p.get("name", ""),
+                            })
+                        result["services"].append({
+                            "name": meta.get("name", ""),
+                            "namespace": meta.get("namespace", ""),
+                            "type": spec.get("type", "ClusterIP"),
+                            "cluster_ip": spec.get("clusterIP", ""),
+                            "external_ip": ", ".join(
+                                spec.get("externalIPs", [])
+                            ) or "—",
+                            "ports": ports,
+                        })
+                except _json.JSONDecodeError:
+                    pass
+
+            # ── Ingresses ──
+            ok, ing_out, _ = _run_kubectl(
+                "get", "ingresses", "--all-namespaces", "-o", "json",
+                "--request-timeout=8s",
+            )
+            if ok and ing_out:
+                try:
+                    ing_data = _json.loads(ing_out)
+                    for item in ing_data.get("items", []):
+                        meta = item.get("metadata", {})
+                        spec = item.get("spec", {})
+                        hosts = []
+                        for rule in spec.get("rules", []):
+                            hosts.append(rule.get("host", ""))
+                        result["ingresses"].append({
+                            "name": meta.get("name", ""),
+                            "namespace": meta.get("namespace", ""),
+                            "hosts": hosts,
+                            "tls": bool(spec.get("tls")),
+                            "class_name": spec.get("ingressClassName", ""),
+                        })
+                except _json.JSONDecodeError:
+                    pass
+
+            # ── Recent events (last 20) ──
+            ok, evt_out, _ = _run_kubectl(
+                "get", "events", "--all-namespaces",
+                "--sort-by=.metadata.creationTimestamp",
+                "-o", "json", "--request-timeout=8s",
+            )
+            if ok and evt_out:
+                try:
+                    evt_data = _json.loads(evt_out)
+                    items = evt_data.get("items", [])[-20:]
+                    for item in items:
+                        meta = item.get("metadata", {})
+                        result["events"].append({
+                            "type": item.get("type", "Normal"),
+                            "reason": item.get("reason", ""),
+                            "message": (item.get("message", "") or "")[:200],
+                            "namespace": meta.get("namespace", ""),
+                            "object": (
+                                item.get("involvedObject", {}).get("name", "")
+                            ),
+                            "timestamp": item.get("lastTimestamp")
+                            or meta.get("creationTimestamp", ""),
+                        })
+                except _json.JSONDecodeError:
+                    pass
+
+        # ── K8s manifest file analysis (always, even without kubectl) ──
+        k8s_dir = self._find_workspace_path("k8s")
+        if k8s_dir and k8s_dir.is_dir():
+            for fpath in sorted(k8s_dir.iterdir()):
+                if fpath.suffix in (".yaml", ".yml") and fpath.is_file():
+                    try:
+                        content = fpath.read_text(
+                            encoding="utf-8", errors="replace"
+                        )
+                        # Extract kind from YAML
+                        kind_match = re.search(
+                            r'^kind:\s*(\S+)', content, re.MULTILINE,
+                        )
+                        name_match = re.search(
+                            r'^\s+name:\s*(\S+)', content, re.MULTILINE,
+                        )
+                        result["manifests"].append({
+                            "filename": fpath.name,
+                            "kind": kind_match.group(1) if kind_match else "Unknown",
+                            "name": name_match.group(1) if name_match else "",
+                            "size": f"{fpath.stat().st_size / 1024:.1f} KB",
+                            "content": content,
+                        })
+                    except Exception:
+                        result["manifests"].append({
+                            "filename": fpath.name,
+                            "kind": "Unknown",
+                            "name": "",
+                            "size": "?",
+                            "content": "",
+                        })
+
+        return result
+
     def get_workspace_data(self) -> Dict[str, Any]:
         """
         Gather comprehensive workspace data for the admin workspace page.
@@ -1568,9 +3324,8 @@ class AdminSite:
 
         roles = []
         role_descriptions = {
-            AdminRole.SUPERADMIN: "Full access to everything -- all admin operations.",
-            AdminRole.ADMIN: "Full CRUD on all models, audit log, user management.",
-            AdminRole.STAFF: "View and edit access -- no delete by default.",
+            AdminRole.SUPERADMIN: "Full access to everything -- all admin operations, user management.",
+            AdminRole.STAFF: "Full CRUD on models, audit log, exports, bulk actions.",
             AdminRole.VIEWER: "Read-only access to admin dashboard and data.",
         }
 

@@ -866,7 +866,8 @@ class Integration:
 
         __slots__ = ("_dashboard", "_orm", "_build", "_migrations",
                      "_config", "_workspace", "_permissions",
-                     "_monitoring", "_admin_users", "_profile", "_audit")
+                     "_monitoring", "_admin_users", "_profile", "_audit",
+                     "_containers", "_pods")
 
         def __init__(self) -> None:
             self._dashboard: bool = True
@@ -880,6 +881,8 @@ class Integration:
             self._admin_users: bool = True
             self._profile: bool = True
             self._audit: bool = False         # disabled by default
+            self._containers: bool = False    # disabled by default
+            self._pods: bool = False           # disabled by default
 
         # ── Dashboard ──
         def enable_dashboard(self) -> "Integration.AdminModules":
@@ -991,6 +994,28 @@ class Integration:
             self._profile = False
             return self
 
+        # ── Containers ──
+        def enable_containers(self) -> "Integration.AdminModules":
+            """Show the Containers page (Docker containers, compose, images)."""
+            self._containers = True
+            return self
+
+        def disable_containers(self) -> "Integration.AdminModules":
+            """Hide the Containers page."""
+            self._containers = False
+            return self
+
+        # ── Pods ──
+        def enable_pods(self) -> "Integration.AdminModules":
+            """Show the Pods page (Kubernetes pods, deployments, services)."""
+            self._pods = True
+            return self
+
+        def disable_pods(self) -> "Integration.AdminModules":
+            """Hide the Pods page."""
+            self._pods = False
+            return self
+
         # ── Audit (disabled by default) ──
         def enable_audit(self) -> "Integration.AdminModules":
             """Show the Audit Log page. Disabled by default -- opt in."""
@@ -1029,6 +1054,8 @@ class Integration:
                 "admin_users": self._admin_users,
                 "profile": self._profile,
                 "audit": self._audit,
+                "containers": self._containers,
+                "pods": self._pods,
             }
 
         def __repr__(self) -> str:
@@ -1233,12 +1260,13 @@ class Integration:
             )
         """
 
-        __slots__ = ("_overview", "_data", "_system", "_security", "_models")
+        __slots__ = ("_overview", "_data", "_system", "_infrastructure", "_security", "_models")
 
         def __init__(self) -> None:
             self._overview: bool = True
             self._data: bool = True
             self._system: bool = True
+            self._infrastructure: bool = True
             self._security: bool = True
             self._models: bool = True
 
@@ -1270,6 +1298,16 @@ class Integration:
         def hide_system(self) -> "Integration.AdminSidebar":
             """Hide the System section."""
             self._system = False
+            return self
+
+        def show_infrastructure(self) -> "Integration.AdminSidebar":
+            """Show the Infrastructure section (Containers, Pods)."""
+            self._infrastructure = True
+            return self
+
+        def hide_infrastructure(self) -> "Integration.AdminSidebar":
+            """Hide the Infrastructure section."""
+            self._infrastructure = False
             return self
 
         def show_security(self) -> "Integration.AdminSidebar":
@@ -1310,6 +1348,7 @@ class Integration:
                 "overview": self._overview,
                 "data": self._data,
                 "system": self._system,
+                "infrastructure": self._infrastructure,
                 "security": self._security,
                 "models": self._models,
             }
@@ -1317,6 +1356,414 @@ class Integration:
         def __repr__(self) -> str:
             visible = [k for k, v in self.to_dict().items() if v]
             return f"AdminSidebar(visible={visible})"
+
+    class AdminContainers:
+        """
+        Fluent builder for admin Containers (Docker) page configuration.
+
+        Controls Docker integration behaviour: socket path, allowed
+        lifecycle actions, log tail limits, auto-refresh intervals,
+        and compose file discovery.
+
+        **Disabled by default** — opt in via ``AdminModules.enable_containers()``.
+
+        Example::
+
+            containers = (
+                Integration.AdminContainers()
+                .docker_socket("/var/run/docker.sock")
+                .allowed_actions("start", "stop", "restart", "logs")
+                .log_tail(500)
+                .refresh_interval(10)
+                .compose_files("docker-compose.yml", "docker-compose.prod.yml")
+            )
+        """
+
+        __slots__ = (
+            "_docker_host", "_allowed_actions", "_denied_actions",
+            "_log_tail", "_log_since", "_refresh_interval",
+            "_compose_files", "_compose_project_dir",
+            "_show_system_containers", "_enable_exec",
+            "_enable_prune", "_enable_build", "_enable_export",
+            "_enable_image_actions", "_enable_volume_actions",
+            "_enable_network_actions",
+        )
+
+        _ALL_ACTIONS = [
+            "start", "stop", "restart", "pause", "unpause",
+            "kill", "rm", "logs", "inspect", "exec", "export",
+        ]
+
+        def __init__(self) -> None:
+            self._docker_host: Optional[str] = None   # None = auto-detect
+            self._allowed_actions: List[str] = list(self._ALL_ACTIONS)
+            self._denied_actions: List[str] = []
+            self._log_tail: int = 200
+            self._log_since: str = ""
+            self._refresh_interval: int = 15
+            self._compose_files: List[str] = []
+            self._compose_project_dir: Optional[str] = None
+            self._show_system_containers: bool = False
+            self._enable_exec: bool = True
+            self._enable_prune: bool = True
+            self._enable_build: bool = True
+            self._enable_export: bool = True
+            self._enable_image_actions: bool = True
+            self._enable_volume_actions: bool = True
+            self._enable_network_actions: bool = True
+
+        def docker_host(self, host: str) -> "Integration.AdminContainers":
+            """Set Docker host (e.g. ``unix:///var/run/docker.sock`` or ``tcp://host:2375``)."""
+            self._docker_host = host
+            return self
+
+        def docker_socket(self, path: str) -> "Integration.AdminContainers":
+            """Shorthand for ``docker_host('unix://<path>')``."""
+            self._docker_host = f"unix://{path}"
+            return self
+
+        def allowed_actions(self, *actions: str) -> "Integration.AdminContainers":
+            """Set which container lifecycle actions are permitted."""
+            self._allowed_actions = list(actions)
+            return self
+
+        def deny_actions(self, *actions: str) -> "Integration.AdminContainers":
+            """Deny specific actions (subtracted from allowed)."""
+            self._denied_actions = list(actions)
+            return self
+
+        def log_tail(self, lines: int) -> "Integration.AdminContainers":
+            """Default number of log lines to fetch (default 200)."""
+            self._log_tail = max(10, int(lines))
+            return self
+
+        def log_since(self, since: str) -> "Integration.AdminContainers":
+            """Default ``--since`` value for log fetching (e.g. ``'1h'``, ``'30m'``)."""
+            self._log_since = since
+            return self
+
+        def refresh_interval(self, seconds: int) -> "Integration.AdminContainers":
+            """Auto-refresh interval for container metrics (min 5s)."""
+            self._refresh_interval = max(5, int(seconds))
+            return self
+
+        def compose_files(self, *files: str) -> "Integration.AdminContainers":
+            """Explicit compose file paths to discover."""
+            self._compose_files = list(files)
+            return self
+
+        def compose_project_dir(self, path: str) -> "Integration.AdminContainers":
+            """Set the compose project directory."""
+            self._compose_project_dir = path
+            return self
+
+        def show_system_containers(self, enabled: bool = True) -> "Integration.AdminContainers":
+            """Show Docker system / infra containers (hidden by default)."""
+            self._show_system_containers = enabled
+            return self
+
+        def enable_exec(self, enabled: bool = True) -> "Integration.AdminContainers":
+            """Allow ``docker exec`` from the admin UI."""
+            self._enable_exec = enabled
+            return self
+
+        def disable_exec(self) -> "Integration.AdminContainers":
+            """Disable ``docker exec`` in the admin UI."""
+            self._enable_exec = False
+            return self
+
+        def enable_prune(self, enabled: bool = True) -> "Integration.AdminContainers":
+            """Allow ``docker system prune`` from the admin UI."""
+            self._enable_prune = enabled
+            return self
+
+        def disable_prune(self) -> "Integration.AdminContainers":
+            """Disable prune operations."""
+            self._enable_prune = False
+            return self
+
+        def enable_build(self, enabled: bool = True) -> "Integration.AdminContainers":
+            """Allow ``docker build`` / ``compose build`` from the admin UI."""
+            self._enable_build = enabled
+            return self
+
+        def disable_build(self) -> "Integration.AdminContainers":
+            """Disable build operations."""
+            self._enable_build = False
+            return self
+
+        def enable_export(self, enabled: bool = True) -> "Integration.AdminContainers":
+            """Allow container filesystem export."""
+            self._enable_export = enabled
+            return self
+
+        def disable_export(self) -> "Integration.AdminContainers":
+            """Disable container export."""
+            self._enable_export = False
+            return self
+
+        def enable_image_actions(self, enabled: bool = True) -> "Integration.AdminContainers":
+            """Allow image pull / remove / tag operations."""
+            self._enable_image_actions = enabled
+            return self
+
+        def disable_image_actions(self) -> "Integration.AdminContainers":
+            """Disable image operations."""
+            self._enable_image_actions = False
+            return self
+
+        def enable_volume_actions(self, enabled: bool = True) -> "Integration.AdminContainers":
+            """Allow volume create / remove operations."""
+            self._enable_volume_actions = enabled
+            return self
+
+        def disable_volume_actions(self) -> "Integration.AdminContainers":
+            """Disable volume operations."""
+            self._enable_volume_actions = False
+            return self
+
+        def enable_network_actions(self, enabled: bool = True) -> "Integration.AdminContainers":
+            """Allow network create / remove operations."""
+            self._enable_network_actions = enabled
+            return self
+
+        def disable_network_actions(self) -> "Integration.AdminContainers":
+            """Disable network operations."""
+            self._enable_network_actions = False
+            return self
+
+        def read_only(self) -> "Integration.AdminContainers":
+            """Convenience -- disable all mutating operations."""
+            self._allowed_actions = ["logs", "inspect"]
+            self._enable_exec = False
+            self._enable_prune = False
+            self._enable_build = False
+            self._enable_export = False
+            self._enable_image_actions = False
+            self._enable_volume_actions = False
+            self._enable_network_actions = False
+            return self
+
+        def to_dict(self) -> Dict[str, Any]:
+            """Serialize to a dict consumed by AdminConfig."""
+            effective_actions = [
+                a for a in self._allowed_actions
+                if a not in self._denied_actions
+            ]
+            return {
+                "docker_host": self._docker_host,
+                "allowed_actions": effective_actions,
+                "log_tail": self._log_tail,
+                "log_since": self._log_since,
+                "refresh_interval": self._refresh_interval,
+                "compose_files": self._compose_files,
+                "compose_project_dir": self._compose_project_dir,
+                "show_system_containers": self._show_system_containers,
+                "capabilities": {
+                    "exec": self._enable_exec,
+                    "prune": self._enable_prune,
+                    "build": self._enable_build,
+                    "export": self._enable_export,
+                    "image_actions": self._enable_image_actions,
+                    "volume_actions": self._enable_volume_actions,
+                    "network_actions": self._enable_network_actions,
+                },
+            }
+
+        def __repr__(self) -> str:
+            return f"AdminContainers(host={self._docker_host!r}, refresh={self._refresh_interval}s)"
+
+    class AdminPods:
+        """
+        Fluent builder for admin Pods (Kubernetes) page configuration.
+
+        Controls kubectl integration behaviour: kubeconfig path,
+        target namespace, allowed resource types, refresh intervals,
+        and manifest file discovery.
+
+        **Disabled by default** — opt in via ``AdminModules.enable_pods()``.
+
+        Example::
+
+            pods = (
+                Integration.AdminPods()
+                .kubeconfig("~/.kube/config")
+                .namespace("production")
+                .contexts("gke-prod", "gke-staging")
+                .resources("pods", "deployments", "services", "ingresses")
+                .manifest_dirs("k8s", "deploy/k8s")
+                .refresh_interval(15)
+            )
+        """
+
+        _ALL_RESOURCES = [
+            "pods", "deployments", "services", "ingresses",
+            "configmaps", "secrets", "namespaces", "events",
+            "daemonsets", "statefulsets", "jobs", "cronjobs",
+            "persistentvolumeclaims", "nodes",
+        ]
+
+        __slots__ = (
+            "_kubeconfig", "_namespace", "_contexts",
+            "_resources", "_manifest_dirs", "_manifest_patterns",
+            "_refresh_interval", "_enable_logs", "_enable_exec",
+            "_enable_delete", "_enable_scale", "_enable_restart",
+            "_enable_apply", "_log_tail",
+        )
+
+        def __init__(self) -> None:
+            self._kubeconfig: Optional[str] = None   # None = auto-detect
+            self._namespace: str = "default"
+            self._contexts: List[str] = []
+            self._resources: List[str] = list(self._ALL_RESOURCES)
+            self._manifest_dirs: List[str] = ["k8s"]
+            self._manifest_patterns: List[str] = ["*.yaml", "*.yml"]
+            self._refresh_interval: int = 15
+            self._enable_logs: bool = True
+            self._enable_exec: bool = True
+            self._enable_delete: bool = True
+            self._enable_scale: bool = True
+            self._enable_restart: bool = True
+            self._enable_apply: bool = True
+            self._log_tail: int = 200
+
+        def kubeconfig(self, path: str) -> "Integration.AdminPods":
+            """Set path to kubeconfig file."""
+            self._kubeconfig = path
+            return self
+
+        def namespace(self, ns: str) -> "Integration.AdminPods":
+            """Set the target Kubernetes namespace (default ``"default"``)."""
+            self._namespace = ns
+            return self
+
+        def all_namespaces(self) -> "Integration.AdminPods":
+            """Query all namespaces."""
+            self._namespace = "*"
+            return self
+
+        def contexts(self, *names: str) -> "Integration.AdminPods":
+            """Set allowed kubectl contexts."""
+            self._contexts = list(names)
+            return self
+
+        def resources(self, *types: str) -> "Integration.AdminPods":
+            """Set which K8s resource types to display."""
+            self._resources = list(types) if types else list(self._ALL_RESOURCES)
+            return self
+
+        def all_resources(self) -> "Integration.AdminPods":
+            """Display every supported K8s resource type."""
+            self._resources = list(self._ALL_RESOURCES)
+            return self
+
+        def manifest_dirs(self, *dirs: str) -> "Integration.AdminPods":
+            """Set directories to scan for K8s manifest files."""
+            self._manifest_dirs = list(dirs)
+            return self
+
+        def manifest_patterns(self, *patterns: str) -> "Integration.AdminPods":
+            """Set glob patterns for manifest files (default ``*.yaml``, ``*.yml``)."""
+            self._manifest_patterns = list(patterns)
+            return self
+
+        def refresh_interval(self, seconds: int) -> "Integration.AdminPods":
+            """Auto-refresh interval for pod metrics (min 5s)."""
+            self._refresh_interval = max(5, int(seconds))
+            return self
+
+        def log_tail(self, lines: int) -> "Integration.AdminPods":
+            """Default number of log lines to fetch."""
+            self._log_tail = max(10, int(lines))
+            return self
+
+        def enable_logs(self, enabled: bool = True) -> "Integration.AdminPods":
+            """Allow pod log viewing."""
+            self._enable_logs = enabled
+            return self
+
+        def enable_exec(self, enabled: bool = True) -> "Integration.AdminPods":
+            """Allow ``kubectl exec`` from the admin UI."""
+            self._enable_exec = enabled
+            return self
+
+        def disable_exec(self) -> "Integration.AdminPods":
+            """Disable ``kubectl exec``."""
+            self._enable_exec = False
+            return self
+
+        def enable_delete(self, enabled: bool = True) -> "Integration.AdminPods":
+            """Allow resource deletion."""
+            self._enable_delete = enabled
+            return self
+
+        def disable_delete(self) -> "Integration.AdminPods":
+            """Disable resource deletion."""
+            self._enable_delete = False
+            return self
+
+        def enable_scale(self, enabled: bool = True) -> "Integration.AdminPods":
+            """Allow deployment scaling."""
+            self._enable_scale = enabled
+            return self
+
+        def disable_scale(self) -> "Integration.AdminPods":
+            """Disable deployment scaling."""
+            self._enable_scale = False
+            return self
+
+        def enable_restart(self, enabled: bool = True) -> "Integration.AdminPods":
+            """Allow deployment rollout restart."""
+            self._enable_restart = enabled
+            return self
+
+        def disable_restart(self) -> "Integration.AdminPods":
+            """Disable rollout restart."""
+            self._enable_restart = False
+            return self
+
+        def enable_apply(self, enabled: bool = True) -> "Integration.AdminPods":
+            """Allow ``kubectl apply -f`` from the admin UI."""
+            self._enable_apply = enabled
+            return self
+
+        def disable_apply(self) -> "Integration.AdminPods":
+            """Disable ``kubectl apply``."""
+            self._enable_apply = False
+            return self
+
+        def read_only(self) -> "Integration.AdminPods":
+            """Convenience -- disable all mutating operations."""
+            self._enable_exec = False
+            self._enable_delete = False
+            self._enable_scale = False
+            self._enable_restart = False
+            self._enable_apply = False
+            return self
+
+        def to_dict(self) -> Dict[str, Any]:
+            """Serialize to a dict consumed by AdminConfig."""
+            return {
+                "kubeconfig": self._kubeconfig,
+                "namespace": self._namespace,
+                "contexts": self._contexts,
+                "resources": self._resources,
+                "manifest_dirs": self._manifest_dirs,
+                "manifest_patterns": self._manifest_patterns,
+                "refresh_interval": self._refresh_interval,
+                "log_tail": self._log_tail,
+                "capabilities": {
+                    "logs": self._enable_logs,
+                    "exec": self._enable_exec,
+                    "delete": self._enable_delete,
+                    "scale": self._enable_scale,
+                    "restart": self._enable_restart,
+                    "apply": self._enable_apply,
+                },
+            }
+
+        def __repr__(self) -> str:
+            return f"AdminPods(ns={self._namespace!r}, refresh={self._refresh_interval}s)"
 
     @staticmethod
     def admin(
@@ -1332,6 +1779,8 @@ class Integration:
         audit: Optional["Integration.AdminAudit"] = None,
         monitoring: Optional["Integration.AdminMonitoring"] = None,
         sidebar: Optional["Integration.AdminSidebar"] = None,
+        containers: Optional["Integration.AdminContainers"] = None,
+        pods: Optional["Integration.AdminPods"] = None,
         # ── Legacy flat params (backward compat) ─────────────────
         enable_audit: Optional[bool] = None,
         audit_max_entries: int = 10_000,
@@ -1344,6 +1793,8 @@ class Integration:
         enable_permissions: Optional[bool] = None,
         enable_monitoring: Optional[bool] = None,
         enable_admin_users: Optional[bool] = None,
+        enable_containers: Optional[bool] = None,
+        enable_pods: Optional[bool] = None,
         enable_profile: Optional[bool] = None,
         audit_log_logins: Optional[bool] = None,
         audit_log_views: Optional[bool] = None,
@@ -1439,6 +1890,8 @@ class Integration:
                 "admin_users": enable_admin_users if enable_admin_users is not None else True,
                 "profile": enable_profile if enable_profile is not None else True,
                 "audit": enable_audit if enable_audit is not None else False,
+                "containers": enable_containers if enable_containers is not None else False,
+                "pods": enable_pods if enable_pods is not None else False,
             }
 
         # ── Resolve audit ────────────────────────────────────────────
@@ -1488,13 +1941,60 @@ class Integration:
         else:
             _default_sidebar = {
                 "overview": True, "data": True, "system": True,
-                "security": True, "models": True,
+                "infrastructure": True, "security": True, "models": True,
             }
             sidebar_dict = {**_default_sidebar}
             if sidebar_sections:
                 for k, v in sidebar_sections.items():
                     if k in sidebar_dict:
                         sidebar_dict[k] = bool(v)
+
+        # ── Resolve containers config ─────────────────────────────
+        if containers is not None:
+            containers_dict = containers.to_dict()
+        else:
+            containers_dict = {
+                "docker_host": None,
+                "allowed_actions": [
+                    "start", "stop", "restart", "pause", "unpause",
+                    "kill", "rm", "logs", "inspect", "exec", "export",
+                ],
+                "log_tail": 200,
+                "log_since": "",
+                "refresh_interval": 15,
+                "compose_files": [],
+                "compose_project_dir": None,
+                "show_system_containers": False,
+                "capabilities": {
+                    "exec": True, "prune": True, "build": True,
+                    "export": True, "image_actions": True,
+                    "volume_actions": True, "network_actions": True,
+                },
+            }
+
+        # ── Resolve pods config ──────────────────────────────────────
+        if pods is not None:
+            pods_dict = pods.to_dict()
+        else:
+            pods_dict = {
+                "kubeconfig": None,
+                "namespace": "default",
+                "contexts": [],
+                "resources": [
+                    "pods", "deployments", "services", "ingresses",
+                    "configmaps", "secrets", "namespaces", "events",
+                    "daemonsets", "statefulsets", "jobs", "cronjobs",
+                    "persistentvolumeclaims", "nodes",
+                ],
+                "manifest_dirs": ["k8s"],
+                "manifest_patterns": ["*.yaml", "*.yml"],
+                "refresh_interval": 15,
+                "log_tail": 200,
+                "capabilities": {
+                    "logs": True, "exec": True, "delete": True,
+                    "scale": True, "restart": True, "apply": True,
+                },
+            }
 
         return {
             "_integration_type": "admin",
@@ -1511,6 +2011,8 @@ class Integration:
             "modules": mod_dict,
             "audit_config": audit_dict,
             "monitoring_config": mon_dict,
+            "containers_config": containers_dict,
+            "pods_config": pods_dict,
             "sidebar_sections": sidebar_dict,
             **kwargs,
         }

@@ -5,9 +5,8 @@ Integrates with Aquilia Auth RBAC/ABAC for admin access control.
 Defines standard admin roles and per-model permission checks.
 
 Admin Roles:
-    - superadmin: Full access to everything
-    - admin: Full CRUD on all models, audit log access
-    - staff: View + edit access (no delete by default)
+    - superadmin: Full access to everything including user management
+    - staff: Full CRUD on models, audit log, exports
     - viewer: Read-only access to admin dashboard
 """
 
@@ -21,9 +20,14 @@ if TYPE_CHECKING:
 
 
 class AdminRole(str, Enum):
-    """Built-in admin roles with hierarchical permissions."""
+    """Built-in admin roles with hierarchical permissions.
+
+    Only three tiers:
+    - **superadmin** – unrestricted, can manage users & system.
+    - **staff**      – day-to-day CRUD, exports, bulk actions.
+    - **viewer**     – read-only dashboard access.
+    """
     SUPERADMIN = "superadmin"
-    ADMIN = "admin"
     STAFF = "staff"
     VIEWER = "viewer"
 
@@ -33,7 +37,6 @@ class AdminRole(str, Enum):
         return {
             AdminRole.VIEWER: 10,
             AdminRole.STAFF: 20,
-            AdminRole.ADMIN: 30,
             AdminRole.SUPERADMIN: 40,
         }[self]
 
@@ -74,19 +77,10 @@ ROLE_PERMISSIONS: dict[AdminRole, set[AdminPermission]] = {
         AdminPermission.MODEL_VIEW,
         AdminPermission.MODEL_ADD,
         AdminPermission.MODEL_CHANGE,
-        AdminPermission.MODEL_EXPORT,
-        AdminPermission.ACTION_EXECUTE,
-    },
-    AdminRole.ADMIN: {
-        AdminPermission.DASHBOARD_VIEW,
-        AdminPermission.MODEL_VIEW,
-        AdminPermission.MODEL_ADD,
-        AdminPermission.MODEL_CHANGE,
         AdminPermission.MODEL_DELETE,
         AdminPermission.MODEL_EXPORT,
         AdminPermission.ACTION_EXECUTE,
         AdminPermission.AUDIT_VIEW,
-        AdminPermission.USER_MANAGE,
     },
     AdminRole.SUPERADMIN: set(AdminPermission),  # All permissions
 }
@@ -108,6 +102,9 @@ def get_admin_role(identity: Optional["Identity"]) -> Optional[AdminRole]:
     # Check explicit admin_role attribute
     admin_role = identity.get_attribute("admin_role")
     if admin_role:
+        # Legacy: "admin" role maps to STAFF (admin tier was removed)
+        if admin_role == "admin":
+            return AdminRole.STAFF
         try:
             return AdminRole(admin_role)
         except ValueError:
@@ -117,9 +114,7 @@ def get_admin_role(identity: Optional["Identity"]) -> Optional[AdminRole]:
     roles = identity.get_attribute("roles", [])
     if "superadmin" in roles or "super_admin" in roles:
         return AdminRole.SUPERADMIN
-    if "admin" in roles:
-        return AdminRole.ADMIN
-    if "staff" in roles:
+    if "admin" in roles or "staff" in roles:
         return AdminRole.STAFF
     if "viewer" in roles:
         return AdminRole.VIEWER

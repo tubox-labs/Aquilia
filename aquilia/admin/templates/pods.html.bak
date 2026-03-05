@@ -1,0 +1,758 @@
+{% extends "base.html" %}
+{% block title %}Pods{% endblock %}
+{% block breadcrumb %}Pods{% endblock %}
+
+{% block extra_head %}
+<style>
+/* ── Pods page styles ── */
+.k8s-tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 24px;
+    overflow-x: auto;
+}
+.k8s-tab {
+    padding: 10px 20px;
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s var(--ease);
+    white-space: nowrap;
+    background: none;
+    border-top: none;
+    border-left: none;
+    border-right: none;
+    font-family: var(--font-sans);
+}
+.k8s-tab:hover { color: var(--text-secondary); }
+.k8s-tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+}
+.k8s-tab-panel { display: none; }
+.k8s-tab-panel.active { display: block; }
+
+.k8s-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 14px;
+    margin-bottom: 28px;
+}
+.k8s-stat {
+    background: var(--bg-glass);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    padding: 18px 16px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.25s var(--ease), transform 0.18s var(--ease);
+}
+.k8s-stat:hover {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+}
+.k8s-stat::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    border-radius: var(--radius) var(--radius) 0 0;
+    opacity: 0.8;
+}
+.k8s-stat[data-color="green"]::before  { background: linear-gradient(90deg, #22c55e, #16a34a); }
+.k8s-stat[data-color="blue"]::before   { background: linear-gradient(90deg, #3b82f6, #2563eb); }
+.k8s-stat[data-color="amber"]::before  { background: linear-gradient(90deg, #f59e0b, #d97706); }
+.k8s-stat[data-color="purple"]::before { background: linear-gradient(90deg, #a855f7, #7c3aed); }
+.k8s-stat[data-color="cyan"]::before   { background: linear-gradient(90deg, #06b6d4, #0891b2); }
+.k8s-stat[data-color="rose"]::before   { background: linear-gradient(90deg, #f43f5e, #e11d48); }
+.k8s-stat-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1.2;
+    margin-bottom: 4px;
+    font-variant-numeric: tabular-nums;
+}
+.k8s-stat-label {
+    font-size: 0.68rem;
+    color: var(--text-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 500;
+}
+
+.pod-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.82rem;
+}
+.pod-table th {
+    text-align: left;
+    padding: 10px 14px;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-faint);
+    border-bottom: 1px solid var(--border-color);
+    font-weight: 600;
+    white-space: nowrap;
+}
+.pod-table td {
+    padding: 10px 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    color: var(--text-secondary);
+    vertical-align: middle;
+}
+.pod-table tr:hover td {
+    background: rgba(34,197,94,0.03);
+}
+
+.phase-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.phase-running    { background: rgba(34,197,94,0.15); color: #22c55e; }
+.phase-succeeded  { background: rgba(59,130,246,0.15); color: #60a5fa; }
+.phase-pending    { background: rgba(245,158,11,0.15); color: #f59e0b; }
+.phase-failed     { background: rgba(239,68,68,0.15); color: #ef4444; }
+.phase-unknown    { background: rgba(113,113,122,0.15); color: #71717a; }
+.phase-completed  { background: rgba(59,130,246,0.15); color: #60a5fa; }
+
+.pod-name {
+    font-weight: 600;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.pod-name .phase-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+.phase-dot.running   { background: #22c55e; box-shadow: 0 0 6px rgba(34,197,94,0.5); }
+.phase-dot.succeeded { background: #3b82f6; }
+.phase-dot.pending   { background: #f59e0b; animation: k8sblink 1.2s infinite; }
+.phase-dot.failed    { background: #ef4444; }
+.phase-dot.unknown   { background: #71717a; }
+.phase-dot.completed { background: #3b82f6; }
+
+@keyframes k8sblink { 50% { opacity: 0.4; } }
+
+.ns-tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-family: var(--font-mono, 'Space Mono', monospace);
+    background: rgba(168,85,247,0.1);
+    color: #c084fc;
+}
+.port-tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-family: var(--font-mono, 'Space Mono', monospace);
+    background: rgba(59,130,246,0.1);
+    color: #60a5fa;
+    margin: 1px 2px;
+}
+.restart-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 600;
+}
+.restart-badge.zero { background: rgba(34,197,94,0.08); color: #22c55e; }
+.restart-badge.low  { background: rgba(245,158,11,0.12); color: #f59e0b; }
+.restart-badge.high { background: rgba(239,68,68,0.12); color: #ef4444; }
+
+.k8s-unavailable {
+    background: rgba(59,130,246,0.08);
+    border: 1px solid rgba(59,130,246,0.2);
+    border-radius: var(--radius);
+    padding: 32px;
+    text-align: center;
+}
+.k8s-unavailable h3 {
+    color: #3b82f6;
+    margin-bottom: 8px;
+}
+.k8s-unavailable p {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    max-width: 500px;
+    margin: 0 auto;
+}
+.k8s-unavailable code {
+    background: var(--bg-input);
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+}
+
+.manifest-card {
+    background: var(--bg-glass);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    padding: 14px 18px;
+    margin-bottom: 10px;
+    transition: border-color 0.2s var(--ease);
+}
+.manifest-card:hover { border-color: var(--accent); }
+.manifest-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+}
+.manifest-title {
+    font-weight: 600;
+    font-size: 0.88rem;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.manifest-kind {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 4px;
+    font-size: 0.68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+.manifest-kind.namespace   { background: rgba(168,85,247,0.1); color: #c084fc; }
+.manifest-kind.deployment  { background: rgba(34,197,94,0.1);  color: #22c55e; }
+.manifest-kind.service     { background: rgba(59,130,246,0.1); color: #60a5fa; }
+.manifest-kind.configmap   { background: rgba(245,158,11,0.1); color: #f59e0b; }
+.manifest-kind.secret      { background: rgba(239,68,68,0.1);  color: #ef4444; }
+.manifest-kind.ingress     { background: rgba(6,182,212,0.1);  color: #06b6d4; }
+.manifest-kind.default     { background: rgba(113,113,122,0.1);color: #a1a1aa; }
+.manifest-content {
+    display: none;
+    margin-top: 12px;
+    padding: 12px;
+    background: var(--bg-primary);
+    border-radius: 8px;
+    overflow-x: auto;
+    font-size: 0.75rem;
+    font-family: var(--font-mono, 'Space Mono', monospace);
+    line-height: 1.6;
+    color: var(--text-secondary);
+    max-height: 400px;
+    overflow-y: auto;
+}
+.manifest-content.open { display: block; }
+
+.event-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    font-size: 0.8rem;
+}
+.event-type {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    flex-shrink: 0;
+}
+.event-type.normal  { background: rgba(34,197,94,0.1); color: #22c55e; }
+.event-type.warning { background: rgba(245,158,11,0.1); color: #f59e0b; }
+.event-type.error   { background: rgba(239,68,68,0.1); color: #ef4444; }
+
+.infra-section-title {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 14px;
+    margin-top: 24px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.infra-section-title i { font-size: 14px; color: var(--accent); }
+
+.empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-muted);
+}
+.empty-state-icon {
+    font-size: 2.5rem;
+    opacity: 0.15;
+    margin-bottom: 12px;
+}
+.empty-state p { font-size: 0.85rem; }
+
+@media (max-width: 768px) {
+    .k8s-grid { grid-template-columns: repeat(2, 1fr); }
+    .pod-table { font-size: 0.75rem; }
+    .pod-table th, .pod-table td { padding: 8px 10px; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1><i class="icon-cloud" style="font-size:1.2em;vertical-align:-2px;margin-right:6px;"></i> Kubernetes Pods</h1>
+    <p>Pod tracking, deployments, services &amp; manifest management.</p>
+</div>
+
+{# ── Stats Overview ── #}
+{% set running_pods = pods|selectattr('phase', 'equalto', 'Running')|list|length %}
+{% set pending_pods = pods|selectattr('phase', 'equalto', 'Pending')|list|length %}
+{% set failed_pods  = pods|selectattr('phase', 'equalto', 'Failed')|list|length %}
+{% set total_restarts = pods|sum(attribute='restart_count') %}
+
+<div class="k8s-grid">
+    <div class="k8s-stat" data-color="green">
+        <div class="k8s-stat-value">{{ pods|length }}</div>
+        <div class="k8s-stat-label">Total Pods</div>
+    </div>
+    <div class="k8s-stat" data-color="blue">
+        <div class="k8s-stat-value">{{ running_pods }}</div>
+        <div class="k8s-stat-label">Running</div>
+    </div>
+    <div class="k8s-stat" data-color="amber">
+        <div class="k8s-stat-value">{{ pending_pods }}</div>
+        <div class="k8s-stat-label">Pending</div>
+    </div>
+    <div class="k8s-stat" data-color="rose">
+        <div class="k8s-stat-value">{{ failed_pods }}</div>
+        <div class="k8s-stat-label">Failed</div>
+    </div>
+    <div class="k8s-stat" data-color="purple">
+        <div class="k8s-stat-value">{{ deployments|length }}</div>
+        <div class="k8s-stat-label">Deployments</div>
+    </div>
+    <div class="k8s-stat" data-color="cyan">
+        <div class="k8s-stat-value">{{ manifests|length }}</div>
+        <div class="k8s-stat-label">Manifests</div>
+    </div>
+</div>
+
+{% if not kubectl_available %}
+{# ── kubectl Not Available ── #}
+<div class="k8s-unavailable">
+    <div style="font-size:3rem;opacity:0.2;margin-bottom:12px;">☸️</div>
+    <h3>kubectl Not Available</h3>
+    <p>{{ error or 'kubectl CLI is not installed or not in PATH.' }}</p>
+    <p style="margin-top:12px;">
+        Install kubectl: <code>brew install kubectl</code> or visit
+        <a href="https://kubernetes.io/docs/tasks/tools/" target="_blank" rel="noopener">kubernetes.io</a>
+    </p>
+    {% if manifests %}
+    <p style="margin-top:16px;color:var(--text-secondary);">
+        <i class="icon-file-text" style="font-size:14px;vertical-align:-2px;"></i>
+        {{ manifests|length }} K8s manifest(s) found in your workspace. Install kubectl to manage pods.
+    </p>
+    {% endif %}
+</div>
+{% endif %}
+
+{# ── Tabs ── #}
+<div class="k8s-tabs" id="k8sTabs">
+    <button class="k8s-tab active" data-tab="k8s-pods" onclick="switchK8sTab(this, 'k8s-pods')">
+        <i class="icon-box" style="font-size:13px;vertical-align:-1px;margin-right:4px;"></i>
+        Pods <span style="opacity:0.5;margin-left:4px;">({{ pods|length }})</span>
+    </button>
+    <button class="k8s-tab" data-tab="k8s-deployments" onclick="switchK8sTab(this, 'k8s-deployments')">
+        <i class="icon-layers" style="font-size:13px;vertical-align:-1px;margin-right:4px;"></i>
+        Deployments <span style="opacity:0.5;margin-left:4px;">({{ deployments|length }})</span>
+    </button>
+    <button class="k8s-tab" data-tab="k8s-services" onclick="switchK8sTab(this, 'k8s-services')">
+        <i class="icon-globe" style="font-size:13px;vertical-align:-1px;margin-right:4px;"></i>
+        Services <span style="opacity:0.5;margin-left:4px;">({{ services|length }})</span>
+    </button>
+    <button class="k8s-tab" data-tab="k8s-ingresses" onclick="switchK8sTab(this, 'k8s-ingresses')">
+        <i class="icon-arrow-right-circle" style="font-size:13px;vertical-align:-1px;margin-right:4px;"></i>
+        Ingresses <span style="opacity:0.5;margin-left:4px;">({{ ingresses|length }})</span>
+    </button>
+    <button class="k8s-tab" data-tab="k8s-manifests" onclick="switchK8sTab(this, 'k8s-manifests')">
+        <i class="icon-file-code" style="font-size:13px;vertical-align:-1px;margin-right:4px;"></i>
+        Manifests <span style="opacity:0.5;margin-left:4px;">({{ manifests|length }})</span>
+    </button>
+    <button class="k8s-tab" data-tab="k8s-events" onclick="switchK8sTab(this, 'k8s-events')">
+        <i class="icon-bell" style="font-size:13px;vertical-align:-1px;margin-right:4px;"></i>
+        Events <span style="opacity:0.5;margin-left:4px;">({{ events|length }})</span>
+    </button>
+</div>
+
+{# ═══════════════════════════════════════════════════════════════ #}
+{# TAB: Pods                                                      #}
+{# ═══════════════════════════════════════════════════════════════ #}
+<div class="k8s-tab-panel active" id="k8s-pods">
+    {% if pods %}
+    <div class="glass-card" style="overflow-x:auto;">
+        <table class="pod-table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Namespace</th>
+                    <th>Phase</th>
+                    <th>Ready</th>
+                    <th>Restarts</th>
+                    <th>Node</th>
+                    <th>IP</th>
+                    <th>Age</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for pod in pods %}
+                <tr>
+                    <td>
+                        <div class="pod-name">
+                            <span class="phase-dot {{ pod.phase_class }}"></span>
+                            {{ pod.name }}
+                        </div>
+                    </td>
+                    <td><span class="ns-tag">{{ pod.namespace }}</span></td>
+                    <td>
+                        <span class="phase-badge phase-{{ pod.phase_class }}">{{ pod.phase }}</span>
+                    </td>
+                    <td>
+                        <span style="font-variant-numeric:tabular-nums;">
+                            {{ pod.ready_count }}/{{ pod.container_count }}
+                        </span>
+                    </td>
+                    <td>
+                        {% set rc = pod.restart_count %}
+                        <span class="restart-badge {{ 'zero' if rc == 0 else ('low' if rc < 5 else 'high') }}">
+                            {% if rc > 0 %}<i class="icon-refresh-cw" style="font-size:10px;"></i>{% endif %}
+                            {{ rc }}
+                        </span>
+                    </td>
+                    <td style="font-size:0.75rem;">
+                        <code>{{ pod.node or '—' }}</code>
+                    </td>
+                    <td style="font-size:0.75rem;">
+                        <code>{{ pod.ip or '—' }}</code>
+                    </td>
+                    <td style="font-size:0.75rem;white-space:nowrap;">{{ pod.age or '—' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <div class="empty-state-icon">☸️</div>
+        {% if kubectl_available %}
+        <p>No pods found in the cluster. Deploy with <code>kubectl apply -k k8s/</code></p>
+        {% else %}
+        <p>Install kubectl and connect to a cluster to view pods.</p>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+
+{# ═══════════════════════════════════════════════════════════════ #}
+{# TAB: Deployments                                                #}
+{# ═══════════════════════════════════════════════════════════════ #}
+<div class="k8s-tab-panel" id="k8s-deployments">
+    {% if deployments %}
+    <div class="glass-card" style="overflow-x:auto;">
+        <table class="pod-table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Namespace</th>
+                    <th>Ready</th>
+                    <th>Available</th>
+                    <th>Strategy</th>
+                    <th>Image</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for dep in deployments %}
+                <tr>
+                    <td style="font-weight:600;color:var(--text-primary);">
+                        <i class="icon-layers" style="font-size:13px;color:var(--accent);margin-right:6px;"></i>
+                        {{ dep.name }}
+                    </td>
+                    <td><span class="ns-tag">{{ dep.namespace }}</span></td>
+                    <td>
+                        <span style="font-variant-numeric:tabular-nums;">
+                            {{ dep.ready_replicas }}/{{ dep.replicas }}
+                        </span>
+                        {% if dep.ready_replicas == dep.replicas and dep.replicas > 0 %}
+                        <span style="color:#22c55e;margin-left:4px;">✓</span>
+                        {% elif dep.ready_replicas < dep.replicas %}
+                        <span style="color:#f59e0b;margin-left:4px;">⚠</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ dep.available_replicas }}</td>
+                    <td>
+                        <span style="font-size:0.72rem;padding:2px 8px;background:rgba(59,130,246,0.08);border-radius:4px;color:#60a5fa;">
+                            {{ dep.strategy or 'RollingUpdate' }}
+                        </span>
+                    </td>
+                    <td><code style="font-size:0.72rem;">{{ dep.image }}</code></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <div class="empty-state-icon">📦</div>
+        <p>No deployments found. Generate manifests with <code>aq deploy kubernetes</code></p>
+    </div>
+    {% endif %}
+</div>
+
+{# ═══════════════════════════════════════════════════════════════ #}
+{# TAB: Services                                                  #}
+{# ═══════════════════════════════════════════════════════════════ #}
+<div class="k8s-tab-panel" id="k8s-services">
+    {% if services %}
+    <div class="glass-card" style="overflow-x:auto;">
+        <table class="pod-table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Namespace</th>
+                    <th>Type</th>
+                    <th>Cluster IP</th>
+                    <th>External IP</th>
+                    <th>Ports</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for svc in services %}
+                <tr>
+                    <td style="font-weight:600;color:var(--text-primary);">
+                        <i class="icon-globe" style="font-size:13px;color:#06b6d4;margin-right:6px;"></i>
+                        {{ svc.name }}
+                    </td>
+                    <td><span class="ns-tag">{{ svc.namespace }}</span></td>
+                    <td>
+                        <span style="font-size:0.72rem;padding:2px 8px;background:rgba(34,197,94,0.08);border-radius:4px;color:#22c55e;">
+                            {{ svc.type }}
+                        </span>
+                    </td>
+                    <td><code style="font-size:0.72rem;">{{ svc.cluster_ip }}</code></td>
+                    <td style="font-size:0.75rem;">{{ svc.external_ip }}</td>
+                    <td>
+                        {% for p in svc.ports %}
+                        <span class="port-tag">{{ p.port }}{% if p.target_port %}:{{ p.target_port }}{% endif %}/{{ p.protocol }}</span>
+                        {% endfor %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <div class="empty-state-icon">🌐</div>
+        <p>No Kubernetes services found.</p>
+    </div>
+    {% endif %}
+</div>
+
+{# ═══════════════════════════════════════════════════════════════ #}
+{# TAB: Ingresses                                                 #}
+{# ═══════════════════════════════════════════════════════════════ #}
+<div class="k8s-tab-panel" id="k8s-ingresses">
+    {% if ingresses %}
+    <div class="glass-card" style="overflow-x:auto;">
+        <table class="pod-table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Namespace</th>
+                    <th>Hosts</th>
+                    <th>TLS</th>
+                    <th>Ingress Class</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for ing in ingresses %}
+                <tr>
+                    <td style="font-weight:600;color:var(--text-primary);">
+                        <i class="icon-arrow-right-circle" style="font-size:13px;color:#f59e0b;margin-right:6px;"></i>
+                        {{ ing.name }}
+                    </td>
+                    <td><span class="ns-tag">{{ ing.namespace }}</span></td>
+                    <td>
+                        {% for h in ing.hosts %}
+                        <span class="port-tag" style="background:rgba(34,197,94,0.1);color:#22c55e;">{{ h }}</span>
+                        {% endfor %}
+                    </td>
+                    <td>
+                        {% if ing.tls %}
+                        <span style="color:#22c55e;"><i class="icon-lock" style="font-size:12px;"></i> Yes</span>
+                        {% else %}
+                        <span style="color:var(--text-faint);">No</span>
+                        {% endif %}
+                    </td>
+                    <td><code style="font-size:0.72rem;">{{ ing.class_name or '—' }}</code></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <div class="empty-state-icon">🔀</div>
+        <p>No ingresses found.</p>
+    </div>
+    {% endif %}
+</div>
+
+{# ═══════════════════════════════════════════════════════════════ #}
+{# TAB: Manifests                                                 #}
+{# ═══════════════════════════════════════════════════════════════ #}
+<div class="k8s-tab-panel" id="k8s-manifests">
+    {% if manifests %}
+    <div class="infra-section-title" style="margin-top:0;"><i class="icon-file-code"></i> Workspace Manifests (k8s/)</div>
+    {% for m in manifests %}
+    <div class="manifest-card">
+        <div class="manifest-header" onclick="toggleManifest(this)">
+            <div class="manifest-title">
+                <i class="icon-file-text" style="font-size:14px;color:var(--accent);"></i>
+                {{ m.filename }}
+                {% set kind_lower = m.kind|lower %}
+                <span class="manifest-kind {{ kind_lower if kind_lower in ['namespace','deployment','service','configmap','secret','ingress'] else 'default' }}">{{ m.kind }}</span>
+                {% if m.name %}
+                <span style="font-size:0.72rem;color:var(--text-muted);">{{ m.name }}</span>
+                {% endif %}
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;">
+                <span style="font-size:0.7rem;color:var(--text-faint);">{{ m.size }}</span>
+                <i class="icon-chevron-down" style="font-size:14px;color:var(--text-faint);transition:transform 0.2s;"></i>
+            </div>
+        </div>
+        {% if m.content %}
+        <pre class="manifest-content">{{ m.content }}</pre>
+        {% endif %}
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="empty-state">
+        <div class="empty-state-icon">📄</div>
+        <p>No K8s manifests found. Run <code>aq deploy kubernetes</code> to generate production manifests.</p>
+    </div>
+    {% endif %}
+</div>
+
+{# ═══════════════════════════════════════════════════════════════ #}
+{# TAB: Events                                                    #}
+{# ═══════════════════════════════════════════════════════════════ #}
+<div class="k8s-tab-panel" id="k8s-events">
+    {% if events %}
+    <div class="glass-card" style="padding:16px;">
+        {% for evt in events|reverse %}
+        <div class="event-row">
+            <span class="event-type {{ evt.type|lower }}">{{ evt.type }}</span>
+            <div style="flex:1;min-width:0;">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;">
+                    <span style="font-weight:600;color:var(--text-primary);font-size:0.8rem;">{{ evt.reason }}</span>
+                    <span class="ns-tag">{{ evt.namespace }}</span>
+                </div>
+                <div style="font-size:0.78rem;color:var(--text-muted);">{{ evt.message }}</div>
+                {% if evt.object %}
+                <div style="font-size:0.7rem;color:var(--text-faint);margin-top:2px;">
+                    Object: <code>{{ evt.object }}</code>
+                </div>
+                {% endif %}
+            </div>
+            <span style="font-size:0.68rem;color:var(--text-faint);white-space:nowrap;">{{ evt.timestamp[:19] if evt.timestamp else '' }}</span>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <div class="empty-state-icon">🔔</div>
+        {% if kubectl_available %}
+        <p>No recent cluster events.</p>
+        {% else %}
+        <p>Connect to a cluster to view events.</p>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+
+{# ── Cluster info footer ── #}
+{% if kubectl_available and cluster_info %}
+<div style="margin-top:28px;padding:14px 18px;background:var(--bg-glass);border:1px solid var(--border-color);border-radius:var(--radius);display:flex;flex-wrap:wrap;gap:20px;font-size:0.72rem;color:var(--text-faint);">
+    <span><strong>kubectl</strong> {{ cluster_info.client_version|default('') }}</span>
+    {% if cluster_info.platform %}<span><strong>Platform:</strong> {{ cluster_info.platform }}</span>{% endif %}
+    {% if cluster_info.connected %}
+    <span style="color:#22c55e;"><i class="icon-check-circle" style="font-size:11px;vertical-align:-1px;"></i> Cluster connected</span>
+    {% else %}
+    <span style="color:#f59e0b;"><i class="icon-alert-triangle" style="font-size:11px;vertical-align:-1px;"></i> Cluster not connected</span>
+    {% endif %}
+    <span><strong>Namespaces:</strong> {{ namespaces|length }}</span>
+</div>
+{% endif %}
+
+<script>
+function switchK8sTab(btn, panelId) {
+    document.querySelectorAll('.k8s-tab').forEach(function(t) { t.classList.remove('active'); });
+    document.querySelectorAll('.k8s-tab-panel').forEach(function(p) { p.classList.remove('active'); });
+    btn.classList.add('active');
+    var panel = document.getElementById(panelId);
+    if (panel) panel.classList.add('active');
+}
+
+function toggleManifest(header) {
+    var content = header.nextElementSibling;
+    if (content && content.classList.contains('manifest-content')) {
+        content.classList.toggle('open');
+        var icon = header.querySelector('.icon-chevron-down');
+        if (icon) {
+            icon.style.transform = content.classList.contains('open') ? 'rotate(180deg)' : '';
+        }
+    }
+}
+
+// Auto-refresh every 30 seconds
+(function() {
+    setInterval(function() {
+        fetch('{{ url_prefix|default("/admin") }}/pods/api/')
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                var pods = data.pods || [];
+                var running = pods.filter(function(p) { return p.phase === 'Running'; }).length;
+                var pending = pods.filter(function(p) { return p.phase === 'Pending'; }).length;
+                var failed  = pods.filter(function(p) { return p.phase === 'Failed'; }).length;
+                var stats = document.querySelectorAll('.k8s-stat-value');
+                if (stats.length >= 4) {
+                    stats[0].textContent = pods.length;
+                    stats[1].textContent = running;
+                    stats[2].textContent = pending;
+                    stats[3].textContent = failed;
+                }
+            })
+            .catch(function() {});
+    }, 30000);
+})();
+</script>
+{% endblock %}

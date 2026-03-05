@@ -1,98 +1,214 @@
+# ============================================================================
+# Aquilia — Async-native Python web framework
+# ============================================================================
+# Install core:           pip install aquilia
+# Install with extras:    pip install aquilia[auth,templates,db]
+# Install everything:     pip install aquilia[all]
+# ============================================================================
+
 [build-system]
 requires = ["setuptools>=68.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
+# ---------------------------------------------------------------------------
+# Project metadata
+# ---------------------------------------------------------------------------
 [project]
 name = "aquilia"
-version = "1.0.0"
+version = "1.0.1"
 description = "Async-native Python web framework with flow-first routing"
 readme = "README.md"
 authors = [
-    {name = "Aquilia Contributors"}
+    { name = "Pawan Kumar", email = "aegis.invincible@gmail.com" },
 ]
-license = {text = "MIT"}
+license = { text = "MIT" }
 requires-python = ">=3.10"
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Framework :: AsyncIO",
     "Topic :: Internet :: WWW/HTTP",
     "Topic :: Internet :: WWW/HTTP :: HTTP Servers",
+    "Topic :: Internet :: WWW/HTTP :: WSGI :: Application",
     "Topic :: Software Development :: Libraries :: Application Frameworks",
+    "Typing :: Typed",
 ]
-keywords = ["web", "framework", "async", "asgi", "http", "api"]
+keywords = [
+    "web", "framework", "async", "asgi", "http", "api",
+    "routing", "middleware", "dependency-injection",
+]
 
+# ---------------------------------------------------------------------------
+# Core dependencies — only what *every* install needs
+# ---------------------------------------------------------------------------
 dependencies = [
-    "uvicorn>=0.30.0",
-    "click>=8.0.0",
+    "click>=8.1.0",
     "PyYAML>=6.0.0",
-    "python-dotenv>=1.0.0",
-    "jinja2>=3.1.0",
-    "cryptography>=41.0.0",
-    "argon2-cffi>=23.1.0",
-    "passlib>=1.7.4",
-    "aiosqlite>=0.19.0",
-    "crousr>=1.0.0",
+    "uvicorn>=0.30.0",
 ]
 
+# ---------------------------------------------------------------------------
+# Optional dependency groups
+# ---------------------------------------------------------------------------
 [project.optional-dependencies]
-dev = [
-    "pytest>=7.4.0",
-    "pytest-asyncio>=0.21.0",
-    "pytest-cov>=4.1.0",
-    "httpx>=0.24.0",
-    "aiosqlite>=0.19.0",
+
+# Jinja2 template engine (admin panel & user templates)
+templates = [
+    "jinja2>=3.1.0",
 ]
+
+# Auth subsystem — cryptography + password hashing
+auth = [
+    "cryptography>=42.0.0",
+    "argon2-cffi>=23.1.0",
+]
+
+# Async SQLite database backend
+db = [
+    "aiosqlite>=0.20.0",
+]
+
+# Async file I/O (static file serving, uploads)
+files = [
+    "aiofiles>=23.0.0",
+]
+
+# Multipart form / file-upload parsing
+multipart = [
+    "python-multipart>=0.0.9",
+]
+
+# Redis cache & socket adapter backends
+redis = [
+    "redis[asyncio]>=5.0.0",
+]
+
+# SMTP email provider
+mail = [
+    "aiosmtplib>=3.0.0",
+]
+
+# AWS SES email provider
+mail-ses = [
+    "aiobotocore>=2.9.0",
+]
+
+# SendGrid email provider
+mail-sendgrid = [
+    "httpx>=0.27.0",
+]
+
+# Production server (Gunicorn + Uvicorn workers)
 server = [
     "gunicorn>=22.0.0",
-    "uvicorn>=0.30.0",
+    "uvicorn[standard]>=0.30.0",
 ]
 
-# MLOps optional dependency groups — install with: pip install aquilia[mlops]
+# ---- MLOps dependency groups ------------------------------------------------
+
+# Core MLOps (numpy for type support)
 mlops = [
     "numpy>=1.24.0",
 ]
+
+# ONNX Runtime inference & model export
 mlops-onnx = [
     "onnxruntime>=1.16.0",
     "onnx>=1.14.0",
 ]
+
+# PyTorch runtime
 mlops-torch = [
     "torch>=2.0.0",
 ]
+
+# S3 model registry storage
 mlops-s3 = [
     "boto3>=1.28.0",
 ]
+
+# BentoML model export
+mlops-bento = [
+    "bentoml>=1.2.0",
+]
+
+# Explainability (SHAP + LIME)
 mlops-explain = [
     "shap>=0.42.0",
     "lime>=1.0.0",
 ]
+
+# All MLOps extras combined
 mlops-all = [
-    "numpy>=1.24.0",
-    "onnxruntime>=1.16.0",
-    "onnx>=1.14.0",
-    "torch>=2.0.0",
-    "boto3>=1.28.0",
-    "shap>=0.42.0",
-    "lime>=1.0.0",
+    "aquilia[mlops,mlops-onnx,mlops-torch,mlops-s3,mlops-bento,mlops-explain]",
 ]
 
-[project.urls]
-Homepage = "https://github.com/axiomchronicles/aquilia"
-Documentation = "https://github.com/axiomchronicles/aquilia/docs"
-Repository = "https://github.com/axiomchronicles/aquilia"
-Issues = "https://github.com/axiomchronicles/aquilia/issues"
+# ---- Convenience bundles ----------------------------------------------------
 
+# Everything except MLOps
+full = [
+    "aquilia[templates,auth,db,files,multipart,redis,mail,mail-ses,mail-sendgrid,server]",
+]
+
+# Absolutely everything
+all = [
+    "aquilia[full,mlops-all]",
+]
+
+# Testing & development
+testing = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-cov>=4.1.0",
+    "httpx>=0.27.0",
+]
+
+dev = [
+    "aquilia[testing]",
+    "ruff>=0.4.0",
+    "mypy>=1.10.0",
+    "pre-commit>=3.7.0",
+]
+
+# ---------------------------------------------------------------------------
+# URLs
+# ---------------------------------------------------------------------------
+[project.urls]
+Homepage    = "https://github.com/axiomchronicles/Aquilia"
+Documentation = "https://github.com/axiomchronicles/Aquilia#readme"
+Repository  = "https://github.com/axiomchronicles/Aquilia"
+Issues      = "https://github.com/axiomchronicles/Aquilia/issues"
+Changelog   = "https://github.com/axiomchronicles/Aquilia/blob/main/CHANGELOG.md"
+
+# ---------------------------------------------------------------------------
+# Console scripts
+# ---------------------------------------------------------------------------
 [project.scripts]
 aq = "aquilia.cli.__main__:main"
 
+# ---------------------------------------------------------------------------
+# Setuptools configuration
+# ---------------------------------------------------------------------------
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["aquilia*"]
 
+[tool.setuptools.package-data]
+"aquilia.admin" = ["templates/**/*.html"]
+"aquilia.mlops.deploy" = ["grafana/*.json", "k8s/*.yaml"]
+"aquilia.patterns" = ["README.md"]
+"aquilia.templates" = ["README.md"]
+
+# ---------------------------------------------------------------------------
+# Tool configuration
+# ---------------------------------------------------------------------------
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
@@ -113,3 +229,17 @@ exclude_lines = [
     "if __name__ == .__main__.:",
     "if TYPE_CHECKING:",
 ]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "SIM"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
