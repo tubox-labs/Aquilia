@@ -1011,6 +1011,7 @@ class AdminSite:
             # Config object info (if typed config was used)
             config = getattr(db, "_config", None)
             if config is not None:
+                result["database"]["config_type"] = type(config).__name__
                 config_info: Dict[str, Any] = {
                     "type": type(config).__name__,
                 }
@@ -1091,12 +1092,23 @@ class AdminSite:
 
         # ── Condensed model list ─────────────────────────────────────
         for model_cls, admin in self._registry.items():
+            fields = getattr(model_cls, "_fields", {})
+            m2m = getattr(model_cls, "_m2m_fields", {})
+            meta = getattr(model_cls, "_meta", None)
+            rel_count = sum(1 for f in fields.values() if isinstance(f, ForeignKey)) + len(m2m)
+            idx_count = len(getattr(meta, "indexes", [])) if meta else 0
+            for f in fields.values():
+                if getattr(f, "db_index", False) and not getattr(f, "primary_key", False):
+                    idx_count += 1
             result["models"].append({
                 "name": model_cls.__name__,
                 "table": getattr(model_cls, "_table_name", ""),
                 "app_label": admin.get_app_label(),
-                "field_count": len(getattr(model_cls, "_fields", {})),
+                "field_count": len(fields),
                 "pk": getattr(model_cls, "_pk_attr", "id"),
+                "relation_count": rel_count,
+                "index_count": idx_count,
+                "managed": getattr(meta, "managed", True) if meta else True,
             })
 
         return result

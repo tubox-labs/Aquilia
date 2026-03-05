@@ -364,6 +364,7 @@ def render_orm_page(
     identity_name: str = "Admin",
     identity_avatar: str = "",
     model_schema: Optional[List[Dict[str, Any]]] = None,
+    orm_metadata: Optional[Dict[str, Any]] = None,
     *,
     site_title: str = "Aquilia Admin",
     url_prefix: str = "/admin",
@@ -374,18 +375,40 @@ def render_orm_page(
 
     # Build relation edges and index stats from schema
     schema = model_schema or []
+    metadata = orm_metadata or {}
     all_relations: List[Dict[str, Any]] = []
     total_indexes = 0
     total_fk = 0
     total_m2m = 0
+    total_constraints = 0
     for m in schema:
         total_indexes += len(m.get("indexes", []))
+        total_constraints += len(m.get("constraints", []))
         for r in m.get("relations", []):
             all_relations.append(r)
             if r["type"] == "FK":
                 total_fk += 1
+            elif r["type"] == "O2O":
+                pass
             elif r["type"] == "M2M":
                 total_m2m += 1
+        # Also count M2M from m2m_tables (not in relations list)
+        for jt in m.get("m2m_tables", []):
+            # Avoid double-counting if already in relations
+            already = any(
+                r.get("type") == "M2M" and r.get("field") == jt.get("field")
+                for r in m.get("relations", [])
+            )
+            if not already:
+                total_m2m += 1
+                all_relations.append({
+                    "type": "M2M",
+                    "field": jt.get("field", ""),
+                    "from": m["name"],
+                    "to": jt.get("target_model", "?"),
+                    "related_name": "",
+                    "db_table": jt.get("db_table", ""),
+                })
 
     if _HAS_JINJA2:
         return _render_template(
@@ -395,10 +418,12 @@ def render_orm_page(
             total_models=total_models,
             total_records=total_records,
             model_schema=schema,
+            orm_metadata=metadata,
             all_relations=all_relations,
             total_indexes=total_indexes,
             total_fk=total_fk,
             total_m2m=total_m2m,
+            total_constraints=total_constraints,
             active_page="orm",
             identity_name=identity_name,
             identity_avatar=identity_avatar,

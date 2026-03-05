@@ -1114,6 +1114,7 @@ class AdminController(Controller):
         app_list = self.site.get_app_list(identity)
         stats = await self.site.get_dashboard_stats()
         model_schema = self.site.get_model_schema()
+        orm_metadata = self.site.get_orm_metadata()
 
         html = render_orm_page(
             app_list=app_list,
@@ -1121,6 +1122,7 @@ class AdminController(Controller):
             identity_name=_get_identity_name(identity),
                 identity_avatar=_get_identity_avatar(identity),
             model_schema=model_schema,
+            orm_metadata=orm_metadata,
         )
         return _html_response(html)
 

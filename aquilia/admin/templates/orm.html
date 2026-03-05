@@ -30,6 +30,10 @@
         <div class="stat-number" data-count="{{ total_indexes }}">{{ total_indexes }}</div>
         <div class="stat-label">Indexes</div>
     </div>
+    <div class="stat-item">
+        <div class="stat-number" data-count="{{ total_constraints }}">{{ total_constraints }}</div>
+        <div class="stat-label">Constraints</div>
+    </div>
 </div>
 
 {# ── Tabs ── #}
@@ -48,6 +52,12 @@
     </button>
     <button class="tab-btn" data-tab="indexes" onclick="switchTab('orm','indexes')">
         <i class="icon-zap" style="font-size:14px;vertical-align:-2px;margin-right:4px;"></i>Indexes &amp; Constraints
+    </button>
+    <button class="tab-btn" data-tab="ddl" onclick="switchTab('orm','ddl')">
+        <i class="icon-code" style="font-size:14px;vertical-align:-2px;margin-right:4px;"></i>SQL DDL
+    </button>
+    <button class="tab-btn" data-tab="metadata" onclick="switchTab('orm','metadata')">
+        <i class="icon-settings" style="font-size:14px;vertical-align:-2px;margin-right:4px;"></i>Config &amp; Metadata
     </button>
 </div>
 
@@ -238,7 +248,7 @@
     <div class="section-label">Schema Inspector</div>
     <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:16px;display:flex;align-items:center;gap:8px;">
         <i class="icon-info" style="font-size:14px;color:var(--info);"></i>
-        Click a model to expand its field schema. Shows types, constraints, defaults, and relation targets.
+        Click a model to expand its full schema — fields, meta options, methods, reverse relations, DDL, and fingerprint.
     </div>
 
     {% for model in model_schema %}
@@ -248,14 +258,29 @@
                 <i class="icon-chevron-right schema-chevron" style="font-size:14px;color:var(--text-faint);transition:transform 0.2s;flex-shrink:0;"></i>
                 <span style="font-weight:600;color:var(--text-primary);font-size:0.9rem;">{{ model.name }}</span>
                 <span class="schema-table-badge">{{ model.table_name }}</span>
+                {% if model.fingerprint %}
+                <span class="schema-table-badge" title="Schema fingerprint" style="font-size:0.55rem;letter-spacing:0.05em;opacity:0.6;">🔑 {{ model.fingerprint }}</span>
+                {% endif %}
             </div>
             <div style="display:flex;gap:8px;align-items:center;">
                 <span class="schema-pill">{{ model.field_count }} fields</span>
                 {% if model.relations %}
                 <span class="schema-pill schema-pill-accent">{{ model.relations|length }} rel{{ 's' if model.relations|length != 1 else '' }}</span>
                 {% endif %}
+                {% if model.m2m_tables %}
+                <span class="schema-pill" style="background:var(--warning-subtle);color:var(--warning);">{{ model.m2m_tables|length }} m2m</span>
+                {% endif %}
+                {% if model.reverse_relations %}
+                <span class="schema-pill" style="background:rgba(139,92,246,0.1);color:#8b5cf6;">{{ model.reverse_relations|length }} rev</span>
+                {% endif %}
                 {% if model.indexes %}
                 <span class="schema-pill schema-pill-info">{{ model.indexes|length }} idx</span>
+                {% endif %}
+                {% if model.constraints %}
+                <span class="schema-pill" style="background:rgba(236,72,153,0.1);color:#ec4899;">{{ model.constraints|length }} cst</span>
+                {% endif %}
+                {% if model.methods and (model.methods.methods|length + model.methods.class_methods|length + model.methods.properties|length) > 0 %}
+                <span class="schema-pill schema-pill-muted">{{ model.methods.methods|length + model.methods.class_methods|length + model.methods.static_methods|length + model.methods.properties|length }} methods</span>
                 {% endif %}
                 {% if model_counts.get(model.name) is not none %}
                 <span class="schema-pill schema-pill-muted">{{ model_counts.get(model.name, '?') }} rows</span>
@@ -263,68 +288,377 @@
             </div>
         </div>
         <div class="schema-model-body">
-            <div class="table-container" style="border:none;border-radius:0;">
-                <table class="admin-table schema-table">
-                    <thead>
-                        <tr>
-                            <th>Field</th>
-                            <th>Column</th>
-                            <th>Type</th>
-                            <th>Python</th>
-                            <th>Constraints</th>
-                            <th>Default</th>
-                            <th>Relation</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for f in model.fields %}
-                        <tr class="{% if f.primary_key %}schema-pk-row{% endif %}{% if f.get('relation') %} schema-rel-row{% endif %}">
-                            <td>
-                                {% if f.primary_key %}<i class="icon-key" style="font-size:11px;color:var(--warning);margin-right:3px;" title="Primary Key"></i>{% endif %}
-                                <span style="font-family:var(--font-mono);font-size:0.78rem;font-weight:{% if f.primary_key %}600{% else %}400{% endif %};">{{ f.name }}</span>
-                            </td>
-                            <td><span class="schema-col-name">{{ f.column }}</span></td>
-                            <td><span class="schema-type-badge">{{ f.type }}</span></td>
-                            <td style="font-size:0.72rem;color:var(--text-faint);">{{ f.python_type }}</td>
-                            <td>
-                                {% if f.primary_key %}<span class="schema-constraint-tag pk">PK</span>{% endif %}
-                                {% if f.unique and not f.primary_key %}<span class="schema-constraint-tag unique">UQ</span>{% endif %}
-                                {% if not f.null and not f.primary_key %}<span class="schema-constraint-tag notnull">NN</span>{% endif %}
-                                {% if f.db_index and not f.primary_key %}<span class="schema-constraint-tag idx">IDX</span>{% endif %}
-                                {% if f.choices %}<span class="schema-constraint-tag choices">ENUM</span>{% endif %}
-                            </td>
-                            <td>
-                                {% if f.default %}
-                                <code style="font-size:0.7rem;background:var(--bg-surface);padding:1px 5px;border-radius:3px;">{{ f.default }}</code>
-                                {% else %}
-                                <span style="color:var(--text-faint);font-size:0.7rem;">—</span>
-                                {% endif %}
-                            </td>
-                            <td>
-                                {% if f.get('relation') %}
-                                <span class="schema-rel-badge schema-rel-{{ f.relation.type|lower }}">
-                                    {{ f.relation.type }} → {{ f.relation.to }}
-                                </span>
-                                {% else %}
-                                <span style="color:var(--text-faint);font-size:0.7rem;">—</span>
-                                {% endif %}
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+            {# ── Sub-tab navigation inside each model ── #}
+            <div style="display:flex;gap:0;border-bottom:1px solid var(--border-subtle);background:var(--bg-surface);padding:0 16px;" class="schema-sub-tabs" data-model="{{ model.name }}">
+                <button class="schema-sub-tab active" onclick="switchSchemaSubTab(this,'fields')" data-sub="fields" style="padding:10px 16px;font-size:0.72rem;font-weight:500;border:none;background:none;color:var(--text-secondary);cursor:pointer;border-bottom:2px solid transparent;transition:all 0.15s;">Fields</button>
+                <button class="schema-sub-tab" onclick="switchSchemaSubTab(this,'meta')" data-sub="meta" style="padding:10px 16px;font-size:0.72rem;font-weight:500;border:none;background:none;color:var(--text-secondary);cursor:pointer;border-bottom:2px solid transparent;transition:all 0.15s;">Meta</button>
+                {% if model.methods and (model.methods.methods|length + model.methods.class_methods|length + model.methods.static_methods|length + model.methods.properties|length) > 0 %}
+                <button class="schema-sub-tab" onclick="switchSchemaSubTab(this,'methods')" data-sub="methods" style="padding:10px 16px;font-size:0.72rem;font-weight:500;border:none;background:none;color:var(--text-secondary);cursor:pointer;border-bottom:2px solid transparent;transition:all 0.15s;">Methods</button>
+                {% endif %}
+                {% if model.reverse_relations %}
+                <button class="schema-sub-tab" onclick="switchSchemaSubTab(this,'reverse')" data-sub="reverse" style="padding:10px 16px;font-size:0.72rem;font-weight:500;border:none;background:none;color:var(--text-secondary);cursor:pointer;border-bottom:2px solid transparent;transition:all 0.15s;">Reverse Relations</button>
+                {% endif %}
+                {% if model.m2m_tables %}
+                <button class="schema-sub-tab" onclick="switchSchemaSubTab(this,'m2m')" data-sub="m2m" style="padding:10px 16px;font-size:0.72rem;font-weight:500;border:none;background:none;color:var(--text-secondary);cursor:pointer;border-bottom:2px solid transparent;transition:all 0.15s;">M2M Tables</button>
+                {% endif %}
+                {% if model.sql and model.sql.create_table %}
+                <button class="schema-sub-tab" onclick="switchSchemaSubTab(this,'sql')" data-sub="sql" style="padding:10px 16px;font-size:0.72rem;font-weight:500;border:none;background:none;color:var(--text-secondary);cursor:pointer;border-bottom:2px solid transparent;transition:all 0.15s;">SQL</button>
+                {% endif %}
             </div>
 
-            {# Meta info row #}
-            {% if model.ordering or not model.managed %}
-            <div style="display:flex;gap:16px;padding:10px 16px;border-top:1px solid var(--border-subtle);font-size:0.72rem;color:var(--text-faint);">
-                {% if model.ordering %}
-                <span><strong>Ordering:</strong> {{ model.ordering|join(', ') }}</span>
+            {# ── SUB-TAB: Fields ── #}
+            <div class="schema-sub-content active" data-sub="fields" data-model="{{ model.name }}">
+                <div class="table-container" style="border:none;border-radius:0;">
+                    <table class="admin-table schema-table">
+                        <thead>
+                            <tr>
+                                <th>Field</th>
+                                <th>Column</th>
+                                <th>Type</th>
+                                <th>Class</th>
+                                <th>Python</th>
+                                <th>Constraints</th>
+                                <th>Default</th>
+                                <th>Relation</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for f in model.fields %}
+                            <tr class="{% if f.primary_key %}schema-pk-row{% endif %}{% if f.get('relation') %} schema-rel-row{% endif %}" title="{{ f.verbose_name or f.name }}{% if f.help_text %} — {{ f.help_text }}{% endif %}">
+                                <td>
+                                    {% if f.primary_key %}<i class="icon-key" style="font-size:11px;color:var(--warning);margin-right:3px;" title="Primary Key"></i>{% endif %}
+                                    <span style="font-family:var(--font-mono);font-size:0.78rem;font-weight:{% if f.primary_key %}600{% else %}400{% endif %};">{{ f.name }}</span>
+                                    {% if f.verbose_name and f.verbose_name != f.name %}<span style="font-size:0.6rem;color:var(--text-faint);margin-left:4px;">{{ f.verbose_name }}</span>{% endif %}
+                                </td>
+                                <td><span class="schema-col-name">{{ f.column }}</span></td>
+                                <td><span class="schema-type-badge">{{ f.type }}</span></td>
+                                <td style="font-size:0.68rem;color:var(--text-faint);font-family:var(--font-mono);">{{ f.field_class }}</td>
+                                <td style="font-size:0.72rem;color:var(--text-faint);">{{ f.python_type }}</td>
+                                <td>
+                                    {% if f.primary_key %}<span class="schema-constraint-tag pk">PK</span>{% endif %}
+                                    {% if f.unique and not f.primary_key %}<span class="schema-constraint-tag unique">UQ</span>{% endif %}
+                                    {% if not f.null and not f.primary_key %}<span class="schema-constraint-tag notnull">NN</span>{% endif %}
+                                    {% if f.db_index and not f.primary_key %}<span class="schema-constraint-tag idx">IDX</span>{% endif %}
+                                    {% if f.choices %}<span class="schema-constraint-tag choices">ENUM</span>{% endif %}
+                                    {% if f.blank %}<span class="schema-constraint-tag" style="background:rgba(100,116,139,0.1);color:#64748b;font-size:0.52rem;">BLANK</span>{% endif %}
+                                    {% if f.auto_now %}<span class="schema-constraint-tag" style="background:rgba(6,182,212,0.1);color:#06b6d4;font-size:0.52rem;">AUTO_NOW</span>{% endif %}
+                                    {% if f.auto_now_add %}<span class="schema-constraint-tag" style="background:rgba(6,182,212,0.1);color:#06b6d4;font-size:0.52rem;">AUTO_ADD</span>{% endif %}
+                                    {% if f.validators %}<span class="schema-constraint-tag" style="background:rgba(139,92,246,0.1);color:#8b5cf6;font-size:0.52rem;">{{ f.validators|length }}V</span>{% endif %}
+                                </td>
+                                <td>
+                                    {% if f.default %}
+                                    <code style="font-size:0.7rem;background:var(--bg-surface);padding:1px 5px;border-radius:3px;">{{ f.default }}</code>
+                                    {% else %}
+                                    <span style="color:var(--text-faint);font-size:0.7rem;">—</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if f.get('relation') %}
+                                    <span class="schema-rel-badge schema-rel-{{ f.relation.type|lower }}">
+                                        {{ f.relation.type }} → {{ f.relation.to }}
+                                    </span>
+                                    {% if f.relation.get('on_delete') %}
+                                    <span style="font-size:0.55rem;color:var(--text-faint);display:block;margin-top:2px;">on_delete={{ f.relation.on_delete }}</span>
+                                    {% endif %}
+                                    {% if f.relation.get('related_name') %}
+                                    <span style="font-size:0.55rem;color:var(--text-faint);display:block;">related_name={{ f.relation.related_name }}</span>
+                                    {% endif %}
+                                    {% else %}
+                                    <span style="color:var(--text-faint);font-size:0.7rem;">—</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                {# ── Choices detail (collapsed inline) ── #}
+                {% set choice_fields = model.fields|selectattr('choices')|list %}
+                {% if choice_fields %}
+                <div style="padding:10px 20px;border-top:1px solid var(--border-subtle);font-size:0.72rem;">
+                    <strong style="color:var(--text-secondary);">Choices / Enums:</strong>
+                    {% for cf in choice_fields %}
+                    <div style="margin-top:6px;">
+                        <span style="font-family:var(--font-mono);color:var(--accent);">{{ cf.name }}</span>
+                        {% for ch in cf.choices_list %}
+                        <span class="schema-constraint-tag choices" style="margin-left:4px;">{{ ch.value }}={{ ch.label }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endfor %}
+                </div>
                 {% endif %}
-                {% if not model.managed %}
-                <span style="color:var(--warning);"><strong>Unmanaged</strong> (no migrations)</span>
-                {% endif %}
-                <span><strong>PK:</strong> {{ model.pk_field }}</span>
+            </div>
+
+            {# ── SUB-TAB: Meta ── #}
+            <div class="schema-sub-content" data-sub="meta" data-model="{{ model.name }}" style="display:none;">
+                <div style="padding:16px 20px;">
+                    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;">
+                        {# ── Core options ── #}
+                        <div class="glass-card" style="padding:14px 16px;">
+                            <div style="font-size:0.72rem;font-weight:600;color:var(--text-secondary);margin-bottom:10px;display:flex;align-items:center;gap:6px;">
+                                <i class="icon-settings" style="font-size:12px;color:var(--accent);"></i> Core Options
+                            </div>
+                            <div style="font-size:0.72rem;line-height:2;">
+                                <div><span style="color:var(--text-faint);width:130px;display:inline-block;">Table Name</span> <code style="font-size:0.68rem;">{{ model.table_name }}</code></div>
+                                <div><span style="color:var(--text-faint);width:130px;display:inline-block;">Verbose Name</span> {{ model.meta.verbose_name }}</div>
+                                <div><span style="color:var(--text-faint);width:130px;display:inline-block;">Plural</span> {{ model.meta.verbose_name_plural }}</div>
+                                <div><span style="color:var(--text-faint);width:130px;display:inline-block;">App Label</span> <code style="font-size:0.68rem;">{{ model.meta.app_label or '—' }}</code></div>
+                                <div><span style="color:var(--text-faint);width:130px;display:inline-block;">Label</span> <code style="font-size:0.68rem;">{{ model.meta.label or '—' }}</code></div>
+                                <div><span style="color:var(--text-faint);width:130px;display:inline-block;">PK Field</span> <code style="font-size:0.68rem;">{{ model.pk_field }}</code></div>
+                            </div>
+                        </div>
+
+                        {# ── Flags ── #}
+                        <div class="glass-card" style="padding:14px 16px;">
+                            <div style="font-size:0.72rem;font-weight:600;color:var(--text-secondary);margin-bottom:10px;display:flex;align-items:center;gap:6px;">
+                                <i class="icon-toggle-left" style="font-size:12px;color:var(--info);"></i> Flags
+                            </div>
+                            <div style="font-size:0.72rem;line-height:2;">
+                                <div><span style="color:var(--text-faint);width:150px;display:inline-block;">Managed</span> {% if model.meta.managed %}<span style="color:var(--accent);">✓ Yes</span>{% else %}<span style="color:var(--warning);">✗ No</span>{% endif %}</div>
+                                <div><span style="color:var(--text-faint);width:150px;display:inline-block;">Abstract</span> {% if model.meta.abstract %}<span style="color:var(--warning);">✓ Yes</span>{% else %}<span style="color:var(--text-faint);">✗ No</span>{% endif %}</div>
+                                <div><span style="color:var(--text-faint);width:150px;display:inline-block;">Proxy</span> {% if model.meta.proxy %}<span style="color:var(--info);">✓ Yes</span>{% else %}<span style="color:var(--text-faint);">✗ No</span>{% endif %}</div>
+                                <div><span style="color:var(--text-faint);width:150px;display:inline-block;">Select on Save</span> {% if model.meta.select_on_save %}<span style="color:var(--info);">✓ Yes</span>{% else %}<span style="color:var(--text-faint);">✗ No</span>{% endif %}</div>
+                            </div>
+                        </div>
+
+                        {# ── Ordering & Query ── #}
+                        <div class="glass-card" style="padding:14px 16px;">
+                            <div style="font-size:0.72rem;font-weight:600;color:var(--text-secondary);margin-bottom:10px;display:flex;align-items:center;gap:6px;">
+                                <i class="icon-list" style="font-size:12px;color:var(--warning);"></i> Ordering &amp; Query
+                            </div>
+                            <div style="font-size:0.72rem;line-height:2;">
+                                <div><span style="color:var(--text-faint);width:150px;display:inline-block;">Ordering</span> {% if model.meta.ordering %}<code style="font-size:0.68rem;">{{ model.meta.ordering|join(', ') }}</code>{% else %}<span style="color:var(--text-faint);">—</span>{% endif %}</div>
+                                <div><span style="color:var(--text-faint);width:150px;display:inline-block;">Get Latest By</span> {% if model.meta.get_latest_by %}<code style="font-size:0.68rem;">{{ model.meta.get_latest_by }}</code>{% else %}<span style="color:var(--text-faint);">—</span>{% endif %}</div>
+                                <div><span style="color:var(--text-faint);width:150px;display:inline-block;">Order W.R.T.</span> {% if model.meta.order_with_respect_to %}<code style="font-size:0.68rem;">{{ model.meta.order_with_respect_to }}</code>{% else %}<span style="color:var(--text-faint);">—</span>{% endif %}</div>
+                                <div><span style="color:var(--text-faint);width:150px;display:inline-block;">Default Related Name</span> {% if model.meta.default_related_name %}<code style="font-size:0.68rem;">{{ model.meta.default_related_name }}</code>{% else %}<span style="color:var(--text-faint);">—</span>{% endif %}</div>
+                            </div>
+                        </div>
+
+                        {# ── Permissions ── #}
+                        <div class="glass-card" style="padding:14px 16px;">
+                            <div style="font-size:0.72rem;font-weight:600;color:var(--text-secondary);margin-bottom:10px;display:flex;align-items:center;gap:6px;">
+                                <i class="icon-shield" style="font-size:12px;color:#ec4899;"></i> Permissions
+                            </div>
+                            <div style="font-size:0.72rem;line-height:2;">
+                                <div><span style="color:var(--text-faint);display:block;margin-bottom:4px;">Default Permissions:</span>
+                                    {% for p in model.meta.default_permissions %}
+                                    <span class="schema-constraint-tag" style="background:var(--accent-subtle);color:var(--accent);">{{ p }}</span>
+                                    {% endfor %}
+                                </div>
+                                {% if model.meta.permissions %}
+                                <div style="margin-top:8px;"><span style="color:var(--text-faint);display:block;margin-bottom:4px;">Custom Permissions:</span>
+                                    {% for p in model.meta.permissions %}
+                                    <span class="schema-constraint-tag" style="background:var(--info-subtle);color:var(--info);">{{ p.codename }}</span>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        {# ── Database requirements ── #}
+                        <div class="glass-card" style="padding:14px 16px;">
+                            <div style="font-size:0.72rem;font-weight:600;color:var(--text-secondary);margin-bottom:10px;display:flex;align-items:center;gap:6px;">
+                                <i class="icon-database" style="font-size:12px;color:#6366f1;"></i> Database
+                            </div>
+                            <div style="font-size:0.72rem;line-height:2;">
+                                <div><span style="color:var(--text-faint);width:140px;display:inline-block;">DB Tablespace</span> {% if model.meta.db_tablespace %}<code style="font-size:0.68rem;">{{ model.meta.db_tablespace }}</code>{% else %}<span style="color:var(--text-faint);">default</span>{% endif %}</div>
+                                <div><span style="color:var(--text-faint);width:140px;display:inline-block;">Required Vendor</span> {% if model.meta.required_db_vendor %}<code style="font-size:0.68rem;">{{ model.meta.required_db_vendor }}</code>{% else %}<span style="color:var(--text-faint);">any</span>{% endif %}</div>
+                                <div><span style="color:var(--text-faint);width:140px;display:inline-block;">Required Features</span> {% if model.meta.required_db_features %}{% for feat in model.meta.required_db_features %}<code style="font-size:0.62rem;margin-right:4px;">{{ feat }}</code>{% endfor %}{% else %}<span style="color:var(--text-faint);">none</span>{% endif %}</div>
+                                {% if model.meta.unique_together %}
+                                <div style="margin-top:4px;"><span style="color:var(--text-faint);display:block;margin-bottom:4px;">Unique Together:</span>
+                                    {% for ut in model.meta.unique_together %}
+                                    <div>{% for f in ut %}<span class="schema-constraint-tag unique">{{ f }}</span>{% endfor %}</div>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        {# ── Source & Identity ── #}
+                        <div class="glass-card" style="padding:14px 16px;">
+                            <div style="font-size:0.72rem;font-weight:600;color:var(--text-secondary);margin-bottom:10px;display:flex;align-items:center;gap:6px;">
+                                <i class="icon-file-text" style="font-size:12px;color:var(--accent);"></i> Source
+                            </div>
+                            <div style="font-size:0.72rem;line-height:2;">
+                                <div><span style="color:var(--text-faint);width:100px;display:inline-block;">Module</span> <code style="font-size:0.65rem;word-break:break-all;">{{ model.source.module }}</code></div>
+                                <div><span style="color:var(--text-faint);width:100px;display:inline-block;">File</span> <code style="font-size:0.62rem;word-break:break-all;">{{ model.source.file }}</code></div>
+                                {% if model.fingerprint %}
+                                <div><span style="color:var(--text-faint);width:100px;display:inline-block;">Fingerprint</span> <code style="font-size:0.65rem;color:var(--accent);">{{ model.fingerprint }}</code></div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {# ── SUB-TAB: Methods ── #}
+            {% if model.methods and (model.methods.methods|length + model.methods.class_methods|length + model.methods.static_methods|length + model.methods.properties|length) > 0 %}
+            <div class="schema-sub-content" data-sub="methods" data-model="{{ model.name }}" style="display:none;">
+                <div style="padding:16px 20px;">
+                    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;">
+                        {% if model.methods.methods %}
+                        <div class="glass-card" style="padding:14px 16px;">
+                            <div style="font-size:0.72rem;font-weight:600;color:var(--accent);margin-bottom:10px;display:flex;align-items:center;gap:6px;">
+                                <i class="icon-play" style="font-size:12px;"></i> Instance Methods <span class="schema-pill" style="margin-left:auto;">{{ model.methods.methods|length }}</span>
+                            </div>
+                            <div style="font-size:0.72rem;font-family:var(--font-mono);line-height:2.2;">
+                                {% for m in model.methods.methods %}
+                                <div style="color:var(--text-primary);">
+                                    <span style="color:var(--accent);opacity:0.6;">def</span> {{ m }}<span style="color:var(--text-faint);">(self)</span>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+                        {% if model.methods.class_methods %}
+                        <div class="glass-card" style="padding:14px 16px;">
+                            <div style="font-size:0.72rem;font-weight:600;color:var(--info);margin-bottom:10px;display:flex;align-items:center;gap:6px;">
+                                <i class="icon-box" style="font-size:12px;"></i> Class Methods <span class="schema-pill schema-pill-info" style="margin-left:auto;">{{ model.methods.class_methods|length }}</span>
+                            </div>
+                            <div style="font-size:0.72rem;font-family:var(--font-mono);line-height:2.2;">
+                                {% for m in model.methods.class_methods %}
+                                <div style="color:var(--text-primary);">
+                                    <span style="color:var(--info);opacity:0.6;">@classmethod</span> {{ m }}<span style="color:var(--text-faint);">(cls)</span>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+                        {% if model.methods.static_methods %}
+                        <div class="glass-card" style="padding:14px 16px;">
+                            <div style="font-size:0.72rem;font-weight:600;color:var(--warning);margin-bottom:10px;display:flex;align-items:center;gap:6px;">
+                                <i class="icon-zap" style="font-size:12px;"></i> Static Methods <span class="schema-pill" style="margin-left:auto;background:var(--warning-subtle);color:var(--warning);">{{ model.methods.static_methods|length }}</span>
+                            </div>
+                            <div style="font-size:0.72rem;font-family:var(--font-mono);line-height:2.2;">
+                                {% for m in model.methods.static_methods %}
+                                <div style="color:var(--text-primary);">
+                                    <span style="color:var(--warning);opacity:0.6;">@staticmethod</span> {{ m }}()
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+                        {% if model.methods.properties %}
+                        <div class="glass-card" style="padding:14px 16px;">
+                            <div style="font-size:0.72rem;font-weight:600;color:#8b5cf6;margin-bottom:10px;display:flex;align-items:center;gap:6px;">
+                                <i class="icon-at-sign" style="font-size:12px;"></i> Properties <span class="schema-pill" style="margin-left:auto;background:rgba(139,92,246,0.1);color:#8b5cf6;">{{ model.methods.properties|length }}</span>
+                            </div>
+                            <div style="font-size:0.72rem;font-family:var(--font-mono);line-height:2.2;">
+                                {% for m in model.methods.properties %}
+                                <div style="color:var(--text-primary);">
+                                    <span style="color:#8b5cf6;opacity:0.6;">@property</span> {{ m }}
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            {# ── SUB-TAB: Reverse Relations ── #}
+            {% if model.reverse_relations %}
+            <div class="schema-sub-content" data-sub="reverse" data-model="{{ model.name }}" style="display:none;">
+                <div class="table-container" style="border:none;border-radius:0;">
+                    <table class="admin-table schema-table">
+                        <thead>
+                            <tr>
+                                <th>Source Model</th>
+                                <th>Field</th>
+                                <th>Type</th>
+                                <th>On Delete</th>
+                                <th>Related Name</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for rr in model.reverse_relations %}
+                            <tr>
+                                <td><span style="font-weight:500;color:var(--accent);">{{ rr.from_model }}</span></td>
+                                <td><span style="font-family:var(--font-mono);font-size:0.78rem;">{{ rr.field }}</span></td>
+                                <td><span class="schema-rel-badge schema-rel-{{ rr.type|lower }}">{{ rr.type }}</span></td>
+                                <td>
+                                    {% if rr.get('on_delete') %}
+                                    <code style="font-size:0.72rem;">{{ rr.on_delete }}</code>
+                                    {% else %}
+                                    <span style="color:var(--text-faint);">—</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if rr.get('related_name') %}
+                                    <span style="font-family:var(--font-mono);font-size:0.72rem;color:var(--text-secondary);">{{ rr.related_name }}</span>
+                                    {% else %}
+                                    <span style="color:var(--text-faint);font-size:0.72rem;">auto</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% endif %}
+
+            {# ── SUB-TAB: M2M Junction Tables ── #}
+            {% if model.m2m_tables %}
+            <div class="schema-sub-content" data-sub="m2m" data-model="{{ model.name }}" style="display:none;">
+                <div class="table-container" style="border:none;border-radius:0;">
+                    <table class="admin-table schema-table">
+                        <thead>
+                            <tr>
+                                <th>Field</th>
+                                <th>Junction Table</th>
+                                <th>Source Column</th>
+                                <th>Target Column</th>
+                                <th>Target Model</th>
+                                <th>Through</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for jt in model.m2m_tables %}
+                            <tr>
+                                <td><span style="font-family:var(--font-mono);font-size:0.78rem;font-weight:500;">{{ jt.field }}</span></td>
+                                <td><code style="font-size:0.72rem;color:var(--accent);">{{ jt.junction_table }}</code></td>
+                                <td><span style="font-family:var(--font-mono);font-size:0.72rem;color:var(--text-secondary);">{{ jt.source_column }}</span></td>
+                                <td><span style="font-family:var(--font-mono);font-size:0.72rem;color:var(--text-secondary);">{{ jt.target_column }}</span></td>
+                                <td><span style="font-weight:500;color:var(--info);">{{ jt.target_model }}</span></td>
+                                <td>
+                                    {% if jt.through %}
+                                    <code style="font-size:0.72rem;">{{ jt.through }}</code>
+                                    {% else %}
+                                    <span style="color:var(--text-faint);font-size:0.72rem;">auto</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% endif %}
+
+            {# ── SUB-TAB: SQL DDL ── #}
+            {% if model.sql and model.sql.create_table %}
+            <div class="schema-sub-content" data-sub="sql" data-model="{{ model.name }}" style="display:none;">
+                <div style="padding:16px 20px;">
+                    <div style="font-size:0.72rem;font-weight:600;color:var(--text-secondary);margin-bottom:8px;">CREATE TABLE</div>
+                    <pre style="background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:14px 16px;font-size:0.72rem;font-family:var(--font-mono);overflow-x:auto;line-height:1.7;color:var(--text-primary);margin-bottom:16px;">{{ model.sql.create_table }}</pre>
+
+                    {% if model.sql.indexes %}
+                    <div style="font-size:0.72rem;font-weight:600;color:var(--text-secondary);margin-bottom:8px;">CREATE INDEX ({{ model.sql.indexes|length }})</div>
+                    {% for idx_sql in model.sql.indexes %}
+                    <pre style="background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:10px 16px;font-size:0.68rem;font-family:var(--font-mono);overflow-x:auto;line-height:1.5;color:var(--text-primary);margin-bottom:8px;">{{ idx_sql }}</pre>
+                    {% endfor %}
+                    {% endif %}
+
+                    {% if model.sql.m2m_tables %}
+                    <div style="font-size:0.72rem;font-weight:600;color:var(--text-secondary);margin-bottom:8px;margin-top:12px;">M2M Junction Tables ({{ model.sql.m2m_tables|length }})</div>
+                    {% for m2m_sql in model.sql.m2m_tables %}
+                    <pre style="background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:10px 16px;font-size:0.68rem;font-family:var(--font-mono);overflow-x:auto;line-height:1.5;color:var(--text-primary);margin-bottom:8px;">{{ m2m_sql }}</pre>
+                    {% endfor %}
+                    {% endif %}
+                </div>
             </div>
             {% endif %}
         </div>
@@ -355,6 +689,8 @@
                     <th>Fields</th>
                     <th>Unique</th>
                     <th>Type</th>
+                    <th>Source</th>
+                    <th>Details</th>
                 </tr>
             </thead>
             <tbody>
@@ -379,7 +715,23 @@
                         <span style="color:var(--text-faint);">—</span>
                         {% endif %}
                     </td>
-                    <td><span class="schema-type-badge">INDEX</span></td>
+                    <td>
+                        <span class="schema-type-badge">{% if idx.get('index_type') %}{{ idx.index_type }}{% else %}INDEX{% endif %}</span>
+                    </td>
+                    <td>
+                        {% if idx.get('source') %}
+                        <span style="font-size:0.68rem;color:var(--text-faint);font-family:var(--font-mono);">{{ idx.source }}</span>
+                        {% else %}
+                        <span style="font-size:0.68rem;color:var(--text-faint);">meta</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if idx.get('condition') %}
+                        <code style="font-size:0.65rem;color:var(--info);">WHERE {{ idx.condition }}</code>
+                        {% else %}
+                        <span style="color:var(--text-faint);font-size:0.7rem;">—</span>
+                        {% endif %}
+                    </td>
                 </tr>
                 {% endfor %}
                 {% for c in model.constraints %}
@@ -391,12 +743,28 @@
                         </span>
                     </td>
                     <td>
+                        {% if c.get('fields') %}
                         {% for f in c.fields %}
                         <span class="schema-constraint-tag unique" style="margin-right:3px;">{{ f }}</span>
                         {% endfor %}
+                        {% elif c.get('check_expression') %}
+                        <code style="font-size:0.68rem;color:var(--warning);">{{ c.check_expression }}</code>
+                        {% endif %}
                     </td>
                     <td><i class="icon-check-circle" style="font-size:14px;color:var(--accent);"></i></td>
                     <td><span class="schema-type-badge">{{ c.type }}</span></td>
+                    <td>
+                        <span style="font-size:0.68rem;color:var(--text-faint);">meta</span>
+                    </td>
+                    <td>
+                        {% if c.get('violation_message') %}
+                        <span style="font-size:0.65rem;color:var(--warning);">⚠ {{ c.violation_message }}</span>
+                        {% elif c.get('check_expression') %}
+                        <code style="font-size:0.65rem;color:var(--info);">CHECK({{ c.check_expression }})</code>
+                        {% else %}
+                        <span style="color:var(--text-faint);font-size:0.7rem;">—</span>
+                        {% endif %}
+                    </td>
                 </tr>
                 {% endfor %}
                 {% endfor %}
@@ -459,9 +827,256 @@
     {% endif %}
 </div>
 
+{# ═══════════════════════════════════════════════════════════════════ #}
+{# ── TAB 6: SQL DDL (full DDL for all models)                     ── #}
+{# ═══════════════════════════════════════════════════════════════════ #}
+<div class="tab-content" data-tab-content="orm" data-tab="ddl">
+    <div class="section-label">SQL DDL Statements</div>
+    <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:16px;display:flex;align-items:center;gap:8px;">
+        <i class="icon-info" style="font-size:14px;color:var(--info);"></i>
+        Generated DDL for the current database dialect. Includes CREATE TABLE, indexes, and junction tables.
+    </div>
+
+    {% for model in model_schema %}
+    {% if model.sql and model.sql.create_table %}
+    <div class="schema-model-card" id="ddl-{{ model.name }}">
+        <div class="schema-model-header" onclick="this.parentElement.classList.toggle('active')">
+            <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;">
+                <i class="icon-chevron-right schema-chevron" style="font-size:14px;color:var(--text-faint);transition:transform 0.2s;flex-shrink:0;"></i>
+                <span style="font-weight:600;color:var(--text-primary);font-size:0.9rem;">{{ model.name }}</span>
+                <span class="schema-table-badge">{{ model.table_name }}</span>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;">
+                <span class="schema-pill">CREATE TABLE</span>
+                {% if model.sql.indexes %}
+                <span class="schema-pill schema-pill-info">{{ model.sql.indexes|length }} indexes</span>
+                {% endif %}
+                {% if model.sql.m2m_tables %}
+                <span class="schema-pill" style="background:var(--warning-subtle);color:var(--warning);">{{ model.sql.m2m_tables|length }} m2m</span>
+                {% endif %}
+            </div>
+        </div>
+        <div class="schema-model-body">
+            <div style="padding:16px 20px;">
+                <pre style="background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:14px 16px;font-size:0.72rem;font-family:var(--font-mono);overflow-x:auto;line-height:1.7;color:var(--text-primary);margin-bottom:12px;white-space:pre-wrap;">{{ model.sql.create_table }}</pre>
+
+                {% for idx_sql in model.sql.indexes %}
+                <pre style="background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:10px 16px;font-size:0.68rem;font-family:var(--font-mono);overflow-x:auto;line-height:1.5;color:var(--text-primary);margin-bottom:6px;white-space:pre-wrap;">{{ idx_sql }}</pre>
+                {% endfor %}
+
+                {% for m2m_sql in model.sql.m2m_tables %}
+                <pre style="background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:10px 16px;font-size:0.68rem;font-family:var(--font-mono);overflow-x:auto;line-height:1.5;color:var(--info);margin-bottom:6px;white-space:pre-wrap;">{{ m2m_sql }}</pre>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    {% endfor %}
+</div>
+
+{# ═══════════════════════════════════════════════════════════════════ #}
+{# ── TAB 7: Config & Metadata (database, backend, dependency graph)── #}
+{# ═══════════════════════════════════════════════════════════════════ #}
+<div class="tab-content" data-tab-content="orm" data-tab="metadata">
+    <div class="section-label">ORM Config &amp; Metadata</div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px;margin-bottom:24px;">
+        {# ── Database Info ── #}
+        <div class="glass-card card-padded">
+            <div style="font-size:.82rem;font-weight:600;margin-bottom:14px;display:flex;align-items:center;gap:8px;">
+                <i class="icon-database" style="font-size:14px;color:var(--accent);"></i>
+                Database Connection
+            </div>
+            {% if orm_metadata.database %}
+            <div style="font-size:0.75rem;line-height:2.2;">
+                {% if orm_metadata.database.get('dialect') %}
+                <div><span style="color:var(--text-faint);width:120px;display:inline-block;">Dialect</span> <code style="font-size:0.72rem;">{{ orm_metadata.database.dialect }}</code></div>
+                {% endif %}
+                {% if orm_metadata.database.get('driver') %}
+                <div><span style="color:var(--text-faint);width:120px;display:inline-block;">Driver</span> <code style="font-size:0.72rem;">{{ orm_metadata.database.driver }}</code></div>
+                {% endif %}
+                {% if orm_metadata.database.get('url') %}
+                <div><span style="color:var(--text-faint);width:120px;display:inline-block;">URL</span> <code style="font-size:0.65rem;word-break:break-all;">{{ orm_metadata.database.url }}</code></div>
+                {% endif %}
+                {% if orm_metadata.database.get('connected') is not none %}
+                <div><span style="color:var(--text-faint);width:120px;display:inline-block;">Connected</span>
+                    {% if orm_metadata.database.connected %}
+                    <span style="color:var(--accent);">● Yes</span>
+                    {% else %}
+                    <span style="color:var(--text-faint);">○ No</span>
+                    {% endif %}
+                </div>
+                {% endif %}
+                {% if orm_metadata.database.get('in_transaction') is not none %}
+                <div><span style="color:var(--text-faint);width:120px;display:inline-block;">In Transaction</span>
+                    {% if orm_metadata.database.in_transaction %}
+                    <span style="color:var(--warning);">● Yes</span>
+                    {% else %}
+                    <span style="color:var(--text-faint);">○ No</span>
+                    {% endif %}
+                </div>
+                {% endif %}
+                {% if orm_metadata.database.get('config_type') %}
+                <div><span style="color:var(--text-faint);width:120px;display:inline-block;">Config Type</span> <code style="font-size:0.72rem;">{{ orm_metadata.database.config_type }}</code></div>
+                {% endif %}
+            </div>
+            {% else %}
+            <div style="font-size:0.78rem;color:var(--text-faint);text-align:center;padding:16px 0;">
+                No database connection information available.
+            </div>
+            {% endif %}
+        </div>
+
+        {# ── Backend Capabilities ── #}
+        <div class="glass-card card-padded">
+            <div style="font-size:.82rem;font-weight:600;margin-bottom:14px;display:flex;align-items:center;gap:8px;">
+                <i class="icon-cpu" style="font-size:14px;color:var(--info);"></i>
+                Backend Capabilities
+            </div>
+            {% if orm_metadata.backend %}
+            <div style="display:flex;flex-wrap:wrap;gap:8px;">
+                {% for cap_name, cap_val in orm_metadata.backend.items() %}
+                <div style="display:flex;align-items:center;gap:5px;font-size:0.72rem;padding:4px 10px;border-radius:var(--radius-full);border:1px solid var(--border-subtle);background:{% if cap_val %}rgba(34,197,94,0.06){% else %}var(--bg-surface){% endif %};">
+                    {% if cap_val %}
+                    <span style="color:var(--accent);font-size:0.65rem;">✓</span>
+                    {% else %}
+                    <span style="color:var(--text-faint);font-size:0.65rem;">✗</span>
+                    {% endif %}
+                    <span style="color:{% if cap_val %}var(--text-primary){% else %}var(--text-faint){% endif %};">{{ cap_name|replace('_',' ')|title }}</span>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div style="font-size:0.78rem;color:var(--text-faint);text-align:center;padding:16px 0;">
+                No backend capability information available.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px;margin-bottom:24px;">
+        {# ── Stats Summary ── #}
+        <div class="glass-card card-padded">
+            <div style="font-size:.82rem;font-weight:600;margin-bottom:14px;display:flex;align-items:center;gap:8px;">
+                <i class="icon-bar-chart-2" style="font-size:14px;color:var(--warning);"></i>
+                Schema Statistics
+            </div>
+            {% if orm_metadata.stats %}
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
+                {% for stat_key, stat_val in orm_metadata.stats.items() %}
+                <div style="text-align:center;padding:10px;background:var(--bg-surface);border-radius:var(--radius-sm);">
+                    <div style="font-size:1.2rem;font-weight:700;color:var(--text-primary);">{{ stat_val }}</div>
+                    <div style="font-size:0.62rem;color:var(--text-faint);text-transform:uppercase;letter-spacing:0.05em;margin-top:2px;">{{ stat_key|replace('_',' ') }}</div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+
+        {# ── Dependency Graph ── #}
+        <div class="glass-card card-padded">
+            <div style="font-size:.82rem;font-weight:600;margin-bottom:14px;display:flex;align-items:center;gap:8px;">
+                <i class="icon-git-merge" style="font-size:14px;color:#8b5cf6;"></i>
+                Dependency Graph
+                <span class="meta-text" style="margin-left:auto;">model → depends on</span>
+            </div>
+            {% if orm_metadata.dependency_graph %}
+            <div style="font-size:0.75rem;line-height:2.4;">
+                {% for dep_model, dep_targets in orm_metadata.dependency_graph.items() %}
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                    <span style="font-weight:600;color:var(--text-primary);min-width:120px;">{{ dep_model }}</span>
+                    <span style="color:var(--text-faint);">→</span>
+                    {% for dt in dep_targets %}
+                    <span class="schema-constraint-tag" style="background:rgba(139,92,246,0.1);color:#8b5cf6;">{{ dt }}</span>
+                    {% endfor %}
+                    {% if not dep_targets %}
+                    <span style="color:var(--text-faint);font-size:0.68rem;font-style:italic;">no dependencies</span>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div style="font-size:0.78rem;color:var(--text-faint);text-align:center;padding:16px 0;">
+                No dependency information available.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    {# ── Model Summary Table ── #}
+    {% if orm_metadata.models %}
+    <div class="section-label" style="margin-top:12px;">Model Summary</div>
+    <div class="table-container">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>Model</th>
+                    <th>Table</th>
+                    <th>PK</th>
+                    <th>Fields</th>
+                    <th>Relations</th>
+                    <th>Indexes</th>
+                    <th>Managed</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for mm in orm_metadata.models %}
+                <tr>
+                    <td><span style="font-weight:500;">{{ mm.name }}</span></td>
+                    <td><code style="font-size:0.72rem;">{{ mm.table }}</code></td>
+                    <td><code style="font-size:0.72rem;">{{ mm.pk }}</code></td>
+                    <td style="text-align:center;">{{ mm.field_count }}</td>
+                    <td style="text-align:center;">{{ mm.get('relation_count', 0) }}</td>
+                    <td style="text-align:center;">{{ mm.get('index_count', 0) }}</td>
+                    <td style="text-align:center;">
+                        {% if mm.get('managed', true) %}
+                        <i class="icon-check-circle" style="font-size:14px;color:var(--accent);"></i>
+                        {% else %}
+                        <span style="color:var(--warning);">✗</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+</div>
+
 {% endblock %}
 
 {% block extra_js %}
+// ── Schema Sub-tab switcher ─────────────────────────────────────────
+function switchSchemaSubTab(btn, subName) {
+    var card = btn.closest('.schema-model-card');
+    if (!card) return;
+    var modelName = btn.parentElement.getAttribute('data-model');
+    // Deactivate all sub-tabs and sub-contents within this card
+    card.querySelectorAll('.schema-sub-tab').forEach(function(t) {
+        t.classList.remove('active');
+        t.style.borderBottomColor = 'transparent';
+        t.style.color = 'var(--text-secondary)';
+    });
+    card.querySelectorAll('.schema-sub-content').forEach(function(c) {
+        c.style.display = 'none';
+        c.classList.remove('active');
+    });
+    // Activate clicked
+    btn.classList.add('active');
+    btn.style.borderBottomColor = 'var(--accent)';
+    btn.style.color = 'var(--text-primary)';
+    var target = card.querySelector('.schema-sub-content[data-sub="' + subName + '"][data-model="' + modelName + '"]');
+    if (target) {
+        target.style.display = 'block';
+        target.classList.add('active');
+    }
+}
+// Initialize first sub-tab styling
+document.querySelectorAll('.schema-sub-tab.active').forEach(function(btn) {
+    btn.style.borderBottomColor = 'var(--accent)';
+    btn.style.color = 'var(--text-primary)';
+});
+
 // ── Model Search (client-side, instant filter) ──────────────────────
 (function() {
     var input = document.getElementById('modelSearchInput');
