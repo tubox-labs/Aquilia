@@ -204,6 +204,250 @@
 </div>
 {% endif %}
 
+{# ═══ ORM OVERVIEW ═══════════════════════════════════════════════ #}
+{% set orm = orm_metadata|default({}) %}
+{% set orm_stats = orm.get('stats', {}) %}
+{% set orm_db = orm.get('database', {}) %}
+{% set orm_backend = orm.get('backend', {}) %}
+{% set orm_dep_graph = orm.get('dependency_graph', {}) %}
+{% set orm_models = orm.get('models', []) %}
+
+{% if orm_stats.get('total_models', 0) > 0 %}
+<div class="section-label" style="margin-top:4px;">ORM Overview</div>
+
+{# ── Row 1: Database info + Schema stats ── #}
+<div class="dash-grid">
+
+    {# ── Database Backend card ── #}
+    <div class="glass-card" style="padding:0;">
+        <div class="card-header">
+            <span class="card-title"><i class="icon-hard-drive" style="font-size:14px;vertical-align:-2px;margin-right:6px;opacity:0.5;"></i>Database Backend</span>
+            <a href="{{ url_prefix|default('/admin') }}/orm/" style="font-size:0.72rem;color:var(--accent);text-decoration:none;">ORM →</a>
+        </div>
+        <div style="padding:20px;">
+            {% if orm_db.get('dialect', '') %}
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+                <div style="width:44px;height:44px;border-radius:var(--radius);background:var(--bg-surface);border:1px solid var(--border-subtle);display:flex;align-items:center;justify-content:center;">
+                    {% set dialect = orm_db.get('dialect', '')|lower %}
+                    {% if 'sqlite' in dialect %}
+                    <i class="icon-database" style="font-size:20px;color:var(--info);"></i>
+                    {% elif 'postgres' in dialect %}
+                    <i class="icon-database" style="font-size:20px;color:var(--info);"></i>
+                    {% elif 'mysql' in dialect %}
+                    <i class="icon-database" style="font-size:20px;color:var(--warning);"></i>
+                    {% elif 'oracle' in dialect %}
+                    <i class="icon-database" style="font-size:20px;color:var(--danger);"></i>
+                    {% else %}
+                    <i class="icon-database" style="font-size:20px;color:var(--accent);"></i>
+                    {% endif %}
+                </div>
+                <div>
+                    <div style="font-size:0.95rem;font-weight:600;color:var(--text-primary);text-transform:capitalize;">{{ orm_db.get('dialect', 'Unknown') }}</div>
+                    <div style="font-size:0.72rem;color:var(--text-faint);font-family:var(--font-mono);">{{ orm_db.get('driver', '') }}</div>
+                </div>
+                {% if orm_db.get('connected', false) %}
+                <div style="margin-left:auto;display:flex;align-items:center;gap:5px;">
+                    <div style="width:7px;height:7px;border-radius:50%;background:var(--success);"></div>
+                    <span style="font-size:0.7rem;color:var(--success);">Connected</span>
+                </div>
+                {% endif %}
+            </div>
+            {% if orm_db.get('url', '') %}
+            <div style="padding:8px 12px;background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);font-family:var(--font-mono);font-size:0.7rem;color:var(--text-muted);word-break:break-all;margin-bottom:14px;">{{ orm_db.get('url', '') }}</div>
+            {% endif %}
+            {% if orm_db.get('config_type', '') %}
+            <div style="font-size:0.72rem;color:var(--text-faint);">Config: <span style="color:var(--text-secondary);font-family:var(--font-mono);">{{ orm_db.get('config_type', '') }}</span></div>
+            {% endif %}
+            {% else %}
+            <div class="empty-state" style="padding:20px;">
+                <i class="icon-database" style="font-size:28px;display:block;margin-bottom:8px;opacity:0.2;"></i>
+                No database configured
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    {# ── Schema Stats card ── #}
+    <div class="glass-card" style="padding:0;">
+        <div class="card-header">
+            <span class="card-title"><i class="icon-grid" style="font-size:14px;vertical-align:-2px;margin-right:6px;opacity:0.5;"></i>Schema Stats</span>
+        </div>
+        <div style="padding:20px;">
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
+                <div style="text-align:center;padding:14px 8px;background:var(--bg-surface);border-radius:var(--radius);border:1px solid var(--border-subtle);">
+                    <div style="font-size:1.4rem;font-weight:700;color:var(--text-primary);font-family:var(--font-mono);" data-count="{{ orm_stats.get('total_fields', 0) }}">0</div>
+                    <div style="font-size:0.68rem;color:var(--text-faint);margin-top:2px;text-transform:uppercase;letter-spacing:0.04em;">Fields</div>
+                </div>
+                <div style="text-align:center;padding:14px 8px;background:var(--bg-surface);border-radius:var(--radius);border:1px solid var(--border-subtle);">
+                    <div style="font-size:1.4rem;font-weight:700;color:var(--info);font-family:var(--font-mono);" data-count="{{ orm_stats.get('total_relations', 0) }}">0</div>
+                    <div style="font-size:0.68rem;color:var(--text-faint);margin-top:2px;text-transform:uppercase;letter-spacing:0.04em;">Relations</div>
+                </div>
+                <div style="text-align:center;padding:14px 8px;background:var(--bg-surface);border-radius:var(--radius);border:1px solid var(--border-subtle);">
+                    <div style="font-size:1.4rem;font-weight:700;color:var(--purple);font-family:var(--font-mono);" data-count="{{ orm_stats.get('total_indexes', 0) }}">0</div>
+                    <div style="font-size:0.68rem;color:var(--text-faint);margin-top:2px;text-transform:uppercase;letter-spacing:0.04em;">Indexes</div>
+                </div>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:12px;">
+                <div style="text-align:center;padding:12px 8px;background:var(--bg-surface);border-radius:var(--radius);border:1px solid var(--border-subtle);">
+                    <div style="font-size:1.2rem;font-weight:700;color:var(--warning);font-family:var(--font-mono);" data-count="{{ orm_stats.get('total_constraints', 0) }}">0</div>
+                    <div style="font-size:0.68rem;color:var(--text-faint);margin-top:2px;text-transform:uppercase;letter-spacing:0.04em;">Constraints</div>
+                </div>
+                <div style="text-align:center;padding:12px 8px;background:var(--bg-surface);border-radius:var(--radius);border:1px solid var(--border-subtle);">
+                    <div style="font-size:1.2rem;font-weight:700;color:var(--success);font-family:var(--font-mono);" data-count="{{ orm_stats.get('total_m2m_fields', 0) }}">0</div>
+                    <div style="font-size:0.68rem;color:var(--text-faint);margin-top:2px;text-transform:uppercase;letter-spacing:0.04em;">M2M Fields</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# ── Row 2: Backend capabilities + Model dependency overview ── #}
+<div class="dash-grid">
+
+    {# ── Backend Capabilities card ── #}
+    {% if orm_backend|length > 0 %}
+    <div class="glass-card" style="padding:0;">
+        <div class="card-header">
+            <span class="card-title"><i class="icon-check-circle" style="font-size:14px;vertical-align:-2px;margin-right:6px;opacity:0.5;"></i>Backend Capabilities</span>
+        </div>
+        <div style="padding:16px 20px;">
+            {% set capabilities = [
+                ('RETURNING', orm_backend.get('supports_returning', false)),
+                ('JSON', orm_backend.get('supports_json', false)),
+                ('Arrays', orm_backend.get('supports_arrays', false)),
+                ('Upsert', orm_backend.get('supports_upsert', false)),
+                ('Window Fn', orm_backend.get('supports_window_functions', false)),
+                ('CTE', orm_backend.get('supports_cte', false)),
+                ('Partial Idx', orm_backend.get('supports_partial_indexes', false)),
+                ('Transactions', orm_backend.get('supports_transactions', false)),
+            ] %}
+            <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px;">
+                {% for cap_name, cap_val in capabilities %}
+                <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--bg-surface);border-radius:var(--radius-sm);border:1px solid var(--border-subtle);">
+                    {% if cap_val %}
+                    <div style="width:6px;height:6px;border-radius:50%;background:var(--success);flex-shrink:0;"></div>
+                    {% else %}
+                    <div style="width:6px;height:6px;border-radius:50%;background:var(--text-faint);opacity:0.4;flex-shrink:0;"></div>
+                    {% endif %}
+                    <span style="font-size:0.76rem;color:{{ 'var(--text-secondary)' if cap_val else 'var(--text-faint)' }};">{{ cap_name }}</span>
+                </div>
+                {% endfor %}
+            </div>
+            {% if orm_backend.get('param_style', '') %}
+            <div style="margin-top:12px;font-size:0.7rem;color:var(--text-faint);">
+                Param style: <span style="font-family:var(--font-mono);color:var(--text-muted);">{{ orm_backend.get('param_style', '?') }}</span>
+                {% if orm_backend.get('max_identifier_length', 0) > 0 %}
+                &nbsp;·&nbsp; Max identifier: <span style="font-family:var(--font-mono);color:var(--text-muted);">{{ orm_backend.get('max_identifier_length', 0) }}</span>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    {# ── Model Dependencies card ── #}
+    <div class="glass-card" style="padding:0;">
+        <div class="card-header">
+            <span class="card-title"><i class="icon-git-merge" style="font-size:14px;vertical-align:-2px;margin-right:6px;opacity:0.5;"></i>Model Dependencies</span>
+            <a href="{{ url_prefix|default('/admin') }}/orm/" style="font-size:0.72rem;color:var(--accent);text-decoration:none;">Full graph →</a>
+        </div>
+        <div style="padding:16px 20px;">
+            {% set has_deps = false %}
+            {% for model_name, deps in orm_dep_graph.items() %}
+                {% if deps|length > 0 %}{% set has_deps = true %}{% endif %}
+            {% endfor %}
+
+            {% set dep_models = [] %}
+            {% for model_name, deps in orm_dep_graph.items() %}
+                {% if deps|length > 0 %}
+                    {% if dep_models.append({'name': model_name, 'deps': deps}) %}{% endif %}
+                {% endif %}
+            {% endfor %}
+
+            {% if dep_models|length > 0 %}
+            <div style="display:flex;flex-direction:column;gap:8px;">
+                {% for item in dep_models[:6] %}
+                <div style="display:flex;align-items:center;gap:8px;padding:6px 0;{% if not loop.last %}border-bottom:1px solid var(--border-subtle);{% endif %}">
+                    <span style="font-size:0.8rem;font-weight:500;color:var(--text-primary);min-width:100px;">{{ item.name }}</span>
+                    <i class="icon-arrow-right" style="font-size:11px;color:var(--text-faint);flex-shrink:0;"></i>
+                    <div style="display:flex;flex-wrap:wrap;gap:4px;">
+                        {% for dep in item.deps %}
+                        <span style="font-size:0.7rem;padding:2px 8px;background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:10px;color:var(--text-secondary);font-family:var(--font-mono);">{{ dep }}</span>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endfor %}
+                {% if dep_models|length > 6 %}
+                <div style="text-align:center;padding-top:6px;">
+                    <span style="font-size:0.72rem;color:var(--text-faint);">+ {{ dep_models|length - 6 }} more with dependencies</span>
+                </div>
+                {% endif %}
+            </div>
+            {% else %}
+            <div class="empty-state" style="padding:16px;">
+                <i class="icon-git-merge" style="font-size:24px;display:block;margin-bottom:8px;opacity:0.2;"></i>
+                No inter-model dependencies (FK/M2M)
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{# ── Row 3: Model summary table (condensed) ── #}
+{% if orm_models|length > 0 %}
+<div class="glass-card" style="padding:0;margin-bottom:8px;">
+    <div class="card-header">
+        <span class="card-title"><i class="icon-table" style="font-size:14px;vertical-align:-2px;margin-right:6px;opacity:0.5;"></i>Model Schema Summary</span>
+        <span style="font-size:0.72rem;color:var(--text-faint);font-family:var(--font-mono);">{{ orm_models|length }} model{{ 's' if orm_models|length != 1 else '' }}</span>
+    </div>
+    <div style="overflow-x:auto;">
+        <table class="data-table" style="width:100%;font-size:0.78rem;">
+            <thead>
+                <tr>
+                    <th style="text-align:left;padding:10px 14px;font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;color:var(--text-faint);">Model</th>
+                    <th style="text-align:left;padding:10px 14px;font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;color:var(--text-faint);">Table</th>
+                    <th style="text-align:center;padding:10px 14px;font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;color:var(--text-faint);">Fields</th>
+                    <th style="text-align:center;padding:10px 14px;font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;color:var(--text-faint);">Relations</th>
+                    <th style="text-align:center;padding:10px 14px;font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;color:var(--text-faint);">Indexes</th>
+                    <th style="text-align:center;padding:10px 14px;font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;color:var(--text-faint);">PK</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for m in orm_models %}
+                <tr style="border-top:1px solid var(--border-subtle);">
+                    <td style="padding:8px 14px;">
+                        <a href="{{ url_prefix|default('/admin') }}/{{ m.name|lower }}/" style="color:var(--accent);text-decoration:none;font-weight:500;">{{ m.name }}</a>
+                        {% if m.get('app_label', '') %}
+                        <span style="font-size:0.66rem;color:var(--text-faint);margin-left:6px;">{{ m.app_label }}</span>
+                        {% endif %}
+                    </td>
+                    <td style="padding:8px 14px;font-family:var(--font-mono);color:var(--text-muted);font-size:0.74rem;">{{ m.table }}</td>
+                    <td style="padding:8px 14px;text-align:center;font-family:var(--font-mono);color:var(--text-secondary);">{{ m.field_count }}</td>
+                    <td style="padding:8px 14px;text-align:center;">
+                        {% if m.relation_count > 0 %}
+                        <span style="font-family:var(--font-mono);color:var(--info);">{{ m.relation_count }}</span>
+                        {% else %}
+                        <span style="color:var(--text-faint);">—</span>
+                        {% endif %}
+                    </td>
+                    <td style="padding:8px 14px;text-align:center;">
+                        {% if m.index_count > 0 %}
+                        <span style="font-family:var(--font-mono);color:var(--purple);">{{ m.index_count }}</span>
+                        {% else %}
+                        <span style="color:var(--text-faint);">—</span>
+                        {% endif %}
+                    </td>
+                    <td style="padding:8px 14px;text-align:center;font-family:var(--font-mono);font-size:0.72rem;color:var(--text-muted);">{{ m.pk }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+{% endif %}
+
 {# ═══ MAIN DASHBOARD GRID ═══════════════════════════════════════ #}
 <div class="dash-grid">
 
