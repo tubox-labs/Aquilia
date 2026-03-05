@@ -96,6 +96,22 @@
     </div>
     {% endif %}
 
+    {# ── DevTools ── #}
+    {% if sections.get('devtools', true) %}
+    <div class="sidebar-section" data-sidebar-section>
+        <span class="sidebar-section-label">DevTools</span>
+        <a class="sidebar-link{{ ' active' if active_page == 'query_inspector' else '' }}" href="{{ url_prefix|default('/admin') }}/query-inspector/" data-sidebar-label="query inspector sql profiler explain n+1">
+            <i class="icon-terminal"></i> <span>Query Inspector</span>
+        </a>
+        <a class="sidebar-link{{ ' active' if active_page == 'tasks' else '' }}" href="{{ url_prefix|default('/admin') }}/tasks/" data-sidebar-label="background tasks jobs queue worker">
+            <i class="icon-clock"></i> <span>Background Tasks</span>
+        </a>
+        <a class="sidebar-link{{ ' active' if active_page == 'errors' else '' }}" href="{{ url_prefix|default('/admin') }}/errors/" data-sidebar-label="errors monitoring exceptions stack traces">
+            <i class="icon-alert-triangle"></i> <span>Error Monitoring</span>
+        </a>
+    </div>
+    {% endif %}
+
     {# ── ORM Models (per-model links) ── #}
     {% if sections.get('models', true) and app_list is defined and app_list|length > 0 %}
     <div class="sidebar-section" data-sidebar-section>

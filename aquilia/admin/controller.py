@@ -53,6 +53,9 @@ from .templates import (
     render_profile_page,
     render_error_page,
     render_disabled_page,
+    render_query_inspector_page,
+    render_tasks_page,
+    render_errors_page,
 )
 
 if TYPE_CHECKING:
@@ -365,6 +368,24 @@ class AdminController(Controller):
                 "cloud",
                 "Kubernetes pods, deployments, services, and cluster management.",
             ),
+            "Query Inspector": (
+                "Integration.AdminModules().enable_query_inspector()",
+                "enable_query_inspector=True",
+                "terminal",
+                "Live SQL profiling, ORM→SQL translation, EXPLAIN plans, and N+1 detection.",
+            ),
+            "Background Tasks": (
+                "Integration.AdminModules().enable_tasks()",
+                "enable_tasks=True",
+                "clock",
+                "Background task queue, job lifecycle, retries, and worker monitoring.",
+            ),
+            "Error Monitoring": (
+                "Integration.AdminModules().enable_errors()",
+                "enable_errors=True",
+                "alert-triangle",
+                "Error tracking with stack traces, grouping, frequency analysis, and trends.",
+            ),
         }
 
         hint = _config_hints.get(module, (
@@ -440,6 +461,19 @@ class AdminController(Controller):
         # Gather ORM metadata for dashboard widgets
         orm_metadata = self.site.get_orm_metadata()
 
+        # Gather error and task stats for dashboard live stats row
+        error_stats = {}
+        tasks_stats = {}
+        try:
+            error_stats = self.site.get_error_tracker_data()
+        except Exception:
+            pass
+        try:
+            tasks_data = await self.site.get_tasks_data()
+            tasks_stats = tasks_data.get("stats", {})
+        except Exception:
+            pass
+
         html = render_dashboard(
             app_list=app_list,
             stats=stats,
@@ -448,6 +482,8 @@ class AdminController(Controller):
             containers_summary=containers_summary,
             pods_summary=pods_summary,
             orm_metadata=orm_metadata,
+            error_stats=error_stats,
+            tasks_stats=tasks_stats,
         )
         return _html_response(html)
 
@@ -2097,6 +2133,165 @@ class AdminController(Controller):
         pods_data = self.site.get_pods_data()
         return Response(
             content=_json.dumps(pods_data, default=str).encode("utf-8"),
+            status=200,
+            headers={"content-type": "application/json; charset=utf-8"},
+        )
+
+    # ── Query Inspector Page ─────────────────────────────────────────
+
+    @GET("/query-inspector/")
+    async def query_inspector_view(self, request, ctx: RequestCtx) -> Response:
+        """Live query inspector -- ORM→SQL, timing, EXPLAIN, N+1 detection."""
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return denied
+
+        if not self.site.admin_config.is_module_enabled("query_inspector"):
+            return self._module_disabled_response("Query Inspector", identity)
+
+        self._ensure_initialized()
+
+        query_data = self.site.get_query_inspector_data()
+        app_list = self.site.get_app_list(identity)
+
+        html = render_query_inspector_page(
+            query_data=query_data,
+            app_list=app_list,
+            identity_name=_get_identity_name(identity),
+            identity_avatar=_get_identity_avatar(identity),
+        )
+        return _html_response(html)
+
+    @GET("/query-inspector/api/")
+    async def query_inspector_api(self, request, ctx: RequestCtx) -> Response:
+        """JSON API endpoint for live-polling query inspector data."""
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return Response(
+                content=b'{"error":"unauthorized"}',
+                status=401,
+                headers={"content-type": "application/json"},
+            )
+
+        if not self.site.admin_config.is_module_enabled("query_inspector"):
+            return Response(
+                content=b'{"error":"query_inspector disabled"}',
+                status=404,
+                headers={"content-type": "application/json"},
+            )
+
+        self._ensure_initialized()
+
+        import json as _json
+        query_data = self.site.get_query_inspector_data()
+        return Response(
+            content=_json.dumps(query_data, default=str).encode("utf-8"),
+            status=200,
+            headers={"content-type": "application/json; charset=utf-8"},
+        )
+
+    # ── Background Tasks Page ────────────────────────────────────────
+
+    @GET("/tasks/")
+    async def tasks_view(self, request, ctx: RequestCtx) -> Response:
+        """Background task monitor -- job queue, workers, retries."""
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return denied
+
+        if not self.site.admin_config.is_module_enabled("tasks"):
+            return self._module_disabled_response("Background Tasks", identity)
+
+        self._ensure_initialized()
+
+        tasks_data = await self.site.get_tasks_data()
+        app_list = self.site.get_app_list(identity)
+
+        html = render_tasks_page(
+            tasks_data=tasks_data,
+            app_list=app_list,
+            identity_name=_get_identity_name(identity),
+            identity_avatar=_get_identity_avatar(identity),
+        )
+        return _html_response(html)
+
+    @GET("/tasks/api/")
+    async def tasks_api(self, request, ctx: RequestCtx) -> Response:
+        """JSON API endpoint for live-polling task data."""
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return Response(
+                content=b'{"error":"unauthorized"}',
+                status=401,
+                headers={"content-type": "application/json"},
+            )
+
+        if not self.site.admin_config.is_module_enabled("tasks"):
+            return Response(
+                content=b'{"error":"tasks disabled"}',
+                status=404,
+                headers={"content-type": "application/json"},
+            )
+
+        self._ensure_initialized()
+
+        import json as _json
+        tasks_data = await self.site.get_tasks_data()
+        return Response(
+            content=_json.dumps(tasks_data, default=str).encode("utf-8"),
+            status=200,
+            headers={"content-type": "application/json; charset=utf-8"},
+        )
+
+    # ── Error Monitoring Page ────────────────────────────────────────
+
+    @GET("/errors/")
+    async def errors_view(self, request, ctx: RequestCtx) -> Response:
+        """Error monitoring -- stack traces, grouping, trends."""
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return denied
+
+        if not self.site.admin_config.is_module_enabled("errors"):
+            return self._module_disabled_response("Error Monitoring", identity)
+
+        self._ensure_initialized()
+
+        errors_data = self.site.get_error_tracker_data()
+        app_list = self.site.get_app_list(identity)
+
+        html = render_errors_page(
+            errors_data=errors_data,
+            app_list=app_list,
+            identity_name=_get_identity_name(identity),
+            identity_avatar=_get_identity_avatar(identity),
+        )
+        return _html_response(html)
+
+    @GET("/errors/api/")
+    async def errors_api(self, request, ctx: RequestCtx) -> Response:
+        """JSON API endpoint for live-polling error data."""
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return Response(
+                content=b'{"error":"unauthorized"}',
+                status=401,
+                headers={"content-type": "application/json"},
+            )
+
+        if not self.site.admin_config.is_module_enabled("errors"):
+            return Response(
+                content=b'{"error":"errors disabled"}',
+                status=404,
+                headers={"content-type": "application/json"},
+            )
+
+        self._ensure_initialized()
+
+        import json as _json
+        errors_data = self.site.get_error_tracker_data()
+        return Response(
+            content=_json.dumps(errors_data, default=str).encode("utf-8"),
             status=200,
             headers={"content-type": "application/json; charset=utf-8"},
         )

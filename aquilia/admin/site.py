@@ -56,6 +56,7 @@ class AdminConfig:
         "permissions": True, "monitoring": False, "admin_users": True,
         "profile": True, "audit": False,
         "containers": False, "pods": False,
+        "query_inspector": False, "tasks": False, "errors": False,
     })
 
     # Audit settings (disabled by default -- opt in)
@@ -118,6 +119,7 @@ class AdminConfig:
     sidebar_sections: Dict[str, bool] = field(default_factory=lambda: {
         "overview": True, "data": True, "system": True,
         "infrastructure": True, "security": True, "models": True,
+        "devtools": True,
     })
 
     # UI
@@ -249,6 +251,7 @@ class AdminConfig:
             "permissions": True, "monitoring": False, "admin_users": True,
             "profile": True, "audit": False,
             "containers": False, "pods": False,
+            "query_inspector": False, "tasks": False, "errors": False,
         }
         modules = {**default_modules, **modules_raw}
 
@@ -332,6 +335,7 @@ class AdminConfig:
                 "infrastructure": sidebar_raw.get("infrastructure", True),
                 "security": sidebar_raw.get("security", True),
                 "models": sidebar_raw.get("models", True),
+                "devtools": sidebar_raw.get("devtools", True),
             },
             theme=raw.get("theme", "auto"),
             list_per_page=raw.get("list_per_page", 25),
@@ -1113,6 +1117,89 @@ class AdminSite:
 
         return result
 
+    # ── Query Inspector data ─────────────────────────────────────────
+
+    def get_query_inspector_data(self) -> Dict[str, Any]:
+        """
+        Gather query inspector data: recent queries, slow queries,
+        N+1 detections, and aggregate stats.
+        """
+        from .query_inspector import get_query_inspector
+        inspector = get_query_inspector()
+        return inspector.get_stats()
+
+    # ── Error Tracker data ───────────────────────────────────────────
+
+    def get_error_tracker_data(self) -> Dict[str, Any]:
+        """
+        Gather error tracker data: recent errors, error groups,
+        frequency analysis, and aggregate stats.
+        """
+        from .error_tracker import get_error_tracker
+        tracker = get_error_tracker()
+        return tracker.get_stats()
+
+    # ── Background Tasks data ────────────────────────────────────────
+
+    async def get_tasks_data(self) -> Dict[str, Any]:
+        """
+        Gather background task manager data: job list, queue stats,
+        worker status, and aggregate stats.
+        """
+        try:
+            from aquilia.tasks import TaskManager
+            # Try to find the active TaskManager instance
+            manager = getattr(self, "_task_manager", None)
+            if manager is None:
+                # Return empty structure if no task manager is configured
+                return {
+                    "available": False,
+                    "stats": {
+                        "total_jobs": 0,
+                        "by_state": {},
+                        "queues": [],
+                        "queue_count": 0,
+                        "avg_duration_ms": 0,
+                        "dead_letter_count": 0,
+                        "completed_count": 0,
+                        "failed_count": 0,
+                        "active_count": 0,
+                        "pending_count": 0,
+                        "manager": {
+                            "running": False,
+                            "num_workers": 0,
+                            "total_enqueued": 0,
+                            "total_completed": 0,
+                            "total_failed": 0,
+                            "uptime_seconds": 0,
+                            "queues": [],
+                            "backend": "None",
+                        },
+                    },
+                    "jobs": [],
+                    "queue_stats": {},
+                }
+            stats = await manager.get_stats()
+            jobs = await manager.list_jobs(limit=100)
+            queue_stats = await manager.get_queue_stats()
+            return {
+                "available": True,
+                "stats": stats,
+                "jobs": [j.to_dict() for j in jobs],
+                "queue_stats": {q: dict(s) for q, s in queue_stats.items()},
+            }
+        except Exception:
+            return {
+                "available": False,
+                "stats": {},
+                "jobs": [],
+                "queue_stats": {},
+            }
+
+    def set_task_manager(self, manager) -> None:
+        """Register the application's TaskManager for admin integration."""
+        self._task_manager = manager
+
     # ── Dashboard data ───────────────────────────────────────────────
 
     async def get_dashboard_stats(self) -> Dict[str, Any]:
@@ -1181,6 +1268,7 @@ class AdminSite:
         now = datetime.now(timezone.utc)
         logins_24h = 0
         failed_logins = 0
+        users_24h: set = set()
 
         for entry in all_audit:
             action_counter[entry.action.value] += 1
@@ -1197,6 +1285,8 @@ class AdminSite:
                 if diff_h <= 24:
                     hour_label = ts.strftime("%H:00")
                     hourly_counter[hour_label] += 1
+                    if entry.username:
+                        users_24h.add(entry.username)
                     if entry.action.value == "login":
                         logins_24h += 1
                     if entry.action.value == "login_failed":
@@ -1213,9 +1303,23 @@ class AdminSite:
             "exports": action_counter.get("export", 0),
             "logins_24h": logins_24h,
             "failed_logins": failed_logins,
+            "unique_users_24h": len(users_24h),
             "action_breakdown": dict(action_counter.most_common(10)),
             "hourly_activity": dict(sorted(hourly_counter.items())),
         }
+
+        # Active sessions estimate (unique users in last hour)
+        sessions_1h: set = set()
+        for entry in all_audit:
+            try:
+                ts = entry.timestamp
+                if ts.tzinfo is None:
+                    ts = ts.replace(tzinfo=timezone.utc)
+                if (now - ts).total_seconds() < 3600 and entry.username:
+                    sessions_1h.add(entry.username)
+            except Exception:
+                pass
+        stats["active_sessions"] = len(sessions_1h)
 
         # Active users (top 5 by activity)
         stats["active_users"] = [

@@ -192,6 +192,8 @@ def render_dashboard(
     containers_summary: Optional[Dict[str, Any]] = None,
     pods_summary: Optional[Dict[str, Any]] = None,
     orm_metadata: Optional[Dict[str, Any]] = None,
+    error_stats: Optional[Dict[str, Any]] = None,
+    tasks_stats: Optional[Dict[str, Any]] = None,
 ) -> str:
     """Render the admin dashboard."""
     model_counts = stats.get("model_counts", {})
@@ -203,6 +205,11 @@ def render_dashboard(
     top_models = stats.get("top_models", [])
     active_users = stats.get("active_users", [])
     system_health = stats.get("system_health", {})
+
+    # Live stats for the new dashboard row
+    _error_stats = error_stats or {}
+    _tasks_stats = tasks_stats or {}
+    _tasks_manager = _tasks_stats.get("manager", {})
 
     if _HAS_JINJA2:
         return _render_template(
@@ -226,6 +233,13 @@ def render_dashboard(
             containers_summary=containers_summary or {},
             pods_summary=pods_summary or {},
             orm_metadata=orm_metadata or {},
+            # New live stats
+            users_today=audit_summary.get("unique_users_24h", 0),
+            active_sessions=stats.get("active_sessions", 0),
+            error_count=_error_stats.get("errors_last_24h", 0),
+            errors_last_hour=_error_stats.get("errors_last_hour", 0),
+            tasks_active=_tasks_stats.get("active_count", 0),
+            tasks_pending=_tasks_stats.get("pending_count", 0),
         )
     return _fallback_dashboard(
         app_list, stats, identity_name,
@@ -882,6 +896,130 @@ def render_disabled_page(
 </div>
 <a href="{url_prefix}/" style="color:#22c55e">← Back to Dashboard</a>
 </div></body></html>"""
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Query Inspector, Tasks, Errors pages
+# ═══════════════════════════════════════════════════════════════════════════
+
+def render_query_inspector_page(
+    query_data: Dict[str, Any],
+    app_list: Optional[List[Dict[str, Any]]] = None,
+    identity_name: str = "Admin",
+    identity_avatar: str = "",
+    *,
+    site_title: str = "Aquilia Admin",
+    url_prefix: str = "/admin",
+) -> str:
+    """Render the live query inspector page with SQL profiling and N+1 detection."""
+    if _HAS_JINJA2:
+        return _render_template(
+            "query_inspector.html",
+            data=_dict_to_ns(query_data),
+            total_queries=query_data.get("total_queries", 0),
+            avg_duration=query_data.get("avg_duration_ms", 0),
+            slow_queries=query_data.get("slow_queries", 0),
+            n1_detections=query_data.get("n1_detections", 0),
+            by_operation=query_data.get("by_operation", {}),
+            by_model=query_data.get("by_model", {}),
+            recent_queries=query_data.get("recent_queries", []),
+            slow_query_list=query_data.get("slow_query_list", []),
+            n1_list=query_data.get("n1_list", []),
+            queries_per_second=query_data.get("queries_per_second", 0),
+            slow_threshold_ms=query_data.get("slow_threshold_ms", 100),
+            app_list=app_list or [],
+            active_page="query_inspector",
+            identity_name=identity_name,
+            identity_avatar=identity_avatar,
+            site_title=site_title,
+            url_prefix=url_prefix,
+            page_title="Query Inspector",
+        )
+    total = query_data.get("total_queries", 0)
+    return f"""<!DOCTYPE html><html lang="en" data-theme="dark"><head>
+<meta charset="UTF-8"><title>Query Inspector -- Aquilia Admin</title><style>{_FALLBACK_CSS}</style></head>
+<body><div style="padding:24px"><h1>Query Inspector</h1><p>{total} queries captured</p></div></body></html>"""
+
+
+def render_tasks_page(
+    tasks_data: Dict[str, Any],
+    app_list: Optional[List[Dict[str, Any]]] = None,
+    identity_name: str = "Admin",
+    identity_avatar: str = "",
+    *,
+    site_title: str = "Aquilia Admin",
+    url_prefix: str = "/admin",
+) -> str:
+    """Render the background tasks monitor page."""
+    stats = tasks_data.get("stats", {})
+    manager_info = stats.get("manager", {})
+    if _HAS_JINJA2:
+        return _render_template(
+            "tasks.html",
+            data=_dict_to_ns(tasks_data),
+            available=tasks_data.get("available", False),
+            stats=_dict_to_ns(stats),
+            manager=_dict_to_ns(manager_info),
+            jobs=tasks_data.get("jobs", []),
+            queue_stats=tasks_data.get("queue_stats", {}),
+            total_jobs=stats.get("total_jobs", 0),
+            active_count=stats.get("active_count", 0),
+            pending_count=stats.get("pending_count", 0),
+            completed_count=stats.get("completed_count", 0),
+            failed_count=stats.get("failed_count", 0),
+            dead_letter_count=stats.get("dead_letter_count", 0),
+            app_list=app_list or [],
+            active_page="tasks",
+            identity_name=identity_name,
+            identity_avatar=identity_avatar,
+            site_title=site_title,
+            url_prefix=url_prefix,
+            page_title="Background Tasks",
+        )
+    total = stats.get("total_jobs", 0)
+    return f"""<!DOCTYPE html><html lang="en" data-theme="dark"><head>
+<meta charset="UTF-8"><title>Background Tasks -- Aquilia Admin</title><style>{_FALLBACK_CSS}</style></head>
+<body><div style="padding:24px"><h1>Background Tasks</h1><p>{total} jobs</p></div></body></html>"""
+
+
+def render_errors_page(
+    errors_data: Dict[str, Any],
+    app_list: Optional[List[Dict[str, Any]]] = None,
+    identity_name: str = "Admin",
+    identity_avatar: str = "",
+    *,
+    site_title: str = "Aquilia Admin",
+    url_prefix: str = "/admin",
+) -> str:
+    """Render the error monitoring page with stack traces and grouping."""
+    if _HAS_JINJA2:
+        return _render_template(
+            "errors.html",
+            data=_dict_to_ns(errors_data),
+            total_errors=errors_data.get("total_errors", 0),
+            errors_last_hour=errors_data.get("errors_last_hour", 0),
+            errors_last_24h=errors_data.get("errors_last_24h", 0),
+            error_rate=errors_data.get("error_rate_per_min", 0),
+            unique_errors=errors_data.get("unique_errors", 0),
+            by_domain=errors_data.get("by_domain", {}),
+            by_severity=errors_data.get("by_severity", {}),
+            top_routes=errors_data.get("top_routes", []),
+            top_codes=errors_data.get("top_codes", []),
+            recent_errors=errors_data.get("recent_errors", []),
+            error_groups=errors_data.get("error_groups", []),
+            hourly_trend=errors_data.get("hourly_trend", []),
+            app_list=app_list or [],
+            active_page="errors",
+            identity_name=identity_name,
+            identity_avatar=identity_avatar,
+            site_title=site_title,
+            url_prefix=url_prefix,
+            page_title="Error Monitoring",
+        )
+    total = errors_data.get("total_errors", 0)
+    return f"""<!DOCTYPE html><html lang="en" data-theme="dark"><head>
+<meta charset="UTF-8"><title>Error Monitoring -- Aquilia Admin</title><style>{_FALLBACK_CSS}</style></head>
+<body><div style="padding:24px"><h1>Error Monitoring</h1><p>{total} errors tracked</p></div></body></html>"""
 
 
 # ═══════════════════════════════════════════════════════════════════════════

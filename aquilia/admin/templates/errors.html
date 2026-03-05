@@ -1,0 +1,253 @@
+{% extends "base.html" %}
+{% block title %}Error Monitoring{% endblock %}
+{% block breadcrumb %}Error Monitoring{% endblock %}
+
+{% block content %}
+{# ═══════════════════════════════════════════════════════════════════
+   AQUILIA ADMIN — ERROR MONITORING
+   Stack Traces · Error Grouping · Frequency Analysis · Trends
+   ═══════════════════════════════════════════════════════════════════ #}
+
+<div class="dash-greeting">
+    <h1>
+        <i class="icon-alert-triangle" style="font-size:1.6rem;vertical-align:-3px;margin-right:8px;opacity:0.5;"></i>
+        Error Monitoring
+    </h1>
+    <p>Track errors with stack traces, grouping, frequency analysis, and hourly trends</p>
+</div>
+
+{# ═══ METRIC CARDS ═══ #}
+<div class="dash-stats">
+    <div class="dash-stat-card">
+        <div class="stat-icon-wrap red"><i class="icon-alert-circle"></i></div>
+        <div class="dash-stat-value" data-count="{{ total_errors }}">0</div>
+        <div class="dash-stat-label">Total Errors</div>
+        <div class="dash-stat-sub">
+            {{ error_rate }} /min rate
+        </div>
+    </div>
+    <div class="dash-stat-card">
+        <div class="stat-icon-wrap amber"><i class="icon-clock"></i></div>
+        <div class="dash-stat-value" data-count="{{ errors_last_hour }}">0</div>
+        <div class="dash-stat-label">Last Hour</div>
+        <div class="dash-stat-sub">
+            {{ errors_last_24h }} in 24h
+        </div>
+    </div>
+    <div class="dash-stat-card">
+        <div class="stat-icon-wrap purple"><i class="icon-layers"></i></div>
+        <div class="dash-stat-value" data-count="{{ unique_errors }}">0</div>
+        <div class="dash-stat-label">Unique Errors</div>
+        <div class="dash-stat-sub">Grouped by fingerprint</div>
+    </div>
+    <div class="dash-stat-card">
+        <div class="stat-icon-wrap blue"><i class="icon-bar-chart-2"></i></div>
+        <div class="dash-stat-value">{{ "%.1f"|format(error_rate) }}</div>
+        <div class="dash-stat-label">Errors/min</div>
+        <div class="dash-stat-sub">Current rate</div>
+    </div>
+</div>
+
+{# ═══ HOURLY TREND CHART ═══ #}
+{% if hourly_trend and hourly_trend|length > 0 %}
+<div class="section-label" style="margin-top:8px;">Error Trend — Last 24 Hours</div>
+<div class="card" style="padding:20px;">
+    <div style="display:flex;align-items:flex-end;gap:2px;height:80px;">
+        {% set max_count = 1 %}
+        {% for h in hourly_trend %}
+            {% if h.count > max_count %}{% set max_count = h.count %}{% endif %}
+        {% endfor %}
+        {% for h in hourly_trend %}
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;" title="{{ h.hour }}: {{ h.count }} errors">
+            <div style="width:100%;max-width:24px;background:{{ 'var(--danger)' if h.count > 0 else 'var(--bg-surface)' }};border-radius:3px 3px 0 0;height:{{ ((h.count / max_count) * 60)|int if h.count > 0 else 2 }}px;min-height:2px;opacity:{{ 0.4 + (h.count / max_count) * 0.6 if h.count > 0 else 0.2 }};transition:height 0.3s;"></div>
+        </div>
+        {% endfor %}
+    </div>
+    <div style="display:flex;justify-content:space-between;margin-top:8px;">
+        <span style="font-size:0.6rem;color:var(--text-faint);">{{ hourly_trend[0].hour[-5:] if hourly_trend|length > 0 else '' }}</span>
+        <span style="font-size:0.6rem;color:var(--text-faint);">{{ hourly_trend[-1].hour[-5:] if hourly_trend|length > 0 else '' }}</span>
+    </div>
+</div>
+{% endif %}
+
+{# ═══ BREAKDOWN GRID ═══ #}
+<div class="section-label" style="margin-top:24px;">Error Breakdown</div>
+<div class="dash-grid">
+    {# By Severity #}
+    {% if by_severity and by_severity|length > 0 %}
+    <div class="card" style="padding:18px;">
+        <span class="card-title"><i class="icon-alert-circle" style="font-size:14px;vertical-align:-2px;margin-right:6px;opacity:0.5;"></i>By Severity</span>
+        <div style="margin-top:14px;">
+            {% for sev, count in by_severity.items() %}
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border-subtle);">
+                <span style="font-size:0.82rem;color:{{ 'var(--danger)' if sev in ('ERROR', 'error', 'FATAL', 'fatal') else ('var(--warning)' if sev in ('WARN', 'warn') else 'var(--text-secondary)') }};">{{ sev }}</span>
+                <span style="font-family:var(--font-mono);font-size:0.78rem;font-weight:600;">{{ count }}</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    {# By Domain #}
+    {% if by_domain and by_domain|length > 0 %}
+    <div class="card" style="padding:18px;">
+        <span class="card-title"><i class="icon-grid" style="font-size:14px;vertical-align:-2px;margin-right:6px;opacity:0.5;"></i>By Domain</span>
+        <div style="margin-top:14px;">
+            {% for domain, count in by_domain.items() %}
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border-subtle);">
+                <span style="font-size:0.82rem;color:var(--text-primary);">{{ domain }}</span>
+                <span style="font-family:var(--font-mono);font-size:0.78rem;font-weight:600;">{{ count }}</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    {# Top Routes #}
+    {% if top_routes and top_routes|length > 0 %}
+    <div class="card" style="padding:18px;">
+        <span class="card-title"><i class="icon-map" style="font-size:14px;vertical-align:-2px;margin-right:6px;opacity:0.5;"></i>Top Error Routes</span>
+        <div style="margin-top:14px;">
+            {% for r in top_routes[:8] %}
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border-subtle);">
+                <code style="font-size:0.75rem;color:var(--text-secondary);">{{ r.route|truncate(40) }}</code>
+                <span style="font-family:var(--font-mono);font-size:0.78rem;font-weight:600;color:var(--danger);">{{ r.count }}</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+{# ═══ ERROR GROUPS ═══ #}
+{% if error_groups and error_groups|length > 0 %}
+<div class="section-label" style="margin-top:24px;">
+    <i class="icon-layers" style="margin-right:6px;opacity:0.5;"></i>
+    Error Groups
+</div>
+<div class="card" style="padding:0;overflow:hidden;">
+    <table class="admin-table" style="width:100%;border-collapse:collapse;">
+        <thead>
+            <tr>
+                <th style="padding:12px 16px;text-align:left;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-faint);border-bottom:1px solid var(--border-subtle);">Error Code</th>
+                <th style="padding:12px 16px;text-align:left;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-faint);border-bottom:1px solid var(--border-subtle);">Message</th>
+                <th style="padding:12px 16px;text-align:center;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-faint);border-bottom:1px solid var(--border-subtle);">Domain</th>
+                <th style="padding:12px 16px;text-align:center;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-faint);border-bottom:1px solid var(--border-subtle);">Count</th>
+                <th style="padding:12px 16px;text-align:right;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-faint);border-bottom:1px solid var(--border-subtle);">Last Seen</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for g in error_groups[:20] %}
+            <tr style="border-bottom:1px solid var(--border-subtle);">
+                <td style="padding:10px 16px;">
+                    <code style="font-size:0.78rem;color:var(--danger);font-weight:600;">{{ g.code }}</code>
+                </td>
+                <td style="padding:10px 16px;font-size:0.8rem;color:var(--text-secondary);">
+                    {{ g.message|truncate(80) }}
+                </td>
+                <td style="padding:10px 16px;text-align:center;">
+                    <span style="font-size:0.7rem;padding:2px 8px;border-radius:4px;background:var(--bg-surface);color:var(--text-faint);">{{ g.domain }}</span>
+                </td>
+                <td style="padding:10px 16px;text-align:center;">
+                    <span style="font-weight:700;font-size:0.9rem;color:var(--danger);">{{ g.count }}</span>
+                </td>
+                <td style="padding:10px 16px;text-align:right;font-size:0.7rem;color:var(--text-faint);">
+                    {{ g.last_seen[:19] if g.last_seen else '—' }}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+{# ═══ RECENT ERRORS WITH STACK TRACES ═══ #}
+<div class="section-label" style="margin-top:24px;">Recent Errors</div>
+<div class="card" style="padding:0;overflow:hidden;">
+    {% if recent_errors and recent_errors|length > 0 %}
+    {% for err in recent_errors[-20:]|reverse %}
+    <div style="border-bottom:1px solid var(--border-subtle);padding:16px 20px;{{ 'background:rgba(239,68,68,0.03);' if err.severity in ('ERROR', 'error', 'FATAL', 'fatal') else '' }}">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
+            <div style="flex:1;min-width:0;">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                    <code style="font-size:0.8rem;color:var(--danger);font-weight:700;">{{ err.code }}</code>
+                    <span style="font-size:0.65rem;padding:1px 6px;border-radius:4px;background:{{ 'rgba(239,68,68,0.15)' if err.severity in ('ERROR', 'error', 'FATAL', 'fatal') else 'var(--bg-surface)' }};color:{{ 'var(--danger)' if err.severity in ('ERROR', 'error', 'FATAL', 'fatal') else 'var(--text-faint)' }};">{{ err.severity }}</span>
+                    {% if err.domain %}
+                    <span style="font-size:0.65rem;padding:1px 6px;border-radius:4px;background:var(--bg-surface);color:var(--text-faint);">{{ err.domain }}</span>
+                    {% endif %}
+                </div>
+                <div style="font-size:0.82rem;color:var(--text-primary);margin-bottom:4px;">{{ err.message|truncate(200) }}</div>
+                {% if err.exception_type %}
+                <div style="font-size:0.75rem;color:var(--text-secondary);font-family:var(--font-mono);">
+                    {{ err.exception_type }}: {{ err.exception_message|truncate(150) }}
+                </div>
+                {% endif %}
+                {% if err.route %}
+                <div style="font-size:0.7rem;color:var(--text-faint);margin-top:4px;">
+                    <i class="icon-map" style="font-size:10px;vertical-align:-1px;margin-right:4px;"></i>{{ err.route }}
+                    {% if err.app %} · {{ err.app }}{% endif %}
+                </div>
+                {% endif %}
+            </div>
+            <div style="text-align:right;flex-shrink:0;">
+                <div style="font-size:0.65rem;color:var(--text-faint);font-family:var(--font-mono);">{{ err.trace_id }}</div>
+                <div style="font-size:0.68rem;color:var(--text-faint);margin-top:2px;">{{ err.timestamp[:19] if err.timestamp else '' }}</div>
+            </div>
+        </div>
+
+        {# Stack Trace (collapsible) #}
+        {% if err.stack_trace or (err.stack_frames and err.stack_frames|length > 0) %}
+        <details style="margin-top:10px;">
+            <summary style="font-size:0.72rem;color:var(--accent);cursor:pointer;user-select:none;">
+                <i class="icon-code" style="font-size:11px;vertical-align:-1px;margin-right:4px;"></i>
+                Stack Trace ({{ err.stack_frames|length if err.stack_frames else 0 }} frames)
+            </summary>
+            <div style="margin-top:8px;background:var(--bg-primary);border:1px solid var(--border-subtle);border-radius:8px;padding:12px;overflow-x:auto;">
+                {% if err.stack_frames and err.stack_frames|length > 0 %}
+                {% for frame in err.stack_frames %}
+                <div style="padding:3px 0;font-family:var(--font-mono);font-size:0.7rem;{{ 'color:var(--danger);' if '/aquilia/' not in frame.filename else 'color:var(--text-faint);' }}">
+                    <span style="color:var(--text-faint);">{{ frame.filename }}:{{ frame.lineno }}</span>
+                    <span style="color:var(--accent);">{{ frame.name }}</span>
+                    {% if frame.line %}
+                    <div style="margin-left:20px;color:var(--text-secondary);">{{ frame.line }}</div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+                {% elif err.stack_trace %}
+                <pre style="margin:0;font-size:0.7rem;color:var(--text-secondary);white-space:pre-wrap;word-break:break-all;">{{ err.stack_trace }}</pre>
+                {% endif %}
+            </div>
+        </details>
+        {% endif %}
+    </div>
+    {% endfor %}
+    {% else %}
+    <div style="padding:48px;text-align:center;color:var(--text-faint);">
+        <i class="icon-check-circle" style="font-size:3rem;opacity:0.15;display:block;margin-bottom:12px;"></i>
+        <p>No errors recorded</p>
+        <p style="font-size:0.75rem;margin-top:8px;">Errors will appear here as they are captured by the fault engine.</p>
+    </div>
+    {% endif %}
+</div>
+
+{# ═══ AUTO-REFRESH ═══ #}
+<script>
+(function(){
+    const url = '{{ url_prefix }}/errors/api/';
+    let refreshTimer;
+    function scheduleRefresh() {
+        refreshTimer = setTimeout(async () => {
+            try {
+                const resp = await fetch(url);
+                if (resp.ok) {
+                    // Refresh on next poll
+                }
+            } catch(e) {}
+            scheduleRefresh();
+        }, 15000);
+    }
+    scheduleRefresh();
+})();
+</script>
+
+{% endblock %}

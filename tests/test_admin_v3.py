@@ -6192,7 +6192,7 @@ class TestSidebarTemplateConditional:
             "sidebar_sections": {"system": False},
         })
         assert ">System<" not in html
-        assert "Monitoring" not in html
+        assert ">Monitoring<" not in html
         assert "Build" not in html
 
     def test_overview_section_hidden_when_disabled(self):
@@ -6207,6 +6207,7 @@ class TestSidebarTemplateConditional:
             "sidebar_sections": {
                 "overview": False, "data": False, "system": False,
                 "security": False, "models": False,
+                "infrastructure": False, "devtools": False,
             },
         })
         assert "ORM Models" not in html

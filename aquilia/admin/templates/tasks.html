@@ -1,0 +1,193 @@
+{% extends "base.html" %}
+{% block title %}Background Tasks{% endblock %}
+{% block breadcrumb %}Background Tasks{% endblock %}
+
+{% block content %}
+{# ═══════════════════════════════════════════════════════════════════
+   AQUILIA ADMIN — BACKGROUND TASK MONITOR
+   Job Queue · Workers · Retries · Dead Letter · Real-time Stats
+   ═══════════════════════════════════════════════════════════════════ #}
+
+<div class="dash-greeting">
+    <h1>
+        <i class="icon-clock" style="font-size:1.6rem;vertical-align:-3px;margin-right:8px;opacity:0.5;"></i>
+        Background Tasks
+    </h1>
+    <p>Monitor background job queue, worker status, retries, and dead-letter jobs</p>
+</div>
+
+{# ═══ MANAGER STATUS ═══ #}
+{% set mgr = manager %}
+<div style="margin-bottom:20px;padding:12px 18px;background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius);display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+    <div style="display:flex;align-items:center;gap:6px;">
+        {% if available and mgr.running is defined and mgr.running %}
+        <div style="width:8px;height:8px;border-radius:50%;background:var(--success);box-shadow:0 0 6px var(--success);"></div>
+        <span style="font-size:0.8rem;color:var(--success);font-weight:600;">Running</span>
+        {% else %}
+        <div style="width:8px;height:8px;border-radius:50%;background:var(--text-faint);"></div>
+        <span style="font-size:0.8rem;color:var(--text-faint);font-weight:600;">{{ 'Stopped' if available else 'Not Configured' }}</span>
+        {% endif %}
+    </div>
+    {% if available and mgr.num_workers is defined %}
+    <span style="font-size:0.75rem;color:var(--text-faint);">·</span>
+    <span style="font-size:0.78rem;color:var(--text-secondary);">{{ mgr.num_workers }} workers</span>
+    <span style="font-size:0.75rem;color:var(--text-faint);">·</span>
+    <span style="font-size:0.78rem;color:var(--text-secondary);">{{ mgr.backend }} backend</span>
+    {% if mgr.uptime_seconds is defined and mgr.uptime_seconds > 0 %}
+    <span style="font-size:0.75rem;color:var(--text-faint);">·</span>
+    <span style="font-size:0.78rem;color:var(--text-faint);">Uptime: {{ "%.0f"|format(mgr.uptime_seconds) }}s</span>
+    {% endif %}
+    {% endif %}
+</div>
+
+{# ═══ METRIC CARDS ═══ #}
+<div class="dash-stats">
+    <div class="dash-stat-card">
+        <div class="stat-icon-wrap blue"><i class="icon-layers"></i></div>
+        <div class="dash-stat-value" data-count="{{ total_jobs }}">0</div>
+        <div class="dash-stat-label">Total Jobs</div>
+        <div class="dash-stat-sub">
+            {% if mgr.total_enqueued is defined %}{{ mgr.total_enqueued }} enqueued{% else %}All time{% endif %}
+        </div>
+    </div>
+    <div class="dash-stat-card">
+        <div class="stat-icon-wrap green"><i class="icon-check-circle"></i></div>
+        <div class="dash-stat-value" data-count="{{ completed_count }}">0</div>
+        <div class="dash-stat-label">Completed</div>
+        <div class="dash-stat-sub">
+            {% if stats.avg_duration_ms is defined %}Avg {{ "%.1f"|format(stats.avg_duration_ms) }}ms{% else %}Successfully processed{% endif %}
+        </div>
+    </div>
+    <div class="dash-stat-card">
+        <div class="stat-icon-wrap amber"><i class="icon-loader"></i></div>
+        <div class="dash-stat-value" data-count="{{ active_count }}">0</div>
+        <div class="dash-stat-label">Active</div>
+        <div class="dash-stat-sub">
+            {{ pending_count }} pending
+        </div>
+    </div>
+    <div class="dash-stat-card">
+        <div class="stat-icon-wrap red"><i class="icon-x-circle"></i></div>
+        <div class="dash-stat-value" data-count="{{ failed_count }}">0</div>
+        <div class="dash-stat-label">Failed</div>
+        <div class="dash-stat-sub">
+            {{ dead_letter_count }} dead-letter
+        </div>
+    </div>
+</div>
+
+{# ═══ QUEUE BREAKDOWN ═══ #}
+{% if queue_stats and queue_stats|length > 0 %}
+<div class="section-label" style="margin-top:8px;">Queue Breakdown</div>
+<div class="dash-grid" style="grid-template-columns:repeat(auto-fill,minmax(260px,1fr));">
+    {% for queue_name, states in queue_stats.items() %}
+    <div class="card" style="padding:18px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+            <i class="icon-inbox" style="font-size:16px;color:var(--accent);opacity:0.6;"></i>
+            <span style="font-weight:700;font-size:0.9rem;">{{ queue_name }}</span>
+        </div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;">
+            {% for state, count in states.items() %}
+            <div style="text-align:center;">
+                <div style="font-size:1.1rem;font-weight:700;color:{{ 'var(--success)' if state == 'completed' else ('var(--danger)' if state in ('failed', 'dead') else ('var(--warning)' if state == 'running' else 'var(--text-primary)')) }};">{{ count }}</div>
+                <div style="font-size:0.65rem;color:var(--text-faint);text-transform:uppercase;letter-spacing:0.05em;">{{ state }}</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{# ═══ JOB LIST ═══ #}
+<div class="section-label" style="margin-top:24px;">Recent Jobs</div>
+<div class="card" style="padding:0;overflow:hidden;">
+    {% if jobs and jobs|length > 0 %}
+    <table class="admin-table" style="width:100%;border-collapse:collapse;">
+        <thead>
+            <tr>
+                <th style="padding:12px 16px;text-align:left;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-faint);border-bottom:1px solid var(--border-subtle);">Job ID</th>
+                <th style="padding:12px 16px;text-align:left;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-faint);border-bottom:1px solid var(--border-subtle);">Task</th>
+                <th style="padding:12px 16px;text-align:center;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-faint);border-bottom:1px solid var(--border-subtle);">Queue</th>
+                <th style="padding:12px 16px;text-align:center;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-faint);border-bottom:1px solid var(--border-subtle);">Priority</th>
+                <th style="padding:12px 16px;text-align:center;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-faint);border-bottom:1px solid var(--border-subtle);">State</th>
+                <th style="padding:12px 16px;text-align:center;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-faint);border-bottom:1px solid var(--border-subtle);">Retries</th>
+                <th style="padding:12px 16px;text-align:right;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-faint);border-bottom:1px solid var(--border-subtle);">Duration</th>
+                <th style="padding:12px 16px;text-align:right;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-faint);border-bottom:1px solid var(--border-subtle);">Created</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for job in jobs[:50] %}
+            <tr style="border-bottom:1px solid var(--border-subtle);">
+                <td style="padding:10px 16px;font-family:var(--font-mono);font-size:0.7rem;color:var(--text-faint);">{{ job.id }}</td>
+                <td style="padding:10px 16px;">
+                    <span style="font-size:0.82rem;font-weight:600;">{{ job.name or job.func_ref }}</span>
+                </td>
+                <td style="padding:10px 16px;text-align:center;">
+                    <span style="font-size:0.7rem;padding:2px 8px;border-radius:4px;background:var(--bg-surface);color:var(--text-secondary);">{{ job.queue }}</span>
+                </td>
+                <td style="padding:10px 16px;text-align:center;">
+                    <span style="font-size:0.7rem;padding:2px 8px;border-radius:4px;background:{{ 'rgba(239,68,68,0.15)' if job.priority == 'CRITICAL' else ('rgba(245,158,11,0.15)' if job.priority == 'HIGH' else 'var(--bg-surface)') }};color:{{ 'var(--danger)' if job.priority == 'CRITICAL' else ('var(--warning)' if job.priority == 'HIGH' else 'var(--text-secondary)') }};">{{ job.priority }}</span>
+                </td>
+                <td style="padding:10px 16px;text-align:center;">
+                    {% set state_colors = {'completed': 'var(--success)', 'running': 'var(--accent)', 'pending': 'var(--text-secondary)', 'failed': 'var(--danger)', 'dead': 'var(--danger)', 'retrying': 'var(--warning)', 'cancelled': 'var(--text-faint)', 'scheduled': 'var(--info)'} %}
+                    <span style="font-size:0.7rem;padding:2px 10px;border-radius:99px;font-weight:600;color:{{ state_colors.get(job.state, 'var(--text-secondary)') }};background:{{ state_colors.get(job.state, 'var(--text-secondary)') }}15;">{{ job.state }}</span>
+                </td>
+                <td style="padding:10px 16px;text-align:center;font-size:0.78rem;color:var(--text-secondary);">
+                    {{ job.retry_count }}/{{ job.max_retries }}
+                </td>
+                <td style="padding:10px 16px;text-align:right;font-family:var(--font-mono);font-size:0.75rem;">
+                    {% if job.duration_ms is not none %}{{ "%.1f"|format(job.duration_ms) }}ms{% else %}—{% endif %}
+                </td>
+                <td style="padding:10px 16px;text-align:right;font-size:0.7rem;color:var(--text-faint);">
+                    {{ job.created_at[:19] if job.created_at else '—' }}
+                </td>
+            </tr>
+            {% if job.state in ('failed', 'dead') and job.result and job.result.error %}
+            <tr style="border-bottom:1px solid var(--border-subtle);">
+                <td colspan="8" style="padding:8px 16px 12px 40px;background:rgba(239,68,68,0.03);">
+                    <div style="font-size:0.72rem;color:var(--danger);font-family:var(--font-mono);">
+                        {{ job.result.error_type }}: {{ job.result.error|truncate(200) }}
+                    </div>
+                </td>
+            </tr>
+            {% endif %}
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div style="padding:48px;text-align:center;color:var(--text-faint);">
+        <i class="icon-clock" style="font-size:3rem;opacity:0.15;display:block;margin-bottom:12px;"></i>
+        <p>No background jobs recorded</p>
+        <p style="font-size:0.75rem;margin-top:8px;">
+            {% if available %}
+            Jobs will appear here as your application enqueues background tasks.
+            {% else %}
+            Configure a TaskManager and register it with the admin site to enable monitoring.
+            {% endif %}
+        </p>
+    </div>
+    {% endif %}
+</div>
+
+{# ═══ AUTO-REFRESH ═══ #}
+<script>
+(function(){
+    const url = '{{ url_prefix }}/tasks/api/';
+    let refreshTimer;
+    function scheduleRefresh() {
+        refreshTimer = setTimeout(async () => {
+            try {
+                const resp = await fetch(url);
+                if (resp.ok) {
+                    // Data refreshes on next full page load or API poll
+                }
+            } catch(e) {}
+            scheduleRefresh();
+        }, 10000);
+    }
+    scheduleRefresh();
+})();
+</script>
+
+{% endblock %}

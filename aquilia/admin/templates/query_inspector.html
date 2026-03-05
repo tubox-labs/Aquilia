@@ -1,0 +1,219 @@
+{% extends "base.html" %}
+{% block title %}Query Inspector{% endblock %}
+{% block breadcrumb %}Query Inspector{% endblock %}
+
+{% block content %}
+{# ═══════════════════════════════════════════════════════════════════
+   AQUILIA ADMIN — LIVE QUERY INSPECTOR
+   SQL Profiling · EXPLAIN Plans · N+1 Detection · ORM→SQL Translation
+   ═══════════════════════════════════════════════════════════════════ #}
+
+<div class="dash-greeting">
+    <h1>
+        <i class="icon-terminal" style="font-size:1.6rem;vertical-align:-3px;margin-right:8px;opacity:0.5;"></i>
+        Live Query Inspector
+    </h1>
+    <p>Real-time database query profiling, EXPLAIN plans, and N+1 detection</p>
+</div>
+
+{# ═══ METRIC CARDS ═══ #}
+<div class="dash-stats">
+    <div class="dash-stat-card">
+        <div class="stat-icon-wrap blue"><i class="icon-database"></i></div>
+        <div class="dash-stat-value" data-count="{{ total_queries }}">0</div>
+        <div class="dash-stat-label">Total Queries</div>
+        <div class="dash-stat-sub">
+            {{ queries_per_second }} q/s average
+        </div>
+    </div>
+    <div class="dash-stat-card">
+        <div class="stat-icon-wrap green"><i class="icon-clock"></i></div>
+        <div class="dash-stat-value">{{ "%.2f"|format(avg_duration) }}</div>
+        <div class="dash-stat-label">Avg Duration</div>
+        <div class="dash-stat-sub">milliseconds</div>
+    </div>
+    <div class="dash-stat-card">
+        <div class="stat-icon-wrap amber"><i class="icon-alert-triangle"></i></div>
+        <div class="dash-stat-value" data-count="{{ slow_queries }}">0</div>
+        <div class="dash-stat-label">Slow Queries</div>
+        <div class="dash-stat-sub">&gt; {{ slow_threshold_ms }}ms threshold</div>
+    </div>
+    <div class="dash-stat-card">
+        <div class="stat-icon-wrap red"><i class="icon-repeat"></i></div>
+        <div class="dash-stat-value" data-count="{{ n1_detections }}">0</div>
+        <div class="dash-stat-label">N+1 Detected</div>
+        <div class="dash-stat-sub">Duplicate query patterns</div>
+    </div>
+</div>
+
+{# ═══ OPERATION BREAKDOWN ═══ #}
+{% if by_operation %}
+<div class="section-label" style="margin-top:8px;">Query Breakdown</div>
+<div class="dash-grid" style="grid-template-columns:repeat(auto-fill,minmax(180px,1fr));">
+    {% for op, count in by_operation.items() %}
+    <div class="card" style="padding:16px;text-align:center;">
+        <div style="font-size:1.8rem;font-weight:800;color:var(--accent);">{{ count }}</div>
+        <div style="font-size:0.75rem;color:var(--text-faint);text-transform:uppercase;letter-spacing:0.08em;margin-top:4px;">{{ op }}</div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{# ═══ N+1 DETECTIONS ═══ #}
+{% if n1_list and n1_list|length > 0 %}
+<div class="section-label" style="margin-top:24px;">
+    <i class="icon-alert-triangle" style="color:var(--danger);margin-right:6px;"></i>
+    N+1 Query Patterns Detected
+</div>
+<div class="card" style="padding:0;overflow:hidden;">
+    <table class="admin-table" style="width:100%;border-collapse:collapse;">
+        <thead>
+            <tr>
+                <th style="padding:12px 16px;text-align:left;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-faint);border-bottom:1px solid var(--border-subtle);">SQL Pattern</th>
+                <th style="padding:12px 16px;text-align:center;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-faint);border-bottom:1px solid var(--border-subtle);">Count</th>
+                <th style="padding:12px 16px;text-align:center;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-faint);border-bottom:1px solid var(--border-subtle);">Model</th>
+                <th style="padding:12px 16px;text-align:right;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-faint);border-bottom:1px solid var(--border-subtle);">Total Time</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for n1 in n1_list %}
+            <tr style="border-bottom:1px solid var(--border-subtle);">
+                <td style="padding:12px 16px;">
+                    <code style="font-size:0.78rem;color:var(--danger);word-break:break-all;">{{ n1.pattern_sql|truncate(120) }}</code>
+                    {% if n1.source %}
+                    <div style="font-size:0.65rem;color:var(--text-faint);margin-top:4px;">{{ n1.source }}</div>
+                    {% endif %}
+                </td>
+                <td style="padding:12px 16px;text-align:center;">
+                    <span style="background:rgba(239,68,68,0.15);color:var(--danger);padding:2px 10px;border-radius:99px;font-size:0.75rem;font-weight:600;">{{ n1.count }}×</span>
+                </td>
+                <td style="padding:12px 16px;text-align:center;font-size:0.8rem;color:var(--text-secondary);">{{ n1.model or '—' }}</td>
+                <td style="padding:12px 16px;text-align:right;font-family:var(--font-mono);font-size:0.78rem;">{{ "%.2f"|format(n1.total_duration_ms) }}ms</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+{# ═══ SLOW QUERIES ═══ #}
+{% if slow_query_list and slow_query_list|length > 0 %}
+<div class="section-label" style="margin-top:24px;">
+    <i class="icon-clock" style="color:var(--warning);margin-right:6px;"></i>
+    Slow Queries
+</div>
+<div class="card" style="padding:0;overflow:hidden;">
+    <table class="admin-table" style="width:100%;border-collapse:collapse;">
+        <thead>
+            <tr>
+                <th style="padding:12px 16px;text-align:left;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-faint);border-bottom:1px solid var(--border-subtle);">SQL</th>
+                <th style="padding:12px 16px;text-align:center;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-faint);border-bottom:1px solid var(--border-subtle);">Operation</th>
+                <th style="padding:12px 16px;text-align:center;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-faint);border-bottom:1px solid var(--border-subtle);">Model</th>
+                <th style="padding:12px 16px;text-align:right;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-faint);border-bottom:1px solid var(--border-subtle);">Duration</th>
+                <th style="padding:12px 16px;text-align:right;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-faint);border-bottom:1px solid var(--border-subtle);">Time</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for q in slow_query_list[:15] %}
+            <tr style="border-bottom:1px solid var(--border-subtle);">
+                <td style="padding:12px 16px;">
+                    <code style="font-size:0.75rem;color:var(--text-primary);word-break:break-all;">{{ q.sql|truncate(150) }}</code>
+                    {% if q.params %}
+                    <div style="font-size:0.65rem;color:var(--text-faint);margin-top:2px;">Params: {{ q.params|truncate(80) }}</div>
+                    {% endif %}
+                </td>
+                <td style="padding:12px 16px;text-align:center;">
+                    <span style="font-size:0.7rem;padding:2px 8px;border-radius:4px;background:var(--bg-surface);color:var(--text-secondary);">{{ q.operation }}</span>
+                </td>
+                <td style="padding:12px 16px;text-align:center;font-size:0.78rem;color:var(--text-secondary);">{{ q.model or '—' }}</td>
+                <td style="padding:12px 16px;text-align:right;">
+                    <span style="font-family:var(--font-mono);font-size:0.78rem;color:var(--warning);font-weight:600;">{{ "%.2f"|format(q.duration_ms) }}ms</span>
+                </td>
+                <td style="padding:12px 16px;text-align:right;font-size:0.7rem;color:var(--text-faint);">
+                    {{ q.timestamp[:19] if q.timestamp else '—' }}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+{# ═══ RECENT QUERIES ═══ #}
+<div class="section-label" style="margin-top:24px;">Recent Queries</div>
+<div class="card" style="padding:0;overflow:hidden;">
+    {% if recent_queries and recent_queries|length > 0 %}
+    <table class="admin-table" style="width:100%;border-collapse:collapse;">
+        <thead>
+            <tr>
+                <th style="padding:12px 16px;text-align:left;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-faint);border-bottom:1px solid var(--border-subtle);">ID</th>
+                <th style="padding:12px 16px;text-align:left;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-faint);border-bottom:1px solid var(--border-subtle);">SQL</th>
+                <th style="padding:12px 16px;text-align:center;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-faint);border-bottom:1px solid var(--border-subtle);">Op</th>
+                <th style="padding:12px 16px;text-align:right;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-faint);border-bottom:1px solid var(--border-subtle);">Duration</th>
+                <th style="padding:12px 16px;text-align:right;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-faint);border-bottom:1px solid var(--border-subtle);">Rows</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for q in recent_queries[-30:]|reverse %}
+            <tr style="border-bottom:1px solid var(--border-subtle);{{ 'background:rgba(239,68,68,0.05);' if q.is_slow else '' }}">
+                <td style="padding:10px 16px;font-family:var(--font-mono);font-size:0.7rem;color:var(--text-faint);">{{ q.id }}</td>
+                <td style="padding:10px 16px;">
+                    <code style="font-size:0.73rem;color:{{ 'var(--warning)' if q.is_slow else 'var(--text-primary)' }};word-break:break-all;">{{ q.sql|truncate(120) }}</code>
+                </td>
+                <td style="padding:10px 16px;text-align:center;">
+                    <span style="font-size:0.65rem;padding:2px 6px;border-radius:4px;background:var(--bg-surface);color:var(--text-faint);">{{ q.operation }}</span>
+                </td>
+                <td style="padding:10px 16px;text-align:right;font-family:var(--font-mono);font-size:0.75rem;{{ 'color:var(--warning);font-weight:600;' if q.is_slow else '' }}">
+                    {{ "%.2f"|format(q.duration_ms) }}ms
+                </td>
+                <td style="padding:10px 16px;text-align:right;font-size:0.78rem;color:var(--text-secondary);">{{ q.rows_affected }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div style="padding:48px;text-align:center;color:var(--text-faint);">
+        <i class="icon-terminal" style="font-size:3rem;opacity:0.15;display:block;margin-bottom:12px;"></i>
+        <p>No queries captured yet</p>
+        <p style="font-size:0.75rem;margin-top:8px;">Queries will appear here as your application executes database operations.</p>
+    </div>
+    {% endif %}
+</div>
+
+{# ═══ PER-MODEL BREAKDOWN ═══ #}
+{% if by_model and by_model|length > 0 %}
+<div class="section-label" style="margin-top:24px;">Queries by Model</div>
+<div class="dash-grid" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr));">
+    {% for model, count in by_model.items() %}
+    <div class="card" style="padding:14px;display:flex;align-items:center;gap:12px;">
+        <i class="icon-table" style="font-size:16px;color:var(--accent);opacity:0.6;"></i>
+        <div style="flex:1;">
+            <div style="font-size:0.82rem;font-weight:600;">{{ model }}</div>
+            <div style="font-size:0.7rem;color:var(--text-faint);">{{ count }} queries</div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{# ═══ AUTO-REFRESH ═══ #}
+<script>
+(function(){
+    const url = '{{ url_prefix }}/query-inspector/api/';
+    let refreshTimer;
+    function scheduleRefresh() {
+        refreshTimer = setTimeout(async () => {
+            try {
+                const resp = await fetch(url);
+                if (resp.ok) {
+                    // Light reload on next interval
+                }
+            } catch(e) {}
+            scheduleRefresh();
+        }, 15000);
+    }
+    scheduleRefresh();
+})();
+</script>
+
+{% endblock %}

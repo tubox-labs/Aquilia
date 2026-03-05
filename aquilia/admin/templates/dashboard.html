@@ -91,6 +91,50 @@
     </div>
 </div>
 
+{# ═══ LIVE STATS ROW — Users Today · Active Sessions · Errors ═══ #}
+<div class="dash-stats" style="margin-top:4px;">
+    <div class="dash-stat-card">
+        <div class="stat-icon-wrap cyan"><i class="icon-users"></i></div>
+        <div class="dash-stat-value" data-count="{{ users_today|default(0) }}">0</div>
+        <div class="dash-stat-label">Users Today</div>
+        <div class="dash-stat-sub">
+            {% if audit_summary.unique_users_24h is defined and audit_summary.unique_users_24h > 0 %}
+            {{ audit_summary.unique_users_24h }} unique users
+            {% else %}
+            Unique daily visitors
+            {% endif %}
+        </div>
+    </div>
+    <div class="dash-stat-card">
+        <div class="stat-icon-wrap teal"><i class="icon-wifi"></i></div>
+        <div class="dash-stat-value" data-count="{{ active_sessions|default(0) }}">0</div>
+        <div class="dash-stat-label">Active Sessions</div>
+        <div class="dash-stat-sub">
+            Currently connected
+        </div>
+    </div>
+    <div class="dash-stat-card">
+        <div class="stat-icon-wrap red"><i class="icon-alert-triangle"></i></div>
+        <div class="dash-stat-value" data-count="{{ error_count|default(0) }}">0</div>
+        <div class="dash-stat-label">Errors</div>
+        <div class="dash-stat-sub">
+            {% if errors_last_hour is defined and errors_last_hour > 0 %}
+            <span class="down">{{ errors_last_hour }}</span> last hour
+            {% else %}
+            Last 24 hours
+            {% endif %}
+        </div>
+    </div>
+    <div class="dash-stat-card">
+        <div class="stat-icon-wrap indigo"><i class="icon-clock"></i></div>
+        <div class="dash-stat-value" data-count="{{ tasks_active|default(0) }}">0</div>
+        <div class="dash-stat-label">Active Tasks</div>
+        <div class="dash-stat-sub">
+            {{ tasks_pending|default(0) }} pending
+        </div>
+    </div>
+</div>
+
 {# ═══ INFRASTRUCTURE OVERVIEW ════════════════════════════════════ #}
 {% set ac = admin_config|default({}) %}
 {% set modules = ac.get('modules', {}) if ac is mapping else {} %}
