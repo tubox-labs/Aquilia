@@ -18,7 +18,7 @@ Usage:
     db = PostgresConfig(
         host="localhost",
         port=5432,
-        name="mydb",
+        database="mydb",       # or name="mydb" -- both work
         user="admin",
         password="secret",
         pool_size=10,
@@ -231,7 +231,8 @@ class PostgresConfig(DatabaseConfig):
     Args:
         host: Database server hostname
         port: Database server port (default 5432)
-        name: Database name
+        name: Database name (or use ``database`` as an alias)
+        database: Alias for ``name`` -- use whichever feels natural
         user: Database user
         password: Database password
         schema: Default schema (default "public")
@@ -239,6 +240,14 @@ class PostgresConfig(DatabaseConfig):
 
     Examples:
         # Simple:
+        PostgresConfig(
+            host="localhost",
+            database="mydb",
+            user="admin",
+            password="secret",
+        )
+
+        # Also works with 'name':
         PostgresConfig(
             host="localhost",
             name="mydb",
@@ -250,7 +259,7 @@ class PostgresConfig(DatabaseConfig):
         PostgresConfig(
             host="db.example.com",
             port=5432,
-            name="prod_db",
+            database="prod_db",
             user="app_user",
             password="strong_password",
             sslmode="require",
@@ -258,24 +267,24 @@ class PostgresConfig(DatabaseConfig):
             pool_max_size=50,
             conn_health_checks=True,
         )
-
-        # From environment variables:
-        PostgresConfig(
-            host=os.environ["DB_HOST"],
-            name=os.environ["DB_NAME"],
-            user=os.environ["DB_USER"],
-            password=os.environ["DB_PASSWORD"],
-        )
     """
 
     engine: str = "postgresql"
     host: str = "localhost"
     port: int = 5432
     name: str = ""
+    database: str = ""  # Alias for 'name' -- use whichever feels natural
     user: str = ""
     password: str = ""
     schema: str = "public"
     sslmode: str = "prefer"
+
+    def __post_init__(self):
+        # Resolve 'database' → 'name' alias.  'database' wins if 'name' is empty.
+        if self.database and not self.name:
+            self.name = self.database
+        # Always clear the alias so to_dict() / to_url() use 'name'
+        object.__setattr__(self, "database", "")
 
     def to_url(self) -> str:
         auth = ""
@@ -311,7 +320,7 @@ class PostgresConfig(DatabaseConfig):
     def __repr__(self) -> str:
         return (
             f"PostgresConfig(host={self.host!r}, port={self.port}, "
-            f"name={self.name!r}, user={self.user!r})"
+            f"database={self.name!r}, user={self.user!r})"
         )
 
 
@@ -323,7 +332,8 @@ class MysqlConfig(DatabaseConfig):
     Args:
         host: Database server hostname
         port: Database server port (default 3306)
-        name: Database name
+        name: Database name (or use ``database`` as an alias)
+        database: Alias for ``name`` -- use whichever feels natural
         user: Database user
         password: Database password
         charset: Character set (default "utf8mb4")
@@ -331,6 +341,14 @@ class MysqlConfig(DatabaseConfig):
 
     Examples:
         # Simple:
+        MysqlConfig(
+            host="localhost",
+            database="mydb",
+            user="root",
+            password="secret",
+        )
+
+        # Also works with 'name':
         MysqlConfig(
             host="localhost",
             name="mydb",
@@ -342,7 +360,7 @@ class MysqlConfig(DatabaseConfig):
         MysqlConfig(
             host="mysql.example.com",
             port=3306,
-            name="prod_db",
+            database="prod_db",
             user="app_user",
             password="strong_password",
             charset="utf8mb4",
@@ -354,10 +372,16 @@ class MysqlConfig(DatabaseConfig):
     host: str = "localhost"
     port: int = 3306
     name: str = ""
+    database: str = ""  # Alias for 'name' -- use whichever feels natural
     user: str = ""
     password: str = ""
     charset: str = "utf8mb4"
     collation: str = "utf8mb4_unicode_ci"
+
+    def __post_init__(self):
+        if self.database and not self.name:
+            self.name = self.database
+        object.__setattr__(self, "database", "")
 
     def to_url(self) -> str:
         auth = ""
@@ -389,7 +413,7 @@ class MysqlConfig(DatabaseConfig):
     def __repr__(self) -> str:
         return (
             f"MysqlConfig(host={self.host!r}, port={self.port}, "
-            f"name={self.name!r}, user={self.user!r})"
+            f"database={self.name!r}, user={self.user!r})"
         )
 
 
@@ -404,6 +428,7 @@ class OracleConfig(DatabaseConfig):
         host: Database server hostname
         port: Database server port (default 1521)
         service_name: Oracle service name
+        database: Alias for ``service_name`` -- use whichever feels natural
         user: Database user
         password: Database password
         sid: Oracle SID (alternative to service_name)
@@ -412,6 +437,14 @@ class OracleConfig(DatabaseConfig):
 
     Examples:
         # Simple:
+        OracleConfig(
+            host="localhost",
+            database="ORCL",
+            user="scott",
+            password="tiger",
+        )
+
+        # Also works with 'service_name':
         OracleConfig(
             host="localhost",
             service_name="ORCL",
@@ -423,7 +456,7 @@ class OracleConfig(DatabaseConfig):
         OracleConfig(
             host="oracle.example.com",
             port=1521,
-            service_name="PROD_SERVICE",
+            database="PROD_SERVICE",
             user="app_user",
             password="strong_password",
             pool_size=20,
@@ -442,11 +475,17 @@ class OracleConfig(DatabaseConfig):
     host: str = "localhost"
     port: int = 1521
     service_name: str = "ORCL"
+    database: str = ""  # Alias for 'service_name' -- use whichever feels natural
     user: str = ""
     password: str = ""
     sid: str = ""
     thick_mode: bool = False
     encoding: str = "UTF-8"
+
+    def __post_init__(self):
+        if self.database and self.service_name == "ORCL":
+            self.service_name = self.database
+        object.__setattr__(self, "database", "")
 
     def to_url(self) -> str:
         auth = ""
@@ -485,5 +524,5 @@ class OracleConfig(DatabaseConfig):
     def __repr__(self) -> str:
         return (
             f"OracleConfig(host={self.host!r}, port={self.port}, "
-            f"service_name={self.service_name!r}, user={self.user!r})"
+            f"database={self.service_name!r}, user={self.user!r})"
         )

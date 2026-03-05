@@ -1275,14 +1275,15 @@ class Model(metaclass=ModelMeta):
         """Generate CREATE INDEX statements from Meta.indexes."""
         stmts: List[str] = []
         for idx in cls._meta.indexes:
-            stmts.append(idx.sql(cls._table_name))
+            stmts.append(idx.sql(cls._table_name, dialect=dialect))
 
         # db_index on individual fields
+        ine = "" if dialect == "mysql" else " IF NOT EXISTS"
         for attr_name, field in cls._fields.items():
             if field.db_index and not field.primary_key and not field.unique:
                 idx_name = f"idx_{cls._table_name}_{field.column_name}"
                 stmts.append(
-                    f'CREATE INDEX IF NOT EXISTS "{idx_name}" '
+                    f'CREATE INDEX{ine} "{idx_name}" '
                     f'ON "{cls._table_name}" ("{field.column_name}");'
                 )
 

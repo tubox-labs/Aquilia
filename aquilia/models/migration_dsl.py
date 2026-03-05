@@ -156,7 +156,14 @@ class ColumnDef:
             parts.append("NOT NULL")
         if self.default is not _SENTINEL:
             resolved_type = self._resolve_type(dialect)
-            parts.append(f"DEFAULT {_format_default(self.default, dialect, resolved_type)}")
+            # MySQL does not allow DEFAULT on TEXT/BLOB/JSON columns.
+            _no_default = dialect == "mysql" and resolved_type.upper() in (
+                "TEXT", "TINYTEXT", "MEDIUMTEXT", "LONGTEXT",
+                "BLOB", "TINYBLOB", "MEDIUMBLOB", "LONGBLOB",
+                "JSON", "GEOMETRY",
+            )
+            if not _no_default:
+                parts.append(f"DEFAULT {_format_default(self.default, dialect, resolved_type)}")
         if self.references:
             ref_table, ref_col = self.references
             parts.append(f'REFERENCES "{ref_table}"("{ref_col}")')

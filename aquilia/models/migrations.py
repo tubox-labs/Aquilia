@@ -550,7 +550,7 @@ def generate_migration_file(
         upgrade_lines.append(f'    await conn.execute("""{create_sql}""")')
 
         # Create indexes
-        for idx_sql in generate_create_index_sql(model):
+        for idx_sql in generate_create_index_sql(model, dialect=dialect):
             upgrade_lines.append(f'    await conn.execute("""{idx_sql}""")')
 
         # Drop table (downgrade)

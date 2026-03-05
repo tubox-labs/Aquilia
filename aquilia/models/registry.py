@@ -111,7 +111,18 @@ class ModelRegistry:
 
             # Create indexes
             for idx_sql in model_cls.generate_index_sql(dialect=dialect):
-                await target_db.execute(idx_sql)
+                try:
+                    await target_db.execute(idx_sql)
+                except Exception as idx_exc:
+                    # MySQL error 1061 = Duplicate key name (index already
+                    # exists).  MySQL lacks CREATE INDEX IF NOT EXISTS, so
+                    # we silently skip this.
+                    _orig = getattr(idx_exc, "__cause__", idx_exc)
+                    _args = getattr(_orig, "args", ())
+                    if _args and _args[0] == 1061:
+                        pass  # index already exists on MySQL -- silently skip
+                    else:
+                        raise
                 statements.append(idx_sql)
 
             # Create M2M junction tables

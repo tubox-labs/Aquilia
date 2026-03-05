@@ -250,9 +250,28 @@ class Field:
         return " ".join(parts)
 
     def _sql_default(self, dialect: str = "sqlite") -> Optional[str]:
-        """Get SQL DEFAULT clause value."""
+        """Get SQL DEFAULT clause value.
+
+        MySQL does not allow DEFAULT on TEXT, BLOB, JSON, or GEOMETRY
+        columns (error 1101).  When the dialect is ``mysql`` and the
+        resolved SQL type is one of these, return ``None`` so the DDL
+        omits the clause.  The Python-level default still applies at
+        INSERT time.
+        """
         if self.default is UNSET or callable(self.default):
             return None
+
+        # MySQL TEXT/BLOB/JSON cannot have a DEFAULT clause.
+        if dialect == "mysql":
+            sql_type = self.sql_type(dialect).upper()
+            _NO_DEFAULT_TYPES = {
+                "TEXT", "TINYTEXT", "MEDIUMTEXT", "LONGTEXT",
+                "BLOB", "TINYBLOB", "MEDIUMBLOB", "LONGBLOB",
+                "JSON", "GEOMETRY",
+            }
+            if sql_type in _NO_DEFAULT_TYPES:
+                return None
+
         if isinstance(self.default, bool):
             if dialect == "postgresql":
                 return "TRUE" if self.default else "FALSE"
@@ -2191,11 +2210,12 @@ class Index:
         self.name = name
         self.unique = unique
 
-    def sql(self, table_name: str) -> str:
+    def sql(self, table_name: str, dialect: str = "sqlite") -> str:
         idx_name = self.name or f"idx_{table_name}_{'_'.join(self.fields)}"
         u = "UNIQUE " if self.unique else ""
         cols = ", ".join(f'"{f}"' for f in self.fields)
-        return f'CREATE {u}INDEX IF NOT EXISTS "{idx_name}" ON "{table_name}" ({cols});'
+        ine = "" if dialect == "mysql" else " IF NOT EXISTS"
+        return f'CREATE {u}INDEX{ine} "{idx_name}" ON "{table_name}" ({cols});'
 
 
 class UniqueConstraint:

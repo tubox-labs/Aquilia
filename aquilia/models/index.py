@@ -46,9 +46,9 @@ class _PostgresOnlyIndex:
 
     def sql(self, table_name: str, dialect: str = "sqlite") -> str:
         """Generate CREATE INDEX statement."""
-        if dialect == "sqlite":
-            # Fall back to B-tree on SQLite
-            return self._btree_fallback(table_name)
+        if dialect in ("sqlite", "mysql"):
+            # Fall back to B-tree on non-PostgreSQL databases
+            return self._btree_fallback(table_name, dialect=dialect)
 
         idx_name = self.name or f"idx_{table_name}_{'_'.join(self.fields)}"
         cols_with_opclass = []
@@ -68,12 +68,13 @@ class _PostgresOnlyIndex:
         sql += ";"
         return sql
 
-    def _btree_fallback(self, table_name: str) -> str:
+    def _btree_fallback(self, table_name: str, dialect: str = "sqlite") -> str:
         """Fallback to B-tree index on non-PostgreSQL databases."""
         idx_name = self.name or f"idx_{table_name}_{'_'.join(self.fields)}"
         col_list = ", ".join(f'"{f}"' for f in self.fields)
+        ine = "" if dialect == "mysql" else " IF NOT EXISTS"
         return (
-            f'CREATE INDEX IF NOT EXISTS "{idx_name}" '
+            f'CREATE INDEX{ine} "{idx_name}" '
             f'ON "{table_name}" ({col_list});'
         )
 
@@ -135,9 +136,10 @@ class FunctionalIndex:
         self.condition = condition
 
     def sql(self, table_name: str, dialect: str = "sqlite") -> str:
-        using = f" USING {self.index_type}" if self.index_type and dialect != "sqlite" else ""
+        using = f" USING {self.index_type}" if self.index_type and dialect not in ("sqlite", "mysql") else ""
+        ine = "" if dialect == "mysql" else " IF NOT EXISTS"
         sql = (
-            f'CREATE INDEX IF NOT EXISTS "{self.name}" '
+            f'CREATE INDEX{ine} "{self.name}" '
             f'ON "{table_name}"{using} ({self.expression})'
         )
         if self.condition:

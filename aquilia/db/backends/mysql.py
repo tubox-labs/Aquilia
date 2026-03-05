@@ -85,9 +85,12 @@ class MySQLAdapter(DatabaseAdapter):
         conn_kwargs = _parse_mysql_url(url)
         conn_kwargs.update(options)
         conn_kwargs.setdefault("autocommit", True)
+        # Silence aiomysql's internal DEBUG chatter (auth handshake, etc.)
+        import logging as _logging
+        _logging.getLogger("aiomysql").setLevel(_logging.WARNING)
         self._pool = await aiomysql.create_pool(**conn_kwargs)
         self._connected = True
-        logger.info(
+        logger.debug(
             f"MySQL connected via aiomysql: "
             f"{conn_kwargs.get('host', '?')}:{conn_kwargs.get('port', 3306)}"
         )
@@ -112,23 +115,49 @@ class MySQLAdapter(DatabaseAdapter):
         logger.debug("MySQL disconnected")
 
     def adapt_sql(self, sql: str) -> str:
-        """Convert ``?`` placeholders to ``%s`` for MySQL (string-literal safe)."""
+        """
+        Adapt generic SQL for MySQL:
+        - Strip ``IF NOT EXISTS`` from ``CREATE INDEX`` (MySQL does not
+          support this syntax; duplicate-index errors are caught at
+          runtime)
+        - Convert ``?`` placeholders to ``%s``
+        - Convert double-quoted identifiers to backtick-quoted
+          (MySQL uses backticks; double quotes are for ANSI_QUOTES mode)
+
+        All transformations are string-literal safe (skip content
+        inside single-quoted strings).
+        """
+        import re
+        # MySQL doesn't support CREATE INDEX IF NOT EXISTS — strip it.
+        sql = re.sub(
+            r'CREATE\s+(UNIQUE\s+)?INDEX\s+IF\s+NOT\s+EXISTS',
+            r'CREATE \1INDEX',
+            sql,
+            flags=re.IGNORECASE,
+        )
         result: list[str] = []
         in_string = False
+        in_dq_ident = False
         i = 0
         while i < len(sql):
             ch = sql[i]
-            if ch == "'" and not in_string:
-                in_string = True
-                result.append(ch)
-            elif ch == "'" and in_string:
-                if i + 1 < len(sql) and sql[i + 1] == "'":
-                    result.append("''")
-                    i += 2
-                    continue
-                in_string = False
-                result.append(ch)
-            elif ch == "?" and not in_string:
+            if ch == "'" and not in_dq_ident:
+                if not in_string:
+                    in_string = True
+                    result.append(ch)
+                else:
+                    # Check for escaped quote ''
+                    if i + 1 < len(sql) and sql[i + 1] == "'":
+                        result.append("''")
+                        i += 2
+                        continue
+                    in_string = False
+                    result.append(ch)
+            elif ch == '"' and not in_string:
+                # Toggle double-quote identifier mode; emit backtick
+                in_dq_ident = not in_dq_ident
+                result.append('`')
+            elif ch == "?" and not in_string and not in_dq_ident:
                 result.append("%s")
             else:
                 result.append(ch)
@@ -146,14 +175,19 @@ class MySQLAdapter(DatabaseAdapter):
             raise RuntimeError("Not connected to MySQL")
         adapted_sql = self.adapt_sql(sql)
         conn = self._get_conn()
+        import warnings
         if conn is not None:
             async with conn.cursor(aiomysql.DictCursor) as cur:
-                await cur.execute(adapted_sql, params or ())
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore")
+                    await cur.execute(adapted_sql, params or ())
                 return cur
         else:
             async with self._pool.acquire() as c:
                 async with c.cursor(aiomysql.DictCursor) as cur:
-                    await cur.execute(adapted_sql, params or ())
+                    with warnings.catch_warnings():
+                        warnings.simplefilter("ignore")
+                        await cur.execute(adapted_sql, params or ())
                     return cur
 
     async def execute_many(self, sql: str, params_list: Sequence[Sequence[Any]]) -> None:

@@ -206,15 +206,16 @@ def generate_create_table_sql(model: ModelNode, dialect: str = "sqlite") -> str:
     return f'CREATE TABLE IF NOT EXISTS "{model.table_name}" (\n  {body}\n);'
 
 
-def generate_create_index_sql(model: ModelNode) -> List[str]:
+def generate_create_index_sql(model: ModelNode, dialect: str = "sqlite") -> List[str]:
     """Generate CREATE INDEX statements for non-unique indexes."""
+    ine = "" if dialect == "mysql" else " IF NOT EXISTS"
     stmts: List[str] = []
     for idx in model.indexes:
         if not idx.is_unique:
             idx_name = idx.name or f"idx_{model.table_name}_{'_'.join(idx.fields)}"
-            field_list = ", ".join(f'"{f}"' for f in idx.fields)
+            field_list = ", ".join(f'"{ f}"' for f in idx.fields)
             stmts.append(
-                f'CREATE INDEX IF NOT EXISTS "{idx_name}" '
+                f'CREATE INDEX{ine} "{idx_name}" '
                 f'ON "{model.table_name}" ({field_list});'
             )
     return stmts
@@ -531,8 +532,17 @@ class ModelRegistry:
                 await target_db.execute(sql)
                 statements.append(sql)
 
-                for idx_sql in generate_create_index_sql(model):
-                    await target_db.execute(idx_sql)
+                for idx_sql in generate_create_index_sql(model, dialect=dialect):
+                    try:
+                        await target_db.execute(idx_sql)
+                    except Exception as idx_exc:
+                        # MySQL error 1061 = duplicate key name.
+                        _orig = getattr(idx_exc, "__cause__", idx_exc)
+                        _args = getattr(_orig, "args", ())
+                        if _args and _args[0] == 1061:
+                            pass  # index already exists, skip
+                        else:
+                            raise
                     statements.append(idx_sql)
             except (SchemaFault, QueryFault):
                 raise

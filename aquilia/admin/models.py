@@ -447,7 +447,7 @@ if _HAS_ORM:
             "ContentType", related_name="log_entries",
             on_delete="SET NULL", null=True, blank=True, db_index=True,
         )
-        object_id = TextField(null=True, blank=True)
+        object_id = CharField(max_length=255, null=True, blank=True)
         object_repr = CharField(max_length=200, blank=True, default="")
         action_flag = IntegerField(choices=ACTION_FLAG_CHOICES)
         change_message = TextField(blank=True, default="")
