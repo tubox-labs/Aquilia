@@ -1,0 +1,14 @@
+# ── Core ──────────────────────────────────────────────────────────
+aquilia>=1.0.0
+
+# ── Database drivers (uncomment as needed) ────────────────────────
+# aiosqlite>=0.20.0         # SQLite (async)
+# asyncpg>=0.29.0           # PostgreSQL
+# aiomysql>=0.2.0           # MySQL / MariaDB
+
+# ── Cache backends (uncomment as needed) ──────────────────────────
+# redis>=5.0.0              # Redis cache / sessions
+
+# ── Production server ─────────────────────────────────────────────
+# gunicorn>=22.0.0          # WSGI/ASGI process manager
+# uvicorn[standard]>=0.30.0 # ASGI server (included with Aquilia)

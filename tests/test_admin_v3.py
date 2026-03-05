@@ -6972,3 +6972,442 @@ class TestSchemaAllModelsPresent(_SchemaTestMixin):
             "ContentType", "AdminLogEntry", "AdminAuditEntry", "AdminSession",
         }
         assert expected.issubset(names)
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# PHASE 25 — Dashboard ORM Integration Tests
+# ═══════════════════════════════════════════════════════════════════════
+
+
+class TestDashboardOrmRenderSignature:
+    """render_dashboard now accepts orm_metadata kwarg."""
+
+    def test_render_dashboard_accepts_orm_metadata(self):
+        from aquilia.admin.templates import render_dashboard
+        import inspect
+        sig = inspect.signature(render_dashboard)
+        assert "orm_metadata" in sig.parameters
+
+    def test_render_dashboard_orm_metadata_default_none(self):
+        from aquilia.admin.templates import render_dashboard
+        import inspect
+        sig = inspect.signature(render_dashboard)
+        param = sig.parameters["orm_metadata"]
+        assert param.default is None
+
+    def test_render_dashboard_without_orm_metadata(self):
+        from aquilia.admin.templates import render_dashboard
+        html = render_dashboard(
+            app_list=[],
+            stats={"total_models": 0, "model_counts": {}, "recent_actions": []},
+        )
+        assert "<!DOCTYPE html>" in html
+
+    def test_render_dashboard_with_empty_orm_metadata(self):
+        from aquilia.admin.templates import render_dashboard
+        html = render_dashboard(
+            app_list=[],
+            stats={"total_models": 0, "model_counts": {}, "recent_actions": []},
+            orm_metadata={},
+        )
+        assert "<!DOCTYPE html>" in html
+
+
+class TestDashboardOrmDatabaseBackend:
+    """Dashboard renders database backend info when orm_metadata is provided."""
+
+    @staticmethod
+    def _render_with_orm(orm_metadata):
+        from aquilia.admin.templates import render_dashboard
+        return render_dashboard(
+            app_list=[],
+            stats={"total_models": 1, "model_counts": {}, "recent_actions": []},
+            orm_metadata=orm_metadata,
+        )
+
+    def test_database_dialect_displayed(self):
+        html = self._render_with_orm({
+            "database": {"dialect": "sqlite", "driver": "aiosqlite", "url": "sqlite:///test.db"},
+            "backend": {},
+            "stats": {"total_models": 1},
+            "dependency_graph": {},
+            "models": [],
+        })
+        assert "sqlite" in html.lower()
+
+    def test_database_driver_displayed(self):
+        html = self._render_with_orm({
+            "database": {"dialect": "postgresql", "driver": "asyncpg", "url": "postgresql://"},
+            "backend": {},
+            "stats": {"total_models": 1},
+            "dependency_graph": {},
+            "models": [],
+        })
+        assert "asyncpg" in html
+
+    def test_database_url_displayed(self):
+        html = self._render_with_orm({
+            "database": {"dialect": "sqlite", "driver": "aiosqlite", "url": "sqlite:///my.db"},
+            "backend": {},
+            "stats": {"total_models": 2},
+            "dependency_graph": {},
+            "models": [],
+        })
+        assert "sqlite:///my.db" in html
+
+    def test_connected_badge_shown(self):
+        html = self._render_with_orm({
+            "database": {"dialect": "sqlite", "driver": "aiosqlite", "connected": True},
+            "backend": {},
+            "stats": {"total_models": 1},
+            "dependency_graph": {},
+            "models": [],
+        })
+        assert "Connected" in html
+
+    def test_config_type_shown(self):
+        html = self._render_with_orm({
+            "database": {"dialect": "mysql", "driver": "aiomysql", "config_type": "MySQLConfig"},
+            "backend": {},
+            "stats": {"total_models": 1},
+            "dependency_graph": {},
+            "models": [],
+        })
+        assert "MySQLConfig" in html
+
+    def test_no_db_shows_empty_state(self):
+        html = self._render_with_orm({
+            "database": {},
+            "backend": {},
+            "stats": {"total_models": 1},
+            "dependency_graph": {},
+            "models": [],
+        })
+        assert "No database configured" in html
+
+    def test_section_label_orm_overview(self):
+        html = self._render_with_orm({
+            "database": {"dialect": "sqlite"},
+            "backend": {},
+            "stats": {"total_models": 3},
+            "dependency_graph": {},
+            "models": [],
+        })
+        assert "ORM Overview" in html
+
+    def test_orm_overview_hidden_when_zero_models(self):
+        html = self._render_with_orm({
+            "database": {"dialect": "sqlite"},
+            "backend": {},
+            "stats": {"total_models": 0},
+            "dependency_graph": {},
+            "models": [],
+        })
+        assert "ORM Overview" not in html
+
+
+class TestDashboardOrmSchemaStats:
+    """Dashboard renders schema stats (fields, relations, indexes, etc.)."""
+
+    @staticmethod
+    def _render_with_stats(**kwargs):
+        from aquilia.admin.templates import render_dashboard
+        orm = {
+            "database": {"dialect": "sqlite"},
+            "backend": {},
+            "stats": {"total_models": 5, **kwargs},
+            "dependency_graph": {},
+            "models": [],
+        }
+        return render_dashboard(
+            app_list=[],
+            stats={"total_models": 5, "model_counts": {}, "recent_actions": []},
+            orm_metadata=orm,
+        )
+
+    def test_fields_count_rendered(self):
+        html = self._render_with_stats(total_fields=42)
+        assert 'data-count="42"' in html
+
+    def test_relations_count_rendered(self):
+        html = self._render_with_stats(total_relations=7)
+        assert 'data-count="7"' in html
+
+    def test_indexes_count_rendered(self):
+        html = self._render_with_stats(total_indexes=12)
+        assert 'data-count="12"' in html
+
+    def test_constraints_count_rendered(self):
+        html = self._render_with_stats(total_constraints=3)
+        assert 'data-count="3"' in html
+
+    def test_m2m_count_rendered(self):
+        html = self._render_with_stats(total_m2m_fields=4)
+        assert 'data-count="4"' in html
+
+    def test_schema_stats_header(self):
+        html = self._render_with_stats()
+        assert "Schema Stats" in html
+
+    def test_database_backend_header(self):
+        html = self._render_with_stats()
+        assert "Database Backend" in html
+
+
+class TestDashboardOrmCapabilities:
+    """Dashboard renders backend capability badges."""
+
+    @staticmethod
+    def _render_with_caps(**caps):
+        from aquilia.admin.templates import render_dashboard
+        orm = {
+            "database": {"dialect": "postgresql"},
+            "backend": {
+                "supports_returning": False,
+                "supports_json": False,
+                "supports_arrays": False,
+                "supports_upsert": False,
+                "supports_window_functions": False,
+                "supports_cte": False,
+                "supports_partial_indexes": False,
+                "supports_transactions": True,
+                **caps,
+            },
+            "stats": {"total_models": 2},
+            "dependency_graph": {},
+            "models": [],
+        }
+        return render_dashboard(
+            app_list=[],
+            stats={"total_models": 2, "model_counts": {}, "recent_actions": []},
+            orm_metadata=orm,
+        )
+
+    def test_capabilities_section_rendered(self):
+        html = self._render_with_caps()
+        assert "Backend Capabilities" in html
+
+    def test_returning_shown(self):
+        html = self._render_with_caps(supports_returning=True)
+        assert "RETURNING" in html
+
+    def test_json_shown(self):
+        html = self._render_with_caps(supports_json=True)
+        assert "JSON" in html
+
+    def test_upsert_shown(self):
+        html = self._render_with_caps()
+        assert "Upsert" in html
+
+    def test_cte_shown(self):
+        html = self._render_with_caps()
+        assert "CTE" in html
+
+    def test_transactions_shown(self):
+        html = self._render_with_caps()
+        assert "Transactions" in html
+
+    def test_window_fn_shown(self):
+        html = self._render_with_caps()
+        assert "Window Fn" in html
+
+    def test_param_style_shown(self):
+        html = self._render_with_caps(param_style="$1")
+        assert "$1" in html
+
+    def test_max_identifier_shown(self):
+        html = self._render_with_caps(param_style="$1", max_identifier_length=128)
+        assert "128" in html
+
+    def test_no_capabilities_section_when_empty(self):
+        from aquilia.admin.templates import render_dashboard
+        orm = {
+            "database": {},
+            "backend": {},
+            "stats": {"total_models": 1},
+            "dependency_graph": {},
+            "models": [],
+        }
+        html = render_dashboard(
+            app_list=[],
+            stats={"total_models": 1, "model_counts": {}, "recent_actions": []},
+            orm_metadata=orm,
+        )
+        assert "Backend Capabilities" not in html
+
+
+class TestDashboardOrmDependencies:
+    """Dashboard renders the model dependency mini-graph."""
+
+    @staticmethod
+    def _render_with_deps(dep_graph):
+        from aquilia.admin.templates import render_dashboard
+        orm = {
+            "database": {"dialect": "sqlite"},
+            "backend": {},
+            "stats": {"total_models": 3},
+            "dependency_graph": dep_graph,
+            "models": [],
+        }
+        return render_dashboard(
+            app_list=[],
+            stats={"total_models": 3, "model_counts": {}, "recent_actions": []},
+            orm_metadata=orm,
+        )
+
+    def test_dependencies_header(self):
+        html = self._render_with_deps({"Order": ["User"]})
+        assert "Model Dependencies" in html
+
+    def test_dependency_model_shown(self):
+        html = self._render_with_deps({"Order": ["User", "Product"]})
+        assert "Order" in html
+        assert "User" in html
+        assert "Product" in html
+
+    def test_no_deps_shows_empty_state(self):
+        html = self._render_with_deps({"User": [], "Product": []})
+        assert "No inter-model dependencies" in html
+
+    def test_many_deps_truncated(self):
+        deps = {f"Model{i}": ["Target"] for i in range(10)}
+        html = self._render_with_deps(deps)
+        assert "more with dependencies" in html
+
+    def test_link_to_full_graph(self):
+        html = self._render_with_deps({"Order": ["User"]})
+        assert "Full graph" in html
+
+
+class TestDashboardOrmModelTable:
+    """Dashboard renders condensed model schema summary table."""
+
+    @staticmethod
+    def _render_with_models(models):
+        from aquilia.admin.templates import render_dashboard
+        orm = {
+            "database": {"dialect": "sqlite"},
+            "backend": {},
+            "stats": {"total_models": len(models)},
+            "dependency_graph": {},
+            "models": models,
+        }
+        return render_dashboard(
+            app_list=[],
+            stats={"total_models": len(models), "model_counts": {}, "recent_actions": []},
+            orm_metadata=orm,
+        )
+
+    def test_model_table_rendered(self):
+        html = self._render_with_models([
+            {"name": "User", "table": "users", "app_label": "auth",
+             "field_count": 5, "pk": "id", "relation_count": 0, "index_count": 1, "managed": True},
+        ])
+        assert "Model Schema Summary" in html
+
+    def test_model_name_in_table(self):
+        html = self._render_with_models([
+            {"name": "Product", "table": "products", "app_label": "shop",
+             "field_count": 8, "pk": "id", "relation_count": 2, "index_count": 3, "managed": True},
+        ])
+        assert "Product" in html
+
+    def test_table_name_in_table(self):
+        html = self._render_with_models([
+            {"name": "Product", "table": "products", "app_label": "shop",
+             "field_count": 8, "pk": "id", "relation_count": 2, "index_count": 3, "managed": True},
+        ])
+        assert "products" in html
+
+    def test_field_count_in_table(self):
+        html = self._render_with_models([
+            {"name": "User", "table": "users", "app_label": "auth",
+             "field_count": 12, "pk": "id", "relation_count": 0, "index_count": 0, "managed": True},
+        ])
+        assert ">12<" in html
+
+    def test_relation_count_colored(self):
+        html = self._render_with_models([
+            {"name": "Order", "table": "orders", "app_label": "shop",
+             "field_count": 6, "pk": "id", "relation_count": 3, "index_count": 0, "managed": True},
+        ])
+        # relation_count > 0 renders with info color
+        assert "3" in html
+
+    def test_zero_relations_dash(self):
+        html = self._render_with_models([
+            {"name": "Tag", "table": "tags", "app_label": "core",
+             "field_count": 2, "pk": "id", "relation_count": 0, "index_count": 0, "managed": True},
+        ])
+        # zero relations renders an em-dash
+        assert "—" in html
+
+    def test_pk_column_in_table(self):
+        html = self._render_with_models([
+            {"name": "User", "table": "users", "app_label": "auth",
+             "field_count": 5, "pk": "uuid", "relation_count": 0, "index_count": 0, "managed": True},
+        ])
+        assert "uuid" in html
+
+    def test_app_label_in_table(self):
+        html = self._render_with_models([
+            {"name": "User", "table": "users", "app_label": "my_app",
+             "field_count": 5, "pk": "id", "relation_count": 0, "index_count": 0, "managed": True},
+        ])
+        assert "my_app" in html
+
+    def test_model_count_shown(self):
+        models = [
+            {"name": f"Model{i}", "table": f"model_{i}s", "app_label": "test",
+             "field_count": 3, "pk": "id", "relation_count": 0, "index_count": 0, "managed": True}
+            for i in range(4)
+        ]
+        html = self._render_with_models(models)
+        assert "4 models" in html
+
+    def test_empty_models_no_table(self):
+        html = self._render_with_models([])
+        assert "Model Schema Summary" not in html
+
+    def test_model_link_href(self):
+        html = self._render_with_models([
+            {"name": "Product", "table": "products", "app_label": "shop",
+             "field_count": 5, "pk": "id", "relation_count": 0, "index_count": 0, "managed": True},
+        ])
+        assert "/admin/product/" in html
+
+
+class TestDashboardOrmEndToEnd(_SchemaTestMixin):
+    """End-to-end: render_dashboard with real get_orm_metadata() output."""
+
+    def test_real_orm_metadata_renders(self):
+        from aquilia.admin.templates import render_dashboard
+        site = self._build_site()
+        orm = site.get_orm_metadata()
+        html = render_dashboard(
+            app_list=[],
+            stats={"total_models": 7, "model_counts": {}, "recent_actions": []},
+            orm_metadata=orm,
+        )
+        assert "ORM Overview" in html
+        assert "Schema Stats" in html
+        assert "Model Schema Summary" in html
+        assert "AdminUser" in html
+        assert "AdminGroup" in html
+
+    def test_real_orm_metadata_model_count_matches(self):
+        site = self._build_site()
+        orm = site.get_orm_metadata()
+        assert orm["stats"]["total_models"] == 7
+        assert len(orm["models"]) == 7
+
+    def test_real_orm_metadata_dependencies_rendered(self):
+        from aquilia.admin.templates import render_dashboard
+        site = self._build_site()
+        orm = site.get_orm_metadata()
+        html = render_dashboard(
+            app_list=[],
+            stats={"total_models": 7, "model_counts": {}, "recent_actions": []},
+            orm_metadata=orm,
+        )
+        assert "Model Dependencies" in html

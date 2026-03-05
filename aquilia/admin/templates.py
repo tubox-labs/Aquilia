@@ -191,6 +191,7 @@ def render_dashboard(
     url_prefix: str = "/admin",
     containers_summary: Optional[Dict[str, Any]] = None,
     pods_summary: Optional[Dict[str, Any]] = None,
+    orm_metadata: Optional[Dict[str, Any]] = None,
 ) -> str:
     """Render the admin dashboard."""
     model_counts = stats.get("model_counts", {})
@@ -224,6 +225,7 @@ def render_dashboard(
             active_page="dashboard",
             containers_summary=containers_summary or {},
             pods_summary=pods_summary or {},
+            orm_metadata=orm_metadata or {},
         )
     return _fallback_dashboard(
         app_list, stats, identity_name,

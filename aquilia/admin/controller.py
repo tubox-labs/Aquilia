@@ -437,6 +437,9 @@ class AdminController(Controller):
             except Exception:
                 pods_summary = {"available": False, "error": "Failed to fetch"}
 
+        # Gather ORM metadata for dashboard widgets
+        orm_metadata = self.site.get_orm_metadata()
+
         html = render_dashboard(
             app_list=app_list,
             stats=stats,
@@ -444,6 +447,7 @@ class AdminController(Controller):
             identity_avatar=_get_identity_avatar(identity),
             containers_summary=containers_summary,
             pods_summary=pods_summary,
+            orm_metadata=orm_metadata,
         )
         return _html_response(html)
 
