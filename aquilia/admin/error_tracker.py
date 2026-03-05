@@ -152,6 +152,21 @@ class ErrorTracker:
         # Hourly distribution (last 24 hours)
         self._hourly: Dict[str, int] = defaultdict(int)
 
+        # ── Enhanced analytics (Phase 30) ────────────────────────────
+        # 5-minute bucketed trend for high-resolution charts
+        self._five_min: Dict[str, int] = defaultdict(int)
+        # Per-domain hourly breakdown for stacked area charts
+        self._domain_hourly: Dict[str, Dict[str, int]] = defaultdict(
+            lambda: defaultdict(int)
+        )
+        # Severity over time (hourly)
+        self._severity_hourly: Dict[str, Dict[str, int]] = defaultdict(
+            lambda: defaultdict(int)
+        )
+        # Resolution tracking
+        self._resolved: Dict[str, datetime] = {}  # fingerprint -> resolved_at
+        self._total_resolved = 0
+
     def capture(self, fault_context) -> None:
         """
         FaultEngine listener callback.
@@ -284,6 +299,18 @@ class ErrorTracker:
         hour_key = record.timestamp.strftime("%Y-%m-%d %H:00")
         self._hourly[hour_key] += 1
 
+        # ── Enhanced analytics (Phase 30) ────────────────────────────
+        # 5-minute bucket
+        minute = (record.timestamp.minute // 5) * 5
+        five_min_key = record.timestamp.strftime(f"%Y-%m-%d %H:{minute:02d}")
+        self._five_min[five_min_key] += 1
+
+        # Per-domain hourly
+        self._domain_hourly[record.domain][hour_key] += 1
+
+        # Per-severity hourly
+        self._severity_hourly[record.severity][hour_key] += 1
+
         # Update group
         fp = record.fingerprint
         if fp:
@@ -338,9 +365,11 @@ class ErrorTracker:
         return [e for e in list(self._errors) if e.domain == domain][-limit:]
 
     def get_stats(self) -> Dict[str, Any]:
-        """Get comprehensive error statistics."""
+        """Get comprehensive error statistics with chart-ready data."""
         errors = list(self._errors)
         groups = self.get_groups(20)
+
+        from datetime import timedelta
 
         # Recent errors (last hour)
         now = datetime.now(timezone.utc)
@@ -367,15 +396,83 @@ class ErrorTracker:
             self._by_code.items(), key=lambda x: x[1], reverse=True
         )[:10]
 
-        # Hourly trend (last 24h)
+        # ── Chart data: Hourly trend (last 24h) ─────────────────────
         hourly_trend = []
+        hourly_labels = []
+        hourly_values = []
         for i in range(24):
-            from datetime import timedelta
             hour = (now - timedelta(hours=23 - i)).strftime("%Y-%m-%d %H:00")
-            hourly_trend.append({
-                "hour": hour,
-                "count": self._hourly.get(hour, 0),
-            })
+            count = self._hourly.get(hour, 0)
+            hourly_trend.append({"hour": hour, "count": count})
+            hourly_labels.append(hour[-5:])  # "HH:00"
+            hourly_values.append(count)
+
+        # ── Chart data: 5-min trend (last 2 hours, 24 buckets) ──────
+        five_min_labels = []
+        five_min_values = []
+        for i in range(24):
+            t = now - timedelta(minutes=(23 - i) * 5)
+            minute = (t.minute // 5) * 5
+            key = t.strftime(f"%Y-%m-%d %H:{minute:02d}")
+            five_min_labels.append(t.strftime("%H:%M"))
+            five_min_values.append(self._five_min.get(key, 0))
+
+        # ── Chart data: Severity doughnut ────────────────────────────
+        severity_labels = list(self._by_severity.keys()) if self._by_severity else ["No Data"]
+        severity_values = list(self._by_severity.values()) if self._by_severity else [0]
+
+        # ── Chart data: Domain polar area ────────────────────────────
+        domain_labels = list(self._by_domain.keys()) if self._by_domain else ["No Data"]
+        domain_values = list(self._by_domain.values()) if self._by_domain else [0]
+
+        # ── Chart data: Top error codes horizontal bar ───────────────
+        top_codes_labels = [c["code"] for c in [{"code": c, "count": n} for c, n in top_codes]][:8]
+        top_codes_values = [c["count"] for c in [{"code": c, "count": n} for c, n in top_codes]][:8]
+
+        # ── Chart data: Domain stacked area (hourly, last 24h) ──────
+        domain_series = {}
+        all_domains = sorted(self._domain_hourly.keys())
+        for domain in all_domains[:6]:  # Max 6 domains for readability
+            series = []
+            for i in range(24):
+                hour = (now - timedelta(hours=23 - i)).strftime("%Y-%m-%d %H:00")
+                series.append(self._domain_hourly[domain].get(hour, 0))
+            domain_series[domain] = series
+
+        # ── Chart data: Severity timeline (hourly stacked) ──────────
+        severity_series = {}
+        all_severities = sorted(self._severity_hourly.keys())
+        for sev in all_severities:
+            series = []
+            for i in range(24):
+                hour = (now - timedelta(hours=23 - i)).strftime("%Y-%m-%d %H:00")
+                series.append(self._severity_hourly[sev].get(hour, 0))
+            severity_series[sev] = series
+
+        # ── Resolution stats ────────────────────────────────────────
+        unresolved_count = sum(
+            1 for g in self._groups.values()
+            if g.fingerprint not in self._resolved
+        )
+
+        # ── MTTR (Mean Time To Resolve) ─────────────────────────────
+        mttr_ms = 0.0
+        resolved_with_time = []
+        for fp, resolved_at in self._resolved.items():
+            group = self._groups.get(fp)
+            if group and group.first_seen:
+                delta = (resolved_at - group.first_seen).total_seconds()
+                resolved_with_time.append(delta)
+        if resolved_with_time:
+            mttr_ms = sum(resolved_with_time) / len(resolved_with_time)
+
+        # ── Error velocity (errors per 5 min, last 30 min) ──────────
+        velocity_points = []
+        for i in range(6):
+            t = now - timedelta(minutes=(5 - i) * 5)
+            minute = (t.minute // 5) * 5
+            key = t.strftime(f"%Y-%m-%d %H:{minute:02d}")
+            velocity_points.append(self._five_min.get(key, 0))
 
         return {
             "total_errors": self._total_errors,
@@ -383,6 +480,9 @@ class ErrorTracker:
             "errors_last_24h": errors_last_24h,
             "error_rate_per_min": round(error_rate * 60, 2),
             "unique_errors": len(self._groups),
+            "unresolved_count": unresolved_count,
+            "resolved_count": self._total_resolved,
+            "mttr_seconds": round(mttr_ms, 1),
             "by_domain": dict(self._by_domain),
             "by_severity": dict(self._by_severity),
             "top_routes": [{"route": r, "count": c} for r, c in top_routes],
@@ -390,7 +490,47 @@ class ErrorTracker:
             "recent_errors": [e.to_dict() for e in self.get_recent_errors(30)],
             "error_groups": [g.to_dict() for g in groups],
             "hourly_trend": hourly_trend,
+            # ── Chart.js ready data ─────────────────────────────────
+            "charts": {
+                "hourly": {
+                    "labels": hourly_labels,
+                    "values": hourly_values,
+                },
+                "five_min": {
+                    "labels": five_min_labels,
+                    "values": five_min_values,
+                },
+                "severity_doughnut": {
+                    "labels": severity_labels,
+                    "values": severity_values,
+                },
+                "domain_polar": {
+                    "labels": domain_labels,
+                    "values": domain_values,
+                },
+                "top_codes_bar": {
+                    "labels": top_codes_labels,
+                    "values": top_codes_values,
+                },
+                "domain_stacked": {
+                    "labels": hourly_labels,
+                    "series": domain_series,
+                },
+                "severity_timeline": {
+                    "labels": hourly_labels,
+                    "series": severity_series,
+                },
+                "velocity": velocity_points,
+            },
         }
+
+    def resolve_error(self, fingerprint: str) -> bool:
+        """Mark an error group as resolved."""
+        if fingerprint in self._groups and fingerprint not in self._resolved:
+            self._resolved[fingerprint] = datetime.now(timezone.utc)
+            self._total_resolved += 1
+            return True
+        return False
 
     def clear(self) -> None:
         """Clear all tracked errors."""
@@ -402,6 +542,11 @@ class ErrorTracker:
         self._by_route.clear()
         self._by_code.clear()
         self._hourly.clear()
+        self._five_min.clear()
+        self._domain_hourly.clear()
+        self._severity_hourly.clear()
+        self._resolved.clear()
+        self._total_resolved = 0
         self._counter = 0
 
 
