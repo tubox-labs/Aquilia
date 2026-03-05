@@ -174,10 +174,71 @@ class MemoryBackend(TaskBackend):
             by_state[j.state.value] += 1
 
         completed = [j for j in all_jobs if j.state == JobState.COMPLETED and j.duration_ms is not None]
+        failed = [j for j in all_jobs if j.state in (JobState.FAILED, JobState.DEAD)]
         avg_duration = (
             sum(j.duration_ms for j in completed) / len(completed)
             if completed else 0.0
         )
+
+        # ── Duration distribution (histogram buckets in ms) ─────────
+        duration_buckets = [0, 10, 50, 100, 250, 500, 1000, 5000, float("inf")]
+        duration_histogram = [0] * (len(duration_buckets) - 1)
+        duration_labels = ["<10ms", "10-50ms", "50-100ms", "100-250ms",
+                           "250-500ms", "0.5-1s", "1-5s", ">5s"]
+        for j in completed:
+            for i in range(len(duration_buckets) - 1):
+                if duration_buckets[i] <= j.duration_ms < duration_buckets[i + 1]:
+                    duration_histogram[i] += 1
+                    break
+
+        # ── Throughput timeline (hourly, last 24h) ──────────────────
+        now = datetime.now(timezone.utc)
+        throughput_labels = []
+        completed_hourly = []
+        failed_hourly = []
+        for i in range(24):
+            t = now - timedelta(hours=23 - i)
+            hour_str = t.strftime("%Y-%m-%d %H:00")
+            label = t.strftime("%H:00")
+            throughput_labels.append(label)
+            # Count completed jobs in this hour
+            c_count = sum(
+                1 for j in completed
+                if j.completed_at and j.completed_at.strftime("%Y-%m-%d %H:00") == hour_str
+            )
+            f_count = sum(
+                1 for j in failed
+                if j.completed_at and j.completed_at.strftime("%Y-%m-%d %H:00") == hour_str
+            )
+            completed_hourly.append(c_count)
+            failed_hourly.append(f_count)
+
+        # ── Success rate ────────────────────────────────────────────
+        terminal = len(completed) + len(failed)
+        success_rate = round((len(completed) / terminal * 100) if terminal else 100, 1)
+
+        # ── P50/P95/P99 latencies ───────────────────────────────────
+        sorted_durations = sorted(j.duration_ms for j in completed) if completed else []
+        p50 = sorted_durations[len(sorted_durations) // 2] if sorted_durations else 0
+        p95 = sorted_durations[int(len(sorted_durations) * 0.95)] if sorted_durations else 0
+        p99 = sorted_durations[int(len(sorted_durations) * 0.99)] if sorted_durations else 0
+
+        # ── Per-queue chart data ────────────────────────────────────
+        queue_chart_labels = sorted(self._queues.keys()) if self._queues else ["default"]
+        queue_pending = []
+        queue_running = []
+        queue_completed_q = []
+        queue_failed_q = []
+        for q in queue_chart_labels:
+            q_jobs = [j for j in all_jobs if j.queue == q]
+            queue_pending.append(sum(1 for j in q_jobs if j.state in (JobState.PENDING, JobState.SCHEDULED)))
+            queue_running.append(sum(1 for j in q_jobs if j.state == JobState.RUNNING))
+            queue_completed_q.append(sum(1 for j in q_jobs if j.state == JobState.COMPLETED))
+            queue_failed_q.append(sum(1 for j in q_jobs if j.state in (JobState.FAILED, JobState.DEAD)))
+
+        # ── Job state doughnut ──────────────────────────────────────
+        state_labels = list(by_state.keys()) if by_state else ["No Jobs"]
+        state_values = list(by_state.values()) if by_state else [0]
 
         return {
             "total_jobs": len(all_jobs),
@@ -190,6 +251,33 @@ class MemoryBackend(TaskBackend):
             "failed_count": by_state.get("failed", 0),
             "active_count": by_state.get("running", 0),
             "pending_count": by_state.get("pending", 0) + by_state.get("scheduled", 0),
+            "success_rate": success_rate,
+            "p50_ms": round(p50, 2),
+            "p95_ms": round(p95, 2),
+            "p99_ms": round(p99, 2),
+            # ── Chart.js ready data ─────────────────────────────────
+            "charts": {
+                "throughput": {
+                    "labels": throughput_labels,
+                    "completed": completed_hourly,
+                    "failed": failed_hourly,
+                },
+                "duration_histogram": {
+                    "labels": duration_labels,
+                    "values": duration_histogram,
+                },
+                "state_doughnut": {
+                    "labels": state_labels,
+                    "values": state_values,
+                },
+                "queue_breakdown": {
+                    "labels": queue_chart_labels,
+                    "pending": queue_pending,
+                    "running": queue_running,
+                    "completed": queue_completed_q,
+                    "failed": queue_failed_q,
+                },
+            },
         }
 
     async def get_queue_stats(self) -> Dict[str, Dict[str, int]]:

@@ -958,9 +958,10 @@ def render_tasks_page(
     site_title: str = "Aquilia Admin",
     url_prefix: str = "/admin",
 ) -> str:
-    """Render the background tasks monitor page."""
+    """Render the background tasks monitor page with Chart.js analytics."""
     stats = tasks_data.get("stats", {})
     manager_info = stats.get("manager", {})
+    charts = stats.get("charts", {})
     if _HAS_JINJA2:
         return _render_template(
             "tasks.html",
@@ -976,6 +977,11 @@ def render_tasks_page(
             completed_count=stats.get("completed_count", 0),
             failed_count=stats.get("failed_count", 0),
             dead_letter_count=stats.get("dead_letter_count", 0),
+            success_rate=stats.get("success_rate", 100),
+            p50_ms=stats.get("p50_ms", 0),
+            p95_ms=stats.get("p95_ms", 0),
+            p99_ms=stats.get("p99_ms", 0),
+            charts=charts,
             app_list=app_list or [],
             active_page="tasks",
             identity_name=identity_name,
@@ -999,7 +1005,8 @@ def render_errors_page(
     site_title: str = "Aquilia Admin",
     url_prefix: str = "/admin",
 ) -> str:
-    """Render the error monitoring page with stack traces and grouping."""
+    """Render the error monitoring page with Chart.js analytics."""
+    charts = errors_data.get("charts", {})
     if _HAS_JINJA2:
         return _render_template(
             "errors.html",
@@ -1009,6 +1016,9 @@ def render_errors_page(
             errors_last_24h=errors_data.get("errors_last_24h", 0),
             error_rate=errors_data.get("error_rate_per_min", 0),
             unique_errors=errors_data.get("unique_errors", 0),
+            unresolved_count=errors_data.get("unresolved_count", 0),
+            resolved_count=errors_data.get("resolved_count", 0),
+            mttr_seconds=errors_data.get("mttr_seconds", 0),
             by_domain=errors_data.get("by_domain", {}),
             by_severity=errors_data.get("by_severity", {}),
             top_routes=errors_data.get("top_routes", []),
@@ -1016,6 +1026,7 @@ def render_errors_page(
             recent_errors=errors_data.get("recent_errors", []),
             error_groups=errors_data.get("error_groups", []),
             hourly_trend=errors_data.get("hourly_trend", []),
+            charts=charts,
             app_list=app_list or [],
             active_page="errors",
             identity_name=identity_name,

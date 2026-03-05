@@ -2,10 +2,15 @@
 {% block title %}Background Tasks{% endblock %}
 {% block breadcrumb %}Background Tasks{% endblock %}
 
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+{% endblock %}
+
 {% block content %}
 {# ═══════════════════════════════════════════════════════════════════
-   AQUILIA ADMIN — BACKGROUND TASK MONITOR
-   Job Queue · Workers · Retries · Dead Letter · Real-time Stats
+   AQUILIA ADMIN — BACKGROUND TASK MONITOR (v2 — Chart.js)
+   Throughput Charts · Duration Histogram · Queue Health
+   Worker Status · Job Table · Live Polling
    ═══════════════════════════════════════════════════════════════════ #}
 
 <div class="dash-greeting">
@@ -16,12 +21,12 @@
     <p>Monitor background job queue, worker status, retries, and dead-letter jobs</p>
 </div>
 
-{# ═══ MANAGER STATUS ═══ #}
+{# ═══ MANAGER STATUS BAR ═══ #}
 {% set mgr = manager %}
 <div style="margin-bottom:20px;padding:12px 18px;background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius);display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
     <div style="display:flex;align-items:center;gap:6px;">
         {% if available and mgr.running is defined and mgr.running %}
-        <div style="width:8px;height:8px;border-radius:50%;background:var(--success);box-shadow:0 0 6px var(--success);"></div>
+        <div style="width:8px;height:8px;border-radius:50%;background:var(--success);box-shadow:0 0 6px var(--success);animation:pulse-dot 2s infinite;"></div>
         <span style="font-size:0.8rem;color:var(--success);font-weight:600;">Running</span>
         {% else %}
         <div style="width:8px;height:8px;border-radius:50%;background:var(--text-faint);"></div>
@@ -40,7 +45,7 @@
     {% endif %}
 </div>
 
-{# ═══ METRIC CARDS ═══ #}
+{# ═══ METRIC CARDS (extended) ═══ #}
 <div class="dash-stats">
     <div class="dash-stat-card">
         <div class="stat-icon-wrap blue"><i class="icon-layers"></i></div>
@@ -62,23 +67,72 @@
         <div class="stat-icon-wrap amber"><i class="icon-loader"></i></div>
         <div class="dash-stat-value" data-count="{{ active_count }}">0</div>
         <div class="dash-stat-label">Active</div>
-        <div class="dash-stat-sub">
-            {{ pending_count }} pending
-        </div>
+        <div class="dash-stat-sub">{{ pending_count }} pending</div>
     </div>
     <div class="dash-stat-card">
         <div class="stat-icon-wrap red"><i class="icon-x-circle"></i></div>
         <div class="dash-stat-value" data-count="{{ failed_count }}">0</div>
         <div class="dash-stat-label">Failed</div>
-        <div class="dash-stat-sub">
-            {{ dead_letter_count }} dead-letter
+        <div class="dash-stat-sub">{{ dead_letter_count }} dead-letter</div>
+    </div>
+    <div class="dash-stat-card">
+        <div class="stat-icon-wrap {{ 'green' if success_rate >= 95 else ('amber' if success_rate >= 80 else 'red') }}">
+            <i class="icon-trending-up"></i>
+        </div>
+        <div class="dash-stat-value">{{ success_rate }}%</div>
+        <div class="dash-stat-label">Success Rate</div>
+        <div class="dash-stat-sub">All-time</div>
+    </div>
+    <div class="dash-stat-card">
+        <div class="stat-icon-wrap purple"><i class="icon-activity"></i></div>
+        <div class="dash-stat-value">{{ p50_ms }}</div>
+        <div class="dash-stat-label">P50 (ms)</div>
+        <div class="dash-stat-sub">P95: {{ p95_ms }}ms · P99: {{ p99_ms }}ms</div>
+    </div>
+</div>
+
+{# ═══ CHARTS ROW 1: Throughput + State Doughnut ═══ #}
+<div class="section-label" style="margin-top:8px;">Job Analytics</div>
+<div class="dash-grid" style="grid-template-columns:2fr 1fr;">
+    {# ── Throughput Line Chart ── #}
+    <div class="card" style="padding:20px;">
+        <span class="card-title"><i class="icon-trending-up" style="font-size:14px;vertical-align:-2px;margin-right:6px;opacity:0.5;"></i>Throughput — Last 24h</span>
+        <div style="margin-top:14px;height:220px;position:relative;">
+            <canvas id="chart-throughput"></canvas>
+        </div>
+    </div>
+
+    {# ── Job State Doughnut ── #}
+    <div class="card" style="padding:20px;">
+        <span class="card-title"><i class="icon-pie-chart" style="font-size:14px;vertical-align:-2px;margin-right:6px;opacity:0.5;"></i>Job States</span>
+        <div style="margin-top:14px;height:220px;position:relative;display:flex;align-items:center;justify-content:center;">
+            <canvas id="chart-state-doughnut"></canvas>
         </div>
     </div>
 </div>
 
-{# ═══ QUEUE BREAKDOWN ═══ #}
+{# ═══ CHARTS ROW 2: Duration Histogram + Queue Breakdown ═══ #}
+<div class="dash-grid" style="grid-template-columns:1fr 1fr;margin-top:16px;">
+    {# ── Duration Histogram ── #}
+    <div class="card" style="padding:20px;">
+        <span class="card-title"><i class="icon-bar-chart-2" style="font-size:14px;vertical-align:-2px;margin-right:6px;opacity:0.5;"></i>Duration Distribution</span>
+        <div style="margin-top:14px;height:200px;position:relative;">
+            <canvas id="chart-duration"></canvas>
+        </div>
+    </div>
+
+    {# ── Queue Stacked Bar ── #}
+    <div class="card" style="padding:20px;">
+        <span class="card-title"><i class="icon-inbox" style="font-size:14px;vertical-align:-2px;margin-right:6px;opacity:0.5;"></i>Queue Health</span>
+        <div style="margin-top:14px;height:200px;position:relative;">
+            <canvas id="chart-queues"></canvas>
+        </div>
+    </div>
+</div>
+
+{# ═══ QUEUE BREAKDOWN (detail cards) ═══ #}
 {% if queue_stats and queue_stats|length > 0 %}
-<div class="section-label" style="margin-top:8px;">Queue Breakdown</div>
+<div class="section-label" style="margin-top:24px;">Queue Breakdown</div>
 <div class="dash-grid" style="grid-template-columns:repeat(auto-fill,minmax(260px,1fr));">
     {% for queue_name, states in queue_stats.items() %}
     <div class="card" style="padding:18px;">
@@ -99,11 +153,20 @@
 </div>
 {% endif %}
 
-{# ═══ JOB LIST ═══ #}
-<div class="section-label" style="margin-top:24px;">Recent Jobs</div>
+{# ═══ JOB LIST WITH FILTERS ═══ #}
+<div class="section-label" style="margin-top:24px;">
+    <span>Recent Jobs</span>
+    <div style="display:inline-flex;gap:6px;margin-left:16px;">
+        <button onclick="filterJobs('all')" class="aq-filter-btn active" data-filter="all" style="font-size:0.68rem;padding:3px 10px;border-radius:99px;border:1px solid var(--border-subtle);background:var(--bg-surface);color:var(--text-secondary);cursor:pointer;transition:all 0.15s;">All</button>
+        <button onclick="filterJobs('running')" class="aq-filter-btn" data-filter="running" style="font-size:0.68rem;padding:3px 10px;border-radius:99px;border:1px solid var(--border-subtle);background:transparent;color:var(--text-faint);cursor:pointer;transition:all 0.15s;">Running</button>
+        <button onclick="filterJobs('failed')" class="aq-filter-btn" data-filter="failed" style="font-size:0.68rem;padding:3px 10px;border-radius:99px;border:1px solid var(--border-subtle);background:transparent;color:var(--text-faint);cursor:pointer;transition:all 0.15s;">Failed</button>
+        <button onclick="filterJobs('completed')" class="aq-filter-btn" data-filter="completed" style="font-size:0.68rem;padding:3px 10px;border-radius:99px;border:1px solid var(--border-subtle);background:transparent;color:var(--text-faint);cursor:pointer;transition:all 0.15s;">Completed</button>
+        <button onclick="filterJobs('dead')" class="aq-filter-btn" data-filter="dead" style="font-size:0.68rem;padding:3px 10px;border-radius:99px;border:1px solid var(--border-subtle);background:transparent;color:var(--text-faint);cursor:pointer;transition:all 0.15s;">Dead Letter</button>
+    </div>
+</div>
 <div class="card" style="padding:0;overflow:hidden;">
     {% if jobs and jobs|length > 0 %}
-    <table class="admin-table" style="width:100%;border-collapse:collapse;">
+    <table class="admin-table" id="jobs-table" style="width:100%;border-collapse:collapse;">
         <thead>
             <tr>
                 <th style="padding:12px 16px;text-align:left;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-faint);border-bottom:1px solid var(--border-subtle);">Job ID</th>
@@ -118,8 +181,8 @@
         </thead>
         <tbody>
             {% for job in jobs[:50] %}
-            <tr style="border-bottom:1px solid var(--border-subtle);">
-                <td style="padding:10px 16px;font-family:var(--font-mono);font-size:0.7rem;color:var(--text-faint);">{{ job.id }}</td>
+            <tr class="job-row" data-state="{{ job.state }}" style="border-bottom:1px solid var(--border-subtle);">
+                <td style="padding:10px 16px;font-family:var(--font-mono);font-size:0.7rem;color:var(--text-faint);">{{ job.id[:12] }}…</td>
                 <td style="padding:10px 16px;">
                     <span style="font-size:0.82rem;font-weight:600;">{{ job.name or job.func_ref }}</span>
                 </td>
@@ -137,14 +200,16 @@
                     {{ job.retry_count }}/{{ job.max_retries }}
                 </td>
                 <td style="padding:10px 16px;text-align:right;font-family:var(--font-mono);font-size:0.75rem;">
-                    {% if job.duration_ms is not none %}{{ "%.1f"|format(job.duration_ms) }}ms{% else %}—{% endif %}
+                    {% if job.duration_ms is not none %}
+                    <span style="color:{{ '#22c55e' if job.duration_ms < 100 else ('#f59e0b' if job.duration_ms < 1000 else '#ef4444') }};">{{ "%.1f"|format(job.duration_ms) }}ms</span>
+                    {% else %}—{% endif %}
                 </td>
                 <td style="padding:10px 16px;text-align:right;font-size:0.7rem;color:var(--text-faint);">
                     {{ job.created_at[:19] if job.created_at else '—' }}
                 </td>
             </tr>
             {% if job.state in ('failed', 'dead') and job.result and job.result.error %}
-            <tr style="border-bottom:1px solid var(--border-subtle);">
+            <tr class="job-row" data-state="{{ job.state }}" style="border-bottom:1px solid var(--border-subtle);">
                 <td colspan="8" style="padding:8px 16px 12px 40px;background:rgba(239,68,68,0.03);">
                     <div style="font-size:0.72rem;color:var(--danger);font-family:var(--font-mono);">
                         {{ job.result.error_type }}: {{ job.result.error|truncate(200) }}
@@ -170,24 +235,198 @@
     {% endif %}
 </div>
 
-{# ═══ AUTO-REFRESH ═══ #}
-<script>
-(function(){
-    const url = '{{ url_prefix }}/tasks/api/';
-    let refreshTimer;
+<style>
+@keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+.aq-filter-btn.active { background: var(--bg-surface) !important; color: var(--text-primary) !important; font-weight: 600; }
+</style>
+
+{% endblock %}
+
+{% block extra_js %}
+// ── Chart.js configuration ──────────────────────────────────────
+(function() {
+    'use strict';
+    if (typeof Chart === 'undefined') return;
+
+    var isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+    var gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)';
+    var textColor = isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)';
+
+    Chart.defaults.color = textColor;
+    Chart.defaults.borderColor = gridColor;
+    Chart.defaults.font.family = "'Outfit', system-ui, sans-serif";
+    Chart.defaults.font.size = 11;
+    Chart.defaults.plugins.legend.labels.boxWidth = 10;
+    Chart.defaults.plugins.legend.labels.padding = 12;
+
+    var charts = {{ charts | tojson }};
+
+    // ── Throughput Line Chart ────────────────────────────────────
+    var tp = charts.throughput || {};
+    if (tp.labels && tp.labels.length) {
+        new Chart(document.getElementById('chart-throughput'), {
+            type: 'line',
+            data: {
+                labels: tp.labels,
+                datasets: [
+                    {
+                        label: 'Completed',
+                        data: tp.completed || [],
+                        borderColor: '#22c55e',
+                        backgroundColor: 'rgba(34,197,94,0.08)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.35,
+                        pointRadius: 0,
+                        pointHoverRadius: 4,
+                    },
+                    {
+                        label: 'Failed',
+                        data: tp.failed || [],
+                        borderColor: '#ef4444',
+                        backgroundColor: 'rgba(239,68,68,0.06)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.35,
+                        pointRadius: 0,
+                        pointHoverRadius: 4,
+                    },
+                ],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { intersect: false, mode: 'index' },
+                scales: {
+                    x: { grid: { display: false }, ticks: { maxTicksLimit: 8 } },
+                    y: { beginAtZero: true, grid: { color: gridColor }, ticks: { stepSize: 1 } },
+                },
+                plugins: { legend: { position: 'top', align: 'end' } },
+            },
+        });
+    }
+
+    // ── Job State Doughnut ───────────────────────────────────────
+    var sd = charts.state_doughnut || {};
+    if (sd.labels && sd.labels.length) {
+        var stateColorMap = {
+            'completed': '#22c55e', 'running': '#3b82f6', 'pending': '#a1a1aa',
+            'failed': '#ef4444', 'dead': '#991b1b', 'retrying': '#f59e0b',
+            'cancelled': '#6b7280', 'scheduled': '#8b5cf6',
+        };
+        var stateColors = sd.labels.map(function(l) { return stateColorMap[l] || '#6b7280'; });
+        new Chart(document.getElementById('chart-state-doughnut'), {
+            type: 'doughnut',
+            data: {
+                labels: sd.labels,
+                datasets: [{
+                    data: sd.values,
+                    backgroundColor: stateColors,
+                    borderWidth: 0,
+                    hoverOffset: 6,
+                }],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '68%',
+                plugins: {
+                    legend: { position: 'bottom', labels: { padding: 10 } },
+                },
+            },
+        });
+    }
+
+    // ── Duration Histogram ──────────────────────────────────────
+    var dh = charts.duration_histogram || {};
+    if (dh.labels && dh.labels.length) {
+        new Chart(document.getElementById('chart-duration'), {
+            type: 'bar',
+            data: {
+                labels: dh.labels,
+                datasets: [{
+                    label: 'Jobs',
+                    data: dh.values,
+                    backgroundColor: [
+                        '#22c55e', '#4ade80', '#86efac', '#fbbf24',
+                        '#f59e0b', '#f97316', '#ef4444', '#dc2626',
+                    ],
+                    borderWidth: 0,
+                    borderRadius: 4,
+                }],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: { grid: { display: false } },
+                    y: { beginAtZero: true, grid: { color: gridColor }, ticks: { stepSize: 1 } },
+                },
+                plugins: { legend: { display: false } },
+            },
+        });
+    }
+
+    // ── Queue Stacked Bar ───────────────────────────────────────
+    var qb = charts.queue_breakdown || {};
+    if (qb.labels && qb.labels.length) {
+        new Chart(document.getElementById('chart-queues'), {
+            type: 'bar',
+            data: {
+                labels: qb.labels,
+                datasets: [
+                    { label: 'Pending', data: qb.pending || [], backgroundColor: '#a1a1aa', borderRadius: 2 },
+                    { label: 'Running', data: qb.running || [], backgroundColor: '#3b82f6', borderRadius: 2 },
+                    { label: 'Completed', data: qb.completed || [], backgroundColor: '#22c55e', borderRadius: 2 },
+                    { label: 'Failed', data: qb.failed || [], backgroundColor: '#ef4444', borderRadius: 2 },
+                ],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: { stacked: true, grid: { display: false } },
+                    y: { stacked: true, beginAtZero: true, grid: { color: gridColor }, ticks: { stepSize: 1 } },
+                },
+                plugins: { legend: { position: 'top', align: 'end' } },
+            },
+        });
+    }
+
+    // ── Job table filter ────────────────────────────────────────
+    window.filterJobs = function(state) {
+        var rows = document.querySelectorAll('.job-row');
+        rows.forEach(function(row) {
+            if (state === 'all') {
+                row.style.display = '';
+            } else {
+                row.style.display = row.getAttribute('data-state') === state ? '' : 'none';
+            }
+        });
+        document.querySelectorAll('.aq-filter-btn').forEach(function(btn) {
+            btn.classList.toggle('active', btn.getAttribute('data-filter') === state);
+        });
+    };
+
+    // ── Auto-refresh ────────────────────────────────────────────
+    var refreshInterval = 10000;
     function scheduleRefresh() {
-        refreshTimer = setTimeout(async () => {
-            try {
-                const resp = await fetch(url);
-                if (resp.ok) {
-                    // Data refreshes on next full page load or API poll
-                }
-            } catch(e) {}
-            scheduleRefresh();
-        }, 10000);
+        setTimeout(function() {
+            fetch('{{ url_prefix }}/tasks/api/')
+                .then(function(r) { return r.ok ? r.json() : null; })
+                .then(function(data) {
+                    if (data) {
+                        var cards = document.querySelectorAll('.dash-stat-value[data-count]');
+                        cards.forEach(function(el) {
+                            var target = parseInt(el.getAttribute('data-count'), 10);
+                            if (!isNaN(target)) el.textContent = target;
+                        });
+                    }
+                })
+                .catch(function() {})
+                .finally(scheduleRefresh);
+        }, refreshInterval);
     }
     scheduleRefresh();
 })();
-</script>
-
 {% endblock %}

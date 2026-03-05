@@ -2,10 +2,15 @@
 {% block title %}Error Monitoring{% endblock %}
 {% block breadcrumb %}Error Monitoring{% endblock %}
 
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+{% endblock %}
+
 {% block content %}
 {# ═══════════════════════════════════════════════════════════════════
-   AQUILIA ADMIN — ERROR MONITORING
-   Stack Traces · Error Grouping · Frequency Analysis · Trends
+   AQUILIA ADMIN — ERROR MONITORING (v2 — Chart.js)
+   Trend Area Charts · Severity Doughnut · Domain Polar Area
+   Top Errors Bar · Velocity Sparkline · Resolution Tracking
    ═══════════════════════════════════════════════════════════════════ #}
 
 <div class="dash-greeting">
@@ -16,23 +21,19 @@
     <p>Track errors with stack traces, grouping, frequency analysis, and hourly trends</p>
 </div>
 
-{# ═══ METRIC CARDS ═══ #}
+{# ═══ METRIC CARDS (extended with resolution tracking) ═══ #}
 <div class="dash-stats">
     <div class="dash-stat-card">
         <div class="stat-icon-wrap red"><i class="icon-alert-circle"></i></div>
         <div class="dash-stat-value" data-count="{{ total_errors }}">0</div>
         <div class="dash-stat-label">Total Errors</div>
-        <div class="dash-stat-sub">
-            {{ error_rate }} /min rate
-        </div>
+        <div class="dash-stat-sub">{{ error_rate }} /min rate</div>
     </div>
     <div class="dash-stat-card">
         <div class="stat-icon-wrap amber"><i class="icon-clock"></i></div>
         <div class="dash-stat-value" data-count="{{ errors_last_hour }}">0</div>
         <div class="dash-stat-label">Last Hour</div>
-        <div class="dash-stat-sub">
-            {{ errors_last_24h }} in 24h
-        </div>
+        <div class="dash-stat-sub">{{ errors_last_24h }} in 24h</div>
     </div>
     <div class="dash-stat-card">
         <div class="stat-icon-wrap purple"><i class="icon-layers"></i></div>
@@ -41,46 +42,108 @@
         <div class="dash-stat-sub">Grouped by fingerprint</div>
     </div>
     <div class="dash-stat-card">
+        <div class="stat-icon-wrap {{ 'red' if unresolved_count > 0 else 'green' }}"><i class="icon-x-circle"></i></div>
+        <div class="dash-stat-value" data-count="{{ unresolved_count }}">0</div>
+        <div class="dash-stat-label">Unresolved</div>
+        <div class="dash-stat-sub">{{ resolved_count }} resolved</div>
+    </div>
+    <div class="dash-stat-card">
         <div class="stat-icon-wrap blue"><i class="icon-bar-chart-2"></i></div>
         <div class="dash-stat-value">{{ "%.1f"|format(error_rate) }}</div>
         <div class="dash-stat-label">Errors/min</div>
         <div class="dash-stat-sub">Current rate</div>
     </div>
-</div>
-
-{# ═══ HOURLY TREND CHART ═══ #}
-{% if hourly_trend and hourly_trend|length > 0 %}
-<div class="section-label" style="margin-top:8px;">Error Trend — Last 24 Hours</div>
-<div class="card" style="padding:20px;">
-    <div style="display:flex;align-items:flex-end;gap:2px;height:80px;">
-        {% set max_count = 1 %}
-        {% for h in hourly_trend %}
-            {% if h.count > max_count %}{% set max_count = h.count %}{% endif %}
-        {% endfor %}
-        {% for h in hourly_trend %}
-        <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;" title="{{ h.hour }}: {{ h.count }} errors">
-            <div style="width:100%;max-width:24px;background:{{ 'var(--danger)' if h.count > 0 else 'var(--bg-surface)' }};border-radius:3px 3px 0 0;height:{{ ((h.count / max_count) * 60)|int if h.count > 0 else 2 }}px;min-height:2px;opacity:{{ 0.4 + (h.count / max_count) * 0.6 if h.count > 0 else 0.2 }};transition:height 0.3s;"></div>
+    <div class="dash-stat-card">
+        <div class="stat-icon-wrap {{ 'green' if mttr_seconds < 60 else ('amber' if mttr_seconds < 300 else 'red') }}">
+            <i class="icon-trending-down"></i>
         </div>
-        {% endfor %}
-    </div>
-    <div style="display:flex;justify-content:space-between;margin-top:8px;">
-        <span style="font-size:0.6rem;color:var(--text-faint);">{{ hourly_trend[0].hour[-5:] if hourly_trend|length > 0 else '' }}</span>
-        <span style="font-size:0.6rem;color:var(--text-faint);">{{ hourly_trend[-1].hour[-5:] if hourly_trend|length > 0 else '' }}</span>
+        <div class="dash-stat-value">{{ "%.0f"|format(mttr_seconds) }}s</div>
+        <div class="dash-stat-label">MTTR</div>
+        <div class="dash-stat-sub">Mean time to resolve</div>
     </div>
 </div>
-{% endif %}
 
-{# ═══ BREAKDOWN GRID ═══ #}
+{# ═══ CHARTS ROW 1: Error Trend + Severity Doughnut ═══ #}
+<div class="section-label" style="margin-top:8px;">Error Analytics</div>
+<div class="dash-grid" style="grid-template-columns:2fr 1fr;">
+    {# ── Error Trend Area Chart (hourly) ── #}
+    <div class="card" style="padding:20px;">
+        <span class="card-title"><i class="icon-trending-up" style="font-size:14px;vertical-align:-2px;margin-right:6px;opacity:0.5;"></i>Error Trend — Last 24h</span>
+        <div style="margin-top:14px;height:220px;position:relative;">
+            <canvas id="chart-error-trend"></canvas>
+        </div>
+    </div>
+
+    {# ── Severity Doughnut ── #}
+    <div class="card" style="padding:20px;">
+        <span class="card-title"><i class="icon-alert-circle" style="font-size:14px;vertical-align:-2px;margin-right:6px;opacity:0.5;"></i>By Severity</span>
+        <div style="margin-top:14px;height:220px;position:relative;display:flex;align-items:center;justify-content:center;">
+            <canvas id="chart-severity-doughnut"></canvas>
+        </div>
+    </div>
+</div>
+
+{# ═══ CHARTS ROW 2: Domain Polar + Top Codes Bar ═══ #}
+<div class="dash-grid" style="grid-template-columns:1fr 1fr;margin-top:16px;">
+    {# ── Domain Polar Area ── #}
+    <div class="card" style="padding:20px;">
+        <span class="card-title"><i class="icon-grid" style="font-size:14px;vertical-align:-2px;margin-right:6px;opacity:0.5;"></i>Errors by Domain</span>
+        <div style="margin-top:14px;height:220px;position:relative;display:flex;align-items:center;justify-content:center;">
+            <canvas id="chart-domain-polar"></canvas>
+        </div>
+    </div>
+
+    {# ── Top Error Codes Horizontal Bar ── #}
+    <div class="card" style="padding:20px;">
+        <span class="card-title"><i class="icon-bar-chart-2" style="font-size:14px;vertical-align:-2px;margin-right:6px;opacity:0.5;"></i>Top Error Codes</span>
+        <div style="margin-top:14px;height:220px;position:relative;">
+            <canvas id="chart-top-codes"></canvas>
+        </div>
+    </div>
+</div>
+
+{# ═══ CHARTS ROW 3: Domain Stacked Area + Severity Timeline + Velocity ═══ #}
+<div class="dash-grid" style="grid-template-columns:1fr 1fr 0.6fr;margin-top:16px;">
+    {# ── Domain Stacked Area ── #}
+    <div class="card" style="padding:20px;">
+        <span class="card-title"><i class="icon-layers" style="font-size:14px;vertical-align:-2px;margin-right:6px;opacity:0.5;"></i>Domain Timeline</span>
+        <div style="margin-top:14px;height:180px;position:relative;">
+            <canvas id="chart-domain-stacked"></canvas>
+        </div>
+    </div>
+
+    {# ── Severity Timeline ── #}
+    <div class="card" style="padding:20px;">
+        <span class="card-title"><i class="icon-activity" style="font-size:14px;vertical-align:-2px;margin-right:6px;opacity:0.5;"></i>Severity Timeline</span>
+        <div style="margin-top:14px;height:180px;position:relative;">
+            <canvas id="chart-severity-timeline"></canvas>
+        </div>
+    </div>
+
+    {# ── Error Velocity Sparkline ── #}
+    <div class="card" style="padding:20px;">
+        <span class="card-title"><i class="icon-zap" style="font-size:14px;vertical-align:-2px;margin-right:6px;opacity:0.5;"></i>Velocity</span>
+        <div style="margin-top:8px;font-size:0.7rem;color:var(--text-faint);margin-bottom:8px;">Errors per 5-min window (last 30 min)</div>
+        <div style="height:140px;position:relative;">
+            <canvas id="chart-velocity"></canvas>
+        </div>
+    </div>
+</div>
+
+{# ═══ BREAKDOWN GRID (enhanced) ═══ #}
 <div class="section-label" style="margin-top:24px;">Error Breakdown</div>
 <div class="dash-grid">
-    {# By Severity #}
+    {# By Severity (table view — kept as detail supplement) #}
     {% if by_severity and by_severity|length > 0 %}
     <div class="card" style="padding:18px;">
         <span class="card-title"><i class="icon-alert-circle" style="font-size:14px;vertical-align:-2px;margin-right:6px;opacity:0.5;"></i>By Severity</span>
         <div style="margin-top:14px;">
             {% for sev, count in by_severity.items() %}
             <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border-subtle);">
-                <span style="font-size:0.82rem;color:{{ 'var(--danger)' if sev in ('ERROR', 'error', 'FATAL', 'fatal') else ('var(--warning)' if sev in ('WARN', 'warn') else 'var(--text-secondary)') }};">{{ sev }}</span>
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <div style="width:8px;height:8px;border-radius:50%;background:{{ 'var(--danger)' if sev in ('ERROR', 'error', 'FATAL', 'fatal', 'CRITICAL', 'critical') else ('var(--warning)' if sev in ('WARN', 'warn', 'WARNING', 'warning') else 'var(--text-faint)') }};"></div>
+                    <span style="font-size:0.82rem;color:{{ 'var(--danger)' if sev in ('ERROR', 'error', 'FATAL', 'fatal', 'CRITICAL', 'critical') else ('var(--warning)' if sev in ('WARN', 'warn', 'WARNING', 'warning') else 'var(--text-secondary)') }};">{{ sev }}</span>
+                </div>
                 <span style="font-family:var(--font-mono);font-size:0.78rem;font-weight:600;">{{ count }}</span>
             </div>
             {% endfor %}
@@ -119,11 +182,12 @@
     {% endif %}
 </div>
 
-{# ═══ ERROR GROUPS ═══ #}
+{# ═══ ERROR GROUPS (enhanced with severity badge + progress bar) ═══ #}
 {% if error_groups and error_groups|length > 0 %}
 <div class="section-label" style="margin-top:24px;">
     <i class="icon-layers" style="margin-right:6px;opacity:0.5;"></i>
     Error Groups
+    <span style="font-size:0.7rem;color:var(--text-faint);margin-left:8px;">{{ error_groups|length }} groups</span>
 </div>
 <div class="card" style="padding:0;overflow:hidden;">
     <table class="admin-table" style="width:100%;border-collapse:collapse;">
@@ -131,12 +195,18 @@
             <tr>
                 <th style="padding:12px 16px;text-align:left;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-faint);border-bottom:1px solid var(--border-subtle);">Error Code</th>
                 <th style="padding:12px 16px;text-align:left;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-faint);border-bottom:1px solid var(--border-subtle);">Message</th>
+                <th style="padding:12px 16px;text-align:center;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-faint);border-bottom:1px solid var(--border-subtle);">Severity</th>
                 <th style="padding:12px 16px;text-align:center;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-faint);border-bottom:1px solid var(--border-subtle);">Domain</th>
                 <th style="padding:12px 16px;text-align:center;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-faint);border-bottom:1px solid var(--border-subtle);">Count</th>
+                <th style="padding:12px 16px;text-align:center;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-faint);border-bottom:1px solid var(--border-subtle);">Impact</th>
                 <th style="padding:12px 16px;text-align:right;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-faint);border-bottom:1px solid var(--border-subtle);">Last Seen</th>
             </tr>
         </thead>
         <tbody>
+            {% set max_group_count = namespace(val=1) %}
+            {% for g in error_groups[:20] %}
+                {% if g.count > max_group_count.val %}{% set max_group_count.val = g.count %}{% endif %}
+            {% endfor %}
             {% for g in error_groups[:20] %}
             <tr style="border-bottom:1px solid var(--border-subtle);">
                 <td style="padding:10px 16px;">
@@ -146,10 +216,19 @@
                     {{ g.message|truncate(80) }}
                 </td>
                 <td style="padding:10px 16px;text-align:center;">
+                    {% set sev = g.severity if g.severity is defined else 'UNKNOWN' %}
+                    <span style="font-size:0.65rem;padding:2px 8px;border-radius:99px;font-weight:600;background:{{ 'rgba(239,68,68,0.15)' if sev in ('ERROR', 'error', 'FATAL', 'fatal', 'CRITICAL', 'critical') else ('rgba(245,158,11,0.15)' if sev in ('WARN', 'warn', 'WARNING', 'warning') else 'var(--bg-surface)') }};color:{{ 'var(--danger)' if sev in ('ERROR', 'error', 'FATAL', 'fatal', 'CRITICAL', 'critical') else ('var(--warning)' if sev in ('WARN', 'warn', 'WARNING', 'warning') else 'var(--text-faint)') }};">{{ sev }}</span>
+                </td>
+                <td style="padding:10px 16px;text-align:center;">
                     <span style="font-size:0.7rem;padding:2px 8px;border-radius:4px;background:var(--bg-surface);color:var(--text-faint);">{{ g.domain }}</span>
                 </td>
                 <td style="padding:10px 16px;text-align:center;">
                     <span style="font-weight:700;font-size:0.9rem;color:var(--danger);">{{ g.count }}</span>
+                </td>
+                <td style="padding:10px 16px;text-align:center;">
+                    <div style="width:60px;height:4px;background:var(--bg-surface);border-radius:2px;overflow:hidden;margin:0 auto;">
+                        <div style="height:100%;width:{{ ((g.count / max_group_count.val) * 100)|int }}%;background:var(--danger);border-radius:2px;"></div>
+                    </div>
                 </td>
                 <td style="padding:10px 16px;text-align:right;font-size:0.7rem;color:var(--text-faint);">
                     {{ g.last_seen[:19] if g.last_seen else '—' }}
@@ -162,16 +241,25 @@
 {% endif %}
 
 {# ═══ RECENT ERRORS WITH STACK TRACES ═══ #}
-<div class="section-label" style="margin-top:24px;">Recent Errors</div>
-<div class="card" style="padding:0;overflow:hidden;">
+<div class="section-label" style="margin-top:24px;">
+    <span>Recent Errors</span>
+    <div style="display:inline-flex;gap:6px;margin-left:16px;">
+        <button onclick="filterErrors('all')" class="aq-err-filter active" data-filter="all" style="font-size:0.68rem;padding:3px 10px;border-radius:99px;border:1px solid var(--border-subtle);background:var(--bg-surface);color:var(--text-secondary);cursor:pointer;transition:all 0.15s;">All</button>
+        <button onclick="filterErrors('error')" class="aq-err-filter" data-filter="error" style="font-size:0.68rem;padding:3px 10px;border-radius:99px;border:1px solid var(--border-subtle);background:transparent;color:var(--text-faint);cursor:pointer;transition:all 0.15s;">Errors</button>
+        <button onclick="filterErrors('warning')" class="aq-err-filter" data-filter="warning" style="font-size:0.68rem;padding:3px 10px;border-radius:99px;border:1px solid var(--border-subtle);background:transparent;color:var(--text-faint);cursor:pointer;transition:all 0.15s;">Warnings</button>
+        <button onclick="filterErrors('info')" class="aq-err-filter" data-filter="info" style="font-size:0.68rem;padding:3px 10px;border-radius:99px;border:1px solid var(--border-subtle);background:transparent;color:var(--text-faint);cursor:pointer;transition:all 0.15s;">Info</button>
+    </div>
+</div>
+<div class="card" style="padding:0;overflow:hidden;" id="errors-list">
     {% if recent_errors and recent_errors|length > 0 %}
-    {% for err in recent_errors[-20:]|reverse %}
-    <div style="border-bottom:1px solid var(--border-subtle);padding:16px 20px;{{ 'background:rgba(239,68,68,0.03);' if err.severity in ('ERROR', 'error', 'FATAL', 'fatal') else '' }}">
+    {% for err in recent_errors[-30:]|reverse %}
+    {% set sev_lower = (err.severity|lower) if err.severity else 'unknown' %}
+    <div class="error-row" data-severity="{{ sev_lower }}" style="border-bottom:1px solid var(--border-subtle);padding:16px 20px;{{ 'background:rgba(239,68,68,0.03);' if sev_lower in ('error', 'fatal', 'critical') else '' }}">
         <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
             <div style="flex:1;min-width:0;">
                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
                     <code style="font-size:0.8rem;color:var(--danger);font-weight:700;">{{ err.code }}</code>
-                    <span style="font-size:0.65rem;padding:1px 6px;border-radius:4px;background:{{ 'rgba(239,68,68,0.15)' if err.severity in ('ERROR', 'error', 'FATAL', 'fatal') else 'var(--bg-surface)' }};color:{{ 'var(--danger)' if err.severity in ('ERROR', 'error', 'FATAL', 'fatal') else 'var(--text-faint)' }};">{{ err.severity }}</span>
+                    <span style="font-size:0.65rem;padding:1px 6px;border-radius:99px;font-weight:600;background:{{ 'rgba(239,68,68,0.15)' if sev_lower in ('error', 'fatal', 'critical') else ('rgba(245,158,11,0.15)' if sev_lower in ('warn', 'warning') else 'var(--bg-surface)') }};color:{{ 'var(--danger)' if sev_lower in ('error', 'fatal', 'critical') else ('var(--warning)' if sev_lower in ('warn', 'warning') else 'var(--text-faint)') }};">{{ err.severity }}</span>
                     {% if err.domain %}
                     <span style="font-size:0.65rem;padding:1px 6px;border-radius:4px;background:var(--bg-surface);color:var(--text-faint);">{{ err.domain }}</span>
                     {% endif %}
@@ -207,7 +295,7 @@
                 {% for frame in err.stack_frames %}
                 <div style="padding:3px 0;font-family:var(--font-mono);font-size:0.7rem;{{ 'color:var(--danger);' if '/aquilia/' not in frame.filename else 'color:var(--text-faint);' }}">
                     <span style="color:var(--text-faint);">{{ frame.filename }}:{{ frame.lineno }}</span>
-                    <span style="color:var(--accent);">{{ frame.name }}</span>
+                    <span style="color:var(--accent);margin-left:4px;">{{ frame.name }}</span>
                     {% if frame.line %}
                     <div style="margin-left:20px;color:var(--text-secondary);">{{ frame.line }}</div>
                     {% endif %}
@@ -230,24 +318,289 @@
     {% endif %}
 </div>
 
-{# ═══ AUTO-REFRESH ═══ #}
-<script>
-(function(){
-    const url = '{{ url_prefix }}/errors/api/';
-    let refreshTimer;
+<style>
+.aq-err-filter.active { background: var(--bg-surface) !important; color: var(--text-primary) !important; font-weight: 600; }
+</style>
+
+{% endblock %}
+
+{% block extra_js %}
+// ── Chart.js Error Analytics ────────────────────────────────────
+(function() {
+    'use strict';
+    if (typeof Chart === 'undefined') return;
+
+    var isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+    var gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)';
+    var textColor = isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)';
+
+    Chart.defaults.color = textColor;
+    Chart.defaults.borderColor = gridColor;
+    Chart.defaults.font.family = "'Outfit', system-ui, sans-serif";
+    Chart.defaults.font.size = 11;
+    Chart.defaults.plugins.legend.labels.boxWidth = 10;
+    Chart.defaults.plugins.legend.labels.padding = 12;
+
+    var charts = {{ charts | tojson }};
+
+    // ── Palette for domains / series ────────────────────────────
+    var palette = [
+        '#ef4444', '#f59e0b', '#3b82f6', '#8b5cf6', '#22c55e',
+        '#ec4899', '#06b6d4', '#f97316', '#6366f1', '#14b8a6',
+        '#e11d48', '#84cc16', '#0ea5e9', '#a855f7', '#eab308',
+    ];
+
+    // ── Error Trend Area Chart (hourly) ─────────────────────────
+    var hourly = charts.hourly || {};
+    if (hourly.labels && hourly.labels.length) {
+        new Chart(document.getElementById('chart-error-trend'), {
+            type: 'line',
+            data: {
+                labels: hourly.labels,
+                datasets: [{
+                    label: 'Errors',
+                    data: hourly.values,
+                    borderColor: '#ef4444',
+                    backgroundColor: 'rgba(239,68,68,0.1)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.35,
+                    pointRadius: 0,
+                    pointHoverRadius: 4,
+                }],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { intersect: false, mode: 'index' },
+                scales: {
+                    x: { grid: { display: false }, ticks: { maxTicksLimit: 8 } },
+                    y: { beginAtZero: true, grid: { color: gridColor }, ticks: { stepSize: 1 } },
+                },
+                plugins: { legend: { display: false } },
+            },
+        });
+    }
+
+    // ── Severity Doughnut ───────────────────────────────────────
+    var sd = charts.severity_doughnut || {};
+    if (sd.labels && sd.labels.length) {
+        var sevColorMap = {
+            'ERROR': '#ef4444', 'error': '#ef4444', 'FATAL': '#991b1b', 'fatal': '#991b1b',
+            'CRITICAL': '#dc2626', 'critical': '#dc2626',
+            'WARN': '#f59e0b', 'warn': '#f59e0b', 'WARNING': '#f59e0b', 'warning': '#f59e0b',
+            'INFO': '#3b82f6', 'info': '#3b82f6',
+            'DEBUG': '#6b7280', 'debug': '#6b7280',
+        };
+        var sevColors = sd.labels.map(function(l) { return sevColorMap[l] || '#6b7280'; });
+        new Chart(document.getElementById('chart-severity-doughnut'), {
+            type: 'doughnut',
+            data: {
+                labels: sd.labels,
+                datasets: [{ data: sd.values, backgroundColor: sevColors, borderWidth: 0, hoverOffset: 6 }],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '68%',
+                plugins: { legend: { position: 'bottom', labels: { padding: 10 } } },
+            },
+        });
+    }
+
+    // ── Domain Polar Area ───────────────────────────────────────
+    var dp = charts.domain_polar || {};
+    if (dp.labels && dp.labels.length) {
+        var domColors = dp.labels.map(function(_, i) { return palette[i % palette.length]; });
+        var domBg = domColors.map(function(c) { return c + '99'; }); // 60% opacity
+        new Chart(document.getElementById('chart-domain-polar'), {
+            type: 'polarArea',
+            data: {
+                labels: dp.labels,
+                datasets: [{ data: dp.values, backgroundColor: domBg, borderColor: domColors, borderWidth: 1 }],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: { r: { ticks: { display: false }, grid: { color: gridColor } } },
+                plugins: { legend: { position: 'bottom', labels: { padding: 8 } } },
+            },
+        });
+    }
+
+    // ── Top Error Codes Horizontal Bar ──────────────────────────
+    var tc = charts.top_codes_bar || {};
+    if (tc.labels && tc.labels.length) {
+        new Chart(document.getElementById('chart-top-codes'), {
+            type: 'bar',
+            data: {
+                labels: tc.labels,
+                datasets: [{
+                    label: 'Occurrences',
+                    data: tc.values,
+                    backgroundColor: tc.labels.map(function(_, i) { return palette[i % palette.length] + 'cc'; }),
+                    borderWidth: 0,
+                    borderRadius: 4,
+                }],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                indexAxis: 'y',
+                scales: {
+                    x: { beginAtZero: true, grid: { color: gridColor }, ticks: { stepSize: 1 } },
+                    y: { grid: { display: false } },
+                },
+                plugins: { legend: { display: false } },
+            },
+        });
+    }
+
+    // ── Domain Stacked Area ─────────────────────────────────────
+    var ds = charts.domain_stacked || {};
+    if (ds.labels && ds.labels.length && ds.series) {
+        var dsDatasets = [];
+        var dsKeys = Object.keys(ds.series);
+        dsKeys.forEach(function(domain, i) {
+            dsDatasets.push({
+                label: domain,
+                data: ds.series[domain],
+                borderColor: palette[i % palette.length],
+                backgroundColor: palette[i % palette.length] + '33',
+                borderWidth: 1.5,
+                fill: true,
+                tension: 0.35,
+                pointRadius: 0,
+            });
+        });
+        new Chart(document.getElementById('chart-domain-stacked'), {
+            type: 'line',
+            data: { labels: ds.labels, datasets: dsDatasets },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { intersect: false, mode: 'index' },
+                scales: {
+                    x: { stacked: true, grid: { display: false }, ticks: { maxTicksLimit: 6 } },
+                    y: { stacked: true, beginAtZero: true, grid: { color: gridColor }, ticks: { stepSize: 1 } },
+                },
+                plugins: { legend: { position: 'top', align: 'end' } },
+            },
+        });
+    }
+
+    // ── Severity Timeline ───────────────────────────────────────
+    var st = charts.severity_timeline || {};
+    if (st.labels && st.labels.length && st.series) {
+        var stDatasets = [];
+        var stKeys = Object.keys(st.series);
+        var stColorMap = {
+            'ERROR': '#ef4444', 'error': '#ef4444', 'FATAL': '#991b1b', 'fatal': '#991b1b',
+            'CRITICAL': '#dc2626', 'critical': '#dc2626',
+            'WARN': '#f59e0b', 'warn': '#f59e0b', 'WARNING': '#f59e0b', 'warning': '#f59e0b',
+            'INFO': '#3b82f6', 'info': '#3b82f6', 'DEBUG': '#6b7280', 'debug': '#6b7280',
+        };
+        stKeys.forEach(function(sev) {
+            var c = stColorMap[sev] || '#6b7280';
+            stDatasets.push({
+                label: sev,
+                data: st.series[sev],
+                borderColor: c,
+                backgroundColor: c + '33',
+                borderWidth: 1.5,
+                fill: true,
+                tension: 0.35,
+                pointRadius: 0,
+            });
+        });
+        new Chart(document.getElementById('chart-severity-timeline'), {
+            type: 'line',
+            data: { labels: st.labels, datasets: stDatasets },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { intersect: false, mode: 'index' },
+                scales: {
+                    x: { stacked: true, grid: { display: false }, ticks: { maxTicksLimit: 6 } },
+                    y: { stacked: true, beginAtZero: true, grid: { color: gridColor }, ticks: { stepSize: 1 } },
+                },
+                plugins: { legend: { position: 'top', align: 'end' } },
+            },
+        });
+    }
+
+    // ── Error Velocity Sparkline ────────────────────────────────
+    var vel = charts.velocity || [];
+    if (vel.length) {
+        var velLabels = vel.map(function(_, i) { return (i * 5) + 'm'; });
+        new Chart(document.getElementById('chart-velocity'), {
+            type: 'bar',
+            data: {
+                labels: velLabels,
+                datasets: [{
+                    data: vel,
+                    backgroundColor: vel.map(function(v) {
+                        return v > 10 ? '#ef4444cc' : (v > 5 ? '#f59e0bcc' : '#22c55ecc');
+                    }),
+                    borderWidth: 0,
+                    borderRadius: 3,
+                }],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: { grid: { display: false } },
+                    y: { beginAtZero: true, grid: { color: gridColor }, ticks: { stepSize: 1 } },
+                },
+                plugins: { legend: { display: false } },
+            },
+        });
+    }
+
+    // ── Error list filter ───────────────────────────────────────
+    window.filterErrors = function(severity) {
+        var rows = document.querySelectorAll('.error-row');
+        rows.forEach(function(row) {
+            if (severity === 'all') {
+                row.style.display = '';
+            } else if (severity === 'error') {
+                var s = row.getAttribute('data-severity');
+                row.style.display = (s === 'error' || s === 'fatal' || s === 'critical') ? '' : 'none';
+            } else if (severity === 'warning') {
+                var s = row.getAttribute('data-severity');
+                row.style.display = (s === 'warn' || s === 'warning') ? '' : 'none';
+            } else if (severity === 'info') {
+                var s = row.getAttribute('data-severity');
+                row.style.display = (s === 'info' || s === 'debug') ? '' : 'none';
+            } else {
+                row.style.display = row.getAttribute('data-severity') === severity ? '' : 'none';
+            }
+        });
+        document.querySelectorAll('.aq-err-filter').forEach(function(btn) {
+            btn.classList.toggle('active', btn.getAttribute('data-filter') === severity);
+        });
+    };
+
+    // ── Auto-refresh ────────────────────────────────────────────
+    var refreshInterval = 15000;
     function scheduleRefresh() {
-        refreshTimer = setTimeout(async () => {
-            try {
-                const resp = await fetch(url);
-                if (resp.ok) {
-                    // Refresh on next poll
-                }
-            } catch(e) {}
-            scheduleRefresh();
-        }, 15000);
+        setTimeout(function() {
+            fetch('{{ url_prefix }}/errors/api/')
+                .then(function(r) { return r.ok ? r.json() : null; })
+                .then(function(data) {
+                    if (data) {
+                        var cards = document.querySelectorAll('.dash-stat-value[data-count]');
+                        cards.forEach(function(el) {
+                            var target = parseInt(el.getAttribute('data-count'), 10);
+                            if (!isNaN(target)) el.textContent = target;
+                        });
+                    }
+                })
+                .catch(function() {})
+                .finally(scheduleRefresh);
+        }, refreshInterval);
     }
     scheduleRefresh();
 })();
-</script>
-
 {% endblock %}

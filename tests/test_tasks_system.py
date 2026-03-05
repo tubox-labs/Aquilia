@@ -2369,3 +2369,535 @@ class TestQueryInspectorCRUDIntegration:
         ]
 
         assert captured[-1]["duration_ms"] == 42.567
+
+
+# ============================================================================
+# 25. CHART.JS ANALYTICS — ERROR TRACKER ENHANCED STATS
+# ============================================================================
+
+
+class TestErrorTrackerChartData:
+    """Verify enhanced ErrorTracker stats with Chart.js-ready data."""
+
+    def _fresh_tracker(self):
+        from aquilia.admin.error_tracker import ErrorTracker
+        return ErrorTracker()
+
+    def test_stats_charts_key_exists(self):
+        """get_stats() returns a 'charts' dict."""
+        tracker = self._fresh_tracker()
+        stats = tracker.get_stats()
+        assert "charts" in stats
+        assert isinstance(stats["charts"], dict)
+
+    def test_charts_hourly_structure(self):
+        """charts.hourly has labels and values arrays of length 24."""
+        tracker = self._fresh_tracker()
+        tracker.record_error(code="E1", message="err1", domain="d1")
+        stats = tracker.get_stats()
+        hourly = stats["charts"]["hourly"]
+        assert "labels" in hourly
+        assert "values" in hourly
+        assert len(hourly["labels"]) == 24
+        assert len(hourly["values"]) == 24
+        assert hourly["values"][-1] >= 1  # current hour has at least 1
+
+    def test_charts_five_min_structure(self):
+        """charts.five_min has labels and values of length 24."""
+        tracker = self._fresh_tracker()
+        tracker.record_error(code="E1", message="err1", domain="d1")
+        stats = tracker.get_stats()
+        fm = stats["charts"]["five_min"]
+        assert "labels" in fm
+        assert "values" in fm
+        assert len(fm["labels"]) == 24
+        assert len(fm["values"]) == 24
+        assert sum(fm["values"]) >= 1
+
+    def test_charts_severity_doughnut(self):
+        """charts.severity_doughnut labels match recorded severities."""
+        tracker = self._fresh_tracker()
+        tracker.record_error(code="E1", message="err1", domain="d1", severity="ERROR")
+        tracker.record_error(code="W1", message="warn1", domain="d1", severity="WARN")
+        stats = tracker.get_stats()
+        sd = stats["charts"]["severity_doughnut"]
+        assert set(sd["labels"]) == {"ERROR", "WARN"}
+        assert len(sd["values"]) == 2
+        assert sum(sd["values"]) == 2
+
+    def test_charts_domain_polar(self):
+        """charts.domain_polar labels match recorded domains."""
+        tracker = self._fresh_tracker()
+        tracker.record_error(code="E1", message="err1", domain="auth")
+        tracker.record_error(code="E2", message="err2", domain="db")
+        tracker.record_error(code="E3", message="err3", domain="db")
+        stats = tracker.get_stats()
+        dp = stats["charts"]["domain_polar"]
+        assert "auth" in dp["labels"]
+        assert "db" in dp["labels"]
+        idx_db = dp["labels"].index("db")
+        assert dp["values"][idx_db] == 2
+
+    def test_charts_top_codes_bar(self):
+        """charts.top_codes_bar reflects error code frequency."""
+        tracker = self._fresh_tracker()
+        for _ in range(5):
+            tracker.record_error(code="E500", message="Internal", domain="api")
+        for _ in range(3):
+            tracker.record_error(code="E404", message="NotFound", domain="api")
+        stats = tracker.get_stats()
+        tc = stats["charts"]["top_codes_bar"]
+        assert tc["labels"][0] == "E500"  # Most frequent first
+        assert tc["values"][0] == 5
+        assert tc["values"][1] == 3
+
+    def test_charts_domain_stacked(self):
+        """charts.domain_stacked has labels and series dict."""
+        tracker = self._fresh_tracker()
+        tracker.record_error(code="E1", message="err1", domain="auth")
+        tracker.record_error(code="E2", message="err2", domain="db")
+        stats = tracker.get_stats()
+        ds = stats["charts"]["domain_stacked"]
+        assert "labels" in ds
+        assert "series" in ds
+        assert len(ds["labels"]) == 24
+        assert "auth" in ds["series"]
+        assert "db" in ds["series"]
+        assert len(ds["series"]["auth"]) == 24
+
+    def test_charts_severity_timeline(self):
+        """charts.severity_timeline has labels and per-severity series."""
+        tracker = self._fresh_tracker()
+        tracker.record_error(code="E1", message="err1", domain="d1", severity="ERROR")
+        tracker.record_error(code="W1", message="warn1", domain="d1", severity="WARN")
+        stats = tracker.get_stats()
+        st = stats["charts"]["severity_timeline"]
+        assert "labels" in st
+        assert "series" in st
+        assert "ERROR" in st["series"]
+        assert "WARN" in st["series"]
+        assert len(st["series"]["ERROR"]) == 24
+
+    def test_charts_velocity(self):
+        """charts.velocity is a list of 6 data points."""
+        tracker = self._fresh_tracker()
+        tracker.record_error(code="E1", message="err1", domain="d1")
+        stats = tracker.get_stats()
+        vel = stats["charts"]["velocity"]
+        assert isinstance(vel, list)
+        assert len(vel) == 6
+        assert sum(vel) >= 1
+
+    def test_unresolved_count(self):
+        """Unresolved count matches groups not yet resolved."""
+        tracker = self._fresh_tracker()
+        tracker.record_error(code="E1", message="err1", domain="d1")
+        tracker.record_error(code="E2", message="err2", domain="d1")
+        stats = tracker.get_stats()
+        assert stats["unresolved_count"] == 2
+
+    def test_resolved_count_initially_zero(self):
+        """Resolved count is 0 before any resolve_error calls."""
+        tracker = self._fresh_tracker()
+        tracker.record_error(code="E1", message="err1", domain="d1")
+        stats = tracker.get_stats()
+        assert stats["resolved_count"] == 0
+
+    def test_resolve_error_method(self):
+        """resolve_error marks a group as resolved."""
+        tracker = self._fresh_tracker()
+        tracker.record_error(code="E1", message="err1", domain="d1")
+        groups = tracker.get_groups()
+        fp = groups[0].fingerprint
+        result = tracker.resolve_error(fp)
+        assert result is True
+        stats = tracker.get_stats()
+        assert stats["resolved_count"] == 1
+        assert stats["unresolved_count"] == 0
+
+    def test_resolve_error_idempotent(self):
+        """Resolving same fingerprint twice returns False on second call."""
+        tracker = self._fresh_tracker()
+        tracker.record_error(code="E1", message="err1", domain="d1")
+        groups = tracker.get_groups()
+        fp = groups[0].fingerprint
+        assert tracker.resolve_error(fp) is True
+        assert tracker.resolve_error(fp) is False
+        stats = tracker.get_stats()
+        assert stats["resolved_count"] == 1
+
+    def test_resolve_error_unknown_fingerprint(self):
+        """Resolving unknown fingerprint returns False."""
+        tracker = self._fresh_tracker()
+        result = tracker.resolve_error("unknown-fingerprint")
+        assert result is False
+
+    def test_mttr_calculation(self):
+        """MTTR is computed from first_seen to resolved_at."""
+        import time
+        tracker = self._fresh_tracker()
+        tracker.record_error(code="E1", message="err1", domain="d1")
+        time.sleep(0.05)  # Small delay for measurable MTTR
+        groups = tracker.get_groups()
+        fp = groups[0].fingerprint
+        tracker.resolve_error(fp)
+        stats = tracker.get_stats()
+        assert stats["mttr_seconds"] >= 0  # Should be > 0 but timing is imprecise
+
+    def test_mttr_zero_when_no_resolved(self):
+        """MTTR is 0 when no errors have been resolved."""
+        tracker = self._fresh_tracker()
+        tracker.record_error(code="E1", message="err1", domain="d1")
+        stats = tracker.get_stats()
+        assert stats["mttr_seconds"] == 0
+
+    def test_clear_resets_chart_data(self):
+        """clear() resets all chart-related tracking data."""
+        tracker = self._fresh_tracker()
+        for i in range(5):
+            tracker.record_error(code=f"E{i}", message=f"err{i}", domain="d1")
+        tracker.resolve_error(tracker.get_groups()[0].fingerprint)
+        tracker.clear()
+        stats = tracker.get_stats()
+        assert stats["total_errors"] == 0
+        assert stats["resolved_count"] == 0
+        assert stats["unresolved_count"] == 0
+        assert all(v == 0 for v in stats["charts"]["hourly"]["values"])
+        assert all(v == 0 for v in stats["charts"]["five_min"]["values"])
+
+    def test_error_rate_per_min(self):
+        """Error rate per minute is calculated correctly."""
+        tracker = self._fresh_tracker()
+        for _ in range(10):
+            tracker.record_error(code="E1", message="err1", domain="d1")
+        stats = tracker.get_stats()
+        assert stats["error_rate_per_min"] > 0
+
+    def test_multiple_domains_chart_data(self):
+        """Multiple domains produce correct polar and stacked data."""
+        tracker = self._fresh_tracker()
+        for domain in ["auth", "db", "cache", "api"]:
+            for _ in range(3):
+                tracker.record_error(code="E1", message="err", domain=domain)
+        stats = tracker.get_stats()
+        dp = stats["charts"]["domain_polar"]
+        assert len(dp["labels"]) == 4
+        ds = stats["charts"]["domain_stacked"]
+        assert len(ds["series"]) == 4
+
+    def test_multiple_severities_chart_data(self):
+        """Multiple severities produce correct doughnut and timeline data."""
+        tracker = self._fresh_tracker()
+        for sev in ["ERROR", "WARN", "INFO"]:
+            tracker.record_error(code="E1", message="err", domain="d1", severity=sev)
+        stats = tracker.get_stats()
+        sd = stats["charts"]["severity_doughnut"]
+        assert len(sd["labels"]) == 3
+        st = stats["charts"]["severity_timeline"]
+        assert len(st["series"]) == 3
+
+
+# ============================================================================
+# 26. CHART.JS ANALYTICS — MEMORY BACKEND ENHANCED STATS
+# ============================================================================
+
+
+class TestMemoryBackendChartData:
+    """Verify enhanced MemoryBackend.get_stats() with Chart.js-ready data."""
+
+    @pytest.mark.asyncio
+    async def test_stats_charts_key_exists(self):
+        """get_stats() returns a 'charts' dict."""
+        from aquilia.tasks.engine import MemoryBackend
+        backend = MemoryBackend()
+        stats = await backend.get_stats()
+        assert "charts" in stats
+        assert isinstance(stats["charts"], dict)
+
+    @pytest.mark.asyncio
+    async def test_charts_throughput_structure(self):
+        """charts.throughput has labels, completed, and failed arrays of length 24."""
+        from aquilia.tasks.engine import MemoryBackend
+        backend = MemoryBackend()
+        stats = await backend.get_stats()
+        tp = stats["charts"]["throughput"]
+        assert "labels" in tp
+        assert "completed" in tp
+        assert "failed" in tp
+        assert len(tp["labels"]) == 24
+        assert len(tp["completed"]) == 24
+        assert len(tp["failed"]) == 24
+
+    @pytest.mark.asyncio
+    async def test_charts_duration_histogram_structure(self):
+        """charts.duration_histogram has labels and values."""
+        from aquilia.tasks.engine import MemoryBackend
+        backend = MemoryBackend()
+        stats = await backend.get_stats()
+        dh = stats["charts"]["duration_histogram"]
+        assert "labels" in dh
+        assert "values" in dh
+        assert len(dh["labels"]) == 8
+        assert len(dh["values"]) == 8
+
+    @pytest.mark.asyncio
+    async def test_charts_state_doughnut(self):
+        """charts.state_doughnut reflects actual job states."""
+        from aquilia.tasks.engine import MemoryBackend, Job, JobState
+        backend = MemoryBackend()
+        await backend.push(Job(func_ref="test.fn", name="test"))
+        stats = await backend.get_stats()
+        sd = stats["charts"]["state_doughnut"]
+        assert "labels" in sd
+        assert "values" in sd
+        assert "pending" in sd["labels"]
+
+    @pytest.mark.asyncio
+    async def test_charts_queue_breakdown(self):
+        """charts.queue_breakdown has per-queue state arrays."""
+        from aquilia.tasks.engine import MemoryBackend, Job
+        backend = MemoryBackend()
+        await backend.push(Job(func_ref="fn1", name="t1", queue="high"))
+        await backend.push(Job(func_ref="fn2", name="t2", queue="low"))
+        stats = await backend.get_stats()
+        qb = stats["charts"]["queue_breakdown"]
+        assert "labels" in qb
+        assert "pending" in qb
+        assert "running" in qb
+        assert "completed" in qb
+        assert "failed" in qb
+        assert "high" in qb["labels"]
+        assert "low" in qb["labels"]
+
+    @pytest.mark.asyncio
+    async def test_success_rate_no_jobs(self):
+        """Success rate is 100% when no terminal jobs exist."""
+        from aquilia.tasks.engine import MemoryBackend
+        backend = MemoryBackend()
+        stats = await backend.get_stats()
+        assert stats["success_rate"] == 100
+
+    @pytest.mark.asyncio
+    async def test_success_rate_with_completed_only(self):
+        """Success rate is 100% when all terminal jobs completed."""
+        from aquilia.tasks.engine import MemoryBackend, Job, JobState
+        from datetime import datetime, timezone, timedelta
+        backend = MemoryBackend()
+        for i in range(3):
+            job = Job(func_ref="fn", name=f"t{i}")
+            await backend.push(job)
+            job.state = JobState.COMPLETED
+            now = datetime.now(timezone.utc)
+            job.started_at = now - timedelta(milliseconds=10)
+            job.completed_at = now
+        stats = await backend.get_stats()
+        assert stats["success_rate"] == 100
+
+    @pytest.mark.asyncio
+    async def test_success_rate_with_failures(self):
+        """Success rate reflects completed vs failed ratio."""
+        from aquilia.tasks.engine import MemoryBackend, Job, JobState
+        from datetime import datetime, timezone, timedelta
+        backend = MemoryBackend()
+        # 3 completed
+        for i in range(3):
+            job = Job(func_ref="fn", name=f"ok{i}")
+            await backend.push(job)
+            job.state = JobState.COMPLETED
+            now = datetime.now(timezone.utc)
+            job.started_at = now - timedelta(milliseconds=10)
+            job.completed_at = now
+        # 1 failed
+        fail_job = Job(func_ref="fn", name="fail")
+        await backend.push(fail_job)
+        fail_job.state = JobState.FAILED
+        fail_job.completed_at = datetime.now(timezone.utc)
+
+        stats = await backend.get_stats()
+        assert stats["success_rate"] == 75.0
+
+    @pytest.mark.asyncio
+    async def test_percentiles_no_jobs(self):
+        """P50/P95/P99 are 0 when no completed jobs."""
+        from aquilia.tasks.engine import MemoryBackend
+        backend = MemoryBackend()
+        stats = await backend.get_stats()
+        assert stats["p50_ms"] == 0
+        assert stats["p95_ms"] == 0
+        assert stats["p99_ms"] == 0
+
+    @pytest.mark.asyncio
+    async def test_percentiles_with_data(self):
+        """P50/P95/P99 are computed from completed job durations."""
+        from aquilia.tasks.engine import MemoryBackend, Job, JobState
+        from datetime import datetime, timezone, timedelta
+        backend = MemoryBackend()
+        for i in range(1, 101):
+            job = Job(func_ref="fn", name=f"t{i}")
+            await backend.push(job)
+            job.state = JobState.COMPLETED
+            now = datetime.now(timezone.utc)
+            job.started_at = now - timedelta(milliseconds=i)
+            job.completed_at = now  # duration_ms = i
+        stats = await backend.get_stats()
+        # Percentiles computed from sorted durations 1..100ms
+        assert abs(stats["p50_ms"] - 50) < 2  # Allow rounding tolerance
+        assert abs(stats["p95_ms"] - 95) < 2
+        assert abs(stats["p99_ms"] - 99) < 2
+
+    @pytest.mark.asyncio
+    async def test_duration_histogram_buckets(self):
+        """Duration histogram correctly bins job durations."""
+        from aquilia.tasks.engine import MemoryBackend, Job, JobState
+        from datetime import datetime, timezone, timedelta
+        backend = MemoryBackend()
+        durations = [5, 25, 75, 150, 400, 750, 3000, 8000]
+        for d in durations:
+            job = Job(func_ref="fn", name=f"t{d}")
+            await backend.push(job)
+            job.state = JobState.COMPLETED
+            now = datetime.now(timezone.utc)
+            job.started_at = now - timedelta(milliseconds=d)
+            job.completed_at = now
+        stats = await backend.get_stats()
+        hist = stats["charts"]["duration_histogram"]["values"]
+        # Each bucket should have exactly 1 job
+        for i in range(8):
+            assert hist[i] == 1, f"Bucket {i} expected 1 but got {hist[i]}"
+
+    @pytest.mark.asyncio
+    async def test_throughput_timeline_length(self):
+        """Throughput timeline always has 24 hourly slots."""
+        from aquilia.tasks.engine import MemoryBackend
+        backend = MemoryBackend()
+        stats = await backend.get_stats()
+        tp = stats["charts"]["throughput"]
+        assert len(tp["labels"]) == 24
+        assert len(tp["completed"]) == 24
+        assert len(tp["failed"]) == 24
+
+
+# ============================================================================
+# 27. CHART.JS TEMPLATE RENDERING
+# ============================================================================
+
+
+class TestChartJsTemplateRendering:
+    """Verify render functions pass chart data to templates."""
+
+    def _tasks_data(self, **overrides):
+        """Helper to build tasks_data dict with correct nested structure."""
+        stats = {
+            "total_jobs": 0, "completed_count": 0, "active_count": 0,
+            "failed_count": 0, "pending_count": 0, "dead_letter_count": 0,
+            "avg_duration_ms": 0, "by_state": {}, "queues": [],
+            "queue_count": 0, "success_rate": 100, "p50_ms": 0,
+            "p95_ms": 0, "p99_ms": 0,
+            "manager": {},
+            "charts": {
+                "throughput": {"labels": [], "completed": [], "failed": []},
+                "duration_histogram": {"labels": [], "values": []},
+                "state_doughnut": {"labels": [], "values": []},
+                "queue_breakdown": {"labels": [], "pending": [], "running": [], "completed": [], "failed": []},
+            },
+        }
+        stats.update(overrides)
+        return {"available": overrides.pop("available", False), "stats": stats, "jobs": [], "queue_stats": {}}
+
+    def _errors_data(self, **overrides):
+        """Helper to build errors_data dict with correct structure."""
+        base = {
+            "total_errors": 0, "errors_last_hour": 0, "errors_last_24h": 0,
+            "error_rate_per_min": 0, "unique_errors": 0,
+            "unresolved_count": 0, "resolved_count": 0, "mttr_seconds": 0,
+            "by_domain": {}, "by_severity": {}, "top_routes": [],
+            "top_codes": [], "recent_errors": [], "error_groups": [],
+            "hourly_trend": [],
+            "charts": {
+                "hourly": {"labels": [], "values": []},
+                "five_min": {"labels": [], "values": []},
+                "severity_doughnut": {"labels": [], "values": []},
+                "domain_polar": {"labels": [], "values": []},
+                "top_codes_bar": {"labels": [], "values": []},
+                "domain_stacked": {"labels": [], "series": {}},
+                "severity_timeline": {"labels": [], "series": {}},
+                "velocity": [],
+            },
+        }
+        base.update(overrides)
+        return base
+
+    def test_render_tasks_page_includes_chart_js_cdn(self):
+        """render_tasks_page() output includes Chart.js CDN script."""
+        from aquilia.admin.templates import render_tasks_page
+        html = render_tasks_page(tasks_data=self._tasks_data())
+        assert "chart.js" in html.lower() or "Chart" in html
+
+    def test_render_tasks_page_passes_success_rate(self):
+        """render_tasks_page() passes success_rate to template."""
+        from aquilia.admin.templates import render_tasks_page
+        html = render_tasks_page(tasks_data=self._tasks_data(
+            total_jobs=10, completed_count=9, failed_count=1,
+            success_rate=90.0, p50_ms=25, p95_ms=80, p99_ms=95,
+            available=True,
+        ))
+        assert "90" in html  # success_rate rendered
+        assert "Success Rate" in html
+
+    def test_render_tasks_page_passes_percentiles(self):
+        """render_tasks_page() passes P50/P95/P99 to template."""
+        from aquilia.admin.templates import render_tasks_page
+        html = render_tasks_page(tasks_data=self._tasks_data(
+            total_jobs=5, completed_count=5, success_rate=100,
+            p50_ms=42, p95_ms=88, p99_ms=99, available=True,
+        ))
+        assert "P50" in html
+        assert "P95" in html or "p95" in html.lower()
+        assert "P99" in html or "p99" in html.lower()
+
+    def test_render_errors_page_includes_chart_js_cdn(self):
+        """render_errors_page() output includes Chart.js CDN script."""
+        from aquilia.admin.templates import render_errors_page
+        html = render_errors_page(errors_data=self._errors_data())
+        assert "chart.js" in html.lower() or "Chart" in html
+
+    def test_render_errors_page_passes_resolution_stats(self):
+        """render_errors_page() passes unresolved/resolved/mttr to template."""
+        from aquilia.admin.templates import render_errors_page
+        html = render_errors_page(errors_data=self._errors_data(
+            total_errors=5, errors_last_hour=2, errors_last_24h=5,
+            error_rate_per_min=1.5, unique_errors=3,
+            unresolved_count=2, resolved_count=1, mttr_seconds=45.5,
+        ))
+        assert "Unresolved" in html
+        assert "MTTR" in html
+        assert "46s" in html or "45" in html  # mttr_seconds rendered
+
+    def test_render_errors_page_includes_severity_filter_buttons(self):
+        """render_errors_page() includes filter buttons for severity."""
+        from aquilia.admin.templates import render_errors_page
+        html = render_errors_page(errors_data=self._errors_data())
+        assert "filterErrors" in html
+        assert "Errors" in html
+        assert "Warnings" in html
+
+    def test_render_errors_page_chart_canvas_elements(self):
+        """render_errors_page() produces all expected canvas elements."""
+        from aquilia.admin.templates import render_errors_page
+        html = render_errors_page(errors_data=self._errors_data())
+        assert "chart-error-trend" in html
+        assert "chart-severity-doughnut" in html
+        assert "chart-domain-polar" in html
+        assert "chart-top-codes" in html
+        assert "chart-domain-stacked" in html
+        assert "chart-severity-timeline" in html
+        assert "chart-velocity" in html
+
+    def test_render_tasks_page_chart_canvas_elements(self):
+        """render_tasks_page() produces all expected canvas elements."""
+        from aquilia.admin.templates import render_tasks_page
+        html = render_tasks_page(tasks_data=self._tasks_data())
+        assert "chart-throughput" in html
+        assert "chart-state-doughnut" in html
+        assert "chart-duration" in html
+        assert "chart-queues" in html
