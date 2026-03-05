@@ -6256,3 +6256,719 @@ class TestAdminConfigServerWiring:
         assert cfg.is_module_enabled("build") is False
         assert cfg.audit_log_views is False
         assert cfg.monitoring_metrics == frozenset({"cpu", "memory"})
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# ORM Schema Metadata & Config Metadata — Deep Introspection Tests
+# ═══════════════════════════════════════════════════════════════════════════════
+# Validates the enriched `get_model_schema()` and new `get_orm_metadata()`
+# methods on AdminSite.  These tests use the real admin models (AdminUser,
+# ContentType, etc.) registered on a fresh AdminSite instance.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class _SchemaTestMixin:
+    """Shared helper to build an AdminSite with all admin models registered."""
+
+    @staticmethod
+    def _build_site():
+        from aquilia.admin.site import AdminSite
+        from aquilia.admin.options import ModelAdmin
+        from aquilia.admin.models import (
+            AdminUser, AdminGroup, AdminPermission,
+            ContentType, AdminLogEntry, AdminAuditEntry, AdminSession,
+        )
+
+        site = AdminSite.__new__(AdminSite)
+        site._registry = {}
+        site._config = None
+        site._initialized = True
+
+        for model_cls in [
+            AdminUser, AdminGroup, AdminPermission,
+            ContentType, AdminLogEntry, AdminAuditEntry, AdminSession,
+        ]:
+            admin = ModelAdmin(model=model_cls)
+            site._registry[model_cls] = admin
+
+        return site
+
+    @staticmethod
+    def _find_model_schema(schema_list, model_name):
+        for m in schema_list:
+            if m["name"] == model_name:
+                return m
+        return None
+
+    @staticmethod
+    def _find_field(model_schema, field_name):
+        for f in model_schema.get("fields", []):
+            if f["name"] == field_name:
+                return f
+        return None
+
+
+class TestModelSchemaFieldIntrospection(_SchemaTestMixin):
+    """Per-field introspection should expose all ORM field attributes."""
+
+    def setup_method(self):
+        self.site = self._build_site()
+        self.schema = self.site.get_model_schema()
+
+    def test_admin_user_username_field(self):
+        user = self._find_model_schema(self.schema, "AdminUser")
+        f = self._find_field(user, "username")
+        assert f is not None
+        assert f["type"] in ("VARCHAR", "CharField", "CHAR")
+        assert f["unique"] is True
+        assert f["max_length"] == 150
+        assert f["null"] is False
+
+    def test_field_class_exposed(self):
+        user = self._find_model_schema(self.schema, "AdminUser")
+        f = self._find_field(user, "username")
+        assert f["field_class"] == "CharField"
+
+    def test_blank_attribute_exposed(self):
+        user = self._find_model_schema(self.schema, "AdminUser")
+        email = self._find_field(user, "email")
+        assert "blank" in email
+        assert email["blank"] is True
+
+    def test_auto_now_add_exposed(self):
+        user = self._find_model_schema(self.schema, "AdminUser")
+        dj = self._find_field(user, "date_joined")
+        assert dj is not None
+        assert dj["auto_now_add"] is True
+
+    def test_auto_now_exposed(self):
+        user = self._find_model_schema(self.schema, "AdminUser")
+        dj = self._find_field(user, "date_joined")
+        # date_joined uses auto_now_add, not auto_now
+        assert dj["auto_now"] is False
+
+    def test_db_column_exposed(self):
+        user = self._find_model_schema(self.schema, "AdminUser")
+        f = self._find_field(user, "username")
+        assert "db_column" in f
+
+    def test_verbose_name_exposed(self):
+        user = self._find_model_schema(self.schema, "AdminUser")
+        f = self._find_field(user, "username")
+        assert "verbose_name" in f
+
+    def test_validators_list(self):
+        user = self._find_model_schema(self.schema, "AdminUser")
+        f = self._find_field(user, "username")
+        assert isinstance(f["validators"], list)
+
+    def test_choices_list_populated(self):
+        log = self._find_model_schema(self.schema, "AdminLogEntry")
+        af = self._find_field(log, "action_flag")
+        assert af is not None
+        assert af["choices"] is True
+        assert isinstance(af["choices_list"], list)
+        if af["choices_list"]:
+            assert "value" in af["choices_list"][0]
+            assert "label" in af["choices_list"][0]
+
+    def test_python_type_exposed(self):
+        user = self._find_model_schema(self.schema, "AdminUser")
+        is_super = self._find_field(user, "is_superuser")
+        assert is_super is not None
+        assert "python_type" in is_super
+
+    def test_primary_key_field_detected(self):
+        user = self._find_model_schema(self.schema, "AdminUser")
+        # The PK should be marked
+        pk_fields = [f for f in user["fields"] if f["primary_key"]]
+        assert len(pk_fields) >= 1
+
+    def test_null_field_detection(self):
+        log = self._find_model_schema(self.schema, "AdminLogEntry")
+        ct = self._find_field(log, "content_type")
+        assert ct is not None
+        assert ct["null"] is True
+
+    def test_help_text_exposed(self):
+        perm = self._find_model_schema(self.schema, "AdminPermission")
+        name_f = self._find_field(perm, "name")
+        assert name_f is not None
+        assert name_f["help_text"] == "Human-readable permission name"
+
+
+class TestModelSchemaRelations(_SchemaTestMixin):
+    """Relation introspection: FK, O2O, M2M with full detail."""
+
+    def setup_method(self):
+        self.site = self._build_site()
+        self.schema = self.site.get_model_schema()
+
+    def test_fk_relation_detected(self):
+        log = self._find_model_schema(self.schema, "AdminLogEntry")
+        fk_rels = [r for r in log["relations"] if r["type"] == "FK"]
+        assert len(fk_rels) >= 1
+        user_fk = [r for r in fk_rels if r["to"] == "AdminUser"]
+        assert len(user_fk) == 1
+
+    def test_fk_on_delete_exposed(self):
+        log = self._find_model_schema(self.schema, "AdminLogEntry")
+        user_fk = [r for r in log["relations"] if r["to"] == "AdminUser"]
+        assert user_fk[0]["on_delete"] == "CASCADE"
+
+    def test_fk_related_name_exposed(self):
+        log = self._find_model_schema(self.schema, "AdminLogEntry")
+        user_fk = [r for r in log["relations"] if r["to"] == "AdminUser"]
+        assert user_fk[0]["related_name"] == "log_entries"
+
+    def test_m2m_relation_detected(self):
+        user = self._find_model_schema(self.schema, "AdminUser")
+        # M2M shows up in m2m_tables, not in relations
+        assert len(user["m2m_tables"]) >= 1
+
+    def test_m2m_db_table_exposed(self):
+        user = self._find_model_schema(self.schema, "AdminUser")
+        groups_m2m = [t for t in user["m2m_tables"] if t["field"] == "groups"]
+        assert len(groups_m2m) == 1
+        assert groups_m2m[0]["db_table"] == "admin_user_groups"
+
+    def test_m2m_target_model_exposed(self):
+        user = self._find_model_schema(self.schema, "AdminUser")
+        groups_m2m = [t for t in user["m2m_tables"] if t["field"] == "groups"]
+        assert groups_m2m[0]["target_model"] == "AdminGroup"
+
+    def test_field_data_includes_relation_detail(self):
+        """The field dict itself should have relation sub-dict with on_delete/related_name."""
+        log = self._find_model_schema(self.schema, "AdminLogEntry")
+        user_field = self._find_field(log, "user")
+        assert user_field is not None
+        assert "relation" in user_field
+        assert user_field["relation"]["type"] == "FK"
+        assert user_field["relation"]["on_delete"] == "CASCADE"
+        assert user_field["relation"]["related_name"] == "log_entries"
+
+
+class TestModelSchemaReverseRelations(_SchemaTestMixin):
+    """Reverse relations: models that FK/M2M *into* a given model."""
+
+    def setup_method(self):
+        self.site = self._build_site()
+        self.schema = self.site.get_model_schema()
+
+    def test_admin_user_has_reverse_relations(self):
+        user = self._find_model_schema(self.schema, "AdminUser")
+        assert "reverse_relations" in user
+        # AdminLogEntry has FK to AdminUser
+        from_log = [r for r in user["reverse_relations"]
+                    if r["from_model"] == "AdminLogEntry"]
+        assert len(from_log) >= 1
+
+    def test_content_type_has_reverse_relations(self):
+        ct = self._find_model_schema(self.schema, "ContentType")
+        assert len(ct["reverse_relations"]) >= 1
+        # AdminPermission FKs to ContentType
+        from_perm = [r for r in ct["reverse_relations"]
+                     if r["from_model"] == "AdminPermission"]
+        assert len(from_perm) == 1
+
+    def test_reverse_relation_includes_on_delete(self):
+        user = self._find_model_schema(self.schema, "AdminUser")
+        fk_reverses = [r for r in user["reverse_relations"] if r["type"] == "FK"]
+        if fk_reverses:
+            assert "on_delete" in fk_reverses[0]
+
+    def test_reverse_m2m_detected(self):
+        """AdminGroup should see a reverse M2M from AdminUser.groups."""
+        group = self._find_model_schema(self.schema, "AdminGroup")
+        m2m_reverses = [r for r in group["reverse_relations"] if r["type"] == "M2M"]
+        assert len(m2m_reverses) >= 1
+        from_user = [r for r in m2m_reverses if r["from_model"] == "AdminUser"]
+        assert len(from_user) >= 1
+
+
+class TestModelSchemaMetaOptions(_SchemaTestMixin):
+    """Full Meta options should be exposed under the 'meta' key."""
+
+    def setup_method(self):
+        self.site = self._build_site()
+        self.schema = self.site.get_model_schema()
+
+    def test_meta_key_exists(self):
+        user = self._find_model_schema(self.schema, "AdminUser")
+        assert "meta" in user
+        assert isinstance(user["meta"], dict)
+
+    def test_ordering_in_meta(self):
+        user = self._find_model_schema(self.schema, "AdminUser")
+        assert user["meta"]["ordering"] == ["-date_joined"]
+
+    def test_get_latest_by_in_meta(self):
+        user = self._find_model_schema(self.schema, "AdminUser")
+        assert user["meta"]["get_latest_by"] == "date_joined"
+
+    def test_verbose_name_in_meta(self):
+        user = self._find_model_schema(self.schema, "AdminUser")
+        assert user["meta"]["verbose_name"] == "Admin User"
+
+    def test_verbose_name_plural_in_meta(self):
+        user = self._find_model_schema(self.schema, "AdminUser")
+        assert user["meta"]["verbose_name_plural"] == "Admin Users"
+
+    def test_managed_in_meta(self):
+        user = self._find_model_schema(self.schema, "AdminUser")
+        assert user["meta"]["managed"] is True
+
+    def test_abstract_in_meta(self):
+        user = self._find_model_schema(self.schema, "AdminUser")
+        assert user["meta"]["abstract"] is False
+
+    def test_proxy_in_meta(self):
+        user = self._find_model_schema(self.schema, "AdminUser")
+        assert user["meta"]["proxy"] is False
+
+    def test_select_on_save_in_meta(self):
+        user = self._find_model_schema(self.schema, "AdminUser")
+        assert user["meta"]["select_on_save"] is False
+
+    def test_default_permissions_in_meta(self):
+        user = self._find_model_schema(self.schema, "AdminUser")
+        assert isinstance(user["meta"]["default_permissions"], list)
+        assert "add" in user["meta"]["default_permissions"]
+        assert "change" in user["meta"]["default_permissions"]
+        assert "delete" in user["meta"]["default_permissions"]
+        assert "view" in user["meta"]["default_permissions"]
+
+    def test_permissions_in_meta(self):
+        user = self._find_model_schema(self.schema, "AdminUser")
+        assert isinstance(user["meta"]["permissions"], list)
+
+    def test_unique_together_in_meta(self):
+        user = self._find_model_schema(self.schema, "AdminUser")
+        assert isinstance(user["meta"]["unique_together"], list)
+
+    def test_required_db_vendor_in_meta(self):
+        user = self._find_model_schema(self.schema, "AdminUser")
+        assert "required_db_vendor" in user["meta"]
+
+    def test_required_db_features_in_meta(self):
+        user = self._find_model_schema(self.schema, "AdminUser")
+        assert isinstance(user["meta"]["required_db_features"], list)
+
+    def test_label_in_meta(self):
+        user = self._find_model_schema(self.schema, "AdminUser")
+        assert "label" in user["meta"]
+
+    def test_label_lower_in_meta(self):
+        user = self._find_model_schema(self.schema, "AdminUser")
+        assert "label_lower" in user["meta"]
+
+    def test_db_tablespace_in_meta(self):
+        user = self._find_model_schema(self.schema, "AdminUser")
+        assert "db_tablespace" in user["meta"]
+
+    def test_order_with_respect_to_in_meta(self):
+        user = self._find_model_schema(self.schema, "AdminUser")
+        assert "order_with_respect_to" in user["meta"]
+
+    def test_default_related_name_in_meta(self):
+        user = self._find_model_schema(self.schema, "AdminUser")
+        assert "default_related_name" in user["meta"]
+
+    def test_content_type_unique_constraint(self):
+        ct = self._find_model_schema(self.schema, "ContentType")
+        assert len(ct["constraints"]) >= 1
+        uq = [c for c in ct["constraints"] if c["type"] == "UniqueConstraint"]
+        assert len(uq) >= 1
+        assert "app_label" in uq[0]["fields"]
+        assert "model" in uq[0]["fields"]
+
+
+class TestModelSchemaSQLDDL(_SchemaTestMixin):
+    """SQL DDL generation for each model."""
+
+    def setup_method(self):
+        self.site = self._build_site()
+        self.schema = self.site.get_model_schema()
+
+    def test_sql_key_exists(self):
+        user = self._find_model_schema(self.schema, "AdminUser")
+        assert "sql" in user
+        assert isinstance(user["sql"], dict)
+
+    def test_create_table_sql_generated(self):
+        user = self._find_model_schema(self.schema, "AdminUser")
+        ddl = user["sql"]["create_table"]
+        assert ddl is not None
+        assert "CREATE TABLE" in ddl
+        assert "admin_users" in ddl
+
+    def test_create_table_contains_fields(self):
+        user = self._find_model_schema(self.schema, "AdminUser")
+        ddl = user["sql"]["create_table"]
+        assert "username" in ddl
+        assert "email" in ddl
+        assert "password_hash" in ddl
+
+    def test_indexes_sql_generated(self):
+        user = self._find_model_schema(self.schema, "AdminUser")
+        idx_stmts = user["sql"]["indexes"]
+        assert isinstance(idx_stmts, list)
+        assert len(idx_stmts) >= 1
+        assert any("idx_admin_user_username" in s for s in idx_stmts)
+
+    def test_m2m_tables_sql_generated(self):
+        user = self._find_model_schema(self.schema, "AdminUser")
+        m2m_stmts = user["sql"]["m2m_tables"]
+        assert isinstance(m2m_stmts, list)
+        # AdminUser has groups and user_permissions M2M
+        assert len(m2m_stmts) >= 2
+
+    def test_content_type_ddl(self):
+        ct = self._find_model_schema(self.schema, "ContentType")
+        ddl = ct["sql"]["create_table"]
+        assert "admin_content_types" in ddl
+        assert "app_label" in ddl
+
+
+class TestModelSchemaMethodIntrospection(_SchemaTestMixin):
+    """User-defined methods should be listed per model."""
+
+    def setup_method(self):
+        self.site = self._build_site()
+        self.schema = self.site.get_model_schema()
+
+    def test_methods_key_exists(self):
+        user = self._find_model_schema(self.schema, "AdminUser")
+        assert "methods" in user
+        assert isinstance(user["methods"], dict)
+
+    def test_methods_categories(self):
+        user = self._find_model_schema(self.schema, "AdminUser")
+        m = user["methods"]
+        assert "methods" in m
+        assert "class_methods" in m
+        assert "static_methods" in m
+        assert "properties" in m
+
+    def test_admin_user_has_check_password(self):
+        user = self._find_model_schema(self.schema, "AdminUser")
+        assert "check_password" in user["methods"]["methods"]
+
+    def test_admin_user_has_set_password(self):
+        user = self._find_model_schema(self.schema, "AdminUser")
+        assert "set_password" in user["methods"]["methods"]
+
+    def test_admin_user_has_class_methods(self):
+        user = self._find_model_schema(self.schema, "AdminUser")
+        cm = user["methods"]["class_methods"]
+        assert "create_superuser" in cm
+        assert "authenticate" in cm
+
+    def test_admin_log_entry_has_properties(self):
+        """AdminLogEntry has is_addition, is_change, is_deletion properties."""
+        log = self._find_model_schema(self.schema, "AdminLogEntry")
+        props = log["methods"]["properties"]
+        assert "is_addition" in props
+        assert "is_change" in props
+        assert "is_deletion" in props
+
+    def test_content_type_has_name_property(self):
+        ct = self._find_model_schema(self.schema, "ContentType")
+        assert "name" in ct["methods"]["properties"]
+
+
+class TestModelSchemaSourceAndFingerprint(_SchemaTestMixin):
+    """Source location and fingerprint should be present."""
+
+    def setup_method(self):
+        self.site = self._build_site()
+        self.schema = self.site.get_model_schema()
+
+    def test_source_key_exists(self):
+        user = self._find_model_schema(self.schema, "AdminUser")
+        assert "source" in user
+        assert "module" in user["source"]
+        assert "file" in user["source"]
+
+    def test_source_module_is_admin_models(self):
+        user = self._find_model_schema(self.schema, "AdminUser")
+        assert "aquilia.admin.models" in user["source"]["module"]
+
+    def test_source_file_path(self):
+        user = self._find_model_schema(self.schema, "AdminUser")
+        assert user["source"]["file"].endswith("models.py")
+
+    def test_fingerprint_present(self):
+        user = self._find_model_schema(self.schema, "AdminUser")
+        assert "fingerprint" in user
+        assert user["fingerprint"] is not None
+        assert len(user["fingerprint"]) == 16  # sha256[:16]
+
+    def test_fingerprint_is_hex(self):
+        user = self._find_model_schema(self.schema, "AdminUser")
+        int(user["fingerprint"], 16)  # Should not raise
+
+
+class TestModelSchemaM2MTableDetails(_SchemaTestMixin):
+    """M2M junction table details should be fully exposed."""
+
+    def setup_method(self):
+        self.site = self._build_site()
+        self.schema = self.site.get_model_schema()
+
+    def test_m2m_tables_key_exists(self):
+        user = self._find_model_schema(self.schema, "AdminUser")
+        assert "m2m_tables" in user
+        assert isinstance(user["m2m_tables"], list)
+
+    def test_admin_user_has_m2m_tables(self):
+        user = self._find_model_schema(self.schema, "AdminUser")
+        assert len(user["m2m_tables"]) >= 2  # groups + user_permissions
+
+    def test_m2m_table_structure(self):
+        user = self._find_model_schema(self.schema, "AdminUser")
+        groups_jt = [t for t in user["m2m_tables"] if t["field"] == "groups"]
+        assert len(groups_jt) == 1
+        jt = groups_jt[0]
+        assert jt["junction_table"] is not None
+        assert jt["source_column"] is not None
+        assert jt["target_column"] is not None
+        assert jt["target_model"] == "AdminGroup"
+
+    def test_m2m_db_table_override(self):
+        user = self._find_model_schema(self.schema, "AdminUser")
+        groups_jt = [t for t in user["m2m_tables"] if t["field"] == "groups"]
+        assert groups_jt[0]["db_table"] == "admin_user_groups"
+
+
+class TestModelSchemaIndexDetails(_SchemaTestMixin):
+    """Index introspection with conditions and source tracking."""
+
+    def setup_method(self):
+        self.site = self._build_site()
+        self.schema = self.site.get_model_schema()
+
+    def test_meta_indexes_present(self):
+        user = self._find_model_schema(self.schema, "AdminUser")
+        idx_names = [i["name"] for i in user["indexes"] if i.get("name")]
+        assert "idx_admin_user_username" in idx_names
+
+    def test_field_level_index_tagged(self):
+        """Field-level db_index should be tagged with source='field_level'."""
+        audit = self._find_model_schema(self.schema, "AdminAuditEntry")
+        field_idxs = [i for i in audit["indexes"] if i.get("source") == "field_level"]
+        assert len(field_idxs) >= 4  # entry_id, timestamp, user_id, action
+
+    def test_composite_index(self):
+        user = self._find_model_schema(self.schema, "AdminUser")
+        active_staff = [i for i in user["indexes"]
+                        if i.get("name") == "idx_admin_user_active_staff"]
+        assert len(active_staff) == 1
+        assert set(active_staff[0]["fields"]) == {"is_active", "is_staff"}
+
+    def test_unique_field_level_index(self):
+        """entry_id is unique=True so its field_level index should be unique."""
+        audit = self._find_model_schema(self.schema, "AdminAuditEntry")
+        entry_idx = [i for i in audit["indexes"]
+                     if i.get("source") == "field_level" and "entry_id" in i["fields"]]
+        assert len(entry_idx) == 1
+        assert entry_idx[0]["unique"] is True
+
+
+class TestModelSchemaBackwardCompat(_SchemaTestMixin):
+    """Flat backward-compatibility keys should still work."""
+
+    def setup_method(self):
+        self.site = self._build_site()
+        self.schema = self.site.get_model_schema()
+
+    def test_flat_ordering_key(self):
+        user = self._find_model_schema(self.schema, "AdminUser")
+        assert user["ordering"] == ["-date_joined"]
+
+    def test_flat_managed_key(self):
+        user = self._find_model_schema(self.schema, "AdminUser")
+        assert user["managed"] is True
+
+    def test_flat_abstract_key(self):
+        user = self._find_model_schema(self.schema, "AdminUser")
+        assert user["abstract"] is False
+
+    def test_flat_pk_field_key(self):
+        user = self._find_model_schema(self.schema, "AdminUser")
+        assert user["pk_field"] == "id"
+
+
+class TestOrmMetadata(_SchemaTestMixin):
+    """get_orm_metadata() returns comprehensive ORM-level metadata."""
+
+    def setup_method(self):
+        self.site = self._build_site()
+        self.metadata = self.site.get_orm_metadata()
+
+    def test_top_level_keys(self):
+        assert "database" in self.metadata
+        assert "backend" in self.metadata
+        assert "stats" in self.metadata
+        assert "dependency_graph" in self.metadata
+        assert "models" in self.metadata
+
+    def test_stats_counts(self):
+        s = self.metadata["stats"]
+        assert s["total_models"] == 7  # 7 admin models registered
+        assert s["total_fields"] > 0
+        assert s["total_relations"] > 0
+        assert s["total_indexes"] > 0
+
+    def test_dependency_graph_admin_log_entry(self):
+        """AdminLogEntry depends on AdminUser and ContentType."""
+        graph = self.metadata["dependency_graph"]
+        assert "AdminLogEntry" in graph
+        deps = graph["AdminLogEntry"]
+        assert "AdminUser" in deps
+        assert "ContentType" in deps
+
+    def test_dependency_graph_admin_user_m2m(self):
+        """AdminUser depends on AdminGroup and AdminPermission via M2M."""
+        graph = self.metadata["dependency_graph"]
+        assert "AdminUser" in graph
+        deps = graph["AdminUser"]
+        assert "AdminGroup" in deps
+        assert "AdminPermission" in deps
+
+    def test_dependency_graph_no_self_references(self):
+        """No model should list itself as a dependency."""
+        for model_name, deps in self.metadata["dependency_graph"].items():
+            assert model_name not in deps
+
+    def test_models_list(self):
+        models = self.metadata["models"]
+        assert len(models) == 7
+        names = [m["name"] for m in models]
+        assert "AdminUser" in names
+        assert "ContentType" in names
+
+    def test_models_have_table_and_pk(self):
+        for m in self.metadata["models"]:
+            assert "table" in m
+            assert "pk" in m
+            assert "field_count" in m
+
+    def test_database_info_dict(self):
+        """Database info should be a dict (may be empty if no db connected)."""
+        assert isinstance(self.metadata["database"], dict)
+
+    def test_backend_info_dict(self):
+        """Backend info should be a dict."""
+        assert isinstance(self.metadata["backend"], dict)
+
+
+class TestInspectModelMethods:
+    """Unit tests for the _inspect_model_methods static helper."""
+
+    def test_discovers_instance_methods(self):
+        from aquilia.admin.site import AdminSite
+        from aquilia.admin.models import AdminUser
+        result = AdminSite._inspect_model_methods(AdminUser)
+        assert "check_password" in result["methods"]
+        assert "set_password" in result["methods"]
+
+    def test_discovers_class_methods(self):
+        from aquilia.admin.site import AdminSite
+        from aquilia.admin.models import AdminUser
+        result = AdminSite._inspect_model_methods(AdminUser)
+        assert "create_superuser" in result["class_methods"]
+        assert "create_staff_user" in result["class_methods"]
+        assert "authenticate" in result["class_methods"]
+
+    def test_discovers_properties(self):
+        from aquilia.admin.site import AdminSite
+        from aquilia.admin.models import AdminLogEntry
+        result = AdminSite._inspect_model_methods(AdminLogEntry)
+        assert "is_addition" in result["properties"]
+        assert "is_change" in result["properties"]
+        assert "is_deletion" in result["properties"]
+
+    def test_skips_dunder_methods(self):
+        from aquilia.admin.site import AdminSite
+        from aquilia.admin.models import AdminUser
+        result = AdminSite._inspect_model_methods(AdminUser)
+        all_names = (
+            result["methods"] + result["class_methods"]
+            + result["static_methods"] + result["properties"]
+        )
+        assert not any(n.startswith("_") for n in all_names)
+
+    def test_skips_field_names(self):
+        from aquilia.admin.site import AdminSite
+        from aquilia.admin.models import AdminUser
+        result = AdminSite._inspect_model_methods(AdminUser)
+        all_names = (
+            result["methods"] + result["class_methods"]
+            + result["static_methods"] + result["properties"]
+        )
+        assert "username" not in all_names
+        assert "email" not in all_names
+
+    def test_skips_objects_manager(self):
+        from aquilia.admin.site import AdminSite
+        from aquilia.admin.models import AdminUser
+        result = AdminSite._inspect_model_methods(AdminUser)
+        all_names = (
+            result["methods"] + result["class_methods"]
+            + result["static_methods"] + result["properties"]
+        )
+        assert "objects" not in all_names
+
+
+class TestBuildReverseRelations:
+    """Unit tests for _build_reverse_relations static helper."""
+
+    def test_fk_reverse_detected(self):
+        from aquilia.admin.site import AdminSite
+        from aquilia.admin.options import ModelAdmin
+        from aquilia.admin.models import AdminUser, AdminLogEntry
+
+        registry = {
+            AdminUser: ModelAdmin(model=AdminUser),
+            AdminLogEntry: ModelAdmin(model=AdminLogEntry),
+        }
+        reverse = AdminSite._build_reverse_relations(registry)
+        assert "AdminUser" in reverse
+        from_log = [r for r in reverse["AdminUser"] if r["from_model"] == "AdminLogEntry"]
+        assert len(from_log) >= 1
+        assert from_log[0]["type"] == "FK"
+
+    def test_m2m_reverse_detected(self):
+        from aquilia.admin.site import AdminSite
+        from aquilia.admin.options import ModelAdmin
+        from aquilia.admin.models import AdminUser, AdminGroup
+
+        registry = {
+            AdminUser: ModelAdmin(model=AdminUser),
+            AdminGroup: ModelAdmin(model=AdminGroup),
+        }
+        reverse = AdminSite._build_reverse_relations(registry)
+        assert "AdminGroup" in reverse
+        from_user = [r for r in reverse["AdminGroup"]
+                     if r["from_model"] == "AdminUser" and r["type"] == "M2M"]
+        assert len(from_user) >= 1
+
+    def test_empty_registry(self):
+        from aquilia.admin.site import AdminSite
+        reverse = AdminSite._build_reverse_relations({})
+        assert reverse == {}
+
+
+class TestSchemaAllModelsPresent(_SchemaTestMixin):
+    """Every registered admin model should appear in the schema."""
+
+    def test_all_seven_models_present(self):
+        site = self._build_site()
+        schema = site.get_model_schema()
+        names = {m["name"] for m in schema}
+        expected = {
+            "AdminUser", "AdminGroup", "AdminPermission",
+            "ContentType", "AdminLogEntry", "AdminAuditEntry", "AdminSession",
+        }
+        assert expected.issubset(names)

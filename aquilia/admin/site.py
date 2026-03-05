@@ -514,19 +514,154 @@ class AdminSite:
         """Get all registered model name -> ModelAdmin pairs."""
         return {cls.__name__: admin for cls, admin in self._registry.items()}
 
+    # ── ORM metadata helpers (private) ───────────────────────────────
+
+    @staticmethod
+    def _inspect_model_methods(model_cls: type) -> Dict[str, List[str]]:
+        """Categorise user-defined methods on a model class.
+
+        Returns ``{"methods": [...], "class_methods": [...],
+        "static_methods": [...], "properties": [...]}``.
+        Skips dunder / private names and anything inherited from the ORM
+        base ``Model``.
+        """
+        import inspect as _inspect
+
+        try:
+            from aquilia.models.base import Model as _BaseModel
+        except Exception:
+            _BaseModel = object  # type: ignore[misc,assignment]
+
+        base_names: set = set(dir(_BaseModel))
+        result: Dict[str, List[str]] = {
+            "methods": [],
+            "class_methods": [],
+            "static_methods": [],
+            "properties": [],
+        }
+
+        for name in sorted(dir(model_cls)):
+            if name.startswith("_"):
+                continue
+            if name in base_names:
+                continue
+            # Skip field descriptors / Manager
+            if name in getattr(model_cls, "_fields", {}):
+                continue
+            if name in getattr(model_cls, "_m2m_fields", {}):
+                continue
+            if name == "objects":
+                continue
+
+            raw = model_cls.__dict__.get(name)
+            if raw is None:
+                continue
+
+            if isinstance(raw, property):
+                result["properties"].append(name)
+            elif isinstance(raw, classmethod):
+                result["class_methods"].append(name)
+            elif isinstance(raw, staticmethod):
+                result["static_methods"].append(name)
+            elif callable(raw):
+                result["methods"].append(name)
+
+        return result
+
+    @staticmethod
+    def _build_reverse_relations(
+        registry: Dict[type, "ModelAdmin"],
+    ) -> Dict[str, List[Dict[str, Any]]]:
+        """Build a map of model_name → list of models that reference it.
+
+        Scans every FK / O2O / M2M across all registered models and
+        records the reverse side.
+        """
+        from aquilia.models.fields_module import (
+            ForeignKey, OneToOneField, ManyToManyField,
+        )
+
+        reverse: Dict[str, List[Dict[str, Any]]] = {}
+
+        for model_cls in registry:
+            source_name = model_cls.__name__
+            all_fields = getattr(model_cls, "_fields", {})
+            m2m_fields = getattr(model_cls, "_m2m_fields", {})
+
+            for fname, field in all_fields.items():
+                if isinstance(field, (ForeignKey, OneToOneField)):
+                    target = field.to if isinstance(field.to, str) else (
+                        field.to.__name__ if field.to else None
+                    )
+                    if target:
+                        reverse.setdefault(target, []).append({
+                            "from_model": source_name,
+                            "field": fname,
+                            "type": "O2O" if isinstance(field, OneToOneField) else "FK",
+                            "on_delete": getattr(field, "on_delete", "CASCADE"),
+                            "related_name": getattr(field, "related_name", None),
+                        })
+
+            for fname, m2m in m2m_fields.items():
+                target = m2m.to if isinstance(m2m.to, str) else (
+                    m2m.to.__name__ if m2m.to else None
+                )
+                if target:
+                    reverse.setdefault(target, []).append({
+                        "from_model": source_name,
+                        "field": fname,
+                        "type": "M2M",
+                        "related_name": getattr(m2m, "related_name", None),
+                        "db_table": getattr(m2m, "db_table", None),
+                    })
+
+        return reverse
+
     def get_model_schema(self) -> List[Dict[str, Any]]:
         """
         Build rich schema metadata for every registered model.
 
-        Returns per-model: fields, relations, indexes, constraints,
-        Meta options -- everything needed by the ORM inspector page.
+        Returns per-model:
+            - **fields**: every field with full attribute introspection
+              (type, python_type, null, unique, primary_key, db_index,
+              default, max_length, help_text, choices, choices_list,
+              editable, blank, auto_now, auto_now_add, db_column,
+              verbose_name, validators, relation info)
+            - **relations**: FK / O2O / M2M with on_delete, through, db_table
+            - **reverse_relations**: models that reference *this* model
+            - **indexes**: composite + field-level indexes with condition
+            - **constraints**: UniqueConstraint + CheckConstraint with expression
+            - **meta**: all Options attributes (ordering, get_latest_by,
+              select_on_save, db_tablespace, default_permissions, permissions,
+              required_db_vendor, required_db_features, unique_together,
+              proxy, managed, abstract, order_with_respect_to,
+              default_related_name)
+            - **sql**: DDL statements (CREATE TABLE, CREATE INDEX, M2M tables)
+            - **methods**: user-defined methods, class methods, properties
+            - **source**: module path and source file location
+            - **fingerprint**: deterministic schema hash for migration diffs
         """
+        import inspect as _inspect
+
         from aquilia.models.fields_module import (
             ForeignKey, OneToOneField, ManyToManyField, Field,
         )
 
+        # Pre-compute reverse relations once for all models
+        reverse_map = self._build_reverse_relations(self._registry)
+
+        # Detect current dialect from the database connection
+        dialect = "sqlite"
+        try:
+            sample_model = next(iter(self._registry), None)
+            if sample_model is not None:
+                db = getattr(sample_model, "_db", None)
+                if db is not None:
+                    dialect = getattr(db, "dialect", "sqlite")
+        except Exception:
+            pass
+
         models_data: List[Dict[str, Any]] = []
-        # Pre-build a lookup: model_name → model_cls
         model_lookup = {cls.__name__: cls for cls in self._registry}
 
         for model_cls, admin in self._registry.items():
@@ -536,84 +671,138 @@ class AdminSite:
             relations: List[Dict[str, Any]] = []
 
             all_fields = getattr(model_cls, "_fields", {})
+            m2m_fields = getattr(model_cls, "_m2m_fields", {})
+
+            # ── Per-field introspection ──────────────────────────────
             for fname, field in all_fields.items():
                 field_data: Dict[str, Any] = {
                     "name": fname,
                     "column": getattr(field, "column_name", fname),
                     "type": getattr(field, "_field_type", type(field).__name__),
+                    "field_class": type(field).__name__,
                     "python_type": getattr(field, "_python_type", str).__name__
                         if hasattr(field, "_python_type") else "str",
                     "null": getattr(field, "null", False),
+                    "blank": getattr(field, "blank", False),
                     "unique": getattr(field, "unique", False),
                     "primary_key": getattr(field, "primary_key", False),
                     "db_index": getattr(field, "db_index", False),
+                    "db_column": getattr(field, "db_column", None),
                     "default": repr(getattr(field, "default", None))
                         if hasattr(field, "default") and getattr(field, "default", None) is not None
                         else None,
                     "max_length": getattr(field, "max_length", None),
                     "help_text": getattr(field, "help_text", ""),
+                    "verbose_name": getattr(field, "verbose_name", None),
                     "choices": bool(getattr(field, "choices", None)),
+                    "choices_list": [
+                        {"value": c[0], "label": c[1]}
+                        for c in (getattr(field, "choices", None) or [])
+                    ] if getattr(field, "choices", None) else [],
                     "editable": getattr(field, "editable", True),
+                    "auto_now": getattr(field, "auto_now", False),
+                    "auto_now_add": getattr(field, "auto_now_add", False),
+                    "validators": [
+                        type(v).__name__ for v in (getattr(field, "validators", None) or [])
+                    ],
                 }
 
-                # Relation info
+                # Decimal-specific attributes
+                if hasattr(field, "max_digits"):
+                    field_data["max_digits"] = field.max_digits
+                if hasattr(field, "decimal_places"):
+                    field_data["decimal_places"] = field.decimal_places
+
+                # ── Relation info ────────────────────────────────────
                 if isinstance(field, ManyToManyField):
                     target = field.to if isinstance(field.to, str) else (
                         field.to.__name__ if field.to else "?"
                     )
+                    m2m_db_table = getattr(field, "db_table", None)
+                    through = getattr(field, "through", None)
+                    if through and not isinstance(through, str):
+                        through = through.__name__
+                    related_name = getattr(field, "related_name", None)
                     relations.append({
                         "type": "M2M",
                         "field": fname,
                         "from": name,
                         "to": target,
-                        "related_name": getattr(field, "related_name", None),
-                        "through": getattr(field, "through", None),
+                        "related_name": related_name,
+                        "through": through,
+                        "db_table": m2m_db_table,
                     })
-                    field_data["relation"] = {"type": "M2M", "to": target}
+                    field_data["relation"] = {
+                        "type": "M2M", "to": target,
+                        "db_table": m2m_db_table,
+                        "related_name": related_name,
+                    }
                 elif isinstance(field, OneToOneField):
                     target = field.to if isinstance(field.to, str) else (
                         field.to.__name__ if field.to else "?"
                     )
+                    on_delete = getattr(field, "on_delete", "CASCADE")
+                    related_name = getattr(field, "related_name", None)
                     relations.append({
                         "type": "O2O",
                         "field": fname,
                         "from": name,
                         "to": target,
-                        "on_delete": getattr(field, "on_delete", "CASCADE"),
-                        "related_name": getattr(field, "related_name", None),
+                        "on_delete": on_delete,
+                        "related_name": related_name,
                     })
-                    field_data["relation"] = {"type": "O2O", "to": target}
+                    field_data["relation"] = {
+                        "type": "O2O", "to": target,
+                        "on_delete": on_delete,
+                        "related_name": related_name,
+                    }
                 elif isinstance(field, ForeignKey):
                     target = field.to if isinstance(field.to, str) else (
                         field.to.__name__ if field.to else "?"
                     )
+                    on_delete = getattr(field, "on_delete", "CASCADE")
+                    related_name = getattr(field, "related_name", None)
                     relations.append({
                         "type": "FK",
                         "field": fname,
                         "from": name,
                         "to": target,
-                        "on_delete": getattr(field, "on_delete", "CASCADE"),
-                        "related_name": getattr(field, "related_name", None),
+                        "on_delete": on_delete,
+                        "related_name": related_name,
                     })
-                    field_data["relation"] = {"type": "FK", "to": target}
+                    field_data["relation"] = {
+                        "type": "FK", "to": target,
+                        "on_delete": on_delete,
+                        "related_name": related_name,
+                    }
 
                 fields_info.append(field_data)
 
-            # Indexes from Meta
+            # ── Indexes from Meta ────────────────────────────────────
             indexes_info: List[Dict[str, Any]] = []
             if meta:
                 for idx in getattr(meta, "indexes", []):
-                    indexes_info.append({
+                    idx_entry: Dict[str, Any] = {
                         "fields": getattr(idx, "fields", []),
                         "name": getattr(idx, "name", None),
                         "unique": getattr(idx, "unique", False),
-                    })
-                # unique_together → virtual index
+                    }
+                    # Condition (partial index WHERE clause)
+                    condition = getattr(idx, "condition", None)
+                    if condition:
+                        idx_entry["condition"] = str(condition)
+                    # Index type hint (btree, hash, gin, gist, etc.)
+                    idx_type = getattr(idx, "index_type", None) or type(idx).__name__
+                    if idx_type != "Index":
+                        idx_entry["index_type"] = idx_type
+                    indexes_info.append(idx_entry)
+                # unique_together → virtual unique index
                 for ut in getattr(meta, "unique_together", []):
                     indexes_info.append({
                         "fields": list(ut),
                         "name": None,
                         "unique": True,
+                        "source": "unique_together",
                     })
 
             # Field-level indexes
@@ -623,17 +812,109 @@ class AdminSite:
                         "fields": [fname],
                         "name": f"idx_{name.lower()}_{fname}",
                         "unique": getattr(field, "unique", False),
+                        "source": "field_level",
                     })
 
-            # Constraints from Meta
+            # ── Constraints from Meta ────────────────────────────────
             constraints_info: List[Dict[str, Any]] = []
             if meta:
                 for c in getattr(meta, "constraints", []):
-                    constraints_info.append({
-                        "fields": getattr(c, "fields", []),
+                    c_entry: Dict[str, Any] = {
                         "name": getattr(c, "name", None),
                         "type": type(c).__name__,
+                    }
+                    if hasattr(c, "fields"):
+                        c_entry["fields"] = list(c.fields)
+                    if hasattr(c, "check"):
+                        c_entry["check_expression"] = str(c.check)
+                    if hasattr(c, "violation_error_message"):
+                        c_entry["violation_message"] = c.violation_error_message
+                    constraints_info.append(c_entry)
+
+            # ── Meta options (full) ──────────────────────────────────
+            meta_info: Dict[str, Any] = {}
+            if meta:
+                meta_info = {
+                    "ordering": getattr(meta, "ordering", []),
+                    "get_latest_by": getattr(meta, "get_latest_by", None),
+                    "verbose_name": getattr(meta, "verbose_name", name),
+                    "verbose_name_plural": getattr(meta, "verbose_name_plural", f"{name}s"),
+                    "app_label": getattr(meta, "app_label", ""),
+                    "managed": getattr(meta, "managed", True),
+                    "abstract": getattr(meta, "abstract", False),
+                    "proxy": getattr(meta, "proxy", False),
+                    "select_on_save": getattr(meta, "select_on_save", False),
+                    "db_tablespace": getattr(meta, "db_tablespace", ""),
+                    "default_permissions": list(getattr(meta, "default_permissions", ())),
+                    "permissions": [
+                        {"codename": p[0], "name": p[1]}
+                        for p in getattr(meta, "permissions", [])
+                    ],
+                    "unique_together": [list(ut) for ut in getattr(meta, "unique_together", [])],
+                    "order_with_respect_to": getattr(meta, "order_with_respect_to", None),
+                    "default_related_name": getattr(meta, "default_related_name", None),
+                    "required_db_vendor": getattr(meta, "required_db_vendor", None),
+                    "required_db_features": getattr(meta, "required_db_features", []),
+                    "label": getattr(meta, "label", ""),
+                    "label_lower": getattr(meta, "label_lower", ""),
+                }
+
+            # ── SQL DDL generation ───────────────────────────────────
+            sql_info: Dict[str, Any] = {}
+            try:
+                sql_info["create_table"] = model_cls.generate_create_table_sql(dialect)
+            except Exception:
+                sql_info["create_table"] = None
+            try:
+                sql_info["indexes"] = model_cls.generate_index_sql(dialect)
+            except Exception:
+                sql_info["indexes"] = []
+            try:
+                sql_info["m2m_tables"] = model_cls.generate_m2m_sql(dialect)
+            except Exception:
+                sql_info["m2m_tables"] = []
+
+            # ── Model fingerprint ────────────────────────────────────
+            fingerprint = None
+            try:
+                fingerprint = model_cls.fingerprint()
+            except Exception:
+                pass
+
+            # ── Source location ───────────────────────────────────────
+            source_module = getattr(model_cls, "__module__", "")
+            source_file = ""
+            try:
+                source_file = _inspect.getfile(model_cls)
+            except (TypeError, OSError):
+                pass
+
+            # ── User-defined methods ─────────────────────────────────
+            model_methods = self._inspect_model_methods(model_cls)
+
+            # ── Reverse relations ────────────────────────────────────
+            reverse_rels = reverse_map.get(name, [])
+
+            # ── M2M junction table details ───────────────────────────
+            m2m_tables: List[Dict[str, Any]] = []
+            for m2m_name, m2m_field in m2m_fields.items():
+                try:
+                    jt = m2m_field.junction_table_name(model_cls)
+                    src_col, tgt_col = m2m_field.junction_columns(model_cls)
+                    target = m2m_field.to if isinstance(m2m_field.to, str) else (
+                        m2m_field.to.__name__ if m2m_field.to else "?"
+                    )
+                    m2m_tables.append({
+                        "field": m2m_name,
+                        "junction_table": jt,
+                        "source_column": src_col,
+                        "target_column": tgt_col,
+                        "target_model": target,
+                        "db_table": getattr(m2m_field, "db_table", None),
+                        "through": getattr(m2m_field, "through", None),
                     })
+                except Exception:
+                    pass
 
             models_data.append({
                 "name": name,
@@ -644,15 +925,181 @@ class AdminSite:
                 "fields": fields_info,
                 "field_count": len(fields_info),
                 "relations": relations,
+                "reverse_relations": reverse_rels,
+                "m2m_tables": m2m_tables,
                 "indexes": indexes_info,
                 "constraints": constraints_info,
-                "ordering": getattr(meta, "ordering", []) if meta else [],
-                "managed": getattr(meta, "managed", True) if meta else True,
-                "abstract": getattr(meta, "abstract", False) if meta else False,
+                "meta": meta_info,
+                "sql": sql_info,
+                "methods": model_methods,
+                "source": {
+                    "module": source_module,
+                    "file": source_file,
+                },
+                "fingerprint": fingerprint,
+                # Flat compat keys (kept for backward compatibility)
+                "ordering": meta_info.get("ordering", []),
+                "managed": meta_info.get("managed", True),
+                "abstract": meta_info.get("abstract", False),
                 "pk_field": getattr(model_cls, "_pk_attr", "id"),
             })
 
         return models_data
+
+    def get_orm_metadata(self) -> Dict[str, Any]:
+        """
+        Gather comprehensive ORM-level metadata beyond individual models.
+
+        Returns:
+            - **database**: connection info (dialect, driver, url, status)
+            - **backend**: capabilities, version info
+            - **stats**: total models, fields, relations, indexes, constraints
+            - **dependency_graph**: model → [models it depends on via FK/M2M]
+            - **models**: condensed model list with table names
+        """
+        from aquilia.models.fields_module import ForeignKey, ManyToManyField
+
+        result: Dict[str, Any] = {
+            "database": {},
+            "backend": {},
+            "stats": {},
+            "dependency_graph": {},
+            "models": [],
+        }
+
+        # ── Database connection info ─────────────────────────────────
+        db = None
+        try:
+            sample_model = next(iter(self._registry), None)
+            if sample_model is not None:
+                db = getattr(sample_model, "_db", None)
+        except Exception:
+            pass
+
+        if db is not None:
+            url = getattr(db, "url", "")
+            # Redact password from URL for display
+            import re as _re
+            safe_url = _re.sub(r'://([^:]+):([^@]+)@', r'://\1:****@', url)
+
+            result["database"] = {
+                "dialect": getattr(db, "dialect", "unknown"),
+                "driver": getattr(db, "driver", "unknown"),
+                "url": safe_url,
+                "connected": getattr(db, "is_connected", False),
+                "in_transaction": getattr(db, "in_transaction", False),
+            }
+
+            # Backend capabilities
+            try:
+                caps = db.capabilities
+                result["backend"] = {
+                    "supports_returning": getattr(caps, "supports_returning", False),
+                    "supports_json": getattr(caps, "supports_json", False),
+                    "supports_arrays": getattr(caps, "supports_arrays", False),
+                    "supports_upsert": getattr(caps, "supports_upsert", False),
+                    "supports_window_functions": getattr(caps, "supports_window_functions", False),
+                    "supports_cte": getattr(caps, "supports_cte", False),
+                    "supports_partial_indexes": getattr(caps, "supports_partial_indexes", False),
+                    "supports_transactions": getattr(caps, "supports_transactions", True),
+                    "max_identifier_length": getattr(caps, "max_identifier_length", 0),
+                    "param_style": getattr(caps, "param_style", "?"),
+                }
+            except Exception:
+                pass
+
+            # Config object info (if typed config was used)
+            config = getattr(db, "_config", None)
+            if config is not None:
+                config_info: Dict[str, Any] = {
+                    "type": type(config).__name__,
+                }
+                for attr in ("host", "port", "user", "name", "database",
+                             "service_name", "charset", "collation",
+                             "min_connections", "max_connections",
+                             "ssl", "timeout", "pool_size",
+                             "pool_recycle", "echo"):
+                    val = getattr(config, attr, None)
+                    if val is not None and val != "" and val != 0:
+                        config_info[attr] = val
+                result["database"]["config"] = config_info
+
+        # ── Global stats ─────────────────────────────────────────────
+        total_fields = 0
+        total_relations = 0
+        total_indexes = 0
+        total_constraints = 0
+        total_m2m = 0
+
+        for model_cls in self._registry:
+            fields = getattr(model_cls, "_fields", {})
+            m2m = getattr(model_cls, "_m2m_fields", {})
+            meta = getattr(model_cls, "_meta", None)
+
+            total_fields += len(fields)
+            total_m2m += len(m2m)
+            if meta:
+                total_indexes += len(getattr(meta, "indexes", []))
+                total_constraints += len(getattr(meta, "constraints", []))
+
+            for f in fields.values():
+                if isinstance(f, ForeignKey):
+                    total_relations += 1
+            total_relations += len(m2m)
+
+            # Count field-level indexes
+            for f in fields.values():
+                if getattr(f, "db_index", False) and not getattr(f, "primary_key", False):
+                    total_indexes += 1
+
+        result["stats"] = {
+            "total_models": len(self._registry),
+            "total_fields": total_fields,
+            "total_relations": total_relations,
+            "total_m2m_fields": total_m2m,
+            "total_indexes": total_indexes,
+            "total_constraints": total_constraints,
+        }
+
+        # ── Dependency graph ─────────────────────────────────────────
+        for model_cls in self._registry:
+            model_name = model_cls.__name__
+            deps: List[str] = []
+            seen: set = set()
+
+            fields = getattr(model_cls, "_fields", {})
+            m2m = getattr(model_cls, "_m2m_fields", {})
+
+            for f in fields.values():
+                if isinstance(f, ForeignKey):
+                    target = f.to if isinstance(f.to, str) else (
+                        f.to.__name__ if f.to else None
+                    )
+                    if target and target not in seen and target != model_name:
+                        deps.append(target)
+                        seen.add(target)
+
+            for m in m2m.values():
+                target = m.to if isinstance(m.to, str) else (
+                    m.to.__name__ if m.to else None
+                )
+                if target and target not in seen and target != model_name:
+                    deps.append(target)
+                    seen.add(target)
+
+            result["dependency_graph"][model_name] = deps
+
+        # ── Condensed model list ─────────────────────────────────────
+        for model_cls, admin in self._registry.items():
+            result["models"].append({
+                "name": model_cls.__name__,
+                "table": getattr(model_cls, "_table_name", ""),
+                "app_label": admin.get_app_label(),
+                "field_count": len(getattr(model_cls, "_fields", {})),
+                "pk": getattr(model_cls, "_pk_attr", "id"),
+            })
+
+        return result
 
     # ── Dashboard data ───────────────────────────────────────────────
 
