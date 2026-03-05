@@ -238,7 +238,7 @@ def _field_to_sql_type(fld) -> str:
         BigIntegerField: "INTEGER",
         SmallIntegerField: "INTEGER",
         FloatField: "REAL",
-        BooleanField: "INTEGER",
+        BooleanField: "BOOLEAN",
         BinaryField: "BLOB",
         JSONField: "TEXT",
         DateField: "DATE",

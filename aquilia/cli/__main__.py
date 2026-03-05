@@ -2549,15 +2549,16 @@ def admin_createsuperuser(ctx, username: str, email: str, password: str, first_n
                 AdminLogEntry,
                 AdminSession,
             ]
+            _dialect = getattr(db, "dialect", "sqlite")
             for _model in _admin_models:
                 try:
-                    create_sql = _model.generate_create_table_sql()
+                    create_sql = _model.generate_create_table_sql(dialect=_dialect)
                     await db.execute(create_sql)
                     # Create indexes
-                    for idx_sql in _model.generate_index_sql():
+                    for idx_sql in _model.generate_index_sql(dialect=_dialect):
                         await db.execute(idx_sql)
                     # Create M2M tables
-                    for m2m_sql in _model.generate_m2m_sql():
+                    for m2m_sql in _model.generate_m2m_sql(dialect=_dialect):
                         await db.execute(m2m_sql)
                 except Exception:
                     pass  # Table already exists -- that's fine
@@ -2813,13 +2814,14 @@ def admin_createstaff(ctx, username: str, email: str, password: str, first_name:
                 AdminLogEntry,
                 AdminSession,
             ]
+            _dialect = getattr(db, "dialect", "sqlite")
             for _model in _admin_models:
                 try:
-                    create_sql = _model.generate_create_table_sql()
+                    create_sql = _model.generate_create_table_sql(dialect=_dialect)
                     await db.execute(create_sql)
-                    for idx_sql in _model.generate_index_sql():
+                    for idx_sql in _model.generate_index_sql(dialect=_dialect):
                         await db.execute(idx_sql)
-                    for m2m_sql in _model.generate_m2m_sql():
+                    for m2m_sql in _model.generate_m2m_sql(dialect=_dialect):
                         await db.execute(m2m_sql)
                 except Exception:
                     pass
@@ -3404,14 +3406,15 @@ def admin_setup(ctx, non_interactive: bool, database_url: Optional[str]):
                 ContentType, AdminPermission, AdminGroup,
                 AdminUser, AdminLogEntry, AdminSession,
             ]
+            _dialect = getattr(db, "dialect", "sqlite")
             created = 0
             for _model in _admin_models:
                 try:
-                    create_sql = _model.generate_create_table_sql()
+                    create_sql = _model.generate_create_table_sql(dialect=_dialect)
                     await db.execute(create_sql)
-                    for idx_sql in _model.generate_index_sql():
+                    for idx_sql in _model.generate_index_sql(dialect=_dialect):
                         await db.execute(idx_sql)
-                    for m2m_sql in _model.generate_m2m_sql():
+                    for m2m_sql in _model.generate_m2m_sql(dialect=_dialect):
                         await db.execute(m2m_sql)
                     created += 1
                 except Exception:

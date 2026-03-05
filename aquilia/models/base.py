@@ -352,6 +352,7 @@ class Model(metaclass=ModelMeta):
             user = await User.create(name="Alice", email="alice@test.com")
         """
         db = cls._get_db()
+        dialect = getattr(db, 'dialect', 'sqlite')
         instance = cls(**data)
 
         # Signal: pre_save (created=True)
@@ -381,7 +382,7 @@ class Model(metaclass=ModelMeta):
 
             if value is not None:
                 # Convert to DB format
-                db_value = field.to_db(value)
+                db_value = field.to_db(value, dialect=dialect)
                 final_data[field.column_name] = db_value
             elif not field.null and not field.primary_key:
                 # Required field with no value
@@ -513,6 +514,7 @@ class Model(metaclass=ModelMeta):
             return []
 
         db = cls._get_db()
+        dialect = getattr(db, 'dialect', 'sqlite')
         results: List[Model] = []
 
         # Process in batches
@@ -536,7 +538,7 @@ class Model(metaclass=ModelMeta):
                         value = field.get_default()
                         setattr(obj, attr_name, value)
                     if value is not None:
-                        final_data[field.column_name] = field.to_db(value)
+                        final_data[field.column_name] = field.to_db(value, dialect=dialect)
 
                 if final_data:
                     builder = InsertBuilder(cls._table_name).from_dict(final_data)
@@ -583,6 +585,7 @@ class Model(metaclass=ModelMeta):
             return 0
 
         db = cls._get_db()
+        dialect = getattr(db, 'dialect', 'sqlite')
         total_updated = 0
         effective_batch = batch_size or len(instances)
 
@@ -599,7 +602,7 @@ class Model(metaclass=ModelMeta):
                         continue
                     value = getattr(obj, fname, None)
                     if value is not None:
-                        data[field.column_name] = field.to_db(value)
+                        data[field.column_name] = field.to_db(value, dialect=dialect)
                     else:
                         data[field.column_name] = None
                 if data:
@@ -746,6 +749,7 @@ class Model(metaclass=ModelMeta):
             raise ValueError("Cannot force_update on unsaved instance (no PK)")
 
         db = self._get_db()
+        dialect = getattr(db, 'dialect', 'sqlite')
         is_create = pk_val is None or force_insert
 
         # Optional validation
@@ -778,7 +782,7 @@ class Model(metaclass=ModelMeta):
                     value = field.pre_save(self, is_create=False)
                     setattr(self, attr_name, value)
                 if value is not None:
-                    data[field.column_name] = field.to_db(value)
+                    data[field.column_name] = field.to_db(value, dialect=dialect)
                 else:
                     data[field.column_name] = None
 
@@ -816,7 +820,7 @@ class Model(metaclass=ModelMeta):
                     setattr(self, attr_name, value)
 
                 if value is not None:
-                    final_data[field.column_name] = field.to_db(value)
+                    final_data[field.column_name] = field.to_db(value, dialect=dialect)
 
             if final_data:
                 builder = InsertBuilder(self._table_name).from_dict(final_data)
@@ -1294,9 +1298,20 @@ class Model(metaclass=ModelMeta):
 
             jt = m2m.junction_table_name(cls)
             src_col, tgt_col = m2m.junction_columns(cls)
+
+            # Dialect-aware primary key definition
+            if dialect == "postgresql":
+                pk_def = '"id" SERIAL PRIMARY KEY'
+            elif dialect == "mysql":
+                pk_def = '"id" INTEGER PRIMARY KEY AUTO_INCREMENT'
+            elif dialect == "oracle":
+                pk_def = '"id" NUMBER(10) GENERATED ALWAYS AS IDENTITY PRIMARY KEY'
+            else:
+                pk_def = '"id" INTEGER PRIMARY KEY AUTOINCREMENT'
+
             sql = (
                 f'CREATE TABLE IF NOT EXISTS "{jt}" (\n'
-                f'  "id" INTEGER PRIMARY KEY AUTOINCREMENT,\n'
+                f'  {pk_def},\n'
                 f'  "{src_col}" INTEGER NOT NULL,\n'
                 f'  "{tgt_col}" INTEGER NOT NULL,\n'
                 f'  UNIQUE ("{src_col}", "{tgt_col}")\n'

@@ -472,13 +472,13 @@
     <div class="section-label">Active Connections</div>
     <div class="mon-chart-card" style="margin-bottom:24px;">
         <div class="mon-conn-grid" id="connGrid">
-            {% for status, count in monitoring.network.connections_by_status.items() %}
+            {% for status, count in (monitoring.network.connections_by_status|default({})).items() %}
             <div class="mon-conn-item">
                 <div class="mon-conn-value">{{ count }}</div>
                 <div class="mon-conn-label">{{ status }}</div>
             </div>
             {% endfor %}
-            {% if not monitoring.network.connections_by_status %}
+            {% if not monitoring.network.connections_by_status|default({}) %}
             <div style="grid-column:1/-1;padding:14px;color:var(--text-faint);font-size:0.8rem;text-align:center;">No connection data available</div>
             {% endif %}
         </div>
@@ -515,13 +515,13 @@
     <div class="mon-chart-card" style="margin-bottom:24px;">
         <table style="width:100%;table-layout:fixed;border-collapse:collapse;">
             <colgroup><col style="width:28%;"><col style="width:72%;"></colgroup>
-            {% for key, val in monitoring.process.env_snapshot.items() %}
+            {% for key, val in (monitoring.process.env_snapshot|default({})).items() %}
             <tr style="border-bottom:1px solid var(--border-subtle);">
                 <td class="mon-env-key">{{ key }}</td>
                 <td class="mon-env-val">{{ val }}</td>
             </tr>
             {% endfor %}
-            {% if not monitoring.process.env_snapshot %}
+            {% if not monitoring.process.env_snapshot|default({}) %}
             <tr><td colspan="2" style="color:var(--text-faint);padding:12px 0;text-align:center;font-size:0.78rem;">No environment variables captured</td></tr>
             {% endif %}
         </table>
@@ -613,7 +613,7 @@
     {% endif %}
 
     <div class="section-label">Disk Partitions</div>
-    {% if monitoring.disk.partitions %}
+    {% if monitoring.disk.partitions|default([]) %}
     <div class="mon-chart-card" style="margin-bottom:24px;overflow-x:auto;">
         <table style="width:100%;font-size:0.72rem;border-collapse:collapse;">
             <thead>
@@ -628,7 +628,7 @@
                 </tr>
             </thead>
             <tbody>
-                {% for p in monitoring.disk.partitions %}
+                {% for p in monitoring.disk.partitions|default([]) %}
                 <tr style="border-bottom:1px solid var(--border-subtle);transition:background 0.15s;" onmouseenter="this.style.background='var(--bg-surface-hover)'" onmouseleave="this.style.background=''">
                     <td style="padding:8px 10px;font-family:var(--font-mono);color:var(--accent);font-size:0.68rem;">{{ p.device }}</td>
                     <td style="padding:8px 10px;color:var(--text-primary);">{{ p.mountpoint }}</td>

@@ -93,12 +93,15 @@ class _SentinelType:
 _SENTINEL = _SentinelType()
 
 
-def _format_default(value: Any, dialect: str = "sqlite") -> str:
+def _format_default(value: Any, dialect: str = "sqlite", col_type: str = "") -> str:
     """Format a Python value as a SQL DEFAULT literal."""
     if value is None:
         return "NULL"
     if isinstance(value, bool):
-        if dialect == "postgresql":
+        # Only use TRUE/FALSE on actual BOOLEAN columns in PostgreSQL;
+        # for INTEGER columns (e.g. from C.integer(..., default=True)),
+        # always use 0/1 to avoid PG type-mismatch errors.
+        if dialect == "postgresql" and col_type.upper() in ("BOOLEAN", ""):
             return "TRUE" if value else "FALSE"
         return str(int(value))
     if isinstance(value, (int, float)):
@@ -142,17 +145,18 @@ class ColumnDef:
             parts.append("PRIMARY KEY")
             if self.autoincrement:
                 if dialect == "postgresql":
-                    # Type is already SERIAL
-                    parts.pop()  # remove PRIMARY KEY, it's in type
-                    parts.append("PRIMARY KEY")
+                    pass  # SERIAL/BIGSERIAL type handles auto-increment
                 elif dialect == "mysql":
                     parts.append("AUTO_INCREMENT")
+                elif dialect == "oracle":
+                    pass  # IDENTITY column handled in _resolve_type
                 else:
                     parts.append("AUTOINCREMENT")
         if not self.nullable and not self.primary_key:
             parts.append("NOT NULL")
         if self.default is not _SENTINEL:
-            parts.append(f"DEFAULT {_format_default(self.default, dialect)}")
+            resolved_type = self._resolve_type(dialect)
+            parts.append(f"DEFAULT {_format_default(self.default, dialect, resolved_type)}")
         if self.references:
             ref_table, ref_col = self.references
             parts.append(f'REFERENCES "{ref_table}"("{ref_col}")')
@@ -166,9 +170,55 @@ class ColumnDef:
         t = self.col_type
         if self.autoincrement and self.primary_key:
             if dialect == "postgresql":
-                return "SERIAL" if "BIG" not in t.upper() else "BIGSERIAL"
+                return "BIGSERIAL" if "BIG" in t.upper() else "SERIAL"
             elif dialect == "mysql":
-                return "INTEGER" if "BIG" not in t.upper() else "BIGINT"
+                return "BIGINT" if "BIG" in t.upper() else "INTEGER"
+            elif dialect == "oracle":
+                base = "NUMBER(19)" if "BIG" in t.upper() else "NUMBER(10)"
+                return f"{base} GENERATED ALWAYS AS IDENTITY"
+        # Dialect-specific type mappings for non-autoincrement columns
+        if dialect == "postgresql":
+            upper = t.upper()
+            if upper == "BLOB":
+                return "BYTEA"
+            if upper == "REAL":
+                return "DOUBLE PRECISION"
+            if upper == "BIGINT":
+                return "BIGINT"
+            if upper == "TIMESTAMP":
+                return "TIMESTAMP WITH TIME ZONE"
+        elif dialect == "oracle":
+            upper = t.upper()
+            if upper == "INTEGER":
+                return "NUMBER(10)"
+            if upper == "BIGINT":
+                return "NUMBER(19)"
+            if upper == "SMALLINT":
+                return "NUMBER(5)"
+            if upper == "BLOB":
+                return "BLOB"
+            if upper == "TEXT":
+                return "CLOB"
+            if upper == "REAL" or upper == "FLOAT":
+                return "BINARY_DOUBLE"
+            if upper == "BOOLEAN":
+                return "NUMBER(1)"
+            if upper.startswith("VARCHAR("):
+                return upper.replace("VARCHAR(", "VARCHAR2(")
+            if upper == "TIMESTAMP":
+                return "TIMESTAMP WITH TIME ZONE"
+        elif dialect == "mysql":
+            upper = t.upper()
+            if upper == "BOOLEAN":
+                return "INTEGER"
+            if upper == "BIGINT":
+                return "INTEGER"
+        elif dialect == "sqlite":
+            upper = t.upper()
+            if upper == "BIGINT":
+                return "INTEGER"
+            if upper == "BOOLEAN":
+                return "INTEGER"
         return t
 
     def to_snapshot(self) -> Dict[str, Any]:
@@ -233,7 +283,7 @@ class _ColumnBuilder:
 
     @staticmethod
     def bigauto(name: str = "id") -> ColumnDef:
-        return ColumnDef(name=name, col_type="INTEGER", primary_key=True, autoincrement=True)
+        return ColumnDef(name=name, col_type="BIGINT", primary_key=True, autoincrement=True)
 
     @staticmethod
     def integer(name: str, *, null: bool = False, unique: bool = False, default: Any = _SENTINEL) -> ColumnDef:
@@ -241,7 +291,7 @@ class _ColumnBuilder:
 
     @staticmethod
     def biginteger(name: str, *, null: bool = False, unique: bool = False, default: Any = _SENTINEL) -> ColumnDef:
-        return ColumnDef(name=name, col_type="INTEGER", nullable=null, unique=unique, default=default)
+        return ColumnDef(name=name, col_type="BIGINT", nullable=null, unique=unique, default=default)
 
     @staticmethod
     def varchar(name: str, length: int = 255, *, null: bool = False, unique: bool = False, default: Any = _SENTINEL) -> ColumnDef:
@@ -253,7 +303,7 @@ class _ColumnBuilder:
 
     @staticmethod
     def boolean(name: str, *, null: bool = False, default: Any = _SENTINEL) -> ColumnDef:
-        return ColumnDef(name=name, col_type="INTEGER", nullable=null, default=default)
+        return ColumnDef(name=name, col_type="BOOLEAN", nullable=null, default=default)
 
     @staticmethod
     def real(name: str, *, null: bool = False, default: Any = _SENTINEL) -> ColumnDef:

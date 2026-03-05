@@ -72,9 +72,18 @@ class MigrationRunner:
 
     async def ensure_tracking_table(self) -> None:
         """Create the aquilia_migrations tracking table if it doesn't exist."""
+        if self.dialect == "postgresql":
+            pk_def = '"id" SERIAL PRIMARY KEY'
+        elif self.dialect == "mysql":
+            pk_def = '"id" INTEGER PRIMARY KEY AUTO_INCREMENT'
+        elif self.dialect == "oracle":
+            pk_def = '"id" NUMBER(10) GENERATED ALWAYS AS IDENTITY PRIMARY KEY'
+        else:
+            pk_def = '"id" INTEGER PRIMARY KEY AUTOINCREMENT'
+
         sql = f"""
         CREATE TABLE IF NOT EXISTS "{MIGRATION_TABLE}" (
-            "id" INTEGER PRIMARY KEY AUTOINCREMENT,
+            {pk_def},
             "revision" VARCHAR(50) NOT NULL UNIQUE,
             "slug" VARCHAR(200) NOT NULL,
             "checksum" VARCHAR(64),

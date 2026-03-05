@@ -22,6 +22,43 @@ import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+
+class _AttrDict(dict):
+    """A dict subclass that also supports attribute access.
+
+    This lets Jinja2 templates use both ``obj.key`` and ``obj['key']``
+    interchangeably, and preserves dict methods like ``.items()``,
+    ``.keys()``, and ``.values()`` so loops such as
+    ``{% for k, v in obj.items() %}`` continue to work.
+    """
+
+    def __getattr__(self, name: str) -> Any:
+        try:
+            return self[name]
+        except KeyError:
+            raise AttributeError(name) from None
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        self[name] = value
+
+    def __delattr__(self, name: str) -> None:
+        try:
+            del self[name]
+        except KeyError:
+            raise AttributeError(name) from None
+
+
+def _dict_to_ns(obj: Any) -> Any:
+    """Recursively convert plain dicts to ``_AttrDict`` so that Jinja2
+    attribute access (``monitoring.network.connections_by_status``) works
+    correctly on nested data structures while preserving dict methods
+    like ``.items()`` needed for ``{% for k, v in d.items() %}``."""
+    if isinstance(obj, dict):
+        return _AttrDict({k: _dict_to_ns(v) for k, v in obj.items()})
+    if isinstance(obj, list):
+        return [_dict_to_ns(i) for i in obj]
+    return obj
+
 # ── Template engine setup ────────────────────────────────────────────────────
 
 _TEMPLATES_DIR = Path(__file__).resolve().parent / "templates"
@@ -548,7 +585,7 @@ def render_monitoring_page(
     if _HAS_JINJA2:
         return _render_template(
             "monitoring.html",
-            monitoring=monitoring,
+            monitoring=_dict_to_ns(monitoring),
             app_list=app_list or [],
             active_page="monitoring",
             identity_name=identity_name,

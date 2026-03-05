@@ -3,7 +3,8 @@ Aquilia Database Engine -- async-first, multi-backend, production-ready.
 
 Provides:
 - AquiliaDatabase: async connection manager delegating to backend adapters
-- SQLite (aiosqlite), PostgreSQL (asyncpg), MySQL (aiomysql) backends
+- SQLite (aiosqlite), PostgreSQL (asyncpg), MySQL (aiomysql), Oracle (oracledb) backends
+- Typed config classes: SqliteConfig, PostgresConfig, MysqlConfig, OracleConfig
 - Full integration with AquilaFaults and DI container
 - Lifecycle hooks for startup/shutdown
 - Connection health checks and reconnection
@@ -17,7 +18,7 @@ import logging
 import re
 import time
 from contextlib import asynccontextmanager
-from typing import Any, AsyncIterator, Dict, List, Optional, Sequence, Tuple, Type
+from typing import Any, AsyncIterator, Dict, List, Optional, Sequence, Tuple, Type, Union
 
 from ..faults.domains import (
     DatabaseConnectionFault,
@@ -26,6 +27,7 @@ from ..faults.domains import (
 )
 from ..di.decorators import service
 from .backends.base import DatabaseAdapter, AdapterCapabilities, ColumnInfo, TableInfo
+from .configs import DatabaseConfig, SqliteConfig, PostgresConfig, MysqlConfig, OracleConfig
 
 logger = logging.getLogger("aquilia.db")
 
@@ -59,6 +61,9 @@ def _create_adapter(driver: str) -> DatabaseAdapter:
     elif driver == "mysql":
         from .backends.mysql import MySQLAdapter
         return MySQLAdapter()
+    elif driver == "oracle":
+        from .backends.oracle import OracleAdapter
+        return OracleAdapter()
     else:
         raise DatabaseConnectionFault(
             url=f"<{driver}>",
@@ -110,11 +115,21 @@ class AquiliaDatabase:
         "_last_activity",
         "_connect_retries",
         "_connect_retry_delay",
+        "_config",
     )
 
-    def __init__(self, url: str = "sqlite:///db.sqlite3", **options: Any):
+    def __init__(
+        self,
+        url: Optional[str] = None,
+        *,
+        config: Optional[DatabaseConfig] = None,
+        **options: Any,
+    ):
         """
         Initialize database engine.
+
+        Accepts either a URL string or a typed DatabaseConfig object.
+        Config objects take precedence over URL if both are provided.
 
         Args:
             url: Database URL. Supported schemes:
@@ -122,12 +137,25 @@ class AquiliaDatabase:
                  - sqlite:///:memory:
                  - postgresql://user:pass@host/db
                  - mysql://user:pass@host/db
+                 - oracle://user:pass@host:port/service
+            config: Typed DatabaseConfig (SqliteConfig, PostgresConfig,
+                    MysqlConfig, OracleConfig). If provided, url is ignored.
             **options: Driver-specific options passed to the backend adapter.
                 connect_retries (int): Number of connection retries (default 3).
                 connect_retry_delay (float): Seconds between retries (default 0.5).
         """
-        self._url = url
-        self._driver = self._detect_driver(url)
+        self._config: Optional[DatabaseConfig] = config
+
+        if config is not None:
+            self._url = config.to_url()
+            # Merge config engine options with explicit overrides
+            cfg_opts = config.get_engine_options()
+            cfg_opts.update(options)
+            options = cfg_opts
+        else:
+            self._url = url or "sqlite:///db.sqlite3"
+
+        self._driver = self._detect_driver(self._url)
         self._adapter: DatabaseAdapter = _create_adapter(self._driver)
         self._connected = False
         self._lock = asyncio.Lock()
@@ -146,6 +174,8 @@ class AquiliaDatabase:
             return "postgresql"
         elif url.startswith("mysql"):
             return "mysql"
+        elif url.startswith("oracle"):
+            return "oracle"
         else:
             raise DatabaseConnectionFault(
                 url=url,
@@ -491,23 +521,48 @@ def get_database(alias: Optional[str] = None) -> AquiliaDatabase:
 
 
 def configure_database(
-    url: str = "sqlite:///db.sqlite3",
+    url: Optional[str] = None,
     *,
+    config: Optional[DatabaseConfig] = None,
     alias: str = "default",
     **options: Any,
 ) -> AquiliaDatabase:
     """
     Configure and return a database instance.
 
+    Accepts either a URL string or a typed DatabaseConfig object.
+
     Args:
-        url: Database connection URL
+        url: Database connection URL (ignored if config is provided)
+        config: Typed DatabaseConfig (SqliteConfig, PostgresConfig,
+                MysqlConfig, OracleConfig)
         alias: Database alias for multi-database setups (default "default")
         **options: Driver-specific options
 
     Returns:
         AquiliaDatabase instance
+
+    Examples:
+        # URL-based (backward compatible):
+        db = configure_database("sqlite:///db.sqlite3")
+
+        # Config-based:
+        db = configure_database(config=PostgresConfig(
+            host="localhost",
+            name="mydb",
+            user="admin",
+            password="secret",
+        ))
+
+        # Multi-database:
+        configure_database(config=pg_config, alias="primary")
+        configure_database(config=sqlite_config, alias="cache")
     """
-    db = AquiliaDatabase(url, **options)
+    if config is not None:
+        db = AquiliaDatabase(config=config, **options)
+    else:
+        db = AquiliaDatabase(url or "sqlite:///db.sqlite3", **options)
+
     _database_registry[alias] = db
 
     if alias == "default":

@@ -95,6 +95,7 @@ class ModelRegistry:
 
         # Build dependency graph and topologically sort
         ordered = cls._topological_sort()
+        dialect = getattr(target_db, "dialect", "sqlite")
 
         statements: List[str] = []
         for model_cls in ordered:
@@ -104,17 +105,17 @@ class ModelRegistry:
                 continue
 
             # Create main table
-            sql = model_cls.generate_create_table_sql()
+            sql = model_cls.generate_create_table_sql(dialect=dialect)
             await target_db.execute(sql)
             statements.append(sql)
 
             # Create indexes
-            for idx_sql in model_cls.generate_index_sql():
+            for idx_sql in model_cls.generate_index_sql(dialect=dialect):
                 await target_db.execute(idx_sql)
                 statements.append(idx_sql)
 
             # Create M2M junction tables
-            for m2m_sql in model_cls.generate_m2m_sql():
+            for m2m_sql in model_cls.generate_m2m_sql(dialect=dialect):
                 await target_db.execute(m2m_sql)
                 statements.append(m2m_sql)
 

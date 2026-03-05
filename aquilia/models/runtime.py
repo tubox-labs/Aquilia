@@ -71,24 +71,113 @@ SQLITE_TYPE_MAP = {
     FieldType.FOREIGN_KEY: "INTEGER",
 }
 
+POSTGRES_TYPE_MAP = {
+    FieldType.AUTO: "SERIAL",
+    FieldType.INT: "INTEGER",
+    FieldType.BIGINT: "BIGINT",
+    FieldType.STR: "VARCHAR",
+    FieldType.TEXT: "TEXT",
+    FieldType.BOOL: "BOOLEAN",
+    FieldType.FLOAT: "DOUBLE PRECISION",
+    FieldType.DECIMAL: "DECIMAL",
+    FieldType.JSON: "JSONB",
+    FieldType.BYTES: "BYTEA",
+    FieldType.DATETIME: "TIMESTAMP WITH TIME ZONE",
+    FieldType.DATE: "DATE",
+    FieldType.TIME: "TIME",
+    FieldType.UUID: "UUID",
+    FieldType.ENUM: "VARCHAR(100)",
+    FieldType.FOREIGN_KEY: "INTEGER",
+}
 
-def _sql_col_def(slot: SlotNode) -> str:
+MYSQL_TYPE_MAP = {
+    FieldType.AUTO: "INTEGER",
+    FieldType.INT: "INTEGER",
+    FieldType.BIGINT: "BIGINT",
+    FieldType.STR: "VARCHAR",
+    FieldType.TEXT: "TEXT",
+    FieldType.BOOL: "TINYINT(1)",
+    FieldType.FLOAT: "DOUBLE",
+    FieldType.DECIMAL: "DECIMAL",
+    FieldType.JSON: "JSON",
+    FieldType.BYTES: "LONGBLOB",
+    FieldType.DATETIME: "DATETIME",
+    FieldType.DATE: "DATE",
+    FieldType.TIME: "TIME",
+    FieldType.UUID: "VARCHAR(36)",
+    FieldType.ENUM: "VARCHAR(100)",
+    FieldType.FOREIGN_KEY: "INTEGER",
+}
+
+ORACLE_TYPE_MAP = {
+    FieldType.AUTO: "NUMBER(10)",
+    FieldType.INT: "NUMBER(10)",
+    FieldType.BIGINT: "NUMBER(19)",
+    FieldType.STR: "VARCHAR2",
+    FieldType.TEXT: "CLOB",
+    FieldType.BOOL: "NUMBER(1)",
+    FieldType.FLOAT: "BINARY_DOUBLE",
+    FieldType.DECIMAL: "NUMBER",
+    FieldType.JSON: "CLOB",
+    FieldType.BYTES: "BLOB",
+    FieldType.DATETIME: "TIMESTAMP WITH TIME ZONE",
+    FieldType.DATE: "DATE",
+    FieldType.TIME: "TIMESTAMP",
+    FieldType.UUID: "VARCHAR2(36)",
+    FieldType.ENUM: "VARCHAR2(100)",
+    FieldType.FOREIGN_KEY: "NUMBER(10)",
+}
+
+_TYPE_MAPS = {
+    "sqlite": SQLITE_TYPE_MAP,
+    "postgresql": POSTGRES_TYPE_MAP,
+    "mysql": MYSQL_TYPE_MAP,
+    "oracle": ORACLE_TYPE_MAP,
+}
+
+
+def _get_type_map(dialect: str = "sqlite"):
+    """Return the type map for the given dialect."""
+    return _TYPE_MAPS.get(dialect, SQLITE_TYPE_MAP)
+
+
+def _sql_col_def(slot: SlotNode, dialect: str = "sqlite") -> str:
     """Generate SQL column definition from a SlotNode."""
-    base_type = SQLITE_TYPE_MAP.get(slot.field_type, "TEXT")
+    type_map = _get_type_map(dialect)
+    base_type = type_map.get(slot.field_type, "TEXT")
 
     # Handle VARCHAR with max length
     if slot.field_type == FieldType.STR and slot.max_length:
-        base_type = f"VARCHAR({slot.max_length})"
+        if dialect == "oracle":
+            base_type = f"VARCHAR2({slot.max_length})"
+        else:
+            base_type = f"VARCHAR({slot.max_length})"
     elif slot.field_type == FieldType.DECIMAL and slot.type_params:
         p, s = slot.type_params[0], slot.type_params[1] if len(slot.type_params) > 1 else 0
-        base_type = f"DECIMAL({p},{s})"
+        if dialect == "oracle":
+            base_type = f"NUMBER({p},{s})"
+        else:
+            base_type = f"DECIMAL({p},{s})"
 
     parts = [f'"{slot.name}"', base_type]
 
     if slot.is_pk:
-        parts.append("PRIMARY KEY")
         if slot.field_type == FieldType.AUTO:
-            parts.append("AUTOINCREMENT")
+            if dialect == "postgresql":
+                # SERIAL already implies PRIMARY KEY + auto-increment
+                parts.append("PRIMARY KEY")
+            elif dialect == "mysql":
+                parts.append("PRIMARY KEY")
+                parts.append("AUTO_INCREMENT")
+            elif dialect == "oracle":
+                # Oracle 12c+ IDENTITY column
+                parts.append("GENERATED ALWAYS AS IDENTITY")
+                parts.append("PRIMARY KEY")
+            else:
+                parts.append("PRIMARY KEY")
+                parts.append("AUTOINCREMENT")
+        else:
+            parts.append("PRIMARY KEY")
     if slot.is_unique and not slot.is_pk:
         parts.append("UNIQUE")
     if not slot.is_nullable and not slot.is_pk:
@@ -103,9 +192,9 @@ def _sql_col_def(slot: SlotNode) -> str:
     return " ".join(parts)
 
 
-def generate_create_table_sql(model: ModelNode) -> str:
+def generate_create_table_sql(model: ModelNode, dialect: str = "sqlite") -> str:
     """Generate CREATE TABLE SQL from a ModelNode."""
-    cols = [_sql_col_def(s) for s in model.slots]
+    cols = [_sql_col_def(s, dialect) for s in model.slots]
 
     # Add composite indexes as table constraints (unique ones)
     for idx in model.indexes:
@@ -433,11 +522,12 @@ class ModelRegistry:
             SchemaFault: When table creation fails
         """
         target_db = db or self._db or get_database()
+        dialect = getattr(target_db, "dialect", "sqlite")
         statements: List[str] = []
 
         for model in self._models.values():
             try:
-                sql = generate_create_table_sql(model)
+                sql = generate_create_table_sql(model, dialect=dialect)
                 await target_db.execute(sql)
                 statements.append(sql)
 

@@ -1304,7 +1304,7 @@ class Q:
                 # Apply field.to_db() conversion if the field exists
                 field = self._model_cls._fields.get(k) if hasattr(self._model_cls, '_fields') else None
                 if field is not None:
-                    v = field.to_db(v)
+                    v = field.to_db(v, dialect=dialect)
                 set_parts.append(f'"{k}" = ?')
                 set_params.append(v)
 

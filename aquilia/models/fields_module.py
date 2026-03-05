@@ -205,7 +205,7 @@ class Field:
             return None
         return value
 
-    def to_db(self, value: Any) -> Any:
+    def to_db(self, value: Any, dialect: str = "sqlite") -> Any:
         """Convert Python value to database-ready value."""
         if value is None:
             return None
@@ -222,9 +222,22 @@ class Field:
         parts = [f'"{self.column_name}"', self.sql_type(dialect)]
 
         if self.primary_key:
-            parts.append("PRIMARY KEY")
-            if isinstance(self, (AutoField, BigAutoField)):
-                parts.append("AUTOINCREMENT")
+            if isinstance(self, (AutoField, BigAutoField, SmallAutoField)):
+                if dialect == "postgresql":
+                    # SERIAL/BIGSERIAL/SMALLSERIAL already implies NOT NULL
+                    parts.append("PRIMARY KEY")
+                elif dialect == "mysql":
+                    parts.append("PRIMARY KEY")
+                    parts.append("AUTO_INCREMENT")
+                elif dialect == "oracle":
+                    # Oracle 12c+ IDENTITY column
+                    parts.append("GENERATED ALWAYS AS IDENTITY")
+                    parts.append("PRIMARY KEY")
+                else:
+                    parts.append("PRIMARY KEY")
+                    parts.append("AUTOINCREMENT")
+            else:
+                parts.append("PRIMARY KEY")
         if self.unique and not self.primary_key:
             parts.append("UNIQUE")
         if not self.null and not self.primary_key:
@@ -241,6 +254,10 @@ class Field:
         if self.default is UNSET or callable(self.default):
             return None
         if isinstance(self.default, bool):
+            if dialect == "postgresql":
+                return "TRUE" if self.default else "FALSE"
+            if dialect == "oracle":
+                return "1" if self.default else "0"
             return "1" if self.default else "0"
         if isinstance(self.default, (int, float)):
             return str(self.default)
@@ -318,6 +335,10 @@ class AutoField(Field):
         return value
 
     def sql_type(self, dialect: str = "sqlite") -> str:
+        if dialect == "postgresql":
+            return "SERIAL"
+        if dialect == "oracle":
+            return "NUMBER(10)"
         return "INTEGER"
 
 
@@ -368,6 +389,8 @@ class BigAutoField(Field):
     def sql_type(self, dialect: str = "sqlite") -> str:
         if dialect == "postgresql":
             return "BIGSERIAL"
+        if dialect == "oracle":
+            return "NUMBER(19)"
         return "INTEGER"
 
 
@@ -392,6 +415,8 @@ class SmallAutoField(AutoField):
     def sql_type(self, dialect: str = "sqlite") -> str:
         if dialect == "postgresql":
             return "SMALLSERIAL"
+        if dialect == "oracle":
+            return "NUMBER(5)"
         return "INTEGER"
 
 
@@ -416,6 +441,8 @@ class IntegerField(Field):
         return value
 
     def sql_type(self, dialect: str = "sqlite") -> str:
+        if dialect == "oracle":
+            return "NUMBER(10)"
         return "INTEGER"
 
 
@@ -439,6 +466,8 @@ class BigIntegerField(Field):
     def sql_type(self, dialect: str = "sqlite") -> str:
         if dialect == "postgresql":
             return "BIGINT"
+        if dialect == "oracle":
+            return "NUMBER(19)"
         return "INTEGER"
 
 
@@ -464,6 +493,8 @@ class SmallIntegerField(Field):
     def sql_type(self, dialect: str = "sqlite") -> str:
         if dialect == "postgresql":
             return "SMALLINT"
+        if dialect == "oracle":
+            return "NUMBER(5)"
         return "INTEGER"
 
 
@@ -489,6 +520,8 @@ class PositiveIntegerField(Field):
         return value
 
     def sql_type(self, dialect: str = "sqlite") -> str:
+        if dialect == "oracle":
+            return "NUMBER(10)"
         return "INTEGER"
 
 
@@ -516,6 +549,8 @@ class PositiveSmallIntegerField(Field):
     def sql_type(self, dialect: str = "sqlite") -> str:
         if dialect == "postgresql":
             return "SMALLINT"
+        if dialect == "oracle":
+            return "NUMBER(5)"
         return "INTEGER"
 
 
@@ -543,6 +578,8 @@ class PositiveBigIntegerField(Field):
     def sql_type(self, dialect: str = "sqlite") -> str:
         if dialect == "postgresql":
             return "BIGINT"
+        if dialect == "oracle":
+            return "NUMBER(19)"
         return "INTEGER"
 
 
@@ -566,6 +603,8 @@ class FloatField(Field):
     def sql_type(self, dialect: str = "sqlite") -> str:
         if dialect == "postgresql":
             return "DOUBLE PRECISION"
+        if dialect == "oracle":
+            return "BINARY_DOUBLE"
         return "REAL"
 
 
@@ -653,12 +692,14 @@ class DecimalField(Field):
             return None
         return decimal.Decimal(str(value))
 
-    def to_db(self, value: Any) -> Any:
+    def to_db(self, value: Any, dialect: str = "sqlite") -> Any:
         if value is None:
             return None
         return str(value)
 
     def sql_type(self, dialect: str = "sqlite") -> str:
+        if dialect == "oracle":
+            return f"NUMBER({self.max_digits},{self.decimal_places})"
         return f"DECIMAL({self.max_digits},{self.decimal_places})"
 
     def deconstruct(self) -> Dict[str, Any]:
@@ -727,6 +768,8 @@ class CharField(Field):
         return value
 
     def sql_type(self, dialect: str = "sqlite") -> str:
+        if dialect == "oracle":
+            return f"VARCHAR2({self.max_length})"
         return f"VARCHAR({self.max_length})"
 
     def deconstruct(self) -> Dict[str, Any]:
@@ -759,6 +802,8 @@ class TextField(Field):
         return value
 
     def sql_type(self, dialect: str = "sqlite") -> str:
+        if dialect == "oracle":
+            return "CLOB"
         return "TEXT"
 
 
@@ -965,7 +1010,7 @@ class UUIDField(Field):
             return value
         return uuid.UUID(str(value))
 
-    def to_db(self, value: Any) -> Any:
+    def to_db(self, value: Any, dialect: str = "sqlite") -> Any:
         if value is None:
             return None
         return str(value)
@@ -973,6 +1018,8 @@ class UUIDField(Field):
     def sql_type(self, dialect: str = "sqlite") -> str:
         if dialect == "postgresql":
             return "UUID"
+        if dialect == "oracle":
+            return "VARCHAR2(36)"
         return "VARCHAR(36)"
 
 
@@ -1071,11 +1118,15 @@ class DateField(Field):
             return datetime.date.fromisoformat(value)
         return value
 
-    def to_db(self, value: Any) -> Any:
+    def to_db(self, value: Any, dialect: str = "sqlite") -> Any:
         if value is None:
             return None
         if isinstance(value, datetime.date):
-            return value.isoformat()
+            # PostgreSQL/MySQL/Oracle drivers expect native datetime objects;
+            # SQLite stores dates as ISO-8601 text.
+            if dialect == "sqlite":
+                return value.isoformat()
+            return value
         return str(value)
 
     def sql_type(self, dialect: str = "sqlite") -> str:
@@ -1152,11 +1203,15 @@ class TimeField(Field):
             return datetime.time.fromisoformat(value)
         return value
 
-    def to_db(self, value: Any) -> Any:
+    def to_db(self, value: Any, dialect: str = "sqlite") -> Any:
         if value is None:
             return None
         if isinstance(value, datetime.time):
-            return value.isoformat()
+            # PostgreSQL/MySQL/Oracle drivers expect native time objects;
+            # SQLite stores times as ISO-8601 text.
+            if dialect == "sqlite":
+                return value.isoformat()
+            return value
         return str(value)
 
     def sql_type(self, dialect: str = "sqlite") -> str:
@@ -1208,9 +1263,9 @@ class DateTimeField(Field):
         self.auto_now_add = auto_now_add
         # auto_now and auto_now_add fields should be blank=True (auto-populated)
         if auto_now or auto_now_add:
-            kwargs.setdefault("blank", True)
-        if auto_now_add:
-            kwargs.setdefault("default", lambda: datetime.datetime.now(datetime.timezone.utc))
+            kwargs["blank"] = True
+        if auto_now_add and kwargs.get("default") is UNSET:
+            kwargs["default"] = lambda: datetime.datetime.now(datetime.timezone.utc)
         super().__init__(**kwargs)
 
     def validate(self, value: Any) -> Any:
@@ -1235,15 +1290,26 @@ class DateTimeField(Field):
             return datetime.datetime.fromisoformat(value)
         return value
 
-    def to_db(self, value: Any) -> Any:
+    def to_db(self, value: Any, dialect: str = "sqlite") -> Any:
         if value is None:
             return None
         if isinstance(value, datetime.datetime):
-            return value.isoformat()
+            # PostgreSQL/MySQL/Oracle drivers expect native datetime objects;
+            # SQLite stores datetimes as ISO-8601 text.
+            if dialect == "sqlite":
+                return value.isoformat()
+            # PostgreSQL TIMESTAMP WITH TIME ZONE requires tz-aware datetimes.
+            # If a naive datetime slips through, assume UTC to avoid
+            # "can't subtract offset-naive and offset-aware datetimes".
+            if dialect == "postgresql" and value.tzinfo is None:
+                value = value.replace(tzinfo=datetime.timezone.utc)
+            return value
         return str(value)
 
     def sql_type(self, dialect: str = "sqlite") -> str:
         if dialect == "postgresql":
+            return "TIMESTAMP WITH TIME ZONE"
+        if dialect == "oracle":
             return "TIMESTAMP WITH TIME ZONE"
         return "TIMESTAMP"
 
@@ -1281,7 +1347,7 @@ class DurationField(Field):
             return datetime.timedelta(microseconds=value)
         return value
 
-    def to_db(self, value: Any) -> Any:
+    def to_db(self, value: Any, dialect: str = "sqlite") -> Any:
         if value is None:
             return None
         if isinstance(value, datetime.timedelta):
@@ -1291,6 +1357,8 @@ class DurationField(Field):
     def sql_type(self, dialect: str = "sqlite") -> str:
         if dialect == "postgresql":
             return "INTERVAL"
+        if dialect == "oracle":
+            return "INTERVAL DAY TO SECOND"
         return "INTEGER"  # microseconds
 
 
@@ -1326,14 +1394,20 @@ class BooleanField(Field):
             return None
         return bool(value)
 
-    def to_db(self, value: Any) -> Any:
+    def to_db(self, value: Any, dialect: str = "sqlite") -> Any:
         if value is None:
             return None
+        # PostgreSQL BOOLEAN columns require native Python bool via asyncpg;
+        # SQLite/MySQL/Oracle store bools as INTEGER/NUMBER(1) → use 0/1.
+        if dialect == "postgresql":
+            return bool(value)
         return 1 if value else 0
 
     def sql_type(self, dialect: str = "sqlite") -> str:
         if dialect == "postgresql":
             return "BOOLEAN"
+        if dialect == "oracle":
+            return "NUMBER(1)"
         return "INTEGER"
 
 
@@ -1396,6 +1470,10 @@ class BinaryField(Field):
         return value
 
     def sql_type(self, dialect: str = "sqlite") -> str:
+        if dialect == "postgresql":
+            return "BYTEA"
+        if dialect == "oracle":
+            return "BLOB"
         return "BLOB"
 
 
@@ -1457,7 +1535,7 @@ class JSONField(Field):
                 return value
         return value
 
-    def to_db(self, value: Any) -> Any:
+    def to_db(self, value: Any, dialect: str = "sqlite") -> Any:
         if value is None:
             return None
         if isinstance(value, str):
@@ -1467,6 +1545,8 @@ class JSONField(Field):
     def sql_type(self, dialect: str = "sqlite") -> str:
         if dialect == "postgresql":
             return "JSONB"
+        if dialect == "oracle":
+            return "CLOB"
         return "TEXT"
 
 
@@ -1572,6 +1652,8 @@ class ForeignKey(RelationField):
         return value
 
     def sql_type(self, dialect: str = "sqlite") -> str:
+        if dialect == "oracle":
+            return "NUMBER(10)"
         return "INTEGER"
 
     def sql_column_def(self, dialect: str = "sqlite") -> str:
@@ -1761,6 +1843,8 @@ class GenericIPAddressField(Field):
     def sql_type(self, dialect: str = "sqlite") -> str:
         if dialect == "postgresql":
             return "INET"
+        if dialect == "oracle":
+            return "VARCHAR2(39)"
         return "VARCHAR(39)"
 
 
@@ -1834,7 +1918,7 @@ class ArrayField(Field):
             return json.loads(value)
         return list(value)
 
-    def to_db(self, value: Any) -> Any:
+    def to_db(self, value: Any, dialect: str = "sqlite") -> Any:
         if value is None:
             return None
         # SQLite: store as JSON
@@ -1871,7 +1955,7 @@ class HStoreField(Field):
             return json.loads(value)
         return value
 
-    def to_db(self, value: Any) -> Any:
+    def to_db(self, value: Any, dialect: str = "sqlite") -> Any:
         if value is None:
             return None
         return json.dumps(value)
@@ -1902,7 +1986,7 @@ class RangeField(Field):
             return json.loads(value)
         return list(value)
 
-    def to_db(self, value: Any) -> Any:
+    def to_db(self, value: Any, dialect: str = "sqlite") -> Any:
         if value is None:
             return None
         return json.dumps(value)

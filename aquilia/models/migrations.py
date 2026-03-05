@@ -23,7 +23,7 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 from ..db.engine import AquiliaDatabase
 from ..faults.domains import MigrationFault, MigrationConflictFault, SchemaFault
 from .ast_nodes import FieldType, ModelNode
-from .runtime import generate_create_table_sql, generate_create_index_sql, SQLITE_TYPE_MAP
+from .runtime import generate_create_table_sql, generate_create_index_sql, SQLITE_TYPE_MAP, POSTGRES_TYPE_MAP, MYSQL_TYPE_MAP, _get_type_map
 from .signals import pre_migrate, post_migrate
 
 logger = logging.getLogger("aquilia.models.migrations")
@@ -190,7 +190,7 @@ class MigrationOps:
                     f"DROP DEFAULT;"
                 )
             elif default is not None:
-                default_sql = _format_default(default)
+                default_sql = _format_default(default, self._dialect)
                 self._statements.append(
                     f'ALTER TABLE "{table}" ALTER COLUMN "{column}" '
                     f"SET DEFAULT {default_sql};"
@@ -207,7 +207,7 @@ class MigrationOps:
             if drop_default:
                 pass  # MySQL drops default by omission in MODIFY
             elif default is not None:
-                parts.append(f"DEFAULT {_format_default(default)}")
+                parts.append(f"DEFAULT {_format_default(default, self._dialect)}")
             self._statements.append(" ".join(parts) + ";")
 
     # ── Index operations ─────────────────────────────────────────────
@@ -295,6 +295,8 @@ class MigrationOps:
             return f'"{name}" SERIAL PRIMARY KEY'
         elif dialect == "mysql":
             return f'"{name}" INTEGER PRIMARY KEY AUTO_INCREMENT'
+        elif dialect == "oracle":
+            return f'"{name}" NUMBER(10) GENERATED ALWAYS AS IDENTITY PRIMARY KEY'
         return f'"{name}" INTEGER PRIMARY KEY AUTOINCREMENT'
 
     @staticmethod
@@ -304,6 +306,8 @@ class MigrationOps:
             return f'"{name}" BIGSERIAL PRIMARY KEY'
         elif dialect == "mysql":
             return f'"{name}" BIGINT PRIMARY KEY AUTO_INCREMENT'
+        elif dialect == "oracle":
+            return f'"{name}" NUMBER(19) GENERATED ALWAYS AS IDENTITY PRIMARY KEY'
         return f'"{name}" INTEGER PRIMARY KEY AUTOINCREMENT'
 
     @staticmethod
@@ -461,12 +465,14 @@ class MigrationOps:
         self._statements.clear()
 
 
-def _format_default(value: Any) -> str:
-    """Format a Python value as SQL DEFAULT value."""
+def _format_default(value: Any, dialect: str = "postgresql") -> str:
+    """Format a Python value as SQL DEFAULT value (dialect-aware)."""
     if value is None:
         return "NULL"
     if isinstance(value, bool):
-        return "TRUE" if value else "FALSE"
+        if dialect == "postgresql":
+            return "TRUE" if value else "FALSE"
+        return str(int(value))
     if isinstance(value, (int, float)):
         return str(value)
     if isinstance(value, str):
@@ -507,6 +513,7 @@ def generate_migration_file(
     models: List[ModelNode],
     migrations_dir: str | Path,
     slug: Optional[str] = None,
+    dialect: str = "sqlite",
 ) -> Path:
     """
     Generate a migration file from AMDL model nodes.
@@ -517,6 +524,7 @@ def generate_migration_file(
         models: List of ModelNode objects
         migrations_dir: Directory to write migration file
         slug: Optional slug for filename
+        dialect: Database dialect ("sqlite", "postgresql", "mysql")
 
     Returns:
         Path to generated migration file
@@ -538,7 +546,7 @@ def generate_migration_file(
 
     for model in models:
         # Create table
-        create_sql = generate_create_table_sql(model)
+        create_sql = generate_create_table_sql(model, dialect=dialect)
         upgrade_lines.append(f'    await conn.execute("""{create_sql}""")')
 
         # Create indexes
@@ -582,6 +590,7 @@ def generate_migration_from_models(
     model_classes: list,
     migrations_dir: str | Path,
     slug: Optional[str] = None,
+    dialect: str = "sqlite",
 ) -> Path:
     """
     Generate a migration file from new Python Model subclasses.
@@ -593,6 +602,7 @@ def generate_migration_from_models(
         model_classes: List of Model subclass classes
         migrations_dir: Directory to write migration file
         slug: Optional slug for filename
+        dialect: Database dialect ("sqlite", "postgresql", "mysql")
 
     Returns:
         Path to generated migration file
@@ -614,15 +624,15 @@ def generate_migration_from_models(
 
     for model_cls in model_classes:
         # Create table
-        create_sql = model_cls.generate_create_table_sql()
+        create_sql = model_cls.generate_create_table_sql(dialect=dialect)
         upgrade_lines.append(f'    await conn.execute("""{create_sql}""")')
 
         # Create indexes
-        for idx_sql in model_cls.generate_index_sql():
+        for idx_sql in model_cls.generate_index_sql(dialect=dialect):
             upgrade_lines.append(f'    await conn.execute("""{idx_sql}""")')
 
         # Create M2M junction tables
-        for m2m_sql in model_cls.generate_m2m_sql():
+        for m2m_sql in model_cls.generate_m2m_sql(dialect=dialect):
             upgrade_lines.append(f'    await conn.execute("""{m2m_sql}""")')
 
         # Drop table (downgrade)
@@ -685,12 +695,22 @@ class MigrationRunner:
     ):
         self.db = db
         self.migrations_dir = Path(migrations_dir)
+        self._dialect = getattr(db, "dialect", "sqlite")
 
     async def ensure_tracking_table(self) -> None:
         """Create the migrations tracking table if it doesn't exist."""
+        if self._dialect == "postgresql":
+            pk_def = '"id" SERIAL PRIMARY KEY'
+        elif self._dialect == "mysql":
+            pk_def = '"id" INTEGER PRIMARY KEY AUTO_INCREMENT'
+        elif self._dialect == "oracle":
+            pk_def = '"id" NUMBER(10) GENERATED ALWAYS AS IDENTITY PRIMARY KEY'
+        else:
+            pk_def = '"id" INTEGER PRIMARY KEY AUTOINCREMENT'
+
         sql = f"""
         CREATE TABLE IF NOT EXISTS "{MIGRATION_TABLE}" (
-            "id" INTEGER PRIMARY KEY AUTOINCREMENT,
+            {pk_def},
             "revision" VARCHAR(50) NOT NULL UNIQUE,
             "slug" VARCHAR(200) NOT NULL,
             "checksum" VARCHAR(64),

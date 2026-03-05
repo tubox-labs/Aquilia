@@ -4,16 +4,29 @@ Fluent Configuration Builders for Aquilia.
 Provides a unique, type-safe, fluent API for configuring Aquilia workspaces.
 Replaces YAML configuration with Python for better IDE support and validation.
 
+Supports typed database config classes (SqliteConfig, PostgresConfig,
+MysqlConfig, OracleConfig) alongside URL-based configuration for backward
+compatibility.
+
 Example:
+    >>> from aquilia.db.configs import PostgresConfig
     >>> workspace = (
     ...     Workspace("myapp", version="0.1.0")
     ...     .runtime(mode="dev", port=8000)
     ...     .module(Module("users").route_prefix("/users"))
+    ...     .integrate(Integration.database(
+    ...         config=PostgresConfig(
+    ...             host="localhost",
+    ...             name="mydb",
+    ...             user="admin",
+    ...             password="secret",
+    ...         )
+    ...     ))
     ...     .integrate(Integration.sessions(...))
     ... )
 """
 
-from typing import Optional, List, Any, Dict
+from typing import Optional, List, Any, Dict, Union
 from dataclasses import dataclass, field
 from datetime import timedelta
 
@@ -319,7 +332,9 @@ class Module:
     
     def database(
         self,
-        url: str = "sqlite:///db.sqlite3",
+        url: Optional[str] = None,
+        *,
+        config: Optional[Any] = None,
         auto_connect: bool = True,
         auto_create: bool = True,
         auto_migrate: bool = False,
@@ -329,22 +344,38 @@ class Module:
         """
         Configure database for this module.
         
+        Accepts either a URL string or a typed DatabaseConfig object.
+        
         Args:
-            url: Database URL
+            url: Database URL (backward compatible)
+            config: Typed DatabaseConfig (SqliteConfig, PostgresConfig,
+                    MysqlConfig, OracleConfig). Takes precedence over url.
             auto_connect: Connect on startup
             auto_create: Create tables automatically
             auto_migrate: Run pending migrations on startup
             migrations_dir: Migration files directory
             **kwargs: Additional database options
         """
-        self._config.database = {
-            "url": url,
-            "auto_connect": auto_connect,
-            "auto_create": auto_create,
-            "auto_migrate": auto_migrate,
-            "migrations_dir": migrations_dir,
-            **kwargs,
-        }
+        if config is not None:
+            # Use typed config object
+            db_dict = config.to_dict()
+            db_dict.update({
+                "auto_connect": auto_connect,
+                "auto_create": auto_create,
+                "auto_migrate": auto_migrate,
+                "migrations_dir": migrations_dir,
+            })
+            db_dict.update(kwargs)
+            self._config.database = db_dict
+        else:
+            self._config.database = {
+                "url": url or "sqlite:///db.sqlite3",
+                "auto_connect": auto_connect,
+                "auto_create": auto_create,
+                "auto_migrate": auto_migrate,
+                "migrations_dir": migrations_dir,
+                **kwargs,
+            }
         return self
     
     def build(self) -> ModuleConfig:
@@ -519,7 +550,9 @@ class Integration:
     
     @staticmethod
     def database(
-        url: str = "sqlite:///db.sqlite3",
+        url: Optional[str] = None,
+        *,
+        config: Optional[Any] = None,
         auto_connect: bool = True,
         auto_create: bool = True,
         auto_migrate: bool = False,
@@ -533,8 +566,18 @@ class Integration:
         """
         Configure database and AMDL model integration.
         
+        Accepts either a URL string or a typed DatabaseConfig object for
+        developer-friendly, IDE-assisted configuration.
+        
         Args:
             url: Database URL (sqlite:///path, postgresql://..., etc.)
+                 Ignored if config is provided.
+            config: Typed DatabaseConfig object. Supported types:
+                    - SqliteConfig
+                    - PostgresConfig
+                    - MysqlConfig
+                    - OracleConfig
+                    Takes precedence over url.
             auto_connect: Connect database on server startup
             auto_create: Automatically create tables from discovered models
             auto_migrate: Run pending migrations on startup
@@ -548,18 +591,58 @@ class Integration:
         Returns:
             Database configuration dictionary
             
-        Example:
-            ```python
+        Examples:
+            # URL-based (backward compatible):
             .integrate(Integration.database(
                 url="sqlite:///app.db",
                 auto_create=True,
+            ))
+            
+            # Config-based (recommended):
+            from aquilia.db.configs import PostgresConfig
+            .integrate(Integration.database(
+                config=PostgresConfig(
+                    host="localhost",
+                    port=5432,
+                    name="mydb",
+                    user="admin",
+                    password="secret",
+                ),
+                pool_size=10,
+                auto_create=True,
                 scan_dirs=["models", "modules/*/models"],
             ))
-            ```
+            
+            # Oracle:
+            from aquilia.db.configs import OracleConfig
+            .integrate(Integration.database(
+                config=OracleConfig(
+                    host="oracle.example.com",
+                    service_name="PROD",
+                    user="app",
+                    password="secret",
+                ),
+            ))
         """
+        if config is not None:
+            # Merge typed config with overrides
+            result = config.to_dict()
+            result.update({
+                "auto_connect": auto_connect,
+                "auto_create": auto_create,
+                "auto_migrate": auto_migrate,
+                "migrations_dir": migrations_dir,
+                "pool_size": pool_size,
+                "echo": echo,
+                "model_paths": model_paths or [],
+                "scan_dirs": scan_dirs or ["models"],
+            })
+            result.update(kwargs)
+            return result
+        
         return {
             "enabled": True,
-            "url": url,
+            "url": url or "sqlite:///db.sqlite3",
             "auto_connect": auto_connect,
             "auto_create": auto_create,
             "auto_migrate": auto_migrate,
@@ -3304,7 +3387,9 @@ class Workspace:
     
     def database(
         self,
-        url: str = "sqlite:///db.sqlite3",
+        url: Optional[str] = None,
+        *,
+        config: Optional[Any] = None,
         auto_connect: bool = True,
         auto_create: bool = True,
         auto_migrate: bool = False,
@@ -3317,8 +3402,12 @@ class Workspace:
         This sets the default database for all modules.
         Individual modules can override with Module.database().
         
+        Accepts either a URL string or a typed DatabaseConfig object.
+        
         Args:
-            url: Database URL
+            url: Database URL (backward compatible)
+            config: Typed DatabaseConfig (SqliteConfig, PostgresConfig,
+                    MysqlConfig, OracleConfig). Takes precedence over url.
             auto_connect: Connect on startup
             auto_create: Create tables on startup
             auto_migrate: Run pending migrations on startup
@@ -3327,22 +3416,45 @@ class Workspace:
             
         Example:
             ```python
+            from aquilia.db.configs import PostgresConfig
+            
+            workspace = (
+                Workspace("myapp")
+                .database(config=PostgresConfig(
+                    host="localhost",
+                    name="mydb",
+                    user="admin",
+                    password="secret",
+                ))
+                .module(Module("blog").register_models("models/blog.amdl"))
+            )
+            
+            # Or with URL (backward compatible):
             workspace = (
                 Workspace("myapp")
                 .database(url="sqlite:///app.db", auto_create=True)
-                .module(Module("blog").register_models("models/blog.amdl"))
             )
             ```
         """
-        self._database_config = {
-            "enabled": True,
-            "url": url,
-            "auto_connect": auto_connect,
-            "auto_create": auto_create,
-            "auto_migrate": auto_migrate,
-            "migrations_dir": migrations_dir,
-            **kwargs,
-        }
+        if config is not None:
+            self._database_config = config.to_dict()
+            self._database_config.update({
+                "auto_connect": auto_connect,
+                "auto_create": auto_create,
+                "auto_migrate": auto_migrate,
+                "migrations_dir": migrations_dir,
+            })
+            self._database_config.update(kwargs)
+        else:
+            self._database_config = {
+                "enabled": True,
+                "url": url or "sqlite:///db.sqlite3",
+                "auto_connect": auto_connect,
+                "auto_create": auto_create,
+                "auto_migrate": auto_migrate,
+                "migrations_dir": migrations_dir,
+                **kwargs,
+            }
         return self
     
     def mlops(
@@ -3477,3 +3589,22 @@ __all__ = [
     "ModuleConfig",
     "AuthConfig",
 ]
+
+# Re-export config classes for convenient access
+try:
+    from aquilia.db.configs import (
+        DatabaseConfig,
+        SqliteConfig,
+        PostgresConfig,
+        MysqlConfig,
+        OracleConfig,
+    )
+    __all__ += [
+        "DatabaseConfig",
+        "SqliteConfig",
+        "PostgresConfig",
+        "MysqlConfig",
+        "OracleConfig",
+    ]
+except ImportError:
+    pass

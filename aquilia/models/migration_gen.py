@@ -281,7 +281,10 @@ def _render_column_def(col: ColumnDef) -> str:
             parts.append(f'on_update="{col.on_update}"')
         return f"C.foreign_key({', '.join(parts)})"
 
-    if "VARCHAR" in t:
+    if t == "BOOLEAN":
+        extra = f", {kwargs_str}" if kwargs_str else ""
+        return f'C.boolean("{col.name}"{extra})'
+    elif "VARCHAR" in t:
         import re
         m = re.search(r'\((\d+)\)', t)
         length = m.group(1) if m else "255"

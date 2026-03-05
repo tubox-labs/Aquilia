@@ -35,6 +35,33 @@ except ImportError:
 # Savepoint name validation
 _SP_NAME_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
 
+# Pattern to detect INSERT statements (for RETURNING auto-injection)
+_INSERT_RE = re.compile(r"^\s*INSERT\s+INTO\s+", re.IGNORECASE)
+
+# Extract rowcount from asyncpg status strings like "INSERT 0 1", "UPDATE 3"
+_STATUS_ROWCOUNT_RE = re.compile(r"(\d+)\s*$")
+
+
+class _PgCursorResult:
+    """
+    Thin cursor-like wrapper around asyncpg results so the ORM can
+    access ``.lastrowid`` and ``.rowcount`` the same way it does for
+    aiosqlite / aiomysql cursors.
+    """
+
+    __slots__ = ("lastrowid", "rowcount")
+
+    def __init__(self, lastrowid: Optional[int] = None, rowcount: int = 0):
+        self.lastrowid = lastrowid
+        self.rowcount = rowcount
+
+    @classmethod
+    def from_status(cls, status: str) -> "_PgCursorResult":
+        """Build from an asyncpg status string like ``'INSERT 0 1'``."""
+        m = _STATUS_ROWCOUNT_RE.search(status)
+        rc = int(m.group(1)) if m else 0
+        return cls(lastrowid=None, rowcount=rc)
+
 
 class PostgresAdapter(DatabaseAdapter):
     """
@@ -155,11 +182,32 @@ class PostgresAdapter(DatabaseAdapter):
         if not self._connected:
             raise RuntimeError("Not connected to PostgreSQL")
         adapted_sql = self.adapt_sql(sql)
+        args = params or []
+
+        # INSERT: auto-append RETURNING "id" so we can expose lastrowid.
+        is_insert = _INSERT_RE.match(adapted_sql) is not None
+        if is_insert and "RETURNING" not in adapted_sql.upper():
+            adapted_sql += ' RETURNING "id"'
+
         conn = self._get_conn()
+
+        if is_insert:
+            # Use fetchrow to get the returned id
+            if conn is not None:
+                row = await conn.fetchrow(adapted_sql, *args)
+            else:
+                async with self._pool.acquire() as c:
+                    row = await c.fetchrow(adapted_sql, *args)
+            lastrowid = row["id"] if row and "id" in row else None
+            return _PgCursorResult(lastrowid=lastrowid, rowcount=1)
+
+        # Non-INSERT (DDL, UPDATE, DELETE, etc.)
         if conn is not None:
-            return await conn.execute(adapted_sql, *(params or []))
-        async with self._pool.acquire() as c:
-            return await c.execute(adapted_sql, *(params or []))
+            status = await conn.execute(adapted_sql, *args)
+        else:
+            async with self._pool.acquire() as c:
+                status = await c.execute(adapted_sql, *args)
+        return _PgCursorResult.from_status(status)
 
     async def execute_many(self, sql: str, params_list: Sequence[Sequence[Any]]) -> None:
         if not self._connected:

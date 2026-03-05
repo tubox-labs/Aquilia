@@ -987,7 +987,7 @@ def render_welcome_page(*, aquilia_version: str = "", system_info: Dict[str, Any
                 <p class="welcome-subtitle">Aquilia is running in debug mode. No root route has been defined yet. Start building your high-performance application now.</p>
                 
                 <div style="display:flex;gap:16px;">
-                    <a href="https://aquilia.dev" target="_blank" class="btn-primary">
+                    <a href="https://aquilia.tubox.cloud" target="_blank" class="btn-primary">
                         {_icon('book')} Documentation
                     </a>
                     <a href="https://github.com/axiomchronicles/Aquilia" target="_blank" class="btn-secondary">
