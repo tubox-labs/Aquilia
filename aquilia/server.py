@@ -1094,16 +1094,36 @@ class AquiliaServer:
 
             # Wire dead-letter hook to FaultEngine for observability
             if hasattr(self, "fault_engine") and self.fault_engine:
+                _fault_engine_ref = self.fault_engine  # capture for closure
+
                 def _task_dead_letter_fault(job):
-                    """Emit a fault when a task exhausts retries."""
-                    from .faults.core import Fault
+                    """Log a fault when a task exhausts retries.
+
+                    FaultEngine.process() is async so we schedule it on the
+                    running loop rather than calling a nonexistent sync method.
+                    """
+                    import asyncio
+                    from .faults.core import Fault, FaultDomain
+
                     fault = Fault(
                         code="TASK_DEAD_LETTER",
-                        message=f"Task {job.name or job.func_ref} permanently failed after {job.retry_count} retries",
-                        domain="tasks",
-                        severity="error",
+                        message=(
+                            f"Task {job.name or job.func_ref} permanently failed "
+                            f"after {job.retry_count} retries"
+                        ),
+                        domain=FaultDomain.custom("TASKS", "Background task faults"),
                     )
-                    self.fault_engine.handle(fault)
+
+                    try:
+                        loop = asyncio.get_running_loop()
+                        loop.create_task(
+                            _fault_engine_ref.process(fault, app="tasks")
+                        )
+                    except RuntimeError:
+                        # No running loop — just log
+                        self.logger.error(
+                            "[TASK_DEAD_LETTER] %s", fault.message
+                        )
 
                 manager.on_dead_letter(_task_dead_letter_fault)
 
@@ -1847,57 +1867,58 @@ class AquiliaServer:
                     ("POST", f"{url_prefix}/profile/update",         "profile_update",          ctrl.profile_update),
                     ("POST", f"{url_prefix}/profile/change-password", "profile_change_password", ctrl.profile_change_password),
                 ])
-            if _mod("containers"):
-                admin_routes.extend([
-                    ("GET",  f"{url_prefix}/containers/",                "containers_view",    ctrl.containers_view),
-                    ("GET",  f"{url_prefix}/containers/api/",            "containers_api",     ctrl.containers_api),
-                    ("POST", f"{url_prefix}/containers/action/",         "containers_action",  ctrl.containers_action),
-                    ("POST", f"{url_prefix}/containers/inspect/",        "containers_inspect", ctrl.containers_inspect),
-                    ("POST", f"{url_prefix}/containers/logs/",           "containers_logs",    ctrl.containers_logs),
-                    ("POST", f"{url_prefix}/containers/volume-inspect/", "volume_inspect",     ctrl.volume_inspect),
-                    ("POST", f"{url_prefix}/containers/network-inspect/","network_inspect",    ctrl.network_inspect),
-                    ("POST", f"{url_prefix}/containers/image-inspect/",  "image_inspect",      ctrl.image_inspect),
-                    ("POST", f"{url_prefix}/containers/image-action/",   "image_action",       ctrl.image_action),
-                    ("POST", f"{url_prefix}/containers/compose-action/", "compose_action",     ctrl.compose_action),
-                    ("POST", f"{url_prefix}/containers/volume-action/",  "volume_action",      ctrl.volume_action),
-                    ("POST", f"{url_prefix}/containers/network-action/", "network_action",     ctrl.network_action),
-                    # Advanced Docker features
-                    ("POST", f"{url_prefix}/containers/disk-usage/",     "docker_disk_usage",  ctrl.docker_disk_usage),
-                    ("POST", f"{url_prefix}/containers/prune/",          "docker_prune",       ctrl.docker_prune),
-                    ("POST", f"{url_prefix}/containers/exec/",           "container_exec",     ctrl.container_exec),
-                    ("POST", f"{url_prefix}/containers/image-history/",  "image_history",      ctrl.image_history),
-                    ("POST", f"{url_prefix}/containers/image-tag/",      "image_tag",          ctrl.image_tag),
-                    ("POST", f"{url_prefix}/containers/export/",         "container_export",   ctrl.container_export),
-                    ("POST", f"{url_prefix}/containers/create-network/", "create_network",     ctrl.create_network),
-                    ("POST", f"{url_prefix}/containers/create-volume/",  "create_volume",      ctrl.create_volume),
-                    ("POST", f"{url_prefix}/containers/events/",         "docker_events",      ctrl.docker_events),
-                    ("POST", f"{url_prefix}/containers/build/",          "docker_build",       ctrl.docker_build),
-                    ("POST", f"{url_prefix}/containers/top/",            "container_top",      ctrl.container_top),
-                    ("POST", f"{url_prefix}/containers/diff/",           "container_diff",     ctrl.container_diff),
-                    ("POST", f"{url_prefix}/containers/container-stats/","container_stats_single", ctrl.container_stats_single),
-                ])
-            if _mod("pods"):
-                admin_routes.extend([
-                    ("GET", f"{url_prefix}/pods/",     "pods_view", ctrl.pods_view),
-                    ("GET", f"{url_prefix}/pods/api/", "pods_api",  ctrl.pods_api),
-                ])
+            # Containers, Pods, and DevTools routes are ALWAYS registered
+            # regardless of whether the module is enabled. The controller
+            # handlers themselves check is_module_enabled() and return a
+            # styled disabled page when the module is off. This prevents
+            # the catch-all /<model:str>/ routes from intercepting these
+            # URLs and raising ADMIN_MODEL_NOT_FOUND.
+            admin_routes.extend([
+                ("GET",  f"{url_prefix}/containers/",                "containers_view",    ctrl.containers_view),
+                ("GET",  f"{url_prefix}/containers/api/",            "containers_api",     ctrl.containers_api),
+                ("POST", f"{url_prefix}/containers/action/",         "containers_action",  ctrl.containers_action),
+                ("POST", f"{url_prefix}/containers/inspect/",        "containers_inspect", ctrl.containers_inspect),
+                ("POST", f"{url_prefix}/containers/logs/",           "containers_logs",    ctrl.containers_logs),
+                ("POST", f"{url_prefix}/containers/volume-inspect/", "volume_inspect",     ctrl.volume_inspect),
+                ("POST", f"{url_prefix}/containers/network-inspect/","network_inspect",    ctrl.network_inspect),
+                ("POST", f"{url_prefix}/containers/image-inspect/",  "image_inspect",      ctrl.image_inspect),
+                ("POST", f"{url_prefix}/containers/image-action/",   "image_action",       ctrl.image_action),
+                ("POST", f"{url_prefix}/containers/compose-action/", "compose_action",     ctrl.compose_action),
+                ("POST", f"{url_prefix}/containers/volume-action/",  "volume_action",      ctrl.volume_action),
+                ("POST", f"{url_prefix}/containers/network-action/", "network_action",     ctrl.network_action),
+                # Advanced Docker features
+                ("POST", f"{url_prefix}/containers/disk-usage/",     "docker_disk_usage",  ctrl.docker_disk_usage),
+                ("POST", f"{url_prefix}/containers/prune/",          "docker_prune",       ctrl.docker_prune),
+                ("POST", f"{url_prefix}/containers/exec/",           "container_exec",     ctrl.container_exec),
+                ("POST", f"{url_prefix}/containers/image-history/",  "image_history",      ctrl.image_history),
+                ("POST", f"{url_prefix}/containers/image-tag/",      "image_tag",          ctrl.image_tag),
+                ("POST", f"{url_prefix}/containers/export/",         "container_export",   ctrl.container_export),
+                ("POST", f"{url_prefix}/containers/create-network/", "create_network",     ctrl.create_network),
+                ("POST", f"{url_prefix}/containers/create-volume/",  "create_volume",      ctrl.create_volume),
+                ("POST", f"{url_prefix}/containers/events/",         "docker_events",      ctrl.docker_events),
+                ("POST", f"{url_prefix}/containers/build/",          "docker_build",       ctrl.docker_build),
+                ("POST", f"{url_prefix}/containers/top/",            "container_top",      ctrl.container_top),
+                ("POST", f"{url_prefix}/containers/diff/",           "container_diff",     ctrl.container_diff),
+                ("POST", f"{url_prefix}/containers/container-stats/","container_stats_single", ctrl.container_stats_single),
+            ])
+            admin_routes.extend([
+                ("GET", f"{url_prefix}/pods/",     "pods_view", ctrl.pods_view),
+                ("GET", f"{url_prefix}/pods/api/", "pods_api",  ctrl.pods_api),
+            ])
 
-            # DevTools module routes
-            if _mod("query_inspector"):
-                admin_routes.extend([
-                    ("GET", f"{url_prefix}/query-inspector/",    "query_inspector_view", ctrl.query_inspector_view),
-                    ("GET", f"{url_prefix}/query-inspector/api/", "query_inspector_api",  ctrl.query_inspector_api),
-                ])
-            if _mod("tasks"):
-                admin_routes.extend([
-                    ("GET",  f"{url_prefix}/tasks/",    "tasks_view",    ctrl.tasks_view),
-                    ("GET",  f"{url_prefix}/tasks/api/", "tasks_api",    ctrl.tasks_api),
-                ])
-            if _mod("errors"):
-                admin_routes.extend([
-                    ("GET", f"{url_prefix}/errors/",    "errors_view",    ctrl.errors_view),
-                    ("GET", f"{url_prefix}/errors/api/", "errors_api",    ctrl.errors_api),
-                ])
+            # DevTools module routes (always registered — disabled page on off)
+            admin_routes.extend([
+                ("GET", f"{url_prefix}/query-inspector/",    "query_inspector_view", ctrl.query_inspector_view),
+                ("GET", f"{url_prefix}/query-inspector/api/", "query_inspector_api",  ctrl.query_inspector_api),
+            ])
+            admin_routes.extend([
+                ("GET",  f"{url_prefix}/tasks/",    "tasks_view",    ctrl.tasks_view),
+                ("GET",  f"{url_prefix}/tasks/api/", "tasks_api",    ctrl.tasks_api),
+            ])
+            admin_routes.extend([
+                ("GET", f"{url_prefix}/errors/",    "errors_view",    ctrl.errors_view),
+                ("GET", f"{url_prefix}/errors/api/", "errors_api",    ctrl.errors_api),
+            ])
 
             # Model CRUD routes -- always registered
             admin_routes.extend([
