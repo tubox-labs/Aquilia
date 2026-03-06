@@ -1546,98 +1546,150 @@ class AdminSite:
         category_counts: Dict[str, int] = {"unit": 0, "integration": 0, "database": 0, "e2e": 0, "other": 0}
         imports_usage: Dict[str, int] = {}  # which testing imports are used
         try:
-            project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-            for search_dir in ["tests", "myapp/tests"]:
-                test_dir = os.path.join(project_root, search_dir)
-                if os.path.isdir(test_dir):
-                    for fname in sorted(os.listdir(test_dir)):
+            # ── Workspace-scoped test discovery ──────────────────────
+            # Only discover tests from inside the user's workspace,
+            # never from the framework's own test suite.
+            from pathlib import Path as _Path
+
+            # Use workspace.py as the definitive anchor — it only
+            # exists inside the user's project, never at the repo root.
+            ws_file = self._find_workspace_path("workspace.py", is_file=True)
+            if ws_file is not None:
+                workspace_root = ws_file.parent
+            else:
+                # Fallback: look for a starter.py (alternative entry point)
+                starter = self._find_workspace_path("starter.py", is_file=True)
+                if starter is not None:
+                    workspace_root = starter.parent
+                else:
+                    workspace_root = None
+
+            # Collect (display_dir, absolute_dir) pairs to scan
+            scan_dirs: list = []
+            if workspace_root is not None:
+                # 1. Main tests/ directory
+                main_tests = workspace_root / "tests"
+                if main_tests.is_dir():
+                    scan_dirs.append(("tests", main_tests))
+
+                # 2. modules/*/tests/ and modules/**/test_*.py (per-module tests)
+                modules_dir = workspace_root / "modules"
+                if modules_dir.is_dir():
+                    for mod_path in sorted(modules_dir.iterdir()):
+                        if mod_path.is_dir():
+                            mod_name = mod_path.name
+                            # Check modules/<mod>/tests/ subdirectory
+                            mod_tests = mod_path / "tests"
+                            if mod_tests.is_dir():
+                                scan_dirs.append((f"modules/{mod_name}/tests", mod_tests))
+                            # Also check for test_*.py directly in modules/<mod>/
+                            has_test_files = any(
+                                f.name.startswith("test_") and f.name.endswith(".py")
+                                for f in mod_path.iterdir() if f.is_file()
+                            )
+                            if has_test_files:
+                                scan_dirs.append((f"modules/{mod_name}", mod_path))
+
+            def _analyze_test_file(fpath: str, fname: str, display_dir: str) -> None:
+                """Analyze a single test file and append results."""
+                nonlocal total_test_count, total_test_classes_count
+                nonlocal total_lines, total_assert_stmts
+                try:
+                    with open(fpath, "r") as f:
+                        source = f.read()
+                    lines = source.count("\n") + 1
+                    # Count test functions, classes, assert statements
+                    test_funcs = source.count("\n    def test_") + source.count("\n    async def test_")
+                    test_cls = source.count("\nclass Test")
+                    assert_count = source.count("assert ") + source.count("assert(") + source.count("self.assert")
+                    total_test_count += test_funcs
+                    total_test_classes_count += test_cls
+                    total_lines += lines
+                    total_assert_stmts += assert_count
+
+                    # Categorize test file
+                    name_lower = fname.lower()
+                    if "e2e" in name_lower or "live" in name_lower or "browser" in name_lower:
+                        category = "e2e"
+                    elif any(x in name_lower for x in ["orm", "db", "migration", "model"]):
+                        category = "database"
+                    elif any(x in name_lower for x in ["controller", "auth", "admin", "di", "sessions", "regression", "i18n", "integration"]):
+                        category = "integration"
+                    elif any(x in name_lower for x in ["unit", "util", "helper", "missing"]):
+                        category = "unit"
+                    else:
+                        category = "other"
+                    category_counts[category] += 1
+
+                    # Density: tests per 100 lines
+                    density = round(test_funcs / max(lines, 1) * 100, 1)
+
+                    # Detect async tests
+                    async_test_count = source.count("\n    async def test_")
+                    sync_test_count = test_funcs - async_test_count
+
+                    # Detect which testing imports are used
+                    file_imports = []
+                    _testing_imports_map = {
+                        "AquiliaTestCase": "aquilia.testing.cases",
+                        "TransactionTestCase": "aquilia.testing.cases",
+                        "LiveServerTestCase": "aquilia.testing.cases",
+                        "SimpleTestCase": "aquilia.testing.cases",
+                        "TestClient": "aquilia.testing.client",
+                        "MockFaultEngine": "aquilia.testing.faults",
+                        "MockEffectRegistry": "aquilia.testing.effects",
+                        "MockCacheBackend": "aquilia.testing.cache",
+                        "TestContainer": "aquilia.testing.di",
+                        "MailTestMixin": "aquilia.testing.mail",
+                        "TestIdentityFactory": "aquilia.testing.auth",
+                        "TestConfig": "aquilia.testing.config",
+                        "override_settings": "aquilia.testing.config",
+                    }
+                    for symbol, mod in _testing_imports_map.items():
+                        if symbol in source:
+                            file_imports.append(symbol)
+                            imports_usage[symbol] = imports_usage.get(symbol, 0) + 1
+
+                    test_files.append({
+                        "name": fname,
+                        "directory": display_dir,
+                        "path": fpath,
+                        "lines": lines,
+                        "test_count": test_funcs,
+                        "class_count": test_cls,
+                        "assert_count": assert_count,
+                        "category": category,
+                        "density": density,
+                        "async_tests": async_test_count,
+                        "sync_tests": sync_test_count,
+                        "imports": file_imports,
+                    })
+                except Exception:
+                    test_files.append({
+                        "name": fname,
+                        "directory": display_dir,
+                        "path": fpath,
+                        "lines": 0,
+                        "test_count": 0,
+                        "class_count": 0,
+                        "assert_count": 0,
+                        "category": "other",
+                        "density": 0,
+                        "async_tests": 0,
+                        "sync_tests": 0,
+                        "imports": [],
+                    })
+
+            # Scan all discovered directories for test files
+            seen_paths: set = set()
+            for display_dir, abs_dir in scan_dirs:
+                if abs_dir.is_dir():
+                    for fname in sorted(os.listdir(str(abs_dir))):
                         if fname.startswith("test_") and fname.endswith(".py"):
-                            fpath = os.path.join(test_dir, fname)
-                            try:
-                                with open(fpath, "r") as f:
-                                    source = f.read()
-                                lines = source.count("\n") + 1
-                                # Count test functions, classes, assert statements
-                                test_funcs = source.count("\n    def test_") + source.count("\n    async def test_")
-                                test_cls = source.count("\nclass Test")
-                                assert_count = source.count("assert ") + source.count("assert(") + source.count("self.assert")
-                                total_test_count += test_funcs
-                                total_test_classes_count += test_cls
-                                total_lines += lines
-                                total_assert_stmts += assert_count
-
-                                # Categorize test file
-                                name_lower = fname.lower()
-                                if "e2e" in name_lower or "live" in name_lower or "browser" in name_lower:
-                                    category = "e2e"
-                                elif any(x in name_lower for x in ["orm", "db", "migration", "model"]):
-                                    category = "database"
-                                elif any(x in name_lower for x in ["controller", "auth", "admin", "di", "sessions", "regression", "i18n", "integration"]):
-                                    category = "integration"
-                                elif any(x in name_lower for x in ["unit", "util", "helper", "missing"]):
-                                    category = "unit"
-                                else:
-                                    category = "other"
-                                category_counts[category] += 1
-
-                                # Density: tests per 100 lines
-                                density = round(test_funcs / max(lines, 1) * 100, 1)
-
-                                # Detect async tests
-                                async_test_count = source.count("\n    async def test_")
-                                sync_test_count = test_funcs - async_test_count
-
-                                # Detect which testing imports are used
-                                file_imports = []
-                                _testing_imports_map = {
-                                    "AquiliaTestCase": "aquilia.testing.cases",
-                                    "TransactionTestCase": "aquilia.testing.cases",
-                                    "LiveServerTestCase": "aquilia.testing.cases",
-                                    "SimpleTestCase": "aquilia.testing.cases",
-                                    "TestClient": "aquilia.testing.client",
-                                    "MockFaultEngine": "aquilia.testing.faults",
-                                    "MockEffectRegistry": "aquilia.testing.effects",
-                                    "MockCacheBackend": "aquilia.testing.cache",
-                                    "TestContainer": "aquilia.testing.di",
-                                    "MailTestMixin": "aquilia.testing.mail",
-                                    "TestIdentityFactory": "aquilia.testing.auth",
-                                    "TestConfig": "aquilia.testing.config",
-                                    "override_settings": "aquilia.testing.config",
-                                }
-                                for symbol, mod in _testing_imports_map.items():
-                                    if symbol in source:
-                                        file_imports.append(symbol)
-                                        imports_usage[symbol] = imports_usage.get(symbol, 0) + 1
-
-                                test_files.append({
-                                    "name": fname,
-                                    "directory": search_dir,
-                                    "path": fpath,
-                                    "lines": lines,
-                                    "test_count": test_funcs,
-                                    "class_count": test_cls,
-                                    "assert_count": assert_count,
-                                    "category": category,
-                                    "density": density,
-                                    "async_tests": async_test_count,
-                                    "sync_tests": sync_test_count,
-                                    "imports": file_imports,
-                                })
-                            except Exception:
-                                test_files.append({
-                                    "name": fname,
-                                    "directory": search_dir,
-                                    "path": fpath,
-                                    "lines": 0,
-                                    "test_count": 0,
-                                    "class_count": 0,
-                                    "assert_count": 0,
-                                    "category": "other",
-                                    "density": 0,
-                                    "async_tests": 0,
-                                    "sync_tests": 0,
-                                    "imports": [],
-                                })
+                            fpath = os.path.join(str(abs_dir), fname)
+                            if fpath not in seen_paths:
+                                seen_paths.add(fpath)
+                                _analyze_test_file(fpath, fname, display_dir)
         except Exception:
             pass
         data["test_files"] = test_files
