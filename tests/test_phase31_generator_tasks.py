@@ -737,3 +737,523 @@ class TestErrorTrackerLogLevel:
         source = inspect.getsource(AquiliaServer._setup_error_tracker)
         assert 'self.logger.info("Error tracker wired to FaultEngine")' in source
         assert 'self.logger.debug("Error tracker wired to FaultEngine")' not in source
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Phase 31c — Admin Tasks Display Fix
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class TestAdminGetTasksDataRegisteredTasks:
+    """Verify get_tasks_data() returns registered_tasks from the @task registry."""
+
+    @pytest.mark.asyncio
+    async def test_get_tasks_data_returns_registered_tasks_key(self):
+        """get_tasks_data() should always include 'registered_tasks' key."""
+        from aquilia.admin.site import AdminSite
+
+        site = AdminSite.__new__(AdminSite)
+        site._task_manager = None
+        site._registry = {}
+        data = await site.get_tasks_data()
+        assert "registered_tasks" in data
+
+    @pytest.mark.asyncio
+    async def test_get_tasks_data_no_manager_returns_empty_registered(self):
+        """When no task manager, registered_tasks is an empty list."""
+        from aquilia.admin.site import AdminSite
+
+        site = AdminSite.__new__(AdminSite)
+        site._task_manager = None
+        site._registry = {}
+        data = await site.get_tasks_data()
+        assert data["registered_tasks"] == []
+        assert data["available"] is False
+
+    @pytest.mark.asyncio
+    async def test_get_tasks_data_with_manager_includes_registered(self):
+        """When task manager is set, registered_tasks includes @task entries."""
+        from aquilia.admin.site import AdminSite
+        from aquilia.tasks.decorators import _task_registry, _TaskDescriptor
+        from aquilia.tasks.engine import TaskManager, MemoryBackend
+
+        # Create a real manager
+        backend = MemoryBackend()
+        manager = TaskManager(backend=backend, num_workers=1)
+
+        site = AdminSite.__new__(AdminSite)
+        site._task_manager = manager
+        site._registry = {}
+
+        # Ensure at least the auth tasks are in the registry (they get
+        # registered on import)
+        import myapp.modules.auth.tasks  # noqa: F401
+
+        data = await site.get_tasks_data()
+        assert data["available"] is True
+        assert isinstance(data["registered_tasks"], list)
+        assert len(data["registered_tasks"]) >= 3  # 3 auth tasks
+
+    @pytest.mark.asyncio
+    async def test_registered_task_has_required_fields(self):
+        """Each registered task dict should contain name, queue, priority, etc."""
+        from aquilia.admin.site import AdminSite
+        from aquilia.tasks.engine import TaskManager, MemoryBackend
+
+        import myapp.modules.auth.tasks  # noqa: F401
+
+        backend = MemoryBackend()
+        manager = TaskManager(backend=backend, num_workers=1)
+
+        site = AdminSite.__new__(AdminSite)
+        site._task_manager = manager
+        site._registry = {}
+
+        data = await site.get_tasks_data()
+        required_keys = {"name", "queue", "priority", "max_retries", "timeout", "tags"}
+        for t in data["registered_tasks"]:
+            assert required_keys.issubset(t.keys()), f"Missing keys in {t}"
+
+    @pytest.mark.asyncio
+    async def test_registered_task_name_is_string(self):
+        """Task name should be a qualified string like 'module:qualname'."""
+        from aquilia.admin.site import AdminSite
+        from aquilia.tasks.engine import TaskManager, MemoryBackend
+
+        import myapp.modules.auth.tasks  # noqa: F401
+
+        backend = MemoryBackend()
+        manager = TaskManager(backend=backend, num_workers=1)
+
+        site = AdminSite.__new__(AdminSite)
+        site._task_manager = manager
+        site._registry = {}
+
+        data = await site.get_tasks_data()
+        for t in data["registered_tasks"]:
+            assert isinstance(t["name"], str)
+            assert len(t["name"]) > 0
+
+    @pytest.mark.asyncio
+    async def test_registered_task_priority_is_string(self):
+        """Priority should be serialized as a string (e.g. 'NORMAL', 'HIGH')."""
+        from aquilia.admin.site import AdminSite
+        from aquilia.tasks.engine import TaskManager, MemoryBackend
+
+        import myapp.modules.auth.tasks  # noqa: F401
+
+        backend = MemoryBackend()
+        manager = TaskManager(backend=backend, num_workers=1)
+
+        site = AdminSite.__new__(AdminSite)
+        site._task_manager = manager
+        site._registry = {}
+
+        data = await site.get_tasks_data()
+        for t in data["registered_tasks"]:
+            assert isinstance(t["priority"], str)
+
+
+class TestRenderTasksPageRegisteredTasks:
+    """Verify render_tasks_page passes registered_tasks to the template."""
+
+    def test_render_tasks_page_includes_registered_tasks(self):
+        """render_tasks_page should pass registered_tasks to the Jinja2 template."""
+        import inspect
+        from aquilia.admin.templates import render_tasks_page
+
+        source = inspect.getsource(render_tasks_page)
+        assert "registered_tasks" in source
+
+    def test_render_tasks_page_extracts_registered_from_data(self):
+        """render_tasks_page should extract registered_tasks from tasks_data."""
+        from aquilia.admin.templates import render_tasks_page
+
+        tasks_data = {
+            "available": True,
+            "stats": {
+                "total_jobs": 0,
+                "by_state": {},
+                "completed_count": 0,
+                "failed_count": 0,
+                "active_count": 0,
+                "pending_count": 0,
+                "dead_letter_count": 0,
+                "success_rate": 100,
+                "p50_ms": 0,
+                "p95_ms": 0,
+                "p99_ms": 0,
+                "avg_duration_ms": 0,
+                "manager": {
+                    "running": True,
+                    "num_workers": 4,
+                    "total_enqueued": 0,
+                    "total_completed": 0,
+                    "total_failed": 0,
+                    "uptime_seconds": 0,
+                    "queues": ["default"],
+                    "backend": "MemoryBackend",
+                },
+                "charts": {
+                    "throughput": {"labels": [], "completed": [], "failed": []},
+                    "duration_histogram": {"labels": [], "values": []},
+                    "state_doughnut": {"labels": [], "values": []},
+                    "queue_breakdown": {"labels": [], "pending": [], "running": [], "completed": [], "failed": []},
+                },
+            },
+            "jobs": [],
+            "queue_stats": {},
+            "registered_tasks": [
+                {
+                    "name": "test_module:my_task",
+                    "queue": "default",
+                    "priority": "NORMAL",
+                    "max_retries": 3,
+                    "timeout": 300.0,
+                    "retry_delay": 1.0,
+                    "retry_backoff": 2.0,
+                    "tags": ["test"],
+                },
+            ],
+        }
+        html = render_tasks_page(tasks_data=tasks_data)
+        assert "test_module:my_task" in html
+        assert "Registered Tasks" in html
+
+    def test_render_tasks_page_no_registered_tasks(self):
+        """When registered_tasks is empty, the section should not appear."""
+        from aquilia.admin.templates import render_tasks_page
+
+        tasks_data = {
+            "available": True,
+            "stats": {
+                "total_jobs": 0,
+                "by_state": {},
+                "completed_count": 0,
+                "failed_count": 0,
+                "active_count": 0,
+                "pending_count": 0,
+                "dead_letter_count": 0,
+                "success_rate": 100,
+                "p50_ms": 0,
+                "p95_ms": 0,
+                "p99_ms": 0,
+                "avg_duration_ms": 0,
+                "manager": {
+                    "running": True,
+                    "num_workers": 4,
+                    "total_enqueued": 0,
+                    "total_completed": 0,
+                    "total_failed": 0,
+                    "uptime_seconds": 0,
+                    "queues": ["default"],
+                    "backend": "MemoryBackend",
+                },
+                "charts": {
+                    "throughput": {"labels": [], "completed": [], "failed": []},
+                    "duration_histogram": {"labels": [], "values": []},
+                    "state_doughnut": {"labels": [], "values": []},
+                    "queue_breakdown": {"labels": [], "pending": [], "running": [], "completed": [], "failed": []},
+                },
+            },
+            "jobs": [],
+            "queue_stats": {},
+            "registered_tasks": [],
+        }
+        html = render_tasks_page(tasks_data=tasks_data)
+        assert "Registered Tasks" not in html
+
+    def test_render_tasks_page_shows_task_details(self):
+        """Registered task detail fields should appear in rendered HTML."""
+        from aquilia.admin.templates import render_tasks_page
+
+        tasks_data = {
+            "available": True,
+            "stats": {
+                "total_jobs": 0,
+                "by_state": {},
+                "completed_count": 0,
+                "failed_count": 0,
+                "active_count": 0,
+                "pending_count": 0,
+                "dead_letter_count": 0,
+                "success_rate": 100,
+                "p50_ms": 0,
+                "p95_ms": 0,
+                "p99_ms": 0,
+                "avg_duration_ms": 0,
+                "manager": {
+                    "running": True,
+                    "num_workers": 4,
+                    "total_enqueued": 0,
+                    "total_completed": 0,
+                    "total_failed": 0,
+                    "uptime_seconds": 0,
+                    "queues": ["default"],
+                    "backend": "MemoryBackend",
+                },
+                "charts": {
+                    "throughput": {"labels": [], "completed": [], "failed": []},
+                    "duration_histogram": {"labels": [], "values": []},
+                    "state_doughnut": {"labels": [], "values": []},
+                    "queue_breakdown": {"labels": [], "pending": [], "running": [], "completed": [], "failed": []},
+                },
+            },
+            "jobs": [],
+            "queue_stats": {},
+            "registered_tasks": [
+                {
+                    "name": "myapp.auth:cleanup_sessions",
+                    "queue": "auth",
+                    "priority": "HIGH",
+                    "max_retries": 5,
+                    "timeout": 120.0,
+                    "retry_delay": 2.0,
+                    "retry_backoff": 3.0,
+                    "tags": ["auth", "cleanup"],
+                },
+            ],
+        }
+        html = render_tasks_page(tasks_data=tasks_data)
+        assert "myapp.auth:cleanup_sessions" in html
+        assert "auth" in html  # queue
+        assert "HIGH" in html  # priority
+        assert "120.0s" in html  # timeout
+        assert "cleanup" in html  # tag
+
+    def test_render_tasks_page_multiple_registered_tasks(self):
+        """Multiple registered tasks should all appear."""
+        from aquilia.admin.templates import render_tasks_page
+
+        tasks_data = {
+            "available": True,
+            "stats": {
+                "total_jobs": 0,
+                "by_state": {},
+                "completed_count": 0,
+                "failed_count": 0,
+                "active_count": 0,
+                "pending_count": 0,
+                "dead_letter_count": 0,
+                "success_rate": 100,
+                "p50_ms": 0,
+                "p95_ms": 0,
+                "p99_ms": 0,
+                "avg_duration_ms": 0,
+                "manager": {
+                    "running": True,
+                    "num_workers": 4,
+                    "total_enqueued": 0,
+                    "total_completed": 0,
+                    "total_failed": 0,
+                    "uptime_seconds": 0,
+                    "queues": ["default"],
+                    "backend": "MemoryBackend",
+                },
+                "charts": {
+                    "throughput": {"labels": [], "completed": [], "failed": []},
+                    "duration_histogram": {"labels": [], "values": []},
+                    "state_doughnut": {"labels": [], "values": []},
+                    "queue_breakdown": {"labels": [], "pending": [], "running": [], "completed": [], "failed": []},
+                },
+            },
+            "jobs": [],
+            "queue_stats": {},
+            "registered_tasks": [
+                {
+                    "name": "task_alpha",
+                    "queue": "default",
+                    "priority": "NORMAL",
+                    "max_retries": 3,
+                    "timeout": 300.0,
+                    "retry_delay": 1.0,
+                    "retry_backoff": 2.0,
+                    "tags": [],
+                },
+                {
+                    "name": "task_beta",
+                    "queue": "emails",
+                    "priority": "HIGH",
+                    "max_retries": 5,
+                    "timeout": 60.0,
+                    "retry_delay": 0.5,
+                    "retry_backoff": 1.5,
+                    "tags": ["email"],
+                },
+                {
+                    "name": "task_gamma",
+                    "queue": "analytics",
+                    "priority": "LOW",
+                    "max_retries": 1,
+                    "timeout": 600.0,
+                    "retry_delay": 5.0,
+                    "retry_backoff": 4.0,
+                    "tags": ["analytics", "heavy"],
+                },
+            ],
+        }
+        html = render_tasks_page(tasks_data=tasks_data)
+        assert "task_alpha" in html
+        assert "task_beta" in html
+        assert "task_gamma" in html
+        assert "3 tasks discovered" in html
+
+
+class TestTasksTemplateRegisteredSection:
+    """Verify the tasks.html template includes the Registered Tasks section."""
+
+    def test_template_has_registered_tasks_section(self):
+        """tasks.html should contain 'Registered Tasks' heading."""
+        template_path = os.path.join(
+            REPO_ROOT, "aquilia", "admin", "templates", "tasks.html"
+        )
+        with open(template_path) as f:
+            content = f.read()
+        assert "Registered Tasks" in content
+
+    def test_template_iterates_registered_tasks(self):
+        """tasks.html should iterate over registered_tasks."""
+        template_path = os.path.join(
+            REPO_ROOT, "aquilia", "admin", "templates", "tasks.html"
+        )
+        with open(template_path) as f:
+            content = f.read()
+        assert "registered_tasks" in content
+        assert "for t in registered_tasks" in content
+
+    def test_template_shows_task_name(self):
+        """tasks.html should display t.name."""
+        template_path = os.path.join(
+            REPO_ROOT, "aquilia", "admin", "templates", "tasks.html"
+        )
+        with open(template_path) as f:
+            content = f.read()
+        assert "t.name" in content
+
+    def test_template_shows_task_queue(self):
+        """tasks.html should display t.queue."""
+        template_path = os.path.join(
+            REPO_ROOT, "aquilia", "admin", "templates", "tasks.html"
+        )
+        with open(template_path) as f:
+            content = f.read()
+        assert "t.queue" in content
+
+    def test_template_shows_task_priority(self):
+        """tasks.html should display t.priority."""
+        template_path = os.path.join(
+            REPO_ROOT, "aquilia", "admin", "templates", "tasks.html"
+        )
+        with open(template_path) as f:
+            content = f.read()
+        assert "t.priority" in content
+
+    def test_template_shows_task_tags(self):
+        """tasks.html should display t.tags."""
+        template_path = os.path.join(
+            REPO_ROOT, "aquilia", "admin", "templates", "tasks.html"
+        )
+        with open(template_path) as f:
+            content = f.read()
+        assert "t.tags" in content
+
+    def test_template_discovered_count(self):
+        """tasks.html should show discovered count."""
+        template_path = os.path.join(
+            REPO_ROOT, "aquilia", "admin", "templates", "tasks.html"
+        )
+        with open(template_path) as f:
+            content = f.read()
+        assert "discovered" in content
+
+    def test_template_improved_empty_state(self):
+        """tasks.html should show 'tasks registered' message when tasks exist but no jobs."""
+        template_path = os.path.join(
+            REPO_ROOT, "aquilia", "admin", "templates", "tasks.html"
+        )
+        with open(template_path) as f:
+            content = f.read()
+        assert "manager.enqueue()" in content
+
+    def test_template_metric_card_shows_registered_count(self):
+        """tasks.html should show registered task count in the metric card."""
+        template_path = os.path.join(
+            REPO_ROOT, "aquilia", "admin", "templates", "tasks.html"
+        )
+        with open(template_path) as f:
+            content = f.read()
+        assert "registered" in content
+
+
+class TestGetTasksDataIntegrationWithRealTasks:
+    """Integration test: get_tasks_data with real @task-decorated functions."""
+
+    @pytest.mark.asyncio
+    async def test_auth_tasks_appear_in_admin_data(self):
+        """Auth module tasks should appear in admin tasks data."""
+        from aquilia.admin.site import AdminSite
+        from aquilia.tasks.engine import TaskManager, MemoryBackend
+
+        import myapp.modules.auth.tasks  # noqa: F401
+
+        backend = MemoryBackend()
+        manager = TaskManager(backend=backend, num_workers=1)
+
+        site = AdminSite.__new__(AdminSite)
+        site._task_manager = manager
+        site._registry = {}
+
+        data = await site.get_tasks_data()
+        task_names = [t["name"] for t in data["registered_tasks"]]
+
+        # All 3 auth tasks should be present
+        assert any("cleanup_expired_sessions" in n for n in task_names)
+        assert any("record_login_attempt" in n for n in task_names)
+        assert any("check_account_lockout" in n for n in task_names)
+
+    @pytest.mark.asyncio
+    async def test_auth_task_queues_are_correct(self):
+        """Auth tasks should report the correct queue name."""
+        from aquilia.admin.site import AdminSite
+        from aquilia.tasks.engine import TaskManager, MemoryBackend
+
+        import myapp.modules.auth.tasks  # noqa: F401
+
+        backend = MemoryBackend()
+        manager = TaskManager(backend=backend, num_workers=1)
+
+        site = AdminSite.__new__(AdminSite)
+        site._task_manager = manager
+        site._registry = {}
+
+        data = await site.get_tasks_data()
+        for t in data["registered_tasks"]:
+            if "cleanup_expired_sessions" in t["name"]:
+                assert t["queue"] == "maintenance"
+            if "record_login_attempt" in t["name"]:
+                assert t["queue"] == "audit"
+            if "check_account_lockout" in t["name"]:
+                assert t["queue"] == "security"
+
+    @pytest.mark.asyncio
+    async def test_registered_tasks_serializable(self):
+        """registered_tasks should be JSON-serializable."""
+        import json
+        from aquilia.admin.site import AdminSite
+        from aquilia.tasks.engine import TaskManager, MemoryBackend
+
+        import myapp.modules.auth.tasks  # noqa: F401
+
+        backend = MemoryBackend()
+        manager = TaskManager(backend=backend, num_workers=1)
+
+        site = AdminSite.__new__(AdminSite)
+        site._task_manager = manager
+        site._registry = {}
+
+        data = await site.get_tasks_data()
+        # Should not raise
+        serialized = json.dumps(data["registered_tasks"])
+        assert isinstance(serialized, str)
+        deserialized = json.loads(serialized)
+        assert len(deserialized) >= 3

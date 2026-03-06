@@ -962,6 +962,7 @@ def render_tasks_page(
     stats = tasks_data.get("stats", {})
     manager_info = stats.get("manager", {})
     charts = stats.get("charts", {})
+    registered_tasks = tasks_data.get("registered_tasks", [])
     if _HAS_JINJA2:
         return _render_template(
             "tasks.html",
@@ -971,6 +972,7 @@ def render_tasks_page(
             manager=_dict_to_ns(manager_info),
             jobs=tasks_data.get("jobs", []),
             queue_stats=tasks_data.get("queue_stats", {}),
+            registered_tasks=registered_tasks,
             total_jobs=stats.get("total_jobs", 0),
             active_count=stats.get("active_count", 0),
             pending_count=stats.get("pending_count", 0),
