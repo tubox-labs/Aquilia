@@ -1043,6 +1043,72 @@ def render_errors_page(
 <body><div style="padding:24px"><h1>Error Monitoring</h1><p>{total} errors tracked</p></div></body></html>"""
 
 
+def render_mlops_page(
+    mlops_data: Dict[str, Any],
+    app_list: Optional[List[Dict[str, Any]]] = None,
+    identity_name: str = "Admin",
+    identity_avatar: str = "",
+    *,
+    site_title: str = "Aquilia Admin",
+    url_prefix: str = "/admin",
+) -> str:
+    """Render the MLOps admin page with comprehensive analytics."""
+    charts = mlops_data.get("charts", {})
+    if _HAS_JINJA2:
+        return _render_template(
+            "mlops.html",
+            data=_dict_to_ns(mlops_data),
+            available=mlops_data.get("available", False),
+            models=mlops_data.get("models", []),
+            total_models=mlops_data.get("total_models", 0),
+            total_inferences=mlops_data.get("total_inferences", 0),
+            total_errors=mlops_data.get("total_errors", 0),
+            total_tokens=mlops_data.get("total_tokens", 0),
+            total_stream_requests=mlops_data.get("total_stream_requests", 0),
+            total_prompt_tokens=mlops_data.get("total_prompt_tokens", 0),
+            metrics=mlops_data.get("metrics", {}),
+            latency=mlops_data.get("latency", {}),
+            throughput=mlops_data.get("throughput", {}),
+            hot_models=mlops_data.get("hot_models", []),
+            drift=mlops_data.get("drift", {}),
+            circuit_breaker=mlops_data.get("circuit_breaker", {}),
+            rate_limiter=mlops_data.get("rate_limiter", {}),
+            memory=mlops_data.get("memory", {}),
+            plugins=mlops_data.get("plugins", []),
+            total_plugins=mlops_data.get("total_plugins", 0),
+            experiments=mlops_data.get("experiments", []),
+            total_experiments=mlops_data.get("total_experiments", 0),
+            active_experiments=mlops_data.get("active_experiments", 0),
+            lineage=mlops_data.get("lineage", {}),
+            lineage_nodes=mlops_data.get("lineage_nodes", 0),
+            rollouts=mlops_data.get("rollouts", []),
+            total_rollouts=mlops_data.get("total_rollouts", 0),
+            active_rollouts=mlops_data.get("active_rollouts", 0),
+            frameworks=mlops_data.get("frameworks", []),
+            runtime_kinds=mlops_data.get("runtime_kinds", []),
+            model_types=mlops_data.get("model_types", []),
+            device_types=mlops_data.get("device_types", []),
+            batching_strategies=mlops_data.get("batching_strategies", []),
+            rollout_strategies=mlops_data.get("rollout_strategies", []),
+            drift_methods=mlops_data.get("drift_methods", []),
+            quantize_presets=mlops_data.get("quantize_presets", []),
+            export_targets=mlops_data.get("export_targets", []),
+            inference_modes=mlops_data.get("inference_modes", []),
+            charts=charts,
+            app_list=app_list or [],
+            active_page="mlops",
+            identity_name=identity_name,
+            identity_avatar=identity_avatar,
+            site_title=site_title,
+            url_prefix=url_prefix,
+            page_title="MLOps",
+        )
+    total = mlops_data.get("total_models", 0)
+    return f"""<!DOCTYPE html><html lang="en" data-theme="dark"><head>
+<meta charset="UTF-8"><title>MLOps -- Aquilia Admin</title><style>{_FALLBACK_CSS}</style></head>
+<body><div style="padding:24px"><h1>MLOps</h1><p>{total} models registered</p></div></body></html>"""
+
+
 def render_testing_page(
     testing_data: Dict[str, Any],
     app_list: Optional[List[Dict[str, Any]]] = None,

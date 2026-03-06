@@ -1,0 +1,1303 @@
+{% extends "base.html" %}
+{% block title %}MLOps{% endblock %}
+{% block breadcrumb %}MLOps{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<style>
+/* ── MLOps Page Styles ── */
+.mlops-search-bar{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;}
+.mlops-search-bar input{flex:1;min-width:200px;padding:8px 14px;background:var(--bg-input);border:1px solid var(--border-subtle);border-radius:var(--radius);color:var(--text-primary);font-family:var(--font-sans);font-size:.82rem;}
+.mlops-search-bar input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-glow);}
+.mlops-search-bar select{padding:8px 12px;background:var(--bg-input);border:1px solid var(--border-subtle);border-radius:var(--radius);color:var(--text-primary);font-family:var(--font-sans);font-size:.78rem;cursor:pointer;}
+
+/* Strategy / Phase / State badges */
+.mlops-badge{display:inline-block;padding:2px 10px;border-radius:999px;font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.02em;}
+.badge-loaded{background:rgba(34,197,94,.12);color:#22c55e;}
+.badge-unloaded{background:rgba(161,161,170,.12);color:#a1a1aa;}
+.badge-loading{background:rgba(59,130,246,.12);color:#3b82f6;}
+.badge-failed{background:rgba(239,68,68,.12);color:#ef4444;}
+.badge-prepared{background:rgba(139,92,246,.12);color:#a855f7;}
+.badge-unloading{background:rgba(251,191,36,.12);color:#fbbf24;}
+.badge-canary{background:rgba(251,191,36,.12);color:#fbbf24;}
+.badge-ab{background:rgba(139,92,246,.12);color:#a855f7;}
+.badge-shadow{background:rgba(59,130,246,.12);color:#3b82f6;}
+.badge-blue-green{background:rgba(56,189,248,.12);color:#38bdf8;}
+.badge-rolling{background:rgba(34,197,94,.12);color:#22c55e;}
+.badge-in-progress{background:rgba(59,130,246,.12);color:#3b82f6;}
+.badge-completed{background:rgba(34,197,94,.12);color:#22c55e;}
+.badge-rolled-back{background:rgba(251,191,36,.12);color:#fbbf24;}
+.badge-pending{background:rgba(161,161,170,.12);color:#a1a1aa;}
+.badge-active{background:rgba(34,197,94,.12);color:#22c55e;}
+.badge-inactive{background:rgba(161,161,170,.12);color:#a1a1aa;}
+.badge-discovered{background:rgba(56,189,248,.12);color:#38bdf8;}
+.badge-activated{background:rgba(34,197,94,.12);color:#22c55e;}
+.badge-deactivated{background:rgba(161,161,170,.12);color:#a1a1aa;}
+.badge-error{background:rgba(239,68,68,.12);color:#ef4444;}
+
+/* Snippet panel */
+.snippet-panel{position:relative;}
+.snippet-tabs{display:flex;gap:4px;margin-bottom:0;border-bottom:1px solid var(--border-subtle);padding-bottom:0;}
+.snippet-tab{padding:8px 14px;font-size:.78rem;font-weight:500;color:var(--text-faint);cursor:pointer;border:none;background:none;border-bottom:2px solid transparent;transition:all .15s ease;font-family:var(--font-sans);}
+.snippet-tab:hover{color:var(--text-primary);}
+.snippet-tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+.snippet-content{display:none;padding:16px;background:var(--bg-primary);border:1px solid var(--border-subtle);border-top:none;border-radius:0 0 var(--radius) var(--radius);}
+.snippet-content.active{display:block;}
+.snippet-content pre{margin:0;padding:14px;background:var(--bg-input);border-radius:6px;overflow-x:auto;font-size:.76rem;line-height:1.6;color:var(--text-secondary);}
+.snippet-content pre code{font-family:'JetBrains Mono','Fira Code',monospace;color:var(--text-secondary);}
+.copy-btn{position:absolute;top:8px;right:8px;padding:4px 10px;background:var(--bg-input);border:1px solid var(--border-subtle);border-radius:6px;font-size:.68rem;color:var(--text-faint);cursor:pointer;transition:all .15s ease;font-family:var(--font-sans);}
+.copy-btn:hover{color:var(--accent);border-color:var(--accent);}
+
+/* Gauge */
+.gauge-wrap{position:relative;width:100px;height:100px;margin:0 auto 8px;}
+.gauge-label{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:1rem;font-weight:700;color:var(--text-primary);}
+
+/* Pulse animation */
+@keyframes pulse-dot{0%,100%{opacity:1}50%{opacity:.4}}
+@keyframes countPulse{0%{transform:scale(1)}50%{transform:scale(1.05)}100%{transform:scale(1)}}
+.count-done{animation:countPulse .3s ease}
+
+/* Circuit breaker indicator */
+.cb-indicator{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:var(--radius);font-size:.78rem;font-weight:600;}
+.cb-closed{background:rgba(34,197,94,.08);color:#22c55e;border:1px solid rgba(34,197,94,.2);}
+.cb-open{background:rgba(239,68,68,.08);color:#ef4444;border:1px solid rgba(239,68,68,.2);}
+.cb-half-open{background:rgba(251,191,36,.08);color:#fbbf24;border:1px solid rgba(251,191,36,.2);}
+
+/* Progress bar */
+.progress-bar-bg{height:8px;border-radius:4px;background:var(--bg-input);overflow:hidden;}
+.progress-bar-fill{height:100%;border-radius:4px;transition:width .6s ease;}
+
+/* Clickable rows */
+.model-row-clickable:hover,.rollout-row-clickable:hover{background:var(--bg-surface) !important;cursor:pointer;}
+.model-row-clickable:active,.rollout-row-clickable:active{background:rgba(34,197,94,0.04) !important;}
+
+/* ── Slide-out drawer ── */
+.aq-drawer-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9998;opacity:0;pointer-events:none;transition:opacity .25s ease;backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);}
+.aq-drawer-overlay.open{opacity:1;pointer-events:auto;}
+.aq-drawer{position:fixed;top:0;right:0;bottom:0;width:520px;max-width:92vw;z-index:9999;background:var(--bg-card);border-left:1px solid var(--border-subtle);box-shadow:-8px 0 32px rgba(0,0,0,0.25);transform:translateX(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column;overflow:hidden;}
+.aq-drawer.open{transform:translateX(0);}
+.aq-drawer-header{display:flex;align-items:center;justify-content:space-between;padding:18px 20px;border-bottom:1px solid var(--border-subtle);background:var(--bg-surface);flex-shrink:0;}
+.aq-drawer-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;}
+.aq-drawer-body{flex:1;overflow-y:auto;padding:20px;scrollbar-width:thin;scrollbar-color:var(--border-subtle) transparent;}
+.aq-drawer-body::-webkit-scrollbar{width:5px;}
+.aq-drawer-body::-webkit-scrollbar-thumb{background:var(--border-subtle);border-radius:4px;}
+.aq-drawer-section{margin-bottom:20px;}
+.aq-drawer-section-title{font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border-subtle);}
+.aq-drawer-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.aq-drawer-field{padding:10px 12px;background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:8px;}
+.aq-drawer-field-label{font-size:.62rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--text-faint);margin-bottom:4px;}
+.aq-drawer-field-value{font-size:.82rem;font-weight:600;color:var(--text-primary);word-break:break-all;}
+.aq-drawer-field-value.mono{font-family:var(--font-mono);font-size:.75rem;}
+.aq-drawer-badge{display:inline-block;padding:2px 10px;border-radius:99px;font-size:.68rem;font-weight:700;}
+.aq-drawer-tag{display:inline-block;padding:2px 8px;border-radius:4px;font-size:.65rem;font-weight:500;margin:2px 2px 2px 0;background:rgba(34,197,94,0.1);color:var(--accent);}
+
+/* Section tabs (for capabilities panel) */
+.cap-tabs{display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap;}
+.cap-tab{padding:4px 12px;font-size:.72rem;font-weight:500;color:var(--text-faint);cursor:pointer;border:1px solid var(--border-subtle);background:none;border-radius:6px;transition:all .12s ease;font-family:var(--font-sans);}
+.cap-tab:hover{color:var(--text-primary);border-color:var(--text-faint);}
+.cap-tab.active{color:var(--accent);border-color:var(--accent);background:rgba(34,197,94,.06);}
+.cap-panel{display:none;}
+.cap-panel.active{display:block;}
+</style>
+{% endblock %}
+
+{% block content %}
+{# ═══════════════════════════════════════════════════════════════════
+   AQUILIA ADMIN — MLOPS DASHBOARD (v1 — Comprehensive)
+   Model Registry · Serving Metrics · Drift Detection · Rollouts
+   Experiments · Plugins · Circuit Breaker · Memory · Lineage
+   ═══════════════════════════════════════════════════════════════════ #}
+
+<div class="dash-greeting">
+    <h1>
+        <i class="icon-cpu" style="font-size:1.6rem;vertical-align:-3px;margin-right:8px;opacity:0.5;"></i>
+        MLOps
+    </h1>
+    <p>Model registry, inference serving, drift detection, rollouts, experiments, and observability</p>
+</div>
+
+{# ═══ STATUS BAR ═══ #}
+<div style="margin-bottom:20px;padding:12px 18px;background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius);display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+    <div style="display:flex;align-items:center;gap:6px;">
+        {% if available %}
+        <div style="width:8px;height:8px;border-radius:50%;background:var(--success);box-shadow:0 0 6px var(--success);animation:pulse-dot 2s infinite;"></div>
+        <span style="font-size:0.8rem;color:var(--success);font-weight:600;">Available</span>
+        {% else %}
+        <div style="width:8px;height:8px;border-radius:50%;background:var(--text-faint);"></div>
+        <span style="font-size:0.8rem;color:var(--text-faint);font-weight:600;">Not Configured</span>
+        {% endif %}
+    </div>
+    <span style="font-size:0.75rem;color:var(--text-faint);">·</span>
+    <span style="font-size:0.78rem;color:var(--text-secondary);">{{ total_models }} model{{ 's' if total_models != 1 else '' }}</span>
+    <span style="font-size:0.75rem;color:var(--text-faint);">·</span>
+    <span style="font-size:0.78rem;color:var(--text-secondary);">{{ total_plugins }} plugin{{ 's' if total_plugins != 1 else '' }}</span>
+    <span style="font-size:0.75rem;color:var(--text-faint);">·</span>
+    <span style="font-size:0.78rem;color:var(--text-secondary);">{{ total_experiments }} experiment{{ 's' if total_experiments != 1 else '' }}</span>
+    <span style="font-size:0.75rem;color:var(--text-faint);">·</span>
+    <span style="font-size:0.78rem;color:var(--text-secondary);">{{ total_rollouts }} rollout{{ 's' if total_rollouts != 1 else '' }}</span>
+    <span style="font-size:0.75rem;color:var(--text-faint);">·</span>
+    <span style="font-size:0.78rem;color:var(--text-faint);">{{ "{:,}".format(total_inferences) }} inferences</span>
+</div>
+
+{# ═══ METRIC CARDS (row 1) ═══ #}
+<div class="dash-stats">
+    <div class="dash-stat-card">
+        <div class="stat-icon-wrap green"><i class="icon-layers"></i></div>
+        <div class="dash-stat-value" data-count="{{ total_models }}">0</div>
+        <div class="dash-stat-label">Models</div>
+        <div class="dash-stat-sub">Registered in registry</div>
+    </div>
+    <div class="dash-stat-card">
+        <div class="stat-icon-wrap blue"><i class="icon-activity"></i></div>
+        <div class="dash-stat-value" data-count="{{ total_inferences }}">0</div>
+        <div class="dash-stat-label">Inferences</div>
+        <div class="dash-stat-sub">{{ total_errors }} errors</div>
+    </div>
+    <div class="dash-stat-card">
+        <div class="stat-icon-wrap purple"><i class="icon-trending-up"></i></div>
+        <div class="dash-stat-value">{{ latency.p50|default('—') }}</div>
+        <div class="dash-stat-label">P50 Latency (ms)</div>
+        <div class="dash-stat-sub">P95: {{ latency.p95|default('—') }}ms · P99: {{ latency.p99|default('—') }}ms</div>
+    </div>
+    <div class="dash-stat-card">
+        <div class="stat-icon-wrap amber"><i class="icon-zap"></i></div>
+        <div class="dash-stat-value" data-count="{{ total_tokens }}">0</div>
+        <div class="dash-stat-label">Tokens Generated</div>
+        <div class="dash-stat-sub">{{ throughput.ewma|default('—') }} tok/s</div>
+    </div>
+    <div class="dash-stat-card">
+        <div class="stat-icon-wrap blue"><i class="icon-radio"></i></div>
+        <div class="dash-stat-value" data-count="{{ total_stream_requests }}">0</div>
+        <div class="dash-stat-label">Stream Requests</div>
+        <div class="dash-stat-sub">TTFT: {{ throughput.ttft_ewma|default('—') }}ms</div>
+    </div>
+    <div class="dash-stat-card">
+        <div class="stat-icon-wrap {{ 'green' if active_experiments > 0 else 'red' }}">
+            <i class="icon-git-branch"></i>
+        </div>
+        <div class="dash-stat-value">{{ active_experiments }}</div>
+        <div class="dash-stat-label">Active Experiments</div>
+        <div class="dash-stat-sub">{{ active_rollouts }} active rollout{{ 's' if active_rollouts != 1 else '' }}</div>
+    </div>
+</div>
+
+{# ═══ CHARTS ROW 1: Model States + Framework Distribution ═══ #}
+<div class="section-label" style="margin-top:8px;">Analytics</div>
+<div class="dash-grid" style="grid-template-columns:1fr 1fr;">
+    {# ── Model States Doughnut ── #}
+    <div class="card" style="padding:20px;">
+        <span class="card-title"><i class="icon-pie-chart" style="font-size:14px;vertical-align:-2px;margin-right:6px;opacity:0.5;"></i>Model States</span>
+        <div style="margin-top:14px;height:220px;position:relative;">
+            <canvas id="chart-model-states"></canvas>
+        </div>
+    </div>
+    {# ── Framework Distribution ── #}
+    <div class="card" style="padding:20px;">
+        <span class="card-title"><i class="icon-package" style="font-size:14px;vertical-align:-2px;margin-right:6px;opacity:0.5;"></i>Framework Distribution</span>
+        <div style="margin-top:14px;height:220px;position:relative;">
+            <canvas id="chart-frameworks"></canvas>
+        </div>
+    </div>
+</div>
+
+{# ═══ CHARTS ROW 2: Plugin States + Experiment Statuses ═══ #}
+<div class="dash-grid" style="grid-template-columns:1fr 1fr;margin-top:16px;">
+    {# ── Plugin States ── #}
+    <div class="card" style="padding:20px;">
+        <span class="card-title"><i class="icon-puzzle" style="font-size:14px;vertical-align:-2px;margin-right:6px;opacity:0.5;"></i>Plugin States</span>
+        <div style="margin-top:14px;height:200px;position:relative;">
+            <canvas id="chart-plugin-states"></canvas>
+        </div>
+    </div>
+    {# ── Rollout Phases ── #}
+    <div class="card" style="padding:20px;">
+        <span class="card-title"><i class="icon-git-merge" style="font-size:14px;vertical-align:-2px;margin-right:6px;opacity:0.5;"></i>Rollout Phases</span>
+        <div style="margin-top:14px;height:200px;position:relative;">
+            <canvas id="chart-rollout-phases"></canvas>
+        </div>
+    </div>
+</div>
+
+{# ═══ INFRASTRUCTURE PANELS: Circuit Breaker + Rate Limiter + Memory ═══ #}
+<div class="section-label" style="margin-top:24px;">Infrastructure Health</div>
+<div class="dash-grid" style="grid-template-columns:1fr 1fr 1fr;">
+    {# ── Circuit Breaker ── #}
+    <div class="card" style="padding:20px;">
+        <span class="card-title"><i class="icon-shield" style="font-size:14px;vertical-align:-2px;margin-right:6px;opacity:0.5;"></i>Circuit Breaker</span>
+        <div style="margin-top:14px;text-align:center;">
+            {% set cb_state = circuit_breaker.state|default('closed') %}
+            <div class="cb-indicator {{ 'cb-closed' if cb_state == 'closed' else ('cb-open' if cb_state == 'open' else 'cb-half-open') }}">
+                <div style="width:10px;height:10px;border-radius:50%;background:currentColor;{% if cb_state == 'closed' %}box-shadow:0 0 6px currentColor;{% endif %}"></div>
+                {{ cb_state|upper }}
+            </div>
+            <div style="margin-top:16px;display:grid;grid-template-columns:1fr 1fr;gap:8px;text-align:center;">
+                <div style="padding:8px;background:var(--bg-surface);border-radius:6px;">
+                    <div style="font-size:.68rem;color:var(--text-faint);text-transform:uppercase;">Total</div>
+                    <div style="font-size:1rem;font-weight:700;color:var(--text-primary);">{{ circuit_breaker.total_requests|default(0) }}</div>
+                </div>
+                <div style="padding:8px;background:var(--bg-surface);border-radius:6px;">
+                    <div style="font-size:.68rem;color:var(--text-faint);text-transform:uppercase;">Failures</div>
+                    <div style="font-size:1rem;font-weight:700;color:var(--danger);">{{ circuit_breaker.total_failures|default(0) }}</div>
+                </div>
+                <div style="padding:8px;background:var(--bg-surface);border-radius:6px;">
+                    <div style="font-size:.68rem;color:var(--text-faint);text-transform:uppercase;">Trips</div>
+                    <div style="font-size:1rem;font-weight:700;color:var(--warning);">{{ circuit_breaker.total_trips|default(0) }}</div>
+                </div>
+                <div style="padding:8px;background:var(--bg-surface);border-radius:6px;">
+                    <div style="font-size:.68rem;color:var(--text-faint);text-transform:uppercase;">Successes</div>
+                    <div style="font-size:1rem;font-weight:700;color:var(--success);">{{ circuit_breaker.total_successes|default(0) }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# ── Rate Limiter ── #}
+    <div class="card" style="padding:20px;">
+        <span class="card-title"><i class="icon-clock" style="font-size:14px;vertical-align:-2px;margin-right:6px;opacity:0.5;"></i>Rate Limiter</span>
+        <div style="margin-top:14px;">
+            {% set rl_allowed = rate_limiter.total_allowed|default(0) %}
+            {% set rl_rejected = rate_limiter.total_rejected|default(0) %}
+            {% set rl_total = rl_allowed + rl_rejected %}
+            {% set rl_rate = (rl_allowed * 100 / rl_total)|round(1) if rl_total > 0 else 100 %}
+            <div style="text-align:center;margin-bottom:14px;">
+                <div style="font-size:2rem;font-weight:700;color:{{ 'var(--success)' if rl_rate >= 90 else ('var(--warning)' if rl_rate >= 70 else 'var(--danger)') }};">{{ rl_rate }}%</div>
+                <div style="font-size:.72rem;color:var(--text-faint);">Accept Rate</div>
+            </div>
+            <div class="progress-bar-bg">
+                <div class="progress-bar-fill" style="width:{{ rl_rate }}%;background:{{ 'var(--success)' if rl_rate >= 90 else ('var(--warning)' if rl_rate >= 70 else 'var(--danger)') }};"></div>
+            </div>
+            <div style="margin-top:12px;display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                <div style="padding:8px;background:var(--bg-surface);border-radius:6px;text-align:center;">
+                    <div style="font-size:.68rem;color:var(--text-faint);text-transform:uppercase;">Allowed</div>
+                    <div style="font-size:1rem;font-weight:700;color:var(--success);">{{ rl_allowed }}</div>
+                </div>
+                <div style="padding:8px;background:var(--bg-surface);border-radius:6px;text-align:center;">
+                    <div style="font-size:.68rem;color:var(--text-faint);text-transform:uppercase;">Rejected</div>
+                    <div style="font-size:1rem;font-weight:700;color:var(--danger);">{{ rl_rejected }}</div>
+                </div>
+            </div>
+            {% if rate_limiter.tokens_available is defined %}
+            <div style="margin-top:8px;padding:6px 10px;background:var(--bg-surface);border-radius:6px;text-align:center;">
+                <span style="font-size:.68rem;color:var(--text-faint);">Tokens: </span>
+                <span style="font-size:.78rem;font-weight:600;color:var(--text-secondary);">{{ "%.1f"|format(rate_limiter.tokens_available) }} / {{ rate_limiter.capacity|default('∞') }}</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    {# ── Memory Tracker ── #}
+    <div class="card" style="padding:20px;">
+        <span class="card-title"><i class="icon-database" style="font-size:14px;vertical-align:-2px;margin-right:6px;opacity:0.5;"></i>Memory Tracker</span>
+        <div style="margin-top:14px;">
+            {% set mem_used = memory.current_bytes|default(0) %}
+            {% set mem_soft = memory.soft_limit|default(0) %}
+            {% set mem_hard = memory.hard_limit|default(0) %}
+            {% set mem_pct = (mem_used * 100 / mem_hard)|round(1) if mem_hard > 0 else 0 %}
+            <div style="text-align:center;margin-bottom:14px;">
+                <div style="font-size:2rem;font-weight:700;color:{{ 'var(--success)' if mem_pct < 70 else ('var(--warning)' if mem_pct < 90 else 'var(--danger)') }};">{{ mem_pct }}%</div>
+                <div style="font-size:.72rem;color:var(--text-faint);">Memory Usage</div>
+            </div>
+            <div class="progress-bar-bg" style="position:relative;">
+                <div class="progress-bar-fill" style="width:{{ mem_pct }}%;background:{{ 'var(--success)' if mem_pct < 70 else ('var(--warning)' if mem_pct < 90 else 'var(--danger)') }};"></div>
+                {% if mem_soft > 0 and mem_hard > 0 %}
+                <div style="position:absolute;top:-2px;bottom:-2px;left:{{ (mem_soft * 100 / mem_hard)|round }}%;width:2px;background:var(--warning);border-radius:1px;" title="Soft limit"></div>
+                {% endif %}
+            </div>
+            <div style="margin-top:12px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;">
+                <div style="padding:6px;background:var(--bg-surface);border-radius:6px;text-align:center;">
+                    <div style="font-size:.62rem;color:var(--text-faint);text-transform:uppercase;">Used</div>
+                    <div style="font-size:.78rem;font-weight:600;color:var(--text-primary);">{{ "%.1f"|format(mem_used / 1048576) }}MB</div>
+                </div>
+                <div style="padding:6px;background:var(--bg-surface);border-radius:6px;text-align:center;">
+                    <div style="font-size:.62rem;color:var(--text-faint);text-transform:uppercase;">Soft</div>
+                    <div style="font-size:.78rem;font-weight:600;color:var(--warning);">{{ "%.1f"|format(mem_soft / 1048576) }}MB</div>
+                </div>
+                <div style="padding:6px;background:var(--bg-surface);border-radius:6px;text-align:center;">
+                    <div style="font-size:.62rem;color:var(--text-faint);text-transform:uppercase;">Hard</div>
+                    <div style="font-size:.78rem;font-weight:600;color:var(--danger);">{{ "%.1f"|format(mem_hard / 1048576) }}MB</div>
+                </div>
+            </div>
+            {% if memory.tracked_models|default(0) > 0 %}
+            <div style="margin-top:8px;padding:6px 10px;background:var(--bg-surface);border-radius:6px;text-align:center;">
+                <span style="font-size:.68rem;color:var(--text-faint);">{{ memory.tracked_models }} tracked models · {{ memory.evictions|default(0) }} evictions</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{# ═══ DRIFT DETECTION PANEL ═══ #}
+{% if drift and drift.method is defined %}
+<div class="section-label" style="margin-top:24px;">Drift Detection</div>
+<div class="card" style="padding:20px;">
+    <span class="card-title"><i class="icon-alert-triangle" style="font-size:14px;vertical-align:-2px;margin-right:6px;opacity:0.5;"></i>Data Drift Monitor</span>
+    <div style="margin-top:14px;display:flex;align-items:center;gap:24px;flex-wrap:wrap;">
+        <div>
+            <div style="font-size:.68rem;color:var(--text-faint);text-transform:uppercase;margin-bottom:4px;">Method</div>
+            <span class="mlops-badge" style="background:rgba(139,92,246,.12);color:#a855f7;font-size:.72rem;padding:4px 12px;">{{ drift.method }}</span>
+        </div>
+        <div>
+            <div style="font-size:.68rem;color:var(--text-faint);text-transform:uppercase;margin-bottom:4px;">Threshold</div>
+            <span style="font-size:.9rem;font-weight:700;color:var(--text-primary);font-family:var(--font-mono);">{{ drift.threshold|default('—') }}</span>
+        </div>
+        <div>
+            <div style="font-size:.68rem;color:var(--text-faint);text-transform:uppercase;margin-bottom:4px;">Reference Data</div>
+            {% if drift.has_reference %}
+            <div style="display:flex;align-items:center;gap:4px;">
+                <div style="width:6px;height:6px;border-radius:50%;background:var(--success);"></div>
+                <span style="font-size:.78rem;color:var(--success);font-weight:500;">Loaded</span>
+            </div>
+            {% else %}
+            <div style="display:flex;align-items:center;gap:4px;">
+                <div style="width:6px;height:6px;border-radius:50%;background:var(--text-faint);"></div>
+                <span style="font-size:.78rem;color:var(--text-faint);font-weight:500;">Not loaded</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{# ═══ HOT MODELS ═══ #}
+{% if hot_models|length > 0 %}
+<div class="section-label" style="margin-top:24px;">Hot Models</div>
+<div class="card" style="padding:20px;">
+    <span class="card-title"><i class="icon-trending-up" style="font-size:14px;vertical-align:-2px;margin-right:6px;opacity:0.5;"></i>Most Requested Models (by inference count)</span>
+    <div style="margin-top:14px;">
+        {% for hm in hot_models %}
+        {% set max_score = hot_models[0].score if hot_models|length > 0 else 1 %}
+        {% set bar_pct = (hm.score * 100 / max_score)|round if max_score > 0 else 0 %}
+        <div style="display:flex;align-items:center;gap:12px;padding:8px 0;{% if not loop.last %}border-bottom:1px solid var(--border-subtle);{% endif %}">
+            <div style="width:28px;text-align:center;font-size:.72rem;font-weight:700;color:var(--text-faint);">#{{ loop.index }}</div>
+            <div style="flex:1;min-width:0;">
+                <div style="font-size:.82rem;font-weight:600;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ hm.name }}</div>
+                <div class="progress-bar-bg" style="margin-top:4px;height:4px;">
+                    <div class="progress-bar-fill" style="width:{{ bar_pct }}%;background:var(--accent);"></div>
+                </div>
+            </div>
+            <div style="font-family:var(--font-mono);font-size:.78rem;font-weight:700;color:var(--accent);min-width:60px;text-align:right;">{{ "%.0f"|format(hm.score) }}</div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+{# ═══ MODEL REGISTRY TABLE ═══ #}
+<div class="section-label" style="margin-top:24px;">Model Registry</div>
+<div class="card" style="padding:0;overflow:hidden;">
+    {% if models|length > 0 %}
+    <div class="mlops-search-bar" style="padding:16px 16px 0;">
+        <input type="text" id="modelSearch" placeholder="Search models..." autocomplete="off" />
+    </div>
+    <table class="data-table" id="modelsTable">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Version</th>
+                <th>State</th>
+                <th>Framework</th>
+                <th>Type</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for model in models %}
+            <tr class="model-row-clickable" onclick="openModelDrawer(this)"
+                data-name="{{ model.name|default('unknown') }}"
+                data-version="{{ model.version|default('?') }}"
+                data-state="{{ model.state|default('unknown') }}"
+                data-framework="{{ model.framework|default('custom') }}"
+                data-model-type="{{ model.model_type|default('custom') }}"
+                data-device="{{ model.device|default('cpu') }}"
+                data-runtime="{{ model.runtime|default('python') }}"
+                data-active="{{ model.active|default(false) }}"
+            >
+                <td>
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <i class="icon-cpu" style="font-size:14px;color:var(--accent);opacity:0.6;"></i>
+                        <span style="font-weight:600;color:var(--text-primary);">{{ model.name|default('unknown') }}</span>
+                    </div>
+                </td>
+                <td><code style="font-size:0.72rem;background:var(--bg-surface);padding:1px 6px;border-radius:3px;">{{ model.version|default('?') }}</code></td>
+                <td>
+                    {% set mstate = model.state|default('unknown') %}
+                    <span class="mlops-badge badge-{{ mstate }}">{{ mstate }}</span>
+                </td>
+                <td style="font-size:.78rem;color:var(--text-secondary);">{{ model.framework|default('custom') }}</td>
+                <td style="font-size:.78rem;color:var(--text-faint);">{{ model.model_type|default('—') }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <div id="modelNoResults" style="display:none;text-align:center;padding:24px;color:var(--text-faint);font-size:0.82rem;">
+        No models match your search.
+    </div>
+    {% else %}
+    <div style="padding:48px;text-align:center;color:var(--text-faint);">
+        <i class="icon-cpu" style="font-size:3rem;opacity:0.15;display:block;margin-bottom:12px;"></i>
+        <p>No models registered</p>
+        <p style="font-size:0.75rem;margin-top:8px;">
+            Register models using <code style="font-size:0.72rem;background:var(--bg-surface);padding:1px 5px;border-radius:3px;">@model</code> or <code style="font-size:0.72rem;background:var(--bg-surface);padding:1px 5px;border-radius:3px;">@serve</code> decorators.
+        </p>
+    </div>
+    {% endif %}
+</div>
+
+{# ═══ ROLLOUTS TABLE ═══ #}
+<div class="section-label" style="margin-top:24px;">Rollouts</div>
+<div class="card" style="padding:0;overflow:hidden;">
+    {% if rollouts|length > 0 %}
+    <table class="data-table" id="rolloutsTable">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>From → To</th>
+                <th>Strategy</th>
+                <th>Phase</th>
+                <th>Progress</th>
+                <th>Steps</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for ro in rollouts %}
+            <tr class="rollout-row-clickable" onclick="openRolloutDrawer(this)"
+                data-id="{{ ro.id }}"
+                data-from="{{ ro.from_version }}"
+                data-to="{{ ro.to_version }}"
+                data-strategy="{{ ro.strategy }}"
+                data-phase="{{ ro.phase }}"
+                data-percentage="{{ ro.percentage }}"
+                data-steps="{{ ro.steps }}"
+                data-error="{{ ro.error }}"
+            >
+                <td><code style="font-size:.72rem;color:var(--accent);">{{ ro.id[:12] }}…</code></td>
+                <td style="font-size:.78rem;color:var(--text-secondary);">
+                    <code>{{ ro.from_version }}</code> → <code style="color:var(--accent);">{{ ro.to_version }}</code>
+                </td>
+                <td><span class="mlops-badge badge-{{ ro.strategy }}">{{ ro.strategy }}</span></td>
+                <td><span class="mlops-badge badge-{{ ro.phase }}">{{ ro.phase }}</span></td>
+                <td>
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <div class="progress-bar-bg" style="flex:1;height:6px;">
+                            <div class="progress-bar-fill" style="width:{{ ro.percentage }}%;background:{{ 'var(--success)' if ro.phase == 'completed' else ('var(--danger)' if ro.phase == 'rolled_back' or ro.phase == 'failed' else 'var(--accent)') }};"></div>
+                        </div>
+                        <span style="font-size:.72rem;font-weight:600;color:var(--text-secondary);min-width:35px;text-align:right;">{{ ro.percentage }}%</span>
+                    </div>
+                </td>
+                <td style="font-size:.78rem;color:var(--text-faint);">{{ ro.steps }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div style="padding:48px;text-align:center;color:var(--text-faint);">
+        <i class="icon-git-merge" style="font-size:3rem;opacity:0.15;display:block;margin-bottom:12px;"></i>
+        <p>No rollouts active</p>
+        <p style="font-size:0.75rem;margin-top:8px;">
+            Deploy model versions using <code style="font-size:0.72rem;background:var(--bg-surface);padding:1px 5px;border-radius:3px;">RolloutEngine</code> with canary, A/B, blue-green, or rolling strategies.
+        </p>
+    </div>
+    {% endif %}
+</div>
+
+{# ═══ EXPERIMENTS TABLE ═══ #}
+<div class="section-label" style="margin-top:24px;">A/B Experiments</div>
+<div class="card" style="padding:0;overflow:hidden;">
+    {% if experiments|length > 0 %}
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Experiment</th>
+                <th>Status</th>
+                <th>Variants</th>
+                <th>Total Assignments</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for exp in experiments %}
+            <tr>
+                <td style="font-weight:600;color:var(--text-primary);">{{ exp.name|default(exp.id|default('—')) }}</td>
+                <td><span class="mlops-badge badge-{{ exp.status|default('inactive') }}">{{ exp.status|default('inactive') }}</span></td>
+                <td style="font-size:.78rem;color:var(--text-secondary);">{{ exp.variants|default([])|length }}</td>
+                <td style="font-family:var(--font-mono);font-size:.78rem;color:var(--text-secondary);">{{ exp.total_assignments|default(0) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div style="padding:48px;text-align:center;color:var(--text-faint);">
+        <i class="icon-git-branch" style="font-size:3rem;opacity:0.15;display:block;margin-bottom:12px;"></i>
+        <p>No experiments configured</p>
+        <p style="font-size:0.75rem;margin-top:8px;">
+            Use <code style="font-size:0.72rem;background:var(--bg-surface);padding:1px 5px;border-radius:3px;">ExperimentLedger</code> to manage A/B tests with deterministic assignment.
+        </p>
+    </div>
+    {% endif %}
+</div>
+
+{# ═══ PLUGINS TABLE ═══ #}
+<div class="section-label" style="margin-top:24px;">Plugins</div>
+<div class="card" style="padding:0;overflow:hidden;">
+    {% if plugins|length > 0 %}
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Version</th>
+                <th>State</th>
+                <th>Error</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for plugin in plugins %}
+            <tr>
+                <td>
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <i class="icon-package" style="font-size:14px;color:var(--accent);opacity:0.6;"></i>
+                        <span style="font-weight:600;color:var(--text-primary);">{{ plugin.name }}</span>
+                    </div>
+                </td>
+                <td><code style="font-size:0.72rem;background:var(--bg-surface);padding:1px 6px;border-radius:3px;">{{ plugin.version }}</code></td>
+                <td><span class="mlops-badge badge-{{ plugin.state }}">{{ plugin.state }}</span></td>
+                <td style="font-size:.72rem;color:var(--danger);font-family:var(--font-mono);">{{ plugin.error or '—' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div style="padding:48px;text-align:center;color:var(--text-faint);">
+        <i class="icon-package" style="font-size:3rem;opacity:0.15;display:block;margin-bottom:12px;"></i>
+        <p>No plugins loaded</p>
+        <p style="font-size:0.75rem;margin-top:8px;">
+            Plugins are discovered via <code style="font-size:0.72rem;background:var(--bg-surface);padding:1px 5px;border-radius:3px;">aquilia.mlops</code> entry points.
+        </p>
+    </div>
+    {% endif %}
+</div>
+
+{# ═══ MODEL LINEAGE ═══ #}
+{% if lineage_nodes > 0 %}
+<div class="section-label" style="margin-top:24px;">Model Lineage</div>
+<div class="card" style="padding:20px;">
+    <span class="card-title"><i class="icon-git-commit" style="font-size:14px;vertical-align:-2px;margin-right:6px;opacity:0.5;"></i>Lineage DAG — {{ lineage_nodes }} nodes</span>
+    <div style="margin-top:14px;">
+        {% for node_id, node_data in lineage.items() %}
+        <div style="display:flex;align-items:flex-start;gap:12px;padding:10px 0;{% if not loop.last %}border-bottom:1px solid var(--border-subtle);{% endif %}">
+            <div style="width:8px;height:8px;border-radius:50%;background:var(--accent);margin-top:6px;flex-shrink:0;"></div>
+            <div style="flex:1;min-width:0;">
+                <div style="font-size:.82rem;font-weight:600;color:var(--text-primary);">{{ node_id }}</div>
+                {% if node_data is mapping %}
+                <div style="font-size:.72rem;color:var(--text-faint);margin-top:2px;">
+                    {% if node_data.parents is defined and node_data.parents|length > 0 %}
+                    Parents: {{ node_data.parents|join(', ') }}
+                    {% else %}
+                    Root node
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+{# ═══ CAPABILITIES REFERENCE ═══ #}
+<div class="section-label" style="margin-top:24px;">Capabilities Reference</div>
+<div class="card" style="padding:20px;">
+    <span class="card-title"><i class="icon-book-open" style="font-size:14px;vertical-align:-2px;margin-right:6px;opacity:0.5;"></i>Supported Enums &amp; Configurations</span>
+    <div style="margin-top:14px;">
+        <div class="cap-tabs">
+            <button class="cap-tab active" data-cap="cap-frameworks" type="button">Frameworks</button>
+            <button class="cap-tab" data-cap="cap-runtimes" type="button">Runtimes</button>
+            <button class="cap-tab" data-cap="cap-model-types" type="button">Model Types</button>
+            <button class="cap-tab" data-cap="cap-devices" type="button">Devices</button>
+            <button class="cap-tab" data-cap="cap-batching" type="button">Batching</button>
+            <button class="cap-tab" data-cap="cap-rollout-strategies" type="button">Rollout</button>
+            <button class="cap-tab" data-cap="cap-drift-methods" type="button">Drift</button>
+            <button class="cap-tab" data-cap="cap-quantize" type="button">Quantize</button>
+            <button class="cap-tab" data-cap="cap-export" type="button">Export</button>
+            <button class="cap-tab" data-cap="cap-inference" type="button">Inference</button>
+        </div>
+        <div class="cap-panel active" id="cap-frameworks">
+            <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                {% for fw in frameworks %}<span class="aq-drawer-tag">{{ fw }}</span>{% endfor %}
+            </div>
+        </div>
+        <div class="cap-panel" id="cap-runtimes">
+            <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                {% for rt in runtime_kinds %}<span class="aq-drawer-tag">{{ rt }}</span>{% endfor %}
+            </div>
+        </div>
+        <div class="cap-panel" id="cap-model-types">
+            <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                {% for mt in model_types %}<span class="aq-drawer-tag">{{ mt }}</span>{% endfor %}
+            </div>
+        </div>
+        <div class="cap-panel" id="cap-devices">
+            <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                {% for dt in device_types %}<span class="aq-drawer-tag">{{ dt }}</span>{% endfor %}
+            </div>
+        </div>
+        <div class="cap-panel" id="cap-batching">
+            <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                {% for bs in batching_strategies %}<span class="aq-drawer-tag">{{ bs }}</span>{% endfor %}
+            </div>
+        </div>
+        <div class="cap-panel" id="cap-rollout-strategies">
+            <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                {% for rs in rollout_strategies %}<span class="aq-drawer-tag">{{ rs }}</span>{% endfor %}
+            </div>
+        </div>
+        <div class="cap-panel" id="cap-drift-methods">
+            <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                {% for dm in drift_methods %}<span class="aq-drawer-tag">{{ dm }}</span>{% endfor %}
+            </div>
+        </div>
+        <div class="cap-panel" id="cap-quantize">
+            <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                {% for qp in quantize_presets %}<span class="aq-drawer-tag">{{ qp }}</span>{% endfor %}
+            </div>
+        </div>
+        <div class="cap-panel" id="cap-export">
+            <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                {% for et in export_targets %}<span class="aq-drawer-tag">{{ et }}</span>{% endfor %}
+            </div>
+        </div>
+        <div class="cap-panel" id="cap-inference">
+            <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                {% for im in inference_modes %}<span class="aq-drawer-tag">{{ im }}</span>{% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{# ═══ QUICK SETUP — CODE SNIPPETS ═══ #}
+<div class="section-label" style="margin-top:24px;">Quick Setup</div>
+<div class="card" style="padding:20px;margin-bottom:20px;">
+    <h3 style="margin-bottom:16px;font-size:0.95rem;color:var(--text-secondary);">
+        <i class="icon-terminal" style="opacity:0.5;margin-right:6px;"></i>
+        Quick Setup — Code Snippets
+    </h3>
+    <p style="font-size:0.78rem;color:var(--text-faint);margin-bottom:12px;">Copy-paste examples for Aquilia MLOps subsystem.</p>
+    <div class="snippet-panel">
+        <div class="snippet-tabs">
+            <button class="snippet-tab active" data-tab="snip-model" type="button">@model</button>
+            <button class="snippet-tab" data-tab="snip-serve" type="button">@serve</button>
+            <button class="snippet-tab" data-tab="snip-pipeline" type="button">Pipeline</button>
+            <button class="snippet-tab" data-tab="snip-rollout" type="button">Rollout</button>
+            <button class="snippet-tab" data-tab="snip-config" type="button">Config</button>
+        </div>
+        <div class="snippet-content active" id="snip-model">
+            <button class="copy-btn" onclick="copySnippet('snip-model')" type="button">Copy</button>
+            <div class="code-block-container" style="margin-bottom:0;">
+                <div class="code-block-header">
+                    <div class="dots"><div class="dot dot-red"></div><div class="dot dot-yellow"></div><div class="dot dot-green"></div></div>
+                    <span class="filename">models/sentiment.py</span>
+                </div>
+                <div class="code-block-body"><pre data-aq-highlight="python">from aquilia.mlops import AquiliaModel, model
+
+@model(name="sentiment", version="1.0.0", framework="pytorch")
+class SentimentModel(AquiliaModel):
+    """Sentiment analysis model with auto-registration."""
+
+    async def load(self):
+        import torch
+        self.tokenizer = AutoTokenizer.from_pretrained("bert-base")
+        self.model = AutoModelForSequenceClassification.from_pretrained("bert-base")
+
+    async def predict(self, request):
+        tokens = self.tokenizer(request.input, return_tensors="pt")
+        output = self.model(**tokens)
+        return {"sentiment": output.logits.argmax().item()}
+
+    async def health(self):
+        return {"status": "healthy", "loaded": True}</pre></div>
+            </div>
+        </div>
+        <div class="snippet-content" id="snip-serve">
+            <button class="copy-btn" onclick="copySnippet('snip-serve')" type="button">Copy</button>
+            <div class="code-block-container" style="margin-bottom:0;">
+                <div class="code-block-header">
+                    <div class="dots"><div class="dot dot-red"></div><div class="dot dot-yellow"></div><div class="dot dot-green"></div></div>
+                    <span class="filename">models/classifier.py</span>
+                </div>
+                <div class="code-block-body"><pre data-aq-highlight="python">from aquilia.mlops import serve
+
+# Functional decorator for quick model serving
+@serve(name="text-classifier", version="2.1.0")
+async def classify(request):
+    """Classify text into categories."""
+    text = request.input.get("text", "")
+    # Your inference logic here
+    return {
+        "category": "technology",
+        "confidence": 0.95,
+        "model": "text-classifier"
+    }
+
+# Routes auto-generated:
+#   POST /predict/text-classifier
+#   GET  /health/text-classifier
+#   GET  /metrics/text-classifier</pre></div>
+            </div>
+        </div>
+        <div class="snippet-content" id="snip-pipeline">
+            <button class="copy-btn" onclick="copySnippet('snip-pipeline')" type="button">Copy</button>
+            <div class="code-block-container" style="margin-bottom:0;">
+                <div class="code-block-header">
+                    <div class="dots"><div class="dot dot-red"></div><div class="dot dot-yellow"></div><div class="dot dot-green"></div></div>
+                    <span class="filename">models/pipeline.py</span>
+                </div>
+                <div class="code-block-body"><pre data-aq-highlight="python">from aquilia.mlops.engine import HookRegistry, on_load, preprocess, postprocess
+
+hooks = HookRegistry()
+
+@hooks.on_load
+async def warm_up(model, context):
+    """Run warmup inference after model load."""
+    await model.predict({"input": "warmup"})
+
+@hooks.preprocess
+async def validate_input(data, context):
+    """Validate and normalize input before inference."""
+    if "input" not in data:
+        raise ValueError("Missing 'input' field")
+    data["input"] = data["input"].strip().lower()
+    return data
+
+@hooks.postprocess
+async def add_metadata(result, context):
+    """Enrich result with model metadata."""
+    result["model_version"] = context.model_version
+    result["latency_ms"] = context.elapsed_ms
+    return result</pre></div>
+            </div>
+        </div>
+        <div class="snippet-content" id="snip-rollout">
+            <button class="copy-btn" onclick="copySnippet('snip-rollout')" type="button">Copy</button>
+            <div class="code-block-container" style="margin-bottom:0;">
+                <div class="code-block-header">
+                    <div class="dots"><div class="dot dot-red"></div><div class="dot dot-yellow"></div><div class="dot dot-green"></div></div>
+                    <span class="filename">deploy/rollout.py</span>
+                </div>
+                <div class="code-block-body"><pre data-aq-highlight="python">from aquilia.mlops import RolloutEngine, RolloutConfig, RolloutStrategy
+
+engine = app.di.get(RolloutEngine)
+
+# Canary deployment: gradually shift traffic
+config = RolloutConfig(
+    from_version="1.0.0",
+    to_version="2.0.0",
+    strategy=RolloutStrategy.CANARY,
+    steps=[10, 25, 50, 75, 100],
+    metric_gate="error_rate < 0.01",
+)
+rollout = await engine.start(config)
+
+# Monitor and advance
+await engine.advance(rollout.id)  # 10% -> 25%
+await engine.rollback(rollout.id) # auto-rollback on failure</pre></div>
+            </div>
+        </div>
+        <div class="snippet-content" id="snip-config">
+            <button class="copy-btn" onclick="copySnippet('snip-config')" type="button">Copy</button>
+            <div class="code-block-container" style="margin-bottom:0;">
+                <div class="code-block-header">
+                    <div class="dots"><div class="dot dot-red"></div><div class="dot dot-yellow"></div><div class="dot dot-green"></div></div>
+                    <span class="filename">config/base.yaml</span>
+                </div>
+                <div class="code-block-body"><pre data-aq-highlight="python"># aquilia.toml — MLOps configuration
+[mlops]
+enabled = true
+device = "auto"         # auto-detect CPU/CUDA/MPS
+max_models = 50
+memory_limit = "4GB"
+
+[mlops.serving]
+host = "0.0.0.0"
+port = 8080
+workers = 4
+batch_size = 32
+batch_timeout_ms = 50
+
+[mlops.circuit_breaker]
+failure_threshold = 5
+recovery_timeout = 30
+half_open_max = 3
+
+[mlops.drift]
+method = "psi"          # psi, ks_test, distribution, embedding
+threshold = 0.2
+check_interval = 3600   # seconds
+
+[mlops.models.sentiment]
+class_path = "models.sentiment.SentimentModel"
+version = "1.0.0"
+framework = "pytorch"</pre></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# ═══ SLIDE-OUT DETAIL DRAWER ═══ #}
+<div id="aq-drawer-overlay" class="aq-drawer-overlay" onclick="closeDrawer()"></div>
+<div id="aq-drawer" class="aq-drawer">
+    <div class="aq-drawer-header">
+        <div style="display:flex;align-items:center;gap:10px;min-width:0;">
+            <div id="drawer-icon" class="aq-drawer-icon">
+                <i class="icon-cpu"></i>
+            </div>
+            <div style="min-width:0;">
+                <h3 id="drawer-title" style="margin:0;font-size:0.95rem;font-weight:700;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Detail</h3>
+                <span id="drawer-subtitle" style="font-size:0.7rem;color:var(--text-faint);"></span>
+            </div>
+        </div>
+        <button onclick="closeDrawer()" style="background:none;border:none;cursor:pointer;padding:6px;color:var(--text-faint);font-size:1.2rem;line-height:1;border-radius:6px;transition:all .12s ease;" onmouseover="this.style.background='var(--bg-surface)';this.style.color='var(--text-primary)'" onmouseout="this.style.background='none';this.style.color='var(--text-faint)'">&times;</button>
+    </div>
+    <div id="drawer-body" class="aq-drawer-body">
+        {# Content injected by JS #}
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+// ── Chart.js configuration ──────────────────────────────────────
+(function() {
+    'use strict';
+    if (typeof Chart === 'undefined') return;
+
+    var isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+    var gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)';
+    var textColor = isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)';
+
+    Chart.defaults.color = textColor;
+    Chart.defaults.borderColor = gridColor;
+    Chart.defaults.font.family = "'Outfit', system-ui, sans-serif";
+    Chart.defaults.font.size = 11;
+    Chart.defaults.plugins.legend.labels.boxWidth = 10;
+    Chart.defaults.plugins.legend.labels.padding = 12;
+
+    var charts = {{ charts | tojson }};
+
+    // ── Model States Doughnut ────────────────────────────────────
+    var ms = charts.model_states || {};
+    var msLabels = Object.keys(ms);
+    var msValues = Object.values(ms);
+    if (msLabels.length) {
+        var stateColorMap = {
+            'loaded': '#22c55e', 'unloaded': '#a1a1aa', 'loading': '#3b82f6',
+            'failed': '#ef4444', 'prepared': '#a855f7', 'unloading': '#fbbf24',
+            'unknown': '#6b7280',
+        };
+        var msColors = msLabels.map(function(l) { return stateColorMap[l] || '#6b7280'; });
+        new Chart(document.getElementById('chart-model-states'), {
+            type: 'doughnut',
+            data: {
+                labels: msLabels,
+                datasets: [{ data: msValues, backgroundColor: msColors, borderWidth: 0, hoverOffset: 6 }],
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false, cutout: '68%',
+                plugins: { legend: { position: 'bottom', labels: { padding: 10 } } },
+            },
+        });
+    }
+
+    // ── Framework Distribution ───────────────────────────────────
+    var fw = charts.frameworks || {};
+    var fwLabels = Object.keys(fw);
+    var fwValues = Object.values(fw);
+    if (fwLabels.length) {
+        var fwColorMap = {
+            'pytorch': '#ee4c2c', 'tensorflow': '#ff6f00', 'onnx': '#005CED',
+            'jax': '#8b5cf6', 'sklearn': '#f97316', 'xgboost': '#0ea5e9',
+            'lightgbm': '#22c55e', 'huggingface': '#fbbf24', 'custom': '#a1a1aa',
+            'triton': '#76b900', 'tflite': '#ff6f00',
+        };
+        var fwColors = fwLabels.map(function(l) { return fwColorMap[l] || '#6b7280'; });
+        new Chart(document.getElementById('chart-frameworks'), {
+            type: 'doughnut',
+            data: {
+                labels: fwLabels,
+                datasets: [{ data: fwValues, backgroundColor: fwColors, borderWidth: 0, hoverOffset: 6 }],
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false, cutout: '68%',
+                plugins: { legend: { position: 'bottom', labels: { padding: 10 } } },
+            },
+        });
+    }
+
+    // ── Plugin States ────────────────────────────────────────────
+    var ps = charts.plugin_states || {};
+    var psLabels = Object.keys(ps);
+    var psValues = Object.values(ps);
+    if (psLabels.length) {
+        var psColorMap = {
+            'discovered': '#38bdf8', 'loaded': '#a855f7', 'activated': '#22c55e',
+            'deactivated': '#a1a1aa', 'error': '#ef4444',
+        };
+        var psColors = psLabels.map(function(l) { return psColorMap[l] || '#6b7280'; });
+        new Chart(document.getElementById('chart-plugin-states'), {
+            type: 'doughnut',
+            data: {
+                labels: psLabels,
+                datasets: [{ data: psValues, backgroundColor: psColors, borderWidth: 0, hoverOffset: 6 }],
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false, cutout: '68%',
+                plugins: { legend: { position: 'bottom', labels: { padding: 10 } } },
+            },
+        });
+    }
+
+    // ── Rollout Phases ───────────────────────────────────────────
+    var rp = charts.rollout_phases || {};
+    var rpLabels = Object.keys(rp);
+    var rpValues = Object.values(rp);
+    if (rpLabels.length) {
+        var rpColorMap = {
+            'pending': '#a1a1aa', 'in_progress': '#3b82f6', 'completed': '#22c55e',
+            'rolled_back': '#fbbf24', 'failed': '#ef4444',
+        };
+        var rpColors = rpLabels.map(function(l) { return rpColorMap[l] || '#6b7280'; });
+        new Chart(document.getElementById('chart-rollout-phases'), {
+            type: 'bar',
+            data: {
+                labels: rpLabels,
+                datasets: [{
+                    label: 'Rollouts',
+                    data: rpValues,
+                    backgroundColor: rpColors,
+                    borderWidth: 0,
+                    borderRadius: 4,
+                }],
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+                scales: {
+                    x: { beginAtZero: true, grid: { color: gridColor }, ticks: { stepSize: 1 } },
+                    y: { grid: { display: false } },
+                },
+                plugins: { legend: { display: false } },
+            },
+        });
+    }
+})();
+
+// ── Count-up animation ──────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('[data-count]').forEach(function(el) {
+        var target = parseInt(el.getAttribute('data-count'), 10);
+        if (isNaN(target) || target === 0) { el.textContent = '0'; return; }
+        var duration = 600, start = performance.now();
+        function step(now) {
+            var p = Math.min((now - start) / duration, 1);
+            var ease = 1 - Math.pow(1 - p, 3);
+            el.textContent = Math.round(target * ease).toLocaleString();
+            if (p < 1) requestAnimationFrame(step);
+            else el.classList.add('count-done');
+        }
+        requestAnimationFrame(step);
+    });
+
+    // ── Model search filter ──
+    var searchInput = document.getElementById('modelSearch');
+    var table = document.getElementById('modelsTable');
+    var noResults = document.getElementById('modelNoResults');
+
+    if (searchInput && table) {
+        searchInput.addEventListener('input', function() {
+            var query = searchInput.value.toLowerCase();
+            var rows = table.querySelectorAll('tbody tr');
+            var visible = 0;
+            rows.forEach(function(row) {
+                var name = (row.getAttribute('data-name') || '').toLowerCase();
+                var fw = (row.getAttribute('data-framework') || '').toLowerCase();
+                if (!query || name.indexOf(query) !== -1 || fw.indexOf(query) !== -1) {
+                    row.style.display = '';
+                    visible++;
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+            if (noResults) {
+                noResults.style.display = visible === 0 ? 'block' : 'none';
+            }
+        });
+    }
+
+    // ── Capability tabs ──
+    document.querySelectorAll('.cap-tab').forEach(function(tab) {
+        tab.addEventListener('click', function() {
+            document.querySelectorAll('.cap-tab').forEach(function(t) { t.classList.remove('active'); });
+            document.querySelectorAll('.cap-panel').forEach(function(p) { p.classList.remove('active'); });
+            tab.classList.add('active');
+            var target = document.getElementById(tab.getAttribute('data-cap'));
+            if (target) target.classList.add('active');
+        });
+    });
+
+    // ── Snippet tabs ──
+    document.querySelectorAll('.snippet-tab').forEach(function(tab) {
+        tab.addEventListener('click', function() {
+            var panel = tab.closest('.snippet-panel');
+            panel.querySelectorAll('.snippet-tab').forEach(function(t) { t.classList.remove('active'); });
+            panel.querySelectorAll('.snippet-content').forEach(function(c) { c.classList.remove('active'); });
+            tab.classList.add('active');
+            var target = document.getElementById(tab.getAttribute('data-tab'));
+            if (target) target.classList.add('active');
+        });
+    });
+});
+
+// ── Copy snippet helper ──
+function copySnippet(id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    var pre = el.querySelector('pre');
+    if (!pre) return;
+    var tmp = document.createElement('div');
+    tmp.innerHTML = pre.innerHTML;
+    tmp.querySelectorAll('.code-line-num').forEach(function(n) { n.remove(); });
+    var raw = tmp.textContent || tmp.innerText;
+    navigator.clipboard.writeText(raw.trim()).then(function() {
+        var btn = el.querySelector('.copy-btn');
+        if (btn) { btn.textContent = 'Copied!'; setTimeout(function() { btn.textContent = 'Copy'; }, 1500); }
+    });
+}
+
+// ── Client-side Python syntax highlighter ──
+(function() {
+    var KW = ['def','class','import','from','return','if','elif','else','for','while','with','as',
+              'try','except','finally','raise','pass','break','continue','yield','async','await',
+              'not','and','or','in','is','None','True','False','self','lambda','assert'];
+    var KW_RE = new RegExp('\\b(' + KW.join('|') + ')\\b', 'g');
+
+    function escHtml(s) {
+        return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#x27;');
+    }
+
+    function highlightLine(line) {
+        var tokens = [];
+        var re3 = /"""[\s\S]*?"""|'''[\s\S]*?'''/g, m;
+        while ((m = re3.exec(line)) !== null) tokens.push([m.index, re3.lastIndex, 'str']);
+        var reS = /"[^"\\]*(?:\\.[^"\\]*)*"|'[^'\\]*(?:\\.[^'\\]*)*'/g;
+        while ((m = reS.exec(line)) !== null) tokens.push([m.index, reS.lastIndex, 'str']);
+        var hashIdx = line.indexOf('#');
+        if (hashIdx !== -1) {
+            var inside = tokens.some(function(t) { return t[0] <= hashIdx && hashIdx < t[1]; });
+            if (!inside) tokens.push([hashIdx, line.length, 'cmt']);
+        }
+        var reD = /^(\s*)(@\w+)/;
+        m = reD.exec(line);
+        if (m) tokens.push([m.index + m[1].length, m.index + m[1].length + m[2].length, 'dec']);
+        KW_RE.lastIndex = 0;
+        while ((m = KW_RE.exec(line)) !== null) tokens.push([m.index, KW_RE.lastIndex, 'kw']);
+        var reN = /\b\d+\.?\d*\b/g;
+        while ((m = reN.exec(line)) !== null) tokens.push([m.index, reN.lastIndex, 'num']);
+        var reF = /\b(\w+)\(/g;
+        while ((m = reF.exec(line)) !== null) tokens.push([m.index, m.index + m[1].length, 'fn']);
+        tokens.sort(function(a, b) { return a[0] - b[0] || (b[1] - b[0]) - (a[1] - a[0]); });
+        var merged = [], usedEnd = 0;
+        tokens.forEach(function(t) {
+            if (t[0] < usedEnd) return;
+            merged.push(t);
+            usedEnd = t[1];
+        });
+        var parts = [], pos = 0;
+        merged.forEach(function(t) {
+            if (t[0] > pos) parts.push(escHtml(line.substring(pos, t[0])));
+            parts.push('<span class="' + t[2] + '">' + escHtml(line.substring(t[0], t[1])) + '</span>');
+            pos = t[1];
+        });
+        if (pos < line.length) parts.push(escHtml(line.substring(pos)));
+        return parts.join('');
+    }
+
+    document.querySelectorAll('pre[data-aq-highlight="python"]').forEach(function(pre) {
+        var raw = pre.textContent;
+        var lines = raw.split('\n');
+        var html = lines.map(function(line, i) {
+            var num = '<span class="code-line-num">' + (i + 1) + '</span>';
+            return num + highlightLine(line);
+        }).join('\n');
+        pre.innerHTML = html;
+    });
+})();
+
+// ── Drawer helpers ──────────────────────────────────────────────
+(function() {
+    'use strict';
+    var overlay = document.getElementById('aq-drawer-overlay');
+    var drawer = document.getElementById('aq-drawer');
+    var title = document.getElementById('drawer-title');
+    var subtitle = document.getElementById('drawer-subtitle');
+    var icon = document.getElementById('drawer-icon');
+    var body = document.getElementById('drawer-body');
+
+    if (!overlay || !drawer) return;
+
+    function esc(s) { var d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+
+    function makeField(label, value, opts) {
+        opts = opts || {};
+        var cls = opts.mono ? ' mono' : '';
+        var full = opts.full ? ' style="grid-column:1/-1;"' : '';
+        return '<div class="aq-drawer-field"' + full + '>' +
+               '<div class="aq-drawer-field-label">' + esc(label) + '</div>' +
+               '<div class="aq-drawer-field-value' + cls + '">' + (value || '—') + '</div></div>';
+    }
+
+    function makeBadge(text, cssClass) {
+        return '<span class="mlops-badge ' + cssClass + '">' + esc(text) + '</span>';
+    }
+
+    function openDrawer() {
+        overlay.classList.add('open');
+        drawer.classList.add('open');
+        document.body.style.overflow = 'hidden';
+    }
+
+    window.closeDrawer = function() {
+        overlay.classList.remove('open');
+        drawer.classList.remove('open');
+        document.body.style.overflow = '';
+    };
+
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && drawer.classList.contains('open')) {
+            window.closeDrawer();
+        }
+    });
+
+    // ── Open Model Drawer ────────────────────────────────────────
+    window.openModelDrawer = function(row) {
+        var d = row.dataset;
+        title.textContent = d.name;
+        subtitle.textContent = 'Model v' + d.version;
+        var isLoaded = d.state === 'loaded';
+        var isFailed = d.state === 'failed';
+        icon.style.background = isFailed ? 'rgba(239,68,68,0.12)' : (isLoaded ? 'rgba(34,197,94,0.12)' : 'rgba(59,130,246,0.12)');
+        icon.style.color = isFailed ? 'var(--danger)' : (isLoaded ? 'var(--accent)' : 'var(--accent)');
+        icon.innerHTML = isFailed ? '<i class="icon-x-circle"></i>' : '<i class="icon-cpu"></i>';
+
+        var html = '';
+
+        // ── Identity ──
+        html += '<div class="aq-drawer-section">';
+        html += '<div class="aq-drawer-section-title">Model Identity</div>';
+        html += '<div class="aq-drawer-grid">';
+        html += makeField('Name', '<code style="font-size:0.82rem;color:var(--accent);">' + esc(d.name) + '</code>', {full: true});
+        html += makeField('Version', esc(d.version));
+        html += makeField('State', makeBadge(d.state, 'badge-' + d.state));
+        html += '</div></div>';
+
+        // ── Runtime ──
+        html += '<div class="aq-drawer-section">';
+        html += '<div class="aq-drawer-section-title">Runtime Configuration</div>';
+        html += '<div class="aq-drawer-grid">';
+        html += makeField('Framework', esc(d.framework));
+        html += makeField('Model Type', esc(d.modelType));
+        html += makeField('Device', esc(d.device));
+        html += makeField('Runtime', esc(d.runtime));
+        html += makeField('Active Version', d.active === 'True' ? '✓ Yes' : '✗ No');
+        html += '</div></div>';
+
+        // ── Quick Predict ──
+        html += '<div class="aq-drawer-section">';
+        html += '<div class="aq-drawer-section-title">Quick Predict</div>';
+        html += '<div style="padding:12px 14px;background:var(--bg-primary);border:1px solid var(--border-subtle);border-radius:8px;font-family:var(--font-mono);font-size:0.72rem;line-height:1.6;color:var(--text-secondary);overflow-x:auto;">';
+        html += '<span style="color:#6b7280;"># Via orchestrator</span>\n';
+        html += '<span style="color:#22c55e;">await</span> orchestrator.<span style="color:#fde047;">predict</span>(<span style="color:#4ade80;">"' + esc(d.name) + '"</span>, {<span style="color:#4ade80;">"input"</span>: data})\n\n';
+        html += '<span style="color:#6b7280;"># HTTP endpoint</span>\n';
+        html += '<span style="color:#22c55e;">POST</span> /predict/<span style="color:#4ade80;">' + esc(d.name) + '</span>\n';
+        html += '<span style="color:#6b7280;"># Stream endpoint</span>\n';
+        html += '<span style="color:#22c55e;">POST</span> /stream/<span style="color:#4ade80;">' + esc(d.name) + '</span>';
+        html += '</div></div>';
+
+        body.innerHTML = html;
+        openDrawer();
+    };
+
+    // ── Open Rollout Drawer ──────────────────────────────────────
+    window.openRolloutDrawer = function(row) {
+        var d = row.dataset;
+        title.textContent = 'Rollout ' + d.id.substring(0, 12);
+        subtitle.textContent = d.from + ' → ' + d.to;
+        var isActive = d.phase === 'in_progress';
+        var isFailed = d.phase === 'failed' || d.phase === 'rolled_back';
+        icon.style.background = isFailed ? 'rgba(239,68,68,0.12)' : (isActive ? 'rgba(59,130,246,0.12)' : 'rgba(34,197,94,0.12)');
+        icon.style.color = isFailed ? 'var(--danger)' : (isActive ? '#3b82f6' : 'var(--accent)');
+        icon.innerHTML = '<i class="icon-git-merge"></i>';
+
+        var html = '';
+
+        // ── Identity ──
+        html += '<div class="aq-drawer-section">';
+        html += '<div class="aq-drawer-section-title">Rollout Identity</div>';
+        html += '<div class="aq-drawer-grid">';
+        html += makeField('ID', esc(d.id), {full: true, mono: true});
+        html += makeField('From Version', '<code>' + esc(d.from) + '</code>');
+        html += makeField('To Version', '<code style="color:var(--accent);">' + esc(d.to) + '</code>');
+        html += makeField('Strategy', makeBadge(d.strategy, 'badge-' + d.strategy));
+        html += makeField('Phase', makeBadge(d.phase, 'badge-' + d.phase));
+        html += '</div></div>';
+
+        // ── Progress ──
+        html += '<div class="aq-drawer-section">';
+        html += '<div class="aq-drawer-section-title">Progress</div>';
+        var pct = parseInt(d.percentage, 10) || 0;
+        var pctColor = isFailed ? 'var(--danger)' : (pct >= 100 ? 'var(--success)' : 'var(--accent)');
+        html += '<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">';
+        html += '<div style="flex:1;"><div class="progress-bar-bg" style="height:10px;">';
+        html += '<div class="progress-bar-fill" style="width:' + pct + '%;background:' + pctColor + ';"></div>';
+        html += '</div></div>';
+        html += '<span style="font-family:var(--font-mono);font-size:1rem;font-weight:700;color:' + pctColor + ';">' + pct + '%</span>';
+        html += '</div>';
+        html += '<div class="aq-drawer-grid">';
+        html += makeField('Steps Completed', esc(d.steps));
+        html += makeField('Traffic Split', pct + '% new / ' + (100 - pct) + '% old');
+        html += '</div></div>';
+
+        // ── Error (if any) ──
+        if (d.error) {
+            html += '<div class="aq-drawer-section">';
+            html += '<div class="aq-drawer-section-title" style="color:var(--danger);">Error</div>';
+            html += '<div style="padding:12px;background:rgba(239,68,68,0.04);border:1px solid rgba(239,68,68,0.15);border-radius:8px;font-family:var(--font-mono);font-size:0.75rem;color:var(--danger);white-space:pre-wrap;">';
+            html += esc(d.error);
+            html += '</div></div>';
+        }
+
+        body.innerHTML = html;
+        openDrawer();
+    };
+})();
+
+// ── Auto-refresh polling ────────────────────────────────────────
+(function() {
+    var POLL_INTERVAL = 15000;
+    var API_URL = window.location.pathname.replace(/\/$/, '') + '/api/';
+
+    function refreshMetrics() {
+        fetch(API_URL).then(function(r) { return r.json(); }).then(function(data) {
+            // Update stat cards
+            var cards = document.querySelectorAll('[data-count]');
+            var countMap = {
+                0: data.total_models,
+                1: data.total_inferences,
+                3: data.total_tokens,
+                4: data.total_stream_requests,
+            };
+            cards.forEach(function(el, i) {
+                if (countMap[i] !== undefined) {
+                    el.textContent = (countMap[i] || 0).toLocaleString();
+                }
+            });
+        }).catch(function() { /* silent */ });
+    }
+
+    setInterval(refreshMetrics, POLL_INTERVAL);
+})();
+{% endblock %}

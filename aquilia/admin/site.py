@@ -57,7 +57,7 @@ class AdminConfig:
         "profile": True, "audit": False,
         "containers": False, "pods": False,
         "query_inspector": False, "tasks": False, "errors": False,
-        "testing": False,
+        "testing": False, "mlops": False,
     })
 
     # Audit settings (disabled by default -- opt in)
@@ -1228,6 +1228,296 @@ class AdminSite:
     def set_task_manager(self, manager) -> None:
         """Register the application's TaskManager for admin integration."""
         self._task_manager = manager
+
+    # ── MLOps data ───────────────────────────────────────────────────
+
+    def get_mlops_data(self) -> Dict[str, Any]:
+        """
+        Gather comprehensive MLOps subsystem data for the admin page.
+
+        Inspects all MLOps subsystems: models, registry, serving,
+        observability, drift detection, rollouts, plugins, experiments,
+        circuit breaker, rate limiter, memory tracker, lineage, and
+        scheduler.
+        """
+        data: Dict[str, Any] = {"available": False}
+
+        try:
+            from aquilia.mlops import (
+                ModelOrchestrator, ModelRegistry, MetricsCollector,
+                DriftDetector, PluginHost, CircuitBreaker,
+                TokenBucketRateLimiter, MemoryTracker,
+                ModelLineageDAG, ExperimentLedger,
+                Framework, RuntimeKind, ModelType, DeviceType,
+                BatchingStrategy, RolloutStrategy, DriftMethod,
+                QuantizePreset, ExportTarget, InferenceMode,
+            )
+        except Exception:
+            return data
+
+        data["available"] = True
+
+        # ── 1. Enums / Capabilities ─────────────────────────────────
+        data["frameworks"] = [f.value for f in Framework]
+        data["runtime_kinds"] = [r.value for r in RuntimeKind]
+        data["model_types"] = [m.value for m in ModelType]
+        data["device_types"] = [d.value for d in DeviceType]
+        data["batching_strategies"] = [b.value for b in BatchingStrategy]
+        data["rollout_strategies"] = [r.value for r in RolloutStrategy]
+        data["drift_methods"] = [d.value for d in DriftMethod]
+        data["quantize_presets"] = [q.value for q in QuantizePreset]
+        data["export_targets"] = [e.value for e in ExportTarget]
+        data["inference_modes"] = [i.value for i in InferenceMode]
+
+        # ── 2. Registry / Models ────────────────────────────────────
+        models = []
+        registry = getattr(self, "_mlops_registry", None)
+        if registry is not None and hasattr(registry, "list_models"):
+            try:
+                for name in registry.list_models():
+                    entry = registry.get(name)
+                    if entry:
+                        models.append(entry.to_dict() if hasattr(entry, "to_dict") else {
+                            "name": name,
+                            "version": getattr(entry, "version", "?"),
+                            "state": getattr(entry, "state", "unknown"),
+                        })
+            except Exception:
+                pass
+        data["models"] = models
+        data["total_models"] = len(models)
+
+        # ── 3. Metrics ──────────────────────────────────────────────
+        metrics_collector = getattr(self, "_mlops_metrics", None)
+        metrics_summary = {}
+        if metrics_collector is not None and hasattr(metrics_collector, "get_summary"):
+            try:
+                metrics_summary = metrics_collector.get_summary()
+            except Exception:
+                pass
+        data["metrics"] = metrics_summary
+        data["total_inferences"] = metrics_summary.get("aquilia_inference_total", 0)
+        data["total_errors"] = metrics_summary.get("aquilia_inference_errors_total", 0)
+        data["total_tokens"] = metrics_summary.get("aquilia_tokens_generated_total", 0)
+        data["total_stream_requests"] = metrics_summary.get("aquilia_stream_requests_total", 0)
+        data["total_prompt_tokens"] = metrics_summary.get("aquilia_prompt_tokens_total", 0)
+
+        # Hot models
+        hot_models = []
+        if metrics_collector is not None and hasattr(metrics_collector, "hot_models"):
+            try:
+                hot_models = [{"name": name, "score": score}
+                              for name, score in metrics_collector.hot_models(10)]
+            except Exception:
+                pass
+        data["hot_models"] = hot_models
+
+        # Latency percentiles
+        latency_data = {}
+        if metrics_collector is not None and hasattr(metrics_collector, "percentile"):
+            try:
+                latency_data["p50"] = round(metrics_collector.percentile("aquilia_inference_latency_ms", 0.5), 2)
+                latency_data["p95"] = round(metrics_collector.percentile("aquilia_inference_latency_ms", 0.95), 2)
+                latency_data["p99"] = round(metrics_collector.percentile("aquilia_inference_latency_ms", 0.99), 2)
+                latency_data["ewma"] = round(metrics_collector.ewma("aquilia_inference_latency_ms"), 2)
+            except Exception:
+                pass
+        data["latency"] = latency_data
+
+        # Tokens per second
+        tps_data = {}
+        if metrics_collector is not None and hasattr(metrics_collector, "ewma"):
+            try:
+                tps_data["ewma"] = round(metrics_collector.ewma("aquilia_tokens_per_second"), 2)
+                tps_data["ttft_ewma"] = round(metrics_collector.ewma("aquilia_time_to_first_token_ms"), 2)
+            except Exception:
+                pass
+        data["throughput"] = tps_data
+
+        # ── 4. Drift Detection ──────────────────────────────────────
+        drift_data = {}
+        drift_detector = getattr(self, "_mlops_drift", None)
+        if drift_detector is not None:
+            try:
+                drift_data["method"] = drift_detector.method.value if hasattr(drift_detector.method, "value") else str(drift_detector.method)
+                drift_data["threshold"] = drift_detector.threshold
+                drift_data["has_reference"] = drift_detector._reference is not None
+            except Exception:
+                pass
+        data["drift"] = drift_data
+
+        # ── 5. Circuit Breaker ──────────────────────────────────────
+        cb_data = {}
+        circuit_breaker = getattr(self, "_mlops_circuit_breaker", None)
+        if circuit_breaker is not None and hasattr(circuit_breaker, "stats"):
+            try:
+                cb_data = circuit_breaker.stats
+            except Exception:
+                pass
+        data["circuit_breaker"] = cb_data
+
+        # ── 6. Rate Limiter ─────────────────────────────────────────
+        rl_data = {}
+        rate_limiter = getattr(self, "_mlops_rate_limiter", None)
+        if rate_limiter is not None and hasattr(rate_limiter, "stats"):
+            try:
+                rl_data = rate_limiter.stats
+            except Exception:
+                pass
+        data["rate_limiter"] = rl_data
+
+        # ── 7. Memory Tracker ───────────────────────────────────────
+        mem_data = {}
+        memory_tracker = getattr(self, "_mlops_memory_tracker", None)
+        if memory_tracker is not None and hasattr(memory_tracker, "stats"):
+            try:
+                mem_data = memory_tracker.stats
+            except Exception:
+                pass
+        data["memory"] = mem_data
+
+        # ── 8. Plugins ──────────────────────────────────────────────
+        plugins = []
+        plugin_host = getattr(self, "_mlops_plugins", None)
+        if plugin_host is not None and hasattr(plugin_host, "list_plugins"):
+            try:
+                for desc in plugin_host.list_plugins():
+                    plugins.append({
+                        "name": desc.name,
+                        "version": desc.version,
+                        "state": desc.state.value if hasattr(desc.state, "value") else str(desc.state),
+                        "error": desc.error or "",
+                    })
+            except Exception:
+                pass
+        data["plugins"] = plugins
+        data["total_plugins"] = len(plugins)
+
+        # ── 9. Experiments ──────────────────────────────────────────
+        experiments = []
+        experiment_ledger = getattr(self, "_mlops_experiments", None)
+        if experiment_ledger is not None:
+            try:
+                if hasattr(experiment_ledger, "to_dict"):
+                    exp_dict = experiment_ledger.to_dict()
+                    for eid, edata in exp_dict.items():
+                        experiments.append(edata)
+            except Exception:
+                pass
+        data["experiments"] = experiments
+        data["total_experiments"] = len(experiments)
+        data["active_experiments"] = sum(1 for e in experiments if e.get("status") == "active")
+
+        # ── 10. Model Lineage ───────────────────────────────────────
+        lineage_data = {}
+        lineage_dag = getattr(self, "_mlops_lineage", None)
+        if lineage_dag is not None and hasattr(lineage_dag, "to_dict"):
+            try:
+                lineage_data = lineage_dag.to_dict()
+            except Exception:
+                pass
+        data["lineage"] = lineage_data
+        data["lineage_nodes"] = len(lineage_data)
+
+        # ── 11. Rollouts ────────────────────────────────────────────
+        rollouts = []
+        rollout_engine = getattr(self, "_mlops_rollout", None)
+        if rollout_engine is not None and hasattr(rollout_engine, "list_rollouts"):
+            try:
+                for r in rollout_engine.list_rollouts():
+                    rollouts.append({
+                        "id": r.id,
+                        "from_version": r.config.from_version,
+                        "to_version": r.config.to_version,
+                        "strategy": r.config.strategy.value if hasattr(r.config.strategy, "value") else str(r.config.strategy),
+                        "phase": r.phase.value if hasattr(r.phase, "value") else str(r.phase),
+                        "percentage": r.current_percentage,
+                        "steps": r.steps_completed,
+                        "error": r.error or "",
+                    })
+            except Exception:
+                pass
+        data["rollouts"] = rollouts
+        data["total_rollouts"] = len(rollouts)
+        data["active_rollouts"] = sum(1 for r in rollouts if r.get("phase") == "in_progress")
+
+        # ── 12. Charts data ─────────────────────────────────────────
+        charts: Dict[str, Any] = {}
+
+        # Model states distribution
+        state_counts: Dict[str, int] = {}
+        for m in models:
+            state = m.get("state", "unknown")
+            state_counts[state] = state_counts.get(state, 0) + 1
+        charts["model_states"] = state_counts
+
+        # Framework distribution
+        fw_counts: Dict[str, int] = {}
+        for m in models:
+            fw = m.get("framework", "custom")
+            if isinstance(fw, str):
+                fw_counts[fw] = fw_counts.get(fw, 0) + 1
+        charts["frameworks"] = fw_counts
+
+        # Plugin states
+        plugin_states: Dict[str, int] = {}
+        for p in plugins:
+            pstate = p.get("state", "unknown")
+            plugin_states[pstate] = plugin_states.get(pstate, 0) + 1
+        charts["plugin_states"] = plugin_states
+
+        # Experiment statuses
+        exp_statuses: Dict[str, int] = {}
+        for e in experiments:
+            estatus = e.get("status", "unknown")
+            exp_statuses[estatus] = exp_statuses.get(estatus, 0) + 1
+        charts["experiment_statuses"] = exp_statuses
+
+        # Rollout phases
+        rollout_phases: Dict[str, int] = {}
+        for r in rollouts:
+            rphase = r.get("phase", "unknown")
+            rollout_phases[rphase] = rollout_phases.get(rphase, 0) + 1
+        charts["rollout_phases"] = rollout_phases
+
+        data["charts"] = charts
+
+        return data
+
+    def set_mlops_services(
+        self,
+        registry=None,
+        metrics_collector=None,
+        drift_detector=None,
+        circuit_breaker=None,
+        rate_limiter=None,
+        memory_tracker=None,
+        plugin_host=None,
+        experiment_ledger=None,
+        lineage_dag=None,
+        rollout_engine=None,
+    ) -> None:
+        """Register MLOps services for admin integration."""
+        if registry is not None:
+            self._mlops_registry = registry
+        if metrics_collector is not None:
+            self._mlops_metrics = metrics_collector
+        if drift_detector is not None:
+            self._mlops_drift = drift_detector
+        if circuit_breaker is not None:
+            self._mlops_circuit_breaker = circuit_breaker
+        if rate_limiter is not None:
+            self._mlops_rate_limiter = rate_limiter
+        if memory_tracker is not None:
+            self._mlops_memory_tracker = memory_tracker
+        if plugin_host is not None:
+            self._mlops_plugins = plugin_host
+        if experiment_ledger is not None:
+            self._mlops_experiments = experiment_ledger
+        if lineage_dag is not None:
+            self._mlops_lineage = lineage_dag
+        if rollout_engine is not None:
+            self._mlops_rollout = rollout_engine
 
     # ── Testing data ─────────────────────────────────────────────────
 

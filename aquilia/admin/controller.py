@@ -57,6 +57,7 @@ from .templates import (
     render_tasks_page,
     render_errors_page,
     render_testing_page,
+    render_mlops_page,
 )
 
 if TYPE_CHECKING:
@@ -392,6 +393,12 @@ class AdminController(Controller):
                 "enable_testing=True",
                 "check-circle",
                 "Test infrastructure, assertions, fixtures, mock systems, coverage analysis, and file discovery.",
+            ),
+            "MLOps": (
+                "Integration.AdminModules().enable_mlops()",
+                "enable_mlops=True",
+                "cpu",
+                "ML model registry, inference serving, drift detection, rollouts, experiments, and observability.",
             ),
         }
 
@@ -2374,6 +2381,59 @@ class AdminController(Controller):
         testing_data = self.site.get_testing_data()
         return Response(
             content=_json.dumps(testing_data, default=str).encode("utf-8"),
+            status=200,
+            headers={"content-type": "application/json; charset=utf-8"},
+        )
+
+    # ── MLOps Page ─────────────────────────────────────────────────
+
+    @GET("/mlops/")
+    async def mlops_view(self, request, ctx: RequestCtx) -> Response:
+        """MLOps dashboard -- model registry, serving, drift, rollouts."""
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return denied
+
+        if not self.site.admin_config.is_module_enabled("mlops"):
+            return self._module_disabled_response("MLOps", identity)
+
+        self._ensure_initialized()
+
+        mlops_data = self.site.get_mlops_data()
+        app_list = self.site.get_app_list(identity)
+
+        html = render_mlops_page(
+            mlops_data=mlops_data,
+            app_list=app_list,
+            identity_name=_get_identity_name(identity),
+            identity_avatar=_get_identity_avatar(identity),
+        )
+        return _html_response(html)
+
+    @GET("/mlops/api/")
+    async def mlops_api(self, request, ctx: RequestCtx) -> Response:
+        """JSON API endpoint for live-polling MLOps data."""
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return Response(
+                content=b'{"error":"unauthorized"}',
+                status=401,
+                headers={"content-type": "application/json"},
+            )
+
+        if not self.site.admin_config.is_module_enabled("mlops"):
+            return Response(
+                content=b'{"error":"mlops disabled"}',
+                status=404,
+                headers={"content-type": "application/json"},
+            )
+
+        self._ensure_initialized()
+
+        import json as _json
+        mlops_data = self.site.get_mlops_data()
+        return Response(
+            content=_json.dumps(mlops_data, default=str).encode("utf-8"),
             status=200,
             headers={"content-type": "application/json; charset=utf-8"},
         )

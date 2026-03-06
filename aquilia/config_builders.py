@@ -1039,7 +1039,7 @@ class Integration:
                      "_monitoring", "_admin_users", "_profile", "_audit",
                      "_containers", "_pods",
                      "_query_inspector", "_tasks", "_errors",
-                     "_testing")
+                     "_testing", "_mlops")
 
         def __init__(self) -> None:
             self._dashboard: bool = True
@@ -1059,6 +1059,7 @@ class Integration:
             self._tasks: bool = False             # disabled by default
             self._errors: bool = False            # disabled by default
             self._testing: bool = False           # disabled by default
+            self._mlops: bool = False             # disabled by default
 
         # ── Dashboard ──
         def enable_dashboard(self) -> "Integration.AdminModules":
@@ -1247,6 +1248,17 @@ class Integration:
             self._testing = False
             return self
 
+        # ── MLOps (disabled by default) ──
+        def enable_mlops(self) -> "Integration.AdminModules":
+            """Show the MLOps page (model registry, serving, drift, rollouts). Disabled by default -- opt in."""
+            self._mlops = True
+            return self
+
+        def disable_mlops(self) -> "Integration.AdminModules":
+            """Hide the MLOps page."""
+            self._mlops = False
+            return self
+
         # ── Convenience ──
         def enable_all(self) -> "Integration.AdminModules":
             """Enable every admin module (including monitoring & audit)."""
@@ -1280,6 +1292,7 @@ class Integration:
                 "tasks": self._tasks,
                 "errors": self._errors,
                 "testing": self._testing,
+                "mlops": self._mlops,
             }
 
         def __repr__(self) -> str:
@@ -2132,6 +2145,7 @@ class Integration:
                 "tasks": kwargs.pop("enable_tasks", False),
                 "errors": kwargs.pop("enable_errors", False),
                 "testing": kwargs.pop("enable_testing", False),
+                "mlops": kwargs.pop("enable_mlops", False),
             }
 
         # ── Resolve audit ────────────────────────────────────────────

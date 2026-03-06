@@ -171,6 +171,7 @@ workspace = (
             .enable_query_inspector()
             .enable_tasks()
             .enable_errors()
+            .enable_testing()
         )
     ))
 )
