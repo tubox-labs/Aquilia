@@ -96,6 +96,16 @@
     </div>
     {% endif %}
 
+    {# ── AI / ML ── #}
+    {% if sections.get('ai_ml', true) %}
+    <div class="sidebar-section" data-sidebar-section>
+        <span class="sidebar-section-label">AI / ML</span>
+        <a class="sidebar-link{{ ' active' if active_page == 'mlops' else '' }}" href="{{ url_prefix|default('/admin') }}/mlops/" data-sidebar-label="mlops models inference serving drift rollouts experiments registry pipeline">
+            <i class="icon-cpu"></i> <span>MLOps</span>
+        </a>
+    </div>
+    {% endif %}
+
     {# ── DevTools ── #}
     {% if sections.get('devtools', true) %}
     <div class="sidebar-section" data-sidebar-section>

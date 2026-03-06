@@ -1441,7 +1441,125 @@ class AdminSite:
         data["total_rollouts"] = len(rollouts)
         data["active_rollouts"] = sum(1 for r in rollouts if r.get("phase") == "in_progress")
 
-        # ── 12. Charts data ─────────────────────────────────────────
+        # ── 12. Autoscaler ──────────────────────────────────────────
+        autoscaler_data: Dict[str, Any] = {}
+        autoscaler = getattr(self, "_mlops_autoscaler", None)
+        if autoscaler is not None:
+            try:
+                if hasattr(autoscaler, "policy"):
+                    p = autoscaler.policy
+                    autoscaler_data["policy"] = {
+                        "min_replicas": p.min_replicas,
+                        "max_replicas": p.max_replicas,
+                        "target_concurrency": p.target_concurrency,
+                        "target_latency_p95_ms": p.target_latency_p95_ms,
+                        "target_gpu_utilization": p.target_gpu_utilization,
+                        "target_tokens_per_second": p.target_tokens_per_second,
+                        "cooldown_seconds": p.cooldown_seconds,
+                    }
+                if hasattr(autoscaler, "_current_replicas"):
+                    autoscaler_data["current_replicas"] = autoscaler._current_replicas
+                if hasattr(autoscaler, "window_stats"):
+                    autoscaler_data["window_stats"] = autoscaler.window_stats
+                if hasattr(autoscaler, "evaluate"):
+                    try:
+                        decision = autoscaler.evaluate()
+                        autoscaler_data["last_decision"] = {
+                            "current": decision.current_replicas,
+                            "desired": decision.desired_replicas,
+                            "reason": decision.reason,
+                        }
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+        data["autoscaler"] = autoscaler_data
+
+        # ── 13. RBAC / Security ─────────────────────────────────────
+        rbac_data: Dict[str, Any] = {}
+        rbac_manager = getattr(self, "_mlops_rbac", None)
+        if rbac_manager is not None:
+            try:
+                if hasattr(rbac_manager, "_roles"):
+                    rbac_data["roles"] = [
+                        {
+                            "name": role.name,
+                            "description": getattr(role, "description", ""),
+                            "permissions": [p.value if hasattr(p, "value") else str(p) for p in role.permissions],
+                        }
+                        for role in rbac_manager._roles.values()
+                    ]
+                if hasattr(rbac_manager, "_user_roles"):
+                    rbac_data["total_users"] = len(rbac_manager._user_roles)
+                    rbac_data["user_assignments"] = {
+                        uid: list(roles) for uid, roles in rbac_manager._user_roles.items()
+                    }
+            except Exception:
+                pass
+        data["rbac"] = rbac_data
+
+        # ── 14. Batch Queue ─────────────────────────────────────────
+        batch_queue_data: Dict[str, Any] = {}
+        batch_queue = getattr(self, "_mlops_batch_queue", None)
+        if batch_queue is not None and hasattr(batch_queue, "stats"):
+            try:
+                batch_queue_data = batch_queue.stats
+            except Exception:
+                pass
+        data["batch_queue"] = batch_queue_data
+
+        # ── 15. LRU Cache ───────────────────────────────────────────
+        lru_cache_data: Dict[str, Any] = {}
+        lru_cache = getattr(self, "_mlops_lru_cache", None)
+        if lru_cache is not None and hasattr(lru_cache, "stats"):
+            try:
+                lru_cache_data = lru_cache.stats
+            except Exception:
+                pass
+        data["lru_cache"] = lru_cache_data
+
+        # ── 16. Per-model metrics ───────────────────────────────────
+        per_model_metrics = []
+        if metrics_collector is not None and hasattr(metrics_collector, "model_summary"):
+            try:
+                for m_item in models:
+                    mname = m_item.get("name", "")
+                    if mname:
+                        ms = metrics_collector.model_summary(mname)
+                        if len(ms) > 1:  # has more than just model_name
+                            per_model_metrics.append(ms)
+            except Exception:
+                pass
+        data["per_model_metrics"] = per_model_metrics
+
+        # ── 17. Prometheus text ─────────────────────────────────────
+        prometheus_text = ""
+        if metrics_collector is not None and hasattr(metrics_collector, "to_prometheus"):
+            try:
+                prometheus_text = metrics_collector.to_prometheus()
+            except Exception:
+                pass
+        data["prometheus_text"] = prometheus_text
+
+        # ── 18. DType system ────────────────────────────────────────
+        dtypes = []
+        try:
+            from aquilia.mlops._types import DType
+            dtypes = [d.value for d in DType]
+        except Exception:
+            pass
+        data["dtypes"] = dtypes
+
+        # ── 19. Permissions (enum values) ───────────────────────────
+        permissions = []
+        try:
+            from aquilia.mlops.security.rbac import Permission
+            permissions = [p.value for p in Permission]
+        except Exception:
+            pass
+        data["permissions"] = permissions
+
+        # ── 20. Charts data ─────────────────────────────────────────
         charts: Dict[str, Any] = {}
 
         # Model states distribution
@@ -1480,6 +1598,15 @@ class AdminSite:
             rollout_phases[rphase] = rollout_phases.get(rphase, 0) + 1
         charts["rollout_phases"] = rollout_phases
 
+        # Memory breakdown (per-model allocations)
+        mem_allocations: Dict[str, int] = {}
+        if memory_tracker is not None and hasattr(memory_tracker, "stats"):
+            try:
+                mem_allocations = memory_tracker.stats.get("allocations", {})
+            except Exception:
+                pass
+        charts["memory_allocations"] = mem_allocations
+
         data["charts"] = charts
 
         return data
@@ -1496,6 +1623,10 @@ class AdminSite:
         experiment_ledger=None,
         lineage_dag=None,
         rollout_engine=None,
+        autoscaler=None,
+        rbac_manager=None,
+        batch_queue=None,
+        lru_cache=None,
     ) -> None:
         """Register MLOps services for admin integration."""
         if registry is not None:
@@ -1518,6 +1649,14 @@ class AdminSite:
             self._mlops_lineage = lineage_dag
         if rollout_engine is not None:
             self._mlops_rollout = rollout_engine
+        if autoscaler is not None:
+            self._mlops_autoscaler = autoscaler
+        if rbac_manager is not None:
+            self._mlops_rbac = rbac_manager
+        if batch_queue is not None:
+            self._mlops_batch_queue = batch_queue
+        if lru_cache is not None:
+            self._mlops_lru_cache = lru_cache
 
     # ── Testing data ─────────────────────────────────────────────────
 

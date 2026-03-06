@@ -1325,3 +1325,612 @@ class TestMlopsRenderIntegration:
         parsed = json.loads(result)
         assert parsed["total_models"] == 1
         assert parsed["total_inferences"] == 42
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# 13. MLOps v2 — AUTOSCALER DATA
+# ════════════════════════════════════════════════════════════════════════════
+
+
+class TestGetMlopsDataAutoscaler:
+    """get_mlops_data() autoscaler section."""
+
+    def _make_site(self):
+        from aquilia.admin.site import AdminSite, AdminConfig
+        cfg = AdminConfig.from_dict({"modules": {"mlops": True}})
+        site = AdminSite.__new__(AdminSite)
+        site.admin_config = cfg
+        site._models = {}
+        site._registry = {}
+        site._admin_identities = {}
+        site._initialized = True
+        return site
+
+    def test_autoscaler_key_present(self):
+        site = self._make_site()
+        data = site.get_mlops_data()
+        assert "autoscaler" in data
+
+    def test_autoscaler_default_empty_dict(self):
+        site = self._make_site()
+        data = site.get_mlops_data()
+        assert isinstance(data["autoscaler"], dict)
+
+    def test_autoscaler_with_mock_service(self):
+        site = self._make_site()
+        mock_as = MagicMock()
+        mock_as.policy = MagicMock()
+        mock_as.policy.min_replicas = 1
+        mock_as.policy.max_replicas = 8
+        mock_as.policy.target_concurrency = 50
+        mock_as.policy.target_latency_p95_ms = 200.0
+        mock_as.policy.target_gpu_utilization = 0.75
+        mock_as.policy.target_tokens_per_second = None
+        mock_as.policy.cooldown_seconds = 60
+        mock_as._current_replicas = 3
+        mock_as.window_stats = {
+            "window_rps": 12.5, "avg_latency": 45.2,
+            "error_rate": 0.01, "samples": 100,
+        }
+        # evaluate() returns a ScalingDecision
+        mock_decision = MagicMock()
+        mock_decision.current_replicas = 3
+        mock_decision.desired_replicas = 4
+        mock_decision.reason = "high concurrency"
+        mock_as.evaluate.return_value = mock_decision
+        site._mlops_autoscaler = mock_as
+        data = site.get_mlops_data()
+        assert data["autoscaler"]["policy"]["min_replicas"] == 1
+        assert data["autoscaler"]["policy"]["max_replicas"] == 8
+        assert data["autoscaler"]["current_replicas"] == 3
+        assert data["autoscaler"]["window_stats"]["window_rps"] == 12.5
+
+    def test_broken_autoscaler_graceful(self):
+        site = self._make_site()
+        mock_as = MagicMock()
+        mock_as.policy = MagicMock(side_effect=RuntimeError("broken"))
+        type(mock_as).policy = property(lambda self: (_ for _ in ()).throw(RuntimeError("broken")))
+        site._mlops_autoscaler = mock_as
+        data = site.get_mlops_data()
+        assert isinstance(data["autoscaler"], dict)
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# 14. MLOps v2 — RBAC DATA
+# ════════════════════════════════════════════════════════════════════════════
+
+
+class TestGetMlopsDataRBAC:
+    """get_mlops_data() rbac section."""
+
+    def _make_site(self):
+        from aquilia.admin.site import AdminSite, AdminConfig
+        cfg = AdminConfig.from_dict({"modules": {"mlops": True}})
+        site = AdminSite.__new__(AdminSite)
+        site.admin_config = cfg
+        site._models = {}
+        site._registry = {}
+        site._admin_identities = {}
+        site._initialized = True
+        return site
+
+    def test_rbac_key_present(self):
+        site = self._make_site()
+        data = site.get_mlops_data()
+        assert "rbac" in data
+
+    def test_rbac_default_empty_dict(self):
+        site = self._make_site()
+        data = site.get_mlops_data()
+        assert isinstance(data["rbac"], dict)
+
+    def test_permissions_key_present(self):
+        site = self._make_site()
+        data = site.get_mlops_data()
+        assert "permissions" in data
+
+    def test_permissions_is_list(self):
+        site = self._make_site()
+        data = site.get_mlops_data()
+        assert isinstance(data["permissions"], list)
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# 15. MLOps v2 — BATCH QUEUE + LRU CACHE DATA
+# ════════════════════════════════════════════════════════════════════════════
+
+
+class TestGetMlopsDataQueueCache:
+    """get_mlops_data() batch_queue and lru_cache sections."""
+
+    def _make_site(self):
+        from aquilia.admin.site import AdminSite, AdminConfig
+        cfg = AdminConfig.from_dict({"modules": {"mlops": True}})
+        site = AdminSite.__new__(AdminSite)
+        site.admin_config = cfg
+        site._models = {}
+        site._registry = {}
+        site._admin_identities = {}
+        site._initialized = True
+        return site
+
+    def test_batch_queue_key_present(self):
+        site = self._make_site()
+        data = site.get_mlops_data()
+        assert "batch_queue" in data
+
+    def test_lru_cache_key_present(self):
+        site = self._make_site()
+        data = site.get_mlops_data()
+        assert "lru_cache" in data
+
+    def test_batch_queue_default_empty_dict(self):
+        site = self._make_site()
+        data = site.get_mlops_data()
+        assert isinstance(data["batch_queue"], dict)
+
+    def test_lru_cache_default_empty_dict(self):
+        site = self._make_site()
+        data = site.get_mlops_data()
+        assert isinstance(data["lru_cache"], dict)
+
+    def test_batch_queue_with_mock(self):
+        site = self._make_site()
+        mock_bq = MagicMock()
+        mock_bq.stats = {
+            "size": 5, "capacity": 100, "enqueued": 50,
+            "dequeued": 45, "dropped": 0, "pending_tokens": 128,
+        }
+        site._mlops_batch_queue = mock_bq
+        data = site.get_mlops_data()
+        assert data["batch_queue"]["size"] == 5
+        assert data["batch_queue"]["capacity"] == 100
+
+    def test_lru_cache_with_mock(self):
+        site = self._make_site()
+        mock_lru = MagicMock()
+        mock_lru.stats = {
+            "capacity": 50, "size": 12, "hits": 200,
+            "misses": 30, "hit_rate": 0.87,
+        }
+        site._mlops_lru_cache = mock_lru
+        data = site.get_mlops_data()
+        assert data["lru_cache"]["capacity"] == 50
+        assert data["lru_cache"]["hit_rate"] == 0.87
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# 16. MLOps v2 — PER-MODEL METRICS + PROMETHEUS
+# ════════════════════════════════════════════════════════════════════════════
+
+
+class TestGetMlopsDataPerModelMetrics:
+    """get_mlops_data() per_model_metrics and prometheus_text sections."""
+
+    def _make_site(self):
+        from aquilia.admin.site import AdminSite, AdminConfig
+        cfg = AdminConfig.from_dict({"modules": {"mlops": True}})
+        site = AdminSite.__new__(AdminSite)
+        site.admin_config = cfg
+        site._models = {}
+        site._registry = {}
+        site._admin_identities = {}
+        site._initialized = True
+        return site
+
+    def test_per_model_metrics_key_present(self):
+        site = self._make_site()
+        data = site.get_mlops_data()
+        assert "per_model_metrics" in data
+
+    def test_per_model_metrics_default_empty_list(self):
+        site = self._make_site()
+        data = site.get_mlops_data()
+        assert isinstance(data["per_model_metrics"], list)
+
+    def test_prometheus_text_key_present(self):
+        site = self._make_site()
+        data = site.get_mlops_data()
+        assert "prometheus_text" in data
+
+    def test_prometheus_text_default_empty_string(self):
+        site = self._make_site()
+        data = site.get_mlops_data()
+        assert isinstance(data["prometheus_text"], str)
+
+    def test_dtypes_key_present(self):
+        site = self._make_site()
+        data = site.get_mlops_data()
+        assert "dtypes" in data
+
+    def test_dtypes_is_list(self):
+        site = self._make_site()
+        data = site.get_mlops_data()
+        assert isinstance(data["dtypes"], list)
+
+    def test_charts_has_memory_allocations(self):
+        site = self._make_site()
+        data = site.get_mlops_data()
+        assert "memory_allocations" in data["charts"]
+
+    def test_charts_has_experiment_statuses(self):
+        site = self._make_site()
+        data = site.get_mlops_data()
+        assert "experiment_statuses" in data["charts"]
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# 17. MLOps v2 — SET_MLOPS_SERVICES EXTENDED PARAMS
+# ════════════════════════════════════════════════════════════════════════════
+
+
+class TestSetMlopsServicesV2:
+    """set_mlops_services() v2 — new params for autoscaler, rbac, batch_queue, lru_cache."""
+
+    def _make_site(self):
+        from aquilia.admin.site import AdminSite, AdminConfig
+        cfg = AdminConfig.from_dict({"modules": {"mlops": True}})
+        site = AdminSite.__new__(AdminSite)
+        site.admin_config = cfg
+        site._models = {}
+        site._registry = {}
+        site._admin_identities = {}
+        site._initialized = True
+        return site
+
+    def test_set_mlops_services_accepts_autoscaler(self):
+        from aquilia.admin.site import AdminSite
+        sig = inspect.signature(AdminSite.set_mlops_services)
+        assert "autoscaler" in sig.parameters
+
+    def test_set_mlops_services_accepts_rbac_manager(self):
+        from aquilia.admin.site import AdminSite
+        sig = inspect.signature(AdminSite.set_mlops_services)
+        assert "rbac_manager" in sig.parameters
+
+    def test_set_mlops_services_accepts_batch_queue(self):
+        from aquilia.admin.site import AdminSite
+        sig = inspect.signature(AdminSite.set_mlops_services)
+        assert "batch_queue" in sig.parameters
+
+    def test_set_mlops_services_accepts_lru_cache(self):
+        from aquilia.admin.site import AdminSite
+        sig = inspect.signature(AdminSite.set_mlops_services)
+        assert "lru_cache" in sig.parameters
+
+    def test_set_mlops_services_stores_autoscaler(self):
+        site = self._make_site()
+        mock_as = MagicMock()
+        site.set_mlops_services(autoscaler=mock_as)
+        assert site._mlops_autoscaler is mock_as
+
+    def test_set_mlops_services_stores_rbac_manager(self):
+        site = self._make_site()
+        mock_rbac = MagicMock()
+        site.set_mlops_services(rbac_manager=mock_rbac)
+        assert site._mlops_rbac is mock_rbac
+
+    def test_set_mlops_services_stores_batch_queue(self):
+        site = self._make_site()
+        mock_bq = MagicMock()
+        site.set_mlops_services(batch_queue=mock_bq)
+        assert site._mlops_batch_queue is mock_bq
+
+    def test_set_mlops_services_stores_lru_cache(self):
+        site = self._make_site()
+        mock_lru = MagicMock()
+        site.set_mlops_services(lru_cache=mock_lru)
+        assert site._mlops_lru_cache is mock_lru
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# 18. MLOps v2 — TEMPLATE V2 SECTIONS
+# ════════════════════════════════════════════════════════════════════════════
+
+
+class TestMlopsTemplateV2Sections:
+    """mlops.html v2 template sections — autoscaler, RBAC, queue, cache, etc."""
+
+    def _template_path(self):
+        return os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "aquilia", "admin", "templates", "mlops.html",
+        )
+
+    def _read_template(self):
+        with open(self._template_path()) as f:
+            return f.read()
+
+    def test_template_has_autoscaler_section(self):
+        content = self._read_template()
+        assert "Autoscaler" in content
+
+    def test_template_has_scaling_policy_heading(self):
+        content = self._read_template()
+        assert "Scaling Policy" in content
+
+    def test_template_has_autoscaler_variable(self):
+        content = self._read_template()
+        assert "autoscaler" in content
+
+    def test_template_has_rbac_section(self):
+        content = self._read_template()
+        assert "RBAC" in content or "Role-Based Access Control" in content
+
+    def test_template_has_rbac_roles_table(self):
+        content = self._read_template()
+        assert "rbac.roles" in content
+
+    def test_template_has_batch_queue_section(self):
+        content = self._read_template()
+        assert "Batch Queue" in content or "batch_queue" in content
+
+    def test_template_has_lru_cache_section(self):
+        content = self._read_template()
+        assert "LRU" in content
+
+    def test_template_has_per_model_metrics_section(self):
+        content = self._read_template()
+        assert "Per-Model Metrics" in content or "per_model_metrics" in content
+
+    def test_template_has_prometheus_section(self):
+        content = self._read_template()
+        assert "Prometheus" in content
+
+    def test_template_has_prometheus_copy_function(self):
+        content = self._read_template()
+        assert "copyPrometheusText" in content
+
+    def test_template_has_experiment_statuses_chart(self):
+        content = self._read_template()
+        assert "chart-experiment-statuses" in content
+
+    def test_template_has_memory_allocations_chart(self):
+        content = self._read_template()
+        assert "chart-memory-allocations" in content
+
+    def test_template_has_dtypes_tab(self):
+        content = self._read_template()
+        assert "cap-dtypes" in content
+
+    def test_template_has_permissions_tab(self):
+        content = self._read_template()
+        assert "cap-permissions" in content
+
+    def test_template_has_drift_snippet(self):
+        content = self._read_template()
+        assert "snip-drift" in content
+
+    def test_template_has_autoscaler_snippet(self):
+        content = self._read_template()
+        assert "snip-autoscaler" in content
+
+    def test_template_has_rbac_snippet(self):
+        content = self._read_template()
+        assert "snip-rbac" in content
+
+    def test_template_has_experiment_winner_column(self):
+        content = self._read_template()
+        assert "Winner" in content or "winner" in content
+
+    def test_template_has_window_metrics(self):
+        content = self._read_template()
+        assert "Window" in content or "window" in content
+
+    def test_template_has_last_decision_display(self):
+        content = self._read_template()
+        assert "Last Decision" in content or "last_decision" in content
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# 19. MLOps v2 — RENDER PAGE WITH V2 DATA
+# ════════════════════════════════════════════════════════════════════════════
+
+
+class TestRenderMlopsPageV2:
+    """render_mlops_page() produces HTML with v2 sections."""
+
+    def _mlops_data_v2(self):
+        return {
+            "available": True,
+            "models": [],
+            "total_models": 0,
+            "total_inferences": 0,
+            "total_errors": 0,
+            "total_tokens": 0,
+            "total_stream_requests": 0,
+            "total_prompt_tokens": 0,
+            "metrics": {},
+            "latency": {},
+            "throughput": {},
+            "hot_models": [],
+            "drift": {},
+            "circuit_breaker": {},
+            "rate_limiter": {},
+            "memory": {},
+            "plugins": [],
+            "total_plugins": 0,
+            "experiments": [],
+            "total_experiments": 0,
+            "active_experiments": 0,
+            "lineage": {},
+            "lineage_nodes": 0,
+            "rollouts": [],
+            "total_rollouts": 0,
+            "active_rollouts": 0,
+            "frameworks": ["pytorch"],
+            "runtime_kinds": ["python"],
+            "model_types": ["classifier"],
+            "device_types": ["cpu"],
+            "batching_strategies": ["none"],
+            "rollout_strategies": ["canary"],
+            "drift_methods": ["psi"],
+            "quantize_presets": ["int8"],
+            "export_targets": ["onnx"],
+            "inference_modes": ["sync"],
+            "autoscaler": {
+                "policy": {
+                    "min_replicas": 1, "max_replicas": 10,
+                    "target_concurrency": 50, "target_latency_p95_ms": 200.0,
+                    "cooldown_seconds": 60,
+                },
+                "current_replicas": 3,
+                "window_stats": {
+                    "window_rps": 15.0, "avg_latency": 42.0,
+                    "error_rate": 0.02, "samples": 100,
+                },
+                "last_decision": {
+                    "current": 3, "desired": 4,
+                    "reason": "high load",
+                },
+            },
+            "rbac": {
+                "roles": [
+                    {"name": "ADMIN", "permissions": ["pack:read", "pack:write"], "user_count": 2},
+                    {"name": "VIEWER", "permissions": ["pack:read"], "user_count": 5},
+                ],
+                "total_users": 7,
+                "user_assignments": [
+                    {"user": "alice", "role": "ADMIN"},
+                ],
+            },
+            "batch_queue": {
+                "size": 5, "capacity": 100, "enqueued": 50,
+                "dequeued": 45, "dropped": 0, "pending_tokens": 128,
+            },
+            "lru_cache": {
+                "capacity": 50, "size": 12, "hits": 200,
+                "misses": 30, "hit_rate": 0.87,
+            },
+            "per_model_metrics": [
+                {"model": "sentiment", "inferences": 100, "errors": 2,
+                 "avg_latency": 12.5, "p95_latency": 45.0, "tokens": 5000,
+                 "error_rate": 0.02},
+            ],
+            "prometheus_text": "# HELP aquilia_inference_total\naquillia_inference_total 100\n",
+            "dtypes": ["float32", "float16", "int8"],
+            "permissions": ["pack:read", "pack:write", "registry:admin"],
+            "charts": {
+                "model_states": {},
+                "frameworks": {},
+                "plugin_states": {},
+                "experiment_statuses": {"active": 1},
+                "rollout_phases": {},
+                "memory_allocations": {"sentiment": 102.4},
+            },
+        }
+
+    def test_render_v2_includes_autoscaler(self):
+        from aquilia.admin.templates import render_mlops_page
+        html = render_mlops_page(mlops_data=self._mlops_data_v2())
+        assert "Autoscaler" in html
+        assert "Scaling Policy" in html
+
+    def test_render_v2_includes_rbac(self):
+        from aquilia.admin.templates import render_mlops_page
+        html = render_mlops_page(mlops_data=self._mlops_data_v2())
+        assert "RBAC" in html or "Role-Based Access Control" in html
+        assert "ADMIN" in html
+        assert "VIEWER" in html
+
+    def test_render_v2_includes_batch_queue(self):
+        from aquilia.admin.templates import render_mlops_page
+        html = render_mlops_page(mlops_data=self._mlops_data_v2())
+        assert "Batch Queue" in html
+
+    def test_render_v2_includes_lru_cache(self):
+        from aquilia.admin.templates import render_mlops_page
+        html = render_mlops_page(mlops_data=self._mlops_data_v2())
+        assert "LRU" in html
+
+    def test_render_v2_includes_per_model_metrics(self):
+        from aquilia.admin.templates import render_mlops_page
+        html = render_mlops_page(mlops_data=self._mlops_data_v2())
+        assert "Per-Model Metrics" in html
+        assert "sentiment" in html
+
+    def test_render_v2_includes_prometheus(self):
+        from aquilia.admin.templates import render_mlops_page
+        html = render_mlops_page(mlops_data=self._mlops_data_v2())
+        assert "Prometheus" in html
+        assert "aquilia_inference_total" in html
+
+    def test_render_v2_includes_dtypes_tab(self):
+        from aquilia.admin.templates import render_mlops_page
+        html = render_mlops_page(mlops_data=self._mlops_data_v2())
+        assert "DTypes" in html
+        assert "float32" in html
+
+    def test_render_v2_includes_permissions_tab(self):
+        from aquilia.admin.templates import render_mlops_page
+        html = render_mlops_page(mlops_data=self._mlops_data_v2())
+        assert "Permissions" in html
+        assert "pack:read" in html
+
+    def test_render_v2_includes_new_chart_canvases(self):
+        from aquilia.admin.templates import render_mlops_page
+        html = render_mlops_page(mlops_data=self._mlops_data_v2())
+        assert "chart-experiment-statuses" in html
+        assert "chart-memory-allocations" in html
+
+    def test_render_v2_includes_new_snippet_tabs(self):
+        from aquilia.admin.templates import render_mlops_page
+        html = render_mlops_page(mlops_data=self._mlops_data_v2())
+        assert "snip-drift" in html
+        assert "snip-autoscaler" in html
+        assert "snip-rbac" in html
+
+    def test_render_v2_includes_scaling_decision(self):
+        from aquilia.admin.templates import render_mlops_page
+        html = render_mlops_page(mlops_data=self._mlops_data_v2())
+        assert "scale_up" in html
+        assert "high load" in html
+        assert "4" in html  # desired replicas
+
+    def test_render_v2_includes_window_stats(self):
+        from aquilia.admin.templates import render_mlops_page
+        html = render_mlops_page(mlops_data=self._mlops_data_v2())
+        assert "Window" in html
+
+    def test_render_v2_serializable(self):
+        data = self._mlops_data_v2()
+        serialized = json.dumps(data, default=str)
+        assert isinstance(serialized, str)
+        parsed = json.loads(serialized)
+        assert parsed["autoscaler"]["current_replicas"] == 3
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# 20. MLOps v2 — SIDEBAR ENTRY
+# ════════════════════════════════════════════════════════════════════════════
+
+
+class TestMlopsSidebarEntry:
+    """Sidebar has MLOps link under AI / ML section."""
+
+    def _sidebar_path(self):
+        return os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "aquilia", "admin", "templates", "partials", "sidebar_v2.html",
+        )
+
+    def test_sidebar_has_mlops_link(self):
+        with open(self._sidebar_path()) as f:
+            content = f.read()
+        assert "/admin/mlops/" in content or "mlops" in content
+
+    def test_sidebar_has_ai_ml_section(self):
+        with open(self._sidebar_path()) as f:
+            content = f.read()
+        assert "AI / ML" in content
+
+    def test_sidebar_mlops_icon(self):
+        with open(self._sidebar_path()) as f:
+            content = f.read()
+        assert "icon-cpu" in content
+
+    def test_sidebar_mlops_active_page_check(self):
+        with open(self._sidebar_path()) as f:
+            content = f.read()
+        assert "mlops" in content
+        assert "active_page" in content
