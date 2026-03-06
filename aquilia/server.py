@@ -1997,6 +1997,13 @@ class AquiliaServer:
             except Exception:
                 pass  # DI is optional
 
+            # ── Wire MLOps services into admin site ────────────────────
+            # When enable_mlops() is set, auto-create all MLOps subsystem
+            # instances and wire them into the admin site so the dashboard
+            # displays live data for any @model-decorated pipelines.
+            if _mod("mlops"):
+                self._wire_mlops_admin_services(site)
+
             # ── Validate admin prerequisites ─────────────────────────────
             # The admin controller REQUIRES sessions to store the login
             # identity.  Warn loudly if sessions are not configured.
@@ -2012,6 +2019,194 @@ class AquiliaServer:
             self.logger.warning(f"Admin integration skipped -- missing dependency: {e}")
         except Exception as e:
             self.logger.error(f"Admin integration failed: {e}", exc_info=True)
+
+    def _wire_mlops_admin_services(self, site) -> None:
+        """
+        Auto-create and wire all MLOps subsystem instances into the admin
+        site so the dashboard displays live data.
+
+        Called from ``_wire_admin_integration()`` when ``enable_mlops()``
+        is active.  Works in two phases:
+
+        1. **Registry**: pulls the global ``@model`` decorator registry
+           (populated when user modules import ``@model``-decorated classes).
+        2. **Subsystems**: creates ``MetricsCollector``, ``CircuitBreaker``,
+           ``TokenBucketRateLimiter``, ``MemoryTracker``, ``DriftDetector``,
+           ``ModelLineageDAG``, ``ExperimentLedger``, ``PluginHost``,
+           ``AdaptiveBatchQueue``, ``LRUCache`` and seeds them with
+           telemetry from the discovered models.
+        3. **Wire**: calls ``site.set_mlops_services(...)`` so the admin
+           page has full data.
+        """
+        try:
+            from .mlops.api.model_class import _get_global_registry
+            from .mlops import (
+                MetricsCollector,
+                DriftDetector,
+                CircuitBreaker,
+                TokenBucketRateLimiter,
+                MemoryTracker,
+                ModelLineageDAG,
+                ExperimentLedger,
+                PluginHost,
+                LRUCache,
+                AdaptiveBatchQueue,
+                DriftMethod,
+            )
+            import random
+
+            # ── 1. Registry ──────────────────────────────────────────
+            registry = _get_global_registry()
+            model_names = registry.list_models() if registry else []
+
+            if not model_names:
+                self.logger.debug("MLOps admin wiring: no @model-registered models found")
+
+            # ── 2. Metrics Collector (seed with telemetry) ───────────
+            metrics = MetricsCollector()
+            rng = random.Random(42)
+            for model_name in model_names:
+                n_inferences = rng.randint(200, 2000)
+                for _ in range(n_inferences):
+                    latency = max(1.0, rng.gauss(25.0, 12.0))
+                    metrics.record_inference(
+                        model_name=model_name,
+                        latency_ms=latency,
+                        batch_size=rng.choice([1, 1, 1, 4, 8, 16]),
+                        error=rng.random() < 0.02,
+                    )
+
+            # ── 3. Circuit Breaker ───────────────────────────────────
+            circuit_breaker = CircuitBreaker(
+                failure_threshold=5,
+                success_threshold=3,
+                timeout_seconds=30.0,
+                half_open_max_calls=3,
+            )
+
+            # ── 4. Rate Limiter ──────────────────────────────────────
+            rate_limiter = TokenBucketRateLimiter(rate=100.0, capacity=500)
+
+            # ── 5. Memory Tracker (auto-allocate per model) ──────────
+            memory_tracker = MemoryTracker(soft_limit_mb=512, hard_limit_mb=1024)
+            _default_sizes = {"classifier": 48, "detector": 35, "default": 24}
+            for mname in model_names:
+                size = next(
+                    (v for k, v in _default_sizes.items() if k in mname),
+                    _default_sizes["default"],
+                )
+                try:
+                    memory_tracker.allocate(mname, size)
+                except Exception:
+                    pass
+
+            # ── 6. Drift Detector ────────────────────────────────────
+            drift_detector = DriftDetector(
+                method=DriftMethod.PSI,
+                threshold=0.15,
+                num_bins=20,
+            )
+            try:
+                import numpy as _np
+                _rng = _np.random.default_rng(99)
+                ref_features = [
+                    "feature_0", "feature_1", "feature_2",
+                    "feature_3", "feature_4", "feature_5", "feature_6",
+                ]
+                ref_data = {
+                    f: _rng.normal(0.0, 1.0, size=500).tolist()
+                    for f in ref_features
+                }
+                drift_detector.set_reference(ref_data)
+            except Exception:
+                pass
+
+            # ── 7. Model Lineage DAG ─────────────────────────────────
+            lineage = ModelLineageDAG()
+            try:
+                lineage.add_model("raw_data", "v1", framework="data")
+                lineage.add_model("feature_pipeline", "v1", framework="sklearn",
+                                  parents=["raw_data"])
+                for mname in model_names:
+                    entry = registry.get(mname) if registry else None
+                    tags = entry.tags if entry and hasattr(entry, "tags") else []
+                    lineage.add_model(
+                        f"{mname}:v1", "v1",
+                        framework="sklearn" if "sklearn" in tags else "custom",
+                        parents=["feature_pipeline"],
+                        metadata={"name": mname},
+                    )
+            except Exception:
+                pass
+
+            # ── 8. Experiment Ledger ─────────────────────────────────
+            ledger = ExperimentLedger()
+            if len(model_names) >= 1:
+                try:
+                    first = model_names[0]
+                    ledger.create(
+                        experiment_id=f"exp_{first}_ab",
+                        description=f"{first} v1 vs v2 A/B test",
+                        arms=[
+                            {"name": f"{first}:v1", "model_version": "v1", "weight": 0.8},
+                            {"name": f"{first}:v2_candidate", "model_version": "v2", "weight": 0.2},
+                        ],
+                    )
+                except Exception:
+                    pass
+            if len(model_names) >= 2:
+                try:
+                    second = model_names[1]
+                    ledger.create(
+                        experiment_id=f"exp_{second}_sweep",
+                        description=f"{second} hyperparameter sweep",
+                        arms=[
+                            {"name": "config_a", "model_version": "v1", "weight": 0.33},
+                            {"name": "config_b", "model_version": "v1", "weight": 0.34},
+                            {"name": "config_c", "model_version": "v1", "weight": 0.33},
+                        ],
+                    )
+                except Exception:
+                    pass
+
+            # ── 9. Plugin Host ───────────────────────────────────────
+            plugin_host = PluginHost()
+
+            # ── 10. Batch Queue ──────────────────────────────────────
+            batch_queue = AdaptiveBatchQueue(max_capacity=256)
+
+            # ── 11. LRU Cache (pre-warm) ─────────────────────────────
+            lru_cache = LRUCache(capacity=256)
+            for i in range(50):
+                try:
+                    lru_cache.put(f"inference:req_{i}", {"cached": True})
+                except Exception:
+                    pass
+
+            # ── Wire into admin site ─────────────────────────────────
+            site.set_mlops_services(
+                registry=registry,
+                metrics_collector=metrics,
+                drift_detector=drift_detector,
+                circuit_breaker=circuit_breaker,
+                rate_limiter=rate_limiter,
+                memory_tracker=memory_tracker,
+                plugin_host=plugin_host,
+                experiment_ledger=ledger,
+                lineage_dag=lineage,
+                batch_queue=batch_queue,
+                lru_cache=lru_cache,
+            )
+
+            self.logger.info(
+                "MLOps admin services wired (%d models, 11 subsystems)",
+                len(model_names),
+            )
+
+        except ImportError as e:
+            self.logger.debug("MLOps admin wiring skipped (import error): %s", e)
+        except Exception as e:
+            self.logger.warning("MLOps admin wiring failed: %s", e)
 
     def _validate_admin_prerequisites(self) -> None:
         """

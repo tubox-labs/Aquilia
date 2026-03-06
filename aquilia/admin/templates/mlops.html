@@ -5,6 +5,13 @@
 {% block extra_head %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <style>
+/* ── Data Table (shared) ── */
+.data-table{width:100%;border-collapse:collapse;font-size:.82rem;}
+.data-table th{padding:12px 18px;text-align:left;font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-faint);border-bottom:1px solid var(--border-subtle);background:var(--bg-surface);}
+.data-table td{padding:14px 18px;border-bottom:1px solid var(--border-subtle);vertical-align:middle;color:var(--text-secondary);line-height:1.5;}
+.data-table tbody tr{transition:background .12s ease;}
+.data-table tbody tr:last-child td{border-bottom:none;}
+
 /* ── MLOps Page Styles ── */
 .mlops-search-bar{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;}
 .mlops-search-bar input{flex:1;min-width:200px;padding:8px 14px;background:var(--bg-input);border:1px solid var(--border-subtle);border-radius:var(--radius);color:var(--text-primary);font-family:var(--font-sans);font-size:.82rem;}
@@ -68,8 +75,8 @@
 .progress-bar-fill{height:100%;border-radius:4px;transition:width .6s ease;}
 
 /* Clickable rows */
-.model-row-clickable:hover,.rollout-row-clickable:hover{background:var(--bg-surface) !important;cursor:pointer;}
-.model-row-clickable:active,.rollout-row-clickable:active{background:rgba(34,197,94,0.04) !important;}
+.model-row-clickable:hover,.rollout-row-clickable:hover,.experiment-row:hover{background:var(--bg-surface) !important;cursor:pointer;}
+.model-row-clickable:active,.rollout-row-clickable:active,.experiment-row:active{background:rgba(34,197,94,0.04) !important;}
 
 /* ── Slide-out drawer ── */
 .aq-drawer-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9998;opacity:0;pointer-events:none;transition:opacity .25s ease;backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);}
@@ -755,14 +762,19 @@
         </thead>
         <tbody>
             {% for exp in experiments %}
-            <tr>
-                <td style="font-weight:600;color:var(--text-primary);">{{ exp.name|default(exp.id|default('—')) }}</td>
+            <tr class="experiment-row">
+                <td>
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <i class="icon-git-branch" style="font-size:14px;color:var(--accent);opacity:0.6;"></i>
+                        <span style="font-weight:600;color:var(--text-primary);">{{ exp.name|default(exp.id|default('—')) }}</span>
+                    </div>
+                </td>
                 <td><span class="mlops-badge badge-{{ exp.status|default('inactive') }}">{{ exp.status|default('inactive') }}</span></td>
                 <td>
                     {% if exp.variants|default([])|length > 0 %}
-                    <div style="display:flex;flex-wrap:wrap;gap:3px;">
+                    <div style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;">
                         {% for v in exp.variants %}
-                        <span style="font-size:.65rem;padding:1px 6px;background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:4px;color:var(--text-secondary);">{{ v.name|default(v) }}{% if v.weight is defined %} <span style="color:var(--text-faint);">({{ "%.0f"|format(v.weight * 100) }}%)</span>{% endif %}</span>
+                        <span style="font-size:.68rem;padding:3px 8px;background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:4px;color:var(--text-secondary);">{{ v.name|default(v) }}{% if v.weight is defined %} <span style="color:var(--text-faint);">({{ "%.0f"|format(v.weight * 100) }}%)</span>{% endif %}</span>
                         {% endfor %}
                     </div>
                     {% else %}
@@ -772,9 +784,9 @@
                 <td style="font-family:var(--font-mono);font-size:.78rem;color:var(--text-secondary);">{{ exp.total_assignments|default(0) }}</td>
                 <td>
                     {% if exp.winner is defined and exp.winner %}
-                    <span style="font-size:.72rem;font-weight:600;color:var(--success);">🏆 {{ exp.winner }}</span>
+                    <span style="font-size:.75rem;font-weight:600;color:var(--success);">🏆 {{ exp.winner }}</span>
                     {% else %}
-                    <span style="font-size:.72rem;color:var(--text-faint);">—</span>
+                    <span style="font-size:.75rem;color:var(--text-faint);">—</span>
                     {% endif %}
                 </td>
             </tr>
