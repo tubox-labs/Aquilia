@@ -1178,15 +1178,38 @@ class AdminSite:
                     },
                     "jobs": [],
                     "queue_stats": {},
+                    "registered_tasks": [],
                 }
             stats = await manager.get_stats()
             jobs = await manager.list_jobs(limit=100)
             queue_stats = await manager.get_queue_stats()
+
+            # ── Gather registered task definitions ────────────────
+            registered_tasks = []
+            try:
+                from aquilia.tasks.decorators import get_registered_tasks
+                for name, desc in get_registered_tasks().items():
+                    registered_tasks.append({
+                        "name": name,
+                        "queue": getattr(desc, "queue", "default"),
+                        "priority": getattr(desc, "priority", "NORMAL").name
+                            if hasattr(getattr(desc, "priority", None), "name")
+                            else str(getattr(desc, "priority", "NORMAL")),
+                        "max_retries": getattr(desc, "max_retries", 3),
+                        "timeout": getattr(desc, "timeout", 300.0),
+                        "retry_delay": getattr(desc, "retry_delay", 1.0),
+                        "retry_backoff": getattr(desc, "retry_backoff", 2.0),
+                        "tags": getattr(desc, "tags", []),
+                    })
+            except Exception:
+                pass
+
             return {
                 "available": True,
                 "stats": stats,
                 "jobs": [j.to_dict() for j in jobs],
                 "queue_stats": {q: dict(s) for q, s in queue_stats.items()},
+                "registered_tasks": registered_tasks,
             }
         except Exception:
             return {
@@ -1194,6 +1217,7 @@ class AdminSite:
                 "stats": {},
                 "jobs": [],
                 "queue_stats": {},
+                "registered_tasks": [],
             }
 
     def set_task_manager(self, manager) -> None:

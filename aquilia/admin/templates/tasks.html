@@ -52,7 +52,7 @@
         <div class="dash-stat-value" data-count="{{ total_jobs }}">0</div>
         <div class="dash-stat-label">Total Jobs</div>
         <div class="dash-stat-sub">
-            {% if mgr.total_enqueued is defined %}{{ mgr.total_enqueued }} enqueued{% else %}All time{% endif %}
+            {% if registered_tasks and registered_tasks|length > 0 %}{{ registered_tasks|length }} task{{ 's' if registered_tasks|length != 1 else '' }} registered{% elif mgr.total_enqueued is defined %}{{ mgr.total_enqueued }} enqueued{% else %}All time{% endif %}
         </div>
     </div>
     <div class="dash-stat-card">
@@ -153,6 +153,59 @@
 </div>
 {% endif %}
 
+{# ═══ REGISTERED TASK DEFINITIONS ═══ #}
+{% if registered_tasks and registered_tasks|length > 0 %}
+<div class="section-label" style="margin-top:24px;">
+    <span>Registered Tasks</span>
+    <span style="font-size:0.7rem;color:var(--text-faint);margin-left:8px;font-weight:400;">{{ registered_tasks|length }} task{{ 's' if registered_tasks|length != 1 else '' }} discovered</span>
+</div>
+<div class="card" style="padding:0;overflow:hidden;">
+    <table class="admin-table" style="width:100%;border-collapse:collapse;">
+        <thead>
+            <tr>
+                <th style="padding:12px 16px;text-align:left;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-faint);border-bottom:1px solid var(--border-subtle);">Task Name</th>
+                <th style="padding:12px 16px;text-align:center;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-faint);border-bottom:1px solid var(--border-subtle);">Queue</th>
+                <th style="padding:12px 16px;text-align:center;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-faint);border-bottom:1px solid var(--border-subtle);">Priority</th>
+                <th style="padding:12px 16px;text-align:center;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-faint);border-bottom:1px solid var(--border-subtle);">Max Retries</th>
+                <th style="padding:12px 16px;text-align:center;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-faint);border-bottom:1px solid var(--border-subtle);">Timeout</th>
+                <th style="padding:12px 16px;text-align:center;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-faint);border-bottom:1px solid var(--border-subtle);">Retry Delay</th>
+                <th style="padding:12px 16px;text-align:left;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-faint);border-bottom:1px solid var(--border-subtle);">Tags</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for t in registered_tasks %}
+            <tr style="border-bottom:1px solid var(--border-subtle);">
+                <td style="padding:10px 16px;">
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <div style="width:6px;height:6px;border-radius:50%;background:var(--accent);flex-shrink:0;"></div>
+                        <span style="font-size:0.82rem;font-weight:600;font-family:var(--font-mono);">{{ t.name }}</span>
+                    </div>
+                </td>
+                <td style="padding:10px 16px;text-align:center;">
+                    <span style="font-size:0.7rem;padding:2px 8px;border-radius:4px;background:var(--bg-surface);color:var(--text-secondary);">{{ t.queue }}</span>
+                </td>
+                <td style="padding:10px 16px;text-align:center;">
+                    <span style="font-size:0.7rem;padding:2px 8px;border-radius:4px;background:{{ 'rgba(239,68,68,0.15)' if t.priority == 'CRITICAL' else ('rgba(245,158,11,0.15)' if t.priority == 'HIGH' else 'var(--bg-surface)') }};color:{{ 'var(--danger)' if t.priority == 'CRITICAL' else ('var(--warning)' if t.priority == 'HIGH' else 'var(--text-secondary)') }};">{{ t.priority }}</span>
+                </td>
+                <td style="padding:10px 16px;text-align:center;font-size:0.78rem;color:var(--text-secondary);">{{ t.max_retries }}</td>
+                <td style="padding:10px 16px;text-align:center;font-size:0.78rem;color:var(--text-secondary);">{{ t.timeout }}s</td>
+                <td style="padding:10px 16px;text-align:center;font-size:0.78rem;color:var(--text-secondary);">{{ t.retry_delay }}s ×{{ t.retry_backoff }}</td>
+                <td style="padding:10px 16px;">
+                    {% if t.tags and t.tags|length > 0 %}
+                    {% for tag in t.tags %}
+                    <span style="font-size:0.65rem;padding:1px 6px;border-radius:3px;background:var(--accent)15;color:var(--accent);margin-right:4px;">{{ tag }}</span>
+                    {% endfor %}
+                    {% else %}
+                    <span style="font-size:0.7rem;color:var(--text-faint);">—</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
 {# ═══ JOB LIST WITH FILTERS ═══ #}
 <div class="section-label" style="margin-top:24px;">
     <span>Recent Jobs</span>
@@ -225,7 +278,10 @@
         <i class="icon-clock" style="font-size:3rem;opacity:0.15;display:block;margin-bottom:12px;"></i>
         <p>No background jobs recorded</p>
         <p style="font-size:0.75rem;margin-top:8px;">
-            {% if available %}
+            {% if available and registered_tasks and registered_tasks|length > 0 %}
+            {{ registered_tasks|length }} task{{ 's' if registered_tasks|length != 1 else '' }} registered.
+            Jobs will appear here when tasks are enqueued via <code style="font-size:0.72rem;background:var(--bg-surface);padding:1px 5px;border-radius:3px;">manager.enqueue()</code>.
+            {% elif available %}
             Jobs will appear here as your application enqueues background tasks.
             {% else %}
             Configure a TaskManager and register it with the admin site to enable monitoring.
