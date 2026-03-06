@@ -580,7 +580,12 @@
         </div>
         <div class="snippet-content active" id="snip-unit">
             <button class="copy-btn" onclick="copySnippet('snip-unit')" type="button">Copy</button>
-            <pre><code>from aquilia.testing import AquiliaTestCase
+            <div class="code-block-container" style="margin-bottom:0;">
+                <div class="code-block-header">
+                    <div class="dots"><div class="dot dot-red"></div><div class="dot dot-yellow"></div><div class="dot dot-green"></div></div>
+                    <span class="filename">test_user_service.py</span>
+                </div>
+                <div class="code-block-body"><pre data-aq-highlight="python">from aquilia.testing import AquiliaTestCase
 
 class TestUserService(AquiliaTestCase):
     """Unit test for user service logic."""
@@ -594,11 +599,17 @@ class TestUserService(AquiliaTestCase):
 
     async def test_user_validation(self):
         with self.assertRaises(ValidationError):
-            await self.app.di.get("user_service").create(name="")</code></pre>
+            await self.app.di.get("user_service").create(name="")</pre></div>
+            </div>
         </div>
         <div class="snippet-content" id="snip-integration">
             <button class="copy-btn" onclick="copySnippet('snip-integration')" type="button">Copy</button>
-            <pre><code>from aquilia.testing import AquiliaTestCase
+            <div class="code-block-container" style="margin-bottom:0;">
+                <div class="code-block-header">
+                    <div class="dots"><div class="dot dot-red"></div><div class="dot dot-yellow"></div><div class="dot dot-green"></div></div>
+                    <span class="filename">test_auth_flow.py</span>
+                </div>
+                <div class="code-block-body"><pre data-aq-highlight="python">from aquilia.testing import AquiliaTestCase
 
 class TestAuthFlow(AquiliaTestCase):
     """Integration test across auth + sessions + DI."""
@@ -611,11 +622,17 @@ class TestAuthFlow(AquiliaTestCase):
         self.assert_json_has(resp, "token")
         # Verify session was created
         sessions = self.app.di.get("session_store")
-        self.assertTrue(len(sessions.active()) > 0)</code></pre>
+        self.assertTrue(len(sessions.active()) > 0)</pre></div>
+            </div>
         </div>
         <div class="snippet-content" id="snip-client">
             <button class="copy-btn" onclick="copySnippet('snip-client')" type="button">Copy</button>
-            <pre><code>from aquilia.testing import TestClient
+            <div class="code-block-container" style="margin-bottom:0;">
+                <div class="code-block-header">
+                    <div class="dots"><div class="dot dot-red"></div><div class="dot dot-yellow"></div><div class="dot dot-green"></div></div>
+                    <span class="filename">test_api_endpoints.py</span>
+                </div>
+                <div class="code-block-body"><pre data-aq-highlight="python">from aquilia.testing import TestClient
 
 async def test_api_endpoints():
     """Use TestClient for HTTP testing without network."""
@@ -633,11 +650,17 @@ async def test_api_endpoints():
         # Custom headers
         resp = await client.get("/api/profile", headers={
             "Authorization": "Bearer test-token"
-        })</code></pre>
+        })</pre></div>
+            </div>
         </div>
         <div class="snippet-content" id="snip-mock">
             <button class="copy-btn" onclick="copySnippet('snip-mock')" type="button">Copy</button>
-            <pre><code>from aquilia.testing import AquiliaTestCase
+            <div class="code-block-container" style="margin-bottom:0;">
+                <div class="code-block-header">
+                    <div class="dots"><div class="dot dot-red"></div><div class="dot dot-yellow"></div><div class="dot dot-green"></div></div>
+                    <span class="filename">test_with_mocks.py</span>
+                </div>
+                <div class="code-block-body"><pre data-aq-highlight="python">from aquilia.testing import AquiliaTestCase
 from aquilia.testing import MockFaultEngine, MockEffectBus
 
 class TestWithMocks(AquiliaTestCase):
@@ -654,11 +677,17 @@ class TestWithMocks(AquiliaTestCase):
     async def test_effect_bus(self):
         bus = MockEffectBus()
         await bus.emit("user.created", {"id": 1})
-        bus.assert_emitted("user.created", count=1)</code></pre>
+        bus.assert_emitted("user.created", count=1)</pre></div>
+            </div>
         </div>
         <div class="snippet-content" id="snip-fixture">
             <button class="copy-btn" onclick="copySnippet('snip-fixture')" type="button">Copy</button>
-            <pre><code>import pytest
+            <div class="code-block-container" style="margin-bottom:0;">
+                <div class="code-block-header">
+                    <div class="dots"><div class="dot dot-red"></div><div class="dot dot-yellow"></div><div class="dot dot-green"></div></div>
+                    <span class="filename">conftest.py</span>
+                </div>
+                <div class="code-block-body"><pre data-aq-highlight="python">import pytest
 from aquilia.testing import create_test_app, seed_database
 
 @pytest.fixture
@@ -675,7 +704,8 @@ async def app():
 async def seeded_app(app):
     """App with seed data for integration tests."""
     await seed_database(app, fixtures=["users", "posts"])
-    return app</code></pre>
+    return app</pre></div>
+            </div>
         </div>
     </div>
 </div>
@@ -1095,13 +1125,97 @@ document.addEventListener('DOMContentLoaded', function() {
 function copySnippet(id) {
     var el = document.getElementById(id);
     if (!el) return;
-    var code = el.querySelector('code');
-    if (!code) return;
-    navigator.clipboard.writeText(code.textContent).then(function() {
+    var pre = el.querySelector('pre');
+    if (!pre) return;
+    // Get raw text (strip HTML tags for clean copy)
+    var tmp = document.createElement('div');
+    tmp.innerHTML = pre.innerHTML;
+    // Remove line numbers
+    tmp.querySelectorAll('.code-line-num').forEach(function(n) { n.remove(); });
+    var raw = tmp.textContent || tmp.innerText;
+    navigator.clipboard.writeText(raw.trim()).then(function() {
         var btn = el.querySelector('.copy-btn');
         if (btn) { btn.textContent = 'Copied!'; setTimeout(function() { btn.textContent = 'Copy'; }, 1500); }
     });
 }
+
+// ── Client-side Python syntax highlighter ──
+// Uses the same CSS classes as the server-side _highlight_python: .kw .str .cmt .fn .num .dec .cls
+(function() {
+    var KW = ['def','class','import','from','return','if','elif','else','for','while','with','as',
+              'try','except','finally','raise','pass','break','continue','yield','async','await',
+              'not','and','or','in','is','None','True','False','self','lambda','assert'];
+    var KW_RE = new RegExp('\\b(' + KW.join('|') + ')\\b', 'g');
+
+    function escHtml(s) {
+        return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#x27;');
+    }
+
+    function highlightLine(line) {
+        var tokens = []; // [start, end, cssClass]
+
+        // 1. Triple-quoted strings
+        var re3 = /"""[\s\S]*?"""|'''[\s\S]*?'''/g, m;
+        while ((m = re3.exec(line)) !== null) tokens.push([m.index, re3.lastIndex, 'str']);
+
+        // 2. Single/double-quoted strings
+        var reS = /"[^"\\]*(?:\\.[^"\\]*)*"|'[^'\\]*(?:\\.[^'\\]*)*'/g;
+        while ((m = reS.exec(line)) !== null) tokens.push([m.index, reS.lastIndex, 'str']);
+
+        // 3. Comments (if # not inside a string)
+        var hashIdx = line.indexOf('#');
+        if (hashIdx !== -1) {
+            var inside = tokens.some(function(t) { return t[0] <= hashIdx && hashIdx < t[1]; });
+            if (!inside) tokens.push([hashIdx, line.length, 'cmt']);
+        }
+
+        // 4. Decorators
+        var reD = /^(\s*)(@\w+)/;
+        m = reD.exec(line);
+        if (m) tokens.push([m.index + m[1].length, m.index + m[1].length + m[2].length, 'dec']);
+
+        // 5. Keywords
+        KW_RE.lastIndex = 0;
+        while ((m = KW_RE.exec(line)) !== null) tokens.push([m.index, KW_RE.lastIndex, 'kw']);
+
+        // 6. Numbers
+        var reN = /\b\d+\.?\d*\b/g;
+        while ((m = reN.exec(line)) !== null) tokens.push([m.index, reN.lastIndex, 'num']);
+
+        // 7. Function calls
+        var reF = /\b(\w+)\(/g;
+        while ((m = reF.exec(line)) !== null) tokens.push([m.index, m.index + m[1].length, 'fn']);
+
+        // Resolve overlaps: sort by start, longer wins
+        tokens.sort(function(a, b) { return a[0] - b[0] || (b[1] - b[0]) - (a[1] - a[0]); });
+        var merged = [], usedEnd = 0;
+        tokens.forEach(function(t) {
+            if (t[0] < usedEnd) return;
+            merged.push(t);
+            usedEnd = t[1];
+        });
+
+        // Build output
+        var parts = [], pos = 0;
+        merged.forEach(function(t) {
+            if (t[0] > pos) parts.push(escHtml(line.substring(pos, t[0])));
+            parts.push('<span class="' + t[2] + '">' + escHtml(line.substring(t[0], t[1])) + '</span>');
+            pos = t[1];
+        });
+        if (pos < line.length) parts.push(escHtml(line.substring(pos)));
+        return parts.join('');
+    }
+
+    document.querySelectorAll('pre[data-aq-highlight="python"]').forEach(function(pre) {
+        var raw = pre.textContent;
+        var lines = raw.split('\n');
+        var html = lines.map(function(line, i) {
+            var num = '<span class="code-line-num">' + (i + 1) + '</span>';
+            return num + highlightLine(line);
+        }).join('\n');
+        pre.innerHTML = html;
+    });
+})();
 </script>
 
 {% endblock %}

@@ -174,7 +174,18 @@
         </thead>
         <tbody>
             {% for t in registered_tasks %}
-            <tr style="border-bottom:1px solid var(--border-subtle);">
+            <tr class="task-row-clickable" style="border-bottom:1px solid var(--border-subtle);cursor:pointer;transition:background .12s ease;"
+                data-task-name="{{ t.name }}"
+                data-task-queue="{{ t.queue }}"
+                data-task-priority="{{ t.priority }}"
+                data-task-max-retries="{{ t.max_retries }}"
+                data-task-timeout="{{ t.timeout }}"
+                data-task-retry-delay="{{ t.retry_delay }}"
+                data-task-retry-backoff="{{ t.retry_backoff }}"
+                data-task-schedule="{{ t.schedule|default('on-demand') }}"
+                data-task-dispatch="{{ t.dispatch|default('on-demand') }}"
+                data-task-tags="{{ t.tags|join(', ') if t.tags else '' }}"
+                onclick="openTaskDrawer(this)">
                 <td style="padding:10px 16px;">
                     <div style="display:flex;align-items:center;gap:8px;">
                         <div style="width:6px;height:6px;border-radius:50%;background:var(--accent);flex-shrink:0;"></div>
@@ -234,7 +245,29 @@
         </thead>
         <tbody>
             {% for job in jobs[:50] %}
-            <tr class="job-row" data-state="{{ job.state }}" style="border-bottom:1px solid var(--border-subtle);">
+            <tr class="job-row job-row-clickable" data-state="{{ job.state }}" style="border-bottom:1px solid var(--border-subtle);cursor:pointer;transition:background .12s ease;"
+                data-job-id="{{ job.id }}"
+                data-job-name="{{ job.name or job.func_ref }}"
+                data-job-func-ref="{{ job.func_ref }}"
+                data-job-queue="{{ job.queue }}"
+                data-job-priority="{{ job.priority }}"
+                data-job-state="{{ job.state }}"
+                data-job-retry-count="{{ job.retry_count }}"
+                data-job-max-retries="{{ job.max_retries }}"
+                data-job-duration="{{ job.duration_ms if job.duration_ms is not none else '' }}"
+                data-job-created="{{ job.created_at if job.created_at else '' }}"
+                data-job-started="{{ job.started_at if job.started_at else '' }}"
+                data-job-completed="{{ job.completed_at if job.completed_at else '' }}"
+                data-job-scheduled="{{ job.scheduled_at if job.scheduled_at else '' }}"
+                data-job-timeout="{{ job.timeout }}"
+                data-job-terminal="{{ job.is_terminal }}"
+                data-job-can-retry="{{ job.can_retry }}"
+                data-job-fingerprint="{{ job.fingerprint }}"
+                data-job-tags="{{ job.tags|join(', ') if job.tags else '' }}"
+                data-job-error-type="{{ job.result.error_type if job.result and job.result.error_type else '' }}"
+                data-job-error="{{ job.result.error if job.result and job.result.error else '' }}"
+                data-job-traceback="{{ job.result.traceback if job.result and job.result.traceback else '' }}"
+                onclick="openJobDrawer(this)">
                 <td style="padding:10px 16px;font-family:var(--font-mono);font-size:0.7rem;color:var(--text-faint);">{{ job.id[:12] }}…</td>
                 <td style="padding:10px 16px;">
                     <span style="font-size:0.82rem;font-weight:600;">{{ job.name or job.func_ref }}</span>
@@ -291,9 +324,137 @@
     {% endif %}
 </div>
 
+{# ═══ SLIDE-OUT DETAIL DRAWER ═══ #}
+<div id="aq-drawer-overlay" class="aq-drawer-overlay" onclick="closeDrawer()"></div>
+<div id="aq-drawer" class="aq-drawer">
+    <div class="aq-drawer-header">
+        <div style="display:flex;align-items:center;gap:10px;min-width:0;">
+            <div id="drawer-icon" class="aq-drawer-icon">
+                <i class="icon-layers"></i>
+            </div>
+            <div style="min-width:0;">
+                <h3 id="drawer-title" style="margin:0;font-size:0.95rem;font-weight:700;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Detail</h3>
+                <span id="drawer-subtitle" style="font-size:0.7rem;color:var(--text-faint);"></span>
+            </div>
+        </div>
+        <button onclick="closeDrawer()" style="background:none;border:none;cursor:pointer;padding:6px;color:var(--text-faint);font-size:1.2rem;line-height:1;border-radius:6px;transition:all .12s ease;" onmouseover="this.style.background='var(--bg-surface)';this.style.color='var(--text-primary)'" onmouseout="this.style.background='none';this.style.color='var(--text-faint)'">&times;</button>
+    </div>
+    <div id="drawer-body" class="aq-drawer-body">
+        {# Content injected by JS #}
+    </div>
+</div>
+
 <style>
 @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 .aq-filter-btn.active { background: var(--bg-surface) !important; color: var(--text-primary) !important; font-weight: 600; }
+
+/* ── Clickable rows ── */
+.task-row-clickable:hover, .job-row-clickable:hover {
+    background: var(--bg-surface) !important;
+}
+.task-row-clickable:active, .job-row-clickable:active {
+    background: rgba(34,197,94,0.04) !important;
+}
+
+/* ── Slide-out drawer ── */
+.aq-drawer-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 9998;
+    opacity: 0; pointer-events: none; transition: opacity .25s ease;
+    backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px);
+}
+.aq-drawer-overlay.open { opacity: 1; pointer-events: auto; }
+
+.aq-drawer {
+    position: fixed; top: 0; right: 0; bottom: 0;
+    width: 480px; max-width: 92vw; z-index: 9999;
+    background: var(--bg-card); border-left: 1px solid var(--border-subtle);
+    box-shadow: -8px 0 32px rgba(0,0,0,0.25);
+    transform: translateX(100%); transition: transform .28s cubic-bezier(.4,0,.2,1);
+    display: flex; flex-direction: column; overflow: hidden;
+}
+.aq-drawer.open { transform: translateX(0); }
+
+.aq-drawer-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 18px 20px; border-bottom: 1px solid var(--border-subtle);
+    background: var(--bg-surface); flex-shrink: 0;
+}
+.aq-drawer-icon {
+    width: 36px; height: 36px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; flex-shrink: 0;
+}
+.aq-drawer-body {
+    flex: 1; overflow-y: auto; padding: 20px;
+    scrollbar-width: thin; scrollbar-color: var(--border-subtle) transparent;
+}
+.aq-drawer-body::-webkit-scrollbar { width: 5px; }
+.aq-drawer-body::-webkit-scrollbar-thumb { background: var(--border-subtle); border-radius: 4px; }
+
+/* ── Drawer content sections ── */
+.aq-drawer-section {
+    margin-bottom: 20px;
+}
+.aq-drawer-section-title {
+    font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.06em; color: var(--text-faint); margin-bottom: 10px;
+    padding-bottom: 6px; border-bottom: 1px solid var(--border-subtle);
+}
+.aq-drawer-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+}
+.aq-drawer-field {
+    padding: 10px 12px; background: var(--bg-surface);
+    border: 1px solid var(--border-subtle); border-radius: 8px;
+}
+.aq-drawer-field-label {
+    font-size: 0.62rem; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.05em; color: var(--text-faint); margin-bottom: 4px;
+}
+.aq-drawer-field-value {
+    font-size: 0.82rem; font-weight: 600; color: var(--text-primary);
+    word-break: break-all;
+}
+.aq-drawer-field-value.mono {
+    font-family: var(--font-mono); font-size: 0.75rem;
+}
+.aq-drawer-badge {
+    display: inline-block; padding: 2px 10px; border-radius: 99px;
+    font-size: 0.68rem; font-weight: 700;
+}
+.aq-drawer-tag {
+    display: inline-block; padding: 2px 8px; border-radius: 4px;
+    font-size: 0.65rem; font-weight: 500; margin: 2px 2px 2px 0;
+    background: rgba(34,197,94,0.1); color: var(--accent);
+}
+.aq-drawer-timeline {
+    position: relative; padding-left: 20px;
+}
+.aq-drawer-timeline::before {
+    content: ''; position: absolute; left: 5px; top: 4px; bottom: 4px;
+    width: 2px; background: var(--border-subtle); border-radius: 1px;
+}
+.aq-drawer-timeline-item {
+    position: relative; padding: 6px 0; font-size: 0.78rem;
+}
+.aq-drawer-timeline-item::before {
+    content: ''; position: absolute; left: -19px; top: 12px;
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--border-subtle); border: 2px solid var(--bg-card);
+}
+.aq-drawer-timeline-item.active::before {
+    background: var(--accent); box-shadow: 0 0 6px var(--accent-glow);
+}
+.aq-drawer-timeline-item.error::before {
+    background: var(--danger); box-shadow: 0 0 6px rgba(239,68,68,0.3);
+}
+.aq-drawer-traceback {
+    padding: 12px; background: rgba(239,68,68,0.04);
+    border: 1px solid rgba(239,68,68,0.15); border-radius: 8px;
+    font-family: var(--font-mono); font-size: 0.7rem; line-height: 1.5;
+    color: var(--danger); white-space: pre-wrap; word-break: break-all;
+    max-height: 300px; overflow-y: auto;
+}
 </style>
 
 {% endblock %}
@@ -484,5 +645,297 @@
         }, refreshInterval);
     }
     scheduleRefresh();
+})();
+
+// ═══════════════════════════════════════════════════════════════════
+// SLIDE-OUT DETAIL DRAWER
+// ═══════════════════════════════════════════════════════════════════
+(function() {
+    'use strict';
+    var overlay = document.getElementById('aq-drawer-overlay');
+    var drawer  = document.getElementById('aq-drawer');
+    var title   = document.getElementById('drawer-title');
+    var subtitle = document.getElementById('drawer-subtitle');
+    var icon    = document.getElementById('drawer-icon');
+    var body    = document.getElementById('drawer-body');
+
+    function esc(s) {
+        var d = document.createElement('div');
+        d.textContent = s;
+        return d.innerHTML;
+    }
+
+    function formatTs(iso) {
+        if (!iso) return '—';
+        try {
+            var d = new Date(iso);
+            return d.toLocaleString('en-GB', {
+                day:'2-digit', month:'short', year:'numeric',
+                hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false
+            });
+        } catch(e) { return iso.substring(0, 19); }
+    }
+
+    function relativeTime(iso) {
+        if (!iso) return '';
+        try {
+            var ms = Date.now() - new Date(iso).getTime();
+            if (ms < 60000) return Math.round(ms / 1000) + 's ago';
+            if (ms < 3600000) return Math.round(ms / 60000) + 'm ago';
+            if (ms < 86400000) return Math.round(ms / 3600000) + 'h ago';
+            return Math.round(ms / 86400000) + 'd ago';
+        } catch(e) { return ''; }
+    }
+
+    function priorityColor(p) {
+        if (p === 'CRITICAL') return 'var(--danger)';
+        if (p === 'HIGH') return 'var(--warning)';
+        return 'var(--text-secondary)';
+    }
+
+    function priorityBg(p) {
+        if (p === 'CRITICAL') return 'rgba(239,68,68,0.12)';
+        if (p === 'HIGH') return 'rgba(245,158,11,0.12)';
+        return 'var(--bg-surface)';
+    }
+
+    var stateColorMap = {
+        'completed': 'var(--success)', 'running': 'var(--accent)', 'pending': 'var(--text-secondary)',
+        'failed': 'var(--danger)', 'dead': 'var(--danger)', 'retrying': 'var(--warning)',
+        'cancelled': 'var(--text-faint)', 'scheduled': '#8b5cf6'
+    };
+
+    function stateColor(s) { return stateColorMap[s] || 'var(--text-secondary)'; }
+
+    function makeField(label, value, opts) {
+        opts = opts || {};
+        var cls = opts.mono ? ' mono' : '';
+        var full = opts.full ? ' style="grid-column:1/-1;"' : '';
+        return '<div class="aq-drawer-field"' + full + '>' +
+               '<div class="aq-drawer-field-label">' + esc(label) + '</div>' +
+               '<div class="aq-drawer-field-value' + cls + '">' + (value || '—') + '</div></div>';
+    }
+
+    function makeBadge(text, color, bg) {
+        return '<span class="aq-drawer-badge" style="color:' + color + ';background:' + bg + ';">' + esc(text) + '</span>';
+    }
+
+    function makeTags(tagStr) {
+        if (!tagStr) return '<span style="font-size:0.7rem;color:var(--text-faint);">No tags</span>';
+        return tagStr.split(', ').map(function(t) {
+            return '<span class="aq-drawer-tag">' + esc(t.trim()) + '</span>';
+        }).join('');
+    }
+
+    function openDrawer() {
+        overlay.classList.add('open');
+        drawer.classList.add('open');
+        document.body.style.overflow = 'hidden';
+    }
+
+    window.closeDrawer = function() {
+        overlay.classList.remove('open');
+        drawer.classList.remove('open');
+        document.body.style.overflow = '';
+    };
+
+    // Close on Escape key
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && drawer.classList.contains('open')) {
+            window.closeDrawer();
+        }
+    });
+
+    // ── Open Task Drawer (Task Definitions) ──────────────────────
+    window.openTaskDrawer = function(row) {
+        var d = row.dataset;
+        title.textContent = d.taskName;
+        subtitle.textContent = 'Registered Task Definition';
+        icon.style.background = 'rgba(34,197,94,0.12)';
+        icon.style.color = 'var(--accent)';
+        icon.innerHTML = '<i class="icon-layers"></i>';
+
+        var html = '';
+
+        // ── Configuration section ──
+        html += '<div class="aq-drawer-section">';
+        html += '<div class="aq-drawer-section-title">Configuration</div>';
+        html += '<div class="aq-drawer-grid">';
+        html += makeField('Task Name', '<code style="font-size:0.78rem;color:var(--accent);">' + esc(d.taskName) + '</code>', {full: true});
+        html += makeField('Queue', esc(d.taskQueue));
+        html += makeField('Priority', makeBadge(d.taskPriority, priorityColor(d.taskPriority), priorityBg(d.taskPriority)));
+        html += makeField('Timeout', esc(d.taskTimeout) + 's');
+        html += makeField('Max Retries', esc(d.taskMaxRetries));
+        html += '</div></div>';
+
+        // ── Retry Policy section ──
+        html += '<div class="aq-drawer-section">';
+        html += '<div class="aq-drawer-section-title">Retry Policy</div>';
+        html += '<div class="aq-drawer-grid">';
+        html += makeField('Base Delay', esc(d.taskRetryDelay) + 's');
+        html += makeField('Backoff', '×' + esc(d.taskRetryBackoff));
+        html += makeField('Max Retries', esc(d.taskMaxRetries) + ' attempts');
+        html += makeField('Strategy', 'Exponential + Jitter');
+        html += '</div>';
+        // Retry formula
+        html += '<div style="margin-top:10px;padding:10px 12px;background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:8px;">';
+        html += '<div style="font-size:0.68rem;color:var(--text-faint);margin-bottom:4px;">Delay Formula</div>';
+        html += '<code style="font-size:0.72rem;color:var(--text-secondary);">delay = ' + esc(d.taskRetryDelay) + ' × ' + esc(d.taskRetryBackoff) + '<sup>attempt</sup> ± 25% jitter</code>';
+        html += '</div></div>';
+
+        // ── Scheduling section ──
+        html += '<div class="aq-drawer-section">';
+        html += '<div class="aq-drawer-section-title">Scheduling</div>';
+        html += '<div class="aq-drawer-grid">';
+        html += makeField('Dispatch', makeBadge(d.taskDispatch, d.taskDispatch === 'periodic' ? '#8b5cf6' : 'var(--text-secondary)', d.taskDispatch === 'periodic' ? 'rgba(139,92,246,0.12)' : 'var(--bg-surface)'));
+        html += makeField('Schedule', esc(d.taskSchedule));
+        html += '</div></div>';
+
+        // ── Tags section ──
+        html += '<div class="aq-drawer-section">';
+        html += '<div class="aq-drawer-section-title">Tags</div>';
+        html += '<div style="padding:8px 0;">' + makeTags(d.taskTags) + '</div>';
+        html += '</div>';
+
+        // ── Usage example ──
+        html += '<div class="aq-drawer-section">';
+        html += '<div class="aq-drawer-section-title">Quick Dispatch</div>';
+        html += '<div style="padding:10px 14px;background:var(--bg-primary);border:1px solid var(--border-subtle);border-radius:8px;font-family:var(--font-mono);font-size:0.72rem;line-height:1.6;color:var(--text-secondary);overflow-x:auto;">';
+        var shortName = d.taskName.split(':').pop() || d.taskName;
+        html += '<span style="color:#6b7280;"># On-demand dispatch</span>\n';
+        html += '<span style="color:#22c55e;">await</span> ' + esc(shortName) + '.<span style="color:#fde047;">delay</span>(<span style="color:#4ade80;">*args</span>)\n\n';
+        html += '<span style="color:#6b7280;"># Or via manager</span>\n';
+        html += '<span style="color:#22c55e;">await</span> manager.<span style="color:#fde047;">enqueue</span>(' + esc(shortName) + ', <span style="color:#4ade80;">*args</span>)';
+        html += '</div></div>';
+
+        body.innerHTML = html;
+        openDrawer();
+    };
+
+    // ── Open Job Drawer (Recent Jobs) ───────────────────────────
+    window.openJobDrawer = function(row) {
+        var d = row.dataset;
+        title.textContent = d.jobName || d.jobFuncRef;
+        subtitle.textContent = d.jobId;
+        var st = d.jobState;
+        var isFailed = (st === 'failed' || st === 'dead');
+        icon.style.background = isFailed ? 'rgba(239,68,68,0.12)' : (st === 'completed' ? 'rgba(34,197,94,0.12)' : (st === 'running' ? 'rgba(59,130,246,0.12)' : 'var(--bg-surface)'));
+        icon.style.color = stateColor(st);
+        icon.innerHTML = isFailed ? '<i class="icon-x-circle"></i>' : (st === 'completed' ? '<i class="icon-check-circle"></i>' : (st === 'running' ? '<i class="icon-loader"></i>' : '<i class="icon-clock"></i>'));
+
+        var html = '';
+
+        // ── Identity section ──
+        html += '<div class="aq-drawer-section">';
+        html += '<div class="aq-drawer-section-title">Identity</div>';
+        html += '<div class="aq-drawer-grid">';
+        html += makeField('Job ID', esc(d.jobId), {full: true, mono: true});
+        html += makeField('Task Name', '<code style="font-size:0.78rem;color:var(--accent);">' + esc(d.jobName || d.jobFuncRef) + '</code>', {full: true});
+        html += makeField('Function Ref', esc(d.jobFuncRef), {full: true, mono: true});
+        html += makeField('Fingerprint', esc(d.jobFingerprint), {mono: true});
+        html += makeField('State', makeBadge(st, stateColor(st), stateColor(st).replace(')', ',0.12)').replace('var(', 'rgba(').replace('--success', '34,197,94').replace('--accent', '34,197,94').replace('--danger', '239,68,68').replace('--warning', '245,158,11').replace('--text-secondary', '161,161,170').replace('--text-faint', '107,114,128')));
+        html += '</div></div>';
+
+        // ── Configuration section ──
+        html += '<div class="aq-drawer-section">';
+        html += '<div class="aq-drawer-section-title">Configuration</div>';
+        html += '<div class="aq-drawer-grid">';
+        html += makeField('Queue', esc(d.jobQueue));
+        html += makeField('Priority', makeBadge(d.jobPriority, priorityColor(d.jobPriority), priorityBg(d.jobPriority)));
+        html += makeField('Timeout', esc(d.jobTimeout) + 's');
+        html += makeField('Retries', esc(d.jobRetryCount) + ' / ' + esc(d.jobMaxRetries));
+        html += makeField('Terminal', d.jobTerminal === 'True' ? '✓ Yes' : '✗ No');
+        html += makeField('Can Retry', d.jobCanRetry === 'True' ? '✓ Yes' : '✗ No');
+        html += '</div></div>';
+
+        // ── Timeline section ──
+        html += '<div class="aq-drawer-section">';
+        html += '<div class="aq-drawer-section-title">Timeline</div>';
+        html += '<div class="aq-drawer-timeline">';
+
+        // Created
+        html += '<div class="aq-drawer-timeline-item active">';
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;">';
+        html += '<span style="font-weight:600;color:var(--text-primary);">Created</span>';
+        html += '<span style="font-size:0.68rem;color:var(--text-faint);">' + relativeTime(d.jobCreated) + '</span>';
+        html += '</div>';
+        html += '<div style="font-size:0.72rem;color:var(--text-faint);font-family:var(--font-mono);">' + formatTs(d.jobCreated) + '</div>';
+        html += '</div>';
+
+        // Scheduled (if any)
+        if (d.jobScheduled) {
+            html += '<div class="aq-drawer-timeline-item active">';
+            html += '<div style="display:flex;justify-content:space-between;align-items:center;">';
+            html += '<span style="font-weight:600;color:var(--text-primary);">Scheduled</span>';
+            html += '<span style="font-size:0.68rem;color:var(--text-faint);">' + relativeTime(d.jobScheduled) + '</span>';
+            html += '</div>';
+            html += '<div style="font-size:0.72rem;color:var(--text-faint);font-family:var(--font-mono);">' + formatTs(d.jobScheduled) + '</div>';
+            html += '</div>';
+        }
+
+        // Started
+        html += '<div class="aq-drawer-timeline-item' + (d.jobStarted ? ' active' : '') + '">';
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;">';
+        html += '<span style="font-weight:600;color:var(--text-primary);">Started</span>';
+        if (d.jobStarted) {
+            html += '<span style="font-size:0.68rem;color:var(--text-faint);">' + relativeTime(d.jobStarted) + '</span>';
+        }
+        html += '</div>';
+        html += '<div style="font-size:0.72rem;color:var(--text-faint);font-family:var(--font-mono);">' + formatTs(d.jobStarted) + '</div>';
+        html += '</div>';
+
+        // Completed / Failed
+        html += '<div class="aq-drawer-timeline-item' + (d.jobCompleted ? (isFailed ? ' error' : ' active') : '') + '">';
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;">';
+        html += '<span style="font-weight:600;color:' + (isFailed ? 'var(--danger)' : 'var(--text-primary)') + ';">' + (isFailed ? 'Failed' : 'Completed') + '</span>';
+        if (d.jobCompleted) {
+            html += '<span style="font-size:0.68rem;color:var(--text-faint);">' + relativeTime(d.jobCompleted) + '</span>';
+        }
+        html += '</div>';
+        html += '<div style="font-size:0.72rem;color:var(--text-faint);font-family:var(--font-mono);">' + formatTs(d.jobCompleted) + '</div>';
+        html += '</div>';
+
+        html += '</div>';
+
+        // Duration bar
+        if (d.jobDuration) {
+            var dur = parseFloat(d.jobDuration);
+            var durColor = dur < 100 ? '#22c55e' : (dur < 1000 ? '#f59e0b' : '#ef4444');
+            html += '<div style="margin-top:12px;padding:10px 12px;background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:8px;display:flex;align-items:center;gap:12px;">';
+            html += '<div style="font-size:0.68rem;color:var(--text-faint);text-transform:uppercase;letter-spacing:0.05em;white-space:nowrap;">Duration</div>';
+            html += '<div style="flex:1;height:6px;background:var(--bg-primary);border-radius:3px;overflow:hidden;">';
+            html += '<div style="height:100%;width:' + Math.min(100, dur / 10) + '%;background:' + durColor + ';border-radius:3px;transition:width .4s ease;"></div></div>';
+            html += '<span style="font-family:var(--font-mono);font-size:0.82rem;font-weight:700;color:' + durColor + ';">' + dur.toFixed(1) + 'ms</span>';
+            html += '</div>';
+        }
+        html += '</div>';
+
+        // ── Tags section ──
+        html += '<div class="aq-drawer-section">';
+        html += '<div class="aq-drawer-section-title">Tags</div>';
+        html += '<div style="padding:8px 0;">' + makeTags(d.jobTags) + '</div>';
+        html += '</div>';
+
+        // ── Error section (if failed) ──
+        if (isFailed && d.jobErrorType) {
+            html += '<div class="aq-drawer-section">';
+            html += '<div class="aq-drawer-section-title" style="color:var(--danger);">Error Details</div>';
+            html += '<div style="padding:10px 12px;background:rgba(239,68,68,0.04);border:1px solid rgba(239,68,68,0.12);border-radius:8px;margin-bottom:10px;">';
+            html += '<div style="font-size:0.68rem;color:var(--text-faint);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;">Exception</div>';
+            html += '<div style="font-family:var(--font-mono);font-size:0.8rem;font-weight:700;color:var(--danger);">' + esc(d.jobErrorType) + '</div>';
+            html += '<div style="font-size:0.78rem;color:var(--text-secondary);margin-top:6px;">' + esc(d.jobError) + '</div>';
+            html += '</div>';
+            if (d.jobTraceback) {
+                html += '<details style="margin-top:8px;">';
+                html += '<summary style="cursor:pointer;font-size:0.72rem;color:var(--text-faint);padding:6px 0;user-select:none;">Show traceback</summary>';
+                html += '<div class="aq-drawer-traceback">' + esc(d.jobTraceback) + '</div>';
+                html += '</details>';
+            }
+            html += '</div>';
+        }
+
+        body.innerHTML = html;
+        openDrawer();
+    };
 })();
 {% endblock %}

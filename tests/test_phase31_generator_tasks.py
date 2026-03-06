@@ -1257,3 +1257,335 @@ class TestGetTasksDataIntegrationWithRealTasks:
         assert isinstance(serialized, str)
         deserialized = json.loads(serialized)
         assert len(deserialized) >= 3
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# 14. TESTING SNIPPETS — SYNTAX-HIGHLIGHTED CODE BLOCKS
+# ════════════════════════════════════════════════════════════════════════════
+
+
+class TestTestingSnippetsSyntaxHighlight:
+    """Verify testing page Quick Setup uses code-block-container with highlighting."""
+
+    def _render(self, **overrides):
+        from aquilia.admin.templates import render_testing_page
+        base = {
+            "available": True,
+            "framework_version": "1.0.0",
+            "test_classes": [{"name": "AquiliaTestCase", "parents": ["unittest.TestCase"]}],
+            "client": {"methods": ["get", "post"]},
+            "assertions": [{"category": "HTTP", "methods": ["assert_status"], "count": 1}],
+            "total_assertions": 1,
+            "fixtures": [{"name": "client", "async": True}],
+            "total_fixtures": 1,
+            "mock_infra": [{"name": "MockFaultEngine", "module": "faults",
+                           "description": "Faults", "features": ["emit"]}],
+            "total_mocks": 1,
+            "utilities": [{"name": "make_scope", "description": "scope"}],
+            "total_utilities": 1,
+            "test_files": [],
+            "total_test_files": 0,
+            "component_coverage": [{"name": "Server", "module": "server", "status": "covered"}],
+            "total_components": 1,
+            "covered_components": 1,
+            "summary": {
+                "total_test_cases": 1, "total_assertions": 1, "total_fixtures": 1,
+                "total_mocks": 1, "total_utilities": 1, "total_test_files": 0,
+                "total_test_functions": 0, "total_test_classes": 0, "total_lines": 0,
+                "total_components": 1, "covered_components": 1,
+                "total_assert_stmts": 0, "avg_tests_per_file": 0,
+                "avg_loc_per_test": 0, "avg_density": 0,
+                "total_async_tests": 0, "total_sync_tests": 0,
+                "category_breakdown": {}, "imports_usage": {},
+            },
+            "charts": {
+                "test_distribution": {"labels": [], "values": []},
+                "test_categories": {"labels": [], "values": []},
+                "assertion_categories": {"labels": [], "values": []},
+                "mock_infrastructure": {"labels": [], "values": []},
+                "lines_of_code": {"labels": [], "values": []},
+                "component_coverage": {"labels": [], "values": []},
+            },
+        }
+        base.update(overrides)
+        return render_testing_page(testing_data=base)
+
+    def test_snippet_has_code_block_container(self):
+        html = self._render()
+        assert "code-block-container" in html
+
+    def test_snippet_has_code_block_header_dots(self):
+        html = self._render()
+        assert "dot-red" in html
+        assert "dot-yellow" in html
+        assert "dot-green" in html
+
+    def test_snippet_has_filenames(self):
+        html = self._render()
+        assert "test_user_service.py" in html
+        assert "test_auth_flow.py" in html
+        assert "test_api_endpoints.py" in html
+        assert "test_with_mocks.py" in html
+        assert "conftest.py" in html
+
+    def test_snippet_uses_highlight_attribute(self):
+        """pre tags should have data-aq-highlight=python for client-side highlighting."""
+        html = self._render()
+        assert 'data-aq-highlight="python"' in html
+
+    def test_snippet_tabs_present(self):
+        html = self._render()
+        assert "Unit Test" in html
+        assert "Integration" in html
+        assert "TestClient" in html
+        assert "Mock Engine" in html
+        assert "Fixtures" in html
+
+    def test_snippet_code_content(self):
+        html = self._render()
+        assert "AquiliaTestCase" in html
+        assert "TestClient" in html
+        assert "MockFaultEngine" in html
+        assert "@pytest.fixture" in html
+
+    def test_snippet_copy_button(self):
+        html = self._render()
+        assert "copySnippet" in html
+        assert "Copy" in html
+
+    def test_snippet_js_highlighter_present(self):
+        """Client-side Python syntax highlighter JS should be in the page."""
+        html = self._render()
+        assert "data-aq-highlight" in html
+        assert "highlightLine" in html
+
+    def test_snippet_highlighter_uses_css_classes(self):
+        """Highlighter should reference kw, str, cmt, fn, num, dec classes."""
+        html = self._render()
+        for cls in ["'kw'", "'str'", "'cmt'", "'fn'", "'num'", "'dec'"]:
+            assert cls in html, f"Missing CSS class {cls} in highlighter"
+
+    def test_snippet_code_block_body(self):
+        html = self._render()
+        assert "code-block-body" in html
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# 15. TASKS PAGE — SLIDE-OUT DETAIL DRAWER
+# ════════════════════════════════════════════════════════════════════════════
+
+
+class TestTasksPageDrawer:
+    """Verify the slide-out detail drawer for tasks and jobs."""
+
+    def _render(self, registered_tasks=None, jobs=None, available=True):
+        from aquilia.admin.templates import render_tasks_page
+        tasks_data = {
+            "available": available,
+            "stats": {
+                "total_jobs": len(jobs) if jobs else 0,
+                "by_state": {},
+                "completed_count": 0,
+                "failed_count": 0,
+                "active_count": 0,
+                "pending_count": 0,
+                "dead_letter_count": 0,
+                "success_rate": 100,
+                "p50_ms": 0, "p95_ms": 0, "p99_ms": 0,
+                "avg_duration_ms": 0,
+                "manager": {
+                    "running": True, "num_workers": 4,
+                    "total_enqueued": 0, "total_completed": 0,
+                    "total_failed": 0, "uptime_seconds": 100,
+                    "queues": ["default"], "backend": "MemoryBackend",
+                },
+                "charts": {
+                    "throughput": {"labels": [], "completed": [], "failed": []},
+                    "duration_histogram": {"labels": [], "values": []},
+                    "state_doughnut": {"labels": [], "values": []},
+                    "queue_breakdown": {"labels": [], "pending": [], "running": [],
+                                       "completed": [], "failed": []},
+                },
+            },
+            "jobs": jobs or [],
+            "queue_stats": {},
+            "registered_tasks": registered_tasks or [],
+        }
+        return render_tasks_page(tasks_data=tasks_data)
+
+    # ── Drawer structure ──
+
+    def test_drawer_overlay_present(self):
+        html = self._render()
+        assert "aq-drawer-overlay" in html
+
+    def test_drawer_container_present(self):
+        html = self._render()
+        assert "aq-drawer" in html
+
+    def test_drawer_close_button(self):
+        html = self._render()
+        assert "closeDrawer" in html
+
+    def test_drawer_header_present(self):
+        html = self._render()
+        assert "aq-drawer-header" in html
+
+    def test_drawer_body_present(self):
+        html = self._render()
+        assert "aq-drawer-body" in html
+
+    def test_drawer_escape_key_handler(self):
+        html = self._render()
+        assert "Escape" in html
+
+    # ── Registered task clickable rows ──
+
+    def test_task_row_clickable_class(self):
+        tasks = [{"name": "my_task", "queue": "default", "priority": "NORMAL",
+                  "max_retries": 3, "timeout": 300, "retry_delay": 1.0,
+                  "retry_backoff": 2.0, "tags": ["email"], "schedule": "on-demand",
+                  "dispatch": "on-demand"}]
+        html = self._render(registered_tasks=tasks)
+        assert "task-row-clickable" in html
+
+    def test_task_row_has_data_attributes(self):
+        tasks = [{"name": "send_email", "queue": "mail", "priority": "HIGH",
+                  "max_retries": 5, "timeout": 60, "retry_delay": 2.0,
+                  "retry_backoff": 3.0, "tags": ["email", "notify"],
+                  "schedule": "every 30m", "dispatch": "periodic"}]
+        html = self._render(registered_tasks=tasks)
+        assert 'data-task-name="send_email"' in html
+        assert 'data-task-queue="mail"' in html
+        assert 'data-task-priority="HIGH"' in html
+        assert 'data-task-max-retries="5"' in html
+        assert 'data-task-timeout="60"' in html
+        assert 'data-task-schedule="every 30m"' in html
+        assert 'data-task-dispatch="periodic"' in html
+
+    def test_task_row_onclick_handler(self):
+        tasks = [{"name": "t", "queue": "q", "priority": "NORMAL",
+                  "max_retries": 3, "timeout": 300, "retry_delay": 1.0,
+                  "retry_backoff": 2.0, "tags": [], "schedule": "on-demand",
+                  "dispatch": "on-demand"}]
+        html = self._render(registered_tasks=tasks)
+        assert "openTaskDrawer(this)" in html
+
+    # ── Job clickable rows ──
+
+    def test_job_row_clickable_class(self):
+        jobs = [{"id": "abc123def456", "name": "my_job", "func_ref": "mod:fn",
+                 "queue": "default", "priority": "NORMAL", "state": "completed",
+                 "retry_count": 0, "max_retries": 3, "duration_ms": 42.5,
+                 "created_at": "2026-03-06T10:00:00", "started_at": "2026-03-06T10:00:01",
+                 "completed_at": "2026-03-06T10:00:02", "scheduled_at": None,
+                 "timeout": 300, "is_terminal": True, "can_retry": False,
+                 "fingerprint": "abc123", "tags": [], "result": None}]
+        html = self._render(jobs=jobs)
+        assert "job-row-clickable" in html
+
+    def test_job_row_has_data_attributes(self):
+        jobs = [{"id": "job123456789a", "name": "process_data", "func_ref": "m:fn",
+                 "queue": "high", "priority": "CRITICAL", "state": "failed",
+                 "retry_count": 2, "max_retries": 5, "duration_ms": 1500.0,
+                 "created_at": "2026-03-06T10:00:00", "started_at": "2026-03-06T10:00:01",
+                 "completed_at": "2026-03-06T10:00:03", "scheduled_at": None,
+                 "timeout": 60, "is_terminal": True, "can_retry": True,
+                 "fingerprint": "fp1234", "tags": ["critical"],
+                 "result": {"error": "timeout", "error_type": "TimeoutError",
+                           "traceback": "Traceback...\nTimeoutError"}}]
+        html = self._render(jobs=jobs)
+        assert 'data-job-id="job123456789a"' in html
+        assert 'data-job-name="process_data"' in html
+        assert 'data-job-queue="high"' in html
+        assert 'data-job-priority="CRITICAL"' in html
+        assert 'data-job-state="failed"' in html
+        assert 'data-job-fingerprint="fp1234"' in html
+
+    def test_job_row_onclick_handler(self):
+        jobs = [{"id": "j1", "name": "n", "func_ref": "f", "queue": "q",
+                 "priority": "NORMAL", "state": "pending", "retry_count": 0,
+                 "max_retries": 3, "duration_ms": None, "created_at": "2026-01-01",
+                 "started_at": None, "completed_at": None, "scheduled_at": None,
+                 "timeout": 300, "is_terminal": False, "can_retry": True,
+                 "fingerprint": "fp", "tags": [], "result": None}]
+        html = self._render(jobs=jobs)
+        assert "openJobDrawer(this)" in html
+
+    def test_job_row_error_data_attributes(self):
+        jobs = [{"id": "j2", "name": "bad_job", "func_ref": "m:bad",
+                 "queue": "default", "priority": "NORMAL", "state": "dead",
+                 "retry_count": 3, "max_retries": 3, "duration_ms": 50.0,
+                 "created_at": "2026-03-06T10:00:00", "started_at": "2026-03-06T10:00:01",
+                 "completed_at": "2026-03-06T10:00:02", "scheduled_at": None,
+                 "timeout": 300, "is_terminal": True, "can_retry": False,
+                 "fingerprint": "dead1", "tags": [],
+                 "result": {"error": "Connection refused", "error_type": "ConnectionError",
+                           "traceback": "File \"x.py\"...\nConnectionError"}}]
+        html = self._render(jobs=jobs)
+        assert 'data-job-error-type="ConnectionError"' in html
+        assert 'data-job-error="Connection refused"' in html
+
+    # ── Drawer JS functions ──
+
+    def test_drawer_open_task_function(self):
+        html = self._render()
+        assert "openTaskDrawer" in html
+
+    def test_drawer_open_job_function(self):
+        html = self._render()
+        assert "openJobDrawer" in html
+
+    def test_drawer_css_styles(self):
+        html = self._render()
+        assert "aq-drawer-section" in html
+        assert "aq-drawer-grid" in html
+        assert "aq-drawer-field" in html
+        assert "aq-drawer-timeline" in html
+        assert "aq-drawer-traceback" in html
+
+    def test_drawer_task_shows_retry_formula(self):
+        """Drawer JS should include retry delay formula."""
+        html = self._render()
+        assert "Delay Formula" in html
+
+    def test_drawer_task_shows_quick_dispatch(self):
+        """Drawer JS should include quick dispatch usage example."""
+        html = self._render()
+        assert "Quick Dispatch" in html
+
+    def test_drawer_job_shows_timeline(self):
+        """Drawer JS should build a timeline of Created → Started → Completed."""
+        html = self._render()
+        assert "Timeline" in html
+        assert "aq-drawer-timeline-item" in html
+
+    def test_drawer_job_shows_error_details(self):
+        """Drawer JS should include error details section for failed jobs."""
+        html = self._render()
+        assert "Error Details" in html
+        assert "Show traceback" in html
+
+    def test_drawer_hover_styles(self):
+        """Clickable rows should have hover styles."""
+        html = self._render()
+        assert "task-row-clickable:hover" in html
+        assert "job-row-clickable:hover" in html
+
+    def test_drawer_slide_animation(self):
+        """Drawer should use translateX for slide animation."""
+        html = self._render()
+        assert "translateX" in html
+
+    def test_drawer_backdrop_blur(self):
+        """Overlay should use backdrop-filter blur."""
+        html = self._render()
+        assert "backdrop-filter" in html
+
+    def test_no_clickable_rows_when_no_tasks_no_jobs(self):
+        """No clickable data rows should appear when both lists are empty."""
+        html = self._render(registered_tasks=[], jobs=[])
+        assert "aq-drawer" in html
+        # No actual clickable rows with onclick handlers
+        assert "openTaskDrawer(this)" not in html
+        assert "openJobDrawer(this)" not in html
