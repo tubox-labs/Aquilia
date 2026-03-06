@@ -1553,7 +1553,8 @@ class AdminSite:
         prometheus_text = ""
         if metrics_collector is not None and hasattr(metrics_collector, "to_prometheus"):
             try:
-                prometheus_text = metrics_collector.to_prometheus()
+                result = metrics_collector.to_prometheus()
+                prometheus_text = str(result) if result else ""
             except Exception:
                 pass
         data["prometheus_text"] = prometheus_text
@@ -1625,6 +1626,13 @@ class AdminSite:
         charts["memory_allocations"] = mem_allocations
 
         data["charts"] = charts
+
+        # ── 21. Inference History (playground audit log) ─────────────
+        data["inference_history"] = getattr(self, "_mlops_inference_history", [])[:20]
+
+        # ── 22. Alert Rules & Triggered Alerts ──────────────────────
+        data["alert_rules"] = getattr(self, "_mlops_alert_rules", [])
+        data["triggered_alerts"] = getattr(self, "_mlops_triggered_alerts", [])
 
         return data
 

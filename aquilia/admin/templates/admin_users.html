@@ -5,7 +5,7 @@
 {% block content %}
 <div class="page-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
     <div>
-        <h1>Admin Users</h1>
+        <h1><span class="gradient-text">Admin Users</span></h1>
         <p>Manage admin accounts, assign roles, and define the admin hierarchy.</p>
     </div>
     <button class="btn btn-primary" onclick="document.getElementById('createUserModal').style.display='flex'">
@@ -71,9 +71,13 @@
             <tr>
                 <td>
                     <div style="display:flex;align-items:center;gap:10px;">
-                        <div style="width:32px;height:32px;border-radius:50%;background:{% if user.is_superuser %}var(--accent-subtle){% elif user.is_staff %}var(--info-subtle){% else %}var(--bg-surface){% endif %};display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:600;color:{% if user.is_superuser %}var(--accent){% elif user.is_staff %}var(--info){% else %}var(--text-muted){% endif %};">
+                        {% if user.avatar_path %}
+                        <img src="{{ user.avatar_path }}" alt="{{ user.username }}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;border:1px solid var(--border-subtle);flex-shrink:0;">
+                        {% else %}
+                        <div style="width:32px;height:32px;border-radius:50%;background:{% if user.is_superuser %}var(--accent-subtle){% elif user.is_staff %}var(--info-subtle){% else %}var(--bg-surface){% endif %};display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:600;color:{% if user.is_superuser %}var(--accent){% elif user.is_staff %}var(--info){% else %}var(--text-muted){% endif %};flex-shrink:0;">
                             {{ (user.first_name or user.username)|truncate(1, True, '')|upper }}
                         </div>
+                        {% endif %}
                         <div>
                             <div style="font-weight:600;font-size:.85rem;">{{ user.username }}</div>
                             {% if user.first_name or user.last_name %}

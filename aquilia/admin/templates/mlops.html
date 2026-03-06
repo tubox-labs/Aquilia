@@ -105,6 +105,186 @@
 .cap-tab.active{color:var(--accent);border-color:var(--accent);background:rgba(34,197,94,.06);}
 .cap-panel{display:none;}
 .cap-panel.active{display:block;}
+
+/* ── Live Playground ── */
+.playground-container{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+.playground-editor{position:relative;}
+.playground-editor textarea{width:100%;min-height:160px;padding:14px;background:var(--bg-input);border:1px solid var(--border-subtle);border-radius:var(--radius);color:var(--text-primary);font-family:'JetBrains Mono','Fira Code',var(--font-mono);font-size:.78rem;line-height:1.6;resize:vertical;box-sizing:border-box;}
+.playground-editor textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-glow);}
+.playground-output{padding:14px;background:var(--bg-input);border:1px solid var(--border-subtle);border-radius:var(--radius);font-family:'JetBrains Mono','Fira Code',var(--font-mono);font-size:.78rem;line-height:1.6;color:var(--text-secondary);overflow:auto;min-height:140px;max-height:400px;white-space:pre-wrap;word-break:break-word;}
+.playground-output.error{border-color:rgba(239,68,68,.3);color:#ef4444;}
+.playground-output.success{border-color:rgba(34,197,94,.15);}
+.playground-output .json-key{color:#22c55e;}
+.playground-output .json-str{color:#38bdf8;}
+.playground-output .json-num{color:#c084fc;}
+.playground-output .json-bool{color:#fb923c;}
+.playground-output .json-null{color:#a1a1aa;font-style:italic;}
+.playground-output .json-brace{color:var(--text-faint);font-weight:700;}
+.playground-output .json-bracket{color:var(--text-faint);font-weight:700;}
+.playground-output .json-colon{color:var(--text-faint);}
+.playground-output .json-comma{color:var(--text-faint);}
+.playground-toolbar{display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;}
+.playground-select{padding:6px 12px;background:var(--bg-input);border:1px solid var(--border-subtle);border-radius:var(--radius);color:var(--text-primary);font-family:var(--font-sans);font-size:.78rem;cursor:pointer;}
+
+/* ── Custom Select Menu ── */
+.aq-sel{position:relative;display:inline-block;min-width:180px;user-select:none;}
+.aq-sel-trigger{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 12px;background:var(--bg-input);border:1px solid var(--border-subtle);border-radius:var(--radius);color:var(--text-primary);font-family:var(--font-sans);font-size:.78rem;cursor:pointer;transition:border-color .15s,box-shadow .15s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.aq-sel-trigger:hover{border-color:var(--accent);}
+.aq-sel.open .aq-sel-trigger{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-glow);}
+.aq-sel-arrow{flex-shrink:0;width:16px;height:16px;display:flex;align-items:center;justify-content:center;transition:transform .2s ease;opacity:.5;}
+.aq-sel.open .aq-sel-arrow{transform:rotate(180deg);opacity:.8;}
+.aq-sel-arrow svg{width:12px;height:12px;}
+.aq-sel-menu{display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:200;background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:var(--radius);box-shadow:0 8px 32px rgba(0,0,0,.35);max-height:220px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--border-subtle) transparent;padding:4px;}
+.aq-sel.open .aq-sel-menu{display:block;animation:aq-sel-in .15s ease;}
+@keyframes aq-sel-in{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
+.aq-sel-menu::-webkit-scrollbar{width:4px;}
+.aq-sel-menu::-webkit-scrollbar-thumb{background:var(--border-subtle);border-radius:4px;}
+.aq-sel-opt{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:6px;cursor:pointer;font-size:.78rem;color:var(--text-secondary);transition:background .1s,color .1s;font-family:var(--font-sans);}
+.aq-sel-opt:hover{background:var(--bg-surface);color:var(--text-primary);}
+.aq-sel-opt.selected{background:rgba(34,197,94,.08);color:var(--accent);font-weight:600;}
+.aq-sel-opt-icon{width:18px;height:18px;border-radius:4px;background:rgba(34,197,94,.1);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.aq-sel-opt-icon svg{width:10px;height:10px;fill:none;stroke:var(--accent);stroke-width:2;}
+.aq-sel-opt-label{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.aq-sel-opt-sub{font-size:.65rem;color:var(--text-faint);font-family:var(--font-mono);}
+.aq-sel-check{width:14px;height:14px;display:none;flex-shrink:0;color:var(--accent);}
+.aq-sel-opt.selected .aq-sel-check{display:flex;}
+.aq-sel-search{padding:4px;border-bottom:1px solid var(--border-subtle);margin-bottom:4px;}
+.aq-sel-search input{width:100%;padding:6px 8px;background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:6px;color:var(--text-primary);font-size:.75rem;font-family:var(--font-sans);box-sizing:border-box;outline:none;}
+.aq-sel-search input:focus{border-color:var(--accent);}
+
+/* ── JSON Code Editor with Syntax Highlighting ── */
+.json-editor{position:relative;border-radius:var(--radius);overflow:hidden;border:1px solid var(--border-subtle);background:var(--bg-input);transition:border-color .15s,box-shadow .15s;}
+.json-editor:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-glow);}
+.json-editor-wrap{position:relative;min-height:140px;}
+.json-editor-highlight{position:absolute;inset:0;padding:14px;font-family:'JetBrains Mono','Fira Code',var(--font-mono);font-size:.78rem;line-height:1.6;white-space:pre-wrap;word-break:break-word;pointer-events:none;overflow:hidden;color:transparent;}
+.json-editor-textarea{position:relative;z-index:1;display:block;width:100%;min-height:140px;padding:14px;font-family:'JetBrains Mono','Fira Code',var(--font-mono);font-size:.78rem;line-height:1.6;color:var(--text-primary);background:transparent;border:none;resize:vertical;box-sizing:border-box;outline:none;-webkit-text-fill-color:transparent;caret-color:var(--text-primary);}
+.json-editor-textarea::selection{background:rgba(34,197,94,.15);-webkit-text-fill-color:var(--text-primary);}
+.json-hl .json-key{color:#22c55e;}
+.json-hl .json-str{color:#38bdf8;}
+.json-hl .json-num{color:#c084fc;}
+.json-hl .json-bool{color:#fb923c;}
+.json-hl .json-null{color:#a1a1aa;font-style:italic;}
+.json-hl .json-brace{color:var(--text-faint);font-weight:700;}
+.json-hl .json-bracket{color:var(--text-faint);font-weight:700;}
+.json-hl .json-colon{color:var(--text-faint);}
+.json-hl .json-comma{color:var(--text-faint);}
+
+/* ── JSON Rendered Output ── */
+.json-output{padding:14px;background:var(--bg-input);border:1px solid var(--border-subtle);border-radius:var(--radius);font-family:'JetBrains Mono','Fira Code',var(--font-mono);font-size:.78rem;line-height:1.6;overflow:auto;min-height:140px;max-height:400px;white-space:pre-wrap;word-break:break-word;}
+.json-output.error{border-color:rgba(239,68,68,.3);color:#ef4444;}
+.json-output.success{border-color:rgba(34,197,94,.15);}
+.json-output .json-key{color:#22c55e;}
+.json-output .json-str{color:#38bdf8;}
+.json-output .json-num{color:#c084fc;}
+.json-output .json-bool{color:#fb923c;}
+.json-output .json-null{color:#a1a1aa;font-style:italic;}
+.json-output .json-brace{color:var(--text-faint);font-weight:700;}
+.json-output .json-bracket{color:var(--text-faint);font-weight:700;}
+.json-output .json-colon{color:var(--text-faint);}
+.json-output .json-comma{color:var(--text-faint);}
+.playground-btn{padding:7px 18px;background:var(--accent);color:#000;border:none;border-radius:var(--radius);font-size:.78rem;font-weight:600;cursor:pointer;transition:all .15s ease;font-family:var(--font-sans);display:inline-flex;align-items:center;gap:6px;}
+.playground-btn:hover{filter:brightness(1.15);}
+.playground-btn:disabled{opacity:.5;cursor:not-allowed;}
+.playground-btn.secondary{background:var(--bg-surface);color:var(--text-primary);border:1px solid var(--border-subtle);}
+.playground-btn.secondary:hover{border-color:var(--accent);color:var(--accent);}
+.playground-btn.danger{background:rgba(239,68,68,.12);color:#ef4444;border:1px solid rgba(239,68,68,.2);}
+.playground-btn.danger:hover{background:rgba(239,68,68,.2);}
+.playground-latency{font-family:var(--font-mono);font-size:.72rem;padding:4px 10px;border-radius:999px;font-weight:600;}
+.playground-latency.fast{background:rgba(34,197,94,.12);color:#22c55e;}
+.playground-latency.medium{background:rgba(251,191,36,.12);color:#fbbf24;}
+.playground-latency.slow{background:rgba(239,68,68,.12);color:#ef4444;}
+.playground-spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(0,0,0,.15);border-top-color:#000;border-radius:50%;animation:login-spin .5s linear infinite;}
+@keyframes login-spin{to{transform:rotate(360deg)}}
+
+/* Compare results */
+.compare-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-top:12px;}
+.compare-card{padding:14px;background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius);position:relative;}
+.compare-card-title{font-size:.82rem;font-weight:600;color:var(--text-primary);margin-bottom:8px;display:flex;align-items:center;gap:6px;}
+.compare-card-output{font-family:'JetBrains Mono','Fira Code',var(--font-mono);font-size:.72rem;color:var(--text-secondary);background:var(--bg-input);padding:10px;border-radius:6px;max-height:200px;overflow:auto;white-space:pre-wrap;word-break:break-word;}
+.compare-card-output .json-key{color:#22c55e;}
+.compare-card-output .json-str{color:#38bdf8;}
+.compare-card-output .json-num{color:#c084fc;}
+.compare-card-output .json-bool{color:#fb923c;}
+.compare-card-output .json-null{color:#a1a1aa;font-style:italic;}
+.compare-card-output .json-brace{color:var(--text-faint);font-weight:700;}
+.compare-card-output .json-bracket{color:var(--text-faint);font-weight:700;}
+.compare-card-output .json-colon{color:var(--text-faint);}
+.compare-card-output .json-comma{color:var(--text-faint);}
+
+/* Batch progress */
+.batch-progress{margin-top:12px;}
+.batch-progress-bar{height:6px;border-radius:3px;background:var(--bg-input);overflow:hidden;margin-bottom:8px;}
+.batch-progress-fill{height:100%;border-radius:3px;background:var(--accent);transition:width .3s ease;}
+.batch-stats{display:flex;gap:16px;font-size:.72rem;color:var(--text-faint);flex-wrap:wrap;}
+.batch-stats span{display:flex;align-items:center;gap:4px;}
+
+/* Health matrix */
+.health-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-top:12px;}
+.health-card{padding:12px;border-radius:var(--radius);border:1px solid var(--border-subtle);text-align:center;transition:all .15s ease;}
+.health-card.healthy{background:rgba(34,197,94,.04);border-color:rgba(34,197,94,.15);}
+.health-card.unhealthy{background:rgba(239,68,68,.04);border-color:rgba(239,68,68,.15);}
+.health-card.unknown{background:rgba(161,161,170,.04);border-color:rgba(161,161,170,.15);}
+.health-dot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-bottom:6px;}
+.health-dot.healthy{background:#22c55e;box-shadow:0 0 6px #22c55e;}
+.health-dot.unhealthy{background:#ef4444;box-shadow:0 0 6px #ef4444;}
+.health-dot.unknown{background:#a1a1aa;}
+
+/* Alert rules */
+.alert-rule-row{display:flex;align-items:center;gap:8px;padding:8px 0;flex-wrap:wrap;}
+.alert-rule-row input{padding:5px 10px;background:var(--bg-input);border:1px solid var(--border-subtle);border-radius:var(--radius);color:var(--text-primary);font-size:.75rem;font-family:var(--font-sans);}
+.alert-rule-row input[type="number"]{width:80px;font-family:var(--font-mono);}
+.alert-rule-row .aq-sel{min-width:0;}
+.alert-rule-row .aq-sel-trigger{font-size:.75rem;padding:5px 10px;}
+.alert-badge{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:999px;font-size:.68rem;font-weight:600;}
+.alert-badge.warning{background:rgba(251,191,36,.12);color:#fbbf24;}
+.alert-badge.critical{background:rgba(239,68,68,.12);color:#ef4444;}
+.alert-badge.info{background:rgba(59,130,246,.12);color:#3b82f6;}
+
+/* History table rows */
+.history-status{display:inline-flex;align-items:center;gap:4px;font-size:.68rem;font-weight:600;padding:2px 8px;border-radius:999px;}
+.history-status.ok{background:rgba(34,197,94,.12);color:#22c55e;}
+.history-status.error{background:rgba(239,68,68,.12);color:#ef4444;}
+.history-status.compare{background:rgba(139,92,246,.12);color:#8b5cf6;}
+.history-status.batch{background:rgba(59,130,246,.12);color:#3b82f6;}
+
+/* ── Prometheus Syntax Highlighting ── */
+.prom-hl{font-family:'JetBrains Mono','Fira Code',monospace;font-size:.72rem;line-height:1.7;}
+.prom-hl .prom-comment{color:#6b7280;font-style:italic;}
+.prom-hl .prom-directive{color:#c084fc;font-weight:700;}
+.prom-hl .prom-metric-name{color:#22c55e;font-weight:600;}
+.prom-hl .prom-type-val{color:#38bdf8;font-style:italic;}
+.prom-hl .prom-desc{color:#9ca3af;}
+.prom-hl .prom-lbrace{color:#fbbf24;}
+.prom-hl .prom-label-key{color:#60a5fa;}
+.prom-hl .prom-label-eq{color:#6b7280;}
+.prom-hl .prom-label-val{color:#f87171;}
+.prom-hl .prom-value{color:#fbbf24;font-weight:700;}
+.prom-hl .prom-timestamp{color:#6b7280;font-size:.65rem;}
+
+/* ── Model Registry Card Grid ── */
+.model-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;padding:16px;}
+.model-card{position:relative;padding:16px;background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:12px;cursor:pointer;transition:all .18s ease;overflow:hidden;}
+.model-card:hover{border-color:var(--accent);background:rgba(34,197,94,.02);transform:translateY(-1px);box-shadow:0 4px 16px rgba(0,0,0,.15);}
+.model-card-header{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
+.model-card-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:16px;}
+.model-card-icon.loaded{background:rgba(34,197,94,.1);color:#22c55e;}
+.model-card-icon.failed{background:rgba(239,68,68,.1);color:#ef4444;}
+.model-card-icon.loading{background:rgba(59,130,246,.1);color:#3b82f6;}
+.model-card-icon.default{background:rgba(161,161,170,.1);color:#a1a1aa;}
+.model-card-name{font-size:.88rem;font-weight:700;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.model-card-version{font-family:var(--font-mono);font-size:.68rem;color:var(--text-faint);background:var(--bg-input);padding:1px 7px;border-radius:4px;}
+.model-card-meta{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px;}
+.model-card-meta-item{font-size:.68rem;color:var(--text-faint);}
+.model-card-meta-item span{display:block;font-size:.75rem;font-weight:500;color:var(--text-secondary);margin-top:1px;}
+.model-card-state{position:absolute;top:12px;right:12px;}
+.model-card-glow{position:absolute;top:-40px;right:-40px;width:100px;height:100px;border-radius:50%;opacity:.06;pointer-events:none;}
+.model-card-glow.loaded{background:radial-gradient(circle,#22c55e,transparent 70%);}
+.model-card-glow.failed{background:radial-gradient(circle,#ef4444,transparent 70%);}
+/* Model registry view toggle */
+.model-view-toggle{display:inline-flex;border:1px solid var(--border-subtle);border-radius:var(--radius);overflow:hidden;}
+.model-view-btn{padding:5px 12px;background:none;border:none;color:var(--text-faint);cursor:pointer;font-size:.72rem;transition:all .12s;font-family:var(--font-sans);display:flex;align-items:center;gap:4px;}
+.model-view-btn:hover{color:var(--text-primary);}
+.model-view-btn.active{background:var(--bg-surface);color:var(--accent);font-weight:600;}
 </style>
 {% endblock %}
 
@@ -118,7 +298,7 @@
 <div class="dash-greeting">
     <h1>
         <i class="icon-cpu" style="font-size:1.6rem;vertical-align:-3px;margin-right:8px;opacity:0.5;"></i>
-        MLOps
+        <span class="gradient-text">MLOps</span>
     </h1>
     <p>Model registry, inference serving, drift detection, rollouts, experiments, and observability</p>
 </div>
@@ -199,14 +379,28 @@
     <div class="card" style="padding:20px;">
         <span class="card-title"><i class="icon-pie-chart" style="font-size:14px;vertical-align:-2px;margin-right:6px;opacity:0.5;"></i>Model States</span>
         <div style="margin-top:14px;height:220px;position:relative;">
+            {% if charts.model_states %}
             <canvas id="chart-model-states"></canvas>
+            {% else %}
+            <div style="height:100%;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;color:var(--text-faint);">
+                <i class="icon-pie-chart" style="font-size:2rem;opacity:0.15;"></i>
+                <span style="font-size:.75rem;">No model state data</span>
+            </div>
+            {% endif %}
         </div>
     </div>
     {# ── Framework Distribution ── #}
     <div class="card" style="padding:20px;">
         <span class="card-title"><i class="icon-package" style="font-size:14px;vertical-align:-2px;margin-right:6px;opacity:0.5;"></i>Framework Distribution</span>
         <div style="margin-top:14px;height:220px;position:relative;">
+            {% if charts.frameworks %}
             <canvas id="chart-frameworks"></canvas>
+            {% else %}
+            <div style="height:100%;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;color:var(--text-faint);">
+                <i class="icon-package" style="font-size:2rem;opacity:0.15;"></i>
+                <span style="font-size:.75rem;">No framework data</span>
+            </div>
+            {% endif %}
         </div>
     </div>
 </div>
@@ -217,14 +411,28 @@
     <div class="card" style="padding:20px;">
         <span class="card-title"><i class="icon-puzzle" style="font-size:14px;vertical-align:-2px;margin-right:6px;opacity:0.5;"></i>Plugin States</span>
         <div style="margin-top:14px;height:200px;position:relative;">
+            {% if charts.plugin_states %}
             <canvas id="chart-plugin-states"></canvas>
+            {% else %}
+            <div style="height:100%;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;color:var(--text-faint);">
+                <i class="icon-puzzle" style="font-size:2rem;opacity:0.15;"></i>
+                <span style="font-size:.75rem;">No plugins loaded</span>
+            </div>
+            {% endif %}
         </div>
     </div>
     {# ── Rollout Phases ── #}
     <div class="card" style="padding:20px;">
         <span class="card-title"><i class="icon-git-merge" style="font-size:14px;vertical-align:-2px;margin-right:6px;opacity:0.5;"></i>Rollout Phases</span>
         <div style="margin-top:14px;height:200px;position:relative;">
+            {% if charts.rollout_phases %}
             <canvas id="chart-rollout-phases"></canvas>
+            {% else %}
+            <div style="height:100%;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;color:var(--text-faint);">
+                <i class="icon-git-merge" style="font-size:2rem;opacity:0.15;"></i>
+                <span style="font-size:.75rem;">No rollouts yet</span>
+            </div>
+            {% endif %}
         </div>
     </div>
 </div>
@@ -235,14 +443,28 @@
     <div class="card" style="padding:20px;">
         <span class="card-title"><i class="icon-git-branch" style="font-size:14px;vertical-align:-2px;margin-right:6px;opacity:0.5;"></i>Experiment Statuses</span>
         <div style="margin-top:14px;height:200px;position:relative;">
+            {% if charts.experiment_statuses %}
             <canvas id="chart-experiment-statuses"></canvas>
+            {% else %}
+            <div style="height:100%;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;color:var(--text-faint);">
+                <i class="icon-git-branch" style="font-size:2rem;opacity:0.15;"></i>
+                <span style="font-size:.75rem;">No experiments configured</span>
+            </div>
+            {% endif %}
         </div>
     </div>
     {# ── Memory Allocations ── #}
     <div class="card" style="padding:20px;">
         <span class="card-title"><i class="icon-database" style="font-size:14px;vertical-align:-2px;margin-right:6px;opacity:0.5;"></i>Memory Allocations by Model</span>
         <div style="margin-top:14px;height:200px;position:relative;">
+            {% if charts.memory_allocations %}
             <canvas id="chart-memory-allocations"></canvas>
+            {% else %}
+            <div style="height:100%;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;color:var(--text-faint);">
+                <i class="icon-database" style="font-size:2rem;opacity:0.15;"></i>
+                <span style="font-size:.75rem;">No memory data available</span>
+            </div>
+            {% endif %}
         </div>
     </div>
 </div>
@@ -629,13 +851,436 @@
 </div>
 {% endif %}
 
-{# ═══ MODEL REGISTRY TABLE ═══ #}
+{# ═══════════════════════════════════════════════════════════════════
+   ADVANCED MLOPS FEATURES
+   Live Playground · Model Comparison · Batch Inference · Health
+   Inference History · Alert Rules · Export
+   ═══════════════════════════════════════════════════════════════════ #}
+
+{# ═══ LIVE INFERENCE PLAYGROUND ═══ #}
+{% if models|length > 0 %}
+<div class="section-label" style="margin-top:28px;">
+    <span style="display:inline-flex;align-items:center;gap:8px;">
+        Live Inference Playground
+        <span style="font-size:.58rem;padding:2px 8px;background:rgba(34,197,94,.12);color:#22c55e;border-radius:999px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;">Interactive</span>
+    </span>
+</div>
+<div class="card" style="padding:20px;">
+    <span class="card-title"><i class="icon-play-circle" style="font-size:14px;vertical-align:-2px;margin-right:6px;opacity:0.5;"></i>Test Models in Real-Time</span>
+    <p style="font-size:.75rem;color:var(--text-faint);margin:8px 0 14px;">Send JSON input to any registered model and inspect the output, latency, and preprocessing pipeline.</p>
+
+    <div class="playground-toolbar">
+        <div class="aq-sel" id="pg-model-sel" data-target="pg-model-select">
+            <div class="aq-sel-trigger" tabindex="0">
+                <span class="aq-sel-label">{{ models[0].name|default('Select model') }}</span>
+                <span class="aq-sel-arrow"><svg viewBox="0 0 12 12"><polyline points="2,4 6,8 10,4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+            </div>
+            <div class="aq-sel-menu">
+                {% if models|length > 4 %}
+                <div class="aq-sel-search"><input type="text" placeholder="Search models…" autocomplete="off" spellcheck="false"/></div>
+                {% endif %}
+                {% for model in models %}
+                <div class="aq-sel-opt{{ ' selected' if loop.first }}" data-value="{{ model.name|default('unknown') }}">
+                    <span class="aq-sel-opt-icon"><svg viewBox="0 0 12 12"><path d="M2 6h8M6 2v8" stroke-linecap="round"/></svg></span>
+                    <span class="aq-sel-opt-label">{{ model.name|default('unknown') }} <span class="aq-sel-opt-sub">{{ model.version|default('?') }}</span></span>
+                    <span class="aq-sel-check"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><polyline points="3,7 6,10 11,4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+                </div>
+                {% endfor %}
+            </div>
+            <input type="hidden" id="pg-model-select" value="{{ models[0].name|default('unknown') }}"/>
+        </div>
+        <button id="pg-run-btn" class="playground-btn" type="button" onclick="runPlayground()">
+            <i class="icon-play" style="font-size:12px;"></i> Run Inference
+        </button>
+        <button class="playground-btn secondary" type="button" onclick="clearPlayground()">
+            <i class="icon-trash-2" style="font-size:12px;"></i> Clear
+        </button>
+        <span id="pg-latency" class="playground-latency" style="display:none;"></span>
+    </div>
+
+    <div class="playground-container">
+        <div>
+            <div style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-faint);margin-bottom:6px;">Input (JSON)</div>
+            <div class="json-editor" id="pg-editor">
+                <div class="json-editor-wrap">
+                    <div class="json-editor-highlight json-hl" id="pg-input-hl"></div>
+                    <textarea class="json-editor-textarea" id="pg-input" spellcheck="false" data-highlight="pg-input-hl">{
+  "text": "sample input"
+}</textarea>
+                </div>
+            </div>
+        </div>
+        <div>
+            <div style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-faint);margin-bottom:6px;">Output</div>
+            <div id="pg-output" class="playground-output" style="color:var(--text-faint);font-style:italic;">Run inference to see output...</div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{# ═══ MODEL COMPARISON ═══ #}
+{% if models|length > 1 %}
+<div class="section-label" style="margin-top:24px;">Model Comparison</div>
+<div class="card" style="padding:20px;">
+    <span class="card-title"><i class="icon-columns" style="font-size:14px;vertical-align:-2px;margin-right:6px;opacity:0.5;"></i>Side-by-Side Model Output Comparison</span>
+    <p style="font-size:.75rem;color:var(--text-faint);margin:8px 0 14px;">Run the same input through multiple models and compare outputs, latency, and behavior differences.</p>
+
+    <div class="playground-toolbar">
+        <div class="aq-sel" id="cmp-model-a-sel" data-target="cmp-model-a">
+            <div class="aq-sel-trigger" tabindex="0">
+                <span class="aq-sel-label">{{ models[0].name|default('Model A') }}</span>
+                <span class="aq-sel-arrow"><svg viewBox="0 0 12 12"><polyline points="2,4 6,8 10,4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+            </div>
+            <div class="aq-sel-menu">
+                {% for model in models %}
+                <div class="aq-sel-opt{{ ' selected' if loop.first }}" data-value="{{ model.name|default('unknown') }}">
+                    <span class="aq-sel-opt-icon"><svg viewBox="0 0 12 12"><path d="M2 6h8M6 2v8" stroke-linecap="round"/></svg></span>
+                    <span class="aq-sel-opt-label">{{ model.name|default('unknown') }}</span>
+                    <span class="aq-sel-check"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><polyline points="3,7 6,10 11,4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+                </div>
+                {% endfor %}
+            </div>
+            <input type="hidden" id="cmp-model-a" value="{{ models[0].name|default('unknown') }}"/>
+        </div>
+        <span style="font-size:.72rem;color:var(--text-faint);font-weight:600;">vs</span>
+        <div class="aq-sel" id="cmp-model-b-sel" data-target="cmp-model-b">
+            <div class="aq-sel-trigger" tabindex="0">
+                <span class="aq-sel-label">{{ models[1].name|default('Model B') if models|length > 1 else 'Model B' }}</span>
+                <span class="aq-sel-arrow"><svg viewBox="0 0 12 12"><polyline points="2,4 6,8 10,4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+            </div>
+            <div class="aq-sel-menu">
+                {% for model in models %}
+                <div class="aq-sel-opt{{ ' selected' if loop.index == 2 }}" data-value="{{ model.name|default('unknown') }}">
+                    <span class="aq-sel-opt-icon"><svg viewBox="0 0 12 12"><path d="M2 6h8M6 2v8" stroke-linecap="round"/></svg></span>
+                    <span class="aq-sel-opt-label">{{ model.name|default('unknown') }}</span>
+                    <span class="aq-sel-check"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><polyline points="3,7 6,10 11,4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+                </div>
+                {% endfor %}
+            </div>
+            <input type="hidden" id="cmp-model-b" value="{{ models[1].name|default('unknown') if models|length > 1 else '' }}"/>
+        </div>
+        <button id="cmp-run-btn" class="playground-btn" type="button" onclick="runComparison()">
+            <i class="icon-git-compare" style="font-size:12px;"></i> Compare
+        </button>
+    </div>
+
+    <div style="margin-bottom:12px;">
+        <div style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-faint);margin-bottom:6px;">Shared Input (JSON)</div>
+        <div class="json-editor" id="cmp-editor">
+            <div class="json-editor-wrap" style="min-height:80px;">
+                <div class="json-editor-highlight json-hl" id="cmp-input-hl"></div>
+                <textarea class="json-editor-textarea" id="cmp-input" spellcheck="false" data-highlight="cmp-input-hl" style="min-height:80px;">{
+  "text": "compare this input"
+}</textarea>
+            </div>
+        </div>
+    </div>
+
+    <div id="cmp-results" class="compare-grid" style="display:none;"></div>
+</div>
+{% endif %}
+
+{# ═══ BATCH INFERENCE ═══ #}
+{% if models|length > 0 %}
+<div class="section-label" style="margin-top:24px;">Batch Inference</div>
+<div class="card" style="padding:20px;">
+    <span class="card-title"><i class="icon-layers" style="font-size:14px;vertical-align:-2px;margin-right:6px;opacity:0.5;"></i>Batch Prediction Runner</span>
+    <p style="font-size:.75rem;color:var(--text-faint);margin:8px 0 14px;">Submit multiple inputs as a JSON array and process them in a single batch. Max 50 items per batch.</p>
+
+    <div class="playground-toolbar">
+        <div class="aq-sel" id="batch-model-sel" data-target="batch-model-select">
+            <div class="aq-sel-trigger" tabindex="0">
+                <span class="aq-sel-label">{{ models[0].name|default('Select model') }}</span>
+                <span class="aq-sel-arrow"><svg viewBox="0 0 12 12"><polyline points="2,4 6,8 10,4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+            </div>
+            <div class="aq-sel-menu">
+                {% for model in models %}
+                <div class="aq-sel-opt{{ ' selected' if loop.first }}" data-value="{{ model.name|default('unknown') }}">
+                    <span class="aq-sel-opt-icon"><svg viewBox="0 0 12 12"><path d="M2 6h8M6 2v8" stroke-linecap="round"/></svg></span>
+                    <span class="aq-sel-opt-label">{{ model.name|default('unknown') }}</span>
+                    <span class="aq-sel-check"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><polyline points="3,7 6,10 11,4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+                </div>
+                {% endfor %}
+            </div>
+            <input type="hidden" id="batch-model-select" value="{{ models[0].name|default('unknown') }}"/>
+        </div>
+        <button id="batch-run-btn" class="playground-btn" type="button" onclick="runBatch()">
+            <i class="icon-zap" style="font-size:12px;"></i> Run Batch
+        </button>
+    </div>
+
+    <div style="margin-bottom:12px;">
+        <div style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-faint);margin-bottom:6px;">Inputs (JSON Array)</div>
+        <div class="json-editor" id="batch-editor">
+            <div class="json-editor-wrap" style="min-height:120px;">
+                <div class="json-editor-highlight json-hl" id="batch-input-hl"></div>
+                <textarea class="json-editor-textarea" id="batch-input" spellcheck="false" data-highlight="batch-input-hl" style="min-height:120px;">[
+  {"text": "input 1"},
+  {"text": "input 2"},
+  {"text": "input 3"}
+]</textarea>
+            </div>
+        </div>
+    </div>
+
+    <div id="batch-progress" class="batch-progress" style="display:none;">
+        <div class="batch-progress-bar"><div id="batch-progress-fill" class="batch-progress-fill" style="width:0%;"></div></div>
+        <div class="batch-stats">
+            <span><strong id="batch-count">0</strong> processed</span>
+            <span><strong id="batch-errors">0</strong> errors</span>
+            <span>Total: <strong id="batch-total-latency">0</strong>ms</span>
+            <span>Avg: <strong id="batch-avg-latency">0</strong>ms</span>
+        </div>
+    </div>
+
+    <div id="batch-results" style="display:none;margin-top:12px;">
+        <div style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-faint);margin-bottom:6px;">Results</div>
+        <div id="batch-results-body" class="playground-output" style="max-height:300px;"></div>
+    </div>
+</div>
+{% endif %}
+
+{# ═══ MODEL HEALTH MATRIX ═══ #}
+{% if models|length > 0 %}
+<div class="section-label" style="margin-top:24px;">Model Health Matrix</div>
+<div class="card" style="padding:20px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+        <span class="card-title"><i class="icon-heart" style="font-size:14px;vertical-align:-2px;margin-right:6px;opacity:0.5;"></i>Health Check Dashboard</span>
+        <button id="health-check-btn" class="playground-btn secondary" type="button" onclick="runHealthCheck()" style="font-size:.72rem;padding:5px 14px;">
+            <i class="icon-refresh-cw" style="font-size:11px;"></i> Run All Checks
+        </button>
+    </div>
+    <div id="health-grid" class="health-grid">
+        {% for model in models %}
+        <div class="health-card unknown" id="health-{{ loop.index0 }}">
+            <div class="health-dot unknown"></div>
+            <div style="font-size:.82rem;font-weight:600;color:var(--text-primary);margin-bottom:4px;">{{ model.name|default('unknown') }}</div>
+            <div style="font-size:.68rem;color:var(--text-faint);">{{ model.state|default('unknown') }}</div>
+            <div style="font-size:.62rem;color:var(--text-faint);margin-top:4px;" id="health-latency-{{ loop.index0 }}">—</div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+{# ═══ ALERT RULES & NOTIFICATIONS ═══ #}
+<div class="section-label" style="margin-top:24px;">Alert Rules &amp; Monitoring</div>
+<div class="card" style="padding:20px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+        <span class="card-title"><i class="icon-bell" style="font-size:14px;vertical-align:-2px;margin-right:6px;opacity:0.5;"></i>Alert Configuration</span>
+        <div style="display:flex;gap:6px;">
+            <button class="playground-btn secondary" type="button" onclick="addAlertRule()" style="font-size:.72rem;padding:5px 12px;">
+                <i class="icon-plus" style="font-size:11px;"></i> Add Rule
+            </button>
+            <button class="playground-btn" type="button" onclick="saveAlertRules()" style="font-size:.72rem;padding:5px 12px;">
+                <i class="icon-save" style="font-size:11px;"></i> Save &amp; Evaluate
+            </button>
+        </div>
+    </div>
+
+    <div id="alert-rules-container">
+        {% if alert_rules|default([])|length > 0 %}
+        {% for rule in alert_rules %}
+        <div class="alert-rule-row" data-rule-idx="{{ loop.index0 }}">
+            {% set metric_opts = [('error_rate','Error Rate'),('p50_latency','P50 Latency'),('p95_latency','P95 Latency'),('p99_latency','P99 Latency'),('total_errors','Total Errors'),('drift_score','Drift Score'),('memory_usage_pct','Memory Usage %')] %}
+            <div class="aq-sel" data-target="alert-metric-{{ loop.index0 }}" style="min-width:140px;">
+                <div class="aq-sel-trigger" tabindex="0">
+                    <span class="aq-sel-label">{% for v,l in metric_opts %}{% if v == rule.metric %}{{ l }}{% endif %}{% endfor %}</span>
+                    <span class="aq-sel-arrow"><svg viewBox="0 0 12 12"><polyline points="2,4 6,8 10,4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+                </div>
+                <div class="aq-sel-menu">
+                    {% for v,l in metric_opts %}
+                    <div class="aq-sel-opt{{ ' selected' if v == rule.metric }}" data-value="{{ v }}"><span class="aq-sel-opt-label">{{ l }}</span><span class="aq-sel-check"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><polyline points="3,7 6,10 11,4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span></div>
+                    {% endfor %}
+                </div>
+                <input type="hidden" id="alert-metric-{{ loop.index0 }}" class="alert-metric" value="{{ rule.metric }}"/>
+            </div>
+            {% set op_opts = [('>','&gt;'),('>=','&ge;'),('<','&lt;'),('==','=')] %}
+            {% set op_labels = {'>': '>', '>=': '≥', '<': '<', '==': '='} %}
+            <div class="aq-sel" data-target="alert-operator-{{ loop.index0 }}" style="min-width:70px;">
+                <div class="aq-sel-trigger" tabindex="0">
+                    <span class="aq-sel-label">{{ op_labels[rule.operator]|default(rule.operator) }}</span>
+                    <span class="aq-sel-arrow"><svg viewBox="0 0 12 12"><polyline points="2,4 6,8 10,4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+                </div>
+                <div class="aq-sel-menu">
+                    {% for v,l in op_opts %}
+                    <div class="aq-sel-opt{{ ' selected' if v == rule.operator }}" data-value="{{ v }}"><span class="aq-sel-opt-label">{{ l|safe }}</span><span class="aq-sel-check"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><polyline points="3,7 6,10 11,4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span></div>
+                    {% endfor %}
+                </div>
+                <input type="hidden" id="alert-operator-{{ loop.index0 }}" class="alert-operator" value="{{ rule.operator }}"/>
+            </div>
+            <input type="number" class="alert-threshold" value="{{ rule.threshold }}" step="0.01" />
+            {% set sev_opts = [('info','Info'),('warning','Warning'),('critical','Critical')] %}
+            <div class="aq-sel" data-target="alert-severity-{{ loop.index0 }}" style="min-width:100px;">
+                <div class="aq-sel-trigger" tabindex="0">
+                    <span class="aq-sel-label">{{ rule.severity|default('warning')|capitalize }}</span>
+                    <span class="aq-sel-arrow"><svg viewBox="0 0 12 12"><polyline points="2,4 6,8 10,4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+                </div>
+                <div class="aq-sel-menu">
+                    {% for v,l in sev_opts %}
+                    <div class="aq-sel-opt{{ ' selected' if v == rule.severity|default('warning') }}" data-value="{{ v }}"><span class="aq-sel-opt-label">{{ l }}</span><span class="aq-sel-check"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><polyline points="3,7 6,10 11,4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span></div>
+                    {% endfor %}
+                </div>
+                <input type="hidden" id="alert-severity-{{ loop.index0 }}" class="alert-severity" value="{{ rule.severity|default('warning') }}"/>
+            </div>
+            <button class="playground-btn danger" type="button" onclick="this.closest('.alert-rule-row').remove()" style="font-size:.65rem;padding:4px 8px;">✕</button>
+        </div>
+        {% endfor %}
+        {% else %}
+        <div style="padding:20px;text-align:center;color:var(--text-faint);font-size:.78rem;">
+            <i class="icon-bell-off" style="font-size:1.5rem;opacity:0.2;display:block;margin-bottom:8px;"></i>
+            No alert rules configured. Click "Add Rule" to create one.
+        </div>
+        {% endif %}
+    </div>
+
+    {% if triggered_alerts|default([])|length > 0 %}
+    <div style="margin-top:16px;padding:14px;background:rgba(239,68,68,.03);border:1px solid rgba(239,68,68,.12);border-radius:var(--radius);">
+        <div style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--danger);margin-bottom:10px;">
+            <i class="icon-alert-triangle" style="font-size:12px;vertical-align:-1px;margin-right:4px;"></i>
+            {{ triggered_alerts|length }} Active Alert{{ 's' if triggered_alerts|length != 1 else '' }}
+        </div>
+        {% for alert in triggered_alerts %}
+        <div style="display:flex;align-items:center;gap:8px;padding:6px 0;{% if not loop.last %}border-bottom:1px solid rgba(239,68,68,.08);{% endif %}">
+            <span class="alert-badge {{ alert.severity|default('warning') }}">{{ alert.severity|default('warning') }}</span>
+            <span style="font-size:.78rem;color:var(--text-primary);font-weight:500;">{{ alert.metric }}</span>
+            <span style="font-size:.72rem;color:var(--text-faint);">{{ alert.operator }} {{ alert.threshold }}</span>
+            <span style="font-size:.72rem;color:var(--danger);font-family:var(--font-mono);">Current: {{ alert.current_value }}</span>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+
+{# ═══ INFERENCE HISTORY / AUDIT LOG ═══ #}
+<div class="section-label" style="margin-top:24px;">
+    <span style="display:inline-flex;align-items:center;gap:8px;">
+        Inference History
+        <span style="font-size:.58rem;padding:2px 8px;background:rgba(59,130,246,.12);color:#3b82f6;border-radius:999px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;">Audit Log</span>
+    </span>
+</div>
+<div class="card" style="padding:0;overflow:hidden;">
+    <div id="inference-history-container">
+    {% if inference_history|default([])|length > 0 %}
+    <table class="data-table" id="historyTable">
+        <thead>
+            <tr>
+                <th>Timestamp</th>
+                <th>Model</th>
+                <th>Status</th>
+                <th>Latency</th>
+                <th>User</th>
+                <th>Details</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for h in inference_history %}
+            <tr>
+                <td style="font-family:var(--font-mono);font-size:.72rem;color:var(--text-faint);">{{ h.timestamp|default('—') }}</td>
+                <td>
+                    <div style="display:flex;align-items:center;gap:6px;">
+                        <i class="icon-cpu" style="font-size:12px;color:var(--accent);opacity:0.5;"></i>
+                        <span style="font-weight:600;color:var(--text-primary);font-size:.78rem;">{{ h.model|default('—') }}</span>
+                        <code style="font-size:.62rem;background:var(--bg-surface);padding:1px 5px;border-radius:3px;">{{ h.version|default('?') }}</code>
+                    </div>
+                </td>
+                <td><span class="history-status {{ h.status|default('error') }}">{{ h.status|default('error') }}</span></td>
+                <td style="font-family:var(--font-mono);font-size:.75rem;">{{ h.latency_ms|default(0) }}ms</td>
+                <td style="font-size:.75rem;color:var(--text-secondary);">{{ h.user|default('—') }}</td>
+                <td>
+                    <button class="playground-btn secondary" type="button" onclick="viewHistoryDetail({{ loop.index0 }})" style="font-size:.62rem;padding:3px 8px;">
+                        <i class="icon-eye" style="font-size:10px;"></i> View
+                    </button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div style="padding:48px;text-align:center;color:var(--text-faint);">
+        <i class="icon-clock" style="font-size:3rem;opacity:0.15;display:block;margin-bottom:12px;"></i>
+        <p>No inference history yet</p>
+        <p style="font-size:0.75rem;margin-top:8px;">Use the <strong>Live Inference Playground</strong> above to test models and build history.</p>
+    </div>
+    {% endif %}
+    </div>
+</div>
+
+{# ═══ EXPORT & SNAPSHOT ═══ #}
+<div class="section-label" style="margin-top:24px;">Export &amp; Snapshots</div>
+<div class="card" style="padding:20px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+        <div>
+            <span class="card-title"><i class="icon-download" style="font-size:14px;vertical-align:-2px;margin-right:6px;opacity:0.5;"></i>Export MLOps State</span>
+            <p style="font-size:.75rem;color:var(--text-faint);margin-top:4px;">Download a complete snapshot of all MLOps data including models, metrics, experiments, alert rules, and inference history.</p>
+        </div>
+        <div style="display:flex;gap:8px;">
+            <button class="playground-btn secondary" type="button" onclick="exportSnapshot()">
+                <i class="icon-download" style="font-size:12px;"></i> Export JSON Snapshot
+            </button>
+            <button class="playground-btn secondary" type="button" onclick="copyMetricsClipboard()">
+                <i class="icon-clipboard" style="font-size:12px;"></i> Copy Metrics
+            </button>
+        </div>
+    </div>
+</div>
+
+{# ═══ MODEL REGISTRY ═══ #}
 <div class="section-label" style="margin-top:24px;">Model Registry</div>
 <div class="card" style="padding:0;overflow:hidden;">
     {% if models|length > 0 %}
-    <div class="mlops-search-bar" style="padding:16px 16px 0;">
-        <input type="text" id="modelSearch" placeholder="Search models..." autocomplete="off" />
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px 0;flex-wrap:wrap;gap:8px;">
+        <div class="mlops-search-bar" style="margin-bottom:0;flex:1;min-width:200px;">
+            <input type="text" id="modelSearch" placeholder="Search models..." autocomplete="off" />
+        </div>
+        <div class="model-view-toggle">
+            <button class="model-view-btn active" data-view="grid" onclick="switchModelView('grid')" type="button" title="Card view">
+                <i class="icon-layout-grid" style="font-size:13px;"></i> Cards
+            </button>
+            <button class="model-view-btn" data-view="table" onclick="switchModelView('table')" type="button" title="Table view">
+                <i class="icon-list" style="font-size:13px;"></i> Table
+            </button>
+        </div>
     </div>
+    {# ── Card Grid View ── #}
+    <div id="modelGridView" class="model-grid">
+        {% for model in models %}
+        {% set mstate = model.state|default('unknown') %}
+        {% set icon_class = 'loaded' if mstate == 'loaded' else ('failed' if mstate == 'failed' else ('loading' if mstate == 'loading' else 'default')) %}
+        <div class="model-card" onclick="openModelDrawer(this)"
+            data-name="{{ model.name|default('unknown') }}"
+            data-version="{{ model.version|default('?') }}"
+            data-state="{{ mstate }}"
+            data-framework="{{ model.framework|default('custom') }}"
+            data-model-type="{{ model.model_type|default('custom') }}"
+            data-device="{{ model.device|default('cpu') }}"
+            data-runtime="{{ model.runtime|default('python') }}"
+            data-active="{{ model.active|default(false) }}"
+        >
+            <div class="model-card-glow {{ icon_class }}"></div>
+            <div class="model-card-header">
+                <div class="model-card-icon {{ icon_class }}">
+                    <i class="icon-{{ 'x-circle' if mstate == 'failed' else 'cpu' }}"></i>
+                </div>
+                <div style="min-width:0;flex:1;">
+                    <div class="model-card-name">{{ model.name|default('unknown') }}</div>
+                    <div class="model-card-version">v{{ model.version|default('?') }}</div>
+                </div>
+            </div>
+            <div class="model-card-state">
+                <span class="mlops-badge badge-{{ mstate }}">{{ mstate }}</span>
+            </div>
+            <div class="model-card-meta">
+                <div class="model-card-meta-item">Framework<span>{{ model.framework|default('custom') }}</span></div>
+                <div class="model-card-meta-item">Type<span>{{ model.model_type|default('—') }}</span></div>
+                <div class="model-card-meta-item">Device<span>{{ model.device|default('cpu') }}</span></div>
+                <div class="model-card-meta-item">Runtime<span>{{ model.runtime|default('python') }}</span></div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {# ── Table View (hidden by default) ── #}
+    <div id="modelTableView" style="display:none;">
     <table class="data-table" id="modelsTable">
         <thead>
             <tr>
@@ -675,6 +1320,7 @@
             {% endfor %}
         </tbody>
     </table>
+    </div>
     <div id="modelNoResults" style="display:none;text-align:center;padding:24px;color:var(--text-faint);font-size:0.82rem;">
         No models match your search.
     </div>
@@ -1006,11 +1652,18 @@
 <div class="card" style="padding:20px;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
         <span class="card-title"><i class="icon-bar-chart-2" style="font-size:14px;vertical-align:-2px;margin-right:6px;opacity:0.5;"></i>Prometheus Text Format</span>
-        <button onclick="copyPrometheusText()" type="button" class="copy-btn" style="position:static;">Copy</button>
+        <div style="display:flex;align-items:center;gap:8px;">
+            <span id="prom-line-count" style="font-size:.68rem;color:var(--text-faint);font-family:var(--font-mono);"></span>
+            <button onclick="copyPrometheusText()" type="button" class="copy-btn" style="position:static;">Copy</button>
+        </div>
     </div>
-    <div style="max-height:300px;overflow:auto;border:1px solid var(--border-subtle);border-radius:8px;">
-        <pre id="prometheus-text" style="margin:0;padding:14px;background:var(--bg-input);font-size:.72rem;line-height:1.5;color:var(--text-secondary);font-family:'JetBrains Mono','Fira Code',monospace;white-space:pre;overflow-x:auto;">{{ prometheus_text }}</pre>
+    <div style="max-height:400px;overflow:auto;border:1px solid var(--border-subtle);border-radius:8px;position:relative;">
+        <div style="display:flex;">
+            <div id="prom-line-nums" style="padding:14px 0;background:var(--bg-surface);border-right:1px solid var(--border-subtle);user-select:none;text-align:right;flex-shrink:0;font-family:'JetBrains Mono','Fira Code',monospace;font-size:.65rem;line-height:1.7;color:var(--text-faint);opacity:.5;"></div>
+            <pre id="prometheus-text" class="prom-hl" style="margin:0;padding:14px;background:var(--bg-input);white-space:pre;overflow-x:auto;flex:1;"></pre>
+        </div>
     </div>
+    <script>var _promRaw = {{ prometheus_text|tojson }};</script>
 </div>
 {% endif %}
 
@@ -1510,31 +2163,66 @@ document.addEventListener('DOMContentLoaded', function() {
         requestAnimationFrame(step);
     });
 
-    // ── Model search filter ──
+    // ── Model search filter (grid + table) ──
     var searchInput = document.getElementById('modelSearch');
-    var table = document.getElementById('modelsTable');
+    var gridView = document.getElementById('modelGridView');
+    var tableView = document.getElementById('modelTableView');
     var noResults = document.getElementById('modelNoResults');
 
-    if (searchInput && table) {
+    if (searchInput) {
         searchInput.addEventListener('input', function() {
             var query = searchInput.value.toLowerCase();
-            var rows = table.querySelectorAll('tbody tr');
             var visible = 0;
-            rows.forEach(function(row) {
-                var name = (row.getAttribute('data-name') || '').toLowerCase();
-                var fw = (row.getAttribute('data-framework') || '').toLowerCase();
-                if (!query || name.indexOf(query) !== -1 || fw.indexOf(query) !== -1) {
-                    row.style.display = '';
-                    visible++;
-                } else {
-                    row.style.display = 'none';
-                }
-            });
+            // Filter grid cards
+            if (gridView) {
+                gridView.querySelectorAll('.model-card').forEach(function(card) {
+                    var name = (card.getAttribute('data-name') || '').toLowerCase();
+                    var fw = (card.getAttribute('data-framework') || '').toLowerCase();
+                    var state = (card.getAttribute('data-state') || '').toLowerCase();
+                    if (!query || name.indexOf(query) !== -1 || fw.indexOf(query) !== -1 || state.indexOf(query) !== -1) {
+                        card.style.display = '';
+                        visible++;
+                    } else {
+                        card.style.display = 'none';
+                    }
+                });
+            }
+            // Filter table rows
+            var table = document.getElementById('modelsTable');
+            if (table) {
+                table.querySelectorAll('tbody tr').forEach(function(row) {
+                    var name = (row.getAttribute('data-name') || '').toLowerCase();
+                    var fw = (row.getAttribute('data-framework') || '').toLowerCase();
+                    var state = (row.getAttribute('data-state') || '').toLowerCase();
+                    if (!query || name.indexOf(query) !== -1 || fw.indexOf(query) !== -1 || state.indexOf(query) !== -1) {
+                        row.style.display = '';
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+            }
             if (noResults) {
                 noResults.style.display = visible === 0 ? 'block' : 'none';
             }
         });
     }
+
+    // ── Model view toggle (cards / table) ──
+    window.switchModelView = function(view) {
+        var grid = document.getElementById('modelGridView');
+        var table = document.getElementById('modelTableView');
+        if (!grid || !table) return;
+        if (view === 'grid') {
+            grid.style.display = '';
+            table.style.display = 'none';
+        } else {
+            grid.style.display = 'none';
+            table.style.display = '';
+        }
+        document.querySelectorAll('.model-view-btn').forEach(function(btn) {
+            btn.classList.toggle('active', btn.getAttribute('data-view') === view);
+        });
+    };
 
     // ── Capability tabs ──
     document.querySelectorAll('.cap-tab').forEach(function(tab) {
@@ -1578,6 +2266,15 @@ function copySnippet(id) {
 
 // ── Copy prometheus text helper ──
 function copyPrometheusText() {
+    if (typeof _promRaw !== 'undefined') {
+        navigator.clipboard.writeText(_promRaw.trim()).then(function() {
+            var pre = document.getElementById('prometheus-text');
+            if (!pre) return;
+            var btn = pre.closest('.card').querySelector('.copy-btn');
+            if (btn) { btn.textContent = 'Copied!'; setTimeout(function() { btn.textContent = 'Copy'; }, 1500); }
+        });
+        return;
+    }
     var pre = document.getElementById('prometheus-text');
     if (!pre) return;
     navigator.clipboard.writeText(pre.textContent.trim()).then(function() {
@@ -1585,6 +2282,94 @@ function copyPrometheusText() {
         if (btn) { btn.textContent = 'Copied!'; setTimeout(function() { btn.textContent = 'Copy'; }, 1500); }
     });
 }
+
+// ── Prometheus Text Format syntax highlighter ──
+(function() {
+    if (typeof _promRaw === 'undefined') return;
+    var pre = document.getElementById('prometheus-text');
+    var lineNumEl = document.getElementById('prom-line-nums');
+    var lineCountEl = document.getElementById('prom-line-count');
+    if (!pre) return;
+
+    function esc(s) {
+        return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    function highlightPromLine(line) {
+        if (!line.trim()) return '';
+
+        // # HELP metric_name description
+        var helpMatch = line.match(/^(# HELP)\s+(\S+)\s*(.*)/);
+        if (helpMatch) {
+            return '<span class="prom-directive">' + esc(helpMatch[1]) + '</span> ' +
+                   '<span class="prom-metric-name">' + esc(helpMatch[2]) + '</span>' +
+                   (helpMatch[3] ? ' <span class="prom-desc">' + esc(helpMatch[3]) + '</span>' : '');
+        }
+
+        // # TYPE metric_name type
+        var typeMatch = line.match(/^(# TYPE)\s+(\S+)\s+(\S+)/);
+        if (typeMatch) {
+            return '<span class="prom-directive">' + esc(typeMatch[1]) + '</span> ' +
+                   '<span class="prom-metric-name">' + esc(typeMatch[2]) + '</span> ' +
+                   '<span class="prom-type-val">' + esc(typeMatch[3]) + '</span>';
+        }
+
+        // # comment
+        if (line.match(/^#/)) {
+            return '<span class="prom-comment">' + esc(line) + '</span>';
+        }
+
+        // metric_name{labels} value [timestamp]
+        // or metric_name value [timestamp]
+        var metricMatch = line.match(/^([a-zA-Z_:][a-zA-Z0-9_:]*)((?:\{[^}]*\})?)\s+([\d.eE+\-]+|NaN|Inf|\+Inf|-Inf)(.*)$/);
+        if (metricMatch) {
+            var out = '<span class="prom-metric-name">' + esc(metricMatch[1]) + '</span>';
+
+            // Parse labels
+            var labelStr = metricMatch[2];
+            if (labelStr && labelStr.length > 2) {
+                out += '<span class="prom-lbrace">{</span>';
+                var inner = labelStr.slice(1, -1);
+                // Parse label pairs: key="value"
+                var labelRe = /([a-zA-Z_][a-zA-Z0-9_]*)=(\"[^\"]*\"|[^\",}]+)/g;
+                var parts = [];
+                var lm;
+                while ((lm = labelRe.exec(inner)) !== null) {
+                    parts.push(
+                        '<span class="prom-label-key">' + esc(lm[1]) + '</span>' +
+                        '<span class="prom-label-eq">=</span>' +
+                        '<span class="prom-label-val">' + esc(lm[2]) + '</span>'
+                    );
+                }
+                out += parts.join('<span class="prom-label-eq">,</span>');
+                out += '<span class="prom-lbrace">}</span>';
+            }
+
+            out += ' <span class="prom-value">' + esc(metricMatch[3]) + '</span>';
+
+            // Timestamp
+            var rest = metricMatch[4].trim();
+            if (rest) {
+                out += ' <span class="prom-timestamp">' + esc(rest) + '</span>';
+            }
+            return out;
+        }
+
+        // Fallback
+        return esc(line);
+    }
+
+    var lines = _promRaw.split('\n');
+    var highlighted = [];
+    var nums = [];
+    for (var i = 0; i < lines.length; i++) {
+        highlighted.push(highlightPromLine(lines[i]));
+        nums.push('<div style="padding:0 8px;min-width:32px;">' + (i + 1) + '</div>');
+    }
+    pre.innerHTML = highlighted.join('\n');
+    if (lineNumEl) lineNumEl.innerHTML = nums.join('');
+    if (lineCountEl) lineCountEl.textContent = lines.length + ' lines';
+})();
 
 // ── Client-side Python syntax highlighter ──
 (function() {
@@ -1792,6 +2577,734 @@ function copyPrometheusText() {
         openDrawer();
     };
 })();
+
+// ── MLOps API Base URL ──────────────────────────────────────────
+var MLOPS_BASE = window.location.pathname.replace(/\/$/, '');
+
+// ── Inference History Data (live — pre-seeded from server render) ──
+var _inferenceHistory = {{ inference_history|default([])|tojson }};
+
+// ── Record a new entry and refresh the history table ─────────────
+function recordToHistory(entry) {
+    _inferenceHistory.unshift(entry);
+    if (_inferenceHistory.length > 100) _inferenceHistory.length = 100;
+    renderHistoryTable();
+}
+
+function renderHistoryTable() {
+    var container = document.getElementById('inference-history-container');
+    if (!container) return;
+    if (_inferenceHistory.length === 0) {
+        container.innerHTML = '<div style="padding:48px;text-align:center;color:var(--text-faint);">' +
+            '<i class="icon-clock" style="font-size:3rem;opacity:0.15;display:block;margin-bottom:12px;"></i>' +
+            '<p>No inference history yet</p>' +
+            '<p style="font-size:0.75rem;margin-top:8px;">Use the <strong>Live Inference Playground</strong> above to test models and build history.</p>' +
+            '</div>';
+        return;
+    }
+    var rows = _inferenceHistory.map(function(h, idx) {
+        var statusClass = h.status === 'ok' ? 'ok' : (h.status === 'compare' ? 'compare' : 'error');
+        return '<tr>' +
+            '<td style="font-family:var(--font-mono);font-size:.72rem;color:var(--text-faint);">' + (h.timestamp || '—') + '</td>' +
+            '<td><div style="display:flex;align-items:center;gap:6px;">' +
+                '<i class="icon-cpu" style="font-size:12px;color:var(--accent);opacity:0.5;"></i>' +
+                '<span style="font-weight:600;color:var(--text-primary);font-size:.78rem;">' + (h.model || '—') + '</span>' +
+                '<code style="font-size:.62rem;background:var(--bg-surface);padding:1px 5px;border-radius:3px;">' + (h.version || '?') + '</code>' +
+            '</div></td>' +
+            '<td><span class="history-status ' + statusClass + '">' + (h.status || 'error') + '</span></td>' +
+            '<td style="font-family:var(--font-mono);font-size:.75rem;">' + (h.latency_ms || 0) + 'ms</td>' +
+            '<td style="font-size:.75rem;color:var(--text-secondary);">' + (h.user || '—') + '</td>' +
+            '<td><button class="playground-btn secondary" type="button" onclick="viewHistoryDetail(' + idx + ')" style="font-size:.62rem;padding:3px 8px;">' +
+                '<i class="icon-eye" style="font-size:10px;"></i> View' +
+            '</button></td>' +
+        '</tr>';
+    });
+    container.innerHTML = '<table class="data-table" id="historyTable">' +
+        '<thead><tr>' +
+            '<th>Timestamp</th><th>Model</th><th>Status</th>' +
+            '<th>Latency</th><th>User</th><th>Details</th>' +
+        '</tr></thead>' +
+        '<tbody>' + rows.join('') + '</tbody>' +
+    '</table>';
+}
+
+// ── JSON Syntax Highlighter ─────────────────────────────────────
+function highlightJSON(raw) {
+    // Escape HTML entities first
+    var s = raw.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    // Use a token-based approach for robust highlighting
+    var result = '';
+    var i = 0;
+    while (i < s.length) {
+        var ch = s[i];
+        // String detection
+        if (ch === '"' || (ch === '&' && s.substr(i, 6) === '&quot;')) {
+            // raw " — find closing quote
+            var start = i;
+            i++; // skip opening "
+            while (i < s.length) {
+                if (s[i] === '\\') { i += 2; continue; }
+                if (s[i] === '"') { i++; break; }
+                i++;
+            }
+            var strToken = s.substring(start, i);
+            // Check if this is a key (followed by optional whitespace + colon)
+            var rest = s.substring(i);
+            var colonMatch = rest.match(/^(\s*):(\s*)/);
+            if (colonMatch) {
+                result += '<span class="json-key">' + strToken + '</span>';
+                result += colonMatch[1] + '<span class="json-colon">:</span>' + colonMatch[2];
+                i += colonMatch[0].length;
+            } else {
+                result += '<span class="json-str">' + strToken + '</span>';
+            }
+        }
+        // Number
+        else if (ch === '-' || (ch >= '0' && ch <= '9')) {
+            var numStart = i;
+            if (ch === '-') i++;
+            while (i < s.length && ((s[i] >= '0' && s[i] <= '9') || s[i] === '.' || s[i] === 'e' || s[i] === 'E' || s[i] === '+' || s[i] === '-')) {
+                if ((s[i] === '+' || s[i] === '-') && s[i-1] !== 'e' && s[i-1] !== 'E') break;
+                i++;
+            }
+            result += '<span class="json-num">' + s.substring(numStart, i) + '</span>';
+        }
+        // true / false / null
+        else if (s.substr(i, 4) === 'true') { result += '<span class="json-bool">true</span>'; i += 4; }
+        else if (s.substr(i, 5) === 'false') { result += '<span class="json-bool">false</span>'; i += 5; }
+        else if (s.substr(i, 4) === 'null') { result += '<span class="json-null">null</span>'; i += 4; }
+        // Braces
+        else if (ch === '{' || ch === '}') { result += '<span class="json-brace">' + ch + '</span>'; i++; }
+        // Brackets
+        else if (ch === '[' || ch === ']') { result += '<span class="json-bracket">' + ch + '</span>'; i++; }
+        // Comma
+        else if (ch === ',') { result += '<span class="json-comma">,</span>'; i++; }
+        // Colon (standalone, not after key — shouldn't happen in valid JSON but just in case)
+        else if (ch === ':') { result += '<span class="json-colon">:</span>'; i++; }
+        // Whitespace and everything else
+        else { result += ch; i++; }
+    }
+    return result;
+}
+
+// Render highlighted JSON into an element (for output panels)
+function renderJSONHighlighted(el, data) {
+    var text = (typeof data === 'string') ? data : JSON.stringify(data, null, 2);
+    el.innerHTML = highlightJSON(text);
+}
+
+// ── JSON Editor Sync (live syntax highlighting on input) ────────
+function syncEditorHighlight(textarea) {
+    var hlId = textarea.getAttribute('data-highlight');
+    if (!hlId) return;
+    var hl = document.getElementById(hlId);
+    if (!hl) return;
+    var val = textarea.value;
+    // Append a trailing newline so the highlight div matches scrollbar height
+    hl.innerHTML = highlightJSON(val) + '\n';
+}
+
+function initJSONEditors() {
+    var editors = document.querySelectorAll('.json-editor-textarea');
+    editors.forEach(function(ta) {
+        // Initial highlight
+        syncEditorHighlight(ta);
+        // Sync on input
+        ta.addEventListener('input', function() { syncEditorHighlight(ta); });
+        // Sync scroll
+        ta.addEventListener('scroll', function() {
+            var hlId = ta.getAttribute('data-highlight');
+            var hl = document.getElementById(hlId);
+            if (hl) { hl.scrollTop = ta.scrollTop; hl.scrollLeft = ta.scrollLeft; }
+        });
+        // Tab key inserts 2 spaces instead of changing focus
+        ta.addEventListener('keydown', function(e) {
+            if (e.key === 'Tab') {
+                e.preventDefault();
+                var start = ta.selectionStart, end = ta.selectionEnd;
+                ta.value = ta.value.substring(0, start) + '  ' + ta.value.substring(end);
+                ta.selectionStart = ta.selectionEnd = start + 2;
+                syncEditorHighlight(ta);
+            }
+        });
+    });
+}
+
+// ── Custom Select Menu ──────────────────────────────────────────
+function initCustomSelects() {
+    document.querySelectorAll('.aq-sel').forEach(function(sel) {
+        var trigger = sel.querySelector('.aq-sel-trigger');
+        var menu = sel.querySelector('.aq-sel-menu');
+        var label = sel.querySelector('.aq-sel-label');
+        var targetId = sel.getAttribute('data-target');
+        var hiddenInput = targetId ? document.getElementById(targetId) : null;
+        var searchInput = menu ? menu.querySelector('.aq-sel-search input') : null;
+
+        // Toggle open/close
+        trigger.addEventListener('click', function(e) {
+            e.stopPropagation();
+            // Close all other selects first
+            document.querySelectorAll('.aq-sel.open').forEach(function(other) {
+                if (other !== sel) other.classList.remove('open');
+            });
+            sel.classList.toggle('open');
+            if (sel.classList.contains('open') && searchInput) {
+                searchInput.value = '';
+                searchInput.focus();
+                // Show all options
+                menu.querySelectorAll('.aq-sel-opt').forEach(function(o) { o.style.display = ''; });
+            }
+        });
+
+        // Keyboard: Enter/Space to toggle, Escape to close
+        trigger.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); trigger.click(); }
+            if (e.key === 'Escape') sel.classList.remove('open');
+        });
+
+        // Option click
+        if (menu) {
+            menu.querySelectorAll('.aq-sel-opt').forEach(function(opt) {
+                opt.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    var val = opt.getAttribute('data-value');
+                    // Update label
+                    var optLabel = opt.querySelector('.aq-sel-opt-label');
+                    if (label && optLabel) label.textContent = optLabel.textContent.trim();
+                    // Update hidden input
+                    if (hiddenInput) hiddenInput.value = val;
+                    // Toggle selected class
+                    menu.querySelectorAll('.aq-sel-opt').forEach(function(o) { o.classList.remove('selected'); });
+                    opt.classList.add('selected');
+                    // Close menu
+                    sel.classList.remove('open');
+                });
+            });
+        }
+
+        // Search filtering
+        if (searchInput) {
+            searchInput.addEventListener('input', function() {
+                var q = searchInput.value.toLowerCase();
+                menu.querySelectorAll('.aq-sel-opt').forEach(function(opt) {
+                    var text = (opt.textContent || '').toLowerCase();
+                    opt.style.display = text.indexOf(q) >= 0 ? '' : 'none';
+                });
+            });
+            searchInput.addEventListener('click', function(e) { e.stopPropagation(); });
+        }
+    });
+
+    // Close all selects on outside click
+    document.addEventListener('click', function() {
+        document.querySelectorAll('.aq-sel.open').forEach(function(s) { s.classList.remove('open'); });
+    });
+}
+
+// ── Init on load ────────────────────────────────────────────────
+(function() {
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function() { initCustomSelects(); initJSONEditors(); });
+    } else {
+        initCustomSelects();
+        initJSONEditors();
+    }
+})();
+
+// ── Live Inference Playground ───────────────────────────────────
+function runPlayground() {
+    var btn = document.getElementById('pg-run-btn');
+    var modelSel = document.getElementById('pg-model-select');
+    var inputEl = document.getElementById('pg-input');
+    var outputEl = document.getElementById('pg-output');
+    var latencyEl = document.getElementById('pg-latency');
+
+    if (!btn || !modelSel || !inputEl || !outputEl) return;
+
+    var model = modelSel.value;
+    var inputText = inputEl.value.trim();
+    var inputData;
+    try {
+        inputData = JSON.parse(inputText);
+    } catch(e) {
+        outputEl.className = 'playground-output error';
+        outputEl.textContent = 'Invalid JSON input: ' + e.message;
+        return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="playground-spinner"></span> Running...';
+    outputEl.className = 'playground-output';
+    outputEl.textContent = 'Processing...';
+    outputEl.style.fontStyle = '';
+    outputEl.style.color = '';
+    latencyEl.style.display = 'none';
+
+    fetch(MLOPS_BASE + '/api/predict/', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({model: model, input: inputData})
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="icon-play" style="font-size:12px;"></i> Run Inference';
+
+        var ts = new Date().toISOString();
+        if (data.status === 'ok') {
+            outputEl.className = 'playground-output success';
+            renderJSONHighlighted(outputEl, data.output);
+            latencyEl.style.display = '';
+            var ms = data.latency_ms || 0;
+            latencyEl.textContent = ms.toFixed(2) + 'ms';
+            latencyEl.className = 'playground-latency ' + (ms < 50 ? 'fast' : (ms < 200 ? 'medium' : 'slow'));
+            recordToHistory({
+                model: model, version: data.version || '?',
+                input: inputData, output: data.output,
+                latency_ms: ms, timestamp: ts, status: 'ok', user: 'admin'
+            });
+        } else {
+            outputEl.className = 'playground-output error';
+            outputEl.textContent = 'Error: ' + (data.error || 'Unknown error');
+            recordToHistory({
+                model: model, version: data.version || '?',
+                input: inputData, output: null, error: data.error || 'Unknown error',
+                latency_ms: 0, timestamp: ts, status: 'error', user: 'admin'
+            });
+        }
+    })
+    .catch(function(err) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="icon-play" style="font-size:12px;"></i> Run Inference';
+        outputEl.className = 'playground-output error';
+        outputEl.textContent = 'Network error: ' + err.message;
+        recordToHistory({
+            model: model, version: '?',
+            input: inputData, output: null, error: 'Network error: ' + err.message,
+            latency_ms: 0, timestamp: new Date().toISOString(), status: 'error', user: 'admin'
+        });
+    });
+}
+
+function clearPlayground() {
+    var inputEl = document.getElementById('pg-input');
+    var outputEl = document.getElementById('pg-output');
+    var latencyEl = document.getElementById('pg-latency');
+    var defaultVal = '{\n  "text": "sample input"\n}';
+    if (inputEl) { inputEl.value = defaultVal; syncEditorHighlight(inputEl); }
+    if (outputEl) { outputEl.className = 'playground-output'; outputEl.innerHTML = ''; outputEl.textContent = 'Run inference to see output...'; outputEl.style.fontStyle = 'italic'; outputEl.style.color = 'var(--text-faint)'; }
+    if (latencyEl) latencyEl.style.display = 'none';
+}
+
+// ── Model Comparison ────────────────────────────────────────────
+function runComparison() {
+    var btn = document.getElementById('cmp-run-btn');
+    var modelA = document.getElementById('cmp-model-a');
+    var modelB = document.getElementById('cmp-model-b');
+    var inputEl = document.getElementById('cmp-input');
+    var resultsEl = document.getElementById('cmp-results');
+
+    if (!btn || !modelA || !modelB || !inputEl || !resultsEl) return;
+
+    var inputData;
+    try {
+        inputData = JSON.parse(inputEl.value.trim());
+    } catch(e) {
+        resultsEl.style.display = 'block';
+        resultsEl.innerHTML = '<div class="compare-card" style="grid-column:1/-1;"><div style="color:var(--danger);font-size:.78rem;">Invalid JSON: ' + e.message + '</div></div>';
+        return;
+    }
+
+    var models = [modelA.value, modelB.value];
+    btn.disabled = true;
+    btn.innerHTML = '<span class="playground-spinner"></span> Comparing...';
+
+    fetch(MLOPS_BASE + '/api/compare/', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({models: models, input: inputData})
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="icon-git-compare" style="font-size:12px;"></i> Compare';
+        resultsEl.style.display = 'grid';
+
+        var html = '';
+        var ts = new Date().toISOString();
+        (data.results || []).forEach(function(r) {
+            var isOk = r.status === 'ok';
+            var latencyClass = !isOk ? '' : (r.latency_ms < 50 ? 'fast' : (r.latency_ms < 200 ? 'medium' : 'slow'));
+            html += '<div class="compare-card">';
+            html += '<div class="compare-card-title"><i class="icon-cpu" style="font-size:12px;color:var(--accent);opacity:0.6;"></i> ' + (r.model || '?');
+            if (isOk) html += ' <span class="playground-latency ' + latencyClass + '" style="font-size:.62rem;padding:2px 6px;">' + r.latency_ms.toFixed(2) + 'ms</span>';
+            html += '</div>';
+            if (isOk) {
+                html += '<div class="compare-card-output">' + highlightJSON(JSON.stringify(r.output, null, 2)) + '</div>';
+            } else {
+                html += '<div class="compare-card-output" style="color:var(--danger);">Error: ' + (r.error || 'unknown') + '</div>';
+            }
+            html += '</div>';
+            // Record each model comparison result to history
+            recordToHistory({
+                model: r.model || '?', version: r.version || '?',
+                input: inputData, output: isOk ? r.output : null,
+                error: isOk ? undefined : (r.error || 'unknown'),
+                latency_ms: r.latency_ms || 0, timestamp: ts,
+                status: isOk ? 'compare' : 'error', user: 'admin'
+            });
+        });
+        resultsEl.innerHTML = html;
+    })
+    .catch(function(err) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="icon-git-compare" style="font-size:12px;"></i> Compare';
+        resultsEl.style.display = 'block';
+        resultsEl.innerHTML = '<div class="compare-card" style="grid-column:1/-1;color:var(--danger);font-size:.78rem;">Network error: ' + err.message + '</div>';
+    });
+}
+
+// ── Batch Inference ─────────────────────────────────────────────
+function runBatch() {
+    var btn = document.getElementById('batch-run-btn');
+    var modelSel = document.getElementById('batch-model-select');
+    var inputEl = document.getElementById('batch-input');
+    var progressEl = document.getElementById('batch-progress');
+    var progressFill = document.getElementById('batch-progress-fill');
+    var resultsEl = document.getElementById('batch-results');
+    var resultsBody = document.getElementById('batch-results-body');
+    var countEl = document.getElementById('batch-count');
+    var errorsEl = document.getElementById('batch-errors');
+    var totalLatencyEl = document.getElementById('batch-total-latency');
+    var avgLatencyEl = document.getElementById('batch-avg-latency');
+
+    if (!btn || !modelSel || !inputEl) return;
+
+    var inputs;
+    try {
+        inputs = JSON.parse(inputEl.value.trim());
+        if (!Array.isArray(inputs)) throw new Error('Input must be a JSON array');
+    } catch(e) {
+        if (resultsEl) { resultsEl.style.display = 'block'; }
+        if (resultsBody) { resultsBody.className = 'playground-output error'; resultsBody.textContent = 'Invalid JSON: ' + e.message; }
+        return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="playground-spinner"></span> Processing...';
+    if (progressEl) { progressEl.style.display = 'block'; progressFill.style.width = '10%'; }
+
+    fetch(MLOPS_BASE + '/api/batch-predict/', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({model: modelSel.value, inputs: inputs})
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="icon-zap" style="font-size:12px;"></i> Run Batch';
+
+        if (data.error) {
+            if (progressEl) progressEl.style.display = 'none';
+            if (resultsEl) resultsEl.style.display = 'block';
+            if (resultsBody) { resultsBody.className = 'playground-output error'; resultsBody.textContent = 'Error: ' + data.error; }
+            recordToHistory({
+                model: modelSel.value, version: '?',
+                input: {batch_size: inputs.length}, output: null,
+                error: data.error, latency_ms: 0,
+                timestamp: new Date().toISOString(), status: 'error', user: 'admin'
+            });
+            return;
+        }
+
+        if (progressFill) progressFill.style.width = '100%';
+        if (countEl) countEl.textContent = data.count || 0;
+        if (errorsEl) errorsEl.textContent = data.errors || 0;
+        if (totalLatencyEl) totalLatencyEl.textContent = (data.total_latency_ms || 0).toFixed(1);
+        if (avgLatencyEl) avgLatencyEl.textContent = (data.avg_latency_ms || 0).toFixed(1);
+
+        if (resultsEl) resultsEl.style.display = 'block';
+        if (resultsBody) {
+            resultsBody.className = 'playground-output success';
+            renderJSONHighlighted(resultsBody, data.results);
+        }
+        recordToHistory({
+            model: modelSel.value, version: '?',
+            input: {batch_size: data.count || inputs.length},
+            output: {count: data.count, errors: data.errors, avg_latency_ms: data.avg_latency_ms},
+            latency_ms: data.total_latency_ms || 0,
+            timestamp: new Date().toISOString(),
+            status: (data.errors || 0) === 0 ? 'ok' : 'error',
+            user: 'admin'
+        });
+    })
+    .catch(function(err) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="icon-zap" style="font-size:12px;"></i> Run Batch';
+        if (progressEl) progressEl.style.display = 'none';
+        if (resultsEl) resultsEl.style.display = 'block';
+        if (resultsBody) { resultsBody.className = 'playground-output error'; resultsBody.textContent = 'Network error: ' + err.message; }
+        recordToHistory({
+            model: modelSel.value, version: '?',
+            input: {batch_size: inputs.length}, output: null,
+            error: 'Network error: ' + err.message, latency_ms: 0,
+            timestamp: new Date().toISOString(), status: 'error', user: 'admin'
+        });
+    });
+}
+
+// ── Health Check ────────────────────────────────────────────────
+function runHealthCheck() {
+    var btn = document.getElementById('health-check-btn');
+    if (!btn) return;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="playground-spinner" style="border-color:rgba(255,255,255,.15);border-top-color:var(--text-primary);"></span> Checking...';
+
+    fetch(MLOPS_BASE + '/api/health-check/', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: '{}'
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="icon-refresh-cw" style="font-size:11px;"></i> Run All Checks';
+
+        (data.models || []).forEach(function(m, i) {
+            var card = document.getElementById('health-' + i);
+            var latencyEl = document.getElementById('health-latency-' + i);
+            if (!card) return;
+            var dot = card.querySelector('.health-dot');
+            var isOk = m.status === 'ok' || m.status === 'healthy' || m.status === 'loaded';
+            var isErr = m.status === 'error' || m.status === 'failed';
+            var cls = isOk ? 'healthy' : (isErr ? 'unhealthy' : 'unknown');
+            card.className = 'health-card ' + cls;
+            if (dot) dot.className = 'health-dot ' + cls;
+            if (latencyEl) latencyEl.textContent = m.latency_ms > 0 ? m.latency_ms.toFixed(2) + 'ms' : m.status;
+        });
+    })
+    .catch(function(err) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="icon-refresh-cw" style="font-size:11px;"></i> Run All Checks';
+    });
+}
+
+// ── Alert Rules ─────────────────────────────────────────────────
+function _makeAlertSel(uniqueId, targetClass, options, defaultVal, minWidth) {
+    var defLabel = options.filter(function(o){ return o[0] === defaultVal; })[0];
+    defLabel = defLabel ? defLabel[1] : options[0][1];
+    var arrowSvg = '<svg viewBox="0 0 12 12"><polyline points="2,4 6,8 10,4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    var checkSvg = '<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><polyline points="3,7 6,10 11,4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    var opts = options.map(function(o) {
+        return '<div class="aq-sel-opt' + (o[0] === defaultVal ? ' selected' : '') + '" data-value="' + o[0] + '">' +
+               '<span class="aq-sel-opt-label">' + o[1] + '</span>' +
+               '<span class="aq-sel-check">' + checkSvg + '</span></div>';
+    }).join('');
+    return '<div class="aq-sel" data-target="' + uniqueId + '" style="min-width:' + minWidth + ';">' +
+        '<div class="aq-sel-trigger" tabindex="0">' +
+            '<span class="aq-sel-label">' + defLabel + '</span>' +
+            '<span class="aq-sel-arrow">' + arrowSvg + '</span>' +
+        '</div>' +
+        '<div class="aq-sel-menu">' + opts + '</div>' +
+        '<input type="hidden" id="' + uniqueId + '" class="' + targetClass + '" value="' + defaultVal + '"/>' +
+        '</div>';
+}
+
+function _initAlertRowSels(row) {
+    row.querySelectorAll('.aq-sel').forEach(function(sel) {
+        var trigger = sel.querySelector('.aq-sel-trigger');
+        var menu = sel.querySelector('.aq-sel-menu');
+        var label = sel.querySelector('.aq-sel-label');
+        var targetId = sel.getAttribute('data-target');
+        var hiddenInput = targetId ? document.getElementById(targetId) : null;
+        trigger.addEventListener('click', function(e) {
+            e.stopPropagation();
+            document.querySelectorAll('.aq-sel.open').forEach(function(other) {
+                if (other !== sel) other.classList.remove('open');
+            });
+            sel.classList.toggle('open');
+        });
+        trigger.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); trigger.click(); }
+            if (e.key === 'Escape') sel.classList.remove('open');
+        });
+        if (menu) {
+            menu.querySelectorAll('.aq-sel-opt').forEach(function(opt) {
+                opt.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    var val = opt.getAttribute('data-value');
+                    var optLabel = opt.querySelector('.aq-sel-opt-label');
+                    if (label && optLabel) label.textContent = optLabel.textContent.trim();
+                    if (hiddenInput) hiddenInput.value = val;
+                    menu.querySelectorAll('.aq-sel-opt').forEach(function(o) { o.classList.remove('selected'); });
+                    opt.classList.add('selected');
+                    sel.classList.remove('open');
+                });
+            });
+        }
+    });
+}
+
+function addAlertRule() {
+    var container = document.getElementById('alert-rules-container');
+    if (!container) return;
+    // Remove the "no rules" placeholder if present
+    var placeholder = container.querySelector('[style*="text-align:center"]');
+    if (placeholder && placeholder.querySelector('.icon-bell-off')) placeholder.remove();
+
+    var uid = 'ar' + Date.now();
+    var metricOpts = [
+        ['error_rate','Error Rate'],['p50_latency','P50 Latency'],['p95_latency','P95 Latency'],
+        ['p99_latency','P99 Latency'],['total_errors','Total Errors'],['drift_score','Drift Score'],
+        ['memory_usage_pct','Memory Usage %']
+    ];
+    var operatorOpts = [['>','&gt;'],['>=','&ge;'],['<','&lt;'],['==','=']];
+    var severityOpts = [['info','Info'],['warning','Warning'],['critical','Critical']];
+
+    var row = document.createElement('div');
+    row.className = 'alert-rule-row';
+    row.innerHTML =
+        _makeAlertSel(uid + '-metric',   'alert-metric',   metricOpts,   'error_rate', '140px') +
+        _makeAlertSel(uid + '-operator', 'alert-operator', operatorOpts, '>',          '70px') +
+        '<input type="number" class="alert-threshold" value="0" step="0.01" />' +
+        _makeAlertSel(uid + '-severity', 'alert-severity', severityOpts, 'warning',    '100px') +
+        '<button class="playground-btn danger" type="button" onclick="this.closest(\'.alert-rule-row\').remove()" style="font-size:.65rem;padding:4px 8px;">✕</button>';
+    container.appendChild(row);
+    _initAlertRowSels(row);
+}
+
+function saveAlertRules() {
+    var container = document.getElementById('alert-rules-container');
+    if (!container) return;
+    var rows = container.querySelectorAll('.alert-rule-row');
+    var rules = [];
+    rows.forEach(function(row) {
+        var metricEl = row.querySelector('.alert-metric');
+        var operatorEl = row.querySelector('.alert-operator');
+        var severityEl = row.querySelector('.alert-severity');
+        rules.push({
+            metric: metricEl ? metricEl.value : 'error_rate',
+            operator: operatorEl ? operatorEl.value : '>',
+            threshold: parseFloat(row.querySelector('.alert-threshold').value) || 0,
+            severity: severityEl ? severityEl.value : 'warning',
+            enabled: true,
+        });
+    });
+
+    fetch(MLOPS_BASE + '/api/alerts/', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({rules: rules})
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        var triggered = data.triggered || [];
+        if (triggered.length > 0) {
+            alert('⚠️ ' + triggered.length + ' alert(s) triggered!\n\n' +
+                triggered.map(function(a) { return a.metric + ' ' + a.operator + ' ' + a.threshold + ' (current: ' + a.current_value + ')'; }).join('\n'));
+        } else {
+            // Brief visual feedback
+            var btn = container.closest('.card').querySelector('.playground-btn:last-of-type');
+            if (btn) { var orig = btn.innerHTML; btn.innerHTML = '<i class="icon-check" style="font-size:11px;"></i> Saved'; setTimeout(function() { btn.innerHTML = orig; }, 1500); }
+        }
+    })
+    .catch(function(err) {
+        alert('Error saving alert rules: ' + err.message);
+    });
+}
+
+// ── Inference History Detail View ───────────────────────────────
+function viewHistoryDetail(idx) {
+    var item = _inferenceHistory[idx];
+    if (!item) return;
+
+    var title = document.getElementById('drawer-title');
+    var subtitle = document.getElementById('drawer-subtitle');
+    var icon = document.getElementById('drawer-icon');
+    var body = document.getElementById('drawer-body');
+    var overlay = document.getElementById('aq-drawer-overlay');
+    var drawer = document.getElementById('aq-drawer');
+
+    if (!title || !body || !overlay || !drawer) return;
+
+    title.textContent = 'Inference Detail';
+    subtitle.textContent = item.model + ' · ' + (item.timestamp || '');
+    icon.style.background = item.status === 'ok' ? 'rgba(34,197,94,.12)' : 'rgba(239,68,68,.12)';
+    icon.style.color = item.status === 'ok' ? 'var(--accent)' : 'var(--danger)';
+    icon.innerHTML = item.status === 'ok' ? '<i class="icon-check-circle"></i>' : '<i class="icon-x-circle"></i>';
+
+    function esc(s) { var d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+
+    var html = '<div class="aq-drawer-section">';
+    html += '<div class="aq-drawer-section-title">Request Metadata</div>';
+    html += '<div class="aq-drawer-grid">';
+    html += '<div class="aq-drawer-field"><div class="aq-drawer-field-label">Model</div><div class="aq-drawer-field-value">' + esc(item.model) + '</div></div>';
+    html += '<div class="aq-drawer-field"><div class="aq-drawer-field-label">Version</div><div class="aq-drawer-field-value mono">' + esc(item.version || '?') + '</div></div>';
+    html += '<div class="aq-drawer-field"><div class="aq-drawer-field-label">Status</div><div class="aq-drawer-field-value"><span class="history-status ' + (item.status || 'error') + '">' + esc(item.status || 'error') + '</span></div></div>';
+    html += '<div class="aq-drawer-field"><div class="aq-drawer-field-label">Latency</div><div class="aq-drawer-field-value mono">' + (item.latency_ms || 0) + 'ms</div></div>';
+    html += '<div class="aq-drawer-field"><div class="aq-drawer-field-label">User</div><div class="aq-drawer-field-value">' + esc(item.user || '—') + '</div></div>';
+    html += '<div class="aq-drawer-field"><div class="aq-drawer-field-label">Timestamp</div><div class="aq-drawer-field-value mono" style="font-size:.72rem;">' + esc(item.timestamp || '—') + '</div></div>';
+    html += '</div></div>';
+
+    html += '<div class="aq-drawer-section">';
+    html += '<div class="aq-drawer-section-title">Input</div>';
+    html += '<div class="playground-output" style="max-height:200px;min-height:auto;">';
+    html += highlightJSON(JSON.stringify(item.input, null, 2));
+    html += '</div></div>';
+
+    html += '<div class="aq-drawer-section">';
+    html += '<div class="aq-drawer-section-title">' + (item.status === 'ok' ? 'Output' : 'Error') + '</div>';
+    if (item.status === 'ok') {
+        html += '<div class="playground-output success" style="max-height:200px;min-height:auto;">';
+        html += highlightJSON(JSON.stringify(item.output, null, 2));
+    } else {
+        html += '<div class="playground-output error" style="max-height:200px;min-height:auto;">';
+        html += esc(item.error || 'Unknown error');
+    }
+    html += '</div></div>';
+
+    body.innerHTML = html;
+    overlay.classList.add('open');
+    drawer.classList.add('open');
+    document.body.style.overflow = 'hidden';
+}
+
+// ── Export Snapshot ──────────────────────────────────────────────
+function exportSnapshot() {
+    fetch(MLOPS_BASE + '/api/export-snapshot/', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: '{}'
+    })
+    .then(function(r) { return r.blob(); })
+    .then(function(blob) {
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = 'aquilia-mlops-snapshot-' + new Date().toISOString().split('T')[0] + '.json';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    })
+    .catch(function(err) {
+        alert('Export failed: ' + err.message);
+    });
+}
+
+function copyMetricsClipboard() {
+    fetch(MLOPS_BASE + '/api/')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        var text = JSON.stringify(data, null, 2);
+        navigator.clipboard.writeText(text).then(function() {
+            alert('✅ MLOps metrics copied to clipboard');
+        });
+    })
+    .catch(function(err) {
+        alert('Copy failed: ' + err.message);
+    });
+}
 
 // ── Auto-refresh polling ────────────────────────────────────────
 (function() {

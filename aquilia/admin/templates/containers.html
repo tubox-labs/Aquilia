@@ -28,7 +28,7 @@
 /* ── Badges ── */
 .infra-badge {
     display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px;
-    border-radius: 20px; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
+    border-radius: 20px; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap;
 }
 .badge-running { background: rgba(34,197,94,0.15); color: #22c55e; }
 .badge-stopped { background: rgba(239,68,68,0.15); color: #ef4444; }
@@ -147,7 +147,7 @@
 .chart-canvas-wrap { width: 100%; height: 180px; position: relative; }
 
 /* ── Health Timeline ── */
-.health-timeline { display: flex; gap: 2px; height: 32px; align-items: flex-end; margin-top: 8px; }
+.health-timeline { display: flex; gap: 2px; height: 32px; align-items: flex-end; margin-top: 14px; }
 .health-bar {
     flex: 1; border-radius: 2px 2px 0 0; min-width: 3px;
     transition: height 0.3s var(--ease); cursor: pointer; position: relative;
@@ -548,7 +548,7 @@
 
 {% block content %}
 <div class="page-header">
-    <h1><i class="icon-container" style="font-size:1.2em;vertical-align:-2px;margin-right:6px;"></i> Containers</h1>
+    <h1><i class="icon-container" style="font-size:1.2em;vertical-align:-2px;margin-right:6px;"></i> <span class="gradient-text">Containers</span></h1>
     <p>Docker container lifecycle management, images, volumes, networks, compose services &amp; real-time monitoring.</p>
 </div>
 

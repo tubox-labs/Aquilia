@@ -139,6 +139,22 @@
         </div>
     </div>
 
+    {# ═══ MEGA SEARCH (Command Palette) ═══ #}
+    <div class="mega-search-overlay" id="megaSearchOverlay"></div>
+    <div class="mega-search-container" id="megaSearchContainer">
+        <div class="mega-search-header">
+            <i class="icon-search"></i>
+            <input type="text" class="mega-search-input" id="megaSearchInput" placeholder="Search pages, models, actions…" autocomplete="off" spellcheck="false" />
+            <span class="mega-search-kbd">ESC</span>
+        </div>
+        <div class="mega-search-body" id="megaSearchBody"></div>
+        <div class="mega-search-footer">
+            <span><kbd>↑</kbd> <kbd>↓</kbd> Navigate</span>
+            <span><kbd>↵</kbd> Open</span>
+            <span><kbd>ESC</kbd> Close</span>
+        </div>
+    </div>
+
     <script>
     {% block base_js %}
     function toggleTheme() {
@@ -206,6 +222,11 @@
     (function() {
         var input = document.getElementById('sidebarSearchInput');
         if (!input) return;
+        // Click on sidebar search opens mega search instead
+        input.addEventListener('focus', function() {
+            this.blur();
+            if (window.AqMegaSearch) window.AqMegaSearch.open();
+        });
         input.addEventListener('input', function() {
             var q = this.value.trim().toLowerCase();
             document.querySelectorAll('.sidebar-link[data-sidebar-label]').forEach(function(link) {
@@ -216,6 +237,252 @@
                 var visible = sec.querySelectorAll('.sidebar-link[data-sidebar-label]:not([style*="display: none"])');
                 sec.style.display = visible.length || !q ? '' : 'none';
             });
+        });
+    })();
+
+    // ── Mega Search (Command Palette) ──
+    (function() {
+        var overlay = document.getElementById('megaSearchOverlay');
+        var container = document.getElementById('megaSearchContainer');
+        var input = document.getElementById('megaSearchInput');
+        var body = document.getElementById('megaSearchBody');
+        if (!overlay || !container || !input || !body) return;
+
+        var focusIdx = -1;
+        var urlPrefix = '{{ url_prefix|default("/admin") }}';
+
+        // ── Build search index from sidebar links + known pages + actions ──
+        var searchIndex = [];
+
+        // Pages from sidebar
+        document.querySelectorAll('.sidebar-link[data-sidebar-label]').forEach(function(link) {
+            var label = link.querySelector('span');
+            var icon = link.querySelector('i');
+            searchIndex.push({
+                type: 'page',
+                title: label ? label.textContent.trim() : 'Page',
+                keywords: (link.getAttribute('data-sidebar-label') || '').toLowerCase(),
+                url: link.getAttribute('href'),
+                icon: icon ? icon.className : 'icon-layout-dashboard',
+                section: (function() {
+                    var sec = link.closest('[data-sidebar-section]');
+                    if (!sec) return 'Pages';
+                    var lbl = sec.querySelector('.sidebar-section-label');
+                    return lbl ? lbl.textContent.trim() : 'Pages';
+                })()
+            });
+        });
+
+        // Quick actions
+        var actions = [
+            { title: 'Toggle Theme', keywords: 'dark light mode switch theme', icon: 'icon-sun', action: function() { toggleTheme(); }, section: 'Actions' },
+            { title: 'View Profile', keywords: 'profile account user settings', icon: 'icon-user', url: urlPrefix + '/profile/', section: 'Actions' },
+            { title: 'Logout', keywords: 'logout sign out exit', icon: 'icon-log-out', url: urlPrefix + '/logout', section: 'Actions' },
+            { title: 'Keyboard Shortcuts', keywords: 'shortcuts help keyboard keys hotkeys', icon: 'icon-command', action: function() { document.dispatchEvent(new KeyboardEvent('keydown', {key: '?', shiftKey: true})); }, section: 'Actions' },
+        ];
+        actions.forEach(function(a) {
+            searchIndex.push({
+                type: 'action',
+                title: a.title,
+                keywords: a.keywords,
+                url: a.url || null,
+                action: a.action || null,
+                icon: a.icon,
+                section: a.section
+            });
+        });
+
+        // Additional pages that may not be in sidebar
+        var extraPages = [
+            { title: 'Dashboard', keywords: 'dashboard home overview', url: urlPrefix + '/', icon: 'icon-layout-dashboard' },
+            { title: 'ORM Models', keywords: 'orm models database tables schema', url: urlPrefix + '/orm/', icon: 'icon-database' },
+            { title: 'Migrations', keywords: 'migrations database schema versioning', url: urlPrefix + '/migrations/', icon: 'icon-git-branch' },
+            { title: 'Monitoring', keywords: 'monitoring metrics cpu memory health prometheus', url: urlPrefix + '/monitoring/', icon: 'icon-activity' },
+            { title: 'MLOps', keywords: 'mlops models inference serving drift rollouts experiments registry pipeline machine learning', url: urlPrefix + '/mlops/', icon: 'icon-cpu' },
+            { title: 'Containers', keywords: 'containers docker compose images volumes networks', url: urlPrefix + '/containers/', icon: 'icon-container' },
+            { title: 'Pods', keywords: 'pods kubernetes k8s deployments services ingress', url: urlPrefix + '/pods/', icon: 'icon-cloud' },
+            { title: 'Permissions', keywords: 'permissions roles access rbac security', url: urlPrefix + '/permissions/', icon: 'icon-shield' },
+            { title: 'Audit Log', keywords: 'audit log activity trail events', url: urlPrefix + '/audit/', icon: 'icon-scroll-text' },
+            { title: 'Admin Users', keywords: 'admin users management hierarchy', url: urlPrefix + '/admin-users/', icon: 'icon-users' },
+            { title: 'Configuration', keywords: 'configuration config settings environment variables', url: urlPrefix + '/config/', icon: 'icon-settings' },
+            { title: 'Query Inspector', keywords: 'query inspector sql profiler explain n+1 database queries', url: urlPrefix + '/query-inspector/', icon: 'icon-terminal' },
+            { title: 'Background Tasks', keywords: 'background tasks jobs queue worker cron scheduler', url: urlPrefix + '/tasks/', icon: 'icon-clock' },
+            { title: 'Error Monitoring', keywords: 'errors monitoring exceptions stack traces bugs', url: urlPrefix + '/errors/', icon: 'icon-alert-triangle' },
+            { title: 'Testing', keywords: 'testing tests assertions fixtures coverage', url: urlPrefix + '/testing/', icon: 'icon-check-circle' },
+            { title: 'Build', keywords: 'build compile assets bundle deploy', url: urlPrefix + '/build/', icon: 'icon-package' },
+            { title: 'Workspace', keywords: 'workspace project structure files layout', url: urlPrefix + '/workspace/', icon: 'icon-layout-template' },
+        ];
+        // Deduplicate — only add if URL not already in index
+        var existingUrls = {};
+        searchIndex.forEach(function(item) { if (item.url) existingUrls[item.url] = true; });
+        extraPages.forEach(function(p) {
+            if (!existingUrls[p.url]) {
+                searchIndex.push({ type: 'page', title: p.title, keywords: p.keywords, url: p.url, icon: p.icon, section: 'Pages' });
+            }
+        });
+
+        // ORM model links from sidebar
+        document.querySelectorAll('.sidebar-section[data-sidebar-section]').forEach(function(sec) {
+            var secLabel = sec.querySelector('.sidebar-section-label');
+            if (!secLabel || secLabel.textContent.trim() !== 'Models') return;
+            sec.querySelectorAll('.sidebar-link').forEach(function(link) {
+                var lbl = link.querySelector('span');
+                if (!lbl) return;
+                var name = lbl.textContent.trim();
+                var kw = link.getAttribute('data-sidebar-label') || '';
+                if (!existingUrls[link.getAttribute('href')]) {
+                    searchIndex.push({
+                        type: 'model',
+                        title: name,
+                        keywords: kw + ' model table data',
+                        url: link.getAttribute('href'),
+                        icon: 'icon-table',
+                        section: 'ORM Models'
+                    });
+                }
+            });
+        });
+
+        function escHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+        function highlight(text, query) {
+            if (!query) return escHtml(text);
+            var idx = text.toLowerCase().indexOf(query.toLowerCase());
+            if (idx === -1) return escHtml(text);
+            return escHtml(text.substring(0, idx)) + '<mark>' + escHtml(text.substring(idx, idx + query.length)) + '</mark>' + escHtml(text.substring(idx + query.length));
+        }
+
+        function search(query) {
+            query = query.trim().toLowerCase();
+            if (!query) return searchIndex.slice(0, 20);
+            return searchIndex.filter(function(item) {
+                return item.title.toLowerCase().indexOf(query) !== -1 ||
+                       item.keywords.indexOf(query) !== -1;
+            }).sort(function(a, b) {
+                // Exact title match first
+                var aTitle = a.title.toLowerCase().indexOf(query) === 0 ? 0 : 1;
+                var bTitle = b.title.toLowerCase().indexOf(query) === 0 ? 0 : 1;
+                if (aTitle !== bTitle) return aTitle - bTitle;
+                // Pages before actions
+                var typeOrder = { page: 0, model: 1, action: 2, setting: 3 };
+                return (typeOrder[a.type] || 9) - (typeOrder[b.type] || 9);
+            });
+        }
+
+        function render(results, query) {
+            if (results.length === 0) {
+                body.innerHTML = '<div class="mega-search-empty"><i class="icon-search"></i>No results for "' + escHtml(query) + '"</div>';
+                focusIdx = -1;
+                return;
+            }
+            var html = '';
+            var lastSection = '';
+            results.forEach(function(item, i) {
+                if (item.section !== lastSection) {
+                    html += '<div class="mega-search-section">' + escHtml(item.section) + '</div>';
+                    lastSection = item.section;
+                }
+                var iconClass = item.type === 'action' ? 'action' : (item.type === 'model' ? 'model' : 'page');
+                html += '<a class="mega-search-item" data-idx="' + i + '"' + (item.url ? ' href="' + item.url + '"' : '') + '>';
+                html += '<div class="mega-search-item-icon ' + iconClass + '"><i class="' + item.icon + '"></i></div>';
+                html += '<div class="mega-search-item-text">';
+                html += '<div class="mega-search-item-title">' + highlight(item.title, query) + '</div>';
+                if (item.url) html += '<div class="mega-search-item-sub">' + escHtml(item.url) + '</div>';
+                html += '</div>';
+                html += '<div class="mega-search-item-badge">' + item.type + '</div>';
+                html += '</a>';
+            });
+            body.innerHTML = html;
+            focusIdx = 0;
+            updateFocus();
+
+            // Click handlers for action items
+            body.querySelectorAll('.mega-search-item').forEach(function(el, i) {
+                el.addEventListener('click', function(e) {
+                    var item = results[i];
+                    if (item.action) {
+                        e.preventDefault();
+                        closeMega();
+                        item.action();
+                    } else if (item.url) {
+                        closeMega();
+                    }
+                });
+            });
+        }
+
+        function updateFocus() {
+            var items = body.querySelectorAll('.mega-search-item');
+            items.forEach(function(el, i) {
+                el.classList.toggle('focused', i === focusIdx);
+            });
+            if (items[focusIdx]) {
+                items[focusIdx].scrollIntoView({ block: 'nearest' });
+            }
+        }
+
+        var _currentResults = [];
+
+        function openMega() {
+            overlay.classList.add('open');
+            container.classList.add('open');
+            input.value = '';
+            _currentResults = search('');
+            render(_currentResults, '');
+            // Delay focus to after animation
+            setTimeout(function() { input.focus(); }, 50);
+        }
+
+        function closeMega() {
+            overlay.classList.remove('open');
+            container.classList.remove('open');
+            input.value = '';
+            focusIdx = -1;
+        }
+
+        // Public API
+        window.AqMegaSearch = { open: openMega, close: closeMega };
+
+        // Events
+        overlay.addEventListener('click', closeMega);
+        input.addEventListener('input', function() {
+            var q = this.value;
+            _currentResults = search(q);
+            render(_currentResults, q);
+        });
+
+        input.addEventListener('keydown', function(e) {
+            var items = body.querySelectorAll('.mega-search-item');
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                focusIdx = Math.min(focusIdx + 1, items.length - 1);
+                updateFocus();
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                focusIdx = Math.max(focusIdx - 1, 0);
+                updateFocus();
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                if (items[focusIdx]) items[focusIdx].click();
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                closeMega();
+            }
+        });
+
+        // ⌘K / Ctrl+K global shortcut
+        document.addEventListener('keydown', function(e) {
+            if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+                e.preventDefault();
+                if (container.classList.contains('open')) {
+                    closeMega();
+                } else {
+                    openMega();
+                }
+            }
+            if (e.key === 'Escape' && container.classList.contains('open')) {
+                closeMega();
+            }
         });
     })();
 
@@ -272,7 +539,7 @@
                 overlay.innerHTML = '<div style="background:var(--bg-elevated);border:1px solid var(--border-color);border-radius:14px;padding:28px 36px;max-width:420px;width:90%;box-shadow:0 24px 64px rgba(0,0,0,0.4);">' +
                     '<h3 style="margin:0 0 18px;color:var(--text-primary);font-size:1rem;font-weight:600;">Keyboard Shortcuts</h3>' +
                     '<div style="display:grid;grid-template-columns:auto 1fr;gap:8px 18px;font-size:0.82rem;color:var(--text-secondary);">' +
-                    '<kbd style="background:var(--bg-surface);padding:2px 8px;border-radius:4px;font-size:0.75rem;color:var(--text-primary);font-family:var(--font-mono);border:1px solid var(--border-color);">⌘K</kbd><span>Focus search / Command palette</span>' +
+                    '<kbd style="background:var(--bg-surface);padding:2px 8px;border-radius:4px;font-size:0.75rem;color:var(--text-primary);font-family:var(--font-mono);border:1px solid var(--border-color);">⌘K</kbd><span>Mega Search — search anything</span>' +
                     '<kbd style="background:var(--bg-surface);padding:2px 8px;border-radius:4px;font-size:0.75rem;color:var(--text-primary);font-family:var(--font-mono);border:1px solid var(--border-color);">N</kbd><span>Add new record</span>' +
                     '<kbd style="background:var(--bg-surface);padding:2px 8px;border-radius:4px;font-size:0.75rem;color:var(--text-primary);font-family:var(--font-mono);border:1px solid var(--border-color);">Shift+?</kbd><span>Show this help</span>' +
                     '<kbd style="background:var(--bg-surface);padding:2px 8px;border-radius:4px;font-size:0.75rem;color:var(--text-primary);font-family:var(--font-mono);border:1px solid var(--border-color);">Esc</kbd><span>Close dialogs</span>' +

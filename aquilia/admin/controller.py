@@ -478,6 +478,7 @@ class AdminController(Controller):
         # Gather error and task stats for dashboard live stats row
         error_stats = {}
         tasks_stats = {}
+        mlops_summary = {}
         try:
             error_stats = self.site.get_error_tracker_data()
         except Exception:
@@ -487,6 +488,31 @@ class AdminController(Controller):
             tasks_stats = tasks_data.get("stats", {})
         except Exception:
             pass
+
+        # Gather MLOps summary for dashboard widget
+        if self.site.admin_config.is_module_enabled("mlops"):
+            try:
+                md = self.site.get_mlops_data()
+                mlops_summary = {
+                    "available": md.get("available", False),
+                    "total_models": md.get("total_models", 0),
+                    "total_inferences": md.get("total_inferences", 0),
+                    "total_errors": md.get("total_errors", 0),
+                    "avg_latency": md.get("avg_latency_ms", 0),
+                    "models": [],
+                    "inference_history_count": len(getattr(self.site, "_mlops_inference_history", [])),
+                    "alert_rules_count": len(getattr(self.site, "_mlops_alert_rules", [])),
+                    "triggered_alerts_count": len(getattr(self.site, "_mlops_triggered_alerts", [])),
+                }
+                for m in md.get("models", [])[:6]:
+                    mlops_summary["models"].append({
+                        "name": m.get("name", ""),
+                        "version": m.get("version", ""),
+                        "state": m.get("state", "unknown"),
+                        "framework": m.get("framework", ""),
+                    })
+            except Exception:
+                mlops_summary = {"available": False}
 
         html = render_dashboard(
             app_list=app_list,
@@ -498,6 +524,7 @@ class AdminController(Controller):
             orm_metadata=orm_metadata,
             error_stats=error_stats,
             tasks_stats=tasks_stats,
+            mlops_summary=mlops_summary,
         )
         return _html_response(html)
 
@@ -2438,6 +2465,623 @@ class AdminController(Controller):
             headers={"content-type": "application/json; charset=utf-8"},
         )
 
+    # ── MLOps Live Inference Playground ──────────────────────────────
+
+    @POST("/mlops/api/predict/")
+    async def mlops_predict(self, request, ctx: RequestCtx) -> Response:
+        """
+        Live inference playground -- send JSON input to a registered model.
+
+        Expects JSON body:
+            {"model": "model_name", "input": {...}, "version": "v1"}
+        Returns:
+            {"output": {...}, "latency_ms": float, "model": str, "version": str, "status": "ok"|"error"}
+        """
+        import json as _json
+        import time as _time
+
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return Response(content=b'{"error":"unauthorized"}', status=401,
+                            headers={"content-type": "application/json"})
+
+        if not self.site.admin_config.is_module_enabled("mlops"):
+            return Response(content=b'{"error":"mlops disabled"}', status=404,
+                            headers={"content-type": "application/json"})
+
+        try:
+            raw_body = await request.body()
+            body = _json.loads(raw_body) if raw_body else {}
+        except Exception:
+            return Response(content=b'{"error":"invalid JSON body"}', status=400,
+                            headers={"content-type": "application/json"})
+
+        model_name = body.get("model", "")
+        model_input = body.get("input", {})
+        version = body.get("version", "")
+
+        if not model_name:
+            return Response(content=b'{"error":"model name required"}', status=400,
+                            headers={"content-type": "application/json"})
+
+        result: dict = {"model": model_name, "version": version, "status": "error"}
+
+        try:
+            # Try orchestrator-based predict
+            registry = getattr(self.site, "_mlops_registry", None)
+            entry = None
+            if registry and hasattr(registry, "get"):
+                entry = registry.get(model_name)
+
+            if entry is None:
+                result["error"] = f"Model '{model_name}' not found in registry"
+                return Response(
+                    content=_json.dumps(result, default=str).encode("utf-8"),
+                    status=404,
+                    headers={"content-type": "application/json; charset=utf-8"},
+                )
+
+            # Attempt to run inference
+            model_instance = None
+            if hasattr(entry, "instance") and entry.instance is not None:
+                model_instance = entry.instance
+            elif hasattr(entry, "model_class"):
+                # Lazily instantiate for playground
+                try:
+                    model_instance = entry.model_class()
+                    if hasattr(model_instance, "load"):
+                        import asyncio
+                        coro = model_instance.load("", "cpu")
+                        if asyncio.iscoroutine(coro):
+                            await coro
+                    entry.instance = model_instance
+                except Exception as load_err:
+                    result["error"] = f"Failed to load model: {str(load_err)}"
+                    return Response(
+                        content=_json.dumps(result, default=str).encode("utf-8"),
+                        status=500,
+                        headers={"content-type": "application/json; charset=utf-8"},
+                    )
+
+            if model_instance is None:
+                result["error"] = "Model instance not available"
+                return Response(
+                    content=_json.dumps(result, default=str).encode("utf-8"),
+                    status=500,
+                    headers={"content-type": "application/json; charset=utf-8"},
+                )
+
+            # Pre-process → Predict → Post-process
+            import asyncio
+            start = _time.perf_counter()
+
+            processed_input = model_input
+            if hasattr(model_instance, "preprocess"):
+                pre = model_instance.preprocess(processed_input)
+                if asyncio.iscoroutine(pre):
+                    processed_input = await pre
+                else:
+                    processed_input = pre
+
+            pred = model_instance.predict(processed_input)
+            if asyncio.iscoroutine(pred):
+                output = await pred
+            else:
+                output = pred
+
+            if hasattr(model_instance, "postprocess"):
+                post = model_instance.postprocess(output)
+                if asyncio.iscoroutine(post):
+                    output = await post
+                else:
+                    output = post
+
+            elapsed = (_time.perf_counter() - start) * 1000.0
+
+            # Record in metrics collector
+            metrics_collector = getattr(self.site, "_mlops_metrics", None)
+            if metrics_collector and hasattr(metrics_collector, "record_inference"):
+                metrics_collector.record_inference(latency_ms=elapsed, model_name=model_name)
+
+            # Store in inference history
+            history = getattr(self.site, "_mlops_inference_history", None)
+            if history is None:
+                self.site._mlops_inference_history = []
+                history = self.site._mlops_inference_history
+            import datetime
+            history.insert(0, {
+                "model": model_name,
+                "version": version or getattr(entry, "version", "?"),
+                "input": model_input,
+                "output": output,
+                "latency_ms": round(elapsed, 2),
+                "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                "status": "ok",
+                "user": _get_identity_name(identity),
+            })
+            # Keep only last 100 entries
+            if len(history) > 100:
+                self.site._mlops_inference_history = history[:100]
+
+            result["output"] = output
+            result["latency_ms"] = round(elapsed, 2)
+            result["version"] = version or getattr(entry, "version", "?")
+            result["status"] = "ok"
+
+        except Exception as e:
+            result["error"] = str(e)
+            result["status"] = "error"
+            # Store failed inference
+            history = getattr(self.site, "_mlops_inference_history", None)
+            if history is None:
+                self.site._mlops_inference_history = []
+                history = self.site._mlops_inference_history
+            import datetime
+            history.insert(0, {
+                "model": model_name,
+                "version": version,
+                "input": model_input,
+                "output": None,
+                "error": str(e),
+                "latency_ms": 0,
+                "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                "status": "error",
+                "user": _get_identity_name(identity),
+            })
+            if len(history) > 100:
+                self.site._mlops_inference_history = history[:100]
+
+        return Response(
+            content=_json.dumps(result, default=str).encode("utf-8"),
+            status=200 if result["status"] == "ok" else 500,
+            headers={"content-type": "application/json; charset=utf-8"},
+        )
+
+    @POST("/mlops/api/compare/")
+    async def mlops_compare(self, request, ctx: RequestCtx) -> Response:
+        """
+        Model comparison -- run same input through multiple models.
+
+        Expects JSON body:
+            {"models": ["model_a", "model_b"], "input": {...}}
+        Returns:
+            {"results": [{"model": str, "output": {...}, "latency_ms": float}, ...]}
+        """
+        import json as _json
+        import time as _time
+
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return Response(content=b'{"error":"unauthorized"}', status=401,
+                            headers={"content-type": "application/json"})
+
+        if not self.site.admin_config.is_module_enabled("mlops"):
+            return Response(content=b'{"error":"mlops disabled"}', status=404,
+                            headers={"content-type": "application/json"})
+
+        try:
+            raw_body = await request.body()
+            body = _json.loads(raw_body) if raw_body else {}
+        except Exception:
+            return Response(content=b'{"error":"invalid JSON body"}', status=400,
+                            headers={"content-type": "application/json"})
+
+        model_names = body.get("models", [])
+        model_input = body.get("input", {})
+
+        if not model_names or len(model_names) < 2:
+            return Response(content=b'{"error":"at least 2 model names required"}', status=400,
+                            headers={"content-type": "application/json"})
+
+        registry = getattr(self.site, "_mlops_registry", None)
+        results = []
+
+        for mname in model_names[:5]:  # Cap at 5 models
+            entry_result: dict = {"model": mname, "status": "error"}
+            try:
+                entry = None
+                if registry and hasattr(registry, "get"):
+                    entry = registry.get(mname)
+
+                if entry is None:
+                    entry_result["error"] = f"Model '{mname}' not found"
+                    results.append(entry_result)
+                    continue
+
+                model_instance = None
+                if hasattr(entry, "instance") and entry.instance is not None:
+                    model_instance = entry.instance
+                elif hasattr(entry, "model_class"):
+                    try:
+                        import asyncio
+                        model_instance = entry.model_class()
+                        if hasattr(model_instance, "load"):
+                            coro = model_instance.load("", "cpu")
+                            if asyncio.iscoroutine(coro):
+                                await coro
+                        entry.instance = model_instance
+                    except Exception as load_err:
+                        entry_result["error"] = f"Load failed: {str(load_err)}"
+                        results.append(entry_result)
+                        continue
+
+                if model_instance is None:
+                    entry_result["error"] = "Instance not available"
+                    results.append(entry_result)
+                    continue
+
+                import asyncio
+                start = _time.perf_counter()
+
+                processed = model_input
+                if hasattr(model_instance, "preprocess"):
+                    pre = model_instance.preprocess(processed)
+                    if asyncio.iscoroutine(pre):
+                        processed = await pre
+                    else:
+                        processed = pre
+
+                pred = model_instance.predict(processed)
+                if asyncio.iscoroutine(pred):
+                    output = await pred
+                else:
+                    output = pred
+
+                if hasattr(model_instance, "postprocess"):
+                    post = model_instance.postprocess(output)
+                    if asyncio.iscoroutine(post):
+                        output = await post
+                    else:
+                        output = post
+
+                elapsed = (_time.perf_counter() - start) * 1000.0
+
+                entry_result["output"] = output
+                entry_result["latency_ms"] = round(elapsed, 2)
+                entry_result["version"] = getattr(entry, "version", "?")
+                entry_result["status"] = "ok"
+
+            except Exception as e:
+                entry_result["error"] = str(e)
+
+            results.append(entry_result)
+
+        return Response(
+            content=_json.dumps({"results": results}, default=str).encode("utf-8"),
+            status=200,
+            headers={"content-type": "application/json; charset=utf-8"},
+        )
+
+    @POST("/mlops/api/health-check/")
+    async def mlops_health_check(self, request, ctx: RequestCtx) -> Response:
+        """
+        Run health checks on all registered models.
+
+        Returns:
+            {"models": [{"name": str, "status": str, "details": {...}, "latency_ms": float}, ...]}
+        """
+        import json as _json
+        import time as _time
+
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return Response(content=b'{"error":"unauthorized"}', status=401,
+                            headers={"content-type": "application/json"})
+
+        if not self.site.admin_config.is_module_enabled("mlops"):
+            return Response(content=b'{"error":"mlops disabled"}', status=404,
+                            headers={"content-type": "application/json"})
+
+        registry = getattr(self.site, "_mlops_registry", None)
+        results = []
+
+        if registry and hasattr(registry, "list_models"):
+            try:
+                for name in registry.list_models():
+                    entry = registry.get(name)
+                    check: dict = {"name": name, "status": "unknown", "details": {}, "latency_ms": 0}
+
+                    try:
+                        model_instance = None
+                        if hasattr(entry, "instance") and entry.instance is not None:
+                            model_instance = entry.instance
+
+                        if model_instance is not None and hasattr(model_instance, "health"):
+                            import asyncio
+                            start = _time.perf_counter()
+                            h = model_instance.health()
+                            if asyncio.iscoroutine(h):
+                                details = await h
+                            else:
+                                details = h
+                            elapsed = (_time.perf_counter() - start) * 1000.0
+                            check["details"] = details if isinstance(details, dict) else {"result": str(details)}
+                            check["latency_ms"] = round(elapsed, 2)
+                            check["status"] = details.get("status", "ok") if isinstance(details, dict) else "ok"
+                        else:
+                            state = getattr(entry, "state", "unknown")
+                            check["status"] = state if isinstance(state, str) else (state.value if hasattr(state, "value") else str(state))
+                            check["details"] = {"state": check["status"]}
+                    except Exception as e:
+                        check["status"] = "error"
+                        check["details"] = {"error": str(e)}
+
+                    results.append(check)
+            except Exception:
+                pass
+
+        return Response(
+            content=_json.dumps({"models": results}, default=str).encode("utf-8"),
+            status=200,
+            headers={"content-type": "application/json; charset=utf-8"},
+        )
+
+    @POST("/mlops/api/batch-predict/")
+    async def mlops_batch_predict(self, request, ctx: RequestCtx) -> Response:
+        """
+        Batch inference -- run multiple inputs through a model.
+
+        Expects JSON body:
+            {"model": "model_name", "inputs": [{...}, {...}, ...]}
+        Returns:
+            {"results": [{"input": {...}, "output": {...}, "latency_ms": float}, ...],
+             "total_latency_ms": float, "count": int, "errors": int}
+        """
+        import json as _json
+        import time as _time
+
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return Response(content=b'{"error":"unauthorized"}', status=401,
+                            headers={"content-type": "application/json"})
+
+        if not self.site.admin_config.is_module_enabled("mlops"):
+            return Response(content=b'{"error":"mlops disabled"}', status=404,
+                            headers={"content-type": "application/json"})
+
+        try:
+            raw_body = await request.body()
+            body = _json.loads(raw_body) if raw_body else {}
+        except Exception:
+            return Response(content=b'{"error":"invalid JSON body"}', status=400,
+                            headers={"content-type": "application/json"})
+
+        model_name = body.get("model", "")
+        inputs = body.get("inputs", [])
+
+        if not model_name:
+            return Response(content=b'{"error":"model name required"}', status=400,
+                            headers={"content-type": "application/json"})
+
+        if not inputs or not isinstance(inputs, list):
+            return Response(content=b'{"error":"inputs must be a non-empty array"}', status=400,
+                            headers={"content-type": "application/json"})
+
+        # Cap batch size at 50
+        inputs = inputs[:50]
+
+        registry = getattr(self.site, "_mlops_registry", None)
+        entry = None
+        if registry and hasattr(registry, "get"):
+            entry = registry.get(model_name)
+
+        if entry is None:
+            return Response(
+                content=_json.dumps({"error": f"Model '{model_name}' not found"}).encode("utf-8"),
+                status=404, headers={"content-type": "application/json; charset=utf-8"},
+            )
+
+        model_instance = None
+        if hasattr(entry, "instance") and entry.instance is not None:
+            model_instance = entry.instance
+        elif hasattr(entry, "model_class"):
+            try:
+                import asyncio
+                model_instance = entry.model_class()
+                if hasattr(model_instance, "load"):
+                    coro = model_instance.load("", "cpu")
+                    if asyncio.iscoroutine(coro):
+                        await coro
+                entry.instance = model_instance
+            except Exception as e:
+                return Response(
+                    content=_json.dumps({"error": f"Load failed: {str(e)}"}).encode("utf-8"),
+                    status=500, headers={"content-type": "application/json; charset=utf-8"},
+                )
+
+        if model_instance is None:
+            return Response(
+                content=_json.dumps({"error": "Instance not available"}).encode("utf-8"),
+                status=500, headers={"content-type": "application/json; charset=utf-8"},
+            )
+
+        results = []
+        errors = 0
+        batch_start = _time.perf_counter()
+
+        for item in inputs:
+            row: dict = {"input": item, "status": "ok"}
+            try:
+                import asyncio
+                start = _time.perf_counter()
+
+                processed = item
+                if hasattr(model_instance, "preprocess"):
+                    pre = model_instance.preprocess(processed)
+                    if asyncio.iscoroutine(pre):
+                        processed = await pre
+                    else:
+                        processed = pre
+
+                pred = model_instance.predict(processed)
+                if asyncio.iscoroutine(pred):
+                    output = await pred
+                else:
+                    output = pred
+
+                if hasattr(model_instance, "postprocess"):
+                    post = model_instance.postprocess(output)
+                    if asyncio.iscoroutine(post):
+                        output = await post
+                    else:
+                        output = post
+
+                elapsed = (_time.perf_counter() - start) * 1000.0
+                row["output"] = output
+                row["latency_ms"] = round(elapsed, 2)
+            except Exception as e:
+                row["status"] = "error"
+                row["error"] = str(e)
+                errors += 1
+            results.append(row)
+
+        total_elapsed = (_time.perf_counter() - batch_start) * 1000.0
+
+        return Response(
+            content=_json.dumps({
+                "results": results,
+                "total_latency_ms": round(total_elapsed, 2),
+                "count": len(results),
+                "errors": errors,
+                "model": model_name,
+                "avg_latency_ms": round(total_elapsed / len(results), 2) if results else 0,
+            }, default=str).encode("utf-8"),
+            status=200,
+            headers={"content-type": "application/json; charset=utf-8"},
+        )
+
+    @GET("/mlops/api/inference-history/")
+    async def mlops_inference_history(self, request, ctx: RequestCtx) -> Response:
+        """Return recent inference history for the audit log."""
+        import json as _json
+
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return Response(content=b'{"error":"unauthorized"}', status=401,
+                            headers={"content-type": "application/json"})
+
+        history = getattr(self.site, "_mlops_inference_history", [])
+        return Response(
+            content=_json.dumps({"history": history[:50]}, default=str).encode("utf-8"),
+            status=200,
+            headers={"content-type": "application/json; charset=utf-8"},
+        )
+
+    @POST("/mlops/api/alerts/")
+    async def mlops_update_alerts(self, request, ctx: RequestCtx) -> Response:
+        """
+        Update alert rules for MLOps monitoring.
+
+        Expects JSON body:
+            {"rules": [{"metric": str, "operator": str, "threshold": float, "enabled": bool}, ...]}
+        """
+        import json as _json
+
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return Response(content=b'{"error":"unauthorized"}', status=401,
+                            headers={"content-type": "application/json"})
+
+        try:
+            raw_body = await request.body()
+            body = _json.loads(raw_body) if raw_body else {}
+        except Exception:
+            return Response(content=b'{"error":"invalid JSON body"}', status=400,
+                            headers={"content-type": "application/json"})
+
+        rules = body.get("rules", [])
+        self.site._mlops_alert_rules = rules
+
+        # Evaluate alerts against current data
+        triggered = []
+        mlops_data = self.site.get_mlops_data()
+        metrics = mlops_data.get("metrics", {})
+        latency = mlops_data.get("latency", {})
+
+        metric_map = {
+            "error_rate": mlops_data.get("total_errors", 0) / max(mlops_data.get("total_inferences", 1), 1),
+            "p50_latency": latency.get("p50", 0),
+            "p95_latency": latency.get("p95", 0),
+            "p99_latency": latency.get("p99", 0),
+            "total_errors": mlops_data.get("total_errors", 0),
+            "drift_score": 0,
+            "memory_usage_pct": 0,
+        }
+
+        # Get drift score
+        drift = mlops_data.get("drift", {})
+        if drift.get("has_reference"):
+            drift_detector = getattr(self.site, "_mlops_drift", None)
+            if drift_detector and hasattr(drift_detector, "_reference") and drift_detector._reference:
+                metric_map["drift_score"] = drift.get("threshold", 0)
+
+        # Get memory usage
+        mem = mlops_data.get("memory", {})
+        if mem.get("hard_limit", 0) > 0:
+            metric_map["memory_usage_pct"] = (mem.get("current_bytes", 0) / mem["hard_limit"]) * 100
+
+        for rule in rules:
+            if not rule.get("enabled", True):
+                continue
+            metric_val = metric_map.get(rule.get("metric", ""), 0)
+            op = rule.get("operator", ">")
+            threshold = rule.get("threshold", 0)
+            fired = False
+            if op == ">" and metric_val > threshold:
+                fired = True
+            elif op == ">=" and metric_val >= threshold:
+                fired = True
+            elif op == "<" and metric_val < threshold:
+                fired = True
+            elif op == "==" and metric_val == threshold:
+                fired = True
+            if fired:
+                triggered.append({
+                    "metric": rule.get("metric"),
+                    "current_value": round(metric_val, 4),
+                    "threshold": threshold,
+                    "operator": op,
+                    "severity": rule.get("severity", "warning"),
+                })
+
+        self.site._mlops_triggered_alerts = triggered
+
+        return Response(
+            content=_json.dumps({"rules": rules, "triggered": triggered}, default=str).encode("utf-8"),
+            status=200,
+            headers={"content-type": "application/json; charset=utf-8"},
+        )
+
+    @POST("/mlops/api/export-snapshot/")
+    async def mlops_export_snapshot(self, request, ctx: RequestCtx) -> Response:
+        """Export a full MLOps state snapshot as JSON."""
+        import json as _json
+        import datetime
+
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return Response(content=b'{"error":"unauthorized"}', status=401,
+                            headers={"content-type": "application/json"})
+
+        mlops_data = self.site.get_mlops_data()
+        snapshot = {
+            "exported_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            "exported_by": _get_identity_name(identity),
+            "data": mlops_data,
+            "inference_history": getattr(self.site, "_mlops_inference_history", []),
+            "alert_rules": getattr(self.site, "_mlops_alert_rules", []),
+            "triggered_alerts": getattr(self.site, "_mlops_triggered_alerts", []),
+        }
+
+        return Response(
+            content=_json.dumps(snapshot, default=str, indent=2).encode("utf-8"),
+            status=200,
+            headers={
+                "content-type": "application/json; charset=utf-8",
+                "content-disposition": f'attachment; filename="aquilia-mlops-snapshot-{datetime.datetime.now().strftime("%Y%m%d-%H%M%S")}.json"',
+            },
+        )
+
     # ── Admin Users Management ───────────────────────────────────────
 
     @GET("/admin-users/")
@@ -2472,6 +3116,7 @@ class AdminController(Controller):
                     "is_active": getattr(u, "is_active", True),
                     "last_login": str(getattr(u, "last_login", "") or ""),
                     "date_joined": str(getattr(u, "date_joined", "") or ""),
+                    "avatar_path": getattr(u, "avatar_path", "") or "",
                 }
                 for u in all_users
             ]

@@ -12,7 +12,7 @@
 {# ── Personalised greeting with time-of-day ── #}
 <div class="dash-greeting">
     <h1>
-        <span id="dash-greeting-text">Welcome back</span>, {{ identity_name }}
+        <span class="gradient-text" id="dash-greeting-text">Welcome back</span>, {{ identity_name }}
     </h1>
     <p>Here's what's happening across your application
         <span class="greeting-time" id="dash-date"></span>
@@ -244,6 +244,111 @@
         </div>
     </div>
     {% endif %}
+
+</div>
+{% endif %}
+
+{# ═══ MLOPS OVERVIEW ══════════════════════════════════════════════ #}
+{% set mlops = mlops_summary|default({}) %}
+{% if mlops.get('available', false) or mlops.get('total_models', 0) > 0 %}
+<div class="section-label" style="margin-top:4px;">MLOps</div>
+<div class="dash-grid">
+
+    {# ── Model Registry Summary ── #}
+    <div class="glass-card" style="padding:0;">
+        <div class="card-header">
+            <span class="card-title"><i class="icon-cpu" style="font-size:14px;vertical-align:-2px;margin-right:6px;opacity:0.5;"></i>Model Registry</span>
+            <a href="{{ url_prefix|default('/admin') }}/mlops/" style="font-size:0.72rem;color:var(--accent);text-decoration:none;">Dashboard →</a>
+        </div>
+        <div style="padding:20px;">
+            <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:14px;">
+                <div style="text-align:center;padding:14px;background:var(--bg-surface);border-radius:var(--radius);border:1px solid var(--border-subtle);">
+                    <div style="font-size:1.6rem;font-weight:700;color:var(--text-primary);font-family:var(--font-mono);" data-count="{{ mlops.get('total_models', 0) }}">0</div>
+                    <div style="font-size:0.72rem;color:var(--text-faint);margin-top:2px;text-transform:uppercase;letter-spacing:0.04em;">Models</div>
+                </div>
+                <div style="text-align:center;padding:14px;background:var(--bg-surface);border-radius:var(--radius);border:1px solid var(--border-subtle);">
+                    <div style="font-size:1.6rem;font-weight:700;font-family:var(--font-mono);">
+                        <span style="color:var(--info);" data-count="{{ mlops.get('total_inferences', 0) }}">0</span>
+                    </div>
+                    <div style="font-size:0.72rem;color:var(--text-faint);margin-top:2px;text-transform:uppercase;letter-spacing:0.04em;">Inferences</div>
+                </div>
+            </div>
+            <div style="display:flex;gap:16px;margin-top:14px;flex-wrap:wrap;">
+                <div style="display:flex;align-items:center;gap:6px;">
+                    <i class="icon-alert-triangle" style="font-size:13px;color:var(--danger);opacity:0.7;"></i>
+                    <span style="font-size:0.78rem;color:var(--text-secondary);">{{ mlops.get('total_errors', 0) }} errors</span>
+                </div>
+                {% if mlops.get('avg_latency', 0) > 0 %}
+                <div style="display:flex;align-items:center;gap:6px;">
+                    <i class="icon-clock" style="font-size:13px;color:var(--warning);opacity:0.7;"></i>
+                    <span style="font-size:0.78rem;color:var(--text-secondary);">{{ "%.1f"|format(mlops.get('avg_latency', 0)) }}ms avg</span>
+                </div>
+                {% endif %}
+                <div style="display:flex;align-items:center;gap:6px;">
+                    <i class="icon-activity" style="font-size:13px;color:var(--purple);opacity:0.7;"></i>
+                    <span style="font-size:0.78rem;color:var(--text-secondary);">{{ mlops.get('inference_history_count', 0) }} history</span>
+                </div>
+            </div>
+            {% if mlops.get('triggered_alerts_count', 0) > 0 %}
+            <div style="margin-top:12px;padding:8px 12px;background:var(--danger-subtle);border:1px solid var(--danger);border-radius:var(--radius-sm);display:flex;align-items:center;gap:8px;">
+                <i class="icon-bell" style="font-size:14px;color:var(--danger);"></i>
+                <span style="font-size:0.78rem;color:var(--danger);font-weight:600;">{{ mlops.get('triggered_alerts_count', 0) }} active alert{{ 's' if mlops.get('triggered_alerts_count', 0) != 1 else '' }}</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    {# ── Registered Models list ── #}
+    <div class="glass-card" style="padding:0;">
+        <div class="card-header">
+            <span class="card-title"><i class="icon-layers" style="font-size:14px;vertical-align:-2px;margin-right:6px;opacity:0.5;"></i>Registered Models</span>
+            <span style="font-size:0.72rem;color:var(--text-faint);font-family:var(--font-mono);">{{ mlops.get('total_models', 0) }} total</span>
+        </div>
+        <div style="padding:16px 20px;">
+            {% set mlops_models = mlops.get('models', []) %}
+            {% if mlops_models|length > 0 %}
+            <div style="display:flex;flex-direction:column;gap:8px;">
+                {% for m in mlops_models %}
+                <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--bg-surface);border-radius:var(--radius);border:1px solid var(--border-subtle);">
+                    <div style="width:32px;height:32px;border-radius:var(--radius-sm);background:var(--accent-subtle);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                        <i class="icon-cpu" style="font-size:15px;color:var(--accent);"></i>
+                    </div>
+                    <div style="flex:1;min-width:0;">
+                        <div style="font-size:0.84rem;font-weight:600;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ m.name }}</div>
+                        <div style="font-size:0.7rem;color:var(--text-faint);font-family:var(--font-mono);">
+                            {{ m.version }}{% if m.framework %} · {{ m.framework }}{% endif %}
+                        </div>
+                    </div>
+                    <div style="flex-shrink:0;">
+                        {% set state = m.state|lower %}
+                        {% if state in ('serving', 'active', 'running', 'ready') %}
+                        <span style="font-size:0.68rem;padding:2px 8px;border-radius:10px;background:var(--success-subtle, rgba(34,197,94,0.1));color:var(--success);font-weight:600;text-transform:uppercase;letter-spacing:0.04em;">{{ m.state }}</span>
+                        {% elif state in ('idle', 'loaded', 'registered') %}
+                        <span style="font-size:0.68rem;padding:2px 8px;border-radius:10px;background:var(--info-subtle, rgba(59,130,246,0.1));color:var(--info);font-weight:600;text-transform:uppercase;letter-spacing:0.04em;">{{ m.state }}</span>
+                        {% elif state in ('error', 'failed', 'unhealthy') %}
+                        <span style="font-size:0.68rem;padding:2px 8px;border-radius:10px;background:var(--danger-subtle, rgba(239,68,68,0.1));color:var(--danger);font-weight:600;text-transform:uppercase;letter-spacing:0.04em;">{{ m.state }}</span>
+                        {% else %}
+                        <span style="font-size:0.68rem;padding:2px 8px;border-radius:10px;background:var(--bg-input);color:var(--text-faint);font-weight:600;text-transform:uppercase;letter-spacing:0.04em;">{{ m.state }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% if mlops.get('total_models', 0) > mlops_models|length %}
+            <div style="text-align:center;padding-top:10px;">
+                <a href="{{ url_prefix|default('/admin') }}/mlops/" style="font-size:0.72rem;color:var(--accent);text-decoration:none;">
+                    + {{ mlops.get('total_models', 0) - mlops_models|length }} more models →
+                </a>
+            </div>
+            {% endif %}
+            {% else %}
+            <div class="empty-state" style="padding:20px;">
+                <i class="icon-cpu" style="font-size:28px;display:block;margin-bottom:8px;opacity:0.2;"></i>
+                No ML models registered
+            </div>
+            {% endif %}
+        </div>
+    </div>
 
 </div>
 {% endif %}
@@ -754,6 +859,14 @@
                 </div>
             </a>
             {% endif %}
+            {% if modules.get('mlops', false) %}
+            <a class="model-card" href="{{ url_prefix|default('/admin') }}/mlops/" style="padding:18px;">
+                <div>
+                    <div class="model-card-name"><i class="icon-cpu" style="font-size:14px;vertical-align:-2px;margin-right:4px;opacity:0.5;"></i>MLOps</div>
+                    <div class="model-card-app" style="margin-top:4px;">{{ mlops_summary.get('total_models', 0) }} models</div>
+                </div>
+            </a>
+            {% endif %}
         </div>
     </div>
 
@@ -942,6 +1055,7 @@ window.showCommandPalette = function() {
         { label: 'Monitoring', icon: 'activity', url: '{{ url_prefix|default("/admin") }}/monitoring/' },
         { label: 'Containers', icon: 'container', url: '{{ url_prefix|default("/admin") }}/containers/' },
         { label: 'Pods', icon: 'cloud', url: '{{ url_prefix|default("/admin") }}/pods/' },
+        { label: 'MLOps', icon: 'cpu', url: '{{ url_prefix|default("/admin") }}/mlops/' },
         {% for app_info in app_list|default([]) %}{% for model_info in app_info.models|default([]) %}
         { label: '{{ model_info.verbose_name|default(model_info.name|default("")) }}', icon: 'table', url: '{{ url_prefix|default("/admin") }}/{{ model_info.name|default("")|lower }}/' },
         {% endfor %}{% endfor %}

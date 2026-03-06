@@ -1290,3 +1290,125 @@ body.sidebar-open { overflow: hidden; }
   opacity: 0.8;
 }
 
+/* ═══ MEGA SEARCH (Command Palette) ═══════════════════════════ */
+.mega-search-overlay {
+  position: fixed; inset: 0; z-index: 10010;
+  background: rgba(0,0,0,0.6);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  opacity: 0; pointer-events: none;
+  transition: opacity .2s ease;
+}
+.mega-search-overlay.open { opacity: 1; pointer-events: auto; }
+.mega-search-container {
+  position: fixed; top: 14vh; left: 50%; transform: translateX(-50%);
+  width: 640px; max-width: 92vw; max-height: 72vh;
+  z-index: 10011;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 16px;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.04);
+  display: flex; flex-direction: column;
+  opacity: 0; pointer-events: none;
+  transform: translateX(-50%) translateY(-12px) scale(0.98);
+  transition: opacity .2s ease, transform .2s ease;
+  overflow: hidden;
+}
+.mega-search-overlay.open + .mega-search-container,
+.mega-search-container.open {
+  opacity: 1; pointer-events: auto;
+  transform: translateX(-50%) translateY(0) scale(1);
+}
+.mega-search-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.mega-search-header i {
+  font-size: 18px; color: var(--accent); opacity: 0.7; flex-shrink: 0;
+}
+.mega-search-input {
+  flex: 1; background: none; border: none; outline: none;
+  font-family: var(--font-sans); font-size: 1rem; font-weight: 400;
+  color: var(--text-primary); caret-color: var(--accent);
+}
+.mega-search-input::placeholder { color: var(--text-faint); }
+.mega-search-kbd {
+  font-family: var(--font-mono); font-size: .65rem;
+  padding: 2px 8px; border-radius: 5px;
+  background: var(--bg-surface); border: 1px solid var(--border-color);
+  color: var(--text-faint); flex-shrink: 0;
+}
+.mega-search-body {
+  flex: 1; overflow-y: auto; padding: 8px;
+  scrollbar-width: thin; scrollbar-color: var(--border-subtle) transparent;
+}
+.mega-search-body::-webkit-scrollbar { width: 4px; }
+.mega-search-body::-webkit-scrollbar-thumb { background: var(--border-subtle); border-radius: 4px; }
+.mega-search-section {
+  padding: 4px 10px;
+  font-size: .62rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .06em; color: var(--text-faint);
+  margin-top: 4px;
+}
+.mega-search-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 14px; border-radius: 10px;
+  cursor: pointer; transition: background .1s ease;
+  text-decoration: none; color: inherit;
+}
+.mega-search-item:hover, .mega-search-item.focused {
+  background: var(--bg-surface);
+}
+.mega-search-item.focused {
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.mega-search-item-icon {
+  width: 32px; height: 32px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; flex-shrink: 0;
+  background: var(--accent-subtle); color: var(--accent);
+}
+.mega-search-item-icon.page { background: rgba(59,130,246,.1); color: #3b82f6; }
+.mega-search-item-icon.model { background: rgba(139,92,246,.1); color: #a855f7; }
+.mega-search-item-icon.action { background: rgba(251,191,36,.1); color: #fbbf24; }
+.mega-search-item-icon.setting { background: rgba(34,197,94,.1); color: #22c55e; }
+.mega-search-item-text {
+  flex: 1; min-width: 0;
+}
+.mega-search-item-title {
+  font-size: .85rem; font-weight: 500; color: var(--text-primary);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.mega-search-item-title mark {
+  background: rgba(34,197,94,.25); color: var(--accent);
+  border-radius: 2px; padding: 0 1px;
+}
+.mega-search-item-sub {
+  font-size: .68rem; color: var(--text-faint);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.mega-search-item-badge {
+  font-size: .62rem; font-weight: 600; padding: 2px 8px;
+  border-radius: 999px; background: var(--bg-surface);
+  color: var(--text-faint); flex-shrink: 0;
+}
+.mega-search-footer {
+  display: flex; align-items: center; gap: 16px;
+  padding: 10px 18px;
+  border-top: 1px solid var(--border-subtle);
+  font-size: .68rem; color: var(--text-faint);
+}
+.mega-search-footer kbd {
+  font-family: var(--font-mono); font-size: .6rem;
+  padding: 1px 5px; border-radius: 3px;
+  background: var(--bg-surface); border: 1px solid var(--border-color);
+  color: var(--text-faint);
+}
+.mega-search-empty {
+  text-align: center; padding: 40px 20px;
+  color: var(--text-faint); font-size: .82rem;
+}
+.mega-search-empty i {
+  display: block; font-size: 2rem; opacity: .15; margin-bottom: 10px;
+}
+
