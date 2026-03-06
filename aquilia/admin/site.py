@@ -1189,6 +1189,7 @@ class AdminSite:
             try:
                 from aquilia.tasks.decorators import get_registered_tasks
                 for name, desc in get_registered_tasks().items():
+                    sched = getattr(desc, "schedule", None)
                     registered_tasks.append({
                         "name": name,
                         "queue": getattr(desc, "queue", "default"),
@@ -1200,6 +1201,8 @@ class AdminSite:
                         "retry_delay": getattr(desc, "retry_delay", 1.0),
                         "retry_backoff": getattr(desc, "retry_backoff", 2.0),
                         "tags": getattr(desc, "tags", []),
+                        "schedule": sched.human_readable if sched else "on-demand",
+                        "dispatch": "periodic" if sched else "on-demand",
                     })
             except Exception:
                 pass

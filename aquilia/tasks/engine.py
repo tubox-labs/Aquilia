@@ -370,17 +370,23 @@ class TaskManager:
         default_queue: str = "default",
         cleanup_interval: float = 300.0,  # 5 minutes
         cleanup_max_age: float = 3600.0,  # 1 hour
+        scheduler_tick: float = 15.0,  # Scheduler poll interval in seconds
     ):
         self.backend = backend or MemoryBackend()
         self.num_workers = num_workers
         self.default_queue = default_queue
         self.cleanup_interval = cleanup_interval
         self.cleanup_max_age = cleanup_max_age
+        self.scheduler_tick = scheduler_tick
 
         self._workers: list[asyncio.Task] = []
         self._cleanup_task: Optional[asyncio.Task] = None
+        self._scheduler_task: Optional[asyncio.Task] = None
         self._running = False
         self._queues: set[str] = {default_queue}
+
+        # Periodic schedule tracking: task_name → last_enqueued_at
+        self._schedule_last_run: Dict[str, datetime] = {}
 
         # Event listeners
         self._on_complete: list[Callable] = []
@@ -398,11 +404,14 @@ class TaskManager:
     # ========================================================================
 
     async def start(self) -> None:
-        """Start worker tasks and cleanup loop."""
+        """Start worker tasks, cleanup loop, and scheduler loop."""
         if self._running:
             return
         self._running = True
         self._started_at = datetime.now(timezone.utc)
+
+        # Bind task manager to all registered task descriptors
+        self._bind_task_descriptors()
 
         # Start workers
         for i in range(self.num_workers):
@@ -416,6 +425,12 @@ class TaskManager:
         self._cleanup_task = asyncio.create_task(
             self._cleanup_loop(),
             name="aquilia-task-cleanup",
+        )
+
+        # Start scheduler loop for periodic tasks
+        self._scheduler_task = asyncio.create_task(
+            self._scheduler_loop(),
+            name="aquilia-task-scheduler",
         )
 
         logger.info(
@@ -432,14 +447,19 @@ class TaskManager:
             w.cancel()
         if self._cleanup_task:
             self._cleanup_task.cancel()
+        if self._scheduler_task:
+            self._scheduler_task.cancel()
 
         # Wait for workers to finish
         await asyncio.gather(*self._workers, return_exceptions=True)
         if self._cleanup_task:
             await asyncio.gather(self._cleanup_task, return_exceptions=True)
+        if self._scheduler_task:
+            await asyncio.gather(self._scheduler_task, return_exceptions=True)
 
         self._workers.clear()
         self._cleanup_task = None
+        self._scheduler_task = None
         logger.info("TaskManager stopped")
 
     @property
@@ -780,3 +800,84 @@ class TaskManager:
                 break
             except Exception as e:
                 logger.error(f"Cleanup loop error: {e}")
+
+    # ========================================================================
+    # Scheduler Loop (Celery Beat / ARQ cron equivalent)
+    # ========================================================================
+
+    def _bind_task_descriptors(self) -> None:
+        """
+        Bind this TaskManager to all registered ``@task`` descriptors.
+
+        This enables the ``.delay()`` / ``.send()`` convenience API
+        on task descriptors so they can dispatch jobs without a direct
+        reference to the TaskManager instance.
+
+        Also logs periodic tasks that will be managed by the scheduler.
+        """
+        from .decorators import get_registered_tasks, get_periodic_tasks
+
+        for name, descriptor in get_registered_tasks().items():
+            descriptor.bind(self)
+
+        periodic = get_periodic_tasks()
+        if periodic:
+            schedules = ", ".join(
+                f"{n} ({d.schedule.human_readable})"
+                for n, d in periodic.items()
+            )
+            logger.info(f"Scheduler bound {len(periodic)} periodic task(s): {schedules}")
+
+    async def _scheduler_loop(self) -> None:
+        """
+        Periodic task scheduler — the Aquilia equivalent of Celery Beat.
+
+        Runs on a fixed tick interval (default 15s).  On each tick it
+        checks all ``@task(schedule=...)`` descriptors and enqueues
+        those whose interval/cron has elapsed since their last run.
+
+        This is the **industry-standard** approach: tasks with a
+        ``schedule`` are automatically enqueued by the framework;
+        tasks without one are on-demand only and dispatched via
+        ``.delay()`` or ``manager.enqueue()``.
+        """
+        from .decorators import get_periodic_tasks
+
+        # Wait a short beat before first tick so workers are ready
+        await asyncio.sleep(1.0)
+
+        while self._running:
+            try:
+                now = datetime.now(timezone.utc)
+                periodic = get_periodic_tasks()
+
+                for name, descriptor in periodic.items():
+                    last_run = self._schedule_last_run.get(name)
+
+                    if last_run is None:
+                        # First tick after startup — enqueue immediately
+                        should_enqueue = True
+                    else:
+                        next_due = descriptor.schedule.next_run(last_run)
+                        should_enqueue = now >= next_due
+
+                    if should_enqueue:
+                        try:
+                            await self.enqueue(descriptor)
+                            self._schedule_last_run[name] = now
+                            logger.debug(
+                                "Scheduler enqueued periodic task: %s (%s)",
+                                name, descriptor.schedule.human_readable,
+                            )
+                        except Exception as e:
+                            logger.warning(
+                                "Scheduler failed to enqueue %s: %s", name, e
+                            )
+
+                await asyncio.sleep(self.scheduler_tick)
+
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.error(f"Scheduler loop error: {e}", exc_info=True)
+                await asyncio.sleep(self.scheduler_tick)

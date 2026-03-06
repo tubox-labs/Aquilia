@@ -906,7 +906,7 @@ class Integration:
         default_timeout: float = 300.0,
         auto_start: bool = True,
         dead_letter_max: int = 1000,
-        run_on_startup: bool = False,
+        scheduler_tick: float = 15.0,
         **kwargs,
     ) -> Dict[str, Any]:
         """
@@ -915,6 +915,14 @@ class Integration:
         Provides an async-native task queue with priority scheduling,
         retry with exponential backoff, dead-letter handling, and
         admin dashboard integration.
+
+        Tasks are dispatched in two industry-standard ways:
+
+        1. **On-demand** — from controllers/services via
+           ``await my_task.delay(...)`` or ``manager.enqueue(...)``.
+        2. **Periodic** — automatically by the scheduler loop for
+           tasks decorated with ``@task(schedule=every(...))`` or
+           ``@task(schedule=cron(...))``.
 
         Args:
             backend: Backend type -- ``"memory"`` (default) or
@@ -932,10 +940,8 @@ class Integration:
             default_timeout: Default task execution timeout.
             auto_start: Start workers automatically on server boot.
             dead_letter_max: Maximum dead-letter queue size.
-            run_on_startup: If ``True``, automatically enqueue all
-                registered ``@task`` functions with their default
-                arguments when the server starts.  This seeds the
-                admin dashboard with real job data and graphs.
+            scheduler_tick: Seconds between scheduler loop ticks
+                for periodic task evaluation (default: 15s).
             **kwargs: Additional overrides.
 
         Returns:
@@ -946,12 +952,12 @@ class Integration:
             # Default in-memory task queue
             .integrate(Integration.tasks())
 
-            # Custom worker pool with startup seeding
+            # Custom worker pool with fast scheduler
             .integrate(Integration.tasks(
                 num_workers=8,
                 default_timeout=600,
                 max_retries=5,
-                run_on_startup=True,
+                scheduler_tick=10.0,
             ))
         """
         return {
@@ -969,7 +975,7 @@ class Integration:
             "default_timeout": default_timeout,
             "auto_start": auto_start,
             "dead_letter_max": dead_letter_max,
-            "run_on_startup": run_on_startup,
+            "scheduler_tick": scheduler_tick,
             **kwargs,
         }
 

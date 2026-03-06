@@ -1160,46 +1160,6 @@ class AquiliaServer:
             self._task_manager = None
             self.logger.error(f"Tasks subsystem init failed (non-fatal): {e}", exc_info=True)
 
-    async def _enqueue_startup_tasks(self):
-        """
-        Auto-enqueue all registered ``@task`` functions on server startup.
-
-        Called when ``Integration.tasks(run_on_startup=True)`` is set.
-        Iterates every discovered ``@task`` descriptor and enqueues it
-        with default arguments so the admin dashboard immediately
-        populates with real job data, graphs, and metrics.
-
-        Each task is enqueued exactly once.  The task functions'
-        default parameter values are used as arguments.
-        """
-        if not self._task_manager or not self._task_manager.is_running:
-            return
-
-        try:
-            from .tasks.decorators import get_registered_tasks
-            registered = get_registered_tasks()
-            if not registered:
-                return
-
-            enqueued = 0
-            for name, descriptor in registered.items():
-                try:
-                    await self._task_manager.enqueue(descriptor)
-                    enqueued += 1
-                    self.logger.debug("Startup-enqueued task: %s", name)
-                except Exception as e:
-                    self.logger.warning(
-                        "Failed to startup-enqueue task %s: %s", name, e
-                    )
-
-            if enqueued:
-                self.logger.info(
-                    "Startup-enqueued %d registered task(s) for admin dashboard seeding",
-                    enqueued,
-                )
-        except Exception as e:
-            self.logger.warning("Startup task enqueue failed (non-fatal): %s", e)
-
     def _setup_error_tracker(self):
         """
         Initialize the error tracker and wire it to the FaultEngine.
@@ -2772,11 +2732,6 @@ class AquiliaServer:
                 try:
                     await self._task_manager.start()
                     self.logger.info("Background task manager started")
-
-                    # Auto-enqueue registered tasks if run_on_startup is enabled
-                    tasks_config = self.config.get_tasks_config()
-                    if tasks_config.get("run_on_startup", False):
-                        await self._enqueue_startup_tasks()
                 except Exception as e:
                     self.logger.error(f"Task manager startup failed: {e}")
                     # Non-fatal -- app can run without background tasks

@@ -47,6 +47,7 @@ from .job import (
     JobResult,
 )
 from .decorators import task
+from .schedule import every, cron, IntervalSchedule, CronSchedule
 from .worker import Worker
 
 __all__ = [
@@ -59,4 +60,8 @@ __all__ = [
     "JobResult",
     "Worker",
     "task",
+    "every",
+    "cron",
+    "IntervalSchedule",
+    "CronSchedule",
 ]

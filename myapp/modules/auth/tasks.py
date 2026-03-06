@@ -14,12 +14,14 @@ import logging
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from aquilia.tasks import task, Priority
+from aquilia.tasks import task, Priority, every
 
 logger = logging.getLogger("auth.tasks")
 
 
 # ── Session Cleanup ─────────────────────────────────────────────────────
+# Periodic: runs automatically every hour via the scheduler loop.
+# This is the industry-standard pattern for maintenance tasks.
 
 @task(
     queue="maintenance",
@@ -27,6 +29,7 @@ logger = logging.getLogger("auth.tasks")
     priority=Priority.LOW,
     timeout=120.0,
     tags=["auth", "sessions", "cleanup"],
+    schedule=every(hours=1),
 )
 async def cleanup_expired_sessions(
     max_idle_seconds: int = 86400,
@@ -70,6 +73,9 @@ async def cleanup_expired_sessions(
 
 
 # ── Login Audit Logging ─────────────────────────────────────────────────
+# On-demand: dispatched from auth controllers via .delay() when a
+# login event occurs.  Example:
+#   await record_login_attempt.delay(username="admin", ip_address="1.2.3.4")
 
 @task(
     queue="audit",
@@ -131,6 +137,9 @@ async def record_login_attempt(
 
 
 # ── Account Lockout Check ───────────────────────────────────────────────
+# On-demand: dispatched from auth controllers via .delay() after
+# failed login attempts.  Example:
+#   await check_account_lockout.delay(username="admin")
 
 @task(
     queue="security",
