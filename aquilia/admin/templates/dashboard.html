@@ -40,14 +40,22 @@
 </div>
 {% endif %}
 
-{# ── Command palette trigger ── #}
-<div id="cmd-trigger" onclick="showCommandPalette()" style="margin-bottom:24px;padding:12px 18px;background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius);cursor:pointer;display:flex;align-items:center;gap:10px;transition:border-color 0.2s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border-subtle)'">
-    <i class="icon-search" style="font-size:16px;color:var(--text-faint);"></i>
-    <span style="font-size:0.84rem;color:var(--text-faint);flex:1;">Quick navigation…</span>
-    <kbd style="background:var(--bg-surface);padding:2px 8px;border-radius:4px;font-size:0.7rem;color:var(--text-faint);font-family:var(--font-mono);border:1px solid var(--border-color);">⌘K</kbd>
+{# ── Mega Search trigger bar ── #}
+<div class="dash-search-bar" onclick="if(window.AqMegaSearch)AqMegaSearch.open()">
+    <div class="dash-search-inner">
+        <div class="dash-search-icon">
+            <i class="icon-search"></i>
+        </div>
+        <span class="dash-search-placeholder">Search pages, models, actions&hellip;</span>
+        <div class="dash-search-keys">
+            <kbd class="dash-kbd">⌘</kbd>
+            <kbd class="dash-kbd">K</kbd>
+        </div>
+    </div>
 </div>
 
 {# ═══ METRIC CARDS ROW ═══════════════════════════════════════════ #}
+<div class="section-label" style="margin-top:4px;">Overview</div>
 <div class="dash-stats">
     <div class="dash-stat-card">
         <div class="stat-icon-wrap green"><i class="icon-layers"></i></div>
@@ -139,7 +147,7 @@
 {% set ac = admin_config|default({}) %}
 {% set modules = ac.get('modules', {}) if ac is mapping else {} %}
 {% if modules.get('containers', false) or modules.get('pods', false) %}
-<div class="section-label" style="margin-top:4px;">Infrastructure</div>
+<div class="section-label" style="margin-top:4px;"><i class="icon-server" style="font-size:13px;opacity:0.5;margin-right:6px;"></i>Infrastructure</div>
 <div class="dash-grid">
 
     {# ── Docker Containers widget ── #}
@@ -251,7 +259,7 @@
 {# ═══ MLOPS OVERVIEW ══════════════════════════════════════════════ #}
 {% set mlops = mlops_summary|default({}) %}
 {% if mlops.get('available', false) or mlops.get('total_models', 0) > 0 %}
-<div class="section-label" style="margin-top:4px;">MLOps</div>
+<div class="section-label" style="margin-top:4px;"><i class="icon-cpu" style="font-size:13px;opacity:0.5;margin-right:6px;"></i>MLOps</div>
 <div class="dash-grid">
 
     {# ── Model Registry Summary ── #}
@@ -362,7 +370,7 @@
 {% set orm_models = orm.get('models', []) %}
 
 {% if orm_stats.get('total_models', 0) > 0 %}
-<div class="section-label" style="margin-top:4px;">ORM Overview</div>
+<div class="section-label" style="margin-top:4px;"><i class="icon-database" style="font-size:13px;opacity:0.5;margin-right:6px;"></i>ORM Overview</div>
 
 {# ── Row 1: Database info + Schema stats ── #}
 <div class="dash-grid">
@@ -598,6 +606,7 @@
 {% endif %}
 
 {# ═══ MAIN DASHBOARD GRID ═══════════════════════════════════════ #}
+<div class="section-label"><i class="icon-bar-chart-2" style="font-size:13px;opacity:0.5;margin-right:6px;"></i>Analytics</div>
 <div class="dash-grid">
 
     {# ── LEFT: Activity breakdown (donut + legend) ── #}
@@ -758,7 +767,7 @@
 </div>
 
 {# ═══ RECENT ACTIVITY TIMELINE ══════════════════════════════════ #}
-<div class="section-label">Recent Activity</div>
+<div class="section-label"><i class="icon-activity" style="font-size:13px;opacity:0.5;margin-right:6px;"></i>Recent Activity</div>
 {% if recent_actions %}
 <div class="glass-card" style="padding:16px 20px;margin-bottom:24px;">
     <div class="activity-timeline">
@@ -805,46 +814,46 @@
 
     {# ── Quick Access navigation cards ── #}
     <div>
-        <div class="section-label">Quick Access</div>
-        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;">
-            <a class="model-card" href="{{ url_prefix|default('/admin') }}/orm/" style="padding:18px;">
+        <div class="section-label" style="margin-top:0;"><i class="icon-zap" style="font-size:13px;opacity:0.5;margin-right:6px;"></i>Quick Access</div>
+        <div class="dash-quick-grid">
+            <a class="quick-access-card" href="{{ url_prefix|default('/admin') }}/orm/">
                 <div>
                     <div class="model-card-name"><i class="icon-database" style="font-size:14px;vertical-align:-2px;margin-right:4px;opacity:0.5;"></i>ORM Models</div>
                     <div class="model-card-app" style="margin-top:4px;">{{ total_models }} registered</div>
                 </div>
             </a>
-            <a class="model-card" href="{{ url_prefix|default('/admin') }}/build/" style="padding:18px;">
+            <a class="quick-access-card" href="{{ url_prefix|default('/admin') }}/build/">
                 <div>
                     <div class="model-card-name"><i class="icon-package" style="font-size:14px;vertical-align:-2px;margin-right:4px;opacity:0.5;"></i>Build</div>
                     <div class="model-card-app" style="margin-top:4px;">Crous artifacts</div>
                 </div>
             </a>
-            <a class="model-card" href="{{ url_prefix|default('/admin') }}/config/" style="padding:18px;">
+            <a class="quick-access-card" href="{{ url_prefix|default('/admin') }}/config/">
                 <div>
                     <div class="model-card-name"><i class="icon-settings" style="font-size:14px;vertical-align:-2px;margin-right:4px;opacity:0.5;"></i>Config</div>
                     <div class="model-card-app" style="margin-top:4px;">YAML settings</div>
                 </div>
             </a>
-            <a class="model-card" href="{{ url_prefix|default('/admin') }}/audit/" style="padding:18px;">
+            <a class="quick-access-card" href="{{ url_prefix|default('/admin') }}/audit/">
                 <div>
                     <div class="model-card-name"><i class="icon-scroll-text" style="font-size:14px;vertical-align:-2px;margin-right:4px;opacity:0.5;"></i>Audit Log</div>
                     <div class="model-card-app" style="margin-top:4px;">{{ audit_summary.total_entries|default(0) }} entries</div>
                 </div>
             </a>
-            <a class="model-card" href="{{ url_prefix|default('/admin') }}/permissions/" style="padding:18px;">
+            <a class="quick-access-card" href="{{ url_prefix|default('/admin') }}/permissions/">
                 <div>
                     <div class="model-card-name"><i class="icon-shield" style="font-size:14px;vertical-align:-2px;margin-right:4px;opacity:0.5;"></i>Permissions</div>
                     <div class="model-card-app" style="margin-top:4px;">Role management</div>
                 </div>
             </a>
-            <a class="model-card" href="{{ url_prefix|default('/admin') }}/migrations/" style="padding:18px;">
+            <a class="quick-access-card" href="{{ url_prefix|default('/admin') }}/migrations/">
                 <div>
                     <div class="model-card-name"><i class="icon-git-branch" style="font-size:14px;vertical-align:-2px;margin-right:4px;opacity:0.5;"></i>Migrations</div>
                     <div class="model-card-app" style="margin-top:4px;">Schema changes</div>
                 </div>
             </a>
             {% if modules.get('containers', false) %}
-            <a class="model-card" href="{{ url_prefix|default('/admin') }}/containers/" style="padding:18px;">
+            <a class="quick-access-card" href="{{ url_prefix|default('/admin') }}/containers/">
                 <div>
                     <div class="model-card-name"><i class="icon-container" style="font-size:14px;vertical-align:-2px;margin-right:4px;opacity:0.5;"></i>Containers</div>
                     <div class="model-card-app" style="margin-top:4px;">Docker management</div>
@@ -852,7 +861,7 @@
             </a>
             {% endif %}
             {% if modules.get('pods', false) %}
-            <a class="model-card" href="{{ url_prefix|default('/admin') }}/pods/" style="padding:18px;">
+            <a class="quick-access-card" href="{{ url_prefix|default('/admin') }}/pods/">
                 <div>
                     <div class="model-card-name"><i class="icon-cloud" style="font-size:14px;vertical-align:-2px;margin-right:4px;opacity:0.5;"></i>Pods</div>
                     <div class="model-card-app" style="margin-top:4px;">Kubernetes cluster</div>
@@ -860,7 +869,7 @@
             </a>
             {% endif %}
             {% if modules.get('mlops', false) %}
-            <a class="model-card" href="{{ url_prefix|default('/admin') }}/mlops/" style="padding:18px;">
+            <a class="quick-access-card" href="{{ url_prefix|default('/admin') }}/mlops/">
                 <div>
                     <div class="model-card-name"><i class="icon-cpu" style="font-size:14px;vertical-align:-2px;margin-right:4px;opacity:0.5;"></i>MLOps</div>
                     <div class="model-card-app" style="margin-top:4px;">{{ mlops_summary.get('total_models', 0) }} models</div>
@@ -872,7 +881,7 @@
 
     {# ── Environment info panel ── #}
     <div>
-        <div class="section-label">Environment</div>
+        <div class="section-label" style="margin-top:0;"><i class="icon-terminal" style="font-size:13px;opacity:0.5;margin-right:6px;"></i>Environment</div>
         <div class="glass-card" style="padding:20px;">
             <div class="env-grid">
                 <div class="env-item">
@@ -906,7 +915,7 @@
 
 {# ═══ REGISTERED MODELS TABLE ═══════════════════════════════════ #}
 {% if app_list %}
-<div class="section-label" style="margin-top:12px;">Registered Models</div>
+<div class="section-label" style="margin-top:12px;"><i class="icon-layers" style="font-size:13px;opacity:0.5;margin-right:6px;"></i>Registered Models</div>
 <div class="glass-card" style="padding:0;">
     <table class="data-table" style="width:100%;">
         <thead>
@@ -1015,7 +1024,7 @@
 
 // ── Model card hover glow tracking ──
 (function() {
-    document.querySelectorAll('.model-card').forEach(function(card) {
+    document.querySelectorAll('.model-card, .quick-access-card').forEach(function(card) {
         card.addEventListener('mousemove', function(e) {
             var rect = card.getBoundingClientRect();
             card.style.setProperty('--mouse-x', (e.clientX - rect.left) + 'px');
@@ -1038,75 +1047,17 @@
     });
 })();
 
-// ── Command palette ──
-window.showCommandPalette = function() {
-    var existing = document.getElementById('cmd-palette');
-    if (existing) { existing.remove(); return; }
-    var isDark = document.documentElement.getAttribute('data-theme') !== 'light';
-    var items = [
-        { label: 'Dashboard', icon: 'home', url: '{{ url_prefix|default("/admin") }}/' },
-        { label: 'ORM Models', icon: 'database', url: '{{ url_prefix|default("/admin") }}/orm/' },
-        { label: 'Build', icon: 'package', url: '{{ url_prefix|default("/admin") }}/build/' },
-        { label: 'Config', icon: 'settings', url: '{{ url_prefix|default("/admin") }}/config/' },
-        { label: 'Audit Log', icon: 'scroll-text', url: '{{ url_prefix|default("/admin") }}/audit/' },
-        { label: 'Permissions', icon: 'shield', url: '{{ url_prefix|default("/admin") }}/permissions/' },
-        { label: 'Migrations', icon: 'git-branch', url: '{{ url_prefix|default("/admin") }}/migrations/' },
-        { label: 'Admin Users', icon: 'users', url: '{{ url_prefix|default("/admin") }}/admin-users/' },
-        { label: 'Monitoring', icon: 'activity', url: '{{ url_prefix|default("/admin") }}/monitoring/' },
-        { label: 'Containers', icon: 'container', url: '{{ url_prefix|default("/admin") }}/containers/' },
-        { label: 'Pods', icon: 'cloud', url: '{{ url_prefix|default("/admin") }}/pods/' },
-        { label: 'MLOps', icon: 'cpu', url: '{{ url_prefix|default("/admin") }}/mlops/' },
-        {% for app_info in app_list|default([]) %}{% for model_info in app_info.models|default([]) %}
-        { label: '{{ model_info.verbose_name|default(model_info.name|default("")) }}', icon: 'table', url: '{{ url_prefix|default("/admin") }}/{{ model_info.name|default("")|lower }}/' },
-        {% endfor %}{% endfor %}
-    ];
-    var overlay = document.createElement('div');
-    overlay.id = 'cmd-palette';
-    overlay.style.cssText = 'position:fixed;inset:0;background:' + (isDark ? 'rgba(0,0,0,0.6)' : 'rgba(0,0,0,0.3)') + ';z-index:10002;display:flex;align-items:flex-start;justify-content:center;padding-top:15vh;backdrop-filter:blur(4px);';
-    var box = document.createElement('div');
-    box.style.cssText = 'background:' + (isDark ? '#111' : '#ffffff') + ';border:1px solid ' + (isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)') + ';border-radius:14px;width:90%;max-width:480px;box-shadow:0 24px 64px ' + (isDark ? 'rgba(0,0,0,0.6)' : 'rgba(0,0,0,0.15)') + ';overflow:hidden;';
-    var input = document.createElement('input');
-    input.type = 'text';
-    input.placeholder = 'Type to search\u2026';
-    input.style.cssText = 'width:100%;padding:14px 18px;background:transparent;border:none;border-bottom:1px solid ' + (isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)') + ';color:' + (isDark ? '#e5e5e5' : '#0a0a0a') + ';font-size:0.92rem;font-family:var(--font-sans);outline:none;';
-    var list = document.createElement('div');
-    list.style.cssText = 'max-height:300px;overflow-y:auto;padding:6px;';
-    var textColor = isDark ? '#e5e5e5' : '#0a0a0a';
-    var hoverBg = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)';
-    function render(filter) {
-        list.innerHTML = '';
-        var filtered = items.filter(function(i) { return !filter || i.label.toLowerCase().includes(filter.toLowerCase()); });
-        filtered.forEach(function(item) {
-            var a = document.createElement('a');
-            a.href = item.url;
-            a.style.cssText = 'display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:8px;text-decoration:none;color:' + textColor + ';font-size:0.84rem;transition:background 0.15s;';
-            a.innerHTML = '<i class="icon-' + item.icon + '" style="font-size:16px;color:var(--accent);opacity:0.6;"></i>' + item.label;
-            a.onmouseover = function() { this.style.background = hoverBg; };
-            a.onmouseout = function() { this.style.background = 'transparent'; };
-            list.appendChild(a);
-        });
-        if (filtered.length === 0) {
-            list.innerHTML = '<div style="padding:18px;text-align:center;color:var(--text-faint);font-size:0.82rem;">No results</div>';
-        }
-    }
-    render('');
-    input.addEventListener('input', function() { render(this.value); });
-    box.appendChild(input);
-    box.appendChild(list);
-    overlay.appendChild(box);
-    overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
-    document.body.appendChild(overlay);
-    input.focus();
-    document.addEventListener('keydown', function handler(e) {
-        if (e.key === 'Escape') { overlay.remove(); document.removeEventListener('keydown', handler); }
+// ── Dashboard search bar pulse animation ──
+(function() {
+    var bar = document.querySelector('.dash-search-bar');
+    if (!bar) return;
+    bar.addEventListener('mouseenter', function() {
+        this.classList.add('dash-search-hover');
     });
-};
-document.addEventListener('keydown', function(e) {
-    if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault();
-        showCommandPalette();
-    }
-});
+    bar.addEventListener('mouseleave', function() {
+        this.classList.remove('dash-search-hover');
+    });
+})();
 </script>
 {% endblock %}
 {% endblock %}
