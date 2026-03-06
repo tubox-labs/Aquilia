@@ -182,6 +182,7 @@
     .mon-grid-2 { grid-template-columns: 1fr; }
     .mon-stats-grid { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); }
 }
+@keyframes spin { to { transform: rotate(360deg); } }
 </style>
 {% endblock %}
 
@@ -190,7 +191,7 @@
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
         <div>
             <h1 style="display:flex;align-items:center;gap:10px;">
-                Application Monitoring
+                <span class="gradient-text">Application Monitoring</span>
                 <span style="font-size:0.55rem;padding:3px 10px;border-radius:var(--radius-full);background:var(--accent-subtle);color:var(--accent);font-weight:500;vertical-align:middle;">LIVE</span>
             </h1>
             <p>Real-time system metrics, resource utilisation, and health diagnostics for this Aquilia instance.</p>
@@ -654,6 +655,23 @@
         No partition data available.
     </div>
     {% endif %}
+
+    <div class="section-label" style="margin-top:24px;">Prometheus Text Format</div>
+    <div class="mon-chart-card" style="margin-bottom:24px;padding:0;overflow:hidden;">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border-subtle);">
+            <div style="display:flex;align-items:center;gap:8px;">
+                <i class="icon-bar-chart-2" style="font-size:14px;color:var(--accent);opacity:0.7;"></i>
+                <span style="font-size:.78rem;font-weight:600;color:var(--text-secondary);">Metrics Export</span>
+                <span style="font-size:.62rem;padding:2px 8px;border-radius:var(--radius-full);background:rgba(34,197,94,.08);color:var(--accent);font-weight:500;">OpenMetrics</span>
+            </div>
+            <button class="btn-ghost" style="font-size:.72rem;padding:4px 12px;border:1px solid var(--border-color);border-radius:var(--radius-sm);" onclick="fetchPrometheusMetrics(this)">
+                <i class="icon-refresh-cw" style="font-size:11px;vertical-align:-1px;margin-right:4px;"></i>Refresh
+            </button>
+        </div>
+        <div id="prom-output-wrap" style="position:relative;">
+            <pre id="prom-output" style="margin:0;padding:16px 18px;font-family:var(--font-mono);font-size:.72rem;line-height:1.7;background:transparent;overflow-x:auto;max-height:480px;overflow-y:auto;color:var(--text-secondary);"><span style="color:var(--text-faint);font-style:italic;">Click Refresh to load current Prometheus metrics…</span></pre>
+        </div>
+    </div>
 </div>
 {% endblock %}
 
@@ -1071,5 +1089,95 @@ new MutationObserver(function() {
 
 // ── Cleanup ──
 window.addEventListener('beforeunload', function() { if (_pollInterval) clearInterval(_pollInterval); });
+
+// ── Prometheus Text Format Highlighter ──────────────────────────
+(function() {
+    'use strict';
+    function promEsc(s) {
+        return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+    function highlightPromLine(line) {
+        var trimmed = line.trim();
+        // Comment / HELP / TYPE lines
+        if (trimmed.startsWith('#')) {
+            var m = trimmed.match(/^(#\s*)(HELP|TYPE)(\s+)(\S+)(\s+.*)?$/);
+            if (m) {
+                return '<span style="color:#6b7280;">' + promEsc(m[1]) + '</span>' +
+                       '<span style="color:#a855f7;font-weight:600;">' + promEsc(m[2]) + '</span>' +
+                       promEsc(m[3]) +
+                       '<span style="color:#22c55e;">' + promEsc(m[4]) + '</span>' +
+                       '<span style="color:#94a3b8;">' + promEsc(m[5] || '') + '</span>';
+            }
+            return '<span style="color:#6b7280;">' + promEsc(line) + '</span>';
+        }
+        if (!trimmed) return '';
+        // Metric line: metric_name{labels} value [timestamp]
+        var metricRe = /^([a-zA-Z_:][a-zA-Z0-9_:]*)(\{[^}]*\})?(\s+)([+\-]?[0-9eE.+\-]+(?:Inf|NaN)?)(\s+\d+)?(.*)$/;
+        var mm = metricRe.exec(trimmed);
+        if (mm) {
+            var name  = '<span style="color:#38bdf8;font-weight:500;">' + promEsc(mm[1]) + '</span>';
+            var lbls  = mm[2] ? highlightPromLabels(mm[2]) : '';
+            var sp    = promEsc(mm[3]);
+            var val   = '<span style="color:#fbbf24;font-weight:600;">' + promEsc(mm[4]) + '</span>';
+            var ts    = mm[5] ? '<span style="color:#6b7280;">' + promEsc(mm[5]) + '</span>' : '';
+            var rest  = mm[6] ? '<span style="color:#6b7280;">' + promEsc(mm[6]) + '</span>' : '';
+            return name + lbls + sp + val + ts + rest;
+        }
+        return promEsc(line);
+    }
+    function highlightPromLabels(lblStr) {
+        // lblStr = "{key=\"val\",key2=\"val2\"}"
+        var inner = lblStr.slice(1, -1);
+        var highlighted = inner.replace(/([a-zA-Z_][a-zA-Z0-9_]*)(\s*=\s*)("(?:[^"\\]|\\.)*")/g, function(_, k, eq, v) {
+            return '<span style="color:#86efac;">' + promEsc(k) + '</span>' +
+                   '<span style="color:#6b7280;">' + promEsc(eq) + '</span>' +
+                   '<span style="color:#fca5a5;">' + promEsc(v) + '</span>';
+        });
+        return '<span style="color:#6b7280;">{</span>' + highlighted + '<span style="color:#6b7280;">}</span>';
+    }
+    window._renderPromMetrics = function(text) {
+        var lines = text.split('\n');
+        return lines.map(highlightPromLine).join('\n');
+    };
+})();
+
+function fetchPrometheusMetrics(btn) {
+    var out = document.getElementById('prom-output');
+    if (!out) return;
+    if (btn) { btn.disabled = true; btn.innerHTML = '<span style="display:inline-block;width:11px;height:11px;border:2px solid rgba(255,255,255,.15);border-top-color:var(--accent);border-radius:50%;animation:spin .6s linear infinite;vertical-align:-2px;margin-right:4px;"></span>Loading…'; }
+    fetch(_urlPrefix + '/monitoring/api/?sections=prometheus')
+        .then(function(r) { return r.ok ? r.text() : Promise.reject('HTTP ' + r.status); })
+        .then(function(text) {
+            try { var j = JSON.parse(text); text = j.prometheus || j.metrics_text || JSON.stringify(j, null, 2); } catch(e) {}
+            out.innerHTML = window._renderPromMetrics ? window._renderPromMetrics(text) : '<span style="color:var(--text-faint);">' + text + '</span>';
+            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="icon-refresh-cw" style="font-size:11px;vertical-align:-1px;margin-right:4px;"></i>Refresh'; }
+        })
+        .catch(function(err) {
+            // Fallback: build metrics from _monData
+            var d = _monData;
+            var lines = [
+                '# HELP process_cpu_percent CPU usage percentage',
+                '# TYPE process_cpu_percent gauge',
+                'process_cpu_percent ' + (d.cpu.percent || 0),
+                '# HELP process_memory_rss_bytes Resident set size in bytes',
+                '# TYPE process_memory_rss_bytes gauge',
+                'process_memory_rss_bytes ' + (d.process.rss || 0),
+                '# HELP system_memory_percent System memory usage percentage',
+                '# TYPE system_memory_percent gauge',
+                'system_memory_percent ' + (d.memory.percent || 0),
+                '# HELP system_disk_percent Disk usage percentage',
+                '# TYPE system_disk_percent gauge',
+                'system_disk_percent ' + (d.disk.percent || 0),
+                '# HELP process_threads_total Number of threads',
+                '# TYPE process_threads_total gauge',
+                'process_threads_total{pid="' + (d.process.pid || 0) + '"} ' + (d.process.threads || 0),
+                '# HELP python_gc_objects_total GC tracked objects',
+                '# TYPE python_gc_objects_total gauge',
+                'python_gc_objects_total ' + (d.python.gc_objects || 0),
+            ];
+            out.innerHTML = window._renderPromMetrics ? window._renderPromMetrics(lines.join('\n')) : lines.join('\n');
+            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="icon-refresh-cw" style="font-size:11px;vertical-align:-1px;margin-right:4px;"></i>Refresh'; }
+        });
+}
 
 {% endblock %}

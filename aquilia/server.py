@@ -1941,6 +1941,14 @@ class AquiliaServer:
             admin_routes.extend([
                 ("GET", f"{url_prefix}/mlops/",    "mlops_view",    ctrl.mlops_view),
                 ("GET", f"{url_prefix}/mlops/api/", "mlops_api",    ctrl.mlops_api),
+                # MLOps interactive API endpoints
+                ("POST", f"{url_prefix}/mlops/api/predict/",           "mlops_predict",          ctrl.mlops_predict),
+                ("POST", f"{url_prefix}/mlops/api/compare/",           "mlops_compare",          ctrl.mlops_compare),
+                ("POST", f"{url_prefix}/mlops/api/health-check/",      "mlops_health_check",     ctrl.mlops_health_check),
+                ("POST", f"{url_prefix}/mlops/api/batch-predict/",     "mlops_batch_predict",    ctrl.mlops_batch_predict),
+                ("GET",  f"{url_prefix}/mlops/api/inference-history/",  "mlops_inference_history", ctrl.mlops_inference_history),
+                ("POST", f"{url_prefix}/mlops/api/alerts/",            "mlops_update_alerts",    ctrl.mlops_update_alerts),
+                ("POST", f"{url_prefix}/mlops/api/export-snapshot/",   "mlops_export_snapshot",  ctrl.mlops_export_snapshot),
             ])
 
             # Model CRUD routes -- always registered

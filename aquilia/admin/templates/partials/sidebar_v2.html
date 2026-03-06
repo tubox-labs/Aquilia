@@ -12,10 +12,11 @@
         <span class="badge">Admin</span>
     </a>
 
-    {# ── Sidebar Search ── #}
-    <div class="sidebar-search" style="position:relative;">
+    {# ── Sidebar Search (opens Mega Search) ── #}
+    <div class="sidebar-search" style="position:relative;cursor:pointer;" onclick="if(window.AqMegaSearch)AqMegaSearch.open();">
         <i class="sidebar-search-icon icon-search"></i>
-        <input type="text" class="sidebar-search-input" id="sidebarSearchInput" placeholder="Filter pages…" autocomplete="off">
+        <input type="text" class="sidebar-search-input" id="sidebarSearchInput" placeholder="Search…" autocomplete="off" readonly style="cursor:pointer;">
+        <span style="position:absolute;right:20px;top:50%;transform:translateY(-50%);font-family:var(--font-mono);font-size:.6rem;padding:2px 7px;border-radius:4px;background:var(--bg-surface);border:1px solid var(--border-color);color:var(--text-faint);pointer-events:none;">⌘K</span>
     </div>
 
     {# ── Resolve admin_config with safe defaults ── #}

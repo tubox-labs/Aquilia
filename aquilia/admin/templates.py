@@ -194,6 +194,7 @@ def render_dashboard(
     orm_metadata: Optional[Dict[str, Any]] = None,
     error_stats: Optional[Dict[str, Any]] = None,
     tasks_stats: Optional[Dict[str, Any]] = None,
+    mlops_summary: Optional[Dict[str, Any]] = None,
 ) -> str:
     """Render the admin dashboard."""
     model_counts = stats.get("model_counts", {})
@@ -240,6 +241,8 @@ def render_dashboard(
             errors_last_hour=_error_stats.get("errors_last_hour", 0),
             tasks_active=_tasks_stats.get("active_count", 0),
             tasks_pending=_tasks_stats.get("pending_count", 0),
+            # MLOps summary
+            mlops_summary=mlops_summary or {},
         )
     return _fallback_dashboard(
         app_list, stats, identity_name,
@@ -1104,6 +1107,10 @@ def render_mlops_page(
             dtypes=mlops_data.get("dtypes", []),
             permissions=mlops_data.get("permissions", []),
             charts=charts,
+            # ── New advanced features ──
+            inference_history=mlops_data.get("inference_history", []),
+            alert_rules=mlops_data.get("alert_rules", []),
+            triggered_alerts=mlops_data.get("triggered_alerts", []),
             app_list=app_list or [],
             active_page="mlops",
             identity_name=identity_name,

@@ -172,6 +172,12 @@ workspace = (
             .enable_tasks()
             .enable_errors()
             .enable_testing()
+            .enable_mlops()
+            .enable_containers()
+        ),
+        containers = (
+            Integration.AdminContainers()
+            # .allowed_actions()
         )
     ))
 )
