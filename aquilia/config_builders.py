@@ -716,6 +716,65 @@ class Integration:
             }
     
     @staticmethod
+    def storage(
+        default: str = "default",
+        backends: Optional[Dict[str, Any]] = None,
+        **kwargs,
+    ) -> Dict[str, Any]:
+        """
+        Configure file storage backends.
+
+        Accepts a dict of named backends (Django-style aliases).
+        Each value can be a StorageConfig instance or a plain dict
+        with a ``backend`` key.
+
+        Args:
+            default: Alias of the default backend.
+            backends: ``{alias: config_dict_or_StorageConfig, ...}``
+            **kwargs: Additional storage options.
+
+        Returns:
+            Storage configuration dictionary.
+
+        Examples::
+
+            # Local only:
+            .integrate(Integration.storage(
+                backends={"default": {"backend": "local", "root": "./uploads"}},
+            ))
+
+            # Multi-backend:
+            from aquilia.storage import LocalConfig, S3Config
+            .integrate(Integration.storage(
+                default="cdn",
+                backends={
+                    "local": LocalConfig(root="./uploads"),
+                    "cdn": S3Config(bucket="my-cdn", region="us-east-1"),
+                },
+            ))
+        """
+        backend_list = []
+        for alias, cfg in (backends or {}).items():
+            if hasattr(cfg, "to_dict"):
+                entry = cfg.to_dict()
+            elif isinstance(cfg, dict):
+                entry = dict(cfg)
+            else:
+                entry = {"backend": str(cfg)}
+            entry.setdefault("alias", alias)
+            if alias == default:
+                entry["default"] = True
+            backend_list.append(entry)
+
+        return {
+            "_integration_type": "storage",
+            "enabled": True,
+            "default": default,
+            "backends": backend_list,
+            **kwargs,
+        }
+
+    @staticmethod
     def registry(**kwargs) -> Dict[str, Any]:
         """Configure registry."""
         return {
@@ -3277,6 +3336,7 @@ class Workspace:
         self._cache_config: Optional[Dict[str, Any]] = None
         self._i18n_config: Optional[Dict[str, Any]] = None
         self._tasks_config: Optional[Dict[str, Any]] = None
+        self._storage_config: Optional[Dict[str, Any]] = None
         self._starter: Optional[str] = None
         self._middleware_chain: Optional[List[Dict[str, Any]]] = None
         self._on_startup: Optional[str] = None
@@ -3416,6 +3476,9 @@ class Workspace:
             elif integration_type == "tasks":
                 self._integrations["tasks"] = integration
                 self._tasks_config = integration
+            elif integration_type == "storage":
+                self._integrations["storage"] = integration
+                self._storage_config = integration
             return self
 
         # Determine integration type from keys (legacy detection)
@@ -3524,6 +3587,49 @@ class Workspace:
         )
         self._tasks_config = config
         self._integrations["tasks"] = config
+        return self
+
+    def storage(
+        self,
+        default: str = "default",
+        backends: Optional[Dict[str, Any]] = None,
+        **kwargs,
+    ) -> "Workspace":
+        """
+        Configure file storage for the workspace.
+
+        Shorthand for ``integrate(Integration.storage(...))``.
+
+        Args:
+            default: Alias of the default backend.
+            backends: ``{alias: config_dict_or_StorageConfig, ...}``
+            **kwargs: Additional storage configuration.
+
+        Returns:
+            Self for chaining.
+
+        Example::
+
+            from aquilia.storage import LocalConfig, S3Config
+
+            workspace = (
+                Workspace("myapp")
+                .storage(
+                    default="local",
+                    backends={
+                        "local": LocalConfig(root="./uploads"),
+                        "cdn": S3Config(bucket="cdn-bucket", region="us-east-1"),
+                    },
+                )
+            )
+        """
+        config = Integration.storage(
+            default=default,
+            backends=backends,
+            **kwargs,
+        )
+        self._storage_config = config
+        self._integrations["storage"] = config
         return self
 
     def security(
@@ -3786,6 +3892,9 @@ class Workspace:
         if self._tasks_config:
             config["tasks"] = self._tasks_config
             config["integrations"]["tasks"] = self._tasks_config
+        if self._storage_config:
+            config["storage"] = self._storage_config
+            config["integrations"]["storage"] = self._storage_config
         
         return config
     

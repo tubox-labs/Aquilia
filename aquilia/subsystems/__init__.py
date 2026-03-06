@@ -12,9 +12,22 @@ from .base import SubsystemInitializer, BootContext, BaseSubsystem
 from .effects import EffectSubsystem
 
 
+def _get_storage_subsystem():
+    """Lazy import to break circular dependency."""
+    from ..storage.subsystem import StorageSubsystem
+    return StorageSubsystem
+
+
 __all__ = [
     "SubsystemInitializer",
     "BootContext",
     "BaseSubsystem",
     "EffectSubsystem",
+    "StorageSubsystem",
 ]
+
+
+def __getattr__(name):
+    if name == "StorageSubsystem":
+        return _get_storage_subsystem()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
