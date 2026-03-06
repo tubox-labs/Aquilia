@@ -1,4 +1,12 @@
 User-agent: *
 Allow: /
+Allow: /docs
+Allow: /changelogs
+Allow: /releases
+Disallow: /api/
+Disallow: /_redirects
+
+# Crawl-delay for politeness (optional)
+Crawl-delay: 1
 
 Sitemap: https://aquilia.tubox.cloud/sitemap.xml

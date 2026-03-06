@@ -906,6 +906,7 @@ class Integration:
         default_timeout: float = 300.0,
         auto_start: bool = True,
         dead_letter_max: int = 1000,
+        run_on_startup: bool = False,
         **kwargs,
     ) -> Dict[str, Any]:
         """
@@ -931,6 +932,10 @@ class Integration:
             default_timeout: Default task execution timeout.
             auto_start: Start workers automatically on server boot.
             dead_letter_max: Maximum dead-letter queue size.
+            run_on_startup: If ``True``, automatically enqueue all
+                registered ``@task`` functions with their default
+                arguments when the server starts.  This seeds the
+                admin dashboard with real job data and graphs.
             **kwargs: Additional overrides.
 
         Returns:
@@ -941,11 +946,12 @@ class Integration:
             # Default in-memory task queue
             .integrate(Integration.tasks())
 
-            # Custom worker pool
+            # Custom worker pool with startup seeding
             .integrate(Integration.tasks(
                 num_workers=8,
                 default_timeout=600,
                 max_retries=5,
+                run_on_startup=True,
             ))
         """
         return {
@@ -963,6 +969,7 @@ class Integration:
             "default_timeout": default_timeout,
             "auto_start": auto_start,
             "dead_letter_max": dead_letter_max,
+            "run_on_startup": run_on_startup,
             **kwargs,
         }
 

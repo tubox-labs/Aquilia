@@ -3,46 +3,174 @@
 
 <head>
   <meta charset="UTF-8" />
-  <link rel="icon" type="image/ico" href="/favicon.ico" />
-  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
-  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
-  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
-  <link rel="manifest" href="/site.webmanifest">
-  <meta name="theme-color" content="#22c55e">
-  <link rel="canonical" href="https://aquilia.tubox.cloud/" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
 
-  <title>Aquilia — Zero-Boilerplate Python Framework</title>
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-63WX40QPFB"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-63WX40QPFB');
+  </script>
+
+  <!-- Primary Meta Tags -->
+  <title>Aquilia — High-Performance Async Python Web Framework</title>
+  <meta name="title" content="Aquilia — High-Performance Async Python Web Framework" />
   <meta name="description"
-    content="Aquilia is a Manifest-First, async-native Python framework that removes routing and deployment boilerplate, auto-generates Docker/K8s manifests, and includes ML deployment.">
+    content="Aquilia is a Manifest-First, async-native Python web framework with zero boilerplate. Built-in ORM, DI, auth, sessions, caching, WebSockets, MLOps deployment, Docker/K8s manifests, and admin dashboard. Production-ready from day one." />
   <meta name="keywords"
-    content="Python, Web Framework, Async, Manifest-First, API, Microservices, MLOps, Docker, Kubernetes, Aquilia, Tubox">
-  <meta name="author" content="Aquilia Team">
+    content="Python web framework, async Python, Python API framework, Python REST API, manifest-first, dependency injection Python, Python ORM, background tasks, Python microservices, MLOps Python, Docker Kubernetes deployment, Python admin dashboard, Aquilia framework, high-performance Python" />
+  <meta name="author" content="Aquilia Team" />
+  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+  <meta name="googlebot" content="index, follow" />
+  <meta name="theme-color" content="#22c55e" />
+  <meta name="color-scheme" content="dark light" />
+  <meta name="generator" content="Aquilia Docs v1.0" />
+  <link rel="canonical" href="https://aquilia.tubox.cloud/" />
+
+  <!-- Favicons -->
+  <link rel="icon" type="image/ico" href="/favicon.ico" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+  <link rel="manifest" href="/site.webmanifest" />
 
   <!-- Open Graph / Facebook -->
-  <meta property="og:type" content="website">
-  <meta property="og:url" content="https://aquilia.tubox.cloud/">
-  <meta property="og:title" content="Aquilia — Zero-Boilerplate Python Framework">
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Aquilia" />
+  <meta property="og:url" content="https://aquilia.tubox.cloud/" />
+  <meta property="og:title" content="Aquilia — High-Performance Async Python Web Framework" />
   <meta property="og:description"
-    content="The speed of a microframework. The reliability of an enterprise engine. Manifest-First, async-native architecture for high-performance Python applications.">
-  <meta property="og:image" content="https://aquilia.tubox.cloud/logo.png">
+    content="The speed of a microframework. The reliability of an enterprise engine. Manifest-First, async-native architecture with built-in ORM, DI, auth, caching, WebSockets, and MLOps." />
+  <meta property="og:image" content="https://aquilia.tubox.cloud/logo.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="Aquilia Framework — Zero-Boilerplate Python" />
+  <meta property="og:locale" content="en_US" />
 
   <!-- Twitter -->
-  <meta property="twitter:card" content="summary_large_image">
-  <meta property="twitter:url" content="https://aquilia.tubox.cloud/">
-  <meta property="twitter:title" content="Aquilia — Zero-Boilerplate Python Framework">
-  <meta property="twitter:description"
-    content="The speed of a microframework. The reliability of an enterprise engine. Manifest-First, async-native architecture for high-performance Python applications.">
-  <meta property="twitter:image" content="https://aquilia.tubox.cloud/logo.png">
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:url" content="https://aquilia.tubox.cloud/" />
+  <meta name="twitter:title" content="Aquilia — High-Performance Async Python Web Framework" />
+  <meta name="twitter:description"
+    content="The speed of a microframework. The reliability of an enterprise engine. Manifest-First, async-native architecture with built-in ORM, DI, auth, caching, WebSockets, and MLOps." />
+  <meta name="twitter:image" content="https://aquilia.tubox.cloud/logo.png" />
+  <meta name="twitter:image:alt" content="Aquilia Framework logo" />
 
+  <!-- JSON-LD Structured Data: SoftwareApplication -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Aquilia",
+    "applicationCategory": "DeveloperApplication",
+    "operatingSystem": "Cross-platform",
+    "description": "Manifest-First, async-native Python web framework with zero boilerplate. Built-in ORM, dependency injection, auth, sessions, caching, WebSockets, MLOps, and admin dashboard.",
+    "url": "https://aquilia.tubox.cloud/",
+    "downloadUrl": "https://pypi.org/project/aquilia/",
+    "softwareVersion": "1.0.1",
+    "programmingLanguage": "Python",
+    "license": "https://opensource.org/licenses/MIT",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    },
+    "author": {
+      "@type": "Organization",
+      "name": "Aquilia Team",
+      "url": "https://aquilia.tubox.cloud/"
+    },
+    "image": "https://aquilia.tubox.cloud/logo.png"
+  }
+  </script>
+
+  <!-- JSON-LD Structured Data: WebSite (enables sitelinks search) -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "Aquilia Documentation",
+    "url": "https://aquilia.tubox.cloud/",
+    "description": "Official documentation for the Aquilia Python web framework.",
+    "potentialAction": {
+      "@type": "SearchAction",
+      "target": "https://aquilia.tubox.cloud/docs?q={search_term_string}",
+      "query-input": "required name=search_term_string"
+    }
+  }
+  </script>
+
+  <!-- JSON-LD Structured Data: BreadcrumbList -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {
+        "@type": "ListItem",
+        "position": 1,
+        "name": "Home",
+        "item": "https://aquilia.tubox.cloud/"
+      },
+      {
+        "@type": "ListItem",
+        "position": 2,
+        "name": "Documentation",
+        "item": "https://aquilia.tubox.cloud/docs"
+      },
+      {
+        "@type": "ListItem",
+        "position": 3,
+        "name": "Quick Start",
+        "item": "https://aquilia.tubox.cloud/docs/quickstart"
+      }
+    ]
+  }
+  </script>
+
+  <!-- Preconnect for performance -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://www.googletagmanager.com" />
+  <link rel="dns-prefetch" href="https://www.google-analytics.com" />
+
+  <!-- Fonts -->
   <link
     href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap"
     rel="stylesheet" />
 </head>
 
 <body class="bg-[#02040a] text-white">
+  <!-- Noscript fallback for SEO crawlers -->
+  <noscript>
+    <div style="padding:2rem;max-width:800px;margin:0 auto;font-family:system-ui,sans-serif;">
+      <h1>Aquilia — High-Performance Async Python Web Framework</h1>
+      <p>Aquilia is a Manifest-First, async-native Python framework with zero boilerplate. Build production-ready APIs with built-in ORM, dependency injection, auth, sessions, caching, WebSockets, background tasks, MLOps, and admin dashboard.</p>
+      <h2>Quick Start</h2>
+      <p>Install: <code>pip install aquilia</code></p>
+      <h2>Features</h2>
+      <ul>
+        <li>Manifest-First architecture — declare modules, routes auto-generate</li>
+        <li>Async-native — built on ASGI with full async/await support</li>
+        <li>Built-in ORM with migrations, QuerySet, and relationships</li>
+        <li>Dependency Injection container with scopes and lifecycle</li>
+        <li>Authentication system with OAuth, MFA, JWT, and RBAC</li>
+        <li>Session management with pluggable stores</li>
+        <li>Background task queue with priority scheduling</li>
+        <li>WebSocket controllers with pub/sub rooms</li>
+        <li>Cache layer with memory and Redis backends</li>
+        <li>MLOps deployment with model registry and serving</li>
+        <li>Admin dashboard with audit log and monitoring</li>
+        <li>CLI generators for scaffolding modules</li>
+        <li>Docker and Kubernetes manifest generation</li>
+      </ul>
+      <p><a href="https://aquilia.tubox.cloud/docs">Read the documentation</a> | <a href="https://github.com/axiomchronicles/Aquilia">GitHub</a></p>
+    </div>
+  </noscript>
   <div id="root"></div>
   <script type="module" src="/src/main.tsx"></script>
 </body>
