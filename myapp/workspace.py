@@ -24,7 +24,7 @@ from aquilia.sessions import SessionPolicy
 from aquilia.sessions import TransportPolicy
 from aquilia.sessions import PersistencePolicy
 from aquilia.sessions import ConcurrencyPolicy
-from aquilia.db import MysqlConfig
+from aquilia.db import MysqlConfig, SqliteConfig
 
 # Define workspace structure
 workspace = (
@@ -47,6 +47,12 @@ workspace = (
     # Custom: Integration.middleware.chain().use("aquilia.middleware.ExceptionMiddleware", priority=1).use(...)
     .middleware(Integration.middleware.defaults())
 
+    # ---- Modules ---------------------------------------------------------
+
+    .module(Module("auth", version="0.1.0", description="Auth module")
+        .route_prefix("/auth")
+        .tags("auth"))
+
     # Integrations - Configure core systems
     .integrate(Integration.di(auto_wire=True, manifest_validation=True))
     .integrate(Integration.registry(
@@ -66,12 +72,8 @@ workspace = (
 
     # Database - Configure the ORM backend
     .integrate(Integration.database(
-        config = MysqlConfig(
-            host="localhost",
-            port=3306,
-            user="admin",
-            password="admin123",
-            database="mydb",
+        config = SqliteConfig(
+            path = "db.sqlite3"
         ),
         pool_size=5,
         echo=False,
@@ -157,9 +159,14 @@ workspace = (
         url_prefix="/admin",
         site_title="myapp Admin",
         auto_discover=True,
+        modules= (
+            Integration.AdminModules()
+            .enable_query_inspector()
+            .enable_tasks()
+            .enable_errors()
+        )
     ))
 )
-
 
 # Export for CLI/server
 __all__ = ["workspace"]

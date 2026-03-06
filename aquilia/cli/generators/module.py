@@ -338,11 +338,24 @@ class ModuleGenerator:
 
                 from .controllers import *
                 from .services import *
-                from .faults import *{test_import}
+                from .faults import *
 
                 __module_name__ = "{self.name}"
                 __version__ = "0.1.0"
             ''').strip()
+
+            # Append test_routes import after dedent to avoid breaking
+            # textwrap.dedent's common-indent calculation (the interpolated
+            # line would have 0 leading whitespace, preventing any
+            # stripping of the surrounding 16-space indent).
+            if test_import:
+                lines = content.split("\n")
+                insert_idx = next(
+                    i for i, l in enumerate(lines)
+                    if l.startswith("from .faults import")
+                )
+                lines.insert(insert_idx + 1, test_import.lstrip("\n"))
+                content = "\n".join(lines)
 
         (self.path / '__init__.py').write_text(content)
     
