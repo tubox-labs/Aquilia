@@ -137,6 +137,10 @@
     <span style="font-size:0.78rem;color:var(--text-secondary);">{{ total_rollouts }} rollout{{ 's' if total_rollouts != 1 else '' }}</span>
     <span style="font-size:0.75rem;color:var(--text-faint);">·</span>
     <span style="font-size:0.78rem;color:var(--text-faint);">{{ "{:,}".format(total_inferences) }} inferences</span>
+    {% if rbac and rbac.total_users|default(0) > 0 %}
+    <span style="font-size:0.75rem;color:var(--text-faint);">·</span>
+    <span style="font-size:0.78rem;color:var(--text-secondary);">{{ rbac.total_users }} RBAC user{{ 's' if rbac.total_users != 1 else '' }}</span>
+    {% endif %}
 </div>
 
 {# ═══ METRIC CARDS (row 1) ═══ #}
@@ -200,7 +204,7 @@
     </div>
 </div>
 
-{# ═══ CHARTS ROW 2: Plugin States + Experiment Statuses ═══ #}
+{# ═══ CHARTS ROW 2: Plugin States + Rollout Phases ═══ #}
 <div class="dash-grid" style="grid-template-columns:1fr 1fr;margin-top:16px;">
     {# ── Plugin States ── #}
     <div class="card" style="padding:20px;">
@@ -214,6 +218,24 @@
         <span class="card-title"><i class="icon-git-merge" style="font-size:14px;vertical-align:-2px;margin-right:6px;opacity:0.5;"></i>Rollout Phases</span>
         <div style="margin-top:14px;height:200px;position:relative;">
             <canvas id="chart-rollout-phases"></canvas>
+        </div>
+    </div>
+</div>
+
+{# ═══ CHARTS ROW 3: Experiment Statuses + Memory Allocations ═══ #}
+<div class="dash-grid" style="grid-template-columns:1fr 1fr;margin-top:16px;">
+    {# ── Experiment Statuses ── #}
+    <div class="card" style="padding:20px;">
+        <span class="card-title"><i class="icon-git-branch" style="font-size:14px;vertical-align:-2px;margin-right:6px;opacity:0.5;"></i>Experiment Statuses</span>
+        <div style="margin-top:14px;height:200px;position:relative;">
+            <canvas id="chart-experiment-statuses"></canvas>
+        </div>
+    </div>
+    {# ── Memory Allocations ── #}
+    <div class="card" style="padding:20px;">
+        <span class="card-title"><i class="icon-database" style="font-size:14px;vertical-align:-2px;margin-right:6px;opacity:0.5;"></i>Memory Allocations by Model</span>
+        <div style="margin-top:14px;height:200px;position:relative;">
+            <canvas id="chart-memory-allocations"></canvas>
         </div>
     </div>
 </div>
@@ -355,6 +377,224 @@
             {% endif %}
         </div>
     </div>
+</div>
+{% endif %}
+
+{# ═══ AUTOSCALER PANEL ═══ #}
+{% if autoscaler and autoscaler.policy is defined %}
+<div class="section-label" style="margin-top:24px;">Autoscaler</div>
+<div class="card" style="padding:20px;">
+    <span class="card-title"><i class="icon-maximize" style="font-size:14px;vertical-align:-2px;margin-right:6px;opacity:0.5;"></i>Scaling Policy &amp; State</span>
+    <div style="margin-top:14px;">
+        {# ── Current Replicas Gauge ── #}
+        {% set as_policy = autoscaler.policy %}
+        {% set as_replicas = autoscaler.current_replicas|default(1) %}
+        {% set as_min = as_policy.min_replicas|default(1) %}
+        {% set as_max = as_policy.max_replicas|default(10) %}
+        {% set as_pct = ((as_replicas - as_min) * 100 / (as_max - as_min))|round if as_max > as_min else 50 %}
+        <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start;">
+            {# ── Replica Gauge ── #}
+            <div style="text-align:center;min-width:120px;">
+                <div style="font-size:2.4rem;font-weight:700;color:var(--accent);">{{ as_replicas }}</div>
+                <div style="font-size:.68rem;color:var(--text-faint);text-transform:uppercase;margin-bottom:6px;">Current Replicas</div>
+                <div class="progress-bar-bg" style="height:6px;width:120px;">
+                    <div class="progress-bar-fill" style="width:{{ as_pct }}%;background:{{ 'var(--success)' if as_pct < 70 else ('var(--warning)' if as_pct < 90 else 'var(--danger)') }};"></div>
+                </div>
+                <div style="display:flex;justify-content:space-between;margin-top:4px;">
+                    <span style="font-size:.62rem;color:var(--text-faint);">min {{ as_min }}</span>
+                    <span style="font-size:.62rem;color:var(--text-faint);">max {{ as_max }}</span>
+                </div>
+            </div>
+            {# ── Policy Details ── #}
+            <div style="flex:1;min-width:200px;">
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+                    <div style="padding:8px;background:var(--bg-surface);border-radius:6px;text-align:center;">
+                        <div style="font-size:.62rem;color:var(--text-faint);text-transform:uppercase;">Target Concurrency</div>
+                        <div style="font-size:.9rem;font-weight:700;color:var(--text-primary);font-family:var(--font-mono);">{{ as_policy.target_concurrency|default('—') }}</div>
+                    </div>
+                    <div style="padding:8px;background:var(--bg-surface);border-radius:6px;text-align:center;">
+                        <div style="font-size:.62rem;color:var(--text-faint);text-transform:uppercase;">Target P95 (ms)</div>
+                        <div style="font-size:.9rem;font-weight:700;color:var(--text-primary);font-family:var(--font-mono);">{{ as_policy.target_latency_p95_ms|default('—') }}</div>
+                    </div>
+                    <div style="padding:8px;background:var(--bg-surface);border-radius:6px;text-align:center;">
+                        <div style="font-size:.62rem;color:var(--text-faint);text-transform:uppercase;">Cooldown (s)</div>
+                        <div style="font-size:.9rem;font-weight:700;color:var(--text-primary);font-family:var(--font-mono);">{{ as_policy.cooldown_seconds|default('—') }}</div>
+                    </div>
+                    {% if as_policy.target_gpu_utilization is defined %}
+                    <div style="padding:8px;background:var(--bg-surface);border-radius:6px;text-align:center;">
+                        <div style="font-size:.62rem;color:var(--text-faint);text-transform:uppercase;">GPU Target</div>
+                        <div style="font-size:.9rem;font-weight:700;color:var(--text-primary);font-family:var(--font-mono);">{{ (as_policy.target_gpu_utilization * 100)|round }}%</div>
+                    </div>
+                    {% endif %}
+                    {% if as_policy.target_tokens_per_second is defined %}
+                    <div style="padding:8px;background:var(--bg-surface);border-radius:6px;text-align:center;">
+                        <div style="font-size:.62rem;color:var(--text-faint);text-transform:uppercase;">Target tok/s</div>
+                        <div style="font-size:.9rem;font-weight:700;color:var(--text-primary);font-family:var(--font-mono);">{{ as_policy.target_tokens_per_second }}</div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {# ── Window Stats ── #}
+        {% if autoscaler.window_stats %}
+        {% set ws = autoscaler.window_stats %}
+        <div style="margin-top:16px;padding:12px;background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:8px;">
+            <div style="font-size:.68rem;font-weight:700;text-transform:uppercase;color:var(--text-faint);margin-bottom:8px;">Sliding Window Metrics</div>
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">
+                <div style="text-align:center;">
+                    <div style="font-size:.62rem;color:var(--text-faint);">Window RPS</div>
+                    <div style="font-size:.82rem;font-weight:700;color:var(--text-primary);font-family:var(--font-mono);">{{ "%.1f"|format(ws.window_rps|default(0)) }}</div>
+                </div>
+                <div style="text-align:center;">
+                    <div style="font-size:.62rem;color:var(--text-faint);">Avg Latency</div>
+                    <div style="font-size:.82rem;font-weight:700;color:var(--text-primary);font-family:var(--font-mono);">{{ "%.1f"|format(ws.avg_latency|default(0)) }}ms</div>
+                </div>
+                <div style="text-align:center;">
+                    <div style="font-size:.62rem;color:var(--text-faint);">Error Rate</div>
+                    <div style="font-size:.82rem;font-weight:700;color:{{ 'var(--danger)' if ws.error_rate|default(0) > 0.05 else 'var(--success)' }};font-family:var(--font-mono);">{{ "%.2f"|format(ws.error_rate|default(0) * 100) }}%</div>
+                </div>
+                <div style="text-align:center;">
+                    <div style="font-size:.62rem;color:var(--text-faint);">Samples</div>
+                    <div style="font-size:.82rem;font-weight:700;color:var(--text-primary);font-family:var(--font-mono);">{{ ws.samples|default(0) }}</div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        {# ── Last Scaling Decision ── #}
+        {% if autoscaler.last_decision %}
+        {% set ld = autoscaler.last_decision %}
+        {% set ld_action = 'scale_up' if ld.desired|default(0) > ld.current|default(0) else ('scale_down' if ld.desired|default(0) < ld.current|default(0) else 'none') %}
+        <div style="margin-top:12px;padding:10px 14px;background:{{ 'rgba(34,197,94,.04)' if ld_action == 'scale_up' else ('rgba(59,130,246,.04)' if ld_action == 'scale_down' else 'rgba(161,161,170,.04)') }};border:1px solid {{ 'rgba(34,197,94,.15)' if ld_action == 'scale_up' else ('rgba(59,130,246,.15)' if ld_action == 'scale_down' else 'rgba(161,161,170,.15)') }};border-radius:8px;display:flex;align-items:center;gap:12px;">
+            <div style="font-size:.68rem;font-weight:700;text-transform:uppercase;color:var(--text-faint);">Last Decision</div>
+            <span class="mlops-badge" style="background:{{ 'rgba(34,197,94,.12)' if ld_action == 'scale_up' else ('rgba(59,130,246,.12)' if ld_action == 'scale_down' else 'rgba(161,161,170,.12)') }};color:{{ '#22c55e' if ld_action == 'scale_up' else ('#3b82f6' if ld_action == 'scale_down' else '#a1a1aa') }};">{{ ld_action }}</span>
+            {% if ld.reason %}<span style="font-size:.72rem;color:var(--text-secondary);">{{ ld.reason }}</span>{% endif %}
+            {% if ld.desired is defined %}<span style="font-size:.72rem;color:var(--text-faint);">{{ ld.current }} → {{ ld.desired }} replicas</span>{% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+{# ═══ RBAC / SECURITY PANEL ═══ #}
+{% if rbac and rbac.roles|default([])|length > 0 %}
+<div class="section-label" style="margin-top:24px;">Security &amp; RBAC</div>
+<div class="card" style="padding:20px;">
+    <span class="card-title"><i class="icon-shield" style="font-size:14px;vertical-align:-2px;margin-right:6px;opacity:0.5;"></i>Role-Based Access Control — {{ rbac.roles|length }} Roles · {{ rbac.total_users|default(0) }} Users</span>
+    <div style="margin-top:14px;">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Role</th>
+                    <th>Permissions</th>
+                    <th>Users</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for role in rbac.roles %}
+                <tr>
+                    <td>
+                        <span style="font-weight:600;color:var(--text-primary);">{{ role.name }}</span>
+                    </td>
+                    <td>
+                        <div style="display:flex;flex-wrap:wrap;gap:4px;">
+                            {% for perm in role.permissions|default([]) %}
+                            <span style="display:inline-block;padding:1px 7px;border-radius:4px;font-size:.62rem;font-weight:500;background:rgba(34,197,94,.08);color:var(--accent);">{{ perm }}</span>
+                            {% endfor %}
+                        </div>
+                    </td>
+                    <td style="font-family:var(--font-mono);font-size:.78rem;color:var(--text-secondary);">{{ role.user_count|default(0) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+{# ═══ BATCH QUEUE + LRU CACHE PANELS ═══ #}
+{% if batch_queue or lru_cache %}
+<div class="section-label" style="margin-top:24px;">Queue &amp; Cache</div>
+<div class="dash-grid" style="grid-template-columns:1fr 1fr;">
+    {# ── Batch Queue ── #}
+    {% if batch_queue and batch_queue.capacity|default(0) > 0 %}
+    <div class="card" style="padding:20px;">
+        <span class="card-title"><i class="icon-layers" style="font-size:14px;vertical-align:-2px;margin-right:6px;opacity:0.5;"></i>Adaptive Batch Queue</span>
+        <div style="margin-top:14px;">
+            {% set bq_pct = (batch_queue.size|default(0) * 100 / batch_queue.capacity)|round if batch_queue.capacity > 0 else 0 %}
+            <div style="text-align:center;margin-bottom:14px;">
+                <div style="font-size:2rem;font-weight:700;color:{{ 'var(--success)' if bq_pct < 70 else ('var(--warning)' if bq_pct < 90 else 'var(--danger)') }};">{{ bq_pct }}%</div>
+                <div style="font-size:.72rem;color:var(--text-faint);">Queue Utilization ({{ batch_queue.size|default(0) }}/{{ batch_queue.capacity }})</div>
+            </div>
+            <div class="progress-bar-bg">
+                <div class="progress-bar-fill" style="width:{{ bq_pct }}%;background:{{ 'var(--success)' if bq_pct < 70 else ('var(--warning)' if bq_pct < 90 else 'var(--danger)') }};"></div>
+            </div>
+            <div style="margin-top:12px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;">
+                <div style="padding:6px;background:var(--bg-surface);border-radius:6px;text-align:center;">
+                    <div style="font-size:.62rem;color:var(--text-faint);text-transform:uppercase;">Enqueued</div>
+                    <div style="font-size:.82rem;font-weight:600;color:var(--success);">{{ batch_queue.enqueued|default(0) }}</div>
+                </div>
+                <div style="padding:6px;background:var(--bg-surface);border-radius:6px;text-align:center;">
+                    <div style="font-size:.62rem;color:var(--text-faint);text-transform:uppercase;">Dequeued</div>
+                    <div style="font-size:.82rem;font-weight:600;color:var(--text-primary);">{{ batch_queue.dequeued|default(0) }}</div>
+                </div>
+                <div style="padding:6px;background:var(--bg-surface);border-radius:6px;text-align:center;">
+                    <div style="font-size:.62rem;color:var(--text-faint);text-transform:uppercase;">Dropped</div>
+                    <div style="font-size:.82rem;font-weight:600;color:var(--danger);">{{ batch_queue.dropped|default(0) }}</div>
+                </div>
+            </div>
+            {% if batch_queue.pending_tokens is defined %}
+            <div style="margin-top:8px;padding:6px 10px;background:var(--bg-surface);border-radius:6px;text-align:center;">
+                <span style="font-size:.68rem;color:var(--text-faint);">Pending tokens: </span>
+                <span style="font-size:.78rem;font-weight:600;color:var(--accent);font-family:var(--font-mono);">{{ batch_queue.pending_tokens }}</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% else %}
+    <div class="card" style="padding:20px;">
+        <span class="card-title"><i class="icon-layers" style="font-size:14px;vertical-align:-2px;margin-right:6px;opacity:0.5;"></i>Adaptive Batch Queue</span>
+        <div style="padding:32px;text-align:center;color:var(--text-faint);font-size:.82rem;">Not configured</div>
+    </div>
+    {% endif %}
+
+    {# ── LRU Cache ── #}
+    {% if lru_cache and lru_cache.capacity|default(0) > 0 %}
+    <div class="card" style="padding:20px;">
+        <span class="card-title"><i class="icon-hard-drive" style="font-size:14px;vertical-align:-2px;margin-right:6px;opacity:0.5;"></i>LRU Model Cache</span>
+        <div style="margin-top:14px;">
+            {% set lru_pct = (lru_cache.size|default(0) * 100 / lru_cache.capacity)|round if lru_cache.capacity > 0 else 0 %}
+            {% set hit_rate = lru_cache.hit_rate|default(0) %}
+            <div style="display:flex;gap:20px;justify-content:center;margin-bottom:14px;">
+                <div style="text-align:center;">
+                    <div style="font-size:2rem;font-weight:700;color:var(--accent);">{{ "%.0f"|format(hit_rate * 100) }}%</div>
+                    <div style="font-size:.72rem;color:var(--text-faint);">Hit Rate</div>
+                </div>
+                <div style="text-align:center;">
+                    <div style="font-size:2rem;font-weight:700;color:var(--text-primary);">{{ lru_cache.size|default(0) }}/{{ lru_cache.capacity }}</div>
+                    <div style="font-size:.72rem;color:var(--text-faint);">Entries</div>
+                </div>
+            </div>
+            <div class="progress-bar-bg" style="margin-bottom:12px;">
+                <div class="progress-bar-fill" style="width:{{ (hit_rate * 100)|round }}%;background:{{ 'var(--success)' if hit_rate >= 0.8 else ('var(--warning)' if hit_rate >= 0.5 else 'var(--danger)') }};"></div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                <div style="padding:8px;background:var(--bg-surface);border-radius:6px;text-align:center;">
+                    <div style="font-size:.62rem;color:var(--text-faint);text-transform:uppercase;">Hits</div>
+                    <div style="font-size:.9rem;font-weight:700;color:var(--success);">{{ lru_cache.hits|default(0) }}</div>
+                </div>
+                <div style="padding:8px;background:var(--bg-surface);border-radius:6px;text-align:center;">
+                    <div style="font-size:.62rem;color:var(--text-faint);text-transform:uppercase;">Misses</div>
+                    <div style="font-size:.9rem;font-weight:700;color:var(--danger);">{{ lru_cache.misses|default(0) }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="card" style="padding:20px;">
+        <span class="card-title"><i class="icon-hard-drive" style="font-size:14px;vertical-align:-2px;margin-right:6px;opacity:0.5;"></i>LRU Model Cache</span>
+        <div style="padding:32px;text-align:center;color:var(--text-faint);font-size:.82rem;">Not configured</div>
+    </div>
+    {% endif %}
 </div>
 {% endif %}
 
@@ -510,6 +750,7 @@
                 <th>Status</th>
                 <th>Variants</th>
                 <th>Total Assignments</th>
+                <th>Winner</th>
             </tr>
         </thead>
         <tbody>
@@ -517,8 +758,25 @@
             <tr>
                 <td style="font-weight:600;color:var(--text-primary);">{{ exp.name|default(exp.id|default('—')) }}</td>
                 <td><span class="mlops-badge badge-{{ exp.status|default('inactive') }}">{{ exp.status|default('inactive') }}</span></td>
-                <td style="font-size:.78rem;color:var(--text-secondary);">{{ exp.variants|default([])|length }}</td>
+                <td>
+                    {% if exp.variants|default([])|length > 0 %}
+                    <div style="display:flex;flex-wrap:wrap;gap:3px;">
+                        {% for v in exp.variants %}
+                        <span style="font-size:.65rem;padding:1px 6px;background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:4px;color:var(--text-secondary);">{{ v.name|default(v) }}{% if v.weight is defined %} <span style="color:var(--text-faint);">({{ "%.0f"|format(v.weight * 100) }}%)</span>{% endif %}</span>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <span style="font-size:.78rem;color:var(--text-faint);">0</span>
+                    {% endif %}
+                </td>
                 <td style="font-family:var(--font-mono);font-size:.78rem;color:var(--text-secondary);">{{ exp.total_assignments|default(0) }}</td>
+                <td>
+                    {% if exp.winner is defined and exp.winner %}
+                    <span style="font-size:.72rem;font-weight:600;color:var(--success);">🏆 {{ exp.winner }}</span>
+                    {% else %}
+                    <span style="font-size:.72rem;color:var(--text-faint);">—</span>
+                    {% endif %}
+                </td>
             </tr>
             {% endfor %}
         </tbody>
@@ -533,6 +791,47 @@
     </div>
     {% endif %}
 </div>
+
+{# ═══ PER-MODEL METRICS TABLE ═══ #}
+{% if per_model_metrics|default([])|length > 0 %}
+<div class="section-label" style="margin-top:24px;">Per-Model Metrics</div>
+<div class="card" style="padding:0;overflow:hidden;">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Model</th>
+                <th>Inferences</th>
+                <th>Errors</th>
+                <th>Avg Latency (ms)</th>
+                <th>P95 Latency (ms)</th>
+                <th>Tokens</th>
+                <th>Error Rate</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for pm in per_model_metrics %}
+            <tr>
+                <td>
+                    <div style="display:flex;align-items:center;gap:6px;">
+                        <i class="icon-activity" style="font-size:12px;color:var(--accent);opacity:0.5;"></i>
+                        <span style="font-weight:600;color:var(--text-primary);">{{ pm.model }}</span>
+                    </div>
+                </td>
+                <td style="font-family:var(--font-mono);font-size:.78rem;">{{ pm.inferences|default(0) }}</td>
+                <td style="font-family:var(--font-mono);font-size:.78rem;color:{{ 'var(--danger)' if pm.errors|default(0) > 0 else 'var(--text-faint)' }};">{{ pm.errors|default(0) }}</td>
+                <td style="font-family:var(--font-mono);font-size:.78rem;">{{ "%.1f"|format(pm.avg_latency|default(0)) }}</td>
+                <td style="font-family:var(--font-mono);font-size:.78rem;">{{ "%.1f"|format(pm.p95_latency|default(0)) }}</td>
+                <td style="font-family:var(--font-mono);font-size:.78rem;">{{ pm.tokens|default(0) }}</td>
+                <td>
+                    {% set err_rate = pm.error_rate|default(0) %}
+                    <span style="font-family:var(--font-mono);font-size:.78rem;font-weight:600;color:{{ 'var(--danger)' if err_rate > 0.05 else ('var(--warning)' if err_rate > 0.01 else 'var(--success)') }};">{{ "%.2f"|format(err_rate * 100) }}%</span>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
 
 {# ═══ PLUGINS TABLE ═══ #}
 <div class="section-label" style="margin-top:24px;">Plugins</div>
@@ -617,6 +916,8 @@
             <button class="cap-tab" data-cap="cap-quantize" type="button">Quantize</button>
             <button class="cap-tab" data-cap="cap-export" type="button">Export</button>
             <button class="cap-tab" data-cap="cap-inference" type="button">Inference</button>
+            <button class="cap-tab" data-cap="cap-dtypes" type="button">DTypes</button>
+            <button class="cap-tab" data-cap="cap-permissions" type="button">Permissions</button>
         </div>
         <div class="cap-panel active" id="cap-frameworks">
             <div style="display:flex;flex-wrap:wrap;gap:6px;">
@@ -668,8 +969,38 @@
                 {% for im in inference_modes %}<span class="aq-drawer-tag">{{ im }}</span>{% endfor %}
             </div>
         </div>
+        <div class="cap-panel" id="cap-dtypes">
+            <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                {% for dtype in dtypes %}<span class="aq-drawer-tag">{{ dtype }}</span>{% endfor %}
+            </div>
+            {% if dtypes|length == 0 %}
+            <span style="font-size:.78rem;color:var(--text-faint);">No DTypes available</span>
+            {% endif %}
+        </div>
+        <div class="cap-panel" id="cap-permissions">
+            <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                {% for perm in permissions %}<span class="aq-drawer-tag" style="background:rgba(139,92,246,.1);color:#a855f7;">{{ perm }}</span>{% endfor %}
+            </div>
+            {% if permissions|length == 0 %}
+            <span style="font-size:.78rem;color:var(--text-faint);">No permissions available</span>
+            {% endif %}
+        </div>
     </div>
 </div>
+
+{# ═══ PROMETHEUS EXPORT ═══ #}
+{% if prometheus_text %}
+<div class="section-label" style="margin-top:24px;">Prometheus Export</div>
+<div class="card" style="padding:20px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+        <span class="card-title"><i class="icon-bar-chart-2" style="font-size:14px;vertical-align:-2px;margin-right:6px;opacity:0.5;"></i>Prometheus Text Format</span>
+        <button onclick="copyPrometheusText()" type="button" class="copy-btn" style="position:static;">Copy</button>
+    </div>
+    <div style="max-height:300px;overflow:auto;border:1px solid var(--border-subtle);border-radius:8px;">
+        <pre id="prometheus-text" style="margin:0;padding:14px;background:var(--bg-input);font-size:.72rem;line-height:1.5;color:var(--text-secondary);font-family:'JetBrains Mono','Fira Code',monospace;white-space:pre;overflow-x:auto;">{{ prometheus_text }}</pre>
+    </div>
+</div>
+{% endif %}
 
 {# ═══ QUICK SETUP — CODE SNIPPETS ═══ #}
 <div class="section-label" style="margin-top:24px;">Quick Setup</div>
@@ -685,6 +1016,9 @@
             <button class="snippet-tab" data-tab="snip-serve" type="button">@serve</button>
             <button class="snippet-tab" data-tab="snip-pipeline" type="button">Pipeline</button>
             <button class="snippet-tab" data-tab="snip-rollout" type="button">Rollout</button>
+            <button class="snippet-tab" data-tab="snip-drift" type="button">Drift</button>
+            <button class="snippet-tab" data-tab="snip-autoscaler" type="button">Autoscaler</button>
+            <button class="snippet-tab" data-tab="snip-rbac" type="button">RBAC</button>
             <button class="snippet-tab" data-tab="snip-config" type="button">Config</button>
         </div>
         <div class="snippet-content active" id="snip-model">
@@ -797,6 +1131,115 @@ rollout = await engine.start(config)
 # Monitor and advance
 await engine.advance(rollout.id)  # 10% -> 25%
 await engine.rollback(rollout.id) # auto-rollback on failure</pre></div>
+            </div>
+        </div>
+        <div class="snippet-content" id="snip-drift">
+            <button class="copy-btn" onclick="copySnippet('snip-drift')" type="button">Copy</button>
+            <div class="code-block-container" style="margin-bottom:0;">
+                <div class="code-block-header">
+                    <div class="dots"><div class="dot dot-red"></div><div class="dot dot-yellow"></div><div class="dot dot-green"></div></div>
+                    <span class="filename">observe/drift_check.py</span>
+                </div>
+                <div class="code-block-body"><pre data-aq-highlight="python">from aquilia.mlops.observe import DriftDetector, DriftMethod
+import numpy as np
+
+detector = app.di.get(DriftDetector)
+
+# Set baseline reference distribution
+reference_data = np.random.normal(0, 1, size=10000)
+detector.set_reference(reference_data)
+
+# Check incoming production data for drift
+production_data = np.random.normal(0.3, 1.2, size=500)
+report = detector.detect(production_data)
+
+print(f"Method: {report.method}")      # psi, ks_test, etc.
+print(f"Score:  {report.score:.4f}")    # drift magnitude
+print(f"Drifted: {report.is_drifted}")  # True/False
+print(f"Threshold: {report.threshold}") # configured threshold
+
+# Supported methods:
+#   DriftMethod.PSI           - Population Stability Index
+#   DriftMethod.KS_TEST       - Kolmogorov-Smirnov test
+#   DriftMethod.DISTRIBUTION  - Distribution distance
+#   DriftMethod.EMBEDDING     - Embedding cosine drift
+#   DriftMethod.PERPLEXITY    - LLM perplexity drift</pre></div>
+            </div>
+        </div>
+        <div class="snippet-content" id="snip-autoscaler">
+            <button class="copy-btn" onclick="copySnippet('snip-autoscaler')" type="button">Copy</button>
+            <div class="code-block-container" style="margin-bottom:0;">
+                <div class="code-block-header">
+                    <div class="dots"><div class="dot dot-red"></div><div class="dot dot-yellow"></div><div class="dot dot-green"></div></div>
+                    <span class="filename">scheduler/scaling.py</span>
+                </div>
+                <div class="code-block-body"><pre data-aq-highlight="python">from aquilia.mlops.scheduler import Autoscaler, ScalingPolicy
+
+policy = ScalingPolicy(
+    min_replicas=1,
+    max_replicas=10,
+    target_concurrency=50,
+    target_latency_p95=200.0,    # ms
+    target_gpu_utilization=0.75,
+    cooldown=60,                 # seconds
+)
+
+scaler = Autoscaler(policy=policy, current_replicas=2)
+
+# Record inference metrics
+scaler.record(latency_ms=45.0, error=False)
+scaler.record(latency_ms=180.0, error=False)
+
+# Evaluate scaling decision
+decision = scaler.evaluate()
+print(f"Action: {decision.action}")        # scale_up / scale_down / none
+print(f"Target: {decision.target_replicas}")
+print(f"Reason: {decision.reason}")
+
+# Generate Kubernetes HPA manifest
+hpa_yaml = scaler.generate_hpa_manifest(
+    name="sentiment-model",
+    namespace="ml-serving",
+)
+print(hpa_yaml)</pre></div>
+            </div>
+        </div>
+        <div class="snippet-content" id="snip-rbac">
+            <button class="copy-btn" onclick="copySnippet('snip-rbac')" type="button">Copy</button>
+            <div class="code-block-container" style="margin-bottom:0;">
+                <div class="code-block-header">
+                    <div class="dots"><div class="dot dot-red"></div><div class="dot dot-yellow"></div><div class="dot dot-green"></div></div>
+                    <span class="filename">security/access.py</span>
+                </div>
+                <div class="code-block-body"><pre data-aq-highlight="python">from aquilia.mlops.security import RBACManager, Permission, Role
+
+rbac = app.di.get(RBACManager)
+
+# Built-in roles: VIEWER, DEVELOPER, DEPLOYER, ADMIN
+rbac.assign_role("alice", "ADMIN")
+rbac.assign_role("bob", "DEVELOPER")
+rbac.assign_role("charlie", "VIEWER")
+
+# Check permissions before operations
+if rbac.check_permission("bob", Permission.PACK_WRITE):
+    await registry.register(model)
+
+if rbac.check_permission("bob", Permission.ROLLOUT_MANAGE):
+    await engine.start(rollout_config)  # denied!
+
+# Custom roles
+rbac.add_role(Role(
+    name="ML_ENGINEER",
+    permissions=[
+        Permission.PACK_READ,
+        Permission.PACK_WRITE,
+        Permission.REGISTRY_ADMIN,
+    ],
+))
+
+# Available permissions:
+#   PACK_READ, PACK_WRITE, PACK_DELETE, PACK_PROMOTE,
+#   PACK_SIGN, REGISTRY_ADMIN, PLUGIN_INSTALL, ROLLOUT_MANAGE</pre></div>
             </div>
         </div>
         <div class="snippet-content" id="snip-config">
@@ -984,6 +1427,59 @@ framework = "pytorch"</pre></div>
             },
         });
     }
+
+    // ── Experiment Statuses ──────────────────────────────────────
+    var es = charts.experiment_statuses || {};
+    var esLabels = Object.keys(es);
+    var esValues = Object.values(es);
+    if (esLabels.length) {
+        var esColorMap = {
+            'active': '#22c55e', 'inactive': '#a1a1aa', 'paused': '#fbbf24',
+            'concluded': '#3b82f6', 'completed': '#22c55e',
+        };
+        var esColors = esLabels.map(function(l) { return esColorMap[l] || '#6b7280'; });
+        new Chart(document.getElementById('chart-experiment-statuses'), {
+            type: 'doughnut',
+            data: {
+                labels: esLabels,
+                datasets: [{ data: esValues, backgroundColor: esColors, borderWidth: 0, hoverOffset: 6 }],
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false, cutout: '68%',
+                plugins: { legend: { position: 'bottom', labels: { padding: 10 } } },
+            },
+        });
+    }
+
+    // ── Memory Allocations by Model ─────────────────────────────
+    var ma = charts.memory_allocations || {};
+    var maLabels = Object.keys(ma);
+    var maValues = Object.values(ma);
+    if (maLabels.length) {
+        var maPalette = ['#22c55e','#3b82f6','#a855f7','#f97316','#ef4444','#fbbf24','#0ea5e9','#ec4899','#14b8a6','#6366f1'];
+        var maColors = maLabels.map(function(_, i) { return maPalette[i % maPalette.length]; });
+        new Chart(document.getElementById('chart-memory-allocations'), {
+            type: 'bar',
+            data: {
+                labels: maLabels,
+                datasets: [{
+                    label: 'Memory (MB)',
+                    data: maValues,
+                    backgroundColor: maColors,
+                    borderWidth: 0,
+                    borderRadius: 4,
+                }],
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                scales: {
+                    x: { grid: { display: false } },
+                    y: { beginAtZero: true, grid: { color: gridColor }, ticks: { callback: function(v) { return v + ' MB'; } } },
+                },
+                plugins: { legend: { display: false } },
+            },
+        });
+    }
 })();
 
 // ── Count-up animation ──────────────────────────────────────────
@@ -1064,6 +1560,16 @@ function copySnippet(id) {
     var raw = tmp.textContent || tmp.innerText;
     navigator.clipboard.writeText(raw.trim()).then(function() {
         var btn = el.querySelector('.copy-btn');
+        if (btn) { btn.textContent = 'Copied!'; setTimeout(function() { btn.textContent = 'Copy'; }, 1500); }
+    });
+}
+
+// ── Copy prometheus text helper ──
+function copyPrometheusText() {
+    var pre = document.getElementById('prometheus-text');
+    if (!pre) return;
+    navigator.clipboard.writeText(pre.textContent.trim()).then(function() {
+        var btn = pre.closest('.card').querySelector('.copy-btn');
         if (btn) { btn.textContent = 'Copied!'; setTimeout(function() { btn.textContent = 'Copy'; }, 1500); }
     });
 }
