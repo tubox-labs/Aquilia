@@ -1098,7 +1098,7 @@ class Integration:
                      "_monitoring", "_admin_users", "_profile", "_audit",
                      "_containers", "_pods",
                      "_query_inspector", "_tasks", "_errors",
-                     "_testing", "_mlops")
+                     "_testing", "_mlops", "_storage")
 
         def __init__(self) -> None:
             self._dashboard: bool = True
@@ -1119,6 +1119,7 @@ class Integration:
             self._errors: bool = False            # disabled by default
             self._testing: bool = False           # disabled by default
             self._mlops: bool = False             # disabled by default
+            self._storage: bool = False           # disabled by default
 
         # ── Dashboard ──
         def enable_dashboard(self) -> "Integration.AdminModules":
@@ -1318,6 +1319,17 @@ class Integration:
             self._mlops = False
             return self
 
+        # ── Storage (disabled by default) ──
+        def enable_storage(self) -> "Integration.AdminModules":
+            """Show the Storage page (file browser, backend analytics, health). Disabled by default -- opt in."""
+            self._storage = True
+            return self
+
+        def disable_storage(self) -> "Integration.AdminModules":
+            """Hide the Storage page."""
+            self._storage = False
+            return self
+
         # ── Convenience ──
         def enable_all(self) -> "Integration.AdminModules":
             """Enable every admin module (including monitoring & audit)."""
@@ -1352,6 +1364,7 @@ class Integration:
                 "errors": self._errors,
                 "testing": self._testing,
                 "mlops": self._mlops,
+                "storage": self._storage,
             }
 
         def __repr__(self) -> str:
@@ -2205,6 +2218,7 @@ class Integration:
                 "errors": kwargs.pop("enable_errors", False),
                 "testing": kwargs.pop("enable_testing", False),
                 "mlops": kwargs.pop("enable_mlops", False),
+                "storage": kwargs.pop("enable_storage", False),
             }
 
         # ── Resolve audit ────────────────────────────────────────────

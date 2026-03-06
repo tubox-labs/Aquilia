@@ -443,6 +443,9 @@ class AquiliaServer:
         # ── Cache subsystem ──────────────────────────────────────────────
         self._setup_cache()
 
+        # ── Storage subsystem ────────────────────────────────────────────
+        self._setup_storage()
+
         # ── I18n subsystem ───────────────────────────────────────────────
         self._setup_i18n()
 
@@ -989,6 +992,58 @@ class AquiliaServer:
         except Exception as e:
             self._cache_service = None
             self.logger.error(f"Cache subsystem init failed (non-fatal): {e}", exc_info=True)
+
+    def _setup_storage(self):
+        """
+        Initialize storage subsystem from workspace config.
+
+        Reads ``Integration.storage()`` configuration, creates the
+        :class:`StorageRegistry` with all configured backends, then
+        registers it in every DI container so controllers / services can
+        inject ``StorageRegistry``.
+
+        Actual backend initialization (creating dirs, connecting to S3, etc.)
+        happens during :meth:`startup` where ``StorageRegistry.initialize_all()``
+        is called.
+        """
+        storage_config = self.config.get_storage_config()
+        if not storage_config.get("enabled", False):
+            self._storage_registry = None
+            return
+
+        try:
+            from .storage.registry import StorageRegistry
+            from .storage.configs import config_from_dict
+            from .di.providers import ValueProvider
+
+            backend_configs = storage_config.get("backends", [])
+            if not backend_configs:
+                self._storage_registry = None
+                return
+
+            # Build registry from backend configs
+            registry = StorageRegistry.from_config(backend_configs)
+
+            # Register StorageRegistry in every DI container
+            for container in self.runtime.di_containers.values():
+                container.register(ValueProvider(
+                    value=registry,
+                    token=StorageRegistry,
+                    scope="app",
+                ))
+
+            self._storage_registry = registry
+            # Also store on runtime for admin fallback resolution
+            self.runtime._storage_registry = registry
+            self.logger.debug(
+                "Storage subsystem configured: %s (default=%s)",
+                ", ".join(registry.aliases()),
+                registry._default_alias,
+            )
+
+        except Exception as e:
+            self._storage_registry = None
+            self.logger.error(f"Storage subsystem init failed (non-fatal): {e}", exc_info=True)
 
     def _setup_i18n(self):
         """
@@ -1920,6 +1975,13 @@ class AquiliaServer:
                 ("GET", f"{url_prefix}/pods/",     "pods_view", ctrl.pods_view),
                 ("GET", f"{url_prefix}/pods/api/", "pods_api",  ctrl.pods_api),
             ])
+            admin_routes.extend([
+                ("GET",  f"{url_prefix}/storage/",              "storage_view",     ctrl.storage_view),
+                ("GET",  f"{url_prefix}/storage/api/",          "storage_api",      ctrl.storage_api),
+                ("GET",  f"{url_prefix}/storage/api/download",  "storage_download", ctrl.storage_download),
+                ("POST", f"{url_prefix}/storage/api/upload",    "storage_upload",   ctrl.storage_upload),
+                ("POST", f"{url_prefix}/storage/api/delete",    "storage_delete",   ctrl.storage_delete),
+            ])
 
             # DevTools module routes (always registered — disabled page on off)
             admin_routes.extend([
@@ -1996,6 +2058,24 @@ class AquiliaServer:
                     site.set_task_manager(self._task_manager)
                 except Exception:
                     pass  # Non-critical
+
+            # ── Wire storage registry into admin site ────────────────────
+            try:
+                from .storage.registry import StorageRegistry
+                # Try DI container first
+                storage_reg = None
+                if hasattr(self, 'container') and self.container is not None:
+                    try:
+                        storage_reg = self.container.resolve(StorageRegistry)
+                    except Exception:
+                        pass
+                # Fallback: check runtime shared state
+                if storage_reg is None and hasattr(self, 'runtime'):
+                    storage_reg = getattr(self.runtime, '_storage_registry', None)
+                if storage_reg is not None:
+                    site.set_storage_registry(storage_reg)
+            except Exception:
+                pass  # Non-critical -- storage admin just shows "unavailable"
 
             # ── Register admin DI providers ──────────────────────────────
             try:
@@ -2978,6 +3058,18 @@ class AquiliaServer:
                     self.logger.error(f"Cache startup failed: {e}")
                     # Non-fatal -- app can run without cache
 
+            # Step 3.7: Initialize storage subsystem (create dirs, connect backends)
+            if hasattr(self, '_storage_registry') and self._storage_registry is not None:
+                try:
+                    await self._storage_registry.initialize_all()
+                    self.logger.info(
+                        "Storage backends initialized: %s",
+                        ", ".join(self._storage_registry.aliases()),
+                    )
+                except Exception as e:
+                    self.logger.error(f"Storage startup failed: {e}")
+                    # Non-fatal -- app can run without storage
+
             # Step 4: Gather route/service counts for health registration
             routes = self.controller_router.get_routes()
             
@@ -3006,6 +3098,11 @@ class AquiliaServer:
             if hasattr(self, '_cache_service') and self._cache_service is not None:
                 self.health_registry.register("cache", HealthStatus(
                     name="cache", status=SubsystemStatus.HEALTHY,
+                ))
+            if hasattr(self, '_storage_registry') and self._storage_registry is not None:
+                self.health_registry.register("storage", HealthStatus(
+                    name="storage", status=SubsystemStatus.HEALTHY,
+                    message=f"{len(self._storage_registry.aliases())} backends active",
                 ))
             if hasattr(self, '_mail_service') and self._mail_service is not None:
                 self.health_registry.register("mail", HealthStatus(
@@ -3067,6 +3164,14 @@ class AquiliaServer:
                 self.logger.debug("Cache subsystem shut down")
             except Exception as e:
                 self.logger.warning(f"Error shutting down cache subsystem: {e}")
+
+        # Shutdown storage subsystem
+        if hasattr(self, '_storage_registry') and self._storage_registry is not None:
+            try:
+                await self._storage_registry.shutdown_all()
+                self.logger.debug("Storage subsystem shut down")
+            except Exception as e:
+                self.logger.warning(f"Error shutting down storage subsystem: {e}")
 
         # Cleanup DI containers
         for app_name, container in self.runtime.di_containers.items():

@@ -177,12 +177,19 @@ class StorageFile:
         return len(data)
 
     async def seek(self, pos: int) -> None:
-        """Seek to byte position."""
+        """Seek to byte position (clamped to valid range)."""
+        if pos < 0:
+            pos = 0
         self._pos = pos
 
     async def tell(self) -> int:
         """Return current byte position."""
         return self._pos
+
+    @property
+    def content(self) -> Optional[bytes]:
+        """Return raw content bytes (or None if not materialised)."""
+        return self._content
 
     async def close(self) -> None:
         """Release resources."""
@@ -447,6 +454,29 @@ class StorageBackend(ABC):
     def _normalize_path(name: str) -> str:
         """Normalise slashes and strip leading slash."""
         return str(PurePosixPath(name)).lstrip("/")
+
+    @staticmethod
+    async def _read_content(
+        content: Union[bytes, BinaryIO, AsyncIterator[bytes], "StorageFile"],
+    ) -> bytes:
+        """Normalise any content type to raw bytes.
+
+        Handles ``bytes``, ``StorageFile``, sync file-like objects
+        (via executor), and async iterators.
+        """
+        if isinstance(content, bytes):
+            return content
+        if isinstance(content, StorageFile):
+            return await content.read()
+        if hasattr(content, "read"):
+            import asyncio
+            loop = asyncio.get_event_loop()
+            return await loop.run_in_executor(None, content.read)  # type: ignore
+        # AsyncIterator[bytes]
+        parts: list[bytes] = []
+        async for chunk in content:  # type: ignore
+            parts.append(chunk)
+        return b"".join(parts)
 
     def __repr__(self) -> str:
         return f"<{self.__class__.__name__} backend={self.backend_name!r}>"

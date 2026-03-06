@@ -49,6 +49,7 @@ from .templates import (
     render_monitoring_page,
     render_containers_page,
     render_pods_page,
+    render_storage_page,
     render_admin_users_page,
     render_profile_page,
     render_error_page,
@@ -400,6 +401,12 @@ class AdminController(Controller):
                 "cpu",
                 "ML model registry, inference serving, drift detection, rollouts, experiments, and observability.",
             ),
+            "Storage": (
+                "Integration.AdminModules().enable_storage()",
+                "enable_storage=True",
+                "hard-drive",
+                "Storage backend management, file browser, quota analytics, health monitoring, and Chart.js dashboards.",
+            ),
         }
 
         hint = _config_hints.get(module, (
@@ -514,6 +521,35 @@ class AdminController(Controller):
             except Exception:
                 mlops_summary = {"available": False}
 
+        # Gather Storage summary for dashboard widget
+        storage_summary = {"available": False}
+        if self.site.admin_config.is_module_enabled("storage"):
+            try:
+                sd = await self.site.get_storage_data()
+                if sd.get("available"):
+                    storage_summary = {
+                        "available": True,
+                        "total_backends": len(sd.get("backends", [])),
+                        "total_files": sd.get("total_files", 0),
+                        "total_size": sd.get("total_size", 0),
+                        "total_size_human": self.site._fmt_bytes(sd.get("total_size", 0)),
+                        "healthy_count": sum(1 for v in sd.get("health", {}).values() if v),
+                        "unhealthy_count": sum(1 for v in sd.get("health", {}).values() if not v),
+                        "default_alias": sd.get("default_alias", "default"),
+                        "backends": [
+                            {
+                                "alias": b.get("alias", ""),
+                                "type": b.get("type", "unknown"),
+                                "healthy": b.get("healthy", False),
+                                "file_count": b.get("file_count", 0),
+                                "size_human": b.get("size_human", "0 B"),
+                            }
+                            for b in sd.get("backends", [])[:6]
+                        ],
+                    }
+            except Exception:
+                storage_summary = {"available": False}
+
         html = render_dashboard(
             app_list=app_list,
             stats=stats,
@@ -525,6 +561,7 @@ class AdminController(Controller):
             error_stats=error_stats,
             tasks_stats=tasks_stats,
             mlops_summary=mlops_summary,
+            storage_summary=storage_summary,
         )
         return _html_response(html)
 
@@ -642,7 +679,7 @@ class AdminController(Controller):
     _SYSTEM_PAGES = frozenset({
         "login", "logout", "orm", "build", "migrations",
         "config", "workspace", "permissions", "audit", "monitoring",
-        "admin-users", "profile", "containers", "pods",
+        "admin-users", "profile", "containers", "pods", "storage",
     })
 
     # ── List View ────────────────────────────────────────────────────
@@ -2199,6 +2236,239 @@ class AdminController(Controller):
             status=200,
             headers={"content-type": "application/json; charset=utf-8"},
         )
+
+    # ── Storage Page ─────────────────────────────────────────────────
+
+    @GET("/storage/")
+    async def storage_view(self, request, ctx: RequestCtx) -> Response:
+        """Storage backends -- file browser, analytics, health & configuration."""
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return denied
+
+        if not self.site.admin_config.is_module_enabled("storage"):
+            return self._module_disabled_response("Storage", identity)
+
+        self._ensure_initialized()
+
+        storage_data = await self.site.get_storage_data()
+        app_list = self.site.get_app_list(identity)
+
+        html = render_storage_page(
+            storage_data=storage_data,
+            app_list=app_list,
+            identity_name=_get_identity_name(identity),
+                identity_avatar=_get_identity_avatar(identity),
+        )
+        return _html_response(html)
+
+    @GET("/storage/api/")
+    async def storage_api(self, request, ctx: RequestCtx) -> Response:
+        """JSON API endpoint for live-polling storage metrics."""
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return Response(
+                content=b'{"error":"unauthorized"}',
+                status=401,
+                headers={"content-type": "application/json"},
+            )
+
+        if not self.site.admin_config.is_module_enabled("storage"):
+            return Response(
+                content=b'{"error":"storage disabled"}',
+                status=404,
+                headers={"content-type": "application/json"},
+            )
+
+        self._ensure_initialized()
+
+        import json as _json
+        storage_data = await self.site.get_storage_data()
+
+        # ── Compute derived fields the frontend expects ──
+        backends = storage_data.get("backends", [])
+        health = storage_data.get("health", {})
+        all_files = storage_data.get("all_files", [])
+        total_size = storage_data.get("total_size", 0)
+
+        def _fmt_bytes(b: int) -> str:
+            for u in ("B", "KB", "MB", "GB", "TB"):
+                if abs(b) < 1024:
+                    return f"{b:.1f} {u}"
+                b /= 1024
+            return f"{b:.1f} PB"
+
+        file_type_count: dict = {}
+        largest = 0
+        for f in all_files:
+            ct = f.get("content_type", "application/octet-stream")
+            major = ct.split("/")[0] if "/" in ct else ct
+            file_type_count[major] = file_type_count.get(major, 0) + 1
+            sz = f.get("size", 0)
+            if sz > largest:
+                largest = sz
+
+        storage_data["total_backends"] = len(backends)
+        storage_data["total_size_human"] = _fmt_bytes(total_size)
+        storage_data["healthy_count"] = sum(1 for v in health.values() if v)
+        storage_data["file_type_count"] = len(file_type_count)
+        storage_data["largest_file_size"] = _fmt_bytes(largest)
+        storage_data["health_labels"] = list(health.keys()) if health else []
+        storage_data["health_values"] = [1 if health.get(a, False) else 0 for a in storage_data["health_labels"]]
+
+        return Response(
+            content=_json.dumps(storage_data, default=str).encode("utf-8"),
+            status=200,
+            headers={"content-type": "application/json; charset=utf-8"},
+        )
+
+    # ── Storage File Operations ──────────────────────────────────────
+
+    @GET("/storage/api/download")
+    async def storage_download(self, request, ctx: RequestCtx) -> Response:
+        """Download a file from a storage backend."""
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return Response(content=b'{"error":"unauthorized"}', status=401, headers={"content-type": "application/json"})
+
+        if not self.site.admin_config.is_module_enabled("storage"):
+            return Response(content=b'{"error":"storage disabled"}', status=404, headers={"content-type": "application/json"})
+
+        self._ensure_initialized()
+
+        backend_alias = ctx.query_param("backend", "default")
+        file_path = ctx.query_param("path", "")
+        if not file_path:
+            return Response(content=b'{"error":"path is required"}', status=400, headers={"content-type": "application/json"})
+
+        try:
+            registry = self.site._storage_registry
+            if not registry:
+                return Response(content=b'{"error":"storage not available"}', status=503, headers={"content-type": "application/json"})
+
+            backend = registry.get(backend_alias)
+            if not backend:
+                return Response(content=b'{"error":"backend not found"}', status=404, headers={"content-type": "application/json"})
+            storage_file = await backend.open(file_path)
+            # StorageFile.read() returns bytes
+            content = await storage_file.read()
+            await storage_file.close()
+
+            # Use content-type from metadata if available, else guess
+            import mimetypes as _mt
+            ct = (storage_file.meta.content_type if storage_file.meta and storage_file.meta.content_type else None)
+            if not ct:
+                ct, _ = _mt.guess_type(file_path)
+            ct = ct or "application/octet-stream"
+            fname = file_path.rsplit("/", 1)[-1] if "/" in file_path else file_path
+
+            return Response(
+                content=content,
+                status=200,
+                headers={
+                    "content-type": ct,
+                    "content-disposition": f'attachment; filename="{fname}"',
+                    "content-length": str(len(content)),
+                },
+            )
+        except FileNotFoundError:
+            return Response(
+                content=b'{"error":"file not found"}',
+                status=404,
+                headers={"content-type": "application/json"},
+            )
+        except Exception as exc:
+            import json as _json
+            return Response(
+                content=_json.dumps({"error": str(exc)}).encode("utf-8"),
+                status=500,
+                headers={"content-type": "application/json"},
+            )
+
+    @POST("/storage/api/upload")
+    async def storage_upload(self, request, ctx: RequestCtx) -> Response:
+        """Upload a file to a storage backend from the admin panel."""
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return Response(content=b'{"error":"unauthorized"}', status=401, headers={"content-type": "application/json"})
+
+        if not self.site.admin_config.is_module_enabled("storage"):
+            return Response(content=b'{"error":"storage disabled"}', status=404, headers={"content-type": "application/json"})
+
+        self._ensure_initialized()
+
+        import json as _json
+        try:
+            form = await ctx.multipart()
+            file_obj = form.get_file("file")
+            if not file_obj:
+                return Response(content=b'{"error":"no file provided"}', status=400, headers={"content-type": "application/json"})
+
+            backend_alias = form.get_field("backend", "default") if hasattr(form, "get_field") else form.get("backend", "default")
+            file_path = (form.get_field("path", "") if hasattr(form, "get_field") else form.get("path", "")) or getattr(file_obj, "filename", "uploaded_file")
+            file_data = await file_obj.read() if hasattr(file_obj, "read") else file_obj.data if hasattr(file_obj, "data") else bytes(file_obj)
+
+            registry = self.site._storage_registry
+            if not registry:
+                return Response(content=b'{"error":"storage not available"}', status=503, headers={"content-type": "application/json"})
+
+            backend = registry.get(backend_alias)
+            if not backend:
+                return Response(content=b'{"error":"backend not found"}', status=404, headers={"content-type": "application/json"})
+            await backend.save(file_path, file_data)
+
+            return Response(
+                content=_json.dumps({"success": True, "path": file_path, "backend": backend_alias}).encode("utf-8"),
+                status=200,
+                headers={"content-type": "application/json; charset=utf-8"},
+            )
+        except Exception as exc:
+            return Response(
+                content=_json.dumps({"error": str(exc)}).encode("utf-8"),
+                status=500,
+                headers={"content-type": "application/json"},
+            )
+
+    @POST("/storage/api/delete")
+    async def storage_delete(self, request, ctx: RequestCtx) -> Response:
+        """Delete a file from a storage backend."""
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return Response(content=b'{"error":"unauthorized"}', status=401, headers={"content-type": "application/json"})
+
+        if not self.site.admin_config.is_module_enabled("storage"):
+            return Response(content=b'{"error":"storage disabled"}', status=404, headers={"content-type": "application/json"})
+
+        self._ensure_initialized()
+
+        import json as _json
+        try:
+            body = await ctx.json()
+            backend_alias = body.get("backend", "default")
+            file_path = body.get("path", "")
+            if not file_path:
+                return Response(content=b'{"error":"path is required"}', status=400, headers={"content-type": "application/json"})
+
+            registry = self.site._storage_registry
+            if not registry:
+                return Response(content=b'{"error":"storage not available"}', status=503, headers={"content-type": "application/json"})
+
+            backend = registry.get(backend_alias)
+            if not backend:
+                return Response(content=b'{"error":"backend not found"}', status=404, headers={"content-type": "application/json"})
+            await backend.delete(file_path)
+
+            return Response(
+                content=_json.dumps({"success": True, "path": file_path, "backend": backend_alias}).encode("utf-8"),
+                status=200,
+                headers={"content-type": "application/json; charset=utf-8"},
+            )
+        except Exception as exc:
+            return Response(
+                content=_json.dumps({"error": str(exc)}).encode("utf-8"),
+                status=500,
+                headers={"content-type": "application/json"},
+            )
 
     # ── Query Inspector Page ─────────────────────────────────────────
 

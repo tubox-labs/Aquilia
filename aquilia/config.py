@@ -784,6 +784,32 @@ class ConfigLoader:
 
         return merged
 
+    def get_storage_config(self) -> dict:
+        """
+        Get storage configuration with defaults.
+
+        Returns:
+            Storage configuration dictionary.
+        """
+        default_storage_config = {
+            "enabled": False,
+            "default": "default",
+            "backends": [],
+        }
+
+        # Get user-provided storage config
+        user_config = self.get("storage", {})
+        if not user_config:
+            user_config = self.get("integrations.storage", {})
+
+        # Merge with defaults
+        merged = default_storage_config.copy()
+        if user_config:
+            merged["enabled"] = user_config.get("enabled", True)
+            self._merge_dict(merged, user_config)
+
+        return merged
+
     def get_middleware_config(self) -> list:
         """
         Get middleware chain configuration.

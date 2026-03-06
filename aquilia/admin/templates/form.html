@@ -232,9 +232,9 @@
     </div>
 </div>
 {% endif %}
+{% endblock %}
 
 {% block extra_js %}
-<script>
 (function() {
     // ── Query Inspector toggle ──────────────────────────────────────
     window.toggleQueryInspector = function() {
@@ -381,6 +381,4 @@
         overlay.querySelector('#del-confirm').focus();
     };
 })();
-</script>
-{% endblock %}
 {% endblock %}

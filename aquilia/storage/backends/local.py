@@ -211,20 +211,4 @@ class LocalStorage(StorageBackend):
             )
         return full
 
-    @staticmethod
-    async def _read_content(
-        content: Union[bytes, BinaryIO, AsyncIterator[bytes], StorageFile],
-    ) -> bytes:
-        """Normalise any content type to bytes."""
-        if isinstance(content, bytes):
-            return content
-        if isinstance(content, StorageFile):
-            return await content.read()
-        if hasattr(content, "read"):
-            loop = asyncio.get_event_loop()
-            return await loop.run_in_executor(None, content.read)  # type: ignore
-        # AsyncIterator
-        parts: list[bytes] = []
-        async for chunk in content:  # type: ignore
-            parts.append(chunk)
-        return b"".join(parts)
+    # _read_content inherited from StorageBackend

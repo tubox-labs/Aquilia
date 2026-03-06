@@ -78,6 +78,9 @@
         <a class="sidebar-link{{ ' active' if active_page == 'pods' else '' }}" href="{{ url_prefix|default('/admin') }}/pods/" data-sidebar-label="pods kubernetes k8s deployments services">
             <i class="icon-cloud"></i> <span>Pods</span>
         </a>
+        <a class="sidebar-link{{ ' active' if active_page == 'storage' else '' }}" href="{{ url_prefix|default('/admin') }}/storage/" data-sidebar-label="storage files backends s3 local azure gcs sftp uploads">
+            <i class="icon-hard-drive"></i> <span>Storage</span>
+        </a>
     </div>
     {% endif %}
 

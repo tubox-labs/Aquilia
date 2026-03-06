@@ -195,6 +195,7 @@ def render_dashboard(
     error_stats: Optional[Dict[str, Any]] = None,
     tasks_stats: Optional[Dict[str, Any]] = None,
     mlops_summary: Optional[Dict[str, Any]] = None,
+    storage_summary: Optional[Dict[str, Any]] = None,
 ) -> str:
     """Render the admin dashboard."""
     model_counts = stats.get("model_counts", {})
@@ -243,6 +244,13 @@ def render_dashboard(
             tasks_pending=_tasks_stats.get("pending_count", 0),
             # MLOps summary
             mlops_summary=mlops_summary or {},
+            # Storage summary
+            storage_summary=storage_summary or {},
+            admin_config={"modules": {
+                "containers": bool(containers_summary and containers_summary.get("available")),
+                "pods": bool(pods_summary and pods_summary.get("available")),
+                "storage": bool(storage_summary and storage_summary.get("available")),
+            }},
         )
     return _fallback_dashboard(
         app_list, stats, identity_name,
@@ -728,6 +736,208 @@ def render_pods_page(
     return f"""<!DOCTYPE html><html lang="en" data-theme="dark"><head>
 <meta charset="UTF-8"><title>Pods -- Aquilia Admin</title><style>{_FALLBACK_CSS}</style></head>
 <body><div style="padding:24px"><h1>Kubernetes Pods</h1><p>{total} pods</p></div></body></html>"""
+
+
+def render_storage_page(
+    storage_data: Dict[str, Any],
+    app_list: Optional[List[Dict[str, Any]]] = None,
+    identity_name: str = "Admin",
+    identity_avatar: str = "",
+    *,
+    site_title: str = "Aquilia Admin",
+    url_prefix: str = "/admin",
+) -> str:
+    """Render the storage admin page with backend analytics and file browser."""
+    import json as _json
+
+    available = storage_data.get("available", False)
+    backends = storage_data.get("backends", [])
+    health = storage_data.get("health", {})
+    all_files = storage_data.get("all_files", [])
+    total_files = storage_data.get("total_files", 0)
+    total_size = storage_data.get("total_size", 0)
+
+    # Compute human-readable total size
+    def _fmt(b: int) -> str:
+        for u in ("B", "KB", "MB", "GB", "TB"):
+            if abs(b) < 1024:
+                return f"{b:.1f} {u}"
+            b /= 1024
+        return f"{b:.1f} PB"
+
+    total_size_human = _fmt(total_size)
+    total_backends = len(backends)
+
+    # Backend type labels/counts for charts
+    backend_labels = [b.get("alias", "") for b in backends]
+    backend_sizes = [b.get("total_size", 0) for b in backends]
+    backend_file_counts = [b.get("file_count", 0) for b in backends]
+    backend_types = {b.get("alias", ""): b.get("type", "unknown") for b in backends}
+    default_alias = storage_data.get("default_alias", "default")
+    default_type = backend_types.get(default_alias, "unknown")
+
+    # Health stats
+    healthy_count = sum(1 for v in health.values() if v)
+
+    # File type distribution
+    file_type_count: Dict[str, int] = {}
+    extension_count: Dict[str, int] = {}
+    size_by_type: Dict[str, int] = {}
+    largest_file_size = 0
+    largest_file_name = ""
+
+    # Icon/type mapping for file browser
+    _icon_map = {
+        "image": ("image", "image"),
+        "video": ("film", "image"),
+        "audio": ("music", "other"),
+        "text": ("file-text", "document"),
+        "application/pdf": ("file-text", "document"),
+        "application/json": ("braces", "code"),
+        "application/xml": ("code", "code"),
+        "application/javascript": ("braces", "code"),
+        "application/zip": ("archive", "archive"),
+        "application/gzip": ("archive", "archive"),
+        "application/x-tar": ("archive", "archive"),
+        "application/x-rar": ("archive", "archive"),
+        "application/x-7z-compressed": ("archive", "archive"),
+        "application/msword": ("file-text", "document"),
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ("file-text", "document"),
+        "application/vnd.ms-excel": ("table", "document"),
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ("table", "document"),
+        "application/vnd.ms-powerpoint": ("presentation", "document"),
+        "text/csv": ("table", "code"),
+        "text/html": ("code", "code"),
+        "text/css": ("palette", "code"),
+        "text/markdown": ("file-text", "document"),
+        "text/plain": ("file-text", "document"),
+    }
+
+    def _get_icon(ct: str):
+        """Get icon name and class for a content type."""
+        if ct in _icon_map:
+            return _icon_map[ct]
+        major = ct.split("/")[0] if "/" in ct else ct
+        if major in _icon_map:
+            return _icon_map[major]
+        return ("file", "other")
+
+    for f in all_files:
+        ct = f.get("content_type", "application/octet-stream")
+        major = ct.split("/")[0] if "/" in ct else ct
+        file_type_count[major] = file_type_count.get(major, 0) + 1
+        size_by_type[major] = size_by_type.get(major, 0) + f.get("size", 0)
+        ext = f.get("extension", "")
+        if ext:
+            extension_count[ext] = extension_count.get(ext, 0) + 1
+        sz = f.get("size", 0)
+        if sz > largest_file_size:
+            largest_file_size = sz
+            largest_file_name = f.get("name", "")
+
+        # Enrich file entries with icon/display data
+        icon_name, icon_class = _get_icon(ct)
+        f["icon"] = icon_name
+        f["icon_class"] = icon_class
+        f["backend_type"] = backend_types.get(f.get("backend", ""), "unknown")
+        lm = f.get("last_modified")
+        if lm and isinstance(lm, str) and len(lm) >= 10:
+            f["modified"] = lm[:10]
+        else:
+            f["modified"] = "—"
+        # Compute is_dir flag (name ends with /)
+        f["is_dir"] = f.get("name", "").endswith("/")
+
+    # Enrich directory entries for backends
+    for b in backends:
+        for bf in b.get("files", []):
+            if "icon" not in bf:
+                ct = bf.get("content_type", "application/octet-stream")
+                icon_name, icon_class = _get_icon(ct)
+                bf["icon"] = icon_name
+                bf["icon_class"] = icon_class
+                bf["backend_type"] = b.get("type", "unknown")
+                lm = bf.get("last_modified")
+                bf["modified"] = lm[:10] if lm and isinstance(lm, str) and len(lm) >= 10 else "—"
+
+    file_type_labels = list(file_type_count.keys()) or ["none"]
+    file_type_counts = list(file_type_count.values()) or [0]
+    extension_labels = list(extension_count.keys())[:15] or ["none"]
+    extension_counts = [extension_count.get(e, 0) for e in extension_labels]
+    size_by_type_labels = list(size_by_type.keys()) or ["none"]
+    size_by_type_values = list(size_by_type.values()) or [0]
+
+    # Size histogram (buckets: <1K, 1K-10K, 10K-100K, 100K-1M, 1M-10M, >10M)
+    buckets = {"<1KB": 0, "1-10KB": 0, "10-100KB": 0, "100KB-1MB": 0, "1-10MB": 0, ">10MB": 0}
+    for f in all_files:
+        sz = f.get("size", 0)
+        if sz < 1024:
+            buckets["<1KB"] += 1
+        elif sz < 10240:
+            buckets["1-10KB"] += 1
+        elif sz < 102400:
+            buckets["10-100KB"] += 1
+        elif sz < 1048576:
+            buckets["100KB-1MB"] += 1
+        elif sz < 10485760:
+            buckets["1-10MB"] += 1
+        else:
+            buckets[">10MB"] += 1
+    size_histogram_labels = list(buckets.keys())
+    size_histogram_values = list(buckets.values())
+
+    # Health chart data
+    health_labels = list(health.keys()) or ["none"]
+    health_values = [1 if health.get(a, False) else 0 for a in health_labels]
+
+    # File types list for filter dropdown
+    file_types_list = sorted(set(f.get("content_type", "") for f in all_files if f.get("content_type")))
+
+    if _HAS_JINJA2:
+        return _render_template(
+            "storage.html",
+            available=available,
+            total_backends=total_backends,
+            backends=backends,
+            health=health,
+            total_files=total_files,
+            total_size_human=total_size_human,
+            total_size_bytes=total_size,
+            backend_types=backend_types,
+            default_alias=default_alias,
+            default_type=default_type,
+            healthy_count=healthy_count,
+            file_type_count=len(file_type_count),
+            file_type_breakdown=file_type_count,
+            largest_file_size=_fmt(largest_file_size),
+            largest_file_name=largest_file_name,
+            all_files=all_files,
+            file_types_list=file_types_list,
+            backend_labels=backend_labels,
+            backend_sizes=backend_sizes,
+            backend_file_counts=backend_file_counts,
+            file_type_labels=file_type_labels,
+            file_type_counts=file_type_counts,
+            extension_labels=extension_labels,
+            extension_counts=extension_counts,
+            size_by_type_labels=size_by_type_labels,
+            size_by_type_values=size_by_type_values,
+            size_histogram_labels=size_histogram_labels,
+            size_histogram_values=size_histogram_values,
+            health_labels=health_labels,
+            health_values=health_values,
+            app_list=app_list or [],
+            active_page="storage",
+            identity_name=identity_name,
+            identity_avatar=identity_avatar,
+            site_title=site_title,
+            url_prefix=url_prefix,
+            page_title="Storage",
+        )
+    return f"""<!DOCTYPE html><html lang="en" data-theme="dark"><head>
+<meta charset="UTF-8"><title>Storage -- Aquilia Admin</title><style>{_FALLBACK_CSS}</style></head>
+<body><div style="padding:24px"><h1>Storage</h1>
+<p>{total_backends} backends · {total_files} files · {total_size_human}</p></div></body></html>"""
 
 
 def render_admin_users_page(

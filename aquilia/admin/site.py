@@ -57,7 +57,7 @@ class AdminConfig:
         "profile": True, "audit": False,
         "containers": False, "pods": False,
         "query_inspector": False, "tasks": False, "errors": False,
-        "testing": False, "mlops": False,
+        "testing": False, "mlops": False, "storage": False,
     })
 
     # Audit settings (disabled by default -- opt in)
@@ -253,7 +253,7 @@ class AdminConfig:
             "profile": True, "audit": False,
             "containers": False, "pods": False,
             "query_inspector": False, "tasks": False, "errors": False,
-            "testing": False,
+            "testing": False, "storage": False,
         }
         modules = {**default_modules, **modules_raw}
 
@@ -1228,6 +1228,256 @@ class AdminSite:
     def set_task_manager(self, manager) -> None:
         """Register the application's TaskManager for admin integration."""
         self._task_manager = manager
+
+    # ── Storage data ─────────────────────────────────────────────────
+
+    def set_storage_registry(self, registry) -> None:
+        """Register the application's StorageRegistry for admin integration."""
+        self._storage_registry = registry
+
+    async def get_storage_data(self) -> Dict[str, Any]:
+        """
+        Gather comprehensive storage subsystem data for the admin page.
+
+        Inspects all storage backends: file listings, sizes, types,
+        health status, configuration, and builds chart-ready data
+        arrays for the frontend.
+        """
+        import os as _os
+        from collections import defaultdict
+
+        data: Dict[str, Any] = {
+            "available": False,
+            "backends": [],
+            "health": {},
+            "all_files": [],
+            "total_files": 0,
+            "total_size": 0,
+            "default_alias": "default",
+        }
+
+        registry = getattr(self, "_storage_registry", None)
+        if registry is None:
+            return data
+
+        data["available"] = True
+        data["default_alias"] = getattr(registry, "_default_alias", "default")
+
+        # Health check all backends
+        try:
+            health_results = await registry.health_check()
+            data["health"] = health_results
+        except Exception:
+            data["health"] = {alias: False for alias in registry}
+
+        all_files: list = []
+        backends_info: list = []
+
+        for alias in registry:
+            backend = registry[alias]
+            is_default = alias == data["default_alias"]
+            backend_type = getattr(backend, "backend_name", "unknown")
+            healthy = data["health"].get(alias, False)
+
+            # Type display map
+            _type_display = {
+                "local": "Local Filesystem",
+                "memory": "In-Memory",
+                "s3": "Amazon S3",
+                "gcs": "Google Cloud Storage",
+                "azure": "Azure Blob Storage",
+                "sftp": "SFTP / SSH",
+                "composite": "Composite (Multi-Backend)",
+            }
+
+            backend_info: Dict[str, Any] = {
+                "alias": alias,
+                "type": backend_type,
+                "type_display": _type_display.get(backend_type, backend_type.title()),
+                "is_default": is_default,
+                "healthy": healthy,
+                "health_status": "healthy" if healthy else "unhealthy",
+                "file_count": 0,
+                "total_size": 0,
+                "size_human": "0 B",
+                "files": [],
+                "config": {},
+                "config_display": {},
+                "capabilities": [],
+                "recent_files": [],
+                # Backend-specific fields (used by template conditionally)
+                "root": "",
+                "bucket": "",
+                "region": "",
+                "container_name": "",
+                "host": "",
+                "port": "",
+                "quota_max": 0,
+                "quota_pct": 0.0,
+            }
+
+            # Extract config info and backend-specific fields
+            cfg = getattr(backend, "_config", None)
+            if cfg is not None:
+                try:
+                    if hasattr(cfg, "to_dict"):
+                        cfg_dict = cfg.to_dict()
+                        backend_info["config"] = cfg_dict
+                        # Build safe display config (hide secrets)
+                        _secrets = {"secret_key", "access_key", "session_token",
+                                    "password", "key_passphrase", "account_key",
+                                    "sas_token", "connection_string",
+                                    "credentials_json", "credentials_path"}
+                        display = {}
+                        for k, v in cfg_dict.items():
+                            if k in _secrets and v:
+                                display[k] = "••••••••"
+                            elif v is not None and v != "" and v != [] and v != {}:
+                                display[k] = str(v)
+                        backend_info["config_display"] = display
+                    else:
+                        backend_info["config"] = {
+                            "backend": getattr(cfg, "backend", ""),
+                            "alias": getattr(cfg, "alias", alias),
+                        }
+                        backend_info["config_display"] = backend_info["config"]
+
+                    # Extract backend-specific display fields
+                    backend_info["root"] = getattr(cfg, "root", "")
+                    backend_info["bucket"] = getattr(cfg, "bucket", "")
+                    backend_info["region"] = getattr(cfg, "region", "") or getattr(cfg, "location", "")
+                    backend_info["container_name"] = getattr(cfg, "container", "")
+                    backend_info["host"] = getattr(cfg, "host", "")
+                    backend_info["port"] = getattr(cfg, "port", "")
+
+                    # Quota (memory backend has max_size)
+                    max_size = getattr(cfg, "max_size", 0) or 0
+                    backend_info["quota_max"] = max_size
+                except Exception:
+                    pass
+
+            # Extract capabilities
+            caps = []
+            for cap in ("save", "open", "delete", "exists", "stat", "listdir",
+                        "url", "copy", "move", "ping"):
+                if hasattr(backend, cap) and callable(getattr(backend, cap)):
+                    caps.append(cap)
+            backend_info["capabilities"] = caps
+
+            # List files
+            try:
+                dirs, files = await backend.listdir("")
+                for fname in files:
+                    try:
+                        meta = await backend.stat(fname)
+                        ext = _os.path.splitext(fname)[1].lower() if "." in fname else ""
+                        file_entry = {
+                            "name": fname,
+                            "size": meta.size,
+                            "size_human": self._fmt_bytes(meta.size),
+                            "content_type": meta.content_type or "application/octet-stream",
+                            "extension": ext,
+                            "last_modified": meta.last_modified.isoformat() if meta.last_modified else None,
+                            "created_at": meta.created_at.isoformat() if meta.created_at else None,
+                            "etag": meta.etag or "",
+                            "backend": alias,
+                            "storage_class": meta.storage_class or "",
+                        }
+                        backend_info["files"].append(file_entry)
+                        all_files.append(file_entry)
+                        backend_info["total_size"] += meta.size
+                        backend_info["file_count"] += 1
+                    except Exception:
+                        # File stat failed -- include minimal info
+                        file_entry = {
+                            "name": fname,
+                            "size": 0,
+                            "size_human": "0 B",
+                            "content_type": "application/octet-stream",
+                            "extension": _os.path.splitext(fname)[1].lower() if "." in fname else "",
+                            "last_modified": None,
+                            "created_at": None,
+                            "etag": "",
+                            "backend": alias,
+                            "storage_class": "",
+                        }
+                        backend_info["files"].append(file_entry)
+                        all_files.append(file_entry)
+                        backend_info["file_count"] += 1
+
+                # Also recurse into subdirectories (one level deep)
+                for subdir in dirs:
+                    try:
+                        _, sub_files = await backend.listdir(subdir)
+                        for sf in sub_files:
+                            full_path = f"{subdir}/{sf}" if subdir else sf
+                            try:
+                                meta = await backend.stat(full_path)
+                                ext = _os.path.splitext(sf)[1].lower() if "." in sf else ""
+                                file_entry = {
+                                    "name": full_path,
+                                    "size": meta.size,
+                                    "size_human": self._fmt_bytes(meta.size),
+                                    "content_type": meta.content_type or "application/octet-stream",
+                                    "extension": ext,
+                                    "last_modified": meta.last_modified.isoformat() if meta.last_modified else None,
+                                    "created_at": meta.created_at.isoformat() if meta.created_at else None,
+                                    "etag": meta.etag or "",
+                                    "backend": alias,
+                                    "storage_class": meta.storage_class or "",
+                                }
+                                backend_info["files"].append(file_entry)
+                                all_files.append(file_entry)
+                                backend_info["total_size"] += meta.size
+                                backend_info["file_count"] += 1
+                            except Exception:
+                                file_entry = {
+                                    "name": full_path,
+                                    "size": 0,
+                                    "size_human": "0 B",
+                                    "content_type": "application/octet-stream",
+                                    "extension": _os.path.splitext(sf)[1].lower() if "." in sf else "",
+                                    "last_modified": None,
+                                    "created_at": None,
+                                    "etag": "",
+                                    "backend": alias,
+                                    "storage_class": "",
+                                }
+                                backend_info["files"].append(file_entry)
+                                all_files.append(file_entry)
+                                backend_info["file_count"] += 1
+                    except Exception:
+                        pass  # Subdirectory listing failed
+
+            except Exception:
+                pass  # Backend listing not available
+
+            backend_info["total_size_human"] = self._fmt_bytes(backend_info["total_size"])
+            backend_info["size_human"] = backend_info["total_size_human"]
+
+            # Compute quota percentage
+            if backend_info["quota_max"] > 0:
+                backend_info["quota_pct"] = min(
+                    (backend_info["total_size"] / backend_info["quota_max"]) * 100,
+                    100.0,
+                )
+
+            # Recent files (sorted by last_modified descending, top 5)
+            sorted_files = sorted(
+                backend_info["files"],
+                key=lambda f: f.get("last_modified") or "",
+                reverse=True,
+            )
+            backend_info["recent_files"] = sorted_files[:5]
+
+            backends_info.append(backend_info)
+
+        data["backends"] = backends_info
+        data["all_files"] = all_files
+        data["total_files"] = sum(b["file_count"] for b in backends_info)
+        data["total_size"] = sum(b["total_size"] for b in backends_info)
+
+        return data
 
     # ── MLOps data ───────────────────────────────────────────────────
 

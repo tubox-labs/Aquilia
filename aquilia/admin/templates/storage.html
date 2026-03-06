@@ -1,0 +1,1754 @@
+{% extends "base.html" %}
+{% block title %}Storage{% endblock %}
+{% block breadcrumb %}Storage{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<style>
+/* ── Storage-specific styles ── */
+.sto-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(155px, 1fr));
+    gap: 14px;
+    margin-bottom: 28px;
+}
+.sto-stat-card {
+    background: var(--bg-glass);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    padding: 18px 16px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.25s var(--ease), transform 0.18s var(--ease), box-shadow 0.25s var(--ease);
+}
+.sto-stat-card:hover {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 32px rgba(34,197,94,0.08);
+}
+.sto-stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    border-radius: var(--radius) var(--radius) 0 0;
+    opacity: 0.8;
+}
+.sto-stat-card[data-color="green"]::before { background: linear-gradient(90deg, #22c55e, #16a34a); }
+.sto-stat-card[data-color="blue"]::before { background: linear-gradient(90deg, #3b82f6, #2563eb); }
+.sto-stat-card[data-color="amber"]::before { background: linear-gradient(90deg, #f59e0b, #d97706); }
+.sto-stat-card[data-color="purple"]::before { background: linear-gradient(90deg, #a855f7, #7c3aed); }
+.sto-stat-card[data-color="cyan"]::before { background: linear-gradient(90deg, #06b6d4, #0891b2); }
+.sto-stat-card[data-color="rose"]::before { background: linear-gradient(90deg, #f43f5e, #e11d48); }
+.sto-stat-card[data-color="teal"]::before { background: linear-gradient(90deg, #14b8a6, #0d9488); }
+.sto-stat-value {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1.2;
+    margin-bottom: 4px;
+    font-variant-numeric: tabular-nums;
+    transition: color 0.3s;
+}
+.sto-stat-label {
+    font-size: 0.7rem;
+    color: var(--text-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    font-weight: 500;
+}
+.sto-stat-sub {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    margin-top: 2px;
+    font-variant-numeric: tabular-nums;
+}
+.sto-chart-card {
+    background: var(--bg-glass);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    padding: 20px;
+    transition: border-color 0.2s var(--ease), box-shadow 0.2s var(--ease);
+}
+.sto-chart-card:hover {
+    box-shadow: 0 0 0 1px rgba(34,197,94,0.06), 0 4px 24px rgba(0,0,0,0.15);
+}
+.sto-chart-title {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.sto-chart-title .sto-badge {
+    font-size: 0.6rem;
+    padding: 2px 8px;
+    border-radius: var(--radius-full);
+    font-weight: 500;
+}
+.sto-chart-wrap { position: relative; width: 100%; }
+.sto-chart-wrap canvas { width: 100% !important; }
+.sto-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px; }
+.sto-grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-bottom: 24px; }
+.sto-grid-4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
+.sto-info-table { width: 100%; font-size: 0.75rem; border-collapse: collapse; }
+.sto-info-table tr { transition: background 0.15s; }
+.sto-info-table tr:hover { background: var(--bg-surface-hover); }
+.sto-info-table td { padding: 6px 0; border-bottom: 1px solid var(--border-subtle); }
+.sto-info-table td:first-child { color: var(--text-faint); white-space: nowrap; padding-right: 12px; }
+.sto-info-table td:last-child { color: var(--text-primary); text-align: right; font-variant-numeric: tabular-nums; }
+.sto-info-table tr:last-child td { border-bottom: none; }
+.sto-live-dot {
+    display: inline-block;
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--accent);
+    margin-right: 6px;
+    animation: stoPulse 2s ease-in-out infinite;
+}
+@keyframes stoPulse {
+    0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(34,197,94,0.5); }
+    50% { opacity: 0.7; box-shadow: 0 0 0 6px rgba(34,197,94,0); }
+}
+.sto-backend-card {
+    background: var(--bg-glass);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    padding: 20px;
+    transition: border-color 0.2s, transform 0.15s, box-shadow 0.2s;
+    position: relative;
+    overflow: hidden;
+}
+.sto-backend-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--accent);
+    box-shadow: 0 8px 32px rgba(34,197,94,0.08);
+}
+.sto-backend-card[data-health="healthy"] { border-left: 3px solid #22c55e; }
+.sto-backend-card[data-health="unhealthy"] { border-left: 3px solid #ef4444; }
+.sto-backend-card[data-health="unknown"] { border-left: 3px solid #71717a; }
+.sto-backend-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+}
+.sto-backend-name {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.sto-backend-type {
+    font-size: 0.6rem;
+    padding: 2px 8px;
+    border-radius: var(--radius-full);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.sto-type-local { background: var(--success-subtle); color: var(--accent); }
+.sto-type-memory { background: var(--info-subtle); color: var(--info); }
+.sto-type-s3 { background: rgba(245,158,11,0.12); color: #f59e0b; }
+.sto-type-gcs { background: rgba(59,130,246,0.12); color: #3b82f6; }
+.sto-type-azure { background: rgba(96,165,250,0.12); color: #60a5fa; }
+.sto-type-sftp { background: rgba(168,85,247,0.12); color: #a855f7; }
+.sto-type-composite { background: rgba(6,182,212,0.12); color: #06b6d4; }
+.sto-health-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+    flex-shrink: 0;
+}
+.sto-health-dot.healthy { background: #22c55e; box-shadow: 0 0 8px rgba(34,197,94,0.5); }
+.sto-health-dot.unhealthy { background: #ef4444; box-shadow: 0 0 8px rgba(239,68,68,0.5); }
+.sto-health-dot.unknown { background: #71717a; box-shadow: 0 0 8px rgba(113,113,122,0.3); }
+.sto-progress-bar {
+    width: 100%; height: 8px;
+    background: var(--bg-surface);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-top: 8px;
+}
+.sto-progress-fill {
+    height: 100%; border-radius: 4px;
+    transition: width 0.6s var(--ease);
+    background: linear-gradient(90deg, #22c55e, #16a34a);
+}
+.sto-progress-fill.warn { background: linear-gradient(90deg, #f59e0b, #d97706); }
+.sto-progress-fill.danger { background: linear-gradient(90deg, #ef4444, #dc2626); }
+.sto-file-table { width: 100%; font-size: 0.75rem; border-collapse: collapse; }
+.sto-file-table th {
+    text-align: left;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border-color);
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-faint);
+    font-weight: 600;
+}
+.sto-file-table td {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border-subtle);
+    font-variant-numeric: tabular-nums;
+}
+.sto-file-table tr:hover { background: var(--bg-surface-hover); }
+.sto-file-table tr:last-child td { border-bottom: none; }
+.sto-file-icon {
+    width: 28px; height: 28px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    flex-shrink: 0;
+}
+.sto-file-icon.image { background: rgba(34,197,94,0.12); color: #22c55e; }
+.sto-file-icon.document { background: rgba(59,130,246,0.12); color: #3b82f6; }
+.sto-file-icon.archive { background: rgba(245,158,11,0.12); color: #f59e0b; }
+.sto-file-icon.code { background: rgba(168,85,247,0.12); color: #a855f7; }
+.sto-file-icon.video { background: rgba(244,63,94,0.12); color: #f43f5e; }
+.sto-file-icon.audio { background: rgba(236,72,153,0.12); color: #ec4899; }
+.sto-file-icon.font { background: rgba(99,102,241,0.12); color: #6366f1; }
+.sto-file-icon.folder { background: rgba(245,158,11,0.12); color: #f59e0b; }
+.sto-file-icon.other { background: rgba(113,113,122,0.12); color: #71717a; }
+.sto-file-table tr[data-file] { cursor: pointer; transition: background 0.15s; }
+.sto-file-table tr[data-file]:hover { background: var(--bg-surface-hover); }
+.sto-file-table tr[data-file].selected { background: var(--accent-subtle); border-left: 2px solid var(--accent); }
+.sto-file-actions { display: flex; align-items: center; gap: 4px; }
+.sto-file-actions button {
+    background: none; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm);
+    padding: 4px 6px; cursor: pointer; color: var(--text-muted); font-size: 12px;
+    transition: all 0.15s;
+}
+.sto-file-actions button:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-subtle); }
+.sto-file-actions button.danger:hover { border-color: var(--danger); color: var(--danger); background: var(--danger-subtle); }
+/* ── Right Drawer ── */
+.sto-drawer-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 9998;
+    opacity: 0; visibility: hidden; transition: opacity 0.25s, visibility 0.25s;
+}
+.sto-drawer-overlay.open { opacity: 1; visibility: visible; }
+.sto-drawer {
+    position: fixed; top: 0; right: 0; bottom: 0; width: 420px; max-width: 90vw;
+    background: var(--bg-card); border-left: 1px solid var(--border-color);
+    z-index: 9999; transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
+    display: flex; flex-direction: column; box-shadow: -8px 0 40px rgba(0,0,0,0.2);
+}
+.sto-drawer.open { transform: translateX(0); }
+.sto-drawer-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 20px; border-bottom: 1px solid var(--border-color);
+    flex-shrink: 0;
+}
+.sto-drawer-header h3 { font-size: 0.9rem; font-weight: 600; color: var(--text-primary); margin: 0; display: flex; align-items: center; gap: 8px; }
+.sto-drawer-close {
+    background: none; border: none; cursor: pointer; color: var(--text-faint); padding: 6px;
+    border-radius: var(--radius-sm); transition: all 0.15s;
+}
+.sto-drawer-close:hover { color: var(--text-primary); background: var(--bg-surface); }
+.sto-drawer-body { flex: 1; overflow-y: auto; padding: 20px; }
+.sto-drawer-body .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+.sto-drawer-body .meta-item { padding: 12px; background: var(--bg-surface); border-radius: var(--radius-sm); border: 1px solid var(--border-subtle); }
+.sto-drawer-body .meta-item .meta-label { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-faint); margin-bottom: 4px; }
+.sto-drawer-body .meta-item .meta-value { font-size: 0.84rem; font-weight: 600; color: var(--text-primary); font-variant-numeric: tabular-nums; word-break: break-all; }
+.sto-drawer-preview {
+    border: 1px solid var(--border-subtle); border-radius: var(--radius);
+    overflow: hidden; margin-bottom: 20px; background: var(--bg-surface);
+    max-height: 280px; display: flex; align-items: center; justify-content: center;
+}
+.sto-drawer-preview img { max-width: 100%; max-height: 280px; object-fit: contain; }
+.sto-drawer-preview pre { padding: 12px; margin: 0; font-size: 0.72rem; overflow: auto; max-height: 280px; width: 100%; color: var(--text-secondary); }
+.sto-drawer-footer {
+    padding: 16px 20px; border-top: 1px solid var(--border-color);
+    display: flex; gap: 10px; flex-shrink: 0;
+}
+.sto-drawer-footer .btn { padding: 8px 16px; border-radius: var(--radius-sm); font-size: 0.78rem; font-weight: 500; cursor: pointer; border: 1px solid; transition: all 0.15s; flex: 1; text-align: center; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.sto-drawer-footer .btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.sto-drawer-footer .btn-primary:hover { opacity: 0.9; }
+.sto-drawer-footer .btn-danger { background: transparent; border-color: var(--danger); color: var(--danger); }
+.sto-drawer-footer .btn-danger:hover { background: var(--danger-subtle); }
+/* ── Upload Dropzone ── */
+.sto-upload-zone {
+    border: 2px dashed var(--border-color); border-radius: var(--radius); padding: 28px;
+    text-align: center; margin-bottom: 20px; transition: all 0.25s; cursor: pointer;
+    background: var(--bg-glass);
+}
+.sto-upload-zone:hover, .sto-upload-zone.dragover {
+    border-color: var(--accent); background: var(--accent-subtle);
+}
+.sto-upload-zone i { font-size: 28px; color: var(--text-faint); display: block; margin-bottom: 8px; }
+.sto-upload-zone .sto-upload-text { font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 4px; }
+.sto-upload-zone .sto-upload-hint { font-size: 0.68rem; color: var(--text-faint); }
+.sto-upload-progress {
+    display: none; margin-top: 12px; padding: 12px 16px;
+    background: var(--bg-surface); border-radius: var(--radius-sm); border: 1px solid var(--border-subtle);
+}
+.sto-upload-progress .progress-bar { height: 4px; background: var(--bg-input); border-radius: 2px; overflow: hidden; margin-top: 8px; }
+.sto-upload-progress .progress-fill { height: 100%; background: var(--accent); border-radius: 2px; transition: width 0.3s; width: 0%; }
+/* ── Delete Confirm Modal ── */
+.sto-modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 10000;
+    display: none; align-items: center; justify-content: center;
+}
+.sto-modal-overlay.open { display: flex; }
+.sto-modal {
+    background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius);
+    padding: 24px; width: 400px; max-width: 90vw; box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+}
+.sto-modal h3 { font-size: 1rem; font-weight: 600; color: var(--text-primary); margin: 0 0 8px 0; display: flex; align-items: center; gap: 8px; }
+.sto-modal p { font-size: 0.82rem; color: var(--text-secondary); margin: 0 0 20px 0; }
+.sto-modal code { font-size: 0.75rem; background: var(--bg-surface); padding: 2px 6px; border-radius: 4px; }
+.sto-modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+.sto-modal-actions .btn { padding: 8px 20px; border-radius: var(--radius-sm); font-size: 0.78rem; font-weight: 500; cursor: pointer; border: 1px solid; transition: all 0.15s; }
+.sto-modal-actions .btn-cancel { background: var(--bg-surface); border-color: var(--border-color); color: var(--text-secondary); }
+.sto-modal-actions .btn-cancel:hover { background: var(--bg-surface-hover); }
+.sto-modal-actions .btn-delete { background: var(--danger); border-color: var(--danger); color: #fff; }
+.sto-modal-actions .btn-delete:hover { opacity: 0.9; }
+.sto-empty-state {
+    text-align: center;
+    padding: 48px 24px;
+    color: var(--text-faint);
+}
+.sto-empty-state i { font-size: 48px; opacity: 0.2; margin-bottom: 16px; display: block; }
+.sto-config-block {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    padding: 14px 16px;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+    overflow-x: auto;
+    white-space: pre;
+    line-height: 1.6;
+}
+.sto-config-key { color: var(--accent); }
+.sto-config-val { color: var(--text-primary); }
+.sto-ops-counter {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-top: 12px;
+}
+.sto-ops-item {
+    padding: 10px 16px;
+    background: var(--bg-surface);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-subtle);
+    text-align: center;
+    min-width: 90px;
+    transition: border-color 0.2s, background 0.2s;
+}
+.sto-ops-item:hover { border-color: var(--accent); background: var(--accent-subtle); }
+.sto-ops-value { font-size: 1.1rem; font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.sto-ops-label { font-size: 0.6rem; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
+.sto-alert-strip {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    border-radius: var(--radius-sm);
+    font-size: 0.78rem;
+    margin-bottom: 16px;
+    border: 1px solid;
+}
+.sto-alert-strip.ok { background: var(--success-subtle); border-color: rgba(34,197,94,0.2); color: #22c55e; }
+.sto-alert-strip.warn { background: var(--warning-subtle); border-color: rgba(245,158,11,0.2); color: #f59e0b; }
+.sto-alert-strip.crit { background: var(--danger-subtle); border-color: rgba(239,68,68,0.2); color: #ef4444; }
+@media (max-width: 768px) {
+    .sto-grid-2 { grid-template-columns: 1fr; }
+    .sto-stats-grid { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); }
+}
+/* ── Custom Select ── */
+.sto-select {
+    position: relative;
+    display: inline-block;
+    min-width: 150px;
+}
+.sto-select-btn {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    width: 100%; padding: 7px 12px; font-size: 0.78rem;
+    background: var(--bg-input, var(--bg-surface)); color: var(--text-primary);
+    border: 1px solid var(--border-color); border-radius: var(--radius-sm);
+    cursor: pointer; user-select: none; transition: border-color 0.2s, box-shadow 0.2s;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.sto-select-btn:hover { border-color: var(--accent); }
+.sto-select-btn:focus, .sto-select.open .sto-select-btn {
+    border-color: var(--accent); box-shadow: 0 0 0 2px rgba(34,197,94,0.15); outline: none;
+}
+.sto-select-chevron {
+    flex-shrink: 0; width: 14px; height: 14px; transition: transform 0.2s;
+    color: var(--text-faint);
+}
+.sto-select.open .sto-select-chevron { transform: rotate(180deg); }
+.sto-select-dropdown {
+    position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+    background: var(--bg-card); border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm); box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+    z-index: 200; max-height: 220px; overflow-y: auto;
+    opacity: 0; visibility: hidden; transform: translateY(-4px);
+    transition: opacity 0.15s, visibility 0.15s, transform 0.15s;
+}
+.sto-select.open .sto-select-dropdown {
+    opacity: 1; visibility: visible; transform: translateY(0);
+}
+.sto-select-option {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 12px; font-size: 0.78rem; cursor: pointer;
+    color: var(--text-secondary); transition: background 0.12s, color 0.12s;
+}
+.sto-select-option:hover { background: var(--bg-surface-hover); color: var(--text-primary); }
+.sto-select-option.selected {
+    background: var(--accent-subtle); color: var(--accent); font-weight: 500;
+}
+.sto-select-option .sto-opt-check {
+    width: 14px; flex-shrink: 0; color: var(--accent); opacity: 0;
+}
+.sto-select-option.selected .sto-opt-check { opacity: 1; }
+.sto-select-dot {
+    width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+        <div>
+            <h1 style="display:flex;align-items:center;gap:10px;">
+                <span class="gradient-text">Storage Manager</span>
+                <span style="font-size:0.55rem;padding:3px 10px;border-radius:var(--radius-full);background:var(--accent-subtle);color:var(--accent);font-weight:500;vertical-align:middle;">LIVE</span>
+            </h1>
+            <p>File storage backends, capacity metrics, file browser, and health diagnostics for all configured storage systems.</p>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;">
+            <span style="font-size:0.72rem;color:var(--text-faint);" id="pollStatus">
+                <span class="sto-live-dot"></span>Polling every 5s
+            </span>
+            <button class="btn-ghost" style="font-size:0.72rem;padding:4px 12px;border:1px solid var(--border-color);border-radius:var(--radius-sm);" onclick="togglePolling()" id="pollToggle">
+                <i class="icon-pause" style="font-size:12px;vertical-align:-1px;margin-right:4px;" id="pollIcon"></i>Pause
+            </button>
+        </div>
+    </div>
+</div>
+
+{% if not available %}
+<div class="sto-alert-strip warn">
+    <i class="icon-alert-triangle" style="font-size:16px;flex-shrink:0;"></i>
+    No storage backends are configured. Add storage configuration via <code style="font-size:0.72rem;">Workspace.storage()</code> or <code style="font-size:0.72rem;">Integration.storage()</code>.
+</div>
+{% else %}
+
+{# ── Health Alert Strip ── #}
+{% set unhealthy_count = health|selectattr('1', 'equalto', false)|list|length if health else 0 %}
+{% if unhealthy_count > 0 %}
+<div class="sto-alert-strip crit">
+    <i class="icon-alert-circle" style="font-size:16px;flex-shrink:0;"></i>
+    {{ unhealthy_count }} backend{{ 's' if unhealthy_count > 1 else '' }} reporting unhealthy. Check backend connectivity and credentials.
+</div>
+{% else %}
+<div class="sto-alert-strip ok">
+    <i class="icon-check-circle" style="font-size:16px;flex-shrink:0;"></i>
+    All {{ total_backends }} storage backend{{ 's' if total_backends > 1 else '' }} healthy and operational.
+</div>
+{% endif %}
+
+{# ── Stats Row ── #}
+<div class="sto-stats-grid">
+    <div class="sto-stat-card" data-color="green">
+        <div class="sto-stat-value" id="statBackends">{{ total_backends }}</div>
+        <div class="sto-stat-label">Backends</div>
+        <div class="sto-stat-sub">{{ backend_types|join(', ') }}</div>
+    </div>
+    <div class="sto-stat-card" data-color="blue">
+        <div class="sto-stat-value" id="statFiles">{{ total_files }}</div>
+        <div class="sto-stat-label">Total Files</div>
+        <div class="sto-stat-sub">across all backends</div>
+    </div>
+    <div class="sto-stat-card" data-color="amber">
+        <div class="sto-stat-value" id="statSize">{{ total_size_human }}</div>
+        <div class="sto-stat-label">Total Storage</div>
+        <div class="sto-stat-sub">{{ total_size_bytes|default(0) }} bytes</div>
+    </div>
+    <div class="sto-stat-card" data-color="purple">
+        <div class="sto-stat-value" id="statDefault">{{ default_alias }}</div>
+        <div class="sto-stat-label">Default Backend</div>
+        <div class="sto-stat-sub">{{ default_type }}</div>
+    </div>
+    <div class="sto-stat-card" data-color="cyan">
+        <div class="sto-stat-value" id="statHealthy">{{ healthy_count }}/{{ total_backends }}</div>
+        <div class="sto-stat-label">Healthy</div>
+        <div class="sto-stat-sub">backends passing ping</div>
+    </div>
+    <div class="sto-stat-card" data-color="teal">
+        <div class="sto-stat-value" id="statTypes">{{ file_type_count }}</div>
+        <div class="sto-stat-label">File Types</div>
+        <div class="sto-stat-sub">unique MIME types</div>
+    </div>
+    <div class="sto-stat-card" data-color="rose">
+        <div class="sto-stat-value" id="statLargest">{{ largest_file_size }}</div>
+        <div class="sto-stat-label">Largest File</div>
+        <div class="sto-stat-sub" title="{{ largest_file_name }}">{{ largest_file_name|truncate(20) }}</div>
+    </div>
+</div>
+
+{# ── Tabs ── #}
+<div class="tab-nav" data-tab-group="sto">
+    <button class="tab-btn active" data-tab="overview" onclick="switchTab('sto','overview')">
+        <i class="icon-layout-dashboard" style="font-size:14px;vertical-align:-2px;margin-right:4px;"></i>Overview
+    </button>
+    <button class="tab-btn" data-tab="backends" onclick="switchTab('sto','backends')">
+        <i class="icon-hard-drive" style="font-size:14px;vertical-align:-2px;margin-right:4px;"></i>Backends
+    </button>
+    <button class="tab-btn" data-tab="files" onclick="switchTab('sto','files')">
+        <i class="icon-folder" style="font-size:14px;vertical-align:-2px;margin-right:4px;"></i>File Browser
+    </button>
+    <button class="tab-btn" data-tab="analytics" onclick="switchTab('sto','analytics')">
+        <i class="icon-bar-chart-3" style="font-size:14px;vertical-align:-2px;margin-right:4px;"></i>Analytics
+    </button>
+    <button class="tab-btn" data-tab="config" onclick="switchTab('sto','config')">
+        <i class="icon-settings" style="font-size:14px;vertical-align:-2px;margin-right:4px;"></i>Configuration
+    </button>
+    <button class="tab-btn" data-tab="health" onclick="switchTab('sto','health')">
+        <i class="icon-heart" style="font-size:14px;vertical-align:-2px;margin-right:4px;"></i>Health
+    </button>
+</div>
+
+{# ═══════════════════════════════════════════════════════════════════ #}
+{# ── TAB 1: Overview — charts + quick summary                     ── #}
+{# ═══════════════════════════════════════════════════════════════════ #}
+<div class="tab-content active" data-tab-content="sto" data-tab="overview">
+    <div class="section-label">Storage Overview <span style="font-size:0.62rem;color:var(--text-faint);font-weight:400;margin-left:6px;">Aggregate metrics across all backends</span></div>
+
+    <div class="sto-grid-2">
+        {# ── Storage Distribution by Backend (Doughnut) ── #}
+        <div class="sto-chart-card">
+            <div class="sto-chart-title">
+                Storage by Backend
+                <span class="sto-badge" style="background:var(--success-subtle);color:var(--accent);">{{ total_backends }} backends</span>
+            </div>
+            <div class="sto-chart-wrap" style="height:280px;"><canvas id="chartBackendDist"></canvas></div>
+        </div>
+
+        {# ── File Types Distribution (Doughnut) ── #}
+        <div class="sto-chart-card">
+            <div class="sto-chart-title">
+                File Type Distribution
+                <span class="sto-badge" style="background:var(--info-subtle);color:var(--info);">{{ file_type_count }} types</span>
+            </div>
+            <div class="sto-chart-wrap" style="height:280px;"><canvas id="chartFileTypes"></canvas></div>
+        </div>
+    </div>
+
+    <div class="sto-grid-2">
+        {# ── Files per Backend (Bar) ── #}
+        <div class="sto-chart-card">
+            <div class="sto-chart-title">
+                Files per Backend
+                <span class="sto-badge" style="background:rgba(168,85,247,0.12);color:#a855f7;">{{ total_files }} total</span>
+            </div>
+            <div class="sto-chart-wrap" style="height:250px;"><canvas id="chartFilesPerBackend"></canvas></div>
+        </div>
+
+        {# ── Storage Capacity (Bar) ── #}
+        <div class="sto-chart-card">
+            <div class="sto-chart-title">
+                Storage Size per Backend
+                <span class="sto-badge" style="background:rgba(245,158,11,0.12);color:#f59e0b;">{{ total_size_human }}</span>
+            </div>
+            <div class="sto-chart-wrap" style="height:250px;"><canvas id="chartSizePerBackend"></canvas></div>
+        </div>
+    </div>
+
+    {# ── File Size Histogram ── #}
+    <div class="sto-chart-card" style="margin-bottom:24px;">
+        <div class="sto-chart-title">
+            File Size Distribution
+            <span class="sto-badge" style="background:rgba(6,182,212,0.12);color:#06b6d4;">histogram</span>
+        </div>
+        <div class="sto-chart-wrap" style="height:220px;"><canvas id="chartSizeHistogram"></canvas></div>
+    </div>
+</div>
+
+{# ═══════════════════════════════════════════════════════════════════ #}
+{# ── TAB 2: Backends — detailed backend cards                     ── #}
+{# ═══════════════════════════════════════════════════════════════════ #}
+<div class="tab-content" data-tab-content="sto" data-tab="backends">
+    <div class="section-label">Registered Backends <span style="font-size:0.62rem;color:var(--text-faint);font-weight:400;margin-left:6px;">{{ total_backends }} configured</span></div>
+
+    <div class="sto-grid-3">
+    {% for backend in backends %}
+        <div class="sto-backend-card" data-health="{{ backend.health_status }}">
+            <div class="sto-backend-header">
+                <div class="sto-backend-name">
+                    <span class="sto-health-dot {{ backend.health_status }}"></span>
+                    {{ backend.alias }}
+                    {% if backend.is_default %}
+                    <span style="font-size:0.55rem;padding:2px 8px;border-radius:var(--radius-full);background:var(--accent-subtle);color:var(--accent);font-weight:500;">DEFAULT</span>
+                    {% endif %}
+                </div>
+                <span class="sto-backend-type sto-type-{{ backend.type }}">{{ backend.type }}</span>
+            </div>
+
+            <table class="sto-info-table">
+                <tr><td>Backend Type</td><td>{{ backend.type_display }}</td></tr>
+                <tr><td>Total Files</td><td>{{ backend.file_count }}</td></tr>
+                <tr><td>Total Size</td><td>{{ backend.size_human }}</td></tr>
+                {% if backend.root %}
+                <tr><td>Root Path</td><td style="font-family:var(--font-mono);font-size:0.68rem;">{{ backend.root }}</td></tr>
+                {% endif %}
+                {% if backend.bucket %}
+                <tr><td>Bucket</td><td style="font-family:var(--font-mono);font-size:0.68rem;">{{ backend.bucket }}</td></tr>
+                {% endif %}
+                {% if backend.region %}
+                <tr><td>Region</td><td>{{ backend.region }}</td></tr>
+                {% endif %}
+                {% if backend.container_name %}
+                <tr><td>Container</td><td style="font-family:var(--font-mono);font-size:0.68rem;">{{ backend.container_name }}</td></tr>
+                {% endif %}
+                {% if backend.host %}
+                <tr><td>Host</td><td style="font-family:var(--font-mono);font-size:0.68rem;">{{ backend.host }}:{{ backend.port }}</td></tr>
+                {% endif %}
+                <tr><td>Health</td><td>
+                    <span style="color:{{ '#22c55e' if backend.health_status == 'healthy' else '#ef4444' if backend.health_status == 'unhealthy' else '#71717a' }};">
+                        {{ backend.health_status|upper }}
+                    </span>
+                </td></tr>
+            </table>
+
+            {% if backend.quota_max > 0 %}
+            <div style="margin-top:12px;">
+                <div style="display:flex;justify-content:space-between;font-size:0.65rem;color:var(--text-faint);margin-bottom:4px;">
+                    <span>Quota Usage</span>
+                    <span>{{ backend.quota_pct|round(1) }}%</span>
+                </div>
+                <div class="sto-progress-bar">
+                    <div class="sto-progress-fill {{ 'danger' if backend.quota_pct > 90 else 'warn' if backend.quota_pct > 70 else '' }}" style="width:{{ backend.quota_pct|round(1) }}%"></div>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if backend.recent_files %}
+            <div style="margin-top:14px;">
+                <div style="font-size:0.68rem;color:var(--text-faint);margin-bottom:6px;">Recent Files</div>
+                {% for f in backend.recent_files[:5] %}
+                <div style="display:flex;justify-content:space-between;font-size:0.68rem;padding:3px 0;border-bottom:1px solid var(--border-subtle);">
+                    <span style="color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:60%;" title="{{ f.name }}">{{ f.name }}</span>
+                    <span style="color:var(--text-faint);font-variant-numeric:tabular-nums;">{{ f.size_human }}</span>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+    {% endfor %}
+    </div>
+</div>
+
+{# ═══════════════════════════════════════════════════════════════════ #}
+{# ── TAB 3: File Browser — sortable file table                    ── #}
+{# ═══════════════════════════════════════════════════════════════════ #}
+<div class="tab-content" data-tab-content="sto" data-tab="files">
+    <div class="section-label">File Browser <span style="font-size:0.62rem;color:var(--text-faint);font-weight:400;margin-left:6px;">{{ total_files }} files across all backends</span></div>
+
+    {# ── Upload Dropzone ── #}
+    <div class="sto-upload-zone" id="uploadZone" onclick="document.getElementById('fileUploadInput').click()">
+        <i class="icon-upload-cloud"></i>
+        <div class="sto-upload-text">Drop files here or <span style="color:var(--accent);font-weight:600;">browse</span></div>
+        <div class="sto-upload-hint">Upload to any configured storage backend</div>
+        <input type="file" id="fileUploadInput" multiple style="display:none;" onchange="handleFileUpload(event)">
+    </div>
+    <div class="sto-upload-progress" id="uploadProgress">
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+            <span style="font-size:0.78rem;color:var(--text-secondary);" id="uploadFileName">Uploading...</span>
+            <span style="font-size:0.72rem;color:var(--text-faint);font-variant-numeric:tabular-nums;" id="uploadPct">0%</span>
+        </div>
+        <div class="progress-bar"><div class="progress-fill" id="uploadFill"></div></div>
+    </div>
+
+    {# ── Upload Preview (shown after successful upload) ── #}
+    <div id="uploadPreview" style="display:none;margin-bottom:20px;">
+        <div class="sto-chart-card" style="border-color:var(--accent);border-style:solid;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <div style="width:36px;height:36px;border-radius:8px;background:var(--accent-subtle);display:flex;align-items:center;justify-content:center;">
+                        <i class="icon-check-circle" style="font-size:18px;color:var(--accent);"></i>
+                    </div>
+                    <div>
+                        <div style="font-size:0.85rem;font-weight:600;color:var(--text-primary);" id="previewTitle">Upload Complete</div>
+                        <div style="font-size:0.68rem;color:var(--text-faint);" id="previewSubtitle">File stored successfully</div>
+                    </div>
+                </div>
+                <button onclick="document.getElementById('uploadPreview').style.display='none'" style="background:none;border:none;cursor:pointer;color:var(--text-faint);padding:4px;"><i class="icon-x" style="font-size:16px;"></i></button>
+            </div>
+            <div id="previewContent" style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap;">
+                <div id="previewThumb" style="width:120px;height:90px;border-radius:var(--radius-sm);border:1px solid var(--border-subtle);overflow:hidden;display:flex;align-items:center;justify-content:center;background:var(--bg-surface);flex-shrink:0;"></div>
+                <div style="flex:1;min-width:200px;">
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;" id="previewMeta"></div>
+                    <div style="display:flex;gap:8px;margin-top:12px;">
+                        <a id="previewDownloadBtn" class="btn btn-primary" href="#" download style="padding:6px 14px;border-radius:var(--radius-sm);font-size:0.72rem;font-weight:500;cursor:pointer;border:1px solid var(--accent);background:var(--accent);color:#fff;text-decoration:none;display:inline-flex;align-items:center;gap:5px;"><i class="icon-download" style="font-size:12px;"></i>Download</a>
+                        <button onclick="document.getElementById('uploadPreview').style.display='none'" style="padding:6px 14px;border-radius:var(--radius-sm);font-size:0.72rem;font-weight:500;cursor:pointer;border:1px solid var(--border-color);background:var(--bg-surface);color:var(--text-secondary);">Dismiss</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# ── Backend Selector for Upload ── #}
+    <div style="display:flex;gap:12px;margin-bottom:16px;align-items:center;flex-wrap:wrap;">
+        <label style="font-size:0.72rem;color:var(--text-faint);white-space:nowrap;">Upload to:</label>
+        <div class="sto-select" id="uploadBackendWrap">
+            <button type="button" class="sto-select-btn" onclick="window.toggleSelect('uploadBackendWrap')">
+                <span class="sto-select-label">{% for b in backends %}{% if b.is_default %}{{ b.alias }} ({{ b.type }}){% endif %}{% endfor %}</span>
+                <svg class="sto-select-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <input type="hidden" id="uploadBackend" value="{% for b in backends %}{% if b.is_default %}{{ b.alias }}{% endif %}{% endfor %}">
+            <div class="sto-select-dropdown">
+                {% for backend in backends %}
+                <div class="sto-select-option{% if backend.is_default %} selected{% endif %}" data-value="{{ backend.alias }}" onclick="window.pickSelect('uploadBackendWrap','{{ backend.alias }}','{{ backend.alias }} ({{ backend.type }})')">
+                    <svg class="sto-opt-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                    <span class="sto-select-dot" style="background:{% if backend.type == 'local' %}#22c55e{% elif backend.type == 'memory' %}#3b82f6{% elif backend.type == 's3' %}#f59e0b{% elif backend.type == 'gcs' %}#60a5fa{% elif backend.type == 'azure' %}#818cf8{% else %}#71717a{% endif %};"></span>
+                    {{ backend.alias }} ({{ backend.type }})
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    {# ── Search and Filter ── #}
+    <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
+        <div style="position:relative;flex:1;min-width:200px;">
+            <i class="icon-search" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:14px;color:var(--text-faint);"></i>
+            <input type="text" id="fileSearch" placeholder="Search files by name, type, or backend…" class="form-input" style="padding-left:36px;font-size:0.78rem;" oninput="filterFiles()">
+        </div>
+        <div class="sto-select" id="backendFilterWrap" style="min-width:150px;">
+            <button type="button" class="sto-select-btn" onclick="window.toggleSelect('backendFilterWrap')">
+                <span class="sto-select-label">All Backends</span>
+                <svg class="sto-select-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <input type="hidden" id="backendFilter" value="">
+            <div class="sto-select-dropdown">
+                <div class="sto-select-option selected" data-value="" onclick="window.pickSelect('backendFilterWrap','','All Backends');filterFiles()">
+                    <svg class="sto-opt-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                    All Backends
+                </div>
+                {% for backend in backends %}
+                <div class="sto-select-option" data-value="{{ backend.alias }}" onclick="window.pickSelect('backendFilterWrap','{{ backend.alias }}','{{ backend.alias }} ({{ backend.type }})');filterFiles()">
+                    <svg class="sto-opt-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                    <span class="sto-select-dot" style="background:{% if backend.type == 'local' %}#22c55e{% elif backend.type == 'memory' %}#3b82f6{% elif backend.type == 's3' %}#f59e0b{% elif backend.type == 'gcs' %}#60a5fa{% elif backend.type == 'azure' %}#818cf8{% else %}#71717a{% endif %};"></span>
+                    {{ backend.alias }} ({{ backend.type }})
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="sto-select" id="typeFilterWrap" style="min-width:130px;">
+            <button type="button" class="sto-select-btn" onclick="window.toggleSelect('typeFilterWrap')">
+                <span class="sto-select-label">All Types</span>
+                <svg class="sto-select-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <input type="hidden" id="typeFilter" value="">
+            <div class="sto-select-dropdown">
+                <div class="sto-select-option selected" data-value="" onclick="window.pickSelect('typeFilterWrap','','All Types');filterFiles()">
+                    <svg class="sto-opt-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                    All Types
+                </div>
+                {% for ft in file_types_list %}
+                <div class="sto-select-option" data-value="{{ ft }}" onclick="window.pickSelect('typeFilterWrap','{{ ft }}','{{ ft }}');filterFiles()">
+                    <svg class="sto-opt-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                    {{ ft }}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    {% if all_files|length > 0 %}
+    <div class="sto-chart-card" style="padding:0;overflow:hidden;">
+        <table class="sto-file-table" id="fileTable">
+            <thead>
+                <tr>
+                    <th style="cursor:pointer;" onclick="sortTable(0)">File Name <i class="icon-chevrons-up-down" style="font-size:10px;"></i></th>
+                    <th style="cursor:pointer;" onclick="sortTable(1)">Backend <i class="icon-chevrons-up-down" style="font-size:10px;"></i></th>
+                    <th style="cursor:pointer;" onclick="sortTable(2)">Type <i class="icon-chevrons-up-down" style="font-size:10px;"></i></th>
+                    <th style="cursor:pointer;text-align:right;" onclick="sortTable(3)">Size <i class="icon-chevrons-up-down" style="font-size:10px;"></i></th>
+                    <th style="cursor:pointer;text-align:right;" onclick="sortTable(4)">Modified <i class="icon-chevrons-up-down" style="font-size:10px;"></i></th>
+                    <th style="text-align:center;width:100px;">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="fileTableBody">
+                {% for f in all_files %}
+                <tr data-file="{{ f.name }}" data-backend="{{ f.backend }}" data-type="{{ f.content_type }}" data-size="{{ f.size }}" data-name="{{ f.name|lower }}" data-size-human="{{ f.size_human }}" data-modified="{{ f.modified }}" onclick="openFileDrawer(this)">
+                    <td style="display:flex;align-items:center;gap:10px;">
+                        <span class="sto-file-icon {{ f.icon_class }}"><i class="icon-{{ f.icon }}"></i></span>
+                        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:280px;" title="{{ f.name }}">{{ f.name }}</span>
+                    </td>
+                    <td><span class="sto-backend-type sto-type-{{ f.backend_type }}">{{ f.backend }}</span></td>
+                    <td style="color:var(--text-muted);">{{ f.content_type }}</td>
+                    <td style="text-align:right;font-family:var(--font-mono);font-size:0.72rem;">{{ f.size_human }}</td>
+                    <td style="text-align:right;color:var(--text-muted);font-size:0.72rem;">{{ f.modified }}</td>
+                    <td style="text-align:center;" onclick="event.stopPropagation();">
+                        <div class="sto-file-actions">
+                            <button title="Download" onclick="downloadFile('{{ f.backend }}', '{{ f.name }}')"><i class="icon-download" style="font-size:12px;"></i></button>
+                            <button title="Delete" class="danger" onclick="confirmDelete('{{ f.backend }}', '{{ f.name }}')"><i class="icon-trash-2" style="font-size:12px;"></i></button>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;font-size:0.72rem;color:var(--text-faint);">
+        <span id="fileCount">Showing {{ all_files|length }} files</span>
+    </div>
+    {% else %}
+    <div class="sto-empty-state">
+        <i class="icon-folder-open"></i>
+        <div style="font-size:1rem;font-weight:600;margin-bottom:8px;">No files stored</div>
+        <div>Drop files in the upload zone above, use the Storage API, or call <code>await storage.save("path", data)</code></div>
+    </div>
+    {% endif %}
+</div>
+
+{# ── Right-Side File Detail Drawer ── #}
+<div class="sto-drawer-overlay" id="drawerOverlay" onclick="closeFileDrawer()"></div>
+<div class="sto-drawer" id="fileDrawer">
+    <div class="sto-drawer-header">
+        <h3>
+            <span class="sto-file-icon other" id="drawerIcon" style="width:24px;height:24px;font-size:12px;"><i class="icon-file"></i></span>
+            <span id="drawerFileName" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:280px;">File Details</span>
+        </h3>
+        <button class="sto-drawer-close" onclick="closeFileDrawer()"><i class="icon-x" style="font-size:16px;"></i></button>
+    </div>
+    <div class="sto-drawer-body">
+        <div id="drawerPreview" class="sto-drawer-preview" style="display:none;"></div>
+        <div class="meta-grid">
+            <div class="meta-item">
+                <div class="meta-label">File Name</div>
+                <div class="meta-value" id="drawerMetaName">—</div>
+            </div>
+            <div class="meta-item">
+                <div class="meta-label">Backend</div>
+                <div class="meta-value" id="drawerMetaBackend">—</div>
+            </div>
+            <div class="meta-item">
+                <div class="meta-label">Size</div>
+                <div class="meta-value" id="drawerMetaSize">—</div>
+            </div>
+            <div class="meta-item">
+                <div class="meta-label">Content Type</div>
+                <div class="meta-value" id="drawerMetaType">—</div>
+            </div>
+            <div class="meta-item">
+                <div class="meta-label">Last Modified</div>
+                <div class="meta-value" id="drawerMetaModified">—</div>
+            </div>
+            <div class="meta-item">
+                <div class="meta-label">Raw Size</div>
+                <div class="meta-value" id="drawerMetaRawSize">—</div>
+            </div>
+        </div>
+        <div style="font-size:0.68rem;color:var(--text-faint);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Full Path</div>
+        <div style="padding:10px 14px;background:var(--bg-surface);border-radius:var(--radius-sm);border:1px solid var(--border-subtle);font-family:var(--font-mono);font-size:0.72rem;color:var(--text-secondary);word-break:break-all;margin-bottom:20px;" id="drawerMetaPath">—</div>
+    </div>
+    <div class="sto-drawer-footer">
+        <a class="btn btn-primary" id="drawerDownloadBtn" href="#" download><i class="icon-download" style="font-size:14px;"></i>Download</a>
+        <button class="btn btn-danger" id="drawerDeleteBtn" onclick="confirmDeleteFromDrawer()"><i class="icon-trash-2" style="font-size:14px;"></i>Delete</button>
+    </div>
+</div>
+
+{# ── Delete Confirmation Modal ── #}
+<div class="sto-modal-overlay" id="deleteModal">
+    <div class="sto-modal">
+        <h3><i class="icon-alert-triangle" style="font-size:18px;color:var(--danger);"></i>Confirm Deletion</h3>
+        <p>Are you sure you want to delete <code id="deleteFileName">this file</code> from <code id="deleteBackendName">backend</code>? This action cannot be undone.</p>
+        <div class="sto-modal-actions">
+            <button class="btn btn-cancel" onclick="closeDeleteModal()">Cancel</button>
+            <button class="btn btn-delete" id="deleteConfirmBtn" onclick="executeDelete()"><i class="icon-trash-2" style="font-size:12px;margin-right:4px;"></i>Delete</button>
+        </div>
+    </div>
+</div>
+
+{# ═══════════════════════════════════════════════════════════════════ #}
+{# ── TAB 4: Analytics — advanced charts                           ── #}
+{# ═══════════════════════════════════════════════════════════════════ #}
+<div class="tab-content" data-tab-content="sto" data-tab="analytics">
+    <div class="section-label">Storage Analytics <span style="font-size:0.62rem;color:var(--text-faint);font-weight:400;margin-left:6px;">Deep dive into storage patterns</span></div>
+
+    <div class="sto-grid-2">
+        {# ── Top File Extensions (Polar Area) ── #}
+        <div class="sto-chart-card">
+            <div class="sto-chart-title">
+                Top File Extensions
+                <span class="sto-badge" style="background:rgba(168,85,247,0.12);color:#a855f7;">polar area</span>
+            </div>
+            <div class="sto-chart-wrap" style="height:300px;"><canvas id="chartExtensions"></canvas></div>
+        </div>
+
+        {# ── Storage Growth Trend (Line) ── #}
+        <div class="sto-chart-card">
+            <div class="sto-chart-title">
+                Backend Health Timeline
+                <span class="sto-badge" style="background:var(--success-subtle);color:var(--accent);">real-time</span>
+            </div>
+            <div class="sto-chart-wrap" style="height:300px;"><canvas id="chartHealthTimeline"></canvas></div>
+        </div>
+    </div>
+
+    <div class="sto-grid-2">
+        {# ── Size by Content Type (Horizontal Bar) ── #}
+        <div class="sto-chart-card">
+            <div class="sto-chart-title">
+                Storage by Content Type
+                <span class="sto-badge" style="background:rgba(6,182,212,0.12);color:#06b6d4;">horizontal bar</span>
+            </div>
+            <div class="sto-chart-wrap" style="height:300px;"><canvas id="chartSizeByType"></canvas></div>
+        </div>
+
+        {# ── Backend Comparison Radar ── #}
+        <div class="sto-chart-card">
+            <div class="sto-chart-title">
+                Backend Comparison
+                <span class="sto-badge" style="background:rgba(244,63,94,0.12);color:#f43f5e;">radar</span>
+            </div>
+            <div class="sto-chart-wrap" style="height:300px;"><canvas id="chartBackendRadar"></canvas></div>
+        </div>
+    </div>
+</div>
+
+{# ═══════════════════════════════════════════════════════════════════ #}
+{# ── TAB 5: Configuration — backend configs                       ── #}
+{# ═══════════════════════════════════════════════════════════════════ #}
+<div class="tab-content" data-tab-content="sto" data-tab="config">
+    <div class="section-label">Backend Configuration <span style="font-size:0.62rem;color:var(--text-faint);font-weight:400;margin-left:6px;">Runtime config for each registered backend</span></div>
+
+    {% for backend in backends %}
+    <div class="sto-chart-card" style="margin-bottom:16px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+            <div class="sto-chart-title" style="margin-bottom:0;">
+                <span class="sto-health-dot {{ backend.health_status }}"></span>
+                {{ backend.alias }}
+                {% if backend.is_default %}
+                <span style="font-size:0.55rem;padding:2px 8px;border-radius:var(--radius-full);background:var(--accent-subtle);color:var(--accent);font-weight:500;">DEFAULT</span>
+                {% endif %}
+            </div>
+            <span class="sto-backend-type sto-type-{{ backend.type }}">{{ backend.type }}</span>
+        </div>
+        <div class="sto-config-block">{% for key, val in backend.config_display.items() %}<span class="sto-config-key">{{ key }}</span>: <span class="sto-config-val">{{ val }}</span>
+{% endfor %}</div>
+
+        {# ── Operations Summary ── #}
+        <div style="margin-top:14px;font-size:0.68rem;color:var(--text-faint);margin-bottom:6px;">Capabilities</div>
+        <div class="sto-ops-counter">
+            <div class="sto-ops-item">
+                <div class="sto-ops-value"><i class="icon-upload" style="font-size:14px;"></i></div>
+                <div class="sto-ops-label">Save</div>
+            </div>
+            <div class="sto-ops-item">
+                <div class="sto-ops-value"><i class="icon-download" style="font-size:14px;"></i></div>
+                <div class="sto-ops-label">Open</div>
+            </div>
+            <div class="sto-ops-item">
+                <div class="sto-ops-value"><i class="icon-trash-2" style="font-size:14px;"></i></div>
+                <div class="sto-ops-label">Delete</div>
+            </div>
+            <div class="sto-ops-item">
+                <div class="sto-ops-value"><i class="icon-copy" style="font-size:14px;"></i></div>
+                <div class="sto-ops-label">Copy</div>
+            </div>
+            <div class="sto-ops-item">
+                <div class="sto-ops-value"><i class="icon-move" style="font-size:14px;"></i></div>
+                <div class="sto-ops-label">Move</div>
+            </div>
+            <div class="sto-ops-item">
+                <div class="sto-ops-value"><i class="icon-list" style="font-size:14px;"></i></div>
+                <div class="sto-ops-label">List</div>
+            </div>
+            <div class="sto-ops-item">
+                <div class="sto-ops-value"><i class="icon-link" style="font-size:14px;"></i></div>
+                <div class="sto-ops-label">URL</div>
+            </div>
+            <div class="sto-ops-item">
+                <div class="sto-ops-value"><i class="icon-activity" style="font-size:14px;"></i></div>
+                <div class="sto-ops-label">Ping</div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+{# ═══════════════════════════════════════════════════════════════════ #}
+{# ── TAB 6: Health — detailed health checks                       ── #}
+{# ═══════════════════════════════════════════════════════════════════ #}
+<div class="tab-content" data-tab-content="sto" data-tab="health">
+    <div class="section-label">Health Checks <span style="font-size:0.62rem;color:var(--text-faint);font-weight:400;margin-left:6px;">Live ping status for every backend</span></div>
+
+    <div class="sto-grid-3">
+    {% for alias, healthy in health.items() %}
+        <div class="sto-backend-card" data-health="{{ 'healthy' if healthy else 'unhealthy' }}">
+            <div class="sto-backend-header">
+                <div class="sto-backend-name">
+                    <span class="sto-health-dot {{ 'healthy' if healthy else 'unhealthy' }}"></span>
+                    storage.{{ alias }}
+                </div>
+                <span style="font-size:0.72rem;font-weight:600;color:{{ '#22c55e' if healthy else '#ef4444' }};">
+                    {{ 'HEALTHY' if healthy else 'UNHEALTHY' }}
+                </span>
+            </div>
+            <table class="sto-info-table">
+                <tr><td>Alias</td><td>{{ alias }}</td></tr>
+                <tr><td>Ping Result</td><td>{{ '✓ Reachable' if healthy else '✗ Unreachable' }}</td></tr>
+                <tr><td>Status</td><td style="color:{{ '#22c55e' if healthy else '#ef4444' }};">{{ 'Operational' if healthy else 'Down' }}</td></tr>
+            </table>
+        </div>
+    {% endfor %}
+    </div>
+
+    {# ── Health Timeline Chart ── #}
+    <div class="sto-chart-card" style="margin-top:20px;">
+        <div class="sto-chart-title">
+            Health Check Results
+            <span class="sto-badge" style="background:var(--success-subtle);color:var(--accent);">{{ healthy_count }}/{{ total_backends }} healthy</span>
+        </div>
+        <div class="sto-chart-wrap" style="height:200px;"><canvas id="chartHealthBar"></canvas></div>
+    </div>
+</div>
+
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+(function(){
+    'use strict';
+
+    // ── Theme ──
+    const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+    const gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
+    const textColor = isDark ? '#a1a1aa' : '#71717a';
+
+    // ── Utility: format bytes ──
+    function formatBytes(bytes) {
+        if (!bytes || bytes <= 0) return '0 B';
+        const k = 1024;
+        const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + (sizes[i] || 'B');
+    }
+
+    // ── Data from server ──
+    const backendLabels = {{ backend_labels|tojson }};
+    const backendSizes = {{ backend_sizes|tojson }};
+    const backendFileCounts = {{ backend_file_counts|tojson }};
+    const fileTypeLabels = {{ file_type_labels|tojson }};
+    const fileTypeCounts = {{ file_type_counts|tojson }};
+    const extensionLabels = {{ extension_labels|tojson }};
+    const extensionCounts = {{ extension_counts|tojson }};
+    const sizeByTypeLabels = {{ size_by_type_labels|tojson }};
+    const sizeByTypeValues = {{ size_by_type_values|tojson }};
+    const sizeHistogramLabels = {{ size_histogram_labels|tojson }};
+    const sizeHistogramValues = {{ size_histogram_values|tojson }};
+    const healthLabels = {{ health_labels|tojson }};
+    const healthValues = {{ health_values|tojson }};
+
+    // ── Charts (wrapped in try-catch so interactive functions always register) ──
+    const COLORS = ['#22c55e','#3b82f6','#f59e0b','#a855f7','#06b6d4','#f43f5e','#14b8a6','#ec4899','#6366f1','#eab308'];
+    let healthChart = null;
+
+    try {
+    if (typeof Chart === 'undefined') throw new Error('Chart.js not loaded');
+
+    Chart.defaults.color = textColor;
+    Chart.defaults.borderColor = gridColor;
+    Chart.defaults.font.family = "'Outfit', system-ui, sans-serif";
+    Chart.defaults.font.size = 11;
+    Chart.defaults.plugins.legend.labels.usePointStyle = true;
+    Chart.defaults.plugins.legend.labels.pointStyle = 'circle';
+    Chart.defaults.plugins.legend.labels.padding = 16;
+    const ctxBackendDist = document.getElementById('chartBackendDist');
+    if (ctxBackendDist) {
+        new Chart(ctxBackendDist, {
+            type: 'doughnut',
+            data: {
+                labels: backendLabels,
+                datasets: [{
+                    data: backendSizes,
+                    backgroundColor: COLORS.slice(0, backendLabels.length),
+                    borderWidth: 0,
+                    hoverOffset: 8,
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                cutout: '62%',
+                plugins: {
+                    legend: { position: 'bottom', labels: { padding: 12 } },
+                    tooltip: {
+                        callbacks: {
+                            label: function(ctx) {
+                                return ctx.label + ': ' + formatBytes(ctx.raw);
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // ── Chart 2: File Types (Doughnut) ──
+    const ctxFileTypes = document.getElementById('chartFileTypes');
+    if (ctxFileTypes) {
+        new Chart(ctxFileTypes, {
+            type: 'doughnut',
+            data: {
+                labels: fileTypeLabels,
+                datasets: [{
+                    data: fileTypeCounts,
+                    backgroundColor: COLORS.slice(0, fileTypeLabels.length),
+                    borderWidth: 0,
+                    hoverOffset: 8,
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                cutout: '62%',
+                plugins: { legend: { position: 'bottom' } }
+            }
+        });
+    }
+
+    // ── Chart 3: Files per Backend (Bar) ──
+    const ctxFilesPerBackend = document.getElementById('chartFilesPerBackend');
+    if (ctxFilesPerBackend) {
+        new Chart(ctxFilesPerBackend, {
+            type: 'bar',
+            data: {
+                labels: backendLabels,
+                datasets: [{
+                    label: 'Files',
+                    data: backendFileCounts,
+                    backgroundColor: COLORS.slice(0, backendLabels.length).map(c => c + '55'),
+                    borderColor: COLORS.slice(0, backendLabels.length),
+                    borderWidth: 1.5,
+                    borderRadius: 6,
+                    barPercentage: 0.6,
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { beginAtZero: true, grid: { color: gridColor }, ticks: { precision: 0 } },
+                    x: { grid: { display: false } }
+                }
+            }
+        });
+    }
+
+    // ── Chart 4: Size per Backend (Bar) ──
+    const ctxSizePerBackend = document.getElementById('chartSizePerBackend');
+    if (ctxSizePerBackend) {
+        new Chart(ctxSizePerBackend, {
+            type: 'bar',
+            data: {
+                labels: backendLabels,
+                datasets: [{
+                    label: 'Bytes',
+                    data: backendSizes,
+                    backgroundColor: COLORS.slice(0, backendLabels.length).map(c => c + '55'),
+                    borderColor: COLORS.slice(0, backendLabels.length),
+                    borderWidth: 1.5,
+                    borderRadius: 6,
+                    barPercentage: 0.6,
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: { label: ctx => formatBytes(ctx.raw) }
+                    }
+                },
+                scales: {
+                    y: { beginAtZero: true, grid: { color: gridColor }, ticks: { callback: v => formatBytes(v) } },
+                    x: { grid: { display: false } }
+                }
+            }
+        });
+    }
+
+    // ── Chart 5: File Size Histogram (Bar) ──
+    const ctxSizeHistogram = document.getElementById('chartSizeHistogram');
+    if (ctxSizeHistogram) {
+        new Chart(ctxSizeHistogram, {
+            type: 'bar',
+            data: {
+                labels: sizeHistogramLabels,
+                datasets: [{
+                    label: 'Files',
+                    data: sizeHistogramValues,
+                    backgroundColor: '#22c55e44',
+                    borderColor: '#22c55e',
+                    borderWidth: 1.5,
+                    borderRadius: 4,
+                    barPercentage: 0.85,
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { beginAtZero: true, grid: { color: gridColor }, ticks: { precision: 0 } },
+                    x: { grid: { display: false } }
+                }
+            }
+        });
+    }
+
+    // ── Chart 6: Top Extensions (Polar Area) ──
+    const ctxExtensions = document.getElementById('chartExtensions');
+    if (ctxExtensions) {
+        new Chart(ctxExtensions, {
+            type: 'polarArea',
+            data: {
+                labels: extensionLabels,
+                datasets: [{
+                    data: extensionCounts,
+                    backgroundColor: COLORS.slice(0, extensionLabels.length).map(c => c + '66'),
+                    borderColor: COLORS.slice(0, extensionLabels.length),
+                    borderWidth: 1.5,
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { position: 'right' } },
+                scales: { r: { grid: { color: gridColor }, ticks: { display: false } } }
+            }
+        });
+    }
+
+    // ── Chart 7: Health Timeline (Line — simulated) ──
+    const ctxHealthTimeline = document.getElementById('chartHealthTimeline');
+    if (ctxHealthTimeline) {
+        const now = new Date();
+        const labels = [];
+        for (let i = 9; i >= 0; i--) {
+            const d = new Date(now - i * 5000);
+            labels.push(d.toLocaleTimeString());
+        }
+        const datasets = healthLabels.map((label, idx) => ({
+            label: label,
+            data: Array(10).fill(healthValues[idx] ? 1 : 0),
+            borderColor: COLORS[idx % COLORS.length],
+            backgroundColor: COLORS[idx % COLORS.length] + '22',
+            tension: 0.3,
+            fill: false,
+            borderWidth: 2,
+            pointRadius: 3,
+        }));
+        healthChart = new Chart(ctxHealthTimeline, {
+            type: 'line',
+            data: { labels, datasets },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { position: 'bottom' } },
+                scales: {
+                    y: { min: -0.1, max: 1.1, grid: { color: gridColor }, ticks: {
+                        callback: v => v >= 0.5 ? 'UP' : 'DOWN',
+                        stepSize: 1,
+                    }},
+                    x: { grid: { display: false } }
+                }
+            }
+        });
+    }
+
+    // ── Chart 8: Size by Content Type (Horizontal Bar) ──
+    const ctxSizeByType = document.getElementById('chartSizeByType');
+    if (ctxSizeByType) {
+        new Chart(ctxSizeByType, {
+            type: 'bar',
+            data: {
+                labels: sizeByTypeLabels,
+                datasets: [{
+                    label: 'Size',
+                    data: sizeByTypeValues,
+                    backgroundColor: COLORS.slice(0, sizeByTypeLabels.length).map(c => c + '55'),
+                    borderColor: COLORS.slice(0, sizeByTypeLabels.length),
+                    borderWidth: 1.5,
+                    borderRadius: 6,
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true, maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { callbacks: { label: ctx => formatBytes(ctx.raw) } }
+                },
+                scales: {
+                    x: { beginAtZero: true, grid: { color: gridColor }, ticks: { callback: v => formatBytes(v) } },
+                    y: { grid: { display: false } }
+                }
+            }
+        });
+    }
+
+    // ── Chart 9: Backend Radar ──
+    const ctxBackendRadar = document.getElementById('chartBackendRadar');
+    if (ctxBackendRadar) {
+        const radarDatasets = backendLabels.map((label, idx) => ({
+            label: label,
+            data: [
+                backendFileCounts[idx] || 0,
+                Math.min((backendSizes[idx] || 0) / 1024, 100),
+                healthValues[idx] ? 100 : 0,
+                (backendFileCounts[idx] || 0) > 0 ? 80 : 20,
+                50,
+            ],
+            borderColor: COLORS[idx % COLORS.length],
+            backgroundColor: COLORS[idx % COLORS.length] + '22',
+            borderWidth: 2,
+            pointRadius: 3,
+        }));
+        new Chart(ctxBackendRadar, {
+            type: 'radar',
+            data: {
+                labels: ['Files', 'Size (KB)', 'Health', 'Activity', 'Reliability'],
+                datasets: radarDatasets,
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { position: 'bottom' } },
+                scales: { r: { grid: { color: gridColor }, ticks: { display: false }, suggestedMin: 0 } }
+            }
+        });
+    }
+
+    // ── Chart 10: Health Bar ──
+    const ctxHealthBar = document.getElementById('chartHealthBar');
+    if (ctxHealthBar) {
+        new Chart(ctxHealthBar, {
+            type: 'bar',
+            data: {
+                labels: healthLabels,
+                datasets: [{
+                    label: 'Health Status',
+                    data: healthValues.map(v => v ? 1 : 0),
+                    backgroundColor: healthValues.map(v => v ? '#22c55e55' : '#ef444455'),
+                    borderColor: healthValues.map(v => v ? '#22c55e' : '#ef4444'),
+                    borderWidth: 1.5,
+                    borderRadius: 6,
+                    barPercentage: 0.5,
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { min: 0, max: 1.2, grid: { color: gridColor }, ticks: {
+                        callback: v => v >= 0.5 ? 'Healthy' : 'Down',
+                        stepSize: 1,
+                    }},
+                    x: { grid: { display: false } }
+                }
+            }
+        });
+    }
+
+    } catch(e) { console.warn('[Aquilia Storage] Charts init error:', e.message || e); }
+
+    // ── Custom Select helpers ──
+    window.toggleSelect = function(wrapId) {
+        var wrap = document.getElementById(wrapId);
+        if (!wrap) return;
+        var wasOpen = wrap.classList.contains('open');
+        // Close all other open selects first
+        document.querySelectorAll('.sto-select.open').forEach(function(el) { el.classList.remove('open'); });
+        if (!wasOpen) wrap.classList.add('open');
+    };
+
+    window.pickSelect = function(wrapId, value, label) {
+        var wrap = document.getElementById(wrapId);
+        if (!wrap) return;
+        var hidden = wrap.querySelector('input[type="hidden"]');
+        if (hidden) hidden.value = value;
+        var lbl = wrap.querySelector('.sto-select-label');
+        if (lbl) lbl.textContent = label;
+        // Update selected state
+        wrap.querySelectorAll('.sto-select-option').forEach(function(opt) {
+            opt.classList.toggle('selected', opt.getAttribute('data-value') === value);
+        });
+        wrap.classList.remove('open');
+    };
+
+    // Close selects on outside click
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.sto-select')) {
+            document.querySelectorAll('.sto-select.open').forEach(function(el) { el.classList.remove('open'); });
+        }
+    });
+
+    // ── File search & filter ──
+    window.filterFiles = function() {
+        const search = (document.getElementById('fileSearch').value || '').toLowerCase();
+        const backend = document.getElementById('backendFilter').value;
+        const type = document.getElementById('typeFilter').value;
+        const rows = document.querySelectorAll('#fileTableBody tr');
+        let visible = 0;
+        rows.forEach(function(row) {
+            const name = row.getAttribute('data-name') || '';
+            const b = row.getAttribute('data-backend') || '';
+            const t = row.getAttribute('data-type') || '';
+            const show = (
+                (!search || name.includes(search) || b.toLowerCase().includes(search) || t.toLowerCase().includes(search))
+                && (!backend || b === backend)
+                && (!type || t === type)
+            );
+            row.style.display = show ? '' : 'none';
+            if (show) visible++;
+        });
+        const el = document.getElementById('fileCount');
+        if (el) el.textContent = 'Showing ' + visible + ' files';
+    };
+
+    // ── Table sort ──
+    let sortDir = {};
+    window.sortTable = function(col) {
+        const tbody = document.getElementById('fileTableBody');
+        if (!tbody) return;
+        const rows = Array.from(tbody.querySelectorAll('tr'));
+        sortDir[col] = !sortDir[col];
+        const dir = sortDir[col] ? 1 : -1;
+        rows.sort(function(a, b) {
+            let va, vb;
+            if (col === 3) {
+                va = parseInt(a.getAttribute('data-size') || '0', 10);
+                vb = parseInt(b.getAttribute('data-size') || '0', 10);
+            } else {
+                va = (a.children[col]?.textContent || '').toLowerCase().trim();
+                vb = (b.children[col]?.textContent || '').toLowerCase().trim();
+            }
+            if (typeof va === 'number' && typeof vb === 'number') return (va - vb) * dir;
+            return va < vb ? -dir : va > vb ? dir : 0;
+        });
+        rows.forEach(function(row) { tbody.appendChild(row); });
+    };
+
+    // ── File Detail Drawer ──
+    let currentDrawerFile = { backend: '', name: '' };
+
+    window.openFileDrawer = function(row) {
+        const name = row.getAttribute('data-file');
+        const backend = row.getAttribute('data-backend');
+        const type = row.getAttribute('data-type') || 'application/octet-stream';
+        const sizeHuman = row.getAttribute('data-size-human') || '—';
+        const rawSize = row.getAttribute('data-size') || '0';
+        const modified = row.getAttribute('data-modified') || '—';
+
+        currentDrawerFile = { backend: backend, name: name };
+
+        // Highlight selected row
+        document.querySelectorAll('#fileTableBody tr').forEach(r => r.classList.remove('selected'));
+        row.classList.add('selected');
+
+        // Get icon from row
+        const iconEl = row.querySelector('.sto-file-icon');
+        const drawerIconEl = document.getElementById('drawerIcon');
+        if (iconEl && drawerIconEl) {
+            drawerIconEl.className = iconEl.className;
+            drawerIconEl.style.width = '24px';
+            drawerIconEl.style.height = '24px';
+            drawerIconEl.style.fontSize = '12px';
+            drawerIconEl.innerHTML = iconEl.innerHTML;
+        }
+
+        // Populate metadata
+        document.getElementById('drawerFileName').textContent = name;
+        document.getElementById('drawerMetaName').textContent = name;
+        document.getElementById('drawerMetaBackend').textContent = backend;
+        document.getElementById('drawerMetaSize').textContent = sizeHuman;
+        document.getElementById('drawerMetaType').textContent = type;
+        document.getElementById('drawerMetaModified').textContent = modified;
+        document.getElementById('drawerMetaRawSize').textContent = rawSize + ' bytes';
+        document.getElementById('drawerMetaPath').textContent = backend + '://' + name;
+
+        // Download button
+        const dlBtn = document.getElementById('drawerDownloadBtn');
+        dlBtn.href = '{{ url_prefix|default("/admin") }}/storage/api/download?backend=' + encodeURIComponent(backend) + '&path=' + encodeURIComponent(name);
+
+        // Show type-based icon preview (no file download)
+        const previewEl = document.getElementById('drawerPreview');
+        var ext = name.split('.').pop().toLowerCase();
+        var typeIcon = {image:'icon-image',video:'icon-film',audio:'icon-music',text:'icon-file-text',application:'icon-file'}[type.split('/')[0]] || 'icon-file';
+        previewEl.style.display = 'flex';
+        previewEl.innerHTML = '<div style="text-align:center;padding:24px;width:100%;"><i class="' + typeIcon + '" style="font-size:48px;color:var(--text-faint);display:block;margin-bottom:12px;"></i><div style="font-size:0.78rem;color:var(--text-muted);font-weight:500;">' + ext.toUpperCase() + ' File</div><div style="font-size:0.68rem;color:var(--text-faint);margin-top:4px;">' + type + '</div></div>';
+
+        // Open drawer
+        document.getElementById('drawerOverlay').classList.add('open');
+        document.getElementById('fileDrawer').classList.add('open');
+    };
+
+    window.closeFileDrawer = function() {
+        document.getElementById('drawerOverlay').classList.remove('open');
+        document.getElementById('fileDrawer').classList.remove('open');
+        document.querySelectorAll('#fileTableBody tr').forEach(r => r.classList.remove('selected'));
+    };
+
+    function escapeHtml(str) {
+        const d = document.createElement('div');
+        d.textContent = str;
+        return d.innerHTML;
+    }
+
+    // ── Download file ──
+    window.downloadFile = function(backend, path) {
+        const url = '{{ url_prefix|default("/admin") }}/storage/api/download?backend=' + encodeURIComponent(backend) + '&path=' + encodeURIComponent(path);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = path.split('/').pop() || path;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    };
+
+    // ── Delete file ──
+    let pendingDelete = { backend: '', name: '' };
+
+    window.confirmDelete = function(backend, name) {
+        pendingDelete = { backend: backend, name: name };
+        document.getElementById('deleteFileName').textContent = name;
+        document.getElementById('deleteBackendName').textContent = backend;
+        document.getElementById('deleteModal').classList.add('open');
+    };
+
+    window.confirmDeleteFromDrawer = function() {
+        window.confirmDelete(currentDrawerFile.backend, currentDrawerFile.name);
+    };
+
+    window.closeDeleteModal = function() {
+        document.getElementById('deleteModal').classList.remove('open');
+    };
+
+    window.executeDelete = function() {
+        const btn = document.getElementById('deleteConfirmBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="icon-loader" style="font-size:12px;margin-right:4px;animation:spin 1s linear infinite;"></i>Deleting…';
+
+        fetch('{{ url_prefix|default("/admin") }}/storage/api/delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ backend: pendingDelete.backend, path: pendingDelete.name }),
+        })
+        .then(r => r.json())
+        .then(data => {
+            closeDeleteModal();
+            closeFileDrawer();
+            btn.disabled = false;
+            btn.innerHTML = '<i class="icon-trash-2" style="font-size:12px;margin-right:4px;"></i>Delete';
+            if (data.success) {
+                // Remove row from table
+                const rows = document.querySelectorAll('#fileTableBody tr');
+                rows.forEach(r => {
+                    if (r.getAttribute('data-file') === pendingDelete.name && r.getAttribute('data-backend') === pendingDelete.backend) {
+                        r.remove();
+                    }
+                });
+                filterFiles();
+            } else {
+                alert('Delete failed: ' + (data.error || 'Unknown error'));
+            }
+        })
+        .catch(err => {
+            closeDeleteModal();
+            btn.disabled = false;
+            btn.innerHTML = '<i class="icon-trash-2" style="font-size:12px;margin-right:4px;"></i>Delete';
+            alert('Delete failed: ' + err.message);
+        });
+    };
+
+    // ── Upload file ──
+    const uploadZone = document.getElementById('uploadZone');
+    if (uploadZone) {
+        uploadZone.addEventListener('dragover', function(e) { e.preventDefault(); e.stopPropagation(); uploadZone.classList.add('dragover'); });
+        uploadZone.addEventListener('dragleave', function(e) { e.preventDefault(); e.stopPropagation(); uploadZone.classList.remove('dragover'); });
+        uploadZone.addEventListener('drop', function(e) {
+            e.preventDefault(); e.stopPropagation();
+            uploadZone.classList.remove('dragover');
+            if (e.dataTransfer.files.length > 0) uploadFiles(e.dataTransfer.files);
+        });
+    }
+
+    window.handleFileUpload = function(event) {
+        if (event.target.files.length > 0) uploadFiles(event.target.files);
+    };
+
+    function uploadFiles(files) {
+        const backend = document.getElementById('uploadBackend')?.value || 'default';
+        const progressEl = document.getElementById('uploadProgress');
+        const nameEl = document.getElementById('uploadFileName');
+        const pctEl = document.getElementById('uploadPct');
+        const fillEl = document.getElementById('uploadFill');
+        var lastFile = null;
+        var lastBackend = backend;
+
+        Array.from(files).reduce(function(chain, file) {
+            return chain.then(function() {
+                return new Promise(function(resolve) {
+                    lastFile = file;
+                    progressEl.style.display = 'block';
+                    nameEl.textContent = 'Uploading ' + file.name + '…';
+                    pctEl.textContent = '0%';
+                    fillEl.style.width = '0%';
+
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    formData.append('backend', backend);
+                    formData.append('path', file.name);
+
+                    const xhr = new XMLHttpRequest();
+                    xhr.upload.addEventListener('progress', function(e) {
+                        if (e.lengthComputable) {
+                            const pct = Math.round((e.loaded / e.total) * 100);
+                            pctEl.textContent = pct + '%';
+                            fillEl.style.width = pct + '%';
+                        }
+                    });
+                    xhr.addEventListener('load', function() {
+                        fillEl.style.width = '100%';
+                        pctEl.textContent = '100%';
+                        nameEl.textContent = file.name + ' — uploaded!';
+                        setTimeout(function() {
+                            progressEl.style.display = 'none';
+                            resolve();
+                        }, 600);
+                    });
+                    xhr.addEventListener('error', function() {
+                        nameEl.textContent = file.name + ' — upload failed';
+                        lastFile = null;
+                        setTimeout(function() { progressEl.style.display = 'none'; resolve(); }, 1500);
+                    });
+                    xhr.open('POST', '{{ url_prefix|default("/admin") }}/storage/api/upload');
+                    xhr.send(formData);
+                });
+            });
+        }, Promise.resolve()).then(function() {
+            // Show upload preview
+            if (lastFile) {
+                showUploadPreview(lastFile, lastBackend, files.length);
+            }
+            // Refresh the table after a short delay
+            setTimeout(function() { window.location.reload(); }, 3000);
+        });
+    }
+
+    function showUploadPreview(file, backend, totalCount) {
+        var previewBox = document.getElementById('uploadPreview');
+        if (!previewBox) return;
+
+        // Title
+        var title = document.getElementById('previewTitle');
+        var subtitle = document.getElementById('previewSubtitle');
+        if (totalCount > 1) {
+            title.textContent = totalCount + ' Files Uploaded';
+            subtitle.textContent = 'All files stored to ' + backend + ' backend';
+        } else {
+            title.textContent = 'Upload Complete';
+            subtitle.textContent = file.name + ' stored to ' + backend;
+        }
+
+        // Thumbnail
+        var thumb = document.getElementById('previewThumb');
+        if (file.type && file.type.startsWith('image/')) {
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                thumb.innerHTML = '<img src="' + e.target.result + '" style="width:100%;height:100%;object-fit:cover;">';
+            };
+            reader.readAsDataURL(file);
+        } else {
+            var ext = file.name.split('.').pop().toUpperCase();
+            var ic = {image:'icon-image',video:'icon-film',audio:'icon-music',text:'icon-file-text'}[file.type.split('/')[0]] || 'icon-file';
+            thumb.innerHTML = '<div style="text-align:center;"><i class="' + ic + '" style="font-size:28px;color:var(--text-faint);display:block;margin-bottom:4px;"></i><span style="font-size:0.6rem;color:var(--text-faint);font-weight:600;">' + ext + '</span></div>';
+        }
+
+        // Meta grid
+        var meta = document.getElementById('previewMeta');
+        meta.innerHTML =
+            '<div style="padding:8px 10px;background:var(--bg-surface);border-radius:var(--radius-sm);border:1px solid var(--border-subtle);"><div style="font-size:0.58rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-faint);margin-bottom:2px;">Name</div><div style="font-size:0.78rem;font-weight:600;color:var(--text-primary);word-break:break-all;">' + file.name + '</div></div>' +
+            '<div style="padding:8px 10px;background:var(--bg-surface);border-radius:var(--radius-sm);border:1px solid var(--border-subtle);"><div style="font-size:0.58rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-faint);margin-bottom:2px;">Size</div><div style="font-size:0.78rem;font-weight:600;color:var(--text-primary);">' + formatBytes(file.size) + '</div></div>' +
+            '<div style="padding:8px 10px;background:var(--bg-surface);border-radius:var(--radius-sm);border:1px solid var(--border-subtle);"><div style="font-size:0.58rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-faint);margin-bottom:2px;">Type</div><div style="font-size:0.78rem;font-weight:600;color:var(--text-primary);">' + (file.type || 'unknown') + '</div></div>' +
+            '<div style="padding:8px 10px;background:var(--bg-surface);border-radius:var(--radius-sm);border:1px solid var(--border-subtle);"><div style="font-size:0.58rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-faint);margin-bottom:2px;">Backend</div><div style="font-size:0.78rem;font-weight:600;color:var(--text-primary);">' + backend + '</div></div>';
+
+        // Download button
+        var dlBtn = document.getElementById('previewDownloadBtn');
+        dlBtn.href = '{{ url_prefix|default("/admin") }}/storage/api/download?backend=' + encodeURIComponent(backend) + '&path=' + encodeURIComponent(file.name);
+
+        previewBox.style.display = 'block';
+    }
+
+    // ── Live polling ──
+    let pollInterval;
+    let polling = true;
+
+    function startPolling() {
+        pollInterval = setInterval(fetchStorageData, 5000);
+    }
+
+    window.togglePolling = function() {
+        polling = !polling;
+        const icon = document.getElementById('pollIcon');
+        const btn = document.getElementById('pollToggle');
+        const status = document.getElementById('pollStatus');
+        if (polling) {
+            startPolling();
+            if (icon) icon.className = 'icon-pause';
+            if (btn) btn.innerHTML = '<i class="icon-pause" style="font-size:12px;vertical-align:-1px;margin-right:4px;" id="pollIcon"></i>Pause';
+            if (status) status.innerHTML = '<span class="sto-live-dot"></span>Polling every 5s';
+        } else {
+            clearInterval(pollInterval);
+            if (icon) icon.className = 'icon-play';
+            if (btn) btn.innerHTML = '<i class="icon-play" style="font-size:12px;vertical-align:-1px;margin-right:4px;" id="pollIcon"></i>Resume';
+            if (status) status.innerHTML = '<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#71717a;margin-right:6px;"></span>Paused';
+        }
+    };
+
+    function fetchStorageData() {
+        fetch('{{ url_prefix|default("/admin") }}/storage/api/')
+            .then(r => r.json())
+            .then(data => {
+                // Update stats
+                const el = (id, val) => { const e = document.getElementById(id); if (e) e.textContent = val; };
+                el('statBackends', data.total_backends || 0);
+                el('statFiles', data.total_files || 0);
+                el('statSize', data.total_size_human || '0 B');
+                el('statHealthy', (data.healthy_count || 0) + '/' + (data.total_backends || 0));
+                el('statTypes', data.file_type_count || 0);
+                el('statLargest', data.largest_file_size || '0 B');
+
+                // Update health timeline chart
+                if (healthChart && data.health_labels && data.health_values) {
+                    const now = new Date().toLocaleTimeString();
+                    healthChart.data.labels.push(now);
+                    if (healthChart.data.labels.length > 20) healthChart.data.labels.shift();
+                    data.health_values.forEach(function(v, i) {
+                        if (healthChart.data.datasets[i]) {
+                            healthChart.data.datasets[i].data.push(v ? 1 : 0);
+                            if (healthChart.data.datasets[i].data.length > 20) healthChart.data.datasets[i].data.shift();
+                        }
+                    });
+                    healthChart.update('none');
+                }
+            })
+            .catch(function() { /* silent */ });
+    }
+
+    startPolling();
+
+})();
+{% endblock %}

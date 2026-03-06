@@ -605,6 +605,94 @@
 
 {% endif %}
 
+{# ═══ STORAGE OVERVIEW ═══════════════════════════════════════════ #}
+{% set sto = storage_summary|default({}) %}
+{% if sto.get('available', false) %}
+<div class="section-label" style="margin-top:4px;"><i class="icon-hard-drive" style="font-size:13px;opacity:0.5;margin-right:6px;"></i>Storage</div>
+<div class="dash-grid">
+
+    {# ── Storage Summary Card ── #}
+    <div class="glass-card" style="padding:0;">
+        <div class="card-header">
+            <span class="card-title"><i class="icon-hard-drive" style="font-size:14px;vertical-align:-2px;margin-right:6px;opacity:0.5;"></i>Storage Overview</span>
+            <a href="{{ url_prefix|default('/admin') }}/storage/" style="font-size:0.72rem;color:var(--accent);text-decoration:none;">Dashboard →</a>
+        </div>
+        <div style="padding:20px;">
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;">
+                <div style="text-align:center;padding:14px;background:var(--bg-surface);border-radius:var(--radius);border:1px solid var(--border-subtle);">
+                    <div style="font-size:1.6rem;font-weight:700;color:var(--text-primary);font-family:var(--font-mono);" data-count="{{ sto.get('total_backends', 0) }}">0</div>
+                    <div style="font-size:0.72rem;color:var(--text-faint);margin-top:2px;text-transform:uppercase;letter-spacing:0.04em;">Backends</div>
+                </div>
+                <div style="text-align:center;padding:14px;background:var(--bg-surface);border-radius:var(--radius);border:1px solid var(--border-subtle);">
+                    <div style="font-size:1.6rem;font-weight:700;color:var(--text-primary);font-family:var(--font-mono);" data-count="{{ sto.get('total_files', 0) }}">0</div>
+                    <div style="font-size:0.72rem;color:var(--text-faint);margin-top:2px;text-transform:uppercase;letter-spacing:0.04em;">Files</div>
+                </div>
+                <div style="text-align:center;padding:14px;background:var(--bg-surface);border-radius:var(--radius);border:1px solid var(--border-subtle);">
+                    <div style="font-size:1.3rem;font-weight:700;color:var(--text-primary);font-family:var(--font-mono);">{{ sto.get('total_size_human', '0 B') }}</div>
+                    <div style="font-size:0.72rem;color:var(--text-faint);margin-top:2px;text-transform:uppercase;letter-spacing:0.04em;">Total Size</div>
+                </div>
+            </div>
+            <div style="display:flex;gap:16px;margin-top:14px;flex-wrap:wrap;">
+                <div style="display:flex;align-items:center;gap:6px;">
+                    {% if sto.get('unhealthy_count', 0) == 0 %}
+                    <i class="icon-check-circle" style="font-size:13px;color:var(--success);opacity:0.7;"></i>
+                    <span style="font-size:0.78rem;color:var(--text-secondary);">All {{ sto.get('total_backends', 0) }} healthy</span>
+                    {% else %}
+                    <i class="icon-alert-triangle" style="font-size:13px;color:var(--danger);opacity:0.7;"></i>
+                    <span style="font-size:0.78rem;color:var(--danger);">{{ sto.get('unhealthy_count', 0) }} unhealthy</span>
+                    {% endif %}
+                </div>
+                <div style="display:flex;align-items:center;gap:6px;">
+                    <i class="icon-star" style="font-size:13px;color:var(--warning);opacity:0.7;"></i>
+                    <span style="font-size:0.78rem;color:var(--text-secondary);">Default: {{ sto.get('default_alias', 'default') }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# ── Backend Breakdown Card ── #}
+    <div class="glass-card" style="padding:0;">
+        <div class="card-header">
+            <span class="card-title"><i class="icon-layers" style="font-size:14px;vertical-align:-2px;margin-right:6px;opacity:0.5;"></i>Backend Breakdown</span>
+            <span style="font-size:0.72rem;color:var(--text-faint);font-family:var(--font-mono);">{{ sto.get('total_backends', 0) }} total</span>
+        </div>
+        <div style="padding:16px 20px;">
+            {% set sto_backends = sto.get('backends', []) %}
+            {% if sto_backends|length > 0 %}
+            <div style="display:flex;flex-direction:column;gap:8px;">
+                {% for b in sto_backends %}
+                <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--bg-surface);border-radius:var(--radius);border:1px solid var(--border-subtle);">
+                    <div style="width:32px;height:32px;border-radius:var(--radius-sm);background:{{ 'var(--success-subtle)' if b.get('healthy', false) else 'var(--danger-subtle)' }};display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                        <i class="icon-hard-drive" style="font-size:15px;color:{{ 'var(--accent)' if b.get('healthy', false) else 'var(--danger)' }};"></i>
+                    </div>
+                    <div style="flex:1;min-width:0;">
+                        <div style="font-size:0.84rem;font-weight:600;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ b.get('alias', '') }}</div>
+                        <div style="font-size:0.7rem;color:var(--text-faint);font-family:var(--font-mono);">
+                            {{ b.get('type', '') }} · {{ b.get('file_count', 0) }} files · {{ b.get('size_human', '0 B') }}
+                        </div>
+                    </div>
+                    <div style="flex-shrink:0;">
+                        {% if b.get('healthy', false) %}
+                        <span style="font-size:0.68rem;padding:2px 8px;border-radius:10px;background:var(--success-subtle, rgba(34,197,94,0.1));color:var(--success);font-weight:600;text-transform:uppercase;letter-spacing:0.04em;">HEALTHY</span>
+                        {% else %}
+                        <span style="font-size:0.68rem;padding:2px 8px;border-radius:10px;background:var(--danger-subtle, rgba(239,68,68,0.1));color:var(--danger);font-weight:600;text-transform:uppercase;letter-spacing:0.04em;">DOWN</span>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="empty-state" style="padding:20px;">
+                <i class="icon-hard-drive" style="font-size:28px;display:block;margin-bottom:8px;opacity:0.2;"></i>
+                No storage backends configured
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+</div>
+{% endif %}
+
 {# ═══ MAIN DASHBOARD GRID ═══════════════════════════════════════ #}
 <div class="section-label"><i class="icon-bar-chart-2" style="font-size:13px;opacity:0.5;margin-right:6px;"></i>Analytics</div>
 <div class="dash-grid">
@@ -951,9 +1039,9 @@
     </table>
 </div>
 {% endif %}
+{% endblock %}
 
 {% block extra_js %}
-<script>
 // ── Animated stat counters ──
 (function() {
     document.querySelectorAll('[data-count]').forEach(function(el) {
@@ -1058,6 +1146,4 @@
         this.classList.remove('dash-search-hover');
     });
 })();
-</script>
-{% endblock %}
 {% endblock %}
