@@ -109,6 +109,9 @@
         <a class="sidebar-link{{ ' active' if active_page == 'errors' else '' }}" href="{{ url_prefix|default('/admin') }}/errors/" data-sidebar-label="errors monitoring exceptions stack traces">
             <i class="icon-alert-triangle"></i> <span>Error Monitoring</span>
         </a>
+        <a class="sidebar-link{{ ' active' if active_page == 'testing' else '' }}" href="{{ url_prefix|default('/admin') }}/testing/" data-sidebar-label="testing tests assertions fixtures coverage">
+            <i class="icon-check-circle"></i> <span>Testing</span>
+        </a>
     </div>
     {% endif %}
 

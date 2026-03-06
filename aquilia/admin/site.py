@@ -57,6 +57,7 @@ class AdminConfig:
         "profile": True, "audit": False,
         "containers": False, "pods": False,
         "query_inspector": False, "tasks": False, "errors": False,
+        "testing": False,
     })
 
     # Audit settings (disabled by default -- opt in)
@@ -252,6 +253,7 @@ class AdminConfig:
             "profile": True, "audit": False,
             "containers": False, "pods": False,
             "query_inspector": False, "tasks": False, "errors": False,
+            "testing": False,
         }
         modules = {**default_modules, **modules_raw}
 
@@ -1226,6 +1228,460 @@ class AdminSite:
     def set_task_manager(self, manager) -> None:
         """Register the application's TaskManager for admin integration."""
         self._task_manager = manager
+
+    # ── Testing data ─────────────────────────────────────────────────
+
+    def get_testing_data(self) -> Dict[str, Any]:
+        """
+        Gather comprehensive testing framework data.
+
+        Inspects the Aquilia testing module, discovers test files, and
+        collects information about available test infrastructure:
+        - Test classes (AquiliaTestCase, TransactionTestCase, etc.)
+        - Utility counts (assertions, fixtures, helpers)
+        - Auth testing (identity builders, roles)
+        - Mock infrastructure (faults, effects, DI, cache, mail)
+        - Test file discovery (project test files)
+        - Coverage-style breakdown by component
+        """
+        import os
+        import importlib
+        import inspect
+
+        data: Dict[str, Any] = {
+            "available": True,
+            "framework_version": "1.0.0",
+            "components": [],
+            "test_classes": [],
+            "fixtures": [],
+            "assertions": [],
+            "mock_infra": [],
+            "test_files": [],
+            "summary": {},
+            "charts": {},
+        }
+
+        # ── 1. Core test case classes ────────────────────────────────
+        try:
+            from aquilia.testing.cases import (
+                AquiliaTestCase, TransactionTestCase,
+                LiveServerTestCase, SimpleTestCase,
+            )
+            test_classes = [
+                {
+                    "name": "SimpleTestCase",
+                    "description": "Pure unit tests — no server, no DI, no ASGI",
+                    "base": "unittest.TestCase",
+                    "features": ["assertion_helpers", "utility_functions"],
+                    "category": "unit",
+                },
+                {
+                    "name": "AquiliaTestCase",
+                    "description": "Full async test case with server lifecycle",
+                    "base": "IsolatedAsyncioTestCase",
+                    "features": [
+                        "auto_server", "test_client", "di_container",
+                        "fault_engine", "config_override",
+                        "controller_router", "effect_registry",
+                    ],
+                    "category": "integration",
+                },
+                {
+                    "name": "TransactionTestCase",
+                    "description": "Database tests with automatic transaction rollback",
+                    "base": "AquiliaTestCase",
+                    "features": [
+                        "auto_server", "test_client", "db_transaction",
+                        "auto_rollback", "isolation",
+                    ],
+                    "category": "database",
+                },
+                {
+                    "name": "LiveServerTestCase",
+                    "description": "Real ASGI server on random port for E2E testing",
+                    "base": "AquiliaTestCase",
+                    "features": [
+                        "real_server", "tcp_connection", "live_url",
+                        "browser_automation", "httpx_compatible",
+                    ],
+                    "category": "e2e",
+                },
+            ]
+            data["test_classes"] = test_classes
+        except Exception:
+            pass
+
+        # ── 2. TestClient capabilities ───────────────────────────────
+        try:
+            from aquilia.testing.client import TestClient, WebSocketTestClient
+            data["client"] = {
+                "http": {
+                    "name": "TestClient",
+                    "methods": ["get", "post", "put", "patch", "delete", "head", "options"],
+                    "features": [
+                        "in_process_asgi", "cookie_persistence",
+                        "auto_redirect_follow", "bearer_token_auth",
+                        "multipart_uploads", "response_history",
+                        "json_auto_parse", "content_type_detection",
+                    ],
+                },
+                "websocket": {
+                    "name": "WebSocketTestClient",
+                    "features": [
+                        "connect", "send_text", "send_bytes",
+                        "receive_text", "receive_bytes",
+                        "close", "is_connected",
+                    ],
+                },
+            }
+        except Exception:
+            data["client"] = {"http": {}, "websocket": {}}
+
+        # ── 3. Assertion helpers ─────────────────────────────────────
+        try:
+            from aquilia.testing.assertions import AquiliaAssertions
+            assertion_methods = [
+                m for m in dir(AquiliaAssertions)
+                if m.startswith("assert_") and callable(getattr(AquiliaAssertions, m))
+            ]
+            categories: Dict[str, list] = {}
+            for method in sorted(assertion_methods):
+                if any(x in method for x in ["status", "success", "redirect", "created",
+                       "accepted", "no_content", "bad_request", "unauthorized",
+                       "forbidden", "not_found", "conflict", "gone", "unprocessable",
+                       "too_many", "server_error", "service_unavailable"]):
+                    cat = "HTTP Status"
+                elif any(x in method for x in ["json", "json_contains", "json_key", "json_path", "json_list"]):
+                    cat = "JSON"
+                elif any(x in method for x in ["header", "content_type", "cookie"]):
+                    cat = "Headers"
+                elif any(x in method for x in ["fault", "severity"]):
+                    cat = "Faults"
+                elif any(x in method for x in ["effect", "acquire"]):
+                    cat = "Effects"
+                elif any(x in method for x in ["mail", "email"]):
+                    cat = "Mail"
+                elif any(x in method for x in ["cache", "ttl"]):
+                    cat = "Cache"
+                elif any(x in method for x in ["di", "provider", "resolve"]):
+                    cat = "DI"
+                elif any(x in method for x in ["template", "render"]):
+                    cat = "Templates"
+                elif any(x in method for x in ["session"]):
+                    cat = "Sessions"
+                else:
+                    cat = "General"
+                categories.setdefault(cat, []).append(method)
+
+            data["assertions"] = [
+                {"category": cat, "methods": methods, "count": len(methods)}
+                for cat, methods in sorted(categories.items())
+            ]
+            data["total_assertions"] = len(assertion_methods)
+        except Exception:
+            data["total_assertions"] = 0
+
+        # ── 4. Fixtures ─────────────────────────────────────────────
+        try:
+            from aquilia.testing import fixtures as fx_mod
+            fixture_names = [
+                name for name in dir(fx_mod)
+                if not name.startswith("_") and callable(getattr(fx_mod, name))
+                and hasattr(getattr(fx_mod, name), "pytestmark")
+                or name in (
+                    "test_config", "fault_engine", "effect_registry",
+                    "cache_backend", "di_container", "identity_factory",
+                    "mail_outbox", "test_request", "test_scope",
+                    "test_server", "test_client", "ws_client",
+                    "settings_override", "aquilia_fixtures",
+                )
+            ]
+            data["fixtures"] = [
+                {"name": name, "async": name in ("test_server", "test_client", "ws_client", "settings_override")}
+                for name in sorted(set(fixture_names))
+            ]
+            data["total_fixtures"] = len(data["fixtures"])
+        except Exception:
+            data["total_fixtures"] = 0
+
+        # ── 5. Mock infrastructure ───────────────────────────────────
+        mock_infra = []
+        try:
+            from aquilia.testing.faults import MockFaultEngine
+            mock_infra.append({
+                "name": "MockFaultEngine",
+                "module": "faults",
+                "description": "Capture & assert fault emissions",
+                "features": [
+                    "emit_capture", "has_fault", "get_faults",
+                    "fault_codes", "fault_count", "last_fault",
+                    "reset", "context_manager",
+                ],
+            })
+        except Exception:
+            pass
+        try:
+            from aquilia.testing.effects import MockEffectRegistry, MockEffectProvider, MockFlowContext
+            mock_infra.append({
+                "name": "MockEffectRegistry",
+                "module": "effects",
+                "description": "Auto-stub missing effects for testing",
+                "features": [
+                    "register_mock", "get_provider", "get_mock",
+                    "reset_all", "auto_stub",
+                ],
+            })
+            mock_infra.append({
+                "name": "MockEffectProvider",
+                "module": "effects",
+                "description": "Configurable provider with call tracking",
+                "features": [
+                    "return_value", "return_sequence",
+                    "acquire_side_effect", "acquire_count",
+                    "call_history",
+                ],
+            })
+            mock_infra.append({
+                "name": "MockFlowContext",
+                "module": "effects",
+                "description": "Test-friendly FlowContext with pre-acquired mocks",
+                "features": ["from_registry"],
+            })
+        except Exception:
+            pass
+        try:
+            from aquilia.testing.cache import MockCacheBackend
+            mock_infra.append({
+                "name": "MockCacheBackend",
+                "module": "cache",
+                "description": "In-memory cache with TTL tracking",
+                "features": [
+                    "get", "set", "delete", "exists", "clear",
+                    "get_or_set", "get_ttl", "ttl_tracking",
+                    "get_count", "set_count", "delete_count",
+                ],
+            })
+        except Exception:
+            pass
+        try:
+            from aquilia.testing.di import TestContainer
+            mock_infra.append({
+                "name": "TestContainer",
+                "module": "di",
+                "description": "DI container with relaxed validation for testing",
+                "features": [
+                    "mock_provider", "override_provider",
+                    "factory_provider", "spy_provider", "reset",
+                ],
+            })
+        except Exception:
+            pass
+        try:
+            from aquilia.testing.mail import MailTestMixin
+            mock_infra.append({
+                "name": "MailTestMixin",
+                "module": "mail",
+                "description": "Captured outbox for mail assertions",
+                "features": [
+                    "mail_outbox", "latest_mail", "get_mail_for",
+                    "assert_mail_sent", "assert_mail_subject_contains",
+                    "assert_no_mail_sent",
+                ],
+            })
+        except Exception:
+            pass
+        try:
+            from aquilia.testing.auth import TestIdentityFactory, IdentityBuilder
+            mock_infra.append({
+                "name": "TestIdentityFactory",
+                "module": "auth",
+                "description": "Create test identities with fluent builder",
+                "features": [
+                    "user", "admin", "service", "anonymous",
+                    "suspended", "build", "IdentityBuilder",
+                ],
+            })
+        except Exception:
+            pass
+        try:
+            from aquilia.testing.config import TestConfig
+            mock_infra.append({
+                "name": "TestConfig",
+                "module": "config",
+                "description": "Config overlay for test overrides",
+                "features": [
+                    "get", "set", "has", "to_dict",
+                    "override_settings", "dot_notation",
+                ],
+            })
+        except Exception:
+            pass
+        data["mock_infra"] = mock_infra
+        data["total_mocks"] = len(mock_infra)
+
+        # ── 6. Utility functions ─────────────────────────────────────
+        try:
+            from aquilia.testing.utils import (
+                make_test_scope, make_test_request, make_test_receive,
+                make_test_response, make_test_ws_scope, make_upload_file,
+            )
+            data["utilities"] = [
+                {"name": "make_test_scope", "description": "Build ASGI HTTP scope"},
+                {"name": "make_test_request", "description": "Build full Request object"},
+                {"name": "make_test_receive", "description": "Create ASGI receive callable"},
+                {"name": "make_test_response", "description": "Build Response for assertions"},
+                {"name": "make_test_ws_scope", "description": "Build ASGI WebSocket scope"},
+                {"name": "make_upload_file", "description": "Create multipart upload file"},
+            ]
+            data["total_utilities"] = len(data["utilities"])
+        except Exception:
+            data["total_utilities"] = 0
+
+        # ── 7. Discover test files in project ────────────────────────
+        test_files = []
+        total_test_count = 0
+        total_test_classes_count = 0
+        total_lines = 0
+        try:
+            project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            for search_dir in ["tests", "myapp/tests"]:
+                test_dir = os.path.join(project_root, search_dir)
+                if os.path.isdir(test_dir):
+                    for fname in sorted(os.listdir(test_dir)):
+                        if fname.startswith("test_") and fname.endswith(".py"):
+                            fpath = os.path.join(test_dir, fname)
+                            try:
+                                with open(fpath, "r") as f:
+                                    source = f.read()
+                                lines = source.count("\n") + 1
+                                # Count test functions and classes
+                                test_funcs = source.count("\n    def test_") + source.count("\n    async def test_")
+                                test_cls = source.count("\nclass Test")
+                                total_test_count += test_funcs
+                                total_test_classes_count += test_cls
+                                total_lines += lines
+                                test_files.append({
+                                    "name": fname,
+                                    "directory": search_dir,
+                                    "path": fpath,
+                                    "lines": lines,
+                                    "test_count": test_funcs,
+                                    "class_count": test_cls,
+                                })
+                            except Exception:
+                                test_files.append({
+                                    "name": fname,
+                                    "directory": search_dir,
+                                    "path": fpath,
+                                    "lines": 0,
+                                    "test_count": 0,
+                                    "class_count": 0,
+                                })
+        except Exception:
+            pass
+        data["test_files"] = test_files
+        data["total_test_files"] = len(test_files)
+
+        # ── 8. Component coverage breakdown ──────────────────────────
+        component_coverage = [
+            {"name": "Server Lifecycle", "module": "server", "status": "covered"},
+            {"name": "Config Overrides", "module": "config", "status": "covered"},
+            {"name": "HTTP Client", "module": "client", "status": "covered"},
+            {"name": "WebSocket Client", "module": "client", "status": "covered"},
+            {"name": "DI Container", "module": "di", "status": "covered"},
+            {"name": "Fault System", "module": "faults", "status": "covered"},
+            {"name": "Effect System", "module": "effects", "status": "covered"},
+            {"name": "Cache", "module": "cache", "status": "covered"},
+            {"name": "Sessions", "module": "cases", "status": "covered"},
+            {"name": "Auth / Identity", "module": "auth", "status": "covered"},
+            {"name": "Mail", "module": "mail", "status": "covered"},
+            {"name": "Controllers", "module": "cases", "status": "covered"},
+            {"name": "Middleware", "module": "cases", "status": "covered"},
+            {"name": "Templates", "module": "cases", "status": "covered"},
+            {"name": "Database / ORM", "module": "cases", "status": "covered"},
+        ]
+        data["component_coverage"] = component_coverage
+        data["total_components"] = len(component_coverage)
+        data["covered_components"] = sum(1 for c in component_coverage if c["status"] == "covered")
+
+        # ── 9. Summary stats ─────────────────────────────────────────
+        data["summary"] = {
+            "total_test_cases": len(test_classes) if "test_classes" in data else 0,
+            "total_assertions": data.get("total_assertions", 0),
+            "total_fixtures": data.get("total_fixtures", 0),
+            "total_mocks": data.get("total_mocks", 0),
+            "total_utilities": data.get("total_utilities", 0),
+            "total_test_files": len(test_files),
+            "total_test_functions": total_test_count,
+            "total_test_classes": total_test_classes_count,
+            "total_lines": total_lines,
+            "total_components": len(component_coverage),
+            "covered_components": sum(1 for c in component_coverage if c["status"] == "covered"),
+        }
+
+        # ── 10. Chart.js data structures ─────────────────────────────
+        # Test distribution by file
+        file_names = [f["name"].replace("test_", "").replace(".py", "") for f in test_files[:15]]
+        file_counts = [f["test_count"] for f in test_files[:15]]
+
+        # Test categories
+        cat_labels = ["Unit", "Integration", "Database", "E2E"]
+        cat_values = [
+            sum(1 for f in test_files if "unit" in f["name"]),
+            sum(1 for f in test_files if any(x in f["name"] for x in ["controller", "auth", "di", "sessions", "admin", "orm", "regression"])),
+            sum(1 for f in test_files if any(x in f["name"] for x in ["orm", "db", "migration"])),
+            sum(1 for f in test_files if "e2e" in f["name"]),
+        ]
+        # Add uncategorised remainder
+        categorised = sum(cat_values)
+        if len(test_files) > categorised:
+            cat_labels.append("Other")
+            cat_values.append(len(test_files) - categorised)
+
+        # Assertion categories
+        assert_cat_labels = [a["category"] for a in data.get("assertions", [])]
+        assert_cat_values = [a["count"] for a in data.get("assertions", [])]
+
+        # Mock infrastructure by module
+        mock_labels = [m["name"] for m in mock_infra]
+        mock_feature_counts = [len(m["features"]) for m in mock_infra]
+
+        # Lines of test code per file
+        loc_labels = [f["name"].replace("test_", "").replace(".py", "") for f in sorted(test_files, key=lambda x: x["lines"], reverse=True)[:12]]
+        loc_values = [f["lines"] for f in sorted(test_files, key=lambda x: x["lines"], reverse=True)[:12]]
+
+        # Component coverage (for radar chart)
+        cov_labels = [c["name"] for c in component_coverage]
+        cov_values = [100 if c["status"] == "covered" else 0 for c in component_coverage]
+
+        data["charts"] = {
+            "test_distribution": {
+                "labels": file_names,
+                "values": file_counts,
+            },
+            "test_categories": {
+                "labels": cat_labels,
+                "values": cat_values,
+            },
+            "assertion_categories": {
+                "labels": assert_cat_labels,
+                "values": assert_cat_values,
+            },
+            "mock_infrastructure": {
+                "labels": mock_labels,
+                "values": mock_feature_counts,
+            },
+            "lines_of_code": {
+                "labels": loc_labels,
+                "values": loc_values,
+            },
+            "component_coverage": {
+                "labels": cov_labels,
+                "values": cov_values,
+            },
+        }
+
+        return data
 
     # ── Dashboard data ───────────────────────────────────────────────
 

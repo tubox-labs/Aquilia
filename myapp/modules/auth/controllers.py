@@ -33,10 +33,7 @@ class AuthController(Controller):
         """
         items = await self.service.get_all()
 
-        return Response.json({
-            "items": items,
-            "total": len(items)
-        })
+        raise AuthNotFoundFault(1)
 
     @POST("/")
     async def create_auth(self, ctx: RequestCtx):

@@ -1043,6 +1043,55 @@ def render_errors_page(
 <body><div style="padding:24px"><h1>Error Monitoring</h1><p>{total} errors tracked</p></div></body></html>"""
 
 
+def render_testing_page(
+    testing_data: Dict[str, Any],
+    app_list: Optional[List[Dict[str, Any]]] = None,
+    identity_name: str = "Admin",
+    identity_avatar: str = "",
+    *,
+    site_title: str = "Aquilia Admin",
+    url_prefix: str = "/admin",
+) -> str:
+    """Render the testing framework admin page with Chart.js analytics."""
+    summary = testing_data.get("summary", {})
+    charts = testing_data.get("charts", {})
+    if _HAS_JINJA2:
+        return _render_template(
+            "testing.html",
+            data=_dict_to_ns(testing_data),
+            available=testing_data.get("available", False),
+            framework_version=testing_data.get("framework_version", "1.0.0"),
+            test_classes=testing_data.get("test_classes", []),
+            client=testing_data.get("client", {}),
+            assertions=testing_data.get("assertions", []),
+            total_assertions=testing_data.get("total_assertions", 0),
+            fixtures=testing_data.get("fixtures", []),
+            total_fixtures=testing_data.get("total_fixtures", 0),
+            mock_infra=testing_data.get("mock_infra", []),
+            total_mocks=testing_data.get("total_mocks", 0),
+            utilities=testing_data.get("utilities", []),
+            total_utilities=testing_data.get("total_utilities", 0),
+            test_files=testing_data.get("test_files", []),
+            total_test_files=testing_data.get("total_test_files", 0),
+            component_coverage=testing_data.get("component_coverage", []),
+            total_components=testing_data.get("total_components", 0),
+            covered_components=testing_data.get("covered_components", 0),
+            summary=summary,
+            charts=charts,
+            app_list=app_list or [],
+            active_page="testing",
+            identity_name=identity_name,
+            identity_avatar=identity_avatar,
+            site_title=site_title,
+            url_prefix=url_prefix,
+            page_title="Testing Framework",
+        )
+    total = summary.get("total_test_functions", 0)
+    return f"""<!DOCTYPE html><html lang="en" data-theme="dark"><head>
+<meta charset="UTF-8"><title>Testing -- Aquilia Admin</title><style>{_FALLBACK_CSS}</style></head>
+<body><div style="padding:24px"><h1>Testing Framework</h1><p>{total} test functions discovered</p></div></body></html>"""
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # Inline fallbacks (when Jinja2 is not installed)
 # ═══════════════════════════════════════════════════════════════════════════

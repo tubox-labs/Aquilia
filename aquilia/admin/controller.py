@@ -56,6 +56,7 @@ from .templates import (
     render_query_inspector_page,
     render_tasks_page,
     render_errors_page,
+    render_testing_page,
 )
 
 if TYPE_CHECKING:
@@ -2314,6 +2315,59 @@ class AdminController(Controller):
         errors_data = self.site.get_error_tracker_data()
         return Response(
             content=_json.dumps(errors_data, default=str).encode("utf-8"),
+            status=200,
+            headers={"content-type": "application/json; charset=utf-8"},
+        )
+
+    # ── Testing Framework Page ───────────────────────────────────────
+
+    @GET("/testing/")
+    async def testing_view(self, request, ctx: RequestCtx) -> Response:
+        """Testing framework -- test infrastructure, coverage, assertions."""
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return denied
+
+        if not self.site.admin_config.is_module_enabled("testing"):
+            return self._module_disabled_response("Testing Framework", identity)
+
+        self._ensure_initialized()
+
+        testing_data = self.site.get_testing_data()
+        app_list = self.site.get_app_list(identity)
+
+        html = render_testing_page(
+            testing_data=testing_data,
+            app_list=app_list,
+            identity_name=_get_identity_name(identity),
+            identity_avatar=_get_identity_avatar(identity),
+        )
+        return _html_response(html)
+
+    @GET("/testing/api/")
+    async def testing_api(self, request, ctx: RequestCtx) -> Response:
+        """JSON API endpoint for live-polling testing data."""
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return Response(
+                content=b'{"error":"unauthorized"}',
+                status=401,
+                headers={"content-type": "application/json"},
+            )
+
+        if not self.site.admin_config.is_module_enabled("testing"):
+            return Response(
+                content=b'{"error":"testing disabled"}',
+                status=404,
+                headers={"content-type": "application/json"},
+            )
+
+        self._ensure_initialized()
+
+        import json as _json
+        testing_data = self.site.get_testing_data()
+        return Response(
+            content=_json.dumps(testing_data, default=str).encode("utf-8"),
             status=200,
             headers={"content-type": "application/json; charset=utf-8"},
         )

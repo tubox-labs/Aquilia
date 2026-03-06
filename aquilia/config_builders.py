@@ -1038,7 +1038,8 @@ class Integration:
                      "_config", "_workspace", "_permissions",
                      "_monitoring", "_admin_users", "_profile", "_audit",
                      "_containers", "_pods",
-                     "_query_inspector", "_tasks", "_errors")
+                     "_query_inspector", "_tasks", "_errors",
+                     "_testing")
 
         def __init__(self) -> None:
             self._dashboard: bool = True
@@ -1057,6 +1058,7 @@ class Integration:
             self._query_inspector: bool = False  # disabled by default
             self._tasks: bool = False             # disabled by default
             self._errors: bool = False            # disabled by default
+            self._testing: bool = False           # disabled by default
 
         # ── Dashboard ──
         def enable_dashboard(self) -> "Integration.AdminModules":
@@ -1234,6 +1236,17 @@ class Integration:
             self._errors = False
             return self
 
+        # ── Testing (disabled by default) ──
+        def enable_testing(self) -> "Integration.AdminModules":
+            """Show the Testing page (test runner, coverage, assertions). Disabled by default -- opt in."""
+            self._testing = True
+            return self
+
+        def disable_testing(self) -> "Integration.AdminModules":
+            """Hide the Testing page."""
+            self._testing = False
+            return self
+
         # ── Convenience ──
         def enable_all(self) -> "Integration.AdminModules":
             """Enable every admin module (including monitoring & audit)."""
@@ -1266,6 +1279,7 @@ class Integration:
                 "query_inspector": self._query_inspector,
                 "tasks": self._tasks,
                 "errors": self._errors,
+                "testing": self._testing,
             }
 
         def __repr__(self) -> str:
@@ -2117,6 +2131,7 @@ class Integration:
                 "query_inspector": kwargs.pop("enable_query_inspector", False),
                 "tasks": kwargs.pop("enable_tasks", False),
                 "errors": kwargs.pop("enable_errors", False),
+                "testing": kwargs.pop("enable_testing", False),
             }
 
         # ── Resolve audit ────────────────────────────────────────────
