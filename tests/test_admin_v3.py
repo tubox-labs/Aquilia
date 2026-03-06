@@ -3281,7 +3281,7 @@ class TestTemplateFeatures:
             app_list=[], stats={"total_models": 1, "model_counts": {}, "recent_actions": []},
             identity_name="admin",
         )
-        assert "showCommandPalette" in html or "cmd-palette" in html
+        assert "AqMegaSearch" in html or "dash-search-bar" in html
 
     def test_dashboard_no_session_countdown(self):
         """Session countdown timer was intentionally removed from dashboard."""

@@ -1049,8 +1049,8 @@ body.sidebar-open { overflow: hidden; }
 
 /* ═══ DASHBOARD ENHANCED ═════════════════════════════════════ */
 .dash-greeting { margin-bottom: 8px; }
-.dash-greeting h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.03em; margin: 0; }
-.dash-greeting p { font-size: 0.84rem; color: var(--text-muted); margin: 4px 0 0; }
+.dash-greeting h1 { font-size: 1.6rem; font-weight: 700; letter-spacing: -0.03em; margin: 0; }
+.dash-greeting p { font-size: 0.84rem; color: var(--text-muted); margin: 6px 0 0; line-height: 1.5; }
 .dash-greeting .greeting-time { color: var(--accent); font-weight: 500; }
 
 /* ── Stat cards (enhanced) ── */
@@ -1094,15 +1094,98 @@ body.sidebar-open { overflow: hidden; }
 .dash-stat-card .dash-stat-sub .up { color: var(--success); }
 .dash-stat-card .dash-stat-sub .down { color: var(--danger); }
 
+/* ── Dashboard mega search bar ── */
+.dash-search-bar {
+  margin-bottom: 24px; cursor: pointer; position: relative;
+  border-radius: var(--radius); overflow: hidden;
+  transition: all 0.3s var(--ease);
+}
+.dash-search-bar::before {
+  content: ''; position: absolute; inset: 0; border-radius: var(--radius);
+  padding: 1px; background: linear-gradient(135deg, var(--border-color), var(--border-subtle));
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+  transition: background 0.3s var(--ease);
+}
+.dash-search-bar:hover::before {
+  background: linear-gradient(135deg, var(--accent), rgba(34,197,94,0.3), var(--accent));
+}
+.dash-search-bar:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 32px rgba(34,197,94,0.08);
+}
+.dash-search-inner {
+  display: flex; align-items: center; gap: 14px;
+  padding: 14px 20px; background: var(--bg-glass);
+  backdrop-filter: blur(16px); border-radius: var(--radius);
+}
+.dash-search-icon {
+  width: 36px; height: 36px; border-radius: 10px; display: flex;
+  align-items: center; justify-content: center;
+  background: var(--accent-subtle); color: var(--accent); font-size: 16px;
+  transition: all 0.3s var(--ease);
+}
+.dash-search-bar:hover .dash-search-icon {
+  background: var(--accent); color: #fff;
+  box-shadow: 0 0 16px rgba(34,197,94,0.3);
+}
+.dash-search-placeholder {
+  flex: 1; font-size: 0.88rem; color: var(--text-muted);
+  font-weight: 400; letter-spacing: 0.01em;
+}
+.dash-search-keys {
+  display: flex; gap: 4px; align-items: center;
+}
+.dash-kbd {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 24px; height: 24px; padding: 0 6px;
+  background: var(--bg-surface); border: 1px solid var(--border-color);
+  border-radius: 6px; font-size: 0.7rem; font-weight: 600;
+  color: var(--text-faint); font-family: var(--font-mono);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+  transition: all 0.2s var(--ease);
+}
+.dash-search-bar:hover .dash-kbd {
+  border-color: var(--accent); color: var(--accent);
+  background: var(--accent-subtle);
+}
+
+/* ── Quick Access grid ── */
+.dash-quick-grid {
+  display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;
+}
+.quick-access-card {
+  display: block; padding: 18px; text-decoration: none;
+  background: var(--bg-glass); border: 1px solid var(--border-color);
+  border-radius: var(--radius); position: relative; overflow: hidden;
+  transition: all 0.25s var(--ease);
+}
+.quick-access-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, var(--accent), transparent);
+  opacity: 0; transition: opacity 0.25s var(--ease);
+}
+.quick-access-card:hover {
+  border-color: rgba(34,197,94,0.3); transform: translateY(-2px);
+  background: var(--bg-surface-hover);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+}
+.quick-access-card:hover::before { opacity: 1; }
+[data-theme="light"] .quick-access-card:hover { border-color: rgba(34,197,94,0.4); }
+
 /* ── Dashboard grid layout ── */
 .dash-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
 .dash-grid-full { grid-column: 1 / -1; }
 @media (max-width: 900px) {
   .dash-stats { grid-template-columns: repeat(2, 1fr); }
   .dash-grid { grid-template-columns: 1fr; }
+  .dash-quick-grid { grid-template-columns: repeat(2, 1fr); }
 }
 @media (max-width: 600px) {
   .dash-stats { grid-template-columns: 1fr; }
+  .dash-quick-grid { grid-template-columns: 1fr; }
+  .dash-search-inner { padding: 12px 16px; gap: 10px; }
+  .dash-search-icon { width: 30px; height: 30px; font-size: 14px; }
 }
 
 /* ── Health status indicators ── */
