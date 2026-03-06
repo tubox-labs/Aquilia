@@ -4,13 +4,45 @@
 
 {% block extra_head %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<style>
+/* ── Testing Page Enhancements ── */
+.test-search-bar{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;}
+.test-search-bar input{flex:1;min-width:200px;padding:8px 14px;background:var(--bg-input);border:1px solid var(--border-subtle);border-radius:var(--radius);color:var(--text-primary);font-family:var(--font-sans);font-size:.82rem;}
+.test-search-bar input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-glow);}
+.test-search-bar select{padding:8px 12px;background:var(--bg-input);border:1px solid var(--border-subtle);border-radius:var(--radius);color:var(--text-primary);font-family:var(--font-sans);font-size:.78rem;cursor:pointer;}
+.cat-badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:.62rem;font-weight:600;text-transform:uppercase;letter-spacing:.02em;}
+.cat-unit{background:rgba(56,189,248,.12);color:#38bdf8;}
+.cat-integration{background:rgba(34,197,94,.12);color:#22c55e;}
+.cat-database{background:rgba(251,191,36,.12);color:#fbbf24;}
+.cat-e2e{background:rgba(168,85,247,.12);color:#a855f7;}
+.cat-other{background:rgba(161,161,170,.12);color:#a1a1aa;}
+.snippet-panel{position:relative;}
+.snippet-tabs{display:flex;gap:4px;margin-bottom:0;border-bottom:1px solid var(--border-subtle);padding-bottom:0;}
+.snippet-tab{padding:8px 14px;font-size:.78rem;font-weight:500;color:var(--text-faint);cursor:pointer;border:none;background:none;border-bottom:2px solid transparent;transition:all .15s ease;font-family:var(--font-sans);}
+.snippet-tab:hover{color:var(--text-primary);}
+.snippet-tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+.snippet-content{display:none;padding:16px;background:var(--bg-primary);border:1px solid var(--border-subtle);border-top:none;border-radius:0 0 var(--radius) var(--radius);}
+.snippet-content.active{display:block;}
+.snippet-content pre{margin:0;padding:14px;background:var(--bg-input);border-radius:6px;overflow-x:auto;font-size:.76rem;line-height:1.6;color:var(--text-secondary);}
+.snippet-content pre code{font-family:'JetBrains Mono','Fira Code',monospace;color:var(--text-secondary);}
+.copy-btn{position:absolute;top:8px;right:8px;padding:4px 10px;background:var(--bg-input);border:1px solid var(--border-subtle);border-radius:6px;font-size:.68rem;color:var(--text-faint);cursor:pointer;transition:all .15s ease;font-family:var(--font-sans);}
+.copy-btn:hover{color:var(--accent);border-color:var(--accent);}
+/* Count-up animation */
+@keyframes countPulse{0%{transform:scale(1)}50%{transform:scale(1.05)}100%{transform:scale(1)}}
+.count-done{animation:countPulse .3s ease}
+/* Heatmap bar */
+.density-bar{height:6px;border-radius:3px;background:var(--bg-input);overflow:hidden;margin-top:4px;}
+.density-fill{height:100%;border-radius:3px;transition:width .6s ease;}
+/* Progress ring for coverage */
+.ring-wrap{position:relative;width:80px;height:80px;margin:0 auto 8px;}
+.ring-label{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:1rem;font-weight:700;color:var(--text-primary);}
+</style>
 {% endblock %}
 
 {% block content %}
 {# ═══════════════════════════════════════════════════════════════════
-   AQUILIA ADMIN — TESTING FRAMEWORK (v1 — Chart.js)
-   Test Infrastructure · Assertions · Fixtures · Mock Infra
-   Test File Discovery · Component Coverage · Charts
+   AQUILIA ADMIN — TESTING FRAMEWORK (v2 — Enhanced)
+   Phase 31f: Comprehensive testing analytics dashboard
    ═══════════════════════════════════════════════════════════════════ #}
 
 <div class="dash-greeting">
@@ -40,9 +72,13 @@
     <span style="font-size:0.78rem;color:var(--text-secondary);">{{ summary.total_test_classes }} test classes</span>
     <span style="font-size:0.75rem;color:var(--text-faint);">·</span>
     <span style="font-size:0.78rem;color:var(--text-faint);">{{ "{:,}".format(summary.total_lines) }} lines</span>
+    <span style="font-size:0.75rem;color:var(--text-faint);">·</span>
+    <span style="font-size:0.78rem;color:var(--text-secondary);">{{ "{:,}".format(total_assert_stmts) }} assert stmts</span>
+    <span style="font-size:0.75rem;color:var(--text-faint);">·</span>
+    <span style="font-size:0.78rem;color:var(--text-secondary);">{{ total_async_tests }} async / {{ total_sync_tests }} sync</span>
 </div>
 
-{# ═══ METRIC CARDS ═══ #}
+{# ═══ METRIC CARDS (row 1) ═══ #}
 <div class="dash-stats">
     <div class="dash-stat-card">
         <div class="stat-icon-wrap green"><i class="icon-check-circle"></i></div>
@@ -82,8 +118,48 @@
     </div>
 </div>
 
-{# ═══ CHARTS ROW 1: Distribution + Categories + Coverage Radar ═══ #}
-<div class="dash-chart-row" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:16px;margin-bottom:20px;">
+{# ═══ METRIC CARDS (row 2 — enhanced analytics) ═══ #}
+<div class="dash-stats" style="margin-top:8px;">
+    <div class="dash-stat-card">
+        <div class="stat-icon-wrap cyan"><i class="icon-zap"></i></div>
+        <div class="dash-stat-value" data-count="{{ total_assert_stmts }}">0</div>
+        <div class="dash-stat-label">Assert Statements</div>
+        <div class="dash-stat-sub">In test source files</div>
+    </div>
+    <div class="dash-stat-card">
+        <div class="stat-icon-wrap purple"><i class="icon-activity"></i></div>
+        <div class="dash-stat-value" data-count="{{ avg_tests_per_file }}" data-decimals="1">0</div>
+        <div class="dash-stat-label">Avg Tests / File</div>
+        <div class="dash-stat-sub">Test density metric</div>
+    </div>
+    <div class="dash-stat-card">
+        <div class="stat-icon-wrap amber"><i class="icon-code"></i></div>
+        <div class="dash-stat-value" data-count="{{ avg_loc_per_test }}" data-decimals="1">0</div>
+        <div class="dash-stat-label">Avg LOC / Test</div>
+        <div class="dash-stat-sub">Code-per-test ratio</div>
+    </div>
+    <div class="dash-stat-card">
+        <div class="stat-icon-wrap green"><i class="icon-trending-up"></i></div>
+        <div class="dash-stat-value" data-count="{{ avg_density }}" data-decimals="1">0</div>
+        <div class="dash-stat-label">Avg Density</div>
+        <div class="dash-stat-sub">Tests per 100 LOC</div>
+    </div>
+    <div class="dash-stat-card">
+        <div class="stat-icon-wrap blue"><i class="icon-zap"></i></div>
+        <div class="dash-stat-value" data-count="{{ total_async_tests }}">0</div>
+        <div class="dash-stat-label">Async Tests</div>
+        <div class="dash-stat-sub">{{ total_sync_tests }} synchronous</div>
+    </div>
+    <div class="dash-stat-card">
+        <div class="stat-icon-wrap amber"><i class="icon-grid"></i></div>
+        <div class="dash-stat-value" data-count="{{ category_breakdown|length }}">0</div>
+        <div class="dash-stat-label">Categories</div>
+        <div class="dash-stat-sub">{% for k, v in category_breakdown.items() %}{{ k|title }}:{{ v }} {% endfor %}</div>
+    </div>
+</div>
+
+{# ═══ CHARTS ROW 1: Distribution + Categories Doughnut + Coverage Radar ═══ #}
+<div class="dash-chart-row" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px;margin-bottom:20px;margin-top:20px;">
     {# -- Test distribution by file -- #}
     <div class="card" style="padding:20px;">
         <h3 style="margin-bottom:16px;font-size:0.95rem;color:var(--text-secondary);">
@@ -92,6 +168,17 @@
         </h3>
         <div style="position:relative;height:300px;">
             <canvas id="chartTestDistribution"></canvas>
+        </div>
+    </div>
+
+    {# -- Test categories doughnut -- #}
+    <div class="card" style="padding:20px;">
+        <h3 style="margin-bottom:16px;font-size:0.95rem;color:var(--text-secondary);">
+            <i class="icon-pie-chart" style="opacity:0.5;margin-right:6px;"></i>
+            Test Categories
+        </h3>
+        <div style="position:relative;height:300px;">
+            <canvas id="chartCategories"></canvas>
         </div>
     </div>
 
@@ -107,8 +194,19 @@
     </div>
 </div>
 
-{# ═══ CHARTS ROW 2: Assertions + Mock Infra + LOC ═══ #}
+{# ═══ CHARTS ROW 2: Async/Sync + Assertions Doughnut + Test Density ═══ #}
 <div class="dash-chart-row" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;margin-bottom:20px;">
+    {# -- Async vs Sync pie -- #}
+    <div class="card" style="padding:20px;">
+        <h3 style="margin-bottom:16px;font-size:0.95rem;color:var(--text-secondary);">
+            <i class="icon-zap" style="opacity:0.5;margin-right:6px;"></i>
+            Async vs Sync Tests
+        </h3>
+        <div style="position:relative;height:280px;">
+            <canvas id="chartAsyncSync"></canvas>
+        </div>
+    </div>
+
     {# -- Assertion categories doughnut -- #}
     <div class="card" style="padding:20px;">
         <h3 style="margin-bottom:16px;font-size:0.95rem;color:var(--text-secondary);">
@@ -120,6 +218,20 @@
         </div>
     </div>
 
+    {# -- Test density bar -- #}
+    <div class="card" style="padding:20px;">
+        <h3 style="margin-bottom:16px;font-size:0.95rem;color:var(--text-secondary);">
+            <i class="icon-trending-up" style="opacity:0.5;margin-right:6px;"></i>
+            Test Density (tests/100 LOC)
+        </h3>
+        <div style="position:relative;height:280px;">
+            <canvas id="chartDensity"></canvas>
+        </div>
+    </div>
+</div>
+
+{# ═══ CHARTS ROW 3: Mock Infra + LOC + Imports Usage + Assertions Per File ═══ #}
+<div class="dash-chart-row" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;margin-bottom:20px;">
     {# -- Mock infrastructure bar -- #}
     <div class="card" style="padding:20px;">
         <h3 style="margin-bottom:16px;font-size:0.95rem;color:var(--text-secondary);">
@@ -139,6 +251,28 @@
         </h3>
         <div style="position:relative;height:280px;">
             <canvas id="chartLOC"></canvas>
+        </div>
+    </div>
+
+    {# -- Imports usage horizontal bar -- #}
+    <div class="card" style="padding:20px;">
+        <h3 style="margin-bottom:16px;font-size:0.95rem;color:var(--text-secondary);">
+            <i class="icon-package" style="opacity:0.5;margin-right:6px;"></i>
+            Testing Imports Usage
+        </h3>
+        <div style="position:relative;height:280px;">
+            <canvas id="chartImports"></canvas>
+        </div>
+    </div>
+
+    {# -- Assertions per file -- #}
+    <div class="card" style="padding:20px;">
+        <h3 style="margin-bottom:16px;font-size:0.95rem;color:var(--text-secondary);">
+            <i class="icon-alert-triangle" style="opacity:0.5;margin-right:6px;"></i>
+            Assert Statements per File
+        </h3>
+        <div style="position:relative;height:280px;">
+            <canvas id="chartAssertsPerFile"></canvas>
         </div>
     </div>
 </div>
@@ -163,7 +297,7 @@
                     {% endfor %}
                 </div>
                 <div style="margin-top:8px;">
-                    <span style="padding:2px 10px;background:{% if tc.category == 'unit' %}rgba(56,189,248,.1){% elif tc.category == 'integration' %}rgba(34,197,94,.1){% elif tc.category == 'database' %}rgba(251,191,36,.1){% elif tc.category == 'e2e' %}rgba(168,85,247,.1){% endif %};color:{% if tc.category == 'unit' %}#38bdf8{% elif tc.category == 'integration' %}#22c55e{% elif tc.category == 'database' %}#fbbf24{% elif tc.category == 'e2e' %}#a855f7{% endif %};border-radius:999px;font-size:0.68rem;font-weight:600;text-transform:uppercase;">{{ tc.category }}</span>
+                    <span class="cat-badge cat-{{ tc.category }}">{{ tc.category }}</span>
                 </div>
             </div>
         </div>
@@ -351,46 +485,216 @@
 </div>
 {% endif %}
 
-{# ═══ TEST FILES TABLE ═══ #}
+{# ═══ TEST FILES TABLE (enhanced with search, category, density, asserts) ═══ #}
 {% if test_files|length > 0 %}
 <div class="card" style="padding:20px;margin-bottom:20px;">
-    <h3 style="margin-bottom:16px;font-size:0.95rem;color:var(--text-secondary);">
-        <i class="icon-file-text" style="opacity:0.5;margin-right:6px;"></i>
-        Discovered Test Files ({{ total_test_files }})
-    </h3>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
+        <h3 style="margin:0;font-size:0.95rem;color:var(--text-secondary);">
+            <i class="icon-file-text" style="opacity:0.5;margin-right:6px;"></i>
+            Discovered Test Files ({{ total_test_files }})
+        </h3>
+        <div class="test-search-bar" style="margin-bottom:0;">
+            <input type="text" id="testFileSearch" placeholder="Search test files…" autocomplete="off">
+            <select id="testCategoryFilter">
+                <option value="">All Categories</option>
+                <option value="unit">Unit</option>
+                <option value="integration">Integration</option>
+                <option value="database">Database</option>
+                <option value="e2e">E2E</option>
+                <option value="other">Other</option>
+            </select>
+        </div>
+    </div>
     <div style="overflow-x:auto;">
-        <table class="aq-table" style="width:100%;border-collapse:separate;border-spacing:0;">
+        <table class="aq-table" id="testFilesTable" style="width:100%;border-collapse:separate;border-spacing:0;">
             <thead>
                 <tr>
                     <th style="text-align:left;padding:10px 14px;font-size:0.75rem;text-transform:uppercase;color:var(--text-faint);border-bottom:1px solid var(--border-subtle);">File</th>
-                    <th style="text-align:left;padding:10px 14px;font-size:0.75rem;text-transform:uppercase;color:var(--text-faint);border-bottom:1px solid var(--border-subtle);">Directory</th>
+                    <th style="text-align:left;padding:10px 14px;font-size:0.75rem;text-transform:uppercase;color:var(--text-faint);border-bottom:1px solid var(--border-subtle);">Category</th>
+                    <th style="text-align:left;padding:10px 14px;font-size:0.75rem;text-transform:uppercase;color:var(--text-faint);border-bottom:1px solid var(--border-subtle);">Dir</th>
                     <th style="text-align:right;padding:10px 14px;font-size:0.75rem;text-transform:uppercase;color:var(--text-faint);border-bottom:1px solid var(--border-subtle);">Lines</th>
                     <th style="text-align:right;padding:10px 14px;font-size:0.75rem;text-transform:uppercase;color:var(--text-faint);border-bottom:1px solid var(--border-subtle);">Tests</th>
-                    <th style="text-align:right;padding:10px 14px;font-size:0.75rem;text-transform:uppercase;color:var(--text-faint);border-bottom:1px solid var(--border-subtle);">Classes</th>
+                    <th style="text-align:right;padding:10px 14px;font-size:0.75rem;text-transform:uppercase;color:var(--text-faint);border-bottom:1px solid var(--border-subtle);">Asserts</th>
+                    <th style="text-align:right;padding:10px 14px;font-size:0.75rem;text-transform:uppercase;color:var(--text-faint);border-bottom:1px solid var(--border-subtle);">Density</th>
+                    <th style="text-align:right;padding:10px 14px;font-size:0.75rem;text-transform:uppercase;color:var(--text-faint);border-bottom:1px solid var(--border-subtle);">Async</th>
+                    <th style="text-align:right;padding:10px 14px;font-size:0.75rem;text-transform:uppercase;color:var(--text-faint);border-bottom:1px solid var(--border-subtle);">Sync</th>
                 </tr>
             </thead>
             <tbody>
                 {% for f in test_files %}
-                <tr style="border-bottom:1px solid var(--border-subtle);{% if loop.index is odd %}background:var(--bg-primary);{% endif %}">
+                <tr data-name="{{ f.name|lower }}" data-category="{{ f.category|default('other') }}" style="border-bottom:1px solid var(--border-subtle);{% if loop.index is odd %}background:var(--bg-primary);{% endif %}">
                     <td style="padding:10px 14px;font-size:0.82rem;">
                         <code style="color:var(--accent);font-size:0.78rem;">{{ f.name }}</code>
+                    </td>
+                    <td style="padding:10px 14px;">
+                        <span class="cat-badge cat-{{ f.category|default('other') }}">{{ f.category|default('other') }}</span>
                     </td>
                     <td style="padding:10px 14px;font-size:0.78rem;color:var(--text-faint);">{{ f.directory }}</td>
                     <td style="padding:10px 14px;font-size:0.82rem;text-align:right;color:var(--text-secondary);">{{ "{:,}".format(f.lines) }}</td>
                     <td style="padding:10px 14px;font-size:0.82rem;text-align:right;font-weight:600;color:var(--text-primary);">{{ f.test_count }}</td>
-                    <td style="padding:10px 14px;font-size:0.82rem;text-align:right;color:var(--text-secondary);">{{ f.class_count }}</td>
+                    <td style="padding:10px 14px;font-size:0.82rem;text-align:right;color:var(--text-secondary);">{{ f.assert_count|default(0) }}</td>
+                    <td style="padding:10px 14px;text-align:right;">
+                        <span style="font-size:0.78rem;color:var(--text-secondary);">{{ "%.1f"|format(f.density|default(0)) }}</span>
+                        <div class="density-bar" style="width:60px;display:inline-block;vertical-align:middle;margin-left:4px;">
+                            <div class="density-fill" style="width:{{ [f.density|default(0) * 2, 100]|min }}%;background:{% if f.density|default(0) > 10 %}var(--success){% elif f.density|default(0) > 5 %}var(--warning){% else %}var(--danger){% endif %};"></div>
+                        </div>
+                    </td>
+                    <td style="padding:10px 14px;font-size:0.78rem;text-align:right;color:{% if f.async_tests|default(0) > 0 %}#a855f7{% else %}var(--text-faint){% endif %};">{{ f.async_tests|default(0) }}</td>
+                    <td style="padding:10px 14px;font-size:0.78rem;text-align:right;color:var(--text-secondary);">{{ f.sync_tests|default(0) }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
             <tfoot>
                 <tr style="border-top:2px solid var(--border-subtle);">
-                    <td style="padding:10px 14px;font-size:0.78rem;font-weight:700;color:var(--text-primary);" colspan="2">Total</td>
+                    <td style="padding:10px 14px;font-size:0.78rem;font-weight:700;color:var(--text-primary);" colspan="3">Total</td>
                     <td style="padding:10px 14px;font-size:0.82rem;text-align:right;font-weight:700;color:var(--text-primary);">{{ "{:,}".format(summary.total_lines) }}</td>
                     <td style="padding:10px 14px;font-size:0.82rem;text-align:right;font-weight:700;color:var(--accent);">{{ summary.total_test_functions }}</td>
-                    <td style="padding:10px 14px;font-size:0.82rem;text-align:right;font-weight:700;color:var(--text-primary);">{{ summary.total_test_classes }}</td>
+                    <td style="padding:10px 14px;font-size:0.82rem;text-align:right;font-weight:700;color:var(--text-primary);">{{ "{:,}".format(total_assert_stmts) }}</td>
+                    <td style="padding:10px 14px;font-size:0.82rem;text-align:right;font-weight:700;color:var(--text-primary);">{{ "%.1f"|format(avg_density) }}</td>
+                    <td style="padding:10px 14px;font-size:0.82rem;text-align:right;font-weight:700;color:#a855f7;">{{ total_async_tests }}</td>
+                    <td style="padding:10px 14px;font-size:0.82rem;text-align:right;font-weight:700;color:var(--text-primary);">{{ total_sync_tests }}</td>
                 </tr>
             </tfoot>
         </table>
+    </div>
+    <div id="testFileNoResults" style="display:none;text-align:center;padding:24px;color:var(--text-faint);font-size:0.82rem;">
+        No test files match your search.
+    </div>
+</div>
+{% endif %}
+
+{# ═══ QUICK SETUP — CODE SNIPPETS ═══ #}
+<div class="card" style="padding:20px;margin-bottom:20px;">
+    <h3 style="margin-bottom:16px;font-size:0.95rem;color:var(--text-secondary);">
+        <i class="icon-terminal" style="opacity:0.5;margin-right:6px;"></i>
+        Quick Setup — Code Snippets
+    </h3>
+    <p style="font-size:0.78rem;color:var(--text-faint);margin-bottom:12px;">Copy-paste examples for Aquilia's testing utilities.</p>
+    <div class="snippet-panel">
+        <div class="snippet-tabs">
+            <button class="snippet-tab active" data-tab="snip-unit" type="button">Unit Test</button>
+            <button class="snippet-tab" data-tab="snip-integration" type="button">Integration</button>
+            <button class="snippet-tab" data-tab="snip-client" type="button">TestClient</button>
+            <button class="snippet-tab" data-tab="snip-mock" type="button">Mock Engine</button>
+            <button class="snippet-tab" data-tab="snip-fixture" type="button">Fixtures</button>
+        </div>
+        <div class="snippet-content active" id="snip-unit">
+            <button class="copy-btn" onclick="copySnippet('snip-unit')" type="button">Copy</button>
+            <pre><code>from aquilia.testing import AquiliaTestCase
+
+class TestUserService(AquiliaTestCase):
+    """Unit test for user service logic."""
+
+    async def test_create_user(self):
+        result = await self.app.di.get("user_service").create(
+            name="Alice", email="alice@example.com"
+        )
+        self.assert_status(result, 201)
+        self.assert_json_has(result, "id", "name")
+
+    async def test_user_validation(self):
+        with self.assertRaises(ValidationError):
+            await self.app.di.get("user_service").create(name="")</code></pre>
+        </div>
+        <div class="snippet-content" id="snip-integration">
+            <button class="copy-btn" onclick="copySnippet('snip-integration')" type="button">Copy</button>
+            <pre><code>from aquilia.testing import AquiliaTestCase
+
+class TestAuthFlow(AquiliaTestCase):
+    """Integration test across auth + sessions + DI."""
+
+    async def test_login_creates_session(self):
+        resp = await self.client.post("/auth/login", json={
+            "username": "admin", "password": "secret"
+        })
+        self.assert_status(resp, 200)
+        self.assert_json_has(resp, "token")
+        # Verify session was created
+        sessions = self.app.di.get("session_store")
+        self.assertTrue(len(sessions.active()) > 0)</code></pre>
+        </div>
+        <div class="snippet-content" id="snip-client">
+            <button class="copy-btn" onclick="copySnippet('snip-client')" type="button">Copy</button>
+            <pre><code>from aquilia.testing import TestClient
+
+async def test_api_endpoints():
+    """Use TestClient for HTTP testing without network."""
+    async with TestClient(app) as client:
+        # GET request
+        resp = await client.get("/api/users")
+        assert resp.status == 200
+
+        # POST with JSON body
+        resp = await client.post("/api/users", json={
+            "name": "Bob", "role": "editor"
+        })
+        assert resp.status == 201
+
+        # Custom headers
+        resp = await client.get("/api/profile", headers={
+            "Authorization": "Bearer test-token"
+        })</code></pre>
+        </div>
+        <div class="snippet-content" id="snip-mock">
+            <button class="copy-btn" onclick="copySnippet('snip-mock')" type="button">Copy</button>
+            <pre><code>from aquilia.testing import AquiliaTestCase
+from aquilia.testing import MockFaultEngine, MockEffectBus
+
+class TestWithMocks(AquiliaTestCase):
+    """Use mock infrastructure for isolated testing."""
+
+    async def test_fault_handling(self):
+        faults = MockFaultEngine()
+        faults.inject("db_timeout", probability=1.0)
+
+        with self.mock_subsystem("faults", faults):
+            resp = await self.client.get("/api/data")
+            self.assert_status(resp, 503)
+
+    async def test_effect_bus(self):
+        bus = MockEffectBus()
+        await bus.emit("user.created", {"id": 1})
+        bus.assert_emitted("user.created", count=1)</code></pre>
+        </div>
+        <div class="snippet-content" id="snip-fixture">
+            <button class="copy-btn" onclick="copySnippet('snip-fixture')" type="button">Copy</button>
+            <pre><code>import pytest
+from aquilia.testing import create_test_app, seed_database
+
+@pytest.fixture
+async def app():
+    """Create a fresh test application instance."""
+    app = await create_test_app(config={
+        "database": {"url": "sqlite://:memory:"},
+        "auth": {"secret": "test-secret"},
+    })
+    yield app
+    await app.shutdown()
+
+@pytest.fixture
+async def seeded_app(app):
+    """App with seed data for integration tests."""
+    await seed_database(app, fixtures=["users", "posts"])
+    return app</code></pre>
+        </div>
+    </div>
+</div>
+
+{# ═══ IMPORTS USAGE HEATMAP (text-based) ═══ #}
+{% if imports_usage %}
+<div class="card" style="padding:20px;margin-bottom:20px;">
+    <h3 style="margin-bottom:16px;font-size:0.95rem;color:var(--text-secondary);">
+        <i class="icon-package" style="opacity:0.5;margin-right:6px;"></i>
+        Testing Imports Heatmap
+    </h3>
+    <p style="font-size:0.75rem;color:var(--text-faint);margin-bottom:12px;">How many test files import each Aquilia testing utility.</p>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;">
+        {% for name, count in imports_usage.items() %}
+        <div style="padding:8px 14px;background:var(--bg-primary);border:1px solid var(--border-subtle);border-radius:var(--radius);display:flex;align-items:center;gap:8px;">
+            <code style="font-size:0.78rem;color:var(--accent);">{{ name }}</code>
+            <span style="padding:2px 8px;background:{% if count > 5 %}rgba(34,197,94,.2){% elif count > 2 %}rgba(251,191,36,.2){% else %}rgba(161,161,170,.15){% endif %};color:{% if count > 5 %}#22c55e{% elif count > 2 %}#fbbf24{% else %}var(--text-faint){% endif %};border-radius:999px;font-size:0.68rem;font-weight:600;">{{ count }} files</span>
+        </div>
+        {% endfor %}
     </div>
 </div>
 {% endif %}
@@ -443,7 +747,35 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // ── 2. Component Coverage Radar ──
+    // ── 2. Test Categories Doughnut ──
+    var catLabels = (charts.test_categories || {}).labels || [];
+    var catValues = (charts.test_categories || {}).values || [];
+    var catColors = {'Unit':'#38bdf8','Integration':'#22c55e','Database':'#fbbf24','E2E':'#a855f7','Other':'#71717a'};
+    if (catLabels.length > 0) {
+        new Chart(document.getElementById('chartCategories'), {
+            type: 'doughnut',
+            data: {
+                labels: catLabels,
+                datasets: [{
+                    data: catValues,
+                    backgroundColor: catLabels.map(function(l) { return (catColors[l] || palette[0]) + 'cc'; }),
+                    borderColor: isDark ? '#09090b' : '#fff',
+                    borderWidth: 2,
+                    hoverOffset: 6,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '55%',
+                plugins: {
+                    legend: { position: 'right', labels: { boxWidth: 10, padding: 8, font: { size: 10 } } }
+                }
+            }
+        });
+    }
+
+    // ── 3. Component Coverage Radar ──
     var covLabels = (charts.component_coverage || {}).labels || [];
     var covValues = (charts.component_coverage || {}).values || [];
     if (covLabels.length > 0) {
@@ -479,7 +811,34 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // ── 3. Assertion Categories Doughnut ──
+    // ── 4. Async vs Sync Pie ──
+    var asLabels = (charts.async_sync || {}).labels || [];
+    var asValues = (charts.async_sync || {}).values || [];
+    if (asLabels.length > 0 && (asValues[0] + asValues[1]) > 0) {
+        new Chart(document.getElementById('chartAsyncSync'), {
+            type: 'doughnut',
+            data: {
+                labels: asLabels,
+                datasets: [{
+                    data: asValues,
+                    backgroundColor: ['rgba(168,85,247,.7)', 'rgba(59,130,246,.7)'],
+                    borderColor: isDark ? '#09090b' : '#fff',
+                    borderWidth: 2,
+                    hoverOffset: 6,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '50%',
+                plugins: {
+                    legend: { position: 'bottom', labels: { boxWidth: 10, padding: 12, font: { size: 11 } } }
+                }
+            }
+        });
+    }
+
+    // ── 5. Assertion Categories Doughnut ──
     var aLabels = (charts.assertion_categories || {}).labels || [];
     var aValues = (charts.assertion_categories || {}).values || [];
     if (aLabels.length > 0) {
@@ -506,7 +865,45 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // ── 4. Mock Infrastructure Horizontal Bar ──
+    // ── 6. Test Density Bar ──
+    var dLabels = (charts.test_density || {}).labels || [];
+    var dValues = (charts.test_density || {}).values || [];
+    if (dLabels.length > 0) {
+        new Chart(document.getElementById('chartDensity'), {
+            type: 'bar',
+            data: {
+                labels: dLabels,
+                datasets: [{
+                    label: 'Tests / 100 LOC',
+                    data: dValues,
+                    backgroundColor: dValues.map(function(v) {
+                        if (v > 10) return 'rgba(34,197,94,.6)';
+                        if (v > 5) return 'rgba(251,191,36,.6)';
+                        return 'rgba(239,68,68,.5)';
+                    }),
+                    borderColor: dValues.map(function(v) {
+                        if (v > 10) return '#22c55e';
+                        if (v > 5) return '#f59e0b';
+                        return '#ef4444';
+                    }),
+                    borderWidth: 1,
+                    borderRadius: 6,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                indexAxis: 'y',
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { beginAtZero: true, grid: { color: gridColor }, title: { display: true, text: 'tests / 100 LOC', font: { size: 9 }, color: textColor } },
+                    y: { grid: { display: false }, ticks: { font: { size: 9 } } }
+                }
+            }
+        });
+    }
+
+    // ── 7. Mock Infrastructure Horizontal Bar ──
     var mLabels = (charts.mock_infrastructure || {}).labels || [];
     var mValues = (charts.mock_infrastructure || {}).values || [];
     if (mLabels.length > 0) {
@@ -536,7 +933,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // ── 5. Lines of Code Bar ──
+    // ── 8. Lines of Code Bar ──
     var lLabels = (charts.lines_of_code || {}).labels || [];
     var lValues = (charts.lines_of_code || {}).values || [];
     if (lLabels.length > 0) {
@@ -565,7 +962,146 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+
+    // ── 9. Imports Usage Horizontal Bar ──
+    var iLabels = (charts.imports_usage || {}).labels || [];
+    var iValues = (charts.imports_usage || {}).values || [];
+    if (iLabels.length > 0) {
+        new Chart(document.getElementById('chartImports'), {
+            type: 'bar',
+            data: {
+                labels: iLabels,
+                datasets: [{
+                    label: 'Files Using',
+                    data: iValues,
+                    backgroundColor: iLabels.map(function(_, i) { return palette[i % palette.length] + '88'; }),
+                    borderColor: iLabels.map(function(_, i) { return palette[i % palette.length]; }),
+                    borderWidth: 1,
+                    borderRadius: 6,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                indexAxis: 'y',
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { beginAtZero: true, grid: { color: gridColor }, ticks: { stepSize: 1 } },
+                    y: { grid: { display: false }, ticks: { font: { size: 9 } } }
+                }
+            }
+        });
+    }
+
+    // ── 10. Assertions Per File Bar ──
+    var afLabels = (charts.assertions_per_file || {}).labels || [];
+    var afValues = (charts.assertions_per_file || {}).values || [];
+    if (afLabels.length > 0) {
+        new Chart(document.getElementById('chartAssertsPerFile'), {
+            type: 'bar',
+            data: {
+                labels: afLabels,
+                datasets: [{
+                    label: 'Assert Stmts',
+                    data: afValues,
+                    backgroundColor: 'rgba(6,182,212,.5)',
+                    borderColor: '#06b6d4',
+                    borderWidth: 1,
+                    borderRadius: 6,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                indexAxis: 'y',
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { beginAtZero: true, grid: { color: gridColor } },
+                    y: { grid: { display: false }, ticks: { font: { size: 9 } } }
+                }
+            }
+        });
+    }
+
+    // ── Count-up animation for stat cards ──
+    document.querySelectorAll('[data-count]').forEach(function(el) {
+        var target = parseFloat(el.getAttribute('data-count'));
+        var decimals = parseInt(el.getAttribute('data-decimals') || '0');
+        if (target <= 0) { el.textContent = target.toFixed(decimals); return; }
+        var duration = 800;
+        var start = performance.now();
+        function tick(now) {
+            var progress = Math.min((now - start) / duration, 1);
+            // ease-out quad
+            var eased = 1 - (1 - progress) * (1 - progress);
+            var current = eased * target;
+            el.textContent = decimals > 0 ? current.toFixed(decimals) : Math.round(current).toLocaleString();
+            if (progress < 1) {
+                requestAnimationFrame(tick);
+            } else {
+                el.textContent = decimals > 0 ? target.toFixed(decimals) : target.toLocaleString();
+                el.classList.add('count-done');
+            }
+        }
+        requestAnimationFrame(tick);
+    });
+
+    // ── Test file search & filter ──
+    var searchInput = document.getElementById('testFileSearch');
+    var categoryFilter = document.getElementById('testCategoryFilter');
+    var table = document.getElementById('testFilesTable');
+    var noResults = document.getElementById('testFileNoResults');
+
+    function filterFiles() {
+        if (!table) return;
+        var query = (searchInput ? searchInput.value.toLowerCase() : '');
+        var cat = (categoryFilter ? categoryFilter.value : '');
+        var rows = table.querySelectorAll('tbody tr');
+        var visible = 0;
+        rows.forEach(function(row) {
+            var name = row.getAttribute('data-name') || '';
+            var rowCat = row.getAttribute('data-category') || '';
+            var matchName = !query || name.indexOf(query) !== -1;
+            var matchCat = !cat || rowCat === cat;
+            if (matchName && matchCat) {
+                row.style.display = '';
+                visible++;
+            } else {
+                row.style.display = 'none';
+            }
+        });
+        if (noResults) {
+            noResults.style.display = visible === 0 ? 'block' : 'none';
+        }
+    }
+
+    if (searchInput) searchInput.addEventListener('input', filterFiles);
+    if (categoryFilter) categoryFilter.addEventListener('change', filterFiles);
+
+    // ── Snippet tabs ──
+    document.querySelectorAll('.snippet-tab').forEach(function(tab) {
+        tab.addEventListener('click', function() {
+            var panel = tab.closest('.snippet-panel');
+            panel.querySelectorAll('.snippet-tab').forEach(function(t) { t.classList.remove('active'); });
+            panel.querySelectorAll('.snippet-content').forEach(function(c) { c.classList.remove('active'); });
+            tab.classList.add('active');
+            var target = document.getElementById(tab.getAttribute('data-tab'));
+            if (target) target.classList.add('active');
+        });
+    });
 });
+
+// ── Copy snippet helper ──
+function copySnippet(id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    var code = el.querySelector('code');
+    if (!code) return;
+    navigator.clipboard.writeText(code.textContent).then(function() {
+        var btn = el.querySelector('.copy-btn');
+        if (btn) { btn.textContent = 'Copied!'; setTimeout(function() { btn.textContent = 'Copy'; }, 1500); }
+    });
+}
 </script>
 
 {% endblock %}

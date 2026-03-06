@@ -387,6 +387,12 @@ class AdminController(Controller):
                 "alert-triangle",
                 "Error tracking with stack traces, grouping, frequency analysis, and trends.",
             ),
+            "Testing Framework": (
+                "Integration.AdminModules().enable_testing()",
+                "enable_testing=True",
+                "check-circle",
+                "Test infrastructure, assertions, fixtures, mock systems, coverage analysis, and file discovery.",
+            ),
         }
 
         hint = _config_hints.get(module, (

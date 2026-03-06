@@ -1542,6 +1542,9 @@ class AdminSite:
         total_test_count = 0
         total_test_classes_count = 0
         total_lines = 0
+        total_assert_stmts = 0
+        category_counts: Dict[str, int] = {"unit": 0, "integration": 0, "database": 0, "e2e": 0, "other": 0}
+        imports_usage: Dict[str, int] = {}  # which testing imports are used
         try:
             project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
             for search_dir in ["tests", "myapp/tests"]:
@@ -1554,12 +1557,58 @@ class AdminSite:
                                 with open(fpath, "r") as f:
                                     source = f.read()
                                 lines = source.count("\n") + 1
-                                # Count test functions and classes
+                                # Count test functions, classes, assert statements
                                 test_funcs = source.count("\n    def test_") + source.count("\n    async def test_")
                                 test_cls = source.count("\nclass Test")
+                                assert_count = source.count("assert ") + source.count("assert(") + source.count("self.assert")
                                 total_test_count += test_funcs
                                 total_test_classes_count += test_cls
                                 total_lines += lines
+                                total_assert_stmts += assert_count
+
+                                # Categorize test file
+                                name_lower = fname.lower()
+                                if "e2e" in name_lower or "live" in name_lower or "browser" in name_lower:
+                                    category = "e2e"
+                                elif any(x in name_lower for x in ["orm", "db", "migration", "model"]):
+                                    category = "database"
+                                elif any(x in name_lower for x in ["controller", "auth", "admin", "di", "sessions", "regression", "i18n", "integration"]):
+                                    category = "integration"
+                                elif any(x in name_lower for x in ["unit", "util", "helper", "missing"]):
+                                    category = "unit"
+                                else:
+                                    category = "other"
+                                category_counts[category] += 1
+
+                                # Density: tests per 100 lines
+                                density = round(test_funcs / max(lines, 1) * 100, 1)
+
+                                # Detect async tests
+                                async_test_count = source.count("\n    async def test_")
+                                sync_test_count = test_funcs - async_test_count
+
+                                # Detect which testing imports are used
+                                file_imports = []
+                                _testing_imports_map = {
+                                    "AquiliaTestCase": "aquilia.testing.cases",
+                                    "TransactionTestCase": "aquilia.testing.cases",
+                                    "LiveServerTestCase": "aquilia.testing.cases",
+                                    "SimpleTestCase": "aquilia.testing.cases",
+                                    "TestClient": "aquilia.testing.client",
+                                    "MockFaultEngine": "aquilia.testing.faults",
+                                    "MockEffectRegistry": "aquilia.testing.effects",
+                                    "MockCacheBackend": "aquilia.testing.cache",
+                                    "TestContainer": "aquilia.testing.di",
+                                    "MailTestMixin": "aquilia.testing.mail",
+                                    "TestIdentityFactory": "aquilia.testing.auth",
+                                    "TestConfig": "aquilia.testing.config",
+                                    "override_settings": "aquilia.testing.config",
+                                }
+                                for symbol, mod in _testing_imports_map.items():
+                                    if symbol in source:
+                                        file_imports.append(symbol)
+                                        imports_usage[symbol] = imports_usage.get(symbol, 0) + 1
+
                                 test_files.append({
                                     "name": fname,
                                     "directory": search_dir,
@@ -1567,6 +1616,12 @@ class AdminSite:
                                     "lines": lines,
                                     "test_count": test_funcs,
                                     "class_count": test_cls,
+                                    "assert_count": assert_count,
+                                    "category": category,
+                                    "density": density,
+                                    "async_tests": async_test_count,
+                                    "sync_tests": sync_test_count,
+                                    "imports": file_imports,
                                 })
                             except Exception:
                                 test_files.append({
@@ -1576,6 +1631,12 @@ class AdminSite:
                                     "lines": 0,
                                     "test_count": 0,
                                     "class_count": 0,
+                                    "assert_count": 0,
+                                    "category": "other",
+                                    "density": 0,
+                                    "async_tests": 0,
+                                    "sync_tests": 0,
+                                    "imports": [],
                                 })
         except Exception:
             pass
@@ -1605,6 +1666,12 @@ class AdminSite:
         data["covered_components"] = sum(1 for c in component_coverage if c["status"] == "covered")
 
         # ── 9. Summary stats ─────────────────────────────────────────
+        avg_tests_per_file = round(total_test_count / max(len(test_files), 1), 1)
+        avg_loc_per_test = round(total_lines / max(total_test_count, 1), 1)
+        avg_density = round(total_test_count / max(total_lines, 1) * 100, 1)
+        total_async_tests = sum(f.get("async_tests", 0) for f in test_files)
+        total_sync_tests = total_test_count - total_async_tests
+
         data["summary"] = {
             "total_test_cases": len(test_classes) if "test_classes" in data else 0,
             "total_assertions": data.get("total_assertions", 0),
@@ -1617,6 +1684,14 @@ class AdminSite:
             "total_lines": total_lines,
             "total_components": len(component_coverage),
             "covered_components": sum(1 for c in component_coverage if c["status"] == "covered"),
+            "total_assert_stmts": total_assert_stmts,
+            "avg_tests_per_file": avg_tests_per_file,
+            "avg_loc_per_test": avg_loc_per_test,
+            "avg_density": avg_density,
+            "total_async_tests": total_async_tests,
+            "total_sync_tests": total_sync_tests,
+            "category_breakdown": dict(category_counts),
+            "imports_usage": dict(imports_usage),
         }
 
         # ── 10. Chart.js data structures ─────────────────────────────
@@ -1624,19 +1699,9 @@ class AdminSite:
         file_names = [f["name"].replace("test_", "").replace(".py", "") for f in test_files[:15]]
         file_counts = [f["test_count"] for f in test_files[:15]]
 
-        # Test categories
-        cat_labels = ["Unit", "Integration", "Database", "E2E"]
-        cat_values = [
-            sum(1 for f in test_files if "unit" in f["name"]),
-            sum(1 for f in test_files if any(x in f["name"] for x in ["controller", "auth", "di", "sessions", "admin", "orm", "regression"])),
-            sum(1 for f in test_files if any(x in f["name"] for x in ["orm", "db", "migration"])),
-            sum(1 for f in test_files if "e2e" in f["name"]),
-        ]
-        # Add uncategorised remainder
-        categorised = sum(cat_values)
-        if len(test_files) > categorised:
-            cat_labels.append("Other")
-            cat_values.append(len(test_files) - categorised)
+        # Test categories (from actual per-file categorisation)
+        cat_labels = [k.title() for k, v in category_counts.items() if v > 0]
+        cat_values = [v for v in category_counts.values() if v > 0]
 
         # Assertion categories
         assert_cat_labels = [a["category"] for a in data.get("assertions", [])]
@@ -1653,6 +1718,25 @@ class AdminSite:
         # Component coverage (for radar chart)
         cov_labels = [c["name"] for c in component_coverage]
         cov_values = [100 if c["status"] == "covered" else 0 for c in component_coverage]
+
+        # Async vs sync test breakdown
+        async_sync_labels = ["Async", "Sync"]
+        async_sync_values = [total_async_tests, total_sync_tests]
+
+        # Test density per file (tests per 100 LOC) — top 12
+        density_sorted = sorted(test_files, key=lambda x: x.get("density", 0), reverse=True)[:12]
+        density_labels = [f["name"].replace("test_", "").replace(".py", "") for f in density_sorted]
+        density_values = [f.get("density", 0) for f in density_sorted]
+
+        # Imports usage (which testing utilities are most used)
+        imports_sorted = sorted(imports_usage.items(), key=lambda x: x[1], reverse=True)
+        import_labels = [k for k, _ in imports_sorted]
+        import_values = [v for _, v in imports_sorted]
+
+        # Assertions per file (top 12)
+        assert_sorted = sorted(test_files, key=lambda x: x.get("assert_count", 0), reverse=True)[:12]
+        assert_file_labels = [f["name"].replace("test_", "").replace(".py", "") for f in assert_sorted]
+        assert_file_values = [f.get("assert_count", 0) for f in assert_sorted]
 
         data["charts"] = {
             "test_distribution": {
@@ -1678,6 +1762,22 @@ class AdminSite:
             "component_coverage": {
                 "labels": cov_labels,
                 "values": cov_values,
+            },
+            "async_sync": {
+                "labels": async_sync_labels,
+                "values": async_sync_values,
+            },
+            "test_density": {
+                "labels": density_labels,
+                "values": density_values,
+            },
+            "imports_usage": {
+                "labels": import_labels,
+                "values": import_values,
+            },
+            "assertions_per_file": {
+                "labels": assert_file_labels,
+                "values": assert_file_values,
             },
         }
 

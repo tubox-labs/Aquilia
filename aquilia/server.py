@@ -1934,6 +1934,10 @@ class AquiliaServer:
                 ("GET", f"{url_prefix}/errors/",    "errors_view",    ctrl.errors_view),
                 ("GET", f"{url_prefix}/errors/api/", "errors_api",    ctrl.errors_api),
             ])
+            admin_routes.extend([
+                ("GET", f"{url_prefix}/testing/",    "testing_view",    ctrl.testing_view),
+                ("GET", f"{url_prefix}/testing/api/", "testing_api",    ctrl.testing_api),
+            ])
 
             # Model CRUD routes -- always registered
             admin_routes.extend([

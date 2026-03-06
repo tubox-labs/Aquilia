@@ -539,6 +539,8 @@ class TestGetTestingData:
             "test_distribution", "test_categories",
             "assertion_categories", "mock_infrastructure",
             "lines_of_code", "component_coverage",
+            "async_sync", "test_density",
+            "imports_usage", "assertions_per_file",
         ]
         for k in expected_chart_keys:
             assert k in charts, f"Missing chart key: {k}"
@@ -1306,3 +1308,678 @@ class TestTestingAdminIntegration:
         assert "Chart" in html or "chart" in html.lower()
         # Should be non-trivial HTML
         assert len(html) > 1000
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# 14. PHASE 31f — ENHANCED TESTING DASHBOARD
+# Server route wiring · Disabled page · Enhanced metrics · New charts
+# Search/filter · Code snippets · Count-up animations · Imports heatmap
+# ════════════════════════════════════════════════════════════════════════════
+
+
+class TestPhase31fServerRouteWiring:
+    """Testing routes are registered in _wire_admin_integration (server.py)."""
+
+    def test_server_module_has_wire_admin_integration(self):
+        import aquilia.server as srv_mod
+        src = inspect.getsource(srv_mod)
+        assert "_wire_admin_integration" in src
+
+    def test_server_registers_testing_view_route(self):
+        import aquilia.server as srv_mod
+        src = inspect.getsource(srv_mod)
+        assert "testing_view" in src
+        assert "/testing/" in src
+
+    def test_server_registers_testing_api_route(self):
+        import aquilia.server as srv_mod
+        src = inspect.getsource(srv_mod)
+        assert "testing_api" in src
+        assert "/testing/api/" in src
+
+    def test_testing_routes_use_get_method(self):
+        import aquilia.server as srv_mod
+        src = inspect.getsource(srv_mod)
+        lines = src.splitlines()
+        for line in lines:
+            if "testing_view" in line and "admin_routes" in line:
+                assert '"GET"' in line or "'GET'" in line
+            if "testing_api" in line and "admin_routes" in line:
+                assert '"GET"' in line or "'GET'" in line
+
+    def test_testing_routes_after_errors_routes(self):
+        """Testing routes should be placed after errors routes."""
+        import aquilia.server as srv_mod
+        src = inspect.getsource(srv_mod)
+        errors_pos = src.find("errors_view")
+        testing_pos = src.find("testing_view")
+        assert errors_pos > 0
+        assert testing_pos > 0
+        assert testing_pos > errors_pos
+
+
+class TestPhase31fDisabledPage:
+    """Testing Framework appears in _config_hints for disabled page."""
+
+    def test_config_hints_has_testing_framework(self):
+        from aquilia.admin.controller import AdminController
+        src = inspect.getsource(AdminController)
+        assert '"Testing Framework"' in src or "'Testing Framework'" in src
+
+    def test_config_hints_testing_builder_hint(self):
+        from aquilia.admin.controller import AdminController
+        src = inspect.getsource(AdminController)
+        assert "enable_testing()" in src
+
+    def test_config_hints_testing_flat_hint(self):
+        from aquilia.admin.controller import AdminController
+        src = inspect.getsource(AdminController)
+        assert "enable_testing=True" in src
+
+    def test_config_hints_testing_icon(self):
+        from aquilia.admin.controller import AdminController
+        src = inspect.getsource(AdminController)
+        assert "check-circle" in src
+
+    def test_testing_view_returns_disabled_page_when_off(self):
+        """testing_view calls _module_disabled_response when testing not enabled."""
+        from aquilia.admin.controller import AdminController
+        src = inspect.getsource(AdminController.testing_view)
+        assert "_module_disabled_response" in src
+        assert '"Testing Framework"' in src or "'Testing Framework'" in src
+
+
+class TestPhase31fEnhancedSummary:
+    """Summary includes Phase 31f enhanced metrics."""
+
+    def _make_site(self):
+        from aquilia.admin.site import AdminSite
+        site = AdminSite.__new__(AdminSite)
+        site._registry = {}
+        site._app_order = []
+        site._site_title = "Test"
+        site._initialised = True
+        site._admin_config = None
+        return site
+
+    def test_summary_has_total_assert_stmts(self):
+        site = self._make_site()
+        data = site.get_testing_data()
+        assert "total_assert_stmts" in data["summary"]
+        assert isinstance(data["summary"]["total_assert_stmts"], int)
+
+    def test_summary_total_assert_stmts_positive(self):
+        site = self._make_site()
+        data = site.get_testing_data()
+        assert data["summary"]["total_assert_stmts"] > 0
+
+    def test_summary_has_avg_tests_per_file(self):
+        site = self._make_site()
+        data = site.get_testing_data()
+        assert "avg_tests_per_file" in data["summary"]
+        assert isinstance(data["summary"]["avg_tests_per_file"], (int, float))
+
+    def test_summary_avg_tests_per_file_positive(self):
+        site = self._make_site()
+        data = site.get_testing_data()
+        assert data["summary"]["avg_tests_per_file"] > 0
+
+    def test_summary_has_avg_loc_per_test(self):
+        site = self._make_site()
+        data = site.get_testing_data()
+        assert "avg_loc_per_test" in data["summary"]
+        assert isinstance(data["summary"]["avg_loc_per_test"], (int, float))
+
+    def test_summary_avg_loc_per_test_positive(self):
+        site = self._make_site()
+        data = site.get_testing_data()
+        assert data["summary"]["avg_loc_per_test"] > 0
+
+    def test_summary_has_avg_density(self):
+        site = self._make_site()
+        data = site.get_testing_data()
+        assert "avg_density" in data["summary"]
+        assert isinstance(data["summary"]["avg_density"], (int, float))
+
+    def test_summary_has_total_async_tests(self):
+        site = self._make_site()
+        data = site.get_testing_data()
+        assert "total_async_tests" in data["summary"]
+        assert isinstance(data["summary"]["total_async_tests"], int)
+
+    def test_summary_has_total_sync_tests(self):
+        site = self._make_site()
+        data = site.get_testing_data()
+        assert "total_sync_tests" in data["summary"]
+        assert isinstance(data["summary"]["total_sync_tests"], int)
+
+    def test_summary_async_plus_sync_equals_total(self):
+        site = self._make_site()
+        data = site.get_testing_data()
+        s = data["summary"]
+        assert s["total_async_tests"] + s["total_sync_tests"] == s["total_test_functions"]
+
+    def test_summary_has_category_breakdown(self):
+        site = self._make_site()
+        data = site.get_testing_data()
+        assert "category_breakdown" in data["summary"]
+        assert isinstance(data["summary"]["category_breakdown"], dict)
+
+    def test_summary_category_breakdown_has_expected_keys(self):
+        site = self._make_site()
+        data = site.get_testing_data()
+        cb = data["summary"]["category_breakdown"]
+        for key in ("unit", "integration", "database", "e2e", "other"):
+            assert key in cb, f"Missing category: {key}"
+
+    def test_summary_category_breakdown_values_non_negative(self):
+        site = self._make_site()
+        data = site.get_testing_data()
+        for k, v in data["summary"]["category_breakdown"].items():
+            assert v >= 0, f"Category {k} has negative value: {v}"
+
+    def test_summary_category_breakdown_sum_equals_files(self):
+        site = self._make_site()
+        data = site.get_testing_data()
+        total_cats = sum(data["summary"]["category_breakdown"].values())
+        assert total_cats == len(data["test_files"])
+
+    def test_summary_has_imports_usage(self):
+        site = self._make_site()
+        data = site.get_testing_data()
+        assert "imports_usage" in data["summary"]
+        assert isinstance(data["summary"]["imports_usage"], dict)
+
+
+class TestPhase31fEnhancedTestFileFields:
+    """Test file entries include Phase 31f enhanced fields."""
+
+    def _make_site(self):
+        from aquilia.admin.site import AdminSite
+        site = AdminSite.__new__(AdminSite)
+        site._registry = {}
+        site._app_order = []
+        site._site_title = "Test"
+        site._initialised = True
+        site._admin_config = None
+        return site
+
+    def test_test_file_has_category(self):
+        site = self._make_site()
+        data = site.get_testing_data()
+        for f in data["test_files"]:
+            assert "category" in f, f"File {f['name']} missing category"
+            assert f["category"] in ("unit", "integration", "database", "e2e", "other")
+
+    def test_test_file_has_assert_count(self):
+        site = self._make_site()
+        data = site.get_testing_data()
+        for f in data["test_files"]:
+            assert "assert_count" in f, f"File {f['name']} missing assert_count"
+            assert isinstance(f["assert_count"], int)
+            assert f["assert_count"] >= 0
+
+    def test_test_file_has_density(self):
+        site = self._make_site()
+        data = site.get_testing_data()
+        for f in data["test_files"]:
+            assert "density" in f, f"File {f['name']} missing density"
+            assert isinstance(f["density"], (int, float))
+            assert f["density"] >= 0
+
+    def test_test_file_has_async_tests(self):
+        site = self._make_site()
+        data = site.get_testing_data()
+        for f in data["test_files"]:
+            assert "async_tests" in f, f"File {f['name']} missing async_tests"
+            assert isinstance(f["async_tests"], int)
+
+    def test_test_file_has_sync_tests(self):
+        site = self._make_site()
+        data = site.get_testing_data()
+        for f in data["test_files"]:
+            assert "sync_tests" in f, f"File {f['name']} missing sync_tests"
+            assert isinstance(f["sync_tests"], int)
+
+    def test_test_file_async_plus_sync_equals_count(self):
+        site = self._make_site()
+        data = site.get_testing_data()
+        for f in data["test_files"]:
+            assert f["async_tests"] + f["sync_tests"] == f["test_count"], \
+                f"File {f['name']}: async({f['async_tests']}) + sync({f['sync_tests']}) != count({f['test_count']})"
+
+    def test_test_file_has_imports(self):
+        site = self._make_site()
+        data = site.get_testing_data()
+        for f in data["test_files"]:
+            assert "imports" in f, f"File {f['name']} missing imports"
+            assert isinstance(f["imports"], list)
+
+    def test_density_calculation_correct(self):
+        """Density = (test_count / lines) * 100."""
+        site = self._make_site()
+        data = site.get_testing_data()
+        for f in data["test_files"]:
+            if f["lines"] > 0:
+                expected = round((f["test_count"] / f["lines"]) * 100, 2)
+                assert abs(f["density"] - expected) < 0.1, \
+                    f"File {f['name']}: density {f['density']} != expected {expected}"
+
+
+class TestPhase31fNewChartKeys:
+    """Charts dict includes Phase 31f new chart types."""
+
+    def _make_site(self):
+        from aquilia.admin.site import AdminSite
+        site = AdminSite.__new__(AdminSite)
+        site._registry = {}
+        site._app_order = []
+        site._site_title = "Test"
+        site._initialised = True
+        site._admin_config = None
+        return site
+
+    def test_charts_has_async_sync(self):
+        site = self._make_site()
+        data = site.get_testing_data()
+        assert "async_sync" in data["charts"]
+
+    def test_charts_async_sync_structure(self):
+        site = self._make_site()
+        data = site.get_testing_data()
+        chart = data["charts"]["async_sync"]
+        assert "labels" in chart
+        assert "values" in chart
+        assert chart["labels"] == ["Async", "Sync"]
+        assert len(chart["values"]) == 2
+
+    def test_charts_async_sync_values_match_summary(self):
+        site = self._make_site()
+        data = site.get_testing_data()
+        chart = data["charts"]["async_sync"]
+        assert chart["values"][0] == data["summary"]["total_async_tests"]
+        assert chart["values"][1] == data["summary"]["total_sync_tests"]
+
+    def test_charts_has_test_density(self):
+        site = self._make_site()
+        data = site.get_testing_data()
+        assert "test_density" in data["charts"]
+
+    def test_charts_test_density_structure(self):
+        site = self._make_site()
+        data = site.get_testing_data()
+        chart = data["charts"]["test_density"]
+        assert "labels" in chart
+        assert "values" in chart
+        assert len(chart["labels"]) == len(chart["values"])
+        assert len(chart["labels"]) > 0
+
+    def test_charts_has_imports_usage(self):
+        site = self._make_site()
+        data = site.get_testing_data()
+        assert "imports_usage" in data["charts"]
+
+    def test_charts_imports_usage_structure(self):
+        site = self._make_site()
+        data = site.get_testing_data()
+        chart = data["charts"]["imports_usage"]
+        assert "labels" in chart
+        assert "values" in chart
+        assert len(chart["labels"]) == len(chart["values"])
+
+    def test_charts_has_assertions_per_file(self):
+        site = self._make_site()
+        data = site.get_testing_data()
+        assert "assertions_per_file" in data["charts"]
+
+    def test_charts_assertions_per_file_structure(self):
+        site = self._make_site()
+        data = site.get_testing_data()
+        chart = data["charts"]["assertions_per_file"]
+        assert "labels" in chart
+        assert "values" in chart
+        assert len(chart["labels"]) == len(chart["values"])
+
+    def test_charts_test_categories_from_category_counts(self):
+        """test_categories chart uses actual per-file category counts."""
+        site = self._make_site()
+        data = site.get_testing_data()
+        chart = data["charts"]["test_categories"]
+        # Total values should match total test files
+        assert sum(chart["values"]) == len(data["test_files"])
+
+    def test_all_chart_labels_values_same_length(self):
+        site = self._make_site()
+        data = site.get_testing_data()
+        for key, chart in data["charts"].items():
+            assert len(chart["labels"]) == len(chart["values"]), \
+                f"Chart '{key}': labels({len(chart['labels'])}) != values({len(chart['values'])})"
+
+    def test_all_charts_json_serializable(self):
+        site = self._make_site()
+        data = site.get_testing_data()
+        serialized = json.dumps(data["charts"])
+        assert isinstance(serialized, str)
+
+
+class TestPhase31fTemplateEnhancements:
+    """Template includes Phase 31f enhanced elements."""
+
+    def _template_path(self):
+        return os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "aquilia", "admin", "templates", "testing.html",
+        )
+
+    def _read_template(self):
+        with open(self._template_path()) as f:
+            return f.read()
+
+    def test_template_has_categories_chart_canvas(self):
+        assert "chartCategories" in self._read_template()
+
+    def test_template_has_async_sync_chart_canvas(self):
+        assert "chartAsyncSync" in self._read_template()
+
+    def test_template_has_density_chart_canvas(self):
+        assert "chartDensity" in self._read_template()
+
+    def test_template_has_imports_chart_canvas(self):
+        assert "chartImports" in self._read_template()
+
+    def test_template_has_asserts_per_file_canvas(self):
+        assert "chartAssertsPerFile" in self._read_template()
+
+    def test_template_has_search_input(self):
+        assert "testFileSearch" in self._read_template()
+
+    def test_template_has_category_filter(self):
+        assert "testCategoryFilter" in self._read_template()
+
+    def test_template_has_snippet_panel(self):
+        assert "snippet-panel" in self._read_template()
+
+    def test_template_has_snippet_tabs(self):
+        content = self._read_template()
+        assert "snippet-tab" in content
+        assert "snip-unit" in content
+        assert "snip-integration" in content
+        assert "snip-client" in content
+        assert "snip-mock" in content
+        assert "snip-fixture" in content
+
+    def test_template_has_copy_btn(self):
+        assert "copy-btn" in self._read_template()
+
+    def test_template_has_count_up_animation(self):
+        content = self._read_template()
+        assert "data-count" in content
+        assert "countPulse" in content or "count-done" in content
+
+    def test_template_has_density_bar(self):
+        assert "density-bar" in self._read_template()
+
+    def test_template_has_density_fill(self):
+        assert "density-fill" in self._read_template()
+
+    def test_template_has_category_badges(self):
+        content = self._read_template()
+        assert "cat-badge" in content
+        assert "cat-unit" in content
+        assert "cat-integration" in content
+        assert "cat-database" in content
+        assert "cat-e2e" in content
+
+    def test_template_has_enhanced_status_bar(self):
+        content = self._read_template()
+        assert "total_assert_stmts" in content or "assert stmts" in content.lower()
+        assert "total_async_tests" in content or "async" in content.lower()
+
+    def test_template_has_imports_heatmap_section(self):
+        assert "imports_usage" in self._read_template()
+
+    def test_template_has_data_category_attribute(self):
+        """Test file rows have data-category for JS filtering."""
+        assert "data-category" in self._read_template()
+
+    def test_template_has_data_name_attribute(self):
+        """Test file rows have data-name for JS search."""
+        assert "data-name" in self._read_template()
+
+    def test_template_has_filter_files_function(self):
+        assert "filterFiles" in self._read_template()
+
+    def test_template_has_no_results_indicator(self):
+        assert "testFileNoResults" in self._read_template()
+
+    def test_template_file_table_has_assert_column(self):
+        content = self._read_template()
+        assert "Asserts" in content or "assert_count" in content
+
+    def test_template_file_table_has_density_column(self):
+        content = self._read_template()
+        assert "Density" in content or "density" in content
+
+    def test_template_file_table_has_async_column(self):
+        content = self._read_template()
+        assert "async_tests" in content or "Async" in content
+
+    def test_template_enhanced_metric_cards(self):
+        """Second row of metric cards for Phase 31f."""
+        content = self._read_template()
+        assert "Assert Statements" in content
+        assert "Avg Tests / File" in content or "avg_tests_per_file" in content
+        assert "Avg LOC / Test" in content or "avg_loc_per_test" in content
+        assert "Avg Density" in content or "avg_density" in content
+
+
+class TestPhase31fRenderWithEnhancedData:
+    """render_testing_page works with Phase 31f enhanced data."""
+
+    def _testing_data(self, **overrides):
+        base = {
+            "available": True,
+            "framework_version": "1.0.0",
+            "test_classes": [
+                {"name": "AquiliaTestCase", "description": "Full test", "base": "IsolatedAsyncioTestCase",
+                 "features": ["auto_server"], "category": "integration"},
+            ],
+            "client": {
+                "http": {"name": "TestClient", "methods": ["get", "post"], "features": ["in_process_asgi"]},
+                "websocket": {"name": "WebSocketTestClient", "features": ["connect"]},
+            },
+            "assertions": [
+                {"category": "HTTP Status", "methods": ["assert_status_200"], "count": 1},
+            ],
+            "total_assertions": 1,
+            "fixtures": [{"name": "test_client", "async": True}],
+            "total_fixtures": 1,
+            "mock_infra": [
+                {"name": "MockFaultEngine", "module": "faults", "description": "Capture faults",
+                 "features": ["emit_capture"]},
+            ],
+            "total_mocks": 1,
+            "utilities": [{"name": "make_test_scope", "description": "Build ASGI scope"}],
+            "total_utilities": 1,
+            "test_files": [
+                {"name": "test_example.py", "directory": "tests", "path": "/test_example.py",
+                 "lines": 100, "test_count": 10, "class_count": 2,
+                 "category": "unit", "assert_count": 25, "density": 10.0,
+                 "async_tests": 3, "sync_tests": 7, "imports": ["AquiliaTestCase"]},
+            ],
+            "total_test_files": 1,
+            "component_coverage": [
+                {"name": "Server", "module": "server", "status": "covered"},
+            ],
+            "total_components": 1,
+            "covered_components": 1,
+            "summary": {
+                "total_test_cases": 4, "total_assertions": 1, "total_fixtures": 1,
+                "total_mocks": 1, "total_utilities": 1, "total_test_files": 1,
+                "total_test_functions": 10, "total_test_classes": 2, "total_lines": 100,
+                "total_components": 1, "covered_components": 1,
+                "total_assert_stmts": 25, "avg_tests_per_file": 10.0,
+                "avg_loc_per_test": 10.0, "avg_density": 10.0,
+                "total_async_tests": 3, "total_sync_tests": 7,
+                "category_breakdown": {"unit": 1, "integration": 0, "database": 0, "e2e": 0, "other": 0},
+                "imports_usage": {"AquiliaTestCase": 1},
+            },
+            "charts": {
+                "test_distribution": {"labels": ["example"], "values": [10]},
+                "test_categories": {"labels": ["Unit"], "values": [1]},
+                "assertion_categories": {"labels": ["HTTP Status"], "values": [1]},
+                "mock_infrastructure": {"labels": ["MockFaultEngine"], "values": [1]},
+                "lines_of_code": {"labels": ["example"], "values": [100]},
+                "component_coverage": {"labels": ["Server"], "values": [100]},
+                "async_sync": {"labels": ["Async", "Sync"], "values": [3, 7]},
+                "test_density": {"labels": ["example"], "values": [10.0]},
+                "imports_usage": {"labels": ["AquiliaTestCase"], "values": [1]},
+                "assertions_per_file": {"labels": ["example"], "values": [25]},
+            },
+        }
+        base.update(overrides)
+        return base
+
+    def test_render_returns_string(self):
+        from aquilia.admin.templates import render_testing_page
+        html = render_testing_page(testing_data=self._testing_data())
+        assert isinstance(html, str)
+
+    def test_render_contains_new_chart_canvases(self):
+        from aquilia.admin.templates import render_testing_page
+        html = render_testing_page(testing_data=self._testing_data())
+        assert "chartCategories" in html
+        assert "chartAsyncSync" in html
+        assert "chartDensity" in html
+        assert "chartImports" in html
+        assert "chartAssertsPerFile" in html
+
+    def test_render_contains_enhanced_metrics(self):
+        from aquilia.admin.templates import render_testing_page
+        html = render_testing_page(testing_data=self._testing_data())
+        assert "Assert Statements" in html
+        assert "Avg Tests / File" in html
+        assert "Avg Density" in html
+
+    def test_render_contains_category_badge(self):
+        from aquilia.admin.templates import render_testing_page
+        html = render_testing_page(testing_data=self._testing_data())
+        assert "cat-badge" in html
+        assert "cat-unit" in html
+
+    def test_render_contains_search_elements(self):
+        from aquilia.admin.templates import render_testing_page
+        html = render_testing_page(testing_data=self._testing_data())
+        assert "testFileSearch" in html
+        assert "testCategoryFilter" in html
+
+    def test_render_contains_snippet_panel(self):
+        from aquilia.admin.templates import render_testing_page
+        html = render_testing_page(testing_data=self._testing_data())
+        assert "Quick Setup" in html
+        assert "snippet-panel" in html
+
+    def test_render_contains_density_bar(self):
+        from aquilia.admin.templates import render_testing_page
+        html = render_testing_page(testing_data=self._testing_data())
+        assert "density-bar" in html
+
+    def test_render_contains_status_bar_with_asserts(self):
+        from aquilia.admin.templates import render_testing_page
+        html = render_testing_page(testing_data=self._testing_data())
+        assert "25" in html  # total_assert_stmts
+        assert "assert stmts" in html.lower() or "assert" in html.lower()
+
+    def test_render_contains_async_sync_in_status(self):
+        from aquilia.admin.templates import render_testing_page
+        html = render_testing_page(testing_data=self._testing_data())
+        assert "3 async" in html or "3 async" in html.lower()
+
+    def test_render_with_real_data_enhanced(self):
+        """Render with real data includes all Phase 31f enhancements."""
+        from aquilia.admin.site import AdminSite
+        from aquilia.admin.templates import render_testing_page
+
+        site = AdminSite.__new__(AdminSite)
+        site._registry = {}
+        site._app_order = []
+        site._site_title = "Aquilia Admin"
+        site._initialised = True
+        site._admin_config = None
+
+        data = site.get_testing_data()
+        html = render_testing_page(testing_data=data)
+
+        assert "chartCategories" in html
+        assert "chartAsyncSync" in html
+        assert "chartDensity" in html
+        assert "chartImports" in html
+        assert "snippet-panel" in html
+        assert "testFileSearch" in html
+        assert "Assert Statements" in html
+        assert len(html) > 2000
+
+
+class TestPhase31fEdgeCases:
+    """Edge cases for Phase 31f enhanced data."""
+
+    def _make_site(self):
+        from aquilia.admin.site import AdminSite
+        site = AdminSite.__new__(AdminSite)
+        site._registry = {}
+        site._app_order = []
+        site._site_title = "Test"
+        site._initialised = True
+        site._admin_config = None
+        return site
+
+    def test_density_values_non_negative(self):
+        site = self._make_site()
+        data = site.get_testing_data()
+        for v in data["charts"]["test_density"]["values"]:
+            assert v >= 0
+
+    def test_assert_counts_non_negative(self):
+        site = self._make_site()
+        data = site.get_testing_data()
+        for v in data["charts"]["assertions_per_file"]["values"]:
+            assert v >= 0
+
+    def test_imports_usage_values_positive(self):
+        site = self._make_site()
+        data = site.get_testing_data()
+        for v in data["charts"]["imports_usage"]["values"]:
+            assert v > 0
+
+    def test_async_sync_sum_equals_total(self):
+        site = self._make_site()
+        data = site.get_testing_data()
+        chart = data["charts"]["async_sync"]
+        assert chart["values"][0] + chart["values"][1] == data["summary"]["total_test_functions"]
+
+    def test_categories_from_actual_files(self):
+        """Category breakdown should reflect actual file categorisation."""
+        site = self._make_site()
+        data = site.get_testing_data()
+        # Each test file has a category, summing categories should match file count
+        expected_total = len(data["test_files"])
+        cat_total = sum(data["summary"]["category_breakdown"].values())
+        assert cat_total == expected_total
+
+    def test_enhanced_data_json_serializable(self):
+        site = self._make_site()
+        data = site.get_testing_data()
+        serialized = json.dumps(data, default=str)
+        assert isinstance(serialized, str)
+        parsed = json.loads(serialized)
+        assert "charts" in parsed
+        assert "async_sync" in parsed["charts"]
+        assert "test_density" in parsed["charts"]
+
+    def test_enhanced_data_idempotent(self):
+        site = self._make_site()
+        d1 = site.get_testing_data()
+        d2 = site.get_testing_data()
+        assert d1["summary"]["total_assert_stmts"] == d2["summary"]["total_assert_stmts"]
+        assert d1["summary"]["total_async_tests"] == d2["summary"]["total_async_tests"]
+        assert d1["summary"]["category_breakdown"] == d2["summary"]["category_breakdown"]
