@@ -97,6 +97,13 @@ workspace = (
         .secure()
     )
 
+    # Background Tasks - Async task queue with priority scheduling
+    .integrate(Integration.tasks(
+        backend="memory",
+        num_workers=4,
+        default_queue="default",
+    ))
+
     # Static Files - Serve static assets (CSS, JS, images)
     .integrate(Integration.static_files(
         directories={"/static": "static"},

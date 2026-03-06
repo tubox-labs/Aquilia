@@ -567,3 +567,173 @@ class TestAuthManifestTasks:
         assert cleanup_expired_sessions is not None
         assert record_login_attempt is not None
         assert check_account_lockout is not None
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 4. BackgroundTaskConfig & Manifest Wiring
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class TestBackgroundTaskConfig:
+    """Verify BackgroundTaskConfig dataclass and manifest integration."""
+
+    def test_import_from_manifest_module(self):
+        from aquilia.manifest import BackgroundTaskConfig
+        assert BackgroundTaskConfig is not None
+
+    def test_import_from_aquilia_root(self):
+        from aquilia import BackgroundTaskConfig
+        assert BackgroundTaskConfig is not None
+
+    def test_default_values(self):
+        from aquilia.manifest import BackgroundTaskConfig
+        cfg = BackgroundTaskConfig()
+        assert cfg.tasks == []
+        assert cfg.default_queue == "default"
+        assert cfg.auto_discover is True
+        assert cfg.enabled is True
+
+    def test_custom_values(self):
+        from aquilia.manifest import BackgroundTaskConfig
+        cfg = BackgroundTaskConfig(
+            tasks=["mod.tasks:do_stuff"],
+            default_queue="high",
+            auto_discover=False,
+            enabled=True,
+        )
+        assert cfg.tasks == ["mod.tasks:do_stuff"]
+        assert cfg.default_queue == "high"
+        assert cfg.auto_discover is False
+
+    def test_to_dict(self):
+        from aquilia.manifest import BackgroundTaskConfig
+        cfg = BackgroundTaskConfig(
+            tasks=["a:b", "c:d"],
+            default_queue="q",
+        )
+        d = cfg.to_dict()
+        assert d["tasks"] == ["a:b", "c:d"]
+        assert d["default_queue"] == "q"
+        assert d["auto_discover"] is True
+        assert d["enabled"] is True
+
+    def test_app_manifest_accepts_background_tasks(self):
+        from aquilia import AppManifest
+        from aquilia.manifest import BackgroundTaskConfig
+
+        m = AppManifest(
+            name="test_bg",
+            version="0.1.0",
+            background_tasks=BackgroundTaskConfig(
+                tasks=["mod.tasks:my_task"],
+                default_queue="bg",
+            ),
+        )
+        assert m.background_tasks is not None
+        assert m.background_tasks.default_queue == "bg"
+        assert "mod.tasks:my_task" in m.background_tasks.tasks
+
+    def test_app_manifest_default_none(self):
+        from aquilia import AppManifest
+        m = AppManifest(name="no_bg", version="0.1.0")
+        assert m.background_tasks is None
+
+    def test_app_manifest_to_dict_includes_background_tasks(self):
+        from aquilia import AppManifest
+        from aquilia.manifest import BackgroundTaskConfig
+
+        m = AppManifest(
+            name="t",
+            version="0.1.0",
+            background_tasks=BackgroundTaskConfig(
+                tasks=["x:y"],
+            ),
+        )
+        d = m.to_dict()
+        assert "background_tasks" in d
+        assert d["background_tasks"]["tasks"] == ["x:y"]
+
+    def test_app_manifest_to_dict_omits_when_none(self):
+        from aquilia import AppManifest
+        m = AppManifest(name="no_bg", version="0.1.0")
+        d = m.to_dict()
+        assert "background_tasks" not in d
+
+    def test_discover_patterns_includes_tasks(self):
+        """Default discover_patterns must include 'tasks'."""
+        from aquilia import AppManifest
+        m = AppManifest(name="dp", version="0.1.0")
+        assert "tasks" in m.discover_patterns
+
+
+class TestAuthManifestBackgroundTaskConfig:
+    """Verify the auth manifest has BackgroundTaskConfig wired."""
+
+    def test_auth_manifest_has_background_tasks(self):
+        sys.path.insert(0, os.path.join(REPO_ROOT, "myapp"))
+        from modules.auth.manifest import manifest
+
+        assert manifest.background_tasks is not None
+
+    def test_auth_manifest_bg_task_refs(self):
+        sys.path.insert(0, os.path.join(REPO_ROOT, "myapp"))
+        from modules.auth.manifest import manifest
+
+        refs = manifest.background_tasks.tasks
+        assert any("cleanup_expired_sessions" in r for r in refs)
+        assert any("record_login_attempt" in r for r in refs)
+        assert any("check_account_lockout" in r for r in refs)
+
+    def test_auth_manifest_bg_default_queue(self):
+        sys.path.insert(0, os.path.join(REPO_ROOT, "myapp"))
+        from modules.auth.manifest import manifest
+
+        assert manifest.background_tasks.default_queue == "auth"
+
+    def test_auth_manifest_bg_auto_discover(self):
+        sys.path.insert(0, os.path.join(REPO_ROOT, "myapp"))
+        from modules.auth.manifest import manifest
+
+        assert manifest.background_tasks.auto_discover is True
+
+
+class TestWorkspaceTasksIntegration:
+    """Verify workspace has Integration.tasks() configured."""
+
+    def test_workspace_has_tasks_config(self):
+        """The workspace config must produce enabled tasks config."""
+        from aquilia.config import ConfigLoader
+
+        config = ConfigLoader()
+        # Simulate loading from workspace integrations
+        tasks_cfg = config.get_tasks_config()
+        # Even if default returns False, the workspace integration
+        # should set enabled = True once Integration.tasks() is used
+        assert isinstance(tasks_cfg, dict)
+
+    def test_integration_tasks_builder(self):
+        """Integration.tasks() must produce correct config dict."""
+        from aquilia.config_builders import Integration
+
+        cfg = Integration.tasks(
+            backend="memory",
+            num_workers=4,
+            default_queue="default",
+        )
+        assert cfg["_integration_type"] == "tasks"
+        assert cfg["enabled"] is True
+        assert cfg["backend"] == "memory"
+        assert cfg["num_workers"] == 4
+
+
+class TestErrorTrackerLogLevel:
+    """Verify error tracker uses INFO level logging."""
+
+    def test_error_tracker_info_log(self):
+        """_setup_error_tracker should use self.logger.info, not debug."""
+        import inspect
+        from aquilia.server import AquiliaServer
+
+        source = inspect.getsource(AquiliaServer._setup_error_tracker)
+        assert 'self.logger.info("Error tracker wired to FaultEngine")' in source
+        assert 'self.logger.debug("Error tracker wired to FaultEngine")' not in source

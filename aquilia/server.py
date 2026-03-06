@@ -1134,6 +1134,21 @@ class AquiliaServer:
             except ImportError:
                 self._task_queue_provider = None
 
+            # Discover and register @task-decorated functions from all modules
+            # This ensures tasks defined in module tasks.py are importable and
+            # their descriptors are available for the TaskManager.
+            try:
+                from .tasks.decorators import get_registered_tasks
+                registered = get_registered_tasks()
+                if registered:
+                    self.logger.info(
+                        "Discovered %d registered @task function(s): %s",
+                        len(registered),
+                        ", ".join(registered.keys()),
+                    )
+            except Exception:
+                pass
+
             self.logger.info(
                 "Tasks subsystem initialized — workers=%d backend=%s queue=%s",
                 manager.num_workers,
@@ -1162,11 +1177,11 @@ class AquiliaServer:
             if hasattr(self, "fault_engine") and self.fault_engine:
                 self.fault_engine.on_fault(tracker.capture)
 
-            self.logger.debug("Error tracker wired to FaultEngine")
+            self.logger.info("Error tracker wired to FaultEngine")
 
         except Exception as e:
             self._error_tracker = None
-            self.logger.debug(f"Error tracker init skipped: {e}")
+            self.logger.info(f"Error tracker init skipped: {e}")
 
     def _resolve_store_from_name(self, store_name: str, **kwargs):
         """

@@ -20,7 +20,7 @@ __version__ = "1.0.1"
 # Core Framework
 # ============================================================================
 
-from .manifest import AppManifest, DatabaseConfig, ComponentRef, ComponentKind
+from .manifest import AppManifest, DatabaseConfig, ComponentRef, ComponentKind, BackgroundTaskConfig
 from .config import Config, ConfigLoader
 from .config_builders import Workspace, Module, Integration
 from .request import Request

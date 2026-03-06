@@ -540,7 +540,25 @@ class RuntimeRegistry:
             except Exception as e:
                 pass
             
-            # 4. Discover AMDL Model Files (Filesystem scan)
+            # 4. Discover Background Tasks (import tasks.py to trigger @task registration)
+            try:
+                import importlib
+                tasks_module_name = f"{base_package}.tasks"
+                try:
+                    importlib.import_module(tasks_module_name)
+                    import logging as _log
+                    _log.getLogger('aquilia.aquilary').debug(
+                        f"Discovered tasks module: {tasks_module_name}"
+                    )
+                except ImportError:
+                    pass  # No tasks.py — that's fine
+            except Exception as e:
+                import logging as _log
+                _log.getLogger('aquilia.aquilary').debug(
+                    f"Task discovery warning for {ctx.name}: {e}"
+                )
+
+            # 5. Discover AMDL Model Files (Filesystem scan)
             try:
                 self._discover_amdl_models(ctx)
             except Exception as e:
