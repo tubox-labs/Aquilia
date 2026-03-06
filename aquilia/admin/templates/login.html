@@ -13,6 +13,11 @@
     <link href="https://unpkg.com/lucide-static@latest/font/lucide.css" rel="stylesheet">
     <style>
     {% include "partials/css.html" %}
+
+    /* ── Login Spinner ── */
+    .login-spinner{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,.25);border-top-color:#fff;border-radius:50%;animation:login-spin .6s linear infinite;vertical-align:-2px;}
+    @keyframes login-spin{to{transform:rotate(360deg)}}
+    .btn-loading{pointer-events:none;opacity:.7;}
     </style>
 </head>
 <body>
@@ -39,8 +44,8 @@
                     <label class="form-label" for="password"><i class="icon-lock" style="font-size:13px;vertical-align:-1px;margin-right:4px;opacity:0.5;"></i>Password</label>
                     <input class="form-input" type="password" id="password" name="password" placeholder="Enter your password" required>
                 </div>
-                <button class="btn btn-primary" type="submit" style="width:100%;justify-content:center;padding:11px 0;margin-top:8px;">
-                    <i class="icon-log-in" style="font-size:15px;"></i> Sign In
+                <button class="btn btn-primary" type="submit" id="loginBtn" style="width:100%;justify-content:center;padding:11px 0;margin-top:8px;">
+                    <i class="icon-log-in" style="font-size:15px;" id="loginIcon"></i> <span id="loginText">Sign In</span>
                 </button>
             </form>
 
@@ -54,6 +59,23 @@
     (function() {
         const saved = localStorage.getItem('aquilia-admin-theme');
         if (saved) document.documentElement.setAttribute('data-theme', saved);
+
+        // Login spinner
+        const form = document.querySelector('form');
+        if (form) {
+            form.addEventListener('submit', function() {
+                const btn = document.getElementById('loginBtn');
+                const icon = document.getElementById('loginIcon');
+                const text = document.getElementById('loginText');
+                if (btn && icon && text) {
+                    btn.classList.add('btn-loading');
+                    btn.disabled = true;
+                    icon.className = '';
+                    icon.innerHTML = '<span class="login-spinner"></span>';
+                    text.textContent = 'Signing in...';
+                }
+            });
+        }
     })();
     </script>
 </body>

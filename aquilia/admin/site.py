@@ -1272,6 +1272,23 @@ class AdminSite:
         # ── 2. Registry / Models ────────────────────────────────────
         models = []
         registry = getattr(self, "_mlops_registry", None)
+
+        # Fallback: if no registry was explicitly wired via
+        # set_mlops_services(), pull from the global @model decorator
+        # registry so that user-defined models show up automatically.
+        if registry is None or not hasattr(registry, "list_models"):
+            try:
+                from aquilia.mlops.api.model_class import _get_global_registry
+                _global = _get_global_registry()
+                if _global is not None and hasattr(_global, "list_models"):
+                    model_names = _global.list_models()
+                    if model_names:
+                        registry = _global
+                        # Persist for subsequent calls
+                        self._mlops_registry = registry
+            except Exception:
+                pass
+
         if registry is not None and hasattr(registry, "list_models"):
             try:
                 for name in registry.list_models():
