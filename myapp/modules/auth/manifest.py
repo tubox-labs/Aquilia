@@ -23,6 +23,7 @@ Cross-Module Dependencies:
 
 from aquilia import AppManifest
 from aquilia.manifest import (
+    BackgroundTaskConfig,
     FaultHandlingConfig,
     MiddlewareConfig,
     SessionConfig,
@@ -69,6 +70,17 @@ manifest = AppManifest(
     faults=FaultHandlingConfig(
         default_domain="AUTH",
         strategy="propagate",
+    ),
+
+    # ── Background Tasks ─────────────────────────────────────────────
+    background_tasks=BackgroundTaskConfig(
+        tasks=[
+            "modules.auth.tasks:cleanup_expired_sessions",
+            "modules.auth.tasks:record_login_attempt",
+            "modules.auth.tasks:check_account_lockout",
+        ],
+        default_queue="auth",
+        auto_discover=True,
     ),
 
     # ── Database (module-level override) ──────────────────────────────

@@ -292,6 +292,44 @@ class FeatureConfig:
 
 
 @dataclass
+class BackgroundTaskConfig:
+    """Per-module background task configuration.
+
+    Declares background tasks owned by this module, their default
+    queues, retry policies, and scheduling parameters.
+
+    The tasks listed here are auto-registered with the
+    :class:`TaskManager` during server startup.  The ``@task``
+    decorator on the functions provides the runtime metadata;
+    this config gives the manifest layer visibility into what
+    tasks a module contributes.
+
+    Example::
+
+        background_tasks=BackgroundTaskConfig(
+            tasks=[
+                "modules.auth.tasks:cleanup_expired_sessions",
+                "modules.auth.tasks:record_login_attempt",
+            ],
+            default_queue="auth",
+            auto_discover=True,
+        )
+    """
+    tasks: List[str] = field(default_factory=list)           # Dotted refs to @task functions
+    default_queue: str = "default"                            # Fallback queue for this module
+    auto_discover: bool = True                                # Scan tasks.py automatically
+    enabled: bool = True                                      # Enable/disable module tasks
+
+    def to_dict(self) -> dict:
+        return {
+            "tasks": self.tasks,
+            "default_queue": self.default_queue,
+            "auto_discover": self.auto_discover,
+            "enabled": self.enabled,
+        }
+
+
+@dataclass
 class TemplateConfig:
     """Template engine configuration."""
     enabled: bool = True
@@ -408,6 +446,9 @@ class AppManifest:
     # Error handling
     faults: Optional[FaultHandlingConfig] = None
     
+    # Background tasks
+    background_tasks: Optional[BackgroundTaskConfig] = None
+    
     # Feature flags
     features: List[FeatureConfig] = field(default_factory=list)
     
@@ -425,7 +466,7 @@ class AppManifest:
     # v2: Auto-discovery control
     auto_discover: bool = True            # Enable convention-based component scanning
     discover_patterns: List[str] = field(default_factory=lambda: [
-        "controllers", "services", "middleware", "guards", "models"
+        "controllers", "services", "middleware", "guards", "models", "tasks"
     ])
     
     # Legacy support (for backward compatibility -- will emit warnings)
@@ -547,6 +588,8 @@ class AppManifest:
             result["database"] = self.database.to_dict()
         if self.faults:
             result["faults"] = self.faults.to_dict()
+        if self.background_tasks:
+            result["background_tasks"] = self.background_tasks.to_dict()
         if self.lifecycle:
             result["lifecycle"] = self.lifecycle.to_dict()
         return result
