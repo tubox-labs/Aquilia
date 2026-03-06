@@ -1,6 +1,9 @@
 {
-    "name": "Aquilia",
+    "name": "Aquilia — High-Performance Async Python Framework",
     "short_name": "Aquilia",
+    "description": "Manifest-First, async-native Python web framework with zero boilerplate. Built-in ORM, DI, auth, sessions, caching, WebSockets, MLOps, and admin dashboard.",
+    "start_url": "/",
+    "scope": "/",
     "icons": [
         {
             "src": "/android-chrome-192x192.png",
@@ -15,5 +18,8 @@
     ],
     "theme_color": "#22c55e",
     "background_color": "#02040a",
-    "display": "standalone"
+    "display": "standalone",
+    "orientation": "any",
+    "lang": "en",
+    "categories": ["developer tools", "documentation", "education"]
 }

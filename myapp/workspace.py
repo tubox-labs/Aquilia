@@ -102,6 +102,7 @@ workspace = (
         backend="memory",
         num_workers=4,
         default_queue="default",
+        run_on_startup=True,
     ))
 
     # Static Files - Serve static assets (CSS, JS, images)
