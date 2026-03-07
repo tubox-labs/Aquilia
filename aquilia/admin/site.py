@@ -420,7 +420,8 @@ class AdminSite:
 
         self._initialized = True
 
-    # ── Registration ─────────────────────────────────────────────────
+        # Restore audit history from CROUS file (server startup only)
+        self.audit_log.start()
 
     def register_admin(self, model_cls: Type[Model], admin: ModelAdmin) -> None:
         """Register a model with its ModelAdmin configuration."""

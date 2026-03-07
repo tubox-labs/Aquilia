@@ -1368,7 +1368,7 @@ class AdminController(Controller):
                 entry_pk = str(entry_data.get("record_pk", "") or "")
                 if not entry_pk:
                     entry_pk = str(entry_meta.get("pk", entry_meta.get("record_id", "")))
-                if entry_model.lower() == model.lower() and entry_pk == str(pk):
+                if entry_model and entry_model.lower() == model.lower() and entry_pk == str(pk):
                     # Extract changes for display
                     entry_changes = entry_data.get("changes", {})
                     if isinstance(entry_changes, str):

@@ -436,10 +436,17 @@ class ModelBackedAuditLog:
     """
 
     def __init__(self, fallback_max: int = 2_000):
-        self._fallback = AdminAuditLog(max_entries=fallback_max, persist=True)
+        # persist=False for the fallback: ModelBackedAuditLog manages its own
+        # CROUS store directly rather than through the fallback's hydration.
+        self._fallback = AdminAuditLog(max_entries=fallback_max, persist=False)
         self._db_available: Optional[bool] = None  # None = not yet probed
         # Admin config reference -- set by AdminSite after config is parsed
         self._admin_config: Any = None
+        # CROUS file persistence (independent of fallback)
+        self._crous_store = CrousAuditStore()
+        # Tracks whether in-memory fallback has been hydrated from CROUS file.
+        # Set to True by default; call start() to enable hydration from file.
+        self._hydrated = True
 
     @property
     def admin_config(self):
@@ -469,6 +476,17 @@ class ModelBackedAuditLog:
     def _reset_probe(self) -> None:
         """Reset DB probe so next call will re-probe (e.g. after migration)."""
         self._db_available = None
+
+    def start(self) -> None:
+        """
+        Enable CROUS hydration and load persisted entries.
+
+        Called by ``AdminSite.initialize()`` so that audit history is
+        restored from disk on server startup.  Not called during tests
+        so that each test run starts with a clean in-memory log.
+        """
+        self._hydrated = False
+        self._hydrate()
 
     # ── Public API (mirrors AdminAuditLog) ───────────────────────────
 
@@ -517,6 +535,9 @@ class ModelBackedAuditLog:
         # If the action was filtered out (skip entry), don't write to DB
         if mem_entry.id.startswith("audit_skip_"):
             return mem_entry
+
+        # Persist to CROUS file (best-effort)
+        self._crous_store.persist(mem_entry)
 
         # Fire-and-forget async DB write
         action_str = action.value if hasattr(action, "value") else str(action)
@@ -629,6 +650,25 @@ class ModelBackedAuditLog:
             limit=limit, offset=offset,
         )  # type: ignore[return-value]
 
+    def _hydrate(self) -> None:
+        """Load persisted CROUS entries into the in-memory fallback (once)."""
+        if self._hydrated:
+            return
+        self._hydrated = True
+        try:
+            persisted = self._crous_store.load_all()
+            if persisted:
+                existing_ids = {e.id for e in self._fallback._entries}
+                for entry in persisted:
+                    if entry.id not in existing_ids:
+                        self._fallback._entries.insert(0, entry)
+                self._fallback._entries.sort(key=lambda e: e.timestamp)
+                if len(self._fallback._entries) > self._fallback._max_entries:
+                    self._fallback._entries = self._fallback._entries[-self._fallback._max_entries:]
+                self._fallback._counter = len(self._fallback._entries)
+        except Exception as exc:
+            logger.debug("ModelBackedAuditLog._hydrate failed: %s", exc)
+
     def get_entries(
         self,
         *,
@@ -640,9 +680,11 @@ class ModelBackedAuditLog:
     ) -> List["AdminAuditEntry"]:
         """
         Synchronous get_entries -- returns in-memory entries only.
+        Hydrates from the CROUS file on the first call.
         Use get_entries_async() when in an async context to also
         include DB-persisted entries.
         """
+        self._hydrate()
         return self._fallback.get_entries(
             action=action, user_id=user_id, model_name=model_name,
             limit=limit, offset=offset,
@@ -677,8 +719,11 @@ class ModelBackedAuditLog:
         model_name: Optional[str] = None,
     ) -> int:
         """Synchronous count -- returns in-memory count only."""
+        self._hydrate()
         return self._fallback.count(action=action, model_name=model_name)
 
     def clear(self) -> int:
-        """Clear in-memory fallback entries. DB entries are retained."""
+        """Clear in-memory fallback entries and CROUS file. DB entries are retained."""
+        self._crous_store.clear()
+        self._hydrated = False
         return self._fallback.clear()
