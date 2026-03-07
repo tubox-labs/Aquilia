@@ -1,0 +1,217 @@
+{% extends "base.html" %}
+{% block title %}Access Denied{% endblock %}
+{% block breadcrumb %}Access Denied{% endblock %}
+
+{% block content %}
+<style>
+.forbidden-container {
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    min-height:60vh;
+    text-align:center;
+    padding:48px 24px;
+}
+.forbidden-icon-ring {
+    width:120px;
+    height:120px;
+    border-radius:50%;
+    background:linear-gradient(135deg,rgba(239,68,68,0.08),rgba(239,68,68,0.04));
+    border:2px solid rgba(239,68,68,0.2);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    margin-bottom:28px;
+    animation:forbiddenPulse 2.5s ease-in-out infinite;
+}
+@keyframes forbiddenPulse {
+    0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,0.08);}
+    50%{box-shadow:0 0 0 20px rgba(239,68,68,0);}
+}
+.forbidden-icon-ring i {
+    font-size:48px;
+    color:#ef4444;
+    opacity:0.8;
+}
+.forbidden-code {
+    font-size:5rem;
+    font-weight:900;
+    letter-spacing:-3px;
+    background:linear-gradient(135deg,#ef4444,#f97316);
+    -webkit-background-clip:text;
+    -webkit-text-fill-color:transparent;
+    background-clip:text;
+    line-height:1;
+    margin-bottom:8px;
+}
+.forbidden-title {
+    font-size:1.5rem;
+    font-weight:700;
+    color:var(--text-primary);
+    margin-bottom:10px;
+}
+.forbidden-message {
+    font-size:0.88rem;
+    color:var(--text-muted);
+    max-width:480px;
+    line-height:1.7;
+    margin-bottom:28px;
+}
+.forbidden-detail-card {
+    background:var(--bg-surface);
+    border:1px solid var(--border-subtle);
+    border-radius:12px;
+    padding:20px 28px;
+    max-width:420px;
+    width:100%;
+    margin-bottom:28px;
+    text-align:left;
+}
+.forbidden-detail-row {
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:8px 0;
+    font-size:0.8rem;
+    color:var(--text-secondary);
+}
+.forbidden-detail-row:not(:last-child) {
+    border-bottom:1px solid var(--border-subtle);
+}
+.forbidden-detail-row i {
+    font-size:14px;
+    color:var(--text-faint);
+    width:20px;
+    text-align:center;
+    flex-shrink:0;
+}
+.forbidden-detail-label {
+    font-weight:600;
+    color:var(--text-primary);
+    min-width:100px;
+}
+.forbidden-detail-value {
+    color:var(--text-muted);
+    flex:1;
+    text-align:right;
+}
+.forbidden-actions {
+    display:flex;
+    gap:12px;
+    flex-wrap:wrap;
+    justify-content:center;
+}
+.forbidden-actions .btn-back {
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    padding:10px 24px;
+    border-radius:8px;
+    font-size:0.82rem;
+    font-weight:600;
+    cursor:pointer;
+    border:none;
+    text-decoration:none;
+    transition:all 0.2s ease;
+}
+.forbidden-actions .btn-back.primary {
+    background:var(--accent);
+    color:#fff;
+}
+.forbidden-actions .btn-back.primary:hover {
+    opacity:0.9;
+    transform:translateY(-1px);
+}
+.forbidden-actions .btn-back.secondary {
+    background:var(--bg-surface);
+    border:1px solid var(--border-color);
+    color:var(--text-secondary);
+}
+.forbidden-actions .btn-back.secondary:hover {
+    border-color:var(--text-faint);
+    color:var(--text-primary);
+}
+.forbidden-perm-badge {
+    display:inline-flex;
+    align-items:center;
+    gap:4px;
+    padding:3px 10px;
+    border-radius:99px;
+    font-size:0.68rem;
+    font-weight:600;
+    font-family:var(--font-mono);
+}
+.forbidden-perm-badge.denied {
+    background:rgba(239,68,68,0.1);
+    color:#ef4444;
+    border:1px solid rgba(239,68,68,0.2);
+}
+.forbidden-perm-badge.role {
+    background:rgba(99,102,241,0.1);
+    color:#818cf8;
+    border:1px solid rgba(99,102,241,0.2);
+}
+</style>
+
+<div class="forbidden-container">
+    <div class="forbidden-icon-ring">
+        <i class="icon-shield-off"></i>
+    </div>
+
+    <div class="forbidden-code">403</div>
+    <div class="forbidden-title">Access Denied</div>
+    <div class="forbidden-message">
+        You don't have permission to access <strong>{{ module_name|default('this page') }}</strong>.
+        {% if required_permission %}
+        This page requires the <span class="forbidden-perm-badge denied"><i class="icon-lock" style="font-size:10px;"></i> {{ required_permission }}</span> permission.
+        {% endif %}
+    </div>
+
+    <div class="forbidden-detail-card">
+        <div class="forbidden-detail-row">
+            <i class="icon-user"></i>
+            <span class="forbidden-detail-label">User</span>
+            <span class="forbidden-detail-value">{{ identity_name|default('Unknown') }}</span>
+        </div>
+        <div class="forbidden-detail-row">
+            <i class="icon-shield"></i>
+            <span class="forbidden-detail-label">Current Role</span>
+            <span class="forbidden-detail-value">
+                <span class="forbidden-perm-badge role">{{ current_role|default('none') }}</span>
+            </span>
+        </div>
+        {% if required_permission %}
+        <div class="forbidden-detail-row">
+            <i class="icon-key"></i>
+            <span class="forbidden-detail-label">Required</span>
+            <span class="forbidden-detail-value">
+                <span class="forbidden-perm-badge denied"><i class="icon-x" style="font-size:10px;"></i> {{ required_permission }}</span>
+            </span>
+        </div>
+        {% endif %}
+        <div class="forbidden-detail-row">
+            <i class="icon-clock"></i>
+            <span class="forbidden-detail-label">Timestamp</span>
+            <span class="forbidden-detail-value" style="font-family:var(--font-mono);font-size:0.72rem;">{{ timestamp|default('—') }}</span>
+        </div>
+    </div>
+
+    <div class="forbidden-actions">
+        <a href="{{ url_prefix|default('/admin') }}/" class="btn-back primary">
+            <i class="icon-arrow-left" style="font-size:14px;"></i>
+            Back to Dashboard
+        </a>
+        <a href="javascript:history.back()" class="btn-back secondary">
+            <i class="icon-corner-up-left" style="font-size:14px;"></i>
+            Go Back
+        </a>
+    </div>
+
+    <div style="margin-top:32px;font-size:0.72rem;color:var(--text-faint);max-width:420px;line-height:1.6;">
+        <i class="icon-info" style="font-size:11px;vertical-align:-1px;margin-right:4px;"></i>
+        Contact a <strong>superadmin</strong> to request elevated permissions for your account,
+        or check the <a href="{{ url_prefix|default('/admin') }}/permissions/" style="color:var(--accent);">Permissions page</a> for details.
+    </div>
+</div>
+{% endblock %}

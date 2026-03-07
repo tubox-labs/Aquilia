@@ -140,7 +140,14 @@
 {% endif %}
 
 {# ═══ RECENT QUERIES ═══ #}
-<div class="section-label" style="margin-top:24px;">Recent Queries</div>
+<div class="section-label" style="margin-top:24px;">
+    Recent Queries
+    {% if qi_total > 0 %}
+    <span style="font-size:0.72rem;font-weight:400;color:var(--text-faint);margin-left:8px;">
+        Showing {{ ((qi_page - 1) * qi_per_page) + 1 }}–{{ [qi_page * qi_per_page, qi_total]|min }} of {{ qi_total }}
+    </span>
+    {% endif %}
+</div>
 <div class="card" style="padding:0;overflow:hidden;">
     {% if recent_queries and recent_queries|length > 0 %}
     <table class="admin-table" style="width:100%;border-collapse:collapse;">
@@ -154,7 +161,7 @@
             </tr>
         </thead>
         <tbody>
-            {% for q in recent_queries[-30:]|reverse %}
+            {% for q in recent_queries %}
             <tr style="border-bottom:1px solid var(--border-subtle);{{ 'background:rgba(239,68,68,0.05);' if q.is_slow else '' }}">
                 <td style="padding:10px 16px;font-family:var(--font-mono);font-size:0.7rem;color:var(--text-faint);">{{ q.id }}</td>
                 <td style="padding:10px 16px;">
@@ -171,6 +178,53 @@
             {% endfor %}
         </tbody>
     </table>
+
+    {# ── Pagination Controls ── #}
+    {% if qi_total_pages > 1 %}
+    <div style="display:flex;align-items:center;justify-content:center;gap:6px;padding:16px 20px;border-top:1px solid var(--border-subtle);background:var(--bg-surface);">
+        {% if qi_page > 1 %}
+        <a href="?page=1" style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:8px;background:var(--bg-card);border:1px solid var(--border-subtle);color:var(--text-secondary);text-decoration:none;font-size:0.75rem;transition:all .15s ease;" title="First page">«</a>
+        <a href="?page={{ qi_page - 1 }}" style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:8px;background:var(--bg-card);border:1px solid var(--border-subtle);color:var(--text-secondary);text-decoration:none;font-size:0.8rem;transition:all .15s ease;" title="Previous page">‹</a>
+        {% else %}
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:8px;background:var(--bg-card);border:1px solid var(--border-subtle);color:var(--text-faint);opacity:0.4;font-size:0.75rem;">«</span>
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:8px;background:var(--bg-card);border:1px solid var(--border-subtle);color:var(--text-faint);opacity:0.4;font-size:0.8rem;">‹</span>
+        {% endif %}
+
+        {% set page_start = [1, qi_page - 2]|max %}
+        {% set page_end = [qi_total_pages, qi_page + 2]|min %}
+
+        {% if page_start > 1 %}
+        <a href="?page=1" style="display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:34px;border-radius:8px;background:var(--bg-card);border:1px solid var(--border-subtle);color:var(--text-secondary);text-decoration:none;font-size:0.78rem;padding:0 6px;">1</a>
+        {% if page_start > 2 %}
+        <span style="color:var(--text-faint);font-size:0.75rem;padding:0 2px;">…</span>
+        {% endif %}
+        {% endif %}
+
+        {% for p in range(page_start, page_end + 1) %}
+        {% if p == qi_page %}
+        <span style="display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:34px;border-radius:8px;background:var(--accent);color:#fff;font-size:0.78rem;font-weight:700;padding:0 6px;box-shadow:0 2px 8px rgba(99,102,241,0.25);">{{ p }}</span>
+        {% else %}
+        <a href="?page={{ p }}" style="display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:34px;border-radius:8px;background:var(--bg-card);border:1px solid var(--border-subtle);color:var(--text-secondary);text-decoration:none;font-size:0.78rem;padding:0 6px;transition:all .15s ease;">{{ p }}</a>
+        {% endif %}
+        {% endfor %}
+
+        {% if page_end < qi_total_pages %}
+        {% if page_end < qi_total_pages - 1 %}
+        <span style="color:var(--text-faint);font-size:0.75rem;padding:0 2px;">…</span>
+        {% endif %}
+        <a href="?page={{ qi_total_pages }}" style="display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:34px;border-radius:8px;background:var(--bg-card);border:1px solid var(--border-subtle);color:var(--text-secondary);text-decoration:none;font-size:0.78rem;padding:0 6px;">{{ qi_total_pages }}</a>
+        {% endif %}
+
+        {% if qi_page < qi_total_pages %}
+        <a href="?page={{ qi_page + 1 }}" style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:8px;background:var(--bg-card);border:1px solid var(--border-subtle);color:var(--text-secondary);text-decoration:none;font-size:0.8rem;transition:all .15s ease;" title="Next page">›</a>
+        <a href="?page={{ qi_total_pages }}" style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:8px;background:var(--bg-card);border:1px solid var(--border-subtle);color:var(--text-secondary);text-decoration:none;font-size:0.75rem;transition:all .15s ease;" title="Last page">»</a>
+        {% else %}
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:8px;background:var(--bg-card);border:1px solid var(--border-subtle);color:var(--text-faint);opacity:0.4;font-size:0.8rem;">›</span>
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:8px;background:var(--bg-card);border:1px solid var(--border-subtle);color:var(--text-faint);opacity:0.4;font-size:0.75rem;">»</span>
+        {% endif %}
+    </div>
+    {% endif %}
+
     {% else %}
     <div style="padding:48px;text-align:center;color:var(--text-faint);">
         <i class="icon-terminal" style="font-size:3rem;opacity:0.15;display:block;margin-bottom:12px;"></i>

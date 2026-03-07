@@ -806,7 +806,17 @@
     </div>
     <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;font-size:0.72rem;color:var(--text-faint);">
         <span id="fileCount">Showing {{ all_files|length }} files</span>
+        <div style="display:flex;align-items:center;gap:6px;">
+            <label style="font-size:0.7rem;color:var(--text-faint);margin-right:4px;">Per page:</label>
+            <select id="filesPerPage" onchange="paginateFiles(1)" style="background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:6px;color:var(--text-secondary);padding:3px 8px;font-size:0.72rem;cursor:pointer;">
+                <option value="25">25</option>
+                <option value="50" selected>50</option>
+                <option value="100">100</option>
+                <option value="0">All</option>
+            </select>
+        </div>
     </div>
+    <div id="filePagination" style="display:none;justify-content:center;align-items:center;gap:6px;margin-top:10px;padding:12px 0;"></div>
     {% else %}
     <div class="sto-empty-state">
         <i class="icon-folder-open"></i>
@@ -1396,12 +1406,15 @@
     });
 
     // ── File search & filter ──
+    let _fileCurrentPage = 1;
+    let _filteredRows = [];
+
     window.filterFiles = function() {
         const search = (document.getElementById('fileSearch').value || '').toLowerCase();
         const backend = document.getElementById('backendFilter').value;
         const type = document.getElementById('typeFilter').value;
-        const rows = document.querySelectorAll('#fileTableBody tr');
-        let visible = 0;
+        const rows = Array.from(document.querySelectorAll('#fileTableBody tr'));
+        _filteredRows = [];
         rows.forEach(function(row) {
             const name = row.getAttribute('data-name') || '';
             const b = row.getAttribute('data-backend') || '';
@@ -1411,12 +1424,119 @@
                 && (!backend || b === backend)
                 && (!type || t === type)
             );
-            row.style.display = show ? '' : 'none';
-            if (show) visible++;
+            row._filterMatch = show;
+            if (show) _filteredRows.push(row);
         });
-        const el = document.getElementById('fileCount');
-        if (el) el.textContent = 'Showing ' + visible + ' files';
+        // After filtering, reset to page 1 and paginate
+        paginateFiles(1);
     };
+
+    window.paginateFiles = function(page) {
+        if (!page || page < 1) page = 1;
+        _fileCurrentPage = page;
+        const perPageVal = parseInt(document.getElementById('filesPerPage').value, 10);
+        const allRows = Array.from(document.querySelectorAll('#fileTableBody tr'));
+
+        // If _filteredRows is empty and no filter is active, use all rows
+        if (_filteredRows.length === 0 && !document.getElementById('fileSearch').value && !document.getElementById('backendFilter').value && !document.getElementById('typeFilter').value) {
+            _filteredRows = allRows.slice();
+            allRows.forEach(function(r) { r._filterMatch = true; });
+        }
+
+        const matchedRows = _filteredRows;
+        const total = matchedRows.length;
+
+        if (perPageVal === 0) {
+            // Show all
+            allRows.forEach(function(row) {
+                row.style.display = row._filterMatch ? '' : 'none';
+            });
+            const el = document.getElementById('fileCount');
+            if (el) el.textContent = 'Showing ' + total + ' files';
+            document.getElementById('filePagination').style.display = 'none';
+            return;
+        }
+
+        const totalPages = Math.max(1, Math.ceil(total / perPageVal));
+        if (page > totalPages) page = totalPages;
+        _fileCurrentPage = page;
+        const startIdx = (page - 1) * perPageVal;
+        const endIdx = startIdx + perPageVal;
+
+        // Hide all rows first
+        allRows.forEach(function(row) { row.style.display = 'none'; });
+
+        // Show only rows in the current page slice of filtered rows
+        for (let i = startIdx; i < endIdx && i < matchedRows.length; i++) {
+            matchedRows[i].style.display = '';
+        }
+
+        const showStart = total === 0 ? 0 : startIdx + 1;
+        const showEnd = Math.min(endIdx, total);
+        const el = document.getElementById('fileCount');
+        if (el) el.textContent = 'Showing ' + showStart + '–' + showEnd + ' of ' + total + ' files';
+
+        // Render pagination controls
+        _renderFilePagination(page, totalPages);
+    };
+
+    function _renderFilePagination(page, totalPages) {
+        const wrap = document.getElementById('filePagination');
+        if (!wrap) return;
+        if (totalPages <= 1) { wrap.style.display = 'none'; return; }
+        wrap.style.display = 'flex';
+        let html = '';
+        const btnStyle = 'display:inline-flex;align-items:center;justify-content:center;min-width:32px;height:32px;border-radius:8px;border:1px solid var(--border-subtle);font-size:0.75rem;cursor:pointer;text-decoration:none;padding:0 5px;transition:all .15s ease;';
+        const activeStyle = 'background:var(--accent);color:#fff;font-weight:700;border-color:var(--accent);box-shadow:0 2px 8px rgba(99,102,241,0.25);';
+        const normalStyle = 'background:var(--bg-card);color:var(--text-secondary);';
+        const disabledStyle = 'background:var(--bg-card);color:var(--text-faint);opacity:0.4;cursor:default;';
+
+        // Prev
+        if (page > 1) {
+            html += '<a onclick="paginateFiles(' + (page - 1) + ')" style="' + btnStyle + normalStyle + '" title="Previous">‹</a>';
+        } else {
+            html += '<span style="' + btnStyle + disabledStyle + '">‹</span>';
+        }
+
+        // Page numbers with window
+        var pStart = Math.max(1, page - 2);
+        var pEnd = Math.min(totalPages, page + 2);
+
+        if (pStart > 1) {
+            html += '<a onclick="paginateFiles(1)" style="' + btnStyle + normalStyle + '">1</a>';
+            if (pStart > 2) html += '<span style="color:var(--text-faint);font-size:0.72rem;padding:0 2px;">…</span>';
+        }
+        for (var p = pStart; p <= pEnd; p++) {
+            if (p === page) {
+                html += '<span style="' + btnStyle + activeStyle + '">' + p + '</span>';
+            } else {
+                html += '<a onclick="paginateFiles(' + p + ')" style="' + btnStyle + normalStyle + '">' + p + '</a>';
+            }
+        }
+        if (pEnd < totalPages) {
+            if (pEnd < totalPages - 1) html += '<span style="color:var(--text-faint);font-size:0.72rem;padding:0 2px;">…</span>';
+            html += '<a onclick="paginateFiles(' + totalPages + ')" style="' + btnStyle + normalStyle + '">' + totalPages + '</a>';
+        }
+
+        // Next
+        if (page < totalPages) {
+            html += '<a onclick="paginateFiles(' + (page + 1) + ')" style="' + btnStyle + normalStyle + '" title="Next">›</a>';
+        } else {
+            html += '<span style="' + btnStyle + disabledStyle + '">›</span>';
+        }
+
+        wrap.innerHTML = html;
+    }
+
+    // Initialize pagination on load
+    (function initFilePagination() {
+        const rows = document.querySelectorAll('#fileTableBody tr');
+        if (rows.length > 0) {
+            _filteredRows = Array.from(rows);
+            _filteredRows.forEach(function(r) { r._filterMatch = true; });
+            paginateFiles(1);
+        }
+    })();
 
     // ── Table sort ──
     let sortDir = {};
@@ -1439,6 +1559,9 @@
             return va < vb ? -dir : va > vb ? dir : 0;
         });
         rows.forEach(function(row) { tbody.appendChild(row); });
+        // Rebuild filtered list in new sort order and re-paginate
+        _filteredRows = rows.filter(function(r) { return r._filterMatch !== false; });
+        paginateFiles(_fileCurrentPage);
     };
 
     // ── File Detail Drawer ──

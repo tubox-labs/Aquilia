@@ -63,6 +63,56 @@ class AdminPermission(str, Enum):
     USER_MANAGE = "admin.user.manage"
     ROLE_MANAGE = "admin.role.manage"
 
+    # ── Module-level permissions ──────────────────────────────────────
+
+    # Monitoring
+    MONITORING_VIEW = "admin.monitoring.view"
+
+    # Containers / Docker
+    CONTAINER_VIEW = "admin.container.view"
+    CONTAINER_MANAGE = "admin.container.manage"
+
+    # Pods / Kubernetes
+    POD_VIEW = "admin.pod.view"
+    POD_MANAGE = "admin.pod.manage"
+
+    # Storage
+    STORAGE_VIEW = "admin.storage.view"
+    STORAGE_MANAGE = "admin.storage.manage"
+
+    # MLOps
+    MLOPS_VIEW = "admin.mlops.view"
+    MLOPS_MANAGE = "admin.mlops.manage"
+
+    # Query Inspector
+    QUERY_INSPECTOR_VIEW = "admin.query_inspector.view"
+
+    # Background Tasks
+    TASKS_VIEW = "admin.tasks.view"
+    TASKS_MANAGE = "admin.tasks.manage"
+
+    # Error Monitoring
+    ERRORS_VIEW = "admin.errors.view"
+
+    # Testing
+    TESTING_VIEW = "admin.testing.view"
+    TESTING_MANAGE = "admin.testing.manage"
+
+    # ORM / Build / Migrations / Config / Workspace
+    ORM_VIEW = "admin.orm.view"
+    BUILD_VIEW = "admin.build.view"
+    MIGRATIONS_VIEW = "admin.migrations.view"
+    CONFIG_VIEW = "admin.config.view"
+    WORKSPACE_VIEW = "admin.workspace.view"
+
+    # Permissions page
+    PERMISSIONS_VIEW = "admin.permissions.view"
+    PERMISSIONS_MANAGE = "admin.permissions.manage"
+
+    # Profile
+    PROFILE_VIEW = "admin.profile.view"
+    PROFILE_MANAGE = "admin.profile.manage"
+
 
 # ── Permission matrix ────────────────────────────────────────────────────────
 
@@ -71,6 +121,21 @@ ROLE_PERMISSIONS: dict[AdminRole, set[AdminPermission]] = {
     AdminRole.VIEWER: {
         AdminPermission.DASHBOARD_VIEW,
         AdminPermission.MODEL_VIEW,
+        AdminPermission.MONITORING_VIEW,
+        AdminPermission.CONTAINER_VIEW,
+        AdminPermission.POD_VIEW,
+        AdminPermission.STORAGE_VIEW,
+        AdminPermission.MLOPS_VIEW,
+        AdminPermission.QUERY_INSPECTOR_VIEW,
+        AdminPermission.TASKS_VIEW,
+        AdminPermission.ERRORS_VIEW,
+        AdminPermission.TESTING_VIEW,
+        AdminPermission.ORM_VIEW,
+        AdminPermission.BUILD_VIEW,
+        AdminPermission.MIGRATIONS_VIEW,
+        AdminPermission.CONFIG_VIEW,
+        AdminPermission.WORKSPACE_VIEW,
+        AdminPermission.PROFILE_VIEW,
     },
     AdminRole.STAFF: {
         AdminPermission.DASHBOARD_VIEW,
@@ -81,6 +146,28 @@ ROLE_PERMISSIONS: dict[AdminRole, set[AdminPermission]] = {
         AdminPermission.MODEL_EXPORT,
         AdminPermission.ACTION_EXECUTE,
         AdminPermission.AUDIT_VIEW,
+        AdminPermission.MONITORING_VIEW,
+        AdminPermission.CONTAINER_VIEW,
+        AdminPermission.CONTAINER_MANAGE,
+        AdminPermission.POD_VIEW,
+        AdminPermission.POD_MANAGE,
+        AdminPermission.STORAGE_VIEW,
+        AdminPermission.STORAGE_MANAGE,
+        AdminPermission.MLOPS_VIEW,
+        AdminPermission.MLOPS_MANAGE,
+        AdminPermission.QUERY_INSPECTOR_VIEW,
+        AdminPermission.TASKS_VIEW,
+        AdminPermission.TASKS_MANAGE,
+        AdminPermission.ERRORS_VIEW,
+        AdminPermission.TESTING_VIEW,
+        AdminPermission.TESTING_MANAGE,
+        AdminPermission.ORM_VIEW,
+        AdminPermission.BUILD_VIEW,
+        AdminPermission.MIGRATIONS_VIEW,
+        AdminPermission.CONFIG_VIEW,
+        AdminPermission.WORKSPACE_VIEW,
+        AdminPermission.PROFILE_VIEW,
+        AdminPermission.PROFILE_MANAGE,
     },
     AdminRole.SUPERADMIN: set(AdminPermission),  # All permissions
 }

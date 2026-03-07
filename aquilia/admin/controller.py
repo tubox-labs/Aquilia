@@ -54,6 +54,7 @@ from .templates import (
     render_profile_page,
     render_error_page,
     render_disabled_page,
+    render_forbidden_page,
     render_query_inspector_page,
     render_tasks_page,
     render_errors_page,
@@ -428,6 +429,23 @@ class AdminController(Controller):
             identity_name=identity_name,
         )
         return _html_response(html, 200)
+
+    def _permission_denied_response(
+        self, module: str, identity, permission: "AdminPermission"
+    ) -> Response:
+        """Return a styled 403 page when a user lacks the required permission."""
+        app_list = self.site.get_app_list(identity) if identity else []
+        identity_name = _get_identity_name(identity)
+        current_role = str(get_admin_role(identity) or "none")
+        html = render_forbidden_page(
+            module_name=module,
+            required_permission=permission.value if permission else "",
+            current_role=current_role,
+            app_list=app_list,
+            identity_name=identity_name,
+            identity_avatar=_get_identity_avatar(identity),
+        )
+        return _html_response(html, 403)
 
     # ── Dashboard ────────────────────────────────────────────────────
 
@@ -1690,6 +1708,9 @@ class AdminController(Controller):
         if not self.site.admin_config.is_module_enabled("orm"):
             return self._module_disabled_response("ORM Models", identity)
 
+        if not has_admin_permission(identity, AdminPermission.ORM_VIEW):
+            return self._permission_denied_response("ORM Models", identity, AdminPermission.ORM_VIEW)
+
         self._ensure_initialized()
 
         app_list = self.site.get_app_list(identity)
@@ -1732,6 +1753,9 @@ class AdminController(Controller):
 
         if not self.site.admin_config.is_module_enabled("build"):
             return self._module_disabled_response("Build", identity)
+
+        if not has_admin_permission(identity, AdminPermission.BUILD_VIEW):
+            return self._permission_denied_response("Build", identity, AdminPermission.BUILD_VIEW)
 
         self._ensure_initialized()
 
@@ -1776,6 +1800,9 @@ class AdminController(Controller):
         if not self.site.admin_config.is_module_enabled("migrations"):
             return self._module_disabled_response("Migrations", identity)
 
+        if not has_admin_permission(identity, AdminPermission.MIGRATIONS_VIEW):
+            return self._permission_denied_response("Migrations", identity, AdminPermission.MIGRATIONS_VIEW)
+
         self._ensure_initialized()
 
         migrations = self.site.get_migrations_data()
@@ -1814,6 +1841,9 @@ class AdminController(Controller):
 
         if not self.site.admin_config.is_module_enabled("config"):
             return self._module_disabled_response("Configuration", identity)
+
+        if not has_admin_permission(identity, AdminPermission.CONFIG_VIEW):
+            return self._permission_denied_response("Configuration", identity, AdminPermission.CONFIG_VIEW)
 
         self._ensure_initialized()
 
@@ -1854,6 +1884,9 @@ class AdminController(Controller):
 
         if not self.site.admin_config.is_module_enabled("workspace"):
             return self._module_disabled_response("Workspace", identity)
+
+        if not has_admin_permission(identity, AdminPermission.WORKSPACE_VIEW):
+            return self._permission_denied_response("Workspace", identity, AdminPermission.WORKSPACE_VIEW)
 
         self._ensure_initialized()
 
@@ -1906,6 +1939,9 @@ class AdminController(Controller):
 
         if not self.site.admin_config.is_module_enabled("permissions"):
             return self._module_disabled_response("Permissions", identity)
+
+        if not has_admin_permission(identity, AdminPermission.PERMISSIONS_VIEW):
+            return self._permission_denied_response("Permissions", identity, AdminPermission.PERMISSIONS_VIEW)
 
         self._ensure_initialized()
 
@@ -2076,6 +2112,9 @@ class AdminController(Controller):
         if not self.site.admin_config.is_module_enabled("monitoring"):
             return self._module_disabled_response("Monitoring", identity)
 
+        if not has_admin_permission(identity, AdminPermission.MONITORING_VIEW):
+            return self._permission_denied_response("Monitoring", identity, AdminPermission.MONITORING_VIEW)
+
         self._ensure_initialized()
 
         monitoring_data = self.site.get_monitoring_data()
@@ -2142,6 +2181,9 @@ class AdminController(Controller):
 
         if not self.site.admin_config.is_module_enabled("containers"):
             return self._module_disabled_response("Containers", identity)
+
+        if not has_admin_permission(identity, AdminPermission.CONTAINER_VIEW):
+            return self._permission_denied_response("Containers", identity, AdminPermission.CONTAINER_VIEW)
 
         self._ensure_initialized()
 
@@ -2947,6 +2989,9 @@ class AdminController(Controller):
         if not self.site.admin_config.is_module_enabled("pods"):
             return self._module_disabled_response("Pods", identity)
 
+        if not has_admin_permission(identity, AdminPermission.POD_VIEW):
+            return self._permission_denied_response("Pods", identity, AdminPermission.POD_VIEW)
+
         self._ensure_initialized()
 
         pods_data = self.site.get_pods_data()
@@ -3013,6 +3058,9 @@ class AdminController(Controller):
 
         if not self.site.admin_config.is_module_enabled("storage"):
             return self._module_disabled_response("Storage", identity)
+
+        if not has_admin_permission(identity, AdminPermission.STORAGE_VIEW):
+            return self._permission_denied_response("Storage", identity, AdminPermission.STORAGE_VIEW)
 
         self._ensure_initialized()
 
@@ -3306,10 +3354,30 @@ class AdminController(Controller):
         if not self.site.admin_config.is_module_enabled("query_inspector"):
             return self._module_disabled_response("Query Inspector", identity)
 
+        if not has_admin_permission(identity, AdminPermission.QUERY_INSPECTOR_VIEW):
+            return self._permission_denied_response("Query Inspector", identity, AdminPermission.QUERY_INSPECTOR_VIEW)
+
         self._ensure_initialized()
 
         query_data = self.site.get_query_inspector_data()
         app_list = self.site.get_app_list(identity)
+
+        # Pagination for recent queries
+        try:
+            qs = request.query_params
+            qi_page = max(1, int(qs.get("page", 1)))
+        except (ValueError, TypeError, AttributeError):
+            qi_page = 1
+        qi_per_page = 30
+        all_recent = query_data.get("recent_queries", [])
+        qi_total = len(all_recent)
+        qi_total_pages = max(1, (qi_total + qi_per_page - 1) // qi_per_page)
+        qi_page = min(qi_page, qi_total_pages)
+        qi_offset = (qi_page - 1) * qi_per_page
+        # Show most recent first: reverse, then paginate
+        reversed_queries = list(reversed(all_recent))
+        paginated_queries = reversed_queries[qi_offset:qi_offset + qi_per_page]
+        query_data["recent_queries"] = paginated_queries
 
         try:
             meta = _extract_request_meta(request)
@@ -3330,6 +3398,10 @@ class AdminController(Controller):
             app_list=app_list,
             identity_name=_get_identity_name(identity),
             identity_avatar=_get_identity_avatar(identity),
+            qi_page=qi_page,
+            qi_per_page=qi_per_page,
+            qi_total=qi_total,
+            qi_total_pages=qi_total_pages,
         )
         return _html_response(html)
 
@@ -3372,6 +3444,9 @@ class AdminController(Controller):
 
         if not self.site.admin_config.is_module_enabled("tasks"):
             return self._module_disabled_response("Background Tasks", identity)
+
+        if not has_admin_permission(identity, AdminPermission.TASKS_VIEW):
+            return self._permission_denied_response("Background Tasks", identity, AdminPermission.TASKS_VIEW)
 
         self._ensure_initialized()
 
@@ -3440,6 +3515,9 @@ class AdminController(Controller):
         if not self.site.admin_config.is_module_enabled("errors"):
             return self._module_disabled_response("Error Monitoring", identity)
 
+        if not has_admin_permission(identity, AdminPermission.ERRORS_VIEW):
+            return self._permission_denied_response("Error Monitoring", identity, AdminPermission.ERRORS_VIEW)
+
         self._ensure_initialized()
 
         errors_data = self.site.get_error_tracker_data()
@@ -3507,6 +3585,9 @@ class AdminController(Controller):
         if not self.site.admin_config.is_module_enabled("testing"):
             return self._module_disabled_response("Testing Framework", identity)
 
+        if not has_admin_permission(identity, AdminPermission.TESTING_VIEW):
+            return self._permission_denied_response("Testing", identity, AdminPermission.TESTING_VIEW)
+
         self._ensure_initialized()
 
         testing_data = self.site.get_testing_data()
@@ -3573,6 +3654,9 @@ class AdminController(Controller):
 
         if not self.site.admin_config.is_module_enabled("mlops"):
             return self._module_disabled_response("MLOps", identity)
+
+        if not has_admin_permission(identity, AdminPermission.MLOPS_VIEW):
+            return self._permission_denied_response("MLOps", identity, AdminPermission.MLOPS_VIEW)
 
         self._ensure_initialized()
 
@@ -4664,6 +4748,9 @@ class AdminController(Controller):
 
         if not self.site.admin_config.is_module_enabled("profile"):
             return self._module_disabled_response("Profile", identity)
+
+        if not has_admin_permission(identity, AdminPermission.PROFILE_VIEW):
+            return self._permission_denied_response("Profile", identity, AdminPermission.PROFILE_VIEW)
 
         self._ensure_initialized()
 
