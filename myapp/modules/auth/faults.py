@@ -76,3 +76,66 @@ class AuthOperationFault(Fault):
             metadata={"operation": operation, "reason": reason},
             retryable=True,
         )
+
+
+class FileNotFoundFault(Fault):
+    """
+    Raised when a requested file does not exist in storage.
+
+    Recovery: Return 404 response
+    """
+
+    domain = AUTH
+    severity = Severity.INFO
+    code = "AUTH_FILE_NOT_FOUND"
+
+    def __init__(self, filename: str, backend: str = "uploads"):
+        super().__init__(
+            code=self.code,
+            domain=self.domain,
+            message=f"File '{filename}' not found in '{backend}' storage",
+            metadata={"filename": filename, "backend": backend},
+            retryable=False,
+        )
+
+
+class FileUploadFault(Fault):
+    """
+    Raised when a file upload fails validation or processing.
+
+    Recovery: Return 400 response with details
+    """
+
+    domain = AUTH
+    severity = Severity.INFO
+    code = "AUTH_FILE_UPLOAD_FAILED"
+
+    def __init__(self, reason: str, filename: str = ""):
+        super().__init__(
+            code=self.code,
+            domain=self.domain,
+            message=f"File upload failed: {reason}",
+            metadata={"reason": reason, "filename": filename},
+            retryable=False,
+        )
+
+
+class StorageQuotaFault(Fault):
+    """
+    Raised when storage quota is exceeded.
+
+    Recovery: Return 413 response
+    """
+
+    domain = AUTH
+    severity = Severity.WARN
+    code = "AUTH_STORAGE_QUOTA_EXCEEDED"
+
+    def __init__(self, backend: str, limit: str):
+        super().__init__(
+            code=self.code,
+            domain=self.domain,
+            message=f"Storage quota exceeded on '{backend}' (limit: {limit})",
+            metadata={"backend": backend, "limit": limit},
+            retryable=False,
+        )

@@ -716,11 +716,60 @@ class AdminController(Controller):
         except ValueError:
             page = 1
 
+        # Parse per_page (allow user to change rows per page)
+        per_page_str = ctx.query_param("per_page", "")
+        per_page = 25  # default
+        if per_page_str:
+            try:
+                per_page = max(5, min(200, int(per_page_str)))
+            except ValueError:
+                per_page = 25
+
+        # Parse ordering from query param
+        ordering = ctx.query_param("ordering", "")
+
+        # Parse filter params (filter__<field>=<value>)
+        filters = {}
+        active_filters = {}
+        try:
+            admin_obj = self.site.get_model_admin(model)
+            filter_fields = admin_obj.get_list_filter()
+            for f_field in filter_fields:
+                f_val = ctx.query_param(f"filter__{f_field}", "")
+                if f_val:
+                    # Detect date range filters
+                    f_val_from = ctx.query_param(f"filter__{f_field}__gte", "")
+                    f_val_to = ctx.query_param(f"filter__{f_field}__lte", "")
+                    if f_val_from or f_val_to:
+                        continue  # handled below
+                    # Exact match filter
+                    active_filters[f_field] = f_val
+                    if f_val.lower() in ("true", "1", "yes"):
+                        filters[f_field] = True
+                    elif f_val.lower() in ("false", "0", "no"):
+                        filters[f_field] = False
+                    else:
+                        filters[f_field] = f_val
+                # Date range filters
+                f_val_from = ctx.query_param(f"filter__{f_field}__gte", "")
+                f_val_to = ctx.query_param(f"filter__{f_field}__lte", "")
+                if f_val_from:
+                    filters[f"{f_field}__gte"] = f_val_from
+                    active_filters[f"{f_field}__gte"] = f_val_from
+                if f_val_to:
+                    filters[f"{f_field}__lte"] = f_val_to
+                    active_filters[f"{f_field}__lte"] = f_val_to
+        except Exception:
+            pass
+
         try:
             data = await self.site.list_records(
                 model,
                 page=page,
+                per_page=per_page,
                 search=search,
+                filters=filters if filters else None,
+                ordering=ordering if ordering else None,
                 identity=identity,
             )
         except Exception as e:
@@ -763,10 +812,30 @@ class AdminController(Controller):
                     metadata={"page": page},
                 )
 
-        # Get actions for the model
+        # Get actions and enrich data with field metadata
         try:
             admin_obj = self.site.get_model_admin(model)
             data["actions"] = admin_obj.get_actions()
+            data["list_editable"] = list(admin_obj.list_editable) if admin_obj.list_editable else []
+            data["date_hierarchy"] = admin_obj.date_hierarchy or ""
+
+            # Build field type metadata for each list_display column
+            field_types = {}
+            filter_metadata = {}
+            for col in data.get("list_display", []):
+                meta = admin_obj.get_field_metadata(col)
+                field_types[col] = meta.get("type", "text")
+            # Build filter metadata (type + choices for each filter field)
+            for f_field in data.get("list_filter", []):
+                meta = admin_obj.get_field_metadata(f_field)
+                filter_metadata[f_field] = {
+                    "type": meta.get("type", "text"),
+                    "label": meta.get("label", f_field.replace("_", " ").title()),
+                    "choices": meta.get("choices") or [],
+                }
+            data["field_types"] = field_types
+            data["filter_metadata"] = filter_metadata
+            data["active_filters"] = active_filters
         except Exception:
             data["actions"] = {}
 
@@ -1211,9 +1280,47 @@ class AdminController(Controller):
         except ValueError:
             page = 1
 
+        per_page_str = ctx.query_param("per_page", "")
+        per_page = 25
+        if per_page_str:
+            try:
+                per_page = max(5, min(200, int(per_page_str)))
+            except ValueError:
+                per_page = 25
+
+        ordering = ctx.query_param("ordering", "")
+
+        # Parse filter params
+        filters = {}
+        try:
+            admin_obj = self.site.get_model_admin(model)
+            for f_field in admin_obj.get_list_filter():
+                f_val = ctx.query_param(f"filter__{f_field}", "")
+                if f_val:
+                    if f_val.lower() in ("true", "1", "yes"):
+                        filters[f_field] = True
+                    elif f_val.lower() in ("false", "0", "no"):
+                        filters[f_field] = False
+                    else:
+                        filters[f_field] = f_val
+                f_from = ctx.query_param(f"filter__{f_field}__gte", "")
+                f_to = ctx.query_param(f"filter__{f_field}__lte", "")
+                if f_from:
+                    filters[f"{f_field}__gte"] = f_from
+                if f_to:
+                    filters[f"{f_field}__lte"] = f_to
+        except Exception:
+            pass
+
         try:
             data = await self.site.list_records(
-                model, page=page, search=search, identity=identity,
+                model,
+                page=page,
+                per_page=per_page,
+                search=search,
+                filters=filters if filters else None,
+                ordering=ordering if ordering else None,
+                identity=identity,
             )
         except Exception as e:
             return Response(

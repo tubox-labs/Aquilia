@@ -3,151 +3,483 @@
 {% set title_text = ('Add ' ~ verbose_name) if is_create else ('Edit ' ~ verbose_name ~ ' #' ~ pk) %}
 {% block title %}{{ title_text }}{% endblock %}
 
+{% block extra_head %}
+<style>
+/* ═══ FORM VIEW v3 — Enhanced CSS ════════════════════════════════ */
+
+/* ── Layout ── */
+.form-page { max-width: 740px; }
+.form-page-wide { max-width: 960px; }
+
+/* ── Breadcrumb ── */
+.form-breadcrumb {
+    display: flex; align-items: center; gap: 6px; font-size: 0.72rem;
+    color: var(--text-faint); margin-bottom: 4px; flex-wrap: wrap;
+}
+.form-breadcrumb a { color: var(--text-muted); text-decoration: none; transition: color 0.12s; }
+.form-breadcrumb a:hover { color: var(--accent); }
+.form-breadcrumb .bc-sep { opacity: 0.4; }
+
+/* ── Fieldset sections ── */
+.fieldset-section {
+    margin-bottom: 20px; border: 1px solid var(--border-subtle);
+    border-radius: var(--radius); overflow: hidden;
+    transition: box-shadow 0.2s;
+}
+.fieldset-section:focus-within { box-shadow: 0 0 0 2px var(--accent-subtle); }
+.fieldset-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 18px; background: var(--bg-surface); cursor: pointer;
+    user-select: none; transition: background 0.12s;
+}
+.fieldset-header:hover { background: var(--bg-surface-hover); }
+.fieldset-title { font-size: 0.82rem; font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 8px; }
+.fieldset-count { font-size: 0.62rem; color: var(--text-faint); font-weight: 500; }
+.fieldset-chevron { font-size: 14px; color: var(--text-faint); transition: transform 0.2s; }
+.fieldset-chevron.collapsed { transform: rotate(-90deg); }
+.fieldset-body { padding: 18px; }
+.fieldset-body.collapsed { display: none; }
+
+/* ── Enhanced form groups ── */
+.form-group-enhanced {
+    margin-bottom: 20px; position: relative;
+    padding: 12px 14px; border-radius: var(--radius-sm);
+    transition: background 0.15s, box-shadow 0.15s;
+    border: 1px solid transparent;
+}
+.form-group-enhanced:hover { background: var(--bg-surface-hover); }
+.form-group-enhanced:focus-within {
+    background: var(--accent-subtle);
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-subtle);
+}
+.form-group-enhanced .form-label {
+    display: flex; align-items: center; gap: 6px; margin-bottom: 8px;
+    font-weight: 500;
+}
+.form-label-icon { font-size: 13px; opacity: 0.35; }
+.form-label-required { color: var(--danger); font-weight: 700; font-size: 0.8rem; }
+.form-label-badge {
+    font-size: 0.58rem; font-weight: 600; padding: 1px 6px; border-radius: 10px;
+    text-transform: uppercase; letter-spacing: 0.04em;
+}
+.badge-readonly { background: rgba(107,114,128,0.12); color: var(--text-faint); }
+.badge-auto { background: rgba(59,130,246,0.1); color: #60a5fa; }
+.badge-type { background: rgba(139,92,246,0.08); color: #a78bfa; }
+[data-theme="light"] .badge-type { background: rgba(139,92,246,0.1); color: #7c3aed; }
+[data-theme="light"] .badge-readonly { background: rgba(107,114,128,0.1); color: #6b7280; }
+
+/* ── Field toolbar (copy, undo, null toggle) ── */
+.field-toolbar {
+    position: absolute; top: 10px; right: 10px;
+    display: flex; gap: 3px; opacity: 0; transition: opacity 0.15s;
+}
+.form-group-enhanced:hover .field-toolbar,
+.form-group-enhanced:focus-within .field-toolbar { opacity: 1; }
+.field-tool-btn {
+    width: 24px; height: 24px; border-radius: 4px; border: none;
+    background: transparent; color: var(--text-faint); cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 12px; transition: all 0.12s;
+}
+.field-tool-btn:hover { background: var(--bg-surface); color: var(--text-primary); }
+
+/* ── Input wrappers ── */
+.input-wrapper { position: relative; display: flex; align-items: center; }
+.input-wrapper .form-input { padding-left: 36px; }
+.input-icon {
+    position: absolute; left: 11px; top: 50%; transform: translateY(-50%);
+    font-size: 14px; color: var(--text-faint); pointer-events: none; z-index: 1;
+}
+.input-suffix {
+    position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+    font-size: 0.68rem; color: var(--text-faint); pointer-events: none;
+}
+
+/* ── Character counter ── */
+.char-counter {
+    font-size: 0.68rem; color: var(--text-faint); text-align: right; margin-top: 3px;
+    transition: color 0.15s;
+}
+.char-counter.warn { color: #f59e0b; }
+.char-counter.over { color: var(--danger); font-weight: 600; }
+
+/* ── Custom date/time pickers ── */
+.datetime-group { display: flex; gap: 8px; align-items: center; }
+.datetime-group input { flex: 1; min-width: 0; }
+.datetime-now-btn {
+    padding: 6px 10px; border-radius: var(--radius-sm); font-size: 0.72rem;
+    font-weight: 500; cursor: pointer; border: 1px solid var(--border-color);
+    background: var(--bg-surface); color: var(--text-muted); white-space: nowrap;
+    font-family: var(--font-sans); transition: all 0.12s;
+}
+.datetime-now-btn:hover { background: var(--accent-subtle); color: var(--accent); border-color: var(--accent); }
+
+/* ── Toggle switch for booleans ── */
+.toggle-switch { position: relative; display: inline-flex; align-items: center; gap: 10px; cursor: pointer; }
+.toggle-track {
+    width: 42px; height: 24px; border-radius: 12px;
+    background: rgba(107,114,128,0.3); transition: background 0.2s; position: relative;
+}
+[data-theme="light"] .toggle-track { background: rgba(107,114,128,0.25); }
+.toggle-track.on { background: var(--accent); }
+.toggle-thumb {
+    width: 18px; height: 18px; border-radius: 50%; background: #fff;
+    position: absolute; top: 3px; left: 3px; transition: transform 0.2s;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+}
+.toggle-track.on .toggle-thumb { transform: translateX(18px); }
+.toggle-label-text { font-size: 0.82rem; color: var(--text-secondary); }
+
+/* ── JSON editor ── */
+.json-editor-wrap {
+    position: relative; border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm); overflow: hidden; transition: border-color 0.15s;
+}
+.json-editor-toolbar {
+    display: flex; gap: 6px; padding: 6px 10px; background: var(--bg-surface);
+    border-bottom: 1px solid var(--border-subtle); align-items: center;
+}
+.json-editor-toolbar button {
+    padding: 3px 8px; border-radius: 4px; font-size: 0.68rem; font-weight: 500;
+    cursor: pointer; border: 1px solid var(--border-color); background: var(--bg-input);
+    color: var(--text-muted); font-family: var(--font-sans); transition: all 0.12s;
+}
+.json-editor-toolbar button:hover { background: var(--bg-surface-hover); color: var(--text-primary); }
+.json-editor-textarea {
+    width: 100%; min-height: 140px; padding: 10px 12px;
+    font-family: var(--font-mono); font-size: 0.78rem; line-height: 1.6;
+    background: var(--bg-input); color: var(--text-primary);
+    border: none; resize: vertical; outline: none; tab-size: 2;
+}
+.json-valid { border-color: var(--accent) !important; }
+.json-invalid { border-color: var(--danger) !important; }
+.json-status { font-size: 0.68rem; padding: 3px 8px; border-radius: 10px; font-weight: 500; margin-left: auto; }
+.json-status.valid { background: rgba(34,197,94,0.1); color: #22c55e; }
+.json-status.invalid { background: rgba(239,68,68,0.1); color: #ef4444; }
+[data-theme="light"] .json-status.valid { background: rgba(22,163,74,0.08); color: #15803d; }
+[data-theme="light"] .json-status.invalid { background: rgba(220,38,38,0.08); color: #dc2626; }
+
+/* ── Unsaved changes bar ── */
+.unsaved-bar {
+    padding: 10px 18px; margin: -12px -14px 16px;
+    border-radius: var(--radius-sm);
+    background: var(--accent-subtle); border: 1px solid rgba(34,197,94,0.2);
+    font-size: 0.78rem; color: var(--accent);
+    display: none; align-items: center; gap: 8px;
+}
+[data-theme="light"] .unsaved-bar { background: rgba(22,163,74,0.06); border-color: rgba(22,163,74,0.15); }
+
+/* ── Autosave indicator ── */
+.autosave-indicator {
+    font-size: 0.68rem; color: var(--text-faint); display: flex;
+    align-items: center; gap: 4px;
+}
+.autosave-indicator.saved { color: var(--accent); }
+
+/* ── Change Inspector (SQL Preview) — LIGHT THEME FIXED ── */
+.change-inspector {
+    margin-top: 20px; border: 1px solid var(--border-subtle);
+    border-radius: var(--radius); overflow: hidden;
+    animation: ciSlideDown 0.25s ease;
+}
+@keyframes ciSlideDown { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+.change-inspector-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 18px; background: var(--bg-surface); cursor: pointer;
+    transition: background 0.12s;
+}
+.change-inspector-header:hover { background: var(--bg-surface-hover); }
+.change-inspector-body {
+    padding: 18px;
+    background: var(--bg-card);
+    border-top: 1px solid var(--border-subtle);
+}
+.change-table { width: 100%; font-size: 0.78rem; border-collapse: collapse; margin-bottom: 16px; }
+.change-table th {
+    text-align: left; padding: 8px 10px; font-weight: 600;
+    color: var(--text-faint); font-size: 0.7rem; text-transform: uppercase;
+    letter-spacing: 0.04em; border-bottom: 2px solid var(--border-subtle);
+    background: var(--bg-surface);
+}
+.change-table td {
+    padding: 10px 10px; border-bottom: 1px solid var(--border-subtle);
+    color: var(--text-secondary); word-break: break-word;
+}
+.change-table tbody tr:hover { background: var(--bg-surface-hover); }
+.change-old {
+    color: #ef4444; background: rgba(239,68,68,0.06);
+    border-left: 3px solid #ef4444; font-family: var(--font-mono); font-size: 0.75rem;
+}
+.change-new {
+    color: #22c55e; background: rgba(34,197,94,0.06);
+    border-left: 3px solid #22c55e; font-family: var(--font-mono); font-size: 0.75rem;
+}
+[data-theme="light"] .change-old { color: #dc2626; background: rgba(220,38,38,0.05); border-left-color: #dc2626; }
+[data-theme="light"] .change-new { color: #16a34a; background: rgba(22,163,74,0.05); border-left-color: #16a34a; }
+
+.sql-preview-block {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: 8px; padding: 14px 16px; font-family: var(--font-mono);
+    font-size: 0.76rem; line-height: 1.7; color: var(--text-secondary);
+    white-space: pre-wrap; word-break: break-all; position: relative;
+}
+[data-theme="light"] .sql-preview-block { background: #f8fafc; border-color: #e2e8f0; }
+.sql-keyword { color: #60a5fa; font-weight: 600; }
+.sql-string { color: #22c55e; }
+.sql-table { color: #f59e0b; }
+.sql-op { color: #a78bfa; }
+[data-theme="light"] .sql-keyword { color: #2563eb; }
+[data-theme="light"] .sql-string { color: #16a34a; }
+[data-theme="light"] .sql-table { color: #d97706; }
+[data-theme="light"] .sql-op { color: #7c3aed; }
+.sql-copy-btn {
+    position: absolute; top: 8px; right: 8px; padding: 3px 8px;
+    border-radius: 4px; font-size: 0.65rem; font-weight: 500; cursor: pointer;
+    border: 1px solid var(--border-color); background: var(--bg-surface);
+    color: var(--text-muted); font-family: var(--font-sans); transition: all 0.12s;
+}
+.sql-copy-btn:hover { background: var(--accent-subtle); color: var(--accent); }
+.change-stats { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+.change-stat { font-size: 0.7rem; font-weight: 600; padding: 3px 10px; border-radius: 10px; }
+
+/* ── Field validation hints ── */
+.field-validation { font-size: 0.7rem; margin-top: 4px; display: flex; align-items: center; gap: 4px; }
+.field-validation.error { color: var(--danger); }
+.field-validation.success { color: var(--accent); }
+
+/* ── Record navigation (prev/next) ── */
+.record-nav {
+    display: flex; gap: 4px; align-items: center;
+}
+.record-nav-btn {
+    padding: 4px 8px; border-radius: var(--radius-xs); font-size: 0.72rem;
+    font-weight: 500; cursor: pointer; border: 1px solid var(--border-color);
+    background: var(--bg-surface); color: var(--text-muted); text-decoration: none;
+    font-family: var(--font-sans); transition: all 0.12s; display: inline-flex;
+    align-items: center; gap: 3px;
+}
+.record-nav-btn:hover { background: var(--accent-subtle); color: var(--accent); border-color: var(--accent); }
+
+/* ── Delete zone ── */
+.delete-zone {
+    margin-top: 28px; padding: 18px; border-radius: var(--radius);
+    border: 1px dashed var(--danger-subtle);
+    background: var(--danger-subtle);
+    transition: all 0.15s;
+}
+.delete-zone:hover { border-style: solid; }
+
+/* ── Help text ── */
+.form-help-enhanced {
+    font-size: 0.72rem; color: var(--text-faint); margin-top: 4px;
+    display: flex; align-items: flex-start; gap: 4px; line-height: 1.4;
+}
+
+/* ── Query Inspector (post-update) — LIGHT THEME FIXED ── */
+.qi-entry {
+    padding: 12px; border: 1px solid var(--border-subtle);
+    border-radius: var(--radius); margin-bottom: 8px;
+    transition: background 0.12s;
+}
+.qi-entry:hover { background: var(--bg-surface-hover); }
+.qi-sql-block {
+    font-family: var(--font-mono); font-size: 0.74rem; line-height: 1.6;
+    color: var(--text-secondary); word-break: break-all; white-space: pre-wrap;
+    background: var(--bg-surface); padding: 8px 10px; border-radius: 6px;
+    border: 1px solid var(--border-subtle);
+}
+[data-theme="light"] .qi-sql-block { background: #f8fafc; border-color: #e2e8f0; }
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+    .form-page { max-width: 100%; }
+    .form-group-enhanced { padding: 8px 10px; }
+    .field-toolbar { opacity: 1; }
+}
+</style>
+{% endblock %}
+
 {% block content %}
+{# ── Breadcrumb ── #}
+<div class="form-breadcrumb">
+    <a href="{{ url_prefix|default('/admin') }}/">Dashboard</a>
+    <span class="bc-sep"><i class="icon-chevron-right" style="font-size:10px;"></i></span>
+    <a href="{{ url_prefix|default('/admin') }}/{{ model_name|lower }}/">{{ verbose_name_plural|default(verbose_name ~ 's') }}</a>
+    <span class="bc-sep"><i class="icon-chevron-right" style="font-size:10px;"></i></span>
+    <span style="color:var(--text-secondary);">{{ title_text }}</span>
+</div>
+
 <div class="page-header-row">
     <h2>
         <a href="{{ url_prefix|default('/admin') }}/{{ model_name|lower }}/" class="btn-ghost" style="display:inline-flex;align-items:center;gap:4px;margin-right:8px;padding:4px 8px;border-radius:var(--radius-sm);color:var(--text-faint);">
             <i class="icon-arrow-left" style="font-size:16px;"></i>
         </a>
-        <i class="icon-{{ 'edit' if not is_create else 'plus-circle' }}" style="font-size:18px;vertical-align:-2px;margin-right:6px;opacity:0.4;"></i>
+        <i class="icon-{{ 'edit' if not is_create else 'plus-circle' }}" style="font-size:18px;vertical-align:-2px;margin-right:6px;opacity:0.35;"></i>
         {{ title_text }}
     </h2>
+    <div style="display:flex;gap:8px;align-items:center;">
+        <span class="autosave-indicator" id="autosaveStatus">
+            <i class="icon-cloud" style="font-size:12px;"></i> <span id="autosaveText"></span>
+        </span>
+        {% if not is_create %}
+        <div class="record-nav">
+            <a href="javascript:void(0)" class="record-nav-btn" id="navPrev" title="Previous record" style="display:none;">
+                <i class="icon-chevron-left" style="font-size:12px;"></i> Prev
+            </a>
+            <a href="javascript:void(0)" class="record-nav-btn" id="navNext" title="Next record" style="display:none;">
+                Next <i class="icon-chevron-right" style="font-size:12px;"></i>
+            </a>
+        </div>
+        {% endif %}
+        <span style="font-size:0.68rem;color:var(--text-faint);">
+            <kbd style="font-size:0.6rem;padding:1px 5px;border:1px solid var(--border-color);border-radius:3px;font-family:var(--font-mono);">⌘S</kbd> Save
+        </span>
+    </div>
 </div>
 
-<div class="glass-card card-padded" style="max-width:640px;">
+<div class="glass-card card-padded form-page" id="formCard">
     {% set action_url = (url_prefix|default('/admin') ~ '/' ~ model_name|lower ~ '/add') if is_create else (url_prefix|default('/admin') ~ '/' ~ model_name|lower ~ '/' ~ pk) %}
-    <form method="POST" action="{{ action_url }}" id="adminForm" data-dirty="false">
+    <form method="POST" action="{{ action_url }}" id="adminForm" data-dirty="false" novalidate>
+
         {# ── Unsaved changes indicator ── #}
-        <div id="unsaved-bar" style="display:none;padding:10px 16px;margin:-20px -20px 20px;border-radius:var(--radius) var(--radius) 0 0;background:rgba(34,197,94,0.08);border-bottom:1px solid rgba(34,197,94,0.2);font-size:0.78rem;color:var(--accent);display:none;align-items:center;gap:8px;">
+        <div id="unsaved-bar" class="unsaved-bar">
             <i class="icon-alert-circle" style="font-size:14px;"></i>
             <span>You have unsaved changes</span>
             <span id="changed-count" style="margin-left:auto;background:var(--accent);color:#000;padding:1px 8px;border-radius:var(--radius-full);font-weight:600;font-size:0.7rem;"></span>
         </div>
-        {% for fld in fields %}
-            {% set name = fld.name|default('') %}
-            {% set label = fld.label|default(name) %}
-            {% set field_type = fld.type|default('text') %}
-            {% set value = fld.value if fld.value is not none else '' %}
-            {% set required = fld.required|default(false) and not fld.readonly|default(false) %}
-            {% set readonly = fld.readonly|default(false) %}
-            {% set help_text = fld.help_text|default('') %}
-            {% set choices = fld.choices %}
 
-            {% if field_type == 'checkbox' %}
-            <div class="form-group">
-                <label class="form-label" style="display:flex;align-items:center;gap:8px;cursor:pointer;">
-                    <input type="hidden" name="_checkbox_{{ name }}" value="1">
-                    <input type="checkbox" name="{{ name }}" value="1"
-                        {{ 'checked' if value else '' }}
-                        {{ 'disabled' if readonly else '' }}
-                        style="accent-color:var(--accent);width:16px;height:16px;">
-                    {{ label }}
-                </label>
-                {% if help_text %}<div class="form-help">{{ help_text }}</div>{% endif %}
-            </div>
-
-            {% elif field_type == 'textarea' %}
-            <div class="form-group">
-                <label class="form-label" for="field-{{ name }}">{{ label }}</label>
-                <textarea name="{{ name }}" id="field-{{ name }}" class="form-input"
-                    {{ 'required' if required else '' }}
-                    {{ 'readonly' if readonly else '' }}>{{ value }}</textarea>
-                {% if help_text %}<div class="form-help">{{ help_text }}</div>{% endif %}
-            </div>
-
-            {% elif field_type == 'select' and choices %}
-            <div class="form-group">
-                <label class="form-label" for="field-{{ name }}">{{ label }}</label>
-                <select name="{{ name }}" id="field-{{ name }}" class="form-input"
-                    {{ 'required' if required else '' }}
-                    {{ 'disabled' if readonly else '' }}>
-                    {% for choice_val, choice_label in choices %}
-                    <option value="{{ choice_val }}" {{ 'selected' if choice_val|string == value|string else '' }}>{{ choice_label }}</option>
+        {# ── Render fields (with fieldset support) ── #}
+        {% if fieldsets and fieldsets|length > 0 %}
+            {% for section_name, section_opts in fieldsets %}
+            <div class="fieldset-section">
+                <div class="fieldset-header" onclick="toggleFieldset(this)">
+                    <span class="fieldset-title">
+                        <i class="icon-layers" style="font-size:14px;opacity:0.4;"></i>
+                        {{ section_name }}
+                        {% if section_opts is mapping and section_opts.get('fields') %}
+                        <span class="fieldset-count">({{ section_opts['fields']|length }} fields)</span>
+                        {% endif %}
+                    </span>
+                    <i class="icon-chevron-down fieldset-chevron" style="font-size:14px;"></i>
+                </div>
+                <div class="fieldset-body">
+                    {% set section_fields = section_opts.get('fields', []) if section_opts is mapping else section_opts['fields'] if section_opts is mapping else [] %}
+                    {% for fld in fields %}
+                        {% if fld.name in section_fields %}
+                        {{ _render_field(fld) }}
+                        {% endif %}
                     {% endfor %}
-                </select>
-                {% if help_text %}<div class="form-help">{{ help_text }}</div>{% endif %}
+                </div>
             </div>
+            {% endfor %}
+            {# Render any fields not in fieldsets #}
+            {% set fieldseted = [] %}
+            {% for section_name, section_opts in fieldsets %}
+                {% if section_opts is mapping and section_opts.get('fields') %}
+                    {% for fn in section_opts['fields'] %}
+                        {% if fieldseted.append(fn) %}{% endif %}
+                    {% endfor %}
+                {% endif %}
+            {% endfor %}
+            {% for fld in fields %}
+                {% if fld.name not in fieldseted %}
+                {{ _render_field(fld) }}
+                {% endif %}
+            {% endfor %}
+        {% else %}
+            {# No fieldsets — render all directly #}
+            {% for fld in fields %}
+                {{ _render_field(fld) }}
+            {% endfor %}
+        {% endif %}
 
-            {% else %}
-            <div class="form-group">
-                <label class="form-label" for="field-{{ name }}">{{ label }}</label>
-                <input type="{{ field_type }}" name="{{ name }}" id="field-{{ name }}" value="{{ value }}"
-                    class="form-input"
-                    {{ 'required' if required else '' }}
-                    {{ 'readonly' if readonly else '' }}>
-                {% if help_text %}<div class="form-help">{{ help_text }}</div>{% endif %}
-            </div>
-            {% endif %}
-        {% endfor %}
-
-        <div style="display:flex;gap:10px;align-items:center;margin-top:28px;padding-top:20px;border-top:1px solid var(--border-subtle);">
+        {# ── Action buttons ── #}
+        <div style="display:flex;gap:10px;align-items:center;margin-top:28px;padding-top:20px;border-top:1px solid var(--border-subtle);flex-wrap:wrap;">
             <button type="submit" class="btn btn-primary" id="saveBtn">
                 <i class="icon-{{ 'plus' if is_create else 'save' }}" style="font-size:14px;"></i>
                 {{ 'Create' if is_create else 'Save Changes' }}
             </button>
             {% if not is_create %}
-            <button type="button" class="btn btn-secondary" id="previewBtn" onclick="toggleChangePreview()" style="display:none;">
-                <i class="icon-eye" style="font-size:14px;"></i> Preview Changes
+            <button type="button" class="btn btn-secondary" id="inspectorBtn" onclick="toggleChangeInspector()" style="display:none;">
+                <i class="icon-code" style="font-size:14px;"></i> Inspect Changes
             </button>
             {% endif %}
             <a href="{{ url_prefix|default('/admin') }}/{{ model_name|lower }}/" class="btn btn-secondary">Cancel</a>
+            {% if not is_create %}
+            <button type="button" class="btn btn-ghost" id="resetBtn" onclick="resetForm()" style="display:none;margin-left:auto;font-size:0.78rem;color:var(--text-faint);">
+                <i class="icon-rotate-ccw" style="font-size:12px;"></i> Reset
+            </button>
+            {% endif %}
         </div>
 
-        {# ── Change diff preview ── #}
+        {# ── Change Inspector (SQL Preview + Diff) ── #}
         {% if not is_create %}
-        <div id="change-preview" style="display:none;margin-top:20px;padding:16px;background:rgba(0,0,0,0.4);border:1px solid var(--border-subtle);border-radius:var(--radius);">
-            <div style="font-size:0.78rem;font-weight:600;color:var(--text-muted);margin-bottom:12px;">
-                <i class="icon-git-commit" style="font-size:14px;vertical-align:-2px;margin-right:4px;"></i> Change Preview
+        <div id="change-inspector" class="change-inspector" style="display:none;">
+            <div class="change-inspector-header" onclick="toggleChangeInspector()">
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <div style="width:32px;height:32px;border-radius:8px;background:rgba(139,92,246,0.1);display:flex;align-items:center;justify-content:center;">
+                        <i class="icon-database" style="font-size:16px;color:#8b5cf6;"></i>
+                    </div>
+                    <div>
+                        <div style="font-size:0.82rem;font-weight:600;color:var(--text-primary);">Change Inspector</div>
+                        <div style="font-size:0.68rem;color:var(--text-muted);" id="inspectorSubtitle">Review changes before saving</div>
+                    </div>
+                </div>
+                <i class="icon-chevron-down" style="font-size:14px;color:var(--text-faint);"></i>
             </div>
-            <div id="diff-content" style="font-family:var(--font-mono);font-size:0.75rem;line-height:1.8;"></div>
+            <div class="change-inspector-body" id="inspectorBody">
+                <div id="inspectorContent"></div>
+            </div>
         </div>
         {% endif %}
+
     </form>
 </div>
 
 {% if can_delete and not is_create %}
-<div style="margin-top:24px;">
-    <button type="button" class="btn btn-danger" onclick="showDeleteModal()">
-        <i class="icon-trash-2" style="font-size:14px;"></i> Delete this {{ verbose_name }}
-    </button>
+<div class="delete-zone" style="max-width:740px;">
+    <div style="display:flex;align-items:center;gap:12px;">
+        <div style="width:36px;height:36px;border-radius:8px;background:rgba(239,68,68,0.1);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+            <i class="icon-alert-triangle" style="font-size:16px;color:var(--danger);"></i>
+        </div>
+        <div style="flex:1;">
+            <div style="font-size:0.82rem;font-weight:600;color:var(--text-primary);margin-bottom:2px;">Danger Zone</div>
+            <div style="font-size:0.72rem;color:var(--text-muted);">Permanently delete this {{ verbose_name }}. This action cannot be undone.</div>
+        </div>
+        <button type="button" class="btn btn-danger" onclick="showDeleteModal()">
+            <i class="icon-trash-2" style="font-size:14px;"></i> Delete
+        </button>
+    </div>
     <form method="POST" action="{{ url_prefix|default('/admin') }}/{{ model_name|lower }}/{{ pk }}/delete" id="deleteRecordForm" style="display:none;"></form>
 </div>
 {% endif %}
 
-{# ── Query Inspector Panel ─────────────────────────────────────── #}
+{# ── Query Inspector Panel (post-update SQL log) ── #}
 {% if query_inspection and query_inspection|length > 0 %}
-<div class="glass-card card-padded" id="query-inspector-panel" style="margin-top:24px;max-width:640px;">
+<div class="glass-card card-padded" id="query-inspector-panel" style="margin-top:24px;max-width:740px;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;cursor:pointer;" onclick="toggleQueryInspector()">
         <div style="display:flex;align-items:center;gap:10px;">
-            <div style="width:32px;height:32px;border-radius:8px;background:rgba(139,92,246,0.12);display:flex;align-items:center;justify-content:center;">
+            <div style="width:32px;height:32px;border-radius:8px;background:rgba(139,92,246,0.1);display:flex;align-items:center;justify-content:center;">
                 <i class="icon-terminal" style="font-size:16px;color:#8b5cf6;"></i>
             </div>
             <div>
                 <h3 style="margin:0;font-size:0.88rem;font-weight:600;color:var(--text-primary);">Query Inspector</h3>
-                <span style="font-size:0.72rem;color:var(--text-muted);">{{ query_inspection|length }} quer{{ 'y' if query_inspection|length == 1 else 'ies' }} executed during this update</span>
+                <span style="font-size:0.72rem;color:var(--text-muted);">{{ query_inspection|length }} quer{{ 'y' if query_inspection|length == 1 else 'ies' }} executed</span>
             </div>
         </div>
         <div style="display:flex;align-items:center;gap:12px;">
             {% set total_ms = query_inspection | map(attribute='duration_ms') | sum %}
             <span style="font-size:0.72rem;font-weight:600;padding:3px 10px;border-radius:var(--radius-full);background:rgba(139,92,246,0.1);color:#8b5cf6;">
-                {{ "%.2f"|format(total_ms) }} ms total
+                {{ "%.2f"|format(total_ms) }} ms
             </span>
             <i class="icon-chevron-down" id="qi-chevron" style="font-size:16px;color:var(--text-faint);transition:transform 0.2s;"></i>
         </div>
     </div>
 
     <div id="qi-content" style="display:block;">
-        {# ── Summary badges ── #}
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
-            {% set slow_count = query_inspection | selectattr('is_slow') | list | length %}
-            {% set operations = {} %}
-            {% for q in query_inspection %}
-                {% if q.operation in operations %}
-                    {% set _ = operations.update({q.operation: operations[q.operation] + 1}) %}
-                {% else %}
-                    {% set _ = operations.update({q.operation: 1}) %}
-                {% endif %}
-            {% endfor %}
             {% for op in ['SELECT', 'UPDATE', 'INSERT', 'DELETE'] %}
                 {% set count = 0 %}
                 {% for q in query_inspection if q.operation == op %}
@@ -164,6 +496,7 @@
                 </span>
                 {% endif %}
             {% endfor %}
+            {% set slow_count = query_inspection | selectattr('is_slow') | list | length %}
             {% if slow_count > 0 %}
             <span style="font-size:0.7rem;font-weight:600;padding:2px 8px;border-radius:var(--radius-full);background:rgba(239,68,68,0.1);color:#ef4444;">
                 ⚠ {{ slow_count }} slow
@@ -171,22 +504,18 @@
             {% endif %}
         </div>
 
-        {# ── Query list ── #}
         <div style="display:flex;flex-direction:column;gap:8px;">
         {% for q in query_inspection %}
-            <div style="padding:12px;background:rgba(0,0,0,0.25);border:1px solid var(--border-subtle);border-radius:var(--radius);
-                {% if q.is_slow %}border-left:3px solid #ef4444;{% else %}border-left:3px solid
-                    {% if q.operation == 'SELECT' %}#3b82f6{% elif q.operation == 'UPDATE' %}#f59e0b{% elif q.operation == 'INSERT' %}#22c55e{% elif q.operation == 'DELETE' %}#ef4444{% else %}#6b7280{% endif %};
-                {% endif %}">
-                {# Header row #}
+            <div class="qi-entry" style="border-left:3px solid
+                {% if q.is_slow %}#ef4444{% elif q.operation == 'SELECT' %}#3b82f6{% elif q.operation == 'UPDATE' %}#f59e0b{% elif q.operation == 'INSERT' %}#22c55e{% elif q.operation == 'DELETE' %}#ef4444{% else %}#6b7280{% endif %};">
                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
                     <div style="display:flex;align-items:center;gap:8px;">
                         <span style="font-size:0.65rem;font-weight:700;padding:2px 6px;border-radius:4px;letter-spacing:0.05em;
-                            {% if q.operation == 'SELECT' %}background:rgba(59,130,246,0.15);color:#60a5fa;
-                            {% elif q.operation == 'UPDATE' %}background:rgba(245,158,11,0.15);color:#fbbf24;
-                            {% elif q.operation == 'INSERT' %}background:rgba(34,197,94,0.15);color:#4ade80;
-                            {% elif q.operation == 'DELETE' %}background:rgba(239,68,68,0.15);color:#f87171;
-                            {% else %}background:rgba(107,114,128,0.15);color:#9ca3af;
+                            {% if q.operation == 'SELECT' %}background:rgba(59,130,246,0.12);color:#60a5fa;
+                            {% elif q.operation == 'UPDATE' %}background:rgba(245,158,11,0.12);color:#fbbf24;
+                            {% elif q.operation == 'INSERT' %}background:rgba(34,197,94,0.12);color:#4ade80;
+                            {% elif q.operation == 'DELETE' %}background:rgba(239,68,68,0.12);color:#f87171;
+                            {% else %}background:rgba(107,114,128,0.12);color:#9ca3af;
                             {% endif %}">
                             {{ q.operation }}
                         </span>
@@ -194,9 +523,7 @@
                     </div>
                     <div style="display:flex;align-items:center;gap:10px;">
                         {% if q.rows_affected is defined and q.rows_affected > 0 %}
-                        <span style="font-size:0.68rem;color:var(--text-muted);">
-                            {{ q.rows_affected }} row{{ 's' if q.rows_affected != 1 else '' }}
-                        </span>
+                        <span style="font-size:0.68rem;color:var(--text-muted);">{{ q.rows_affected }} row{{ 's' if q.rows_affected != 1 else '' }}</span>
                         {% endif %}
                         <span style="font-size:0.72rem;font-weight:600;font-family:var(--font-mono);
                             {% if q.is_slow %}color:#ef4444;{% elif q.duration_ms > 10 %}color:#f59e0b;{% else %}color:#22c55e;{% endif %}">
@@ -204,16 +531,12 @@
                         </span>
                     </div>
                 </div>
-                {# SQL #}
-                <div style="font-family:var(--font-mono);font-size:0.74rem;line-height:1.6;color:var(--text-secondary);
-                    word-break:break-all;white-space:pre-wrap;background:rgba(0,0,0,0.2);padding:8px 10px;border-radius:6px;">{{ q.sql }}</div>
-                {# Params #}
+                <div class="qi-sql-block">{{ q.sql }}</div>
                 {% if q.params %}
                 <div style="margin-top:6px;font-family:var(--font-mono);font-size:0.68rem;color:var(--text-faint);">
                     <span style="font-weight:600;">Params:</span> {{ q.params }}
                 </div>
                 {% endif %}
-                {# Source location #}
                 {% if q.stack_summary %}
                 <div style="margin-top:4px;font-size:0.66rem;color:var(--text-faint);">
                     <i class="icon-map-pin" style="font-size:11px;vertical-align:-1px;margin-right:3px;"></i>{{ q.stack_summary }}
@@ -222,20 +545,211 @@
             </div>
         {% endfor %}
         </div>
-
-        {# ── Footer link ── #}
         <div style="margin-top:12px;text-align:right;">
-            <a href="{{ url_prefix|default('/admin') }}/query-inspector/" style="font-size:0.72rem;color:#8b5cf6;text-decoration:none;">
-                Open full Query Inspector →
-            </a>
+            <a href="{{ url_prefix|default('/admin') }}/query-inspector/" style="font-size:0.72rem;color:#8b5cf6;text-decoration:none;">Open full Query Inspector →</a>
         </div>
     </div>
 </div>
 {% endif %}
 {% endblock %}
 
+{# ── MACRO: render a single field based on type ── #}
+{% macro _render_field(fld) %}
+    {% set name = fld.name|default('') %}
+    {% set label = fld.label|default(name) %}
+    {% set field_type = fld.type|default('text') %}
+    {% set value = fld.value if fld.value is not none else '' %}
+    {% set required = fld.required|default(false) and not fld.readonly|default(false) %}
+    {% set readonly = fld.readonly|default(false) %}
+    {% set help_text = fld.help_text|default('') %}
+    {% set choices = fld.choices %}
+    {% set max_length = fld.max_length|default(0, true) %}
+
+    <div class="form-group form-group-enhanced" data-field="{{ name }}" data-type="{{ field_type }}">
+
+        {# ── Field toolbar (copy / undo) ── #}
+        {% if not readonly %}
+        <div class="field-toolbar">
+            <button type="button" class="field-tool-btn" onclick="copyFieldValue('{{ name }}')" title="Copy value">
+                <i class="icon-copy" style="font-size:11px;"></i>
+            </button>
+            <button type="button" class="field-tool-btn" onclick="undoField('{{ name }}')" title="Undo changes" id="undo-{{ name }}" style="display:none;">
+                <i class="icon-rotate-ccw" style="font-size:11px;"></i>
+            </button>
+        </div>
+        {% endif %}
+
+        {# ── Label row ── #}
+        <label class="form-label" for="field-{{ name }}">
+            {% if field_type == 'checkbox' %}<i class="form-label-icon icon-toggle-left"></i>
+            {% elif field_type == 'email' %}<i class="form-label-icon icon-mail"></i>
+            {% elif field_type == 'url' %}<i class="form-label-icon icon-link"></i>
+            {% elif field_type == 'number' %}<i class="form-label-icon icon-hash"></i>
+            {% elif field_type == 'datetime-local' %}<i class="form-label-icon icon-calendar"></i>
+            {% elif field_type == 'date' %}<i class="form-label-icon icon-calendar"></i>
+            {% elif field_type == 'time' %}<i class="form-label-icon icon-clock"></i>
+            {% elif field_type == 'textarea' %}<i class="form-label-icon icon-align-left"></i>
+            {% elif field_type == 'select' %}<i class="form-label-icon icon-list"></i>
+            {% else %}<i class="form-label-icon icon-type"></i>
+            {% endif %}
+            {{ label }}
+            {% if required %}<span class="form-label-required">*</span>{% endif %}
+            {% if readonly %}<span class="form-label-badge badge-readonly">Read-only</span>{% endif %}
+            <span class="form-label-badge badge-type">{{ field_type }}</span>
+        </label>
+
+        {# ── CHECKBOX → Toggle switch ── #}
+        {% if field_type == 'checkbox' %}
+        <div>
+            <input type="hidden" name="_checkbox_{{ name }}" value="1">
+            <label class="toggle-switch" for="field-{{ name }}">
+                <input type="checkbox" name="{{ name }}" id="field-{{ name }}" value="1"
+                    {{ 'checked' if value else '' }} {{ 'disabled' if readonly else '' }}
+                    style="display:none;" onchange="updateToggle(this)">
+                <div class="toggle-track{{ ' on' if value else '' }}" id="toggle-{{ name }}">
+                    <div class="toggle-thumb"></div>
+                </div>
+                <span class="toggle-label-text" id="toggle-text-{{ name }}">{{ 'Yes' if value else 'No' }}</span>
+            </label>
+        </div>
+
+        {# ── TEXTAREA (plain or JSON) ── #}
+        {% elif field_type == 'textarea' %}
+            {% set looks_json = (value is string and value.strip().startswith('{')) or (value is string and value.strip().startswith('[')) or (value is mapping) or (value is iterable and value is not string and value is not none) %}
+            {% if looks_json %}
+            <div class="json-editor-wrap" id="json-wrap-{{ name }}">
+                <div class="json-editor-toolbar">
+                    <button type="button" onclick="formatJson('{{ name }}')"><i class="icon-align-left" style="font-size:10px;margin-right:2px;"></i>Format</button>
+                    <button type="button" onclick="minifyJson('{{ name }}')"><i class="icon-minus" style="font-size:10px;margin-right:2px;"></i>Minify</button>
+                    <button type="button" onclick="copyFieldValue('{{ name }}')"><i class="icon-copy" style="font-size:10px;margin-right:2px;"></i>Copy</button>
+                    <span class="json-status" id="json-status-{{ name }}"></span>
+                </div>
+                <textarea name="{{ name }}" id="field-{{ name }}" class="json-editor-textarea"
+                    {{ 'required' if required else '' }} {{ 'readonly' if readonly else '' }}
+                    oninput="validateJson('{{ name }}')" spellcheck="false">{{ value if value is string else value|tojson(indent=2) }}</textarea>
+            </div>
+            {% else %}
+            <textarea name="{{ name }}" id="field-{{ name }}" class="form-input"
+                {{ 'required' if required else '' }} {{ 'readonly' if readonly else '' }}
+                rows="4" {% if max_length and max_length > 0 %}maxlength="{{ max_length }}"{% endif %}>{{ value }}</textarea>
+            {% if max_length and max_length > 0 %}
+            <div class="char-counter" id="counter-{{ name }}">0 / {{ max_length }}</div>
+            {% endif %}
+            {% endif %}
+
+        {# ── SELECT with choices ── #}
+        {% elif field_type == 'select' and choices %}
+        <select name="{{ name }}" id="field-{{ name }}" class="form-input"
+            {{ 'required' if required else '' }} {{ 'disabled' if readonly else '' }}>
+            <option value="">— Select —</option>
+            {% for choice_val, choice_label in choices %}
+            <option value="{{ choice_val }}" {{ 'selected' if choice_val|string == value|string else '' }}>{{ choice_label }}</option>
+            {% endfor %}
+        </select>
+
+        {# ── DATETIME-LOCAL ── #}
+        {% elif field_type == 'datetime-local' %}
+        <div class="datetime-group">
+            <div class="input-wrapper" style="flex:1;">
+                <i class="input-icon icon-calendar"></i>
+                <input type="datetime-local" name="{{ name }}" id="field-{{ name }}" value="{{ value }}"
+                    class="form-input" {{ 'required' if required else '' }} {{ 'readonly' if readonly else '' }}
+                    step="1">
+            </div>
+            {% if not readonly %}
+            <button type="button" class="datetime-now-btn" onclick="setNow('{{ name }}', 'datetime-local')" title="Set to current date &amp; time">
+                <i class="icon-clock" style="font-size:11px;margin-right:2px;"></i> Now
+            </button>
+            {% endif %}
+        </div>
+
+        {# ── DATE ── #}
+        {% elif field_type == 'date' %}
+        <div class="datetime-group">
+            <div class="input-wrapper" style="flex:1;">
+                <i class="input-icon icon-calendar"></i>
+                <input type="date" name="{{ name }}" id="field-{{ name }}" value="{{ value }}"
+                    class="form-input" {{ 'required' if required else '' }} {{ 'readonly' if readonly else '' }}>
+            </div>
+            {% if not readonly %}
+            <button type="button" class="datetime-now-btn" onclick="setNow('{{ name }}', 'date')" title="Set to today">
+                <i class="icon-calendar" style="font-size:11px;margin-right:2px;"></i> Today
+            </button>
+            {% endif %}
+        </div>
+
+        {# ── TIME ── #}
+        {% elif field_type == 'time' %}
+        <div class="datetime-group">
+            <div class="input-wrapper" style="flex:1;">
+                <i class="input-icon icon-clock"></i>
+                <input type="time" name="{{ name }}" id="field-{{ name }}" value="{{ value }}"
+                    class="form-input" {{ 'required' if required else '' }} {{ 'readonly' if readonly else '' }}
+                    step="1">
+            </div>
+            {% if not readonly %}
+            <button type="button" class="datetime-now-btn" onclick="setNow('{{ name }}', 'time')" title="Set to current time">
+                <i class="icon-clock" style="font-size:11px;margin-right:2px;"></i> Now
+            </button>
+            {% endif %}
+        </div>
+
+        {# ── EMAIL ── #}
+        {% elif field_type == 'email' %}
+        <div class="input-wrapper">
+            <i class="input-icon icon-mail"></i>
+            <input type="email" name="{{ name }}" id="field-{{ name }}" value="{{ value }}"
+                class="form-input" {{ 'required' if required else '' }} {{ 'readonly' if readonly else '' }}
+                placeholder="user@example.com">
+        </div>
+
+        {# ── URL ── #}
+        {% elif field_type == 'url' %}
+        <div class="input-wrapper">
+            <i class="input-icon icon-link"></i>
+            <input type="url" name="{{ name }}" id="field-{{ name }}" value="{{ value }}"
+                class="form-input" {{ 'required' if required else '' }} {{ 'readonly' if readonly else '' }}
+                placeholder="https://example.com">
+        </div>
+
+        {# ── NUMBER ── #}
+        {% elif field_type == 'number' %}
+        <div class="input-wrapper">
+            <i class="input-icon icon-hash"></i>
+            <input type="number" name="{{ name }}" id="field-{{ name }}" value="{{ value }}"
+                class="form-input" {{ 'required' if required else '' }} {{ 'readonly' if readonly else '' }}
+                step="any">
+        </div>
+
+        {# ── DEFAULT TEXT ── #}
+        {% else %}
+        <input type="{{ field_type }}" name="{{ name }}" id="field-{{ name }}" value="{{ value }}"
+            class="form-input" {{ 'required' if required else '' }} {{ 'readonly' if readonly else '' }}
+            {% if max_length and max_length > 0 %}maxlength="{{ max_length }}"{% endif %}>
+        {% if max_length and max_length > 0 %}
+        <div class="char-counter" id="counter-{{ name }}">{{ value|length if value else 0 }} / {{ max_length }}</div>
+        {% endif %}
+        {% endif %}
+
+        {# ── Help text & validation ── #}
+        {% if help_text %}
+        <div class="form-help-enhanced">
+            <i class="icon-info" style="font-size:11px;flex-shrink:0;margin-top:1px;"></i>
+            {{ help_text }}
+        </div>
+        {% endif %}
+        <div class="field-validation" id="validation-{{ name }}" style="display:none;"></div>
+    </div>
+{% endmacro %}
+
 {% block extra_js %}
 (function() {
+    var MODEL = '{{ model_name|lower }}';
+    var BASE_URL = '{{ url_prefix|default("/admin") }}/' + MODEL;
+    var IS_CREATE = {{ 'true' if is_create else 'false' }};
+    var PK = '{{ pk|default("") }}';
+    var STORAGE_KEY = 'aq_form_draft_' + MODEL + '_' + (PK || 'new');
+
     // ── Query Inspector toggle ──────────────────────────────────────
     window.toggleQueryInspector = function() {
         var content = document.getElementById('qi-content');
@@ -250,6 +764,116 @@
         }
     };
 
+    // ── Fieldset collapse ───────────────────────────────────────────
+    window.toggleFieldset = function(header) {
+        var body = header.nextElementSibling;
+        var chevron = header.querySelector('.fieldset-chevron');
+        if (body.classList.contains('collapsed')) {
+            body.classList.remove('collapsed');
+            if (chevron) chevron.classList.remove('collapsed');
+        } else {
+            body.classList.add('collapsed');
+            if (chevron) chevron.classList.add('collapsed');
+        }
+    };
+
+    // ── Toggle switch ───────────────────────────────────────────────
+    window.updateToggle = function(cb) {
+        var track = document.getElementById('toggle-' + cb.name);
+        var text = document.getElementById('toggle-text-' + cb.name);
+        if (cb.checked) { if (track) track.classList.add('on'); if (text) text.textContent = 'Yes'; }
+        else { if (track) track.classList.remove('on'); if (text) text.textContent = 'No'; }
+    };
+
+    // ── Set Now buttons ─────────────────────────────────────────────
+    window.setNow = function(fieldName, type) {
+        var el = document.getElementById('field-' + fieldName);
+        if (!el) return;
+        var now = new Date();
+        if (type === 'datetime-local') {
+            var y=now.getFullYear(), mo=String(now.getMonth()+1).padStart(2,'0'), d=String(now.getDate()).padStart(2,'0');
+            var h=String(now.getHours()).padStart(2,'0'), mi=String(now.getMinutes()).padStart(2,'0'), s=String(now.getSeconds()).padStart(2,'0');
+            el.value = y+'-'+mo+'-'+d+'T'+h+':'+mi+':'+s;
+        } else if (type === 'date') { el.value = now.toISOString().split('T')[0]; }
+        else if (type === 'time') { el.value = String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0')+':'+String(now.getSeconds()).padStart(2,'0'); }
+        el.dispatchEvent(new Event('input', {bubbles:true}));
+        el.dispatchEvent(new Event('change', {bubbles:true}));
+    };
+
+    // ── JSON editor helpers ─────────────────────────────────────────
+    window.formatJson = function(name) {
+        var el = document.getElementById('field-' + name);
+        if (!el) return;
+        try { el.value = JSON.stringify(JSON.parse(el.value), null, 2); validateJson(name); } catch(e) {}
+    };
+    window.minifyJson = function(name) {
+        var el = document.getElementById('field-' + name);
+        if (!el) return;
+        try { el.value = JSON.stringify(JSON.parse(el.value)); validateJson(name); } catch(e) {}
+    };
+    window.validateJson = function(name) {
+        var el = document.getElementById('field-' + name), st = document.getElementById('json-status-' + name), wrap = document.getElementById('json-wrap-' + name);
+        if (!el || !st) return;
+        try {
+            JSON.parse(el.value);
+            st.className = 'json-status valid'; st.textContent = '✓ Valid JSON';
+            if (wrap) { wrap.classList.add('json-valid'); wrap.classList.remove('json-invalid'); }
+        } catch(e) {
+            st.className = 'json-status invalid'; st.textContent = '✗ ' + e.message.substring(0, 40);
+            if (wrap) { wrap.classList.add('json-invalid'); wrap.classList.remove('json-valid'); }
+        }
+    };
+    window.copyFieldValue = function(name) {
+        var el = document.getElementById('field-' + name);
+        if (!el) return;
+        var val = el.type === 'checkbox' ? (el.checked ? 'true' : 'false') : el.value;
+        navigator.clipboard.writeText(val).then(function() { showToast('Copied to clipboard', 'success'); });
+    };
+
+    // Init JSON validators
+    document.querySelectorAll('.json-editor-textarea').forEach(function(ta) {
+        var nm = ta.name; if (nm) validateJson(nm);
+    });
+
+    // ── Character counters ──────────────────────────────────────────
+    document.querySelectorAll('.char-counter').forEach(function(counter) {
+        var id = counter.id.replace('counter-', '');
+        var el = document.getElementById('field-' + id);
+        if (!el) return;
+        var max = parseInt(el.getAttribute('maxlength') || '0');
+        if (!max) { var m = counter.textContent.match(/\/ (\d+)/); if (m) max = parseInt(m[1]); }
+        function update() {
+            var len = el.value.length;
+            counter.textContent = len + ' / ' + max;
+            counter.className = 'char-counter' + (len > max ? ' over' : len > max * 0.9 ? ' warn' : '');
+        }
+        el.addEventListener('input', update); update();
+    });
+
+    // ── Live field validation ───────────────────────────────────────
+    function validateField(el) {
+        var grp = el.closest('.form-group-enhanced');
+        if (!grp) return;
+        var vDiv = grp.querySelector('.field-validation');
+        if (!vDiv) return;
+        var dt = grp.getAttribute('data-type') || 'text';
+        var val = el.value;
+        var msg = '';
+
+        if (el.required && !val && el.type !== 'checkbox') msg = 'This field is required';
+        else if (dt === 'email' && val && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) msg = 'Enter a valid email address';
+        else if (dt === 'url' && val && !/^https?:\/\/.+/.test(val)) msg = 'Enter a valid URL (https://...)';
+        else if (dt === 'number' && val && isNaN(Number(val))) msg = 'Enter a valid number';
+
+        if (msg) {
+            vDiv.className = 'field-validation error';
+            vDiv.innerHTML = '<i class="icon-alert-circle" style="font-size:12px;"></i> ' + msg;
+            vDiv.style.display = 'flex';
+        } else if (val) {
+            vDiv.style.display = 'none';
+        } else { vDiv.style.display = 'none'; }
+    }
+
     // ── Form dirty tracking ─────────────────────────────────────────
     var form = document.getElementById('adminForm');
     if (!form) return;
@@ -257,11 +881,7 @@
     var inputs = form.querySelectorAll('input, textarea, select');
     inputs.forEach(function(el) {
         if (!el.name || el.type === 'hidden') return;
-        if (el.type === 'checkbox') {
-            initialValues[el.name] = el.checked;
-        } else {
-            initialValues[el.name] = el.value;
-        }
+        initialValues[el.name] = el.type === 'checkbox' ? el.checked : el.value;
     });
 
     function getChangedFields() {
@@ -271,8 +891,11 @@
             var oldVal = initialValues[el.name];
             var newVal = el.type === 'checkbox' ? el.checked : el.value;
             if (oldVal !== undefined && String(oldVal) !== String(newVal)) {
-                var label = el.closest('.form-group') ? (el.closest('.form-group').querySelector('.form-label') || {}).textContent || el.name : el.name;
-                changes.push({ name: el.name, label: label.trim(), oldVal: String(oldVal), newVal: String(newVal) });
+                var grp = el.closest('.form-group-enhanced') || el.closest('.form-group');
+                var lbl = grp ? grp.querySelector('.form-label') : null;
+                var labelText = lbl ? lbl.textContent.replace(/\*|Read-only|datetime-local|checkbox|text|number|textarea|select|email|url|time|date/g, '').trim() : el.name;
+                var ft = grp ? (grp.getAttribute('data-type') || 'text') : 'text';
+                changes.push({ name: el.name, label: labelText, oldVal: String(oldVal), newVal: String(newVal), fieldType: ft });
             }
         });
         return changes;
@@ -282,62 +905,192 @@
         var changes = getChangedFields();
         var bar = document.getElementById('unsaved-bar');
         var count = document.getElementById('changed-count');
-        var previewBtn = document.getElementById('previewBtn');
+        var inspBtn = document.getElementById('inspectorBtn');
+        var resetBtn = document.getElementById('resetBtn');
         if (changes.length > 0) {
             form.dataset.dirty = 'true';
-            if (bar) { bar.style.display = 'flex'; }
-            if (count) { count.textContent = changes.length + ' field' + (changes.length > 1 ? 's' : ''); }
-            if (previewBtn) { previewBtn.style.display = 'inline-flex'; }
+            if (bar) bar.style.display = 'flex';
+            if (count) count.textContent = changes.length + ' field' + (changes.length > 1 ? 's' : '');
+            if (inspBtn) inspBtn.style.display = 'inline-flex';
+            if (resetBtn) resetBtn.style.display = 'inline-flex';
+            // Show undo buttons for changed fields
+            changes.forEach(function(c) {
+                var ub = document.getElementById('undo-' + c.name);
+                if (ub) ub.style.display = 'inline-flex';
+            });
         } else {
             form.dataset.dirty = 'false';
-            if (bar) { bar.style.display = 'none'; }
-            if (previewBtn) { previewBtn.style.display = 'none'; }
-            var preview = document.getElementById('change-preview');
-            if (preview) preview.style.display = 'none';
+            if (bar) bar.style.display = 'none';
+            if (inspBtn) inspBtn.style.display = 'none';
+            if (resetBtn) resetBtn.style.display = 'none';
+            var ci = document.getElementById('change-inspector');
+            if (ci) ci.style.display = 'none';
+            document.querySelectorAll('[id^="undo-"]').forEach(function(b) { b.style.display = 'none'; });
         }
     }
 
     inputs.forEach(function(el) {
-        el.addEventListener('input', updateDirtyState);
-        el.addEventListener('change', updateDirtyState);
+        el.addEventListener('input', function() { updateDirtyState(); validateField(el); saveDraft(); });
+        el.addEventListener('change', function() { updateDirtyState(); validateField(el); saveDraft(); });
     });
 
-    // Unsaved changes warning
     window.addEventListener('beforeunload', function(e) {
-        if (form.dataset.dirty === 'true') {
-            e.preventDefault();
-            e.returnValue = '';
-        }
+        if (form.dataset.dirty === 'true') { e.preventDefault(); e.returnValue = ''; }
     });
-    form.addEventListener('submit', function() { form.dataset.dirty = 'false'; });
+    form.addEventListener('submit', function() { form.dataset.dirty = 'false'; clearDraft(); });
 
-    // Change preview
-    window.toggleChangePreview = function() {
-        var preview = document.getElementById('change-preview');
-        var diff = document.getElementById('diff-content');
-        if (!preview || !diff) return;
-        if (preview.style.display !== 'none') { preview.style.display = 'none'; return; }
-        var changes = getChangedFields();
-        if (changes.length === 0) { preview.style.display = 'none'; return; }
-        var html = '';
-        changes.forEach(function(c) {
-            html += '<div style="margin-bottom:10px;padding:8px;background:rgba(0,0,0,0.3);border-radius:6px;">';
-            html += '<div style="color:var(--text-muted);font-size:0.72rem;margin-bottom:4px;font-weight:500;">' + c.label + '</div>';
-            html += '<div style="color:#ef4444;">- ' + (c.oldVal || '<em>empty</em>') + '</div>';
-            html += '<div style="color:#22c55e;">+ ' + (c.newVal || '<em>empty</em>') + '</div>';
-            html += '</div>';
-        });
-        diff.innerHTML = html;
-        preview.style.display = 'block';
+    // ── Field-level undo ────────────────────────────────────────────
+    window.undoField = function(name) {
+        var el = document.getElementById('field-' + name);
+        if (!el) return;
+        var orig = initialValues[name];
+        if (orig === undefined) return;
+        if (el.type === 'checkbox') { el.checked = orig; updateToggle(el); }
+        else { el.value = String(orig); }
+        var ub = document.getElementById('undo-' + name);
+        if (ub) ub.style.display = 'none';
+        updateDirtyState();
+        showToast('Reverted "' + name + '"', 'info');
     };
 
-    // Ctrl+S / Cmd+S to save
-    document.addEventListener('keydown', function(e) {
-        if ((e.metaKey || e.ctrlKey) && e.key === 's') {
-            e.preventDefault();
-            if (form.dataset.dirty === 'true') {
-                form.submit();
+    // ── Reset form ──────────────────────────────────────────────────
+    window.resetForm = function() {
+        inputs.forEach(function(el) {
+            if (!el.name || el.type === 'hidden') return;
+            var orig = initialValues[el.name];
+            if (orig === undefined) return;
+            if (el.type === 'checkbox') { el.checked = orig; updateToggle(el); }
+            else { el.value = String(orig); }
+        });
+        updateDirtyState(); clearDraft();
+        showToast('Form reset to original values', 'info');
+    };
+
+    // ── Autosave drafts to localStorage ─────────────────────────────
+    function saveDraft() {
+        try {
+            var data = {};
+            inputs.forEach(function(el) {
+                if (!el.name || el.type === 'hidden' || el.readOnly || el.disabled) return;
+                data[el.name] = el.type === 'checkbox' ? el.checked : el.value;
+            });
+            localStorage.setItem(STORAGE_KEY, JSON.stringify({ ts: Date.now(), data: data }));
+            var st = document.getElementById('autosaveStatus'), txt = document.getElementById('autosaveText');
+            if (st) st.className = 'autosave-indicator saved';
+            if (txt) txt.textContent = 'Draft saved';
+            setTimeout(function() { if (st) st.className = 'autosave-indicator'; if (txt) txt.textContent = ''; }, 2000);
+        } catch(e) {}
+    }
+    function clearDraft() { try { localStorage.removeItem(STORAGE_KEY); } catch(e) {} }
+    function restoreDraft() {
+        try {
+            var raw = localStorage.getItem(STORAGE_KEY);
+            if (!raw) return;
+            var saved = JSON.parse(raw);
+            if (!saved.data) return;
+            // Only restore if saved less than 24h ago
+            if (Date.now() - saved.ts > 86400000) { clearDraft(); return; }
+            var hasChanges = false;
+            for (var k in saved.data) {
+                var el = document.getElementById('field-' + k);
+                if (!el || el.readOnly || el.disabled) continue;
+                var sv = saved.data[k];
+                if (el.type === 'checkbox') { if (sv !== el.checked) { el.checked = sv; updateToggle(el); hasChanges = true; } }
+                else { if (String(sv) !== el.value) { el.value = String(sv); hasChanges = true; } }
             }
+            if (hasChanges) {
+                updateDirtyState();
+                showToast('Draft restored from autosave', 'info');
+            }
+        } catch(e) {}
+    }
+    if (!IS_CREATE) restoreDraft();
+
+    // ── Change Inspector (SQL preview) ──────────────────────────────
+    window.toggleChangeInspector = function() {
+        var ci = document.getElementById('change-inspector');
+        if (!ci) return;
+        if (ci.style.display !== 'none') { ci.style.display = 'none'; return; }
+        var changes = getChangedFields();
+        if (!changes.length) { ci.style.display = 'none'; return; }
+        renderChangeInspector(changes);
+        ci.style.display = 'block';
+        ci.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    };
+
+    function renderChangeInspector(changes) {
+        var body = document.getElementById('inspectorContent');
+        var subtitle = document.getElementById('inspectorSubtitle');
+        if (!body) return;
+        if (subtitle) subtitle.textContent = changes.length + ' field' + (changes.length > 1 ? 's' : '') + ' modified';
+
+        var html = '<div class="change-stats">';
+        html += '<span class="change-stat" style="background:rgba(245,158,11,0.1);color:#f59e0b;">' + changes.length + ' change' + (changes.length > 1 ? 's' : '') + '</span>';
+        html += '<span class="change-stat" style="background:rgba(139,92,246,0.08);color:#a78bfa;">Table: ' + MODEL + '</span>';
+        html += '<span class="change-stat" style="background:rgba(59,130,246,0.08);color:#60a5fa;">PK: ' + PK + '</span>';
+        html += '</div>';
+
+        // Diff table
+        html += '<table class="change-table"><thead><tr><th>Field</th><th>Type</th><th>Current</th><th>New</th></tr></thead><tbody>';
+        changes.forEach(function(c) {
+            var dispOld = c.oldVal === 'true' ? '✓ Yes' : c.oldVal === 'false' ? '✗ No' : (c.oldVal || '<em style="opacity:0.4;">empty</em>');
+            var dispNew = c.newVal === 'true' ? '✓ Yes' : c.newVal === 'false' ? '✗ No' : (c.newVal || '<em style="opacity:0.4;">empty</em>');
+            html += '<tr>';
+            html += '<td style="font-weight:600;color:var(--text-primary);">' + escHtml(c.label) + '</td>';
+            html += '<td><span class="form-label-badge badge-type">' + escHtml(c.fieldType) + '</span></td>';
+            html += '<td class="change-old">− ' + dispOld + '</td>';
+            html += '<td class="change-new">+ ' + dispNew + '</td>';
+            html += '</tr>';
+        });
+        html += '</tbody></table>';
+
+        // SQL preview
+        html += '<div style="margin-top:14px;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;">';
+        html += '<span style="font-size:0.72rem;font-weight:600;color:var(--text-faint);text-transform:uppercase;letter-spacing:0.05em;">SQL Preview (estimated)</span>';
+        html += '<span style="font-size:0.65rem;color:var(--text-faint);font-style:italic;">Preview only — actual query may differ</span>';
+        html += '</div>';
+        var setClauses = changes.map(function(c) {
+            var val = c.newVal;
+            if (c.fieldType === 'checkbox') val = (c.newVal === 'true' ? '1' : '0');
+            else if (c.fieldType === 'number') val = c.newVal;
+            else val = "'" + c.newVal.replace(/'/g, "''") + "'";
+            return '"' + c.name + '" = ' + val;
+        });
+        var sqlText = 'UPDATE "' + MODEL + '"\n   SET ' + setClauses.join(',\n       ') + '\n WHERE "id" = ' + PK + ';';
+        var sqlHtml = sqlText
+            .replace(/\b(UPDATE|SET|WHERE|AND|OR|INSERT INTO|VALUES|DELETE FROM|SELECT|FROM|JOIN|ON|LEFT|RIGHT|INNER|GROUP BY|ORDER BY|LIMIT|OFFSET)\b/g, '<span class="sql-keyword">$1</span>')
+            .replace(/'([^']*)'/g, "'<span class=\"sql-string\">$1</span>'")
+            .replace(/"([^"]*)"/g, '"<span class="sql-table">$1</span>"')
+            .replace(/\b(=|!=|<|>|<=|>=|LIKE|IN|IS|NOT|NULL|BETWEEN)\b/g, '<span class="sql-op">$1</span>');
+        html += '<div class="sql-preview-block" id="sqlPreviewBlock">';
+        html += '<button class="sql-copy-btn" onclick="copySqlPreview()"><i class="icon-copy" style="font-size:10px;margin-right:3px;"></i> Copy</button>';
+        html += sqlHtml + '</div>';
+
+        html += '<div style="margin-top:12px;font-size:0.7rem;color:var(--text-faint);display:flex;align-items:flex-start;gap:6px;">';
+        html += '<i class="icon-info" style="font-size:12px;flex-shrink:0;margin-top:1px;"></i>';
+        html += '<span>Estimated SQL. Actual query may include auto_now fields, defaults, and ORM-level validations.</span>';
+        html += '</div>';
+
+        body.innerHTML = html;
+    }
+
+    window.copySqlPreview = function() {
+        var block = document.getElementById('sqlPreviewBlock');
+        if (!block) return;
+        var text = block.textContent.replace('Copy', '').trim();
+        navigator.clipboard.writeText(text).then(function() { showToast('SQL copied to clipboard', 'success'); });
+    };
+
+    function escHtml(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+    // ── Keyboard shortcuts ──────────────────────────────────────────
+    document.addEventListener('keydown', function(e) {
+        if ((e.metaKey || e.ctrlKey) && e.key === 's') { e.preventDefault(); form.submit(); }
+        if (e.key === 'Escape') {
+            var ci = document.getElementById('change-inspector');
+            if (ci && ci.style.display !== 'none') { ci.style.display = 'none'; return; }
+            var modal = document.getElementById('delete-modal-overlay');
+            if (modal) { modal.remove(); }
         }
     });
 
@@ -346,11 +1099,9 @@
         var isDark = document.documentElement.getAttribute('data-theme') !== 'light';
         var overlay = document.createElement('div');
         overlay.id = 'delete-modal-overlay';
-        overlay.style.cssText = 'position:fixed;inset:0;background:' + (isDark ? 'rgba(0,0,0,0.65)' : 'rgba(0,0,0,0.35)') + ';z-index:10003;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);';
-
+        overlay.style.cssText = 'position:fixed;inset:0;background:' + (isDark ? 'rgba(0,0,0,0.65)' : 'rgba(0,0,0,0.3)') + ';z-index:10003;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);';
         var box = document.createElement('div');
-        box.style.cssText = 'background:' + (isDark ? 'var(--bg-elevated)' : '#fff') + ';border:1px solid var(--border-color);border-radius:14px;padding:28px 32px;max-width:420px;width:90%;box-shadow:0 24px 64px rgba(0,0,0,0.4);';
-
+        box.style.cssText = 'background:' + (isDark ? 'var(--bg-elevated)' : '#fff') + ';border:1px solid var(--border-color);border-radius:14px;padding:28px 32px;max-width:420px;width:90%;box-shadow:0 24px 64px rgba(0,0,0,' + (isDark ? '0.5' : '0.15') + ');';
         box.innerHTML =
             '<div style="display:flex;align-items:flex-start;gap:14px;">' +
                 '<div style="width:40px;height:40px;border-radius:10px;background:rgba(239,68,68,0.1);display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
@@ -365,20 +1116,25 @@
                 '<button id="del-cancel" style="padding:8px 20px;border-radius:8px;border:1px solid var(--border-color);background:var(--bg-surface);color:var(--text-secondary);font-size:0.82rem;font-weight:500;cursor:pointer;font-family:var(--font-sans);">Cancel</button>' +
                 '<button id="del-confirm" style="padding:8px 20px;border-radius:8px;border:none;background:var(--danger);color:#fff;font-size:0.82rem;font-weight:600;cursor:pointer;font-family:var(--font-sans);">Delete</button>' +
             '</div>';
-
-        overlay.appendChild(box);
-        document.body.appendChild(overlay);
-
+        overlay.appendChild(box); document.body.appendChild(overlay);
         overlay.querySelector('#del-cancel').onclick = function() { overlay.remove(); };
-        overlay.querySelector('#del-confirm').onclick = function() {
-            overlay.remove();
-            document.getElementById('deleteRecordForm').submit();
-        };
+        overlay.querySelector('#del-confirm').onclick = function() { overlay.remove(); document.getElementById('deleteRecordForm').submit(); };
         overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
         document.addEventListener('keydown', function handler(e) {
             if (e.key === 'Escape') { overlay.remove(); document.removeEventListener('keydown', handler); }
         });
         overlay.querySelector('#del-confirm').focus();
     };
+
+    // ── Toast ───────────────────────────────────────────────────────
+    if (typeof showToast === 'undefined') {
+        window.showToast = function(msg, type) {
+            type = type || 'info'; var el = document.createElement('div');
+            el.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:10010;padding:12px 20px;border-radius:8px;font-size:0.82rem;font-weight:500;box-shadow:0 8px 32px rgba(0,0,0,0.3);max-width:360px;font-family:var(--font-sans);';
+            var c = { success:'background:rgba(34,197,94,0.15);color:#22c55e;border:1px solid rgba(34,197,94,0.3);', error:'background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);', warning:'background:rgba(234,179,8,0.15);color:#eab308;border:1px solid rgba(234,179,8,0.3);', info:'background:rgba(59,130,246,0.15);color:#3b82f6;border:1px solid rgba(59,130,246,0.3);' };
+            el.style.cssText += (c[type] || c.info); el.textContent = msg; document.body.appendChild(el);
+            setTimeout(function() { el.style.opacity = '0'; el.style.transition = 'opacity 0.3s'; setTimeout(function() { el.remove(); }, 300); }, 3500);
+        };
+    }
 })();
 {% endblock %}

@@ -2,7 +2,29 @@
 <html lang="en" data-theme="dark">
 <head>
     <script>
-    (function(){var s=localStorage.getItem('aquilia-admin-theme');if(s)document.documentElement.setAttribute('data-theme',s);})();
+    (function(){
+        var s = localStorage.getItem('aquilia-admin-theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', s);
+        var themes = {
+            dark:  { bg: '#000000', color: '#e4e4e7' },
+            light: { bg: '#fafafa', color: '#18181b' }
+        };
+        var t = themes[s] || themes.dark;
+        document.documentElement.style.background = t.bg;
+        // body not yet parsed — will be set by DOMContentLoaded in base_js
+        document.addEventListener('DOMContentLoaded', function() {
+            document.body.style.background = t.bg;
+            document.body.style.color      = t.color;
+            var sidebar = document.querySelector('.admin-sidebar');
+            var topbar  = document.querySelector('.admin-topbar');
+            var adminMain = document.querySelector('.admin-main');
+            var sidebarBg  = s === 'light' ? '#ffffff' : '#09090b';
+            var topbarBg   = s === 'light' ? 'rgba(255,255,255,0.85)' : 'rgba(0,0,0,0.85)';
+            if (sidebar)   sidebar.style.background   = sidebarBg;
+            if (topbar)    topbar.style.background    = topbarBg;
+            if (adminMain) adminMain.style.background = t.bg;
+        });
+    })();
     </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -161,15 +183,31 @@
         const html = document.documentElement;
         const current = html.getAttribute('data-theme');
         const next = current === 'dark' ? 'light' : 'dark';
+
+        // Hardcoded colour tables — CSS custom-property swaps don't trigger transitions,
+        // so we drive the animation directly via inline styles that stay permanently.
+        const themes = {
+            dark:  { bg: '#000000', color: '#e4e4e7', sidebar: '#09090b', topbar: 'rgba(0,0,0,0.85)' },
+            light: { bg: '#fafafa', color: '#18181b', sidebar: '#ffffff', topbar: 'rgba(255,255,255,0.85)' }
+        };
+        const to = themes[next];
+
+        const sidebar   = document.querySelector('.admin-sidebar');
+        const topbar    = document.querySelector('.admin-topbar');
+        const adminMain = document.querySelector('.admin-main');
+
+        // Flip the theme attribute — CSS vars & rules update instantly
         html.setAttribute('data-theme', next);
         localStorage.setItem('aquilia-admin-theme', next);
-        // Force repaint for CSS variable changes
-        document.body.classList.add('theme-transitioning');
-        requestAnimationFrame(function() {
-            requestAnimationFrame(function() {
-                document.body.classList.remove('theme-transitioning');
-            });
-        });
+
+        // Apply the target colours as inline styles.
+        // These stay permanently so the browser always has a concrete value —
+        // no timeout-cleanup that can cause a snap-back.
+        document.body.style.background = to.bg;
+        document.body.style.color      = to.color;
+        if (sidebar)   sidebar.style.background   = to.sidebar;
+        if (topbar)    topbar.style.background    = to.topbar;
+        if (adminMain) adminMain.style.background = to.bg;
     }
     (function() {
         // Mobile sidebar is handled entirely by CSS media queries + toggle

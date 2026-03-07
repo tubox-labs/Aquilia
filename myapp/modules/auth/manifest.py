@@ -46,6 +46,7 @@ manifest = AppManifest(
     ],
     services=[
         "modules.auth.services:AuthService",
+        "modules.auth.services:FileStorageService",
     ],
     models=[
         "modules.auth.models:Auth",
