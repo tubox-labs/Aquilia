@@ -2087,6 +2087,13 @@ class AquiliaServer:
             except Exception:
                 pass  # Non-critical -- storage admin just shows "unavailable"
 
+            # ── Wire mail service into admin site ────────────────────────
+            if hasattr(self, '_mail_service') and self._mail_service is not None:
+                try:
+                    site.set_mail_service(self._mail_service)
+                except Exception:
+                    pass  # Non-critical
+
             # ── Register admin DI providers ──────────────────────────────
             try:
                 from .admin.di_providers import register_admin_providers

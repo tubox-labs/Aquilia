@@ -1098,7 +1098,7 @@ class Integration:
                      "_monitoring", "_admin_users", "_profile", "_audit",
                      "_containers", "_pods",
                      "_query_inspector", "_tasks", "_errors",
-                     "_testing", "_mlops", "_storage")
+                     "_testing", "_mlops", "_storage", "_mailer")
 
         def __init__(self) -> None:
             self._dashboard: bool = True
@@ -1120,6 +1120,7 @@ class Integration:
             self._testing: bool = False           # disabled by default
             self._mlops: bool = False             # disabled by default
             self._storage: bool = False           # disabled by default
+            self._mailer: bool = False            # disabled by default
 
         # ── Dashboard ──
         def enable_dashboard(self) -> "Integration.AdminModules":
@@ -1330,6 +1331,17 @@ class Integration:
             self._storage = False
             return self
 
+        # ── Mailer (disabled by default) ──
+        def enable_mailer(self) -> "Integration.AdminModules":
+            """Show the Mailer page (providers, config, templates, send test). Disabled by default -- opt in."""
+            self._mailer = True
+            return self
+
+        def disable_mailer(self) -> "Integration.AdminModules":
+            """Hide the Mailer page."""
+            self._mailer = False
+            return self
+
         # ── Convenience ──
         def enable_all(self) -> "Integration.AdminModules":
             """Enable every admin module (including monitoring & audit)."""
@@ -1365,6 +1377,7 @@ class Integration:
                 "testing": self._testing,
                 "mlops": self._mlops,
                 "storage": self._storage,
+                "mailer": self._mailer,
             }
 
         def __repr__(self) -> str:
@@ -2219,6 +2232,7 @@ class Integration:
                 "testing": kwargs.pop("enable_testing", False),
                 "mlops": kwargs.pop("enable_mlops", False),
                 "storage": kwargs.pop("enable_storage", False),
+                "mailer": kwargs.pop("enable_mailer", False),
             }
 
         # ── Resolve audit ────────────────────────────────────────────

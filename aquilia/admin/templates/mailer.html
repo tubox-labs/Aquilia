@@ -1,0 +1,1037 @@
+{% extends "base.html" %}
+{% block title %}Mailer{% endblock %}
+{% block breadcrumb %}Mailer{% endblock %}
+
+{% block content %}
+{# ═══════════════════════════════════════════════════════════════════
+   AQUILIA ADMIN — COMPREHENSIVE MAILER DASHBOARD
+   Providers · Configuration · Security · Templates · Send Test · Health
+   ═══════════════════════════════════════════════════════════════════ #}
+
+<style>
+/* ── Mailer Page Styles ── */
+.ml-greeting{margin-bottom:20px;}
+.ml-greeting h1{font-size:1.6rem;font-weight:800;margin:0 0 4px;}
+.ml-greeting p{font-size:0.82rem;color:var(--text-faint);margin:0;}
+
+/* Status badges */
+.ml-status{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:99px;font-size:0.68rem;font-weight:600;letter-spacing:0.03em;text-transform:uppercase;}
+.ml-status.active{background:rgba(34,197,94,0.12);color:#22c55e;}
+.ml-status.inactive{background:rgba(239,68,68,0.12);color:#ef4444;}
+.ml-status.warning{background:rgba(245,158,11,0.12);color:#f59e0b;}
+.ml-status.info{background:rgba(99,102,241,0.12);color:#6366f1;}
+
+/* Stat cards */
+.ml-stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px;margin-bottom:20px;}
+.ml-stat-card{background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:18px;position:relative;overflow:hidden;}
+.ml-stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:var(--radius-md) var(--radius-md) 0 0;}
+.ml-stat-card.blue::before{background:linear-gradient(90deg,#6366f1,#818cf8);}
+.ml-stat-card.green::before{background:linear-gradient(90deg,#22c55e,#4ade80);}
+.ml-stat-card.amber::before{background:linear-gradient(90deg,#f59e0b,#fbbf24);}
+.ml-stat-card.red::before{background:linear-gradient(90deg,#ef4444,#f87171);}
+.ml-stat-card.purple::before{background:linear-gradient(90deg,#a855f7,#c084fc);}
+.ml-stat-card.cyan::before{background:linear-gradient(90deg,#06b6d4,#22d3ee);}
+.ml-stat-value{font-size:1.6rem;font-weight:800;line-height:1.1;margin-bottom:4px;}
+.ml-stat-label{font-size:0.7rem;color:var(--text-faint);text-transform:uppercase;letter-spacing:0.06em;}
+.ml-stat-sub{font-size:0.68rem;color:var(--text-muted);margin-top:4px;}
+
+/* Section labels */
+.ml-section{font-size:0.72rem;font-weight:700;color:var(--text-faint);text-transform:uppercase;letter-spacing:0.08em;margin:20px 0 10px;display:flex;align-items:center;gap:8px;}
+.ml-section i{font-size:14px;opacity:0.5;}
+
+/* Cards */
+.ml-card{background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:var(--radius-md);overflow:hidden;margin-bottom:14px;}
+.ml-card-header{padding:16px 20px;border-bottom:1px solid var(--border-subtle);display:flex;align-items:center;justify-content:space-between;}
+.ml-card-header h3{margin:0;font-size:0.88rem;font-weight:700;}
+.ml-card-body{padding:20px;}
+
+/* Provider cards */
+.ml-provider-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px;}
+.ml-provider{background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:20px;position:relative;}
+.ml-provider-header{display:flex;align-items:center;gap:12px;margin-bottom:14px;}
+.ml-provider-icon{width:42px;height:42px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;}
+.ml-provider-icon.smtp{background:rgba(99,102,241,0.12);color:#6366f1;}
+.ml-provider-icon.ses{background:rgba(245,158,11,0.12);color:#f59e0b;}
+.ml-provider-icon.sendgrid{background:rgba(34,197,94,0.12);color:#22c55e;}
+.ml-provider-icon.console{background:rgba(168,85,247,0.12);color:#a855f7;}
+.ml-provider-icon.file{background:rgba(6,182,212,0.12);color:#06b6d4;}
+.ml-provider-name{font-weight:700;font-size:0.88rem;}
+.ml-provider-type{font-size:0.7rem;color:var(--text-faint);}
+.ml-provider-meta{display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:0.75rem;}
+.ml-provider-meta dt{color:var(--text-faint);font-weight:500;}
+.ml-provider-meta dd{color:var(--text-secondary);margin:0;text-align:right;}
+
+/* Config grid */
+.ml-config-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;}
+.ml-config-item{background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:16px;}
+.ml-config-item h4{margin:0 0 12px;font-size:0.82rem;font-weight:700;display:flex;align-items:center;gap:8px;}
+.ml-config-item h4 i{font-size:14px;opacity:0.5;}
+.ml-config-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border-subtle);font-size:0.75rem;}
+.ml-config-row:last-child{border-bottom:none;}
+.ml-config-key{color:var(--text-faint);font-weight:500;}
+.ml-config-val{color:var(--text-secondary);font-family:var(--font-mono);font-size:0.72rem;}
+.ml-config-val.on{color:#22c55e;}
+.ml-config-val.off{color:#ef4444;}
+
+/* Send test form */
+.ml-form{display:flex;flex-direction:column;gap:14px;}
+.ml-form-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.ml-form-group{display:flex;flex-direction:column;gap:5px;}
+.ml-form-group label{font-size:0.7rem;font-weight:600;color:var(--text-faint);text-transform:uppercase;letter-spacing:0.05em;}
+.ml-form-group input,.ml-form-group textarea,.ml-form-group select{
+    background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);
+    color:var(--text-primary);padding:8px 12px;font-size:0.8rem;font-family:inherit;
+    transition:border-color .15s ease;
+}
+.ml-form-group input:focus,.ml-form-group textarea:focus,.ml-form-group select:focus{
+    border-color:var(--accent);outline:none;box-shadow:0 0 0 3px rgba(99,102,241,0.15);
+}
+.ml-form-group textarea{min-height:80px;resize:vertical;}
+.ml-form-group .hint{font-size:0.65rem;color:var(--text-faint);margin-top:2px;}
+
+/* Buttons */
+.ml-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:var(--radius-sm);font-size:0.78rem;font-weight:600;border:none;cursor:pointer;transition:all .15s ease;font-family:inherit;}
+.ml-btn.primary{background:var(--accent);color:#fff;}
+.ml-btn.primary:hover{background:var(--accent-hover);transform:translateY(-1px);box-shadow:0 4px 12px rgba(99,102,241,0.3);}
+.ml-btn.secondary{background:var(--bg-surface);color:var(--text-secondary);border:1px solid var(--border-subtle);}
+.ml-btn.secondary:hover{border-color:var(--accent);color:var(--accent);}
+.ml-btn.danger{background:rgba(239,68,68,0.1);color:#ef4444;border:1px solid rgba(239,68,68,0.2);}
+.ml-btn.danger:hover{background:rgba(239,68,68,0.2);}
+.ml-btn.success{background:rgba(34,197,94,0.1);color:#22c55e;border:1px solid rgba(34,197,94,0.2);}
+.ml-btn:disabled{opacity:0.5;cursor:not-allowed;transform:none!important;}
+
+/* Result toast */
+.ml-toast{position:fixed;top:80px;right:24px;z-index:9999;padding:14px 20px;border-radius:var(--radius-md);font-size:0.82rem;font-weight:600;transform:translateX(120%);transition:transform .3s ease;max-width:420px;box-shadow:0 8px 32px rgba(0,0,0,0.2);}
+.ml-toast.show{transform:translateX(0);}
+.ml-toast.ok{background:#16a34a;color:#fff;}
+.ml-toast.err{background:#dc2626;color:#fff;}
+.ml-toast .ml-toast-sub{font-size:0.7rem;font-weight:400;opacity:0.85;margin-top:4px;}
+
+/* Health check indicator */
+.ml-health-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px;}
+.ml-health-dot.ok{background:#22c55e;box-shadow:0 0 6px rgba(34,197,94,0.5);}
+.ml-health-dot.fail{background:#ef4444;box-shadow:0 0 6px rgba(239,68,68,0.5);}
+.ml-health-dot.unknown{background:#71717a;}
+
+/* Unavailable state */
+.ml-unavailable{text-align:center;padding:60px 20px;color:var(--text-faint);}
+.ml-unavailable i{font-size:3.5rem;opacity:0.12;display:block;margin-bottom:16px;}
+.ml-unavailable h2{font-size:1.2rem;font-weight:700;color:var(--text-secondary);margin:0 0 8px;}
+.ml-unavailable p{font-size:0.82rem;max-width:480px;margin:0 auto;}
+.ml-unavailable code{background:var(--bg-surface);padding:2px 8px;border-radius:4px;font-size:0.75rem;}
+
+/* Tab system */
+.ml-tabs{display:flex;gap:2px;background:var(--bg-surface);border-radius:var(--radius-sm);padding:3px;margin-bottom:16px;overflow-x:auto;}
+.ml-tab{padding:8px 16px;border-radius:6px;font-size:0.75rem;font-weight:600;color:var(--text-faint);cursor:pointer;transition:all .15s ease;white-space:nowrap;border:none;background:none;font-family:inherit;}
+.ml-tab:hover{color:var(--text-secondary);}
+.ml-tab.active{background:var(--bg-card);color:var(--accent);box-shadow:0 1px 4px rgba(0,0,0,0.08);}
+.ml-tab-panel{display:none;}
+.ml-tab-panel.active{display:block;}
+</style>
+
+<div class="ml-greeting">
+    <h1>
+        <i class="icon-mail" style="font-size:1.5rem;vertical-align:-3px;margin-right:8px;opacity:0.5;"></i>
+        <span class="gradient-text">Mailer</span>
+        {% if available and enabled %}
+        <span class="ml-status active" style="margin-left:10px;vertical-align:4px;">
+            <span class="ml-health-dot {{ 'ok' if is_healthy else 'fail' }}"></span>
+            {{ 'Healthy' if is_healthy else 'Active' }}
+        </span>
+        {% elif available %}
+        <span class="ml-status warning" style="margin-left:10px;vertical-align:4px;">Disabled</span>
+        {% else %}
+        <span class="ml-status inactive" style="margin-left:10px;vertical-align:4px;">Not Configured</span>
+        {% endif %}
+    </h1>
+    <p>AquilaMail — Production-ready async mail subsystem • Providers, templates, security & delivery</p>
+</div>
+
+{% if not available %}
+{# ═══ NOT CONFIGURED STATE ═══ #}
+<div class="ml-card">
+    <div class="ml-unavailable">
+        <i class="icon-mail"></i>
+        <h2>Mail Subsystem Not Configured</h2>
+        <p>Enable the mail integration in your <code>workspace.py</code> to use the Mailer admin page.</p>
+        <div style="margin-top:20px;text-align:left;max-width:500px;margin-left:auto;margin-right:auto;">
+            <div style="font-size:0.68rem;color:var(--text-faint);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Configuration Example</div>
+            <pre style="background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:16px;font-size:0.73rem;color:var(--text-secondary);line-height:1.6;overflow-x:auto;"><code>.integrate(Integration.mail(
+    default_from="noreply@myapp.com",
+    console_backend=True,
+    providers=[
+        {"name": "smtp", "type": "smtp",
+         "host": "smtp.example.com", "port": 587},
+    ],
+))</code></pre>
+        </div>
+    </div>
+</div>
+{% else %}
+
+{# ═══ STAT CARDS ═══ #}
+<div class="ml-stats">
+    <div class="ml-stat-card blue">
+        <div class="ml-stat-value">{{ provider_count }}</div>
+        <div class="ml-stat-label">Providers</div>
+        <div class="ml-stat-sub">{{ active_provider_count }} active</div>
+    </div>
+    <div class="ml-stat-card green">
+        <div class="ml-stat-value">{{ stats.get('total_sent', 0) if stats is mapping else 0 }}</div>
+        <div class="ml-stat-label">Sent</div>
+        <div class="ml-stat-sub">Total delivered</div>
+    </div>
+    <div class="ml-stat-card red">
+        <div class="ml-stat-value">{{ stats.get('total_failed', 0) if stats is mapping else 0 }}</div>
+        <div class="ml-stat-label">Failed</div>
+        <div class="ml-stat-sub">Delivery failures</div>
+    </div>
+    <div class="ml-stat-card amber">
+        <div class="ml-stat-value">{{ stats.get('total_queued', 0) if stats is mapping else 0 }}</div>
+        <div class="ml-stat-label">Queued</div>
+        <div class="ml-stat-sub">Pending delivery</div>
+    </div>
+    <div class="ml-stat-card purple">
+        <div class="ml-stat-value">{{ rate_limit.get('global_per_minute', 1000) if rate_limit is mapping else 1000 }}</div>
+        <div class="ml-stat-label">Rate Limit</div>
+        <div class="ml-stat-sub">msg/min (global)</div>
+    </div>
+    <div class="ml-stat-card cyan">
+        <div class="ml-stat-value">{{ retry.get('max_attempts', 5) if retry is mapping else 5 }}</div>
+        <div class="ml-stat-label">Max Retries</div>
+        <div class="ml-stat-sub">Per envelope</div>
+    </div>
+</div>
+
+{# ═══ TABS ═══ #}
+<div class="ml-tabs" id="mailerTabs">
+    <button class="ml-tab active" onclick="switchTab('overview')">Overview</button>
+    <button class="ml-tab" onclick="switchTab('providers')">Providers</button>
+    <button class="ml-tab" onclick="switchTab('config')">Configuration</button>
+    <button class="ml-tab" onclick="switchTab('security')">Security</button>
+    <button class="ml-tab" onclick="switchTab('templates')">Templates</button>
+    <button class="ml-tab" onclick="switchTab('send-test')">Send Test Email</button>
+    <button class="ml-tab" onclick="switchTab('health')">Health Check</button>
+</div>
+
+{# ════════════════════════════════════════════════════════════════════
+   TAB: OVERVIEW
+   ════════════════════════════════════════════════════════════════════ #}
+<div class="ml-tab-panel active" id="tab-overview">
+    <div class="ml-config-grid">
+        {# General Settings #}
+        <div class="ml-config-item">
+            <h4><i class="icon-settings"></i> General Settings</h4>
+            <div class="ml-config-row">
+                <span class="ml-config-key">Enabled</span>
+                <span class="ml-config-val {{ 'on' if enabled else 'off' }}">{{ 'Yes' if enabled else 'No' }}</span>
+            </div>
+            <div class="ml-config-row">
+                <span class="ml-config-key">Default From</span>
+                <span class="ml-config-val">{{ default_from }}</span>
+            </div>
+            <div class="ml-config-row">
+                <span class="ml-config-key">Reply-To</span>
+                <span class="ml-config-val">{{ default_reply_to or '—' }}</span>
+            </div>
+            <div class="ml-config-row">
+                <span class="ml-config-key">Subject Prefix</span>
+                <span class="ml-config-val">{{ subject_prefix or '(none)' }}</span>
+            </div>
+            <div class="ml-config-row">
+                <span class="ml-config-key">Preview Mode</span>
+                <span class="ml-config-val {{ 'on' if preview_mode else 'off' }}">{{ 'Yes' if preview_mode else 'No' }}</span>
+            </div>
+            <div class="ml-config-row">
+                <span class="ml-config-key">Console Backend</span>
+                <span class="ml-config-val {{ 'on' if console_backend else 'off' }}">{{ 'Yes' if console_backend else 'No' }}</span>
+            </div>
+        </div>
+
+        {# Delivery Pipeline #}
+        <div class="ml-config-item">
+            <h4><i class="icon-send"></i> Delivery Pipeline</h4>
+            <div class="ml-config-row">
+                <span class="ml-config-key">Active Providers</span>
+                <span class="ml-config-val">{{ active_provider_count }} / {{ provider_count }}</span>
+            </div>
+            <div class="ml-config-row">
+                <span class="ml-config-key">Health Status</span>
+                <span class="ml-config-val {{ 'on' if is_healthy else 'off' }}">
+                    <span class="ml-health-dot {{ 'ok' if is_healthy else 'fail' }}"></span>
+                    {{ 'Healthy' if is_healthy else 'Unhealthy' }}
+                </span>
+            </div>
+            <div class="ml-config-row">
+                <span class="ml-config-key">Retry Attempts</span>
+                <span class="ml-config-val">{{ retry.get('max_attempts', 5) if retry is mapping else 5 }}</span>
+            </div>
+            <div class="ml-config-row">
+                <span class="ml-config-key">Base Delay</span>
+                <span class="ml-config-val">{{ retry.get('base_delay', 1.0) if retry is mapping else 1.0 }}s</span>
+            </div>
+            <div class="ml-config-row">
+                <span class="ml-config-key">Jitter</span>
+                <span class="ml-config-val {{ 'on' if retry.get('jitter', true) else 'off' }}">{{ 'Enabled' if (retry.get('jitter', true) if retry is mapping else true) else 'Disabled' }}</span>
+            </div>
+            <div class="ml-config-row">
+                <span class="ml-config-key">Metrics</span>
+                <span class="ml-config-val {{ 'on' if metrics_enabled else 'off' }}">{{ 'Enabled' if metrics_enabled else 'Disabled' }}</span>
+            </div>
+        </div>
+
+        {# Rate Limiting #}
+        <div class="ml-config-item">
+            <h4><i class="icon-gauge"></i> Rate Limiting</h4>
+            <div class="ml-config-row">
+                <span class="ml-config-key">Global Limit</span>
+                <span class="ml-config-val">{{ rate_limit.get('global_per_minute', 1000) if rate_limit is mapping else 1000 }} msg/min</span>
+            </div>
+            <div class="ml-config-row">
+                <span class="ml-config-key">Per Domain</span>
+                <span class="ml-config-val">{{ rate_limit.get('per_domain_per_minute', 100) if rate_limit is mapping else 100 }} msg/min</span>
+            </div>
+            <div class="ml-config-row">
+                <span class="ml-config-key">Per Provider</span>
+                <span class="ml-config-val">{{ rate_limit.get('per_provider_per_minute', '—') if rate_limit is mapping else '—' }}</span>
+            </div>
+        </div>
+
+        {# Queue Settings #}
+        <div class="ml-config-item">
+            <h4><i class="icon-list"></i> Queue & Storage</h4>
+            <div class="ml-config-row">
+                <span class="ml-config-key">Batch Size</span>
+                <span class="ml-config-val">{{ queue.get('batch_size', 50) if queue is mapping else 50 }}</span>
+            </div>
+            <div class="ml-config-row">
+                <span class="ml-config-key">Poll Interval</span>
+                <span class="ml-config-val">{{ queue.get('poll_interval', 1.0) if queue is mapping else 1.0 }}s</span>
+            </div>
+            <div class="ml-config-row">
+                <span class="ml-config-key">Dedup Window</span>
+                <span class="ml-config-val">{{ queue.get('dedupe_window_seconds', 3600) if queue is mapping else 3600 }}s</span>
+            </div>
+            <div class="ml-config-row">
+                <span class="ml-config-key">Retention</span>
+                <span class="ml-config-val">{{ queue.get('retention_days', 30) if queue is mapping else 30 }} days</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# ════════════════════════════════════════════════════════════════════
+   TAB: PROVIDERS
+   ════════════════════════════════════════════════════════════════════ #}
+<div class="ml-tab-panel" id="tab-providers">
+    {% if providers|length > 0 %}
+    <div class="ml-provider-grid">
+        {% for p in providers %}
+        <div class="ml-provider">
+            <div class="ml-provider-header">
+                <div class="ml-provider-icon {{ p.type }}">
+                    {% if p.type == 'smtp' %}<i class="icon-server"></i>
+                    {% elif p.type == 'ses' %}<i class="icon-cloud"></i>
+                    {% elif p.type == 'sendgrid' %}<i class="icon-send"></i>
+                    {% elif p.type == 'console' %}<i class="icon-terminal"></i>
+                    {% elif p.type == 'file' %}<i class="icon-file-text"></i>
+                    {% else %}<i class="icon-mail"></i>{% endif %}
+                </div>
+                <div>
+                    <div class="ml-provider-name">{{ p.name }}</div>
+                    <div class="ml-provider-type">{{ p.type_display }}</div>
+                </div>
+                <span class="ml-status {{ p.status }}" style="margin-left:auto;">
+                    {% if p.status == 'active' %}<span class="ml-health-dot ok"></span>Active
+                    {% elif p.status == 'disabled' %}<span class="ml-health-dot fail"></span>Disabled
+                    {% else %}<span class="ml-health-dot unknown"></span>Inactive{% endif %}
+                </span>
+            </div>
+            <dl class="ml-provider-meta">
+                <dt>Priority</dt>
+                <dd>{{ p.priority }}</dd>
+                <dt>Rate Limit</dt>
+                <dd>{{ p.rate_limit_per_min }} msg/min</dd>
+                {% if p.type == 'smtp' %}
+                <dt>Host</dt>
+                <dd>{{ p.host or 'localhost' }}</dd>
+                <dt>Port</dt>
+                <dd>{{ p.port or 587 }}</dd>
+                <dt>TLS</dt>
+                <dd>{{ 'STARTTLS' if p.use_tls else ('SSL' if p.use_ssl else 'None') }}</dd>
+                <dt>Timeout</dt>
+                <dd>{{ p.timeout }}s</dd>
+                {% endif %}
+            </dl>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="ml-card">
+        <div style="padding:40px;text-align:center;color:var(--text-faint);">
+            <i class="icon-server" style="font-size:2.5rem;opacity:0.15;display:block;margin-bottom:12px;"></i>
+            <p style="font-weight:600;">No Providers Configured</p>
+            <p style="font-size:0.75rem;margin-top:6px;">Add providers in your <code>Integration.mail(providers=[...])</code> configuration.</p>
+        </div>
+    </div>
+    {% endif %}
+
+    {# Provider Types Reference #}
+    <div class="ml-section" style="margin-top:24px;"><i class="icon-info"></i> Available Provider Types</div>
+    <div class="ml-config-grid">
+        <div class="ml-config-item">
+            <h4><i class="icon-server"></i> SMTP</h4>
+            <div style="font-size:0.75rem;color:var(--text-secondary);line-height:1.5;">
+                Production-grade async SMTP via aiosmtplib. Supports STARTTLS, direct SSL, connection pooling, batch send, and TLS certificate validation.
+            </div>
+        </div>
+        <div class="ml-config-item">
+            <h4><i class="icon-cloud"></i> AWS SES</h4>
+            <div style="font-size:0.75rem;color:var(--text-secondary);line-height:1.5;">
+                Amazon Simple Email Service via aiobotocore. Auto-region selection, IAM auth, configuration sets, and event notifications.
+            </div>
+        </div>
+        <div class="ml-config-item">
+            <h4><i class="icon-send"></i> SendGrid</h4>
+            <div style="font-size:0.75rem;color:var(--text-secondary);line-height:1.5;">
+                SendGrid API v3 via httpx. API key auth, dynamic templates, categories, and click/open tracking.
+            </div>
+        </div>
+        <div class="ml-config-item">
+            <h4><i class="icon-terminal"></i> Console</h4>
+            <div style="font-size:0.75rem;color:var(--text-secondary);line-height:1.5;">
+                Development provider — prints emails to stdout/logger. Does not actually deliver messages. Always healthy.
+            </div>
+        </div>
+        <div class="ml-config-item">
+            <h4><i class="icon-file-text"></i> File</h4>
+            <div style="font-size:0.75rem;color:var(--text-secondary);line-height:1.5;">
+                Development provider — writes emails to files on disk. Useful for visual inspection and automated testing.
+            </div>
+        </div>
+    </div>
+</div>
+
+{# ════════════════════════════════════════════════════════════════════
+   TAB: CONFIGURATION
+   ════════════════════════════════════════════════════════════════════ #}
+<div class="ml-tab-panel" id="tab-config">
+    <div class="ml-section"><i class="icon-code"></i> Full Configuration (Read-Only)</div>
+    <div class="ml-card">
+        <div class="ml-card-body" style="padding:0;">
+            <pre id="configJson" style="background:var(--bg-surface);margin:0;padding:20px;font-size:0.73rem;color:var(--text-secondary);line-height:1.6;overflow-x:auto;max-height:600px;border-radius:0;">{{ config|tojson(indent=2) if config else '{}' }}</pre>
+        </div>
+    </div>
+
+    <div class="ml-section" style="margin-top:24px;"><i class="icon-terminal"></i> Workspace Integration Code</div>
+    <div class="ml-card">
+        <div class="ml-card-body" style="padding:0;">
+            <pre style="background:var(--bg-surface);margin:0;padding:20px;font-size:0.73rem;color:var(--text-secondary);line-height:1.6;overflow-x:auto;border-radius:0;"><code># workspace.py
+from aquilia import Integration
+
+workspace = (
+    Workspace("MyApp")
+    .integrate(Integration.mail(
+        default_from="{{ default_from }}",{% if subject_prefix %}
+        subject_prefix="{{ subject_prefix }}",{% endif %}{% if console_backend %}
+        console_backend=True,{% endif %}{% if preview_mode %}
+        preview_mode=True,{% endif %}
+        providers=[
+            {% for p in providers %}{"name": "{{ p.name }}", "type": "{{ p.type }}"{% if p.type == 'smtp' %}, "host": "{{ p.host or 'smtp.example.com' }}", "port": {{ p.port or 587 }}{% endif %}},
+            {% endfor %}
+        ],
+    ))
+    .integrate(Integration.admin(
+        modules=Integration.AdminModules()
+            .enable_mailer()
+    ))
+)</code></pre>
+        </div>
+    </div>
+
+    <div class="ml-section" style="margin-top:24px;"><i class="icon-book-open"></i> Quick Reference — API Usage</div>
+    <div class="ml-config-grid">
+        <div class="ml-config-item">
+            <h4><i class="icon-zap"></i> Sync Send</h4>
+            <pre style="font-size:0.72rem;line-height:1.5;color:var(--text-secondary);margin:0;"><code>from aquilia.mail import send_mail
+
+send_mail(
+    subject="Hello",
+    body="World",
+    to=["user@example.com"],
+)</code></pre>
+        </div>
+        <div class="ml-config-item">
+            <h4><i class="icon-zap"></i> Async Send</h4>
+            <pre style="font-size:0.72rem;line-height:1.5;color:var(--text-secondary);margin:0;"><code>from aquilia.mail import asend_mail
+
+await asend_mail(
+    subject="Hello",
+    body="World",
+    to=["user@example.com"],
+)</code></pre>
+        </div>
+        <div class="ml-config-item">
+            <h4><i class="icon-file-text"></i> Template Message</h4>
+            <pre style="font-size:0.72rem;line-height:1.5;color:var(--text-secondary);margin:0;"><code>from aquilia.mail import TemplateMessage
+
+msg = TemplateMessage(
+    template="welcome.aqt",
+    context={"user": {"name": "Asha"}},
+    to=["asha@example.com"],
+)
+await msg.asend()</code></pre>
+        </div>
+        <div class="ml-config-item">
+            <h4><i class="icon-paperclip"></i> Attachments</h4>
+            <pre style="font-size:0.72rem;line-height:1.5;color:var(--text-secondary);margin:0;"><code>from aquilia.mail import EmailMessage
+
+msg = EmailMessage(
+    subject="Report",
+    body="Attached",
+    to=["admin@example.com"],
+)
+msg.attach("report.pdf", data, "application/pdf")
+msg.attach_file("/tmp/invoice.pdf")
+await msg.asend()</code></pre>
+        </div>
+        <div class="ml-config-item">
+            <h4><i class="icon-layers"></i> Multi-Alternatives</h4>
+            <pre style="font-size:0.72rem;line-height:1.5;color:var(--text-secondary);margin:0;"><code>from aquilia.mail import EmailMultiAlternatives
+
+msg = EmailMultiAlternatives(
+    subject="Newsletter",
+    body="Plain text fallback",
+    to=["sub@example.com"],
+)
+msg.attach_alternative(html, "text/html")
+await msg.asend()</code></pre>
+        </div>
+        <div class="ml-config-item">
+            <h4><i class="icon-shield"></i> Priority & Idempotency</h4>
+            <pre style="font-size:0.72rem;line-height:1.5;color:var(--text-secondary);margin:0;"><code>from aquilia.mail import EmailMessage
+from aquilia.mail import Priority
+
+msg = EmailMessage(
+    subject="Critical Alert",
+    body="Server down!",
+    to=["ops@example.com"],
+    priority=Priority.CRITICAL.value,
+    idempotency_key="alert-server-1",
+)
+await msg.asend()</code></pre>
+        </div>
+    </div>
+</div>
+
+{# ════════════════════════════════════════════════════════════════════
+   TAB: SECURITY
+   ════════════════════════════════════════════════════════════════════ #}
+<div class="ml-tab-panel" id="tab-security">
+    <div class="ml-config-grid">
+        <div class="ml-config-item">
+            <h4><i class="icon-key"></i> DKIM Signing</h4>
+            <div class="ml-config-row">
+                <span class="ml-config-key">DKIM Enabled</span>
+                <span class="ml-config-val {{ 'on' if security.get('dkim_enabled') else 'off' }}">{{ 'Yes' if (security.get('dkim_enabled') if security is mapping else false) else 'No' }}</span>
+            </div>
+            <div class="ml-config-row">
+                <span class="ml-config-key">DKIM Domain</span>
+                <span class="ml-config-val">{{ (security.get('dkim_domain') if security is mapping else none) or '—' }}</span>
+            </div>
+            <div class="ml-config-row">
+                <span class="ml-config-key">DKIM Selector</span>
+                <span class="ml-config-val">{{ (security.get('dkim_selector') if security is mapping else 'aquilia') or 'aquilia' }}</span>
+            </div>
+        </div>
+        <div class="ml-config-item">
+            <h4><i class="icon-lock"></i> Transport Security</h4>
+            <div class="ml-config-row">
+                <span class="ml-config-key">Require TLS</span>
+                <span class="ml-config-val {{ 'on' if (security.get('require_tls', true) if security is mapping else true) else 'off' }}">{{ 'Yes' if (security.get('require_tls', true) if security is mapping else true) else 'No' }}</span>
+            </div>
+            <div class="ml-config-row">
+                <span class="ml-config-key">PII Redaction</span>
+                <span class="ml-config-val {{ 'on' if (security.get('pii_redaction_enabled') if security is mapping else false) else 'off' }}">{{ 'Enabled' if (security.get('pii_redaction_enabled') if security is mapping else false) else 'Disabled' }}</span>
+            </div>
+        </div>
+        <div class="ml-config-item">
+            <h4><i class="icon-globe"></i> Allowed From Domains</h4>
+            {% set domains = security.get('allowed_from_domains', []) if security is mapping else [] %}
+            {% if domains|length > 0 %}
+            <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">
+                {% for d in domains %}
+                <span style="background:var(--bg-surface);border:1px solid var(--border-subtle);padding:3px 10px;border-radius:99px;font-size:0.72rem;color:var(--text-secondary);">{{ d }}</span>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div style="font-size:0.75rem;color:var(--text-faint);margin-top:8px;">
+                No domain restrictions — any sender domain is allowed.
+            </div>
+            {% endif %}
+        </div>
+        <div class="ml-config-item">
+            <h4><i class="icon-eye"></i> Observability</h4>
+            <div class="ml-config-row">
+                <span class="ml-config-key">Metrics</span>
+                <span class="ml-config-val {{ 'on' if metrics_enabled else 'off' }}">{{ 'Enabled' if metrics_enabled else 'Disabled' }}</span>
+            </div>
+            <div class="ml-config-row">
+                <span class="ml-config-key">Tracing</span>
+                <span class="ml-config-val {{ 'on' if tracing_enabled else 'off' }}">{{ 'Enabled' if tracing_enabled else 'Disabled' }}</span>
+            </div>
+        </div>
+    </div>
+
+    {# Security Best Practices #}
+    <div class="ml-section" style="margin-top:24px;"><i class="icon-shield"></i> Security Best Practices</div>
+    <div class="ml-card">
+        <div class="ml-card-body" style="padding:16px 20px;">
+            <div style="display:grid;gap:10px;">
+                {% set checks = [
+                    ('DKIM signing', security.get('dkim_enabled') if security is mapping else false, 'Enable DKIM to authenticate your emails and improve deliverability'),
+                    ('TLS required', security.get('require_tls', true) if security is mapping else true, 'Require TLS for all SMTP connections to prevent eavesdropping'),
+                    ('PII redaction', security.get('pii_redaction_enabled') if security is mapping else false, 'Redact email addresses and personal data from logs'),
+                    ('Domain whitelist', (security.get('allowed_from_domains', []) if security is mapping else [])|length > 0, 'Restrict which domains can be used as sender addresses'),
+                    ('Preview mode off', not preview_mode, 'Preview mode should be disabled in production'),
+                ] %}
+                {% for label, ok, hint in checks %}
+                <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--bg-surface);border-radius:var(--radius-sm);border:1px solid var(--border-subtle);">
+                    {% if ok %}
+                    <span style="color:#22c55e;font-size:16px;">✓</span>
+                    {% else %}
+                    <span style="color:#f59e0b;font-size:16px;">⚠</span>
+                    {% endif %}
+                    <div style="flex:1;">
+                        <div style="font-size:0.78rem;font-weight:600;color:var(--text-primary);">{{ label }}</div>
+                        <div style="font-size:0.68rem;color:var(--text-faint);">{{ hint }}</div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{# ════════════════════════════════════════════════════════════════════
+   TAB: TEMPLATES
+   ════════════════════════════════════════════════════════════════════ #}
+<div class="ml-tab-panel" id="tab-templates">
+    <div class="ml-config-grid">
+        <div class="ml-config-item">
+            <h4><i class="icon-file-code"></i> ATS Template Engine</h4>
+            <div class="ml-config-row">
+                <span class="ml-config-key">Auto-Escape</span>
+                <span class="ml-config-val {{ 'on' if (templates.get('auto_escape', true) if templates is mapping else true) else 'off' }}">{{ 'Enabled' if (templates.get('auto_escape', true) if templates is mapping else true) else 'Disabled' }}</span>
+            </div>
+            <div class="ml-config-row">
+                <span class="ml-config-key">Cache Compiled</span>
+                <span class="ml-config-val {{ 'on' if (templates.get('cache_compiled', true) if templates is mapping else true) else 'off' }}">{{ 'Enabled' if (templates.get('cache_compiled', true) if templates is mapping else true) else 'Disabled' }}</span>
+            </div>
+            <div class="ml-config-row">
+                <span class="ml-config-key">Strict Mode</span>
+                <span class="ml-config-val {{ 'on' if (templates.get('strict_mode') if templates is mapping else false) else 'off' }}">{{ 'Enabled' if (templates.get('strict_mode') if templates is mapping else false) else 'Disabled' }}</span>
+            </div>
+        </div>
+        <div class="ml-config-item">
+            <h4><i class="icon-folder-open"></i> Template Directories</h4>
+            {% set dirs = templates.get('template_dirs', ['mail_templates']) if templates is mapping else ['mail_templates'] %}
+            {% for d in dirs %}
+            <div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border-subtle);font-size:0.75rem;">
+                <i class="icon-folder" style="font-size:14px;color:var(--accent);opacity:0.6;"></i>
+                <code style="color:var(--text-secondary);">{{ d }}</code>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    {# ATS Syntax Reference #}
+    <div class="ml-section" style="margin-top:24px;"><i class="icon-code"></i> ATS (Aquilia Template Syntax) Reference</div>
+    <div class="ml-config-grid">
+        <div class="ml-config-item">
+            <h4><i class="icon-type"></i> Expressions</h4>
+            <pre style="font-size:0.72rem;line-height:1.5;color:var(--text-secondary);margin:0;"><code>&lt;&lt; user.name &gt;&gt;
+&lt;&lt; order.total &gt;&gt;
+&lt;&lt; company.logo_url &gt;&gt;</code></pre>
+        </div>
+        <div class="ml-config-item">
+            <h4><i class="icon-filter"></i> Filters</h4>
+            <pre style="font-size:0.72rem;line-height:1.5;color:var(--text-secondary);margin:0;"><code>&lt;&lt; name | title &gt;&gt;
+&lt;&lt; price | currency("USD") &gt;&gt;
+&lt;&lt; bio | truncate(120) &gt;&gt;</code></pre>
+        </div>
+        <div class="ml-config-item">
+            <h4><i class="icon-git-branch"></i> Control Flow</h4>
+            <pre style="font-size:0.72rem;line-height:1.5;color:var(--text-secondary);margin:0;"><code>[[% if user.is_premium %]]
+  Premium content here
+[[% endif %]]
+
+[[% for item in order.items %]]
+  &lt;&lt; item.name &gt;&gt;: &lt;&lt; item.price &gt;&gt;
+[[% endfor %]]</code></pre>
+        </div>
+        <div class="ml-config-item">
+            <h4><i class="icon-layers"></i> Template Inheritance</h4>
+            <pre style="font-size:0.72rem;line-height:1.5;color:var(--text-secondary);margin:0;"><code>[[% extends "base_email.aqt" %]]
+
+[[% block content %]]
+  Your email body here
+[[% endblock %]]</code></pre>
+        </div>
+    </div>
+</div>
+
+{# ════════════════════════════════════════════════════════════════════
+   TAB: SEND TEST EMAIL
+   ════════════════════════════════════════════════════════════════════ #}
+<div class="ml-tab-panel" id="tab-send-test">
+    <div class="ml-card">
+        <div class="ml-card-header">
+            <h3><i class="icon-send" style="font-size:14px;margin-right:6px;opacity:0.5;"></i> Send Test Email</h3>
+            <span class="ml-status info">{{ 'Preview Mode' if preview_mode else 'Live Send' }}</span>
+        </div>
+        <div class="ml-card-body">
+            <div class="ml-form" id="sendTestForm">
+                <div class="ml-form-row">
+                    <div class="ml-form-group">
+                        <label for="testTo">Recipient *</label>
+                        <input type="email" id="testTo" placeholder="test@example.com" required>
+                        <span class="hint">The email address to send the test email to</span>
+                    </div>
+                    <div class="ml-form-group">
+                        <label for="testFrom">From (override)</label>
+                        <input type="email" id="testFrom" placeholder="{{ default_from }}">
+                        <span class="hint">Leave empty to use default: {{ default_from }}</span>
+                    </div>
+                </div>
+                <div class="ml-form-row">
+                    <div class="ml-form-group">
+                        <label for="testSubject">Subject</label>
+                        <input type="text" id="testSubject" value="Aquilia Test Email" placeholder="Email subject line">
+                    </div>
+                    <div class="ml-form-group">
+                        <label for="testPriority">Priority</label>
+                        <select id="testPriority">
+                            <option value="critical">Critical (0)</option>
+                            <option value="high">High (25)</option>
+                            <option value="normal" selected>Normal (50)</option>
+                            <option value="low">Low (75)</option>
+                            <option value="bulk">Bulk (100)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="ml-form-group">
+                    <label for="testReplyTo">Reply-To</label>
+                    <input type="email" id="testReplyTo" placeholder="{{ default_reply_to or 'Optional reply-to address' }}">
+                </div>
+                <div class="ml-form-group">
+                    <label for="testBody">Plain Text Body</label>
+                    <textarea id="testBody" placeholder="Leave empty for default test email content"></textarea>
+                    <span class="hint">Leave empty to use the built-in Aquilia test email template with HTML</span>
+                </div>
+                <div class="ml-form-group">
+                    <label for="testHtml">HTML Body (optional)</label>
+                    <textarea id="testHtml" placeholder="<h1>Hello!</h1><p>Custom HTML body...</p>" style="min-height:100px;font-family:var(--font-mono);font-size:0.72rem;"></textarea>
+                    <span class="hint">Provide custom HTML or leave empty for the built-in Aquilia-branded template</span>
+                </div>
+                <div style="display:flex;gap:10px;align-items:center;margin-top:4px;">
+                    <button class="ml-btn primary" id="sendTestBtn" onclick="sendTestEmail()">
+                        <i class="icon-send" style="font-size:14px;"></i> Send Test Email
+                    </button>
+                    <button class="ml-btn secondary" onclick="resetTestForm()">
+                        <i class="icon-rotate-ccw" style="font-size:14px;"></i> Reset
+                    </button>
+                    <span id="sendTestStatus" style="font-size:0.75rem;color:var(--text-faint);margin-left:8px;"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# Recent send test results #}
+    <div class="ml-section" style="margin-top:20px;"><i class="icon-clock"></i> Recent Test Sends</div>
+    <div class="ml-card">
+        <div class="ml-card-body" style="padding:0;">
+            <table class="admin-table" style="width:100%;border-collapse:collapse;" id="testHistoryTable">
+                <thead>
+                    <tr>
+                        <th style="padding:10px 16px;text-align:left;font-size:0.68rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-faint);border-bottom:1px solid var(--border-subtle);">Time</th>
+                        <th style="padding:10px 16px;text-align:left;font-size:0.68rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-faint);border-bottom:1px solid var(--border-subtle);">To</th>
+                        <th style="padding:10px 16px;text-align:left;font-size:0.68rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-faint);border-bottom:1px solid var(--border-subtle);">Subject</th>
+                        <th style="padding:10px 16px;text-align:center;font-size:0.68rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-faint);border-bottom:1px solid var(--border-subtle);">Status</th>
+                        <th style="padding:10px 16px;text-align:left;font-size:0.68rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-faint);border-bottom:1px solid var(--border-subtle);">Envelope ID</th>
+                    </tr>
+                </thead>
+                <tbody id="testHistoryBody">
+                    <tr>
+                        <td colspan="5" style="padding:24px;text-align:center;color:var(--text-faint);font-size:0.78rem;">
+                            No test emails sent in this session
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{# ════════════════════════════════════════════════════════════════════
+   TAB: HEALTH CHECK
+   ════════════════════════════════════════════════════════════════════ #}
+<div class="ml-tab-panel" id="tab-health">
+    <div class="ml-card">
+        <div class="ml-card-header">
+            <h3><i class="icon-heart-pulse" style="font-size:14px;margin-right:6px;opacity:0.5;"></i> Provider Health Check</h3>
+            <button class="ml-btn secondary" id="healthCheckBtn" onclick="runHealthCheck()">
+                <i class="icon-refresh-cw" style="font-size:14px;"></i> Run Health Check
+            </button>
+        </div>
+        <div class="ml-card-body" id="healthCheckResults">
+            <div style="text-align:center;color:var(--text-faint);padding:20px;">
+                <i class="icon-heart-pulse" style="font-size:2rem;opacity:0.15;display:block;margin-bottom:8px;"></i>
+                <p style="font-size:0.82rem;">Click "Run Health Check" to test connectivity to all configured providers</p>
+            </div>
+        </div>
+    </div>
+
+    {# Troubleshooting Guide #}
+    <div class="ml-section" style="margin-top:24px;"><i class="icon-help-circle"></i> Troubleshooting Guide</div>
+    <div class="ml-config-grid">
+        <div class="ml-config-item">
+            <h4 style="color:#ef4444;"><i class="icon-x-circle"></i> Connection Refused</h4>
+            <div style="font-size:0.75rem;color:var(--text-secondary);line-height:1.5;">
+                Check that your SMTP host and port are correct. Ensure firewalls allow outbound connections. Common ports: 25 (SMTP), 465 (SSL), 587 (STARTTLS).
+            </div>
+        </div>
+        <div class="ml-config-item">
+            <h4 style="color:#f59e0b;"><i class="icon-alert-triangle"></i> Authentication Failed</h4>
+            <div style="font-size:0.75rem;color:var(--text-secondary);line-height:1.5;">
+                Verify username and password. For Gmail/Google Workspace, use App Passwords (not regular passwords). For SES, check IAM credentials.
+            </div>
+        </div>
+        <div class="ml-config-item">
+            <h4 style="color:#f59e0b;"><i class="icon-clock"></i> Timeout Errors</h4>
+            <div style="font-size:0.75rem;color:var(--text-secondary);line-height:1.5;">
+                Increase the <code>timeout</code> setting. Default is 30s. Check network latency to your SMTP server. Consider using a closer region for SES/SendGrid.
+            </div>
+        </div>
+        <div class="ml-config-item">
+            <h4 style="color:#6366f1;"><i class="icon-info"></i> Rate Limiting</h4>
+            <div style="font-size:0.75rem;color:var(--text-secondary);line-height:1.5;">
+                If you receive 429 or "rate limited" errors, reduce <code>rate_limit_per_min</code> per provider or increase the global limit. SES new accounts have strict sending limits.
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endif %}
+
+{# ═══ Toast Notification ═══ #}
+<div class="ml-toast" id="mailerToast">
+    <div class="ml-toast-msg"></div>
+    <div class="ml-toast-sub"></div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+(function(){
+    const PREFIX = '{{ url_prefix|default("/admin") }}';
+
+    // ── Tab switching ──
+    window.switchTab = function(name) {
+        document.querySelectorAll('.ml-tab-panel').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.ml-tab').forEach(t => t.classList.remove('active'));
+        const panel = document.getElementById('tab-' + name);
+        if (panel) panel.classList.add('active');
+        // Find matching tab button
+        document.querySelectorAll('.ml-tab').forEach(t => {
+            if (t.textContent.trim().toLowerCase().replace(/\s+/g, '-') === name ||
+                t.onclick.toString().includes("'" + name + "'")) {
+                t.classList.add('active');
+            }
+        });
+    };
+
+    // ── Toast notification ──
+    function showToast(msg, sub, type) {
+        const toast = document.getElementById('mailerToast');
+        if (!toast) return;
+        toast.className = 'ml-toast ' + type;
+        toast.querySelector('.ml-toast-msg').textContent = msg;
+        toast.querySelector('.ml-toast-sub').textContent = sub || '';
+        toast.classList.add('show');
+        setTimeout(() => toast.classList.remove('show'), 5000);
+    }
+
+    // ── Send Test Email ──
+    const testHistory = [];
+
+    window.sendTestEmail = function() {
+        const btn = document.getElementById('sendTestBtn');
+        const status = document.getElementById('sendTestStatus');
+        const toVal = document.getElementById('testTo').value.trim();
+
+        if (!toVal) {
+            showToast('Recipient email is required', '', 'err');
+            return;
+        }
+
+        btn.disabled = true;
+        btn.innerHTML = '<i class="icon-loader" style="font-size:14px;animation:spin 1s linear infinite;"></i> Sending...';
+        status.textContent = 'Sending...';
+
+        const payload = {
+            to: toVal,
+            from_email: document.getElementById('testFrom').value.trim() || '',
+            subject: document.getElementById('testSubject').value.trim() || 'Aquilia Test Email',
+            body: document.getElementById('testBody').value.trim() || '',
+            body_html: document.getElementById('testHtml').value.trim() || '',
+            reply_to: document.getElementById('testReplyTo').value.trim() || '',
+            priority: document.getElementById('testPriority').value,
+        };
+
+        fetch(PREFIX + '/mailer/send-test/', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload),
+        })
+        .then(r => r.json())
+        .then(data => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="icon-send" style="font-size:14px;"></i> Send Test Email';
+
+            if (data.success) {
+                showToast('Test email sent successfully!', 'Envelope: ' + (data.envelope_id || 'N/A'), 'ok');
+                status.textContent = '✓ Sent';
+                status.style.color = '#22c55e';
+                addTestHistory(toVal, payload.subject, true, data.envelope_id, null);
+            } else {
+                showToast('Failed to send test email', data.error || 'Unknown error', 'err');
+                status.textContent = '✗ Failed';
+                status.style.color = '#ef4444';
+                addTestHistory(toVal, payload.subject, false, null, data.error);
+            }
+        })
+        .catch(err => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="icon-send" style="font-size:14px;"></i> Send Test Email';
+            showToast('Network error', err.message, 'err');
+            status.textContent = '✗ Error';
+            status.style.color = '#ef4444';
+            addTestHistory(toVal, payload.subject, false, null, err.message);
+        });
+    };
+
+    function addTestHistory(to, subject, success, envelopeId, error) {
+        const now = new Date().toLocaleTimeString();
+        testHistory.unshift({ time: now, to: to, subject: subject, success: success, envelopeId: envelopeId, error: error });
+        renderTestHistory();
+    }
+
+    function renderTestHistory() {
+        const tbody = document.getElementById('testHistoryBody');
+        if (!tbody || testHistory.length === 0) return;
+        let html = '';
+        testHistory.forEach(function(entry) {
+            html += '<tr style="border-bottom:1px solid var(--border-subtle);">';
+            html += '<td style="padding:10px 16px;font-size:0.75rem;color:var(--text-faint);">' + entry.time + '</td>';
+            html += '<td style="padding:10px 16px;font-size:0.75rem;">' + entry.to + '</td>';
+            html += '<td style="padding:10px 16px;font-size:0.75rem;color:var(--text-secondary);">' + entry.subject + '</td>';
+            html += '<td style="padding:10px 16px;text-align:center;">';
+            if (entry.success) {
+                html += '<span class="ml-status active">Sent</span>';
+            } else {
+                html += '<span class="ml-status inactive" title="' + (entry.error || '') + '">Failed</span>';
+            }
+            html += '</td>';
+            html += '<td style="padding:10px 16px;font-family:var(--font-mono);font-size:0.68rem;color:var(--text-faint);">' + (entry.envelopeId || (entry.error ? entry.error.substring(0, 50) : '—')) + '</td>';
+            html += '</tr>';
+        });
+        tbody.innerHTML = html;
+    }
+
+    window.resetTestForm = function() {
+        document.getElementById('testTo').value = '';
+        document.getElementById('testFrom').value = '';
+        document.getElementById('testSubject').value = 'Aquilia Test Email';
+        document.getElementById('testBody').value = '';
+        document.getElementById('testHtml').value = '';
+        document.getElementById('testReplyTo').value = '';
+        document.getElementById('testPriority').value = 'normal';
+        document.getElementById('sendTestStatus').textContent = '';
+    };
+
+    // ── Health Check ──
+    window.runHealthCheck = function() {
+        const btn = document.getElementById('healthCheckBtn');
+        const container = document.getElementById('healthCheckResults');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="icon-loader" style="font-size:14px;animation:spin 1s linear infinite;"></i> Checking...';
+
+        fetch(PREFIX + '/mailer/health-check/', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+        })
+        .then(r => r.json())
+        .then(data => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="icon-refresh-cw" style="font-size:14px;"></i> Run Health Check';
+
+            let html = '<div style="display:grid;gap:10px;">';
+
+            // Overall status
+            html += '<div style="display:flex;align-items:center;gap:10px;padding:12px 16px;background:' +
+                (data.overall_healthy ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.08)') +
+                ';border-radius:var(--radius-sm);border:1px solid ' +
+                (data.overall_healthy ? 'rgba(34,197,94,0.2)' : 'rgba(239,68,68,0.2)') + ';">';
+            html += '<span class="ml-health-dot ' + (data.overall_healthy ? 'ok' : 'fail') + '"></span>';
+            html += '<span style="font-size:0.85rem;font-weight:700;color:' +
+                (data.overall_healthy ? '#22c55e' : '#ef4444') + ';">' +
+                (data.overall_healthy ? 'All Providers Healthy' : 'Some Providers Unhealthy') + '</span>';
+            html += '<span style="margin-left:auto;font-size:0.72rem;color:var(--text-faint);">' + data.checked_count + ' provider(s) checked</span>';
+            html += '</div>';
+
+            // Per-provider results
+            const providers = data.providers || {};
+            Object.keys(providers).forEach(function(name) {
+                const r = providers[name];
+                html += '<div style="display:flex;align-items:center;gap:10px;padding:10px 16px;background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);">';
+                html += '<span class="ml-health-dot ' + (r.healthy ? 'ok' : 'fail') + '"></span>';
+                html += '<span style="font-size:0.82rem;font-weight:600;">' + name + '</span>';
+                html += '<span class="ml-status ' + (r.healthy ? 'active' : 'inactive') + '" style="margin-left:auto;">' + (r.healthy ? 'Healthy' : 'Unhealthy') + '</span>';
+                if (r.error) {
+                    html += '<span style="font-size:0.7rem;color:#ef4444;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + r.error + '">' + r.error + '</span>';
+                }
+                html += '</div>';
+            });
+
+            if (Object.keys(providers).length === 0) {
+                html += '<div style="text-align:center;padding:16px;color:var(--text-faint);font-size:0.78rem;">No active providers to check</div>';
+            }
+
+            html += '</div>';
+            container.innerHTML = html;
+
+            showToast(
+                data.overall_healthy ? 'All providers healthy' : 'Some providers unhealthy',
+                data.checked_count + ' provider(s) checked',
+                data.overall_healthy ? 'ok' : 'err'
+            );
+        })
+        .catch(err => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="icon-refresh-cw" style="font-size:14px;"></i> Run Health Check';
+            container.innerHTML = '<div style="text-align:center;padding:20px;color:#ef4444;font-size:0.82rem;">Health check failed: ' + err.message + '</div>';
+            showToast('Health check failed', err.message, 'err');
+        });
+    };
+
+    // ── Spin animation ──
+    if (!document.getElementById('mlSpinStyle')) {
+        const style = document.createElement('style');
+        style.id = 'mlSpinStyle';
+        style.textContent = '@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}';
+        document.head.appendChild(style);
+    }
+
+})();
+{% endblock %}
