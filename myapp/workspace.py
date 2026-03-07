@@ -228,21 +228,18 @@ workspace = (
             auth = Integration.MailAuth.plain(
                 username = "embrakeproject@gmail.com",
                 password = "jkohyutipglocgck"
-            )
+            ),
+            providers = [
+                Integration.MailProvider.SMTP(
+                    name = "gmail",
+                    host = "smtp.gmail.com",
+                    port = 587,
+                    use_tls = True,
+                )
+            ]
         )
     )
 )
 
 # Export for CLI/server
 __all__ = ["workspace"]
-
-# Email Configuration
-EMAIL_HOST=smtp.gmail.com
-EMAIL_PORT=587
-EMAIL_USE_TLS=True
-EMAIL_HOST_USER=embrakeproject@gmail.com
-EMAIL_HOST_PASSWORD=jkohyutipglocgck
-DEFAULT_FROM_EMAIL=embrakeproject@gmail.com
-
-# Contact Email
-CONTACT_EMAIL=aegis.invincible@gmail.com

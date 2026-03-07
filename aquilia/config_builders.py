@@ -3722,7 +3722,10 @@ class Integration:
                 auth_dict = auth
 
         # Normalise per-provider auth entries too
-        # Also accept Integration.MailProvider.* instances directly
+        # Also accept Integration.MailProvider.* instances directly,
+        # or a single provider object instead of a list.
+        if providers is not None and hasattr(providers, "to_dict") and not isinstance(providers, (list, tuple)):
+            providers = [providers]
         normalised_providers: List[Dict[str, Any]] = []
         for p in (providers or []):
             if hasattr(p, "to_dict"):
