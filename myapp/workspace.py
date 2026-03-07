@@ -209,11 +209,16 @@ workspace = (
             .enable_containers()
             .enable_monitoring()
             .enable_storage()
+            .enable_audit()
         ),
         containers = (
             Integration.AdminContainers()
             # .allowed_actions()
-        )
+        ),
+        audit=(
+            Integration.AdminAudit()
+            .enable()
+        ),
     ))
 )
 

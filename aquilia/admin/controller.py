@@ -1393,13 +1393,39 @@ class AdminController(Controller):
                     ts = ts.isoformat()
 
                 history_entries.append({
+                    "id": entry_data.get("id", ""),
                     "timestamp": ts,
+                    "user_id": entry_data.get("user_id", ""),
                     "username": entry_data.get("username") or "Unknown",
+                    "role": entry_data.get("role", ""),
                     "action": str(action_val),
                     "metadata": entry_meta,
                     "changes": entry_changes or {},
                     "ip_address": entry_data.get("ip_address") or "",
+                    "user_agent": entry_data.get("user_agent") or "",
+                    "success": entry_data.get("success", True),
+                    "error_message": entry_data.get("error_message") or "",
+                    "fields_changed": len(entry_changes) if entry_changes else 0,
                 })
+
+        # Compute summary stats for the history overview
+        _action_counts: Dict[str, int] = {}
+        _users_seen: set = set()
+        for _he in history_entries:
+            act = _he.get("action", "")
+            _action_counts[act] = _action_counts.get(act, 0) + 1
+            _users_seen.add(_he.get("username", "Unknown"))
+        total_changes = sum(
+            _he.get("fields_changed", 0) for _he in history_entries
+        )
+        history_stats = {
+            "total_entries": len(history_entries),
+            "action_counts": _action_counts,
+            "unique_users": len(_users_seen),
+            "total_field_changes": total_changes,
+            "first_entry": history_entries[-1]["timestamp"] if history_entries else "",
+            "last_entry": history_entries[0]["timestamp"] if history_entries else "",
+        }
 
         # Get model verbose name
         verbose_name = model
@@ -1423,6 +1449,7 @@ class AdminController(Controller):
                     pk=pk,
                     entries=history_entries,
                     total=len(history_entries),
+                    stats=history_stats,
                     app_list=app_list,
                     active_page="",
                     active_model=model.lower(),
