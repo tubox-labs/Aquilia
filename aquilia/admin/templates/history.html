@@ -14,260 +14,1021 @@
 
 {% block extra_head %}
 <style>
-.history-container {
-    max-width: 960px;
-    margin: 0 auto;
-    padding: 24px 0;
-}
+/* ── Layout ────────────────────────────────────────────────── */
+.history-page { max-width:1080px; margin:0 auto; padding:24px 0; }
+
+/* ── Header ────────────────────────────────────────────────── */
 .history-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 24px;
+    display:flex; align-items:center; justify-content:space-between;
+    margin-bottom:20px; flex-wrap:wrap; gap:12px;
 }
 .history-header h1 {
-    font-size: 1.5rem;
-    font-weight: 600;
-    color: var(--text-primary);
-    display: flex;
-    align-items: center;
-    gap: 10px;
+    font-size:1.4rem; font-weight:700; color:var(--text-primary);
+    display:flex; align-items:center; gap:10px; margin:0;
 }
 .history-header .badge {
-    background: var(--accent);
-    color: #000;
-    font-size: 0.75rem;
-    padding: 2px 8px;
-    border-radius: 10px;
-    font-weight: 600;
+    background:var(--accent); color:#000; font-size:0.7rem;
+    padding:2px 9px; border-radius:10px; font-weight:700;
 }
-.history-back {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 8px 16px;
-    border-radius: 8px;
-    border: 1px solid var(--border-color);
-    background: var(--bg-elevated);
-    color: var(--text-secondary);
-    text-decoration: none;
-    font-size: 0.85rem;
-    transition: all 0.2s;
+.history-actions { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.btn-hist {
+    display:inline-flex; align-items:center; gap:6px;
+    padding:7px 14px; border-radius:8px; font-size:0.8rem;
+    border:1px solid var(--border-color); background:var(--bg-elevated);
+    color:var(--text-secondary); text-decoration:none; cursor:pointer;
+    transition:all .2s; font-family:inherit; font-weight:500;
 }
-.history-back:hover {
-    background: var(--accent);
-    color: #000;
-    border-color: var(--accent);
+.btn-hist:hover { background:var(--accent); color:#000; border-color:var(--accent); }
+.btn-hist.primary { background:var(--accent); color:#000; border-color:var(--accent); }
+.btn-hist.primary:hover { filter:brightness(1.1); }
+
+/* ── Stats Cards ───────────────────────────────────────────── */
+.history-stats {
+    display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));
+    gap:12px; margin-bottom:24px;
 }
-.history-timeline {
-    position: relative;
-    padding-left: 32px;
+.stat-card {
+    background:var(--bg-elevated); border:1px solid var(--border-color);
+    border-radius:12px; padding:16px 18px; display:flex;
+    align-items:center; gap:14px; transition:all .2s;
 }
+.stat-card:hover {
+    border-color:var(--accent); transform:translateY(-1px);
+    box-shadow:0 4px 16px rgba(34,197,94,0.06);
+}
+.stat-icon {
+    width:40px; height:40px; border-radius:10px; display:flex;
+    align-items:center; justify-content:center; flex-shrink:0;
+}
+.stat-icon.green  { background:rgba(34,197,94,0.12);  color:#22c55e; }
+.stat-icon.blue   { background:rgba(59,130,246,0.12);  color:#3b82f6; }
+.stat-icon.purple { background:rgba(168,85,247,0.12); color:#a855f7; }
+.stat-icon.amber  { background:rgba(245,158,11,0.12); color:#f59e0b; }
+.stat-value { font-size:1.3rem; font-weight:700; color:var(--text-primary); line-height:1; }
+.stat-label { font-size:0.72rem; color:var(--text-faint); margin-top:2px; text-transform:uppercase; letter-spacing:.5px; }
+
+/* ── Toolbar ───────────────────────────────────────────────── */
+.history-toolbar {
+    display:flex; align-items:center; justify-content:space-between;
+    margin-bottom:16px; gap:10px; flex-wrap:wrap;
+}
+.filter-chips { display:flex; gap:6px; flex-wrap:wrap; }
+.filter-chip {
+    display:inline-flex; align-items:center; gap:4px;
+    padding:5px 12px; border-radius:20px; font-size:0.75rem;
+    border:1px solid var(--border-color); background:var(--bg-elevated);
+    color:var(--text-secondary); cursor:pointer; transition:all .2s;
+    font-family:inherit; font-weight:500;
+}
+.filter-chip:hover, .filter-chip.active {
+    background:var(--accent); color:#000; border-color:var(--accent);
+}
+.filter-chip .chip-count {
+    background:rgba(0,0,0,0.15); padding:1px 6px; border-radius:10px;
+    font-size:0.65rem; font-weight:700;
+}
+.filter-chip.active .chip-count { background:rgba(0,0,0,0.25); }
+.search-mini {
+    display:flex; align-items:center; gap:6px; padding:6px 12px;
+    border-radius:8px; border:1px solid var(--border-color);
+    background:var(--bg-input); font-size:0.8rem; color:var(--text-primary);
+    width:220px; transition:border-color .2s;
+}
+.search-mini:focus-within { border-color:var(--accent); }
+.search-mini input {
+    border:none; background:transparent; outline:none; color:inherit;
+    font-size:inherit; font-family:inherit; width:100%;
+}
+.search-mini input::placeholder { color:var(--text-faint); }
+
+/* ── Timeline ──────────────────────────────────────────────── */
+.history-timeline { position:relative; padding-left:36px; }
 .history-timeline::before {
-    content: '';
-    position: absolute;
-    left: 14px;
-    top: 0;
-    bottom: 0;
-    width: 2px;
-    background: var(--border-color);
-    border-radius: 2px;
+    content:''; position:absolute; left:15px; top:0; bottom:0;
+    width:2px; background:linear-gradient(to bottom, var(--accent), var(--border-color) 50%, transparent);
+    border-radius:2px;
 }
-.history-entry {
-    position: relative;
-    margin-bottom: 20px;
-    padding: 16px 20px;
-    background: var(--bg-elevated);
-    border: 1px solid var(--border-color);
-    border-radius: 10px;
-    transition: all 0.2s;
+.timeline-entry {
+    position:relative; margin-bottom:16px; opacity:1;
+    transition:opacity .3s, transform .3s;
 }
-.history-entry:hover {
-    border-color: var(--accent);
-    box-shadow: 0 2px 12px rgba(34, 197, 94, 0.06);
+.timeline-entry.hidden { display:none; }
+.timeline-dot {
+    position:absolute; left:-28px; top:18px; width:12px; height:12px;
+    border-radius:50%; border:2.5px solid var(--bg-body); z-index:1;
+    transition:all .2s;
 }
-.history-entry::before {
-    content: '';
-    position: absolute;
-    left: -24px;
-    top: 20px;
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    background: var(--accent);
-    border: 2px solid var(--bg-body);
-    z-index: 1;
+.timeline-dot.create      { background:#22c55e; }
+.timeline-dot.update      { background:#3b82f6; }
+.timeline-dot.delete      { background:#ef4444; }
+.timeline-dot.view        { background:#a855f7; }
+.timeline-dot.bulk_action { background:#f59e0b; }
+.timeline-dot.export      { background:#06b6d4; }
+.timeline-dot.login       { background:#6366f1; }
+.timeline-dot.search      { background:#a855f7; }
+.timeline-dot.default     { background:var(--text-faint); }
+
+.entry-card {
+    background:var(--bg-elevated); border:1px solid var(--border-color);
+    border-radius:12px; overflow:hidden; transition:all .2s;
 }
-.history-entry-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 8px;
+.entry-card:hover {
+    border-color:var(--accent);
+    box-shadow:0 4px 20px rgba(34,197,94,0.06);
 }
-.history-action {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-weight: 600;
-    font-size: 0.9rem;
-    color: var(--text-primary);
+.entry-card-header {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 18px; cursor:pointer; user-select:none;
 }
-.history-action .action-badge {
-    font-size: 0.7rem;
-    padding: 2px 8px;
-    border-radius: 6px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    font-weight: 700;
+.entry-left { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.action-badge {
+    font-size:0.68rem; padding:3px 10px; border-radius:6px;
+    text-transform:uppercase; letter-spacing:.5px; font-weight:700;
+    white-space:nowrap;
 }
-.action-CREATE { background: rgba(34, 197, 94, 0.15); color: #22c55e; }
-.action-UPDATE { background: rgba(59, 130, 246, 0.15); color: #3b82f6; }
-.action-DELETE { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
-.action-VIEW { background: rgba(168, 85, 247, 0.15); color: #a855f7; }
-.action-BULK_ACTION { background: rgba(245, 158, 11, 0.15); color: #f59e0b; }
-.action-EXPORT { background: rgba(6, 182, 212, 0.15); color: #06b6d4; }
-.history-meta {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    font-size: 0.8rem;
-    color: var(--text-secondary);
+.action-CREATE      { background:rgba(34,197,94,0.15);  color:#22c55e; }
+.action-UPDATE      { background:rgba(59,130,246,0.15);  color:#3b82f6; }
+.action-DELETE      { background:rgba(239,68,68,0.15);   color:#ef4444; }
+.action-VIEW        { background:rgba(168,85,247,0.15);  color:#a855f7; }
+.action-BULK_ACTION { background:rgba(245,158,11,0.15);  color:#f59e0b; }
+.action-EXPORT      { background:rgba(6,182,212,0.15);   color:#06b6d4; }
+.action-LOGIN       { background:rgba(99,102,241,0.15);  color:#6366f1; }
+.action-SEARCH      { background:rgba(168,85,247,0.15);  color:#a855f7; }
+.action-create      { background:rgba(34,197,94,0.15);  color:#22c55e; }
+.action-update      { background:rgba(59,130,246,0.15);  color:#3b82f6; }
+.action-delete      { background:rgba(239,68,68,0.15);   color:#ef4444; }
+.action-view        { background:rgba(168,85,247,0.15);  color:#a855f7; }
+.action-bulk_action { background:rgba(245,158,11,0.15);  color:#f59e0b; }
+.action-export      { background:rgba(6,182,212,0.15);   color:#06b6d4; }
+.action-login       { background:rgba(99,102,241,0.15);  color:#6366f1; }
+.action-search      { background:rgba(168,85,247,0.15);  color:#a855f7; }
+
+.entry-user {
+    display:flex; align-items:center; gap:6px;
+    font-size:0.85rem; font-weight:600; color:var(--text-primary);
 }
-.history-meta .meta-item {
-    display: flex;
-    align-items: center;
-    gap: 4px;
+.user-avatar {
+    width:24px; height:24px; border-radius:50%;
+    background:linear-gradient(135deg, var(--accent), #059669);
+    display:flex; align-items:center; justify-content:center;
+    font-size:0.6rem; font-weight:700; color:#000; flex-shrink:0;
 }
-.history-details {
-    margin-top: 10px;
-    padding-top: 10px;
-    border-top: 1px solid var(--border-color);
-    font-size: 0.82rem;
-    color: var(--text-secondary);
+.entry-right { display:flex; align-items:center; gap:14px; }
+.entry-meta-item {
+    display:flex; align-items:center; gap:4px;
+    font-size:0.75rem; color:var(--text-faint);
 }
-.history-details code {
-    background: var(--bg-input);
-    padding: 1px 5px;
-    border-radius: 3px;
-    font-size: 0.78rem;
+.entry-chevron { transition:transform .2s; color:var(--text-faint); }
+.entry-card.expanded .entry-chevron { transform:rotate(180deg); }
+.fields-changed-hint {
+    font-size:0.72rem; color:var(--text-faint);
+    display:inline-flex; align-items:center; gap:3px;
 }
-.history-empty {
-    text-align: center;
-    padding: 60px 20px;
-    color: var(--text-faint);
+
+/* ── Expanded Detail Panel ─────────────────────────────────── */
+.entry-detail {
+    max-height:0; overflow:hidden; transition:max-height .35s ease;
+    border-top:0 solid var(--border-color);
 }
-.history-empty svg {
-    margin-bottom: 16px;
-    opacity: 0.4;
+.entry-card.expanded .entry-detail { max-height:2000px; border-top-width:1px; }
+.entry-detail-inner { padding:16px 18px; }
+
+/* Changes diff table */
+.diff-section { margin-bottom:14px; }
+.diff-section h4 {
+    font-size:0.78rem; font-weight:600; color:var(--text-secondary);
+    margin:0 0 8px; display:flex; align-items:center; gap:6px;
+}
+.diff-table {
+    width:100%; border-collapse:collapse; font-size:0.78rem;
+    border-radius:8px; overflow:hidden;
+}
+.diff-table th {
+    background:var(--bg-surface, var(--bg-body));
+    padding:8px 12px; text-align:left; font-weight:600;
+    color:var(--text-faint); text-transform:uppercase;
+    letter-spacing:.5px; font-size:0.68rem;
+}
+.diff-table td {
+    padding:8px 12px; border-top:1px solid var(--border-color);
+    vertical-align:top;
+}
+.diff-table tr:hover td { background:rgba(34,197,94,0.03); }
+.diff-field { font-weight:600; color:var(--text-primary); white-space:nowrap; }
+.diff-old {
+    background:rgba(239,68,68,0.08); color:#ef4444;
+    padding:2px 8px; border-radius:4px; font-family:var(--font-mono, monospace);
+    font-size:0.75rem; display:inline-block; max-width:320px;
+    overflow:hidden; text-overflow:ellipsis; word-break:break-all;
+    text-decoration:line-through; text-decoration-color:rgba(239,68,68,0.4);
+}
+.diff-new {
+    background:rgba(34,197,94,0.08); color:#22c55e;
+    padding:2px 8px; border-radius:4px; font-family:var(--font-mono, monospace);
+    font-size:0.75rem; display:inline-block; max-width:320px;
+    overflow:hidden; text-overflow:ellipsis; word-break:break-all;
+}
+.diff-arrow { color:var(--text-faint); margin:0 4px; font-size:0.85rem; }
+.diff-empty { color:var(--text-faint); font-style:italic; }
+
+/* Metadata grid */
+.meta-grid {
+    display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr));
+    gap:10px;
+}
+.meta-pair {
+    background:var(--bg-surface, var(--bg-body)); border-radius:8px;
+    padding:10px 14px;
+}
+.meta-pair-label {
+    font-size:0.68rem; text-transform:uppercase; letter-spacing:.5px;
+    color:var(--text-faint); margin-bottom:3px; font-weight:600;
+}
+.meta-pair-value {
+    font-size:0.82rem; color:var(--text-primary); word-break:break-all;
+    font-family:var(--font-mono, monospace);
+}
+.meta-pair-value.truncated {
+    max-height:40px; overflow:hidden; text-overflow:ellipsis;
+    cursor:pointer; position:relative;
+}
+.meta-pair-value.truncated::after {
+    content:'click to expand'; position:absolute; bottom:0; right:0;
+    background:var(--bg-surface, var(--bg-body)); padding-left:8px;
+    font-size:0.65rem; color:var(--accent); font-family:var(--font-sans, inherit);
+}
+.status-badge {
+    display:inline-flex; align-items:center; gap:4px;
+    font-size:0.72rem; padding:2px 8px; border-radius:6px; font-weight:600;
+}
+.status-badge.success { background:rgba(34,197,94,0.12); color:#22c55e; }
+.status-badge.failure { background:rgba(239,68,68,0.12); color:#ef4444; }
+
+/* ── Compare View ──────────────────────────────────────────── */
+.compare-bar {
+    position:sticky; bottom:0; left:0; right:0; z-index:50;
+    background:var(--bg-elevated); border-top:1px solid var(--border-color);
+    padding:12px 20px; display:none; align-items:center;
+    justify-content:space-between; gap:12px;
+    box-shadow:0 -4px 24px rgba(0,0,0,0.2); border-radius:12px 12px 0 0;
+    margin:0 -16px;
+}
+.compare-bar.show { display:flex; }
+.compare-info { font-size:0.82rem; color:var(--text-secondary); }
+.compare-info strong { color:var(--text-primary); }
+
+/* ── Empty State ───────────────────────────────────────────── */
+.history-empty { text-align:center; padding:80px 20px; color:var(--text-faint); }
+.history-empty-icon {
+    width:72px; height:72px; border-radius:50%;
+    background:var(--bg-elevated); border:1px solid var(--border-color);
+    display:flex; align-items:center; justify-content:center;
+    margin:0 auto 20px; opacity:.5;
 }
 .history-empty h3 {
-    font-size: 1.1rem;
-    font-weight: 500;
-    color: var(--text-secondary);
-    margin-bottom: 6px;
+    font-size:1.15rem; font-weight:600; color:var(--text-secondary);
+    margin:0 0 8px;
 }
-.history-empty p {
-    font-size: 0.85rem;
+.history-empty p { font-size:0.85rem; max-width:400px; margin:0 auto; line-height:1.6; }
+
+/* ── Export modal ──────────────────────────────────────────── */
+.modal-backdrop {
+    position:fixed; inset:0; background:rgba(0,0,0,0.5);
+    backdrop-filter:blur(4px); z-index:1000; display:none;
+    align-items:center; justify-content:center;
 }
+.modal-backdrop.show { display:flex; }
+.modal-card {
+    background:var(--bg-elevated); border:1px solid var(--border-color);
+    border-radius:14px; padding:28px 32px; width:90%; max-width:480px;
+    box-shadow:0 24px 64px rgba(0,0,0,0.4);
+}
+.modal-card h3 {
+    margin:0 0 16px; font-size:1rem; font-weight:600; color:var(--text-primary);
+    display:flex; align-items:center; gap:6px;
+}
+.modal-actions { display:flex; gap:8px; margin-top:20px; justify-content:flex-end; }
+
+/* ── Responsive ────────────────────────────────────────────── */
+@media(max-width:768px) {
+    .history-page { padding:16px 8px; }
+    .history-stats { grid-template-columns:repeat(2,1fr); }
+    .entry-card-header { flex-direction:column; align-items:flex-start; gap:8px; }
+    .entry-right { width:100%; justify-content:space-between; }
+    .meta-grid { grid-template-columns:1fr; }
+    .search-mini { width:100%; }
+    .history-toolbar { flex-direction:column; align-items:stretch; }
+}
+
+/* ── Light theme overrides ─────────────────────────────────── */
+[data-theme="light"] .stat-card:hover { box-shadow:0 4px 16px rgba(0,0,0,0.06); }
+[data-theme="light"] .entry-card:hover { box-shadow:0 4px 20px rgba(0,0,0,0.06); }
+[data-theme="light"] .diff-old { background:rgba(239,68,68,0.06); }
+[data-theme="light"] .diff-new { background:rgba(34,197,94,0.06); }
+[data-theme="light"] .user-avatar { color:#fff; }
+[data-theme="light"] .compare-bar { box-shadow:0 -4px 24px rgba(0,0,0,0.08); }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="history-container">
+<div class="history-page">
+    <!-- ── Header ──────────────────────────────────────── -->
     <div class="history-header">
         <h1>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
             Change History
             <span class="badge">{{ entries|length }}</span>
         </h1>
-        <a href="{{ url_prefix }}/{{ model_name|lower }}/{{ pk }}" class="history-back">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
-            Back to {{ verbose_name }}
-        </a>
+        <div class="history-actions">
+            {% if entries|length > 0 %}
+            <button class="btn-hist" id="expandAllBtn" title="Expand / collapse all (E)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="7 13 12 18 17 13"/><polyline points="7 6 12 11 17 6"/></svg>
+                Expand All
+            </button>
+            <button class="btn-hist" id="compareBtn" title="Compare two entries">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+                Compare
+            </button>
+            <button class="btn-hist" id="exportBtn" title="Export history">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Export
+            </button>
+            {% endif %}
+            <a href="{{ url_prefix }}/{{ model_name|lower }}/{{ pk }}" class="btn-hist primary">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+                Back to {{ verbose_name }}
+            </a>
+        </div>
     </div>
 
     {% if entries|length > 0 %}
-    <div class="history-timeline">
+    <!-- ── Stats Cards ─────────────────────────────────── -->
+    <div class="history-stats">
+        <div class="stat-card">
+            <div class="stat-icon green">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            </div>
+            <div>
+                <div class="stat-value">{{ stats.total_entries }}</div>
+                <div class="stat-label">Total Events</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon blue">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            </div>
+            <div>
+                <div class="stat-value">{{ stats.unique_users }}</div>
+                <div class="stat-label">Contributors</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon purple">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            </div>
+            <div>
+                <div class="stat-value">{{ stats.total_field_changes }}</div>
+                <div class="stat-label">Field Changes</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon amber">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            </div>
+            <div>
+                <div class="stat-value" id="lastActivityAge">&mdash;</div>
+                <div class="stat-label">Last Activity</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Toolbar ─────────────────────────────────────── -->
+    <div class="history-toolbar">
+        <div class="filter-chips">
+            <button class="filter-chip active" data-filter="all">
+                All <span class="chip-count">{{ entries|length }}</span>
+            </button>
+            {% for act_name, act_count in stats.action_counts.items() %}
+            <button class="filter-chip" data-filter="{{ act_name }}">
+                {{ act_name|replace('_', ' ')|capitalize }} <span class="chip-count">{{ act_count }}</span>
+            </button>
+            {% endfor %}
+        </div>
+        <div class="search-mini">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" id="historySearch" placeholder="Search history… (F)" autocomplete="off">
+        </div>
+    </div>
+
+    <!-- ── Timeline ────────────────────────────────────── -->
+    <div class="history-timeline" id="historyTimeline">
         {% for entry in entries %}
-        <div class="history-entry">
-            <div class="history-entry-header">
-                <div class="history-action">
-                    <span class="action-badge action-{{ entry.action|replace('AdminAction.', '')|replace('ADMIN_ACTION.', '') }}">
-                        {{ entry.action|replace('AdminAction.', '')|replace('ADMIN_ACTION.', '') }}
-                    </span>
-                    by <strong>{{ entry.username }}</strong>
+        <div class="timeline-entry" data-action="{{ entry.action }}" data-username="{{ entry.username }}" data-timestamp="{{ entry.timestamp }}" data-index="{{ loop.index0 }}">
+            <div class="timeline-dot {{ entry.action|lower|default('default') }}"></div>
+            <div class="entry-card" id="entry-{{ loop.index0 }}">
+                <div class="entry-card-header" onclick="toggleEntry({{ loop.index0 }})">
+                    <div class="entry-left">
+                        <span class="action-badge action-{{ entry.action }}">{{ entry.action|replace('_', ' ') }}</span>
+                        <div class="entry-user">
+                            <span class="user-avatar">{{ entry.username[:2]|upper }}</span>
+                            {{ entry.username }}
+                        </div>
+                        {% if entry.fields_changed > 0 %}
+                        <span class="fields-changed-hint">
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                            {{ entry.fields_changed }} field{{ 's' if entry.fields_changed != 1 else '' }}
+                        </span>
+                        {% endif %}
+                        {% if not entry.success %}
+                        <span class="status-badge failure">
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                            Failed
+                        </span>
+                        {% endif %}
+                    </div>
+                    <div class="entry-right">
+                        {% if entry.role %}
+                        <span class="entry-meta-item" title="Role">
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                            {{ entry.role }}
+                        </span>
+                        {% endif %}
+                        {% if entry.ip_address %}
+                        <span class="entry-meta-item" title="IP Address">
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/></svg>
+                            {{ entry.ip_address }}
+                        </span>
+                        {% endif %}
+                        <span class="entry-meta-item entry-time" data-ts="{{ entry.timestamp }}" title="{{ entry.timestamp }}">
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                            <span class="time-text">{{ entry.timestamp }}</span>
+                        </span>
+                        <span class="entry-chevron">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                        </span>
+                    </div>
                 </div>
-                <div class="history-meta">
-                    {% if entry.ip_address %}
-                    <span class="meta-item">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/><line x1="2" y1="17" x2="7" y2="17"/><line x1="17" y1="17" x2="22" y2="17"/><line x1="17" y1="7" x2="22" y2="7"/></svg>
-                        {{ entry.ip_address }}
-                    </span>
-                    {% endif %}
-                    <span class="meta-item">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                        {{ entry.timestamp }}
-                    </span>
+                <div class="entry-detail">
+                    <div class="entry-detail-inner">
+                        <!-- Changes diff -->
+                        {% if entry.changes and entry.changes|length > 0 %}
+                        <div class="diff-section">
+                            <h4>
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                                Field Changes
+                                <span style="font-weight:400;color:var(--text-faint);font-size:0.72rem;">({{ entry.changes|length }})</span>
+                            </h4>
+                            <table class="diff-table">
+                                <thead>
+                                    <tr>
+                                        <th style="width:22%;">Field</th>
+                                        <th style="width:34%;">Previous Value</th>
+                                        <th style="width:5%;"></th>
+                                        <th style="width:34%;">New Value</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for field_name, change in entry.changes.items() %}
+                                    <tr>
+                                        <td class="diff-field">{{ field_name }}</td>
+                                        {% if change is mapping %}
+                                        <td><span class="diff-old" title="{{ change.old|default('(empty)') }}">{{ change.old|default('(empty)') if change.old is not none else '(empty)' }}</span></td>
+                                        <td style="text-align:center;"><span class="diff-arrow">→</span></td>
+                                        <td><span class="diff-new" title="{{ change.new|default('(empty)') }}">{{ change.new|default('(empty)') if change.new is not none else '(empty)' }}</span></td>
+                                        {% else %}
+                                        <td colspan="3"><span class="diff-new">{{ change }}</span></td>
+                                        {% endif %}
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% elif entry.action in ['create', 'CREATE'] %}
+                        <div class="diff-section">
+                            <h4>
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                                Record Created
+                            </h4>
+                            <p style="font-size:0.82rem;color:var(--text-secondary);margin:0;">
+                                A new record was created. No field-level diff is available for creation events.
+                            </p>
+                        </div>
+                        {% elif entry.action in ['delete', 'DELETE'] %}
+                        <div class="diff-section">
+                            <h4>
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                                Record Deleted
+                            </h4>
+                            <p style="font-size:0.82rem;color:var(--text-secondary);margin:0;">
+                                This record was permanently deleted from the database.
+                            </p>
+                        </div>
+                        {% endif %}
+
+                        <!-- Metadata & audit details -->
+                        <div class="diff-section">
+                            <h4>
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                                Audit Details
+                            </h4>
+                            <div class="meta-grid">
+                                {% if entry.id %}
+                                <div class="meta-pair">
+                                    <div class="meta-pair-label">Entry ID</div>
+                                    <div class="meta-pair-value" style="font-size:0.72rem;">{{ entry.id }}</div>
+                                </div>
+                                {% endif %}
+                                <div class="meta-pair">
+                                    <div class="meta-pair-label">Timestamp (UTC)</div>
+                                    <div class="meta-pair-value full-ts" data-ts="{{ entry.timestamp }}">{{ entry.timestamp }}</div>
+                                </div>
+                                <div class="meta-pair">
+                                    <div class="meta-pair-label">User</div>
+                                    <div class="meta-pair-value">{{ entry.username }}{% if entry.user_id %} <span style="color:var(--text-faint);font-size:0.72rem;">({{ entry.user_id }})</span>{% endif %}</div>
+                                </div>
+                                {% if entry.role %}
+                                <div class="meta-pair">
+                                    <div class="meta-pair-label">Role</div>
+                                    <div class="meta-pair-value">{{ entry.role }}</div>
+                                </div>
+                                {% endif %}
+                                {% if entry.ip_address %}
+                                <div class="meta-pair">
+                                    <div class="meta-pair-label">IP Address</div>
+                                    <div class="meta-pair-value">{{ entry.ip_address }}</div>
+                                </div>
+                                {% endif %}
+                                {% if entry.user_agent %}
+                                <div class="meta-pair">
+                                    <div class="meta-pair-label">User Agent</div>
+                                    <div class="meta-pair-value truncated" onclick="this.classList.toggle('truncated')">{{ entry.user_agent }}</div>
+                                </div>
+                                {% endif %}
+                                <div class="meta-pair">
+                                    <div class="meta-pair-label">Status</div>
+                                    <div class="meta-pair-value">
+                                        {% if entry.success %}
+                                        <span class="status-badge success">
+                                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                                            Success
+                                        </span>
+                                        {% else %}
+                                        <span class="status-badge failure">
+                                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                                            Failed
+                                        </span>
+                                        {% if entry.error_message %}
+                                        <div style="margin-top:6px;font-size:0.75rem;color:#ef4444;background:rgba(239,68,68,0.06);padding:6px 10px;border-radius:6px;">{{ entry.error_message }}</div>
+                                        {% endif %}
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                {% for key, value in entry.metadata.items() %}
+                                {% if key not in ['pk', 'record_id'] %}
+                                <div class="meta-pair">
+                                    <div class="meta-pair-label">{{ key|replace('_', ' ')|title }}</div>
+                                    <div class="meta-pair-value">{{ value }}</div>
+                                </div>
+                                {% endif %}
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
-            {% if entry.metadata %}
-            <div class="history-details">
-                {% for key, value in entry.metadata.items() %}
-                {% if key not in ['pk', 'record_id'] %}
-                <span><code>{{ key }}</code>: {{ value }}</span>
-                {% if not loop.last %} &nbsp;·&nbsp; {% endif %}
-                {% endif %}
-                {% endfor %}
-            </div>
-            {% endif %}
         </div>
         {% endfor %}
     </div>
+
+    <!-- ── Compare bar (sticky bottom) ─────────────────── -->
+    <div class="compare-bar" id="compareBar">
+        <div class="compare-info">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:4px;"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+            Select <strong>2 entries</strong> to compare &mdash; <span id="compareCount">0</span>/2 selected
+        </div>
+        <div style="display:flex;gap:8px;">
+            <button class="btn-hist" id="compareViewBtn" disabled>View Comparison</button>
+            <button class="btn-hist" id="compareCancelBtn">Cancel</button>
+        </div>
+    </div>
+
     {% else %}
+    <!-- ── Empty State ─────────────────────────────────── -->
     <div class="history-empty">
-        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        <div class="history-empty-icon">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        </div>
         <h3>No History Found</h3>
-        <p>No changes have been recorded for this record yet.</p>
+        <p>No changes have been recorded for this record yet. Actions like creating, editing, or deleting will appear here automatically.</p>
+        <a href="{{ url_prefix }}/{{ model_name|lower }}/{{ pk }}" class="btn-hist primary" style="margin-top:20px;display:inline-flex;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+            Back to {{ verbose_name }}
+        </a>
     </div>
     {% endif %}
+</div>
+
+<!-- ── Export Modal ─────────────────────────────────── -->
+<div class="modal-backdrop" id="exportModal">
+    <div class="modal-card">
+        <h3>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Export History
+        </h3>
+        <p style="font-size:0.82rem;color:var(--text-secondary);margin:0 0 16px;">
+            Download the full audit trail for <strong>{{ verbose_name }} #{{ pk }}</strong>.
+        </p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+            <button class="btn-hist" onclick="exportHistory('json')" style="justify-content:center;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                JSON
+            </button>
+            <button class="btn-hist" onclick="exportHistory('csv')" style="justify-content:center;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
+                CSV
+            </button>
+        </div>
+        <div class="modal-actions">
+            <button class="btn-hist" onclick="closeExportModal()">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<!-- ── Compare Modal ───────────────────────────────── -->
+<div class="modal-backdrop" id="compareModal">
+    <div class="modal-card" style="max-width:720px;">
+        <h3>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+            Entry Comparison
+        </h3>
+        <div id="compareContent" style="font-size:0.82rem;color:var(--text-secondary);max-height:60vh;overflow-y:auto;"></div>
+        <div class="modal-actions">
+            <button class="btn-hist" onclick="closeCompareModal()">Close</button>
+        </div>
+    </div>
 </div>
 {% endblock %}
 
 {% block extra_js %}
-// Relative time formatting for history entries
 (function() {
     'use strict';
+
+    /* ── Data ──────────────────────────────────────────── */
+    var entries = {{ entries|tojson|default('[]') }};
+    var modelName = {{ model_name|tojson|default('""') }};
+    var pk = {{ pk|tojson|default('""') }};
+
+    /* ── Relative time helper ──────────────────────────── */
     function relativeTime(dateStr) {
         if (!dateStr) return '';
         var d;
         try { d = new Date(dateStr); } catch(e) { return dateStr; }
         if (isNaN(d.getTime())) return dateStr;
-        var now = Date.now();
-        var diff = now - d.getTime();
+        var diff = Date.now() - d.getTime();
         var sec = Math.floor(diff / 1000);
-        if (sec < 60) return 'just now';
+        if (sec < 5) return 'just now';
+        if (sec < 60) return sec + 's ago';
         var min = Math.floor(sec / 60);
         if (min < 60) return min + 'm ago';
         var hr = Math.floor(min / 60);
         if (hr < 24) return hr + 'h ago';
         var days = Math.floor(hr / 24);
         if (days < 7) return days + 'd ago';
-        return d.toLocaleDateString();
+        if (days < 30) return Math.floor(days / 7) + 'w ago';
+        return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
     }
-    // Update timestamps to relative
-    document.querySelectorAll('.history-meta .meta-item:last-child').forEach(function(el) {
-        var txt = el.textContent.trim();
-        var rel = relativeTime(txt);
-        if (rel && rel !== txt) {
-            el.setAttribute('title', txt);
-            // Keep the SVG, replace only text
-            var svg = el.querySelector('svg');
-            if (svg) {
-                el.innerHTML = '';
-                el.appendChild(svg);
-                el.appendChild(document.createTextNode(' ' + rel));
-            }
+
+    function fullDateTime(dateStr) {
+        if (!dateStr) return '';
+        try {
+            var d = new Date(dateStr);
+            if (isNaN(d.getTime())) return dateStr;
+            return d.toLocaleString(undefined, {
+                year: 'numeric', month: 'short', day: 'numeric',
+                hour: '2-digit', minute: '2-digit', second: '2-digit'
+            });
+        } catch(e) { return dateStr; }
+    }
+
+    /* ── Apply relative times ──────────────────────────── */
+    document.querySelectorAll('.entry-time').forEach(function(el) {
+        var ts = el.getAttribute('data-ts');
+        var rel = relativeTime(ts);
+        var textEl = el.querySelector('.time-text');
+        if (textEl && rel) {
+            textEl.textContent = rel;
+            el.setAttribute('title', fullDateTime(ts));
         }
     });
+
+    /* Format full timestamps in detail panels */
+    document.querySelectorAll('.full-ts').forEach(function(el) {
+        var ts = el.getAttribute('data-ts');
+        var formatted = fullDateTime(ts);
+        if (formatted) el.textContent = formatted;
+    });
+
+    /* Last activity in stats card */
+    var lastEl = document.getElementById('lastActivityAge');
+    if (lastEl && entries.length > 0) {
+        var lastTs = entries[0].timestamp || '';
+        lastEl.textContent = relativeTime(lastTs);
+        lastEl.title = fullDateTime(lastTs);
+    }
+
+    /* ── Expand / Collapse ─────────────────────────────── */
+    var allExpanded = false;
+    window.toggleEntry = function(idx) {
+        var card = document.getElementById('entry-' + idx);
+        if (card) card.classList.toggle('expanded');
+    };
+
+    var expandBtn = document.getElementById('expandAllBtn');
+    if (expandBtn) {
+        expandBtn.addEventListener('click', function() {
+            allExpanded = !allExpanded;
+            document.querySelectorAll('.entry-card').forEach(function(c) {
+                if (allExpanded) c.classList.add('expanded');
+                else c.classList.remove('expanded');
+            });
+            this.innerHTML = allExpanded
+                ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 11 12 6 7 11"/><polyline points="17 18 12 13 7 18"/></svg> Collapse All'
+                : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="7 13 12 18 17 13"/><polyline points="7 6 12 11 17 6"/></svg> Expand All';
+        });
+    }
+
+    /* ── Filter chips ──────────────────────────────────── */
+    document.querySelectorAll('.filter-chip').forEach(function(chip) {
+        chip.addEventListener('click', function() {
+            document.querySelectorAll('.filter-chip').forEach(function(c) { c.classList.remove('active'); });
+            chip.classList.add('active');
+            var filter = chip.getAttribute('data-filter');
+            document.querySelectorAll('.timeline-entry').forEach(function(entry) {
+                if (filter === 'all' || entry.getAttribute('data-action') === filter) {
+                    entry.classList.remove('hidden');
+                } else {
+                    entry.classList.add('hidden');
+                }
+            });
+        });
+    });
+
+    /* ── Search ────────────────────────────────────────── */
+    var searchInput = document.getElementById('historySearch');
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            var q = this.value.toLowerCase().trim();
+            /* Reset filter chips to "all" when searching */
+            document.querySelectorAll('.filter-chip').forEach(function(c) { c.classList.remove('active'); });
+            var allChip = document.querySelector('.filter-chip[data-filter="all"]');
+            if (allChip) allChip.classList.add('active');
+
+            document.querySelectorAll('.timeline-entry').forEach(function(entry) {
+                if (!q) { entry.classList.remove('hidden'); return; }
+                var text = (
+                    (entry.getAttribute('data-action') || '') + ' ' +
+                    (entry.getAttribute('data-username') || '') + ' ' +
+                    (entry.getAttribute('data-timestamp') || '') + ' ' +
+                    entry.textContent
+                ).toLowerCase();
+                entry.classList.toggle('hidden', text.indexOf(q) === -1);
+            });
+        });
+    }
+
+    /* ── Compare mode ──────────────────────────────────── */
+    var compareMode = false;
+    var compareSelection = [];
+    var compareBar = document.getElementById('compareBar');
+    var compareBtn = document.getElementById('compareBtn');
+    var compareCancelBtn = document.getElementById('compareCancelBtn');
+    var compareViewBtn = document.getElementById('compareViewBtn');
+    var compareCountEl = document.getElementById('compareCount');
+    var compareModal = document.getElementById('compareModal');
+    var compareContent = document.getElementById('compareContent');
+
+    function enterCompareMode() {
+        compareMode = true;
+        compareSelection = [];
+        if (compareBar) compareBar.classList.add('show');
+        updateCompareUI();
+        document.querySelectorAll('.entry-card-header').forEach(function(h) {
+            h.style.outline = '2px dashed transparent';
+            h.style.outlineOffset = '-2px';
+            h.style.transition = 'outline-color .2s';
+        });
+    }
+
+    function exitCompareMode() {
+        compareMode = false;
+        compareSelection = [];
+        if (compareBar) compareBar.classList.remove('show');
+        document.querySelectorAll('.entry-card-header').forEach(function(h) {
+            h.style.outline = '';
+            h.style.outlineOffset = '';
+        });
+        document.querySelectorAll('.entry-card').forEach(function(c) {
+            c.style.outline = '';
+        });
+    }
+
+    function updateCompareUI() {
+        if (compareCountEl) compareCountEl.textContent = compareSelection.length;
+        if (compareViewBtn) compareViewBtn.disabled = compareSelection.length !== 2;
+        /* Highlight selected cards */
+        document.querySelectorAll('.entry-card').forEach(function(c) {
+            var idx = parseInt(c.id.replace('entry-', ''));
+            if (compareSelection.indexOf(idx) !== -1) {
+                c.style.outline = '2px solid var(--accent)';
+                c.style.outlineOffset = '-2px';
+            } else {
+                c.style.outline = '';
+            }
+        });
+    }
+
+    if (compareBtn) {
+        compareBtn.addEventListener('click', function() {
+            if (compareMode) exitCompareMode();
+            else enterCompareMode();
+        });
+    }
+    if (compareCancelBtn) {
+        compareCancelBtn.addEventListener('click', exitCompareMode);
+    }
+
+    /* Intercept click on entry header in compare mode */
+    var origToggle = window.toggleEntry;
+    window.toggleEntry = function(idx) {
+        if (compareMode) {
+            var pos = compareSelection.indexOf(idx);
+            if (pos !== -1) {
+                compareSelection.splice(pos, 1);
+            } else if (compareSelection.length < 2) {
+                compareSelection.push(idx);
+            }
+            updateCompareUI();
+            return;
+        }
+        origToggle(idx);
+    };
+
+    if (compareViewBtn) {
+        compareViewBtn.addEventListener('click', function() {
+            if (compareSelection.length !== 2) return;
+            var a = entries[compareSelection[0]];
+            var b = entries[compareSelection[1]];
+            if (!a || !b) return;
+
+            var html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">';
+            /* Headers */
+            html += '<div style="padding:10px 14px;background:var(--bg-surface,var(--bg-body));border-radius:8px;">';
+            html += '<div style="font-weight:700;color:var(--text-primary);margin-bottom:4px;">' + (a.action || '') + ' by ' + (a.username || '') + '</div>';
+            html += '<div style="font-size:0.75rem;color:var(--text-faint);">' + fullDateTime(a.timestamp) + '</div>';
+            html += '</div>';
+            html += '<div style="padding:10px 14px;background:var(--bg-surface,var(--bg-body));border-radius:8px;">';
+            html += '<div style="font-weight:700;color:var(--text-primary);margin-bottom:4px;">' + (b.action || '') + ' by ' + (b.username || '') + '</div>';
+            html += '<div style="font-size:0.75rem;color:var(--text-faint);">' + fullDateTime(b.timestamp) + '</div>';
+            html += '</div>';
+            html += '</div>';
+
+            /* Diff comparison */
+            var allFields = {};
+            var ac = a.changes || {};
+            var bc = b.changes || {};
+            Object.keys(ac).forEach(function(k) { allFields[k] = true; });
+            Object.keys(bc).forEach(function(k) { allFields[k] = true; });
+            var fieldNames = Object.keys(allFields);
+
+            if (fieldNames.length > 0) {
+                html += '<table class="diff-table" style="margin-top:16px;">';
+                html += '<thead><tr><th>Field</th><th>Entry A</th><th>Entry B</th></tr></thead><tbody>';
+                fieldNames.forEach(function(f) {
+                    var aVal = ac[f] ? (typeof ac[f] === 'object' ? (ac[f].new || ac[f].old || JSON.stringify(ac[f])) : String(ac[f])) : '—';
+                    var bVal = bc[f] ? (typeof bc[f] === 'object' ? (bc[f].new || bc[f].old || JSON.stringify(bc[f])) : String(bc[f])) : '—';
+                    var diff = aVal !== bVal;
+                    html += '<tr>';
+                    html += '<td class="diff-field">' + f + '</td>';
+                    html += '<td>' + (diff ? '<span class="diff-old">' : '') + aVal + (diff ? '</span>' : '') + '</td>';
+                    html += '<td>' + (diff ? '<span class="diff-new">' : '') + bVal + (diff ? '</span>' : '') + '</td>';
+                    html += '</tr>';
+                });
+                html += '</tbody></table>';
+            } else {
+                html += '<p style="margin-top:16px;color:var(--text-faint);text-align:center;">No field changes to compare between these entries.</p>';
+            }
+
+            if (compareContent) compareContent.innerHTML = html;
+            if (compareModal) compareModal.classList.add('show');
+        });
+    }
+
+    window.closeCompareModal = function() {
+        if (compareModal) compareModal.classList.remove('show');
+    };
+
+    /* ── Export ─────────────────────────────────────────── */
+    var exportModal = document.getElementById('exportModal');
+    var exportBtn = document.getElementById('exportBtn');
+    if (exportBtn) {
+        exportBtn.addEventListener('click', function() {
+            if (exportModal) exportModal.classList.add('show');
+        });
+    }
+    window.closeExportModal = function() {
+        if (exportModal) exportModal.classList.remove('show');
+    };
+    if (exportModal) {
+        exportModal.addEventListener('click', function(e) {
+            if (e.target === exportModal) closeExportModal();
+        });
+    }
+    if (compareModal) {
+        compareModal.addEventListener('click', function(e) {
+            if (e.target === compareModal) closeCompareModal();
+        });
+    }
+
+    window.exportHistory = function(fmt) {
+        var data = entries;
+        var blob, filename;
+        if (fmt === 'json') {
+            blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            filename = modelName + '_' + pk + '_history.json';
+        } else {
+            /* CSV export with all fields */
+            var cols = ['timestamp', 'username', 'role', 'action', 'ip_address', 'success', 'fields_changed', 'changes'];
+            var lines = [cols.join(',')];
+            data.forEach(function(e) {
+                lines.push(cols.map(function(c) {
+                    var v = c === 'changes' ? JSON.stringify(e[c] || {}) : String(e[c] != null ? e[c] : '');
+                    return '"' + v.replace(/"/g, '""') + '"';
+                }).join(','));
+            });
+            blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+            filename = modelName + '_' + pk + '_history.csv';
+        }
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url; a.download = filename;
+        document.body.appendChild(a); a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        closeExportModal();
+        if (typeof showToast === 'function') {
+            showToast('Exported ' + data.length + ' entries as ' + fmt.toUpperCase(), 'success');
+        }
+    };
+
+    /* ── Keyboard shortcuts ────────────────────────────── */
+    document.addEventListener('keydown', function(e) {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+        if (e.key === 'Escape') {
+            closeExportModal();
+            closeCompareModal();
+            if (compareMode) exitCompareMode();
+            return;
+        }
+        if (e.key === 'e' || e.key === 'E') {
+            if (expandBtn) expandBtn.click();
+            return;
+        }
+        if ((e.key === 'f' || e.key === 'F') && !e.ctrlKey && !e.metaKey) {
+            e.preventDefault();
+            if (searchInput) searchInput.focus();
+            return;
+        }
+        if (e.key === 'c' || e.key === 'C') {
+            if (compareBtn && !compareMode) compareBtn.click();
+            return;
+        }
+    });
+
+    /* ── Auto-expand first entry with changes ──────────── */
+    var autoExpanded = false;
+    for (var i = 0; i < entries.length; i++) {
+        if (entries[i].changes && Object.keys(entries[i].changes).length > 0) {
+            var firstCard = document.getElementById('entry-' + i);
+            if (firstCard) { firstCard.classList.add('expanded'); autoExpanded = true; }
+            break;
+        }
+    }
+    /* If no entry has changes, expand the first one anyway */
+    if (!autoExpanded && entries.length > 0) {
+        var firstCard = document.getElementById('entry-0');
+        if (firstCard) firstCard.classList.add('expanded');
+    }
+
+    /* ── Live time updates (every 30s) ─────────────────── */
+    setInterval(function() {
+        document.querySelectorAll('.entry-time').forEach(function(el) {
+            var ts = el.getAttribute('data-ts');
+            var textEl = el.querySelector('.time-text');
+            if (textEl) textEl.textContent = relativeTime(ts);
+        });
+        if (lastEl && entries.length > 0) {
+            lastEl.textContent = relativeTime(entries[0].timestamp || '');
+        }
+    }, 30000);
 })();
 {% endblock %}
