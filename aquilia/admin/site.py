@@ -58,6 +58,7 @@ class AdminConfig:
         "containers": False, "pods": False,
         "query_inspector": False, "tasks": False, "errors": False,
         "testing": False, "mlops": False, "storage": False,
+        "mailer": False,
     })
 
     # Audit settings (disabled by default -- opt in)
@@ -1229,6 +1230,176 @@ class AdminSite:
     def set_task_manager(self, manager) -> None:
         """Register the application's TaskManager for admin integration."""
         self._task_manager = manager
+
+    # ── Mailer data ──────────────────────────────────────────────────
+
+    def set_mail_service(self, service) -> None:
+        """Register the application's MailService for admin integration."""
+        self._mail_service = service
+
+    def get_mailer_data(self) -> Dict[str, Any]:
+        """
+        Gather comprehensive mail subsystem data for the admin mailer page.
+
+        Inspects the MailService, MailConfig, providers, template dirs,
+        queue stats, rate limits, security settings, and recent envelope history.
+        """
+        data: Dict[str, Any] = {
+            "available": False,
+            "enabled": False,
+            "config": {},
+            "providers": [],
+            "provider_count": 0,
+            "active_provider_count": 0,
+            "default_from": "noreply@localhost",
+            "default_reply_to": None,
+            "subject_prefix": "",
+            "preview_mode": False,
+            "console_backend": False,
+            "metrics_enabled": False,
+            "tracing_enabled": False,
+            "retry": {},
+            "rate_limit": {},
+            "security": {},
+            "templates": {},
+            "queue": {},
+            "is_healthy": False,
+            "recent_envelopes": [],
+            "stats": {
+                "total_sent": 0,
+                "total_failed": 0,
+                "total_queued": 0,
+                "total_bounced": 0,
+            },
+        }
+
+        svc = getattr(self, "_mail_service", None)
+        if svc is None:
+            return data
+
+        data["available"] = True
+
+        try:
+            config = getattr(svc, "config", None)
+            if config is None:
+                return data
+
+            data["enabled"] = getattr(config, "enabled", False)
+            data["default_from"] = getattr(config, "default_from", "noreply@localhost")
+            data["default_reply_to"] = getattr(config, "default_reply_to", None)
+            data["subject_prefix"] = getattr(config, "subject_prefix", "")
+            data["preview_mode"] = getattr(config, "preview_mode", False)
+            data["console_backend"] = getattr(config, "console_backend", False)
+            data["metrics_enabled"] = getattr(config, "metrics_enabled", False)
+            data["tracing_enabled"] = getattr(config, "tracing_enabled", False)
+            data["is_healthy"] = svc.is_healthy() if hasattr(svc, "is_healthy") else False
+
+            # Providers
+            providers_info = []
+            config_providers = getattr(config, "providers", [])
+            active_names = svc.get_provider_names() if hasattr(svc, "get_provider_names") else []
+            for pc in config_providers:
+                p_name = getattr(pc, "name", "unknown")
+                p_type = getattr(pc, "type", "unknown")
+                p_enabled = getattr(pc, "enabled", True)
+                p_priority = getattr(pc, "priority", 50)
+                p_active = p_name in active_names
+                p_rate = getattr(pc, "rate_limit_per_min", 600)
+
+                # SMTP-specific
+                p_host = getattr(pc, "host", None)
+                p_port = getattr(pc, "port", None)
+                p_tls = getattr(pc, "use_tls", True)
+                p_ssl = getattr(pc, "use_ssl", False)
+                p_timeout = getattr(pc, "timeout", 30.0)
+
+                providers_info.append({
+                    "name": p_name,
+                    "type": p_type,
+                    "type_display": {
+                        "smtp": "SMTP",
+                        "ses": "AWS SES",
+                        "sendgrid": "SendGrid",
+                        "console": "Console (Dev)",
+                        "file": "File (Dev)",
+                    }.get(p_type, p_type.title()),
+                    "enabled": p_enabled,
+                    "active": p_active,
+                    "priority": p_priority,
+                    "rate_limit_per_min": p_rate,
+                    "host": p_host,
+                    "port": p_port,
+                    "use_tls": p_tls,
+                    "use_ssl": p_ssl,
+                    "timeout": p_timeout,
+                    "status": "active" if p_active else ("disabled" if not p_enabled else "inactive"),
+                })
+
+            data["providers"] = providers_info
+            data["provider_count"] = len(providers_info)
+            data["active_provider_count"] = len(active_names)
+
+            # Retry config
+            retry = getattr(config, "retry", None)
+            if retry:
+                data["retry"] = {
+                    "max_attempts": getattr(retry, "max_attempts", 5),
+                    "base_delay": getattr(retry, "base_delay", 1.0),
+                    "max_delay": getattr(retry, "max_delay", 3600.0),
+                    "jitter": getattr(retry, "jitter", True),
+                }
+
+            # Rate limit config
+            rl = getattr(config, "rate_limit", None)
+            if rl:
+                data["rate_limit"] = {
+                    "global_per_minute": getattr(rl, "global_per_minute", 1000),
+                    "per_domain_per_minute": getattr(rl, "per_domain_per_minute", 100),
+                    "per_provider_per_minute": getattr(rl, "per_provider_per_minute", None),
+                }
+
+            # Security config
+            sec = getattr(config, "security", None)
+            if sec:
+                data["security"] = {
+                    "dkim_enabled": getattr(sec, "dkim_enabled", False),
+                    "dkim_domain": getattr(sec, "dkim_domain", None),
+                    "dkim_selector": getattr(sec, "dkim_selector", "aquilia"),
+                    "require_tls": getattr(sec, "require_tls", True),
+                    "pii_redaction_enabled": getattr(sec, "pii_redaction_enabled", False),
+                    "allowed_from_domains": list(getattr(sec, "allowed_from_domains", [])),
+                }
+
+            # Template config
+            tmpl = getattr(config, "templates", None)
+            if tmpl:
+                data["templates"] = {
+                    "template_dirs": list(getattr(tmpl, "template_dirs", ["mail_templates"])),
+                    "auto_escape": getattr(tmpl, "auto_escape", True),
+                    "cache_compiled": getattr(tmpl, "cache_compiled", True),
+                    "strict_mode": getattr(tmpl, "strict_mode", False),
+                }
+
+            # Queue config
+            queue = getattr(config, "queue", None)
+            if queue:
+                data["queue"] = {
+                    "batch_size": getattr(queue, "batch_size", 50),
+                    "poll_interval": getattr(queue, "poll_interval", 1.0),
+                    "dedupe_window_seconds": getattr(queue, "dedupe_window_seconds", 3600),
+                    "retention_days": getattr(queue, "retention_days", 30),
+                }
+
+            # Full config dict for display
+            try:
+                data["config"] = config.to_dict()
+            except Exception:
+                data["config"] = {}
+
+        except Exception as e:
+            logger.warning(f"Error gathering mailer data: {e}")
+
+        return data
 
     # ── Storage data ─────────────────────────────────────────────────
 

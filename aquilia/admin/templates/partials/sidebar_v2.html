@@ -81,6 +81,9 @@
         <a class="sidebar-link{{ ' active' if active_page == 'storage' else '' }}" href="{{ url_prefix|default('/admin') }}/storage/" data-sidebar-label="storage files backends s3 local azure gcs sftp uploads">
             <i class="icon-hard-drive"></i> <span>Storage</span>
         </a>
+        <a class="sidebar-link{{ ' active' if active_page == 'mailer' else '' }}" href="{{ url_prefix|default('/admin') }}/mailer/" data-sidebar-label="mailer mail email smtp ses sendgrid providers templates">
+            <i class="icon-mail"></i> <span>Mailer</span>
+        </a>
     </div>
     {% endif %}
 

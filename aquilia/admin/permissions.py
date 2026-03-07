@@ -109,6 +109,10 @@ class AdminPermission(str, Enum):
     PERMISSIONS_VIEW = "admin.permissions.view"
     PERMISSIONS_MANAGE = "admin.permissions.manage"
 
+    # Mailer
+    MAILER_VIEW = "admin.mailer.view"
+    MAILER_MANAGE = "admin.mailer.manage"
+
     # Profile
     PROFILE_VIEW = "admin.profile.view"
     PROFILE_MANAGE = "admin.profile.manage"
@@ -135,6 +139,7 @@ ROLE_PERMISSIONS: dict[AdminRole, set[AdminPermission]] = {
         AdminPermission.MIGRATIONS_VIEW,
         AdminPermission.CONFIG_VIEW,
         AdminPermission.WORKSPACE_VIEW,
+        AdminPermission.MAILER_VIEW,
         AdminPermission.PROFILE_VIEW,
     },
     AdminRole.STAFF: {
@@ -166,6 +171,8 @@ ROLE_PERMISSIONS: dict[AdminRole, set[AdminPermission]] = {
         AdminPermission.MIGRATIONS_VIEW,
         AdminPermission.CONFIG_VIEW,
         AdminPermission.WORKSPACE_VIEW,
+        AdminPermission.MAILER_VIEW,
+        AdminPermission.MAILER_MANAGE,
         AdminPermission.PROFILE_VIEW,
         AdminPermission.PROFILE_MANAGE,
     },

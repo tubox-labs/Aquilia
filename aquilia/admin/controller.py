@@ -60,6 +60,7 @@ from .templates import (
     render_errors_page,
     render_testing_page,
     render_mlops_page,
+    render_mailer_page,
 )
 
 if TYPE_CHECKING:
@@ -3429,6 +3430,278 @@ class AdminController(Controller):
         query_data = self.site.get_query_inspector_data()
         return Response(
             content=_json.dumps(query_data, default=str).encode("utf-8"),
+            status=200,
+            headers={"content-type": "application/json; charset=utf-8"},
+        )
+
+    # ── Mailer Page ────────────────────────────────────────────────
+
+    @GET("/mailer/")
+    async def mailer_view(self, request, ctx: RequestCtx) -> Response:
+        """Mail administration -- providers, config, templates, send test email."""
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return denied
+
+        if not self.site.admin_config.is_module_enabled("mailer"):
+            return self._module_disabled_response("Mailer", identity)
+
+        if not has_admin_permission(identity, AdminPermission.MAILER_VIEW):
+            return self._permission_denied_response("Mailer", identity, AdminPermission.MAILER_VIEW)
+
+        self._ensure_initialized()
+
+        mailer_data = self.site.get_mailer_data()
+        app_list = self.site.get_app_list(identity)
+
+        try:
+            meta = _extract_request_meta(request)
+            self.site.audit_log.log(
+                user_id=getattr(identity, "id", ""),
+                username=_get_identity_name(identity),
+                role=str(get_admin_role(identity) or "unknown"),
+                action=AdminAction.PAGE_VIEW,
+                model_name="Mailer",
+                ip_address=meta.get("ip_address"),
+                user_agent=meta.get("user_agent"),
+            )
+        except Exception:
+            pass
+
+        html = render_mailer_page(
+            mailer_data=mailer_data,
+            app_list=app_list,
+            identity_name=_get_identity_name(identity),
+            identity_avatar=_get_identity_avatar(identity),
+        )
+        return _html_response(html)
+
+    @GET("/mailer/api/")
+    async def mailer_api(self, request, ctx: RequestCtx) -> Response:
+        """JSON API endpoint for live-polling mailer data."""
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return Response(
+                content=b'{"error":"unauthorized"}',
+                status=401,
+                headers={"content-type": "application/json"},
+            )
+
+        if not self.site.admin_config.is_module_enabled("mailer"):
+            return Response(
+                content=b'{"error":"mailer disabled"}',
+                status=404,
+                headers={"content-type": "application/json"},
+            )
+
+        self._ensure_initialized()
+
+        import json as _json
+        mailer_data = self.site.get_mailer_data()
+        return Response(
+            content=_json.dumps(mailer_data, default=str).encode("utf-8"),
+            status=200,
+            headers={"content-type": "application/json; charset=utf-8"},
+        )
+
+    @POST("/mailer/send-test/")
+    async def mailer_send_test(self, request, ctx: RequestCtx) -> Response:
+        """Send a test email via the configured mail subsystem."""
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return Response(
+                content=b'{"error":"unauthorized"}',
+                status=401,
+                headers={"content-type": "application/json"},
+            )
+
+        if not self.site.admin_config.is_module_enabled("mailer"):
+            return Response(
+                content=b'{"error":"mailer disabled"}',
+                status=404,
+                headers={"content-type": "application/json"},
+            )
+
+        if not has_admin_permission(identity, AdminPermission.MAILER_MANAGE):
+            return Response(
+                content=b'{"error":"permission denied"}',
+                status=403,
+                headers={"content-type": "application/json"},
+            )
+
+        self._ensure_initialized()
+
+        import json as _json
+
+        try:
+            body = await request.body()
+            payload = _json.loads(body) if body else {}
+        except Exception:
+            payload = {}
+
+        to_email = payload.get("to", "").strip()
+        subject = payload.get("subject", "Aquilia Test Email").strip()
+        body_text = payload.get("body", "").strip()
+        body_html = payload.get("body_html", "").strip()
+        from_email = payload.get("from_email", "").strip() or None
+        reply_to = payload.get("reply_to", "").strip() or None
+        priority = payload.get("priority", "normal")
+
+        if not to_email:
+            return Response(
+                content=_json.dumps({"success": False, "error": "Recipient email is required"}).encode(),
+                status=400,
+                headers={"content-type": "application/json"},
+            )
+
+        # Validate email format
+        import re
+        email_re = re.compile(r"^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$")
+        if not email_re.match(to_email):
+            return Response(
+                content=_json.dumps({"success": False, "error": f"Invalid email address: {to_email}"}).encode(),
+                status=400,
+                headers={"content-type": "application/json"},
+            )
+
+        priority_map = {"critical": 0, "high": 25, "normal": 50, "low": 75, "bulk": 100}
+        priority_val = priority_map.get(priority, 50)
+
+        # Default body
+        if not body_text and not body_html:
+            from datetime import datetime, timezone
+            now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+            body_text = (
+                f"This is a test email sent from Aquilia Admin at {now}.\n\n"
+                f"Sent by: {_get_identity_name(identity)}\n"
+                f"Priority: {priority}\n\n"
+                f"If you received this email, your mail configuration is working correctly."
+            )
+            body_html = (
+                f'<div style="font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;'
+                f'max-width:600px;margin:0 auto;padding:40px 20px;">'
+                f'<div style="background:linear-gradient(135deg,#6366f1,#8b5cf6);border-radius:12px;'
+                f'padding:32px;color:white;text-align:center;margin-bottom:24px;">'
+                f'<h1 style="margin:0 0 8px;font-size:24px;">✉️ Aquilia Test Email</h1>'
+                f'<p style="margin:0;opacity:0.9;font-size:14px;">Mail subsystem verification</p>'
+                f'</div>'
+                f'<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:24px;">'
+                f'<p style="margin:0 0 12px;color:#334155;">This is a <strong>test email</strong> '
+                f'sent from the Aquilia Admin panel.</p>'
+                f'<table style="width:100%;font-size:13px;color:#64748b;">'
+                f'<tr><td style="padding:4px 0;font-weight:600;">Sent at:</td>'
+                f'<td style="padding:4px 0;">{now}</td></tr>'
+                f'<tr><td style="padding:4px 0;font-weight:600;">Sent by:</td>'
+                f'<td style="padding:4px 0;">{_get_identity_name(identity)}</td></tr>'
+                f'<tr><td style="padding:4px 0;font-weight:600;">Priority:</td>'
+                f'<td style="padding:4px 0;">{priority.title()}</td></tr>'
+                f'</table>'
+                f'</div>'
+                f'<p style="text-align:center;color:#94a3b8;font-size:12px;margin-top:16px;">'
+                f'Powered by AquilaMail — Production-ready async mail for Aquilia</p>'
+                f'</div>'
+            )
+
+        if not subject:
+            subject = "Aquilia Test Email"
+
+        result = {"success": False, "error": None, "envelope_id": None, "provider": None}
+
+        try:
+            svc = getattr(self.site, "_mail_service", None)
+            if svc is None:
+                result["error"] = "MailService not available. Ensure mail integration is enabled."
+            else:
+                from aquilia.mail.message import EmailMessage, EmailMultiAlternatives
+
+                msg = EmailMultiAlternatives(
+                    subject=subject,
+                    body=body_text,
+                    from_email=from_email,
+                    to=[to_email],
+                    reply_to=reply_to,
+                    priority=priority_val,
+                    metadata={"source": "admin_test", "sent_by": _get_identity_name(identity)},
+                )
+                if body_html:
+                    msg.attach_alternative(body_html, "text/html")
+
+                envelope_id = await svc.send_message(msg)
+                result["success"] = True
+                result["envelope_id"] = envelope_id
+                result["provider"] = "auto"
+
+                # Audit log
+                try:
+                    meta = _extract_request_meta(request)
+                    self.site.audit_log.log(
+                        user_id=getattr(identity, "id", ""),
+                        username=_get_identity_name(identity),
+                        role=str(get_admin_role(identity) or "unknown"),
+                        action=AdminAction.SETTINGS_CHANGE,
+                        model_name="Mailer",
+                        object_repr=f"Test email to {to_email}",
+                        ip_address=meta.get("ip_address"),
+                        user_agent=meta.get("user_agent"),
+                    )
+                except Exception:
+                    pass
+
+        except Exception as e:
+            result["error"] = str(e)
+
+        return Response(
+            content=_json.dumps(result, default=str).encode("utf-8"),
+            status=200 if result["success"] else 500,
+            headers={"content-type": "application/json; charset=utf-8"},
+        )
+
+    @POST("/mailer/health-check/")
+    async def mailer_health_check(self, request, ctx: RequestCtx) -> Response:
+        """Run health checks on all mail providers."""
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return Response(
+                content=b'{"error":"unauthorized"}',
+                status=401,
+                headers={"content-type": "application/json"},
+            )
+
+        if not has_admin_permission(identity, AdminPermission.MAILER_VIEW):
+            return Response(
+                content=b'{"error":"permission denied"}',
+                status=403,
+                headers={"content-type": "application/json"},
+            )
+
+        self._ensure_initialized()
+        import json as _json
+
+        svc = getattr(self.site, "_mail_service", None)
+        if svc is None:
+            return Response(
+                content=_json.dumps({"error": "MailService not available"}).encode(),
+                status=404,
+                headers={"content-type": "application/json"},
+            )
+
+        results = {}
+        providers = getattr(svc, "_providers", {})
+        for name, provider in providers.items():
+            try:
+                healthy = await provider.health_check()
+                results[name] = {"healthy": healthy, "error": None}
+            except Exception as e:
+                results[name] = {"healthy": False, "error": str(e)}
+
+        overall = all(r["healthy"] for r in results.values()) if results else False
+
+        return Response(
+            content=_json.dumps({
+                "overall_healthy": overall,
+                "providers": results,
+                "checked_count": len(results),
+            }, default=str).encode("utf-8"),
             status=200,
             headers={"content-type": "application/json; charset=utf-8"},
         )

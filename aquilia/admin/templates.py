@@ -1225,6 +1225,55 @@ def render_query_inspector_page(
 <body><div style="padding:24px"><h1>Query Inspector</h1><p>{total} queries captured</p></div></body></html>"""
 
 
+def render_mailer_page(
+    mailer_data: Dict[str, Any],
+    app_list: Optional[List[Dict[str, Any]]] = None,
+    identity_name: str = "Admin",
+    identity_avatar: str = "",
+    *,
+    site_title: str = "Aquilia Admin",
+    url_prefix: str = "/admin",
+) -> str:
+    """Render the comprehensive mail administration page."""
+    if _HAS_JINJA2:
+        return _render_template(
+            "mailer.html",
+            data=_dict_to_ns(mailer_data),
+            available=mailer_data.get("available", False),
+            enabled=mailer_data.get("enabled", False),
+            is_healthy=mailer_data.get("is_healthy", False),
+            default_from=mailer_data.get("default_from", "noreply@localhost"),
+            default_reply_to=mailer_data.get("default_reply_to"),
+            subject_prefix=mailer_data.get("subject_prefix", ""),
+            preview_mode=mailer_data.get("preview_mode", False),
+            console_backend=mailer_data.get("console_backend", False),
+            metrics_enabled=mailer_data.get("metrics_enabled", False),
+            tracing_enabled=mailer_data.get("tracing_enabled", False),
+            providers=mailer_data.get("providers", []),
+            provider_count=mailer_data.get("provider_count", 0),
+            active_provider_count=mailer_data.get("active_provider_count", 0),
+            retry=mailer_data.get("retry", {}),
+            rate_limit=mailer_data.get("rate_limit", {}),
+            security=mailer_data.get("security", {}),
+            templates=mailer_data.get("templates", {}),
+            queue=mailer_data.get("queue", {}),
+            stats=mailer_data.get("stats", {}),
+            config=mailer_data.get("config", {}),
+            app_list=app_list or [],
+            active_page="mailer",
+            identity_name=identity_name,
+            identity_avatar=identity_avatar,
+            site_title=site_title,
+            url_prefix=url_prefix,
+            page_title="Mailer",
+        )
+    enabled = mailer_data.get("enabled", False)
+    status = "Enabled" if enabled else "Disabled"
+    return f"""<!DOCTYPE html><html lang="en" data-theme="dark"><head>
+<meta charset="UTF-8"><title>Mailer -- Aquilia Admin</title><style>{_FALLBACK_CSS}</style></head>
+<body><div style="padding:24px"><h1>Mailer</h1><p>Mail subsystem: {status}</p></div></body></html>"""
+
+
 def render_tasks_page(
     tasks_data: Dict[str, Any],
     app_list: Optional[List[Dict[str, Any]]] = None,
