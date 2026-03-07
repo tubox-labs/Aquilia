@@ -221,7 +221,28 @@ workspace = (
             .enable()
         )
     ))
+
+    .integrate(
+        Integration.mail(
+            default_from = "Aquilia Team <embrakeproject@gmail.com>",
+            auth = Integration.MailAuth.plain(
+                username = "embrakeproject@gmail.com",
+                password = "jkohyutipglocgck"
+            )
+        )
+    )
 )
 
 # Export for CLI/server
 __all__ = ["workspace"]
+
+# Email Configuration
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_USE_TLS=True
+EMAIL_HOST_USER=embrakeproject@gmail.com
+EMAIL_HOST_PASSWORD=jkohyutipglocgck
+DEFAULT_FROM_EMAIL=embrakeproject@gmail.com
+
+# Contact Email
+CONTACT_EMAIL=aegis.invincible@gmail.com
