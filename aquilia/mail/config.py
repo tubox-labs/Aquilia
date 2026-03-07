@@ -72,6 +72,10 @@ class ProviderConfigBlueprint(Blueprint):
     use_ssl = BoolFacet(default=False, required=False)
     timeout = FloatFacet(min_value=0.1, max_value=300.0, default=30.0, required=False)
 
+    # Nested auth block (preferred over flat username/password)
+    auth = DictFacet(default=None, required=False, allow_null=True,
+                     help_text="Nested MailAuthConfig dict -- preferred over flat username/password")
+
     def validate(self, attrs: dict) -> dict:
         """Cross-field validation: SMTP needs host."""
         if attrs.get("type") == "smtp":
@@ -79,6 +83,122 @@ class ProviderConfigBlueprint(Blueprint):
             config = attrs.get("config", {})
             if not host and not (config and config.get("host")):
                 pass  # host defaults to localhost in provider
+        return attrs
+
+
+class MailAuthConfigBlueprint(Blueprint):
+    """
+    Blueprint for mail provider authentication credentials.
+
+    Groups all authentication data for a mail provider into one
+    nested object, making it clear which fields are credentials
+    versus transport options.
+
+    Supported authentication schemes (set ``method`` accordingly):
+
+    * ``plain``  -- SMTP AUTH PLAIN / LOGIN (username + password)
+    * ``oauth2`` -- OAuth2 bearer token (access_token + optionally token_url,
+                    client_id, client_secret for auto-refresh)
+    * ``api_key`` -- API-key-based providers (SendGrid, SES, etc.)
+    * ``ntlm``   -- Windows NTLM (username + password + domain)
+    * ``none``   -- Anonymous / unauthenticated relay
+    """
+
+    METHOD_CHOICES = ("plain", "oauth2", "api_key", "ntlm", "none")
+
+    method = ChoiceFacet(
+        choices=METHOD_CHOICES,
+        default="plain",
+        required=False,
+        help_text="Authentication mechanism",
+    )
+
+    # ── Plain / NTLM ──
+    username = TextFacet(
+        default=None, required=False, allow_null=True,
+        help_text="SMTP username or account identifier",
+    )
+    password = TextFacet(
+        default=None, required=False, allow_null=True, write_only=True,
+        help_text="SMTP password or app-specific password (write-only)",
+    )
+
+    # ── NTLM extras ──
+    domain = TextFacet(
+        default=None, required=False, allow_null=True,
+        help_text="Windows domain for NTLM authentication",
+    )
+
+    # ── API-key / SES / SendGrid ──
+    api_key = TextFacet(
+        default=None, required=False, allow_null=True, write_only=True,
+        help_text="API key for API-key-authenticated providers (write-only)",
+    )
+    api_key_env = TextFacet(
+        default=None, required=False, allow_null=True,
+        help_text="Environment variable name that holds the API key",
+    )
+
+    # ── AWS SES ──
+    aws_access_key_id = TextFacet(
+        default=None, required=False, allow_null=True,
+        help_text="AWS access key ID for SES",
+    )
+    aws_secret_access_key = TextFacet(
+        default=None, required=False, allow_null=True, write_only=True,
+        help_text="AWS secret access key for SES (write-only)",
+    )
+    aws_region = TextFacet(
+        default=None, required=False, allow_null=True,
+        help_text="AWS region for SES (e.g. 'us-east-1')",
+    )
+    aws_session_token = TextFacet(
+        default=None, required=False, allow_null=True, write_only=True,
+        help_text="Temporary AWS session token (STS / assume-role)",
+    )
+
+    # ── OAuth2 ──
+    access_token = TextFacet(
+        default=None, required=False, allow_null=True, write_only=True,
+        help_text="OAuth2 bearer access token (write-only)",
+    )
+    refresh_token = TextFacet(
+        default=None, required=False, allow_null=True, write_only=True,
+        help_text="OAuth2 refresh token for auto-renewal (write-only)",
+    )
+    token_url = TextFacet(
+        default=None, required=False, allow_null=True,
+        help_text="OAuth2 token endpoint URL",
+    )
+    client_id = TextFacet(
+        default=None, required=False, allow_null=True,
+        help_text="OAuth2 client ID",
+    )
+    client_secret = TextFacet(
+        default=None, required=False, allow_null=True, write_only=True,
+        help_text="OAuth2 client secret (write-only)",
+    )
+    scope = TextFacet(
+        default=None, required=False, allow_null=True,
+        help_text="OAuth2 scope string (space-separated)",
+    )
+    token_expiry = IntFacet(
+        default=None, required=False, allow_null=True,
+        help_text="Unix timestamp when the current access token expires",
+    )
+
+    def validate(self, attrs: dict) -> dict:
+        """Cross-field validation for authentication credentials."""
+        method = attrs.get("method", "plain")
+        if method in ("plain", "ntlm"):
+            # Soft-warn: username typically required for authenticated SMTP
+            pass
+        elif method == "api_key":
+            # Either api_key literal OR api_key_env should be set
+            pass
+        elif method == "oauth2":
+            # access_token or (client_id + token_url) should be present
+            pass
         return attrs
 
 
@@ -265,6 +385,94 @@ class QueueConfig(_ConfigObject):
     _blueprint_cls = QueueConfigBlueprint
 
 
+class MailAuthConfig(_ConfigObject):
+    """
+    Attribute-access wrapper for validated mail authentication credentials.
+
+    Group all provider credentials in one place::
+
+        MailAuthConfig(
+            method="plain",
+            username="user@example.com",
+            password="s3cr3t",
+        )
+
+        MailAuthConfig(
+            method="api_key",
+            api_key_env="SENDGRID_API_KEY",
+        )
+
+        MailAuthConfig(
+            method="oauth2",
+            client_id="abc",
+            client_secret="xyz",
+            token_url="https://oauth.provider/token",
+            scope="https://mail.example.com/send",
+        )
+
+        MailAuthConfig(
+            method="api_key",
+            aws_access_key_id="AKIAIOSFODNN7EXAMPLE",
+            aws_secret_access_key_env="AWS_SECRET_ACCESS_KEY",
+            aws_region="us-east-1",
+        )
+    """
+    _blueprint_cls = MailAuthConfigBlueprint
+
+    @classmethod
+    def plain(cls, username: str, password: str) -> "MailAuthConfig":
+        """Convenience constructor for plain SMTP auth."""
+        return cls({"method": "plain", "username": username, "password": password})
+
+    @classmethod
+    def api_key(cls, key: Optional[str] = None, *, env: Optional[str] = None) -> "MailAuthConfig":
+        """Convenience constructor for API-key-based auth (SendGrid, etc.)."""
+        return cls({"method": "api_key", "api_key": key, "api_key_env": env})
+
+    @classmethod
+    def aws_ses(
+        cls,
+        access_key_id: Optional[str] = None,
+        secret_access_key: Optional[str] = None,
+        region: str = "us-east-1",
+        session_token: Optional[str] = None,
+    ) -> "MailAuthConfig":
+        """Convenience constructor for AWS SES credentials."""
+        return cls({
+            "method": "api_key",
+            "aws_access_key_id": access_key_id,
+            "aws_secret_access_key": secret_access_key,
+            "aws_region": region,
+            "aws_session_token": session_token,
+        })
+
+    @classmethod
+    def oauth2(
+        cls,
+        client_id: str,
+        client_secret: str,
+        token_url: str,
+        scope: Optional[str] = None,
+        access_token: Optional[str] = None,
+        refresh_token: Optional[str] = None,
+    ) -> "MailAuthConfig":
+        """Convenience constructor for OAuth2 auth."""
+        return cls({
+            "method": "oauth2",
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "token_url": token_url,
+            "scope": scope,
+            "access_token": access_token,
+            "refresh_token": refresh_token,
+        })
+
+    @classmethod
+    def anonymous(cls) -> "MailAuthConfig":
+        """Convenience constructor for unauthenticated relay."""
+        return cls({"method": "none"})
+
+
 # ═══════════════════════════════════════════════════════════════════
 # Internal validation helpers
 # ═══════════════════════════════════════════════════════════════════
@@ -283,8 +491,28 @@ def _validate_sub(
     return wrapper_cls(data)
 
 
+def _validate_auth(
+    value: Any,
+) -> Optional["MailAuthConfig"]:
+    """
+    Coerce a raw dict, MailAuthConfig, or None into a validated MailAuthConfig.
+    Returns None when the value is None (anonymous / not set).
+    """
+    if value is None:
+        return None
+    if isinstance(value, MailAuthConfig):
+        return value
+    if isinstance(value, dict):
+        return _validate_sub(MailAuthConfigBlueprint, value, MailAuthConfig)  # type: ignore[arg-type]
+    return None
+
+
 def _validate_provider(data: dict) -> ProviderConfig:
     """Validate a single provider config dict."""
+    # Coerce nested auth dict → MailAuthConfig wrapper
+    if isinstance(data.get("auth"), dict):
+        data = dict(data)  # shallow copy before mutation
+        data["auth"] = _validate_auth(data["auth"]).to_dict() if _validate_auth(data["auth"]) else None
     bp = ProviderConfigBlueprint(data=data)
     if bp.is_sealed():
         return ProviderConfig(bp.validated_data)
@@ -348,6 +576,7 @@ class MailConfig:
     __slots__ = (
         "enabled", "default_from", "default_reply_to", "subject_prefix",
         "providers", "retry", "rate_limit", "security", "templates", "queue",
+        "auth",
         "console_backend", "file_backend_path", "preview_mode",
         "metrics_enabled", "tracing_enabled",
     )
@@ -364,6 +593,7 @@ class MailConfig:
         security: Optional[Any] = None,
         templates: Optional[Any] = None,
         queue: Optional[Any] = None,
+        auth: Optional[Any] = None,
         console_backend: bool = False,
         file_backend_path: Optional[str] = None,
         preview_mode: bool = False,
@@ -389,6 +619,9 @@ class MailConfig:
         )
         self.queue = _coerce_sub(queue, QueueConfigBlueprint, QueueConfig)
 
+        # Top-level auth (global default -- providers may override with their own auth)
+        self.auth: Optional[MailAuthConfig] = _validate_auth(auth)
+
         self.console_backend = console_backend
         self.file_backend_path = file_backend_path
         self.preview_mode = preview_mode
@@ -407,6 +640,7 @@ class MailConfig:
             "security": self.security.to_dict(),
             "templates": self.templates.to_dict(),
             "queue": self.queue.to_dict(),
+            "auth": self.auth.to_dict() if self.auth is not None else None,
             "console_backend": self.console_backend,
             "metrics_enabled": self.metrics_enabled,
         }
@@ -430,6 +664,7 @@ class MailConfig:
         sec_data = data.get("security")
         tmpl_data = data.get("templates")
         queue_data = data.get("queue")
+        auth_data = data.get("auth")
 
         return cls(
             enabled=data.get("enabled", True),
@@ -462,6 +697,7 @@ class MailConfig:
                 queue_data if isinstance(queue_data, dict) else {},
                 QueueConfig,
             ),
+            auth=_validate_auth(auth_data),
             console_backend=data.get("console_backend", False),
             file_backend_path=data.get("file_backend_path"),
             preview_mode=data.get("preview_mode", False),

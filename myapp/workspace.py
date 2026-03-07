@@ -209,6 +209,7 @@ workspace = (
             .enable_containers()
             .enable_monitoring()
             .enable_storage()
+            .enable_mailer()
             .enable_audit()
         ),
         containers = (
@@ -218,7 +219,7 @@ workspace = (
         audit=(
             Integration.AdminAudit()
             .enable()
-        ),
+        )
     ))
 )
 

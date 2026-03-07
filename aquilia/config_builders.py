@@ -419,7 +419,235 @@ class AuthConfig:
 
 class Integration:
     """Integration configuration builders."""
-    
+
+    class MailAuth:
+        """
+        Nested config class for mail provider authentication credentials.
+
+        Groups all credential data into one typed object instead of scattering
+        ``username``, ``password``, ``api_key`` etc. as flat provider dict keys.
+
+        Pass an instance to ``Integration.mail(auth=...)`` for a global default,
+        or embed one inside a provider dict as ``"auth": Integration.MailAuth.plain(...)``.
+
+        Supported authentication methods
+        ---------------------------------
+        ``plain``   -- SMTP AUTH PLAIN / LOGIN  (username + password)
+        ``oauth2``  -- OAuth2 bearer token      (client_id, secret, token_url)
+        ``api_key`` -- API-key providers         (SendGrid, Mailgun, etc.)
+        ``aws_ses`` -- AWS SES                  (access_key_id, secret, region)
+        ``ntlm``    -- Windows NTLM             (username + password + domain)
+        ``none``    -- Anonymous / open relay
+
+        Examples::
+
+            # SMTP plain auth
+            Integration.MailAuth.plain("user@example.com", "s3cr3t")
+
+            # SendGrid / Mailgun API key
+            Integration.MailAuth.api_key(env="SENDGRID_API_KEY")
+
+            # AWS SES
+            Integration.MailAuth.aws_ses(
+                access_key_id="AKIA...",
+                secret_access_key_env="AWS_SECRET_ACCESS_KEY",
+                region="eu-west-1",
+            )
+
+            # OAuth2 (e.g. Gmail / Microsoft 365)
+            Integration.MailAuth.oauth2(
+                client_id="abc",
+                client_secret_env="OAUTH_CLIENT_SECRET",
+                token_url="https://oauth2.googleapis.com/token",
+                scope="https://mail.google.com/",
+            )
+        """
+
+        METHOD_PLAIN   = "plain"
+        METHOD_OAUTH2  = "oauth2"
+        METHOD_API_KEY = "api_key"
+        METHOD_AWS_SES = "aws_ses"
+        METHOD_NTLM    = "ntlm"
+        METHOD_NONE    = "none"
+
+        def __init__(
+            self,
+            method: str = "plain",
+            # ── plain / NTLM ──────────────────────────────────────────────
+            username: Optional[str] = None,
+            password: Optional[str] = None,
+            password_env: Optional[str] = None,
+            domain: Optional[str] = None,           # NTLM domain
+            # ── API key (SendGrid, Mailgun, Postmark …) ──────────────────
+            api_key: Optional[str] = None,
+            api_key_env: Optional[str] = None,
+            # ── AWS SES ──────────────────────────────────────────────────
+            aws_access_key_id: Optional[str] = None,
+            aws_access_key_id_env: Optional[str] = None,
+            aws_secret_access_key: Optional[str] = None,
+            aws_secret_access_key_env: Optional[str] = None,
+            aws_region: Optional[str] = None,
+            aws_session_token: Optional[str] = None,
+            # ── OAuth2 ───────────────────────────────────────────────────
+            access_token: Optional[str] = None,
+            refresh_token: Optional[str] = None,
+            token_url: Optional[str] = None,
+            client_id: Optional[str] = None,
+            client_secret: Optional[str] = None,
+            client_secret_env: Optional[str] = None,
+            scope: Optional[str] = None,
+        ) -> None:
+            self._method                   = method
+            self._username                 = username
+            self._password                 = password
+            self._password_env             = password_env
+            self._domain                   = domain
+            self._api_key                  = api_key
+            self._api_key_env              = api_key_env
+            self._aws_access_key_id        = aws_access_key_id
+            self._aws_access_key_id_env    = aws_access_key_id_env
+            self._aws_secret_access_key    = aws_secret_access_key
+            self._aws_secret_access_key_env = aws_secret_access_key_env
+            self._aws_region               = aws_region
+            self._aws_session_token        = aws_session_token
+            self._access_token             = access_token
+            self._refresh_token            = refresh_token
+            self._token_url                = token_url
+            self._client_id                = client_id
+            self._client_secret            = client_secret
+            self._client_secret_env        = client_secret_env
+            self._scope                    = scope
+
+        # ── Convenience constructors ──────────────────────────────────────
+
+        @classmethod
+        def plain(
+            cls,
+            username: str,
+            password: Optional[str] = None,
+            *,
+            password_env: Optional[str] = None,
+        ) -> "Integration.MailAuth":
+            """SMTP AUTH PLAIN / LOGIN."""
+            return cls(
+                method="plain",
+                username=username,
+                password=password,
+                password_env=password_env,
+            )
+
+        @classmethod
+        def api_key(
+            cls,
+            key: Optional[str] = None,
+            *,
+            env: Optional[str] = None,
+        ) -> "Integration.MailAuth":
+            """API-key auth for SendGrid, Mailgun, Postmark, etc."""
+            return cls(method="api_key", api_key=key, api_key_env=env)
+
+        @classmethod
+        def aws_ses(
+            cls,
+            access_key_id: Optional[str] = None,
+            secret_access_key: Optional[str] = None,
+            region: str = "us-east-1",
+            session_token: Optional[str] = None,
+            *,
+            access_key_id_env: Optional[str] = None,
+            secret_access_key_env: Optional[str] = None,
+        ) -> "Integration.MailAuth":
+            """AWS SES credentials."""
+            return cls(
+                method="aws_ses",
+                aws_access_key_id=access_key_id,
+                aws_access_key_id_env=access_key_id_env,
+                aws_secret_access_key=secret_access_key,
+                aws_secret_access_key_env=secret_access_key_env,
+                aws_region=region,
+                aws_session_token=session_token,
+            )
+
+        @classmethod
+        def oauth2(
+            cls,
+            client_id: str,
+            client_secret: Optional[str] = None,
+            *,
+            client_secret_env: Optional[str] = None,
+            token_url: str,
+            scope: Optional[str] = None,
+            access_token: Optional[str] = None,
+            refresh_token: Optional[str] = None,
+        ) -> "Integration.MailAuth":
+            """OAuth2 bearer-token auth (Gmail, Microsoft 365, etc.)."""
+            return cls(
+                method="oauth2",
+                client_id=client_id,
+                client_secret=client_secret,
+                client_secret_env=client_secret_env,
+                token_url=token_url,
+                scope=scope,
+                access_token=access_token,
+                refresh_token=refresh_token,
+            )
+
+        @classmethod
+        def ntlm(
+            cls,
+            username: str,
+            password: Optional[str] = None,
+            domain: Optional[str] = None,
+            *,
+            password_env: Optional[str] = None,
+        ) -> "Integration.MailAuth":
+            """Windows NTLM authentication."""
+            return cls(
+                method="ntlm",
+                username=username,
+                password=password,
+                password_env=password_env,
+                domain=domain,
+            )
+
+        @classmethod
+        def anonymous(cls) -> "Integration.MailAuth":
+            """No authentication -- open relay."""
+            return cls(method="none")
+
+        # ── Serialisation ─────────────────────────────────────────────────
+
+        def to_dict(self) -> Dict[str, Any]:
+            """Serialise to the dict format consumed by MailConfig / providers."""
+            d: Dict[str, Any] = {"method": self._method}
+            # Plain / NTLM
+            if self._username              is not None: d["username"]                  = self._username
+            if self._password              is not None: d["password"]                  = self._password
+            if self._password_env          is not None: d["password_env"]              = self._password_env
+            if self._domain                is not None: d["domain"]                    = self._domain
+            # API key
+            if self._api_key               is not None: d["api_key"]                   = self._api_key
+            if self._api_key_env           is not None: d["api_key_env"]               = self._api_key_env
+            # AWS SES
+            if self._aws_access_key_id     is not None: d["aws_access_key_id"]         = self._aws_access_key_id
+            if self._aws_access_key_id_env is not None: d["aws_access_key_id_env"]     = self._aws_access_key_id_env
+            if self._aws_secret_access_key is not None: d["aws_secret_access_key"]     = self._aws_secret_access_key
+            if self._aws_secret_access_key_env is not None: d["aws_secret_access_key_env"] = self._aws_secret_access_key_env
+            if self._aws_region            is not None: d["aws_region"]                = self._aws_region
+            if self._aws_session_token     is not None: d["aws_session_token"]         = self._aws_session_token
+            # OAuth2
+            if self._access_token          is not None: d["access_token"]              = self._access_token
+            if self._refresh_token         is not None: d["refresh_token"]             = self._refresh_token
+            if self._token_url             is not None: d["token_url"]                 = self._token_url
+            if self._client_id             is not None: d["client_id"]                 = self._client_id
+            if self._client_secret         is not None: d["client_secret"]             = self._client_secret
+            if self._client_secret_env     is not None: d["client_secret_env"]         = self._client_secret_env
+            if self._scope                 is not None: d["scope"]                     = self._scope
+            return d
+
+        def __repr__(self) -> str:  # pragma: no cover
+            return f"Integration.MailAuth(method={self._method!r}, username={self._username!r})"
+
     @staticmethod
     def auth(
         config: Optional[AuthConfig] = None,
@@ -2980,6 +3208,7 @@ class Integration:
         default_reply_to: Optional[str] = None,
         subject_prefix: str = "",
         providers: Optional[List[Dict[str, Any]]] = None,
+        auth: Optional[Any] = None,
         console_backend: bool = False,
         preview_mode: bool = False,
         template_dirs: Optional[List[str]] = None,
@@ -3004,7 +3233,11 @@ class Integration:
             default_from: Default sender address.
             default_reply_to: Default reply-to address.
             subject_prefix: Prefix prepended to all subjects.
-            providers: List of provider config dicts.
+            providers: List of provider config dicts (may include a per-provider
+                ``"auth"`` key containing an ``Integration.MailAuth`` or dict).
+            auth: Global default authentication credentials shared by all
+                providers that do not define their own.  Pass an
+                ``Integration.MailAuth`` instance or a plain dict.
             console_backend: Print mail to console instead of sending.
             preview_mode: Render-only, no delivery.
             template_dirs: ATS template search paths.
@@ -3029,19 +3262,67 @@ class Integration:
 
             .integrate(Integration.mail(
                 default_from="noreply@myapp.com",
-                console_backend=True,  # dev mode
+                # Global SMTP credentials (used by every provider that
+                # does not supply its own auth block)
+                auth=Integration.MailAuth.plain(
+                    username="noreply@myapp.com",
+                    password_env="SMTP_PASSWORD",
+                ),
                 providers=[
-                    {"name": "smtp", "type": "smtp", "host": "smtp.example.com", "port": 587},
+                    {
+                        "name": "primary",
+                        "type": "smtp",
+                        "host": "smtp.myapp.com",
+                        "port": 587,
+                    },
+                ],
+            ))
+
+            # SendGrid example
+            .integrate(Integration.mail(
+                default_from="noreply@myapp.com",
+                auth=Integration.MailAuth.api_key(env="SENDGRID_API_KEY"),
+                providers=[
+                    {"name": "sendgrid", "type": "sendgrid"},
+                ],
+            ))
+
+            # AWS SES example
+            .integrate(Integration.mail(
+                default_from="noreply@myapp.com",
+                auth=Integration.MailAuth.aws_ses(
+                    access_key_id_env="AWS_ACCESS_KEY_ID",
+                    secret_access_key_env="AWS_SECRET_ACCESS_KEY",
+                    region="eu-west-1",
+                ),
+                providers=[
+                    {"name": "ses", "type": "ses"},
                 ],
             ))
         """
+        # Normalise auth → plain dict so it is JSON-serialisable downstream
+        auth_dict: Optional[Dict[str, Any]] = None
+        if auth is not None:
+            if hasattr(auth, "to_dict"):
+                auth_dict = auth.to_dict()
+            elif isinstance(auth, dict):
+                auth_dict = auth
+
+        # Normalise per-provider auth entries too
+        normalised_providers: List[Dict[str, Any]] = []
+        for p in (providers or []):
+            if isinstance(p, dict) and hasattr(p.get("auth"), "to_dict"):
+                p = {**p, "auth": p["auth"].to_dict()}
+            normalised_providers.append(p)
+
         return {
             "_integration_type": "mail",
             "enabled": enabled,
             "default_from": default_from,
             "default_reply_to": default_reply_to,
             "subject_prefix": subject_prefix,
-            "providers": providers or [],
+            "providers": normalised_providers,
+            "auth": auth_dict,
             "console_backend": console_backend,
             "preview_mode": preview_mode,
             "templates": {
