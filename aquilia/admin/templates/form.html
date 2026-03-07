@@ -5,57 +5,229 @@
 
 {% block extra_head %}
 <style>
-/* ═══ FORM VIEW v3 — Enhanced CSS ════════════════════════════════ */
+/* ═══ FORM VIEW v4 — Full-Screen Immersive UI ═══════════════════ */
 
-/* ── Layout ── */
-.form-page { max-width: 740px; }
-.form-page-wide { max-width: 960px; }
+/* ── Animations ── */
+@keyframes fadeInUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slideDown { from { opacity: 0; max-height: 0; } to { opacity: 1; max-height: 2000px; } }
+@keyframes pulseGlow { 0%,100% { box-shadow: 0 0 0 0 rgba(34,197,94,0.15); } 50% { box-shadow: 0 0 0 6px rgba(34,197,94,0); } }
+@keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+@keyframes ciSlideDown { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes progressPulse { 0%,100% { opacity: 1; } 50% { opacity: 0.7; } }
+
+/* ── Full-screen layout ── */
+.form-page { max-width: 100%; animation: fadeInUp 0.35s ease-out; }
+
+/* ── Two-column grid layout ── */
+.form-layout {
+    display: grid; grid-template-columns: 1fr 340px; gap: 28px;
+    align-items: start;
+}
+.form-main { min-width: 0; }
+.form-sidebar {
+    position: sticky; top: 24px;
+    display: flex; flex-direction: column; gap: 16px;
+    animation: fadeIn 0.4s ease-out 0.15s both;
+}
 
 /* ── Breadcrumb ── */
 .form-breadcrumb {
-    display: flex; align-items: center; gap: 6px; font-size: 0.72rem;
-    color: var(--text-faint); margin-bottom: 4px; flex-wrap: wrap;
+    display: flex; align-items: center; gap: 6px; font-size: 0.74rem;
+    color: var(--text-faint); margin-bottom: 6px; flex-wrap: wrap;
+    animation: fadeIn 0.3s ease-out;
 }
-.form-breadcrumb a { color: var(--text-muted); text-decoration: none; transition: color 0.12s; }
+.form-breadcrumb a {
+    color: var(--text-muted); text-decoration: none; transition: color 0.15s;
+    padding: 2px 0;
+}
 .form-breadcrumb a:hover { color: var(--accent); }
-.form-breadcrumb .bc-sep { opacity: 0.4; }
+.form-breadcrumb .bc-sep { opacity: 0.3; }
+
+/* ── Page header ── */
+.form-page-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 24px; flex-wrap: wrap; gap: 12px;
+}
+.form-page-header h2 {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 1.35rem; font-weight: 700; letter-spacing: -0.025em;
+    color: var(--text-primary);
+}
+.form-header-actions {
+    display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+}
+
+/* ── Progress bar ── */
+.form-progress-wrap {
+    margin-bottom: 24px; animation: fadeIn 0.3s ease-out 0.1s both;
+}
+.form-progress-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 6px;
+}
+.form-progress-label {
+    font-size: 0.7rem; font-weight: 600; color: var(--text-faint);
+    text-transform: uppercase; letter-spacing: 0.05em;
+    display: flex; align-items: center; gap: 6px;
+}
+.form-progress-pct {
+    font-size: 0.72rem; font-weight: 700; color: var(--accent);
+    font-family: var(--font-mono);
+}
+.form-progress-track {
+    width: 100%; height: 4px; border-radius: 4px;
+    background: var(--border-subtle); overflow: hidden;
+}
+.form-progress-fill {
+    height: 100%; border-radius: 4px; background: var(--accent);
+    transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+}
+.form-progress-fill::after {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    background-size: 200% 100%; animation: shimmer 2s infinite;
+}
+
+/* ── Field search/filter ── */
+.field-search-wrap {
+    position: relative; margin-bottom: 20px;
+    animation: fadeIn 0.3s ease-out 0.15s both;
+}
+.field-search-input {
+    width: 100%; padding: 10px 14px 10px 38px;
+    border: 1px solid var(--border-color); border-radius: var(--radius);
+    background: var(--bg-input); color: var(--text-primary);
+    font-size: 0.82rem; font-family: var(--font-sans);
+    transition: all 0.15s; outline: none;
+}
+.field-search-input::placeholder { color: var(--text-faint); }
+.field-search-input:focus {
+    border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-subtle);
+}
+.field-search-icon {
+    position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+    font-size: 14px; color: var(--text-faint); pointer-events: none;
+}
+.field-search-clear {
+    position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+    padding: 2px 6px; border: none; background: var(--bg-surface);
+    color: var(--text-faint); border-radius: 4px; font-size: 0.65rem;
+    cursor: pointer; display: none; font-family: var(--font-sans);
+    transition: all 0.12s;
+}
+.field-search-clear:hover { background: var(--bg-surface-hover); color: var(--text-primary); }
+.form-group-enhanced.field-hidden { display: none; }
+.fieldset-section.field-hidden { display: none; }
+
+/* ── Sidebar cards ── */
+.sidebar-card {
+    background: var(--bg-glass); border: 1px solid var(--border-color);
+    border-radius: var(--radius); backdrop-filter: blur(12px); overflow: hidden;
+}
+.sidebar-card-header {
+    padding: 14px 16px; border-bottom: 1px solid var(--border-subtle);
+    display: flex; align-items: center; gap: 8px;
+    font-size: 0.78rem; font-weight: 600; color: var(--text-primary);
+}
+.sidebar-card-header i { font-size: 14px; opacity: 0.5; }
+.sidebar-card-body { padding: 14px 16px; }
+
+/* ── Metadata panel ── */
+.meta-row {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    padding: 8px 0; border-bottom: 1px solid var(--border-subtle);
+    font-size: 0.76rem;
+}
+.meta-row:last-child { border-bottom: none; }
+.meta-label { color: var(--text-faint); font-weight: 500; flex-shrink: 0; }
+.meta-value {
+    color: var(--text-secondary); text-align: right; word-break: break-all;
+    font-family: var(--font-mono); font-size: 0.72rem; max-width: 60%;
+}
+
+/* ── Quick actions panel ── */
+.quick-action {
+    display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+    border-radius: var(--radius-sm); cursor: pointer;
+    transition: all 0.15s; text-decoration: none; color: var(--text-secondary);
+    font-size: 0.78rem; font-weight: 500;
+}
+.quick-action:hover { background: var(--bg-surface-hover); color: var(--text-primary); }
+.quick-action-icon {
+    width: 30px; height: 30px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+}
+
+/* ── Field navigation (TOC) ── */
+.field-toc-item {
+    display: flex; align-items: center; gap: 8px; padding: 6px 10px;
+    border-radius: var(--radius-sm); cursor: pointer;
+    transition: all 0.12s; font-size: 0.74rem; color: var(--text-muted);
+}
+.field-toc-item:hover { background: var(--bg-surface-hover); color: var(--text-primary); }
+.field-toc-item.active {
+    background: var(--accent-subtle); color: var(--accent); font-weight: 600;
+}
+.field-toc-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--border-color); flex-shrink: 0;
+    transition: background 0.15s;
+}
+.field-toc-item.active .field-toc-dot { background: var(--accent); }
+.field-toc-item.filled .field-toc-dot { background: var(--accent); }
+.field-toc-item.required .field-toc-dot { background: var(--danger); }
 
 /* ── Fieldset sections ── */
 .fieldset-section {
     margin-bottom: 20px; border: 1px solid var(--border-subtle);
     border-radius: var(--radius); overflow: hidden;
-    transition: box-shadow 0.2s;
+    transition: box-shadow 0.2s, border-color 0.2s;
+    animation: fadeInUp 0.3s ease-out both;
 }
-.fieldset-section:focus-within { box-shadow: 0 0 0 2px var(--accent-subtle); }
+.fieldset-section:focus-within {
+    box-shadow: 0 0 0 2px var(--accent-subtle);
+    border-color: rgba(34,197,94,0.15);
+}
 .fieldset-header {
     display: flex; align-items: center; justify-content: space-between;
-    padding: 12px 18px; background: var(--bg-surface); cursor: pointer;
-    user-select: none; transition: background 0.12s;
+    padding: 14px 20px; background: var(--bg-surface); cursor: pointer;
+    user-select: none; transition: background 0.15s;
 }
 .fieldset-header:hover { background: var(--bg-surface-hover); }
-.fieldset-title { font-size: 0.82rem; font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 8px; }
-.fieldset-count { font-size: 0.62rem; color: var(--text-faint); font-weight: 500; }
-.fieldset-chevron { font-size: 14px; color: var(--text-faint); transition: transform 0.2s; }
+.fieldset-title {
+    font-size: 0.85rem; font-weight: 600; color: var(--text-primary);
+    display: flex; align-items: center; gap: 10px;
+}
+.fieldset-count { font-size: 0.64rem; color: var(--text-faint); font-weight: 500; }
+.fieldset-chevron { font-size: 14px; color: var(--text-faint); transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1); }
 .fieldset-chevron.collapsed { transform: rotate(-90deg); }
-.fieldset-body { padding: 18px; }
+.fieldset-body {
+    padding: 20px; transition: all 0.25s ease;
+}
 .fieldset-body.collapsed { display: none; }
 
 /* ── Enhanced form groups ── */
 .form-group-enhanced {
-    margin-bottom: 20px; position: relative;
-    padding: 12px 14px; border-radius: var(--radius-sm);
-    transition: background 0.15s, box-shadow 0.15s;
+    margin-bottom: 18px; position: relative;
+    padding: 14px 16px; border-radius: var(--radius);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     border: 1px solid transparent;
 }
-.form-group-enhanced:hover { background: var(--bg-surface-hover); }
+.form-group-enhanced:hover {
+    background: var(--bg-surface-hover);
+    border-color: var(--border-subtle);
+}
 .form-group-enhanced:focus-within {
     background: var(--accent-subtle);
     border-color: var(--accent);
-    box-shadow: 0 0 0 2px var(--accent-subtle);
+    box-shadow: 0 0 0 3px rgba(34,197,94,0.08);
 }
 .form-group-enhanced .form-label {
-    display: flex; align-items: center; gap: 6px; margin-bottom: 8px;
-    font-weight: 500;
+    display: flex; align-items: center; gap: 6px; margin-bottom: 10px;
+    font-weight: 500; font-size: 0.82rem;
 }
 .form-label-icon { font-size: 13px; opacity: 0.35; }
 .form-label-required { color: var(--danger); font-weight: 700; font-size: 0.8rem; }
@@ -71,13 +243,13 @@
 
 /* ── Field toolbar (copy, undo, null toggle) ── */
 .field-toolbar {
-    position: absolute; top: 10px; right: 10px;
+    position: absolute; top: 12px; right: 12px;
     display: flex; gap: 3px; opacity: 0; transition: opacity 0.15s;
 }
 .form-group-enhanced:hover .field-toolbar,
 .form-group-enhanced:focus-within .field-toolbar { opacity: 1; }
 .field-tool-btn {
-    width: 24px; height: 24px; border-radius: 4px; border: none;
+    width: 26px; height: 26px; border-radius: 6px; border: none;
     background: transparent; color: var(--text-faint); cursor: pointer;
     display: inline-flex; align-items: center; justify-content: center;
     font-size: 12px; transition: all 0.12s;
@@ -86,9 +258,9 @@
 
 /* ── Input wrappers ── */
 .input-wrapper { position: relative; display: flex; align-items: center; }
-.input-wrapper .form-input { padding-left: 36px; }
+.input-wrapper .form-input { padding-left: 38px; }
 .input-icon {
-    position: absolute; left: 11px; top: 50%; transform: translateY(-50%);
+    position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
     font-size: 14px; color: var(--text-faint); pointer-events: none; z-index: 1;
 }
 .input-suffix {
@@ -98,7 +270,7 @@
 
 /* ── Character counter ── */
 .char-counter {
-    font-size: 0.68rem; color: var(--text-faint); text-align: right; margin-top: 3px;
+    font-size: 0.68rem; color: var(--text-faint); text-align: right; margin-top: 4px;
     transition: color 0.15s;
 }
 .char-counter.warn { color: #f59e0b; }
@@ -108,47 +280,47 @@
 .datetime-group { display: flex; gap: 8px; align-items: center; }
 .datetime-group input { flex: 1; min-width: 0; }
 .datetime-now-btn {
-    padding: 6px 10px; border-radius: var(--radius-sm); font-size: 0.72rem;
+    padding: 7px 12px; border-radius: var(--radius-sm); font-size: 0.72rem;
     font-weight: 500; cursor: pointer; border: 1px solid var(--border-color);
     background: var(--bg-surface); color: var(--text-muted); white-space: nowrap;
-    font-family: var(--font-sans); transition: all 0.12s;
+    font-family: var(--font-sans); transition: all 0.15s;
 }
 .datetime-now-btn:hover { background: var(--accent-subtle); color: var(--accent); border-color: var(--accent); }
 
 /* ── Toggle switch for booleans ── */
-.toggle-switch { position: relative; display: inline-flex; align-items: center; gap: 10px; cursor: pointer; }
+.toggle-switch { position: relative; display: inline-flex; align-items: center; gap: 12px; cursor: pointer; }
 .toggle-track {
-    width: 42px; height: 24px; border-radius: 12px;
-    background: rgba(107,114,128,0.3); transition: background 0.2s; position: relative;
+    width: 44px; height: 24px; border-radius: 12px;
+    background: rgba(107,114,128,0.3); transition: background 0.25s; position: relative;
 }
 [data-theme="light"] .toggle-track { background: rgba(107,114,128,0.25); }
 .toggle-track.on { background: var(--accent); }
 .toggle-thumb {
     width: 18px; height: 18px; border-radius: 50%; background: #fff;
-    position: absolute; top: 3px; left: 3px; transition: transform 0.2s;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+    position: absolute; top: 3px; left: 3px; transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.2);
 }
-.toggle-track.on .toggle-thumb { transform: translateX(18px); }
+.toggle-track.on .toggle-thumb { transform: translateX(20px); }
 .toggle-label-text { font-size: 0.82rem; color: var(--text-secondary); }
 
 /* ── JSON editor ── */
 .json-editor-wrap {
     position: relative; border: 1px solid var(--border-color);
-    border-radius: var(--radius-sm); overflow: hidden; transition: border-color 0.15s;
+    border-radius: var(--radius); overflow: hidden; transition: border-color 0.15s;
 }
 .json-editor-toolbar {
-    display: flex; gap: 6px; padding: 6px 10px; background: var(--bg-surface);
+    display: flex; gap: 6px; padding: 8px 12px; background: var(--bg-surface);
     border-bottom: 1px solid var(--border-subtle); align-items: center;
 }
 .json-editor-toolbar button {
-    padding: 3px 8px; border-radius: 4px; font-size: 0.68rem; font-weight: 500;
+    padding: 4px 10px; border-radius: 6px; font-size: 0.7rem; font-weight: 500;
     cursor: pointer; border: 1px solid var(--border-color); background: var(--bg-input);
     color: var(--text-muted); font-family: var(--font-sans); transition: all 0.12s;
 }
 .json-editor-toolbar button:hover { background: var(--bg-surface-hover); color: var(--text-primary); }
 .json-editor-textarea {
-    width: 100%; min-height: 140px; padding: 10px 12px;
-    font-family: var(--font-mono); font-size: 0.78rem; line-height: 1.6;
+    width: 100%; min-height: 160px; padding: 12px 14px;
+    font-family: var(--font-mono); font-size: 0.78rem; line-height: 1.65;
     background: var(--bg-input); color: var(--text-primary);
     border: none; resize: vertical; outline: none; tab-size: 2;
 }
@@ -162,11 +334,12 @@
 
 /* ── Unsaved changes bar ── */
 .unsaved-bar {
-    padding: 10px 18px; margin: -12px -14px 16px;
-    border-radius: var(--radius-sm);
+    padding: 12px 18px; margin-bottom: 18px;
+    border-radius: var(--radius);
     background: var(--accent-subtle); border: 1px solid rgba(34,197,94,0.2);
     font-size: 0.78rem; color: var(--accent);
-    display: none; align-items: center; gap: 8px;
+    display: none; align-items: center; gap: 10px;
+    animation: fadeInUp 0.2s ease-out;
 }
 [data-theme="light"] .unsaved-bar { background: rgba(22,163,74,0.06); border-color: rgba(22,163,74,0.15); }
 
@@ -177,33 +350,52 @@
 }
 .autosave-indicator.saved { color: var(--accent); }
 
-/* ── Change Inspector (SQL Preview) — LIGHT THEME FIXED ── */
+/* ── Floating action bar (sticky bottom) ── */
+.floating-action-bar {
+    position: sticky; bottom: 0; z-index: 100;
+    margin: 28px -24px -24px; padding: 16px 24px;
+    background: var(--bg-glass); backdrop-filter: blur(16px);
+    border-top: 1px solid var(--border-color);
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    transition: all 0.2s;
+}
+.floating-action-bar.has-changes {
+    border-top-color: rgba(34,197,94,0.3);
+    box-shadow: 0 -8px 32px rgba(0,0,0,0.15);
+}
+[data-theme="light"] .floating-action-bar {
+    background: rgba(255,255,255,0.92);
+}
+[data-theme="light"] .floating-action-bar.has-changes {
+    box-shadow: 0 -4px 24px rgba(0,0,0,0.06);
+}
+
+/* ── Change Inspector (SQL Preview) ── */
 .change-inspector {
-    margin-top: 20px; border: 1px solid var(--border-subtle);
+    margin-top: 24px; border: 1px solid var(--border-subtle);
     border-radius: var(--radius); overflow: hidden;
     animation: ciSlideDown 0.25s ease;
 }
-@keyframes ciSlideDown { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
 .change-inspector-header {
     display: flex; align-items: center; justify-content: space-between;
-    padding: 14px 18px; background: var(--bg-surface); cursor: pointer;
+    padding: 16px 20px; background: var(--bg-surface); cursor: pointer;
     transition: background 0.12s;
 }
 .change-inspector-header:hover { background: var(--bg-surface-hover); }
 .change-inspector-body {
-    padding: 18px;
+    padding: 20px;
     background: var(--bg-card);
     border-top: 1px solid var(--border-subtle);
 }
 .change-table { width: 100%; font-size: 0.78rem; border-collapse: collapse; margin-bottom: 16px; }
 .change-table th {
-    text-align: left; padding: 8px 10px; font-weight: 600;
+    text-align: left; padding: 10px 12px; font-weight: 600;
     color: var(--text-faint); font-size: 0.7rem; text-transform: uppercase;
     letter-spacing: 0.04em; border-bottom: 2px solid var(--border-subtle);
     background: var(--bg-surface);
 }
 .change-table td {
-    padding: 10px 10px; border-bottom: 1px solid var(--border-subtle);
+    padding: 10px 12px; border-bottom: 1px solid var(--border-subtle);
     color: var(--text-secondary); word-break: break-word;
 }
 .change-table tbody tr:hover { background: var(--bg-surface-hover); }
@@ -221,7 +413,7 @@
 .sql-preview-block {
     background: var(--bg-surface);
     border: 1px solid var(--border-color);
-    border-radius: 8px; padding: 14px 16px; font-family: var(--font-mono);
+    border-radius: 8px; padding: 16px 18px; font-family: var(--font-mono);
     font-size: 0.76rem; line-height: 1.7; color: var(--text-secondary);
     white-space: pre-wrap; word-break: break-all; position: relative;
 }
@@ -235,8 +427,8 @@
 [data-theme="light"] .sql-table { color: #d97706; }
 [data-theme="light"] .sql-op { color: #7c3aed; }
 .sql-copy-btn {
-    position: absolute; top: 8px; right: 8px; padding: 3px 8px;
-    border-radius: 4px; font-size: 0.65rem; font-weight: 500; cursor: pointer;
+    position: absolute; top: 8px; right: 8px; padding: 4px 10px;
+    border-radius: 6px; font-size: 0.65rem; font-weight: 500; cursor: pointer;
     border: 1px solid var(--border-color); background: var(--bg-surface);
     color: var(--text-muted); font-family: var(--font-sans); transition: all 0.12s;
 }
@@ -245,7 +437,7 @@
 .change-stat { font-size: 0.7rem; font-weight: 600; padding: 3px 10px; border-radius: 10px; }
 
 /* ── Field validation hints ── */
-.field-validation { font-size: 0.7rem; margin-top: 4px; display: flex; align-items: center; gap: 4px; }
+.field-validation { font-size: 0.72rem; margin-top: 5px; display: flex; align-items: center; gap: 5px; }
 .field-validation.error { color: var(--danger); }
 .field-validation.success { color: var(--accent); }
 
@@ -254,32 +446,32 @@
     display: flex; gap: 4px; align-items: center;
 }
 .record-nav-btn {
-    padding: 4px 8px; border-radius: var(--radius-xs); font-size: 0.72rem;
+    padding: 5px 10px; border-radius: var(--radius-sm); font-size: 0.72rem;
     font-weight: 500; cursor: pointer; border: 1px solid var(--border-color);
     background: var(--bg-surface); color: var(--text-muted); text-decoration: none;
-    font-family: var(--font-sans); transition: all 0.12s; display: inline-flex;
-    align-items: center; gap: 3px;
+    font-family: var(--font-sans); transition: all 0.15s; display: inline-flex;
+    align-items: center; gap: 4px;
 }
 .record-nav-btn:hover { background: var(--accent-subtle); color: var(--accent); border-color: var(--accent); }
 
 /* ── Delete zone ── */
 .delete-zone {
-    margin-top: 28px; padding: 18px; border-radius: var(--radius);
+    margin-top: 28px; padding: 20px; border-radius: var(--radius);
     border: 1px dashed var(--danger-subtle);
     background: var(--danger-subtle);
-    transition: all 0.15s;
+    transition: all 0.2s;
 }
 .delete-zone:hover { border-style: solid; }
 
 /* ── Help text ── */
 .form-help-enhanced {
-    font-size: 0.72rem; color: var(--text-faint); margin-top: 4px;
-    display: flex; align-items: flex-start; gap: 4px; line-height: 1.4;
+    font-size: 0.72rem; color: var(--text-faint); margin-top: 5px;
+    display: flex; align-items: flex-start; gap: 5px; line-height: 1.45;
 }
 
-/* ── Query Inspector (post-update) — LIGHT THEME FIXED ── */
+/* ── Query Inspector (post-update) ── */
 .qi-entry {
-    padding: 12px; border: 1px solid var(--border-subtle);
+    padding: 14px; border: 1px solid var(--border-subtle);
     border-radius: var(--radius); margin-bottom: 8px;
     transition: background 0.12s;
 }
@@ -287,16 +479,42 @@
 .qi-sql-block {
     font-family: var(--font-mono); font-size: 0.74rem; line-height: 1.6;
     color: var(--text-secondary); word-break: break-all; white-space: pre-wrap;
-    background: var(--bg-surface); padding: 8px 10px; border-radius: 6px;
+    background: var(--bg-surface); padding: 10px 12px; border-radius: 6px;
     border: 1px solid var(--border-subtle);
 }
 [data-theme="light"] .qi-sql-block { background: #f8fafc; border-color: #e2e8f0; }
 
+/* ── Inline section enhancements ── */
+.inline-section-card {
+    margin-top: 28px; padding-top: 24px;
+    border-top: 1px solid var(--border-color);
+    animation: fadeInUp 0.3s ease-out both;
+}
+.inline-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 16px;
+}
+.inline-meta {
+    display: flex; align-items: center; gap: 12px;
+}
+.inline-icon-wrap {
+    width: 32px; height: 32px; border-radius: 8px;
+    background: rgba(59,130,246,0.1);
+    display: flex; align-items: center; justify-content: center;
+}
+
 /* ── Responsive ── */
+@media (max-width: 1100px) {
+    .form-layout { grid-template-columns: 1fr; }
+    .form-sidebar { position: static; }
+}
 @media (max-width: 768px) {
     .form-page { max-width: 100%; }
-    .form-group-enhanced { padding: 8px 10px; }
+    .form-group-enhanced { padding: 10px 12px; }
     .field-toolbar { opacity: 1; }
+    .floating-action-bar { margin: 20px -16px -16px; padding: 12px 16px; }
+    .form-page-header { flex-direction: column; align-items: flex-start; }
+    .form-sidebar { display: none; }
 }
 </style>
 {% endblock %}
@@ -304,22 +522,26 @@
 {% block content %}
 {# ── Breadcrumb ── #}
 <div class="form-breadcrumb">
-    <a href="{{ url_prefix|default('/admin') }}/">Dashboard</a>
+    <a href="{{ url_prefix|default('/admin') }}/">
+        <i class="icon-home" style="font-size:11px;vertical-align:-1px;margin-right:2px;"></i> Dashboard
+    </a>
     <span class="bc-sep"><i class="icon-chevron-right" style="font-size:10px;"></i></span>
     <a href="{{ url_prefix|default('/admin') }}/{{ model_name|lower }}/">{{ verbose_name_plural|default(verbose_name ~ 's') }}</a>
     <span class="bc-sep"><i class="icon-chevron-right" style="font-size:10px;"></i></span>
-    <span style="color:var(--text-secondary);">{{ title_text }}</span>
+    <span style="color:var(--text-secondary);font-weight:500;">{{ title_text }}</span>
 </div>
 
-<div class="page-header-row">
+<div class="form-page-header">
     <h2>
-        <a href="{{ url_prefix|default('/admin') }}/{{ model_name|lower }}/" class="btn-ghost" style="display:inline-flex;align-items:center;gap:4px;margin-right:8px;padding:4px 8px;border-radius:var(--radius-sm);color:var(--text-faint);">
+        <a href="{{ url_prefix|default('/admin') }}/{{ model_name|lower }}/" class="btn-ghost" style="display:inline-flex;align-items:center;gap:4px;padding:6px 10px;border-radius:var(--radius-sm);color:var(--text-faint);margin-right:4px;">
             <i class="icon-arrow-left" style="font-size:16px;"></i>
         </a>
-        <i class="icon-{{ 'edit' if not is_create else 'plus-circle' }}" style="font-size:18px;vertical-align:-2px;margin-right:6px;opacity:0.35;"></i>
+        <div style="width:36px;height:36px;border-radius:10px;background:{{ 'rgba(34,197,94,0.1)' if is_create else 'rgba(59,130,246,0.1)' }};display:inline-flex;align-items:center;justify-content:center;margin-right:4px;">
+            <i class="icon-{{ 'plus-circle' if is_create else 'edit' }}" style="font-size:18px;color:{{ 'var(--accent)' if is_create else '#3b82f6' }};"></i>
+        </div>
         {{ title_text }}
     </h2>
-    <div style="display:flex;gap:8px;align-items:center;">
+    <div class="form-header-actions">
         <span class="autosave-indicator" id="autosaveStatus">
             <i class="icon-cloud" style="font-size:12px;"></i> <span id="autosaveText"></span>
         </span>
@@ -333,225 +555,358 @@
             </a>
         </div>
         {% endif %}
-        <span style="font-size:0.68rem;color:var(--text-faint);">
-            <kbd style="font-size:0.6rem;padding:1px 5px;border:1px solid var(--border-color);border-radius:3px;font-family:var(--font-mono);">⌘S</kbd> Save
+        <span style="font-size:0.68rem;color:var(--text-faint);display:flex;align-items:center;gap:4px;">
+            <kbd style="font-size:0.6rem;padding:2px 6px;border:1px solid var(--border-color);border-radius:4px;font-family:var(--font-mono);background:var(--bg-surface);">⌘S</kbd> Save
         </span>
     </div>
 </div>
 
-<div class="glass-card card-padded form-page" id="formCard">
-    {% set action_url = (url_prefix|default('/admin') ~ '/' ~ model_name|lower ~ '/add') if is_create else (url_prefix|default('/admin') ~ '/' ~ model_name|lower ~ '/' ~ pk) %}
-    <form method="POST" action="{{ action_url }}" id="adminForm" data-dirty="false" novalidate>
+{# ── Form completion progress ── #}
+<div class="form-progress-wrap" id="formProgressWrap">
+    <div class="form-progress-header">
+        <span class="form-progress-label">
+            <i class="icon-check-circle" style="font-size:12px;"></i> Form Completion
+        </span>
+        <span class="form-progress-pct" id="formProgressPct">0%</span>
+    </div>
+    <div class="form-progress-track">
+        <div class="form-progress-fill" id="formProgressFill" style="width:0%;"></div>
+    </div>
+</div>
 
-        {# ── Unsaved changes indicator ── #}
-        <div id="unsaved-bar" class="unsaved-bar">
-            <i class="icon-alert-circle" style="font-size:14px;"></i>
-            <span>You have unsaved changes</span>
-            <span id="changed-count" style="margin-left:auto;background:var(--accent);color:#000;padding:1px 8px;border-radius:var(--radius-full);font-weight:600;font-size:0.7rem;"></span>
-        </div>
+{# ── Field search/filter ── #}
+<div class="field-search-wrap" id="fieldSearchWrap">
+    <i class="field-search-icon icon-search"></i>
+    <input type="text" class="field-search-input" id="fieldSearchInput" placeholder="Search fields…" autocomplete="off" spellcheck="false">
+    <button type="button" class="field-search-clear" id="fieldSearchClear" onclick="clearFieldSearch()">Clear</button>
+</div>
 
-        {# ── Render fields (with fieldset support) ── #}
-        {% if fieldsets and fieldsets|length > 0 %}
-            {% for section_name, section_opts in fieldsets %}
-            <div class="fieldset-section">
-                <div class="fieldset-header" onclick="toggleFieldset(this)">
-                    <span class="fieldset-title">
-                        <i class="icon-layers" style="font-size:14px;opacity:0.4;"></i>
-                        {{ section_name }}
-                        {% if section_opts is mapping and section_opts.get('fields') %}
-                        <span class="fieldset-count">({{ section_opts['fields']|length }} fields)</span>
-                        {% endif %}
-                    </span>
-                    <i class="icon-chevron-down fieldset-chevron" style="font-size:14px;"></i>
+<div class="form-layout">
+    {# ═══ MAIN COLUMN ═══ #}
+    <div class="form-main">
+        <div class="glass-card card-padded form-page" id="formCard">
+            {% set action_url = (url_prefix|default('/admin') ~ '/' ~ model_name|lower ~ '/add') if is_create else (url_prefix|default('/admin') ~ '/' ~ model_name|lower ~ '/' ~ pk) %}
+            <form method="POST" action="{{ action_url }}" id="adminForm" data-dirty="false" novalidate>
+
+                {# ── Unsaved changes indicator ── #}
+                <div id="unsaved-bar" class="unsaved-bar">
+                    <i class="icon-alert-circle" style="font-size:14px;"></i>
+                    <span>You have unsaved changes</span>
+                    <span id="changed-count" style="margin-left:auto;background:var(--accent);color:#000;padding:2px 10px;border-radius:var(--radius-full);font-weight:600;font-size:0.7rem;"></span>
                 </div>
-                <div class="fieldset-body">
-                    {% set section_fields = section_opts.get('fields', []) if section_opts is mapping else section_opts['fields'] if section_opts is mapping else [] %}
+
+                {# ── Render fields (with fieldset support) ── #}
+                {% if fieldsets and fieldsets|length > 0 %}
+                    {% for section_name, section_opts in fieldsets %}
+                    <div class="fieldset-section" style="animation-delay: {{ loop.index0 * 0.05 }}s;">
+                        <div class="fieldset-header" onclick="toggleFieldset(this)">
+                            <span class="fieldset-title">
+                                <i class="icon-layers" style="font-size:14px;opacity:0.4;"></i>
+                                {{ section_name }}
+                                {% if section_opts is mapping and section_opts.get('fields') %}
+                                <span class="fieldset-count">({{ section_opts['fields']|length }} fields)</span>
+                                {% endif %}
+                            </span>
+                            <i class="icon-chevron-down fieldset-chevron" style="font-size:14px;"></i>
+                        </div>
+                        <div class="fieldset-body">
+                            {% set section_fields = section_opts.get('fields', []) if section_opts is mapping else section_opts['fields'] if section_opts is mapping else [] %}
+                            {% for fld in fields %}
+                                {% if fld.name in section_fields %}
+                                {{ _render_field(fld) }}
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                    {# Render any fields not in fieldsets #}
+                    {% set fieldseted = [] %}
+                    {% for section_name, section_opts in fieldsets %}
+                        {% if section_opts is mapping and section_opts.get('fields') %}
+                            {% for fn in section_opts['fields'] %}
+                                {% if fieldseted.append(fn) %}{% endif %}
+                            {% endfor %}
+                        {% endif %}
+                    {% endfor %}
                     {% for fld in fields %}
-                        {% if fld.name in section_fields %}
+                        {% if fld.name not in fieldseted %}
                         {{ _render_field(fld) }}
                         {% endif %}
                     {% endfor %}
-                </div>
-            </div>
-            {% endfor %}
-            {# Render any fields not in fieldsets #}
-            {% set fieldseted = [] %}
-            {% for section_name, section_opts in fieldsets %}
-                {% if section_opts is mapping and section_opts.get('fields') %}
-                    {% for fn in section_opts['fields'] %}
-                        {% if fieldseted.append(fn) %}{% endif %}
+                {% else %}
+                    {# No fieldsets — render all directly #}
+                    {% for fld in fields %}
+                        {{ _render_field(fld) }}
                     {% endfor %}
                 {% endif %}
-            {% endfor %}
-            {% for fld in fields %}
-                {% if fld.name not in fieldseted %}
-                {{ _render_field(fld) }}
-                {% endif %}
-            {% endfor %}
-        {% else %}
-            {# No fieldsets — render all directly #}
-            {% for fld in fields %}
-                {{ _render_field(fld) }}
-            {% endfor %}
-        {% endif %}
 
-        {# ── Inline Models ── #}
-        {% if inlines is defined and inlines|length > 0 %}
-        {% for inline in inlines %}
-        <div class="inline-section" style="margin-top:28px;padding-top:24px;border-top:1px solid var(--border-color);" data-inline="{{ inline.model_name|default('inline-'~loop.index) }}">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
-                <div style="display:flex;align-items:center;gap:10px;">
-                    <div style="width:28px;height:28px;border-radius:6px;background:rgba(59,130,246,0.1);display:flex;align-items:center;justify-content:center;">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+                {# ── Inline Models ── #}
+                {% if inlines is defined and inlines|length > 0 %}
+                {% for inline in inlines %}
+                <div class="inline-section inline-section-card" data-inline="{{ inline.model_name|default('inline-'~loop.index) }}">
+                    <div class="inline-header">
+                        <div class="inline-meta">
+                            <div class="inline-icon-wrap">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+                            </div>
+                            <div>
+                                <div style="font-size:0.88rem;font-weight:600;color:var(--text-primary);">{{ inline.verbose_name_plural|default(inline.model_name ~ 's') }}</div>
+                                <div style="font-size:0.68rem;color:var(--text-muted);">{{ inline.style|default('tabular') }} inline</div>
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn-ghost" onclick="addInlineRow(this)" style="font-size:0.75rem;">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                            Add {{ inline.verbose_name|default(inline.model_name) }}
+                        </button>
                     </div>
-                    <div>
-                        <div style="font-size:0.88rem;font-weight:600;color:var(--text-primary);">{{ inline.verbose_name_plural|default(inline.model_name ~ 's') }}</div>
-                        <div style="font-size:0.68rem;color:var(--text-muted);">{{ inline.style|default('tabular') }} inline</div>
+                    {% if inline.style == 'tabular' and inline.fields|length > 0 %}
+                    <div style="overflow-x:auto;border:1px solid var(--border-color);border-radius:var(--radius);">
+                        <table style="width:100%;border-collapse:collapse;font-size:0.8rem;">
+                            <thead>
+                                <tr style="background:var(--bg-surface);">
+                                    {% for f in inline.fields %}
+                                    <th style="padding:10px 14px;text-align:left;font-weight:600;color:var(--text-secondary);border-bottom:1px solid var(--border-color);white-space:nowrap;">{{ f.label|default(f.name|replace('_', ' ')|title) }}</th>
+                                    {% endfor %}
+                                    {% if inline.can_delete|default(true) %}
+                                    <th style="padding:10px 14px;width:40px;border-bottom:1px solid var(--border-color);"></th>
+                                    {% endif %}
+                                </tr>
+                            </thead>
+                            <tbody class="inline-rows" data-extra="{{ inline.extra|default(3) }}" data-max="{{ inline.max_num|default(0) }}" data-min="{{ inline.min_num|default(0) }}">
+                                {% for row_idx in range(inline.extra|default(3)) %}
+                                <tr class="inline-row" data-row="{{ row_idx }}">
+                                    {% for f in inline.fields %}
+                                    <td style="padding:8px 12px;border-bottom:1px solid var(--border-color);">
+                                        <input type="{{ f.type|default('text') }}" name="inline__{{ inline.model_name }}__{{ row_idx }}__{{ f.name }}" class="form-input" style="padding:6px 10px;font-size:0.78rem;width:100%;" placeholder="{{ f.label|default(f.name) }}" {% if f.readonly %}readonly{% endif %}>
+                                    </td>
+                                    {% endfor %}
+                                    {% if inline.can_delete|default(true) %}
+                                    <td style="padding:8px 12px;border-bottom:1px solid var(--border-color);text-align:center;">
+                                        <button type="button" class="btn btn-ghost" onclick="this.closest('tr').remove()" style="padding:4px;color:var(--danger);min-width:0;">
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                        </button>
+                                    </td>
+                                    {% endif %}
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% elif inline.style == 'stacked' and inline.fields|length > 0 %}
+                    <div class="inline-rows" data-extra="{{ inline.extra|default(3) }}" data-max="{{ inline.max_num|default(0) }}" data-min="{{ inline.min_num|default(0) }}">
+                        {% for row_idx in range(inline.extra|default(3)) %}
+                        <div class="inline-row glass-card card-padded" style="margin-bottom:12px;position:relative;" data-row="{{ row_idx }}">
+                            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+                                <span style="font-size:0.78rem;font-weight:600;color:var(--text-secondary);">{{ inline.verbose_name|default(inline.model_name) }} #{{ row_idx + 1 }}</span>
+                                {% if inline.can_delete|default(true) %}
+                                <button type="button" class="btn btn-ghost" onclick="this.closest('.inline-row').remove()" style="padding:4px;color:var(--danger);min-width:0;font-size:0.7rem;">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Remove
+                                </button>
+                                {% endif %}
+                            </div>
+                            {% for f in inline.fields %}
+                            <div style="margin-bottom:10px;">
+                                <label style="display:block;font-size:0.72rem;font-weight:500;color:var(--text-secondary);margin-bottom:4px;">{{ f.label|default(f.name|replace('_', ' ')|title) }}</label>
+                                {% if f.type == 'textarea' %}
+                                <textarea name="inline__{{ inline.model_name }}__{{ row_idx }}__{{ f.name }}" class="form-input" style="min-height:60px;font-size:0.78rem;" {% if f.readonly %}readonly{% endif %}></textarea>
+                                {% elif f.type == 'checkbox' %}
+                                <label class="toggle-switch"><input type="checkbox" name="inline__{{ inline.model_name }}__{{ row_idx }}__{{ f.name }}"><span class="toggle-slider"></span></label>
+                                {% else %}
+                                <input type="{{ f.type|default('text') }}" name="inline__{{ inline.model_name }}__{{ row_idx }}__{{ f.name }}" class="form-input" style="font-size:0.78rem;" placeholder="{{ f.label|default(f.name) }}" {% if f.readonly %}readonly{% endif %}>
+                                {% endif %}
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+                {% endif %}
+
+                {# ── Floating Action Bar (sticky bottom) ── #}
+                <div class="floating-action-bar" id="floatingActionBar">
+                    <button type="submit" class="btn btn-primary" id="saveBtn">
+                        <i class="icon-{{ 'plus' if is_create else 'save' }}" style="font-size:14px;"></i>
+                        {{ 'Create' if is_create else 'Save Changes' }}
+                    </button>
+                    {% if save_as is defined and save_as and not is_create %}
+                    <button type="submit" class="btn btn-secondary" name="_saveasnew" value="1" id="saveAsNewBtn">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="14" y="14" width="8" height="8" rx="1"/><rect x="2" y="2" width="14" height="14" rx="2"/></svg>
+                        Save as New
+                    </button>
+                    {% endif %}
+                    {% if not is_create %}
+                    <button type="button" class="btn btn-secondary" id="inspectorBtn" onclick="toggleChangeInspector()" style="display:none;">
+                        <i class="icon-code" style="font-size:14px;"></i> Inspect Changes
+                    </button>
+                    {% endif %}
+                    <a href="{{ url_prefix|default('/admin') }}/{{ model_name|lower }}/" class="btn btn-secondary">Cancel</a>
+                    {% if not is_create %}
+                    <div style="margin-left:auto;display:flex;gap:8px;align-items:center;">
+                        <a href="{{ url_prefix|default('/admin') }}/{{ model_name|lower }}/{{ pk }}/history" class="btn btn-ghost" style="font-size:0.78rem;color:var(--text-faint);">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> History
+                        </a>
+                        <button type="button" class="btn btn-ghost" id="resetBtn" onclick="resetForm()" style="display:none;font-size:0.78rem;color:var(--text-faint);">
+                            <i class="icon-rotate-ccw" style="font-size:12px;"></i> Reset
+                        </button>
+                    </div>
+                    {% endif %}
+                </div>
+
+                {# ── Change Inspector (SQL Preview + Diff) ── #}
+                {% if not is_create %}
+                <div id="change-inspector" class="change-inspector" style="display:none;">
+                    <div class="change-inspector-header" onclick="toggleChangeInspector()">
+                        <div style="display:flex;align-items:center;gap:10px;">
+                            <div style="width:32px;height:32px;border-radius:8px;background:rgba(139,92,246,0.1);display:flex;align-items:center;justify-content:center;">
+                                <i class="icon-database" style="font-size:16px;color:#8b5cf6;"></i>
+                            </div>
+                            <div>
+                                <div style="font-size:0.82rem;font-weight:600;color:var(--text-primary);">Change Inspector</div>
+                                <div style="font-size:0.68rem;color:var(--text-muted);" id="inspectorSubtitle">Review changes before saving</div>
+                            </div>
+                        </div>
+                        <i class="icon-chevron-down" style="font-size:14px;color:var(--text-faint);"></i>
+                    </div>
+                    <div class="change-inspector-body" id="inspectorBody">
+                        <div id="inspectorContent"></div>
                     </div>
                 </div>
-                <button type="button" class="btn btn-ghost" onclick="addInlineRow(this)" style="font-size:0.75rem;">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                    Add {{ inline.verbose_name|default(inline.model_name) }}
+                {% endif %}
+
+            </form>
+        </div>
+
+        {% if can_delete and not is_create %}
+        <div class="delete-zone">
+            <div style="display:flex;align-items:center;gap:14px;">
+                <div style="width:40px;height:40px;border-radius:10px;background:rgba(239,68,68,0.1);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                    <i class="icon-alert-triangle" style="font-size:18px;color:var(--danger);"></i>
+                </div>
+                <div style="flex:1;">
+                    <div style="font-size:0.85rem;font-weight:600;color:var(--text-primary);margin-bottom:3px;">Danger Zone</div>
+                    <div style="font-size:0.74rem;color:var(--text-muted);line-height:1.4;">Permanently delete this {{ verbose_name }}. This action cannot be undone.</div>
+                </div>
+                <button type="button" class="btn btn-danger" onclick="showDeleteModal()">
+                    <i class="icon-trash-2" style="font-size:14px;"></i> Delete
                 </button>
             </div>
-            {% if inline.style == 'tabular' and inline.fields|length > 0 %}
-            <div style="overflow-x:auto;border:1px solid var(--border-color);border-radius:8px;">
-                <table style="width:100%;border-collapse:collapse;font-size:0.8rem;">
-                    <thead>
-                        <tr style="background:var(--bg-surface);">
-                            {% for f in inline.fields %}
-                            <th style="padding:8px 12px;text-align:left;font-weight:600;color:var(--text-secondary);border-bottom:1px solid var(--border-color);white-space:nowrap;">{{ f.label|default(f.name|replace('_', ' ')|title) }}</th>
-                            {% endfor %}
-                            {% if inline.can_delete|default(true) %}
-                            <th style="padding:8px 12px;width:40px;border-bottom:1px solid var(--border-color);"></th>
-                            {% endif %}
-                        </tr>
-                    </thead>
-                    <tbody class="inline-rows" data-extra="{{ inline.extra|default(3) }}" data-max="{{ inline.max_num|default(0) }}" data-min="{{ inline.min_num|default(0) }}">
-                        {% for row_idx in range(inline.extra|default(3)) %}
-                        <tr class="inline-row" data-row="{{ row_idx }}">
-                            {% for f in inline.fields %}
-                            <td style="padding:6px 10px;border-bottom:1px solid var(--border-color);">
-                                <input type="{{ f.type|default('text') }}" name="inline__{{ inline.model_name }}__{{ row_idx }}__{{ f.name }}" class="form-input" style="padding:6px 10px;font-size:0.78rem;width:100%;" placeholder="{{ f.label|default(f.name) }}" {% if f.readonly %}readonly{% endif %}>
-                            </td>
-                            {% endfor %}
-                            {% if inline.can_delete|default(true) %}
-                            <td style="padding:6px 10px;border-bottom:1px solid var(--border-color);text-align:center;">
-                                <button type="button" class="btn btn-ghost" onclick="this.closest('tr').remove()" style="padding:4px;color:var(--danger);min-width:0;">
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                                </button>
-                            </td>
-                            {% endif %}
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+            <form method="POST" action="{{ url_prefix|default('/admin') }}/{{ model_name|lower }}/{{ pk }}/delete" id="deleteRecordForm" style="display:none;"></form>
+        </div>
+        {% endif %}
+    </div>
+
+    {# ═══ SIDEBAR ═══ #}
+    <div class="form-sidebar" id="formSidebar">
+        {# ── Metadata card ── #}
+        {% if not is_create %}
+        <div class="sidebar-card">
+            <div class="sidebar-card-header">
+                <i class="icon-info"></i> Record Info
             </div>
-            {% elif inline.style == 'stacked' and inline.fields|length > 0 %}
-            <div class="inline-rows" data-extra="{{ inline.extra|default(3) }}" data-max="{{ inline.max_num|default(0) }}" data-min="{{ inline.min_num|default(0) }}">
-                {% for row_idx in range(inline.extra|default(3)) %}
-                <div class="inline-row glass-card card-padded" style="margin-bottom:12px;position:relative;" data-row="{{ row_idx }}">
-                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-                        <span style="font-size:0.78rem;font-weight:600;color:var(--text-secondary);">{{ inline.verbose_name|default(inline.model_name) }} #{{ row_idx + 1 }}</span>
-                        {% if inline.can_delete|default(true) %}
-                        <button type="button" class="btn btn-ghost" onclick="this.closest('.inline-row').remove()" style="padding:4px;color:var(--danger);min-width:0;font-size:0.7rem;">
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Remove
-                        </button>
-                        {% endif %}
+            <div class="sidebar-card-body">
+                <div class="meta-row">
+                    <span class="meta-label">Model</span>
+                    <span class="meta-value">{{ verbose_name }}</span>
+                </div>
+                <div class="meta-row">
+                    <span class="meta-label">Primary Key</span>
+                    <span class="meta-value">{{ pk }}</span>
+                </div>
+                <div class="meta-row">
+                    <span class="meta-label">Fields</span>
+                    <span class="meta-value">{{ fields|length }}</span>
+                </div>
+                <div class="meta-row">
+                    <span class="meta-label">Status</span>
+                    <span class="meta-value" id="sidebarStatus" style="color:var(--accent);">Saved</span>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        {# ── Quick actions ── #}
+        <div class="sidebar-card">
+            <div class="sidebar-card-header">
+                <i class="icon-zap"></i> Quick Actions
+            </div>
+            <div class="sidebar-card-body" style="padding:8px;">
+                <a href="{{ url_prefix|default('/admin') }}/{{ model_name|lower }}/" class="quick-action">
+                    <div class="quick-action-icon" style="background:rgba(59,130,246,0.1);">
+                        <i class="icon-list" style="font-size:14px;color:#3b82f6;"></i>
                     </div>
-                    {% for f in inline.fields %}
-                    <div style="margin-bottom:10px;">
-                        <label style="display:block;font-size:0.72rem;font-weight:500;color:var(--text-secondary);margin-bottom:4px;">{{ f.label|default(f.name|replace('_', ' ')|title) }}</label>
-                        {% if f.type == 'textarea' %}
-                        <textarea name="inline__{{ inline.model_name }}__{{ row_idx }}__{{ f.name }}" class="form-input" style="min-height:60px;font-size:0.78rem;" {% if f.readonly %}readonly{% endif %}></textarea>
-                        {% elif f.type == 'checkbox' %}
-                        <label class="toggle-switch"><input type="checkbox" name="inline__{{ inline.model_name }}__{{ row_idx }}__{{ f.name }}"><span class="toggle-slider"></span></label>
-                        {% else %}
-                        <input type="{{ f.type|default('text') }}" name="inline__{{ inline.model_name }}__{{ row_idx }}__{{ f.name }}" class="form-input" style="font-size:0.78rem;" placeholder="{{ f.label|default(f.name) }}" {% if f.readonly %}readonly{% endif %}>
-                        {% endif %}
+                    View All {{ verbose_name_plural|default(verbose_name ~ 's') }}
+                </a>
+                <a href="{{ url_prefix|default('/admin') }}/{{ model_name|lower }}/add" class="quick-action">
+                    <div class="quick-action-icon" style="background:rgba(34,197,94,0.1);">
+                        <i class="icon-plus" style="font-size:14px;color:var(--accent);"></i>
                     </div>
-                    {% endfor %}
+                    Create New {{ verbose_name }}
+                </a>
+                {% if not is_create %}
+                <a href="{{ url_prefix|default('/admin') }}/{{ model_name|lower }}/{{ pk }}/history" class="quick-action">
+                    <div class="quick-action-icon" style="background:rgba(139,92,246,0.1);">
+                        <i class="icon-clock" style="font-size:14px;color:#8b5cf6;"></i>
+                    </div>
+                    View History
+                </a>
+                {% endif %}
+                {% if export_formats is defined and export_formats|length > 0 %}
+                <a href="{{ url_prefix|default('/admin') }}/{{ model_name|lower }}/export?format={{ export_formats[0]|lower }}" class="quick-action">
+                    <div class="quick-action-icon" style="background:rgba(245,158,11,0.1);">
+                        <i class="icon-download" style="font-size:14px;color:#f59e0b;"></i>
+                    </div>
+                    Export Data
+                </a>
+                {% endif %}
+            </div>
+        </div>
+
+        {# ── Field navigation (TOC) ── #}
+        <div class="sidebar-card">
+            <div class="sidebar-card-header">
+                <i class="icon-map"></i> Field Navigator
+            </div>
+            <div class="sidebar-card-body" style="padding:6px 8px;max-height:320px;overflow-y:auto;">
+                {% for fld in fields %}
+                <div class="field-toc-item{{ ' required' if fld.required|default(false) else '' }}" data-target="field-{{ fld.name }}" onclick="scrollToField('{{ fld.name }}')">
+                    <span class="field-toc-dot"></span>
+                    <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ fld.label|default(fld.name) }}</span>
+                    {% if fld.required|default(false) %}
+                    <span style="font-size:0.58rem;color:var(--danger);font-weight:700;">*</span>
+                    {% endif %}
                 </div>
                 {% endfor %}
             </div>
-            {% endif %}
-        </div>
-        {% endfor %}
-        {% endif %}
-
-        {# ── Action buttons ── #}
-        <div style="display:flex;gap:10px;align-items:center;margin-top:28px;padding-top:20px;border-top:1px solid var(--border-subtle);flex-wrap:wrap;">
-            <button type="submit" class="btn btn-primary" id="saveBtn">
-                <i class="icon-{{ 'plus' if is_create else 'save' }}" style="font-size:14px;"></i>
-                {{ 'Create' if is_create else 'Save Changes' }}
-            </button>
-            {% if save_as is defined and save_as and not is_create %}
-            <button type="submit" class="btn btn-secondary" name="_saveasnew" value="1" id="saveAsNewBtn">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="14" y="14" width="8" height="8" rx="1"/><rect x="2" y="2" width="14" height="14" rx="2"/></svg>
-                Save as New
-            </button>
-            {% endif %}
-            {% if not is_create %}
-            <button type="button" class="btn btn-secondary" id="inspectorBtn" onclick="toggleChangeInspector()" style="display:none;">
-                <i class="icon-code" style="font-size:14px;"></i> Inspect Changes
-            </button>
-            {% endif %}
-            <a href="{{ url_prefix|default('/admin') }}/{{ model_name|lower }}/" class="btn btn-secondary">Cancel</a>
-            {% if not is_create %}
-            <a href="{{ url_prefix|default('/admin') }}/{{ model_name|lower }}/{{ pk }}/history" class="btn btn-ghost" style="font-size:0.78rem;color:var(--text-faint);">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> History
-            </a>
-            <button type="button" class="btn btn-ghost" id="resetBtn" onclick="resetForm()" style="display:none;margin-left:auto;font-size:0.78rem;color:var(--text-faint);">
-                <i class="icon-rotate-ccw" style="font-size:12px;"></i> Reset
-            </button>
-            {% endif %}
         </div>
 
-        {# ── Change Inspector (SQL Preview + Diff) ── #}
-        {% if not is_create %}
-        <div id="change-inspector" class="change-inspector" style="display:none;">
-            <div class="change-inspector-header" onclick="toggleChangeInspector()">
-                <div style="display:flex;align-items:center;gap:10px;">
-                    <div style="width:32px;height:32px;border-radius:8px;background:rgba(139,92,246,0.1);display:flex;align-items:center;justify-content:center;">
-                        <i class="icon-database" style="font-size:16px;color:#8b5cf6;"></i>
-                    </div>
-                    <div>
-                        <div style="font-size:0.82rem;font-weight:600;color:var(--text-primary);">Change Inspector</div>
-                        <div style="font-size:0.68rem;color:var(--text-muted);" id="inspectorSubtitle">Review changes before saving</div>
-                    </div>
+        {# ── Keyboard shortcuts ── #}
+        <div class="sidebar-card">
+            <div class="sidebar-card-header">
+                <i class="icon-command"></i> Shortcuts
+            </div>
+            <div class="sidebar-card-body" style="font-size:0.72rem;">
+                <div style="display:flex;justify-content:space-between;padding:5px 0;color:var(--text-muted);">
+                    <span>Save</span>
+                    <span><kbd style="padding:1px 5px;border:1px solid var(--border-color);border-radius:3px;font-family:var(--font-mono);font-size:0.62rem;background:var(--bg-surface);">⌘</kbd> + <kbd style="padding:1px 5px;border:1px solid var(--border-color);border-radius:3px;font-family:var(--font-mono);font-size:0.62rem;background:var(--bg-surface);">S</kbd></span>
                 </div>
-                <i class="icon-chevron-down" style="font-size:14px;color:var(--text-faint);"></i>
+                <div style="display:flex;justify-content:space-between;padding:5px 0;color:var(--text-muted);">
+                    <span>Search fields</span>
+                    <span><kbd style="padding:1px 5px;border:1px solid var(--border-color);border-radius:3px;font-family:var(--font-mono);font-size:0.62rem;background:var(--bg-surface);">⌘</kbd> + <kbd style="padding:1px 5px;border:1px solid var(--border-color);border-radius:3px;font-family:var(--font-mono);font-size:0.62rem;background:var(--bg-surface);">F</kbd></span>
+                </div>
+                <div style="display:flex;justify-content:space-between;padding:5px 0;color:var(--text-muted);">
+                    <span>Close panel</span>
+                    <span><kbd style="padding:1px 5px;border:1px solid var(--border-color);border-radius:3px;font-family:var(--font-mono);font-size:0.62rem;background:var(--bg-surface);">Esc</kbd></span>
+                </div>
             </div>
-            <div class="change-inspector-body" id="inspectorBody">
-                <div id="inspectorContent"></div>
-            </div>
         </div>
-        {% endif %}
-
-    </form>
-</div>
-
-{% if can_delete and not is_create %}
-<div class="delete-zone" style="max-width:740px;">
-    <div style="display:flex;align-items:center;gap:12px;">
-        <div style="width:36px;height:36px;border-radius:8px;background:rgba(239,68,68,0.1);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-            <i class="icon-alert-triangle" style="font-size:16px;color:var(--danger);"></i>
-        </div>
-        <div style="flex:1;">
-            <div style="font-size:0.82rem;font-weight:600;color:var(--text-primary);margin-bottom:2px;">Danger Zone</div>
-            <div style="font-size:0.72rem;color:var(--text-muted);">Permanently delete this {{ verbose_name }}. This action cannot be undone.</div>
-        </div>
-        <button type="button" class="btn btn-danger" onclick="showDeleteModal()">
-            <i class="icon-trash-2" style="font-size:14px;"></i> Delete
-        </button>
     </div>
-    <form method="POST" action="{{ url_prefix|default('/admin') }}/{{ model_name|lower }}/{{ pk }}/delete" id="deleteRecordForm" style="display:none;"></form>
-</div>
-{% endif %}
+</div> {# /form-layout #}
 
 {# ── Query Inspector Panel (post-update SQL log) ── #}
 {% if query_inspection and query_inspection|length > 0 %}
-<div class="glass-card card-padded" id="query-inspector-panel" style="margin-top:24px;max-width:740px;">
+<div class="glass-card card-padded" id="query-inspector-panel" style="margin-top:24px;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;cursor:pointer;" onclick="toggleQueryInspector()">
         <div style="display:flex;align-items:center;gap:10px;">
             <div style="width:32px;height:32px;border-radius:8px;background:rgba(139,92,246,0.1);display:flex;align-items:center;justify-content:center;">
@@ -967,6 +1322,92 @@
         } else { vDiv.style.display = 'none'; }
     }
 
+    // ── Form completion progress ────────────────────────────────────
+    function updateFormProgress() {
+        var groups = document.querySelectorAll('.form-group-enhanced');
+        var total = 0, filled = 0;
+        groups.forEach(function(grp) {
+            if (grp.classList.contains('field-hidden')) return;
+            var inp = grp.querySelector('input:not([type="hidden"]), textarea, select');
+            if (!inp || inp.readOnly || inp.disabled) return;
+            total++;
+            if (inp.type === 'checkbox') { filled++; } // checkboxes always count
+            else if (inp.value && inp.value.trim() !== '') { filled++; }
+        });
+        var pct = total > 0 ? Math.round((filled / total) * 100) : 0;
+        var fill = document.getElementById('formProgressFill');
+        var pctEl = document.getElementById('formProgressPct');
+        if (fill) fill.style.width = pct + '%';
+        if (pctEl) pctEl.textContent = pct + '%';
+        // Update TOC dots
+        document.querySelectorAll('.field-toc-item').forEach(function(item) {
+            var target = item.getAttribute('data-target');
+            if (!target) return;
+            var fieldId = target;
+            var fieldEl = document.getElementById(fieldId);
+            if (fieldEl) {
+                var hasVal = fieldEl.type === 'checkbox' ? true : (fieldEl.value && fieldEl.value.trim() !== '');
+                if (hasVal) item.classList.add('filled');
+                else item.classList.remove('filled');
+            }
+        });
+    }
+
+    // ── Field search/filter ─────────────────────────────────────────
+    var searchInput = document.getElementById('fieldSearchInput');
+    var searchClear = document.getElementById('fieldSearchClear');
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            var q = this.value.trim().toLowerCase();
+            searchClear.style.display = q ? 'block' : 'none';
+            var groups = document.querySelectorAll('.form-group-enhanced');
+            groups.forEach(function(grp) {
+                var fieldName = (grp.getAttribute('data-field') || '').toLowerCase();
+                var labelEl = grp.querySelector('.form-label');
+                var labelText = labelEl ? labelEl.textContent.toLowerCase() : '';
+                if (!q || fieldName.indexOf(q) !== -1 || labelText.indexOf(q) !== -1) {
+                    grp.classList.remove('field-hidden');
+                } else {
+                    grp.classList.add('field-hidden');
+                }
+            });
+            // Also filter fieldsets
+            document.querySelectorAll('.fieldset-section').forEach(function(fs) {
+                var visibleFields = fs.querySelectorAll('.form-group-enhanced:not(.field-hidden)');
+                if (q && visibleFields.length === 0) {
+                    fs.classList.add('field-hidden');
+                } else {
+                    fs.classList.remove('field-hidden');
+                }
+            });
+        });
+    }
+    window.clearFieldSearch = function() {
+        if (searchInput) { searchInput.value = ''; searchInput.dispatchEvent(new Event('input')); }
+    };
+
+    // ── Scroll to field (from TOC) ──────────────────────────────────
+    window.scrollToField = function(name) {
+        var el = document.getElementById('field-' + name);
+        if (!el) return;
+        var grp = el.closest('.form-group-enhanced');
+        if (grp) {
+            grp.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            // Flash highlight
+            grp.style.boxShadow = '0 0 0 3px var(--accent-subtle)';
+            grp.style.borderColor = 'var(--accent)';
+            grp.style.background = 'var(--accent-subtle)';
+            setTimeout(function() {
+                grp.style.boxShadow = ''; grp.style.borderColor = ''; grp.style.background = '';
+            }, 1500);
+            el.focus();
+        }
+        // Update active TOC item
+        document.querySelectorAll('.field-toc-item').forEach(function(item) { item.classList.remove('active'); });
+        var tocItem = document.querySelector('.field-toc-item[data-target="field-' + name + '"]');
+        if (tocItem) tocItem.classList.add('active');
+    };
+
     // ── Form dirty tracking ─────────────────────────────────────────
     var form = document.getElementById('adminForm');
     if (!form) return;
@@ -1000,12 +1441,16 @@
         var count = document.getElementById('changed-count');
         var inspBtn = document.getElementById('inspectorBtn');
         var resetBtn = document.getElementById('resetBtn');
+        var fab = document.getElementById('floatingActionBar');
+        var sidebarStatus = document.getElementById('sidebarStatus');
         if (changes.length > 0) {
             form.dataset.dirty = 'true';
             if (bar) bar.style.display = 'flex';
             if (count) count.textContent = changes.length + ' field' + (changes.length > 1 ? 's' : '');
             if (inspBtn) inspBtn.style.display = 'inline-flex';
             if (resetBtn) resetBtn.style.display = 'inline-flex';
+            if (fab) fab.classList.add('has-changes');
+            if (sidebarStatus) { sidebarStatus.textContent = 'Unsaved'; sidebarStatus.style.color = '#f59e0b'; }
             // Show undo buttons for changed fields
             changes.forEach(function(c) {
                 var ub = document.getElementById('undo-' + c.name);
@@ -1016,10 +1461,13 @@
             if (bar) bar.style.display = 'none';
             if (inspBtn) inspBtn.style.display = 'none';
             if (resetBtn) resetBtn.style.display = 'none';
+            if (fab) fab.classList.remove('has-changes');
+            if (sidebarStatus) { sidebarStatus.textContent = 'Saved'; sidebarStatus.style.color = 'var(--accent)'; }
             var ci = document.getElementById('change-inspector');
             if (ci) ci.style.display = 'none';
             document.querySelectorAll('[id^="undo-"]').forEach(function(b) { b.style.display = 'none'; });
         }
+        updateFormProgress();
     }
 
     inputs.forEach(function(el) {
@@ -1179,7 +1627,21 @@
     // ── Keyboard shortcuts ──────────────────────────────────────────
     document.addEventListener('keydown', function(e) {
         if ((e.metaKey || e.ctrlKey) && e.key === 's') { e.preventDefault(); form.submit(); }
+        if ((e.metaKey || e.ctrlKey) && e.key === 'f' && !e.shiftKey) {
+            // Focus field search if visible (only intercept when not in an input)
+            var active = document.activeElement;
+            var isInField = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.tagName === 'SELECT');
+            if (!isInField && searchInput) {
+                e.preventDefault();
+                searchInput.focus();
+                searchInput.select();
+            }
+        }
         if (e.key === 'Escape') {
+            // Clear field search first
+            if (searchInput && document.activeElement === searchInput && searchInput.value) {
+                clearFieldSearch(); searchInput.blur(); return;
+            }
             var ci = document.getElementById('change-inspector');
             if (ci && ci.style.display !== 'none') { ci.style.display = 'none'; return; }
             var modal = document.getElementById('delete-modal-overlay');
@@ -1263,11 +1725,32 @@
         if (firstInput) firstInput.focus();
     };
 
+    // ── Active field tracking (for TOC) ─────────────────────────────
+    var observer = new IntersectionObserver(function(entries) {
+        entries.forEach(function(entry) {
+            if (entry.isIntersecting) {
+                var grp = entry.target;
+                var fieldName = grp.getAttribute('data-field');
+                if (!fieldName) return;
+                document.querySelectorAll('.field-toc-item').forEach(function(item) { item.classList.remove('active'); });
+                var tocItem = document.querySelector('.field-toc-item[data-target="field-' + fieldName + '"]');
+                if (tocItem) tocItem.classList.add('active');
+            }
+        });
+    }, { threshold: 0.5, rootMargin: '-20% 0px -60% 0px' });
+
+    document.querySelectorAll('.form-group-enhanced').forEach(function(grp) {
+        observer.observe(grp);
+    });
+
+    // ── Initial progress update ─────────────────────────────────────
+    updateFormProgress();
+
     // ── Toast ───────────────────────────────────────────────────────
     if (typeof showToast === 'undefined') {
         window.showToast = function(msg, type) {
             type = type || 'info'; var el = document.createElement('div');
-            el.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:10010;padding:12px 20px;border-radius:8px;font-size:0.82rem;font-weight:500;box-shadow:0 8px 32px rgba(0,0,0,0.3);max-width:360px;font-family:var(--font-sans);';
+            el.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:10010;padding:12px 20px;border-radius:10px;font-size:0.82rem;font-weight:500;box-shadow:0 8px 32px rgba(0,0,0,0.3);max-width:360px;font-family:var(--font-sans);backdrop-filter:blur(8px);';
             var c = { success:'background:rgba(34,197,94,0.15);color:#22c55e;border:1px solid rgba(34,197,94,0.3);', error:'background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);', warning:'background:rgba(234,179,8,0.15);color:#eab308;border:1px solid rgba(234,179,8,0.3);', info:'background:rgba(59,130,246,0.15);color:#3b82f6;border:1px solid rgba(59,130,246,0.3);' };
             el.style.cssText += (c[type] || c.info); el.textContent = msg; document.body.appendChild(el);
             setTimeout(function() { el.style.opacity = '0'; el.style.transition = 'opacity 0.3s'; setTimeout(function() { el.remove(); }, 300); }, 3500);
