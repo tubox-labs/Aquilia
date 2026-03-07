@@ -30,9 +30,12 @@ logger = logging.getLogger("aquilia.admin.audit")
 
 class AdminAction(str, Enum):
     """Admin action types for audit logging."""
+    # ── Auth ─────────────────────────────────────────────────────────
     LOGIN = "login"
     LOGOUT = "logout"
     LOGIN_FAILED = "login_failed"
+
+    # ── CRUD / Data ──────────────────────────────────────────────────
     VIEW = "view"
     LIST = "list"
     CREATE = "create"
@@ -40,9 +43,51 @@ class AdminAction(str, Enum):
     DELETE = "delete"
     BULK_ACTION = "bulk_action"
     EXPORT = "export"
-    SETTINGS_CHANGE = "settings_change"
     SEARCH = "search"
+
+    # ── Settings & Permissions ───────────────────────────────────────
+    SETTINGS_CHANGE = "settings_change"
     PERMISSION_CHANGE = "permission_change"
+
+    # ── Module Page Views ────────────────────────────────────────────
+    PAGE_VIEW = "page_view"
+
+    # ── Admin User Management ────────────────────────────────────────
+    ADMIN_USER_CREATE = "admin_user_create"
+    ADMIN_USER_UPDATE = "admin_user_update"
+    ADMIN_USER_DELETE = "admin_user_delete"
+
+    # ── Container / Docker Infrastructure ────────────────────────────
+    CONTAINER_ACTION = "container_action"
+    CONTAINER_EXEC = "container_exec"
+    CONTAINER_EXPORT = "container_export"
+    DOCKER_PRUNE = "docker_prune"
+    DOCKER_BUILD = "docker_build"
+    IMAGE_ACTION = "image_action"
+    IMAGE_TAG = "image_tag"
+    COMPOSE_ACTION = "compose_action"
+    VOLUME_ACTION = "volume_action"
+    VOLUME_CREATE = "volume_create"
+    NETWORK_ACTION = "network_action"
+    NETWORK_CREATE = "network_create"
+
+    # ── Storage / File Operations ────────────────────────────────────
+    FILE_UPLOAD = "file_upload"
+    FILE_DELETE = "file_delete"
+    FILE_DOWNLOAD = "file_download"
+
+    # ── Profile ──────────────────────────────────────────────────────
+    PROFILE_UPDATE = "profile_update"
+    AVATAR_UPLOAD = "avatar_upload"
+    PASSWORD_CHANGE = "password_change"
+
+    # ── MLOps ────────────────────────────────────────────────────────
+    ML_INFERENCE = "ml_inference"
+    ML_BATCH_INFERENCE = "ml_batch_inference"
+    ML_COMPARE = "ml_compare"
+    ML_HEALTH_CHECK = "ml_health_check"
+    ALERT_CONFIG = "alert_config"
+    SNAPSHOT_EXPORT = "snapshot_export"
 
 
 @dataclass(frozen=True)

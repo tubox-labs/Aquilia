@@ -550,6 +550,20 @@ class AdminController(Controller):
             except Exception:
                 storage_summary = {"available": False}
 
+        try:
+            meta = _extract_request_meta(request)
+            self.site.audit_log.log(
+                user_id=getattr(identity, "id", ""),
+                username=_get_identity_name(identity),
+                role=str(get_admin_role(identity) or "unknown"),
+                action=AdminAction.PAGE_VIEW,
+                model_name="Dashboard",
+                ip_address=meta.get("ip_address"),
+                user_agent=meta.get("user_agent"),
+            )
+        except Exception:
+            pass
+
         html = render_dashboard(
             app_list=app_list,
             stats=stats,
@@ -1683,6 +1697,20 @@ class AdminController(Controller):
         model_schema = self.site.get_model_schema()
         orm_metadata = self.site.get_orm_metadata()
 
+        try:
+            meta = _extract_request_meta(request)
+            self.site.audit_log.log(
+                user_id=getattr(identity, "id", ""),
+                username=_get_identity_name(identity),
+                role=str(get_admin_role(identity) or "unknown"),
+                action=AdminAction.PAGE_VIEW,
+                model_name="ORM",
+                ip_address=meta.get("ip_address"),
+                user_agent=meta.get("user_agent"),
+            )
+        except Exception:
+            pass
+
         html = render_orm_page(
             app_list=app_list,
             model_counts=stats.get("model_counts", {}),
@@ -1709,6 +1737,20 @@ class AdminController(Controller):
 
         build_data = self.site.get_build_info()
         app_list = self.site.get_app_list(identity)
+
+        try:
+            meta = _extract_request_meta(request)
+            self.site.audit_log.log(
+                user_id=getattr(identity, "id", ""),
+                username=_get_identity_name(identity),
+                role=str(get_admin_role(identity) or "unknown"),
+                action=AdminAction.PAGE_VIEW,
+                model_name="Build",
+                ip_address=meta.get("ip_address"),
+                user_agent=meta.get("user_agent"),
+            )
+        except Exception:
+            pass
 
         html = render_build_page(
             build_info=build_data.get("info", {}),
@@ -1739,6 +1781,20 @@ class AdminController(Controller):
         migrations = self.site.get_migrations_data()
         app_list = self.site.get_app_list(identity)
 
+        try:
+            meta = _extract_request_meta(request)
+            self.site.audit_log.log(
+                user_id=getattr(identity, "id", ""),
+                username=_get_identity_name(identity),
+                role=str(get_admin_role(identity) or "unknown"),
+                action=AdminAction.PAGE_VIEW,
+                model_name="Migrations",
+                ip_address=meta.get("ip_address"),
+                user_agent=meta.get("user_agent"),
+            )
+        except Exception:
+            pass
+
         html = render_migrations_page(
             migrations=migrations,
             app_list=app_list,
@@ -1763,6 +1819,20 @@ class AdminController(Controller):
 
         config_data = self.site.get_config_data()
         app_list = self.site.get_app_list(identity)
+
+        try:
+            meta = _extract_request_meta(request)
+            self.site.audit_log.log(
+                user_id=getattr(identity, "id", ""),
+                username=_get_identity_name(identity),
+                role=str(get_admin_role(identity) or "unknown"),
+                action=AdminAction.PAGE_VIEW,
+                model_name="Configuration",
+                ip_address=meta.get("ip_address"),
+                user_agent=meta.get("user_agent"),
+            )
+        except Exception:
+            pass
 
         html = render_config_page(
             config_files=config_data.get("files", []),
@@ -1803,6 +1873,20 @@ class AdminController(Controller):
         stats.setdefault("total_integrations", 0)
         workspace_data["stats"] = stats
 
+        try:
+            meta = _extract_request_meta(request)
+            self.site.audit_log.log(
+                user_id=getattr(identity, "id", ""),
+                username=_get_identity_name(identity),
+                role=str(get_admin_role(identity) or "unknown"),
+                action=AdminAction.PAGE_VIEW,
+                model_name="Workspace",
+                ip_address=meta.get("ip_address"),
+                user_agent=meta.get("user_agent"),
+            )
+        except Exception:
+            pass
+
         html = render_workspace_page(
             workspace=workspace_data,
             app_list=app_list,
@@ -1834,6 +1918,20 @@ class AdminController(Controller):
 
         perms_data = self.site.get_permissions_data(identity)
         app_list = self.site.get_app_list(identity)
+
+        try:
+            meta = _extract_request_meta(request)
+            self.site.audit_log.log(
+                user_id=getattr(identity, "id", ""),
+                username=_get_identity_name(identity),
+                role=str(get_admin_role(identity) or "unknown"),
+                action=AdminAction.PAGE_VIEW,
+                model_name="Permissions",
+                ip_address=meta.get("ip_address"),
+                user_agent=meta.get("user_agent"),
+            )
+        except Exception:
+            pass
 
         html = render_permissions_page(
             roles=perms_data.get("roles", []),
@@ -1878,6 +1976,21 @@ class AdminController(Controller):
             form_data = {}
 
         result = self.site.update_permissions(form_data, identity)
+
+        try:
+            meta = _extract_request_meta(request)
+            self.site.audit_log.log(
+                user_id=getattr(identity, "id", ""),
+                username=_get_identity_name(identity),
+                role=str(get_admin_role(identity) or "unknown"),
+                action=AdminAction.PERMISSION_CHANGE,
+                model_name="Permissions",
+                metadata={"result": result.get("status", "unknown")},
+                ip_address=meta.get("ip_address"),
+                user_agent=meta.get("user_agent"),
+            )
+        except Exception:
+            pass
 
         # Flash the result message
         if ctx.session and hasattr(ctx.session, "data"):
@@ -1924,6 +2037,21 @@ class AdminController(Controller):
         total_pages = max(1, (total + per_page - 1) // per_page)
 
         app_list = self.site.get_app_list(identity)
+
+        try:
+            meta = _extract_request_meta(request)
+            self.site.audit_log.log(
+                user_id=getattr(identity, "id", ""),
+                username=_get_identity_name(identity),
+                role=str(get_admin_role(identity) or "unknown"),
+                action=AdminAction.PAGE_VIEW,
+                model_name="Audit",
+                ip_address=meta.get("ip_address"),
+                user_agent=meta.get("user_agent"),
+            )
+        except Exception:
+            pass
+
         html = render_audit_page(
             entries=[e.to_dict() for e in entries],
             app_list=app_list,
@@ -1952,6 +2080,20 @@ class AdminController(Controller):
 
         monitoring_data = self.site.get_monitoring_data()
         app_list = self.site.get_app_list(identity)
+
+        try:
+            meta = _extract_request_meta(request)
+            self.site.audit_log.log(
+                user_id=getattr(identity, "id", ""),
+                username=_get_identity_name(identity),
+                role=str(get_admin_role(identity) or "unknown"),
+                action=AdminAction.PAGE_VIEW,
+                model_name="Monitoring",
+                ip_address=meta.get("ip_address"),
+                user_agent=meta.get("user_agent"),
+            )
+        except Exception:
+            pass
 
         html = render_monitoring_page(
             monitoring=monitoring_data,
@@ -2005,6 +2147,20 @@ class AdminController(Controller):
 
         containers_data = self.site.get_containers_data()
         app_list = self.site.get_app_list(identity)
+
+        try:
+            meta = _extract_request_meta(request)
+            self.site.audit_log.log(
+                user_id=getattr(identity, "id", ""),
+                username=_get_identity_name(identity),
+                role=str(get_admin_role(identity) or "unknown"),
+                action=AdminAction.PAGE_VIEW,
+                model_name="Containers",
+                ip_address=meta.get("ip_address"),
+                user_agent=meta.get("user_agent"),
+            )
+        except Exception:
+            pass
 
         html = render_containers_page(
             containers_data=containers_data,
@@ -2070,6 +2226,20 @@ class AdminController(Controller):
             )
 
         result = self.site.execute_container_action(container_id, action, run_params=run_params)
+        try:
+            meta = _extract_request_meta(request)
+            self.site.audit_log.log(
+                user_id=getattr(identity, "id", ""),
+                username=_get_identity_name(identity),
+                role=str(get_admin_role(identity) or "unknown"),
+                action=AdminAction.CONTAINER_ACTION,
+                model_name="Docker",
+                metadata={"container_id": container_id, "action": action},
+                ip_address=meta.get("ip_address"),
+                user_agent=meta.get("user_agent"),
+            )
+        except Exception:
+            pass
         return Response(
             content=_json.dumps(result, default=str).encode("utf-8"),
             status=200, headers={"content-type": "application/json; charset=utf-8"},
@@ -2242,6 +2412,20 @@ class AdminController(Controller):
             )
 
         result = self.site.execute_image_action(image_id, action)
+        try:
+            meta = _extract_request_meta(request)
+            self.site.audit_log.log(
+                user_id=getattr(identity, "id", ""),
+                username=_get_identity_name(identity),
+                role=str(get_admin_role(identity) or "unknown"),
+                action=AdminAction.IMAGE_ACTION,
+                model_name="Docker",
+                metadata={"image_id": image_id, "action": action},
+                ip_address=meta.get("ip_address"),
+                user_agent=meta.get("user_agent"),
+            )
+        except Exception:
+            pass
         return Response(
             content=_json.dumps(result, default=str).encode("utf-8"),
             status=200, headers={"content-type": "application/json; charset=utf-8"},
@@ -2268,6 +2452,20 @@ class AdminController(Controller):
             )
 
         result = self.site.execute_compose_action(action)
+        try:
+            meta = _extract_request_meta(request)
+            self.site.audit_log.log(
+                user_id=getattr(identity, "id", ""),
+                username=_get_identity_name(identity),
+                role=str(get_admin_role(identity) or "unknown"),
+                action=AdminAction.COMPOSE_ACTION,
+                model_name="Docker",
+                metadata={"action": action},
+                ip_address=meta.get("ip_address"),
+                user_agent=meta.get("user_agent"),
+            )
+        except Exception:
+            pass
         return Response(
             content=_json.dumps(result, default=str).encode("utf-8"),
             status=200, headers={"content-type": "application/json; charset=utf-8"},
@@ -2295,6 +2493,20 @@ class AdminController(Controller):
             )
 
         result = self.site.execute_volume_action(name, action)
+        try:
+            meta = _extract_request_meta(request)
+            self.site.audit_log.log(
+                user_id=getattr(identity, "id", ""),
+                username=_get_identity_name(identity),
+                role=str(get_admin_role(identity) or "unknown"),
+                action=AdminAction.VOLUME_ACTION,
+                model_name="Docker",
+                metadata={"volume": name, "action": action},
+                ip_address=meta.get("ip_address"),
+                user_agent=meta.get("user_agent"),
+            )
+        except Exception:
+            pass
         return Response(
             content=_json.dumps(result, default=str).encode("utf-8"),
             status=200, headers={"content-type": "application/json; charset=utf-8"},
@@ -2322,6 +2534,20 @@ class AdminController(Controller):
             )
 
         result = self.site.execute_network_action(network_id, action)
+        try:
+            meta = _extract_request_meta(request)
+            self.site.audit_log.log(
+                user_id=getattr(identity, "id", ""),
+                username=_get_identity_name(identity),
+                role=str(get_admin_role(identity) or "unknown"),
+                action=AdminAction.NETWORK_ACTION,
+                model_name="Docker",
+                metadata={"network_id": network_id, "action": action},
+                ip_address=meta.get("ip_address"),
+                user_agent=meta.get("user_agent"),
+            )
+        except Exception:
+            pass
         return Response(
             content=_json.dumps(result, default=str).encode("utf-8"),
             status=200, headers={"content-type": "application/json; charset=utf-8"},
@@ -2361,6 +2587,20 @@ class AdminController(Controller):
                 status=400, headers={"content-type": "application/json"},
             )
         result = self.site.execute_docker_prune(target)
+        try:
+            meta = _extract_request_meta(request)
+            self.site.audit_log.log(
+                user_id=getattr(identity, "id", ""),
+                username=_get_identity_name(identity),
+                role=str(get_admin_role(identity) or "unknown"),
+                action=AdminAction.DOCKER_PRUNE,
+                model_name="Docker",
+                metadata={"target": target},
+                ip_address=meta.get("ip_address"),
+                user_agent=meta.get("user_agent"),
+            )
+        except Exception:
+            pass
         return Response(
             content=_json.dumps(result, default=str).encode("utf-8"),
             status=200, headers={"content-type": "application/json; charset=utf-8"},
@@ -2384,6 +2624,20 @@ class AdminController(Controller):
                 status=400, headers={"content-type": "application/json"},
             )
         result = self.site.execute_container_exec(container_id, command)
+        try:
+            meta = _extract_request_meta(request)
+            self.site.audit_log.log(
+                user_id=getattr(identity, "id", ""),
+                username=_get_identity_name(identity),
+                role=str(get_admin_role(identity) or "unknown"),
+                action=AdminAction.CONTAINER_EXEC,
+                model_name="Docker",
+                metadata={"container_id": container_id, "command": command},
+                ip_address=meta.get("ip_address"),
+                user_agent=meta.get("user_agent"),
+            )
+        except Exception:
+            pass
         return Response(
             content=_json.dumps(result, default=str).encode("utf-8"),
             status=200, headers={"content-type": "application/json; charset=utf-8"},
@@ -2429,6 +2683,20 @@ class AdminController(Controller):
                 status=400, headers={"content-type": "application/json"},
             )
         result = self.site.execute_image_tag(source, target)
+        try:
+            meta = _extract_request_meta(request)
+            self.site.audit_log.log(
+                user_id=getattr(identity, "id", ""),
+                username=_get_identity_name(identity),
+                role=str(get_admin_role(identity) or "unknown"),
+                action=AdminAction.IMAGE_TAG,
+                model_name="Docker",
+                metadata={"source": source, "target": target},
+                ip_address=meta.get("ip_address"),
+                user_agent=meta.get("user_agent"),
+            )
+        except Exception:
+            pass
         return Response(
             content=_json.dumps(result, default=str).encode("utf-8"),
             status=200, headers={"content-type": "application/json; charset=utf-8"},
@@ -2451,6 +2719,20 @@ class AdminController(Controller):
                 status=400, headers={"content-type": "application/json"},
             )
         result = self.site.execute_container_export(container_id)
+        try:
+            meta = _extract_request_meta(request)
+            self.site.audit_log.log(
+                user_id=getattr(identity, "id", ""),
+                username=_get_identity_name(identity),
+                role=str(get_admin_role(identity) or "unknown"),
+                action=AdminAction.CONTAINER_EXPORT,
+                model_name="Docker",
+                metadata={"container_id": container_id},
+                ip_address=meta.get("ip_address"),
+                user_agent=meta.get("user_agent"),
+            )
+        except Exception:
+            pass
         return Response(
             content=_json.dumps(result, default=str).encode("utf-8"),
             status=200, headers={"content-type": "application/json; charset=utf-8"},
@@ -2477,6 +2759,20 @@ class AdminController(Controller):
                 status=400, headers={"content-type": "application/json"},
             )
         result = self.site.create_docker_network(name, driver, subnet, gateway, internal)
+        try:
+            meta = _extract_request_meta(request)
+            self.site.audit_log.log(
+                user_id=getattr(identity, "id", ""),
+                username=_get_identity_name(identity),
+                role=str(get_admin_role(identity) or "unknown"),
+                action=AdminAction.NETWORK_CREATE,
+                model_name="Docker",
+                metadata={"name": name, "driver": driver},
+                ip_address=meta.get("ip_address"),
+                user_agent=meta.get("user_agent"),
+            )
+        except Exception:
+            pass
         return Response(
             content=_json.dumps(result, default=str).encode("utf-8"),
             status=200, headers={"content-type": "application/json; charset=utf-8"},
@@ -2501,6 +2797,20 @@ class AdminController(Controller):
                 status=400, headers={"content-type": "application/json"},
             )
         result = self.site.create_docker_volume(name, driver, labels)
+        try:
+            meta = _extract_request_meta(request)
+            self.site.audit_log.log(
+                user_id=getattr(identity, "id", ""),
+                username=_get_identity_name(identity),
+                role=str(get_admin_role(identity) or "unknown"),
+                action=AdminAction.VOLUME_CREATE,
+                model_name="Docker",
+                metadata={"name": name, "driver": driver},
+                ip_address=meta.get("ip_address"),
+                user_agent=meta.get("user_agent"),
+            )
+        except Exception:
+            pass
         return Response(
             content=_json.dumps(result, default=str).encode("utf-8"),
             status=200, headers={"content-type": "application/json; charset=utf-8"},
@@ -2540,6 +2850,20 @@ class AdminController(Controller):
         result = self.site.execute_docker_build(
             tag=tag, no_cache=no_cache, build_args=build_args, target=target,
         )
+        try:
+            meta = _extract_request_meta(request)
+            self.site.audit_log.log(
+                user_id=getattr(identity, "id", ""),
+                username=_get_identity_name(identity),
+                role=str(get_admin_role(identity) or "unknown"),
+                action=AdminAction.DOCKER_BUILD,
+                model_name="Docker",
+                metadata={"tag": tag, "no_cache": no_cache},
+                ip_address=meta.get("ip_address"),
+                user_agent=meta.get("user_agent"),
+            )
+        except Exception:
+            pass
         return Response(
             content=_json.dumps(result, default=str).encode("utf-8"),
             status=200, headers={"content-type": "application/json; charset=utf-8"},
@@ -2628,6 +2952,20 @@ class AdminController(Controller):
         pods_data = self.site.get_pods_data()
         app_list = self.site.get_app_list(identity)
 
+        try:
+            meta = _extract_request_meta(request)
+            self.site.audit_log.log(
+                user_id=getattr(identity, "id", ""),
+                username=_get_identity_name(identity),
+                role=str(get_admin_role(identity) or "unknown"),
+                action=AdminAction.PAGE_VIEW,
+                model_name="Pods",
+                ip_address=meta.get("ip_address"),
+                user_agent=meta.get("user_agent"),
+            )
+        except Exception:
+            pass
+
         html = render_pods_page(
             pods_data=pods_data,
             app_list=app_list,
@@ -2680,6 +3018,20 @@ class AdminController(Controller):
 
         storage_data = await self.site.get_storage_data()
         app_list = self.site.get_app_list(identity)
+
+        try:
+            meta = _extract_request_meta(request)
+            self.site.audit_log.log(
+                user_id=getattr(identity, "id", ""),
+                username=_get_identity_name(identity),
+                role=str(get_admin_role(identity) or "unknown"),
+                action=AdminAction.PAGE_VIEW,
+                model_name="Storage",
+                ip_address=meta.get("ip_address"),
+                user_agent=meta.get("user_agent"),
+            )
+        except Exception:
+            pass
 
         html = render_storage_page(
             storage_data=storage_data,
@@ -2789,6 +3141,21 @@ class AdminController(Controller):
             ct = ct or "application/octet-stream"
             fname = file_path.rsplit("/", 1)[-1] if "/" in file_path else file_path
 
+            try:
+                meta = _extract_request_meta(request)
+                self.site.audit_log.log(
+                    user_id=getattr(identity, "id", ""),
+                    username=_get_identity_name(identity),
+                    role=str(get_admin_role(identity) or "unknown"),
+                    action=AdminAction.FILE_DOWNLOAD,
+                    model_name="Storage",
+                    metadata={"backend": backend_alias, "path": file_path, "size": len(content)},
+                    ip_address=meta.get("ip_address"),
+                    user_agent=meta.get("user_agent"),
+                )
+            except Exception:
+                pass
+
             return Response(
                 content=content,
                 status=200,
@@ -2844,6 +3211,21 @@ class AdminController(Controller):
                 return Response(content=b'{"error":"backend not found"}', status=404, headers={"content-type": "application/json"})
             await backend.save(file_path, file_data)
 
+            try:
+                meta = _extract_request_meta(request)
+                self.site.audit_log.log(
+                    user_id=getattr(identity, "id", ""),
+                    username=_get_identity_name(identity),
+                    role=str(get_admin_role(identity) or "unknown"),
+                    action=AdminAction.FILE_UPLOAD,
+                    model_name="Storage",
+                    metadata={"backend": backend_alias, "path": file_path, "size": len(file_data)},
+                    ip_address=meta.get("ip_address"),
+                    user_agent=meta.get("user_agent"),
+                )
+            except Exception:
+                pass
+
             return Response(
                 content=_json.dumps({"success": True, "path": file_path, "backend": backend_alias}).encode("utf-8"),
                 status=200,
@@ -2885,6 +3267,21 @@ class AdminController(Controller):
                 return Response(content=b'{"error":"backend not found"}', status=404, headers={"content-type": "application/json"})
             await backend.delete(file_path)
 
+            try:
+                meta = _extract_request_meta(request)
+                self.site.audit_log.log(
+                    user_id=getattr(identity, "id", ""),
+                    username=_get_identity_name(identity),
+                    role=str(get_admin_role(identity) or "unknown"),
+                    action=AdminAction.FILE_DELETE,
+                    model_name="Storage",
+                    metadata={"backend": backend_alias, "path": file_path},
+                    ip_address=meta.get("ip_address"),
+                    user_agent=meta.get("user_agent"),
+                )
+            except Exception:
+                pass
+
             return Response(
                 content=_json.dumps({"success": True, "path": file_path, "backend": backend_alias}).encode("utf-8"),
                 status=200,
@@ -2913,6 +3310,20 @@ class AdminController(Controller):
 
         query_data = self.site.get_query_inspector_data()
         app_list = self.site.get_app_list(identity)
+
+        try:
+            meta = _extract_request_meta(request)
+            self.site.audit_log.log(
+                user_id=getattr(identity, "id", ""),
+                username=_get_identity_name(identity),
+                role=str(get_admin_role(identity) or "unknown"),
+                action=AdminAction.PAGE_VIEW,
+                model_name="QueryInspector",
+                ip_address=meta.get("ip_address"),
+                user_agent=meta.get("user_agent"),
+            )
+        except Exception:
+            pass
 
         html = render_query_inspector_page(
             query_data=query_data,
@@ -2967,6 +3378,20 @@ class AdminController(Controller):
         tasks_data = await self.site.get_tasks_data()
         app_list = self.site.get_app_list(identity)
 
+        try:
+            meta = _extract_request_meta(request)
+            self.site.audit_log.log(
+                user_id=getattr(identity, "id", ""),
+                username=_get_identity_name(identity),
+                role=str(get_admin_role(identity) or "unknown"),
+                action=AdminAction.PAGE_VIEW,
+                model_name="Tasks",
+                ip_address=meta.get("ip_address"),
+                user_agent=meta.get("user_agent"),
+            )
+        except Exception:
+            pass
+
         html = render_tasks_page(
             tasks_data=tasks_data,
             app_list=app_list,
@@ -3019,6 +3444,20 @@ class AdminController(Controller):
 
         errors_data = self.site.get_error_tracker_data()
         app_list = self.site.get_app_list(identity)
+
+        try:
+            meta = _extract_request_meta(request)
+            self.site.audit_log.log(
+                user_id=getattr(identity, "id", ""),
+                username=_get_identity_name(identity),
+                role=str(get_admin_role(identity) or "unknown"),
+                action=AdminAction.PAGE_VIEW,
+                model_name="Errors",
+                ip_address=meta.get("ip_address"),
+                user_agent=meta.get("user_agent"),
+            )
+        except Exception:
+            pass
 
         html = render_errors_page(
             errors_data=errors_data,
@@ -3073,6 +3512,20 @@ class AdminController(Controller):
         testing_data = self.site.get_testing_data()
         app_list = self.site.get_app_list(identity)
 
+        try:
+            meta = _extract_request_meta(request)
+            self.site.audit_log.log(
+                user_id=getattr(identity, "id", ""),
+                username=_get_identity_name(identity),
+                role=str(get_admin_role(identity) or "unknown"),
+                action=AdminAction.PAGE_VIEW,
+                model_name="Testing",
+                ip_address=meta.get("ip_address"),
+                user_agent=meta.get("user_agent"),
+            )
+        except Exception:
+            pass
+
         html = render_testing_page(
             testing_data=testing_data,
             app_list=app_list,
@@ -3125,6 +3578,20 @@ class AdminController(Controller):
 
         mlops_data = self.site.get_mlops_data()
         app_list = self.site.get_app_list(identity)
+
+        try:
+            meta = _extract_request_meta(request)
+            self.site.audit_log.log(
+                user_id=getattr(identity, "id", ""),
+                username=_get_identity_name(identity),
+                role=str(get_admin_role(identity) or "unknown"),
+                action=AdminAction.PAGE_VIEW,
+                model_name="MLOps",
+                ip_address=meta.get("ip_address"),
+                user_agent=meta.get("user_agent"),
+            )
+        except Exception:
+            pass
 
         html = render_mlops_page(
             mlops_data=mlops_data,
@@ -3328,6 +3795,21 @@ class AdminController(Controller):
             if len(history) > 100:
                 self.site._mlops_inference_history = history[:100]
 
+        try:
+            meta = _extract_request_meta(request)
+            self.site.audit_log.log(
+                user_id=getattr(identity, "id", ""),
+                username=_get_identity_name(identity),
+                role=str(get_admin_role(identity) or "unknown"),
+                action=AdminAction.ML_INFERENCE,
+                model_name="MLOps",
+                metadata={"model": model_name, "version": version, "status": result.get("status", "unknown")},
+                ip_address=meta.get("ip_address"),
+                user_agent=meta.get("user_agent"),
+            )
+        except Exception:
+            pass
+
         return Response(
             content=_json.dumps(result, default=str).encode("utf-8"),
             status=200 if result["status"] == "ok" else 500,
@@ -3443,6 +3925,21 @@ class AdminController(Controller):
 
             results.append(entry_result)
 
+        try:
+            meta = _extract_request_meta(request)
+            self.site.audit_log.log(
+                user_id=getattr(identity, "id", ""),
+                username=_get_identity_name(identity),
+                role=str(get_admin_role(identity) or "unknown"),
+                action=AdminAction.ML_COMPARE,
+                model_name="MLOps",
+                metadata={"models": model_names[:5], "result_count": len(results)},
+                ip_address=meta.get("ip_address"),
+                user_agent=meta.get("user_agent"),
+            )
+        except Exception:
+            pass
+
         return Response(
             content=_json.dumps({"results": results}, default=str).encode("utf-8"),
             status=200,
@@ -3506,6 +4003,21 @@ class AdminController(Controller):
                     results.append(check)
             except Exception:
                 pass
+
+        try:
+            meta = _extract_request_meta(request)
+            self.site.audit_log.log(
+                user_id=getattr(identity, "id", ""),
+                username=_get_identity_name(identity),
+                role=str(get_admin_role(identity) or "unknown"),
+                action=AdminAction.ML_HEALTH_CHECK,
+                model_name="MLOps",
+                metadata={"models_checked": len(results)},
+                ip_address=meta.get("ip_address"),
+                user_agent=meta.get("user_agent"),
+            )
+        except Exception:
+            pass
 
         return Response(
             content=_json.dumps({"models": results}, default=str).encode("utf-8"),
@@ -3634,6 +4146,21 @@ class AdminController(Controller):
 
         total_elapsed = (_time.perf_counter() - batch_start) * 1000.0
 
+        try:
+            meta = _extract_request_meta(request)
+            self.site.audit_log.log(
+                user_id=getattr(identity, "id", ""),
+                username=_get_identity_name(identity),
+                role=str(get_admin_role(identity) or "unknown"),
+                action=AdminAction.ML_BATCH_INFERENCE,
+                model_name="MLOps",
+                metadata={"model": model_name, "batch_size": len(inputs), "errors": errors, "total_ms": round(total_elapsed, 2)},
+                ip_address=meta.get("ip_address"),
+                user_agent=meta.get("user_agent"),
+            )
+        except Exception:
+            pass
+
         return Response(
             content=_json.dumps({
                 "results": results,
@@ -3743,6 +4270,21 @@ class AdminController(Controller):
 
         self.site._mlops_triggered_alerts = triggered
 
+        try:
+            meta = _extract_request_meta(request)
+            self.site.audit_log.log(
+                user_id=getattr(identity, "id", ""),
+                username=_get_identity_name(identity),
+                role=str(get_admin_role(identity) or "unknown"),
+                action=AdminAction.ALERT_CONFIG,
+                model_name="MLOps",
+                metadata={"rules_count": len(rules), "triggered_count": len(triggered)},
+                ip_address=meta.get("ip_address"),
+                user_agent=meta.get("user_agent"),
+            )
+        except Exception:
+            pass
+
         return Response(
             content=_json.dumps({"rules": rules, "triggered": triggered}, default=str).encode("utf-8"),
             status=200,
@@ -3769,6 +4311,21 @@ class AdminController(Controller):
             "alert_rules": getattr(self.site, "_mlops_alert_rules", []),
             "triggered_alerts": getattr(self.site, "_mlops_triggered_alerts", []),
         }
+
+        try:
+            meta = _extract_request_meta(request)
+            self.site.audit_log.log(
+                user_id=getattr(identity, "id", ""),
+                username=_get_identity_name(identity),
+                role=str(get_admin_role(identity) or "unknown"),
+                action=AdminAction.SNAPSHOT_EXPORT,
+                model_name="MLOps",
+                metadata={"exported_by": _get_identity_name(identity)},
+                ip_address=meta.get("ip_address"),
+                user_agent=meta.get("user_agent"),
+            )
+        except Exception:
+            pass
 
         return Response(
             content=_json.dumps(snapshot, default=str, indent=2).encode("utf-8"),
@@ -3828,6 +4385,21 @@ class AdminController(Controller):
             flash_type = ctx.session.data.pop("_admin_flash_type", "success")
 
         app_list = self.site.get_app_list(identity)
+
+        try:
+            meta = _extract_request_meta(request)
+            self.site.audit_log.log(
+                user_id=getattr(identity, "id", ""),
+                username=_get_identity_name(identity),
+                role=str(get_admin_role(identity) or "unknown"),
+                action=AdminAction.PAGE_VIEW,
+                model_name="AdminUsers",
+                ip_address=meta.get("ip_address"),
+                user_agent=meta.get("user_agent"),
+            )
+        except Exception:
+            pass
+
         html = render_admin_users_page(
             users=users,
             app_list=app_list,
@@ -3903,12 +4475,17 @@ class AdminController(Controller):
 
             # Audit
             try:
+                meta = _extract_request_meta(request)
                 self.site.audit_log.log(
-                    AdminAction.CREATE,
-                    identity=identity,
-                    model="AdminUser",
-                    object_repr=username,
-                    **_extract_request_meta(request),
+                    user_id=getattr(identity, "id", ""),
+                    username=_get_identity_name(identity),
+                    role=str(get_admin_role(identity) or "unknown"),
+                    action=AdminAction.ADMIN_USER_CREATE,
+                    model_name="AdminUser",
+                    record_pk=str(getattr(user, "pk", "")),
+                    changes={"username": username, "email": email, "role": role},
+                    ip_address=meta.get("ip_address"),
+                    user_agent=meta.get("user_agent"),
                 )
             except Exception:
                 pass
@@ -3945,12 +4522,17 @@ class AdminController(Controller):
 
             action = "activated" if user.is_active else "deactivated"
             try:
+                meta = _extract_request_meta(request)
                 self.site.audit_log.log(
-                    AdminAction.UPDATE,
-                    identity=identity,
-                    model="AdminUser",
-                    object_repr=f"{user.username} {action}",
-                    **_extract_request_meta(request),
+                    user_id=getattr(identity, "id", ""),
+                    username=_get_identity_name(identity),
+                    role=str(get_admin_role(identity) or "unknown"),
+                    action=AdminAction.ADMIN_USER_UPDATE,
+                    model_name="AdminUser",
+                    record_pk=str(user_id),
+                    changes={"is_active": user.is_active, "action": action},
+                    ip_address=meta.get("ip_address"),
+                    user_agent=meta.get("user_agent"),
                 )
             except Exception:
                 pass
@@ -3993,12 +4575,17 @@ class AdminController(Controller):
             await user.save()
 
             try:
+                meta = _extract_request_meta(request)
                 self.site.audit_log.log(
-                    AdminAction.UPDATE,
-                    identity=identity,
-                    model="AdminUser",
-                    object_repr=f"Password reset: {user.username}",
-                    **_extract_request_meta(request),
+                    user_id=getattr(identity, "id", ""),
+                    username=_get_identity_name(identity),
+                    role=str(get_admin_role(identity) or "unknown"),
+                    action=AdminAction.PASSWORD_CHANGE,
+                    model_name="AdminUser",
+                    record_pk=str(user_id),
+                    metadata={"target_user": user.username, "action": "password_reset"},
+                    ip_address=meta.get("ip_address"),
+                    user_agent=meta.get("user_agent"),
                 )
             except Exception:
                 pass
@@ -4041,12 +4628,17 @@ class AdminController(Controller):
             await user.delete()
 
             try:
+                meta = _extract_request_meta(request)
                 self.site.audit_log.log(
-                    AdminAction.DELETE,
-                    identity=identity,
-                    model="AdminUser",
-                    object_repr=f"Deleted: {username}",
-                    **_extract_request_meta(request),
+                    user_id=getattr(identity, "id", ""),
+                    username=_get_identity_name(identity),
+                    role=str(get_admin_role(identity) or "unknown"),
+                    action=AdminAction.ADMIN_USER_DELETE,
+                    model_name="AdminUser",
+                    record_pk=str(user_id),
+                    metadata={"deleted_user": username},
+                    ip_address=meta.get("ip_address"),
+                    user_agent=meta.get("user_agent"),
                 )
             except Exception:
                 pass
@@ -4123,6 +4715,21 @@ class AdminController(Controller):
             flash_type = ctx.session.data.pop("_admin_flash_type", "success")
 
         app_list = self.site.get_app_list(identity)
+
+        try:
+            meta = _extract_request_meta(request)
+            self.site.audit_log.log(
+                user_id=getattr(identity, "id", ""),
+                username=_get_identity_name(identity),
+                role=str(get_admin_role(identity) or "unknown"),
+                action=AdminAction.PAGE_VIEW,
+                model_name="Profile",
+                ip_address=meta.get("ip_address"),
+                user_agent=meta.get("user_agent"),
+            )
+        except Exception:
+            pass
+
         html = render_profile_page(
             user=user,
             app_list=app_list,
@@ -4265,6 +4872,21 @@ class AdminController(Controller):
         prefix = self.site.url_prefix if hasattr(self, "site") and self.site else "/admin"
         avatar_url = f"{prefix}/profile/avatar/{filename}"
 
+        try:
+            meta = _extract_request_meta(request)
+            self.site.audit_log.log(
+                user_id=getattr(identity, "id", ""),
+                username=_get_identity_name(identity),
+                role=str(get_admin_role(identity) or "unknown"),
+                action=AdminAction.AVATAR_UPLOAD,
+                model_name="Profile",
+                metadata={"filename": filename, "size": len(raw), "ext": ext},
+                ip_address=meta.get("ip_address"),
+                user_agent=meta.get("user_agent"),
+            )
+        except Exception:
+            pass
+
         # Persist path in AdminUser table
         try:
             from aquilia.admin.models import AdminUser
@@ -4331,6 +4953,21 @@ class AdminController(Controller):
                         attrs["name"]       = f"{first_name} {last_name}".strip() or username
                         ctx.session.data["_admin_identity"] = admin_data
 
+                try:
+                    meta = _extract_request_meta(request)
+                    self.site.audit_log.log(
+                        user_id=getattr(identity, "id", ""),
+                        username=_get_identity_name(identity),
+                        role=str(get_admin_role(identity) or "unknown"),
+                        action=AdminAction.PROFILE_UPDATE,
+                        model_name="Profile",
+                        changes={"first_name": first_name, "last_name": last_name, "email": email, "timezone": timezone, "locale": locale},
+                        ip_address=meta.get("ip_address"),
+                        user_agent=meta.get("user_agent"),
+                    )
+                except Exception:
+                    pass
+
                 if ctx.session and hasattr(ctx.session, "data"):
                     ctx.session.data["_admin_flash"]      = "Profile updated successfully."
                     ctx.session.data["_admin_flash_type"] = "success"
@@ -4390,6 +5027,21 @@ class AdminController(Controller):
 
                 user.set_password(new_password)
                 await user.save()
+
+                try:
+                    meta = _extract_request_meta(request)
+                    self.site.audit_log.log(
+                        user_id=getattr(identity, "id", ""),
+                        username=_get_identity_name(identity),
+                        role=str(get_admin_role(identity) or "unknown"),
+                        action=AdminAction.PASSWORD_CHANGE,
+                        model_name="Profile",
+                        metadata={"action": "self_password_change"},
+                        ip_address=meta.get("ip_address"),
+                        user_agent=meta.get("user_agent"),
+                    )
+                except Exception:
+                    pass
 
                 if ctx.session and hasattr(ctx.session, "data"):
                     ctx.session.data["_admin_flash"] = "Password changed successfully."

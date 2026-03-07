@@ -151,7 +151,7 @@ class AdminConfig:
         # Category-level switches
         if action_upper in ("LOGIN", "LOGOUT", "LOGIN_FAILED") and not self.audit_log_logins:
             return False
-        if action_upper in ("VIEW", "LIST") and not self.audit_log_views:
+        if action_upper in ("VIEW", "LIST", "PAGE_VIEW") and not self.audit_log_views:
             return False
         if action_upper == "SEARCH" and not self.audit_log_searches:
             return False
