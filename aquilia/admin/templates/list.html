@@ -366,7 +366,7 @@
 .empty-state-text { font-size: 0.82rem; color: var(--text-muted); margin-bottom: 20px; }
 
 /* ── Keyboard shortcuts hint ── */
-.shortcuts-hint {
+.kbd-hint {
     position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
     display: flex; gap: 12px; padding: 10px 20px; border-radius: 12px;
     background: var(--bg-elevated); border: 1px solid var(--border-color);
@@ -374,11 +374,56 @@
     font-size: 0.7rem; color: var(--text-faint); opacity: 0;
     transition: opacity 0.3s; pointer-events: none;
 }
-.shortcuts-hint.visible { opacity: 1; pointer-events: auto; }
-.shortcut-item { display: flex; align-items: center; gap: 5px; white-space: nowrap; }
-.shortcut-item kbd {
+.kbd-hint.visible { opacity: 1; pointer-events: auto; }
+.kbd-hint-item { display: flex; align-items: center; gap: 5px; white-space: nowrap; }
+.kbd-hint-item kbd {
     padding: 2px 6px; border-radius: 4px; border: 1px solid var(--border-color);
     background: var(--bg-surface); font-family: var(--font-mono); font-size: 0.62rem; min-width: 18px; text-align: center;
+}
+
+/* ── Custom Select ── */
+.custom-select {
+    position: relative; display: inline-block; min-width: 110px;
+}
+.custom-select-trigger {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    padding: 7px 12px; border-radius: 8px; font-size: 0.78rem;
+    background: var(--bg-input); color: var(--text-primary);
+    border: 1px solid var(--border-color); font-family: var(--font-sans);
+    cursor: pointer; outline: none; transition: border-color 0.15s, box-shadow 0.15s;
+    white-space: nowrap; user-select: none; -webkit-user-select: none;
+}
+.custom-select-trigger:hover { border-color: var(--accent); }
+.custom-select-trigger:focus, .custom-select.open .custom-select-trigger {
+    border-color: var(--accent); box-shadow: 0 0 0 3px rgba(34,197,94,0.1);
+}
+.custom-select-arrow {
+    width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent;
+    border-top: 5px solid var(--text-faint); transition: transform 0.2s; flex-shrink: 0;
+}
+.custom-select.open .custom-select-arrow { transform: rotate(180deg); }
+.custom-select-options {
+    display: none; position: absolute; left: 0; right: 0; top: calc(100% + 4px);
+    z-index: 200; background: var(--bg-elevated); border: 1px solid var(--border-color);
+    border-radius: 10px; padding: 4px; box-shadow: 0 12px 40px rgba(0,0,0,0.35);
+    max-height: 220px; overflow-y: auto; animation: dropDown 0.15s ease;
+}
+[data-theme="light"] .custom-select-options { box-shadow: 0 12px 40px rgba(0,0,0,0.1); }
+.custom-select.open .custom-select-options { display: block; }
+.custom-select-option {
+    padding: 7px 12px; border-radius: 6px; font-size: 0.78rem;
+    color: var(--text-secondary); cursor: pointer; transition: all 0.1s;
+    white-space: nowrap;
+}
+.custom-select-option:hover { background: var(--bg-surface); color: var(--text-primary); }
+.custom-select-option.selected {
+    background: rgba(34,197,94,0.1); color: var(--accent); font-weight: 600;
+}
+.custom-select-option.placeholder { color: var(--text-faint); font-style: italic; }
+/* Filter panel custom-select full width */
+.filter-group .custom-select { width: 100%; }
+.filter-group .custom-select-trigger {
+    padding: 8px 12px; font-size: 0.82rem; border-radius: 8px;
 }
 
 /* ── Scroll to top ── */
@@ -547,11 +592,17 @@
     </div>
     <div class="per-page-selector" style="margin-left:4px;">
         <span>Show</span>
-        <select onchange="changePerPage(this.value)" id="perPageSelect">
-            {% for n in [10, 25, 50, 100] %}
-            <option value="{{ n }}" {{ 'selected' if per_page == n else '' }}>{{ n }}</option>
-            {% endfor %}
-        </select>
+        <div class="custom-select" id="perPageSelectWrap">
+            <div class="custom-select-trigger" tabindex="0" onclick="toggleCustomSelect(this)">
+                <span class="custom-select-label">{{ per_page }}</span>
+                <span class="custom-select-arrow"></span>
+            </div>
+            <div class="custom-select-options">
+                {% for n in [10, 25, 50, 100] %}
+                <div class="custom-select-option{{ ' selected' if per_page == n else '' }}" data-value="{{ n }}" onclick="selectCustomOption(this, function(v){changePerPage(v)})">{{ n }}</div>
+                {% endfor %}
+            </div>
+        </div>
     </div>
     <span id="resultCount" style="font-size:0.78rem;color:var(--text-muted);font-weight:500;white-space:nowrap;">
         <strong style="color:var(--text-primary);">{{ total }}</strong> record{{ 's' if total != 1 else '' }}
@@ -582,14 +633,21 @@
     </span>
     <form method="POST" action="{{ url_prefix|default('/admin') }}/{{ model_name|lower }}/action" id="bulkActionForm" style="display:flex;gap:8px;align-items:center;margin-left:auto;">
         <input type="hidden" name="selected" id="bulkSelectedPks" value="">
-        <select name="action" class="form-input" style="width:auto;padding:7px 14px;font-size:0.78rem;border-radius:8px;">
-            <option value="">— Select action —</option>
-            {% if actions %}
-            {% for name, action_desc in actions.items() %}
-            <option value="{{ name }}">{{ action_desc.short_description }}</option>
-            {% endfor %}
-            {% endif %}
-        </select>
+        <input type="hidden" name="action" id="bulkActionValue" value="">
+        <div class="custom-select" id="bulkActionSelectWrap" style="min-width:160px;">
+            <div class="custom-select-trigger" tabindex="0" onclick="toggleCustomSelect(this)">
+                <span class="custom-select-label" style="color:var(--text-faint);font-style:italic;">— Select action —</span>
+                <span class="custom-select-arrow"></span>
+            </div>
+            <div class="custom-select-options">
+                <div class="custom-select-option placeholder" data-value="" onclick="selectCustomOption(this, function(v){document.getElementById('bulkActionValue').value=v})">— Select action —</div>
+                {% if actions %}
+                {% for name, action_desc in actions.items() %}
+                <div class="custom-select-option" data-value="{{ name }}" onclick="selectCustomOption(this, function(v){document.getElementById('bulkActionValue').value=v})">{{ action_desc.short_description }}</div>
+                {% endfor %}
+                {% endif %}
+            </div>
+        </div>
         <button type="submit" class="btn btn-sm btn-danger" onclick="return confirmBulkAction()">
             <i class="icon-play" style="font-size:12px;"></i> Apply
         </button>
@@ -726,11 +784,17 @@
 <div class="pagination-bar">
     <div class="per-page-selector">
         <span>Show</span>
-        <select onchange="changePerPage(this.value)">
-            {% for n in [10, 25, 50, 100] %}
-            <option value="{{ n }}" {{ 'selected' if per_page == n else '' }}>{{ n }}</option>
-            {% endfor %}
-        </select>
+        <div class="custom-select">
+            <div class="custom-select-trigger" tabindex="0" onclick="toggleCustomSelect(this)">
+                <span class="custom-select-label">{{ per_page }}</span>
+                <span class="custom-select-arrow"></span>
+            </div>
+            <div class="custom-select-options" style="bottom:calc(100% + 4px);top:auto;">
+                {% for n in [10, 25, 50, 100] %}
+                <div class="custom-select-option{{ ' selected' if per_page == n else '' }}" data-value="{{ n }}" onclick="selectCustomOption(this, function(v){changePerPage(v)})">{{ n }}</div>
+                {% endfor %}
+            </div>
+        </div>
         <span>per page</span>
     </div>
     {% if total_pages > 1 %}
@@ -822,16 +886,23 @@
                     <input type="time" name="filter__{{ f_field }}__lte" class="filter-input" value="{{ active_filters.get(f_field ~ '__lte', '') }}" placeholder="To">
                 </div>
                 {% elif f_type == 'select' or f_choices %}
-                <select name="filter__{{ f_field }}" class="filter-input">
-                    <option value="">All</option>
-                    {% for choice in f_choices %}
-                        {% if choice is iterable and choice is not string %}
-                        <option value="{{ choice[0] }}" {{ 'selected' if active_filters.get(f_field) == choice[0]|string else '' }}>{{ choice[1] }}</option>
-                        {% else %}
-                        <option value="{{ choice }}" {{ 'selected' if active_filters.get(f_field) == choice|string else '' }}>{{ choice }}</option>
-                        {% endif %}
-                    {% endfor %}
-                </select>
+                <input type="hidden" name="filter__{{ f_field }}" value="{{ active_filters.get(f_field, '') }}" class="custom-select-hidden">
+                <div class="custom-select" style="width:100%;">
+                    <div class="custom-select-trigger" tabindex="0" onclick="toggleCustomSelect(this)">
+                        <span class="custom-select-label">{% if active_filters.get(f_field) %}{{ active_filters.get(f_field) }}{% else %}All{% endif %}</span>
+                        <span class="custom-select-arrow"></span>
+                    </div>
+                    <div class="custom-select-options">
+                        <div class="custom-select-option{{ ' selected' if not active_filters.get(f_field) else '' }}" data-value="" onclick="selectFilterOption(this, 'filter__{{ f_field }}')">All</div>
+                        {% for choice in f_choices %}
+                            {% if choice is iterable and choice is not string %}
+                            <div class="custom-select-option{{ ' selected' if active_filters.get(f_field) == choice[0]|string else '' }}" data-value="{{ choice[0] }}" onclick="selectFilterOption(this, 'filter__{{ f_field }}')">{{ choice[1] }}</div>
+                            {% else %}
+                            <div class="custom-select-option{{ ' selected' if active_filters.get(f_field) == choice|string else '' }}" data-value="{{ choice }}" onclick="selectFilterOption(this, 'filter__{{ f_field }}')">{{ choice }}</div>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
                 {% elif f_type == 'number' %}
                 <div class="filter-date-range">
                     <input type="number" name="filter__{{ f_field }}__gte" class="filter-input" style="width:48%;" value="{{ active_filters.get(f_field ~ '__gte', '') }}" placeholder="Min">
@@ -883,6 +954,46 @@ var LIST_EDITABLE = {{ list_editable|tojson }};
 var CURRENT_PAGE = {{ page }};
 var CURRENT_PER_PAGE = {{ per_page }};
 var CURRENT_ORDERING = '{{ ordering|default("") }}';
+
+/* ── Custom Select helpers ── */
+function toggleCustomSelect(trigger) {
+    var wrap = trigger.closest('.custom-select');
+    var wasOpen = wrap.classList.contains('open');
+    closeAllCustomSelects();
+    if (!wasOpen) wrap.classList.add('open');
+}
+function selectCustomOption(opt, callback) {
+    var wrap = opt.closest('.custom-select');
+    var label = wrap.querySelector('.custom-select-label');
+    var siblings = wrap.querySelectorAll('.custom-select-option');
+    siblings.forEach(function(s){ s.classList.remove('selected'); });
+    opt.classList.add('selected');
+    label.textContent = opt.textContent;
+    label.style.color = '';
+    label.style.fontStyle = '';
+    wrap.classList.remove('open');
+    if (callback) callback(opt.getAttribute('data-value'));
+}
+function selectFilterOption(opt, hiddenName) {
+    var wrap = opt.closest('.custom-select');
+    var label = wrap.querySelector('.custom-select-label');
+    var siblings = wrap.querySelectorAll('.custom-select-option');
+    siblings.forEach(function(s){ s.classList.remove('selected'); });
+    opt.classList.add('selected');
+    label.textContent = opt.textContent;
+    wrap.classList.remove('open');
+    var hidden = wrap.parentElement.querySelector('input[name="' + hiddenName + '"]');
+    if (hidden) hidden.value = opt.getAttribute('data-value');
+}
+function closeAllCustomSelects() {
+    document.querySelectorAll('.custom-select.open').forEach(function(el){ el.classList.remove('open'); });
+}
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('.custom-select')) closeAllCustomSelects();
+});
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeAllCustomSelects();
+});
 
 function buildListUrl(overrides) {
     var params = new URLSearchParams(window.location.search);
@@ -1120,11 +1231,12 @@ function updateBulkBar() {
 }
 function toggleAll(s) { document.querySelectorAll('.row-check').forEach(function(c){c.checked=s.checked;}); updateBulkBar(); }
 function confirmBulkAction() {
-    var sel = document.querySelector('#bulkActionForm select[name="action"]');
-    if (!sel.value) { showToast('Select an action first.', 'warning'); return false; }
+    var actionVal = document.getElementById('bulkActionValue').value;
+    if (!actionVal) { showToast('Select an action first.', 'warning'); return false; }
     var c = document.querySelectorAll('.row-check:checked').length;
     if (!c) { showToast('No records selected.', 'warning'); return false; }
-    showConfirmModal('Execute "' + sel.options[sel.selectedIndex].text + '"?', 'Applied to ' + c + ' record(s).', function(){ document.getElementById('bulkActionForm').submit(); });
+    var label = document.querySelector('#bulkActionSelectWrap .custom-select-label');
+    showConfirmModal('Execute "' + (label ? label.textContent : actionVal) + '"?', 'Applied to ' + c + ' record(s).', function(){ document.getElementById('bulkActionForm').submit(); });
     return false;
 }
 
@@ -1320,12 +1432,14 @@ function showBatchUpdateModal() {
     var ov = document.createElement('div'); ov.id = 'batch-update-overlay';
     ov.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);';
     ov.onclick = function(e) { if (e.target === ov) ov.remove(); };
-    var opts = ''; cols.forEach(function(c) { opts += '<option value="' + c + '">' + c.replace(/_/g, ' ').replace(/\b\w/g, function(l){return l.toUpperCase();}) + '</option>'; });
+    var opts = ''; cols.forEach(function(c) { opts += '<div class="custom-select-option" data-value="' + c + '" onclick="selectCustomOption(this, function(v){document.getElementById(\'batchFieldHidden\').value=v})">' + c.replace(/_/g, ' ').replace(/\b\w/g, function(l){return l.toUpperCase();}) + '</div>'; });
+    var firstLabel = cols.length ? cols[0].replace(/_/g, ' ').replace(/\b\w/g, function(l){return l.toUpperCase();}) : 'Select field';
     ov.innerHTML = '<div style="background:var(--bg-elevated);border:1px solid var(--border-color);border-radius:14px;padding:28px;min-width:380px;max-width:440px;box-shadow:0 24px 64px rgba(0,0,0,0.4);">'
         + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;"><h3 style="margin:0;font-size:1rem;font-weight:600;color:var(--text-primary);">Batch Update</h3><button onclick="this.closest(\'#batch-update-overlay\').remove()" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:18px;padding:4px;">&times;</button></div>'
         + '<p style="font-size:0.8rem;color:var(--text-secondary);margin:0 0 16px;">Update <strong>' + pks.length + '</strong> selected record(s).</p>'
         + '<label style="display:block;font-size:0.75rem;font-weight:500;color:var(--text-secondary);margin-bottom:4px;">Field</label>'
-        + '<select id="batchField" class="form-input" style="width:100%;margin-bottom:12px;padding:8px 12px;font-size:0.82rem;">' + opts + '</select>'
+        + '<input type="hidden" id="batchFieldHidden" value="' + (cols[0] || '') + '">'
+        + '<div class="custom-select" style="width:100%;margin-bottom:12px;"><div class="custom-select-trigger" tabindex="0" onclick="toggleCustomSelect(this)"><span class="custom-select-label">' + firstLabel + '</span><span class="custom-select-arrow"></span></div><div class="custom-select-options">' + opts + '</div></div>'
         + '<label style="display:block;font-size:0.75rem;font-weight:500;color:var(--text-secondary);margin-bottom:4px;">New Value</label>'
         + '<input type="text" id="batchValue" class="form-input" style="width:100%;margin-bottom:16px;padding:8px 12px;font-size:0.82rem;" placeholder="Enter new value...">'
         + '<div style="display:flex;gap:8px;justify-content:flex-end;"><button onclick="this.closest(\'#batch-update-overlay\').remove()" class="btn btn-secondary btn-sm">Cancel</button><button class="btn btn-primary btn-sm" onclick="executeBatchUpdate()">Update All</button></div>'
@@ -1338,7 +1452,7 @@ function showBatchUpdateModal() {
 function executeBatchUpdate() {
     var ov = document.getElementById('batch-update-overlay');
     if (!ov || !ov._pks) return;
-    var field = document.getElementById('batchField').value;
+    var field = document.getElementById('batchFieldHidden').value;
     var value = document.getElementById('batchValue').value;
     if (!field) { showToast('Select a field', 'warning'); return; }
     var fd = new FormData();

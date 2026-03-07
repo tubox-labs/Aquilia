@@ -5,6 +5,9 @@ Every admin action (create, update, delete, bulk action, login, logout)
 is recorded in an append-only audit log. Uses Aquilia Auth's AuditTrail
 when available, with a standalone in-memory fallback.
 
+Persists entries to a `.crous` file in the workspace's `.aquilia/`
+directory when CROUS is available, enabling history to survive restarts.
+
 Audit entries are immutable and include:
 - Who: identity ID, username, role
 - What: action type, model, record PK, field changes
@@ -15,9 +18,11 @@ Audit entries are immutable and include:
 from __future__ import annotations
 
 import logging
+import os
 from datetime import datetime, timezone
 from dataclasses import dataclass, field
 from enum import Enum
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger("aquilia.admin.audit")
@@ -82,6 +87,145 @@ class AdminAuditEntry:
             "error_message": self.error_message,
         }
 
+    @staticmethod
+    def from_dict(data: Dict[str, Any]) -> "AdminAuditEntry":
+        """Reconstruct an entry from a serialized dictionary."""
+        ts = data.get("timestamp", "")
+        if isinstance(ts, str):
+            try:
+                ts = datetime.fromisoformat(ts)
+            except (ValueError, TypeError):
+                ts = datetime.now(timezone.utc)
+        return AdminAuditEntry(
+            id=data.get("id", ""),
+            timestamp=ts,
+            user_id=data.get("user_id", ""),
+            username=data.get("username", ""),
+            role=data.get("role", ""),
+            action=AdminAction(data["action"]) if data.get("action") else AdminAction.VIEW,
+            model_name=data.get("model_name"),
+            record_pk=data.get("record_pk"),
+            changes=data.get("changes"),
+            ip_address=data.get("ip_address"),
+            user_agent=data.get("user_agent"),
+            metadata=data.get("metadata") or {},
+            success=data.get("success", True),
+            error_message=data.get("error_message"),
+        )
+
+
+# ── CROUS File Storage ──────────────────────────────────────────────
+
+
+def _resolve_workspace_root() -> Optional[Path]:
+    """
+    Find the workspace root by looking for ``workspace.py`` or ``starter.py``
+    in common locations relative to CWD.
+    """
+    cwd = Path(os.getcwd())
+    for name in ("workspace.py", "starter.py"):
+        for candidate in (cwd / name, cwd / "myapp" / name):
+            if candidate.is_file():
+                return candidate.parent
+    return cwd  # fallback to CWD
+
+
+def _get_crous_audit_path() -> Path:
+    """Return the path to the CROUS audit file at ``workspace/.aquilia/audit.crous``."""
+    root = _resolve_workspace_root()
+    if root is None:
+        root = Path(os.getcwd())
+    aquilia_dir = root / ".aquilia"
+    aquilia_dir.mkdir(parents=True, exist_ok=True)
+    return aquilia_dir / "audit.crous"
+
+
+class CrousAuditStore:
+    """
+    Thin persistence layer that stores/loads audit entries using the CROUS
+    binary format.  Falls back to no-op if ``crous`` is not installed.
+
+    Uses ``crous.append()`` for writes (append-only, perfect for audit)
+    and ``crous.load()`` for reads.
+    """
+
+    def __init__(self) -> None:
+        self._crous = None  # lazy-imported
+        self._available: Optional[bool] = None
+        self._path: Optional[Path] = None
+
+    def _probe(self) -> bool:
+        """Try to import crous once; cache the result."""
+        if self._available is not None:
+            return self._available
+        try:
+            import crous  # type: ignore[import-untyped]
+            self._crous = crous
+            self._path = _get_crous_audit_path()
+            self._available = True
+        except Exception:
+            self._available = False
+        return self._available  # type: ignore[return-value]
+
+    # ── Write ────────────────────────────────────────────────────
+
+    def persist(self, entry: "AdminAuditEntry") -> None:
+        """Append a single audit entry to the .crous file."""
+        if not self._probe():
+            return
+        try:
+            self._crous.append(entry.to_dict(), str(self._path))
+        except Exception as exc:
+            logger.debug("CrousAuditStore.persist failed: %s", exc)
+
+    # ── Read ─────────────────────────────────────────────────────
+
+    def load_all(self) -> List["AdminAuditEntry"]:
+        """Load all persisted entries from the .crous file."""
+        if not self._probe() or self._path is None or not self._path.exists():
+            return []
+        try:
+            raw = self._crous.load(str(self._path))
+            if raw is None:
+                return []
+            # crous.load returns a single dict when only one value,
+            # or a list when multiple values were appended.
+            if isinstance(raw, dict):
+                raw = [raw]
+            if not isinstance(raw, list):
+                return []
+            entries: List[AdminAuditEntry] = []
+            for item in raw:
+                if isinstance(item, dict):
+                    try:
+                        entries.append(AdminAuditEntry.from_dict(item))
+                    except Exception:
+                        continue
+            return entries
+        except Exception as exc:
+            logger.debug("CrousAuditStore.load_all failed: %s", exc)
+            return []
+
+    # ── Maintenance ──────────────────────────────────────────────
+
+    def clear(self) -> None:
+        """Remove the .crous audit file."""
+        if self._path and self._path.exists():
+            try:
+                self._path.unlink()
+            except Exception:
+                pass
+
+    def truncate(self, keep: int = 10_000) -> None:
+        """Keep only the *keep* most recent entries."""
+        entries = self.load_all()
+        if len(entries) <= keep:
+            return
+        entries = entries[-keep:]
+        self.clear()
+        for e in entries:
+            self.persist(e)
+
 
 class AdminAuditLog:
     """
@@ -89,14 +233,46 @@ class AdminAuditLog:
 
     Thread-safe, append-only log with configurable retention.
     Integrates with Aquilia Auth's AuditTrail when available.
+
+    Persists entries to a ``.crous`` file via :class:`CrousAuditStore`
+    so audit history survives server restarts.
     """
 
-    def __init__(self, max_entries: int = 10_000):
+    def __init__(self, max_entries: int = 10_000, *, persist: bool = False):
         self._entries: List[AdminAuditEntry] = []
         self._max_entries = max_entries
         self._counter = 0
         # Admin config reference -- set by AdminSite after config is parsed
         self._admin_config: Any = None
+        # CROUS file persistence (opt-in)
+        self._persist = persist
+        self._crous_store = CrousAuditStore() if persist else None
+        # Hydrate in-memory cache from persisted file
+        self._hydrated = not persist  # skip hydration when not persisting
+
+    def _hydrate(self) -> None:
+        """Load persisted entries from the CROUS file into memory (once)."""
+        if self._hydrated:
+            return
+        self._hydrated = True
+        if self._crous_store is None:
+            return
+        try:
+            persisted = self._crous_store.load_all()
+            if persisted:
+                # Merge: persisted entries first, then any already in memory
+                existing_ids = {e.id for e in self._entries}
+                for entry in persisted:
+                    if entry.id not in existing_ids:
+                        self._entries.insert(0, entry)
+                # Sort by timestamp
+                self._entries.sort(key=lambda e: e.timestamp)
+                # Enforce retention
+                if len(self._entries) > self._max_entries:
+                    self._entries = self._entries[-self._max_entries:]
+                self._counter = len(self._entries)
+        except Exception as exc:
+            logger.debug("AdminAuditLog._hydrate failed: %s", exc)
 
     def log(
         self,
@@ -168,6 +344,10 @@ class AdminAuditLog:
 
         self._entries.append(entry)
 
+        # Persist to CROUS file
+        if self._crous_store is not None:
+            self._crous_store.persist(entry)
+
         # Enforce retention limit (FIFO eviction)
         if len(self._entries) > self._max_entries:
             self._entries = self._entries[-self._max_entries:]
@@ -192,7 +372,9 @@ class AdminAuditLog:
         Query audit entries with optional filtering.
 
         Returns entries in reverse chronological order.
+        Hydrates from the CROUS file on the first call.
         """
+        self._hydrate()
         filtered = self._entries
 
         if action is not None:
@@ -214,6 +396,7 @@ class AdminAuditLog:
         model_name: Optional[str] = None,
     ) -> int:
         """Count audit entries with optional filtering."""
+        self._hydrate()
         if action is None and model_name is None:
             return len(self._entries)
 
@@ -231,6 +414,8 @@ class AdminAuditLog:
         count = len(self._entries)
         self._entries.clear()
         self._counter = 0
+        if self._crous_store is not None:
+            self._crous_store.clear()
         return count
 
 
@@ -242,12 +427,16 @@ class ModelBackedAuditLog:
     in-memory AdminAuditLog when the ORM table is unavailable (e.g. before
     migrations have been run).
 
+    Also persists entries to a CROUS file in the workspace's ``.aquilia/``
+    directory for durable audit history that survives restarts even without
+    a database.
+
     API is 100% compatible with AdminAuditLog so it can be used as a
     drop-in replacement on AdminSite.audit_log.
     """
 
     def __init__(self, fallback_max: int = 2_000):
-        self._fallback = AdminAuditLog(max_entries=fallback_max)
+        self._fallback = AdminAuditLog(max_entries=fallback_max, persist=True)
         self._db_available: Optional[bool] = None  # None = not yet probed
         # Admin config reference -- set by AdminSite after config is parsed
         self._admin_config: Any = None
