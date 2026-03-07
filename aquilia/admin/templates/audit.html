@@ -3,158 +3,357 @@
 {% block breadcrumb %}Audit Log{% endblock %}
 
 {% block content %}
-<div class="page-header">
-    <h1><span class="gradient-text">Audit Log</span></h1>
-    <p>Complete activity trail — every action, login, and data change.</p>
+<style>
+/* ── Audit page premium styles ── */
+.audit-header { display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:24px; }
+.audit-header h1 { margin:0; }
+.audit-header p { color:var(--text-muted);font-size:0.85rem;margin-top:4px; }
+.audit-actions { display:flex;gap:8px;flex-wrap:wrap; }
+.audit-actions .btn-export {
+    display:inline-flex;align-items:center;gap:5px;padding:7px 14px;border-radius:var(--radius-sm);
+    font-size:0.75rem;font-weight:500;cursor:pointer;border:1px solid var(--border-color);
+    background:var(--bg-surface);color:var(--text-secondary);transition:all 0.2s;
+}
+.audit-actions .btn-export:hover { border-color:var(--accent);color:var(--accent); }
+
+/* ── Stats grid ── */
+.audit-stats { display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:24px; }
+.audit-stat {
+    background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:10px;
+    padding:14px 16px;display:flex;align-items:center;gap:12px;
+}
+.audit-stat-icon {
+    width:38px;height:38px;border-radius:9px;display:flex;align-items:center;justify-content:center;
+    font-size:16px;flex-shrink:0;
+}
+.audit-stat-icon.auth { background:rgba(99,102,241,0.1);color:#818cf8; }
+.audit-stat-icon.create { background:rgba(34,197,94,0.1);color:#22c55e; }
+.audit-stat-icon.update { background:rgba(59,130,246,0.1);color:#3b82f6; }
+.audit-stat-icon.delete { background:rgba(239,68,68,0.1);color:#ef4444; }
+.audit-stat-icon.infra { background:rgba(245,158,11,0.1);color:#f59e0b; }
+.audit-stat-icon.storage { background:rgba(6,182,212,0.1);color:#06b6d4; }
+.audit-stat-icon.profile { background:rgba(168,85,247,0.1);color:#a855f7; }
+.audit-stat-icon.total { background:rgba(34,197,94,0.1);color:var(--accent); }
+
+/* ── Category filter pills ── */
+.audit-categories { display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px; }
+.audit-cat-pill {
+    display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:99px;
+    font-size:0.72rem;font-weight:500;cursor:pointer;border:1px solid var(--border-subtle);
+    background:var(--bg-surface);color:var(--text-secondary);transition:all 0.15s;user-select:none;
+}
+.audit-cat-pill:hover { border-color:var(--accent);color:var(--accent); }
+.audit-cat-pill.active { background:var(--accent);color:#fff;border-color:var(--accent); }
+.audit-cat-pill .cat-dot { width:7px;height:7px;border-radius:50%;flex-shrink:0; }
+.audit-cat-pill .cat-count { font-size:0.62rem;opacity:0.7;font-weight:400; }
+
+/* ── Filter bar ── */
+.audit-filter-bar { display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center; }
+.audit-search-wrap { position:relative;flex:1;min-width:200px; }
+.audit-search-wrap i { position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:14px;color:var(--text-faint); }
+.audit-search-wrap input {
+    width:100%;padding:8px 12px 8px 36px;border-radius:var(--radius-sm);border:1px solid var(--border-subtle);
+    background:var(--bg-surface);color:var(--text-primary);font-size:0.8rem;outline:none;font-family:inherit;
+}
+.audit-search-wrap input:focus { border-color:var(--accent); }
+.audit-date-input {
+    padding:7px 12px;border-radius:var(--radius-sm);border:1px solid var(--border-subtle);
+    background:var(--bg-surface);color:var(--text-primary);font-size:0.75rem;font-family:inherit;outline:none;
+}
+.audit-date-input:focus { border-color:var(--accent); }
+
+/* ── Entry card ── */
+.audit-entry-card {
+    padding:14px 18px;border-bottom:1px solid var(--border-subtle);transition:background 0.15s;cursor:pointer;
+}
+.audit-entry-card:hover { background:var(--bg-surface); }
+.audit-entry-card:last-child { border-bottom:none; }
+.audit-entry-header { display:flex;align-items:center;gap:8px;flex-wrap:wrap; }
+.audit-action-badge {
+    display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:99px;
+    font-size:0.68rem;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;
+}
+.audit-action-badge.auth { background:rgba(99,102,241,0.12);color:#818cf8; }
+.audit-action-badge.create { background:rgba(34,197,94,0.12);color:#22c55e; }
+.audit-action-badge.update { background:rgba(59,130,246,0.12);color:#3b82f6; }
+.audit-action-badge.delete { background:rgba(239,68,68,0.12);color:#ef4444; }
+.audit-action-badge.infra { background:rgba(245,158,11,0.12);color:#f59e0b; }
+.audit-action-badge.storage { background:rgba(6,182,212,0.12);color:#06b6d4; }
+.audit-action-badge.profile { background:rgba(168,85,247,0.12);color:#a855f7; }
+.audit-action-badge.view { background:rgba(113,113,122,0.12);color:#a1a1aa; }
+.audit-action-badge.mlops { background:rgba(236,72,153,0.12);color:#ec4899; }
+.audit-action-badge.alert { background:rgba(249,115,22,0.12);color:#f97316; }
+.audit-action-badge.fail { background:rgba(239,68,68,0.2);color:#ef4444;border:1px solid rgba(239,68,68,0.3); }
+
+.audit-user { font-weight:500;font-size:0.82rem; }
+.audit-model { font-size:0.82rem; }
+.audit-pk { font-family:var(--font-mono);font-size:0.78rem;color:var(--accent); }
+.audit-ts { margin-left:auto;font-size:0.72rem;color:var(--text-faint);white-space:nowrap; }
+
+/* ── Expandable detail ── */
+.audit-detail { display:none;margin-top:10px;padding:12px 16px;background:var(--bg-deep,var(--bg-primary));border-radius:var(--radius-sm);border:1px solid var(--border-subtle); }
+.audit-detail.open { display:block; }
+.audit-detail-grid { display:grid;grid-template-columns:1fr 1fr;gap:8px 16px;font-size:0.78rem; }
+.audit-detail-grid .detail-label { font-size:0.65rem;text-transform:uppercase;letter-spacing:0.04em;color:var(--text-faint);margin-bottom:1px; }
+.audit-detail-grid .detail-value { color:var(--text-secondary);word-break:break-all; }
+
+/* ── Changes diff ── */
+.audit-changes-block {
+    margin-top:8px;padding:10px 14px;background:var(--bg-surface);border-radius:var(--radius-sm);
+    font-family:var(--font-mono);font-size:0.75rem;line-height:1.7;border:1px solid var(--border-subtle);
+}
+.audit-changes-block .field-name { color:var(--accent);font-weight:600; }
+.audit-changes-block .old-val { color:var(--danger); }
+.audit-changes-block .new-val { color:var(--success); }
+
+/* ── Empty ── */
+.audit-empty { padding:60px 24px;text-align:center;color:var(--text-faint); }
+.audit-empty i { font-size:48px;display:block;margin-bottom:16px;opacity:0.15; }
+
+@media(max-width:768px) {
+    .audit-stats { grid-template-columns:repeat(2,1fr); }
+    .audit-detail-grid { grid-template-columns:1fr; }
+}
+</style>
+
+{# ═══════ HEADER ═══════ #}
+<div class="audit-header">
+    <div>
+        <h1><span class="gradient-text">Audit Log</span></h1>
+        <p>Complete activity trail — every action, login, and data change across all {{ total }} entries.</p>
+    </div>
+    <div class="audit-actions">
+        <button class="btn-export" onclick="exportAudit('json')" title="Export as JSON">
+            <i class="icon-download" style="font-size:12px;"></i> JSON
+        </button>
+        <button class="btn-export" onclick="exportAudit('csv')" title="Export as CSV">
+            <i class="icon-file-text" style="font-size:12px;"></i> CSV
+        </button>
+    </div>
 </div>
 
-{# ── Stats row ── #}
-<div class="stats-row" style="margin-bottom:28px;">
-    <div class="stat-item">
-        <div class="stat-number">{{ total }}</div>
-        <div class="stat-label">Total Entries</div>
+{# ═══════ STATS ═══════ #}
+{% set auth_actions = ['login','logout','login_failed'] %}
+{% set create_actions = ['create','admin_user_create','volume_create','network_create'] %}
+{% set update_actions = ['update','admin_user_update','settings_change','permission_change','profile_update','avatar_upload','password_change','alert_config'] %}
+{% set delete_actions = ['delete','admin_user_delete','file_delete'] %}
+{% set infra_actions = ['container_action','container_exec','container_export','docker_prune','docker_build','image_action','image_tag','compose_action','volume_action','network_action'] %}
+{% set storage_actions = ['file_upload','file_delete','file_download'] %}
+
+{% set auth_count = entries|selectattr('action','in',auth_actions)|list|length %}
+{% set create_count = entries|selectattr('action','in',create_actions)|list|length %}
+{% set update_count = entries|selectattr('action','in',update_actions)|list|length %}
+{% set delete_count = entries|selectattr('action','in',delete_actions)|list|length %}
+{% set infra_count = entries|selectattr('action','in',infra_actions)|list|length %}
+{% set storage_count = entries|selectattr('action','in',storage_actions)|list|length %}
+
+<div class="audit-stats">
+    <div class="audit-stat">
+        <div class="audit-stat-icon total"><i class="icon-scroll-text"></i></div>
+        <div><div class="audit-stat-value">{{ total }}</div><div class="audit-stat-label">Total Entries</div></div>
     </div>
-    <div class="stat-item">
-        <div class="stat-number">{{ entries|selectattr('action','equalto','create')|list|length }}</div>
-        <div class="stat-label"><span style="color:var(--success);">●</span> Creates</div>
+    <div class="audit-stat">
+        <div class="audit-stat-icon auth"><i class="icon-log-in"></i></div>
+        <div><div class="audit-stat-value">{{ auth_count }}</div><div class="audit-stat-label">Authentication</div></div>
     </div>
-    <div class="stat-item">
-        <div class="stat-number">{{ entries|selectattr('action','equalto','update')|list|length }}</div>
-        <div class="stat-label"><span style="color:var(--info);">●</span> Updates</div>
+    <div class="audit-stat">
+        <div class="audit-stat-icon create"><i class="icon-plus-circle"></i></div>
+        <div><div class="audit-stat-value">{{ create_count }}</div><div class="audit-stat-label">Creates</div></div>
     </div>
-    <div class="stat-item">
-        <div class="stat-number">{{ entries|selectattr('action','equalto','delete')|list|length }}</div>
-        <div class="stat-label"><span style="color:var(--danger);">●</span> Deletes</div>
+    <div class="audit-stat">
+        <div class="audit-stat-icon update"><i class="icon-edit"></i></div>
+        <div><div class="audit-stat-value">{{ update_count }}</div><div class="audit-stat-label">Updates</div></div>
+    </div>
+    <div class="audit-stat">
+        <div class="audit-stat-icon delete"><i class="icon-trash-2"></i></div>
+        <div><div class="audit-stat-value">{{ delete_count }}</div><div class="audit-stat-label">Deletes</div></div>
+    </div>
+    <div class="audit-stat">
+        <div class="audit-stat-icon infra"><i class="icon-container"></i></div>
+        <div><div class="audit-stat-value">{{ infra_count }}</div><div class="audit-stat-label">Infrastructure</div></div>
+    </div>
+    <div class="audit-stat">
+        <div class="audit-stat-icon storage"><i class="icon-hard-drive"></i></div>
+        <div><div class="audit-stat-value">{{ storage_count }}</div><div class="audit-stat-label">Storage</div></div>
     </div>
 </div>
 
-{# ── Filter toolbar ── #}
-<div class="toolbar" style="margin-bottom:16px;">
-    <div class="search-box">
-        <i class="icon-search" style="font-size:15px;color:var(--text-faint);flex-shrink:0;"></i>
-        <input type="text" id="auditSearchInput" placeholder="Filter audit entries…" autocomplete="off">
-    </div>
-    <div style="display:flex;gap:4px;">
-        <button class="btn btn-sm btn-secondary audit-filter-btn active" data-filter="all" onclick="filterAudit('all',this)">All</button>
-        <button class="btn btn-sm btn-secondary audit-filter-btn" data-filter="create" onclick="filterAudit('create',this)">Creates</button>
-        <button class="btn btn-sm btn-secondary audit-filter-btn" data-filter="update" onclick="filterAudit('update',this)">Updates</button>
-        <button class="btn btn-sm btn-secondary audit-filter-btn" data-filter="delete" onclick="filterAudit('delete',this)">Deletes</button>
-        <button class="btn btn-sm btn-secondary audit-filter-btn" data-filter="login" onclick="filterAudit('login',this)">Logins</button>
-    </div>
+{# ═══════ CATEGORY PILLS ═══════ #}
+<div class="audit-categories" id="auditCategories">
+    <div class="audit-cat-pill active" data-category="all" onclick="filterCategory('all',this)"><span class="cat-dot" style="background:var(--accent);"></span> All</div>
+    <div class="audit-cat-pill" data-category="auth" onclick="filterCategory('auth',this)"><span class="cat-dot" style="background:#818cf8;"></span> Auth <span class="cat-count">({{ auth_count }})</span></div>
+    <div class="audit-cat-pill" data-category="create" onclick="filterCategory('create',this)"><span class="cat-dot" style="background:#22c55e;"></span> Create <span class="cat-count">({{ create_count }})</span></div>
+    <div class="audit-cat-pill" data-category="update" onclick="filterCategory('update',this)"><span class="cat-dot" style="background:#3b82f6;"></span> Update <span class="cat-count">({{ update_count }})</span></div>
+    <div class="audit-cat-pill" data-category="delete" onclick="filterCategory('delete',this)"><span class="cat-dot" style="background:#ef4444;"></span> Delete <span class="cat-count">({{ delete_count }})</span></div>
+    <div class="audit-cat-pill" data-category="infra" onclick="filterCategory('infra',this)"><span class="cat-dot" style="background:#f59e0b;"></span> Infrastructure <span class="cat-count">({{ infra_count }})</span></div>
+    <div class="audit-cat-pill" data-category="storage" onclick="filterCategory('storage',this)"><span class="cat-dot" style="background:#06b6d4;"></span> Storage <span class="cat-count">({{ storage_count }})</span></div>
+    <div class="audit-cat-pill" data-category="mlops" onclick="filterCategory('mlops',this)"><span class="cat-dot" style="background:#ec4899;"></span> MLOps</div>
+    <div class="audit-cat-pill" data-category="view" onclick="filterCategory('view',this)"><span class="cat-dot" style="background:#a1a1aa;"></span> Views</div>
+    <div class="audit-cat-pill" data-category="profile" onclick="filterCategory('profile',this)"><span class="cat-dot" style="background:#a855f7;"></span> Profile</div>
+    <div class="audit-cat-pill" data-category="failed" onclick="filterCategory('failed',this)"><span class="cat-dot" style="background:#ef4444;"></span> Failed</div>
 </div>
 
+{# ═══════ FILTER BAR ═══════ #}
+<div class="audit-filter-bar">
+    <div class="audit-search-wrap">
+        <i class="icon-search"></i>
+        <input type="text" id="auditSearchInput" placeholder="Search by user, model, action, IP…" autocomplete="off" oninput="applyFilters()">
+    </div>
+    <label style="font-size:0.72rem;color:var(--text-faint);white-space:nowrap;">From:</label>
+    <input type="date" id="auditDateFrom" class="audit-date-input" onchange="applyFilters()">
+    <label style="font-size:0.72rem;color:var(--text-faint);white-space:nowrap;">To:</label>
+    <input type="date" id="auditDateTo" class="audit-date-input" onchange="applyFilters()">
+</div>
+
+{# ═══════ ENTRIES ═══════ #}
 <div class="glass-card" style="padding:0;" id="auditList">
+{% if entries %}
+    {% for entry in entries %}
+    {% set action = entry.action|default('unknown') %}
+    {% set cat =
+        'auth' if action in ('login','logout','login_failed') else
+        'create' if action in ('create','admin_user_create','volume_create','network_create') else
+        'update' if action in ('update','admin_user_update','settings_change','permission_change') else
+        'delete' if action in ('delete','admin_user_delete','file_delete') else
+        'infra' if action in ('container_action','container_exec','container_export','docker_prune','docker_build','image_action','image_tag','compose_action','volume_action','network_action') else
+        'storage' if action in ('file_upload','file_download') else
+        'mlops' if action in ('ml_inference','ml_batch_inference','ml_compare','ml_health_check') else
+        'profile' if action in ('profile_update','avatar_upload','password_change') else
+        'view' if action in ('view','list','page_view','search') else
+        'update'
+    %}
+    <div class="audit-entry-card"
+         data-action="{{ action }}"
+         data-category="{{ cat }}"
+         data-success="{{ entry.success|default(true)|lower }}"
+         data-search="{{ entry.username|default('')|lower }} {{ entry.model_name|default('')|lower }} {{ action|lower }} {{ entry.ip_address|default('')|lower }} {{ entry.record_pk|default('')|lower }}"
+         data-timestamp="{{ entry.timestamp|default('')|string }}"
+         onclick="toggleDetail(this)">
 
-    {% if entries %}
-        {% for entry in entries %}
-        <div class="audit-entry" data-action="{{ entry.action }}" data-search="{{ entry.username|default('')|lower }} {{ entry.model_name|default('')|lower }} {{ entry.action|lower }}">
-            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                {% set action_cls = 'audit-create' if entry.action in ('create', 'login') else ('audit-update' if entry.action in ('update', 'bulk_action') else ('audit-delete' if entry.action == 'delete' else 'audit-login')) %}
-                <span class="audit-action {{ action_cls }}">{{ entry.action }}</span>
-                <span style="font-weight:500;font-size:0.82rem;">
-                    <i class="icon-user" style="font-size:12px;vertical-align:-1px;margin-right:2px;color:var(--text-faint);"></i>
-                    {{ entry.username|default('unknown') }}
-                </span>
-                {% if entry.role %}
-                <span class="perm-role perm-role-{{ entry.role|lower }}" style="font-size:0.6rem;padding:1px 6px;">{{ entry.role }}</span>
-                {% endif %}
-                {% if entry.model_name %}
-                <span class="meta-text">on</span>
-                <span style="font-size:0.82rem;">
-                    <i class="icon-box" style="font-size:12px;vertical-align:-1px;margin-right:2px;color:var(--text-faint);"></i>
-                    {{ entry.model_name }}
-                </span>
-                {% endif %}
-                {% if entry.record_pk %}
-                <span style="font-family:var(--font-mono);font-size:0.78rem;color:var(--accent);">#{{ entry.record_pk }}</span>
-                {% endif %}
-                {# ── Success/failure indicator ── #}
-                {% if entry.success is defined and not entry.success %}
-                <span class="perm-badge perm-denied"><i class="icon-x" style="font-size:10px;"></i> Failed</span>
-                {% endif %}
-                <span style="margin-left:auto;font-size:0.72rem;color:var(--text-faint);">
-                    <i class="icon-clock" style="font-size:11px;vertical-align:-1px;margin-right:2px;"></i>
-                    {{ entry.timestamp|default('')|string|truncate(19, True, '') }}
-                </span>
-            </div>
-            {# ── IP / User Agent metadata ── #}
-            {% if entry.ip_address or entry.user_agent %}
-            <div style="font-size:0.72rem;color:var(--text-faint);margin-top:4px;display:flex;gap:12px;">
-                {% if entry.ip_address %}
-                <span><i class="icon-globe" style="font-size:10px;vertical-align:-1px;margin-right:2px;"></i>{{ entry.ip_address }}</span>
-                {% endif %}
-                {% if entry.user_agent %}
-                <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:300px;" title="{{ entry.user_agent }}">
-                    <i class="icon-monitor" style="font-size:10px;vertical-align:-1px;margin-right:2px;"></i>{{ entry.user_agent }}
-                </span>
-                {% endif %}
-            </div>
+        <div class="audit-entry-header">
+            {% if entry.success is defined and not entry.success %}
+            <span class="audit-action-badge fail"><i class="icon-x" style="font-size:10px;"></i> {{ action|replace('_',' ') }}</span>
+            {% else %}
+            <span class="audit-action-badge {{ cat }}">{{ action|replace('_',' ') }}</span>
             {% endif %}
-            {# ── Error message ── #}
+
+            <span class="audit-user">
+                <i class="icon-user" style="font-size:12px;vertical-align:-1px;margin-right:2px;color:var(--text-faint);"></i>
+                {{ entry.username|default('unknown') }}
+            </span>
+
+            {% if entry.role %}
+            <span class="perm-role perm-role-{{ entry.role|lower }}" style="font-size:0.6rem;padding:1px 6px;">{{ entry.role }}</span>
+            {% endif %}
+
+            {% if entry.model_name %}
+            <span style="font-size:0.72rem;color:var(--text-faint);">on</span>
+            <span class="audit-model">
+                <i class="icon-box" style="font-size:12px;vertical-align:-1px;margin-right:2px;color:var(--text-faint);"></i>
+                {{ entry.model_name }}
+            </span>
+            {% endif %}
+
+            {% if entry.record_pk %}
+            <span class="audit-pk">#{{ entry.record_pk }}</span>
+            {% endif %}
+
+            <span class="audit-ts">
+                <i class="icon-clock" style="font-size:11px;vertical-align:-1px;margin-right:2px;"></i>
+                {{ entry.timestamp|default('')|string|truncate(19, True, '') }}
+            </span>
+        </div>
+
+        {# ── Expandable detail ── #}
+        <div class="audit-detail">
+            <div class="audit-detail-grid">
+                <div><div class="detail-label">Action</div><div class="detail-value">{{ action }}</div></div>
+                <div><div class="detail-label">User</div><div class="detail-value">{{ entry.username|default('—') }}</div></div>
+                <div><div class="detail-label">Role</div><div class="detail-value">{{ entry.role|default('—') }}</div></div>
+                <div><div class="detail-label">Model</div><div class="detail-value">{{ entry.model_name|default('—') }}</div></div>
+                <div><div class="detail-label">Record PK</div><div class="detail-value">{{ entry.record_pk|default('—') }}</div></div>
+                <div>
+                    <div class="detail-label">Status</div>
+                    <div class="detail-value">
+                        {% if entry.success is defined and not entry.success %}
+                        <span style="color:var(--danger);font-weight:600;">✗ Failed</span>
+                        {% else %}
+                        <span style="color:var(--success);">✓ Success</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div><div class="detail-label">IP Address</div><div class="detail-value">{{ entry.ip_address|default('—') }}</div></div>
+                <div><div class="detail-label">User Agent</div><div class="detail-value" style="font-size:0.72rem;">{{ entry.user_agent|default('—')|truncate(80) }}</div></div>
+                <div><div class="detail-label">Timestamp</div><div class="detail-value" style="font-family:var(--font-mono);font-size:0.75rem;">{{ entry.timestamp|default('—') }}</div></div>
+                {% if entry.user_id %}
+                <div><div class="detail-label">User ID</div><div class="detail-value" style="font-family:var(--font-mono);">{{ entry.user_id }}</div></div>
+                {% endif %}
+            </div>
+
             {% if entry.error_message %}
-            <div style="font-size:0.78rem;color:var(--danger);margin-top:6px;padding:8px 12px;background:var(--danger-subtle);border-radius:var(--radius-sm);">
-                <i class="icon-alert-circle" style="font-size:12px;vertical-align:-1px;margin-right:4px;"></i>{{ entry.error_message }}
+            <div style="margin-top:10px;padding:10px 14px;background:var(--danger-subtle,rgba(239,68,68,0.08));border-radius:var(--radius-sm);border:1px solid rgba(239,68,68,0.15);">
+                <div style="font-size:0.65rem;text-transform:uppercase;letter-spacing:0.04em;color:var(--danger);margin-bottom:4px;font-weight:600;">Error</div>
+                <div style="font-size:0.78rem;color:var(--danger);">{{ entry.error_message }}</div>
             </div>
             {% endif %}
-            {# ── Field changes ── #}
+
             {% if entry.changes and entry.changes is mapping %}
-            <div style="font-size:0.78rem;color:var(--text-muted);margin-top:6px;padding:8px 12px;background:var(--bg-surface);border-radius:var(--radius-sm);font-family:var(--font-mono);line-height:1.7;">
+            <div class="audit-changes-block" style="margin-top:10px;">
+                <div style="font-size:0.62rem;text-transform:uppercase;letter-spacing:0.04em;color:var(--text-faint);margin-bottom:6px;font-weight:600;">Changes</div>
                 {% for field_name, change in entry.changes.items() %}
                     {% if change is mapping %}
-                    <span><span class="kw">{{ field_name }}</span>: <span style="color:var(--danger);">{{ change.old|default('∅') }}</span> → <span style="color:var(--success);">{{ change.new|default('∅') }}</span></span><br>
+                    <div><span class="field-name">{{ field_name }}</span>: <span class="old-val">{{ change.old|default('∅') }}</span> → <span class="new-val">{{ change.new|default('∅') }}</span></div>
                     {% else %}
-                    <span><span class="kw">{{ field_name }}</span>: {{ change }}</span><br>
+                    <div><span class="field-name">{{ field_name }}</span>: {{ change }}</div>
                     {% endif %}
                 {% endfor %}
             </div>
             {% endif %}
-            {# ── Extra metadata ── #}
+
             {% if entry.metadata and entry.metadata is mapping and entry.metadata|length > 0 %}
-            <div style="font-size:0.72rem;color:var(--text-faint);margin-top:4px;font-family:var(--font-mono);">
-                {% for mk, mv in entry.metadata.items() %}
-                <span>{{ mk }}={{ mv }}</span>{% if not loop.last %} · {% endif %}
-                {% endfor %}
+            <div style="margin-top:10px;padding:10px 14px;background:var(--bg-surface);border-radius:var(--radius-sm);border:1px solid var(--border-subtle);">
+                <div style="font-size:0.62rem;text-transform:uppercase;letter-spacing:0.04em;color:var(--text-faint);margin-bottom:6px;font-weight:600;">Metadata</div>
+                <div style="font-family:var(--font-mono);font-size:0.72rem;color:var(--text-secondary);">
+                    {% for mk, mv in entry.metadata.items() %}
+                    <span style="display:inline-block;margin-right:12px;margin-bottom:4px;"><span style="color:var(--accent);">{{ mk }}</span>=<span style="color:var(--text-muted);">{{ mv }}</span></span>
+                    {% endfor %}
+                </div>
             </div>
             {% endif %}
         </div>
-        {% endfor %}
-    {% else %}
-    <div class="empty-state">
-        <i class="icon-history" style="font-size:32px;display:block;margin-bottom:12px;opacity:0.3;"></i>
-        No audit entries yet
     </div>
-    {% endif %}
+    {% endfor %}
+{% else %}
+    <div class="audit-empty">
+        <i class="icon-scroll-text"></i>
+        <div style="font-size:1rem;font-weight:600;margin-bottom:6px;">No audit entries yet</div>
+        <div style="font-size:0.82rem;">Activity will appear here as users interact with the admin panel.</div>
+    </div>
+{% endif %}
 </div>
 
-{# ── Pagination ── #}
+{# ═══════ PAGINATION ═══════ #}
 {% if total_pages is defined and total_pages > 1 %}
 <div class="pagination" style="margin-top:20px;">
     <a href="{{ url_prefix|default('/admin') }}/audit/?page={{ [1, page - 1]|max }}"
        class="page-btn {{ 'disabled' if page <= 1 else '' }}" title="Previous">
         <i class="icon-chevron-left" style="font-size:14px;"></i>
     </a>
-
     {% set start_page = [1, page - 2]|max %}
     {% set end_page = [total_pages, start_page + 4]|min %}
-    {% if end_page - start_page < 4 %}
-        {% set start_page = [1, end_page - 4]|max %}
-    {% endif %}
-
+    {% if end_page - start_page < 4 %}{% set start_page = [1, end_page - 4]|max %}{% endif %}
     {% if start_page > 1 %}
     <a href="{{ url_prefix|default('/admin') }}/audit/?page=1" class="page-btn">1</a>
     {% if start_page > 2 %}<span class="page-btn disabled">…</span>{% endif %}
     {% endif %}
-
     {% for p in range(start_page, end_page + 1) %}
     <a href="{{ url_prefix|default('/admin') }}/audit/?page={{ p }}"
        class="page-btn {{ 'active' if p == page else '' }}">{{ p }}</a>
     {% endfor %}
-
     {% if end_page < total_pages %}
     {% if end_page < total_pages - 1 %}<span class="page-btn disabled">…</span>{% endif %}
     <a href="{{ url_prefix|default('/admin') }}/audit/?page={{ total_pages }}" class="page-btn">{{ total_pages }}</a>
     {% endif %}
-
     <a href="{{ url_prefix|default('/admin') }}/audit/?page={{ [total_pages, page + 1]|min }}"
        class="page-btn {{ 'disabled' if page >= total_pages else '' }}" title="Next">
         <i class="icon-chevron-right" style="font-size:14px;"></i>
@@ -167,27 +366,95 @@
 {% endblock %}
 
 {% block extra_js %}
-// ── Audit filter by action type ──
-window.filterAudit = function(action, btn) {
-    document.querySelectorAll('.audit-filter-btn').forEach(function(b) { b.classList.remove('active'); });
-    if (btn) btn.classList.add('active');
-    document.querySelectorAll('#auditList .audit-entry').forEach(function(entry) {
-        if (action === 'all') { entry.style.display = ''; return; }
-        var entryAction = entry.getAttribute('data-action') || '';
-        var match = (action === 'login') ? (entryAction === 'login' || entryAction === 'login_failed') : (entryAction === action);
-        entry.style.display = match ? '' : 'none';
-    });
-};
-// ── Audit text search ──
-(function() {
-    var input = document.getElementById('auditSearchInput');
-    if (!input) return;
-    input.addEventListener('input', function() {
-        var q = this.value.trim().toLowerCase();
-        document.querySelectorAll('#auditList .audit-entry').forEach(function(entry) {
-            var text = entry.getAttribute('data-search') || '';
-            entry.style.display = (!q || text.includes(q)) ? '' : 'none';
+(function(){
+    'use strict';
+    var CATEGORIES = {
+        auth:['login','logout','login_failed'],
+        create:['create','admin_user_create','volume_create','network_create'],
+        update:['update','admin_user_update','settings_change','permission_change','profile_update','avatar_upload','password_change','alert_config'],
+        'delete':['delete','admin_user_delete','file_delete'],
+        infra:['container_action','container_exec','container_export','docker_prune','docker_build','image_action','image_tag','compose_action','volume_action','network_action'],
+        storage:['file_upload','file_delete','file_download'],
+        mlops:['ml_inference','ml_batch_inference','ml_compare','ml_health_check'],
+        view:['view','list','page_view','search'],
+        profile:['profile_update','avatar_upload','password_change']
+    };
+    var activeCategory = 'all';
+
+    window.filterCategory = function(cat, btn) {
+        activeCategory = cat;
+        document.querySelectorAll('#auditCategories .audit-cat-pill').forEach(function(p) { p.classList.remove('active'); });
+        if (btn) btn.classList.add('active');
+        applyFilters();
+    };
+
+    window.applyFilters = function() {
+        var search = (document.getElementById('auditSearchInput').value || '').toLowerCase();
+        var dateFrom = document.getElementById('auditDateFrom').value;
+        var dateTo = document.getElementById('auditDateTo').value;
+        document.querySelectorAll('#auditList .audit-entry-card').forEach(function(card) {
+            var action = card.getAttribute('data-action') || '';
+            var searchText = card.getAttribute('data-search') || '';
+            var success = card.getAttribute('data-success') || 'true';
+            var timestamp = card.getAttribute('data-timestamp') || '';
+            var dateStr = timestamp.substring(0, 10);
+            var show = true;
+            if (activeCategory !== 'all') {
+                if (activeCategory === 'failed') {
+                    if (success !== 'false') show = false;
+                } else {
+                    var actions = CATEGORIES[activeCategory];
+                    if (actions && actions.indexOf(action) === -1) show = false;
+                }
+            }
+            if (show && search && !searchText.includes(search)) show = false;
+            if (show && dateFrom && dateStr < dateFrom) show = false;
+            if (show && dateTo && dateStr > dateTo) show = false;
+            card.style.display = show ? '' : 'none';
         });
-    });
+    };
+
+    window.toggleDetail = function(card) {
+        var detail = card.querySelector('.audit-detail');
+        if (detail) detail.classList.toggle('open');
+    };
+
+    window.exportAudit = function(format) {
+        var entries = [];
+        document.querySelectorAll('#auditList .audit-entry-card').forEach(function(card) {
+            if (card.style.display === 'none') return;
+            entries.push({
+                action: card.getAttribute('data-action'),
+                success: card.getAttribute('data-success'),
+                timestamp: card.getAttribute('data-timestamp'),
+                search: card.getAttribute('data-search')
+            });
+        });
+        var content, mime, ext;
+        if (format === 'json') {
+            content = JSON.stringify(entries, null, 2);
+            mime = 'application/json';
+            ext = 'json';
+        } else {
+            var lines = ['action,success,timestamp,info'];
+            entries.forEach(function(e) {
+                lines.push([e.action, e.success, e.timestamp, e.search].map(function(v) {
+                    return '"' + (v || '').replace(/"/g, '""') + '"';
+                }).join(','));
+            });
+            content = lines.join('\n');
+            mime = 'text/csv';
+            ext = 'csv';
+        }
+        var blob = new Blob([content], { type: mime });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = 'audit_log_export.' + ext;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    };
 })();
 {% endblock %}

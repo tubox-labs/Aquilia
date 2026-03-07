@@ -1019,6 +1019,46 @@ def render_profile_page(
 <body><div style="padding:24px"><h1>Profile</h1><p>{uname}</p></div></body></html>"""
 
 
+def render_forbidden_page(
+    module_name: str = "this page",
+    required_permission: str = "",
+    current_role: str = "",
+    app_list: Optional[List[Dict[str, Any]]] = None,
+    identity_name: str = "Admin",
+    identity_avatar: str = "",
+    *,
+    site_title: str = "Aquilia Admin",
+    url_prefix: str = "/admin",
+) -> str:
+    """Render a styled 403 Forbidden page when a user lacks permissions."""
+    import datetime as _dt
+    ts = _dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    if _HAS_JINJA2:
+        return _render_template(
+            "forbidden.html",
+            module_name=module_name,
+            required_permission=required_permission,
+            current_role=current_role,
+            timestamp=ts,
+            app_list=app_list or [],
+            active_page="",
+            identity_name=identity_name,
+            identity_avatar=identity_avatar,
+            site_title=site_title,
+            url_prefix=url_prefix,
+            page_title="Access Denied",
+        )
+    esc_mod = html.escape(module_name)
+    return f"""<!DOCTYPE html><html lang="en" data-theme="dark"><head>
+<meta charset="UTF-8"><title>403 Access Denied -- Aquilia Admin</title><style>{_FALLBACK_CSS}</style></head>
+<body><div style="padding:48px;text-align:center">
+<div style="font-size:6rem;font-weight:800;opacity:.15;color:#ef4444">403</div>
+<h1>Access Denied</h1>
+<p style="color:#a1a1aa">You don't have permission to access {esc_mod}.</p>
+<p style="margin-top:24px"><a href="{url_prefix}/" style="color:#22c55e">← Back to Dashboard</a></p>
+</div></body></html>"""
+
+
 def render_error_page(
     status: int = 404,
     title: str = "Not Found",
@@ -1146,6 +1186,10 @@ def render_query_inspector_page(
     *,
     site_title: str = "Aquilia Admin",
     url_prefix: str = "/admin",
+    qi_page: int = 1,
+    qi_per_page: int = 30,
+    qi_total: int = 0,
+    qi_total_pages: int = 1,
 ) -> str:
     """Render the live query inspector page with SQL profiling and N+1 detection."""
     if _HAS_JINJA2:
@@ -1163,6 +1207,10 @@ def render_query_inspector_page(
             n1_list=query_data.get("n1_list", []),
             queries_per_second=query_data.get("queries_per_second", 0),
             slow_threshold_ms=query_data.get("slow_threshold_ms", 100),
+            qi_page=qi_page,
+            qi_per_page=qi_per_page,
+            qi_total=qi_total,
+            qi_total_pages=qi_total_pages,
             app_list=app_list or [],
             active_page="query_inspector",
             identity_name=identity_name,
