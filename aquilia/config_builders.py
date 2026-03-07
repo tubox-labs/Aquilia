@@ -648,6 +648,404 @@ class Integration:
         def __repr__(self) -> str:  # pragma: no cover
             return f"Integration.MailAuth(method={self._method!r}, username={self._username!r})"
 
+    class MailProvider:
+        """
+        Typed nested builder classes for every built-in mail provider.
+
+        Instead of writing raw dicts in ``Integration.mail(providers=[...])``,
+        use these classes for IDE auto-complete, validation, and clarity::
+
+            .integrate(Integration.mail(
+                default_from="noreply@myapp.com",
+                auth=Integration.MailAuth.plain("user", password_env="SMTP_PASS"),
+                providers=[
+                    Integration.MailProvider.SMTP(
+                        name="primary",
+                        host="smtp.myapp.com",
+                        port=587,
+                    ),
+                ],
+            ))
+
+        Every class exposes a ``to_dict()`` method so they are directly
+        usable anywhere a provider dict is expected.  They also accept an
+        ``auth=`` kwarg (``Integration.MailAuth`` instance) to attach
+        per-provider credentials that override the global auth.
+
+        Available providers
+        -------------------
+        ``Integration.MailProvider.SMTP``      -- SMTP / STARTTLS
+        ``Integration.MailProvider.SES``       -- AWS Simple Email Service
+        ``Integration.MailProvider.SendGrid``  -- SendGrid Web API v3
+        ``Integration.MailProvider.Console``   -- stdout (development)
+        ``Integration.MailProvider.File``      -- .eml files on disk (testing / audit)
+        """
+
+        # ── Base ─────────────────────────────────────────────────────────
+
+        class _Base:
+            """Shared serialisation logic for all provider builders."""
+
+            _provider_type: str = ""
+
+            def __init__(
+                self,
+                name: str,
+                *,
+                priority: int = 10,
+                enabled: bool = True,
+                rate_limit_per_min: int = 600,
+                auth: Optional[Any] = None,
+            ) -> None:
+                self._name              = name
+                self._priority          = priority
+                self._enabled           = enabled
+                self._rate_limit        = rate_limit_per_min
+                self._auth              = auth
+                self._extra: Dict[str, Any] = {}
+
+            def _base_dict(self) -> Dict[str, Any]:
+                d: Dict[str, Any] = {
+                    "name":               self._name,
+                    "type":               self._provider_type,
+                    "priority":           self._priority,
+                    "enabled":            self._enabled,
+                    "rate_limit_per_min": self._rate_limit,
+                }
+                if self._auth is not None:
+                    d["auth"] = (
+                        self._auth.to_dict()
+                        if hasattr(self._auth, "to_dict")
+                        else self._auth
+                    )
+                d.update(self._extra)
+                return d
+
+            def to_dict(self) -> Dict[str, Any]:  # pragma: no cover
+                return self._base_dict()
+
+            def __repr__(self) -> str:  # pragma: no cover
+                return (
+                    f"Integration.MailProvider.{type(self).__name__}"
+                    f"(name={self._name!r}, host={getattr(self, '_host', None)!r})"
+                )
+
+        # ── SMTP ─────────────────────────────────────────────────────────
+
+        class SMTP(_Base):
+            """
+            SMTP / STARTTLS provider builder.
+
+            Maps directly to ``SMTPProvider.__init__`` parameters.
+
+            Example::
+
+                Integration.MailProvider.SMTP(
+                    name="primary",
+                    host="smtp.myapp.com",
+                    port=587,
+                    use_tls=True,
+                    auth=Integration.MailAuth.plain(
+                        "noreply@myapp.com",
+                        password_env="SMTP_PASSWORD",
+                    ),
+                )
+            """
+
+            _provider_type = "smtp"
+
+            def __init__(
+                self,
+                name: str = "smtp",
+                host: str = "localhost",
+                port: int = 587,
+                *,
+                use_tls: bool = True,
+                use_ssl: bool = False,
+                timeout: float = 30.0,
+                # Connection pool
+                pool_size: int = 3,
+                pool_recycle: float = 300.0,
+                # TLS / cert options
+                validate_certs: bool = True,
+                client_cert: Optional[str] = None,
+                client_key: Optional[str] = None,
+                source_address: Optional[str] = None,
+                local_hostname: Optional[str] = None,
+                # Shared
+                priority: int = 10,
+                enabled: bool = True,
+                rate_limit_per_min: int = 600,
+                auth: Optional[Any] = None,
+            ) -> None:
+                super().__init__(
+                    name,
+                    priority=priority,
+                    enabled=enabled,
+                    rate_limit_per_min=rate_limit_per_min,
+                    auth=auth,
+                )
+                self._host           = host
+                self._port           = port
+                self._use_tls        = use_tls
+                self._use_ssl        = use_ssl
+                self._timeout        = timeout
+                self._pool_size      = pool_size
+                self._pool_recycle   = pool_recycle
+                self._validate_certs = validate_certs
+                self._client_cert    = client_cert
+                self._client_key     = client_key
+                self._source_address = source_address
+                self._local_hostname = local_hostname
+
+            def to_dict(self) -> Dict[str, Any]:
+                d = self._base_dict()
+                d.update({
+                    "host":           self._host,
+                    "port":           self._port,
+                    "use_tls":        self._use_tls,
+                    "use_ssl":        self._use_ssl,
+                    "timeout":        self._timeout,
+                    "pool_size":      self._pool_size,
+                    "pool_recycle":   self._pool_recycle,
+                    "validate_certs": self._validate_certs,
+                })
+                if self._client_cert    is not None: d["client_cert"]    = self._client_cert
+                if self._client_key     is not None: d["client_key"]     = self._client_key
+                if self._source_address is not None: d["source_address"] = self._source_address
+                if self._local_hostname is not None: d["local_hostname"] = self._local_hostname
+                return d
+
+        # ── SES ──────────────────────────────────────────────────────────
+
+        class SES(_Base):
+            """
+            AWS Simple Email Service provider builder.
+
+            Credentials are best supplied via ``auth=Integration.MailAuth.aws_ses(...)``
+            or via the environment / IAM role (recommended for production).
+
+            Example::
+
+                Integration.MailProvider.SES(
+                    name="ses-prod",
+                    region="eu-west-1",
+                    configuration_set="my-config",
+                    auth=Integration.MailAuth.aws_ses(
+                        access_key_id_env="AWS_ACCESS_KEY_ID",
+                        secret_access_key_env="AWS_SECRET_ACCESS_KEY",
+                    ),
+                )
+            """
+
+            _provider_type = "ses"
+
+            def __init__(
+                self,
+                name: str = "ses",
+                region: str = "us-east-1",
+                *,
+                configuration_set: Optional[str] = None,
+                source_arn: Optional[str] = None,
+                return_path: Optional[str] = None,
+                tags: Optional[Dict[str, str]] = None,
+                use_raw: bool = True,
+                endpoint_url: Optional[str] = None,
+                # Shared
+                priority: int = 10,
+                enabled: bool = True,
+                rate_limit_per_min: int = 600,
+                auth: Optional[Any] = None,
+            ) -> None:
+                super().__init__(
+                    name,
+                    priority=priority,
+                    enabled=enabled,
+                    rate_limit_per_min=rate_limit_per_min,
+                    auth=auth,
+                )
+                self._region            = region
+                self._configuration_set = configuration_set
+                self._source_arn        = source_arn
+                self._return_path       = return_path
+                self._tags              = tags or {}
+                self._use_raw           = use_raw
+                self._endpoint_url      = endpoint_url
+
+            def to_dict(self) -> Dict[str, Any]:
+                d = self._base_dict()
+                d["region"]  = self._region
+                d["use_raw"] = self._use_raw
+                if self._configuration_set is not None: d["configuration_set"] = self._configuration_set
+                if self._source_arn        is not None: d["source_arn"]        = self._source_arn
+                if self._return_path       is not None: d["return_path"]       = self._return_path
+                if self._tags:                          d["tags"]              = self._tags
+                if self._endpoint_url      is not None: d["endpoint_url"]      = self._endpoint_url
+                return d
+
+        # ── SendGrid ─────────────────────────────────────────────────────
+
+        class SendGrid(_Base):
+            """
+            SendGrid Web API v3 provider builder.
+
+            Example::
+
+                Integration.MailProvider.SendGrid(
+                    name="sendgrid-prod",
+                    auth=Integration.MailAuth.api_key(env="SENDGRID_API_KEY"),
+                    sandbox_mode=False,
+                    click_tracking=True,
+                )
+            """
+
+            _provider_type = "sendgrid"
+
+            def __init__(
+                self,
+                name: str = "sendgrid",
+                *,
+                sandbox_mode: bool = False,
+                click_tracking: bool = True,
+                open_tracking: bool = True,
+                categories: Optional[List[str]] = None,
+                asm_group_id: Optional[int] = None,
+                ip_pool_name: Optional[str] = None,
+                template_id: Optional[str] = None,
+                api_base_url: str = "https://api.sendgrid.com",
+                timeout: float = 30.0,
+                # Shared
+                priority: int = 10,
+                enabled: bool = True,
+                rate_limit_per_min: int = 600,
+                auth: Optional[Any] = None,
+            ) -> None:
+                super().__init__(
+                    name,
+                    priority=priority,
+                    enabled=enabled,
+                    rate_limit_per_min=rate_limit_per_min,
+                    auth=auth,
+                )
+                self._sandbox_mode   = sandbox_mode
+                self._click_tracking = click_tracking
+                self._open_tracking  = open_tracking
+                self._categories     = categories or []
+                self._asm_group_id   = asm_group_id
+                self._ip_pool_name   = ip_pool_name
+                self._template_id    = template_id
+                self._api_base_url   = api_base_url
+                self._timeout        = timeout
+
+            def to_dict(self) -> Dict[str, Any]:
+                d = self._base_dict()
+                d.update({
+                    "sandbox_mode":   self._sandbox_mode,
+                    "click_tracking": self._click_tracking,
+                    "open_tracking":  self._open_tracking,
+                    "api_base_url":   self._api_base_url,
+                    "timeout":        self._timeout,
+                })
+                if self._categories:                    d["categories"]   = self._categories
+                if self._asm_group_id  is not None:     d["asm_group_id"] = self._asm_group_id
+                if self._ip_pool_name  is not None:     d["ip_pool_name"] = self._ip_pool_name
+                if self._template_id   is not None:     d["template_id"]  = self._template_id
+                return d
+
+        # ── Console ──────────────────────────────────────────────────────
+
+        class Console(_Base):
+            """
+            Console / stdout provider builder (development only).
+
+            Prints a formatted representation of each email to the log
+            instead of actually sending it.
+
+            Example::
+
+                Integration.MailProvider.Console(name="dev-console")
+            """
+
+            _provider_type = "console"
+
+            def __init__(
+                self,
+                name: str = "console",
+                *,
+                priority: int = 100,
+                enabled: bool = True,
+                rate_limit_per_min: int = 10000,
+                auth: Optional[Any] = None,
+            ) -> None:
+                super().__init__(
+                    name,
+                    priority=priority,
+                    enabled=enabled,
+                    rate_limit_per_min=rate_limit_per_min,
+                    auth=auth,
+                )
+
+            def to_dict(self) -> Dict[str, Any]:
+                return self._base_dict()
+
+        # ── File ─────────────────────────────────────────────────────────
+
+        class File(_Base):
+            """
+            File / .eml provider builder (testing & audit).
+
+            Writes each outgoing email as an RFC 2822 ``.eml`` file.
+            Useful for integration tests and CI pipelines.
+
+            Example::
+
+                Integration.MailProvider.File(
+                    name="file-test",
+                    output_dir="/tmp/mail_out",
+                    max_files=500,
+                )
+            """
+
+            _provider_type = "file"
+
+            def __init__(
+                self,
+                name: str = "file",
+                output_dir: str = "/tmp/aquilia_mail",
+                *,
+                max_files: int = 10000,
+                write_index: bool = True,
+                include_metadata: bool = True,
+                file_extension: str = ".eml",
+                priority: int = 90,
+                enabled: bool = True,
+                rate_limit_per_min: int = 10000,
+                auth: Optional[Any] = None,
+            ) -> None:
+                super().__init__(
+                    name,
+                    priority=priority,
+                    enabled=enabled,
+                    rate_limit_per_min=rate_limit_per_min,
+                    auth=auth,
+                )
+                self._output_dir        = output_dir
+                self._max_files         = max_files
+                self._write_index       = write_index
+                self._include_metadata  = include_metadata
+                self._file_extension    = file_extension
+
+            def to_dict(self) -> Dict[str, Any]:
+                d = self._base_dict()
+                d.update({
+                    "output_dir":        self._output_dir,
+                    "max_files":         self._max_files,
+                    "write_index":       self._write_index,
+                    "include_metadata":  self._include_metadata,
+                    "file_extension":    self._file_extension,
+                })
+                return d
+
     @staticmethod
     def auth(
         config: Optional[AuthConfig] = None,
@@ -3260,43 +3658,58 @@ class Integration:
 
         Example::
 
+            # SMTP with typed provider builder
             .integrate(Integration.mail(
                 default_from="noreply@myapp.com",
-                # Global SMTP credentials (used by every provider that
-                # does not supply its own auth block)
                 auth=Integration.MailAuth.plain(
-                    username="noreply@myapp.com",
+                    "noreply@myapp.com",
                     password_env="SMTP_PASSWORD",
                 ),
                 providers=[
-                    {
-                        "name": "primary",
-                        "type": "smtp",
-                        "host": "smtp.myapp.com",
-                        "port": 587,
-                    },
+                    Integration.MailProvider.SMTP(
+                        name="primary",
+                        host="smtp.myapp.com",
+                        port=587,
+                        use_tls=True,
+                    ),
                 ],
             ))
 
-            # SendGrid example
+            # SendGrid
             .integrate(Integration.mail(
                 default_from="noreply@myapp.com",
-                auth=Integration.MailAuth.api_key(env="SENDGRID_API_KEY"),
                 providers=[
-                    {"name": "sendgrid", "type": "sendgrid"},
+                    Integration.MailProvider.SendGrid(
+                        name="sendgrid-prod",
+                        auth=Integration.MailAuth.api_key(env="SENDGRID_API_KEY"),
+                        click_tracking=True,
+                    ),
                 ],
             ))
 
-            # AWS SES example
+            # AWS SES
             .integrate(Integration.mail(
                 default_from="noreply@myapp.com",
-                auth=Integration.MailAuth.aws_ses(
-                    access_key_id_env="AWS_ACCESS_KEY_ID",
-                    secret_access_key_env="AWS_SECRET_ACCESS_KEY",
-                    region="eu-west-1",
-                ),
                 providers=[
-                    {"name": "ses", "type": "ses"},
+                    Integration.MailProvider.SES(
+                        name="ses-prod",
+                        region="eu-west-1",
+                        configuration_set="my-config",
+                        auth=Integration.MailAuth.aws_ses(
+                            access_key_id_env="AWS_ACCESS_KEY_ID",
+                            secret_access_key_env="AWS_SECRET_ACCESS_KEY",
+                        ),
+                    ),
+                ],
+            ))
+
+            # Dev / test
+            .integrate(Integration.mail(
+                default_from="dev@localhost",
+                console_backend=True,
+                providers=[
+                    Integration.MailProvider.Console(),
+                    Integration.MailProvider.File(output_dir="/tmp/mail"),
                 ],
             ))
         """
@@ -3309,9 +3722,13 @@ class Integration:
                 auth_dict = auth
 
         # Normalise per-provider auth entries too
+        # Also accept Integration.MailProvider.* instances directly
         normalised_providers: List[Dict[str, Any]] = []
         for p in (providers or []):
-            if isinstance(p, dict) and hasattr(p.get("auth"), "to_dict"):
+            if hasattr(p, "to_dict"):
+                # Integration.MailProvider.SMTP / SES / SendGrid / Console / File
+                p = p.to_dict()
+            elif isinstance(p, dict) and hasattr(p.get("auth"), "to_dict"):
                 p = {**p, "auth": p["auth"].to_dict()}
             normalised_providers.append(p)
 
