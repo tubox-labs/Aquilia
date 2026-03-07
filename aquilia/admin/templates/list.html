@@ -273,6 +273,9 @@
                 <a href="{{ url_prefix|default('/admin') }}/{{ model_name|lower }}/export?format=json" class="dropdown-item">
                     <i class="icon-braces" style="font-size:13px;"></i> JSON
                 </a>
+                <a href="{{ url_prefix|default('/admin') }}/{{ model_name|lower }}/export?format=xml" class="dropdown-item">
+                    <i class="icon-code" style="font-size:13px;"></i> XML
+                </a>
             </div>
         </div>
         <button class="btn btn-secondary btn-sm" onclick="showImportModal()" title="Import Data">
@@ -332,6 +335,9 @@
         </select>
         <button type="submit" class="btn btn-sm btn-danger" onclick="return confirmBulkAction()">
             <i class="icon-play" style="font-size:12px;"></i> Apply
+        </button>
+        <button type="button" class="btn btn-sm btn-secondary" onclick="showBatchUpdateModal()" title="Batch update a field on selected records">
+            <i class="icon-edit-3" style="font-size:12px;"></i> Batch Update
         </button>
     </form>
 </div>
@@ -917,6 +923,62 @@ function submitImport() {
         fetch(BASE_URL + '/add', { method: 'POST', body: fd }).then(function(res) { if (res.ok || res.status === 302 || res.status === 303) ok++; else fail++; next(i+1); }).catch(function() { fail++; next(i+1); });
     }
     next(0);
+}
+
+// ── Batch Update Modal ──────────────────────────────────────────
+function showBatchUpdateModal() {
+    var checked = document.querySelectorAll('.row-select:checked');
+    if (!checked.length) { showToast('Select records first', 'warning'); return; }
+    var pks = []; checked.forEach(function(cb) { pks.push(cb.value); });
+    var cols = [];
+    {% if list_editable and list_editable|length > 0 %}
+    cols = {{ list_editable|tojson }};
+    {% else %}
+    // Use all non-pk columns
+    {% for col in list_display %}{% if not loop.first %}cols.push('{{ col }}');{% endif %}{% endfor %}
+    {% endif %}
+    var ex = document.getElementById('batch-update-overlay'); if (ex) ex.remove();
+    var ov = document.createElement('div'); ov.id = 'batch-update-overlay';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);';
+    ov.onclick = function(e) { if (e.target === ov) ov.remove(); };
+    var opts = ''; cols.forEach(function(c) { opts += '<option value="' + c + '">' + c.replace(/_/g, ' ').replace(/\b\w/g, function(l){return l.toUpperCase();}) + '</option>'; });
+    ov.innerHTML = '<div style="background:var(--bg-elevated);border:1px solid var(--border-color);border-radius:12px;padding:24px;min-width:380px;max-width:440px;box-shadow:0 24px 64px rgba(0,0,0,0.4);">'
+        + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;"><h3 style="margin:0;font-size:1rem;font-weight:600;color:var(--text-primary);">Batch Update</h3><button onclick="this.closest(\'#batch-update-overlay\').remove()" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:18px;padding:4px;">&times;</button></div>'
+        + '<p style="font-size:0.8rem;color:var(--text-secondary);margin:0 0 16px;">Update <strong>' + pks.length + '</strong> selected record(s).</p>'
+        + '<label style="display:block;font-size:0.75rem;font-weight:500;color:var(--text-secondary);margin-bottom:4px;">Field</label>'
+        + '<select id="batchField" class="form-input" style="width:100%;margin-bottom:12px;padding:8px 12px;font-size:0.82rem;">' + opts + '</select>'
+        + '<label style="display:block;font-size:0.75rem;font-weight:500;color:var(--text-secondary);margin-bottom:4px;">New Value</label>'
+        + '<input type="text" id="batchValue" class="form-input" style="width:100%;margin-bottom:16px;padding:8px 12px;font-size:0.82rem;" placeholder="Enter new value...">'
+        + '<div style="display:flex;gap:8px;justify-content:flex-end;"><button onclick="this.closest(\'#batch-update-overlay\').remove()" class="btn btn-secondary btn-sm">Cancel</button><button class="btn btn-primary btn-sm" onclick="executeBatchUpdate()">Update All</button></div>'
+        + '</div>';
+    document.body.appendChild(ov);
+    ov.querySelector('#batchValue').focus();
+    // Store pks for submission
+    ov._pks = pks;
+}
+
+function executeBatchUpdate() {
+    var ov = document.getElementById('batch-update-overlay');
+    if (!ov || !ov._pks) return;
+    var field = document.getElementById('batchField').value;
+    var value = document.getElementById('batchValue').value;
+    if (!field) { showToast('Select a field', 'warning'); return; }
+    var fd = new FormData();
+    fd.append('field', field);
+    fd.append('value', value);
+    fd.append('selected', JSON.stringify(ov._pks));
+    fetch(BASE_URL + '/batch-update', { method: 'POST', body: fd })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+            ov.remove();
+            if (data.success) {
+                showToast('Updated ' + data.updated + ' record(s)', 'success');
+                setTimeout(function() { window.location.reload(); }, 800);
+            } else {
+                showToast(data.error || 'Update failed', 'error');
+            }
+        })
+        .catch(function(err) { showToast('Error: ' + err.message, 'error'); });
 }
 
 function showToast(msg, type) {

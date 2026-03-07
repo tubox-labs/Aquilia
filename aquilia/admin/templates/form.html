@@ -395,12 +395,102 @@
             {% endfor %}
         {% endif %}
 
+        {# ── Inline Models ── #}
+        {% if inlines is defined and inlines|length > 0 %}
+        {% for inline in inlines %}
+        <div class="inline-section" style="margin-top:28px;padding-top:24px;border-top:1px solid var(--border-color);" data-inline="{{ inline.model_name|default('inline-'~loop.index) }}">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <div style="width:28px;height:28px;border-radius:6px;background:rgba(59,130,246,0.1);display:flex;align-items:center;justify-content:center;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+                    </div>
+                    <div>
+                        <div style="font-size:0.88rem;font-weight:600;color:var(--text-primary);">{{ inline.verbose_name_plural|default(inline.model_name ~ 's') }}</div>
+                        <div style="font-size:0.68rem;color:var(--text-muted);">{{ inline.style|default('tabular') }} inline</div>
+                    </div>
+                </div>
+                <button type="button" class="btn btn-ghost" onclick="addInlineRow(this)" style="font-size:0.75rem;">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    Add {{ inline.verbose_name|default(inline.model_name) }}
+                </button>
+            </div>
+            {% if inline.style == 'tabular' and inline.fields|length > 0 %}
+            <div style="overflow-x:auto;border:1px solid var(--border-color);border-radius:8px;">
+                <table style="width:100%;border-collapse:collapse;font-size:0.8rem;">
+                    <thead>
+                        <tr style="background:var(--bg-surface);">
+                            {% for f in inline.fields %}
+                            <th style="padding:8px 12px;text-align:left;font-weight:600;color:var(--text-secondary);border-bottom:1px solid var(--border-color);white-space:nowrap;">{{ f.label|default(f.name|replace('_', ' ')|title) }}</th>
+                            {% endfor %}
+                            {% if inline.can_delete|default(true) %}
+                            <th style="padding:8px 12px;width:40px;border-bottom:1px solid var(--border-color);"></th>
+                            {% endif %}
+                        </tr>
+                    </thead>
+                    <tbody class="inline-rows" data-extra="{{ inline.extra|default(3) }}" data-max="{{ inline.max_num|default(0) }}" data-min="{{ inline.min_num|default(0) }}">
+                        {% for row_idx in range(inline.extra|default(3)) %}
+                        <tr class="inline-row" data-row="{{ row_idx }}">
+                            {% for f in inline.fields %}
+                            <td style="padding:6px 10px;border-bottom:1px solid var(--border-color);">
+                                <input type="{{ f.type|default('text') }}" name="inline__{{ inline.model_name }}__{{ row_idx }}__{{ f.name }}" class="form-input" style="padding:6px 10px;font-size:0.78rem;width:100%;" placeholder="{{ f.label|default(f.name) }}" {% if f.readonly %}readonly{% endif %}>
+                            </td>
+                            {% endfor %}
+                            {% if inline.can_delete|default(true) %}
+                            <td style="padding:6px 10px;border-bottom:1px solid var(--border-color);text-align:center;">
+                                <button type="button" class="btn btn-ghost" onclick="this.closest('tr').remove()" style="padding:4px;color:var(--danger);min-width:0;">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                </button>
+                            </td>
+                            {% endif %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% elif inline.style == 'stacked' and inline.fields|length > 0 %}
+            <div class="inline-rows" data-extra="{{ inline.extra|default(3) }}" data-max="{{ inline.max_num|default(0) }}" data-min="{{ inline.min_num|default(0) }}">
+                {% for row_idx in range(inline.extra|default(3)) %}
+                <div class="inline-row glass-card card-padded" style="margin-bottom:12px;position:relative;" data-row="{{ row_idx }}">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+                        <span style="font-size:0.78rem;font-weight:600;color:var(--text-secondary);">{{ inline.verbose_name|default(inline.model_name) }} #{{ row_idx + 1 }}</span>
+                        {% if inline.can_delete|default(true) %}
+                        <button type="button" class="btn btn-ghost" onclick="this.closest('.inline-row').remove()" style="padding:4px;color:var(--danger);min-width:0;font-size:0.7rem;">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Remove
+                        </button>
+                        {% endif %}
+                    </div>
+                    {% for f in inline.fields %}
+                    <div style="margin-bottom:10px;">
+                        <label style="display:block;font-size:0.72rem;font-weight:500;color:var(--text-secondary);margin-bottom:4px;">{{ f.label|default(f.name|replace('_', ' ')|title) }}</label>
+                        {% if f.type == 'textarea' %}
+                        <textarea name="inline__{{ inline.model_name }}__{{ row_idx }}__{{ f.name }}" class="form-input" style="min-height:60px;font-size:0.78rem;" {% if f.readonly %}readonly{% endif %}></textarea>
+                        {% elif f.type == 'checkbox' %}
+                        <label class="toggle-switch"><input type="checkbox" name="inline__{{ inline.model_name }}__{{ row_idx }}__{{ f.name }}"><span class="toggle-slider"></span></label>
+                        {% else %}
+                        <input type="{{ f.type|default('text') }}" name="inline__{{ inline.model_name }}__{{ row_idx }}__{{ f.name }}" class="form-input" style="font-size:0.78rem;" placeholder="{{ f.label|default(f.name) }}" {% if f.readonly %}readonly{% endif %}>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+        {% endif %}
+
         {# ── Action buttons ── #}
         <div style="display:flex;gap:10px;align-items:center;margin-top:28px;padding-top:20px;border-top:1px solid var(--border-subtle);flex-wrap:wrap;">
             <button type="submit" class="btn btn-primary" id="saveBtn">
                 <i class="icon-{{ 'plus' if is_create else 'save' }}" style="font-size:14px;"></i>
                 {{ 'Create' if is_create else 'Save Changes' }}
             </button>
+            {% if save_as is defined and save_as and not is_create %}
+            <button type="submit" class="btn btn-secondary" name="_saveasnew" value="1" id="saveAsNewBtn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="14" y="14" width="8" height="8" rx="1"/><rect x="2" y="2" width="14" height="14" rx="2"/></svg>
+                Save as New
+            </button>
+            {% endif %}
             {% if not is_create %}
             <button type="button" class="btn btn-secondary" id="inspectorBtn" onclick="toggleChangeInspector()" style="display:none;">
                 <i class="icon-code" style="font-size:14px;"></i> Inspect Changes
@@ -408,6 +498,9 @@
             {% endif %}
             <a href="{{ url_prefix|default('/admin') }}/{{ model_name|lower }}/" class="btn btn-secondary">Cancel</a>
             {% if not is_create %}
+            <a href="{{ url_prefix|default('/admin') }}/{{ model_name|lower }}/{{ pk }}/history" class="btn btn-ghost" style="font-size:0.78rem;color:var(--text-faint);">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> History
+            </a>
             <button type="button" class="btn btn-ghost" id="resetBtn" onclick="resetForm()" style="display:none;margin-left:auto;font-size:0.78rem;color:var(--text-faint);">
                 <i class="icon-rotate-ccw" style="font-size:12px;"></i> Reset
             </button>
@@ -1124,6 +1217,50 @@
             if (e.key === 'Escape') { overlay.remove(); document.removeEventListener('keydown', handler); }
         });
         overlay.querySelector('#del-confirm').focus();
+    };
+
+    // ── Inline Row Management ───────────────────────────────────────
+    window.addInlineRow = function(btn) {
+        var section = btn.closest('.inline-section');
+        if (!section) return;
+        var container = section.querySelector('.inline-rows');
+        if (!container) return;
+        var maxNum = parseInt(container.getAttribute('data-max') || '0');
+        var existing = container.querySelectorAll('.inline-row');
+        if (maxNum > 0 && existing.length >= maxNum) {
+            showToast('Maximum number of entries reached (' + maxNum + ')', 'warning');
+            return;
+        }
+        var newIdx = existing.length;
+        var templateRow = existing[existing.length - 1];
+        if (!templateRow) return;
+        var clone = templateRow.cloneNode(true);
+        clone.setAttribute('data-row', newIdx);
+        // Update input names and clear values
+        clone.querySelectorAll('input, textarea, select').forEach(function(inp) {
+            var name = inp.getAttribute('name') || '';
+            // Replace the old row index with new
+            var parts = name.split('__');
+            if (parts.length >= 4) {
+                parts[2] = String(newIdx);
+                inp.setAttribute('name', parts.join('__'));
+            }
+            if (inp.type === 'checkbox') {
+                inp.checked = false;
+            } else {
+                inp.value = '';
+            }
+        });
+        // Update stacked row label
+        var label = clone.querySelector('[style*="font-weight:600"]');
+        if (label && label.textContent.includes('#')) {
+            var baseName = label.textContent.replace(/#\d+/, '').trim();
+            label.textContent = baseName + ' #' + (newIdx + 1);
+        }
+        container.appendChild(clone);
+        // Focus first input
+        var firstInput = clone.querySelector('input:not([readonly]), textarea:not([readonly])');
+        if (firstInput) firstInput.focus();
     };
 
     // ── Toast ───────────────────────────────────────────────────────

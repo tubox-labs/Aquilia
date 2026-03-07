@@ -1182,7 +1182,7 @@ class AdminController(Controller):
 
     @GET("/{model}/export")
     async def export_view(self, request, ctx: RequestCtx) -> Response:
-        """Export model data as CSV or JSON."""
+        """Export model data as CSV, JSON, or XML using the export system."""
         model = request.state.get("path_params", {}).get("model", "")
         identity, denied = _require_identity(ctx)
         if denied:
@@ -1225,6 +1225,23 @@ class AdminController(Controller):
                 metadata={"format": fmt, "count": len(rows)},
             )
 
+        # Use the export system
+        from aquilia.admin.export import ExportRegistry
+        raw_headers = {c: c for c in columns}  # Keep field names as-is
+        exporter = ExportRegistry.create(fmt, fields=columns, headers=raw_headers)
+        if exporter:
+            content = exporter.export(rows)
+            filename = exporter.get_filename(model_name)
+            return Response(
+                content=content.encode("utf-8"),
+                status=200,
+                headers={
+                    "content-type": exporter.content_type,
+                    "content-disposition": f'attachment; filename="{filename}"',
+                },
+            )
+
+        # Fallback for unrecognized formats
         if fmt == "json":
             import json
             export_rows = []
@@ -1256,6 +1273,196 @@ class AdminController(Controller):
                     "content-type": "text/csv; charset=utf-8",
                     "content-disposition": f'attachment; filename="{model_name}.csv"',
                 },
+            )
+
+    # ── History View ─────────────────────────────────────────────────
+
+    @GET("/{model}/{pk}/history")
+    async def history_view(self, request, ctx: RequestCtx) -> Response:
+        """View change history for a specific record."""
+        _pp = request.state.get("path_params", {})
+        model = _pp.get("model", "")
+        pk = _pp.get("pk", "")
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return denied
+
+        self._ensure_initialized()
+
+        # Get audit entries for this specific record
+        import json as _json
+        history_entries = []
+        if self.site.audit_log:
+            all_entries = self.site.audit_log.get_entries(limit=500)
+            for entry in all_entries:
+                entry_data = entry if isinstance(entry, dict) else (
+                    entry.__dict__ if hasattr(entry, '__dict__') else {}
+                )
+                entry_model = entry_data.get("model_name", "")
+                entry_meta = entry_data.get("metadata", {})
+                if isinstance(entry_meta, str):
+                    try:
+                        entry_meta = _json.loads(entry_meta)
+                    except Exception:
+                        entry_meta = {}
+                entry_pk = str(entry_meta.get("pk", entry_meta.get("record_id", "")))
+                if entry_model.lower() == model.lower() and entry_pk == str(pk):
+                    history_entries.append({
+                        "timestamp": entry_data.get("timestamp", ""),
+                        "username": entry_data.get("username", "Unknown"),
+                        "action": str(entry_data.get("action", "")),
+                        "metadata": entry_meta,
+                        "ip_address": entry_data.get("ip_address", ""),
+                    })
+
+        # Get model verbose name
+        verbose_name = model
+        try:
+            model_cls = self.site.get_model_class(model)
+            admin = self.site.get_model_admin(model_cls)
+            verbose_name = admin.get_model_name()
+        except Exception:
+            pass
+
+        app_list = self.site.get_app_list(identity)
+
+        # Render using the history template
+        try:
+            from .templates import _render_template, _HAS_JINJA2
+            if _HAS_JINJA2:
+                html = _render_template(
+                    "history.html",
+                    model_name=model,
+                    verbose_name=verbose_name,
+                    pk=pk,
+                    entries=history_entries,
+                    total=len(history_entries),
+                    app_list=app_list,
+                    active_page="",
+                    active_model=model.lower(),
+                    identity_name=_get_identity_name(identity),
+                    identity_avatar=_get_identity_avatar(identity),
+                    site_title="Aquilia Admin",
+                    url_prefix="/admin",
+                    page_title=f"History: {verbose_name} #{pk}",
+                )
+                return _html_response(html)
+        except Exception:
+            pass
+
+        # Fallback: JSON response
+        return Response(
+            content=_json.dumps({"model": model, "pk": pk, "entries": history_entries}, default=str).encode("utf-8"),
+            status=200,
+            headers={"content-type": "application/json"},
+        )
+
+    # ── Batch Update API ─────────────────────────────────────────────
+
+    @POST("/{model}/batch-update")
+    async def batch_update(self, request, ctx: RequestCtx) -> Response:
+        """Update a specific field on multiple records at once."""
+        import json as _json
+
+        model = request.state.get("path_params", {}).get("model", "")
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return Response(content=b'{"error":"unauthorized"}', status=401,
+                            headers={"content-type": "application/json"})
+
+        self._ensure_initialized()
+
+        form_data = await _parse_form(ctx)
+        field_name = form_data.get("field", "")
+        new_value = form_data.get("value", "")
+        selected_raw = form_data.get("selected", "")
+        if isinstance(selected_raw, str):
+            try:
+                selected_pks = _json.loads(selected_raw)
+            except Exception:
+                selected_pks = [pk.strip() for pk in selected_raw.split(",") if pk.strip()]
+        else:
+            selected_pks = list(selected_raw)
+
+        if not field_name or not selected_pks:
+            return Response(
+                content=_json.dumps({"error": "Missing field or selected records"}).encode("utf-8"),
+                status=400,
+                headers={"content-type": "application/json"},
+            )
+
+        try:
+            count = 0
+            for pk in selected_pks:
+                try:
+                    await self.site.update_record(model, pk, {field_name: new_value}, identity=identity)
+                    count += 1
+                except Exception:
+                    pass
+
+            # Audit
+            if identity and self.site.audit_log:
+                self.site.audit_log.log(
+                    user_id=getattr(identity, "id", ""),
+                    username=_get_identity_name(identity),
+                    role=str(get_admin_role(identity) or "unknown"),
+                    action=AdminAction.BULK_ACTION,
+                    model_name=model,
+                    metadata={
+                        "action": "batch_update",
+                        "field": field_name,
+                        "value": new_value,
+                        "pks": selected_pks,
+                        "count": count,
+                    },
+                )
+
+            return Response(
+                content=_json.dumps({"success": True, "updated": count}).encode("utf-8"),
+                status=200,
+                headers={"content-type": "application/json"},
+            )
+        except Exception as e:
+            return Response(
+                content=_json.dumps({"error": str(e)}).encode("utf-8"),
+                status=500,
+                headers={"content-type": "application/json"},
+            )
+
+    # ── Filter Metadata API ──────────────────────────────────────────
+
+    @GET("/{model}/filter-meta")
+    async def filter_metadata_api(self, request, ctx: RequestCtx) -> Response:
+        """Return filter metadata as JSON for dynamic filter UI."""
+        import json as _json
+
+        model = request.state.get("path_params", {}).get("model", "")
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return Response(content=b'{"error":"unauthorized"}', status=401,
+                            headers={"content-type": "application/json"})
+
+        self._ensure_initialized()
+
+        try:
+            from aquilia.admin.filters import resolve_filter
+            admin_obj = self.site.get_model_admin(model)
+            model_cls = self.site.get_model_class(model)
+            filter_specs = admin_obj.get_list_filter()
+            filters = []
+            for spec in filter_specs:
+                f = resolve_filter(spec, model_cls)
+                filters.append(f.to_metadata())
+            return Response(
+                content=_json.dumps({"filters": filters}).encode("utf-8"),
+                status=200,
+                headers={"content-type": "application/json"},
+            )
+        except Exception as e:
+            return Response(
+                content=_json.dumps({"error": str(e)}).encode("utf-8"),
+                status=500,
+                headers={"content-type": "application/json"},
             )
 
     # ── JSON Search API (no page refresh) ──────────────────────────

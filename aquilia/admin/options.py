@@ -141,15 +141,29 @@ class ModelAdmin:
     prepopulated_fields: Dict[str, List[str]] = {}
     raw_id_fields: List[str] = []
     save_on_top: bool = False
+    save_as: bool = False           # Show "Save as new" button
+    save_as_continue: bool = True   # After "Save as new", redirect to new object
+
+    # ── Inlines ──────────────────────────────────────────────────────
+    inlines: List[Any] = []  # List of InlineModelAdmin subclasses
 
     # ── Actions ──────────────────────────────────────────────────────
     actions: List[Any] = []
+
+    # ── Export ────────────────────────────────────────────────────────
+    export_formats: List[str] = ["csv", "json", "xml"]  # Available export formats
+    export_fields: Optional[List[str]] = None  # Fields to include in exports
 
     # ── Display ──────────────────────────────────────────────────────
     empty_value_display: str = "--"
     verbose_name: Optional[str] = None
     verbose_name_plural: Optional[str] = None
     icon: str = "list"  # Emoji icon for nav
+
+    # ── Lifecycle hooks (override in subclass) ───────────────────────
+    # These are stubs — the AdminHooksMixin provides the full
+    # implementation. When AdminHooksMixin is mixed in, these
+    # become real hook methods with before/after lifecycle.
 
     def __init__(self, model: Optional[Type[Model]] = None):
         if model is not None:
@@ -584,3 +598,44 @@ class ModelAdmin:
                 if isinstance(field, BooleanField):
                     return name
         return None
+
+    # ── Inline helpers ───────────────────────────────────────────────
+
+    def get_inlines(self) -> List:
+        """Return inline classes for this admin."""
+        return list(self.inlines)
+
+    def get_inline_instances(self) -> List:
+        """
+        Instantiate InlineModelAdmin subclasses and resolve FK relationships.
+        """
+        instances = []
+        for inline_cls in self.get_inlines():
+            if isinstance(inline_cls, type):
+                try:
+                    inst = inline_cls()
+                    if self.model and hasattr(inst, "resolve_fk_name"):
+                        inst.resolve_fk_name(self.model)
+                    instances.append(inst)
+                except Exception as exc:
+                    logger.warning("Failed to instantiate inline %s: %s", inline_cls, exc)
+            else:
+                instances.append(inline_cls)
+        return instances
+
+    def get_inline_template_data(self) -> List[Dict[str, Any]]:
+        """Get inline data serialized for template rendering."""
+        return [
+            inst.to_template_data() if hasattr(inst, "to_template_data") else {}
+            for inst in self.get_inline_instances()
+        ]
+
+    # ── Export helpers ────────────────────────────────────────────────
+
+    def get_export_formats(self) -> List[str]:
+        """Return available export format names."""
+        return list(self.export_formats)
+
+    def get_export_fields(self) -> Optional[List[str]]:
+        """Return fields to include in exports (None = all)."""
+        return self.export_fields

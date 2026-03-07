@@ -1,0 +1,273 @@
+{% extends "base.html" %}
+
+{% block title %}History: {{ verbose_name }} #{{ pk }}{% endblock %}
+
+{% block breadcrumb %}
+<a href="{{ url_prefix }}/" style="color:var(--text-secondary);text-decoration:none;">Home</a>
+<span style="margin:0 6px;color:var(--text-faint);">›</span>
+<a href="{{ url_prefix }}/{{ model_name|lower }}/" style="color:var(--text-secondary);text-decoration:none;">{{ verbose_name }}s</a>
+<span style="margin:0 6px;color:var(--text-faint);">›</span>
+<a href="{{ url_prefix }}/{{ model_name|lower }}/{{ pk }}" style="color:var(--text-secondary);text-decoration:none;">#{{ pk }}</a>
+<span style="margin:0 6px;color:var(--text-faint);">›</span>
+<span class="current">History</span>
+{% endblock %}
+
+{% block extra_head %}
+<style>
+.history-container {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 24px 0;
+}
+.history-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+}
+.history-header h1 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.history-header .badge {
+    background: var(--accent);
+    color: #000;
+    font-size: 0.75rem;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: 600;
+}
+.history-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-elevated);
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-size: 0.85rem;
+    transition: all 0.2s;
+}
+.history-back:hover {
+    background: var(--accent);
+    color: #000;
+    border-color: var(--accent);
+}
+.history-timeline {
+    position: relative;
+    padding-left: 32px;
+}
+.history-timeline::before {
+    content: '';
+    position: absolute;
+    left: 14px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--border-color);
+    border-radius: 2px;
+}
+.history-entry {
+    position: relative;
+    margin-bottom: 20px;
+    padding: 16px 20px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    transition: all 0.2s;
+}
+.history-entry:hover {
+    border-color: var(--accent);
+    box-shadow: 0 2px 12px rgba(34, 197, 94, 0.06);
+}
+.history-entry::before {
+    content: '';
+    position: absolute;
+    left: -24px;
+    top: 20px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 2px solid var(--bg-body);
+    z-index: 1;
+}
+.history-entry-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+.history-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--text-primary);
+}
+.history-action .action-badge {
+    font-size: 0.7rem;
+    padding: 2px 8px;
+    border-radius: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 700;
+}
+.action-CREATE { background: rgba(34, 197, 94, 0.15); color: #22c55e; }
+.action-UPDATE { background: rgba(59, 130, 246, 0.15); color: #3b82f6; }
+.action-DELETE { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
+.action-VIEW { background: rgba(168, 85, 247, 0.15); color: #a855f7; }
+.action-BULK_ACTION { background: rgba(245, 158, 11, 0.15); color: #f59e0b; }
+.action-EXPORT { background: rgba(6, 182, 212, 0.15); color: #06b6d4; }
+.history-meta {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+.history-meta .meta-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.history-details {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border-color);
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+}
+.history-details code {
+    background: var(--bg-input);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 0.78rem;
+}
+.history-empty {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-faint);
+}
+.history-empty svg {
+    margin-bottom: 16px;
+    opacity: 0.4;
+}
+.history-empty h3 {
+    font-size: 1.1rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+}
+.history-empty p {
+    font-size: 0.85rem;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="history-container">
+    <div class="history-header">
+        <h1>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            Change History
+            <span class="badge">{{ entries|length }}</span>
+        </h1>
+        <a href="{{ url_prefix }}/{{ model_name|lower }}/{{ pk }}" class="history-back">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+            Back to {{ verbose_name }}
+        </a>
+    </div>
+
+    {% if entries|length > 0 %}
+    <div class="history-timeline">
+        {% for entry in entries %}
+        <div class="history-entry">
+            <div class="history-entry-header">
+                <div class="history-action">
+                    <span class="action-badge action-{{ entry.action|replace('AdminAction.', '')|replace('ADMIN_ACTION.', '') }}">
+                        {{ entry.action|replace('AdminAction.', '')|replace('ADMIN_ACTION.', '') }}
+                    </span>
+                    by <strong>{{ entry.username }}</strong>
+                </div>
+                <div class="history-meta">
+                    {% if entry.ip_address %}
+                    <span class="meta-item">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/><line x1="2" y1="17" x2="7" y2="17"/><line x1="17" y1="17" x2="22" y2="17"/><line x1="17" y1="7" x2="22" y2="7"/></svg>
+                        {{ entry.ip_address }}
+                    </span>
+                    {% endif %}
+                    <span class="meta-item">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                        {{ entry.timestamp }}
+                    </span>
+                </div>
+            </div>
+            {% if entry.metadata %}
+            <div class="history-details">
+                {% for key, value in entry.metadata.items() %}
+                {% if key not in ['pk', 'record_id'] %}
+                <span><code>{{ key }}</code>: {{ value }}</span>
+                {% if not loop.last %} &nbsp;·&nbsp; {% endif %}
+                {% endif %}
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="history-empty">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        <h3>No History Found</h3>
+        <p>No changes have been recorded for this record yet.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+// Relative time formatting for history entries
+(function() {
+    'use strict';
+    function relativeTime(dateStr) {
+        if (!dateStr) return '';
+        var d;
+        try { d = new Date(dateStr); } catch(e) { return dateStr; }
+        if (isNaN(d.getTime())) return dateStr;
+        var now = Date.now();
+        var diff = now - d.getTime();
+        var sec = Math.floor(diff / 1000);
+        if (sec < 60) return 'just now';
+        var min = Math.floor(sec / 60);
+        if (min < 60) return min + 'm ago';
+        var hr = Math.floor(min / 60);
+        if (hr < 24) return hr + 'h ago';
+        var days = Math.floor(hr / 24);
+        if (days < 7) return days + 'd ago';
+        return d.toLocaleDateString();
+    }
+    // Update timestamps to relative
+    document.querySelectorAll('.history-meta .meta-item:last-child').forEach(function(el) {
+        var txt = el.textContent.trim();
+        var rel = relativeTime(txt);
+        if (rel && rel !== txt) {
+            el.setAttribute('title', txt);
+            // Keep the SVG, replace only text
+            var svg = el.querySelector('svg');
+            if (svg) {
+                el.innerHTML = '';
+                el.appendChild(svg);
+                el.appendChild(document.createTextNode(' ' + rel));
+            }
+        }
+    });
+})();
+{% endblock %}
