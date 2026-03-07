@@ -1352,38 +1352,54 @@ class AdminController(Controller):
         import json as _json
         history_entries = []
         if self.site.audit_log:
-            all_entries = self.site.audit_log.get_entries(limit=500)
-            for entry in all_entries:
-                entry_data = entry if isinstance(entry, dict) else (
-                    entry.__dict__ if hasattr(entry, '__dict__') else {}
-                )
-                entry_model = entry_data.get("model_name", "")
-                entry_meta = entry_data.get("metadata", {})
+            # Use dedicated method that searches both memory and CROUS file
+            if hasattr(self.site.audit_log, "get_history_for_record"):
+                raw_entries = self.site.audit_log.get_history_for_record(model, str(pk))
+            else:
+                raw_entries = [
+                    e for e in self.site.audit_log.get_entries(limit=10_000)
+                    if (getattr(e, "model_name", None) or "").lower() == model.lower()
+                    and str(getattr(e, "record_pk", "") or "") == str(pk)
+                ]
+
+            for entry in raw_entries:
+                if hasattr(entry, "to_dict"):
+                    entry_data = entry.to_dict()
+                elif isinstance(entry, dict):
+                    entry_data = entry
+                else:
+                    entry_data = entry.__dict__ if hasattr(entry, "__dict__") else {}
+
+                entry_meta = entry_data.get("metadata") or {}
                 if isinstance(entry_meta, str):
                     try:
                         entry_meta = _json.loads(entry_meta)
                     except Exception:
                         entry_meta = {}
-                # Check record_pk directly first, then fall back to metadata
-                entry_pk = str(entry_data.get("record_pk", "") or "")
-                if not entry_pk:
-                    entry_pk = str(entry_meta.get("pk", entry_meta.get("record_id", "")))
-                if entry_model and entry_model.lower() == model.lower() and entry_pk == str(pk):
-                    # Extract changes for display
-                    entry_changes = entry_data.get("changes", {})
-                    if isinstance(entry_changes, str):
-                        try:
-                            entry_changes = _json.loads(entry_changes)
-                        except Exception:
-                            entry_changes = {}
-                    history_entries.append({
-                        "timestamp": entry_data.get("timestamp", ""),
-                        "username": entry_data.get("username", "Unknown"),
-                        "action": str(entry_data.get("action", "")),
-                        "metadata": entry_meta,
-                        "changes": entry_changes or {},
-                        "ip_address": entry_data.get("ip_address", ""),
-                    })
+
+                entry_changes = entry_data.get("changes") or {}
+                if isinstance(entry_changes, str):
+                    try:
+                        entry_changes = _json.loads(entry_changes)
+                    except Exception:
+                        entry_changes = {}
+
+                action_val = entry_data.get("action", "")
+                if hasattr(action_val, "value"):
+                    action_val = action_val.value
+
+                ts = entry_data.get("timestamp", "")
+                if hasattr(ts, "isoformat"):
+                    ts = ts.isoformat()
+
+                history_entries.append({
+                    "timestamp": ts,
+                    "username": entry_data.get("username") or "Unknown",
+                    "action": str(action_val),
+                    "metadata": entry_meta,
+                    "changes": entry_changes or {},
+                    "ip_address": entry_data.get("ip_address") or "",
+                })
 
         # Get model verbose name
         verbose_name = model

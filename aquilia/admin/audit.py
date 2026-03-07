@@ -206,6 +206,16 @@ class CrousAuditStore:
             logger.debug("CrousAuditStore.load_all failed: %s", exc)
             return []
 
+    def load_for_record(self, model_name: str, record_pk: str) -> List["AdminAuditEntry"]:
+        """Load only entries matching a specific model + pk (case-insensitive)."""
+        all_entries = self.load_all()
+        model_lower = model_name.lower()
+        return [
+            e for e in all_entries
+            if (e.model_name or "").lower() == model_lower
+            and str(e.record_pk or "") == str(record_pk)
+        ]
+
     # ── Maintenance ──────────────────────────────────────────────
 
     def clear(self) -> None:
@@ -417,6 +427,22 @@ class AdminAuditLog:
         if self._crous_store is not None:
             self._crous_store.clear()
         return count
+
+    def get_history_for_record(
+        self,
+        model_name: str,
+        record_pk: str,
+    ) -> List["AdminAuditEntry"]:
+        """Return all audit entries for a specific model + pk, newest-first."""
+        self._hydrate()
+        model_lower = model_name.lower()
+        filtered = [
+            e for e in self._entries
+            if (e.model_name or "").lower() == model_lower
+            and str(e.record_pk or "") == str(record_pk)
+        ]
+        filtered.sort(key=lambda e: e.timestamp, reverse=True)
+        return filtered
 
 
 class ModelBackedAuditLog:
@@ -727,3 +753,35 @@ class ModelBackedAuditLog:
         self._crous_store.clear()
         self._hydrated = False
         return self._fallback.clear()
+
+    def get_history_for_record(
+        self,
+        model_name: str,
+        record_pk: str,
+    ) -> List["AdminAuditEntry"]:
+        """
+        Return all audit entries for a specific model + pk.
+
+        Searches both the in-memory log and the CROUS file directly,
+        merging and deduplicating by entry id.  Returns newest-first.
+        """
+        # In-memory results (with hydration)
+        self._hydrate()
+        mem = self._fallback.get_entries(model_name=model_name, limit=10_000)
+        mem_filtered = [
+            e for e in mem
+            if str(e.record_pk or "") == str(record_pk)
+        ]
+
+        # CROUS file direct lookup (catches entries not yet in memory)
+        file_entries = self._crous_store.load_for_record(model_name, record_pk)
+
+        # Merge, dedup by id, sort newest-first
+        seen: set = set()
+        merged: List[AdminAuditEntry] = []
+        for e in file_entries + mem_filtered:
+            if e.id not in seen:
+                seen.add(e.id)
+                merged.append(e)
+        merged.sort(key=lambda e: e.timestamp, reverse=True)
+        return merged
