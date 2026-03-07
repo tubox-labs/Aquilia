@@ -31,8 +31,8 @@
   --warning-subtle: rgba(245,158,11,0.12);
   --purple: #a855f7;
   --purple-subtle: rgba(168,85,247,0.12);
-  --font-sans: "Outfit", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "Space Mono", "JetBrains Mono", "Cascadia Code", monospace;
+  --font-sans: "Inter", "InterVariable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono", "JetBrains Mono", "Cascadia Code", ui-monospace, monospace;
   --radius: 12px;
   --radius-sm: 8px;
   --radius-xs: 6px;
@@ -78,6 +78,7 @@ body {
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: 'calt' 1, 'liga' 1, 'cv01' 1, 'cv02' 1, 'cv03' 1, 'cv04' 1, 'tnum' 1;
   font-size: 14px; line-height: 1.6;
   position: relative;
 }

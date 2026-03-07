@@ -172,6 +172,14 @@ class SMTPProvider:
         if not self.use_tls and not self.use_ssl:
             return None
         ctx = ssl.create_default_context()
+        # On macOS the system cert store is often empty for Python;
+        # fall back to the certifi CA bundle when available.
+        if ctx.cert_store_stats()["x509_ca"] == 0:
+            try:
+                import certifi
+                ctx.load_verify_locations(certifi.where())
+            except (ImportError, OSError):
+                pass  # best-effort; user can set validate_certs=False
         if not self.validate_certs:
             ctx.check_hostname = False
             ctx.verify_mode = ssl.CERT_NONE

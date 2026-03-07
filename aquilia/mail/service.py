@@ -166,6 +166,8 @@ class MailService:
         for pc in self.config.providers:
             if not pc.enabled:
                 continue
+            # Apply top-level auth to providers that lack their own credentials
+            self._apply_global_auth(pc)
             try:
                 provider = self._create_provider(pc)
                 await provider.initialize()
@@ -200,6 +202,35 @@ class MailService:
         self._providers.clear()
         self._started = False
         self.logger.info("MailService stopped")
+
+    # ── Auth propagation ────────────────────────────────────────────
+
+    def _apply_global_auth(self, pc: Any) -> None:
+        """
+        Apply top-level ``MailConfig.auth`` to a provider config when the
+        provider has no explicit ``username``/``password``.
+
+        The global auth acts as a default -- individual providers can
+        override it by setting their own credentials.
+        """
+        if self.config.auth is None:
+            return
+        # Provider already has explicit credentials -- skip
+        if pc.username or pc.password:
+            return
+        # Provider has its own nested auth dict -- skip
+        if getattr(pc, "auth", None) is not None:
+            return
+        # Apply from the global MailAuthConfig
+        auth = self.config.auth
+        method = getattr(auth, "method", "plain")
+        if method in ("plain", "ntlm"):
+            uname = getattr(auth, "username", None)
+            pwd = getattr(auth, "password", None)
+            if uname:
+                pc.username = uname
+            if pwd:
+                pc.password = pwd
 
     # ── Provider factory ────────────────────────────────────────────
 

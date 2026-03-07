@@ -154,16 +154,30 @@
         <i class="icon-mail"></i>
         <h2>Mail Subsystem Not Configured</h2>
         <p>Enable the mail integration in your <code>workspace.py</code> to use the Mailer admin page.</p>
-        <div style="margin-top:20px;text-align:left;max-width:500px;margin-left:auto;margin-right:auto;">
-            <div style="font-size:0.68rem;color:var(--text-faint);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Configuration Example</div>
-            <pre style="background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:16px;font-size:0.73rem;color:var(--text-secondary);line-height:1.6;overflow-x:auto;"><code>.integrate(Integration.mail(
-    default_from="noreply@myapp.com",
-    console_backend=True,
-    providers=[
-        {"name": "smtp", "type": "smtp",
-         "host": "smtp.example.com", "port": 587},
-    ],
-))</code></pre>
+        <div style="margin-top:24px;text-align:left;max-width:560px;margin-left:auto;margin-right:auto;">
+            <div class="code-block-container" style="margin-bottom:0;">
+                <div class="code-block-header">
+                    <div class="dots">
+                        <div class="dot dot-red"></div>
+                        <div class="dot dot-yellow"></div>
+                        <div class="dot dot-green"></div>
+                    </div>
+                    <span class="filename">workspace.py</span>
+                </div>
+                <div class="code-block-body">
+<pre><span class="var">app</span><span class="op">.</span><span class="fn">integrate</span><span class="op">(</span><span class="cls">Integration</span><span class="op">.</span><span class="fn">mail</span><span class="op">(</span>
+    <span class="prop">default_from</span><span class="op">=</span><span class="str">"noreply@myapp.com"</span><span class="op">,</span>
+    <span class="prop">console_backend</span><span class="op">=</span><span class="kw">True</span><span class="op">,</span>
+    <span class="prop">providers</span><span class="op">=[</span>
+        <span class="cls">Integration</span><span class="op">.</span><span class="cls">MailProvider</span><span class="op">.</span><span class="fn">SMTP</span><span class="op">(</span>
+            <span class="prop">name</span><span class="op">=</span><span class="str">"smtp"</span><span class="op">,</span>
+            <span class="prop">host</span><span class="op">=</span><span class="str">"smtp.example.com"</span><span class="op">,</span>
+            <span class="prop">port</span><span class="op">=</span><span class="num">587</span><span class="op">,</span>
+        <span class="op">),</span>
+    <span class="op">],</span>
+<span class="op">))</span></pre>
+                </div>
+            </div>
         </div>
     </div>
 </div>
