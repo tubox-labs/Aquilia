@@ -2013,6 +2013,14 @@ class AquiliaServer:
                 ("POST", f"{url_prefix}/mlops/api/export-snapshot/",   "mlops_export_snapshot",  ctrl.mlops_export_snapshot),
             ])
 
+            # Mailer routes (always registered — disabled page on off)
+            admin_routes.extend([
+                ("GET",  f"{url_prefix}/mailer/",              "mailer_view",         ctrl.mailer_view),
+                ("GET",  f"{url_prefix}/mailer/api/",          "mailer_api",          ctrl.mailer_api),
+                ("POST", f"{url_prefix}/mailer/send-test/",    "mailer_send_test",    ctrl.mailer_send_test),
+                ("POST", f"{url_prefix}/mailer/health-check/", "mailer_health_check", ctrl.mailer_health_check),
+            ])
+
             # Model CRUD routes -- always registered
             # NOTE: Static-suffix routes (export, action, add, search, batch-update,
             # filter-meta) MUST come before the bare /<pk:str> catch-all so the
