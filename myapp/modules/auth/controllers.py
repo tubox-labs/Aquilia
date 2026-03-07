@@ -4,9 +4,19 @@ Auth module controllers (request handlers).
 This file defines the HTTP endpoints for the auth module
 using the modern Controller architecture with pattern-based routing.
 
-ML inference endpoints are also provided via the four sklearn pipelines
-defined in ``pipelines.py``:
+Endpoints:
 
+File Storage:
+* ``POST   /auth/files/upload``             – Upload a file to storage
+* ``POST   /auth/files/avatar/<user_id>``   – Upload user avatar
+* ``POST   /auth/files/document``           – Upload a document
+* ``GET    /auth/files/``                   – List files in a directory
+* ``GET    /auth/files/info``               – Get file metadata
+* ``GET    /auth/files/download``           – Download / read a file
+* ``DELETE /auth/files/delete``             – Delete a file
+* ``GET    /auth/files/health``             – Storage health check
+
+ML inference:
 * ``POST /auth/ml/login-risk``       – LoginRiskClassifier
 * ``POST /auth/ml/anomaly``          – AnomalyDetector
 * ``POST /auth/ml/brute-force``      – BruteForceDetector
@@ -15,7 +25,7 @@ defined in ``pipelines.py``:
 
 from aquilia import Controller, GET, POST, PUT, DELETE, RequestCtx, Response
 from .faults import AuthNotFoundFault
-from .services import AuthService
+from .services import AuthService, FileStorageService
 from .pipelines import (
     LoginRiskClassifier,
     AnomalyDetector,
@@ -33,9 +43,10 @@ class AuthController(Controller):
     prefix = "/"
     tags = ["auth"]
 
-    def __init__(self, service: "AuthService" = None):
+    def __init__(self, service: "AuthService" = None, file_service: "FileStorageService" = None):
         # Instantiate service directly if not injected
         self.service = service or AuthService()
+        self.file_service = file_service
 
         # ML pipeline instances (loaded lazily on first call)
         self._login_risk: LoginRiskClassifier | None = None
@@ -69,76 +80,253 @@ class AuthController(Controller):
             await self._user_behavior.load("", "cpu")
         return self._user_behavior
 
-    @GET("/")
-    async def list_auth(self, ctx: RequestCtx):
+    # ── File Storage endpoints ────────────────────────────────────────────
+
+    @POST("/files/upload")
+    async def upload_file(self, ctx: RequestCtx):
         """
-        List all auth.
+        Upload a file to storage.
 
-        Example:
-            GET /auth/ -> {"items": [...], "total": 0}
+        Accepts multipart/form-data with a ``file`` field.
+        Optional form fields: ``backend`` (default: 'uploads'),
+        ``directory`` (sub-path).
+
+        Example::
+
+            POST /auth/files/upload
+            Content-Type: multipart/form-data
+            file: <binary>
+            backend: uploads
+            directory: reports/2026
+
+            -> {
+                "name": "20260307..._abc123.pdf",
+                "path": "reports/2026/20260307..._abc123.pdf",
+                "size": 102400,
+                "size_human": "100.0 KB",
+                "content_type": "application/pdf",
+                "backend": "uploads",
+                "url": "/storage/uploads/reports/2026/...",
+                "uploaded_at": "2026-03-07T..."
+            }
         """
-        items = await self.service.get_all()
+        form_data = await ctx.multipart()
+        file = form_data.get_file("file")
+        if not file:
+            return Response.json({"error": "No file provided"}, status=400)
 
-        raise AuthNotFoundFault(1)
+        backend = form_data.get_field("backend") or "uploads"
+        directory = form_data.get_field("directory") or ""
 
-    @POST("/")
-    async def create_auth(self, ctx: RequestCtx):
+        result = await self.file_service.upload_file(
+            filename=file.filename,
+            content=await file.read(),
+            backend_name=backend,
+            directory=directory,
+        )
+        return Response.json(result, status=201)
+
+    @POST("/files/avatar/<user_id:int>")
+    async def upload_avatar(self, ctx: RequestCtx, user_id: int):
         """
-        Create a new auth.
+        Upload a user avatar image.
 
-        Example:
-            POST /auth/
-            Body: {"name": "Example"}
-            -> {"id": 1, "name": "Example"}
+        Only images allowed (jpeg, png, gif, webp, svg). Max 2 MB.
+        Stored in the ``avatars`` backend under ``user_<id>/``.
+
+        Example::
+
+            POST /auth/files/avatar/42
+            Content-Type: multipart/form-data
+            file: <image binary>
+
+            -> {"name": "...", "path": "user_42/...", "backend": "avatars", ...}
         """
-        data = await ctx.json()
-        item = await self.service.create(data)
-        return Response.json(item, status=201)
+        form_data = await ctx.multipart()
+        file = form_data.get_file("file")
+        if not file:
+            return Response.json({"error": "No file provided"}, status=400)
 
-    @GET("/<id:int>")
-    async def get_auth(self, ctx: RequestCtx, id: int):
+        result = await self.file_service.upload_avatar(
+            user_id=user_id,
+            filename=file.filename,
+            content=await file.read(),
+        )
+        return Response.json(result, status=201)
+
+    @POST("/files/document")
+    async def upload_document(self, ctx: RequestCtx):
         """
-        Get a auth by ID.
+        Upload a document (PDF, Word, text, CSV, etc.).
 
-        Example:
-            GET /auth/1 -> {"id": 1, "name": "Example"}
+        Max 25 MB. Stored in the ``documents`` backend.
+
+        Example::
+
+            POST /auth/files/document
+            Content-Type: multipart/form-data
+            file: <document binary>
+            directory: invoices/2026
+
+            -> {"name": "...", "backend": "documents", ...}
         """
-        item = await self.service.get_by_id(id)
-        if not item:
-            raise AuthNotFoundFault(item_id=id)
+        form_data = await ctx.multipart()
+        file = form_data.get_file("file")
+        if not file:
+            return Response.json({"error": "No file provided"}, status=400)
 
-        return Response.json(item)
+        directory = form_data.get_field("directory") or ""
 
-    @PUT("/<id:int>")
-    async def update_auth(self, ctx: RequestCtx, id: int):
+        result = await self.file_service.upload_document(
+            filename=file.filename,
+            content=await file.read(),
+            directory=directory,
+        )
+        return Response.json(result, status=201)
+
+    @GET("/files/")
+    async def list_files(self, ctx: RequestCtx):
         """
-        Update a auth by ID.
+        List files and directories in storage.
 
-        Example:
-            PUT /auth/1
-            Body: {"name": "Updated"}
-            -> {"id": 1, "name": "Updated"}
+        Query params: ``backend`` (default: 'uploads'), ``directory`` (default: root).
+
+        Example::
+
+            GET /auth/files/?backend=uploads&directory=reports
+
+            -> {
+                "backend": "uploads",
+                "directory": "reports",
+                "directories": ["2025", "2026"],
+                "files": [{"name": "summary.pdf", "size": 4096, ...}],
+                "total_files": 1,
+                "total_dirs": 2
+            }
         """
-        data = await ctx.json()
-        item = await self.service.update(id, data)
-        if not item:
-            raise AuthNotFoundFault(item_id=id)
+        backend = ctx.query_param("backend", "uploads")
+        directory = ctx.query_param("directory", "")
 
-        return Response.json(item)
+        result = await self.file_service.list_files(
+            directory=directory,
+            backend_name=backend,
+        )
+        return Response.json(result)
 
-    @DELETE("/<id:int>")
-    async def delete_auth(self, ctx: RequestCtx, id: int):
+    @GET("/files/info")
+    async def file_info(self, ctx: RequestCtx):
         """
-        Delete a auth by ID.
+        Get detailed metadata for a single file.
 
-        Example:
-            DELETE /auth/1 -> 204 No Content
+        Query params: ``path`` (required), ``backend`` (default: 'uploads').
+
+        Example::
+
+            GET /auth/files/info?path=reports/summary.pdf&backend=uploads
+
+            -> {
+                "name": "summary.pdf",
+                "path": "reports/summary.pdf",
+                "size": 4096,
+                "content_type": "application/pdf",
+                "last_modified": "...",
+                "url": "/storage/uploads/reports/summary.pdf"
+            }
         """
-        deleted = await self.service.delete(id)
-        if not deleted:
-            raise AuthNotFoundFault(item_id=id)
+        path = ctx.query_param("path", "")
+        backend = ctx.query_param("backend", "uploads")
 
-        return Response(status=204)
+        if not path:
+            return Response.json({"error": "Missing 'path' parameter"}, status=400)
+
+        result = await self.file_service.file_info(
+            path=path,
+            backend_name=backend,
+        )
+        return Response.json(result)
+
+    @GET("/files/download")
+    async def download_file(self, ctx: RequestCtx):
+        """
+        Download a file from storage.
+
+        Query params: ``path`` (required), ``backend`` (default: 'uploads').
+        Returns the raw file bytes with correct Content-Type header.
+
+        Example::
+
+            GET /auth/files/download?path=reports/summary.pdf
+
+            -> <binary PDF content>
+        """
+        path = ctx.query_param("path", "")
+        backend = ctx.query_param("backend", "uploads")
+
+        if not path:
+            return Response.json({"error": "Missing 'path' parameter"}, status=400)
+
+        result = await self.file_service.download_file(
+            path=path,
+            backend_name=backend,
+        )
+        return Response(
+            content=result["content"],
+            status=200,
+            headers={
+                "Content-Disposition": f'attachment; filename="{result["name"]}"',
+                "Content-Length": str(result["size"]),
+            },
+            media_type=result["content_type"],
+        )
+
+    @DELETE("/files/delete")
+    async def delete_file(self, ctx: RequestCtx):
+        """
+        Delete a file from storage.
+
+        Query params: ``path`` (required), ``backend`` (default: 'uploads').
+
+        Example::
+
+            DELETE /auth/files/delete?path=reports/old_report.pdf
+
+            -> {"deleted": true, "path": "reports/old_report.pdf", ...}
+        """
+        path = ctx.query_param("path", "")
+        backend = ctx.query_param("backend", "uploads")
+
+        if not path:
+            return Response.json({"error": "Missing 'path' parameter"}, status=400)
+
+        result = await self.file_service.delete_file(
+            path=path,
+            backend_name=backend,
+        )
+        return Response.json(result)
+
+    @GET("/files/health")
+    async def storage_health(self, ctx: RequestCtx):
+        """
+        Check health of all storage backends.
+
+        Example::
+
+            GET /auth/files/health
+
+            -> {
+                "status": "healthy",
+                "backends": {
+                    "uploads": {"healthy": true, "backend_type": "local"},
+                    "avatars": {"healthy": true, "backend_type": "local"},
+                    "documents": {"healthy": true, "backend_type": "local"},
+                    "temp": {"healthy": true, "backend_type": "memory"}
+                },
+                "total_backends": 4,
+                "healthy_count": 4
+            }
+        """
+        result = await self.file_service.storage_health()
+        return Response.json(result)
 
     # ── ML inference endpoints ────────────────────────────────────────────────
 

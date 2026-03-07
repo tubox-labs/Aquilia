@@ -25,6 +25,7 @@ from aquilia.sessions import TransportPolicy
 from aquilia.sessions import PersistencePolicy
 from aquilia.sessions import ConcurrencyPolicy
 from aquilia.db import MysqlConfig, SqliteConfig
+from aquilia.storage import LocalConfig, MemoryConfig
 
 # Define workspace structure
 workspace = (
@@ -143,6 +144,38 @@ workspace = (
         ],
     )
 
+    .integrate(
+        Integration.storage(
+            default="uploads",
+            backends={
+                "uploads": LocalConfig(
+                    alias="uploads",
+                    root="./uploads",
+                    base_url="/storage/uploads/",
+                    create_dirs=True,
+                    permissions=0o644,
+                    dir_permissions=0o755,
+                ),
+                "avatars": LocalConfig(
+                    alias="avatars",
+                    root="./uploads/avatars",
+                    base_url="/storage/avatars/",
+                    create_dirs=True,
+                ),
+                "documents": LocalConfig(
+                    alias="documents",
+                    root="./uploads/documents",
+                    base_url="/storage/documents/",
+                    create_dirs=True,
+                ),
+                "temp": MemoryConfig(
+                    alias="temp",
+                    max_size=50 * 1024 * 1024,  # 50 MB in-memory cap
+                ),
+            },
+        )
+    )
+
     # Security (uncomment to enable security middleware)
     # Fine-grained: use Integration.cors(), Integration.csp(),
     # Integration.rate_limit() with .integrate().
@@ -174,6 +207,8 @@ workspace = (
             .enable_testing()
             .enable_mlops()
             .enable_containers()
+            .enable_monitoring()
+            .enable_storage()
         ),
         containers = (
             Integration.AdminContainers()

@@ -1,0 +1,2 @@
+id,username,email,is_superuser,is_staff,is_active,date_joined
+1,admin,aegis.invincible@gmail.com,✓,✓,✓,2026-03-01T15:16:35.886449+00:00

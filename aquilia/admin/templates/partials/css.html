@@ -80,7 +80,6 @@ body {
   -moz-osx-font-smoothing: grayscale;
   font-size: 14px; line-height: 1.6;
   position: relative;
-  transition: background 0.2s ease, color 0.2s ease;
 }
 body::before {
   content: '';
@@ -277,6 +276,7 @@ a { color: inherit; text-decoration: none; transition: color 0.15s var(--ease); 
   position: sticky; top: 0; z-index: 50;
   backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
   background: rgba(0,0,0,0.85);
+  transition: background 0.25s ease;
 }
 [data-theme="light"] .admin-topbar { background: rgba(255,255,255,0.85); }
 .topbar-left { display: flex; align-items: center; gap: 12px; }

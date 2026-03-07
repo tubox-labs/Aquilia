@@ -1,12 +1,269 @@
 {% extends "base.html" %}
 {% block title %}{{ verbose_name_plural }}{% endblock %}
 
+{% block extra_head %}
+<style>
+/* ═══ LIST VIEW v3 — Enhanced CSS ════════════════════════════════ */
+
+/* ── Layout ── */
+.list-layout { display: flex; flex-direction: column; min-height: calc(100vh - 120px); }
+.list-main { flex: 1; min-width: 0; }
+
+/* ── Filter overlay panel ── */
+.filter-overlay {
+    display: none; position: fixed; inset: 0; z-index: 1001;
+    background: rgba(0,0,0,0.4); backdrop-filter: blur(3px);
+    animation: fadeIn 0.12s ease;
+}
+[data-theme="light"] .filter-overlay { background: rgba(0,0,0,0.2); }
+.filter-overlay.open { display: flex; justify-content: flex-end; align-items: flex-start; }
+.filter-panel {
+    width: 340px; max-width: 90vw; max-height: calc(100vh - 40px);
+    margin: 20px; background: var(--bg-elevated);
+    border: 1px solid var(--border-color); border-radius: 14px;
+    box-shadow: 0 24px 64px rgba(0,0,0,0.45);
+    overflow-y: auto; padding: 20px 18px;
+    animation: slideInRight 0.18s ease;
+}
+[data-theme="light"] .filter-panel { background: #fff; box-shadow: 0 24px 64px rgba(0,0,0,0.12); }
+@keyframes slideInRight { from { transform: translateX(30px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+.filter-panel-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--border-subtle);
+}
+.filter-panel-title { font-size: 0.78rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-faint); }
+.filter-group { margin-bottom: 18px; }
+.filter-group-label { font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+.filter-group-label i { font-size: 12px; opacity: 0.5; }
+.filter-input {
+    width: 100%; padding: 7px 10px; border-radius: var(--radius-sm);
+    font-size: 0.8rem; background: var(--bg-input); color: var(--text-primary);
+    border: 1px solid var(--border-color); font-family: var(--font-sans);
+    transition: border-color 0.15s; outline: none;
+}
+.filter-input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-subtle); }
+.filter-date-range { display: flex; gap: 6px; align-items: center; }
+.filter-date-range span { font-size: 0.7rem; color: var(--text-faint); flex-shrink: 0; }
+.filter-date-range input { flex: 1; min-width: 0; }
+.filter-bool-group { display: flex; gap: 4px; }
+.filter-bool-btn {
+    flex: 1; padding: 6px 10px; border-radius: var(--radius-sm); font-size: 0.75rem;
+    font-weight: 500; cursor: pointer; border: 1px solid var(--border-color);
+    background: var(--bg-surface); color: var(--text-muted); text-align: center;
+    transition: all 0.15s; font-family: var(--font-sans);
+}
+.filter-bool-btn:hover { background: var(--bg-surface-hover); color: var(--text-primary); }
+.filter-bool-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.filter-actions { display: flex; gap: 6px; margin-top: 14px; }
+
+/* ── Active filter pills ── */
+.active-filters-bar {
+    display: flex; gap: 6px; align-items: center; flex-wrap: wrap;
+    padding: 8px 0; margin-bottom: 4px;
+}
+.filter-pill {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 4px 10px; border-radius: 20px; font-size: 0.72rem; font-weight: 500;
+    background: var(--accent-subtle); color: var(--accent); border: 1px solid rgba(34,197,94,0.2);
+}
+.filter-pill-remove {
+    width: 14px; height: 14px; border-radius: 50%; display: inline-flex;
+    align-items: center; justify-content: center; cursor: pointer;
+    background: rgba(34,197,94,0.2); color: var(--accent); font-size: 10px;
+    transition: background 0.15s; border: none; font-family: var(--font-sans); line-height: 1;
+}
+.filter-pill-remove:hover { background: rgba(34,197,94,0.4); }
+
+/* ── Stats toolbar row ── */
+.list-stats-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.list-stat-chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 4px 10px; border-radius: var(--radius-sm); font-size: 0.72rem;
+    background: var(--bg-surface); border: 1px solid var(--border-subtle);
+    color: var(--text-muted); font-weight: 500;
+}
+.list-stat-chip strong { color: var(--text-primary); font-weight: 600; }
+
+/* ── Column visibility toggle ── */
+.col-toggle-panel {
+    display: none; position: absolute; right: 0; top: 100%; margin-top: 4px;
+    z-index: 100; min-width: 200px; background: var(--bg-elevated);
+    border: 1px solid var(--border-color); border-radius: var(--radius-sm);
+    padding: 8px; box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+}
+[data-theme="light"] .col-toggle-panel { background: #fff; box-shadow: 0 8px 32px rgba(0,0,0,0.1); }
+.col-toggle-panel.open { display: block; }
+.col-toggle-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 8px; border-radius: var(--radius-xs); font-size: 0.78rem;
+    color: var(--text-secondary); cursor: pointer; transition: background 0.12s;
+}
+.col-toggle-item:hover { background: var(--bg-surface-hover); }
+.col-toggle-item input { accent-color: var(--accent); }
+
+/* ── Sticky table header ── */
+.table-container.sticky-header { max-height: calc(100vh - 280px); overflow-y: auto; }
+.table-container.sticky-header .admin-table thead { position: sticky; top: 0; z-index: 10; }
+.table-container.sticky-header .admin-table th { background: var(--bg-surface); }
+
+/* ── Sort indicator ── */
+.sort-indicator { font-size: 10px; margin-left: 3px; vertical-align: -1px; opacity: 0.7; }
+.sort-indicator.active { color: var(--accent); opacity: 1; }
+
+/* ── Table row enhancements ── */
+.admin-table tbody tr { transition: background 0.12s, box-shadow 0.12s; }
+.admin-table tbody tr:hover { background: var(--bg-surface-hover); }
+.admin-table tbody tr.row-focused {
+    background: var(--accent-subtle) !important;
+    box-shadow: inset 3px 0 0 var(--accent);
+}
+.admin-table tbody tr.row-selected {
+    background: var(--accent-subtle) !important;
+}
+
+/* ── Inline editable cells ── */
+.cell-editable { cursor: pointer; position: relative; }
+.cell-editable:hover { background: var(--accent-subtle) !important; }
+.cell-editable::after {
+    content: ''; position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+    width: 12px; height: 12px; opacity: 0;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2322c55e' stroke-width='2'%3E%3Cpath d='M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7'/%3E%3Cpath d='M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z'/%3E%3C/svg%3E") no-repeat center;
+    transition: opacity 0.15s;
+}
+.cell-editable:hover::after { opacity: 1; }
+.inline-edit-input {
+    width: 100%; padding: 4px 8px; border-radius: 4px;
+    font-size: 0.82rem; background: var(--bg-input); color: var(--text-primary);
+    border: 2px solid var(--accent); font-family: var(--font-sans); outline: none;
+}
+
+/* ── Row detail expansion ── */
+.row-detail-tr td { padding: 0 !important; border-bottom: 1px solid var(--border-subtle); }
+.row-detail-content {
+    padding: 16px 24px; background: var(--bg-surface);
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px;
+    animation: slideDown 0.15s ease;
+}
+.row-detail-field { font-size: 0.78rem; }
+.row-detail-field .detail-label { color: var(--text-faint); font-weight: 600; text-transform: uppercase; font-size: 0.65rem; letter-spacing: 0.06em; margin-bottom: 2px; }
+.row-detail-field .detail-value { color: var(--text-secondary); word-break: break-word; white-space: normal; }
+@keyframes slideDown { from { opacity: 0; max-height: 0; } to { opacity: 1; max-height: 500px; } }
+
+/* ── Relative time tooltip ── */
+.time-relative { cursor: help; border-bottom: 1px dotted var(--text-faint); }
+
+/* ── Per-page selector ── */
+.per-page-selector { display: flex; align-items: center; gap: 6px; font-size: 0.78rem; color: var(--text-muted); }
+.per-page-selector select {
+    padding: 4px 8px; border-radius: var(--radius-sm);
+    font-size: 0.78rem; background: var(--bg-input); color: var(--text-primary);
+    border: 1px solid var(--border-color); font-family: var(--font-sans);
+    cursor: pointer; outline: none;
+}
+
+/* ── Toolbar enhancements ── */
+.toolbar-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+
+/* ── Row expand button ── */
+.btn-expand {
+    width: 24px; height: 24px; border-radius: 4px; border: none;
+    background: transparent; color: var(--text-faint); cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+    transition: all 0.15s; font-size: 12px;
+}
+.btn-expand:hover { background: var(--bg-surface); color: var(--text-primary); }
+.btn-expand.expanded { transform: rotate(90deg); color: var(--accent); }
+
+/* ── Import modal ── */
+.import-overlay {
+    position: fixed; inset: 0; z-index: 10003; background: rgba(0,0,0,0.6);
+    display: flex; align-items: center; justify-content: center;
+    backdrop-filter: blur(4px); animation: fadeIn 0.15s ease;
+}
+[data-theme="light"] .import-overlay { background: rgba(0,0,0,0.25); }
+.import-modal {
+    background: var(--bg-elevated); border: 1px solid var(--border-color);
+    border-radius: 14px; padding: 28px; max-width: 480px; width: 90%;
+    box-shadow: 0 24px 64px rgba(0,0,0,0.4);
+}
+[data-theme="light"] .import-modal { background: #fff; box-shadow: 0 24px 64px rgba(0,0,0,0.1); }
+.import-dropzone {
+    border: 2px dashed var(--border-color); border-radius: var(--radius-sm);
+    padding: 32px; text-align: center; cursor: pointer; transition: all 0.15s; margin: 16px 0;
+}
+.import-dropzone:hover, .import-dropzone.dragover { border-color: var(--accent); background: var(--accent-subtle); }
+
+/* ── Media cells ── */
+.media-thumb {
+    width: 40px; height: 40px; border-radius: 6px; overflow: hidden;
+    border: 1px solid var(--border-subtle); cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+}
+.media-thumb:hover { transform: scale(1.1); box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+.media-thumb img { width: 100%; height: 100%; object-fit: cover; }
+
+/* ── Breadcrumb ── */
+.list-breadcrumb {
+    display: flex; align-items: center; gap: 6px; font-size: 0.72rem;
+    color: var(--text-faint); margin-bottom: 4px; flex-wrap: wrap;
+}
+.list-breadcrumb a { color: var(--text-muted); text-decoration: none; transition: color 0.12s; }
+.list-breadcrumb a:hover { color: var(--accent); }
+
+/* ── Selection summary bar ── */
+.selection-summary {
+    padding: 10px 16px; border-radius: var(--radius-sm);
+    background: var(--accent-subtle); border: 1px solid rgba(34,197,94,0.2);
+    margin-bottom: 12px; display: none; align-items: center; gap: 12px; flex-wrap: wrap;
+}
+.selection-summary.visible { display: flex; }
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+    .toolbar-row { flex-direction: column; align-items: stretch; }
+    .filter-panel { width: 100%; margin: 10px; }
+    .page-header-row { flex-direction: column; gap: 12px; }
+}
+</style>
+{% endblock %}
+
 {% block content %}
+<div class="list-layout">
+<div class="list-main">
+
+{# ── Breadcrumb ── #}
+<div class="list-breadcrumb">
+    <a href="{{ url_prefix|default('/admin') }}/">Dashboard</a>
+    <span style="opacity:0.4;"><i class="icon-chevron-right" style="font-size:10px;"></i></span>
+    <span style="color:var(--text-secondary);">{{ verbose_name_plural }}</span>
+</div>
+
+{# ── Page Header with actions ── #}
 <div class="page-header-row">
-    <h2><i class="icon-database" style="font-size:18px;vertical-align:-2px;margin-right:6px;opacity:0.4;"></i>{{ verbose_name_plural }}</h2>
-    <div style="display:flex;gap:8px;align-items:center;">
+    <div style="display:flex;align-items:center;gap:10px;">
+        <h2><i class="icon-database" style="font-size:18px;vertical-align:-2px;margin-right:6px;opacity:0.4;"></i>{{ verbose_name_plural }}</h2>
+    </div>
+    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+        <button class="btn btn-secondary btn-sm" onclick="toggleFilterSidebar()" title="Toggle Filters (F)" id="filterToggleBtn">
+            <i class="icon-filter" style="font-size:13px;"></i> Filters
+            {% if active_filters %}<span style="background:var(--accent);color:#fff;border-radius:50%;width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;font-size:0.6rem;margin-left:2px;">{{ active_filters|length }}</span>{% endif %}
+        </button>
         <div class="dropdown" style="position:relative;">
-            <button class="btn btn-secondary" id="exportDropBtn" style="font-size:0.78rem;">
+            <button class="btn btn-secondary btn-sm" id="colToggleBtn" title="Toggle Columns">
+                <i class="icon-columns" style="font-size:13px;"></i>
+            </button>
+            <div class="col-toggle-panel" id="colTogglePanel">
+                <div style="font-size:0.7rem;font-weight:600;color:var(--text-faint);text-transform:uppercase;letter-spacing:0.06em;padding:4px 8px 8px;">Visible Columns</div>
+                {% for col in list_display %}
+                <label class="col-toggle-item">
+                    <input type="checkbox" checked onchange="toggleColumn('{{ col }}', this.checked)" data-col="{{ col }}">
+                    {{ col.replace('_', ' ')|title }}
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="dropdown" style="position:relative;">
+            <button class="btn btn-secondary btn-sm" id="exportDropBtn">
                 <i class="icon-download" style="font-size:13px;"></i> Export
             </button>
             <div class="dropdown-menu" id="exportDropMenu">
@@ -18,25 +275,47 @@
                 </a>
             </div>
         </div>
-        <a class="btn btn-primary" href="{{ url_prefix|default('/admin') }}/{{ model_name|lower }}/add">
+        <button class="btn btn-secondary btn-sm" onclick="showImportModal()" title="Import Data">
+            <i class="icon-upload" style="font-size:13px;"></i> Import
+        </button>
+        <a class="btn btn-primary btn-sm" href="{{ url_prefix|default('/admin') }}/{{ model_name|lower }}/add">
             <i class="icon-plus" style="font-size:14px;"></i> Add {{ verbose_name }}
         </a>
     </div>
 </div>
 
-{# ── Search toolbar with live search ── #}
-<div class="toolbar">
-    <div class="search-box" id="liveSearchBox">
+{# ── Search + Stats toolbar ── #}
+<div class="toolbar-row">
+    <div class="search-box" id="liveSearchBox" style="flex:1;min-width:200px;">
         <i class="icon-search" style="font-size:15px;color:var(--text-faint);flex-shrink:0;"></i>
-        <input type="text" id="liveSearchInput" value="{{ search }}" placeholder="Search {{ verbose_name_plural }}…" autocomplete="off">
+        <input type="text" id="liveSearchInput" value="{{ search }}" placeholder="Search {{ verbose_name_plural }}… ({{ search_fields|join(', ') }})" autocomplete="off">
         <span id="searchSpinner" style="display:none;font-size:11px;color:var(--text-faint);">⟳</span>
         <kbd style="font-size:0.6rem;padding:1px 5px;border:1px solid var(--border-color);border-radius:3px;color:var(--text-faint);font-family:var(--font-mono);margin-left:auto;white-space:nowrap;">⌘K</kbd>
     </div>
-    <span class="meta-text" id="resultCount">{{ total }} result{{ 's' if total != 1 else '' }}</span>
+    <div class="list-stats-row">
+        <span class="list-stat-chip" id="resultCount"><strong>{{ total }}</strong>&nbsp;record{{ 's' if total != 1 else '' }}</span>
+        <span class="list-stat-chip">Page <strong>{{ page }}</strong> of <strong>{{ total_pages }}</strong></span>
+    </div>
 </div>
 
+{# ── Active filter pills ── #}
+{% if active_filters %}
+<div class="active-filters-bar" id="activeFiltersBar">
+    <span style="font-size:0.72rem;color:var(--text-faint);font-weight:500;">Active:</span>
+    {% for key, val in active_filters.items() %}
+    <span class="filter-pill">
+        {{ key.replace('filter__', '').replace('__gte', ' from').replace('__lte', ' to').replace('_', ' ')|title }}: {{ val }}
+        <button class="filter-pill-remove" onclick="removeFilter('{{ key }}')" title="Remove">&times;</button>
+    </span>
+    {% endfor %}
+    <button class="btn btn-ghost btn-sm" onclick="clearAllFilters()" style="font-size:0.72rem;color:var(--danger);">
+        <i class="icon-x" style="font-size:11px;"></i> Clear all
+    </button>
+</div>
+{% endif %}
+
 {# ── Bulk actions bar ── #}
-<div id="bulkActionsBar" style="display:none;padding:10px 16px;background:var(--accent-subtle);border:1px solid rgba(34,197,94,0.2);border-radius:var(--radius-sm);margin-bottom:12px;align-items:center;gap:12px;flex-wrap:wrap;">
+<div id="bulkActionsBar" class="selection-summary">
     <span style="font-size:0.82rem;font-weight:600;color:var(--accent);">
         <i class="icon-check-square" style="font-size:14px;vertical-align:-2px;margin-right:4px;"></i>
         <span id="selectedCount">0</span> selected
@@ -58,451 +337,596 @@
 </div>
 
 {# ── Data table ── #}
-<div class="table-container" id="recordsTable">
-    <table class="admin-table">
+<div class="table-container sticky-header" id="recordsTable">
+    <table class="admin-table" id="adminTable">
         <thead>
             <tr>
-                <th style="width:40px"><input type="checkbox" onchange="toggleAll(this)" id="selectAllCb" aria-label="Select all"></th>
+                <th style="width:36px"><input type="checkbox" onchange="toggleAll(this)" id="selectAllCb" aria-label="Select all"></th>
+                <th style="width:30px"></th>
                 {% for col in list_display %}
-                <th style="cursor:pointer;user-select:none;" onclick="sortColumn('{{ col }}')">
+                <th class="col-header" data-col="{{ col }}" style="cursor:pointer;user-select:none;" onclick="sortColumn('{{ col }}', event)">
                     {{ col.replace('_', ' ')|title }}
-                    <i class="icon-chevrons-up-down" style="font-size:11px;opacity:0.3;vertical-align:-1px;margin-left:2px;"></i>
+                    <span class="sort-indicator" id="sort-{{ col }}" data-col="{{ col }}">
+                        <i class="icon-chevrons-up-down" style="font-size:10px;"></i>
+                    </span>
                 </th>
                 {% endfor %}
-                <th style="width:120px">Actions</th>
+                <th style="width:160px">Actions</th>
             </tr>
         </thead>
         <tbody id="recordsBody">
         {% for row in rows %}
             <tr data-pk="{{ row.pk }}">
                 <td><input type="checkbox" class="row-check" value="{{ row.pk }}" onchange="updateBulkBar()" aria-label="Select row"></td>
+                <td><button class="btn-expand" onclick="toggleRowDetail(this, '{{ row.pk }}')" title="Expand"><i class="icon-chevron-right" style="font-size:11px;"></i></button></td>
                 {% for col in list_display %}
                     {% set val = row[col]|default('—') %}
                     {% set raw_val = row.get('_raw_' ~ col) %}
                     {% set str_val = val|string %}
+                    {% set is_editable = col in list_editable and not loop.first %}
+                    {% set col_type = field_types.get(col, 'text') %}
                     {% if loop.first %}
-                    <td class="cell-pk"><a href="{{ url_prefix|default('/admin') }}/{{ model_name|lower }}/{{ row.pk }}">{{ val }}</a></td>
+                    <td class="cell-pk" data-col="{{ col }}"><a href="{{ url_prefix|default('/admin') }}/{{ model_name|lower }}/{{ row.pk }}">{{ val }}</a></td>
                     {% elif raw_val is sameas true %}
-                    <td class="cell-bool-true"><i class="icon-check-circle" style="font-size:15px;"></i> {{ val }}</td>
+                    <td class="cell-bool-true{{ ' cell-editable' if is_editable else '' }}" data-col="{{ col }}" data-field="{{ col }}" data-pk="{{ row.pk }}" data-type="checkbox" {% if is_editable %}onclick="startInlineEdit(this)"{% endif %}>
+                        <i class="icon-check-circle" style="font-size:15px;"></i> {{ val }}
+                    </td>
                     {% elif raw_val is sameas false %}
-                    <td class="cell-bool-false"><i class="icon-x-circle" style="font-size:15px;"></i> {{ val }}</td>
+                    <td class="cell-bool-false{{ ' cell-editable' if is_editable else '' }}" data-col="{{ col }}" data-field="{{ col }}" data-pk="{{ row.pk }}" data-type="checkbox" {% if is_editable %}onclick="startInlineEdit(this)"{% endif %}>
+                        <i class="icon-x-circle" style="font-size:15px;"></i> {{ val }}
+                    </td>
+                    {% elif col_type in ('datetime-local', 'date', 'time') and raw_val %}
+                    <td class="{{ 'cell-editable' if is_editable else '' }}" data-col="{{ col }}" data-field="{{ col }}" data-pk="{{ row.pk }}" data-type="{{ col_type }}" {% if is_editable %}onclick="startInlineEdit(this)"{% endif %}>
+                        <span class="time-relative" data-iso="{{ raw_val }}" title="{{ val }}">{{ val }}</span>
+                    </td>
                     {% elif str_val.startswith(('http://', 'https://')) and str_val.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp', '.ico')) %}
-                    <td class="cell-media">
+                    <td class="cell-media" data-col="{{ col }}">
                         <div class="media-thumb" onclick="showMediaPreview('{{ str_val }}', 'image')">
                             <img src="{{ str_val }}" alt="{{ col }}" loading="lazy" onerror="this.parentElement.innerHTML='<i class=\'icon-image\' style=\'font-size:16px;color:var(--text-faint);\'></i>'">
                         </div>
                     </td>
                     {% elif str_val.startswith(('http://', 'https://')) and str_val.lower().endswith('.pdf') %}
-                    <td class="cell-media">
-                        <a href="{{ str_val }}" target="_blank" class="media-file-badge media-file-pdf">
-                            <i class="icon-file-text" style="font-size:14px;"></i> PDF
-                        </a>
-                    </td>
+                    <td class="cell-media" data-col="{{ col }}"><a href="{{ str_val }}" target="_blank" class="media-file-badge media-file-pdf"><i class="icon-file-text" style="font-size:14px;"></i> PDF</a></td>
                     {% elif str_val.startswith(('http://', 'https://')) and str_val.lower().endswith(('.doc', '.docx')) %}
-                    <td class="cell-media">
-                        <a href="{{ str_val }}" target="_blank" class="media-file-badge media-file-doc">
-                            <i class="icon-file-text" style="font-size:14px;"></i> DOCX
-                        </a>
-                    </td>
+                    <td class="cell-media" data-col="{{ col }}"><a href="{{ str_val }}" target="_blank" class="media-file-badge media-file-doc"><i class="icon-file-text" style="font-size:14px;"></i> DOCX</a></td>
                     {% elif str_val.startswith(('http://', 'https://')) and str_val.lower().endswith(('.xls', '.xlsx', '.csv')) %}
-                    <td class="cell-media">
-                        <a href="{{ str_val }}" target="_blank" class="media-file-badge media-file-sheet">
-                            <i class="icon-file-spreadsheet" style="font-size:14px;"></i> Sheet
-                        </a>
-                    </td>
+                    <td class="cell-media" data-col="{{ col }}"><a href="{{ str_val }}" target="_blank" class="media-file-badge media-file-sheet"><i class="icon-file-spreadsheet" style="font-size:14px;"></i> Sheet</a></td>
                     {% elif str_val.startswith(('http://', 'https://')) and str_val.lower().endswith(('.mp4', '.webm', '.mov', '.avi')) %}
-                    <td class="cell-media">
-                        <a href="{{ str_val }}" target="_blank" class="media-file-badge media-file-video">
-                            <i class="icon-video" style="font-size:14px;"></i> Video
-                        </a>
-                    </td>
+                    <td class="cell-media" data-col="{{ col }}"><a href="{{ str_val }}" target="_blank" class="media-file-badge media-file-video"><i class="icon-video" style="font-size:14px;"></i> Video</a></td>
                     {% elif str_val.startswith(('http://', 'https://')) and str_val.lower().endswith(('.mp3', '.wav', '.ogg', '.flac')) %}
-                    <td class="cell-media">
-                        <a href="{{ str_val }}" target="_blank" class="media-file-badge media-file-audio">
-                            <i class="icon-music" style="font-size:14px;"></i> Audio
-                        </a>
-                    </td>
+                    <td class="cell-media" data-col="{{ col }}"><a href="{{ str_val }}" target="_blank" class="media-file-badge media-file-audio"><i class="icon-music" style="font-size:14px;"></i> Audio</a></td>
                     {% elif str_val.startswith(('http://', 'https://')) %}
-                    <td class="cell-url">
-                        <a href="{{ str_val }}" target="_blank" rel="noopener" class="cell-url-link">
-                            <i class="icon-external-link" style="font-size:11px;"></i>
-                            {{ str_val|truncate(40, True) }}
-                        </a>
-                    </td>
+                    <td class="cell-url" data-col="{{ col }}"><a href="{{ str_val }}" target="_blank" rel="noopener" class="cell-url-link"><i class="icon-external-link" style="font-size:11px;"></i> {{ str_val|truncate(40, True) }}</a></td>
                     {% else %}
-                    <td>{{ val }}</td>
+                    <td class="{{ 'cell-editable' if is_editable else '' }}" data-col="{{ col }}" data-field="{{ col }}" data-pk="{{ row.pk }}" data-type="{{ col_type }}" {% if is_editable %}onclick="startInlineEdit(this)"{% endif %}>{{ val }}</td>
                     {% endif %}
                 {% endfor %}
                 <td style="white-space:nowrap;">
-                    <a href="{{ url_prefix|default('/admin') }}/{{ model_name|lower }}/{{ row.pk }}" class="btn btn-sm btn-ghost" title="Edit">
-                        <i class="icon-edit-3" style="font-size:13px;"></i>
-                    </a>
-                    <button type="button" class="btn btn-sm btn-ghost" title="Update" onclick="quickUpdate('{{ row.pk }}')">
-                        <i class="icon-refresh-cw" style="font-size:13px;"></i>
-                    </button>
-                    <button type="button" class="btn btn-sm btn-ghost" title="Duplicate" onclick="showConfirmModal('Duplicate record #{{ row.pk }}?', 'This will create an exact copy of this record.', function(){ doDuplicate('{{ row.pk }}'); })">
-                        <i class="icon-copy" style="font-size:13px;"></i>
-                    </button>
-                    <button type="button" class="btn btn-sm btn-ghost" title="Delete" style="color:var(--danger);" onclick="showConfirmModal('Delete record #{{ row.pk }}?', 'This action cannot be undone. The record will be permanently removed.', function(){ doDelete('{{ row.pk }}'); }, true)">
-                        <i class="icon-trash-2" style="font-size:13px;"></i>
-                    </button>
+                    <a href="{{ url_prefix|default('/admin') }}/{{ model_name|lower }}/{{ row.pk }}" class="btn btn-sm btn-ghost" title="Edit"><i class="icon-edit-3" style="font-size:13px;"></i></a>
+                    <button type="button" class="btn btn-sm btn-ghost" title="Update" onclick="quickUpdate('{{ row.pk }}')"><i class="icon-refresh-cw" style="font-size:13px;"></i></button>
+                    <button type="button" class="btn btn-sm btn-ghost" title="Duplicate" onclick="showConfirmModal('Duplicate record #{{ row.pk }}?', 'This will create an exact copy of this record.', function(){ doDuplicate('{{ row.pk }}'); })"><i class="icon-copy" style="font-size:13px;"></i></button>
+                    <button type="button" class="btn btn-sm btn-ghost" title="Delete" style="color:var(--danger);" onclick="showConfirmModal('Delete record #{{ row.pk }}?', 'This action cannot be undone.', function(){ doDelete('{{ row.pk }}'); }, true)"><i class="icon-trash-2" style="font-size:13px;"></i></button>
                 </td>
             </tr>
         {% else %}
-            <tr>
-                <td colspan="{{ list_display|length + 2 }}" class="empty-state">
-                    <i class="icon-inbox" style="font-size:28px;display:block;margin-bottom:8px;opacity:0.3;"></i>
-                    No records found
-                </td>
-            </tr>
+            <tr><td colspan="{{ list_display|length + 3 }}" class="empty-state"><i class="icon-inbox" style="font-size:28px;display:block;margin-bottom:8px;opacity:0.3;"></i>No records found</td></tr>
         {% endfor %}
         </tbody>
     </table>
 </div>
 
-{% include "partials/pagination.html" %}
-<div class="record-count" style="text-align:center;">
-    {{ total }} record(s) found
+{# ── Pagination with per-page selector ── #}
+<div style="display:flex;align-items:center;justify-content:space-between;margin-top:16px;flex-wrap:wrap;gap:12px;">
+    <div class="per-page-selector">
+        <span>Show</span>
+        <select onchange="changePerPage(this.value)" id="perPageSelect">
+            {% for n in [10, 25, 50, 100] %}
+            <option value="{{ n }}" {{ 'selected' if per_page == n else '' }}>{{ n }}</option>
+            {% endfor %}
+        </select>
+        <span>per page</span>
+    </div>
+    {% if total_pages > 1 %}
+    <div class="pagination">
+        {% if page > 1 %}
+        <a href="javascript:void(0)" onclick="goToPage({{ page - 1 }})" class="page-btn" aria-label="Previous"><i class="icon-chevron-left" style="font-size:15px;"></i></a>
+        {% else %}
+        <span class="page-btn disabled"><i class="icon-chevron-left" style="font-size:15px;"></i></span>
+        {% endif %}
+        {% for p in range(1, total_pages + 1) %}
+            {% if (p - page)|abs <= 2 or p == 1 or p == total_pages %}
+            <a href="javascript:void(0)" onclick="goToPage({{ p }})" class="page-btn {{ 'active' if p == page else '' }}">{{ p }}</a>
+            {% elif (p - page)|abs == 3 %}
+            <span class="page-btn disabled">…</span>
+            {% endif %}
+        {% endfor %}
+        {% if page < total_pages %}
+        <a href="javascript:void(0)" onclick="goToPage({{ page + 1 }})" class="page-btn" aria-label="Next"><i class="icon-chevron-right" style="font-size:15px;"></i></a>
+        {% else %}
+        <span class="page-btn disabled"><i class="icon-chevron-right" style="font-size:15px;"></i></span>
+        {% endif %}
+    </div>
+    {% endif %}
+    <div class="record-count" style="font-size:0.78rem;color:var(--text-muted);">{{ total }} total record{{ 's' if total != 1 else '' }}</div>
 </div>
+
+</div>{# .list-main #}
+
+{# ═══ FILTER OVERLAY PANEL ═════════════════════════════════════ #}
+<div class="filter-overlay" id="filterOverlay" onclick="if(event.target===this)closeFilterPanel()">
+<div class="filter-panel" id="filterPanel">
+    <div class="filter-panel-header">
+        <span class="filter-panel-title"><i class="icon-filter" style="font-size:13px;vertical-align:-1px;margin-right:4px;"></i> Filters</span>
+        <button class="btn btn-ghost btn-sm" onclick="closeFilterPanel()" title="Close (Esc)"><i class="icon-x" style="font-size:14px;"></i></button>
+    </div>
+    {% if list_filter %}
+    <form id="filterForm" method="GET" action="{{ url_prefix|default('/admin') }}/{{ model_name|lower }}/">
+        {% if search %}<input type="hidden" name="q" value="{{ search }}">{% endif %}
+        <input type="hidden" name="per_page" value="{{ per_page }}">
+        {% if ordering %}<input type="hidden" name="ordering" value="{{ ordering }}">{% endif %}
+        {% for f_field in list_filter %}
+            {% set meta = filter_metadata.get(f_field, {}) %}
+            {% set f_type = meta.get('type', 'text') %}
+            {% set f_label = meta.get('label', f_field.replace('_', ' ')|title) %}
+            {% set f_choices = meta.get('choices', []) %}
+            <div class="filter-group">
+                <div class="filter-group-label">
+                    {% if f_type == 'checkbox' %}<i class="icon-toggle-left" style="font-size:12px;"></i>
+                    {% elif f_type in ('datetime-local', 'date') %}<i class="icon-calendar" style="font-size:12px;"></i>
+                    {% elif f_type == 'time' %}<i class="icon-clock" style="font-size:12px;"></i>
+                    {% elif f_type == 'select' %}<i class="icon-list" style="font-size:12px;"></i>
+                    {% elif f_type == 'number' %}<i class="icon-hash" style="font-size:12px;"></i>
+                    {% else %}<i class="icon-type" style="font-size:12px;"></i>
+                    {% endif %}
+                    {{ f_label }}
+                </div>
+                {% if f_type == 'checkbox' %}
+                <div class="filter-bool-group">
+                    {% set cur_val = active_filters.get(f_field, '') %}
+                    <button type="button" class="filter-bool-btn{{ ' active' if not cur_val else '' }}" onclick="setBoolFilter('{{ f_field }}', '')">All</button>
+                    <button type="button" class="filter-bool-btn{{ ' active' if cur_val == 'true' else '' }}" onclick="setBoolFilter('{{ f_field }}', 'true')"><i class="icon-check" style="font-size:11px;"></i> Yes</button>
+                    <button type="button" class="filter-bool-btn{{ ' active' if cur_val == 'false' else '' }}" onclick="setBoolFilter('{{ f_field }}', 'false')"><i class="icon-x" style="font-size:11px;"></i> No</button>
+                </div>
+                {% elif f_type in ('datetime-local', 'date') %}
+                <div class="filter-date-range">
+                    <input type="{{ 'date' if f_type == 'date' else 'datetime-local' }}" name="filter__{{ f_field }}__gte" class="filter-input" value="{{ active_filters.get(f_field ~ '__gte', '') }}" placeholder="From">
+                </div>
+                <div class="filter-date-range" style="margin-top:4px;">
+                    <input type="{{ 'date' if f_type == 'date' else 'datetime-local' }}" name="filter__{{ f_field }}__lte" class="filter-input" value="{{ active_filters.get(f_field ~ '__lte', '') }}" placeholder="To">
+                </div>
+                <div style="display:flex;gap:4px;margin-top:6px;flex-wrap:wrap;">
+                    <button type="button" class="btn btn-ghost" style="font-size:0.65rem;padding:2px 6px;" onclick="setDatePreset('{{ f_field }}', 'today', '{{ f_type }}')">Today</button>
+                    <button type="button" class="btn btn-ghost" style="font-size:0.65rem;padding:2px 6px;" onclick="setDatePreset('{{ f_field }}', '7d', '{{ f_type }}')">7 days</button>
+                    <button type="button" class="btn btn-ghost" style="font-size:0.65rem;padding:2px 6px;" onclick="setDatePreset('{{ f_field }}', '30d', '{{ f_type }}')">30 days</button>
+                    <button type="button" class="btn btn-ghost" style="font-size:0.65rem;padding:2px 6px;" onclick="setDatePreset('{{ f_field }}', '90d', '{{ f_type }}')">90 days</button>
+                    <button type="button" class="btn btn-ghost" style="font-size:0.65rem;padding:2px 6px;" onclick="setDatePreset('{{ f_field }}', 'year', '{{ f_type }}')">This year</button>
+                </div>
+                {% elif f_type == 'time' %}
+                <div class="filter-date-range">
+                    <input type="time" name="filter__{{ f_field }}__gte" class="filter-input" value="{{ active_filters.get(f_field ~ '__gte', '') }}" placeholder="From">
+                    <span>to</span>
+                    <input type="time" name="filter__{{ f_field }}__lte" class="filter-input" value="{{ active_filters.get(f_field ~ '__lte', '') }}" placeholder="To">
+                </div>
+                {% elif f_type == 'select' or f_choices %}
+                <select name="filter__{{ f_field }}" class="filter-input">
+                    <option value="">All</option>
+                    {% for choice in f_choices %}
+                        {% if choice is iterable and choice is not string %}
+                        <option value="{{ choice[0] }}" {{ 'selected' if active_filters.get(f_field) == choice[0]|string else '' }}>{{ choice[1] }}</option>
+                        {% else %}
+                        <option value="{{ choice }}" {{ 'selected' if active_filters.get(f_field) == choice|string else '' }}>{{ choice }}</option>
+                        {% endif %}
+                    {% endfor %}
+                </select>
+                {% elif f_type == 'number' %}
+                <div class="filter-date-range">
+                    <input type="number" name="filter__{{ f_field }}__gte" class="filter-input" style="width:48%;" value="{{ active_filters.get(f_field ~ '__gte', '') }}" placeholder="Min">
+                    <span>to</span>
+                    <input type="number" name="filter__{{ f_field }}__lte" class="filter-input" style="width:48%;" value="{{ active_filters.get(f_field ~ '__lte', '') }}" placeholder="Max">
+                </div>
+                {% else %}
+                <input type="text" name="filter__{{ f_field }}" class="filter-input" value="{{ active_filters.get(f_field, '') }}" placeholder="Filter {{ f_label }}…">
+                {% endif %}
+            </div>
+        {% endfor %}
+        <div class="filter-actions">
+            <button type="submit" class="btn btn-primary btn-sm" style="flex:1;"><i class="icon-check" style="font-size:12px;"></i> Apply Filters</button>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="clearAllFilters()"><i class="icon-x" style="font-size:12px;"></i> Clear</button>
+        </div>
+    </form>
+    {% else %}
+    <p style="font-size:0.8rem;color:var(--text-faint);text-align:center;padding:20px 0;">No filter fields configured for this model.</p>
+    {% endif %}
+</div>{# .filter-panel #}
+</div>{# .filter-overlay #}
+
+</div>{# .list-layout #}
 {% endblock %}
 
 {% block extra_js %}
-// ── URL constants (single source of truth) ──────────────────────────
 var BASE_URL = '{{ url_prefix|default("/admin") }}/{{ model_name|lower }}';
+var LIST_DISPLAY = {{ list_display|tojson }};
+var FIELD_TYPES = {{ field_types|tojson }};
+var LIST_EDITABLE = {{ list_editable|tojson }};
+var CURRENT_PAGE = {{ page }};
+var CURRENT_PER_PAGE = {{ per_page }};
+var CURRENT_ORDERING = '{{ ordering|default("") }}';
 
-// ── Live Search (AJAX, no page refresh) ─────────────────────────────
-(function() {
-    var input = document.getElementById('liveSearchInput');
-    var spinner = document.getElementById('searchSpinner');
-    var resultCount = document.getElementById('resultCount');
-    var tbody = document.getElementById('recordsBody');
-    if (!input || !tbody) return;
-
-    var debounceTimer = null;
-    var DEBOUNCE_MS = 350;
-    var lastQuery = input.value.trim();
-    var listDisplay = {{ list_display|tojson }};
-
-    function escapeHtml(s) {
-        if (s == null) return '';
-        var div = document.createElement('div');
-        div.textContent = String(s);
-        return div.innerHTML;
+function buildListUrl(overrides) {
+    var params = new URLSearchParams(window.location.search);
+    for (var k in overrides) {
+        if (overrides[k] === '' || overrides[k] === null || overrides[k] === undefined) params.delete(k);
+        else params.set(k, overrides[k]);
     }
+    return BASE_URL + '/?' + params.toString();
+}
 
-    var IMG_EXTS = /\.(png|jpg|jpeg|gif|webp|svg|bmp|ico)$/i;
-    var PDF_EXT = /\.pdf$/i;
-    var DOC_EXTS = /\.(doc|docx)$/i;
-    var SHEET_EXTS = /\.(xls|xlsx|csv)$/i;
-    var VIDEO_EXTS = /\.(mp4|webm|mov|avi)$/i;
-    var AUDIO_EXTS = /\.(mp3|wav|ogg|flac)$/i;
-    var URL_RE = /^https?:\/\//i;
+function openFilterPanel() { document.getElementById('filterOverlay').classList.add('open'); }
+function closeFilterPanel() { document.getElementById('filterOverlay').classList.remove('open'); }
+function toggleFilterSidebar() { var o = document.getElementById('filterOverlay'); if (o.classList.contains('open')) closeFilterPanel(); else openFilterPanel(); }
 
-    function renderCellValue(val, col, isFirst, row) {
-        var pk = row.pk || row.id || '';
-        var display = (val === null || val === undefined) ? '—' : String(val);
-        var rawKey = '_raw_' + col;
-        if (isFirst) {
-            return '<td class="cell-pk"><a href="' + BASE_URL + '/' + encodeURIComponent(pk) + '">' + escapeHtml(display) + '</a></td>';
+function setBoolFilter(field, val) {
+    var params = new URLSearchParams(window.location.search);
+    if (val) params.set('filter__' + field, val); else params.delete('filter__' + field);
+    params.set('page', '1');
+    window.location.href = BASE_URL + '/?' + params.toString();
+}
+
+function setDatePreset(field, preset, ftype) {
+    var now = new Date(), from = new Date();
+    if (preset === 'today') from = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    else if (preset === '7d') from.setDate(now.getDate() - 7);
+    else if (preset === '30d') from.setDate(now.getDate() - 30);
+    else if (preset === '90d') from.setDate(now.getDate() - 90);
+    else if (preset === 'year') from = new Date(now.getFullYear(), 0, 1);
+    var fromStr, toStr;
+    if (ftype === 'date') { fromStr = from.toISOString().split('T')[0]; toStr = now.toISOString().split('T')[0]; }
+    else { fromStr = from.toISOString().slice(0, 16); toStr = now.toISOString().slice(0, 16); }
+    var g = document.querySelector('input[name="filter__' + field + '__gte"]');
+    var l = document.querySelector('input[name="filter__' + field + '__lte"]');
+    if (g) g.value = fromStr; if (l) l.value = toStr;
+}
+
+function removeFilter(key) {
+    var params = new URLSearchParams(window.location.search);
+    params.delete(key); if (!key.startsWith('filter__')) params.delete('filter__' + key);
+    params.set('page', '1');
+    window.location.href = BASE_URL + '/?' + params.toString();
+}
+
+function clearAllFilters() {
+    var params = new URLSearchParams(window.location.search);
+    var rm = []; params.forEach(function(v, k) { if (k.startsWith('filter__')) rm.push(k); });
+    rm.forEach(function(k) { params.delete(k); }); params.set('page', '1');
+    window.location.href = BASE_URL + '/?' + params.toString();
+}
+
+function changePerPage(val) { window.location.href = buildListUrl({ per_page: val, page: '1' }); }
+function goToPage(p) { window.location.href = buildListUrl({ page: p }); }
+
+// ── Column Visibility ──────────────────────────────────────────
+(function() {
+    var btn = document.getElementById('colToggleBtn'), panel = document.getElementById('colTogglePanel');
+    if (!btn || !panel) return;
+    btn.addEventListener('click', function(e) { e.stopPropagation(); panel.classList.toggle('open'); });
+    document.addEventListener('click', function(e) { if (!panel.contains(e.target)) panel.classList.remove('open'); });
+})();
+
+function toggleColumn(col, show) {
+    document.querySelectorAll('th[data-col="' + col + '"]').forEach(function(h) { h.style.display = show ? '' : 'none'; });
+    document.querySelectorAll('td[data-col="' + col + '"]').forEach(function(c) { c.style.display = show ? '' : 'none'; });
+    try { var p = JSON.parse(localStorage.getItem('aq_col_vis_{{ model_name|lower }}') || '{}'); p[col] = show; localStorage.setItem('aq_col_vis_{{ model_name|lower }}', JSON.stringify(p)); } catch(e) {}
+}
+
+(function() {
+    try {
+        var p = JSON.parse(localStorage.getItem('aq_col_vis_{{ model_name|lower }}') || '{}');
+        for (var col in p) { if (p[col] === false) { toggleColumn(col, false); var cb = document.querySelector('.col-toggle-item input[data-col="' + col + '"]'); if (cb) cb.checked = false; } }
+    } catch(e) {}
+})();
+
+function restoreColumnVisibility() {
+    try { var p = JSON.parse(localStorage.getItem('aq_col_vis_{{ model_name|lower }}') || '{}'); for (var col in p) { if (p[col] === false) document.querySelectorAll('td[data-col="' + col + '"]').forEach(function(c) { c.style.display = 'none'; }); } } catch(e) {}
+}
+
+// ── Server-side Sorting ────────────────────────────────────────
+var _sortCol = CURRENT_ORDERING.replace(/^-/, '') || null;
+var _sortDir = CURRENT_ORDERING.startsWith('-') ? 'desc' : 'asc';
+
+function sortColumn(col, e) {
+    if (e && e.target.closest && e.target.closest('.col-toggle-panel')) return;
+    if (_sortCol === col) _sortDir = _sortDir === 'asc' ? 'desc' : 'asc';
+    else { _sortCol = col; _sortDir = 'asc'; }
+    window.location.href = buildListUrl({ ordering: (_sortDir === 'desc' ? '-' : '') + col, page: '1' });
+}
+
+(function() {
+    if (!_sortCol) return;
+    var el = document.getElementById('sort-' + _sortCol);
+    if (!el) return;
+    el.classList.add('active');
+    el.innerHTML = _sortDir === 'asc' ? '<i class="icon-chevron-up" style="font-size:10px;"></i>' : '<i class="icon-chevron-down" style="font-size:10px;"></i>';
+})();
+
+// ── Live Search ────────────────────────────────────────────────
+(function() {
+    var input = document.getElementById('liveSearchInput'), spinner = document.getElementById('searchSpinner');
+    var resultCount = document.getElementById('resultCount'), tbody = document.getElementById('recordsBody');
+    if (!input || !tbody) return;
+    var debounceTimer = null, DEBOUNCE_MS = 350, lastQuery = input.value.trim();
+
+    function esc(s) { if (s == null) return ''; var d = document.createElement('div'); d.textContent = String(s); return d.innerHTML; }
+
+    var IMG = /\.(png|jpg|jpeg|gif|webp|svg|bmp|ico)$/i, PDF = /\.pdf$/i, DOC = /\.(doc|docx)$/i;
+    var SHT = /\.(xls|xlsx|csv)$/i, VID = /\.(mp4|webm|mov|avi)$/i, AUD = /\.(mp3|wav|ogg|flac)$/i, URL_RE = /^https?:\/\//i;
+
+    function renderCell(val, col, isFirst, row) {
+        var pk = row.pk || row.id || '', d = (val == null) ? '\u2014' : String(val);
+        var rk = '_raw_' + col, ct = FIELD_TYPES[col] || 'text';
+        var ie = LIST_EDITABLE.indexOf(col) !== -1 && !isFirst;
+        var ea = ie ? ' data-field="' + col + '" data-pk="' + esc(pk) + '" data-type="' + ct + '" onclick="startInlineEdit(this)"' : '';
+        if (isFirst) return '<td class="cell-pk" data-col="' + col + '"><a href="' + BASE_URL + '/' + encodeURIComponent(pk) + '">' + esc(d) + '</a></td>';
+        if (row[rk] === true) return '<td class="cell-bool-true' + (ie ? ' cell-editable' : '') + '" data-col="' + col + '"' + ea + '><i class="icon-check-circle" style="font-size:15px;"></i> ' + esc(d) + '</td>';
+        if (row[rk] === false) return '<td class="cell-bool-false' + (ie ? ' cell-editable' : '') + '" data-col="' + col + '"' + ea + '><i class="icon-x-circle" style="font-size:15px;"></i> ' + esc(d) + '</td>';
+        if ((ct==='datetime-local'||ct==='date'||ct==='time') && row[rk]) return '<td class="' + (ie?'cell-editable':'') + '" data-col="' + col + '"' + ea + '><span class="time-relative" data-iso="' + esc(String(row[rk])) + '" title="' + esc(d) + '">' + esc(d) + '</span></td>';
+        if (URL_RE.test(d)) {
+            if (IMG.test(d)) return '<td class="cell-media" data-col="' + col + '"><div class="media-thumb" onclick="showMediaPreview(\'' + esc(d) + '\',\'image\')"><img src="' + esc(d) + '" loading="lazy"></div></td>';
+            if (PDF.test(d)) return '<td class="cell-media" data-col="' + col + '"><a href="' + esc(d) + '" target="_blank" class="media-file-badge media-file-pdf"><i class="icon-file-text" style="font-size:14px;"></i> PDF</a></td>';
+            if (DOC.test(d)) return '<td class="cell-media" data-col="' + col + '"><a href="' + esc(d) + '" target="_blank" class="media-file-badge media-file-doc"><i class="icon-file-text" style="font-size:14px;"></i> DOCX</a></td>';
+            if (SHT.test(d)) return '<td class="cell-media" data-col="' + col + '"><a href="' + esc(d) + '" target="_blank" class="media-file-badge media-file-sheet"><i class="icon-file-spreadsheet" style="font-size:14px;"></i> Sheet</a></td>';
+            if (VID.test(d)) return '<td class="cell-media" data-col="' + col + '"><a href="' + esc(d) + '" target="_blank" class="media-file-badge media-file-video"><i class="icon-video" style="font-size:14px;"></i> Video</a></td>';
+            if (AUD.test(d)) return '<td class="cell-media" data-col="' + col + '"><a href="' + esc(d) + '" target="_blank" class="media-file-badge media-file-audio"><i class="icon-music" style="font-size:14px;"></i> Audio</a></td>';
+            var t = d.length > 40 ? d.substring(0, 37) + '...' : d;
+            return '<td class="cell-url" data-col="' + col + '"><a href="' + esc(d) + '" target="_blank" class="cell-url-link"><i class="icon-external-link" style="font-size:11px;"></i> ' + esc(t) + '</a></td>';
         }
-        if (row[rawKey] === true) {
-            return '<td class="cell-bool-true"><i class="icon-check-circle" style="font-size:15px;"></i> ' + escapeHtml(display) + '</td>';
-        }
-        if (row[rawKey] === false) {
-            return '<td class="cell-bool-false"><i class="icon-x-circle" style="font-size:15px;"></i> ' + escapeHtml(display) + '</td>';
-        }
-        if (URL_RE.test(display)) {
-            if (IMG_EXTS.test(display)) {
-                return '<td class="cell-media"><div class="media-thumb" onclick="showMediaPreview(\'' + escapeHtml(display) + '\', \'image\')"><img src="' + escapeHtml(display) + '" alt="' + escapeHtml(col) + '" loading="lazy" onerror="this.parentElement.innerHTML=\'<i class=\\\'icon-image\\\' style=\\\'font-size:16px;color:var(--text-faint);\\\'></i>\'"></div></td>';
-            }
-            if (PDF_EXT.test(display)) {
-                return '<td class="cell-media"><a href="' + escapeHtml(display) + '" target="_blank" class="media-file-badge media-file-pdf"><i class="icon-file-text" style="font-size:14px;"></i> PDF</a></td>';
-            }
-            if (DOC_EXTS.test(display)) {
-                return '<td class="cell-media"><a href="' + escapeHtml(display) + '" target="_blank" class="media-file-badge media-file-doc"><i class="icon-file-text" style="font-size:14px;"></i> DOCX</a></td>';
-            }
-            if (SHEET_EXTS.test(display)) {
-                return '<td class="cell-media"><a href="' + escapeHtml(display) + '" target="_blank" class="media-file-badge media-file-sheet"><i class="icon-file-spreadsheet" style="font-size:14px;"></i> Sheet</a></td>';
-            }
-            if (VIDEO_EXTS.test(display)) {
-                return '<td class="cell-media"><a href="' + escapeHtml(display) + '" target="_blank" class="media-file-badge media-file-video"><i class="icon-video" style="font-size:14px;"></i> Video</a></td>';
-            }
-            if (AUDIO_EXTS.test(display)) {
-                return '<td class="cell-media"><a href="' + escapeHtml(display) + '" target="_blank" class="media-file-badge media-file-audio"><i class="icon-music" style="font-size:14px;"></i> Audio</a></td>';
-            }
-            // Generic URL
-            var truncUrl = display.length > 40 ? display.substring(0, 37) + '...' : display;
-            return '<td class="cell-url"><a href="' + escapeHtml(display) + '" target="_blank" rel="noopener" class="cell-url-link"><i class="icon-external-link" style="font-size:11px;"></i> ' + escapeHtml(truncUrl) + '</a></td>';
-        }
-        return '<td>' + escapeHtml(display) + '</td>';
+        return '<td class="' + (ie?'cell-editable':'') + '" data-col="' + col + '"' + ea + '>' + esc(d) + '</td>';
     }
 
     function buildRow(row) {
-        var pk = row.pk || row.id || '';
-        var html = '<tr data-pk="' + escapeHtml(pk) + '">';
-        html += '<td><input type="checkbox" class="row-check" value="' + escapeHtml(pk) + '" onchange="updateBulkBar()" aria-label="Select row"></td>';
-        listDisplay.forEach(function(col, idx) {
-            html += renderCellValue(row[col], col, idx === 0, row);
-        });
-        html += '<td style="white-space:nowrap;">';
-        html += '<a href="' + BASE_URL + '/' + encodeURIComponent(pk) + '" class="btn btn-sm btn-ghost" title="Edit"><i class="icon-edit-3" style="font-size:13px;"></i></a>';
-        html += '<button type="button" class="btn btn-sm btn-ghost" title="Update" onclick="quickUpdate(\'' + escapeHtml(pk) + '\')"><i class="icon-refresh-cw" style="font-size:13px;"></i></button>';
-        html += '<button type="button" class="btn btn-sm btn-ghost" title="Duplicate" onclick="showConfirmModal(\'Duplicate record #' + escapeHtml(pk) + '?\', \'This will create an exact copy.\', function(){ doDuplicate(\'' + escapeHtml(pk) + '\'); })"><i class="icon-copy" style="font-size:13px;"></i></button>';
-        html += '<button type="button" class="btn btn-sm btn-ghost" title="Delete" style="color:var(--danger);" onclick="showConfirmModal(\'Delete record #' + escapeHtml(pk) + '?\', \'This action cannot be undone.\', function(){ doDelete(\'' + escapeHtml(pk) + '\'); }, true)"><i class="icon-trash-2" style="font-size:13px;"></i></button>';
-        html += '</td></tr>';
-        return html;
+        var pk = row.pk || row.id || '', h = '<tr data-pk="' + esc(pk) + '">';
+        h += '<td><input type="checkbox" class="row-check" value="' + esc(pk) + '" onchange="updateBulkBar()"></td>';
+        h += '<td><button class="btn-expand" onclick="toggleRowDetail(this,\'' + esc(pk) + '\')"><i class="icon-chevron-right" style="font-size:11px;"></i></button></td>';
+        LIST_DISPLAY.forEach(function(col, i) { h += renderCell(row[col], col, i===0, row); });
+        h += '<td style="white-space:nowrap;">';
+        h += '<a href="' + BASE_URL + '/' + encodeURIComponent(pk) + '" class="btn btn-sm btn-ghost" title="Edit"><i class="icon-edit-3" style="font-size:13px;"></i></a>';
+        h += '<button class="btn btn-sm btn-ghost" title="Update" onclick="quickUpdate(\'' + esc(pk) + '\')"><i class="icon-refresh-cw" style="font-size:13px;"></i></button>';
+        h += '<button class="btn btn-sm btn-ghost" onclick="showConfirmModal(\'Duplicate #' + esc(pk) + '?\',\'Create a copy.\',function(){doDuplicate(\'' + esc(pk) + '\');})"><i class="icon-copy" style="font-size:13px;"></i></button>';
+        h += '<button class="btn btn-sm btn-ghost" style="color:var(--danger);" onclick="showConfirmModal(\'Delete #' + esc(pk) + '?\',\'Cannot be undone.\',function(){doDelete(\'' + esc(pk) + '\');},true)"><i class="icon-trash-2" style="font-size:13px;"></i></button>';
+        h += '</td></tr>';
+        return h;
     }
 
     function doSearch(q) {
         spinner.style.display = 'inline';
-        var url = BASE_URL + '/search?q=' + encodeURIComponent(q);
-        fetch(url)
-            .then(function(res) { return res.json(); })
+        var sp = new URLSearchParams(window.location.search);
+        sp.set('q', q); sp.set('per_page', CURRENT_PER_PAGE);
+        if (CURRENT_ORDERING) sp.set('ordering', CURRENT_ORDERING);
+        fetch(BASE_URL + '/search?' + sp.toString())
+            .then(function(r) { return r.json(); })
             .then(function(data) {
                 spinner.style.display = 'none';
-                // Update URL without reload
-                var newUrl = q ? BASE_URL + '/?q=' + encodeURIComponent(q) : BASE_URL + '/';
-                history.replaceState(null, '', newUrl);
-
-                // Render rows
+                history.replaceState(null, '', q ? BASE_URL + '/?q=' + encodeURIComponent(q) : BASE_URL + '/');
                 if (data.rows && data.rows.length) {
-                    var rowsHtml = '';
-                    data.rows.forEach(function(row) { rowsHtml += buildRow(row); });
-                    tbody.innerHTML = rowsHtml;
-                } else {
-                    tbody.innerHTML = '<tr><td colspan="' + (listDisplay.length + 2) + '" class="empty-state">' +
-                        '<i class="icon-inbox" style="font-size:28px;display:block;margin-bottom:8px;opacity:0.3;"></i>No records found</td></tr>';
-                }
-
-                // Update count
-                var total = data.total || 0;
-                resultCount.textContent = total + ' result' + (total !== 1 ? 's' : '');
-                var recCount = document.querySelector('.record-count');
-                if (recCount) recCount.textContent = total + ' record(s) found';
-
-                // Update pagination
-                var pagContainer = document.querySelector('.pagination');
-                if (pagContainer && data.total_pages !== undefined) {
-                    if (data.total_pages <= 1) {
-                        pagContainer.style.display = 'none';
-                    } else {
-                        pagContainer.style.display = '';
-                    }
-                }
-
-                // Reset bulk bar
-                var bar = document.getElementById('bulkActionsBar');
-                if (bar) bar.style.display = 'none';
-                var selectAll = document.getElementById('selectAllCb');
-                if (selectAll) { selectAll.checked = false; selectAll.indeterminate = false; }
-            })
-            .catch(function() {
-                spinner.style.display = 'none';
-            });
+                    var rh = ''; data.rows.forEach(function(r) { rh += buildRow(r); }); tbody.innerHTML = rh;
+                    initRelativeTimes(); restoreColumnVisibility();
+                } else { tbody.innerHTML = '<tr><td colspan="' + (LIST_DISPLAY.length+3) + '" class="empty-state"><i class="icon-inbox" style="font-size:28px;display:block;margin-bottom:8px;opacity:0.3;"></i>No records found</td></tr>'; }
+                var t = data.total || 0;
+                resultCount.innerHTML = '<strong>' + t + '</strong>&nbsp;record' + (t !== 1 ? 's' : '');
+                var bar = document.getElementById('bulkActionsBar'); if (bar) bar.classList.remove('visible');
+                var sa = document.getElementById('selectAllCb'); if (sa) { sa.checked = false; sa.indeterminate = false; }
+            }).catch(function() { spinner.style.display = 'none'; });
     }
 
     input.addEventListener('input', function() {
-        var q = input.value.trim();
-        if (q === lastQuery) return;
-        clearTimeout(debounceTimer);
-        if (q.length === 1) return;
+        var q = input.value.trim(); if (q === lastQuery) return;
+        clearTimeout(debounceTimer); if (q.length === 1) return;
         spinner.style.display = 'inline';
-        debounceTimer = setTimeout(function() {
-            lastQuery = q;
-            doSearch(q);
-        }, DEBOUNCE_MS);
+        debounceTimer = setTimeout(function() { lastQuery = q; doSearch(q); }, DEBOUNCE_MS);
     });
 
-    // ⌘K / Ctrl+K to focus search
     document.addEventListener('keydown', function(e) {
-        if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-            e.preventDefault();
-            input.focus();
-            input.select();
-        }
-        if (e.key === 'Escape' && document.activeElement === input) {
-            input.value = '';
-            input.blur();
-        }
+        if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); input.focus(); input.select(); }
+        if (e.key === 'Escape' && document.activeElement === input) { input.value = ''; input.blur(); }
     });
 })();
 
-// ── Bulk Actions ────────────────────────────────────────────────────
+// ── Bulk Actions ────────────────────────────────────────────────
 function updateBulkBar() {
-    var checks = document.querySelectorAll('.row-check:checked');
-    var bar = document.getElementById('bulkActionsBar');
-    var countEl = document.getElementById('selectedCount');
-    var selectAll = document.getElementById('selectAllCb');
-    if (checks.length > 0) {
-        bar.style.display = 'flex';
-        countEl.textContent = checks.length;
-        var pks = Array.from(checks).map(function(cb) { return cb.value; });
-        document.getElementById('bulkSelectedPks').value = pks.join(',');
+    var ch = document.querySelectorAll('.row-check:checked'), bar = document.getElementById('bulkActionsBar');
+    var cnt = document.getElementById('selectedCount'), sa = document.getElementById('selectAllCb');
+    if (ch.length > 0) {
+        bar.classList.add('visible');
+        cnt.textContent = ch.length;
+        document.getElementById('bulkSelectedPks').value = Array.from(ch).map(function(c){return c.value;}).join(',');
+        // Highlight selected rows
+        document.querySelectorAll('#recordsBody tr[data-pk]').forEach(function(r) {
+            var cb = r.querySelector('.row-check');
+            if (cb && cb.checked) r.classList.add('row-selected');
+            else r.classList.remove('row-selected');
+        });
     } else {
-        bar.style.display = 'none';
+        bar.classList.remove('visible');
+        document.querySelectorAll('.row-selected').forEach(function(r) { r.classList.remove('row-selected'); });
     }
-    // Update select-all state
-    var total = document.querySelectorAll('.row-check').length;
-    selectAll.indeterminate = checks.length > 0 && checks.length < total;
-    selectAll.checked = checks.length === total && total > 0;
+    var tot = document.querySelectorAll('.row-check').length;
+    sa.indeterminate = ch.length > 0 && ch.length < tot; sa.checked = ch.length === tot && tot > 0;
 }
-
-function toggleAll(source) {
-    document.querySelectorAll('.row-check').forEach(function(cb) { cb.checked = source.checked; });
-    updateBulkBar();
-}
-
+function toggleAll(s) { document.querySelectorAll('.row-check').forEach(function(c){c.checked=s.checked;}); updateBulkBar(); }
 function confirmBulkAction() {
     var sel = document.querySelector('#bulkActionForm select[name="action"]');
-    if (!sel.value) { showToast('Please select an action first.', 'warning'); return false; }
-    var count = document.querySelectorAll('.row-check:checked').length;
-    if (!count) { showToast('No records selected.', 'warning'); return false; }
-    var actionLabel = sel.options[sel.selectedIndex].text;
-    showConfirmModal(
-        'Execute "' + actionLabel + '"?',
-        'This action will be applied to ' + count + ' selected record(s).',
-        function() { document.getElementById('bulkActionForm').submit(); }
-    );
+    if (!sel.value) { showToast('Select an action first.', 'warning'); return false; }
+    var c = document.querySelectorAll('.row-check:checked').length;
+    if (!c) { showToast('No records selected.', 'warning'); return false; }
+    showConfirmModal('Execute "' + sel.options[sel.selectedIndex].text + '"?', 'Applied to ' + c + ' record(s).', function(){ document.getElementById('bulkActionForm').submit(); });
     return false;
 }
 
-// ── Export dropdown ─────────────────────────────────────────────────
+// ── Export dropdown ─────────────────────────────────────────────
 (function() {
-    var btn = document.getElementById('exportDropBtn');
-    var menu = document.getElementById('exportDropMenu');
-    if (!btn || !menu) return;
-    btn.addEventListener('click', function(e) { e.stopPropagation(); menu.classList.toggle('open'); });
-    document.addEventListener('click', function() { menu.classList.remove('open'); });
+    var b = document.getElementById('exportDropBtn'), m = document.getElementById('exportDropMenu');
+    if (!b || !m) return;
+    b.addEventListener('click', function(e) { e.stopPropagation(); m.classList.toggle('open'); });
+    document.addEventListener('click', function() { m.classList.remove('open'); });
 })();
 
-// ── Client-side column sort ─────────────────────────────────────────
-var _sortCol = null, _sortDir = 'asc';
-function sortColumn(col) {
-    if (_sortCol === col) _sortDir = _sortDir === 'asc' ? 'desc' : 'asc';
-    else { _sortCol = col; _sortDir = 'asc'; }
-    var tbody = document.getElementById('recordsBody');
-    if (!tbody) return;
-    var rows = Array.from(tbody.querySelectorAll('tr[data-pk]'));
-    var cols = {{ list_display|tojson }};
-    var idx = cols.indexOf(col) + 1;
-    rows.sort(function(a, b) {
-        var av = (a.children[idx] || {}).textContent || '';
-        var bv = (b.children[idx] || {}).textContent || '';
-        av = av.trim(); bv = bv.trim();
-        var an = parseFloat(av), bn = parseFloat(bv);
-        if (!isNaN(an) && !isNaN(bn)) return _sortDir === 'asc' ? an - bn : bn - an;
-        return _sortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
-    });
-    rows.forEach(function(r) { tbody.appendChild(r); });
-}
-
-// ── Keyboard shortcuts ──────────────────────────────────────────────
+// ── Keyboard shortcuts ──────────────────────────────────────────
 document.addEventListener('keydown', function(e) {
     if (['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName)) return;
-    // 'n' — new record (only without modifier keys to avoid conflicts)
-    if (e.key === 'n' && !e.metaKey && !e.ctrlKey && !e.altKey) {
-        window.location.href = BASE_URL + '/add';
-    }
-    // j/k — navigate rows
+    if (e.key === 'n' && !e.metaKey && !e.ctrlKey && !e.altKey) window.location.href = BASE_URL + '/add';
     if (e.key === 'j' || e.key === 'k') {
-        var rows = Array.from(document.querySelectorAll('#recordsBody tr[data-pk]'));
-        if (!rows.length) return;
-        var current = document.querySelector('#recordsBody tr.row-focused');
-        var idx = current ? rows.indexOf(current) : -1;
-        if (e.key === 'j') idx = Math.min(rows.length - 1, idx + 1);
-        else idx = Math.max(0, idx - 1);
-        rows.forEach(function(r) { r.classList.remove('row-focused'); r.style.background = ''; });
-        rows[idx].classList.add('row-focused');
-        rows[idx].style.background = 'var(--accent-subtle)';
-        rows[idx].scrollIntoView({ block: 'nearest' });
+        var rows = Array.from(document.querySelectorAll('#recordsBody tr[data-pk]')); if (!rows.length) return;
+        var cur = document.querySelector('#recordsBody tr.row-focused'), idx = cur ? rows.indexOf(cur) : -1;
+        if (e.key === 'j') idx = Math.min(rows.length - 1, idx + 1); else idx = Math.max(0, idx - 1);
+        rows.forEach(function(r) { r.classList.remove('row-focused'); });
+        rows[idx].classList.add('row-focused'); rows[idx].scrollIntoView({ block: 'nearest' });
     }
-    // Enter — open focused row
-    if (e.key === 'Enter') {
-        var focused = document.querySelector('#recordsBody tr.row-focused');
-        if (focused) {
-            var pk = focused.getAttribute('data-pk');
-            if (pk) window.location.href = BASE_URL + '/' + pk;
-        }
-    }
+    if (e.key === 'Enter') { var f = document.querySelector('#recordsBody tr.row-focused'); if (f) { var pk = f.getAttribute('data-pk'); if (pk) window.location.href = BASE_URL + '/' + pk; } }
+    if (e.key === 'f' && !e.metaKey && !e.ctrlKey && !e.altKey) { e.preventDefault(); openFilterPanel(); }
+    if (e.key === 'Escape') { closeFilterPanel(); }
+    if (e.key === 'x' && !e.metaKey && !e.ctrlKey && !e.altKey) { var f = document.querySelector('#recordsBody tr.row-focused'); if (f) { var b = f.querySelector('.btn-expand'); if (b) b.click(); } }
+    // Select all with Ctrl/Cmd+A
+    if ((e.metaKey || e.ctrlKey) && e.key === 'a') { e.preventDefault(); var sa = document.getElementById('selectAllCb'); if (sa) { sa.checked = !sa.checked; toggleAll(sa); } }
 });
 
-// ── Custom Confirmation Modal (replaces browser confirm/alert) ──────
-function showConfirmModal(title, message, onConfirm, isDanger) {
-    var existing = document.getElementById('confirm-modal-overlay');
-    if (existing) existing.remove();
-
-    var isDark = document.documentElement.getAttribute('data-theme') !== 'light';
-    var overlay = document.createElement('div');
-    overlay.id = 'confirm-modal-overlay';
-    overlay.style.cssText = 'position:fixed;inset:0;background:' + (isDark ? 'rgba(0,0,0,0.65)' : 'rgba(0,0,0,0.35)') + ';z-index:10003;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);animation:fadeIn 0.15s ease;';
-
-    var box = document.createElement('div');
-    box.style.cssText = 'background:' + (isDark ? 'var(--bg-elevated)' : '#fff') + ';border:1px solid var(--border-color);border-radius:14px;padding:28px 32px;max-width:420px;width:90%;box-shadow:0 24px 64px rgba(0,0,0,0.4);animation:scaleIn 0.15s ease;';
-
-    var iconColor = isDanger ? 'var(--danger)' : 'var(--accent)';
-    var iconName = isDanger ? 'alert-triangle' : 'help-circle';
-
-    box.innerHTML =
-        '<div style="display:flex;align-items:flex-start;gap:14px;">' +
-            '<div style="width:40px;height:40px;border-radius:10px;background:' + (isDanger ? 'rgba(239,68,68,0.1)' : 'rgba(34,197,94,0.1)') + ';display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
-                '<i class="icon-' + iconName + '" style="font-size:20px;color:' + iconColor + ';"></i>' +
-            '</div>' +
-            '<div style="flex:1;">' +
-                '<h3 style="margin:0 0 6px;font-size:0.95rem;font-weight:600;color:var(--text-primary);">' + title + '</h3>' +
-                '<p style="margin:0;font-size:0.82rem;color:var(--text-secondary);line-height:1.5;">' + message + '</p>' +
-            '</div>' +
-        '</div>' +
-        '<div style="display:flex;gap:10px;justify-content:flex-end;margin-top:24px;padding-top:18px;border-top:1px solid var(--border-subtle);">' +
-            '<button id="modal-cancel-btn" style="padding:8px 20px;border-radius:8px;border:1px solid var(--border-color);background:var(--bg-surface);color:var(--text-secondary);font-size:0.82rem;font-weight:500;cursor:pointer;font-family:var(--font-sans);transition:all 0.15s;">Cancel</button>' +
-            '<button id="modal-confirm-btn" style="padding:8px 20px;border-radius:8px;border:none;background:' + (isDanger ? 'var(--danger)' : 'var(--accent)') + ';color:' + (isDanger ? '#fff' : '#000') + ';font-size:0.82rem;font-weight:600;cursor:pointer;font-family:var(--font-sans);transition:all 0.15s;">Confirm</button>' +
-        '</div>';
-
-    overlay.appendChild(box);
-    document.body.appendChild(overlay);
-
-    overlay.querySelector('#modal-cancel-btn').onclick = function() { overlay.remove(); };
-    overlay.querySelector('#modal-confirm-btn').onclick = function() {
-        overlay.remove();
-        if (onConfirm) onConfirm();
-    };
-    overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
-    document.addEventListener('keydown', function handler(e) {
-        if (e.key === 'Escape') { overlay.remove(); document.removeEventListener('keydown', handler); }
+// ── Row Detail Expansion ────────────────────────────────────────
+function toggleRowDetail(btn, pk) {
+    var tr = btn.closest('tr'), ex = tr.nextElementSibling;
+    if (ex && ex.classList.contains('row-detail-tr')) { ex.remove(); btn.classList.remove('expanded'); return; }
+    btn.classList.add('expanded');
+    var cells = tr.querySelectorAll('td[data-col]');
+    var h = '<tr class="row-detail-tr"><td colspan="' + (LIST_DISPLAY.length + 3) + '"><div class="row-detail-content">';
+    h += '<div class="row-detail-field"><div class="detail-label">PK</div><div class="detail-value">' + pk + '</div></div>';
+    cells.forEach(function(c) {
+        var col = c.getAttribute('data-col'), lbl = col.replace(/_/g, ' ').replace(/\b\w/g, function(l){return l.toUpperCase();}), v = c.textContent.trim() || '\u2014';
+        h += '<div class="row-detail-field"><div class="detail-label">' + lbl + '</div><div class="detail-value">' + v + '</div></div>';
     });
-    // Focus confirm button for keyboard accessibility
-    overlay.querySelector('#modal-confirm-btn').focus();
+    h += '</div></td></tr>'; tr.insertAdjacentHTML('afterend', h);
 }
 
-// ── Delete via custom modal ─────────────────────────────────────────
-function doDelete(pk) {
-    var form = document.createElement('form');
-    form.method = 'POST';
-    form.action = BASE_URL + '/' + pk + '/delete';
-    document.body.appendChild(form);
-    form.submit();
+// ── Inline Editing ──────────────────────────────────────────────
+function startInlineEdit(td) {
+    if (td.querySelector('.inline-edit-input')) return;
+    var field = td.getAttribute('data-field'), pk = td.getAttribute('data-pk'), dt = td.getAttribute('data-type') || 'text';
+    var cv = td.textContent.trim(); if (cv === '\u2014') cv = '';
+    if (dt === 'checkbox') { saveInlineEdit(pk, field, td.classList.contains('cell-bool-true') ? 'false' : 'true', td); return; }
+    td.dataset.originalHtml = td.innerHTML;
+    var inp = document.createElement('input'); inp.type = dt; inp.className = 'inline-edit-input'; inp.value = cv;
+    td.innerHTML = ''; td.appendChild(inp); inp.focus(); inp.select();
+    inp.addEventListener('keydown', function(e) { if (e.key === 'Enter') saveInlineEdit(pk, field, inp.value, td); if (e.key === 'Escape') td.innerHTML = td.dataset.originalHtml; });
+    inp.addEventListener('blur', function() { setTimeout(function() { if (td.querySelector('.inline-edit-input')) td.innerHTML = td.dataset.originalHtml; }, 150); });
+    inp.addEventListener('click', function(e) { e.stopPropagation(); });
 }
 
-// ── Duplicate via custom modal ──────────────────────────────────────
+/* quickUpdate: inline-edit shortcut with refresh-cw icon for instant field updates */
+function quickUpdate(pk, field, value) { saveInlineEdit(pk, field, value, null); }
+
+function saveInlineEdit(pk, field, value, td) {
+    var fd = new FormData(); fd.append(field, value);
+    fetch(BASE_URL + '/' + pk + '/update', { method: 'POST', body: fd })
+        .then(function(r) { if (r.ok) window.location.reload(); else { if (td) td.innerHTML = td.dataset.originalHtml || ''; showToast('Save failed: ' + r.status, 'error'); } })
+        .catch(function() { if (td) td.innerHTML = td.dataset.originalHtml || ''; showToast('Network error.', 'error'); });
+}
+
+// ── Relative Time Display ───────────────────────────────────────
+function formatRelativeTime(iso) {
+    try {
+        var d = new Date(iso); if (isNaN(d.getTime())) return null;
+        var diff = Date.now() - d, abs = Math.abs(diff), s = Math.floor(abs/1000), m = Math.floor(s/60), h = Math.floor(m/60), dy = Math.floor(h/24), mo = Math.floor(dy/30), y = Math.floor(dy/365);
+        var sx = diff >= 0 ? 'ago' : 'from now';
+        if (s < 60) return 'just now'; if (m < 60) return m + 'm ' + sx; if (h < 24) return h + 'h ' + sx;
+        if (dy < 30) return dy + 'd ' + sx; if (mo < 12) return mo + 'mo ' + sx; return y + 'y ' + sx;
+    } catch(e) { return null; }
+}
+
+function initRelativeTimes() {
+    document.querySelectorAll('.time-relative').forEach(function(el) {
+        var iso = el.getAttribute('data-iso'); if (!iso) return;
+        var r = formatRelativeTime(iso); if (r) { el.setAttribute('title', el.textContent); el.textContent = r; }
+    });
+}
+initRelativeTimes();
+setInterval(initRelativeTimes, 60000);
+
+// ── Custom Confirmation Modal ──────────────────────────────────
+function showConfirmModal(title, message, onConfirm, isDanger) {
+    var ex = document.getElementById('confirm-modal-overlay'); if (ex) ex.remove();
+    var dk = document.documentElement.getAttribute('data-theme') !== 'light';
+    var ov = document.createElement('div'); ov.id = 'confirm-modal-overlay';
+    ov.style.cssText = 'position:fixed;inset:0;background:' + (dk?'rgba(0,0,0,0.65)':'rgba(0,0,0,0.3)') + ';z-index:10003;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);animation:fadeIn 0.15s ease;';
+    var bx = document.createElement('div');
+    bx.style.cssText = 'background:' + (dk?'var(--bg-elevated)':'#fff') + ';border:1px solid var(--border-color);border-radius:14px;padding:28px 32px;max-width:420px;width:90%;box-shadow:0 24px 64px rgba(0,0,0,' + (dk?'0.4':'0.12') + ');';
+    var ic = isDanger ? 'var(--danger)' : 'var(--accent)', inn = isDanger ? 'alert-triangle' : 'help-circle';
+    bx.innerHTML = '<div style="display:flex;align-items:flex-start;gap:14px;"><div style="width:40px;height:40px;border-radius:10px;background:' + (isDanger?'rgba(239,68,68,0.1)':'rgba(34,197,94,0.1)') + ';display:flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="icon-' + inn + '" style="font-size:20px;color:' + ic + ';"></i></div><div style="flex:1;"><h3 style="margin:0 0 6px;font-size:0.95rem;font-weight:600;color:var(--text-primary);">' + title + '</h3><p style="margin:0;font-size:0.82rem;color:var(--text-secondary);line-height:1.5;">' + message + '</p></div></div><div style="display:flex;gap:10px;justify-content:flex-end;margin-top:24px;padding-top:18px;border-top:1px solid var(--border-subtle);"><button id="modal-cancel-btn" style="padding:8px 20px;border-radius:8px;border:1px solid var(--border-color);background:var(--bg-surface);color:var(--text-secondary);font-size:0.82rem;font-weight:500;cursor:pointer;font-family:var(--font-sans);">Cancel</button><button id="modal-confirm-btn" style="padding:8px 20px;border-radius:8px;border:none;background:' + (isDanger?'var(--danger)':'var(--accent)') + ';color:' + (isDanger?'#fff':'#000') + ';font-size:0.82rem;font-weight:600;cursor:pointer;font-family:var(--font-sans);">Confirm</button></div>';
+    ov.appendChild(bx); document.body.appendChild(ov);
+    ov.querySelector('#modal-cancel-btn').onclick = function() { ov.remove(); };
+    ov.querySelector('#modal-confirm-btn').onclick = function() { ov.remove(); if (onConfirm) onConfirm(); };
+    ov.addEventListener('click', function(e) { if (e.target === ov) ov.remove(); });
+    document.addEventListener('keydown', function handler(e) { if (e.key === 'Escape') { ov.remove(); document.removeEventListener('keydown', handler); } });
+    ov.querySelector('#modal-confirm-btn').focus();
+}
+
+// ── Delete / Duplicate ──────────────────────────────────────────
+function doDelete(pk) { var f = document.createElement('form'); f.method = 'POST'; f.action = BASE_URL + '/' + pk + '/delete'; document.body.appendChild(f); f.submit(); }
 function doDuplicate(pk) {
-    var form = document.createElement('form');
-    form.method = 'POST';
-    form.action = BASE_URL + '/action';
-    var actionInput = document.createElement('input');
-    actionInput.type = 'hidden'; actionInput.name = 'action'; actionInput.value = 'duplicate_selected';
-    form.appendChild(actionInput);
-    var selectedInput = document.createElement('input');
-    selectedInput.type = 'hidden'; selectedInput.name = 'selected'; selectedInput.value = pk;
-    form.appendChild(selectedInput);
-    document.body.appendChild(form);
-    form.submit();
+    var f = document.createElement('form'); f.method = 'POST'; f.action = BASE_URL + '/action';
+    var a = document.createElement('input'); a.type = 'hidden'; a.name = 'action'; a.value = 'duplicate_selected'; f.appendChild(a);
+    var s = document.createElement('input'); s.type = 'hidden'; s.name = 'selected'; s.value = pk; f.appendChild(s);
+    document.body.appendChild(f); f.submit();
 }
 
-// ── Quick Update (redirects to edit form) ───────────────────────────
-function quickUpdate(pk) {
-    window.location.href = BASE_URL + '/' + pk;
+// ── Import Modal ────────────────────────────────────────────────
+function showImportModal() {
+    var dk = document.documentElement.getAttribute('data-theme') !== 'light';
+    var ov = document.createElement('div'); ov.className = 'import-overlay';
+    ov.onclick = function(e) { if (e.target === ov) ov.remove(); };
+    ov.innerHTML = '<div class="import-modal"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;"><h3 style="margin:0;font-size:0.95rem;font-weight:600;color:var(--text-primary);">Import {{ verbose_name_plural }}</h3><button onclick="this.closest(\'.import-overlay\').remove()" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:18px;padding:4px;">&times;</button></div><p style="font-size:0.8rem;color:var(--text-secondary);margin:0 0 12px;">Upload a CSV or JSON file to import records.</p><div class="import-dropzone" id="importDropzone" onclick="document.getElementById(\'importFileInput\').click()"><i class="icon-upload-cloud" style="font-size:32px;color:var(--text-faint);display:block;margin-bottom:8px;"></i><span style="font-size:0.82rem;color:var(--text-muted);">Drop file here or click to browse</span><input type="file" id="importFileInput" accept=".csv,.json" style="display:none;" onchange="handleImportFile(this)"></div><div id="importPreview" style="display:none;margin-top:12px;"></div><div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;"><button onclick="this.closest(\'.import-overlay\').remove()" class="btn btn-secondary btn-sm">Cancel</button><button id="importSubmitBtn" class="btn btn-primary btn-sm" style="display:none;" onclick="submitImport()">Import Records</button></div></div>';
+    document.body.appendChild(ov);
+    var dz = ov.querySelector('#importDropzone');
+    dz.addEventListener('dragover', function(e) { e.preventDefault(); dz.classList.add('dragover'); });
+    dz.addEventListener('dragleave', function() { dz.classList.remove('dragover'); });
+    dz.addEventListener('drop', function(e) { e.preventDefault(); dz.classList.remove('dragover'); if (e.dataTransfer.files.length) { var i = document.getElementById('importFileInput'); i.files = e.dataTransfer.files; handleImportFile(i); } });
 }
 
-// ── Dropdown CSS injection ──────────────────────────────────────────
+var _importData = null;
+function handleImportFile(input) {
+    if (!input.files.length) return;
+    var file = input.files[0], preview = document.getElementById('importPreview'), sb = document.getElementById('importSubmitBtn');
+    var reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            if (file.name.endsWith('.json')) { _importData = JSON.parse(e.target.result); if (!Array.isArray(_importData)) _importData = [_importData]; }
+            else {
+                var lines = e.target.result.split('\n').filter(function(l){return l.trim();}); if (lines.length < 2) { preview.innerHTML = '<span style="color:var(--danger);font-size:0.8rem;">Need header + data rows.</span>'; preview.style.display = 'block'; return; }
+                var hdr = lines[0].split(',').map(function(h){return h.trim().replace(/^"|"$/g,'');}); _importData = [];
+                for (var i = 1; i < lines.length; i++) { var v = lines[i].split(',').map(function(x){return x.trim().replace(/^"|"$/g,'');}); var r = {}; hdr.forEach(function(h,j){r[h]=v[j]||'';}); _importData.push(r); }
+            }
+            preview.innerHTML = '<div style="font-size:0.8rem;color:var(--accent);font-weight:500;"><i class="icon-check-circle" style="font-size:13px;vertical-align:-2px;margin-right:4px;"></i>' + _importData.length + ' record(s) from <strong>' + file.name + '</strong></div>';
+            preview.style.display = 'block'; sb.style.display = 'inline-flex';
+        } catch(err) { preview.innerHTML = '<span style="color:var(--danger);font-size:0.8rem;">Parse error: ' + err.message + '</span>'; preview.style.display = 'block'; _importData = null; }
+    };
+    reader.readAsText(file);
+}
+
+function submitImport() {
+    if (!_importData || !_importData.length) return;
+    var sb = document.getElementById('importSubmitBtn'); sb.disabled = true; sb.textContent = 'Importing...';
+    var ok = 0, fail = 0, tot = _importData.length;
+    function next(i) {
+        if (i >= tot) { var ov = document.querySelector('.import-overlay'); if (ov) ov.remove(); showToast('Imported ' + ok + (fail ? ', ' + fail + ' failed' : ''), ok ? 'success' : 'error'); if (ok > 0) window.location.reload(); return; }
+        var fd = new FormData(), r = _importData[i]; for (var k in r) if (r.hasOwnProperty(k)) fd.append(k, r[k]);
+        fetch(BASE_URL + '/add', { method: 'POST', body: fd }).then(function(res) { if (res.ok || res.status === 302 || res.status === 303) ok++; else fail++; next(i+1); }).catch(function() { fail++; next(i+1); });
+    }
+    next(0);
+}
+
+function showToast(msg, type) {
+    type = type || 'info'; var el = document.createElement('div');
+    el.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:10010;padding:12px 20px;border-radius:8px;font-size:0.82rem;font-weight:500;box-shadow:0 8px 32px rgba(0,0,0,0.3);animation:fadeIn 0.15s ease;max-width:360px;font-family:var(--font-sans);';
+    var c = { success: 'background:rgba(34,197,94,0.15);color:#22c55e;border:1px solid rgba(34,197,94,0.3);', error: 'background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);', warning: 'background:rgba(234,179,8,0.15);color:#eab308;border:1px solid rgba(234,179,8,0.3);', info: 'background:rgba(59,130,246,0.15);color:#3b82f6;border:1px solid rgba(59,130,246,0.3);' };
+    el.style.cssText += (c[type] || c.info); el.textContent = msg; document.body.appendChild(el);
+    setTimeout(function() { el.style.opacity = '0'; el.style.transition = 'opacity 0.3s'; setTimeout(function() { el.remove(); }, 300); }, 3500);
+}
+
 (function() {
     var s = document.createElement('style');
     s.textContent = '.dropdown-menu{display:none;position:absolute;right:0;top:100%;margin-top:4px;z-index:100;min-width:140px;background:var(--bg-elevated);border:1px solid var(--border-color);border-radius:var(--radius-sm);padding:4px;box-shadow:0 8px 32px rgba(0,0,0,0.5);}.dropdown-menu.open{display:block!important;}.dropdown-item{display:flex;align-items:center;gap:8px;padding:8px 12px;font-size:0.8rem;color:var(--text-secondary);border-radius:var(--radius-xs);transition:background 0.12s;text-decoration:none;}.dropdown-item:hover{background:var(--bg-surface-hover);color:var(--text-primary)!important;}';
