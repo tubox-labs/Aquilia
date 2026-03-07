@@ -922,6 +922,30 @@ class AdminController(Controller):
 
         try:
             record = await self.site.create_record(model, form_data, identity=identity)
+
+            # ── Audit: log create ────────────────────────────────
+            if identity and self.site.audit_log:
+                meta = _extract_request_meta(request)
+                # Try to get the PK of the newly created record
+                new_pk = ""
+                if record is not None:
+                    if isinstance(record, dict):
+                        new_pk = str(record.get("pk", record.get("id", "")))
+                    elif hasattr(record, "pk"):
+                        new_pk = str(record.pk)
+                    elif hasattr(record, "id"):
+                        new_pk = str(record.id)
+                self.site.audit_log.log(
+                    user_id=getattr(identity, "id", ""),
+                    username=_get_identity_name(identity),
+                    role=str(get_admin_role(identity) or "unknown"),
+                    action=AdminAction.CREATE,
+                    model_name=model,
+                    record_pk=new_pk,
+                    ip_address=meta.get("ip_address"),
+                    user_agent=meta.get("user_agent"),
+                )
+
             return _redirect(f"/admin/{model.lower()}/")
         except Exception as e:
             # Re-render form with error
@@ -1037,7 +1061,42 @@ class AdminController(Controller):
         form_data = await _parse_form(ctx)
 
         try:
+            # Capture old data for change tracking
+            old_data = {}
+            try:
+                old_record = await self.site.get_record(model, pk, identity=identity)
+                if old_record and isinstance(old_record, dict):
+                    for f in old_record.get("fields", []):
+                        fname = f.get("name", "")
+                        if fname:
+                            old_data[fname] = f.get("value", "")
+            except Exception:
+                pass
+
             await self.site.update_record(model, pk, form_data, identity=identity)
+
+            # ── Audit: log update ────────────────────────────────
+            if identity and self.site.audit_log:
+                meta = _extract_request_meta(request)
+                # Build changes dict: old vs new
+                changes = {}
+                for fk, fv in form_data.items():
+                    if fk.startswith("_"):
+                        continue
+                    old_val = old_data.get(fk)
+                    if old_val is not None and str(old_val) != str(fv):
+                        changes[fk] = {"old": str(old_val), "new": str(fv)}
+                self.site.audit_log.log(
+                    user_id=getattr(identity, "id", ""),
+                    username=_get_identity_name(identity),
+                    role=str(get_admin_role(identity) or "unknown"),
+                    action=AdminAction.UPDATE,
+                    model_name=model,
+                    record_pk=str(pk),
+                    changes=changes if changes else None,
+                    ip_address=meta.get("ip_address"),
+                    user_agent=meta.get("user_agent"),
+                )
 
             # ── Capture query inspection data from the update ────────
             qi_queries = getattr(self.site, "_last_update_queries", [])
@@ -1305,13 +1364,24 @@ class AdminController(Controller):
                         entry_meta = _json.loads(entry_meta)
                     except Exception:
                         entry_meta = {}
-                entry_pk = str(entry_meta.get("pk", entry_meta.get("record_id", "")))
+                # Check record_pk directly first, then fall back to metadata
+                entry_pk = str(entry_data.get("record_pk", "") or "")
+                if not entry_pk:
+                    entry_pk = str(entry_meta.get("pk", entry_meta.get("record_id", "")))
                 if entry_model.lower() == model.lower() and entry_pk == str(pk):
+                    # Extract changes for display
+                    entry_changes = entry_data.get("changes", {})
+                    if isinstance(entry_changes, str):
+                        try:
+                            entry_changes = _json.loads(entry_changes)
+                        except Exception:
+                            entry_changes = {}
                     history_entries.append({
                         "timestamp": entry_data.get("timestamp", ""),
                         "username": entry_data.get("username", "Unknown"),
                         "action": str(entry_data.get("action", "")),
                         "metadata": entry_meta,
+                        "changes": entry_changes or {},
                         "ip_address": entry_data.get("ip_address", ""),
                     })
 

@@ -3,150 +3,260 @@
 
 {% block extra_head %}
 <style>
-/* ═══ LIST VIEW v3 — Enhanced CSS ════════════════════════════════ */
+/* ═══ LIST VIEW v4 — Premium Dashboard-Grade UI ═══════════════ */
 
 /* ── Layout ── */
 .list-layout { display: flex; flex-direction: column; min-height: calc(100vh - 120px); }
 .list-main { flex: 1; min-width: 0; }
 
+/* ── Hero Header ── */
+.list-hero {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 24px 28px; margin: 0 -24px 20px; position: relative; overflow: hidden;
+    background: linear-gradient(135deg, rgba(34,197,94,0.06) 0%, rgba(59,130,246,0.04) 50%, rgba(139,92,246,0.04) 100%);
+    border-bottom: 1px solid var(--border-subtle);
+}
+[data-theme="light"] .list-hero {
+    background: linear-gradient(135deg, rgba(34,197,94,0.04) 0%, rgba(59,130,246,0.03) 50%, rgba(139,92,246,0.03) 100%);
+}
+.list-hero::before {
+    content: ''; position: absolute; top: -80px; right: -60px;
+    width: 220px; height: 220px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(34,197,94,0.08) 0%, transparent 70%);
+    pointer-events: none;
+}
+.list-hero-left { display: flex; align-items: center; gap: 16px; z-index: 1; }
+.list-hero-icon {
+    width: 52px; height: 52px; border-radius: 14px; display: flex;
+    align-items: center; justify-content: center;
+    background: linear-gradient(135deg, rgba(34,197,94,0.15) 0%, rgba(34,197,94,0.05) 100%);
+    border: 1px solid rgba(34,197,94,0.2); font-size: 24px; color: var(--accent);
+}
+.list-hero-title { font-size: 1.35rem; font-weight: 700; color: var(--text-primary); margin: 0 0 2px; }
+.list-hero-subtitle { font-size: 0.78rem; color: var(--text-muted); display: flex; align-items: center; gap: 8px; }
+.list-hero-right { display: flex; gap: 8px; align-items: center; z-index: 1; flex-wrap: wrap; }
+
+/* ── Breadcrumb ── */
+.list-breadcrumb {
+    display: flex; align-items: center; gap: 6px; font-size: 0.72rem;
+    color: var(--text-faint); margin-bottom: 4px; flex-wrap: wrap;
+}
+.list-breadcrumb a { color: var(--text-muted); text-decoration: none; transition: color 0.12s; }
+.list-breadcrumb a:hover { color: var(--accent); }
+
+/* ── Stats Cards ── */
+.list-stats-cards {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px; margin-bottom: 20px;
+}
+.stat-card {
+    padding: 16px 18px; border-radius: 12px;
+    background: var(--bg-surface); border: 1px solid var(--border-subtle);
+    transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+    position: relative; overflow: hidden;
+}
+.stat-card:hover { border-color: var(--accent); transform: translateY(-1px); box-shadow: 0 4px 16px rgba(34,197,94,0.08); }
+.stat-card-label { font-size: 0.68rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-faint); margin-bottom: 6px; }
+.stat-card-value { font-size: 1.4rem; font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.stat-card-sub { font-size: 0.7rem; color: var(--text-muted); margin-top: 4px; }
+.stat-card-icon { position: absolute; top: 14px; right: 14px; font-size: 18px; opacity: 0.15; color: var(--accent); }
+
+/* ── Search bar ── */
+.search-container { position: relative; margin-bottom: 16px; }
+.search-bar {
+    display: flex; align-items: center; gap: 10px; padding: 10px 16px;
+    border-radius: 12px; background: var(--bg-surface);
+    border: 1px solid var(--border-color); transition: all 0.2s;
+}
+.search-bar:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(34,197,94,0.1); }
+.search-bar input {
+    flex: 1; border: none; background: none; color: var(--text-primary);
+    font-size: 0.88rem; font-family: var(--font-sans); outline: none;
+}
+.search-bar input::placeholder { color: var(--text-faint); }
+.search-bar .search-icon { color: var(--text-faint); font-size: 16px; flex-shrink: 0; }
+.search-bar .search-spinner { font-size: 12px; color: var(--text-faint); animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* ── Toolbar ── */
+.toolbar-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+.toolbar-group {
+    display: flex; gap: 4px; align-items: center; padding: 4px; border-radius: 10px;
+    background: var(--bg-surface); border: 1px solid var(--border-subtle);
+}
+.toolbar-btn {
+    padding: 7px 12px; border-radius: 8px; border: none;
+    background: transparent; color: var(--text-muted); font-size: 0.78rem;
+    font-weight: 500; cursor: pointer; display: inline-flex;
+    align-items: center; gap: 6px; transition: all 0.15s;
+    font-family: var(--font-sans); white-space: nowrap;
+}
+.toolbar-btn:hover { background: var(--bg-surface-hover); color: var(--text-primary); }
+.toolbar-btn .badge {
+    background: var(--accent); color: #000; border-radius: 50%; min-width: 18px;
+    height: 18px; display: inline-flex; align-items: center; justify-content: center;
+    font-size: 0.6rem; font-weight: 700;
+}
+.toolbar-divider { width: 1px; height: 20px; background: var(--border-subtle); margin: 0 2px; }
+
+/* ── View toggle ── */
+.view-toggle { display: flex; gap: 2px; }
+.view-toggle-btn {
+    width: 32px; height: 32px; border: none; border-radius: 6px;
+    background: transparent; color: var(--text-faint); cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s; font-size: 14px;
+}
+.view-toggle-btn:hover { color: var(--text-primary); background: var(--bg-surface-hover); }
+.view-toggle-btn.active { background: var(--accent); color: #000; }
+
 /* ── Filter overlay panel ── */
 .filter-overlay {
     display: none; position: fixed; inset: 0; z-index: 1001;
-    background: rgba(0,0,0,0.4); backdrop-filter: blur(3px);
-    animation: fadeIn 0.12s ease;
+    background: rgba(0,0,0,0.4); backdrop-filter: blur(4px); animation: fadeIn 0.12s ease;
 }
 [data-theme="light"] .filter-overlay { background: rgba(0,0,0,0.2); }
 .filter-overlay.open { display: flex; justify-content: flex-end; align-items: flex-start; }
 .filter-panel {
-    width: 340px; max-width: 90vw; max-height: calc(100vh - 40px);
+    width: 360px; max-width: 90vw; max-height: calc(100vh - 40px);
     margin: 20px; background: var(--bg-elevated);
-    border: 1px solid var(--border-color); border-radius: 14px;
-    box-shadow: 0 24px 64px rgba(0,0,0,0.45);
-    overflow-y: auto; padding: 20px 18px;
-    animation: slideInRight 0.18s ease;
+    border: 1px solid var(--border-color); border-radius: 16px;
+    box-shadow: 0 24px 64px rgba(0,0,0,0.45); overflow-y: auto; padding: 24px 20px;
+    animation: slideInRight 0.22s cubic-bezier(0.16,1,0.3,1);
 }
 [data-theme="light"] .filter-panel { background: #fff; box-shadow: 0 24px 64px rgba(0,0,0,0.12); }
-@keyframes slideInRight { from { transform: translateX(30px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+@keyframes slideInRight { from { transform: translateX(40px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 .filter-panel-header {
     display: flex; align-items: center; justify-content: space-between;
-    margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--border-subtle);
+    margin-bottom: 20px; padding-bottom: 14px; border-bottom: 1px solid var(--border-subtle);
 }
-.filter-panel-title { font-size: 0.78rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-faint); }
-.filter-group { margin-bottom: 18px; }
+.filter-panel-title { font-size: 0.82rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-secondary); display: flex; align-items: center; gap: 8px; }
+.filter-group { margin-bottom: 20px; }
 .filter-group-label { font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
 .filter-group-label i { font-size: 12px; opacity: 0.5; }
 .filter-input {
-    width: 100%; padding: 7px 10px; border-radius: var(--radius-sm);
-    font-size: 0.8rem; background: var(--bg-input); color: var(--text-primary);
+    width: 100%; padding: 8px 12px; border-radius: 8px; font-size: 0.82rem;
+    background: var(--bg-input); color: var(--text-primary);
     border: 1px solid var(--border-color); font-family: var(--font-sans);
-    transition: border-color 0.15s; outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s; outline: none;
 }
-.filter-input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-subtle); }
+.filter-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(34,197,94,0.1); }
 .filter-date-range { display: flex; gap: 6px; align-items: center; }
 .filter-date-range span { font-size: 0.7rem; color: var(--text-faint); flex-shrink: 0; }
 .filter-date-range input { flex: 1; min-width: 0; }
 .filter-bool-group { display: flex; gap: 4px; }
 .filter-bool-btn {
-    flex: 1; padding: 6px 10px; border-radius: var(--radius-sm); font-size: 0.75rem;
+    flex: 1; padding: 7px 12px; border-radius: 8px; font-size: 0.78rem;
     font-weight: 500; cursor: pointer; border: 1px solid var(--border-color);
     background: var(--bg-surface); color: var(--text-muted); text-align: center;
     transition: all 0.15s; font-family: var(--font-sans);
 }
 .filter-bool-btn:hover { background: var(--bg-surface-hover); color: var(--text-primary); }
 .filter-bool-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
-.filter-actions { display: flex; gap: 6px; margin-top: 14px; }
+.filter-actions { display: flex; gap: 8px; margin-top: 18px; }
 
 /* ── Active filter pills ── */
 .active-filters-bar {
     display: flex; gap: 6px; align-items: center; flex-wrap: wrap;
-    padding: 8px 0; margin-bottom: 4px;
+    padding: 10px 14px; margin-bottom: 12px; border-radius: 10px;
+    background: rgba(34,197,94,0.04); border: 1px solid rgba(34,197,94,0.1);
 }
 .filter-pill {
     display: inline-flex; align-items: center; gap: 5px;
-    padding: 4px 10px; border-radius: 20px; font-size: 0.72rem; font-weight: 500;
+    padding: 5px 12px; border-radius: 20px; font-size: 0.72rem; font-weight: 500;
     background: var(--accent-subtle); color: var(--accent); border: 1px solid rgba(34,197,94,0.2);
+    transition: all 0.15s;
 }
+.filter-pill:hover { background: rgba(34,197,94,0.15); }
 .filter-pill-remove {
-    width: 14px; height: 14px; border-radius: 50%; display: inline-flex;
+    width: 16px; height: 16px; border-radius: 50%; display: inline-flex;
     align-items: center; justify-content: center; cursor: pointer;
-    background: rgba(34,197,94,0.2); color: var(--accent); font-size: 10px;
-    transition: background 0.15s; border: none; font-family: var(--font-sans); line-height: 1;
+    background: rgba(34,197,94,0.2); color: var(--accent); font-size: 11px;
+    transition: all 0.15s; border: none; font-family: var(--font-sans); line-height: 1;
 }
-.filter-pill-remove:hover { background: rgba(34,197,94,0.4); }
-
-/* ── Stats toolbar row ── */
-.list-stats-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.list-stat-chip {
-    display: inline-flex; align-items: center; gap: 5px;
-    padding: 4px 10px; border-radius: var(--radius-sm); font-size: 0.72rem;
-    background: var(--bg-surface); border: 1px solid var(--border-subtle);
-    color: var(--text-muted); font-weight: 500;
-}
-.list-stat-chip strong { color: var(--text-primary); font-weight: 600; }
+.filter-pill-remove:hover { background: rgba(239,68,68,0.2); color: var(--danger); }
 
 /* ── Column visibility toggle ── */
 .col-toggle-panel {
-    display: none; position: absolute; right: 0; top: 100%; margin-top: 4px;
-    z-index: 100; min-width: 200px; background: var(--bg-elevated);
-    border: 1px solid var(--border-color); border-radius: var(--radius-sm);
-    padding: 8px; box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    display: none; position: absolute; right: 0; top: 100%; margin-top: 6px;
+    z-index: 100; min-width: 220px; background: var(--bg-elevated);
+    border: 1px solid var(--border-color); border-radius: 12px;
+    padding: 10px; box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+    animation: dropDown 0.15s ease;
 }
-[data-theme="light"] .col-toggle-panel { background: #fff; box-shadow: 0 8px 32px rgba(0,0,0,0.1); }
+@keyframes dropDown { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+[data-theme="light"] .col-toggle-panel { background: #fff; box-shadow: 0 12px 40px rgba(0,0,0,0.1); }
 .col-toggle-panel.open { display: block; }
 .col-toggle-item {
-    display: flex; align-items: center; gap: 8px;
-    padding: 6px 8px; border-radius: var(--radius-xs); font-size: 0.78rem;
+    display: flex; align-items: center; gap: 10px;
+    padding: 7px 10px; border-radius: 8px; font-size: 0.78rem;
     color: var(--text-secondary); cursor: pointer; transition: background 0.12s;
 }
 .col-toggle-item:hover { background: var(--bg-surface-hover); }
-.col-toggle-item input { accent-color: var(--accent); }
+.col-toggle-item input { accent-color: var(--accent); width: 15px; height: 15px; }
 
-/* ── Sticky table header ── */
-.table-container.sticky-header { max-height: calc(100vh - 280px); overflow-y: auto; }
+/* ── Table container ── */
+.table-wrap {
+    border: 1px solid var(--border-subtle); border-radius: 14px;
+    overflow: hidden; background: var(--bg-surface);
+}
+.table-container.sticky-header { max-height: calc(100vh - 340px); overflow-y: auto; }
 .table-container.sticky-header .admin-table thead { position: sticky; top: 0; z-index: 10; }
-.table-container.sticky-header .admin-table th { background: var(--bg-surface); }
-
-/* ── Sort indicator ── */
-.sort-indicator { font-size: 10px; margin-left: 3px; vertical-align: -1px; opacity: 0.7; }
+.admin-table th {
+    background: var(--bg-elevated); padding: 10px 14px; font-size: 0.72rem;
+    font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+    color: var(--text-faint); border-bottom: 2px solid var(--border-color);
+    user-select: none; white-space: nowrap;
+}
+[data-theme="light"] .admin-table th { background: #f8f9fa; }
+.sort-indicator { font-size: 10px; margin-left: 3px; vertical-align: -1px; opacity: 0.5; }
 .sort-indicator.active { color: var(--accent); opacity: 1; }
 
 /* ── Table row enhancements ── */
 .admin-table tbody tr { transition: background 0.12s, box-shadow 0.12s; }
 .admin-table tbody tr:hover { background: var(--bg-surface-hover); }
+.admin-table tbody tr:last-child td { border-bottom: none; }
 .admin-table tbody tr.row-focused {
     background: var(--accent-subtle) !important;
     box-shadow: inset 3px 0 0 var(--accent);
 }
 .admin-table tbody tr.row-selected {
-    background: var(--accent-subtle) !important;
+    background: rgba(34,197,94,0.06) !important;
 }
+.admin-table tbody tr.row-selected td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
+
+/* ── Cell types ── */
+.cell-pk a { color: var(--accent); font-weight: 600; text-decoration: none; transition: color 0.12s; }
+.cell-pk a:hover { color: var(--accent-hover); text-decoration: underline; }
 
 /* ── Inline editable cells ── */
 .cell-editable { cursor: pointer; position: relative; }
-.cell-editable:hover { background: var(--accent-subtle) !important; }
+.cell-editable:hover { background: rgba(34,197,94,0.04) !important; }
 .cell-editable::after {
-    content: ''; position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+    content: ''; position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
     width: 12px; height: 12px; opacity: 0;
     background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2322c55e' stroke-width='2'%3E%3Cpath d='M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7'/%3E%3Cpath d='M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z'/%3E%3C/svg%3E") no-repeat center;
     transition: opacity 0.15s;
 }
 .cell-editable:hover::after { opacity: 1; }
 .inline-edit-input {
-    width: 100%; padding: 4px 8px; border-radius: 4px;
+    width: 100%; padding: 5px 10px; border-radius: 6px;
     font-size: 0.82rem; background: var(--bg-input); color: var(--text-primary);
     border: 2px solid var(--accent); font-family: var(--font-sans); outline: none;
+    box-shadow: 0 0 0 3px rgba(34,197,94,0.1);
 }
 
 /* ── Row detail expansion ── */
 .row-detail-tr td { padding: 0 !important; border-bottom: 1px solid var(--border-subtle); }
 .row-detail-content {
-    padding: 16px 24px; background: var(--bg-surface);
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px;
-    animation: slideDown 0.15s ease;
+    padding: 18px 24px; background: var(--bg-elevated);
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px;
+    animation: slideDown 0.2s ease; border-top: 1px solid var(--border-subtle);
 }
-.row-detail-field { font-size: 0.78rem; }
-.row-detail-field .detail-label { color: var(--text-faint); font-weight: 600; text-transform: uppercase; font-size: 0.65rem; letter-spacing: 0.06em; margin-bottom: 2px; }
-.row-detail-field .detail-value { color: var(--text-secondary); word-break: break-word; white-space: normal; }
+[data-theme="light"] .row-detail-content { background: #f8f9fa; }
+.row-detail-field .detail-label { color: var(--text-faint); font-weight: 700; text-transform: uppercase; font-size: 0.62rem; letter-spacing: 0.06em; margin-bottom: 3px; }
+.row-detail-field .detail-value { color: var(--text-secondary); word-break: break-word; white-space: normal; font-size: 0.78rem; }
 @keyframes slideDown { from { opacity: 0; max-height: 0; } to { opacity: 1; max-height: 500px; } }
 
 /* ── Relative time tooltip ── */
@@ -155,24 +265,39 @@
 /* ── Per-page selector ── */
 .per-page-selector { display: flex; align-items: center; gap: 6px; font-size: 0.78rem; color: var(--text-muted); }
 .per-page-selector select {
-    padding: 4px 8px; border-radius: var(--radius-sm);
-    font-size: 0.78rem; background: var(--bg-input); color: var(--text-primary);
-    border: 1px solid var(--border-color); font-family: var(--font-sans);
-    cursor: pointer; outline: none;
+    padding: 5px 10px; border-radius: 8px; font-size: 0.78rem;
+    background: var(--bg-input); color: var(--text-primary);
+    border: 1px solid var(--border-color); font-family: var(--font-sans); cursor: pointer; outline: none;
 }
 
-/* ── Toolbar enhancements ── */
-.toolbar-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
-
-/* ── Row expand button ── */
+/* ── Row expand / action buttons ── */
 .btn-expand {
-    width: 24px; height: 24px; border-radius: 4px; border: none;
+    width: 26px; height: 26px; border-radius: 6px; border: none;
     background: transparent; color: var(--text-faint); cursor: pointer;
     display: inline-flex; align-items: center; justify-content: center;
     transition: all 0.15s; font-size: 12px;
 }
-.btn-expand:hover { background: var(--bg-surface); color: var(--text-primary); }
+.btn-expand:hover { background: var(--bg-surface-hover); color: var(--text-primary); }
 .btn-expand.expanded { transform: rotate(90deg); color: var(--accent); }
+.row-actions { display: flex; gap: 2px; align-items: center; }
+.row-action-btn {
+    width: 30px; height: 30px; border: none; border-radius: 7px;
+    background: transparent; cursor: pointer; display: inline-flex;
+    align-items: center; justify-content: center; transition: all 0.15s;
+    color: var(--text-faint); font-size: 14px; text-decoration: none;
+}
+.row-action-btn:hover { background: var(--bg-surface-hover); color: var(--text-primary); }
+.row-action-btn.danger:hover { background: rgba(239,68,68,0.1); color: var(--danger); }
+
+/* ── Selection summary bar ── */
+.selection-summary {
+    padding: 12px 18px; border-radius: 12px;
+    background: linear-gradient(135deg, rgba(34,197,94,0.08) 0%, rgba(34,197,94,0.04) 100%);
+    border: 1px solid rgba(34,197,94,0.2);
+    margin-bottom: 12px; display: none; align-items: center; gap: 14px; flex-wrap: wrap;
+    animation: fadeIn 0.2s ease;
+}
+.selection-summary.visible { display: flex; }
 
 /* ── Import modal ── */
 .import-overlay {
@@ -183,46 +308,116 @@
 [data-theme="light"] .import-overlay { background: rgba(0,0,0,0.25); }
 .import-modal {
     background: var(--bg-elevated); border: 1px solid var(--border-color);
-    border-radius: 14px; padding: 28px; max-width: 480px; width: 90%;
+    border-radius: 16px; padding: 28px; max-width: 480px; width: 90%;
     box-shadow: 0 24px 64px rgba(0,0,0,0.4);
 }
 [data-theme="light"] .import-modal { background: #fff; box-shadow: 0 24px 64px rgba(0,0,0,0.1); }
 .import-dropzone {
-    border: 2px dashed var(--border-color); border-radius: var(--radius-sm);
-    padding: 32px; text-align: center; cursor: pointer; transition: all 0.15s; margin: 16px 0;
+    border: 2px dashed var(--border-color); border-radius: 12px;
+    padding: 36px; text-align: center; cursor: pointer; transition: all 0.2s; margin: 16px 0;
 }
-.import-dropzone:hover, .import-dropzone.dragover { border-color: var(--accent); background: var(--accent-subtle); }
+.import-dropzone:hover, .import-dropzone.dragover { border-color: var(--accent); background: rgba(34,197,94,0.04); }
 
 /* ── Media cells ── */
 .media-thumb {
-    width: 40px; height: 40px; border-radius: 6px; overflow: hidden;
+    width: 40px; height: 40px; border-radius: 8px; overflow: hidden;
     border: 1px solid var(--border-subtle); cursor: pointer;
     transition: transform 0.15s, box-shadow 0.15s;
 }
-.media-thumb:hover { transform: scale(1.1); box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+.media-thumb:hover { transform: scale(1.1); box-shadow: 0 4px 16px rgba(0,0,0,0.3); }
 .media-thumb img { width: 100%; height: 100%; object-fit: cover; }
 
-/* ── Breadcrumb ── */
-.list-breadcrumb {
-    display: flex; align-items: center; gap: 6px; font-size: 0.72rem;
-    color: var(--text-faint); margin-bottom: 4px; flex-wrap: wrap;
+/* ── Pagination ── */
+.pagination-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-top: 18px; padding: 14px 18px; border-radius: 12px;
+    background: var(--bg-surface); border: 1px solid var(--border-subtle);
+    flex-wrap: wrap; gap: 12px;
 }
-.list-breadcrumb a { color: var(--text-muted); text-decoration: none; transition: color 0.12s; }
-.list-breadcrumb a:hover { color: var(--accent); }
 
-/* ── Selection summary bar ── */
-.selection-summary {
-    padding: 10px 16px; border-radius: var(--radius-sm);
-    background: var(--accent-subtle); border: 1px solid rgba(34,197,94,0.2);
-    margin-bottom: 12px; display: none; align-items: center; gap: 12px; flex-wrap: wrap;
+/* ── Grid View ── */
+.grid-view {
+    display: none; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px;
 }
-.selection-summary.visible { display: flex; }
+.grid-view.active { display: grid; }
+.grid-card {
+    padding: 18px; border-radius: 14px; background: var(--bg-surface);
+    border: 1px solid var(--border-subtle); transition: all 0.2s; cursor: pointer; position: relative;
+}
+.grid-card:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
+.grid-card-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid var(--border-subtle);
+}
+.grid-card-pk { font-weight: 700; color: var(--accent); font-size: 0.88rem; text-decoration: none; }
+.grid-card-pk:hover { text-decoration: underline; }
+.grid-card-field { font-size: 0.78rem; margin-bottom: 6px; display: flex; gap: 8px; }
+.grid-card-field .label { color: var(--text-faint); font-weight: 600; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.04em; min-width: 80px; flex-shrink: 0; }
+.grid-card-field .value { color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.grid-card-actions {
+    display: flex; gap: 4px; margin-top: 12px; padding-top: 10px;
+    border-top: 1px solid var(--border-subtle);
+}
+
+/* ── Empty state ── */
+.empty-state-card { text-align: center; padding: 60px 32px; }
+.empty-state-icon { font-size: 48px; color: var(--text-faint); opacity: 0.3; margin-bottom: 16px; }
+.empty-state-title { font-size: 1rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; }
+.empty-state-text { font-size: 0.82rem; color: var(--text-muted); margin-bottom: 20px; }
+
+/* ── Keyboard shortcuts hint ── */
+.shortcuts-hint {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    display: flex; gap: 12px; padding: 10px 20px; border-radius: 12px;
+    background: var(--bg-elevated); border: 1px solid var(--border-color);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.3); z-index: 90;
+    font-size: 0.7rem; color: var(--text-faint); opacity: 0;
+    transition: opacity 0.3s; pointer-events: none;
+}
+.shortcuts-hint.visible { opacity: 1; pointer-events: auto; }
+.shortcut-item { display: flex; align-items: center; gap: 5px; white-space: nowrap; }
+.shortcut-item kbd {
+    padding: 2px 6px; border-radius: 4px; border: 1px solid var(--border-color);
+    background: var(--bg-surface); font-family: var(--font-mono); font-size: 0.62rem; min-width: 18px; text-align: center;
+}
+
+/* ── Scroll to top ── */
+.scroll-top-btn {
+    position: fixed; bottom: 24px; right: 24px; z-index: 80;
+    width: 42px; height: 42px; border-radius: 12px; border: 1px solid var(--border-color);
+    background: var(--bg-elevated); color: var(--text-muted); cursor: pointer;
+    display: flex; align-items: center; justify-content: center; font-size: 18px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.2); transition: all 0.2s;
+    opacity: 0; pointer-events: none; transform: translateY(10px);
+}
+.scroll-top-btn.visible { opacity: 1; pointer-events: auto; transform: translateY(0); }
+.scroll-top-btn:hover { background: var(--accent); color: #000; border-color: var(--accent); }
+
+/* ── Dropdown menu ── */
+.dropdown-menu {
+    display: none; position: absolute; right: 0; top: 100%; margin-top: 6px;
+    z-index: 100; min-width: 160px; background: var(--bg-elevated);
+    border: 1px solid var(--border-color); border-radius: 10px;
+    padding: 6px; box-shadow: 0 12px 40px rgba(0,0,0,0.4); animation: dropDown 0.15s ease;
+}
+[data-theme="light"] .dropdown-menu { box-shadow: 0 12px 40px rgba(0,0,0,0.1); }
+.dropdown-menu.open { display: block !important; }
+.dropdown-item {
+    display: flex; align-items: center; gap: 10px; padding: 9px 14px;
+    font-size: 0.8rem; color: var(--text-secondary); border-radius: 7px;
+    transition: background 0.12s; text-decoration: none; cursor: pointer;
+}
+.dropdown-item:hover { background: var(--bg-surface-hover); color: var(--text-primary) !important; }
 
 /* ── Responsive ── */
 @media (max-width: 768px) {
     .toolbar-row { flex-direction: column; align-items: stretch; }
     .filter-panel { width: 100%; margin: 10px; }
-    .page-header-row { flex-direction: column; gap: 12px; }
+    .list-hero { flex-direction: column; gap: 16px; padding: 18px; margin: 0 -12px 16px; }
+    .list-hero-right { width: 100%; justify-content: flex-start; }
+    .list-stats-cards { grid-template-columns: repeat(2, 1fr); }
+    .shortcuts-hint { display: none !important; }
+    .grid-view { grid-template-columns: 1fr; }
 }
 </style>
 {% endblock %}
@@ -233,27 +428,103 @@
 
 {# ── Breadcrumb ── #}
 <div class="list-breadcrumb">
-    <a href="{{ url_prefix|default('/admin') }}/">Dashboard</a>
+    <a href="{{ url_prefix|default('/admin') }}/"><i class="icon-home" style="font-size:11px;"></i> Dashboard</a>
     <span style="opacity:0.4;"><i class="icon-chevron-right" style="font-size:10px;"></i></span>
-    <span style="color:var(--text-secondary);">{{ verbose_name_plural }}</span>
+    <span style="color:var(--text-secondary);font-weight:500;">{{ verbose_name_plural }}</span>
 </div>
 
-{# ── Page Header with actions ── #}
-<div class="page-header-row">
-    <div style="display:flex;align-items:center;gap:10px;">
-        <h2><i class="icon-database" style="font-size:18px;vertical-align:-2px;margin-right:6px;opacity:0.4;"></i>{{ verbose_name_plural }}</h2>
+{# ── Hero Header ── #}
+<div class="list-hero">
+    <div class="list-hero-left">
+        <div class="list-hero-icon"><i class="icon-database"></i></div>
+        <div>
+            <h2 class="list-hero-title">{{ verbose_name_plural }}</h2>
+            <div class="list-hero-subtitle">
+                <span>{{ total }} record{{ 's' if total != 1 else '' }}</span>
+                <span style="opacity:0.3;">•</span>
+                <span>Page {{ page }}/{{ total_pages }}</span>
+                {% if active_filters %}<span style="opacity:0.3;">•</span><span style="color:var(--accent);">{{ active_filters|length }} filter{{ 's' if active_filters|length != 1 else '' }} active</span>{% endif %}
+            </div>
+        </div>
     </div>
-    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-        <button class="btn btn-secondary btn-sm" onclick="toggleFilterSidebar()" title="Toggle Filters (F)" id="filterToggleBtn">
-            <i class="icon-filter" style="font-size:13px;"></i> Filters
-            {% if active_filters %}<span style="background:var(--accent);color:#fff;border-radius:50%;width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;font-size:0.6rem;margin-left:2px;">{{ active_filters|length }}</span>{% endif %}
+    <div class="list-hero-right">
+        <button class="btn btn-secondary btn-sm" onclick="showImportModal()" title="Import Data">
+            <i class="icon-upload" style="font-size:13px;"></i> Import
         </button>
         <div class="dropdown" style="position:relative;">
-            <button class="btn btn-secondary btn-sm" id="colToggleBtn" title="Toggle Columns">
-                <i class="icon-columns" style="font-size:13px;"></i>
+            <button class="btn btn-secondary btn-sm" id="exportDropBtn">
+                <i class="icon-download" style="font-size:13px;"></i> Export
+            </button>
+            <div class="dropdown-menu" id="exportDropMenu">
+                <a href="{{ url_prefix|default('/admin') }}/{{ model_name|lower }}/export?format=csv" class="dropdown-item">
+                    <i class="icon-file-text" style="font-size:14px;"></i> CSV
+                </a>
+                <a href="{{ url_prefix|default('/admin') }}/{{ model_name|lower }}/export?format=json" class="dropdown-item">
+                    <i class="icon-braces" style="font-size:14px;"></i> JSON
+                </a>
+                <a href="{{ url_prefix|default('/admin') }}/{{ model_name|lower }}/export?format=xml" class="dropdown-item">
+                    <i class="icon-code" style="font-size:14px;"></i> XML
+                </a>
+            </div>
+        </div>
+        <a class="btn btn-primary btn-sm" href="{{ url_prefix|default('/admin') }}/{{ model_name|lower }}/add" style="font-weight:600;">
+            <i class="icon-plus" style="font-size:14px;"></i> Add {{ verbose_name }}
+        </a>
+    </div>
+</div>
+
+{# ── Stats Cards ── #}
+<div class="list-stats-cards" id="statsCards">
+    <div class="stat-card">
+        <div class="stat-card-icon"><i class="icon-database"></i></div>
+        <div class="stat-card-label">Total Records</div>
+        <div class="stat-card-value" id="statTotal">{{ total }}</div>
+        <div class="stat-card-sub">Across all pages</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-card-icon"><i class="icon-layout"></i></div>
+        <div class="stat-card-label">Current Page</div>
+        <div class="stat-card-value">{{ page }} <span style="font-size:0.7rem;font-weight:400;color:var(--text-faint);">/ {{ total_pages }}</span></div>
+        <div class="stat-card-sub">{{ per_page }} per page</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-card-icon"><i class="icon-columns"></i></div>
+        <div class="stat-card-label">Columns</div>
+        <div class="stat-card-value">{{ list_display|length }}</div>
+        <div class="stat-card-sub">{{ list_editable|length }} editable</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-card-icon"><i class="icon-filter"></i></div>
+        <div class="stat-card-label">Active Filters</div>
+        <div class="stat-card-value">{{ active_filters|length if active_filters else 0 }}</div>
+        <div class="stat-card-sub">{{ list_filter|length if list_filter else 0 }} available</div>
+    </div>
+</div>
+
+{# ── Search Bar ── #}
+<div class="search-container">
+    <div class="search-bar" id="liveSearchBox">
+        <i class="icon-search search-icon"></i>
+        <input type="text" id="liveSearchInput" value="{{ search }}" placeholder="Search {{ verbose_name_plural }}… ({{ search_fields|join(', ') }})" autocomplete="off">
+        <span id="searchSpinner" style="display:none;" class="search-spinner">⟳</span>
+        <kbd style="font-size:0.6rem;padding:2px 6px;border:1px solid var(--border-color);border-radius:4px;color:var(--text-faint);font-family:var(--font-mono);background:var(--bg-elevated);">⌘K</kbd>
+    </div>
+</div>
+
+{# ── Toolbar ── #}
+<div class="toolbar-row">
+    <div class="toolbar-group">
+        <button class="toolbar-btn" onclick="toggleFilterSidebar()" id="filterToggleBtn" title="Toggle Filters (F)">
+            <i class="icon-filter" style="font-size:13px;"></i> Filters
+            {% if active_filters %}<span class="badge">{{ active_filters|length }}</span>{% endif %}
+        </button>
+        <div class="toolbar-divider"></div>
+        <div style="position:relative;">
+            <button class="toolbar-btn" id="colToggleBtn" title="Toggle Columns">
+                <i class="icon-columns" style="font-size:13px;"></i> Columns
             </button>
             <div class="col-toggle-panel" id="colTogglePanel">
-                <div style="font-size:0.7rem;font-weight:600;color:var(--text-faint);text-transform:uppercase;letter-spacing:0.06em;padding:4px 8px 8px;">Visible Columns</div>
+                <div style="font-size:0.68rem;font-weight:700;color:var(--text-faint);text-transform:uppercase;letter-spacing:0.06em;padding:6px 10px 10px;">Visible Columns</div>
                 {% for col in list_display %}
                 <label class="col-toggle-item">
                     <input type="checkbox" checked onchange="toggleColumn('{{ col }}', this.checked)" data-col="{{ col }}">
@@ -262,56 +533,42 @@
                 {% endfor %}
             </div>
         </div>
-        <div class="dropdown" style="position:relative;">
-            <button class="btn btn-secondary btn-sm" id="exportDropBtn">
-                <i class="icon-download" style="font-size:13px;"></i> Export
+    </div>
+    <div style="flex:1;"></div>
+    <div class="toolbar-group">
+        <div class="view-toggle">
+            <button class="view-toggle-btn active" id="viewTableBtn" onclick="setViewMode('table')" title="Table view">
+                <i class="icon-list"></i>
             </button>
-            <div class="dropdown-menu" id="exportDropMenu">
-                <a href="{{ url_prefix|default('/admin') }}/{{ model_name|lower }}/export?format=csv" class="dropdown-item">
-                    <i class="icon-file-text" style="font-size:13px;"></i> CSV
-                </a>
-                <a href="{{ url_prefix|default('/admin') }}/{{ model_name|lower }}/export?format=json" class="dropdown-item">
-                    <i class="icon-braces" style="font-size:13px;"></i> JSON
-                </a>
-                <a href="{{ url_prefix|default('/admin') }}/{{ model_name|lower }}/export?format=xml" class="dropdown-item">
-                    <i class="icon-code" style="font-size:13px;"></i> XML
-                </a>
-            </div>
+            <button class="view-toggle-btn" id="viewGridBtn" onclick="setViewMode('grid')" title="Grid view">
+                <i class="icon-grid"></i>
+            </button>
         </div>
-        <button class="btn btn-secondary btn-sm" onclick="showImportModal()" title="Import Data">
-            <i class="icon-upload" style="font-size:13px;"></i> Import
-        </button>
-        <a class="btn btn-primary btn-sm" href="{{ url_prefix|default('/admin') }}/{{ model_name|lower }}/add">
-            <i class="icon-plus" style="font-size:14px;"></i> Add {{ verbose_name }}
-        </a>
     </div>
-</div>
-
-{# ── Search + Stats toolbar ── #}
-<div class="toolbar-row">
-    <div class="search-box" id="liveSearchBox" style="flex:1;min-width:200px;">
-        <i class="icon-search" style="font-size:15px;color:var(--text-faint);flex-shrink:0;"></i>
-        <input type="text" id="liveSearchInput" value="{{ search }}" placeholder="Search {{ verbose_name_plural }}… ({{ search_fields|join(', ') }})" autocomplete="off">
-        <span id="searchSpinner" style="display:none;font-size:11px;color:var(--text-faint);">⟳</span>
-        <kbd style="font-size:0.6rem;padding:1px 5px;border:1px solid var(--border-color);border-radius:3px;color:var(--text-faint);font-family:var(--font-mono);margin-left:auto;white-space:nowrap;">⌘K</kbd>
+    <div class="per-page-selector" style="margin-left:4px;">
+        <span>Show</span>
+        <select onchange="changePerPage(this.value)" id="perPageSelect">
+            {% for n in [10, 25, 50, 100] %}
+            <option value="{{ n }}" {{ 'selected' if per_page == n else '' }}>{{ n }}</option>
+            {% endfor %}
+        </select>
     </div>
-    <div class="list-stats-row">
-        <span class="list-stat-chip" id="resultCount"><strong>{{ total }}</strong>&nbsp;record{{ 's' if total != 1 else '' }}</span>
-        <span class="list-stat-chip">Page <strong>{{ page }}</strong> of <strong>{{ total_pages }}</strong></span>
-    </div>
+    <span id="resultCount" style="font-size:0.78rem;color:var(--text-muted);font-weight:500;white-space:nowrap;">
+        <strong style="color:var(--text-primary);">{{ total }}</strong> record{{ 's' if total != 1 else '' }}
+    </span>
 </div>
 
 {# ── Active filter pills ── #}
 {% if active_filters %}
 <div class="active-filters-bar" id="activeFiltersBar">
-    <span style="font-size:0.72rem;color:var(--text-faint);font-weight:500;">Active:</span>
+    <span style="font-size:0.72rem;color:var(--text-faint);font-weight:600;"><i class="icon-filter" style="font-size:11px;vertical-align:-1px;margin-right:3px;"></i> Active:</span>
     {% for key, val in active_filters.items() %}
     <span class="filter-pill">
         {{ key.replace('filter__', '').replace('__gte', ' from').replace('__lte', ' to').replace('_', ' ')|title }}: {{ val }}
         <button class="filter-pill-remove" onclick="removeFilter('{{ key }}')" title="Remove">&times;</button>
     </span>
     {% endfor %}
-    <button class="btn btn-ghost btn-sm" onclick="clearAllFilters()" style="font-size:0.72rem;color:var(--danger);">
+    <button class="btn btn-ghost btn-sm" onclick="clearAllFilters()" style="font-size:0.72rem;color:var(--danger);margin-left:auto;">
         <i class="icon-x" style="font-size:11px;"></i> Clear all
     </button>
 </div>
@@ -319,13 +576,13 @@
 
 {# ── Bulk actions bar ── #}
 <div id="bulkActionsBar" class="selection-summary">
-    <span style="font-size:0.82rem;font-weight:600;color:var(--accent);">
-        <i class="icon-check-square" style="font-size:14px;vertical-align:-2px;margin-right:4px;"></i>
+    <span style="font-size:0.85rem;font-weight:600;color:var(--accent);display:flex;align-items:center;gap:6px;">
+        <i class="icon-check-square" style="font-size:15px;"></i>
         <span id="selectedCount">0</span> selected
     </span>
     <form method="POST" action="{{ url_prefix|default('/admin') }}/{{ model_name|lower }}/action" id="bulkActionForm" style="display:flex;gap:8px;align-items:center;margin-left:auto;">
         <input type="hidden" name="selected" id="bulkSelectedPks" value="">
-        <select name="action" class="form-input" style="width:auto;padding:6px 12px;font-size:0.78rem;">
+        <select name="action" class="form-input" style="width:auto;padding:7px 14px;font-size:0.78rem;border-radius:8px;">
             <option value="">— Select action —</option>
             {% if actions %}
             {% for name, action_desc in actions.items() %}
@@ -336,34 +593,35 @@
         <button type="submit" class="btn btn-sm btn-danger" onclick="return confirmBulkAction()">
             <i class="icon-play" style="font-size:12px;"></i> Apply
         </button>
-        <button type="button" class="btn btn-sm btn-secondary" onclick="showBatchUpdateModal()" title="Batch update a field on selected records">
+        <button type="button" class="btn btn-sm btn-secondary" onclick="showBatchUpdateModal()" title="Batch update">
             <i class="icon-edit-3" style="font-size:12px;"></i> Batch Update
         </button>
     </form>
 </div>
 
-{# ── Data table ── #}
+{# ── Data table (table view) ── #}
+<div class="table-wrap" id="tableViewWrap">
 <div class="table-container sticky-header" id="recordsTable">
     <table class="admin-table" id="adminTable">
         <thead>
             <tr>
-                <th style="width:36px"><input type="checkbox" onchange="toggleAll(this)" id="selectAllCb" aria-label="Select all"></th>
-                <th style="width:30px"></th>
+                <th style="width:40px;"><input type="checkbox" onchange="toggleAll(this)" id="selectAllCb" aria-label="Select all" style="accent-color:var(--accent);width:15px;height:15px;"></th>
+                <th style="width:34px;"></th>
                 {% for col in list_display %}
-                <th class="col-header" data-col="{{ col }}" style="cursor:pointer;user-select:none;" onclick="sortColumn('{{ col }}', event)">
+                <th class="col-header" data-col="{{ col }}" style="cursor:pointer;" onclick="sortColumn('{{ col }}', event)">
                     {{ col.replace('_', ' ')|title }}
                     <span class="sort-indicator" id="sort-{{ col }}" data-col="{{ col }}">
                         <i class="icon-chevrons-up-down" style="font-size:10px;"></i>
                     </span>
                 </th>
                 {% endfor %}
-                <th style="width:160px">Actions</th>
+                <th style="width:140px;">Actions</th>
             </tr>
         </thead>
         <tbody id="recordsBody">
         {% for row in rows %}
             <tr data-pk="{{ row.pk }}">
-                <td><input type="checkbox" class="row-check" value="{{ row.pk }}" onchange="updateBulkBar()" aria-label="Select row"></td>
+                <td><input type="checkbox" class="row-check" value="{{ row.pk }}" onchange="updateBulkBar()" aria-label="Select row" style="accent-color:var(--accent);width:15px;height:15px;"></td>
                 <td><button class="btn-expand" onclick="toggleRowDetail(this, '{{ row.pk }}')" title="Expand"><i class="icon-chevron-right" style="font-size:11px;"></i></button></td>
                 {% for col in list_display %}
                     {% set val = row[col]|default('—') %}
@@ -407,25 +665,68 @@
                     <td class="{{ 'cell-editable' if is_editable else '' }}" data-col="{{ col }}" data-field="{{ col }}" data-pk="{{ row.pk }}" data-type="{{ col_type }}" {% if is_editable %}onclick="startInlineEdit(this)"{% endif %}>{{ val }}</td>
                     {% endif %}
                 {% endfor %}
-                <td style="white-space:nowrap;">
-                    <a href="{{ url_prefix|default('/admin') }}/{{ model_name|lower }}/{{ row.pk }}" class="btn btn-sm btn-ghost" title="Edit"><i class="icon-edit-3" style="font-size:13px;"></i></a>
-                    <button type="button" class="btn btn-sm btn-ghost" title="Update" onclick="quickUpdate('{{ row.pk }}')"><i class="icon-refresh-cw" style="font-size:13px;"></i></button>
-                    <button type="button" class="btn btn-sm btn-ghost" title="Duplicate" onclick="showConfirmModal('Duplicate record #{{ row.pk }}?', 'This will create an exact copy of this record.', function(){ doDuplicate('{{ row.pk }}'); })"><i class="icon-copy" style="font-size:13px;"></i></button>
-                    <button type="button" class="btn btn-sm btn-ghost" title="Delete" style="color:var(--danger);" onclick="showConfirmModal('Delete record #{{ row.pk }}?', 'This action cannot be undone.', function(){ doDelete('{{ row.pk }}'); }, true)"><i class="icon-trash-2" style="font-size:13px;"></i></button>
+                <td>
+                    <div class="row-actions">
+                        <a href="{{ url_prefix|default('/admin') }}/{{ model_name|lower }}/{{ row.pk }}" class="row-action-btn" title="Edit"><i class="icon-edit-3" style="font-size:13px;"></i></a>
+                        <button type="button" class="row-action-btn" title="Duplicate" onclick="showConfirmModal('Duplicate record #{{ row.pk }}?', 'This will create an exact copy of this record.', function(){ doDuplicate('{{ row.pk }}'); })"><i class="icon-copy" style="font-size:13px;"></i></button>
+                        <a href="{{ url_prefix|default('/admin') }}/{{ model_name|lower }}/{{ row.pk }}/history" class="row-action-btn" title="History"><i class="icon-clock" style="font-size:13px;"></i></a>
+                        <button type="button" class="row-action-btn danger" title="Delete" onclick="showConfirmModal('Delete record #{{ row.pk }}?', 'This action cannot be undone.', function(){ doDelete('{{ row.pk }}'); }, true)"><i class="icon-trash-2" style="font-size:13px;"></i></button>
+                    </div>
                 </td>
             </tr>
         {% else %}
-            <tr><td colspan="{{ list_display|length + 3 }}" class="empty-state"><i class="icon-inbox" style="font-size:28px;display:block;margin-bottom:8px;opacity:0.3;"></i>No records found</td></tr>
+            <tr><td colspan="{{ list_display|length + 3 }}">
+                <div class="empty-state-card" style="border:none;background:transparent;">
+                    <div class="empty-state-icon"><i class="icon-inbox"></i></div>
+                    <div class="empty-state-title">No records found</div>
+                    <div class="empty-state-text">{% if search %}Try adjusting your search query or filters.{% else %}Get started by adding your first record.{% endif %}</div>
+                    <a href="{{ url_prefix|default('/admin') }}/{{ model_name|lower }}/add" class="btn btn-primary btn-sm"><i class="icon-plus" style="font-size:14px;"></i> Add {{ verbose_name }}</a>
+                </div>
+            </td></tr>
         {% endfor %}
         </tbody>
     </table>
 </div>
+</div>
 
-{# ── Pagination with per-page selector ── #}
-<div style="display:flex;align-items:center;justify-content:space-between;margin-top:16px;flex-wrap:wrap;gap:12px;">
+{# ── Grid View (card mode) ── #}
+<div class="grid-view" id="gridViewWrap">
+{% for row in rows %}
+    <div class="grid-card" data-pk="{{ row.pk }}">
+        <div class="grid-card-header">
+            <a href="{{ url_prefix|default('/admin') }}/{{ model_name|lower }}/{{ row.pk }}" class="grid-card-pk">#{{ row.pk }}</a>
+            <input type="checkbox" class="row-check grid-check" value="{{ row.pk }}" onchange="updateBulkBar()" style="accent-color:var(--accent);width:15px;height:15px;">
+        </div>
+        {% for col in list_display %}
+            {% set val = row[col]|default('—') %}
+            <div class="grid-card-field">
+                <span class="label">{{ col.replace('_', ' ')|title }}</span>
+                <span class="value">{{ val|string|truncate(60, True) }}</span>
+            </div>
+        {% endfor %}
+        <div class="grid-card-actions">
+            <a href="{{ url_prefix|default('/admin') }}/{{ model_name|lower }}/{{ row.pk }}" class="row-action-btn" title="Edit"><i class="icon-edit-3" style="font-size:13px;"></i></a>
+            <button type="button" class="row-action-btn" title="Duplicate" onclick="showConfirmModal('Duplicate #{{ row.pk }}?','Create a copy.',function(){doDuplicate('{{ row.pk }}');})"><i class="icon-copy" style="font-size:13px;"></i></button>
+            <a href="{{ url_prefix|default('/admin') }}/{{ model_name|lower }}/{{ row.pk }}/history" class="row-action-btn" title="History"><i class="icon-clock" style="font-size:13px;"></i></a>
+            <button type="button" class="row-action-btn danger" title="Delete" onclick="showConfirmModal('Delete #{{ row.pk }}?','Cannot be undone.',function(){doDelete('{{ row.pk }}');},true)"><i class="icon-trash-2" style="font-size:13px;"></i></button>
+        </div>
+    </div>
+{% else %}
+    <div class="empty-state-card" style="grid-column:1/-1;">
+        <div class="empty-state-icon"><i class="icon-inbox"></i></div>
+        <div class="empty-state-title">No records found</div>
+        <div class="empty-state-text">{% if search %}Try adjusting your search query.{% else %}Add your first record to get started.{% endif %}</div>
+        <a href="{{ url_prefix|default('/admin') }}/{{ model_name|lower }}/add" class="btn btn-primary btn-sm"><i class="icon-plus" style="font-size:14px;"></i> Add {{ verbose_name }}</a>
+    </div>
+{% endfor %}
+</div>
+
+{# ── Pagination ── #}
+{% if total_pages > 0 %}
+<div class="pagination-bar">
     <div class="per-page-selector">
         <span>Show</span>
-        <select onchange="changePerPage(this.value)" id="perPageSelect">
+        <select onchange="changePerPage(this.value)">
             {% for n in [10, 25, 50, 100] %}
             <option value="{{ n }}" {{ 'selected' if per_page == n else '' }}>{{ n }}</option>
             {% endfor %}
@@ -435,9 +736,11 @@
     {% if total_pages > 1 %}
     <div class="pagination">
         {% if page > 1 %}
-        <a href="javascript:void(0)" onclick="goToPage({{ page - 1 }})" class="page-btn" aria-label="Previous"><i class="icon-chevron-left" style="font-size:15px;"></i></a>
+        <a href="javascript:void(0)" onclick="goToPage(1)" class="page-btn" title="First"><i class="icon-chevrons-left" style="font-size:14px;"></i></a>
+        <a href="javascript:void(0)" onclick="goToPage({{ page - 1 }})" class="page-btn" aria-label="Previous"><i class="icon-chevron-left" style="font-size:14px;"></i></a>
         {% else %}
-        <span class="page-btn disabled"><i class="icon-chevron-left" style="font-size:15px;"></i></span>
+        <span class="page-btn disabled"><i class="icon-chevrons-left" style="font-size:14px;"></i></span>
+        <span class="page-btn disabled"><i class="icon-chevron-left" style="font-size:14px;"></i></span>
         {% endif %}
         {% for p in range(1, total_pages + 1) %}
             {% if (p - page)|abs <= 2 or p == 1 or p == total_pages %}
@@ -447,14 +750,19 @@
             {% endif %}
         {% endfor %}
         {% if page < total_pages %}
-        <a href="javascript:void(0)" onclick="goToPage({{ page + 1 }})" class="page-btn" aria-label="Next"><i class="icon-chevron-right" style="font-size:15px;"></i></a>
+        <a href="javascript:void(0)" onclick="goToPage({{ page + 1 }})" class="page-btn" aria-label="Next"><i class="icon-chevron-right" style="font-size:14px;"></i></a>
+        <a href="javascript:void(0)" onclick="goToPage({{ total_pages }})" class="page-btn" title="Last"><i class="icon-chevrons-right" style="font-size:14px;"></i></a>
         {% else %}
-        <span class="page-btn disabled"><i class="icon-chevron-right" style="font-size:15px;"></i></span>
+        <span class="page-btn disabled"><i class="icon-chevron-right" style="font-size:14px;"></i></span>
+        <span class="page-btn disabled"><i class="icon-chevrons-right" style="font-size:14px;"></i></span>
         {% endif %}
     </div>
     {% endif %}
-    <div class="record-count" style="font-size:0.78rem;color:var(--text-muted);">{{ total }} total record{{ 's' if total != 1 else '' }}</div>
+    <div style="font-size:0.78rem;color:var(--text-muted);font-weight:500;">
+        Showing <strong style="color:var(--text-primary);">{{ ((page-1)*per_page)+1 }}–{{ [page*per_page, total]|min }}</strong> of <strong style="color:var(--text-primary);">{{ total }}</strong>
+    </div>
 </div>
+{% endif %}
 
 </div>{# .list-main #}
 
@@ -546,6 +854,24 @@
 </div>{# .filter-panel #}
 </div>{# .filter-overlay #}
 
+{# ── Keyboard Shortcuts Hint ── #}
+<div class="kbd-hint" id="kbdHintBar">
+    <span class="kbd-hint-item"><kbd>⌘K</kbd> Search</span>
+    <span class="kbd-hint-item"><kbd>N</kbd> New record</span>
+    <span class="kbd-hint-item"><kbd>J</kbd>/<kbd>K</kbd> Navigate rows</span>
+    <span class="kbd-hint-item"><kbd>Enter</kbd> Open selected</span>
+    <span class="kbd-hint-item"><kbd>X</kbd> Expand row</span>
+    <span class="kbd-hint-item"><kbd>F</kbd> Filters</span>
+    <span class="kbd-hint-item"><kbd>V</kbd> Toggle view</span>
+    <span class="kbd-hint-item"><kbd>⌘A</kbd> Select all</span>
+    <span class="kbd-hint-item"><kbd>?</kbd> Toggle shortcuts</span>
+</div>
+
+{# ── Scroll to Top ── #}
+<button class="scroll-top-btn" id="scrollTopBtn" onclick="window.scrollTo({top:0,behavior:'smooth'})" title="Scroll to top">
+    <i class="icon-chevron-up" style="font-size:18px;"></i>
+</button>
+
 </div>{# .list-layout #}
 {% endblock %}
 
@@ -610,12 +936,36 @@ function clearAllFilters() {
 function changePerPage(val) { window.location.href = buildListUrl({ per_page: val, page: '1' }); }
 function goToPage(p) { window.location.href = buildListUrl({ page: p }); }
 
+// ── View Mode Toggle (Table / Grid) ────────────────────────────
+function setViewMode(mode) {
+    var tw = document.getElementById('tableViewWrap'), gw = document.getElementById('gridViewWrap');
+    var tb = document.getElementById('viewTableBtn'), gb = document.getElementById('viewGridBtn');
+    if (mode === 'grid') {
+        if (tw) tw.style.display = 'none';
+        if (gw) gw.style.display = 'grid';
+        if (tb) tb.classList.remove('active');
+        if (gb) gb.classList.add('active');
+    } else {
+        if (tw) tw.style.display = '';
+        if (gw) gw.style.display = 'none';
+        if (tb) tb.classList.add('active');
+        if (gb) gb.classList.remove('active');
+    }
+    try { localStorage.setItem('aq_view_mode_{{ model_name|lower }}', mode); } catch(e) {}
+}
+(function() {
+    try {
+        var m = localStorage.getItem('aq_view_mode_{{ model_name|lower }}');
+        if (m === 'grid') setViewMode('grid');
+    } catch(e) {}
+})();
+
 // ── Column Visibility ──────────────────────────────────────────
 (function() {
     var btn = document.getElementById('colToggleBtn'), panel = document.getElementById('colTogglePanel');
     if (!btn || !panel) return;
     btn.addEventListener('click', function(e) { e.stopPropagation(); panel.classList.toggle('open'); });
-    document.addEventListener('click', function(e) { if (!panel.contains(e.target)) panel.classList.remove('open'); });
+    document.addEventListener('click', function(e) { if (!panel.contains(e.target) && e.target !== btn) panel.classList.remove('open'); });
 })();
 
 function toggleColumn(col, show) {
@@ -658,6 +1008,7 @@ function sortColumn(col, e) {
 (function() {
     var input = document.getElementById('liveSearchInput'), spinner = document.getElementById('searchSpinner');
     var resultCount = document.getElementById('resultCount'), tbody = document.getElementById('recordsBody');
+    var statTotal = document.getElementById('statTotal');
     if (!input || !tbody) return;
     var debounceTimer = null, DEBOUNCE_MS = 350, lastQuery = input.value.trim();
 
@@ -690,15 +1041,15 @@ function sortColumn(col, e) {
 
     function buildRow(row) {
         var pk = row.pk || row.id || '', h = '<tr data-pk="' + esc(pk) + '">';
-        h += '<td><input type="checkbox" class="row-check" value="' + esc(pk) + '" onchange="updateBulkBar()"></td>';
+        h += '<td><input type="checkbox" class="row-check" value="' + esc(pk) + '" onchange="updateBulkBar()" style="accent-color:var(--accent);width:15px;height:15px;"></td>';
         h += '<td><button class="btn-expand" onclick="toggleRowDetail(this,\'' + esc(pk) + '\')"><i class="icon-chevron-right" style="font-size:11px;"></i></button></td>';
         LIST_DISPLAY.forEach(function(col, i) { h += renderCell(row[col], col, i===0, row); });
-        h += '<td style="white-space:nowrap;">';
-        h += '<a href="' + BASE_URL + '/' + encodeURIComponent(pk) + '" class="btn btn-sm btn-ghost" title="Edit"><i class="icon-edit-3" style="font-size:13px;"></i></a>';
-        h += '<button class="btn btn-sm btn-ghost" title="Update" onclick="quickUpdate(\'' + esc(pk) + '\')"><i class="icon-refresh-cw" style="font-size:13px;"></i></button>';
-        h += '<button class="btn btn-sm btn-ghost" onclick="showConfirmModal(\'Duplicate #' + esc(pk) + '?\',\'Create a copy.\',function(){doDuplicate(\'' + esc(pk) + '\');})"><i class="icon-copy" style="font-size:13px;"></i></button>';
-        h += '<button class="btn btn-sm btn-ghost" style="color:var(--danger);" onclick="showConfirmModal(\'Delete #' + esc(pk) + '?\',\'Cannot be undone.\',function(){doDelete(\'' + esc(pk) + '\');},true)"><i class="icon-trash-2" style="font-size:13px;"></i></button>';
-        h += '</td></tr>';
+        h += '<td><div class="row-actions">';
+        h += '<a href="' + BASE_URL + '/' + encodeURIComponent(pk) + '" class="row-action-btn" title="Edit"><i class="icon-edit-3" style="font-size:13px;"></i></a>';
+        h += '<button class="row-action-btn" onclick="showConfirmModal(\'Duplicate #' + esc(pk) + '?\',\'Create a copy.\',function(){doDuplicate(\'' + esc(pk) + '\');})"><i class="icon-copy" style="font-size:13px;"></i></button>';
+        h += '<a href="' + BASE_URL + '/' + encodeURIComponent(pk) + '/history" class="row-action-btn" title="History"><i class="icon-clock" style="font-size:13px;"></i></a>';
+        h += '<button class="row-action-btn danger" onclick="showConfirmModal(\'Delete #' + esc(pk) + '?\',\'Cannot be undone.\',function(){doDelete(\'' + esc(pk) + '\');},true)"><i class="icon-trash-2" style="font-size:13px;"></i></button>';
+        h += '</div></td></tr>';
         return h;
     }
 
@@ -715,9 +1066,12 @@ function sortColumn(col, e) {
                 if (data.rows && data.rows.length) {
                     var rh = ''; data.rows.forEach(function(r) { rh += buildRow(r); }); tbody.innerHTML = rh;
                     initRelativeTimes(); restoreColumnVisibility();
-                } else { tbody.innerHTML = '<tr><td colspan="' + (LIST_DISPLAY.length+3) + '" class="empty-state"><i class="icon-inbox" style="font-size:28px;display:block;margin-bottom:8px;opacity:0.3;"></i>No records found</td></tr>'; }
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="' + (LIST_DISPLAY.length+3) + '"><div class="empty-state-card" style="border:none;background:transparent;"><div class="empty-state-icon"><i class="icon-inbox"></i></div><div class="empty-state-title">No records found</div><div class="empty-state-text">Try adjusting your search query or filters.</div></div></td></tr>';
+                }
                 var t = data.total || 0;
-                resultCount.innerHTML = '<strong>' + t + '</strong>&nbsp;record' + (t !== 1 ? 's' : '');
+                if (resultCount) resultCount.innerHTML = '<strong style="color:var(--text-primary);">' + t + '</strong> record' + (t !== 1 ? 's' : '');
+                if (statTotal) statTotal.textContent = t;
                 var bar = document.getElementById('bulkActionsBar'); if (bar) bar.classList.remove('visible');
                 var sa = document.getElementById('selectAllCb'); if (sa) { sa.checked = false; sa.indeterminate = false; }
             }).catch(function() { spinner.style.display = 'none'; });
@@ -744,15 +1098,22 @@ function updateBulkBar() {
         bar.classList.add('visible');
         cnt.textContent = ch.length;
         document.getElementById('bulkSelectedPks').value = Array.from(ch).map(function(c){return c.value;}).join(',');
-        // Highlight selected rows
+        // Highlight selected rows in table view
         document.querySelectorAll('#recordsBody tr[data-pk]').forEach(function(r) {
             var cb = r.querySelector('.row-check');
             if (cb && cb.checked) r.classList.add('row-selected');
             else r.classList.remove('row-selected');
         });
+        // Highlight selected cards in grid view
+        document.querySelectorAll('.grid-card[data-pk]').forEach(function(c) {
+            var cb = c.querySelector('.row-check');
+            if (cb && cb.checked) c.classList.add('grid-card-selected');
+            else c.classList.remove('grid-card-selected');
+        });
     } else {
         bar.classList.remove('visible');
         document.querySelectorAll('.row-selected').forEach(function(r) { r.classList.remove('row-selected'); });
+        document.querySelectorAll('.grid-card-selected').forEach(function(c) { c.classList.remove('grid-card-selected'); });
     }
     var tot = document.querySelectorAll('.row-check').length;
     sa.indeterminate = ch.length > 0 && ch.length < tot; sa.checked = ch.length === tot && tot > 0;
@@ -775,6 +1136,16 @@ function confirmBulkAction() {
     document.addEventListener('click', function() { m.classList.remove('open'); });
 })();
 
+// ── Scroll-to-Top Button ────────────────────────────────────────
+(function() {
+    var btn = document.getElementById('scrollTopBtn');
+    if (!btn) return;
+    window.addEventListener('scroll', function() {
+        if (window.scrollY > 400) btn.classList.add('visible');
+        else btn.classList.remove('visible');
+    });
+})();
+
 // ── Keyboard shortcuts ──────────────────────────────────────────
 document.addEventListener('keydown', function(e) {
     if (['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName)) return;
@@ -790,6 +1161,14 @@ document.addEventListener('keydown', function(e) {
     if (e.key === 'f' && !e.metaKey && !e.ctrlKey && !e.altKey) { e.preventDefault(); openFilterPanel(); }
     if (e.key === 'Escape') { closeFilterPanel(); }
     if (e.key === 'x' && !e.metaKey && !e.ctrlKey && !e.altKey) { var f = document.querySelector('#recordsBody tr.row-focused'); if (f) { var b = f.querySelector('.btn-expand'); if (b) b.click(); } }
+    if (e.key === 'v' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        var gw = document.getElementById('gridViewWrap');
+        setViewMode(gw && gw.style.display !== 'none' ? 'table' : 'grid');
+    }
+    if (e.key === '?') {
+        var hint = document.getElementById('kbdHintBar');
+        if (hint) hint.classList.toggle('visible');
+    }
     // Select all with Ctrl/Cmd+A
     if ((e.metaKey || e.ctrlKey) && e.key === 'a') { e.preventDefault(); var sa = document.getElementById('selectAllCb'); if (sa) { sa.checked = !sa.checked; toggleAll(sa); } }
 });
@@ -823,7 +1202,7 @@ function startInlineEdit(td) {
     inp.addEventListener('click', function(e) { e.stopPropagation(); });
 }
 
-/* quickUpdate: inline-edit shortcut with refresh-cw icon for instant field updates */
+/* quickUpdate: inline-edit shortcut for instant field updates */
 function quickUpdate(pk, field, value) { saveInlineEdit(pk, field, value, null); }
 
 function saveInlineEdit(pk, field, value, td) {
@@ -927,7 +1306,7 @@ function submitImport() {
 
 // ── Batch Update Modal ──────────────────────────────────────────
 function showBatchUpdateModal() {
-    var checked = document.querySelectorAll('.row-select:checked');
+    var checked = document.querySelectorAll('.row-check:checked');
     if (!checked.length) { showToast('Select records first', 'warning'); return; }
     var pks = []; checked.forEach(function(cb) { pks.push(cb.value); });
     var cols = [];
@@ -942,7 +1321,7 @@ function showBatchUpdateModal() {
     ov.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);';
     ov.onclick = function(e) { if (e.target === ov) ov.remove(); };
     var opts = ''; cols.forEach(function(c) { opts += '<option value="' + c + '">' + c.replace(/_/g, ' ').replace(/\b\w/g, function(l){return l.toUpperCase();}) + '</option>'; });
-    ov.innerHTML = '<div style="background:var(--bg-elevated);border:1px solid var(--border-color);border-radius:12px;padding:24px;min-width:380px;max-width:440px;box-shadow:0 24px 64px rgba(0,0,0,0.4);">'
+    ov.innerHTML = '<div style="background:var(--bg-elevated);border:1px solid var(--border-color);border-radius:14px;padding:28px;min-width:380px;max-width:440px;box-shadow:0 24px 64px rgba(0,0,0,0.4);">'
         + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;"><h3 style="margin:0;font-size:1rem;font-weight:600;color:var(--text-primary);">Batch Update</h3><button onclick="this.closest(\'#batch-update-overlay\').remove()" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:18px;padding:4px;">&times;</button></div>'
         + '<p style="font-size:0.8rem;color:var(--text-secondary);margin:0 0 16px;">Update <strong>' + pks.length + '</strong> selected record(s).</p>'
         + '<label style="display:block;font-size:0.75rem;font-weight:500;color:var(--text-secondary);margin-bottom:4px;">Field</label>'
@@ -953,7 +1332,6 @@ function showBatchUpdateModal() {
         + '</div>';
     document.body.appendChild(ov);
     ov.querySelector('#batchValue').focus();
-    // Store pks for submission
     ov._pks = pks;
 }
 
@@ -981,17 +1359,27 @@ function executeBatchUpdate() {
         .catch(function(err) { showToast('Error: ' + err.message, 'error'); });
 }
 
+// ── Toast Notifications (enhanced with icons) ───────────────────
 function showToast(msg, type) {
     type = type || 'info'; var el = document.createElement('div');
-    el.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:10010;padding:12px 20px;border-radius:8px;font-size:0.82rem;font-weight:500;box-shadow:0 8px 32px rgba(0,0,0,0.3);animation:fadeIn 0.15s ease;max-width:360px;font-family:var(--font-sans);';
-    var c = { success: 'background:rgba(34,197,94,0.15);color:#22c55e;border:1px solid rgba(34,197,94,0.3);', error: 'background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);', warning: 'background:rgba(234,179,8,0.15);color:#eab308;border:1px solid rgba(234,179,8,0.3);', info: 'background:rgba(59,130,246,0.15);color:#3b82f6;border:1px solid rgba(59,130,246,0.3);' };
-    el.style.cssText += (c[type] || c.info); el.textContent = msg; document.body.appendChild(el);
-    setTimeout(function() { el.style.opacity = '0'; el.style.transition = 'opacity 0.3s'; setTimeout(function() { el.remove(); }, 300); }, 3500);
+    var icons = { success: 'check-circle', error: 'alert-circle', warning: 'alert-triangle', info: 'info' };
+    var colors = {
+        success: { bg: 'rgba(34,197,94,0.15)', fg: '#22c55e', border: 'rgba(34,197,94,0.3)' },
+        error:   { bg: 'rgba(239,68,68,0.15)', fg: '#ef4444', border: 'rgba(239,68,68,0.3)' },
+        warning: { bg: 'rgba(234,179,8,0.15)',  fg: '#eab308', border: 'rgba(234,179,8,0.3)' },
+        info:    { bg: 'rgba(59,130,246,0.15)', fg: '#3b82f6', border: 'rgba(59,130,246,0.3)' }
+    };
+    var c = colors[type] || colors.info;
+    el.style.cssText = 'position:fixed;bottom:24px;right:24px;z-index:10010;padding:14px 22px;border-radius:12px;font-size:0.82rem;font-weight:500;box-shadow:0 8px 32px rgba(0,0,0,0.3);animation:fadeIn 0.2s ease;max-width:400px;font-family:var(--font-sans);display:flex;align-items:center;gap:10px;background:' + c.bg + ';color:' + c.fg + ';border:1px solid ' + c.border + ';backdrop-filter:blur(12px);';
+    el.innerHTML = '<i class="icon-' + (icons[type] || 'info') + '" style="font-size:16px;flex-shrink:0;"></i><span>' + msg + '</span>';
+    document.body.appendChild(el);
+    setTimeout(function() { el.style.opacity = '0'; el.style.transform = 'translateY(10px)'; el.style.transition = 'opacity 0.3s, transform 0.3s'; setTimeout(function() { el.remove(); }, 300); }, 3500);
 }
 
+// ── Dropdown Styles ─────────────────────────────────────────────
 (function() {
     var s = document.createElement('style');
-    s.textContent = '.dropdown-menu{display:none;position:absolute;right:0;top:100%;margin-top:4px;z-index:100;min-width:140px;background:var(--bg-elevated);border:1px solid var(--border-color);border-radius:var(--radius-sm);padding:4px;box-shadow:0 8px 32px rgba(0,0,0,0.5);}.dropdown-menu.open{display:block!important;}.dropdown-item{display:flex;align-items:center;gap:8px;padding:8px 12px;font-size:0.8rem;color:var(--text-secondary);border-radius:var(--radius-xs);transition:background 0.12s;text-decoration:none;}.dropdown-item:hover{background:var(--bg-surface-hover);color:var(--text-primary)!important;}';
+    s.textContent = '.dropdown-menu{display:none;position:absolute;right:0;top:100%;margin-top:6px;z-index:100;min-width:160px;background:var(--bg-elevated);border:1px solid var(--border-color);border-radius:10px;padding:4px;box-shadow:0 12px 40px rgba(0,0,0,0.4);animation:fadeIn 0.12s ease;}.dropdown-menu.open{display:block!important;}.dropdown-item{display:flex;align-items:center;gap:10px;padding:10px 14px;font-size:0.8rem;color:var(--text-secondary);border-radius:8px;transition:background 0.12s,color 0.12s;text-decoration:none;}.dropdown-item:hover{background:var(--bg-surface-hover);color:var(--text-primary)!important;}.grid-card-selected{border-color:var(--accent)!important;box-shadow:0 0 0 2px rgba(34,197,94,0.2),0 8px 24px rgba(0,0,0,0.15)!important;}';
     document.head.appendChild(s);
 })();
 {% endblock %}

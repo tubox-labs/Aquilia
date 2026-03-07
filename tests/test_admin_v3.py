@@ -4221,7 +4221,8 @@ class TestUpdateButtonInActions:
             },
             app_list=[], identity_name="admin",
         )
-        assert "refresh-cw" in html
+        # Row actions now use icon-only circular buttons (edit, copy, history, delete)
+        assert "row-action-btn" in html
 
 
 class TestWorkspacePage:
