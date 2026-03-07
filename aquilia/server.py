@@ -2014,15 +2014,25 @@ class AquiliaServer:
             ])
 
             # Model CRUD routes -- always registered
+            # NOTE: Static-suffix routes (export, action, add, search, batch-update,
+            # filter-meta) MUST come before the bare /<pk:str> catch-all so the
+            # router's static index wins on exact matches.
             admin_routes.extend([
-                ("GET",  f"{url_prefix}/<model:str>/export", "export_view",     ctrl.export_view),
-                ("POST", f"{url_prefix}/<model:str>/action", "bulk_action",     ctrl.bulk_action),
-                ("GET",  f"{url_prefix}/<model:str>/",      "list_view",        ctrl.list_view),
-                ("GET",  f"{url_prefix}/<model:str>/add",   "add_form",         ctrl.add_form),
-                ("POST", f"{url_prefix}/<model:str>/add",   "add_submit",       ctrl.add_submit),
-                ("GET",  f"{url_prefix}/<model:str>/<pk:str>",        "edit_form",      ctrl.edit_form),
-                ("POST", f"{url_prefix}/<model:str>/<pk:str>",        "edit_submit",    ctrl.edit_submit),
-                ("POST", f"{url_prefix}/<model:str>/<pk:str>/delete", "delete_record",  ctrl.delete_record),
+                # ── Model-level static routes ────────────────────────────────
+                ("GET",  f"{url_prefix}/<model:str>/export",       "export_view",          ctrl.export_view),
+                ("POST", f"{url_prefix}/<model:str>/action",       "bulk_action",          ctrl.bulk_action),
+                ("POST", f"{url_prefix}/<model:str>/batch-update", "batch_update",         ctrl.batch_update),
+                ("GET",  f"{url_prefix}/<model:str>/filter-meta",  "filter_metadata_api",  ctrl.filter_metadata_api),
+                ("GET",  f"{url_prefix}/<model:str>/search",       "search_api",           ctrl.search_api),
+                ("GET",  f"{url_prefix}/<model:str>/",             "list_view",            ctrl.list_view),
+                ("GET",  f"{url_prefix}/<model:str>/add",          "add_form",             ctrl.add_form),
+                ("POST", f"{url_prefix}/<model:str>/add",          "add_submit",           ctrl.add_submit),
+                # ── Record-level routes ──────────────────────────────────────
+                # History must precede the bare /<pk:str> catch-all.
+                ("GET",  f"{url_prefix}/<model:str>/<pk:str>/history", "history_view",     ctrl.history_view),
+                ("POST", f"{url_prefix}/<model:str>/<pk:str>/delete",  "delete_record",    ctrl.delete_record),
+                ("GET",  f"{url_prefix}/<model:str>/<pk:str>",         "edit_form",        ctrl.edit_form),
+                ("POST", f"{url_prefix}/<model:str>/<pk:str>",         "edit_submit",      ctrl.edit_submit),
             ])
 
             registered_count = 0
