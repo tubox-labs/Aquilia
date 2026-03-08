@@ -8,14 +8,15 @@ All subsystem __init__.py files import from here:
 The workspace generator always uses WORKSPACE_VERSION ("1.0.0") so that
 generated workspace.py files are not pinned to the framework release cycle.
 
-Versioning scheme: CalVer-inspired SemVer  MAJOR.MINOR.PATCH
+Versioning scheme: CalVer-inspired SemVer  MAJOR.MINOR.PATCHbN
   MAJOR  — breaking API changes
   MINOR  — new features, backwards-compatible
   PATCH  — bug fixes, security patches
+  bN     — beta pre-release (removed on stable release)
 """
 
 #: Framework version — single source of truth.
-__version__: str = "1.0.1"
+__version__: str = "1.0.1b1"
 
 #: Version tuple for programmatic comparison.
 VERSION: tuple[int, int, int] = (1, 0, 1)
