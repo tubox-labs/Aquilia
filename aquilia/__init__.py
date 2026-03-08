@@ -14,7 +14,7 @@ Complete integration of:
 Everything deeply integrated for seamless developer experience.
 """
 
-__version__ = "1.0.1"
+from aquilia._version import __version__  # noqa: F401 — re-exported
 
 # ============================================================================
 # Core Framework

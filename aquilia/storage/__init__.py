@@ -67,7 +67,7 @@ Quick Start::
             return {"path": path, "url": self.storage.default.url(path)}
 """
 
-__version__ = "1.0.0"
+from aquilia._version import __version__  # noqa: F401 — re-exported
 
 # ── Core abstractions ────────────────────────────────────────────────────
 from .base import (
