@@ -1,6 +1,12 @@
 """
 Aquilia Model System -- AMDL-based, async-first models.
 
+.. deprecated:: 1.0
+    This module (``aquilia.models.__init__old``) and the entire AMDL system
+    are deprecated. Use the Python-native ``Model`` class system
+    (``from aquilia.models import Model``) instead. AMDL will be removed
+    in a future release.
+
 Public API:
     - AMDL parser: parse_amdl, parse_amdl_file, parse_amdl_directory
     - AST nodes: ModelNode, SlotNode, LinkNode, etc.
@@ -9,6 +15,16 @@ Public API:
     - Database: AquiliaDatabase (re-exported from aquilia.db)
     - Faults: ModelNotFoundFault, QueryFault, etc. (re-exported from aquilia.faults)
 """
+
+import warnings
+
+warnings.warn(
+    "The AMDL public API (aquilia.models.__init__old) is deprecated. "
+    "Use 'from aquilia.models import Model' and the Python-native class system. "
+    "AMDL will be removed in a future release.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 from .ast_nodes import (
     AMDLFile,

@@ -49,14 +49,24 @@ __all__: list[str] = []
 
 # ── Field Errors ─────────────────────────────────────────────────────────────
 
+# Import the Fault base so field validation errors flow through the fault pipeline
+from ..faults.domains import FieldValidationFault as _FieldValidationFault
 
-class FieldValidationError(ValueError):
-    """Raised when field validation fails."""
+
+class FieldValidationError(_FieldValidationFault, ValueError):
+    """Raised when field validation fails.
+
+    Inherits from both ``FieldValidationFault`` (Aquilia fault pipeline)
+    and ``ValueError`` (backward compatibility with existing except clauses).
+    """
 
     def __init__(self, field_name: str, message: str, value: Any = None):
         self.field_name = field_name
         self.value = value
-        super().__init__(f"Field '{field_name}': {message}")
+        # Initialize the Fault side (FieldValidationFault)
+        _FieldValidationFault.__init__(self, field_name=field_name, reason=message)
+        # Override the message to match the established format
+        self.args = (f"Field '{field_name}': {message}",)
 
 
 # ── Sentinel ─────────────────────────────────────────────────────────────────

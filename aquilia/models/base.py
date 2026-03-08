@@ -414,9 +414,12 @@ class Model(metaclass=ModelMeta):
         return instance
 
     @classmethod
-    async def get(cls, pk: Any = None, **filters: Any) -> Optional[Model]:
+    async def get(cls, pk: Any = None, **filters: Any) -> Model:
         """
         Get a single record by PK or filters.
+
+        Raises ``ModelNotFoundFault`` when the record does not exist.
+        Use ``get_or_none()`` if you prefer a None return.
 
         Usage:
             user = await User.get(pk=1)
@@ -428,6 +431,18 @@ class Model(metaclass=ModelMeta):
             sql = f'SELECT * FROM "{cls._table_name}" WHERE "{cls._pk_name}" = ?'
             row = await db.fetch_one(sql, [pk])
         elif filters:
+            # Validate filter keys to prevent identifier injection
+            import re
+            _SAFE = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*$')
+            for k in filters:
+                if not _SAFE.match(k):
+                    from ..faults.domains import QueryFault
+                    raise QueryFault(
+                        model=cls.__name__,
+                        operation="get",
+                        reason=f"Invalid field name: {k!r}. "
+                               "Field names must contain only letters, digits, and underscores.",
+                    )
             wheres = [f'"{k}" = ?' for k in filters]
             sql = f'SELECT * FROM "{cls._table_name}" WHERE ' + " AND ".join(wheres)
             row = await db.fetch_one(sql, list(filters.values()))
@@ -440,8 +455,27 @@ class Model(metaclass=ModelMeta):
             )
 
         if row is None:
-            return None
+            from ..faults.domains import ModelNotFoundFault
+            raise ModelNotFoundFault(model_name=cls.__name__)
         return cls.from_row(row)
+
+    @classmethod
+    async def get_or_none(cls, pk: Any = None, **filters: Any) -> Optional[Model]:
+        """
+        Get a single record, returning ``None`` if not found.
+
+        Unlike ``get()``, this never raises ``ModelNotFoundFault``.
+
+        Usage:
+            user = await User.get_or_none(pk=1)
+            if user is None:
+                ...
+        """
+        try:
+            return await cls.get(pk=pk, **filters)
+        except Exception:
+            # Catch ModelNotFoundFault (which is an AquiliaFault)
+            return None
 
     @classmethod
     async def get_or_create(
@@ -452,7 +486,7 @@ class Model(metaclass=ModelMeta):
 
         Returns (instance, created) tuple.
         """
-        instance = await cls.get(**lookup)
+        instance = await cls.get_or_none(**lookup)
         if instance is not None:
             return instance, False
 
@@ -469,7 +503,7 @@ class Model(metaclass=ModelMeta):
 
         Returns (instance, created) tuple.
         """
-        instance = await cls.get(**lookup)
+        instance = await cls.get_or_none(**lookup)
         if instance is not None:
             # Update
             update_data = defaults or {}
@@ -647,9 +681,12 @@ class Model(metaclass=ModelMeta):
         """
         field = field_name or getattr(cls._meta, "get_latest_by", None)
         if not field:
-            raise ValueError(
-                f"{cls.__name__}.latest() requires 'field_name' argument or "
-                f"Meta.get_latest_by to be set"
+            from ..faults.domains import QueryFault
+            raise QueryFault(
+                model=cls.__name__,
+                operation="latest",
+                reason=f"{cls.__name__}.latest() requires 'field_name' argument or "
+                       f"Meta.get_latest_by to be set",
             )
         result = await cls.query().order(f"-{field}").first()
         if result is None:
@@ -670,9 +707,12 @@ class Model(metaclass=ModelMeta):
         """
         field = field_name or getattr(cls._meta, "get_latest_by", None)
         if not field:
-            raise ValueError(
-                f"{cls.__name__}.earliest() requires 'field_name' argument or "
-                f"Meta.get_latest_by to be set"
+            from ..faults.domains import QueryFault
+            raise QueryFault(
+                model=cls.__name__,
+                operation="earliest",
+                reason=f"{cls.__name__}.earliest() requires 'field_name' argument or "
+                       f"Meta.get_latest_by to be set",
             )
         result = await cls.query().order(field).first()
         if result is None:
@@ -687,6 +727,11 @@ class Model(metaclass=ModelMeta):
 
         The SQL must return columns matching the model's fields.
 
+        .. warning::
+            ``raw()`` executes arbitrary SQL. Always use parameterized
+            queries (``?`` placeholders) for user-supplied values. DDL
+            statements (DROP, ALTER, TRUNCATE) are rejected by default.
+
         Usage:
             users = await User.raw(
                 "SELECT * FROM users WHERE age > ? ORDER BY name",
@@ -695,6 +740,18 @@ class Model(metaclass=ModelMeta):
 
         Use parameterized queries to prevent SQL injection.
         """
+        import re
+        _DDL_RE = re.compile(
+            r'\b(DROP|ALTER|TRUNCATE|GRANT|REVOKE)\b', re.IGNORECASE
+        )
+        if _DDL_RE.search(sql):
+            from ..faults.domains import QueryFault
+            raise QueryFault(
+                model=cls.__name__,
+                operation="raw",
+                reason="DDL/DCL statements are not allowed in raw(). "
+                       "Use the database engine directly for schema operations.",
+            )
         db = cls._get_db()
         rows = await db.fetch_all(sql, params or [])
         return [cls.from_row(row) for row in rows]
@@ -741,12 +798,22 @@ class Model(metaclass=ModelMeta):
             await user.save(validate=True)            # validates before saving
         """
         if force_insert and force_update:
-            raise ValueError("Cannot use force_insert and force_update together")
+            from ..faults.domains import QueryFault
+            raise QueryFault(
+                model=self.__class__.__name__,
+                operation="save",
+                reason="Cannot use force_insert and force_update together",
+            )
 
         pk_val = getattr(self, self._pk_attr, None)
 
         if force_update and pk_val is None:
-            raise ValueError("Cannot force_update on unsaved instance (no PK)")
+            from ..faults.domains import QueryFault
+            raise QueryFault(
+                model=self.__class__.__name__,
+                operation="save",
+                reason="Cannot force_update on unsaved instance (no primary key)",
+            )
 
         db = self._get_db()
         dialect = getattr(db, 'dialect', 'sqlite')
@@ -870,7 +937,12 @@ class Model(metaclass=ModelMeta):
         """
         pk_val = getattr(self, self._pk_attr)
         if pk_val is None:
-            raise ValueError("Cannot delete unsaved instance")
+            from ..faults.domains import QueryFault
+            raise QueryFault(
+                model=self.__class__.__name__,
+                operation="delete",
+                reason="Cannot delete unsaved instance (no primary key)",
+            )
 
         # Signal: pre_delete
         await pre_delete.send(sender=self.__class__, instance=self)
@@ -957,10 +1029,19 @@ class Model(metaclass=ModelMeta):
         Args:
             fields: Optional list of field names to refresh. If None,
                     refreshes all fields.
+
+        Raises:
+            QueryFault: If the instance has no PK (unsaved) or field is unknown.
+            ModelNotFoundFault: If the record no longer exists in the database.
         """
         pk_val = getattr(self, self._pk_attr)
         if pk_val is None:
-            raise ValueError("Cannot refresh unsaved instance")
+            from ..faults.domains import QueryFault
+            raise QueryFault(
+                model=self.__class__.__name__,
+                operation="refresh",
+                reason="Cannot refresh unsaved instance (no primary key)",
+            )
 
         if fields is not None:
             # Partial refresh -- SELECT only requested columns
@@ -968,14 +1049,20 @@ class Model(metaclass=ModelMeta):
             for attr_name in fields:
                 field = self._fields.get(attr_name)
                 if field is None:
-                    raise ValueError(f"Unknown field: {attr_name}")
+                    from ..faults.domains import QueryFault
+                    raise QueryFault(
+                        model=self.__class__.__name__,
+                        operation="refresh",
+                        reason=f"Unknown field: {attr_name}",
+                    )
                 cols.append(field.column_name)
             col_sql = ", ".join(f'"{c}"' for c in cols)
             sql = f'SELECT {col_sql} FROM "{self._table_name}" WHERE "{self._pk_name}" = ?'
             db = self._get_db()
             rows = await db.fetch_all(sql, [pk_val])
             if not rows:
-                raise ValueError(f"{self.__class__.__name__} with pk={pk_val} no longer exists")
+                from ..faults.domains import ModelNotFoundFault
+                raise ModelNotFoundFault(model_name=self.__class__.__name__)
             row = rows[0]
             for attr_name in fields:
                 field = self._fields[attr_name]
@@ -983,9 +1070,10 @@ class Model(metaclass=ModelMeta):
                 setattr(self, attr_name, field.to_python(raw) if raw is not None else None)
         else:
             # Full refresh
-            fresh = await self.__class__.get(pk=pk_val)
+            fresh = await self.__class__.get_or_none(pk=pk_val)
             if fresh is None:
-                raise ValueError(f"{self.__class__.__name__} with pk={pk_val} no longer exists")
+                from ..faults.domains import ModelNotFoundFault
+                raise ModelNotFoundFault(model_name=self.__class__.__name__)
             for attr in self._attr_names:
                 setattr(self, attr, getattr(fresh, attr))
 
@@ -1086,7 +1174,12 @@ class Model(metaclass=ModelMeta):
                             f'"{f.column_name}" = ?', pk_val
                         ).all()
 
-        raise AttributeError(f"No relation '{name}' on {self.__class__.__name__}")
+        from ..faults.domains import QueryFault
+        raise QueryFault(
+            model=self.__class__.__name__,
+            operation="related",
+            reason=f"No relation '{name}' on {self.__class__.__name__}",
+        )
 
     async def attach(self, name: str, *targets: Any) -> None:
         """
@@ -1097,7 +1190,12 @@ class Model(metaclass=ModelMeta):
         """
         m2m = self._m2m_fields.get(name)
         if m2m is None:
-            raise AttributeError(f"No M2M relation '{name}' on {self.__class__.__name__}")
+            from ..faults.domains import QueryFault
+            raise QueryFault(
+                model=self.__class__.__name__,
+                operation="attach",
+                reason=f"No M2M relation '{name}' on {self.__class__.__name__}",
+            )
 
         jt = m2m.junction_table_name(self.__class__)
         src_col, tgt_col = m2m.junction_columns(self.__class__)
@@ -1129,7 +1227,12 @@ class Model(metaclass=ModelMeta):
         """
         m2m = self._m2m_fields.get(name)
         if m2m is None:
-            raise AttributeError(f"No M2M relation '{name}' on {self.__class__.__name__}")
+            from ..faults.domains import QueryFault
+            raise QueryFault(
+                model=self.__class__.__name__,
+                operation="detach",
+                reason=f"No M2M relation '{name}' on {self.__class__.__name__}",
+            )
 
         jt = m2m.junction_table_name(self.__class__)
         src_col, tgt_col = m2m.junction_columns(self.__class__)
@@ -1208,6 +1311,10 @@ class Model(metaclass=ModelMeta):
             return value.hex()
         if isinstance(value, decimal.Decimal):
             return str(value)
+        # Enum support (TextChoices, IntegerChoices, etc.)
+        import enum
+        if isinstance(value, enum.Enum):
+            return value.value
         return value
 
     @classmethod

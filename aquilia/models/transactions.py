@@ -35,6 +35,7 @@ from __future__ import annotations
 import asyncio
 import inspect
 import logging
+import re
 import uuid
 import weakref
 from contextlib import asynccontextmanager
@@ -44,6 +45,9 @@ if TYPE_CHECKING:
     from ..db.engine import AquiliaDatabase
 
 logger = logging.getLogger("aquilia.models.transactions")
+
+# Regex for validating savepoint identifiers (alphanumeric + underscores only)
+_SP_NAME_RE = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*$')
 
 __all__ = [
     "atomic",
@@ -188,14 +192,32 @@ class Atomic:
 
             # Set isolation level if requested (before BEGIN for some backends)
             if self._isolation and db.driver != "sqlite":
-                await db.execute(f"SET TRANSACTION ISOLATION LEVEL {self._isolation}")
+                _ALLOWED_ISOLATION_LEVELS = {
+                    "READ UNCOMMITTED",
+                    "READ COMMITTED",
+                    "REPEATABLE READ",
+                    "SERIALIZABLE",
+                }
+                _normalized = self._isolation.upper().strip()
+                if _normalized not in _ALLOWED_ISOLATION_LEVELS:
+                    from ..faults.domains import QueryFault
+                    raise QueryFault(
+                        model="(transaction)",
+                        operation="atomic",
+                        reason=f"Invalid isolation level: {self._isolation!r}. "
+                               f"Allowed: {sorted(_ALLOWED_ISOLATION_LEVELS)}",
+                    )
+                await db.execute(f"SET TRANSACTION ISOLATION LEVEL {_normalized}")
 
             await db.execute("BEGIN")
             self._depth_holder.value = 1
         else:
             if self._durable:
-                raise RuntimeError(
-                    "atomic(durable=True) cannot be nested inside another atomic block"
+                from ..faults.domains import QueryFault
+                raise QueryFault(
+                    model="(transaction)",
+                    operation="atomic",
+                    reason="atomic(durable=True) cannot be nested inside another atomic block",
                 )
             if self._use_savepoint:
                 # Nested: create savepoint with safe alphanumeric name
@@ -248,11 +270,21 @@ class Atomic:
 
     async def rollback_to_savepoint(self, savepoint_id: str) -> None:
         """Roll back to a specific savepoint."""
+        if not _SP_NAME_RE.match(savepoint_id):
+            raise ValueError(
+                f"Invalid savepoint name: {savepoint_id!r}. "
+                f"Must be alphanumeric/underscores only."
+            )
         db = self._get_db()
         await db.execute(f"ROLLBACK TO SAVEPOINT {savepoint_id}")
 
     async def release_savepoint(self, savepoint_id: str) -> None:
         """Release (commit) a savepoint."""
+        if not _SP_NAME_RE.match(savepoint_id):
+            raise ValueError(
+                f"Invalid savepoint name: {savepoint_id!r}. "
+                f"Must be alphanumeric/underscores only."
+            )
         db = self._get_db()
         await db.execute(f"RELEASE SAVEPOINT {savepoint_id}")
 

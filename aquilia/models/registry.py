@@ -91,7 +91,12 @@ class ModelRegistry:
         """
         target_db = db or cls._db
         if not target_db:
-            raise RuntimeError("No database configured for ModelRegistry")
+            from ..faults.domains import DatabaseConnectionFault
+            raise DatabaseConnectionFault(
+                url="(none)",
+                reason="No database configured for ModelRegistry. "
+                       "Call ModelRegistry.set_database(db) before create_tables().",
+            )
 
         # Build dependency graph and topologically sort
         ordered = cls._topological_sort()
@@ -199,7 +204,12 @@ class ModelRegistry:
         """Drop all registered model tables (dangerous!)."""
         target_db = db or cls._db
         if not target_db:
-            raise RuntimeError("No database configured for ModelRegistry")
+            from ..faults.domains import DatabaseConnectionFault
+            raise DatabaseConnectionFault(
+                url="(none)",
+                reason="No database configured for ModelRegistry. "
+                       "Call ModelRegistry.set_database(db) before drop_tables().",
+            )
 
         statements: List[str] = []
         for model_cls in reversed(list(cls._models.values())):

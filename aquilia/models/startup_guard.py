@@ -38,11 +38,23 @@ class DatabaseNotReadyError(SystemExit):
     Raised when the database is not ready at server startup.
 
     This is a SystemExit subclass so the process exits with a
-    non-zero code and a human-readable message.
+    non-zero code and a human-readable message.  It also inherits
+    from ``SchemaFault`` so it flows through the Aquilia fault pipeline
+    for logging and auditing before terminating.
     """
 
     def __init__(self, message: str):
         self.message = message
+        # Log through fault system before exiting
+        try:
+            from ..faults.domains import SchemaFault
+            fault = SchemaFault(table="(startup)", reason=message)
+            import logging
+            logging.getLogger("aquilia.models.startup_guard").error(
+                "Database not ready — %s [fault=%s]", message, fault.code
+            )
+        except Exception:
+            pass
         super().__init__(1)
 
 

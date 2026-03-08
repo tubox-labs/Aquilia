@@ -78,6 +78,20 @@ class Exact(Lookup):
     sql_operator = "="
 
 
+def _escape_like(value: str) -> str:
+    """Escape LIKE meta-characters to prevent LIKE pattern injection.
+
+    Replaces ``\\``, ``%``, and ``_`` with their escaped equivalents
+    so that user-supplied text is treated as literal characters.
+    """
+    return (
+        value
+        .replace("\\", "\\\\")
+        .replace("%", "\\%")
+        .replace("_", "\\_")
+    )
+
+
 class IExact(Lookup):
     """Case-insensitive exact match."""
     lookup_name = "iexact"
@@ -91,7 +105,8 @@ class Contains(Lookup):
     sql_operator = "LIKE"
 
     def as_sql(self, dialect: str = "sqlite") -> Tuple[str, List[Any]]:
-        return f'"{self.field_name}" LIKE ?', [f"%{self.value}%"]
+        escaped = _escape_like(self.value)
+        return f'"{self.field_name}" LIKE ? ESCAPE \'\\\'', [f"%{escaped}%"]
 
 
 class IContains(Lookup):
@@ -99,14 +114,16 @@ class IContains(Lookup):
     lookup_name = "icontains"
 
     def as_sql(self, dialect: str = "sqlite") -> Tuple[str, List[Any]]:
-        return f'LOWER("{self.field_name}") LIKE LOWER(?)', [f"%{self.value}%"]
+        escaped = _escape_like(self.value)
+        return f'LOWER("{self.field_name}") LIKE LOWER(?) ESCAPE \'\\\'', [f"%{escaped}%"]
 
 
 class StartsWith(Lookup):
     lookup_name = "startswith"
 
     def as_sql(self, dialect: str = "sqlite") -> Tuple[str, List[Any]]:
-        return f'"{self.field_name}" LIKE ?', [f"{self.value}%"]
+        escaped = _escape_like(self.value)
+        return f'"{self.field_name}" LIKE ? ESCAPE \'\\\'', [f"{escaped}%"]
 
 
 class IStartsWith(Lookup):
@@ -114,14 +131,16 @@ class IStartsWith(Lookup):
     lookup_name = "istartswith"
 
     def as_sql(self, dialect: str = "sqlite") -> Tuple[str, List[Any]]:
-        return f'LOWER("{self.field_name}") LIKE LOWER(?)', [f"{self.value}%"]
+        escaped = _escape_like(self.value)
+        return f'LOWER("{self.field_name}") LIKE LOWER(?) ESCAPE \'\\\'', [f"{escaped}%"]
 
 
 class EndsWith(Lookup):
     lookup_name = "endswith"
 
     def as_sql(self, dialect: str = "sqlite") -> Tuple[str, List[Any]]:
-        return f'"{self.field_name}" LIKE ?', [f"%{self.value}"]
+        escaped = _escape_like(self.value)
+        return f'"{self.field_name}" LIKE ? ESCAPE \'\\\'', [f"%{escaped}"]
 
 
 class IEndsWith(Lookup):
@@ -129,7 +148,8 @@ class IEndsWith(Lookup):
     lookup_name = "iendswith"
 
     def as_sql(self, dialect: str = "sqlite") -> Tuple[str, List[Any]]:
-        return f'LOWER("{self.field_name}") LIKE LOWER(?)', [f"%{self.value}"]
+        escaped = _escape_like(self.value)
+        return f'LOWER("{self.field_name}") LIKE LOWER(?) ESCAPE \'\\\'', [f"%{escaped}"]
 
 
 class In(Lookup):

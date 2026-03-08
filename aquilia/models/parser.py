@@ -1,6 +1,11 @@
 """
 AMDL Parser -- Aquilia Model Definition Language.
 
+.. deprecated:: 1.0
+    The AMDL system is deprecated. Use the Python-native ``Model`` class
+    system (``aquilia.models.base.Model``) instead. AMDL will be removed
+    in a future release.
+
 Single-pass, line-oriented parser that reads `.amdl` files and produces
 a list of `ModelNode` AST nodes.  Designed to be <300 LOC.
 
@@ -20,8 +25,17 @@ Grammar (line patterns):
 from __future__ import annotations
 
 import re
+import warnings
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
+
+warnings.warn(
+    "The AMDL parser module (aquilia.models.parser) is deprecated. "
+    "Use the Python-native Model class system (aquilia.models.base.Model) instead. "
+    "AMDL will be removed in a future release.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 from ..faults.domains import AMDLParseFault
 from .ast_nodes import (
