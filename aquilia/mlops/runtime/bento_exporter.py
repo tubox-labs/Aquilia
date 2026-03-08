@@ -29,7 +29,6 @@ class BentoExporter(BaseRuntime):
 
     async def load(self) -> None:
         self._loaded = True
-        logger.info("BentoML exporter ready")
 
     async def infer(self, batch: BatchRequest) -> List[InferenceResult]:
         results: List[InferenceResult] = []
@@ -70,5 +69,4 @@ def predict(input_data):
 '''
         service_path = out / "service.py"
         service_path.write_text(service_code)
-        logger.info("Exported BentoML service: %s", service_path)
         return str(service_path)

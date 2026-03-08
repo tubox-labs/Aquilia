@@ -111,7 +111,6 @@ class RedisBackend(CacheBackend):
             await self._redis.ping()
             self._start_time = time.monotonic()
             self._initialized = True
-            logger.info(f"Redis cache connected: {self._url}")
         except Exception as e:
             logger.error(f"Failed to connect to Redis: {e}")
             raise

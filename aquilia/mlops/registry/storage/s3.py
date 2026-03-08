@@ -71,7 +71,6 @@ class S3StorageAdapter(BaseStorageAdapter):
         key = self._key(digest)
         self._get_client().put_object(Bucket=self.bucket, Key=key, Body=data)
         uri = f"s3://{self.bucket}/{key}"
-        logger.info("Stored blob in S3: %s", uri)
         return uri
 
     async def get_blob(self, digest: str) -> bytes:

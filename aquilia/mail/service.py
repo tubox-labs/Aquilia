@@ -160,8 +160,6 @@ class MailService:
         if self._started:
             return
 
-        self.logger.info("MailService starting...")
-
         # Initialize providers from config
         for pc in self.config.providers:
             if not pc.enabled:
@@ -172,7 +170,6 @@ class MailService:
                 provider = self._create_provider(pc)
                 await provider.initialize()
                 self._providers[pc.name] = provider
-                self.logger.info(f"  Provider '{pc.name}' ({pc.type}) initialized")
             except Exception as e:
                 self.logger.error(f"  Provider '{pc.name}' failed: {e}")
 
@@ -182,18 +179,13 @@ class MailService:
             cp = ConsoleProvider()
             await cp.initialize()
             self._providers["console"] = cp
-            self.logger.info("  Console provider (dev mode)")
 
         self._started = True
-        self.logger.info(
-            f"MailService ready ({len(self._providers)} provider(s))"
-        )
 
     async def on_shutdown(self) -> None:
         """Shutdown providers and flush queue."""
         if not self._started:
             return
-        self.logger.info("MailService shutting down...")
         for name, provider in self._providers.items():
             try:
                 await provider.shutdown()
@@ -201,7 +193,6 @@ class MailService:
                 self.logger.warning(f"  Provider '{name}' shutdown error: {e}")
         self._providers.clear()
         self._started = False
-        self.logger.info("MailService stopped")
 
     # ── Auth propagation ────────────────────────────────────────────
 
@@ -324,7 +315,6 @@ class MailService:
 
         # In preview mode, just log -- don't actually send
         if self.config.preview_mode:
-            self.logger.info(f"[PREVIEW] Would send: {envelope}")
             envelope.status = EnvelopeStatus.SENT
             return envelope.id
 
@@ -367,10 +357,6 @@ class MailService:
                 if result.is_success:
                     envelope.status = EnvelopeStatus.SENT
                     envelope.provider_message_id = result.provider_message_id
-                    self.logger.info(
-                        f"Sent {envelope.id} via {provider.name} "
-                        f"(msg_id={result.provider_message_id})"
-                    )
                     return
                 elif result.should_retry:
                     self.logger.warning(

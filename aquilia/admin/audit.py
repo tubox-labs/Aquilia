@@ -220,8 +220,8 @@ class CrousAuditStore:
             return
         try:
             self._crous.append(entry.to_dict(), str(self._path))
-        except Exception as exc:
-            logger.debug("CrousAuditStore.persist failed: %s", exc)
+        except Exception:
+            pass
 
     # ── Read ─────────────────────────────────────────────────────
 
@@ -248,7 +248,6 @@ class CrousAuditStore:
                         continue
             return entries
         except Exception as exc:
-            logger.debug("CrousAuditStore.load_all failed: %s", exc)
             return []
 
     def load_for_record(self, model_name: str, record_pk: str) -> List["AdminAuditEntry"]:
@@ -326,8 +325,8 @@ class AdminAuditLog:
                 if len(self._entries) > self._max_entries:
                     self._entries = self._entries[-self._max_entries:]
                 self._counter = len(self._entries)
-        except Exception as exc:
-            logger.debug("AdminAuditLog._hydrate failed: %s", exc)
+        except Exception:
+            pass
 
     def log(
         self,
@@ -407,10 +406,6 @@ class AdminAuditLog:
         if len(self._entries) > self._max_entries:
             self._entries = self._entries[-self._max_entries:]
 
-        logger.info(
-            "Admin audit: user=%s action=%s model=%s pk=%s success=%s",
-            username, action.value, model_name, record_pk, success,
-        )
 
         return entry
 
@@ -644,7 +639,6 @@ class ModelBackedAuditLog:
             from aquilia.admin.models import AdminAuditEntry
             await AdminAuditEntry.create_entry(**kwargs)
         except Exception as exc:
-            logger.debug("ModelBackedAuditLog: DB write failed: %s", exc)
             # Disable DB writes for this session to avoid noise
             self._db_available = False
 
@@ -712,7 +706,6 @@ class ModelBackedAuditLog:
                 all_rows = await qs.all()
                 return list(all_rows[offset:offset + limit])
             except Exception as exc:
-                logger.debug("ModelBackedAuditLog.get_entries_async DB error: %s", exc)
                 self._db_available = False
 
         # Fallback to in-memory
@@ -737,8 +730,8 @@ class ModelBackedAuditLog:
                 if len(self._fallback._entries) > self._fallback._max_entries:
                     self._fallback._entries = self._fallback._entries[-self._fallback._max_entries:]
                 self._fallback._counter = len(self._fallback._entries)
-        except Exception as exc:
-            logger.debug("ModelBackedAuditLog._hydrate failed: %s", exc)
+        except Exception:
+            pass
 
     def get_entries(
         self,
@@ -779,7 +772,6 @@ class ModelBackedAuditLog:
                     qs = qs.filter(model_name=model_name)
                 return await qs.count()
             except Exception as exc:
-                logger.debug("ModelBackedAuditLog.count_async DB error: %s", exc)
                 self._db_available = False
         return self._fallback.count(action=action, model_name=model_name)
 

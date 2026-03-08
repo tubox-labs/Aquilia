@@ -42,7 +42,6 @@ class ONNXRuntimeAdapter(BaseRuntime):
         self._set_state(ModelState.PREPARED)
         self._manifest = manifest
         self._model_dir = model_dir
-        logger.info("Prepared ONNXRuntimeAdapter: %s v%s", manifest.name, manifest.version)
 
     async def load(self) -> None:
         if not self._manifest:
@@ -81,10 +80,6 @@ class ONNXRuntimeAdapter(BaseRuntime):
 
         self._set_state(ModelState.LOADED)
         self._load_time_ms = (time.monotonic() - start) * 1000
-        logger.info(
-            "ONNX model loaded in %.1fms (providers=%s)",
-            self._load_time_ms, providers,
-        )
 
     async def infer(self, batch: BatchRequest) -> List[InferenceResult]:
         if not self._session:

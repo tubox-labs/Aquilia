@@ -129,7 +129,6 @@ class LifecycleCoordinator:
             self.logger.error(f"Startup failed: {e}")
             
             # Rollback - shutdown already started apps
-            self.logger.debug("Rolling back started apps...")
             await self.shutdown()
             
             raise LifecycleError(f"Startup failed: {e}") from e
@@ -147,8 +146,6 @@ class LifecycleCoordinator:
             # No startup hook - skip
             self.started_apps.append(app_name)
             return
-        
-        self.logger.debug(f"  ↳ Starting {app_name}...")
         
         try:
             # Get config namespace for this app
@@ -174,7 +171,6 @@ class LifecycleCoordinator:
                 app_name=app_name,
                 message=f"{app_name} started"
             ))
-            self.logger.debug(f"     {app_name} started")
         
         except Exception as e:
             self.logger.error(f"     {app_name} startup failed: {e}")
@@ -192,8 +188,6 @@ class LifecycleCoordinator:
         self.phase = LifecyclePhase.STOPPING
         self._emit_event(LifecycleEvent(LifecyclePhase.STOPPING))
         
-        self.logger.debug("Stopping application...")
-        
         # 1. Shutdown in reverse order
         for app_name in reversed(self.started_apps):
             await self._shutdown_app(app_name)
@@ -201,7 +195,6 @@ class LifecycleCoordinator:
         # 2. Execute global workspace-level shutdown hook if present
         global_shutdown = self.config.get("on_shutdown") if self.config else None
         if global_shutdown:
-            self.logger.debug("Executing global workspace shutdown hook...")
             try:
                 hook = self._resolve_hook(global_shutdown)
                 if hook:
@@ -214,7 +207,6 @@ class LifecycleCoordinator:
         
         self.phase = LifecyclePhase.STOPPED
         self._emit_event(LifecycleEvent(LifecyclePhase.STOPPED))
-        self.logger.debug("All apps stopped")
     
     async def _shutdown_app(self, app_name: str):
         """
@@ -228,8 +220,6 @@ class LifecycleCoordinator:
         
         if ctx is None or ctx.on_shutdown is None:
             return
-        
-        self.logger.debug(f"  ↳ Stopping {app_name}...")
         
         try:
             # Get config namespace
@@ -250,7 +240,6 @@ class LifecycleCoordinator:
                 app_name=app_name,
                 message=f"{app_name} stopped"
             ))
-            self.logger.debug(f"     {app_name} stopped")
         
         except Exception as e:
             # Log but don't raise - continue cleanup
@@ -264,7 +253,6 @@ class LifecycleCoordinator:
     
     async def restart(self):
         """Restart the application (shutdown then startup)."""
-        self.logger.debug("Restarting application...")
         await self.shutdown()
         self.phase = LifecyclePhase.INIT
         self.started_apps.clear()

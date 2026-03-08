@@ -484,8 +484,8 @@ class EnhancedRequestScopeMiddleware:
                     await request_container.shutdown()
                 elif hasattr(request_container, 'dispose'):
                     request_container.dispose()
-            except Exception as cleanup_err:
-                self.logger.debug(f"Container cleanup error (non-fatal): {cleanup_err}")
+            except Exception:
+                pass
         
         return response
 

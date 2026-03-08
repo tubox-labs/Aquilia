@@ -105,7 +105,6 @@ def discover_template_directories(
     unique_dirs = list(set(discovered))
     unique_dirs.sort()
     
-    logger.info(f"Discovered {len(unique_dirs)} template directories")
     return unique_dirs
 
 
@@ -302,7 +301,6 @@ def generate_template_manifest(
     with open(output_path, 'w') as f:
         json.dump(manifest, f, indent=2)
     
-    logger.info(f"Generated template manifest: {output_path}")
 
 
 # ============================================================================
@@ -339,9 +337,6 @@ def create_manifest_aware_loader(
     # Create loader
     loader = TemplateLoader(search_paths=search_paths)
     
-    logger.info(
-        f"Created manifest-aware loader with {len(search_paths)} paths"
-    )
     
     return loader
 

@@ -235,10 +235,8 @@ class Atomic:
                 # Exception occurred -- rollback
                 if self._savepoint_id:
                     await db.execute(f"ROLLBACK TO SAVEPOINT {self._savepoint_id}")
-                    logger.debug(f"Rolled back savepoint {self._savepoint_id}")
                 elif self._is_outermost:
                     await db.execute("ROLLBACK")
-                    logger.debug("Rolled back transaction")
 
                 # Fire rollback hooks
                 await self._fire_hooks(self._rollback_hooks)
@@ -246,10 +244,8 @@ class Atomic:
                 # Success -- commit or release savepoint
                 if self._savepoint_id:
                     await db.execute(f"RELEASE SAVEPOINT {self._savepoint_id}")
-                    logger.debug(f"Released savepoint {self._savepoint_id}")
                 elif self._is_outermost:
                     await db.execute("COMMIT")
-                    logger.debug("Committed transaction")
 
                     # Fire on_commit hooks only at outermost level
                     await self._fire_hooks(self._commit_hooks)

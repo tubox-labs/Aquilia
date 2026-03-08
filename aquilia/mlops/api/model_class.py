@@ -201,7 +201,6 @@ def model(
             tags=tags,
         )
 
-        logger.info("@model registered: %s (version=%s)", name, version)
         return cls
 
     return decorator

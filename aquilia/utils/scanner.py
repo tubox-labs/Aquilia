@@ -156,11 +156,9 @@ class PackageScanner:
                         self._scan_stats['modules_scanned'] += 1
                     except Exception as e:
                         self._scan_stats['errors_encountered'] += 1
-                        logger.debug(f"Failed to scan submodule {name}: {e}")
                         
-        except ImportError as e:
-            logger.debug(f"Could not import package {package_name}: {e}")
-            # Not an error, just means package doesn't exist
+        except ImportError:
+            pass
         except Exception as e:
             self._scan_stats['errors_encountered'] += 1
             logger.error(f"Error scanning package {package_name}: {e}")

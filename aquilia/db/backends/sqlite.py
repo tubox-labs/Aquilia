@@ -91,7 +91,6 @@ class SQLiteAdapter(DatabaseAdapter):
                 await self._connection.close()
                 self._connection = None
             self._connected = False
-            logger.debug("SQLite disconnected")
 
     async def execute(self, sql: str, params: Optional[Sequence[Any]] = None) -> Any:
         if not self._connected:

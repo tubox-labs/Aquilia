@@ -189,5 +189,3 @@ def register_cache_providers(container: Any, cache_service: CacheService) -> Non
         ))
     except ValueError:
         pass
-    
-    logger.info(f"Cache providers registered in DI container (backend={cache_service.backend.name})")

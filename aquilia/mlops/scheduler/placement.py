@@ -73,7 +73,6 @@ class PlacementScheduler:
     def register_node(self, node: NodeInfo) -> None:
         """Register a compute node."""
         self._nodes[node.node_id] = node
-        logger.info("Registered node: %s (%s)", node.node_id, node.device_type)
 
     def unregister_node(self, node_id: str) -> None:
         """Remove a node."""
@@ -173,10 +172,6 @@ class PlacementScheduler:
             return None
 
         best = max(scores, key=lambda s: s.total)
-        logger.info(
-            "Placement: %s → %s (score=%.3f)",
-            request.model_name, best.node_id, best.total,
-        )
         return best
 
     def rebalance(self) -> List[Dict[str, Any]]:

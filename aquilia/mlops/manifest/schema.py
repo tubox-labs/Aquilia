@@ -49,8 +49,6 @@ def validate_manifest_config(config: MLOpsManifestConfig) -> List[str]:
 
     if errors:
         logger.error("Manifest validation failed: %d error(s)", len(errors))
-    else:
-        logger.info("Manifest validation passed: %d model(s)", len(config.models))
 
     return errors
 

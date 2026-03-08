@@ -69,7 +69,6 @@ class StorageSubsystem(BaseSubsystem):
         # Step 1: Read config
         storage_config = ctx.get_config("storage", {})
         if not storage_config:
-            self._logger.debug("No storage config found, skipping")
             return
 
         backend_configs: list = storage_config.get("backends", [])
@@ -83,19 +82,13 @@ class StorageSubsystem(BaseSubsystem):
             if "backend" in storage_config:
                 backend_configs = [storage_config]
             else:
-                self._logger.debug("No storage backends configured")
                 return
 
         # Step 2: Build registry
         self._registry = StorageRegistry.from_config(backend_configs)
-        self._logger.info(
-            "Storage registry built: %s",
-            ", ".join(self._registry.aliases()),
-        )
 
         # Step 3: Initialize all backends
         await self._registry.initialize_all()
-        self._logger.info("All storage backends initialized")
 
         # Step 4: Register with DI
         self._register_di(ctx)
@@ -120,7 +113,6 @@ class StorageSubsystem(BaseSubsystem):
                     scope="app",
                 )
                 registry_obj.register(provider)
-                self._logger.debug("StorageRegistry registered with DI")
         except Exception as e:
             self._logger.warning("Could not register StorageRegistry with DI: %s", e)
 
@@ -147,7 +139,6 @@ class StorageSubsystem(BaseSubsystem):
         """Shutdown all storage backends."""
         if self._registry:
             await self._registry.shutdown_all()
-            self._logger.info("All storage backends shut down")
 
     async def health_check(self) -> HealthStatus:
         """Check health of all storage backends."""

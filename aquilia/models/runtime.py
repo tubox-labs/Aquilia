@@ -479,7 +479,6 @@ class ModelRegistry:
         self._models[model.name] = model
         proxy_cls = self._generate_proxy(model)
         self._proxies[model.name] = proxy_cls
-        logger.info(f"Registered model: {model.name} → {model.table_name}")
         return proxy_cls
 
     def get_model(self, name: str) -> Optional[ModelNode]:

@@ -81,7 +81,6 @@ class RegistryService:
         """Initialize database schema."""
         await self._db.initialize()
         self._initialized = True
-        logger.info("Registry initialized (db=%s)", self._db.db_path)
 
     async def close(self) -> None:
         """Close database connections."""
@@ -160,9 +159,6 @@ class RegistryService:
         # Also update "latest" tag
         await self._db.upsert_tag(manifest.name, "latest", digest)
 
-        logger.info(
-            "Published %s:%s (digest=%s)", manifest.name, manifest.version, digest
-        )
 
         # Populate cache
         self._cache.put(f"{manifest.name}:{manifest.version}", manifest)
@@ -269,7 +265,6 @@ class RegistryService:
         cached = self._cache.get(f"{name}:{tag}")
         if cached is not None:
             self._cache.put(f"{name}:{target_tag}", cached)
-        logger.info("Promoted %s:%s → %s:%s", name, tag, name, target_tag)
 
     # ── Delete ───────────────────────────────────────────────────────
 
@@ -278,7 +273,6 @@ class RegistryService:
         self._ensure_init()
         await self._db.delete_tag(name, tag)
         self._cache.invalidate(f"{name}:{tag}")
-        logger.info("Deleted tag %s:%s", name, tag)
 
     # ── Verify ───────────────────────────────────────────────────────
 

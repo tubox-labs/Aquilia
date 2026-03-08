@@ -90,10 +90,6 @@ class MySQLAdapter(DatabaseAdapter):
         _logging.getLogger("aiomysql").setLevel(_logging.WARNING)
         self._pool = await aiomysql.create_pool(**conn_kwargs)
         self._connected = True
-        logger.debug(
-            f"MySQL connected via aiomysql: "
-            f"{conn_kwargs.get('host', '?')}:{conn_kwargs.get('port', 3306)}"
-        )
 
     async def disconnect(self) -> None:
         if not self._connected:
@@ -112,7 +108,6 @@ class MySQLAdapter(DatabaseAdapter):
             await self._pool.wait_closed()
             self._pool = None
         self._connected = False
-        logger.debug("MySQL disconnected")
 
     def adapt_sql(self, sql: str) -> str:
         """

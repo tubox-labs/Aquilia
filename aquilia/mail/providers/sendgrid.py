@@ -105,10 +105,6 @@ class SendGridProvider:
         if self._initialized:
             return
 
-        logger.info(
-            f"SendGrid provider '{self.name}' initializing "
-            f"(sandbox={self.sandbox_mode})"
-        )
 
         try:
             import httpx
@@ -136,15 +132,10 @@ class SendGridProvider:
 
     async def shutdown(self) -> None:
         """Close the httpx client."""
-        logger.info(f"SendGrid provider '{self.name}' shutting down...")
         if self._client is not None:
             await self._client.aclose()
             self._client = None
         self._initialized = False
-        logger.info(
-            f"SendGrid provider '{self.name}' shutdown complete "
-            f"(sent={self._total_sent}, errors={self._total_errors})"
-        )
 
     # ── Payload Construction ────────────────────────────────────────
 
@@ -284,10 +275,6 @@ class SendGridProvider:
                     "X-Message-Id", f"sg-{envelope.id}"
                 )
                 self._total_sent += 1
-                logger.info(
-                    f"SendGrid sent via {self.name}: {envelope.id} "
-                    f"(sg_msg_id={message_id})"
-                )
                 return ProviderResult(
                     status=ProviderResultStatus.SUCCESS,
                     provider_message_id=message_id,

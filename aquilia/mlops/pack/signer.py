@@ -119,7 +119,6 @@ async def sign_archive(
 
     sig_path = output_sig_path or archive_path + ".sig"
     Path(sig_path).write_bytes(sig)
-    logger.info("Signed archive: %s -> %s", archive_path, sig_path)
     return sig_path
 
 

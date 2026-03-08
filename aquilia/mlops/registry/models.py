@@ -73,7 +73,6 @@ class RegistryDB:
             """
         )
         await self._conn.commit()
-        logger.info("Registry DB initialized: %s", self.db_path)
 
     async def close(self) -> None:
         if self._conn:

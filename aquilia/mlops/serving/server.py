@@ -200,15 +200,10 @@ class ModelServingServer:
         await self._batcher.start()
         self._started = True
         self._start_time = time.time()
-        logger.info(
-            "Serving %s v%s on port %d",
-            self.manifest.name, self.manifest.version, self.port,
-        )
 
         # Warm-up phase
         await self._run_warmup()
         self._ready = True
-        logger.info("Server ready (warm-up complete)")
 
     async def _run_warmup(self) -> None:
         """Execute warm-up requests through the full pipeline."""
@@ -229,10 +224,6 @@ class ModelServingServer:
                 logger.warning("Warmup request %d failed: %s", i, exc)
         if warmup_times:
             avg = sum(warmup_times) / len(warmup_times)
-            logger.info(
-                "Warmup complete: %d requests, avg=%.1fms",
-                len(warmup_times), avg,
-            )
 
     async def stop(self, drain_timeout_s: Optional[float] = None) -> None:
         """
@@ -245,10 +236,6 @@ class ModelServingServer:
         timeout = drain_timeout_s or self._drain_timeout_s
         self._draining = True
         self._ready = False
-        logger.info(
-            "Draining %d in-flight requests (timeout=%.1fs)...",
-            self._inflight, timeout,
-        )
 
         # Wait for in-flight requests to complete
         deadline = time.time() + timeout
@@ -264,7 +251,6 @@ class ModelServingServer:
         await self._runtime.unload()
         self._started = False
         self._draining = False
-        logger.info("Server stopped")
 
     async def predict(
         self,

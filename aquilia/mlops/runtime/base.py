@@ -216,7 +216,6 @@ class BaseRuntime(abc.ABC):
         self._set_state(ModelState.UNLOADING)
         self._manifest = None
         self._set_state(ModelState.UNLOADED)
-        logger.info("Runtime unloaded")
 
     async def memory_info(self) -> Dict[str, Any]:
         """Return memory / device usage info (override in subclasses)."""

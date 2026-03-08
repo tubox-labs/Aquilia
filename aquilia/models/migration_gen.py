@@ -97,14 +97,12 @@ def generate_dsl_migration(
     diff = compute_diff(old_snapshot, new_snapshot)
 
     if not diff.has_changes:
-        logger.info("No model changes detected")
         return None
 
     # Generate operations from diff
     operations = diff_to_operations(diff, old_snapshot, new_snapshot)
 
     if not operations:
-        logger.info("No operations generated from diff")
         return None
 
     # Build revision and slug
@@ -128,7 +126,6 @@ def generate_dsl_migration(
     # Save new snapshot in CROUS binary format
     save_snapshot(new_snapshot, snap_path)
 
-    logger.info(f"Generated DSL migration: {filepath}")
     return filepath
 
 

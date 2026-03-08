@@ -88,10 +88,6 @@ class PythonRuntime(BaseStreamingRuntime):
             if self._llm_config.stop_sequences:
                 self._generation_kwargs["stop_strings"] = self._llm_config.stop_sequences
 
-        logger.info(
-            "Prepared PythonRuntime: %s v%s (dir=%s, llm=%s, device=%s)",
-            manifest.name, manifest.version, model_dir, self._is_llm, self._device,
-        )
 
     async def load(self) -> None:
         """Load model into memory, transitioning through LOADING → LOADED."""
@@ -110,9 +106,6 @@ class PythonRuntime(BaseStreamingRuntime):
             self._load_time_ms = (time.monotonic() - start) * 1000
             self._set_state(ModelState.LOADED)
             self._last_error = None
-            logger.info(
-                "Model loaded in %.1fms (device=%s)", self._load_time_ms, self._device,
-            )
 
         except Exception as exc:
             self._last_error = str(exc)
@@ -141,7 +134,6 @@ class PythonRuntime(BaseStreamingRuntime):
             pass
 
         self._set_state(ModelState.UNLOADED)
-        logger.info("PythonRuntime unloaded")
 
     # ── Loaders ──────────────────────────────────────────────────────
 
@@ -193,7 +185,6 @@ class PythonRuntime(BaseStreamingRuntime):
         }
         torch_dtype = dtype_map.get(cfg.dtype, torch.float16)
 
-        logger.info("Loading LLM: %s (dtype=%s, device=%s)", model_path, cfg.dtype, self._device)
 
         self._tokenizer = AutoTokenizer.from_pretrained(
             model_path,

@@ -139,7 +139,6 @@ def register_i18n_template_globals(
     env.filters["format_time"] = filter_format_time
     env.filters["format_percent"] = filter_format_percent
 
-    logger.debug("I18n template globals and filters registered")
 
 
 class I18nTemplateExtension:

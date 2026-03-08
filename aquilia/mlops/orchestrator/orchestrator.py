@@ -257,4 +257,3 @@ class ModelOrchestrator:
     async def shutdown(self) -> None:
         """Graceful shutdown -- unload all models."""
         await self._loader.unload_all()
-        logger.info("ModelOrchestrator shutdown complete")

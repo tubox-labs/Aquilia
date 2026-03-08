@@ -255,7 +255,6 @@ class ChainLocaleResolver(LocaleResolver):
                 if result is not None:
                     return result
             except Exception as e:
-                logger.debug("Locale resolver %s failed: %s", type(resolver).__name__, e)
                 continue
         return None
 
@@ -301,8 +300,8 @@ class I18nMiddleware:
                 resolved = self.resolver.resolve(request)
                 if resolved and self.service.is_available(resolved):
                     locale = resolved
-            except Exception as e:
-                logger.debug("Locale resolution failed, using default: %s", e)
+            except Exception:
+                pass
 
         # Parse locale object
         locale_obj = parse_locale(locale)

@@ -432,7 +432,6 @@ def register_mlops_providers(
                 return Escalate()
 
         fault_engine.register_app("mlops", MLOpsFaultHandler())
-        logger.info("  FaultEngine wired with MLOps handler")
     except Exception as exc:
         pass
 
@@ -445,7 +444,6 @@ def register_mlops_providers(
         cached = container._cache.get(token_key) if token_key and hasattr(container, '_cache') else None
         if cached is not None:
             cache_service = cached
-            logger.info("  CacheService resolved from DI container")
         elif cfg.cache_enabled:
             from aquilia.cache import MemoryBackend, CacheConfig
             backend = MemoryBackend(max_size=1024)
@@ -459,7 +457,6 @@ def register_mlops_providers(
                 token=CacheService,
                 scope="singleton",
             ))
-            logger.info("  CacheService created (memory backend)")
     except Exception as exc:
         pass
 
@@ -473,7 +470,6 @@ def register_mlops_providers(
             token=FilesystemArtifactStore,
             scope="singleton",
         ))
-        logger.info("  ArtifactStore registered (%s)", cfg.artifact_store_dir)
     except Exception as exc:
         pass
 
@@ -496,11 +492,3 @@ def register_mlops_providers(
         token=MLOpsController,
         scope="singleton",
     ))
-
-    logger.info(
-        "MLOps DI providers registered: %d+ services wired (ecosystem: cache=%s, faults=%s, artifacts=%s)",
-        20,
-        cache_service is not None,
-        fault_engine is not None,
-        artifact_store is not None,
-    )

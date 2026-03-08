@@ -310,7 +310,6 @@ def enhance_engine_with_auth(
         display = username or identity_id[:8]
         return f'<a href="/users/{identity_id}">{display}</a>'
     
-    logger.info("Template engine enhanced with auth integration")
 
 
 def inject_auth_context(

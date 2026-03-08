@@ -67,10 +67,6 @@ class VersionManager:
             self._history[name].append(current)
 
         ok = await self._registry.set_active_version(name, from_version)
-        if ok:
-            logger.info(
-                "Promoted %s:%s to active (previous: %s)", name, from_version, current,
-            )
         return ok
 
     async def rollback(self, name: str) -> Optional[str]:
@@ -91,7 +87,6 @@ class VersionManager:
         previous = history.pop()
         ok = await self._registry.set_active_version(name, previous)
         if ok:
-            logger.info("Rolled back %s to version %s", name, previous)
             return previous
         return None
 

@@ -53,11 +53,7 @@ class StorageEffectProvider(EffectProvider):
 
     async def initialize(self) -> None:
         """No-op -- backends are initialised by StorageSubsystem."""
-        if self._registry:
-            logger.debug(
-                "StorageEffectProvider ready with %d backends",
-                len(self._registry),
-            )
+        pass
 
     async def acquire(self, mode: Optional[str] = None) -> Any:
         """

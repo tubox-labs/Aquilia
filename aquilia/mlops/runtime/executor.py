@@ -105,10 +105,6 @@ class InferenceExecutor:
             )
 
         self._started = True
-        logger.info(
-            "InferenceExecutor started: pool=%s, workers=%d",
-            self._pool_kind.value, self._max_workers,
-        )
 
     async def shutdown(self, timeout: float = 30.0) -> None:
         """
@@ -137,7 +133,7 @@ class InferenceExecutor:
                 "InferenceExecutor force-shutdown with %d active tasks", self._active,
             )
         else:
-            logger.info("InferenceExecutor shutdown complete")
+            pass
 
     # ── Submission ───────────────────────────────────────────────────
 

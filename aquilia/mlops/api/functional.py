@@ -105,7 +105,6 @@ def serve(
         fn.__mlops_model_class__ = _FunctionalModel  # type: ignore[attr-defined]
         fn.__mlops_model_name__ = name                # type: ignore[attr-defined]
 
-        logger.info("@serve registered: %s (version=%s)", name, version)
         return fn
 
     return decorator

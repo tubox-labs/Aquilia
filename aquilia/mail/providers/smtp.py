@@ -136,10 +136,6 @@ class SMTPProvider:
         """Pre-warm the connection pool."""
         if self._initialized:
             return
-        logger.info(
-            f"SMTP provider '{self.name}' initializing "
-            f"({self.host}:{self.port}, tls={self.use_tls}, ssl={self.use_ssl})"
-        )
         # Pre-warm one connection to validate settings early
         try:
             conn = await self._create_connection()
@@ -153,17 +149,12 @@ class SMTPProvider:
 
     async def shutdown(self) -> None:
         """Drain and close all pooled connections."""
-        logger.info(f"SMTP provider '{self.name}' shutting down...")
         async with self._pool_lock:
             for conn in self._pool:
                 await self._close_connection(conn)
             self._pool.clear()
             self._pool_created.clear()
         self._initialized = False
-        logger.info(
-            f"SMTP provider '{self.name}' shutdown complete "
-            f"(sent={self._total_sent}, errors={self._total_errors})"
-        )
 
     # ── Connection Management ───────────────────────────────────────
 
@@ -374,10 +365,6 @@ class SMTPProvider:
             self._total_sent += 1
             message_id = mime_msg["Message-ID"]
 
-            logger.info(
-                f"SMTP sent via {self.name}: {envelope.id} → {recipients} "
-                f"(msg_id={message_id})",
-            )
 
             return ProviderResult(
                 status=ProviderResultStatus.SUCCESS,
@@ -471,7 +458,6 @@ class SMTPProvider:
             await self._release_connection(conn)
             return True
         except Exception as e:
-            logger.debug(f"SMTP health check failed: {e}")
             return False
 
     # ── Error Classification ────────────────────────────────────────

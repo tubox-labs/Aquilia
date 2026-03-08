@@ -5242,8 +5242,8 @@ class AdminSite:
                 }
                 result["integrations"] = integrations_list
 
-            except Exception as exc:
-                logger.debug("Failed to read workspace.py: %s", exc)
+            except Exception:
+                pass
 
         # ── Discover modules ─────────────────────────────────────────
         if workspace_root:
@@ -5338,8 +5338,8 @@ class AdminSite:
                             mod_info["services"] = [s.split(":")[-1].strip('"') for s in services]
                             mod_info["models"] = [m.split(":")[-1].strip('"') for m in models]
 
-                        except Exception as exc:
-                            logger.debug("Failed to read manifest %s: %s", manifest_path, exc)
+                        except Exception:
+                            pass
 
                     result["modules"].append(mod_info)
 

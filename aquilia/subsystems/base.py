@@ -163,9 +163,6 @@ class BaseSubsystem(ABC):
             await self._do_initialize(ctx)
             self._init_time_ms = (time.monotonic() - start) * 1000
             self._initialized = True
-            self._logger.info(
-                f"{self._name} initialized ({self._init_time_ms:.1f}ms)"
-            )
             return HealthStatus(
                 name=self._name,
                 status=SubsystemStatus.HEALTHY,
@@ -205,7 +202,6 @@ class BaseSubsystem(ABC):
         try:
             await self._do_shutdown()
             self._initialized = False
-            self._logger.info(f"{self._name} shut down")
         except Exception as e:
             self._logger.error(f"{self._name} shutdown error: {e}")
 

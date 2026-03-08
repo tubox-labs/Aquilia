@@ -90,7 +90,6 @@ def check_db_ready(
         auto_migrate = os.environ.get("AQUILIA_AUTO_MIGRATE", "").strip() in ("1", "true", "yes")
 
     if auto_migrate:
-        logger.info("AQUILIA_AUTO_MIGRATE=1: skipping migration checks")
         return True
 
     # Check 1: Does the database file exist?

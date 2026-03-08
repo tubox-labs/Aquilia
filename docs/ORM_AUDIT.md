@@ -1,33 +1,12 @@
-# Aquilia ORM — Comprehensive Audit Report
+# Aquilia ORM Audit — Redirected
 
-> Generated from a deep review of every source file in `aquilia/models/`, compared  
-> against Django ORM 5.0 and SQLAlchemy 2.0 best practices.
-
----
-
-## Table of Contents
-
-1. [Executive Summary](#1-executive-summary)
-2. [Architecture Overview](#2-architecture-overview)
-3. [Critical Issues](#3-critical-issues)
-4. [High-Priority Improvements](#4-high-priority-improvements)
-5. [Medium-Priority Improvements](#5-medium-priority-improvements)
-6. [Low-Priority / Nice-to-Have](#6-low-priority--nice-to-have)
-7. [Strengths — What's Already Great](#7-strengths--whats-already-great)
-8. [File-by-File Notes](#8-file-by-file-notes)
-9. [Recommended Roadmap](#9-recommended-roadmap)
-
----
-
-## 1. Executive Summary
-
-Aquilia's ORM is a **well-designed, async-first model layer** that borrows the best ideas from Django (declarative fields, manager/queryset split, signal system, migration DSL) while adding its own innovations (AMDL DSL, `$`-prefix API, `QNode` composition, the `Q` queryset name). The codebase is clean, well-documented, and internally consistent.
-
-However, several areas require attention before the ORM can be considered production-grade for real-world workloads:
-
-| Priority | Count | Summary |
-|----------|-------|---------|
-| 🔴 Critical | 5 | SQL injection surface, missing parameterization, broken eager loading |
+> **This file is superseded by the comprehensive Phase 8 audit report.**
+>
+> See: [`docs/ORM_SYSTEM_AUDIT.md`](docs/ORM_SYSTEM_AUDIT.md)
+>
+> All issues identified in the original audit have been addressed in Phase 8.
+> The new report covers 28+ issues (5 CRITICAL, 9 HIGH, 9 MEDIUM, 6 LOW),
+> all resolved with 4,482 tests passing.
 | 🟠 High | 8 | Incomplete features, performance gaps, type-safety issues |
 | 🟡 Medium | 10 | API polish, missing Django/SQLAlchemy parity features |
 | 🟢 Low | 7 | Code organization, DX improvements, edge cases |

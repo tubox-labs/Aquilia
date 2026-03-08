@@ -82,10 +82,6 @@ class OptimizationPipeline:
                 notes=["No optimization applied (unsupported format)"],
             )
 
-        logger.info(
-            "Optimized %s: %.1f%% reduction (preset=%s)",
-            path.name, result.compression_ratio * 100, preset.value,
-        )
         return result
 
     async def _quantize_onnx(

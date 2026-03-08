@@ -86,10 +86,6 @@ class RolloutEngine:
         self._router.add_target(config.from_version, weight=(100 - config.percentage) / 100.0)
         self._router.add_target(config.to_version, weight=config.percentage / 100.0)
 
-        logger.info(
-            "Started rollout %s: %s → %s (canary=%d%%)",
-            rollout_id, config.from_version, config.to_version, config.percentage,
-        )
         return state
 
     async def advance(
@@ -129,7 +125,6 @@ class RolloutEngine:
         if new_pct >= 100:
             return await self.complete(rollout_id)
 
-        logger.info("Advanced rollout %s to %d%%", rollout_id, new_pct)
         return state
 
     async def complete(self, rollout_id: str) -> RolloutState:
@@ -145,7 +140,6 @@ class RolloutEngine:
         # Remove old version from router
         self._router.remove_target(state.config.from_version)
 
-        logger.info("Completed rollout %s", rollout_id)
         return state
 
     async def rollback(

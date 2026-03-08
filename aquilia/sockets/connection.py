@@ -310,7 +310,6 @@ class Connection:
         await self.leave_all()
         
         # Send close frame (implementation depends on ASGI adapter)
-        logger.info(f"Connection {self.connection_id} disconnecting: {reason}")
     
     def record_received(self, size: int):
         """Record received message stats."""

@@ -97,7 +97,6 @@ class PluginHost:
             )
             self._plugins[ep.name] = desc
             found.append(desc)
-            logger.info("Discovered plugin '%s' via entry point", ep.name)
 
         return found
 
@@ -119,7 +118,6 @@ class PluginHost:
             instance=instance,
         )
         self._plugins[name] = desc
-        logger.info("Registered plugin '%s' v%s", name, version)
         return desc
 
     # ── lifecycle ────────────────────────────────────────────────────────
@@ -143,7 +141,6 @@ class PluginHost:
             desc.instance = cls() if inspect.isclass(cls) else cls
             desc.state = PluginState.LOADED
             desc.version = getattr(desc.instance, "version", desc.version)
-            logger.info("Loaded plugin '%s'", name)
         except Exception as exc:
             desc.state = PluginState.ERROR
             desc.error = str(exc)
@@ -168,7 +165,6 @@ class PluginHost:
             if hasattr(desc.instance, "activate"):
                 desc.instance.activate(ctx or {})
             desc.state = PluginState.ACTIVATED
-            logger.info("Activated plugin '%s'", name)
         except Exception as exc:
             desc.state = PluginState.ERROR
             desc.error = str(exc)
@@ -187,7 +183,6 @@ class PluginHost:
             if hasattr(desc.instance, "deactivate"):
                 desc.instance.deactivate()
             desc.state = PluginState.DEACTIVATED
-            logger.info("Deactivated plugin '%s'", name)
         except Exception as exc:
             desc.state = PluginState.ERROR
             desc.error = str(exc)
