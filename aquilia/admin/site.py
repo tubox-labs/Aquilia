@@ -128,6 +128,37 @@ class AdminConfig:
     theme: str = "auto"
     list_per_page: int = 25
 
+    # Security settings (admin-specific security policy configuration)
+    security_config: Dict[str, Any] = field(default_factory=lambda: {
+        "csrf": {
+            "enabled": True,
+            "max_age": 7200,
+            "token_length": 32,
+        },
+        "rate_limit": {
+            "enabled": True,
+            "max_login_attempts": 5,
+            "login_window": 900,
+            "sensitive_op_limit": 30,
+            "sensitive_op_window": 300,
+            "progressive_lockout": True,
+        },
+        "password": {
+            "min_length": 10,
+            "max_length": 128,
+            "require_upper": True,
+            "require_lower": True,
+            "require_digit": True,
+            "require_special": True,
+        },
+        "headers": {
+            "enabled": True,
+            "frame_options": "DENY",
+        },
+        "session_fixation_protection": True,
+        "event_tracker_max_events": 1000,
+    })
+
     def is_module_enabled(self, module_name: str) -> bool:
         """Check if an admin module is enabled.
 
@@ -231,6 +262,7 @@ class AdminConfig:
             },
             "containers": dict(self.containers_config),
             "pods": dict(self.pods_config),
+            "security": dict(self.security_config),
             "sidebar_sections": dict(self.sidebar_sections),
             "theme": self.theme,
             "list_per_page": self.list_per_page,
@@ -245,6 +277,7 @@ class AdminConfig:
         containers_raw = raw.get("containers_config", {})
         pods_raw = raw.get("pods_config", {})
         sidebar_raw = raw.get("sidebar_sections", {})
+        security_raw = raw.get("security_config", {})
 
         # Defaults for modules (monitoring, audit, containers, pods disabled by default)
         default_modules = {
@@ -316,6 +349,46 @@ class AdminConfig:
                 **pods_raw["capabilities"],
             }
 
+        # ── Resolve security config ──
+        _default_security: Dict[str, Any] = {
+            "csrf": {
+                "enabled": True,
+                "max_age": 7200,
+                "token_length": 32,
+            },
+            "rate_limit": {
+                "enabled": True,
+                "max_login_attempts": 5,
+                "login_window": 900,
+                "sensitive_op_limit": 30,
+                "sensitive_op_window": 300,
+                "progressive_lockout": True,
+            },
+            "password": {
+                "min_length": 10,
+                "max_length": 128,
+                "require_upper": True,
+                "require_lower": True,
+                "require_digit": True,
+                "require_special": True,
+            },
+            "headers": {
+                "enabled": True,
+                "frame_options": "DENY",
+            },
+            "session_fixation_protection": True,
+            "event_tracker_max_events": 1000,
+        }
+        # Deep merge security config -- merge nested dicts
+        merged_security: Dict[str, Any] = {}
+        for key, default_val in _default_security.items():
+            if isinstance(default_val, dict) and key in security_raw and isinstance(security_raw[key], dict):
+                merged_security[key] = {**default_val, **security_raw[key]}
+            elif key in security_raw:
+                merged_security[key] = security_raw[key]
+            else:
+                merged_security[key] = default_val
+
         return cls(
             modules=modules,
             audit_enabled=audit_raw.get("enabled", raw.get("enable_audit", False)),
@@ -331,6 +404,7 @@ class AdminConfig:
             monitoring_refresh_interval=monitoring_raw.get("refresh_interval", 30),
             containers_config=merged_containers,
             pods_config=merged_pods,
+            security_config=merged_security,
             sidebar_sections={
                 "overview": sidebar_raw.get("overview", True),
                 "data": sidebar_raw.get("data", True),
@@ -385,6 +459,12 @@ class AdminSite:
 
         # Audit log -- model-backed (persists to DB), falls back to in-memory
         self.audit_log: ModelBackedAuditLog = ModelBackedAuditLog()
+
+        # Security policy -- built from admin_config.security_config
+        from .security import AdminSecurityPolicy
+        self.security: AdminSecurityPolicy = AdminSecurityPolicy.from_config(
+            self.admin_config.security_config
+        )
 
         # Initialization state
         self._initialized = False

@@ -328,7 +328,11 @@ def update_role_permissions(
     """
     if role == AdminRole.SUPERADMIN:
         if not granted:
-            raise ValueError("Cannot revoke permissions from SUPERADMIN role")
+            from .faults import AdminAuthorizationFault
+            raise AdminAuthorizationFault(
+                action="revoke permissions",
+                resource="SUPERADMIN role",
+            )
         return  # SUPERADMIN always has all permissions
 
     perms = ROLE_PERMISSIONS.setdefault(role, set())

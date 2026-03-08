@@ -127,9 +127,10 @@ def _render_template(template_name: str, **ctx: Any) -> str:
     if _jinja_env is not None:
         tpl = _jinja_env.get_template(template_name)
         return tpl.render(**ctx)
-    raise RuntimeError(
-        "Jinja2 is required for admin templates.  "
-        "Install it with: pip install Jinja2"
+    from .faults import AdminConfigurationFault
+    raise AdminConfigurationFault(
+        "Jinja2 is required for admin templates. Install it with: pip install Jinja2",
+        dependency="Jinja2",
     )
 
 
@@ -166,6 +167,7 @@ except Exception:
 def render_login_page(
     error: str = "",
     *,
+    csrf_token: str = "",
     site_title: str = "Aquilia Admin",
     url_prefix: str = "/admin",
 ) -> str:
@@ -174,11 +176,12 @@ def render_login_page(
         return _render_template(
             "login.html",
             error=error,
+            csrf_token=csrf_token,
             site_title=site_title,
             url_prefix=url_prefix,
         )
     # Inline fallback
-    return _fallback_login(error, site_title=site_title, url_prefix=url_prefix)
+    return _fallback_login(error, csrf_token=csrf_token, site_title=site_title, url_prefix=url_prefix)
 
 
 def render_dashboard(
@@ -1532,6 +1535,8 @@ background:var(--bg-input);color:var(--text-primary);border:1px solid var(--bord
 
 def _fallback_login(error: str = "", **kw: Any) -> str:
     e = f'<div class="flash flash-error">{html.escape(error)}</div>' if error else ""
+    csrf_token = html.escape(kw.get("csrf_token", ""))
+    csrf_field = f'<input type="hidden" name="_csrf_token" value="{csrf_token}">' if csrf_token else ""
     return f"""<!DOCTYPE html><html lang="en" data-theme="dark"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="description" content="Sign in to the Aquilia Admin dashboard.">
@@ -1546,7 +1551,7 @@ def _fallback_login(error: str = "", **kw: Any) -> str:
 <h1 style="font-size:2rem;font-weight:800">Aquilia Admin</h1>
 <p style="color:var(--text-muted);font-size:.85rem;margin-top:8px">Sign in to access the admin dashboard</p></div>
 {e}<form method="POST" action="/admin/login">
-<div class="form-group"><label class="form-label">Username</label>
+{csrf_field}<div class="form-group"><label class="form-label">Username</label>
 <input type="text" name="username" class="form-input" required autofocus></div>
 <div class="form-group"><label class="form-label">Password</label>
 <input type="password" name="password" class="form-input" required></div>

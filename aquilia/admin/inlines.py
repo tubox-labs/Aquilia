@@ -114,15 +114,18 @@ class InlineModelAdmin:
         if len(fk_candidates) == 1:
             return fk_candidates[0]
         elif len(fk_candidates) == 0:
-            raise ValueError(
-                f"InlineModelAdmin for {self.model.__name__} has no ForeignKey "
-                f"to {self._parent_model.__name__}. Set fk_name explicitly."
+            from .faults import AdminInlineFault
+            raise AdminInlineFault(
+                reason="No ForeignKey found. Set fk_name explicitly.",
+                inline_model=self.model.__name__,
+                parent_model=self._parent_model.__name__,
             )
         else:
-            raise ValueError(
-                f"InlineModelAdmin for {self.model.__name__} has multiple "
-                f"ForeignKeys to {self._parent_model.__name__}: {fk_candidates}. "
-                f"Set fk_name explicitly."
+            from .faults import AdminInlineFault
+            raise AdminInlineFault(
+                reason=f"Multiple ForeignKeys found: {fk_candidates}. Set fk_name explicitly.",
+                inline_model=self.model.__name__,
+                parent_model=self._parent_model.__name__,
             )
 
     def get_fields(self) -> List[str]:

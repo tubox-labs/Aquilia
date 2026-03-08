@@ -56,9 +56,10 @@ def register(
         """Actually register the admin class."""
         actual_model = model_cls or admin_cls.model
         if actual_model is None:
-            raise ValueError(
-                f"ModelAdmin {admin_cls.__name__} must specify a model class "
-                "either via the 'model' attribute or as a decorator argument."
+            from .faults import AdminRegistrationFault
+            raise AdminRegistrationFault(
+                reason="Must specify a model class either via the 'model' attribute or as a decorator argument.",
+                model_name=admin_cls.__name__,
             )
 
         admin_instance = admin_cls(model=actual_model)
@@ -95,7 +96,10 @@ def register(
                 return cls
             return decorator
 
-    raise TypeError(f"Invalid argument to @register: {model_or_admin!r}")
+    from .faults import AdminRegistrationFault
+    raise AdminRegistrationFault(
+        reason=f"Invalid argument to @register: {model_or_admin!r}",
+    )
 
 
 def autodiscover() -> Dict[str, Type[Model]]:

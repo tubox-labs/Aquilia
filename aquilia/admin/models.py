@@ -731,10 +731,18 @@ else:
             return None
         @classmethod
         async def create_superuser(cls, username: str, password: str, email: str = "", **kw: Any) -> "AdminUser":
-            raise RuntimeError("ORM not available -- cannot create superuser without database models")
+            from .faults import AdminConfigurationFault
+            raise AdminConfigurationFault(
+                "Cannot create superuser without database models",
+                dependency="ORM",
+            )
         @classmethod
         async def create_staff_user(cls, username: str, password: str, email: str = "", **kw: Any) -> "AdminUser":
-            raise RuntimeError("ORM not available -- cannot create staff user without database models")
+            from .faults import AdminConfigurationFault
+            raise AdminConfigurationFault(
+                "Cannot create staff user without database models",
+                dependency="ORM",
+            )
 
     class AdminLogEntry:  # type: ignore[no-redef]
         """Stub AdminLogEntry when ORM is not available."""

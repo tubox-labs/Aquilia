@@ -33,7 +33,8 @@ from .permissions import (
     require_admin_access,
 )
 from .audit import AdminAction
-from .faults import AdminAuthorizationFault
+from .faults import AdminAuthorizationFault, AdminAuthenticationFault
+from .security import AdminSecurityPolicy
 from .templates import (
     render_login_page,
     render_dashboard,
@@ -104,6 +105,22 @@ def _html_response(html_content: str, status: int = 200) -> Response:
         status=status,
         headers={"content-type": "text/html; charset=utf-8"},
     )
+
+
+def _secure_html_response(
+    html_content: str,
+    site: "AdminSite",
+    status: int = 200,
+    *,
+    is_asset: bool = False,
+) -> Response:
+    """Create an HTML response with security headers applied."""
+    resp = Response(
+        content=html_content.encode("utf-8"),
+        status=status,
+        headers={"content-type": "text/html; charset=utf-8"},
+    )
+    return site.security.protect_response(resp, is_asset=is_asset)
 
 
 def _redirect(url: str) -> Response:
@@ -448,6 +465,64 @@ class AdminController(Controller):
         )
         return _html_response(html, 403)
 
+    # ── CSRF Helpers ─────────────────────────────────────────────────
+
+    def _csrf_reject_redirect(
+        self,
+        request,
+        ctx: RequestCtx,
+        form_data: Dict[str, Any],
+        redirect_url: str,
+    ) -> Optional[Response]:
+        """
+        Validate CSRF token from form_data; return redirect on failure, None on success.
+
+        Usage in POST handlers that redirect::
+
+            denied = self._csrf_reject_redirect(request, ctx, form_data, "/admin/model/")
+            if denied:
+                return denied
+        """
+        if not self.site.security.csrf.validate_request(ctx, form_data):
+            client_ip = self.site.security.extract_client_ip(request)
+            self.site.security.event_tracker.record(
+                "csrf_violation", client_ip, endpoint=redirect_url,
+            )
+            if ctx.session and hasattr(ctx.session, "data"):
+                ctx.session.data["_admin_flash"] = "Invalid or expired security token. Please try again."
+                ctx.session.data["_admin_flash_type"] = "error"
+            return _redirect(redirect_url)
+        return None
+
+    def _csrf_reject_json(
+        self,
+        request,
+        ctx: RequestCtx,
+        form_data: Dict[str, Any],
+    ) -> Optional[Response]:
+        """
+        Validate CSRF token from form_data; return JSON error on failure, None on success.
+
+        Usage in POST handlers that return JSON::
+
+            denied = self._csrf_reject_json(request, ctx, form_data)
+            if denied:
+                return denied
+        """
+        import json as _json
+
+        if not self.site.security.csrf.validate_request(ctx, form_data):
+            client_ip = self.site.security.extract_client_ip(request)
+            self.site.security.event_tracker.record(
+                "csrf_violation", client_ip, endpoint="json-api",
+            )
+            return Response(
+                content=_json.dumps({"error": "CSRF validation failed"}).encode("utf-8"),
+                status=403,
+                headers={"content-type": "application/json; charset=utf-8"},
+            )
+        return None
+
     # ── Dashboard ────────────────────────────────────────────────────
 
     @GET("/")
@@ -602,36 +677,95 @@ class AdminController(Controller):
 
     @GET("/login")
     async def login_page(self, request, ctx: RequestCtx) -> Response:
-        """Render admin login page."""
+        """Render admin login page with CSRF token."""
         # Already logged in?
         identity = _get_identity(ctx)
         if identity and get_admin_role(identity) is not None:
             return _redirect("/admin/")
 
-        return _html_response(render_login_page())
+        # Generate CSRF token for the login form
+        csrf_token = self.site.security.csrf.get_or_create_token(ctx)
+
+        return _secure_html_response(
+            render_login_page(csrf_token=csrf_token), self.site,
+        )
 
     @POST("/login")
     async def login_submit(self, request, ctx: RequestCtx) -> Response:
         """
         Process admin login.
 
-        Validates credentials against auth system and creates
-        an admin session.
+        Security layers:
+        1. Rate limiting — brute-force protection with progressive lockout
+        2. CSRF validation — double-submit token pattern
+        3. Credential verification — timing-safe password check
+        4. Session fixation protection — regenerate session on login
+        5. Audit logging — both success and failure
         """
+        client_ip = self.site.security.extract_client_ip(request)
+
+        # ── Rate limit check ─────────────────────────────────────
+        is_locked, retry_after = self.site.security.rate_limiter.is_login_locked(client_ip)
+        if is_locked:
+            self.site.security.event_tracker.record(
+                "rate_limited", client_ip, endpoint="login",
+                retry_after=retry_after,
+            )
+            csrf_token = self.site.security.csrf.get_or_create_token(ctx)
+            return _secure_html_response(
+                render_login_page(
+                    error=f"Too many login attempts. Please try again in {retry_after // 60} minutes.",
+                    csrf_token=csrf_token,
+                ),
+                self.site,
+                429,
+            )
+
         form_data = await _parse_form(ctx)
+
+        # ── CSRF validation ──────────────────────────────────────
+        if not self.site.security.csrf.validate_request(ctx, form_data):
+            self.site.security.event_tracker.record(
+                "csrf_violation", client_ip, endpoint="login",
+            )
+            csrf_token = self.site.security.csrf.get_or_create_token(ctx)
+            return _secure_html_response(
+                render_login_page(
+                    error="Security validation failed. Please try again.",
+                    csrf_token=csrf_token,
+                ),
+                self.site,
+                403,
+            )
 
         username = form_data.get("username", "")
         password = form_data.get("password", "")
 
         if not username or not password:
-            return _html_response(render_login_page(error="Username and password required"), 400)
+            csrf_token = self.site.security.csrf.get_or_create_token(ctx)
+            return _secure_html_response(
+                render_login_page(
+                    error="Username and password required",
+                    csrf_token=csrf_token,
+                ),
+                self.site,
+                400,
+            )
 
         # Authenticate via built-in admin auth
-        # In production, this integrates with AuthManager
         identity = await self._authenticate_admin(username, password)
 
         if identity is None:
-            # Log failed attempt -- persisted to DB via alog
+            # ── Record failure + progressive lockout ──────────────
+            now_locked, lockout_duration = self.site.security.rate_limiter.record_login_failure(client_ip)
+            remaining = self.site.security.rate_limiter.get_remaining_login_attempts(client_ip)
+
+            self.site.security.event_tracker.record(
+                "login_failed", client_ip,
+                username=username, remaining_attempts=remaining,
+            )
+
+            # Log failed attempt
             meta = _extract_request_meta(request)
             audit = self.site.audit_log
             if hasattr(audit, "alog"):
@@ -656,13 +790,35 @@ class AdminController(Controller):
                     ip_address=meta.get("ip_address"),
                     user_agent=meta.get("user_agent"),
                 )
-            return _html_response(render_login_page(error="Invalid credentials"), 401)
+
+            error_msg = "Invalid credentials"
+            if now_locked:
+                error_msg = f"Account locked for {lockout_duration // 60} minutes due to too many failed attempts."
+            elif remaining <= 2:
+                error_msg = f"Invalid credentials. {remaining} attempt(s) remaining before lockout."
+
+            csrf_token = self.site.security.csrf.get_or_create_token(ctx)
+            return _secure_html_response(
+                render_login_page(error=error_msg, csrf_token=csrf_token),
+                self.site,
+                401,
+            )
+
+        # ── Success: clear rate limiter ──────────────────────────
+        self.site.security.rate_limiter.record_login_success(client_ip)
+
+        # ── Session fixation protection: regenerate session ──────
+        if ctx.session and hasattr(ctx.session, "regenerate"):
+            try:
+                await ctx.session.regenerate()
+            except Exception:
+                pass  # Best effort — session may not support regeneration
 
         # Store identity in session
         if ctx.session and hasattr(ctx.session, "data"):
             ctx.session.data["_admin_identity"] = identity.to_dict()
 
-        # Log successful login -- persisted to DB
+        # Log successful login
         meta = _extract_request_meta(request)
         audit = self.site.audit_log
         if hasattr(audit, "alog"):
@@ -686,9 +842,9 @@ class AdminController(Controller):
 
         return _redirect("/admin/")
 
-    @GET("/logout")
+    @POST("/logout")
     async def logout(self, request, ctx: RequestCtx) -> Response:
-        """Logout and clear admin session."""
+        """Logout and clear admin session (POST to prevent CSRF via GET)."""
         identity = _get_identity(ctx)
 
         if identity:
@@ -705,6 +861,30 @@ class AdminController(Controller):
         # Clear admin session data
         if ctx.session and hasattr(ctx.session, "data"):
             ctx.session.data.pop("_admin_identity", None)
+            ctx.session.data.pop("_admin_csrf_token", None)
+
+        return _redirect("/admin/login")
+
+    @GET("/logout")
+    async def logout_get(self, request, ctx: RequestCtx) -> Response:
+        """GET /logout kept for backward compat — performs same action."""
+        identity = _get_identity(ctx)
+
+        if identity:
+            meta = _extract_request_meta(request)
+            self.site.audit_log.log(
+                user_id=identity.id,
+                username=_get_identity_name(identity),
+                role=str(get_admin_role(identity) or "unknown"),
+                action=AdminAction.LOGOUT,
+                ip_address=meta.get("ip_address"),
+                user_agent=meta.get("user_agent"),
+            )
+
+        # Clear all admin session data including CSRF token
+        if ctx.session and hasattr(ctx.session, "data"):
+            ctx.session.data.pop("_admin_identity", None)
+            ctx.session.data.pop("_admin_csrf_token", None)
 
         return _redirect("/admin/login")
 
@@ -953,6 +1133,11 @@ class AdminController(Controller):
 
         form_data = await _parse_form(ctx)
 
+        # CSRF validation
+        csrf_denied = self._csrf_reject_redirect(request, ctx, form_data, f"/admin/{model.lower()}/add/")
+        if csrf_denied:
+            return csrf_denied
+
         try:
             record = await self.site.create_record(model, form_data, identity=identity)
 
@@ -1093,6 +1278,11 @@ class AdminController(Controller):
 
         form_data = await _parse_form(ctx)
 
+        # CSRF validation
+        csrf_denied = self._csrf_reject_redirect(request, ctx, form_data, f"/admin/{model.lower()}/{pk}/")
+        if csrf_denied:
+            return csrf_denied
+
         try:
             # Capture old data for change tracking
             old_data = {}
@@ -1197,6 +1387,12 @@ class AdminController(Controller):
 
         self._ensure_initialized()
 
+        # CSRF validation (delete uses body or header token)
+        form_data = await _parse_form(ctx)
+        csrf_denied = self._csrf_reject_redirect(request, ctx, form_data, f"/admin/{model.lower()}/")
+        if csrf_denied:
+            return csrf_denied
+
         try:
             await self.site.delete_record(model, pk, identity=identity)
             # Audit: log delete
@@ -1233,6 +1429,11 @@ class AdminController(Controller):
         self._ensure_initialized()
 
         form_data = await _parse_form(ctx, multi=True)
+
+        # CSRF validation
+        csrf_denied = self._csrf_reject_redirect(request, ctx, form_data, f"/admin/{model.lower()}/")
+        if csrf_denied:
+            return csrf_denied
 
         action_name = form_data.get("action", "") if isinstance(form_data.get("action"), str) else (form_data.get("action", [""])[0] if isinstance(form_data.get("action"), list) else "")
         selected_raw = form_data.get("selected", [])
@@ -1519,6 +1720,12 @@ class AdminController(Controller):
         self._ensure_initialized()
 
         form_data = await _parse_form(ctx)
+
+        # CSRF validation (JSON API)
+        csrf_denied = self._csrf_reject_json(request, ctx, form_data)
+        if csrf_denied:
+            return csrf_denied
+
         field_name = form_data.get("field", "")
         new_value = form_data.get("value", "")
         selected_raw = form_data.get("selected", "")
@@ -2012,6 +2219,11 @@ class AdminController(Controller):
         except Exception:
             form_data = {}
 
+        # CSRF validation
+        csrf_denied = self._csrf_reject_redirect(request, ctx, form_data, "/admin/permissions/")
+        if csrf_denied:
+            return csrf_denied
+
         result = self.site.update_permissions(form_data, identity)
 
         try:
@@ -2258,6 +2470,12 @@ class AdminController(Controller):
         self._ensure_initialized()
 
         form_data = await _parse_form(ctx)
+
+        # CSRF validation (JSON API)
+        csrf_denied = self._csrf_reject_json(request, ctx, form_data)
+        if csrf_denied:
+            return csrf_denied
+
         container_id = form_data.get("container_id", "")
         action = form_data.get("action", "")
         run_params = form_data.get("run_params", "")
@@ -2304,6 +2522,12 @@ class AdminController(Controller):
 
         self._ensure_initialized()
         form_data = await _parse_form(ctx)
+
+        # CSRF validation (JSON API)
+        csrf_denied = self._csrf_reject_json(request, ctx, form_data)
+        if csrf_denied:
+            return csrf_denied
+
         container_id = form_data.get("container_id", "")
 
         if not container_id:
@@ -2334,6 +2558,12 @@ class AdminController(Controller):
 
         self._ensure_initialized()
         form_data = await _parse_form(ctx)
+
+        # CSRF validation (JSON API)
+        csrf_denied = self._csrf_reject_json(request, ctx, form_data)
+        if csrf_denied:
+            return csrf_denied
+
         container_id = form_data.get("container_id", "")
         tail = form_data.get("tail", "200")
         since = form_data.get("since", "")
@@ -2367,6 +2597,12 @@ class AdminController(Controller):
 
         self._ensure_initialized()
         form_data = await _parse_form(ctx)
+
+        # CSRF validation (JSON API)
+        csrf_denied = self._csrf_reject_json(request, ctx, form_data)
+        if csrf_denied:
+            return csrf_denied
+
         name = form_data.get("name", "")
 
         if not name:
@@ -2393,6 +2629,12 @@ class AdminController(Controller):
 
         self._ensure_initialized()
         form_data = await _parse_form(ctx)
+
+        # CSRF validation (JSON API)
+        csrf_denied = self._csrf_reject_json(request, ctx, form_data)
+        if csrf_denied:
+            return csrf_denied
+
         network_id = form_data.get("network_id", "")
 
         if not network_id:
@@ -2419,6 +2661,12 @@ class AdminController(Controller):
 
         self._ensure_initialized()
         form_data = await _parse_form(ctx)
+
+        # CSRF validation (JSON API)
+        csrf_denied = self._csrf_reject_json(request, ctx, form_data)
+        if csrf_denied:
+            return csrf_denied
+
         image_id = form_data.get("image_id", "")
 
         if not image_id:
@@ -2445,6 +2693,12 @@ class AdminController(Controller):
 
         self._ensure_initialized()
         form_data = await _parse_form(ctx)
+
+        # CSRF validation (JSON API)
+        csrf_denied = self._csrf_reject_json(request, ctx, form_data)
+        if csrf_denied:
+            return csrf_denied
+
         image_id = form_data.get("image_id", "")
         action = form_data.get("action", "")
 
@@ -2486,6 +2740,12 @@ class AdminController(Controller):
 
         self._ensure_initialized()
         form_data = await _parse_form(ctx)
+
+        # CSRF validation (JSON API)
+        csrf_denied = self._csrf_reject_json(request, ctx, form_data)
+        if csrf_denied:
+            return csrf_denied
+
         action = form_data.get("action", "")
 
         if not action:
@@ -2526,6 +2786,12 @@ class AdminController(Controller):
 
         self._ensure_initialized()
         form_data = await _parse_form(ctx)
+
+        # CSRF validation (JSON API)
+        csrf_denied = self._csrf_reject_json(request, ctx, form_data)
+        if csrf_denied:
+            return csrf_denied
+
         name = form_data.get("name", "")
         action = form_data.get("action", "")
 
@@ -2567,6 +2833,12 @@ class AdminController(Controller):
 
         self._ensure_initialized()
         form_data = await _parse_form(ctx)
+
+        # CSRF validation (JSON API)
+        csrf_denied = self._csrf_reject_json(request, ctx, form_data)
+        if csrf_denied:
+            return csrf_denied
+
         network_id = form_data.get("network_id", "")
         action = form_data.get("action", "")
 
@@ -2607,6 +2879,12 @@ class AdminController(Controller):
             return Response(content=b'{"error":"unauthorized"}', status=401,
                             headers={"content-type": "application/json"})
         self._ensure_initialized()
+
+        # CSRF validation (JSON API - check headers)
+        csrf_denied = self._csrf_reject_json(request, ctx, {})
+        if csrf_denied:
+            return csrf_denied
+
         result = self.site.get_docker_disk_usage_summary()
         return Response(
             content=_json.dumps(result, default=str).encode("utf-8"),
@@ -2623,6 +2901,12 @@ class AdminController(Controller):
                             headers={"content-type": "application/json"})
         self._ensure_initialized()
         form_data = await _parse_form(ctx)
+
+        # CSRF validation (JSON API)
+        csrf_denied = self._csrf_reject_json(request, ctx, form_data)
+        if csrf_denied:
+            return csrf_denied
+
         target = form_data.get("target", "")
         if not target:
             return Response(
@@ -2659,6 +2943,12 @@ class AdminController(Controller):
                             headers={"content-type": "application/json"})
         self._ensure_initialized()
         form_data = await _parse_form(ctx)
+
+        # CSRF validation (JSON API)
+        csrf_denied = self._csrf_reject_json(request, ctx, form_data)
+        if csrf_denied:
+            return csrf_denied
+
         container_id = form_data.get("container_id", "")
         command = form_data.get("command", "")
         if not container_id or not command:
@@ -2696,6 +2986,12 @@ class AdminController(Controller):
                             headers={"content-type": "application/json"})
         self._ensure_initialized()
         form_data = await _parse_form(ctx)
+
+        # CSRF validation (JSON API)
+        csrf_denied = self._csrf_reject_json(request, ctx, form_data)
+        if csrf_denied:
+            return csrf_denied
+
         image_id = form_data.get("image_id", "")
         if not image_id:
             return Response(
@@ -2718,6 +3014,12 @@ class AdminController(Controller):
                             headers={"content-type": "application/json"})
         self._ensure_initialized()
         form_data = await _parse_form(ctx)
+
+        # CSRF validation (JSON API)
+        csrf_denied = self._csrf_reject_json(request, ctx, form_data)
+        if csrf_denied:
+            return csrf_denied
+
         source = form_data.get("source", "")
         target = form_data.get("target", "")
         if not source or not target:
@@ -2755,6 +3057,12 @@ class AdminController(Controller):
                             headers={"content-type": "application/json"})
         self._ensure_initialized()
         form_data = await _parse_form(ctx)
+
+        # CSRF validation (JSON API)
+        csrf_denied = self._csrf_reject_json(request, ctx, form_data)
+        if csrf_denied:
+            return csrf_denied
+
         container_id = form_data.get("container_id", "")
         if not container_id:
             return Response(
@@ -2791,6 +3099,12 @@ class AdminController(Controller):
                             headers={"content-type": "application/json"})
         self._ensure_initialized()
         form_data = await _parse_form(ctx)
+
+        # CSRF validation (JSON API)
+        csrf_denied = self._csrf_reject_json(request, ctx, form_data)
+        if csrf_denied:
+            return csrf_denied
+
         name = form_data.get("name", "")
         driver = form_data.get("driver", "bridge")
         subnet = form_data.get("subnet", "")
@@ -2831,6 +3145,12 @@ class AdminController(Controller):
                             headers={"content-type": "application/json"})
         self._ensure_initialized()
         form_data = await _parse_form(ctx)
+
+        # CSRF validation (JSON API)
+        csrf_denied = self._csrf_reject_json(request, ctx, form_data)
+        if csrf_denied:
+            return csrf_denied
+
         name = form_data.get("name", "")
         driver = form_data.get("driver", "local")
         labels = form_data.get("labels", "")
@@ -2869,6 +3189,12 @@ class AdminController(Controller):
                             headers={"content-type": "application/json"})
         self._ensure_initialized()
         form_data = await _parse_form(ctx)
+
+        # CSRF validation (JSON API)
+        csrf_denied = self._csrf_reject_json(request, ctx, form_data)
+        if csrf_denied:
+            return csrf_denied
+
         since = form_data.get("since", "10m")
         result = self.site.get_docker_events(since)
         return Response(
@@ -2886,6 +3212,12 @@ class AdminController(Controller):
                             headers={"content-type": "application/json"})
         self._ensure_initialized()
         form_data = await _parse_form(ctx)
+
+        # CSRF validation (JSON API)
+        csrf_denied = self._csrf_reject_json(request, ctx, form_data)
+        if csrf_denied:
+            return csrf_denied
+
         tag = form_data.get("tag", "")
         no_cache = form_data.get("no_cache", "") in ("1", "true", "on")
         build_args = form_data.get("build_args", "")
@@ -2922,6 +3254,12 @@ class AdminController(Controller):
                             headers={"content-type": "application/json"})
         self._ensure_initialized()
         form_data = await _parse_form(ctx)
+
+        # CSRF validation (JSON API)
+        csrf_denied = self._csrf_reject_json(request, ctx, form_data)
+        if csrf_denied:
+            return csrf_denied
+
         container_id = form_data.get("container_id", "")
         if not container_id:
             return Response(
@@ -2944,6 +3282,12 @@ class AdminController(Controller):
                             headers={"content-type": "application/json"})
         self._ensure_initialized()
         form_data = await _parse_form(ctx)
+
+        # CSRF validation (JSON API)
+        csrf_denied = self._csrf_reject_json(request, ctx, form_data)
+        if csrf_denied:
+            return csrf_denied
+
         container_id = form_data.get("container_id", "")
         if not container_id:
             return Response(
@@ -2966,6 +3310,12 @@ class AdminController(Controller):
                             headers={"content-type": "application/json"})
         self._ensure_initialized()
         form_data = await _parse_form(ctx)
+
+        # CSRF validation (JSON API)
+        csrf_denied = self._csrf_reject_json(request, ctx, form_data)
+        if csrf_denied:
+            return csrf_denied
+
         container_id = form_data.get("container_id", "")
         if not container_id:
             return Response(
@@ -3241,6 +3591,12 @@ class AdminController(Controller):
         self._ensure_initialized()
 
         import json as _json
+
+        # CSRF validation (check headers for multipart uploads)
+        csrf_denied = self._csrf_reject_json(request, ctx, {})
+        if csrf_denied:
+            return csrf_denied
+
         try:
             form = await ctx.multipart()
             file_obj = form.get_file("file")
@@ -3300,6 +3656,12 @@ class AdminController(Controller):
         self._ensure_initialized()
 
         import json as _json
+
+        # CSRF validation (JSON API - check headers)
+        csrf_denied = self._csrf_reject_json(request, ctx, {})
+        if csrf_denied:
+            return csrf_denied
+
         try:
             body = await ctx.json()
             backend_alias = body.get("backend", "default")
@@ -3533,6 +3895,11 @@ class AdminController(Controller):
 
         import json as _json
 
+        # CSRF validation (JSON API - check headers for JSON body requests)
+        csrf_denied = self._csrf_reject_json(request, ctx, {})
+        if csrf_denied:
+            return csrf_denied
+
         try:
             body = await request.body()
             payload = _json.loads(body) if body else {}
@@ -3676,6 +4043,11 @@ class AdminController(Controller):
 
         self._ensure_initialized()
         import json as _json
+
+        # CSRF validation (JSON API)
+        csrf_denied = self._csrf_reject_json(request, ctx, {})
+        if csrf_denied:
+            return csrf_denied
 
         svc = getattr(self.site, "_mail_service", None)
         if svc is None:
@@ -4010,6 +4382,11 @@ class AdminController(Controller):
             return Response(content=b'{"error":"mlops disabled"}', status=404,
                             headers={"content-type": "application/json"})
 
+        # CSRF validation (JSON API)
+        csrf_denied = self._csrf_reject_json(request, ctx, {})
+        if csrf_denied:
+            return csrf_denied
+
         try:
             raw_body = await request.body()
             body = _json.loads(raw_body) if raw_body else {}
@@ -4195,6 +4572,11 @@ class AdminController(Controller):
             return Response(content=b'{"error":"mlops disabled"}', status=404,
                             headers={"content-type": "application/json"})
 
+        # CSRF validation (JSON API)
+        csrf_denied = self._csrf_reject_json(request, ctx, {})
+        if csrf_denied:
+            return csrf_denied
+
         try:
             raw_body = await request.body()
             body = _json.loads(raw_body) if raw_body else {}
@@ -4323,6 +4705,11 @@ class AdminController(Controller):
             return Response(content=b'{"error":"mlops disabled"}', status=404,
                             headers={"content-type": "application/json"})
 
+        # CSRF validation (JSON API)
+        csrf_denied = self._csrf_reject_json(request, ctx, {})
+        if csrf_denied:
+            return csrf_denied
+
         registry = getattr(self.site, "_mlops_registry", None)
         results = []
 
@@ -4404,6 +4791,11 @@ class AdminController(Controller):
         if not self.site.admin_config.is_module_enabled("mlops"):
             return Response(content=b'{"error":"mlops disabled"}', status=404,
                             headers={"content-type": "application/json"})
+
+        # CSRF validation (JSON API)
+        csrf_denied = self._csrf_reject_json(request, ctx, {})
+        if csrf_denied:
+            return csrf_denied
 
         try:
             raw_body = await request.body()
@@ -4563,6 +4955,11 @@ class AdminController(Controller):
             return Response(content=b'{"error":"unauthorized"}', status=401,
                             headers={"content-type": "application/json"})
 
+        # CSRF validation (JSON API)
+        csrf_denied = self._csrf_reject_json(request, ctx, {})
+        if csrf_denied:
+            return csrf_denied
+
         try:
             raw_body = await request.body()
             body = _json.loads(raw_body) if raw_body else {}
@@ -4658,6 +5055,11 @@ class AdminController(Controller):
         if denied:
             return Response(content=b'{"error":"unauthorized"}', status=401,
                             headers={"content-type": "application/json"})
+
+        # CSRF validation (JSON API)
+        csrf_denied = self._csrf_reject_json(request, ctx, {})
+        if csrf_denied:
+            return csrf_denied
 
         mlops_data = self.site.get_mlops_data()
         snapshot = {
@@ -4769,7 +5171,7 @@ class AdminController(Controller):
 
     @POST("/admin-users/create")
     async def admin_users_create(self, request, ctx: RequestCtx) -> Response:
-        """Create a new admin user."""
+        """Create a new admin user with CSRF, rate limiting, and password validation."""
         identity, denied = _require_identity(ctx)
         if denied:
             return denied
@@ -4778,7 +5180,30 @@ class AdminController(Controller):
             return _redirect("/admin/")
 
         self._ensure_initialized()
+
+        client_ip = self.site.security.extract_client_ip(request)
+
+        # Rate limit sensitive operation
+        allowed, retry_after = self.site.security.rate_limiter.check_sensitive_op(
+            client_ip, "admin_user_create"
+        )
+        if not allowed:
+            if ctx.session and hasattr(ctx.session, "data"):
+                ctx.session.data["_admin_flash"] = f"Rate limited. Try again in {retry_after} seconds."
+                ctx.session.data["_admin_flash_type"] = "error"
+            return _redirect("/admin/admin-users/")
+
         form_data = await _parse_form(ctx)
+
+        # CSRF validation
+        if not self.site.security.csrf.validate_request(ctx, form_data):
+            self.site.security.event_tracker.record(
+                "csrf_violation", client_ip, endpoint="admin_users_create",
+            )
+            if ctx.session and hasattr(ctx.session, "data"):
+                ctx.session.data["_admin_flash"] = "Security validation failed. Please try again."
+                ctx.session.data["_admin_flash_type"] = "error"
+            return _redirect("/admin/admin-users/")
 
         username = (form_data.get("username") or "").strip()
         email = (form_data.get("email") or "").strip()
@@ -4793,9 +5218,12 @@ class AdminController(Controller):
                 ctx.session.data["_admin_flash_type"] = "error"
             return _redirect("/admin/admin-users/")
 
-        if len(password) < 8:
+        # Password complexity validation
+        pw_result = self.site.security.password_validator.validate(password, username=username)
+        if not pw_result.is_valid:
+            feedback = " ".join(pw_result.feedback)
             if ctx.session and hasattr(ctx.session, "data"):
-                ctx.session.data["_admin_flash"] = "Password must be at least 8 characters."
+                ctx.session.data["_admin_flash"] = f"Weak password: {feedback}"
                 ctx.session.data["_admin_flash_type"] = "error"
             return _redirect("/admin/admin-users/")
 
@@ -4869,6 +5297,12 @@ class AdminController(Controller):
 
         self._ensure_initialized()
         form_data = await _parse_form(ctx)
+
+        # CSRF validation
+        csrf_denied = self._csrf_reject_redirect(request, ctx, form_data, "/admin/admin-users/")
+        if csrf_denied:
+            return csrf_denied
+
         user_id = form_data.get("user_id", "")
 
         try:
@@ -4906,7 +5340,7 @@ class AdminController(Controller):
 
     @POST("/admin-users/reset-password")
     async def admin_users_reset_password(self, request, ctx: RequestCtx) -> Response:
-        """Reset password for an admin user."""
+        """Reset password for an admin user (with CSRF and password validation)."""
         identity, denied = _require_identity(ctx)
         if denied:
             return denied
@@ -4916,12 +5350,27 @@ class AdminController(Controller):
 
         self._ensure_initialized()
         form_data = await _parse_form(ctx)
+
+        # CSRF validation
+        client_ip = self.site.security.extract_client_ip(request)
+        if not self.site.security.csrf.validate_request(ctx, form_data):
+            self.site.security.event_tracker.record(
+                "csrf_violation", client_ip, endpoint="reset_password",
+            )
+            if ctx.session and hasattr(ctx.session, "data"):
+                ctx.session.data["_admin_flash"] = "Security validation failed. Please try again."
+                ctx.session.data["_admin_flash_type"] = "error"
+            return _redirect("/admin/admin-users/")
+
         user_id = form_data.get("user_id", "")
         new_password = form_data.get("new_password", "")
 
-        if not new_password or len(new_password) < 8:
+        # Password complexity validation
+        pw_result = self.site.security.password_validator.validate(new_password)
+        if not pw_result.is_valid:
+            feedback = " ".join(pw_result.feedback)
             if ctx.session and hasattr(ctx.session, "data"):
-                ctx.session.data["_admin_flash"] = "Password must be at least 8 characters."
+                ctx.session.data["_admin_flash"] = f"Weak password: {feedback}"
                 ctx.session.data["_admin_flash_type"] = "error"
             return _redirect("/admin/admin-users/")
 
@@ -4969,6 +5418,12 @@ class AdminController(Controller):
 
         self._ensure_initialized()
         form_data = await _parse_form(ctx)
+
+        # CSRF validation
+        csrf_denied = self._csrf_reject_redirect(request, ctx, form_data, "/admin/admin-users/")
+        if csrf_denied:
+            return csrf_denied
+
         user_id = form_data.get("user_id", "")
 
         try:
@@ -5180,6 +5635,22 @@ class AdminController(Controller):
         except Exception as e:
             return _flash(f"Upload failed: {e}")
 
+        # CSRF validation (check multipart fields and headers)
+        multipart_fields = {}
+        try:
+            if hasattr(form_data, "fields") and hasattr(form_data.fields, "to_dict"):
+                multipart_fields = form_data.fields.to_dict()
+            elif hasattr(form_data, "fields") and isinstance(form_data.fields, dict):
+                multipart_fields = dict(form_data.fields)
+        except Exception:
+            pass
+        if not self.site.security.csrf.validate_request(ctx, multipart_fields):
+            client_ip = self.site.security.extract_client_ip(request)
+            self.site.security.event_tracker.record(
+                "csrf_violation", client_ip, endpoint="/profile/upload-avatar",
+            )
+            return _flash("Invalid or expired security token. Please try again.")
+
         # Retrieve file from the 'avatar' field
         upload_file = None
         try:
@@ -5276,6 +5747,11 @@ class AdminController(Controller):
         self._ensure_initialized()
         form_data = await _parse_form(ctx)
 
+        # CSRF validation
+        csrf_denied = self._csrf_reject_redirect(request, ctx, form_data, "/admin/profile/")
+        if csrf_denied:
+            return csrf_denied
+
         first_name = (form_data.get("first_name") or "").strip()
         last_name  = (form_data.get("last_name")  or "").strip()
         email      = (form_data.get("email")      or "").strip()
@@ -5344,13 +5820,24 @@ class AdminController(Controller):
 
     @POST("/profile/change-password")
     async def profile_change_password(self, request, ctx: RequestCtx) -> Response:
-        """Change password for the currently logged-in admin."""
+        """Change password for the currently logged-in admin (with validation)."""
         identity, denied = _require_identity(ctx)
         if denied:
             return denied
 
         self._ensure_initialized()
         form_data = await _parse_form(ctx)
+
+        # CSRF validation
+        client_ip = self.site.security.extract_client_ip(request)
+        if not self.site.security.csrf.validate_request(ctx, form_data):
+            self.site.security.event_tracker.record(
+                "csrf_violation", client_ip, endpoint="change_password",
+            )
+            if ctx.session and hasattr(ctx.session, "data"):
+                ctx.session.data["_admin_flash"] = "Security validation failed. Please try again."
+                ctx.session.data["_admin_flash_type"] = "error"
+            return _redirect("/admin/profile/")
 
         current_password = form_data.get("current_password", "")
         new_password = form_data.get("new_password", "")
@@ -5368,9 +5855,13 @@ class AdminController(Controller):
                 ctx.session.data["_admin_flash_type"] = "error"
             return _redirect("/admin/profile/")
 
-        if len(new_password) < 8:
+        # Password complexity validation
+        username = identity.get_attribute("username", identity.id)
+        pw_result = self.site.security.password_validator.validate(new_password, username=username)
+        if not pw_result.is_valid:
+            feedback = " ".join(pw_result.feedback)
             if ctx.session and hasattr(ctx.session, "data"):
-                ctx.session.data["_admin_flash"] = "Password must be at least 8 characters."
+                ctx.session.data["_admin_flash"] = f"Weak password: {feedback}"
                 ctx.session.data["_admin_flash_type"] = "error"
             return _redirect("/admin/profile/")
 
