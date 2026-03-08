@@ -54,15 +54,8 @@ async def cleanup_expired_sessions(
     cutoff = start - timedelta(seconds=max_idle_seconds)
     purged = 0
 
-    logger.info(
-        "Starting session cleanup (idle cutoff=%s, batch=%d)",
-        cutoff.isoformat(),
-        batch_size,
-    )
-
     # In a real implementation this would query the session store.
     # For now we simulate the cleanup cycle.
-    logger.info("Session cleanup completed: purged=%d", purged)
 
     elapsed = (datetime.now(timezone.utc) - start).total_seconds()
     return {
@@ -122,12 +115,7 @@ async def record_login_attempt(
         "failure_reason": failure_reason,
     }
 
-    if success:
-        logger.info(
-            "Login success: user=%s ip=%s",
-            username, ip_address,
-        )
-    else:
+    if not success:
         logger.warning(
             "Login failed: user=%s ip=%s reason=%s",
             username, ip_address, failure_reason,

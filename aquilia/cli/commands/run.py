@@ -982,7 +982,7 @@ os.environ.setdefault("AQUILIA_ENV", "{mode}")
 os.environ.setdefault("AQUILIA_WORKSPACE", str(_WORKSPACE_ROOT))
 
 # ────────────────────────────────────────────────────────────────────────
-# 2. Logging -- structured, mode-aware
+# 2. Logging -- structured, mode-aware, coloured output
 # ────────────────────────────────────────────────────────────────────────
 _LOG_LEVEL = logging.DEBUG if "{mode}" == "dev" else logging.INFO
 _LOG_FORMAT = (
@@ -990,7 +990,30 @@ _LOG_FORMAT = (
     if "{mode}" == "prod"
     else "%(levelname)-8s | %(name)s -- %(message)s"
 )
-logging.basicConfig(level=_LOG_LEVEL, format=_LOG_FORMAT, force=True)
+
+
+class _ColorFormatter(logging.Formatter):
+    """Coloured log formatter for terminal output (dev mode)."""
+    _COLORS = {{
+        logging.DEBUG:    "\033[36m",   # cyan
+        logging.INFO:     "\033[32m",   # green
+        logging.WARNING:  "\033[33m",   # yellow
+        logging.ERROR:    "\033[31m",   # red
+        logging.CRITICAL: "\033[1;31m", # bold red
+    }}
+    _RESET = "\033[0m"
+
+    def format(self, record):
+        color = self._COLORS.get(record.levelno, "")
+        msg = super().format(record)
+        return f"{{color}}{{msg}}{{self._RESET}}" if color else msg
+
+
+_handler = logging.StreamHandler()
+_handler.setFormatter(_ColorFormatter(_LOG_FORMAT))
+logging.root.handlers.clear()
+logging.root.addHandler(_handler)
+logging.root.setLevel(_LOG_LEVEL)
 
 # Silence noisy third-party loggers in dev mode
 for _noisy in ("aiosqlite", "asyncio", "urllib3", "httpcore", "httpx",
