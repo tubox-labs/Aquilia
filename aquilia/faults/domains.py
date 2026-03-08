@@ -828,6 +828,10 @@ class HTTPFault(Fault):
         public: bool = True,
         metadata: dict[str, Any] | None = None,
     ):
+        if not isinstance(status, int) or not (400 <= status <= 599):
+            raise ValueError(
+                f"HTTPFault status must be an integer in 400..599, got {status!r}"
+            )
         self.status = status
         self.detail = detail
         reason = http_reason(status)

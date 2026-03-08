@@ -470,6 +470,12 @@ class FaultMiddleware:
                     from ..response import Response
                     if isinstance(result.response, Response):
                         return result.response
+                    if result.response is None:
+                        # FatalHandler returns Resolved(None) — produce
+                        # a safe 500 response rather than serialising null.
+                        return Response.json(
+                            {"error": "Internal server error"}, status=500,
+                        )
                     return Response.json(result.response)
                 
                 raise e

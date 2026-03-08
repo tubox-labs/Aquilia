@@ -127,6 +127,9 @@ DOMAIN_DEFAULTS = {
     FaultDomain.SYSTEM: {"severity": Severity.FATAL, "retryable": False},
     FaultDomain.MODEL: {"severity": Severity.ERROR, "retryable": False},
     FaultDomain.CACHE: {"severity": Severity.ERROR, "retryable": True},
+    FaultDomain.STORAGE: {"severity": Severity.ERROR, "retryable": False},
+    FaultDomain.TASKS: {"severity": Severity.ERROR, "retryable": True},
+    FaultDomain.TEMPLATE: {"severity": Severity.ERROR, "retryable": False},
     FaultDomain.HTTP: {"severity": Severity.WARN, "retryable": False},
 }
 

@@ -245,8 +245,11 @@ class ExceptionMiddleware:
         except PermissionError as e:
             # Forbidden -- 403
             self.logger.warning(f"PermissionError: {e}")
+            # Only reveal raw exception detail in debug mode;
+            # production gets a generic message to prevent info leakage.
+            detail = str(e) if self.debug else "You do not have permission to access this resource."
             if self._wants_html(request):
-                return self._render_debug_http_error(403, "Forbidden", str(e), request)
+                return self._render_debug_http_error(403, "Forbidden", detail, request)
             return Response.json(
                 {"error": "Forbidden"},
                 status=403,
@@ -314,6 +317,10 @@ class ExceptionMiddleware:
                 FaultDomain.DI: 500,
                 FaultDomain.FLOW: 500,
                 FaultDomain.SYSTEM: 500,
+                FaultDomain.STORAGE: 502,
+                FaultDomain.TASKS: 503,
+                FaultDomain.TEMPLATE: 500,
+                FaultDomain.HTTP: 500,          # Fallback (HTTPFault caught above)
             }
             
             code = getattr(e, "code", None)
@@ -373,14 +380,11 @@ class ExceptionMiddleware:
                         request,
                     )
             
-            # ARCH-04: Never leak tracebacks in JSON responses, even in debug.
-            # Stack traces are only shown in debug HTML pages where they are
-            # useful for local development and cannot be scraped by bots.
-            error_data = {"error": "Internal server error"}
-            if self.debug:
-                error_data["detail"] = str(e)
-            
-            return Response.json(error_data, status=500)
+            # ARCH-04: Never leak tracebacks or exception messages in JSON
+            # responses, even in debug mode.  Detailed stack traces are only
+            # rendered in the HTML debug pages where they are useful for local
+            # development and cannot be scraped by automated bots/scanners.
+            return Response.json({"error": "Internal server error"}, status=500)
 
 
 class LoggingMiddleware:
@@ -415,7 +419,12 @@ class LoggingMiddleware:
 
 
 class TimeoutMiddleware:
-    """Enforces request timeout."""
+    """Enforces request timeout.
+
+    Raises ``RequestTimeoutFault`` on timeout so the exception flows
+    through the fault system and ExceptionMiddleware can render a
+    proper HTML or JSON response via content negotiation.
+    """
     
     def __init__(self, timeout_seconds: float = 30.0):
         self.timeout = timeout_seconds
@@ -429,10 +438,10 @@ class TimeoutMiddleware:
                 timeout=self.timeout
             )
         except asyncio.TimeoutError:
-            return Response.json(
-                {"error": "Request timeout"},
-                status=504,
-            )
+            from .faults.domains import RequestTimeoutFault
+            raise RequestTimeoutFault(
+                detail=f"Request exceeded {self.timeout}s timeout",
+            ) from None
 
 
 class CORSMiddleware:

@@ -36,6 +36,7 @@ from .domains import (
     AuthenticationFault,
     AuthorizationFault,
     SystemFault,
+    HTTPFault,
 )
 
 
@@ -191,8 +192,11 @@ class RetryHandler(FaultHandler):
         self.multiplier = multiplier
         self.max_delay = max_delay
         
-        # Track retry attempts per fingerprint
+        # Track retry attempts per fingerprint with timestamps for eviction
         self._attempts: dict[str, int] = {}
+        self._attempt_ts: dict[str, float] = {}  # fingerprint → last-seen monotonic time
+        self._eviction_window: float = max_delay * max_attempts * 4  # generous TTL
+        self._last_eviction: float = 0.0
     
     def can_handle(self, ctx: FaultContext) -> bool:
         """Only handle retryable faults."""
@@ -200,11 +204,24 @@ class RetryHandler(FaultHandler):
     
     async def handle(self, ctx: FaultContext) -> FaultResult:
         """Retry fault with exponential backoff."""
+        # Periodic eviction of stale entries to prevent memory leak
+        import time as _time
+        now = _time.monotonic()
+        if now - self._last_eviction > self._eviction_window:
+            cutoff = now - self._eviction_window
+            stale = [fp for fp, ts in self._attempt_ts.items() if ts < cutoff]
+            for fp in stale:
+                self._attempts.pop(fp, None)
+                self._attempt_ts.pop(fp, None)
+            self._last_eviction = now
+
         fingerprint = ctx.fingerprint()
         attempt = self._attempts.get(fingerprint, 0)
         
         if attempt >= self.max_attempts:
-            # Max attempts reached, escalate
+            # Max attempts reached, clean up and escalate
+            self._attempts.pop(fingerprint, None)
+            self._attempt_ts.pop(fingerprint, None)
             return Escalate()
         
         # Calculate delay
@@ -219,14 +236,11 @@ class RetryHandler(FaultHandler):
         # Increment attempt counter
         self._attempts[fingerprint] = attempt + 1
         
-        # Return transformed with retry metadata
-        return Transformed(
-            ctx.fault,
-            metadata={
-                "retry_attempt": attempt + 1,
-                "retry_delay": delay,
-            },
-        )
+        # Inject retry metadata into the fault itself
+        ctx.fault.metadata["retry_attempt"] = attempt + 1
+        ctx.fault.metadata["retry_delay"] = delay
+        
+        return Transformed(ctx.fault)
 
 
 # ============================================================================
@@ -264,24 +278,31 @@ class SecurityFaultHandler(FaultHandler):
         return isinstance(ctx.fault, SecurityFault)
     
     async def handle(self, ctx: FaultContext) -> FaultResult:
-        """Mask sensitive information."""
+        """Mask sensitive information.
+
+        Creates a generic ``SecurityFault`` with a safe message instead of
+        trying to reconstruct the concrete subclass (whose ``__init__``
+        signature may be incompatible with generic keyword args).
+        """
         fault = ctx.fault
         
-        # Generic messages
+        # Generic messages — never reveal *why* auth failed
         if isinstance(fault, AuthenticationFault):
-            message = "Authentication failed"
+            safe_message = "Authentication failed"
         elif isinstance(fault, AuthorizationFault):
-            message = "Access denied"
+            safe_message = "Access denied"
         else:
-            message = "Security error"
+            safe_message = "Security error"
         
-        # Create masked fault
-        masked = type(fault)(
+        # Build masked fault using the *base* SecurityFault class so we
+        # don't rely on subclass __init__ signatures.
+        masked = SecurityFault(
             code=fault.code,
-            message=message if fault.public else fault.message,
+            message=safe_message if fault.public else fault.message,
             severity=fault.severity,
-            metadata={} if self.mask_metadata else fault.metadata,
+            metadata={} if self.mask_metadata else fault.metadata.copy(),
         )
+        masked.public = fault.public
         
         return Transformed(masked)
 
@@ -337,6 +358,11 @@ class ResponseMapper(FaultHandler):
             FaultDomain.IO: 502,
             FaultDomain.SECURITY: 401,
             FaultDomain.SYSTEM: 500,
+            FaultDomain.MODEL: 404,
+            FaultDomain.CACHE: 502,
+            FaultDomain.STORAGE: 502,
+            FaultDomain.TASKS: 503,
+            FaultDomain.TEMPLATE: 500,
             FaultDomain.HTTP: 500,  # Overridden by fault.status for HTTPFault
         }
     
@@ -360,23 +386,32 @@ class ResponseMapper(FaultHandler):
                 if isinstance(fault, AuthorizationFault):
                     status = 403
         
-        # Build response body
-        body = {
+        # Build response body — never expose severity (internal classification)
+        body: dict[str, Any] = {
             "error": {
                 "code": fault.code,
                 "message": fault.message if fault.public else "Internal server error",
                 "domain": fault.domain.value,
-                "severity": fault.severity.value,
             }
         }
         
-        # Add trace_id for debugging
+        # Add trace_id for debugging (opaque, safe to expose)
         if ctx.trace_id:
             body["error"]["trace_id"] = ctx.trace_id
         
-        # Add metadata if fault is public
+        # Expose only explicitly safe metadata keys — never leak internal
+        # keys like "headers", db URLs, stack traces, or credentials.
+        _SAFE_META_KEYS = frozenset({
+            "allowed_methods", "retry_after", "field", "reason",
+            "path", "method", "detail",
+        })
         if fault.public and fault.metadata:
-            body["error"]["metadata"] = fault.metadata
+            safe_meta = {
+                k: v for k, v in fault.metadata.items()
+                if k in _SAFE_META_KEYS
+            }
+            if safe_meta:
+                body["error"]["metadata"] = safe_meta
         
         response = HTTPResponse(
             status_code=status,
