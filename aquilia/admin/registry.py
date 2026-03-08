@@ -145,12 +145,11 @@ def autodiscover() -> Dict[str, Type[Model]]:
 
 def _register_admin_models(site: "AdminSite") -> None:
     """
-    Register the built-in admin models (AdminUser, AdminGroup, etc.)
-    with rich ModelAdmin subclasses for admin data management.
+    Register the built-in admin models with rich ModelAdmin subclasses.
 
-    These models store real data in database tables -- ContentType tracks
-    registered models, AdminUser stores staff accounts, AdminLogEntry
-    provides an immutable audit trail, etc.
+    Only models with ``_HAS_ORM != False`` get a real registration.
+    Legacy stubs (ContentType, AdminGroup, etc.) are skipped because
+    they carry ``_HAS_ORM = False``.
     """
     from .options import ModelAdmin
     from .models import _HAS_ORM
@@ -159,108 +158,69 @@ def _register_admin_models(site: "AdminSite") -> None:
         return
 
     from .models import (
-        ContentType,
-        AdminPermission as AdminPermissionModel,
-        AdminGroup,
         AdminUser,
-        AdminLogEntry,
-        AdminSession,
+        AdminAuditEntry,
+        AdminAPIKey,
+        AdminPreference,
     )
-
-    # ── ContentType Admin ──
-    if not site.is_registered(ContentType):
-        class ContentTypeAdmin(ModelAdmin):
-            list_display = ["id", "app_label", "model"]
-            search_fields = ["app_label", "model"]
-            ordering = ["app_label", "model"]
-            readonly_fields = ["id"]
-            icon = "tag"
-            verbose_name = "Content Type"
-            verbose_name_plural = "Content Types"
-        site.register_admin(ContentType, ContentTypeAdmin(model=ContentType))
-
-    # ── AdminPermission Admin ──
-    if not site.is_registered(AdminPermissionModel):
-        class AdminPermissionAdmin(ModelAdmin):
-            list_display = ["id", "codename", "name", "content_type"]
-            search_fields = ["name", "codename"]
-            ordering = ["codename"]
-            readonly_fields = ["id"]
-            icon = "key"
-            verbose_name = "Permission"
-            verbose_name_plural = "Permissions"
-        site.register_admin(AdminPermissionModel, AdminPermissionAdmin(model=AdminPermissionModel))
-
-    # ── AdminGroup Admin ──
-    if not site.is_registered(AdminGroup):
-        class AdminGroupAdmin(ModelAdmin):
-            list_display = ["id", "name"]
-            search_fields = ["name"]
-            ordering = ["name"]
-            readonly_fields = ["id"]
-            icon = "group"
-            verbose_name = "Group"
-            verbose_name_plural = "Groups"
-        site.register_admin(AdminGroup, AdminGroupAdmin(model=AdminGroup))
 
     # ── AdminUser Admin ──
     if not site.is_registered(AdminUser):
         class AdminUserAdmin(ModelAdmin):
-            list_display = ["id", "username", "email", "is_superuser", "is_staff", "is_active", "date_joined"]
-            search_fields = ["username", "email", "first_name", "last_name"]
-            list_filter = ["is_superuser", "is_staff", "is_active"]
-            ordering = ["-date_joined"]
-            readonly_fields = ["id", "password_hash", "date_joined", "last_login"]
+            list_display = ["id", "username", "email", "display_name", "role", "is_active", "login_count", "last_login_at"]
+            search_fields = ["username", "email", "display_name"]
+            list_filter = ["role", "is_active"]
+            ordering = ["-created_at"]
+            readonly_fields = ["id", "password_hash", "created_at", "login_count", "last_login_at", "last_active_at"]
             exclude = ["password_hash"]
             icon = "user"
             verbose_name = "Admin User"
             verbose_name_plural = "Admin Users"
         site.register_admin(AdminUser, AdminUserAdmin(model=AdminUser))
 
-    # ── AdminLogEntry Admin ──
-    if not site.is_registered(AdminLogEntry):
-        class AdminLogEntryAdmin(ModelAdmin):
-            list_display = ["id", "action_time", "user", "content_type", "object_repr", "action_flag"]
-            search_fields = ["object_repr", "change_message"]
-            list_filter = ["action_flag", "action_time"]
-            ordering = ["-action_time"]
-            readonly_fields = ["id", "action_time", "user", "content_type", "object_id", "object_repr", "action_flag", "change_message"]
-            icon = "list"
-            verbose_name = "Log Entry"
-            verbose_name_plural = "Log Entries"
-        site.register_admin(AdminLogEntry, AdminLogEntryAdmin(model=AdminLogEntry))
-
-    # ── AdminSession Admin ──
-    if not site.is_registered(AdminSession):
-        class AdminSessionAdmin(ModelAdmin):
-            list_display = ["id", "session_key", "expire_date"]
-            search_fields = ["session_key"]
-            ordering = ["-expire_date"]
-            readonly_fields = ["id", "session_key"]
-            icon = "lock"
-            verbose_name = "Session"
-            verbose_name_plural = "Sessions"
-        site.register_admin(AdminSession, AdminSessionAdmin(model=AdminSession))
-
     # ── AdminAuditEntry Admin ──
-    try:
-        from .models import AdminAuditEntry
-        if not site.is_registered(AdminAuditEntry):
-            class AdminAuditEntryAdmin(ModelAdmin):
-                list_display = ["id", "entry_id", "timestamp", "user_id", "username", "role", "action", "model_name", "record_pk"]
-                search_fields = ["username", "action", "model_name", "entry_id"]
-                list_filter = ["action", "role"]
-                ordering = ["-timestamp"]
-                readonly_fields = ["id", "entry_id", "timestamp", "user_id", "username",
-                                   "role", "action", "model_name", "record_pk",
-                                   "changes_json", "ip_address", "user_agent",
-                                   "metadata_json", "success", "error_message"]
-                icon = "list"
-                verbose_name = "Audit Entry"
-                verbose_name_plural = "Audit Entries"
-            site.register_admin(AdminAuditEntry, AdminAuditEntryAdmin(model=AdminAuditEntry))
-    except Exception:
-        pass
+    if not site.is_registered(AdminAuditEntry):
+        class AdminAuditEntryAdmin(ModelAdmin):
+            list_display = ["id", "timestamp", "username", "action", "resource_type", "resource_id", "severity", "category"]
+            search_fields = ["username", "action", "resource_type", "summary"]
+            list_filter = ["action", "severity", "category"]
+            ordering = ["-timestamp"]
+            readonly_fields = [
+                "id", "timestamp", "user_id", "username", "ip_address",
+                "user_agent", "action", "resource_type", "resource_id",
+                "summary", "detail", "diff", "severity", "category",
+            ]
+            icon = "list"
+            verbose_name = "Audit Entry"
+            verbose_name_plural = "Audit Entries"
+        site.register_admin(AdminAuditEntry, AdminAuditEntryAdmin(model=AdminAuditEntry))
+
+    # ── AdminAPIKey Admin ──
+    if not site.is_registered(AdminAPIKey):
+        class AdminAPIKeyAdmin(ModelAdmin):
+            list_display = ["id", "name", "prefix", "user_id", "is_active", "last_used_at", "expires_at", "created_at"]
+            search_fields = ["name", "prefix"]
+            list_filter = ["is_active"]
+            ordering = ["-created_at"]
+            readonly_fields = ["id", "key_hash", "prefix", "created_at", "last_used_at"]
+            exclude = ["key_hash"]
+            icon = "key"
+            verbose_name = "API Key"
+            verbose_name_plural = "API Keys"
+        site.register_admin(AdminAPIKey, AdminAPIKeyAdmin(model=AdminAPIKey))
+
+    # ── AdminPreference Admin ──
+    if not site.is_registered(AdminPreference):
+        class AdminPreferenceAdmin(ModelAdmin):
+            list_display = ["id", "user_id", "namespace", "updated_at"]
+            search_fields = ["namespace"]
+            list_filter = ["namespace"]
+            ordering = ["user_id", "namespace"]
+            readonly_fields = ["id"]
+            icon = "settings"
+            verbose_name = "User Preference"
+            verbose_name_plural = "User Preferences"
+        site.register_admin(AdminPreference, AdminPreferenceAdmin(model=AdminPreference))
 
 
 def flush_pending_registrations() -> int:

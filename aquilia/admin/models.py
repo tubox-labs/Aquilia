@@ -1,801 +1,792 @@
 """
-AquilAdmin -- Comprehensive Admin Models.
+Aquilia Admin — Data Models
+============================
 
-Provides a full-featured admin model hierarchy:
+Purpose-built models for the Aquilia admin subsystem.
 
-    - ``ContentType``      -- tracks every model/table in the project
-    - ``AdminPermission``  -- codename-based permissions tied to content types
-    - ``AdminGroup``       -- named groups with M2M permissions
-    - ``AdminUser``        -- staff/superuser accounts with groups & permissions
-    - ``AdminLogEntry``    -- immutable audit trail of every admin action
-    - ``AdminSession``     -- server-side session storage for admin auth
+Architecture
+------------
+Only four tables hit the database:
 
-All models use the Aquilia ORM with proper relationships (ForeignKey,
-ManyToManyField), composite indexes, unique constraints, and db_index
-for optimal query performance.
+    aq_admin_users        — operator accounts with role-based access
+    aq_admin_audit        — immutable append-only audit trail
+    aq_admin_api_keys     — scoped, hashed API keys for programmatic access
+    aq_admin_preferences  — per-user UI / workflow preferences (JSON blob)
 
-**Important**: These models are NOT auto-migrated. Users must run::
+Permissions live **in memory** (see ``permissions.py``).  The ``AdminUser.role``
+column is the single join-point between the persisted identity and the runtime
+RBAC matrix — no M2M tables, no extra joins at request time.
 
-    aq db makemigrations
-    aq db migrate
-
-to create the underlying tables before using the admin system.
-
-Usage::
-
-    from aquilia.admin.models import (
-        AdminUser, AdminGroup, AdminPermission,
-        ContentType, AdminLogEntry, AdminSession,
-    )
-
-    # Create a superuser
-    user = await AdminUser.create_superuser("admin", "s3cret", email="admin@site.com")
-
-    # Authenticate
-    user = await AdminUser.authenticate("admin", "s3cret")
-
-    # Check permissions
-    has_perm = await user.has_perm("myapp.change_user")
+Backward Compatibility
+----------------------
+Legacy names (``ContentType``, ``AdminPermission``, ``AdminGroup``,
+``AdminLogEntry``, ``AdminSession``) are kept as thin stubs so that existing
+import paths don't break.  Each stub carries ``_HAS_ORM = False`` — the
+registry and migration pipeline skip them automatically.
 """
 
 from __future__ import annotations
 
 import hashlib
+import json
 import secrets
+import time
 from datetime import datetime, timezone
-from typing import Any, ClassVar, Dict, List, Optional, Sequence, Tuple, Type
-
-# ── ORM imports (with graceful fallback for test isolation) ──────────────────
+from typing import Any, Dict, List, Optional
 
 try:
-    from aquilia.models.base import Model
-    from aquilia.models.fields_module import (
-        AutoField,
-        BigAutoField,
+    from aquilia.models import (
+        Model,
         CharField,
         TextField,
-        EmailField,
         BooleanField,
         IntegerField,
         DateTimeField,
-        ForeignKey,
-        ManyToManyField,
-        SmallIntegerField,
-        UUIDField,
-        Index,
-        UniqueConstraint,
+        JSONField,
     )
-    _HAS_ORM = True
-except Exception:  # pragma: no cover
-    _HAS_ORM = False
 
-# ── Password hashing helpers ────────────────────────────────────────────────
+    _ORM_AVAILABLE = True
+except ImportError:
+    _ORM_AVAILABLE = False
 
-try:
-    from aquilia.auth.hashing import PasswordHasher as _PH
-    _hasher = _PH()
-except Exception:
-    _hasher = None  # type: ignore[assignment]
+# ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
+
+#: Prefix stamped on every raw API key so leaked tokens are easy to grep.
+API_KEY_PREFIX = "aq_"
+
+#: Length (bytes) of the random portion of an API key.
+API_KEY_ENTROPY = 32
+
+#: Default role assigned to new admin users.
+DEFAULT_ROLE = "staff"
+
+#: Roles recognised by the in-memory RBAC matrix.
+VALID_ROLES = ("superadmin", "staff", "viewer")
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
 
 
-def _hash_password(raw_password: str) -> str:
-    """Hash a raw password using the best available algorithm (Argon2id preferred)."""
-    if _hasher is not None:
-        return _hasher.hash(raw_password)
-    # Minimal fallback using PBKDF2-SHA256 (600k iterations)
-    salt = secrets.token_hex(16)
-    dk = hashlib.pbkdf2_hmac("sha256", raw_password.encode(), salt.encode(), 600_000)
-    return f"$pbkdf2_sha256$600000${salt}${dk.hex()}"
+def _now_utc() -> str:
+    """ISO-8601 UTC timestamp string suitable for ``CharField`` storage."""
+    return datetime.now(timezone.utc).isoformat()
 
 
-def _verify_password(password_hash: str, raw_password: str) -> bool:
-    """Verify a raw password against a stored hash."""
-    if _hasher is not None:
-        return _hasher.verify(password_hash, raw_password)
-    # Minimal fallback
-    if not password_hash.startswith("$pbkdf2_sha256$"):
-        return False
-    parts = password_hash.split("$")
-    if len(parts) != 5:
-        return False
-    iterations = int(parts[2])
-    salt = parts[3]
-    expected_hash = parts[4]
-    dk = hashlib.pbkdf2_hmac("sha256", raw_password.encode(), salt.encode(), iterations)
-    return dk.hex() == expected_hash
+def _generate_api_key() -> str:
+    """Return a new raw API key with the ``aq_`` prefix.
+
+    The key is **not** stored — only its SHA-256 hash is persisted.
+    """
+    return f"{API_KEY_PREFIX}{secrets.token_urlsafe(API_KEY_ENTROPY)}"
+
+
+def _hash_api_key(raw_key: str) -> str:
+    """Deterministic SHA-256 hex digest of a raw API key."""
+    return hashlib.sha256(raw_key.encode()).hexdigest()
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# ORM-backed models (only when the full ORM is available)
+#  ACTIVE ORM MODELS  (4 tables)
 # ═══════════════════════════════════════════════════════════════════════════
 
-if _HAS_ORM:
+if _ORM_AVAILABLE:
 
-    # ── ContentType ──────────────────────────────────────────────────────
-
-    class ContentType(Model):
-        """
-        Tracks every model registered in the project.
-
-        Used by AdminPermission and AdminLogEntry to reference models generically.
-        """
-
-        table = "admin_content_types"
-
-        app_label = CharField(max_length=100, db_index=True)
-        model = CharField(max_length=100, db_index=True)
-
-        class Meta:
-            ordering = ["app_label", "model"]
-            verbose_name = "Content Type"
-            verbose_name_plural = "Content Types"
-            constraints = [
-                UniqueConstraint(fields=["app_label", "model"], name="uq_content_type_app_model"),
-            ]
-            indexes = [
-                Index(fields=["app_label", "model"], name="idx_content_type_lookup"),
-            ]
-
-        def __str__(self) -> str:
-            return f"{self.app_label}.{self.model}"
-
-        @property
-        def name(self) -> str:
-            """Human-readable name derived from model name."""
-            model_name = getattr(self, "model", "") or ""
-            return model_name.replace("_", " ").title()
-
-        @classmethod
-        async def get_for_model(cls, model_cls: type) -> "ContentType":
-            """Get or create a ContentType for a given Model class."""
-            model_name = model_cls.__name__.lower()
-            app_label = "default"
-            meta = getattr(model_cls, "Meta", None) or getattr(model_cls, "_meta", None)
-            if meta:
-                app_label = getattr(meta, "app_label", None) or "default"
-            if app_label == "default":
-                module = getattr(model_cls, "__module__", "")
-                parts = module.split(".")
-                if len(parts) >= 2:
-                    app_label = parts[-2] if parts[-1] == "models" else parts[-1]
-                else:
-                    app_label = parts[0] if parts else "default"
-            try:
-                ct = await cls.objects.get(app_label=app_label, model=model_name)
-                if ct is not None:
-                    return ct
-            except Exception:
-                pass
-            return await cls.create(app_label=app_label, model=model_name)
-
-    # ── AdminPermission ──────────────────────────────────────────────────
-
-    class AdminPermission(Model):
-        """
-        A single permission tied to a ContentType.
-
-        Pattern:
-            codename = "change_user"
-            name     = "Can change user"
-            content_type → ContentType (app_label="auth", model="user")
-        """
-
-        table = "admin_permissions"
-
-        name = CharField(max_length=255, help_text="Human-readable permission name")
-        codename = CharField(max_length=100, db_index=True, help_text="Machine-readable code")
-        content_type = ForeignKey(
-            "ContentType",
-            related_name="permissions",
-            on_delete="CASCADE",
-            db_index=True,
-        )
-
-        class Meta:
-            ordering = ["content_type", "codename"]
-            verbose_name = "Permission"
-            verbose_name_plural = "Permissions"
-            constraints = [
-                UniqueConstraint(
-                    fields=["content_type_id", "codename"],
-                    name="uq_permission_ct_codename",
-                ),
-            ]
-            indexes = [
-                Index(fields=["codename"], name="idx_permission_codename"),
-            ]
-
-        def __str__(self) -> str:
-            return f"{self.codename}"
-
-        @classmethod
-        async def create_for_model(
-            cls, model_cls: type, codename: str, name: str,
-        ) -> "AdminPermission":
-            """Create a permission for a model, auto-resolving the ContentType."""
-            ct = await ContentType.get_for_model(model_cls)
-            return await cls.create(name=name, codename=codename, content_type=ct.pk)
-
-    # ── AdminGroup ───────────────────────────────────────────────────────
-
-    class AdminGroup(Model):
-        """
-        Named group of permissions.
-
-        Users can belong to multiple groups, inheriting all group permissions.
-        """
-
-        table = "admin_groups"
-
-        name = CharField(max_length=150, unique=True, help_text="Group name (must be unique)")
-        permissions = ManyToManyField(
-            "AdminPermission",
-            related_name="groups",
-            db_table="admin_group_permissions",
-        )
-
-        class Meta:
-            ordering = ["name"]
-            verbose_name = "Group"
-            verbose_name_plural = "Groups"
-
-        def __str__(self) -> str:
-            return self.name or repr(self)
-
-    # ── AdminUser ────────────────────────────────────────────────────────
+    # -------------------------------------------------------------------
+    #  AdminUser
+    # -------------------------------------------------------------------
 
     class AdminUser(Model):
-        """
-        Admin user stored in the database.
+        """Operator account for the Aquilia admin panel.
 
-        Full-featured user model with:
-        - Password hashing (Argon2id / PBKDF2)
-        - Group membership (M2M → AdminGroup)
-        - Direct permissions (M2M → AdminPermission)
-        - Superuser / staff flags
-        - Activity tracking (last_login, date_joined)
+        Design notes
+        ~~~~~~~~~~~~
+        * ``role`` is a plain ``CharField`` whose value must be one of
+          :data:`VALID_ROLES`.  All fine-grained permission checks are
+          delegated to the in-memory RBAC matrix in ``permissions.py``.
+        * ``password_hash`` stores an Argon2id (or PBKDF2-SHA256 fallback)
+          digest — never the plaintext password.
+        * ``display_name`` replaces the legacy ``first_name`` / ``last_name``
+          pair.  A single free-form field is simpler to validate, index,
+          and display.
+        * ``login_count`` and ``last_active_at`` give the superadmin a
+          quick health signal without querying the audit table.
         """
 
-        table = "admin_users"
+        class Meta:
+            table_name = "aq_admin_users"
 
         username = CharField(max_length=150, unique=True)
-        email = EmailField(max_length=254, blank=True, default="")
-        password_hash = TextField()
-        first_name = CharField(max_length=150, blank=True, default="")
-        last_name = CharField(max_length=150, blank=True, default="")
-        is_superuser = BooleanField(default=False)
-        is_staff = BooleanField(default=True)
+        email = CharField(max_length=254, unique=True)
+        display_name = CharField(max_length=200, default="")
+        password_hash = CharField(max_length=512)
+        role = CharField(max_length=32, default=DEFAULT_ROLE)
         is_active = BooleanField(default=True)
-        last_login = DateTimeField(null=True, blank=True)
-        date_joined = DateTimeField(auto_now_add=True)
-        # ── Extended profile fields ────────────────────────────────────
-        # Relative path inside .aquilia/admin/profile/, e.g. "<uuid>.png"
-        avatar_path = CharField(max_length=512, blank=True, default="", null=True)
-        bio = TextField(blank=True, default="", null=True)
-        phone = CharField(max_length=32, blank=True, default="", null=True)
-        timezone = CharField(max_length=64, blank=True, default="UTC", null=True)
-        locale = CharField(max_length=16, blank=True, default="en", null=True)
 
-        groups = ManyToManyField(
-            "AdminGroup",
-            related_name="users",
-            db_table="admin_user_groups",
-        )
-        user_permissions = ManyToManyField(
-            "AdminPermission",
-            related_name="users",
-            db_table="admin_user_permissions",
-        )
+        # Tracking -----------------------------------------------------------
+        login_count = IntegerField(default=0)
+        last_login_at = CharField(max_length=64, default="")
+        last_active_at = CharField(max_length=64, default="")
+        created_at = CharField(max_length=64, default="")
+        updated_at = CharField(max_length=64, default="")
 
-        class Meta:
-            ordering = ["-date_joined"]
-            verbose_name = "Admin User"
-            verbose_name_plural = "Admin Users"
-            get_latest_by = "date_joined"
-            indexes = [
-                Index(fields=["username"], name="idx_admin_user_username"),
-                Index(fields=["email"], name="idx_admin_user_email"),
-                Index(fields=["is_active", "is_staff"], name="idx_admin_user_active_staff"),
-            ]
+        # Optional metadata ---------------------------------------------------
+        avatar_url = CharField(max_length=512, default="")
+        notes = TextField(default="")
 
-        def __str__(self) -> str:
-            return self.username or repr(self)
+        # ── Computed properties ──────────────────────────────────────────
 
-        def get_full_name(self) -> str:
-            parts = [
-                getattr(self, "first_name", "") or "",
-                getattr(self, "last_name", "") or "",
-            ]
-            return " ".join(p for p in parts if p).strip() or self.username
+        @property
+        def is_superuser(self) -> bool:
+            """``True`` when the user's role is ``superadmin``."""
+            return self.role == "superadmin"
 
-        def get_short_name(self) -> str:
-            return getattr(self, "first_name", "") or self.username
+        @property
+        def is_staff(self) -> bool:
+            """``True`` for roles that may access the admin panel."""
+            return self.role in ("superadmin", "staff")
 
-        def set_password(self, raw_password: str) -> None:
-            self.password_hash = _hash_password(raw_password)
+        @property
+        def is_viewer(self) -> bool:
+            return self.role == "viewer"
 
-        def check_password(self, raw_password: str) -> bool:
-            return _verify_password(self.password_hash, raw_password)
+        # ── Permission bridge ────────────────────────────────────────────
 
-        async def has_perm(self, perm_codename: str) -> bool:
-            """Check if user has a specific permission (superusers have all)."""
-            if getattr(self, "is_superuser", False):
-                return True
-            if not getattr(self, "is_active", True):
-                return False
+        def has_perm(self, permission: str) -> bool:
+            """Check a fine-grained permission against the RBAC matrix.
+
+            Delegates to :func:`permissions.has_admin_permission` so that
+            all authorisation logic lives in one place.
+            """
             try:
-                direct = await AdminPermission.objects.filter(codename=perm_codename).all()
-                if direct:
-                    return True
-            except Exception:
-                pass
-            return False
-
-        async def has_perms(self, perm_list: Sequence[str]) -> bool:
-            for perm in perm_list:
-                if not await self.has_perm(perm):
-                    return False
-            return True
-
-        async def has_module_perms(self, app_label: str) -> bool:
-            if getattr(self, "is_superuser", False):
-                return True
-            return getattr(self, "is_active", True)
-
-        def to_identity(self) -> "Identity":
-            from aquilia.auth.core import Identity, IdentityType, IdentityStatus
-            roles: list[str] = []
-            if getattr(self, "is_superuser", False):
-                roles.append("superadmin")
-            if getattr(self, "is_staff", False):
-                roles.append("staff")
-            return Identity(
-                id=str(self.pk),
-                type=IdentityType.USER,
-                attributes={
-                    "name": self.get_full_name(),
-                    "username": self.username,
-                    "email": getattr(self, "email", ""),
-                    "roles": roles,
-                    "is_superuser": getattr(self, "is_superuser", False),
-                    "is_staff": getattr(self, "is_staff", False),
-                    "admin_role": "superadmin" if getattr(self, "is_superuser", False) else "staff",
-                    "avatar_path": getattr(self, "avatar_path", "") or "",
-                    "bio": getattr(self, "bio", "") or "",
-                    "phone": getattr(self, "phone", "") or "",
-                    "timezone": getattr(self, "timezone", "UTC") or "UTC",
-                    "locale": getattr(self, "locale", "en") or "en",
-                },
-                status=IdentityStatus.ACTIVE if getattr(self, "is_active", True) else IdentityStatus.SUSPENDED,
-            )
-
-        @classmethod
-        async def create_superuser(
-            cls, username: str, password: str, email: str = "", **extra_fields: Any,
-        ) -> "AdminUser":
-            hashed = _hash_password(password)
-            return await cls.create(
-                username=username, email=email, password_hash=hashed,
-                is_superuser=True, is_staff=True, is_active=True,
-                first_name=extra_fields.pop("first_name", ""),
-                last_name=extra_fields.pop("last_name", ""),
-                **extra_fields,
-            )
-
-        @classmethod
-        async def create_staff_user(
-            cls, username: str, password: str, email: str = "", **extra_fields: Any,
-        ) -> "AdminUser":
-            hashed = _hash_password(password)
-            return await cls.create(
-                username=username, email=email, password_hash=hashed,
-                is_superuser=False, is_staff=True, is_active=True,
-                first_name=extra_fields.pop("first_name", ""),
-                last_name=extra_fields.pop("last_name", ""),
-                **extra_fields,
-            )
-
-        @classmethod
-        async def authenticate(
-            cls, username: str, password: str,
-        ) -> Optional["AdminUser"]:
-            try:
-                user = await cls.objects.get(username=username)
-            except Exception:
-                return None
-            if user is None:
-                return None
-            if not getattr(user, "is_active", True):
-                return None
-            if not _verify_password(user.password_hash, password):
-                return None
-            try:
-                await cls.objects.filter(pk=user.pk).update(
-                    {"last_login": datetime.now(timezone.utc)}
+                from aquilia.admin.permissions import (
+                    AdminRole,
+                    AdminPermission,
+                    has_admin_permission,
                 )
-            except Exception:
-                pass
-            return user
 
-    # ── AdminLogEntry ────────────────────────────────────────────────────
+                role_enum = AdminRole(self.role)
+                perm_enum = AdminPermission(permission)
+                return has_admin_permission(role_enum, perm_enum)
+            except (ValueError, KeyError):
+                return False
 
-    class AdminLogEntry(Model):
-        """
-        Immutable audit log entry for every admin action.
+        def has_perms(self, permissions: List[str]) -> bool:
+            """Return ``True`` only if the user holds **every** permission."""
+            return all(self.has_perm(p) for p in permissions)
 
-        action_flag: 1=ADDITION, 2=CHANGE, 3=DELETION
-        """
+        def has_model_perm(self, model_name: str, action: str) -> bool:
+            """Convenience wrapper for model-level CRUD checks."""
+            try:
+                from aquilia.admin.permissions import (
+                    AdminRole,
+                    has_model_permission,
+                )
 
-        ADDITION = 1
-        CHANGE = 2
-        DELETION = 3
+                role_enum = AdminRole(self.role)
+                return has_model_permission(role_enum, model_name, action)
+            except (ValueError, KeyError):
+                return False
 
-        ACTION_FLAG_CHOICES = (
-            (ADDITION, "Addition"),
-            (CHANGE, "Change"),
-            (DELETION, "Deletion"),
-        )
+        # ── Lifecycle helpers ────────────────────────────────────────────
 
-        table = "admin_log_entries"
+        def record_login(self) -> None:
+            """Bump login statistics.  Caller is responsible for ``.save()``."""
+            self.login_count = (self.login_count or 0) + 1
+            self.last_login_at = _now_utc()
+            self.last_active_at = _now_utc()
 
-        action_time = DateTimeField(auto_now_add=True, db_index=True)
-        user = ForeignKey(
-            "AdminUser", related_name="log_entries",
-            on_delete="CASCADE", db_index=True,
-        )
-        content_type = ForeignKey(
-            "ContentType", related_name="log_entries",
-            on_delete="SET NULL", null=True, blank=True, db_index=True,
-        )
-        object_id = CharField(max_length=255, null=True, blank=True)
-        object_repr = CharField(max_length=200, blank=True, default="")
-        action_flag = IntegerField(choices=ACTION_FLAG_CHOICES)
-        change_message = TextField(blank=True, default="")
+        def touch(self) -> None:
+            """Update ``last_active_at``.  Caller is responsible for ``.save()``."""
+            self.last_active_at = _now_utc()
 
-        class Meta:
-            ordering = ["-action_time"]
-            verbose_name = "Log Entry"
-            verbose_name_plural = "Log Entries"
-            get_latest_by = "action_time"
-            indexes = [
-                Index(fields=["action_time"], name="idx_log_entry_time"),
-                Index(fields=["user_id", "action_time"], name="idx_log_entry_user_time"),
-                Index(fields=["content_type_id", "object_id"], name="idx_log_entry_ct_obj"),
-            ]
+        def set_role(self, role: str) -> None:
+            """Validate and assign a new role."""
+            if role not in VALID_ROLES:
+                raise ValueError(
+                    f"Invalid role {role!r}. Must be one of {VALID_ROLES}"
+                )
+            self.role = role
+
+        def deactivate(self) -> None:
+            self.is_active = False
+
+        def activate(self) -> None:
+            self.is_active = True
+
+        # ── Serialisation ────────────────────────────────────────────────
+
+        def to_safe_dict(self) -> Dict[str, Any]:
+            """Return a JSON-safe dict **without** the password hash."""
+            return {
+                "id": getattr(self, "id", None),
+                "username": self.username,
+                "email": self.email,
+                "display_name": self.display_name,
+                "role": self.role,
+                "is_active": self.is_active,
+                "is_superuser": self.is_superuser,
+                "is_staff": self.is_staff,
+                "login_count": self.login_count,
+                "last_login_at": self.last_login_at,
+                "last_active_at": self.last_active_at,
+                "created_at": self.created_at,
+                "updated_at": self.updated_at,
+                "avatar_url": self.avatar_url,
+            }
+
+        def __repr__(self) -> str:
+            return f"<AdminUser {self.username!r} role={self.role!r}>"
 
         def __str__(self) -> str:
-            action_names = {1: "Added", 2: "Changed", 3: "Deleted"}
-            action = action_names.get(getattr(self, "action_flag", 0), "Unknown")
-            return f"{action} {self.object_repr!r}"
+            return self.display_name or self.username
 
-        @property
-        def is_addition(self) -> bool:
-            return getattr(self, "action_flag", 0) == self.ADDITION
-
-        @property
-        def is_change(self) -> bool:
-            return getattr(self, "action_flag", 0) == self.CHANGE
-
-        @property
-        def is_deletion(self) -> bool:
-            return getattr(self, "action_flag", 0) == self.DELETION
-
-        def get_change_message(self) -> str:
-            import json as _json
-            msg = getattr(self, "change_message", "")
-            if not msg:
-                return ""
-            try:
-                data = _json.loads(msg)
-                if isinstance(data, list):
-                    return "; ".join(str(d) for d in data)
-                return str(data)
-            except (ValueError, TypeError):
-                return str(msg)
-
-        @classmethod
-        async def log_action(
-            cls, user_id: int, content_type_id: Optional[int],
-            object_id: Optional[str], object_repr: str,
-            action_flag: int, change_message: str = "",
-        ) -> "AdminLogEntry":
-            return await cls.create(
-                user=user_id, content_type=content_type_id,
-                object_id=object_id, object_repr=object_repr[:200],
-                action_flag=action_flag, change_message=change_message,
-            )
-
-    # ── AdminAuditEntry ──────────────────────────────────────────────────
+    # -------------------------------------------------------------------
+    #  AdminAuditEntry
+    # -------------------------------------------------------------------
 
     class AdminAuditEntry(Model):
+        """Immutable append-only audit record.
+
+        Every state-changing admin action creates one row.  This replaces
+        *both* the legacy ``AdminLogEntry`` and the old ``AdminAuditEntry``.
+
+        The table is **append-only** — no ``UPDATE`` or ``DELETE`` in
+        application code.
         """
-        Persistent, model-backed audit log entry for every admin action.
-
-        Replaces the in-memory AdminAuditLog list so audit history
-        survives server restarts and user logouts.
-
-        Fields mirror the AdminAuditEntry dataclass in audit.py so
-        existing serialization / rendering code continues to work.
-        """
-
-        table = "admin_audit_entries"
-
-        entry_id = CharField(max_length=32, unique=True, db_index=True)
-        timestamp = DateTimeField(auto_now_add=True, db_index=True)
-        user_id = CharField(max_length=255, db_index=True, blank=True, default="")
-        username = CharField(max_length=255, blank=True, default="")
-        role = CharField(max_length=100, blank=True, default="")
-        action = CharField(max_length=50, db_index=True)
-        model_name = CharField(max_length=255, null=True, blank=True)
-        record_pk = CharField(max_length=255, null=True, blank=True)
-        changes_json = TextField(blank=True, default="")  # JSON-encoded changes dict
-        ip_address = CharField(max_length=45, blank=True, default="")
-        user_agent = TextField(blank=True, default="")
-        metadata_json = TextField(blank=True, default="")  # JSON-encoded metadata dict
-        success = BooleanField(default=True)
-        error_message = TextField(null=True, blank=True)
 
         class Meta:
-            ordering = ["-timestamp"]
-            verbose_name = "Audit Entry"
-            verbose_name_plural = "Audit Entries"
-            get_latest_by = "timestamp"
-            indexes = [
-                Index(fields=["timestamp"], name="idx_audit_entry_timestamp"),
-                Index(fields=["user_id", "timestamp"], name="idx_audit_entry_user_ts"),
-                Index(fields=["action", "timestamp"], name="idx_audit_entry_action_ts"),
-                Index(fields=["model_name", "timestamp"], name="idx_audit_entry_model_ts"),
-            ]
+            table_name = "aq_admin_audit"
 
-        def __str__(self) -> str:
-            return f"[{self.action}] {self.username} @ {self.timestamp}"
+        # Who ----------------------------------------------------------------
+        user_id = IntegerField(default=0)
+        username = CharField(max_length=150, default="system")
+        ip_address = CharField(max_length=45, default="")
+        user_agent = CharField(max_length=512, default="")
 
-        def to_dict(self) -> Dict[str, Any]:
-            """Serialize to dict compatible with existing audit templates."""
-            import json as _json
-            changes = None
-            if self.changes_json:
-                try:
-                    changes = _json.loads(self.changes_json)
-                except (ValueError, TypeError):
-                    pass
-            metadata: Dict[str, Any] = {}
-            if self.metadata_json:
-                try:
-                    metadata = _json.loads(self.metadata_json)
-                except (ValueError, TypeError):
-                    pass
-            ts = self.timestamp
-            ts_str = ts.isoformat() if hasattr(ts, "isoformat") else str(ts)
-            return {
-                "pk": self.pk,  # real integer primary key for admin URLs
-                "id": self.entry_id,
-                "timestamp": ts_str,
-                "user_id": self.user_id,
-                "username": self.username,
-                "role": self.role,
-                "action": self.action,
-                "model_name": self.model_name,
-                "record_pk": self.record_pk,
-                "changes": changes,
-                "ip_address": self.ip_address,
-                "user_agent": self.user_agent,
-                "metadata": metadata,
-                "success": bool(self.success),
-                "error_message": self.error_message,
-            }
+        # What ---------------------------------------------------------------
+        action = CharField(max_length=64)          # e.g. "create", "update", "delete", "login", "export"
+        resource_type = CharField(max_length=128, default="")   # model or subsystem name
+        resource_id = CharField(max_length=128, default="")     # PK of affected object
+        summary = CharField(max_length=512, default="")         # human-readable description
+
+        # Detail (JSON) ------------------------------------------------------
+        detail = TextField(default="{}")            # arbitrary JSON payload
+        diff = TextField(default="{}")              # before/after snapshot
+
+        # When ----------------------------------------------------------------
+        timestamp = CharField(max_length=64, default="")
+
+        # Severity / category -------------------------------------------------
+        severity = CharField(max_length=16, default="info")     # info | warning | critical
+        category = CharField(max_length=64, default="admin")    # admin | auth | data | config | system
+
+        # ── Factory ──────────────────────────────────────────────────────
 
         @classmethod
         async def create_entry(
             cls,
-            user_id: str,
-            username: str,
-            role: str,
-            action: str,
             *,
-            model_name: Optional[str] = None,
-            record_pk: Optional[str] = None,
-            changes: Optional[Dict[str, Any]] = None,
-            ip_address: Optional[str] = None,
-            user_agent: Optional[str] = None,
-            metadata: Optional[Dict[str, Any]] = None,
-            success: bool = True,
-            error_message: Optional[str] = None,
+            action: str,
+            user: Optional["AdminUser"] = None,
+            user_id: int = 0,
+            username: str = "system",
+            ip_address: str = "",
+            user_agent: str = "",
+            resource_type: str = "",
+            resource_id: str = "",
+            summary: str = "",
+            detail: Optional[Dict[str, Any]] = None,
+            diff: Optional[Dict[str, Any]] = None,
+            severity: str = "info",
+            category: str = "admin",
         ) -> "AdminAuditEntry":
-            """Create and persist an audit entry to the database."""
-            import json as _json
-            import secrets as _sec
-            entry_id = f"audit_{_sec.token_hex(8)}"
-            return await cls.create(
-                entry_id=entry_id,
-                user_id=user_id or "",
-                username=username or "",
-                role=role or "",
-                action=action if isinstance(action, str) else str(action),
-                model_name=model_name,
-                record_pk=str(record_pk) if record_pk is not None else None,
-                changes_json=_json.dumps(changes, default=str) if changes else "",
-                ip_address=ip_address or "",
-                user_agent=user_agent or "",
-                metadata_json=_json.dumps(metadata or {}, default=str),
-                success=success,
-                error_message=error_message,
+            """High-level factory that normalises inputs and persists a row."""
+            if user is not None:
+                user_id = getattr(user, "id", 0) or 0
+                username = getattr(user, "username", "system") or "system"
+
+            entry = cls(
+                user_id=user_id,
+                username=username,
+                ip_address=ip_address,
+                user_agent=user_agent,
+                action=action,
+                resource_type=resource_type,
+                resource_id=str(resource_id),
+                summary=summary[:512] if summary else "",
+                detail=json.dumps(detail or {}, default=str),
+                diff=json.dumps(diff or {}, default=str),
+                timestamp=_now_utc(),
+                severity=severity,
+                category=category,
+            )
+            try:
+                await entry.save()
+            except Exception:
+                pass  # audit must never crash the request
+            return entry
+
+        # ── Convenience aliases matching legacy AdminLogEntry ────────────
+
+        @classmethod
+        async def log_action(
+            cls,
+            user: Optional["AdminUser"] = None,
+            action: str = "",
+            resource_type: str = "",
+            resource_id: str = "",
+            summary: str = "",
+            **kwargs: Any,
+        ) -> "AdminAuditEntry":
+            """Drop-in replacement for ``AdminLogEntry.log_action()``."""
+            return await cls.create_entry(
+                action=action,
+                user=user,
+                resource_type=resource_type,
+                resource_id=resource_id,
+                summary=summary,
+                **kwargs,
             )
 
-    # ── AdminSession ─────────────────────────────────────────────────────
+        # ── Serialisation ────────────────────────────────────────────────
 
-    class AdminSession(Model):
-        """Server-side session storage for admin authentication."""
+        def to_dict(self) -> Dict[str, Any]:
+            return {
+                "id": getattr(self, "id", None),
+                "user_id": self.user_id,
+                "username": self.username,
+                "ip_address": self.ip_address,
+                "action": self.action,
+                "resource_type": self.resource_type,
+                "resource_id": self.resource_id,
+                "summary": self.summary,
+                "detail": self.detail,
+                "diff": self.diff,
+                "timestamp": self.timestamp,
+                "severity": self.severity,
+                "category": self.category,
+            }
 
-        table = "admin_sessions"
+        def __repr__(self) -> str:
+            return (
+                f"<AdminAuditEntry action={self.action!r} "
+                f"user={self.username!r} ts={self.timestamp!r}>"
+            )
 
-        session_key = CharField(max_length=40, unique=True, db_index=True)
-        session_data = TextField(blank=True, default="")
-        expire_date = DateTimeField(db_index=True)
+    # -------------------------------------------------------------------
+    #  AdminAPIKey
+    # -------------------------------------------------------------------
+
+    class AdminAPIKey(Model):
+        """Scoped, hashed API key for programmatic admin access.
+
+        Design notes
+        ~~~~~~~~~~~~
+        * The raw key is shown **once** on creation and then discarded.
+          Only its SHA-256 hash (``key_hash``) is persisted.
+        * ``prefix`` stores the first 8 characters of the raw key so
+          operators can identify which key is which without exposing the
+          full secret.
+        * ``scopes`` is a JSON list of permission strings.  An empty list
+          means "inherit all permissions from the owning user's role".
+        """
 
         class Meta:
-            verbose_name = "Session"
-            verbose_name_plural = "Sessions"
-            indexes = [
-                Index(fields=["session_key"], name="idx_admin_session_key"),
-                Index(fields=["expire_date"], name="idx_admin_session_expire"),
-            ]
+            table_name = "aq_admin_api_keys"
 
-        def __str__(self) -> str:
-            return self.session_key or repr(self)
+        user_id = IntegerField()
+        name = CharField(max_length=200)
+        prefix = CharField(max_length=16)            # first N chars for identification
+        key_hash = CharField(max_length=128, unique=True)
+        scopes = TextField(default="[]")             # JSON list of permission strings
+        is_active = BooleanField(default=True)
+        last_used_at = CharField(max_length=64, default="")
+        expires_at = CharField(max_length=64, default="")  # empty = never
+        created_at = CharField(max_length=64, default="")
 
-        def is_expired(self) -> bool:
-            expire = getattr(self, "expire_date", None)
-            if expire is None:
-                return True
-            if isinstance(expire, str):
-                try:
-                    expire = datetime.fromisoformat(expire)
-                except (ValueError, TypeError):
-                    return True
-            return datetime.now(timezone.utc) > expire
+        # ── Factory ──────────────────────────────────────────────────────
 
         @classmethod
-        async def clear_expired(cls) -> int:
+        def generate(
+            cls,
+            *,
+            user_id: int,
+            name: str,
+            scopes: Optional[List[str]] = None,
+            expires_at: str = "",
+        ) -> tuple["AdminAPIKey", str]:
+            """Create an ``AdminAPIKey`` instance **and** return the raw key.
+
+            Returns ``(instance, raw_key)``.  The caller must ``await
+            instance.save()`` and display ``raw_key`` to the user *once*.
+            """
+            raw_key = _generate_api_key()
+            instance = cls(
+                user_id=user_id,
+                name=name,
+                prefix=raw_key[: len(API_KEY_PREFIX) + 8],
+                key_hash=_hash_api_key(raw_key),
+                scopes=json.dumps(scopes or [], default=str),
+                is_active=True,
+                last_used_at="",
+                expires_at=expires_at,
+                created_at=_now_utc(),
+            )
+            return instance, raw_key
+
+        # ── Lookup ───────────────────────────────────────────────────────
+
+        @classmethod
+        async def verify(cls, raw_key: str) -> Optional["AdminAPIKey"]:
+            """Look up a key by its hash and check expiry / active flag.
+
+            Returns the ``AdminAPIKey`` row if valid, else ``None``.
+            """
+            h = _hash_api_key(raw_key)
             try:
-                result = await cls.objects.filter(
-                    expire_date__lt=datetime.now(timezone.utc)
-                ).delete()
-                return result if isinstance(result, int) else 0
+                key_obj = await cls.filter(key_hash=h).first()
             except Exception:
-                return 0
+                return None
+
+            if key_obj is None or not key_obj.is_active:
+                return None
+
+            if key_obj.expires_at:
+                try:
+                    exp = datetime.fromisoformat(key_obj.expires_at)
+                    if datetime.now(timezone.utc) > exp:
+                        return None
+                except ValueError:
+                    pass  # malformed date — treat as "no expiry"
+
+            # Stamp last-used (fire-and-forget, best-effort)
+            key_obj.last_used_at = _now_utc()
+            try:
+                await key_obj.save()
+            except Exception:
+                pass
+            return key_obj
+
+        # ── Helpers ──────────────────────────────────────────────────────
+
+        def get_scopes(self) -> List[str]:
+            """Return the decoded scope list."""
+            try:
+                return json.loads(self.scopes or "[]")
+            except (json.JSONDecodeError, TypeError):
+                return []
+
+        def has_scope(self, scope: str) -> bool:
+            scopes = self.get_scopes()
+            return len(scopes) == 0 or scope in scopes  # empty = wildcard
+
+        @property
+        def is_expired(self) -> bool:
+            if not self.expires_at:
+                return False
+            try:
+                exp = datetime.fromisoformat(self.expires_at)
+                return datetime.now(timezone.utc) > exp
+            except ValueError:
+                return False
+
+        def revoke(self) -> None:
+            """Mark the key as inactive.  Caller must ``.save()``."""
+            self.is_active = False
+
+        def to_safe_dict(self) -> Dict[str, Any]:
+            return {
+                "id": getattr(self, "id", None),
+                "user_id": self.user_id,
+                "name": self.name,
+                "prefix": self.prefix,
+                "scopes": self.get_scopes(),
+                "is_active": self.is_active,
+                "is_expired": self.is_expired,
+                "last_used_at": self.last_used_at,
+                "expires_at": self.expires_at,
+                "created_at": self.created_at,
+            }
+
+        def __repr__(self) -> str:
+            return f"<AdminAPIKey {self.prefix!r} user_id={self.user_id}>"
+
+    # -------------------------------------------------------------------
+    #  AdminPreference
+    # -------------------------------------------------------------------
+
+    class AdminPreference(Model):
+        """Per-user key-value preferences (JSON blob).
+
+        Instead of bolting dozens of boolean columns onto ``AdminUser``,
+        UI settings (theme, sidebar state, locale, notification prefs,
+        dashboard layout, etc.) are stored as an opaque JSON document
+        keyed by ``(user_id, namespace)``.
+
+        Example namespaces: ``"ui"``, ``"notifications"``, ``"dashboard"``.
+        """
+
+        class Meta:
+            table_name = "aq_admin_preferences"
+
+        user_id = IntegerField()
+        namespace = CharField(max_length=64, default="ui")
+        data = TextField(default="{}")
+        updated_at = CharField(max_length=64, default="")
+
+        # ── Accessors ────────────────────────────────────────────────────
+
+        def get_data(self) -> Dict[str, Any]:
+            try:
+                return json.loads(self.data or "{}")
+            except (json.JSONDecodeError, TypeError):
+                return {}
+
+        def set_data(self, payload: Dict[str, Any]) -> None:
+            self.data = json.dumps(payload, default=str)
+            self.updated_at = _now_utc()
+
+        def get_value(self, key: str, default: Any = None) -> Any:
+            return self.get_data().get(key, default)
+
+        def set_value(self, key: str, value: Any) -> None:
+            d = self.get_data()
+            d[key] = value
+            self.set_data(d)
+
+        def merge(self, patch: Dict[str, Any]) -> None:
+            """Shallow-merge *patch* into the existing data."""
+            d = self.get_data()
+            d.update(patch)
+            self.set_data(d)
+
+        # ── Factory ──────────────────────────────────────────────────────
+
+        @classmethod
+        async def get_or_create(
+            cls, *, user_id: int, namespace: str = "ui"
+        ) -> "AdminPreference":
+            """Fetch the preference row or create an empty one."""
+            try:
+                existing = await cls.filter(
+                    user_id=user_id, namespace=namespace
+                ).first()
+                if existing is not None:
+                    return existing
+            except Exception:
+                pass
+            pref = cls(
+                user_id=user_id,
+                namespace=namespace,
+                data="{}",
+                updated_at=_now_utc(),
+            )
+            try:
+                await pref.save()
+            except Exception:
+                pass
+            return pref
+
+        def to_dict(self) -> Dict[str, Any]:
+            return {
+                "id": getattr(self, "id", None),
+                "user_id": self.user_id,
+                "namespace": self.namespace,
+                "data": self.get_data(),
+                "updated_at": self.updated_at,
+            }
+
+        def __repr__(self) -> str:
+            return (
+                f"<AdminPreference user_id={self.user_id} "
+                f"ns={self.namespace!r}>"
+            )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  FALLBACK STUBS  (ORM not available)
+# ═══════════════════════════════════════════════════════════════════════════
 
 else:
-    # ── Fallback stubs when ORM is not available ─────────────────────────
 
-    class ContentType:  # type: ignore[no-redef]
-        """Stub ContentType when ORM is not available."""
-        _HAS_ORM = False
-        def __init__(self, **kwargs: Any):
-            for k, v in kwargs.items():
-                setattr(self, k, v)
-        def __str__(self) -> str:
-            return f"{getattr(self, 'app_label', '?')}.{getattr(self, 'model', '?')}"
-        @classmethod
-        async def get_for_model(cls, model_cls: type) -> "ContentType":
-            return cls(app_label="stub", model=model_cls.__name__.lower())
-
-    class AdminPermission:  # type: ignore[no-redef]
-        """Stub AdminPermission when ORM is not available."""
-        _HAS_ORM = False
-        def __init__(self, **kwargs: Any):
-            for k, v in kwargs.items():
-                setattr(self, k, v)
-
-    class AdminGroup:  # type: ignore[no-redef]
-        """Stub AdminGroup when ORM is not available."""
-        _HAS_ORM = False
-        def __init__(self, **kwargs: Any):
-            for k, v in kwargs.items():
-                setattr(self, k, v)
+    class _StubMeta:
+        table_name = ""
 
     class AdminUser:  # type: ignore[no-redef]
-        """Stub AdminUser when ORM fields are not available."""
         _HAS_ORM = False
-        def __init__(self, **kwargs: Any):
-            for k, v in kwargs.items():
-                setattr(self, k, v)
-        def check_password(self, raw_password: str) -> bool:
-            return _verify_password(getattr(self, "password_hash", ""), raw_password)
-        def set_password(self, raw_password: str) -> None:
-            self.password_hash = _hash_password(raw_password)
-        def get_full_name(self) -> str:
-            return getattr(self, "username", "admin")
-        def to_identity(self):
-            from aquilia.auth.core import Identity, IdentityType, IdentityStatus
-            roles: list[str] = []
-            if getattr(self, "is_superuser", False):
-                roles.append("superadmin")
-            if getattr(self, "is_staff", False):
-                roles.append("staff")
-            return Identity(
-                id=str(getattr(self, "pk", "stub")),
-                type=IdentityType.USER,
-                attributes={
-                    "name": getattr(self, "username", "admin"),
-                    "username": getattr(self, "username", "admin"),
-                    "roles": roles,
-                    "is_superuser": getattr(self, "is_superuser", False),
-                    "is_staff": getattr(self, "is_staff", False),
-                    "admin_role": "superadmin" if getattr(self, "is_superuser", False) else "staff",
-                },
-                status=IdentityStatus.ACTIVE,
-            )
-        @classmethod
-        async def authenticate(cls, username: str, password: str) -> Optional["AdminUser"]:
-            return None
-        @classmethod
-        async def create_superuser(cls, username: str, password: str, email: str = "", **kw: Any) -> "AdminUser":
-            from .faults import AdminConfigurationFault
-            raise AdminConfigurationFault(
-                "Cannot create superuser without database models",
-                dependency="ORM",
-            )
-        @classmethod
-        async def create_staff_user(cls, username: str, password: str, email: str = "", **kw: Any) -> "AdminUser":
-            from .faults import AdminConfigurationFault
-            raise AdminConfigurationFault(
-                "Cannot create staff user without database models",
-                dependency="ORM",
-            )
+        Meta = _StubMeta
 
-    class AdminLogEntry:  # type: ignore[no-redef]
-        """Stub AdminLogEntry when ORM is not available."""
-        ADDITION = 1
-        CHANGE = 2
-        DELETION = 3
-        _HAS_ORM = False
-        def __init__(self, **kwargs: Any):
-            for k, v in kwargs.items():
+        def __init__(self, **kw: Any) -> None:
+            for k, v in kw.items():
                 setattr(self, k, v)
-        @classmethod
-        async def log_action(cls, **kwargs: Any) -> "AdminLogEntry":
-            return cls(**kwargs)
+
+        @property
+        def is_superuser(self) -> bool:
+            return getattr(self, "role", "") == "superadmin"
+
+        @property
+        def is_staff(self) -> bool:
+            return getattr(self, "role", "") in ("superadmin", "staff")
+
+        def has_perm(self, perm: str) -> bool:
+            return self.is_superuser
+
+        def has_perms(self, perms: List[str]) -> bool:
+            return self.is_superuser
+
+        def __repr__(self) -> str:
+            return f"<AdminUser(stub) {getattr(self, 'username', '?')!r}>"
 
     class AdminAuditEntry:  # type: ignore[no-redef]
-        """Stub AdminAuditEntry when ORM is not available."""
         _HAS_ORM = False
-        def __init__(self, **kwargs: Any):
-            for k, v in kwargs.items():
-                setattr(self, k, v)
-        def to_dict(self) -> Dict[str, Any]:
-            return {k: getattr(self, k, None) for k in (
-                "id", "timestamp", "user_id", "username", "role", "action",
-                "model_name", "record_pk", "changes", "ip_address",
-                "user_agent", "metadata", "success", "error_message",
-            )}
-        @classmethod
-        async def create_entry(cls, **kwargs: Any) -> "AdminAuditEntry":
-            return cls(**kwargs)
+        Meta = _StubMeta
 
-    class AdminSession:  # type: ignore[no-redef]
-        """Stub AdminSession when ORM is not available."""
+        def __init__(self, **kw: Any) -> None:
+            for k, v in kw.items():
+                setattr(self, k, v)
+
+        @classmethod
+        async def create_entry(cls, **kw: Any) -> "AdminAuditEntry":
+            return cls(**kw)
+
+        @classmethod
+        async def log_action(cls, **kw: Any) -> "AdminAuditEntry":
+            return cls(**kw)
+
+    class AdminAPIKey:  # type: ignore[no-redef]
         _HAS_ORM = False
-        def __init__(self, **kwargs: Any):
-            for k, v in kwargs.items():
-                setattr(self, k, v)
-        def is_expired(self) -> bool:
-            return True
-        @classmethod
-        async def clear_expired(cls) -> int:
-            return 0
+        Meta = _StubMeta
+
+    class AdminPreference:  # type: ignore[no-redef]
+        _HAS_ORM = False
+        Meta = _StubMeta
 
 
-# ── Exported helpers ────────────────────────────────────────────────────────
+# ═══════════════════════════════════════════════════════════════════════════
+#  BACKWARD-COMPATIBILITY STUBS
+# ═══════════════════════════════════════════════════════════════════════════
+#
+#  These names are imported in various places across the admin subsystem.
+#  They are intentionally **not** ORM models — they exist only so that
+#  ``from aquilia.admin.models import ContentType`` doesn't blow up.
+#  The registry skips anything with ``_HAS_ORM = False``.
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class ContentType:
+    """Stub — Aquilia does not use a Django-style ContentType table.
+
+    Model metadata is available at runtime via the model registry.
+    """
+
+    _HAS_ORM = False
+
+    def __init__(self, **kw: Any) -> None:
+        self.app_label: str = kw.get("app_label", "")
+        self.model: str = kw.get("model", "")
+
+    @classmethod
+    def get_for_model(cls, model: Any) -> "ContentType":
+        name = getattr(model, "__name__", str(model))
+        return cls(app_label="admin", model=name.lower())
+
+    def __repr__(self) -> str:
+        return f"<ContentType(stub) {self.app_label}.{self.model}>"
+
+    def __str__(self) -> str:
+        return f"{self.app_label}.{self.model}"
+
+
+class AdminPermission:
+    """Stub — permissions live in ``permissions.py`` as an in-memory enum."""
+
+    _HAS_ORM = False
+
+    def __init__(self, **kw: Any) -> None:
+        self.codename: str = kw.get("codename", "")
+        self.name: str = kw.get("name", "")
+
+    def __repr__(self) -> str:
+        return f"<AdminPermission(stub) {self.codename!r}>"
+
+
+class AdminGroup:
+    """Stub — roles are defined in ``permissions.AdminRole``."""
+
+    _HAS_ORM = False
+
+    def __init__(self, **kw: Any) -> None:
+        self.name: str = kw.get("name", "")
+
+    def __repr__(self) -> str:
+        return f"<AdminGroup(stub) {self.name!r}>"
+
+
+class AdminLogEntry:
+    """Stub — use :class:`AdminAuditEntry` instead.
+
+    ``AdminLogEntry.log_action()`` delegates to
+    ``AdminAuditEntry.log_action()`` for backward compatibility.
+    """
+
+    _HAS_ORM = False
+
+    def __init__(self, **kw: Any) -> None:
+        for k, v in kw.items():
+            setattr(self, k, v)
+
+    @classmethod
+    async def log_action(cls, **kw: Any) -> "AdminAuditEntry":
+        """Proxy to :meth:`AdminAuditEntry.log_action`."""
+        return await AdminAuditEntry.log_action(**kw)
+
+    def __repr__(self) -> str:
+        return f"<AdminLogEntry(stub→AdminAuditEntry)>"
+
+
+class AdminSession:
+    """Stub — sessions are managed by ``aquilia.sessions`` at the framework level."""
+
+    _HAS_ORM = False
+
+    def __init__(self, **kw: Any) -> None:
+        for k, v in kw.items():
+            setattr(self, k, v)
+
+    def __repr__(self) -> str:
+        return f"<AdminSession(stub)>"
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  PUBLIC API
+# ═══════════════════════════════════════════════════════════════════════════
 
 __all__ = [
+    # Active models
+    "AdminUser",
+    "AdminAuditEntry",
+    "AdminAPIKey",
+    "AdminPreference",
+    # Backward-compat stubs
     "ContentType",
     "AdminPermission",
     "AdminGroup",
-    "AdminUser",
     "AdminLogEntry",
-    "AdminAuditEntry",
     "AdminSession",
-    "_hash_password",
-    "_verify_password",
+    # Constants
+    "VALID_ROLES",
+    "DEFAULT_ROLE",
+    "API_KEY_PREFIX",
+    # Internal flags
+    "_ORM_AVAILABLE",
+    "_HAS_ORM",
+    # Helpers
+    "_generate_api_key",
+    "_hash_api_key",
 ]
+
+# Alias for backward compat — registry.py and blueprints.py import _HAS_ORM
+_HAS_ORM = _ORM_AVAILABLE

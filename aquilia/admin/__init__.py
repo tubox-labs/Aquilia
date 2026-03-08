@@ -136,6 +136,10 @@ from .hooks import (
 )
 from .models import (
     AdminUser,
+    AdminAuditEntry,
+    AdminAPIKey,
+    AdminPreference,
+    # Backward-compat stubs
     AdminGroup,
     AdminPermission as AdminPermissionModel,
     ContentType,
@@ -144,6 +148,11 @@ from .models import (
 )
 from .blueprints import (
     AdminUserBlueprint,
+    AdminUserCreateBlueprint,
+    AdminAuditEntryBlueprint,
+    AdminAPIKeyBlueprint,
+    AdminPreferenceBlueprint,
+    # Backward-compat stubs
     AdminGroupBlueprint,
     AdminPermissionBlueprint,
     ContentTypeBlueprint,
@@ -266,6 +275,10 @@ __all__ = [
     
     # Models
     "AdminUser",
+    "AdminAuditEntry",
+    "AdminAPIKey",
+    "AdminPreference",
+    # Backward-compat model stubs
     "AdminGroup",
     "AdminPermissionModel",
     "ContentType",
@@ -274,6 +287,11 @@ __all__ = [
     
     # Blueprints
     "AdminUserBlueprint",
+    "AdminUserCreateBlueprint",
+    "AdminAuditEntryBlueprint",
+    "AdminAPIKeyBlueprint",
+    "AdminPreferenceBlueprint",
+    # Backward-compat blueprint stubs
     "AdminGroupBlueprint",
     "AdminPermissionBlueprint",
     "ContentTypeBlueprint",

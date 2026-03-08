@@ -6199,18 +6199,18 @@ class AdminSite:
                 record_pk=str(record.pk),
                 changes=clean_data,
             )
-            # Persist to AdminLogEntry (database-backed audit trail)
+            # Persist to AdminAuditEntry (database-backed audit trail)
             try:
-                from .models import AdminLogEntry, ContentType, _HAS_ORM
+                from .models import AdminAuditEntry, _HAS_ORM
                 if _HAS_ORM:
-                    ct = await ContentType.get_for_model(model_cls)
-                    await AdminLogEntry.log_action(
+                    await AdminAuditEntry.create_entry(
+                        action="create",
                         user_id=int(identity.id) if identity.id.isdigit() else 1,
-                        content_type_id=ct.pk if ct else None,
-                        object_id=str(record.pk),
-                        object_repr=str(record),
-                        action_flag=AdminLogEntry.ADDITION,
-                        change_message=str(clean_data),
+                        username=identity.get_attribute("name", identity.id),
+                        resource_type=model_name,
+                        resource_id=str(record.pk),
+                        summary=f"Created {model_name} #{record.pk}",
+                        detail=clean_data,
                     )
             except Exception:
                 pass
@@ -6305,22 +6305,19 @@ class AdminSite:
                 record_pk=str(pk),
                 changes=changes,
             )
-            # Persist to AdminLogEntry (database-backed audit trail)
+            # Persist to AdminAuditEntry (database-backed audit trail)
             try:
-                from .models import AdminLogEntry, ContentType, _HAS_ORM
+                from .models import AdminAuditEntry, _HAS_ORM
                 if _HAS_ORM:
-                    ct = await ContentType.get_for_model(model_cls)
-                    import json as _json
-                    change_msg = _json.dumps([
-                        {"changed": {"fields": list(changes.keys())}}
-                    ], default=str)
-                    await AdminLogEntry.log_action(
+                    await AdminAuditEntry.create_entry(
+                        action="update",
                         user_id=int(identity.id) if identity.id.isdigit() else 1,
-                        content_type_id=ct.pk if ct else None,
-                        object_id=str(pk),
-                        object_repr=str(record),
-                        action_flag=AdminLogEntry.CHANGE,
-                        change_message=change_msg,
+                        username=identity.get_attribute("name", identity.id),
+                        resource_type=model_name,
+                        resource_id=str(pk),
+                        summary=f"Updated {model_name} #{pk}",
+                        detail={"changed_fields": list(changes.keys())},
+                        diff=changes,
                     )
             except Exception:
                 pass
@@ -6360,17 +6357,17 @@ class AdminSite:
                 model_name=model_name,
                 record_pk=str(pk),
             )
-            # Persist to AdminLogEntry (database-backed audit trail)
+            # Persist to AdminAuditEntry (database-backed audit trail)
             try:
-                from .models import AdminLogEntry, ContentType, _HAS_ORM
+                from .models import AdminAuditEntry, _HAS_ORM
                 if _HAS_ORM:
-                    ct = await ContentType.get_for_model(model_cls)
-                    await AdminLogEntry.log_action(
+                    await AdminAuditEntry.create_entry(
+                        action="delete",
                         user_id=int(identity.id) if identity.id.isdigit() else 1,
-                        content_type_id=ct.pk if ct else None,
-                        object_id=str(pk),
-                        object_repr=f"Deleted {model_name} #{pk}",
-                        action_flag=AdminLogEntry.DELETION,
+                        username=identity.get_attribute("name", identity.id),
+                        resource_type=model_name,
+                        resource_id=str(pk),
+                        summary=f"Deleted {model_name} #{pk}",
                     )
             except Exception:
                 pass

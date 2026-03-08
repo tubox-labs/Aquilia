@@ -5984,16 +5984,16 @@ class AdminController(Controller):
             from aquilia.admin.models import AdminUser
             user = await AdminUser.authenticate(username, password)
             if user is not None:
-                # Log to AdminLogEntry (ORM-backed audit trail)
+                # Log to AdminAuditEntry (ORM-backed audit trail)
                 try:
-                    from aquilia.admin.models import AdminLogEntry, ContentType
-                    await AdminLogEntry.log_action(
-                        user_id=user.pk,
-                        content_type_id=None,
-                        object_id=None,
-                        object_repr=f"Login: {username}",
-                        action_flag=AdminLogEntry.ADDITION,
-                        change_message='[{"action": "login"}]',
+                    from aquilia.admin.models import AdminAuditEntry
+                    await AdminAuditEntry.create_entry(
+                        action="login",
+                        user=user,
+                        resource_type="AdminUser",
+                        resource_id=str(user.pk),
+                        summary=f"Login: {username}",
+                        category="auth",
                     )
                 except Exception:
                     pass
