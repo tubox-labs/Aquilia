@@ -70,14 +70,16 @@ class TestEverySchedule:
 
     def test_every_zero_raises(self):
         from aquilia.tasks.schedule import every
+        from aquilia.tasks.faults import TaskScheduleFault
 
-        with pytest.raises(ValueError, match="must be > 0"):
+        with pytest.raises(TaskScheduleFault, match="must be > 0"):
             every()
 
     def test_every_negative_raises(self):
         from aquilia.tasks.schedule import every
+        from aquilia.tasks.faults import TaskScheduleFault
 
-        with pytest.raises(ValueError, match="must be > 0"):
+        with pytest.raises(TaskScheduleFault, match="must be > 0"):
             every(seconds=-10)
 
     def test_human_readable_seconds(self):
@@ -172,8 +174,9 @@ class TestCronSchedule:
 
     def test_invalid_field_count(self):
         from aquilia.tasks.schedule import cron
+        from aquilia.tasks.faults import TaskScheduleFault
 
-        with pytest.raises(ValueError, match="5 fields"):
+        with pytest.raises(TaskScheduleFault, match="5 fields"):
             cron("* * *")
 
     def test_matches_minute(self):
@@ -266,12 +269,13 @@ class TestTaskDelayAndSend:
     async def test_delay_requires_bound_manager(self):
         """delay() should raise if no TaskManager is bound."""
         from aquilia.tasks import task
+        from aquilia.tasks.faults import TaskNotBoundFault
 
         @task
         async def unbound_task():
             return 42
 
-        with pytest.raises(RuntimeError, match="no bound TaskManager"):
+        with pytest.raises(TaskNotBoundFault, match="no bound TaskManager"):
             await unbound_task.delay()
 
     @pytest.mark.asyncio

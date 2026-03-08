@@ -706,7 +706,8 @@ class TestTaskManager:
 
     @pytest.mark.asyncio
     async def test_enqueue_invalid_type_raises(self, manager):
-        with pytest.raises(TypeError, match="Expected callable"):
+        from aquilia.tasks.faults import TaskEnqueueFault
+        with pytest.raises(TaskEnqueueFault, match="Expected callable"):
             await manager.enqueue("not_a_function")
 
     @pytest.mark.asyncio
@@ -1874,6 +1875,8 @@ class TestQueryInspectorCRUDIntegration:
         ]
 
         ctrl = AdminController(site=site)
+        # Bypass CSRF validation for existing tests (security tested separately)
+        site.security.csrf.validate_request = lambda *a, **kw: True
 
         # Build a minimal mock request/ctx
         mock_request = MagicMock()
@@ -1919,6 +1922,8 @@ class TestQueryInspectorCRUDIntegration:
         ]
 
         ctrl = AdminController(site=site)
+        # Bypass CSRF validation for existing tests (security tested separately)
+        site.security.csrf.validate_request = lambda *a, **kw: True
 
         mock_request = MagicMock()
         mock_request.state = {"path_params": {"model": "Item", "pk": "5"}}
@@ -1963,6 +1968,8 @@ class TestQueryInspectorCRUDIntegration:
         site._last_update_queries = list(captured)
 
         ctrl = AdminController(site=site)
+        # Bypass CSRF validation for existing tests (security tested separately)
+        site.security.csrf.validate_request = lambda *a, **kw: True
 
         mock_request = MagicMock()
         mock_request.state = {"path_params": {"model": "Product", "pk": "7"}}
@@ -2006,6 +2013,8 @@ class TestQueryInspectorCRUDIntegration:
         site.get_record = AsyncMock(side_effect=Exception("model not found"))
 
         ctrl = AdminController(site=site)
+        # Bypass CSRF validation for existing tests (security tested separately)
+        site.security.csrf.validate_request = lambda *a, **kw: True
 
         mock_request = MagicMock()
         mock_request.state = {"path_params": {"model": "Widget", "pk": "99"}}
@@ -2041,6 +2050,8 @@ class TestQueryInspectorCRUDIntegration:
         })
 
         ctrl = AdminController(site=site)
+        # Bypass CSRF validation for existing tests (security tested separately)
+        site.security.csrf.validate_request = lambda *a, **kw: True
 
         mock_request = MagicMock()
         mock_request.state = {"path_params": {"model": "Foo", "pk": "1"}}

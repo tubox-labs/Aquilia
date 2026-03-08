@@ -125,13 +125,13 @@ class TestStorageErrorHierarchy:
 
     def test_storage_error_base(self):
         err = StorageError("boom", backend="s3", path="foo/bar.txt")
-        assert str(err) == "boom"
-        assert err.backend == "s3"
+        assert "boom" in str(err)
+        assert err.backend_name_str == "s3"
         assert err.path == "foo/bar.txt"
 
     def test_storage_error_defaults(self):
         err = StorageError("oops")
-        assert err.backend == ""
+        assert err.backend_name_str == ""
         assert err.path == ""
 
     def test_file_not_found_is_storage_error(self):
@@ -253,8 +253,9 @@ class TestStorageFile:
 
     @pytest.mark.asyncio
     async def test_write_read_mode_raises(self):
+        from aquilia.storage import StorageIOFault
         sf = StorageFile(name="out.txt", mode="rb")
-        with pytest.raises(ValueError, match="not opened for writing"):
+        with pytest.raises(StorageIOFault, match="not opened for writing"):
             await sf.write(b"nope")
 
     @pytest.mark.asyncio
@@ -282,16 +283,18 @@ class TestStorageFile:
 
     @pytest.mark.asyncio
     async def test_read_after_close_raises(self):
+        from aquilia.storage import StorageIOFault
         sf = StorageFile(name="test.txt", content=b"x")
         await sf.close()
-        with pytest.raises(ValueError, match="closed"):
+        with pytest.raises(StorageIOFault, match="closed"):
             await sf.read()
 
     @pytest.mark.asyncio
     async def test_write_after_close_raises(self):
+        from aquilia.storage import StorageIOFault
         sf = StorageFile(name="out.txt", mode="wb")
         await sf.close()
-        with pytest.raises(ValueError, match="closed"):
+        with pytest.raises(StorageIOFault, match="closed"):
             await sf.write(b"x")
 
     @pytest.mark.asyncio
@@ -1375,7 +1378,8 @@ class TestStorageRegistry:
         assert registry.default is memory_backend
 
     def test_set_default_nonexistent_raises(self, registry):
-        with pytest.raises(KeyError):
+        from aquilia.storage import StorageConfigFault
+        with pytest.raises(StorageConfigFault):
             registry.set_default("nonexistent")
 
     def test_default_not_set_raises(self, registry):
@@ -1745,8 +1749,9 @@ class TestStorageEffectProvider:
 
     @pytest.mark.asyncio
     async def test_acquire_no_registry_raises(self):
+        from aquilia.storage import StorageConfigFault
         provider = StorageEffectProvider()
-        with pytest.raises(RuntimeError, match="no registry"):
+        with pytest.raises(StorageConfigFault, match="no registry"):
             await provider.acquire()
 
     @pytest.mark.asyncio

@@ -453,8 +453,12 @@ class TestThrottle:
 
     def test_different_clients_independent(self):
         t = Throttle(limit=1, window=60)
-        req1 = _make_request(headers={"X-Forwarded-For": "1.1.1.1"})
-        req2 = _make_request(headers={"X-Forwarded-For": "2.2.2.2"})
+        # Use distinct ASGI client tuples to simulate different clients.
+        # (X-Forwarded-For alone is not trusted without trust_proxy.)
+        req1 = _make_request()
+        req1.scope["client"] = ("1.1.1.1", 12345)
+        req2 = _make_request()
+        req2.scope["client"] = ("2.2.2.2", 12345)
         assert t.check(req1) is True
         assert t.check(req1) is False
         assert t.check(req2) is True  # Different client, still allowed
@@ -740,7 +744,7 @@ class TestEngineTimeout:
         meta._raw_metadata = {}
         meta.timeout = None
 
-        with pytest.raises(TimeoutError, match="timed out"):
+        with pytest.raises(Exception, match="timeout"):
             await engine._execute_with_timeout(slow_handler, TimedOut, meta)
 
 

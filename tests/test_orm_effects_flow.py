@@ -877,7 +877,8 @@ class TestEffectRegistry:
         assert registry.get_provider("db") is provider
 
     def test_get_provider_missing_raises(self, registry):
-        with pytest.raises(KeyError):
+        from aquilia.faults.domains import EffectFault
+        with pytest.raises(EffectFault):
             registry.get_provider("nonexistent")
 
     def test_unregister(self, registry):
@@ -1147,8 +1148,9 @@ class TestFlowContext:
 
     def test_effect_missing_raises(self):
         from aquilia.flow import FlowContext
+        from aquilia.faults.domains import EffectFault
         ctx = FlowContext()
-        with pytest.raises(KeyError, match="not acquired"):
+        with pytest.raises(EffectFault, match="not acquired"):
             ctx.get_effect("missing")
 
     def test_elapsed_ms(self):

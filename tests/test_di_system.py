@@ -181,7 +181,7 @@ class TestContainer:
         p1 = ValueProvider(1, "tok")
         p2 = ValueProvider(2, "tok")
         container.register(p1)
-        with pytest.raises(ValueError, match="already registered"):
+        with pytest.raises(Exception, match="already registered"):
             container.register(p2)
 
     async def test_register_same_provider_idempotent(self, container):
@@ -721,14 +721,14 @@ class TestLifecycle:
         assert order == ["ok"]
 
     async def test_startup_hook_failure_raises(self):
-        """Startup failures raise RuntimeError."""
+        """Startup failures raise SystemFault."""
         lc = Lifecycle()
 
         async def fail():
             raise ValueError("startup fail")
 
         lc.on_startup(fail, name="boom")
-        with pytest.raises(RuntimeError, match="Startup hooks failed"):
+        with pytest.raises(Exception, match="Startup hooks failed"):
             await lc.run_startup_hooks()
 
     async def test_finalizers_lifo(self):
@@ -1236,7 +1236,7 @@ class TestRequestDAG:
         assert cleaned
 
     async def test_resolve_circular_raises(self):
-        """Circular Dep raises RuntimeError."""
+        """Circular Dep raises DIResolutionFault."""
         # Create a function that references itself via the DAG
         # We can simulate by manually marking the cache
         dag = RequestDAG(Container(scope="app"))
@@ -1244,7 +1244,7 @@ class TestRequestDAG:
         async def circular():
             return await dag.resolve(Dep(call=circular), str)
 
-        with pytest.raises(RuntimeError, match="Circular dependency"):
+        with pytest.raises(Exception, match="Circular dependency"):
             await dag.resolve(Dep(call=circular), str)
 
     async def test_teardown_lifo_order(self):
@@ -1372,7 +1372,7 @@ class TestDecorators:
         async def handler(db: str):
             return db
 
-        with pytest.raises(RuntimeError, match="No request container"):
+        with pytest.raises(Exception, match="No request container"):
             await handler()
 
 

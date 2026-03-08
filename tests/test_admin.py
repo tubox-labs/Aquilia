@@ -1323,6 +1323,8 @@ class TestAdminControllerRoutes:
             "profile": True, "audit": True,
         }, audit_enabled=True, monitoring_enabled=True)
         self.ctrl = AdminController(site=self.site)
+        # Bypass CSRF validation for existing tests (security tested separately)
+        self.site.security.csrf.validate_request = lambda *a, **kw: True
 
     def _make_ctx(self, identity=None, session_data=None, query_params=None):
         """Create a mock RequestCtx."""
@@ -1346,6 +1348,8 @@ class TestAdminControllerRoutes:
         """Create a mock request with path_params in state."""
         req = MagicMock()
         req.state = {"path_params": path_params or {}}
+        req.headers = {}
+        req.scope = {"client": ("127.0.0.1", 12345)}
         return req
 
     @pytest.mark.asyncio

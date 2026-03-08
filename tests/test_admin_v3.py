@@ -2538,8 +2538,8 @@ class TestTemplatePartialsV3:
         from pathlib import Path
         content = (Path(__file__).parent.parent / "aquilia/admin/templates/partials/css.html").read_text()
         assert "22c55e" in content, "Missing Aquilia green accent"
-        assert "Outfit" in content, "Missing Outfit font (aqdocx theme)"
-        assert "Space Mono" in content, "Missing Space Mono font (aqdocx theme)"
+        assert "Inter" in content, "Missing Inter font (admin theme)"
+        assert "Geist Mono" in content, "Missing Geist Mono font (admin theme)"
 
     def test_base_includes_sidebar(self):
         from pathlib import Path
@@ -2554,8 +2554,8 @@ class TestTemplatePartialsV3:
     def test_base_includes_aqdocx_fonts(self):
         from pathlib import Path
         content = (Path(__file__).parent.parent / "aquilia/admin/templates/base.html").read_text()
-        assert "Outfit" in content, "Missing Outfit font CDN"
-        assert "Space+Mono" in content, "Missing Space Mono font CDN"
+        assert "Inter" in content, "Missing Inter font CDN"
+        assert "Geist+Mono" in content, "Missing Geist Mono font CDN"
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -2646,6 +2646,8 @@ class TestFormDataFix:
         self.site = AdminSite()
         self.site.register(_ProductModel)
         self.ctrl = AdminController(site=self.site)
+        # Bypass CSRF validation for existing tests (security tested separately)
+        self.site.security.csrf.validate_request = lambda *a, **kw: True
 
     def _ctx(self, identity=None, session_data=None):
         ctx = MagicMock()
@@ -2888,6 +2890,8 @@ class TestBulkActionHandler:
         self.site.register(_ProductModel)
         self.ctrl = AdminController(site=self.site)
         self.site._initialized = True
+        # Bypass CSRF validation for existing tests (security tested separately)
+        self.site.security.csrf.validate_request = lambda *a, **kw: True
 
     def _ctx(self, identity=None, session_data=None):
         ctx = MagicMock()
@@ -3107,6 +3111,8 @@ class TestAuditInListAndEdit:
         self.site.register(_ProductModel)
         self.ctrl = AdminController(site=self.site)
         self.site._initialized = True
+        # Bypass CSRF validation for existing tests (security tested separately)
+        self.site.security.csrf.validate_request = lambda *a, **kw: True
 
     def _ctx(self, identity=None):
         ctx = MagicMock()
@@ -5055,12 +5061,12 @@ class TestAqdocxThemeAlignment:
     def test_css_uses_outfit_font(self):
         from aquilia.admin.templates import _get_jinja_env
         css = _get_jinja_env().get_template("partials/css.html").render()
-        assert '"Outfit"' in css
+        assert '"Inter"' in css
 
     def test_css_uses_space_mono_font(self):
         from aquilia.admin.templates import _get_jinja_env
         css = _get_jinja_env().get_template("partials/css.html").render()
-        assert '"Space Mono"' in css
+        assert '"Geist Mono"' in css
 
     def test_css_pure_black_dark_mode(self):
         from aquilia.admin.templates import _get_jinja_env

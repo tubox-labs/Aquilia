@@ -56,12 +56,14 @@ class TestSessionID:
 
     def test_from_string_rejects_invalid(self):
         from aquilia.sessions.core import SessionID
-        with pytest.raises(ValueError):
+        from aquilia.sessions.faults import SessionInvalidFault
+        with pytest.raises(SessionInvalidFault):
             SessionID.from_string("not_a_valid_session_id")
     
     def test_from_string_rejects_wrong_prefix(self):
         from aquilia.sessions.core import SessionID
-        with pytest.raises(ValueError):
+        from aquilia.sessions.faults import SessionInvalidFault
+        with pytest.raises(SessionInvalidFault):
             SessionID.from_string("bad_prefix_" + "a" * 43)
 
     def test_constant_time_comparison(self):
@@ -290,17 +292,18 @@ class TestSession:
 
     def test_read_only_enforcement(self):
         from aquilia.sessions.core import SessionFlag
+        from aquilia.sessions.faults import SessionLockedFault
         s = self._make_session()
         s.flags.add(SessionFlag.READ_ONLY)
-        with pytest.raises(RuntimeError, match="read-only"):
+        with pytest.raises(SessionLockedFault):
             s["key"] = "value"
-        with pytest.raises(RuntimeError, match="read-only"):
+        with pytest.raises(SessionLockedFault):
             del s["key"]
-        with pytest.raises(RuntimeError, match="read-only"):
+        with pytest.raises(SessionLockedFault):
             s.set("key", "value")
-        with pytest.raises(RuntimeError, match="read-only"):
+        with pytest.raises(SessionLockedFault):
             s.delete("key")
-        with pytest.raises(RuntimeError, match="read-only"):
+        with pytest.raises(SessionLockedFault):
             s.clear_data()
 
     def test_touch_updates_last_accessed(self):
@@ -918,7 +921,8 @@ class TestCreateTransport:
     def test_rejects_unsupported(self):
         from aquilia.sessions.transport import create_transport
         from aquilia.sessions.policy import TransportPolicy
-        with pytest.raises(ValueError, match="Unsupported"):
+        from aquilia.sessions.faults import SessionTransportFault
+        with pytest.raises(SessionTransportFault):
             create_transport(TransportPolicy(adapter="unknown"))
 
 
