@@ -1,8 +1,7 @@
 """
 AquilAdmin -- Dashboard Widget System.
 
-Provides a composable widget/metric system for the admin dashboard,
-inspired by Laravel Nova's cards and Django Jet's dashboard modules.
+Provides a composable widget/metric system for the AquilAdmin dashboard.
 
 Widgets are registered on the AdminSite or ModelAdmin to display
 stats, charts, recent activity, and custom content on the dashboard.

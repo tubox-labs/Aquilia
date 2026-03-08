@@ -5,7 +5,7 @@ Defines the StorageBackend ABC, StorageFile async wrapper, metadata,
 and structured error hierarchy.  Every backend inherits from
 StorageBackend and implements the async contract.
 
-Design principles (from Django + Laravel + fsspec + async-first):
+Design principles (async-first, fsspec-aligned):
     - Async-native: every I/O method is ``async``
     - Streaming: ``save`` and ``open`` accept/return async iterators
     - Metadata-rich: ``stat`` returns typed StorageMetadata
@@ -321,8 +321,7 @@ class StorageBackend(ABC):
     Abstract storage backend.
 
     Every backend implements this async contract.  The interface is
-    intentionally close to Django's ``Storage`` but fully async and
-    with richer metadata semantics.
+    fully async with richer metadata semantics.
 
     Lifecycle:
         1. ``__init__``   — configure (no I/O)

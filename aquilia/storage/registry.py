@@ -1,7 +1,7 @@
 """
-Storage Registry -- Named backend registry with Django-style aliases.
+Storage Registry -- Named backend registry.
 
-Centralises all storage backends.  Access by name like Django's ``storages``:
+Centralises all storage backends.  Access by alias name:
 
     registry["default"]   → the default StorageBackend
     registry["avatars"]   → a custom alias

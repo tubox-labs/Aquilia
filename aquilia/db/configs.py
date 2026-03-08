@@ -1,9 +1,8 @@
 """
 Aquilia Database Configuration Classes -- Developer-Friendly Typed Configs.
 
-Provides typed, validated configuration dataclasses for each database backend.
-Inspired by Django's DATABASES setting but with Python-native developer
-ergonomics using dataclasses and fluent builders.
+Provides typed, validated configuration dataclasses for each database backend,
+with Python-native developer ergonomics using dataclasses and fluent builders.
 
 Supported backends:
     - SqliteConfig     → SQLite via aiosqlite
@@ -79,7 +78,7 @@ class DatabaseConfig:
     # Connection resilience
     connect_retries: int = 3
     connect_retry_delay: float = 0.5
-    conn_max_age: int = 0  # 0 = close after each request (Django-style)
+    conn_max_age: int = 0  # 0 = close after each request
     conn_health_checks: bool = False
 
     # Additional driver-specific options

@@ -23,7 +23,7 @@ class StorageConfig:
     Base storage configuration.
 
     Every backend-specific config extends this.
-    ``alias`` is the registry key (like Django's STORAGES dict key).
+    ``alias`` is the registry key used to look up this backend.
     """
     alias: str = "default"
     backend: str = ""          # Dotted import path OR shorthand ('local', 's3', …)

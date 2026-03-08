@@ -209,7 +209,7 @@ This enables:
 - ✨ **Hover docs**: Show param types and constraints
 - 🔍 **Autocomplete**: Suggest tokens, types, and constraints
 - 🐛 **Inline diagnostics**: Show syntax/semantic errors
-- 🔧 **Quick fixes**: Convert FastAPI patterns automatically
+- 🔧 **Quick fixes**: Auto-correct pattern syntax errors
 
 ---
 
@@ -379,36 +379,45 @@ patterns = [
 
 ---
 
-## Migration from Other Frameworks
+## Pattern Syntax Reference
 
-### From FastAPI
+### Basic patterns
 
 ```python
-# FastAPI
-@app.get("/users/{user_id}")
+# Static route
+"/users"
 
-# AquilaPatterns
-"/users/«user_id:int»"
+# Integer parameter
+"/users/«id:int»"
+
+# String parameter
+"/users/«name:str»"
+
+# UUID parameter
+"/users/«id:uuid»"
+
+# Wildcard / catch-all
+"/files/*path"
 ```
 
-### From Flask
+### With constraints
 
 ```python
-# Flask
-@app.route("/posts/<int:year>/<int:month>")
+# Min/max length
+"/posts/«slug:slug|min=3|max=80»"
 
-# AquilaPatterns
-"/posts/«year:int»/«month:int»"
+# Numeric range
+"/years/«year:int|min=2000|max=2099»"
 ```
 
-### From Django
+### Query parameters
 
 ```python
-# Django
-path('articles/<int:year>/', views.year_archive)
+# Required query param
+"/search?q:str"
 
-# AquilaPatterns
-"/articles/«year:int»"
+# Optional with default
+"/search?q:str|min=2&page:int=1"
 ```
 
 ---

@@ -1,8 +1,8 @@
 """
 AquilAdmin -- Advanced Filter System.
 
-Provides a rich filter API inspired by Django's ModelAdmin list filters.
-Supports custom filter classes, date range filters, numeric range filters,
+Provides a rich filter API for list views with support for custom filter
+classes, date range filters, numeric range filters,
 choice filters, boolean filters, and related model filters.
 
 Usage:

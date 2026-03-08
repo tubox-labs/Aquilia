@@ -922,9 +922,9 @@ else:
 
 
 class ContentType:
-    """Stub — Aquilia does not use a Django-style ContentType table.
+    """Stub — Aquilia does not use a ContentType indirection table.
 
-    Model metadata is available at runtime via the model registry.
+    Model metadata is available at runtime via the Aquilia model registry.
     """
 
     _HAS_ORM = False

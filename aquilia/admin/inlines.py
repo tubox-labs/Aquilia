@@ -2,7 +2,7 @@
 AquilAdmin -- Inline Model Admin.
 
 Provides the ability to edit related models on the same page as the
-parent model, inspired by Django's InlineModelAdmin system.
+parent model inline within the AquilAdmin interface.
 
 Supports both Tabular (compact table) and Stacked (full form) layouts
 for editing related objects inline within the parent form.

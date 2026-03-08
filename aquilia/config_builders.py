@@ -1350,7 +1350,7 @@ class Integration:
         """
         Configure file storage backends.
 
-        Accepts a dict of named backends (Django-style aliases).
+        Accepts a dict of named backends (keyed by alias).
         Each value can be a StorageConfig instance or a plain dict
         with a ``backend`` key.
 

@@ -4,8 +4,7 @@ AquilAdmin -- Lifecycle Hooks System.
 Provides a hook mechanism for ModelAdmin to intercept and customize
 the behavior of CRUD operations, form processing, and queryset building.
 
-Inspired by Django's ModelAdmin hook methods and Laravel Nova's
-event callbacks.
+Provides a first-class hook system built into Aquilia Admin.
 
 Usage:
     from aquilia.admin.hooks import AdminHooksMixin
