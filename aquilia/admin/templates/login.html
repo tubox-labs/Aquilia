@@ -66,16 +66,19 @@
         const form = document.querySelector('form');
         if (form) {
             form.addEventListener('submit', function() {
-                const btn = document.getElementById('loginBtn');
-                const icon = document.getElementById('loginIcon');
-                const text = document.getElementById('loginText');
-                if (btn && icon && text) {
+                // Defer visual changes so they don't block the submit event
+                setTimeout(function() {
+                    var btn = document.getElementById('loginBtn');
+                    var icon = document.getElementById('loginIcon');
+                    var text = document.getElementById('loginText');
+                    if (!btn || !icon || !text) return;
+                    // Replace the <i> element with a pure spinner span
+                    var spinner = document.createElement('span');
+                    spinner.className = 'login-spinner';
+                    icon.parentNode.replaceChild(spinner, icon);
+                    text.textContent = 'Signing in\u2026';
                     btn.classList.add('btn-loading');
-                    btn.disabled = true;
-                    icon.className = '';
-                    icon.innerHTML = '<span class="login-spinner"></span>';
-                    text.textContent = 'Signing in...';
-                }
+                }, 0);
             });
         }
     })();

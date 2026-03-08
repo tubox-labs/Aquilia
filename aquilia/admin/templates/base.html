@@ -914,26 +914,29 @@
 
         /* 6. Logout button spinner */
         (function(){
-            var logoutBtn = document.getElementById('logoutBtn');
-            if (!logoutBtn) return;
-            logoutBtn.addEventListener('click', function(e){
-                var icon = document.getElementById('logoutIcon');
-                var text = document.getElementById('logoutText');
-                if (icon && text) {
-                    icon.className = '';
-                    icon.style.cssText = 'display:inline-block;width:15px;height:15px;border:2px solid rgba(255,255,255,.2);border-top-color:currentColor;border-radius:50%;animation:aq-logout-spin .5s linear infinite;vertical-align:-2px;';
-                    text.textContent = 'Signing out\u2026';
-                    logoutBtn.style.pointerEvents = 'none';
-                    logoutBtn.style.opacity = '0.7';
-                }
-            });
-            /* Add the keyframe animation if not already present */
+            /* Inject keyframe animation immediately so it's ready before any click */
             if (!document.getElementById('aq-logout-spin-style')) {
                 var style = document.createElement('style');
                 style.id = 'aq-logout-spin-style';
                 style.textContent = '@keyframes aq-logout-spin{to{transform:rotate(360deg)}}';
                 document.head.appendChild(style);
             }
+
+            var logoutBtn = document.getElementById('logoutBtn');
+            if (!logoutBtn) return;
+            logoutBtn.addEventListener('click', function(){
+                var icon = document.getElementById('logoutIcon');
+                var text = document.getElementById('logoutText');
+                if (icon && text) {
+                    /* Replace the <i> node with a plain <span> spinner */
+                    var spinner = document.createElement('span');
+                    spinner.style.cssText = 'display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.25);border-top-color:currentColor;border-radius:50%;animation:aq-logout-spin .5s linear infinite;vertical-align:-2px;margin-right:2px;';
+                    icon.parentNode.replaceChild(spinner, icon);
+                    text.textContent = 'Signing out\u2026';
+                    logoutBtn.style.pointerEvents = 'none';
+                    logoutBtn.style.opacity = '0.7';
+                }
+            });
         })();
     })();
     </script>
