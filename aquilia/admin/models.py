@@ -13,6 +13,17 @@ Only four tables hit the database:
     aq_admin_api_keys     — scoped, hashed API keys for programmatic access
     aq_admin_preferences  — per-user UI / workflow preferences (JSON blob)
 
+Production-grade features
+-------------------------
+- **FK relationships** with ``ON DELETE CASCADE`` for referential integrity
+- **Composite & single-column indexes** on every column used in ``WHERE``
+  or ``ORDER BY`` (username, email, role, is_active, timestamp, action, …)
+- **``DateTimeField``** with ``auto_now`` / ``auto_now_add`` instead of raw
+  ``CharField`` ISO strings — the ORM handles serialisation per dialect
+- **``CheckConstraint``** on ``role`` — only ``VALID_ROLES`` values accepted
+- **``unique_together``** on ``(user_id, namespace)`` in preferences
+- **Default ordering** on every model for deterministic query results
+
 Permissions live **in memory** (see ``permissions.py``).  The ``AdminUser.role``
 column is the single join-point between the persisted identity and the runtime
 RBAC matrix — no M2M tables, no extra joins at request time.
@@ -46,7 +57,11 @@ try:
         IntegerField,
         DateTimeField,
         JSONField,
+        ForeignKey,
+        Index,
+        UniqueConstraint,
     )
+    from aquilia.models.constraint import CheckConstraint
 
     _ORM_AVAILABLE = True
 except ImportError:
@@ -81,8 +96,13 @@ VALID_ROLES = ("superadmin", "staff", "viewer")
 # ---------------------------------------------------------------------------
 
 
-def _now_utc() -> str:
-    """ISO-8601 UTC timestamp string suitable for ``CharField`` storage."""
+def _now_utc() -> datetime:
+    """Return a timezone-aware UTC datetime for ``DateTimeField`` storage."""
+    return datetime.now(timezone.utc)
+
+
+def _now_utc_iso() -> str:
+    """ISO-8601 UTC timestamp string — used only by fallback stubs."""
     return datetime.now(timezone.utc).isoformat()
 
 
@@ -97,6 +117,10 @@ def _generate_api_key() -> str:
 def _hash_api_key(raw_key: str) -> str:
     """Deterministic SHA-256 hex digest of a raw API key."""
     return hashlib.sha256(raw_key.encode()).hexdigest()
+
+
+# SQL fragment for the role CHECK constraint (reused in Meta)
+_ROLE_CHECK_SQL = "role IN ('superadmin', 'staff', 'viewer')"
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -124,38 +148,77 @@ if _ORM_AVAILABLE:
           still reference the old field names.
         * ``login_count`` and ``last_active_at`` give the superadmin a
           quick health signal without querying the audit table.
+
+        Indexes
+        ~~~~~~~
+        * ``username`` — UNIQUE (enforced by field)
+        * ``email`` — UNIQUE (enforced by field)
+        * ``role`` — single-column index (admin list filter)
+        * ``is_active`` — single-column index (active user queries)
+        * ``(role, is_active)`` — composite index (dashboard stats)
+        * ``(email, is_active)`` — composite index (login flow lookup)
+        * ``last_active_at`` — single-column index (recently-active sort)
+        * ``created_at`` — single-column index (chronological listing)
         """
 
         class Meta:
             table_name = "aq_admin_users"
+            ordering = ["-created_at"]
+            indexes = [
+                # Single-column indexes for frequent WHERE / ORDER BY
+                Index(fields=["role"], name="idx_admin_users_role"),
+                Index(fields=["is_active"], name="idx_admin_users_active"),
+                Index(fields=["last_active_at"], name="idx_admin_users_last_active"),
+                Index(fields=["created_at"], name="idx_admin_users_created"),
+                # Composite indexes for common query patterns
+                Index(fields=["role", "is_active"], name="idx_admin_users_role_active"),
+                Index(fields=["email", "is_active"], name="idx_admin_users_email_active"),
+            ]
+            constraints = [
+                CheckConstraint(
+                    check=_ROLE_CHECK_SQL,
+                    name="ck_admin_users_valid_role",
+                    violation_error_message="role must be one of: superadmin, staff, viewer",
+                ),
+            ]
 
-        username = CharField(max_length=150, unique=True)
-        email = CharField(max_length=254, unique=True)
+        # Identity ─────────────────────────────────────────────────────────
+        username = CharField(max_length=150, unique=True, db_index=True)
+        email = CharField(max_length=254, unique=True, db_index=True)
         display_name = CharField(max_length=200, default="")
         password_hash = CharField(max_length=512)
         role = CharField(max_length=32, default=DEFAULT_ROLE)
         is_active = BooleanField(default=True)
 
-        # Profile fields (used by controller profile views) ----------------
+        # Profile fields (used by controller profile views) ────────────────
         first_name = CharField(max_length=100, default="")
         last_name = CharField(max_length=100, default="")
         bio = TextField(default="")
         phone = CharField(max_length=32, default="")
-        timezone = CharField(max_length=64, default="UTC")
+        timezone_name = CharField(max_length=64, default="UTC", db_column="timezone")
         locale = CharField(max_length=16, default="en")
 
-        # Tracking -----------------------------------------------------------
+        # Tracking ─────────────────────────────────────────────────────────
         login_count = IntegerField(default=0)
-        last_login_at = CharField(max_length=64, default="")
-        last_active_at = CharField(max_length=64, default="")
-        created_at = CharField(max_length=64, default="")
-        updated_at = CharField(max_length=64, default="")
+        last_login_at = DateTimeField(null=True, blank=True, db_index=True)
+        last_active_at = DateTimeField(null=True, blank=True)
+        created_at = DateTimeField(auto_now_add=True, db_index=True)
+        updated_at = DateTimeField(auto_now=True)
 
-        # Optional metadata ---------------------------------------------------
+        # Optional metadata ────────────────────────────────────────────────
         avatar_url = CharField(max_length=512, default="")
         notes = TextField(default="")
 
         # ── Compatibility aliases ────────────────────────────────────────
+
+        @property
+        def timezone(self) -> str:
+            """Alias so ``user.timezone`` keeps working."""
+            return self.timezone_name
+
+        @timezone.setter
+        def timezone(self, value: str) -> None:
+            self.timezone_name = value
 
         @property
         def avatar_path(self) -> str:
@@ -168,13 +231,17 @@ if _ORM_AVAILABLE:
 
         @property
         def last_login(self) -> str:
-            """Alias for ``last_login_at``."""
-            return self.last_login_at
+            """Alias for ``last_login_at`` (returns ISO string for templates)."""
+            if self.last_login_at is None:
+                return ""
+            return str(self.last_login_at.isoformat()) if hasattr(self.last_login_at, "isoformat") else str(self.last_login_at)
 
         @property
         def date_joined(self) -> str:
-            """Alias for ``created_at``."""
-            return self.created_at
+            """Alias for ``created_at`` (returns ISO string for templates)."""
+            if self.created_at is None:
+                return ""
+            return str(self.created_at.isoformat()) if hasattr(self.created_at, "isoformat") else str(self.created_at)
 
         # ── Computed properties ──────────────────────────────────────────
 
@@ -255,8 +322,9 @@ if _ORM_AVAILABLE:
         def record_login(self) -> None:
             """Bump login statistics.  Caller is responsible for ``.save()``."""
             self.login_count = (self.login_count or 0) + 1
-            self.last_login_at = _now_utc()
-            self.last_active_at = _now_utc()
+            now = _now_utc()
+            self.last_login_at = now
+            self.last_active_at = now
 
         def touch(self) -> None:
             """Update ``last_active_at``.  Caller is responsible for ``.save()``."""
@@ -371,11 +439,11 @@ if _ORM_AVAILABLE:
                 ),
                 bio=extra_fields.get("bio", ""),
                 phone=extra_fields.get("phone", ""),
-                timezone=extra_fields.get("timezone", "UTC"),
+                timezone_name=extra_fields.get("timezone", "UTC"),
                 locale=extra_fields.get("locale", "en"),
                 login_count=0,
-                last_login_at="",
-                last_active_at="",
+                last_login_at=None,
+                last_active_at=None,
                 created_at=now,
                 updated_at=now,
                 avatar_url=extra_fields.get("avatar_url", extra_fields.get("avatar_path", "")),
@@ -430,10 +498,10 @@ if _ORM_AVAILABLE:
                 "is_superuser": self.is_superuser,
                 "is_staff": self.is_staff,
                 "login_count": self.login_count,
-                "last_login_at": self.last_login_at,
-                "last_active_at": self.last_active_at,
-                "created_at": self.created_at,
-                "updated_at": self.updated_at,
+                "last_login_at": str(self.last_login_at or ""),
+                "last_active_at": str(self.last_active_at or ""),
+                "created_at": str(self.created_at or ""),
+                "updated_at": str(self.updated_at or ""),
                 "avatar_url": self.avatar_url,
             }
 
@@ -455,31 +523,65 @@ if _ORM_AVAILABLE:
 
         The table is **append-only** — no ``UPDATE`` or ``DELETE`` in
         application code.
+
+        Indexes
+        ~~~~~~~
+        * ``user_id`` — FK index (auto via ForeignKey) + explicit for non-FK queries
+        * ``action`` — single-column index (filter by action type)
+        * ``timestamp`` — single-column index (chronological sort / range queries)
+        * ``severity`` — single-column index (filter critical events)
+        * ``category`` — single-column index (filter by domain)
+        * ``resource_type`` — single-column index (filter by entity kind)
+        * ``(action, user_id)`` — composite index (user audit history by action)
+        * ``(timestamp, category)`` — composite index (time-range + domain filter)
+        * ``(resource_type, resource_id)`` — composite index (entity history)
         """
 
         class Meta:
             table_name = "aq_admin_audit"
+            ordering = ["-timestamp"]
+            indexes = [
+                # Single-column indexes
+                Index(fields=["action"], name="idx_admin_audit_action"),
+                Index(fields=["timestamp"], name="idx_admin_audit_ts"),
+                Index(fields=["severity"], name="idx_admin_audit_severity"),
+                Index(fields=["category"], name="idx_admin_audit_category"),
+                Index(fields=["resource_type"], name="idx_admin_audit_res_type"),
+                # Composite indexes for common query patterns
+                Index(fields=["action", "user_id"], name="idx_admin_audit_action_user"),
+                Index(fields=["timestamp", "category"], name="idx_admin_audit_ts_cat"),
+                Index(fields=["resource_type", "resource_id"], name="idx_admin_audit_res"),
+                Index(fields=["user_id", "timestamp"], name="idx_admin_audit_user_ts"),
+            ]
 
-        # Who ----------------------------------------------------------------
-        user_id = IntegerField(default=0)
-        username = CharField(max_length=150, default="system")
+        # Who ──────────────────────────────────────────────────────────────
+        user_id = ForeignKey(
+            "AdminUser",
+            related_name="audit_entries",
+            on_delete="SET_NULL",
+            null=True,
+            blank=True,
+            db_index=True,
+            db_column="user_id",
+        )
+        username = CharField(max_length=150, default="system", db_index=True)
         ip_address = CharField(max_length=45, default="")
         user_agent = CharField(max_length=512, default="")
 
-        # What ---------------------------------------------------------------
+        # What ─────────────────────────────────────────────────────────────
         action = CharField(max_length=64)          # e.g. "create", "update", "delete", "login", "export"
         resource_type = CharField(max_length=128, default="")   # model or subsystem name
         resource_id = CharField(max_length=128, default="")     # PK of affected object
         summary = CharField(max_length=512, default="")         # human-readable description
 
-        # Detail (JSON) ------------------------------------------------------
+        # Detail (JSON) ────────────────────────────────────────────────────
         detail = TextField(default="{}")            # arbitrary JSON payload
         diff = TextField(default="{}")              # before/after snapshot
 
-        # When ----------------------------------------------------------------
-        timestamp = CharField(max_length=64, default="")
+        # When ─────────────────────────────────────────────────────────────
+        timestamp = DateTimeField(auto_now_add=True, db_index=True)
 
-        # Severity / category -------------------------------------------------
+        # Severity / category ──────────────────────────────────────────────
         severity = CharField(max_length=16, default="info")     # info | warning | critical
         category = CharField(max_length=64, default="admin")    # admin | auth | data | config | system
 
@@ -509,7 +611,7 @@ if _ORM_AVAILABLE:
                 username = getattr(user, "username", "system") or "system"
 
             entry = cls(
-                user_id=user_id,
+                user_id=user_id or None,
                 username=username,
                 ip_address=ip_address,
                 user_agent=user_agent,
@@ -565,7 +667,7 @@ if _ORM_AVAILABLE:
                 "summary": self.summary,
                 "detail": self.detail,
                 "diff": self.diff,
-                "timestamp": self.timestamp,
+                "timestamp": str(self.timestamp or ""),
                 "severity": self.severity,
                 "category": self.category,
             }
@@ -592,20 +694,41 @@ if _ORM_AVAILABLE:
           full secret.
         * ``scopes`` is a JSON list of permission strings.  An empty list
           means "inherit all permissions from the owning user's role".
+
+        Indexes
+        ~~~~~~~
+        * ``key_hash`` — UNIQUE (enforced by field, fast lookup on verify)
+        * ``user_id`` — FK index (list keys per user)
+        * ``is_active`` — single-column index (filter revoked keys)
+        * ``(user_id, is_active)`` — composite index (active keys per user)
+        * ``expires_at`` — single-column index (expiry sweep queries)
         """
 
         class Meta:
             table_name = "aq_admin_api_keys"
+            ordering = ["-created_at"]
+            indexes = [
+                Index(fields=["is_active"], name="idx_admin_apikeys_active"),
+                Index(fields=["user_id", "is_active"], name="idx_admin_apikeys_user_active"),
+                Index(fields=["expires_at"], name="idx_admin_apikeys_expires"),
+            ]
 
-        user_id = IntegerField()
+        # Relationship ─────────────────────────────────────────────────────
+        user_id = ForeignKey(
+            "AdminUser",
+            related_name="api_keys",
+            on_delete="CASCADE",
+            db_index=True,
+            db_column="user_id",
+        )
         name = CharField(max_length=200)
-        prefix = CharField(max_length=16)            # first N chars for identification
-        key_hash = CharField(max_length=128, unique=True)
-        scopes = TextField(default="[]")             # JSON list of permission strings
+        prefix = CharField(max_length=16, db_index=True)   # first N chars for identification
+        key_hash = CharField(max_length=128, unique=True, db_index=True)
+        scopes = TextField(default="[]")                     # JSON list of permission strings
         is_active = BooleanField(default=True)
-        last_used_at = CharField(max_length=64, default="")
-        expires_at = CharField(max_length=64, default="")  # empty = never
-        created_at = CharField(max_length=64, default="")
+        last_used_at = DateTimeField(null=True, blank=True)
+        expires_at = DateTimeField(null=True, blank=True)    # NULL = never expires
+        created_at = DateTimeField(auto_now_add=True, db_index=True)
 
         # ── Factory ──────────────────────────────────────────────────────
 
@@ -616,7 +739,7 @@ if _ORM_AVAILABLE:
             user_id: int,
             name: str,
             scopes: Optional[List[str]] = None,
-            expires_at: str = "",
+            expires_at: Optional[datetime] = None,
         ) -> tuple["AdminAPIKey", str]:
             """Create an ``AdminAPIKey`` instance **and** return the raw key.
 
@@ -631,7 +754,7 @@ if _ORM_AVAILABLE:
                 key_hash=_hash_api_key(raw_key),
                 scopes=json.dumps(scopes or [], default=str),
                 is_active=True,
-                last_used_at="",
+                last_used_at=None,
                 expires_at=expires_at,
                 created_at=_now_utc(),
             )
@@ -647,19 +770,23 @@ if _ORM_AVAILABLE:
             """
             h = _hash_api_key(raw_key)
             try:
-                key_obj = await cls.filter(key_hash=h).first()
+                key_obj = await cls.objects.filter(key_hash=h).first()
             except Exception:
                 return None
 
             if key_obj is None or not key_obj.is_active:
                 return None
 
-            if key_obj.expires_at:
+            # Check expiry (DateTimeField returns datetime objects or None)
+            if key_obj.expires_at is not None:
                 try:
-                    exp = datetime.fromisoformat(key_obj.expires_at)
-                    if datetime.now(timezone.utc) > exp:
+                    exp = key_obj.expires_at
+                    # Handle string values from legacy data
+                    if isinstance(exp, str) and exp:
+                        exp = datetime.fromisoformat(exp)
+                    if isinstance(exp, datetime) and datetime.now(timezone.utc) > exp:
                         return None
-                except ValueError:
+                except (ValueError, TypeError):
                     pass  # malformed date — treat as "no expiry"
 
             # Stamp last-used (fire-and-forget, best-effort)
@@ -685,12 +812,16 @@ if _ORM_AVAILABLE:
 
         @property
         def is_expired(self) -> bool:
-            if not self.expires_at:
+            if self.expires_at is None:
                 return False
             try:
-                exp = datetime.fromisoformat(self.expires_at)
-                return datetime.now(timezone.utc) > exp
-            except ValueError:
+                exp = self.expires_at
+                if isinstance(exp, str) and exp:
+                    exp = datetime.fromisoformat(exp)
+                if isinstance(exp, datetime):
+                    return datetime.now(timezone.utc) > exp
+                return False
+            except (ValueError, TypeError):
                 return False
 
         def revoke(self) -> None:
@@ -706,9 +837,9 @@ if _ORM_AVAILABLE:
                 "scopes": self.get_scopes(),
                 "is_active": self.is_active,
                 "is_expired": self.is_expired,
-                "last_used_at": self.last_used_at,
-                "expires_at": self.expires_at,
-                "created_at": self.created_at,
+                "last_used_at": str(self.last_used_at or ""),
+                "expires_at": str(self.expires_at or ""),
+                "created_at": str(self.created_at or ""),
             }
 
         def __repr__(self) -> str:
@@ -727,15 +858,32 @@ if _ORM_AVAILABLE:
         keyed by ``(user_id, namespace)``.
 
         Example namespaces: ``"ui"``, ``"notifications"``, ``"dashboard"``.
+
+        Indexes
+        ~~~~~~~
+        * ``user_id`` — FK index (fetch all prefs for a user)
+        * ``(user_id, namespace)`` — UNIQUE composite (one row per user+ns)
         """
 
         class Meta:
             table_name = "aq_admin_preferences"
+            ordering = ["user_id", "namespace"]
+            unique_together = [("user_id", "namespace")]
+            indexes = [
+                Index(fields=["user_id", "namespace"], unique=True, name="idx_admin_prefs_user_ns"),
+            ]
 
-        user_id = IntegerField()
-        namespace = CharField(max_length=64, default="ui")
+        # Relationship ─────────────────────────────────────────────────────
+        user_id = ForeignKey(
+            "AdminUser",
+            related_name="preferences",
+            on_delete="CASCADE",
+            db_index=True,
+            db_column="user_id",
+        )
+        namespace = CharField(max_length=64, default="ui", db_index=True)
         data = TextField(default="{}")
-        updated_at = CharField(max_length=64, default="")
+        updated_at = DateTimeField(auto_now=True)
 
         # ── Accessors ────────────────────────────────────────────────────
 
@@ -771,7 +919,7 @@ if _ORM_AVAILABLE:
         ) -> "AdminPreference":
             """Fetch the preference row or create an empty one."""
             try:
-                existing = await cls.filter(
+                existing = await cls.objects.filter(
                     user_id=user_id, namespace=namespace
                 ).first()
                 if existing is not None:
@@ -796,7 +944,7 @@ if _ORM_AVAILABLE:
                 "user_id": self.user_id,
                 "namespace": self.namespace,
                 "data": self.get_data(),
-                "updated_at": self.updated_at,
+                "updated_at": str(self.updated_at or ""),
             }
 
         def __repr__(self) -> str:
