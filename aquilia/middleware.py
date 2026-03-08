@@ -32,6 +32,20 @@ Middleware = Callable[[Request, "RequestCtx", Handler], Awaitable[Response]]
 # Only non-essential (observability / timeout) middleware.
 _FAST_SKIP_NAMES = frozenset({"LoggingMiddleware", "TimeoutMiddleware"})
 
+# Last-resort HTML when the debug/error page renderer itself crashes.
+# Must be a plain string with zero dependencies.
+_FALLBACK_500_HTML = (
+    '<!DOCTYPE html><html><head><meta charset="utf-8">'
+    '<title>500 Internal Server Error</title>'
+    '<style>body{font-family:system-ui,sans-serif;background:#000;color:#ededed;'
+    'display:flex;justify-content:center;align-items:center;height:100vh;margin:0;}'
+    '.c{text-align:center;}.s{font-size:72px;font-weight:700;color:#ef4444;}'
+    'p{color:#888;}</style></head>'
+    '<body><div class="c"><div class="s">500</div>'
+    '<h1>Internal Server Error</h1>'
+    '<p>An unexpected error occurred.</p></div></body></html>'
+)
+
 
 @dataclass
 class MiddlewareDescriptor:
@@ -270,12 +284,16 @@ class ExceptionMiddleware:
             extra_headers: dict[str, str] = e.metadata.get("headers", {})
 
             if self._wants_html(request):
-                if status >= 500 and self.debug:
-                    return self._render_debug_exception(e, request)
-                resp = self._render_debug_http_error(status, reason, detail, request)
-                for hk, hv in extra_headers.items():
-                    resp.headers[hk] = hv
-                return resp
+                try:
+                    if status >= 500 and self.debug:
+                        return self._render_debug_exception(e, request)
+                    resp = self._render_debug_http_error(status, reason, detail, request)
+                    for hk, hv in extra_headers.items():
+                        resp.headers[hk] = hv
+                    return resp
+                except Exception as render_exc:
+                    self.logger.error(f"Error page renderer crashed: {render_exc}", exc_info=True)
+                    return self._html_response(_FALLBACK_500_HTML, status)
 
             body = {
                 "error": {
@@ -346,12 +364,16 @@ class ExceptionMiddleware:
 
             # HTML error pages for browser clients
             if self._wants_html(request):
-                if status >= 500 and self.debug:
-                    # Full traceback only in debug mode
-                    return self._render_debug_exception(e, request)
-                else:
-                    # Styled error page for all HTML clients (debug or production)
-                    return self._render_debug_http_error(status, e.code, message, request)
+                try:
+                    if status >= 500 and self.debug:
+                        # Full traceback only in debug mode
+                        return self._render_debug_exception(e, request)
+                    else:
+                        # Styled error page for all HTML clients (debug or production)
+                        return self._render_debug_http_error(status, e.code, message, request)
+                except Exception as render_exc:
+                    self.logger.error(f"Error page renderer crashed: {render_exc}", exc_info=True)
+                    return self._html_response(_FALLBACK_500_HTML, status)
                 
             return Response.json(
                 {
@@ -369,15 +391,25 @@ class ExceptionMiddleware:
             self.logger.error(f"Unhandled exception: {e}", exc_info=True)
 
             if self._wants_html(request):
-                if self.debug:
-                    # Full traceback with source context in debug mode
-                    return self._render_debug_exception(e, request)
-                else:
-                    # Styled error page in production (no traceback leak)
-                    return self._render_debug_http_error(
-                        500, "Internal Server Error",
-                        "An unexpected error occurred processing your request.",
-                        request,
+                try:
+                    if self.debug:
+                        # Full traceback with source context in debug mode
+                        return self._render_debug_exception(e, request)
+                    else:
+                        # Styled error page in production (no traceback leak)
+                        return self._render_debug_http_error(
+                            500, "Internal Server Error",
+                            "An unexpected error occurred processing your request.",
+                            request,
+                        )
+                except Exception as render_exc:
+                    # Debug renderer itself crashed — last-resort safe response
+                    self.logger.error(
+                        f"Debug page renderer crashed: {render_exc}",
+                        exc_info=True,
+                    )
+                    return self._html_response(
+                        _FALLBACK_500_HTML, 500,
                     )
             
             # ARCH-04: Never leak tracebacks or exception messages in JSON

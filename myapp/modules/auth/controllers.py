@@ -32,7 +32,7 @@ from .pipelines import (
     BruteForceDetector,
     UserBehaviorClassifier,
 )
-
+from aquilia.faults import UnauthorizedFault
 
 class AuthController(Controller):
     """
@@ -81,6 +81,10 @@ class AuthController(Controller):
         return self._user_behavior
 
     # ── File Storage endpoints ────────────────────────────────────────────
+
+    @GET("/")
+    async def main(self, ctx: RequestCtx):
+        raise UnauthorizedFault(detail="Please provide valid credentials to access auth endpoints.")
 
     @POST("/files/upload")
     async def upload_file(self, ctx: RequestCtx):
