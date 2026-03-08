@@ -687,3 +687,50 @@ class SchemaFault(ModelFault):
         )
 
 
+class FieldValidationFault(ModelFault):
+    """Field validation failed."""
+
+    def __init__(self, field_name: str, reason: str, **kwargs):
+        super().__init__(
+            code="FIELD_VALIDATION_FAILED",
+            message=f"Field '{field_name}': {reason}",
+            severity=Severity.ERROR,
+            metadata={"field": field_name, "reason": reason, **kwargs.get("metadata", {})},
+        )
+
+
+class ProtectedDeleteFault(ModelFault):
+    """Cannot delete a protected object due to PROTECT on_delete."""
+
+    def __init__(self, model: str, reason: str, protected_count: int = 0, **kwargs):
+        super().__init__(
+            code="PROTECTED_DELETE",
+            message=f"Cannot delete {model}: {reason}",
+            severity=Severity.ERROR,
+            metadata={
+                "model": model,
+                "reason": reason,
+                "protected_count": protected_count,
+                **kwargs.get("metadata", {}),
+            },
+        )
+
+
+class RestrictedDeleteFault(ModelFault):
+    """Cannot delete a restricted object due to RESTRICT on_delete."""
+
+    def __init__(self, model: str, reason: str, restricted_count: int = 0, **kwargs):
+        super().__init__(
+            code="RESTRICTED_DELETE",
+            message=f"Cannot delete {model}: {reason}",
+            severity=Severity.ERROR,
+            metadata={
+                "model": model,
+                "reason": reason,
+                "restricted_count": restricted_count,
+                **kwargs.get("metadata", {}),
+            },
+        )
+
+
+

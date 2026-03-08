@@ -79,6 +79,9 @@ from .base import (
     PermissionError as StoragePermissionError,
     StorageFullError,
     BackendUnavailableError,
+    StorageIOFault,
+    StorageConfigFault,
+    STORAGE_DOMAIN,
 )
 
 # ── Backend implementations ──────────────────────────────────────────────
@@ -121,6 +124,9 @@ __all__ = [
     "StoragePermissionError",
     "StorageFullError",
     "BackendUnavailableError",
+    "StorageIOFault",
+    "StorageConfigFault",
+    "STORAGE_DOMAIN",
     # Backends
     "LocalStorage",
     "MemoryStorage",

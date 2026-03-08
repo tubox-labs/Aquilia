@@ -26,6 +26,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from .job import Job, JobResult, JobState, Priority
 from .decorators import _TaskDescriptor, get_task
+from .faults import TaskEnqueueFault, TaskResolutionFault
 
 
 logger = logging.getLogger("aquilia.tasks")
@@ -520,7 +521,7 @@ class TaskManager:
             _tags = tags or []
             actual_func = func
         else:
-            raise TypeError(f"Expected callable or @task descriptor, got {type(func)}")
+            raise TaskEnqueueFault(str(type(func)))
 
         self._queues.add(_queue)
 
@@ -671,12 +672,12 @@ class TaskManager:
             # Resolve callable
             func = job._func
             if func is None:
-                # Try to find from registry
+                # Try to find from registry (allowlist check)
                 descriptor = get_task(job.func_ref)
                 if descriptor:
                     func = descriptor._fn
                 else:
-                    raise RuntimeError(f"Cannot resolve task function: {job.func_ref}")
+                    raise TaskResolutionFault(job.func_ref)
 
             # Execute with timeout
             result = await asyncio.wait_for(

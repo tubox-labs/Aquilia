@@ -423,7 +423,8 @@ class TemplateAuthMixin:
         
         # Get template engine
         if not hasattr(self, '_template_engine') or not self._template_engine:
-            raise RuntimeError("Template engine not available")
+            from .faults import TemplateEngineUnavailableFault
+            raise TemplateEngineUnavailableFault()
         
         return Response.render(
             template,

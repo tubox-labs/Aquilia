@@ -94,6 +94,9 @@ FaultDomain.SECURITY = FaultDomain("security", "Security and auth")
 FaultDomain.SYSTEM = FaultDomain("system", "System level faults")
 FaultDomain.MODEL = FaultDomain("model", "Model ORM and database faults")
 FaultDomain.CACHE = FaultDomain("cache", "Cache subsystem faults")
+FaultDomain.STORAGE = FaultDomain("storage", "File storage faults")
+FaultDomain.TASKS = FaultDomain("tasks", "Background task faults")
+FaultDomain.TEMPLATE = FaultDomain("template", "Template engine faults")
 
 
 class RecoveryStrategy(str, Enum):

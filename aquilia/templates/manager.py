@@ -12,8 +12,9 @@ from typing import Any, Dict, List, Optional, Set
 from pathlib import Path
 from dataclasses import dataclass, field
 import hashlib
+import hmac as hmac_mod
 import json
-import pickle
+import os
 from datetime import datetime, timezone
 from jinja2 import Environment, TemplateSyntaxError, meta
 from jinja2.exceptions import TemplateNotFound, UndefinedError
@@ -206,11 +207,17 @@ class TemplateManager:
             }
         }
         
-        # Write artifact atomically
+        # Write artifact atomically with HMAC integrity
+        secret_key = (
+            os.environ.get("AQUILIA_CACHE_SECRET")
+            or hashlib.sha256(str(output_file.resolve()).encode()).hexdigest()
+        )
+        payload_bytes = json.dumps(envelope, separators=(",", ":"), sort_keys=True).encode()
+        mac = hmac_mod.new(secret_key.encode(), payload_bytes, hashlib.sha256).hexdigest().encode()
+        
         temp_file = output_file.with_suffix(".tmp")
         try:
-            with open(temp_file, "wb") as f:
-                pickle.dump(envelope, f)
+            temp_file.write_bytes(mac + b"\n" + payload_bytes)
             temp_file.replace(output_file)
         except Exception:
             if temp_file.exists():

@@ -10,8 +10,12 @@ Supports:
 from typing import Optional, Dict
 from pathlib import Path
 import hashlib
+import hmac
 import json
+import base64
+import os
 import pickle
+import warnings
 from datetime import datetime, timezone
 from jinja2 import BytecodeCache as Jinja2BytecodeCache
 from jinja2.bccache import Bucket
@@ -133,11 +137,19 @@ class CrousBytecodeCache(BytecodeCache):
     def __init__(
         self,
         cache_dir: str = "artifacts",
-        filename: str = "templates.bytecode.crous"
+        filename: str = "templates.bytecode.crous",
+        secret_key: Optional[str] = None,
     ):
         self.cache_dir = Path(cache_dir)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self.cache_file = self.cache_dir / filename
+        
+        # HMAC secret for integrity verification
+        # Falls back to a machine-local key derived from cache path
+        self._secret_key = (
+            secret_key or os.environ.get("AQUILIA_CACHE_SECRET")
+            or hashlib.sha256(str(self.cache_file.resolve()).encode()).hexdigest()
+        )
         
         # In-memory cache for performance
         self._cache: Dict[str, bytes] = {}
@@ -188,13 +200,41 @@ class CrousBytecodeCache(BytecodeCache):
             self._dirty = False
     
     def _load(self) -> None:
-        """Load cache from disk."""
+        """Load cache from disk with HMAC integrity verification."""
         if not self.cache_file.exists():
             return
         
         try:
-            with open(self.cache_file, "rb") as f:
-                data = pickle.load(f)
+            raw = self.cache_file.read_bytes()
+            
+            # Split HMAC signature from payload
+            # Format: <64-char hex HMAC>\n<JSON payload>
+            newline_pos = raw.find(b"\n")
+            if newline_pos < 0 or newline_pos != 64:
+                warnings.warn(
+                    f"Bytecode cache {self.cache_file} has invalid format, ignoring",
+                    stacklevel=2,
+                )
+                return
+            
+            stored_mac = raw[:newline_pos]
+            payload_bytes = raw[newline_pos + 1:]
+            
+            # Verify HMAC
+            expected_mac = hmac.new(
+                self._secret_key.encode(),
+                payload_bytes,
+                hashlib.sha256,
+            ).hexdigest().encode()
+            
+            if not hmac.compare_digest(stored_mac, expected_mac):
+                warnings.warn(
+                    f"Bytecode cache {self.cache_file} failed integrity check, ignoring",
+                    stacklevel=2,
+                )
+                return
+            
+            data = json.loads(payload_bytes)
             
             # Validate envelope
             if not isinstance(data, dict) or data.get("__format__") != "crous":
@@ -202,11 +242,11 @@ class CrousBytecodeCache(BytecodeCache):
             
             payload = data.get("payload", {})
             
-            # Load bytecode (base64 decoded -> pickle)
+            # Load bytecode (base64 → bytes)
             bytecode_data = payload.get("bytecode", {})
             for key, encoded in bytecode_data.items():
                 try:
-                    self._cache[key] = encoded
+                    self._cache[key] = base64.b64decode(encoded)
                 except Exception:
                     pass
             
@@ -218,28 +258,41 @@ class CrousBytecodeCache(BytecodeCache):
             pass
     
     def _save(self) -> None:
-        """Save cache to disk."""
+        """Save cache to disk with HMAC integrity signature."""
         # Compute fingerprint
         fingerprint = self._compute_fingerprint()
         
-        # Build envelope
+        # Build envelope — bytecode encoded as base64 for JSON safety
+        bytecode_encoded = {}
+        for key, raw_bytes in self._cache.items():
+            bytecode_encoded[key] = base64.b64encode(raw_bytes).decode("ascii")
+        
         envelope = {
             "__format__": "crous",
-            "schema_version": "1.0",
+            "schema_version": "1.1",
             "artifact_type": "template_bytecode",
             "fingerprint": fingerprint,
             "created_at": datetime.now(timezone.utc).isoformat(),
             "payload": {
-                "bytecode": self._cache.copy(),
+                "bytecode": bytecode_encoded,
                 "metadata": self._metadata.copy(),
             }
         }
         
-        # Atomic write
+        # Serialize to JSON
+        payload_bytes = json.dumps(envelope, separators=(",", ":"), sort_keys=True).encode()
+        
+        # Compute HMAC
+        mac = hmac.new(
+            self._secret_key.encode(),
+            payload_bytes,
+            hashlib.sha256,
+        ).hexdigest().encode()
+        
+        # Atomic write: <HMAC>\n<JSON>
         temp_file = self.cache_file.with_suffix(".tmp")
         try:
-            with open(temp_file, "wb") as f:
-                pickle.dump(envelope, f)
+            temp_file.write_bytes(mac + b"\n" + payload_bytes)
             temp_file.replace(self.cache_file)
         except Exception:
             if temp_file.exists():

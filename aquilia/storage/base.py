@@ -39,36 +39,120 @@ from typing import (
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# Errors
+# Errors — Fault-based storage error hierarchy
 # ═══════════════════════════════════════════════════════════════════════════
 
-class StorageError(Exception):
-    """Base exception for all storage operations."""
+from aquilia.faults.core import Fault, FaultDomain, Severity
 
-    def __init__(self, message: str, backend: str = "", path: str = ""):
-        self.backend = backend
+STORAGE_DOMAIN = FaultDomain.custom("storage", "File storage faults")
+
+
+class StorageError(Fault):
+    """Base fault for all storage operations."""
+
+    def __init__(self, message: str, backend: str = "", path: str = "", **kwargs):
+        self.backend_name_str = backend
         self.path = path
-        super().__init__(message)
+        super().__init__(
+            code=kwargs.pop("code", "STORAGE_ERROR"),
+            message=message,
+            domain=STORAGE_DOMAIN,
+            severity=kwargs.pop("severity", Severity.ERROR),
+            retryable=kwargs.pop("retryable", True),
+            public=kwargs.pop("public", False),
+            metadata={"backend": backend, "path": path, **kwargs.pop("metadata", {})},
+            **kwargs,
+        )
 
 
 class FileNotFoundError(StorageError):
     """Raised when a file does not exist in the storage backend."""
-    pass
+
+    def __init__(self, message: str, backend: str = "", path: str = "", **kwargs):
+        super().__init__(
+            message,
+            backend=backend,
+            path=path,
+            code="STORAGE_FILE_NOT_FOUND",
+            severity=Severity.WARN,
+            retryable=False,
+            **kwargs,
+        )
 
 
 class PermissionError(StorageError):
     """Raised when the caller lacks permission for the operation."""
-    pass
+
+    def __init__(self, message: str, backend: str = "", path: str = "", **kwargs):
+        super().__init__(
+            message,
+            backend=backend,
+            path=path,
+            code="STORAGE_PERMISSION_DENIED",
+            severity=Severity.ERROR,
+            retryable=False,
+            **kwargs,
+        )
 
 
 class StorageFullError(StorageError):
     """Raised when the storage quota is exceeded."""
-    pass
+
+    def __init__(self, message: str, backend: str = "", path: str = "", **kwargs):
+        super().__init__(
+            message,
+            backend=backend,
+            path=path,
+            code="STORAGE_FULL",
+            severity=Severity.ERROR,
+            retryable=False,
+            **kwargs,
+        )
 
 
 class BackendUnavailableError(StorageError):
     """Raised when the storage backend is unreachable or not configured."""
-    pass
+
+    def __init__(self, message: str, backend: str = "", path: str = "", **kwargs):
+        super().__init__(
+            message,
+            backend=backend,
+            path=path,
+            code="STORAGE_BACKEND_UNAVAILABLE",
+            severity=Severity.FATAL,
+            retryable=True,
+            **kwargs,
+        )
+
+
+class StorageIOFault(StorageError):
+    """Raised on I/O operation errors (closed file, wrong mode)."""
+
+    def __init__(self, message: str, backend: str = "", path: str = "", **kwargs):
+        super().__init__(
+            message,
+            backend=backend,
+            path=path,
+            code="STORAGE_IO_ERROR",
+            severity=Severity.ERROR,
+            retryable=False,
+            **kwargs,
+        )
+
+
+class StorageConfigFault(StorageError):
+    """Raised on storage configuration / registry errors."""
+
+    def __init__(self, message: str, backend: str = "", path: str = "", **kwargs):
+        super().__init__(
+            message,
+            backend=backend,
+            path=path,
+            code="STORAGE_CONFIG_ERROR",
+            severity=Severity.FATAL,
+            retryable=False,
+            **kwargs,
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -141,7 +225,7 @@ class StorageFile:
     async def read(self, size: int = -1) -> bytes:
         """Read bytes from the file."""
         if self._closed:
-            raise ValueError("I/O operation on closed StorageFile")
+            raise StorageIOFault("I/O operation on closed StorageFile", path=self.name)
 
         # If we have chunked content, materialise it
         if self._content is None and self._chunks is not None:
@@ -166,9 +250,9 @@ class StorageFile:
     async def write(self, data: bytes) -> int:
         """Write bytes (for writable files)."""
         if self._closed:
-            raise ValueError("I/O operation on closed StorageFile")
+            raise StorageIOFault("I/O operation on closed StorageFile", path=self.name)
         if "w" not in self.mode and "a" not in self.mode:
-            raise ValueError("StorageFile not opened for writing")
+            raise StorageIOFault("StorageFile not opened for writing", path=self.name)
 
         if self._content is None:
             self._content = data
@@ -452,8 +536,33 @@ class StorageBackend(ABC):
 
     @staticmethod
     def _normalize_path(name: str) -> str:
-        """Normalise slashes and strip leading slash."""
-        return str(PurePosixPath(name)).lstrip("/")
+        """
+        Normalise slashes, strip leading slash, and reject dangerous paths.
+
+        Security hardening:
+        - Rejects null bytes (\\x00)
+        - Rejects path traversal (.. segments)
+        - Enforces maximum path length (1024 chars)
+        """
+        if "\x00" in name:
+            raise PermissionError(
+                f"Null byte in storage path: {name!r}",
+                path=name,
+            )
+        normalized = str(PurePosixPath(name)).lstrip("/")
+        # Reject any remaining '..' segments after normalisation
+        parts = normalized.split("/")
+        if ".." in parts:
+            raise PermissionError(
+                f"Path traversal blocked: {name!r}",
+                path=name,
+            )
+        if len(normalized) > 1024:
+            raise PermissionError(
+                f"Path too long ({len(normalized)} chars, max 1024): {name!r}",
+                path=name,
+            )
+        return normalized
 
     @staticmethod
     async def _read_content(

@@ -26,6 +26,7 @@ import functools
 from typing import Any, Optional, TYPE_CHECKING
 
 from .job import Priority
+from .faults import TaskNotBoundFault
 
 if TYPE_CHECKING:
     from .schedule import Schedule
@@ -107,10 +108,7 @@ class _TaskDescriptor:
             RuntimeError: If no TaskManager is bound (server not started).
         """
         if self._manager is None:
-            raise RuntimeError(
-                f"Task {self.task_name!r} has no bound TaskManager. "
-                f"Ensure the server is started before calling .delay()."
-            )
+            raise TaskNotBoundFault(self.task_name)
         return await self._manager.enqueue(self, *args, **kwargs)
 
     async def send(self, *args, **kwargs) -> str:

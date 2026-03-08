@@ -17,7 +17,7 @@ from __future__ import annotations
 import importlib
 from typing import Any, Dict, Iterator, Optional, Type
 
-from .base import BackendUnavailableError, StorageBackend
+from .base import BackendUnavailableError, StorageBackend, StorageConfigFault
 from .configs import (
     AzureBlobConfig,
     CompositeConfig,
@@ -121,7 +121,10 @@ class StorageRegistry:
     def set_default(self, alias: str) -> None:
         """Set which alias is the default backend."""
         if alias not in self._backends:
-            raise KeyError(f"No backend registered under alias {alias!r}")
+            raise StorageConfigFault(
+                f"No backend registered under alias {alias!r}",
+                backend=alias,
+            )
         self._default_alias = alias
 
     # -- Access ------------------------------------------------------------

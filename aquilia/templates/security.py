@@ -297,6 +297,13 @@ def create_safe_filters() -> Dict[str, Callable]:
         
         Basic implementation - in production, use bleach or similar library.
         """
+        import warnings
+        warnings.warn(
+            "Using built-in regex HTML sanitizer which is NOT production-grade. "
+            "Install 'bleach' for robust XSS protection.",
+            stacklevel=2,
+        )
+        
         if allowed_tags is None:
             allowed_tags = ["b", "i", "u", "em", "strong", "a", "p", "br"]
         

@@ -60,6 +60,13 @@ from .manifest_integration import (
     create_manifest_aware_loader,
     ModuleTemplateRegistry,
 )
+from .faults import (
+    TEMPLATE_DOMAIN,
+    TemplateFault,
+    TemplateEngineUnavailableFault,
+    TemplateCacheIntegrityFault,
+    TemplateSanitizationWarning,
+)
 
 __all__ = [
     # Core
@@ -106,4 +113,11 @@ __all__ = [
     "discover_template_directories",
     "create_manifest_aware_loader",
     "ModuleTemplateRegistry",
+    
+    # Faults
+    "TEMPLATE_DOMAIN",
+    "TemplateFault",
+    "TemplateEngineUnavailableFault",
+    "TemplateCacheIntegrityFault",
+    "TemplateSanitizationWarning",
 ]

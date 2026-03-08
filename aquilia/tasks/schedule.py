@@ -34,6 +34,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
+from .faults import TaskScheduleFault
+
 
 @dataclass(frozen=True)
 class IntervalSchedule:
@@ -165,8 +167,8 @@ def every(
     """
     total = seconds + minutes * 60 + hours * 3600 + days * 86400
     if total <= 0:
-        raise ValueError(
-            "Schedule interval must be > 0.  "
+        raise TaskScheduleFault(
+            "Schedule interval must be > 0. "
             "Provide at least one of: seconds, minutes, hours, days"
         )
     return IntervalSchedule(interval=total)
@@ -198,7 +200,7 @@ def cron(expression: str) -> CronSchedule:
     """
     parts = expression.strip().split()
     if len(parts) != 5:
-        raise ValueError(
+        raise TaskScheduleFault(
             f"Cron expression must have exactly 5 fields "
             f"(minute hour dom month dow), got {len(parts)}: {expression!r}"
         )

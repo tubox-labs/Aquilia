@@ -49,6 +49,14 @@ from .job import (
 from .decorators import task
 from .schedule import every, cron, IntervalSchedule, CronSchedule
 from .worker import Worker
+from .faults import (
+    TASKS_DOMAIN,
+    TaskFault,
+    TaskScheduleFault,
+    TaskNotBoundFault,
+    TaskEnqueueFault,
+    TaskResolutionFault,
+)
 
 __all__ = [
     "TaskManager",
@@ -64,4 +72,11 @@ __all__ = [
     "cron",
     "IntervalSchedule",
     "CronSchedule",
+    # Faults
+    "TASKS_DOMAIN",
+    "TaskFault",
+    "TaskScheduleFault",
+    "TaskNotBoundFault",
+    "TaskEnqueueFault",
+    "TaskResolutionFault",
 ]

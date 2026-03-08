@@ -22,6 +22,7 @@ import logging
 from typing import Any, Optional
 
 from ..effects import EffectProvider, EffectKind
+from .base import StorageConfigFault
 
 logger = logging.getLogger("aquilia.storage.effects")
 
@@ -69,7 +70,7 @@ class StorageEffectProvider(EffectProvider):
             StorageBackend instance.
         """
         if not self._registry:
-            raise RuntimeError("StorageEffectProvider has no registry")
+            raise StorageConfigFault("StorageEffectProvider has no registry")
 
         if mode:
             return self._registry[mode]
