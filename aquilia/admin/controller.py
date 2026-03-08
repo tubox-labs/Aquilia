@@ -467,6 +467,26 @@ class AdminController(Controller):
 
     # ── CSRF Helpers ─────────────────────────────────────────────────
 
+    def _ensure_csrf(self, ctx: RequestCtx) -> str:
+        """
+        Ensure the CSRF token is populated in both the session and the
+        template contextvar.
+
+        Admin routes are registered as monkeypatched handlers on the
+        controller router, so the normal ``on_request`` lifecycle hook
+        is **not** invoked by the engine fast-path.  This method must
+        therefore be called explicitly at the start of every admin
+        handler (or indirectly through the CSRF-reject helpers).
+
+        Returns:
+            The current CSRF token string (for use in templates).
+        """
+        from .templates import _csrf_token_var
+
+        token = self.site.security.csrf.get_or_create_token(ctx)
+        _csrf_token_var.set(token)
+        return token
+
     def _csrf_reject_redirect(
         self,
         request,
@@ -483,6 +503,9 @@ class AdminController(Controller):
             if denied:
                 return denied
         """
+        # Ensure session token exists (on_request may not have run)
+        self._ensure_csrf(ctx)
+
         if not self.site.security.csrf.validate_request(ctx, form_data):
             client_ip = self.site.security.extract_client_ip(request)
             self.site.security.event_tracker.record(
@@ -509,6 +532,9 @@ class AdminController(Controller):
             if denied:
                 return denied
         """
+        # Ensure session token exists (on_request may not have run)
+        self._ensure_csrf(ctx)
+
         if not self.site.security.csrf.validate_request(ctx, form_data):
             client_ip = self.site.security.extract_client_ip(request)
             self.site.security.event_tracker.record(
@@ -521,16 +547,14 @@ class AdminController(Controller):
 
     async def on_request(self, ctx: RequestCtx) -> None:
         """Populate the CSRF contextvar so every template gets the token."""
-        from .templates import _csrf_token_var
-
-        token = self.site.security.csrf.get_or_create_token(ctx)
-        _csrf_token_var.set(token)
+        self._ensure_csrf(ctx)
 
     # ── Dashboard ────────────────────────────────────────────────────
 
     @GET("/")
     async def dashboard(self, request, ctx: RequestCtx) -> Response:
         """Admin dashboard -- model overview with stats."""
+        self._ensure_csrf(ctx)
         identity, denied = _require_identity(ctx)
         # print(identity)
         if denied:
@@ -908,6 +932,7 @@ class AdminController(Controller):
     @GET("/{model}/")
     async def list_view(self, request, ctx: RequestCtx) -> Response:
         """List records for a model with search and pagination."""
+        self._ensure_csrf(ctx)
         model = request.state.get("path_params", {}).get("model", "")
 
         # Delegate to the correct system page handler
@@ -1077,6 +1102,7 @@ class AdminController(Controller):
     @GET("/{model}/add")
     async def add_form(self, request, ctx: RequestCtx) -> Response:
         """Render the add/create form for a model."""
+        self._ensure_csrf(ctx)
         model = request.state.get("path_params", {}).get("model", "")
         identity, denied = _require_identity(ctx)
         if denied:
@@ -1224,6 +1250,7 @@ class AdminController(Controller):
     @GET("/{model}/{pk}")
     async def edit_form(self, request, ctx: RequestCtx) -> Response:
         """Render the edit form for a record."""
+        self._ensure_csrf(ctx)
         _pp = request.state.get("path_params", {})
         model = _pp.get("model", "")
         pk = _pp.get("pk", "")
@@ -1484,6 +1511,7 @@ class AdminController(Controller):
     @GET("/{model}/export")
     async def export_view(self, request, ctx: RequestCtx) -> Response:
         """Export model data as CSV, JSON, or XML using the export system."""
+        self._ensure_csrf(ctx)
         model = request.state.get("path_params", {}).get("model", "")
         identity, denied = _require_identity(ctx)
         if denied:
@@ -1581,6 +1609,7 @@ class AdminController(Controller):
     @GET("/{model}/{pk}/history")
     async def history_view(self, request, ctx: RequestCtx) -> Response:
         """View change history for a specific record."""
+        self._ensure_csrf(ctx)
         _pp = request.state.get("path_params", {})
         model = _pp.get("model", "")
         pk = _pp.get("pk", "")
@@ -1917,6 +1946,7 @@ class AdminController(Controller):
     @GET("/orm/")
     async def orm_view(self, request, ctx: RequestCtx) -> Response:
         """ORM models overview -- all registered models with counts."""
+        self._ensure_csrf(ctx)
         identity, denied = _require_identity(ctx)
         if denied:
             return denied
@@ -1963,6 +1993,7 @@ class AdminController(Controller):
     @GET("/build/")
     async def build_view(self, request, ctx: RequestCtx) -> Response:
         """Build page -- Crous artifacts and pipeline status."""
+        self._ensure_csrf(ctx)
         identity, denied = _require_identity(ctx)
         if denied:
             return denied
@@ -2009,6 +2040,7 @@ class AdminController(Controller):
     @GET("/migrations/")
     async def migrations_view(self, request, ctx: RequestCtx) -> Response:
         """Migrations page -- list all migrations with syntax-highlighted source."""
+        self._ensure_csrf(ctx)
         identity, denied = _require_identity(ctx)
         if denied:
             return denied
@@ -2051,6 +2083,7 @@ class AdminController(Controller):
     @GET("/config/")
     async def config_view(self, request, ctx: RequestCtx) -> Response:
         """Configuration page -- show workspace YAML configuration."""
+        self._ensure_csrf(ctx)
         identity, denied = _require_identity(ctx)
         if denied:
             return denied
@@ -2094,6 +2127,7 @@ class AdminController(Controller):
     @GET("/workspace/")
     async def workspace_view(self, request, ctx: RequestCtx) -> Response:
         """Workspace page -- monitor modules, manifests & project metadata."""
+        self._ensure_csrf(ctx)
         identity, denied = _require_identity(ctx)
         if denied:
             return denied
@@ -2149,6 +2183,7 @@ class AdminController(Controller):
     @GET("/permissions/")
     async def permissions_view(self, request, ctx: RequestCtx) -> Response:
         """Permissions page -- role matrix and per-model access."""
+        self._ensure_csrf(ctx)
         identity, denied = _require_identity(ctx)
         if denied:
             return denied
@@ -2261,6 +2296,7 @@ class AdminController(Controller):
     @GET("/audit/")
     async def audit_view(self, request, ctx: RequestCtx) -> Response:
         """View the admin audit log -- reads from DB if available."""
+        self._ensure_csrf(ctx)
         identity, denied = _require_identity(ctx)
         if denied:
             return denied
@@ -2326,6 +2362,7 @@ class AdminController(Controller):
     @GET("/monitoring/")
     async def monitoring_view(self, request, ctx: RequestCtx) -> Response:
         """Application monitoring -- CPU, memory, disk, network & process metrics."""
+        self._ensure_csrf(ctx)
         identity, denied = _require_identity(ctx)
         if denied:
             return denied
@@ -2396,6 +2433,7 @@ class AdminController(Controller):
     @GET("/containers/")
     async def containers_view(self, request, ctx: RequestCtx) -> Response:
         """Docker containers -- images, volumes, networks & compose services."""
+        self._ensure_csrf(ctx)
         identity, denied = _require_identity(ctx)
         if denied:
             return denied
@@ -3341,6 +3379,7 @@ class AdminController(Controller):
     @GET("/pods/")
     async def pods_view(self, request, ctx: RequestCtx) -> Response:
         """Kubernetes pods -- deployments, services, ingresses & manifests."""
+        self._ensure_csrf(ctx)
         identity, denied = _require_identity(ctx)
         if denied:
             return denied
@@ -3411,6 +3450,7 @@ class AdminController(Controller):
     @GET("/storage/")
     async def storage_view(self, request, ctx: RequestCtx) -> Response:
         """Storage backends -- file browser, analytics, health & configuration."""
+        self._ensure_csrf(ctx)
         identity, denied = _require_identity(ctx)
         if denied:
             return denied
@@ -3718,6 +3758,7 @@ class AdminController(Controller):
     @GET("/query-inspector/")
     async def query_inspector_view(self, request, ctx: RequestCtx) -> Response:
         """Live query inspector -- ORM→SQL, timing, EXPLAIN, N+1 detection."""
+        self._ensure_csrf(ctx)
         identity, denied = _require_identity(ctx)
         if denied:
             return denied
@@ -3809,6 +3850,7 @@ class AdminController(Controller):
     @GET("/mailer/")
     async def mailer_view(self, request, ctx: RequestCtx) -> Response:
         """Mail administration -- providers, config, templates, send test email."""
+        self._ensure_csrf(ctx)
         identity, denied = _require_identity(ctx)
         if denied:
             return denied
@@ -4091,6 +4133,7 @@ class AdminController(Controller):
     @GET("/tasks/")
     async def tasks_view(self, request, ctx: RequestCtx) -> Response:
         """Background task monitor -- job queue, workers, retries."""
+        self._ensure_csrf(ctx)
         identity, denied = _require_identity(ctx)
         if denied:
             return denied
@@ -4161,6 +4204,7 @@ class AdminController(Controller):
     @GET("/errors/")
     async def errors_view(self, request, ctx: RequestCtx) -> Response:
         """Error monitoring -- stack traces, grouping, trends."""
+        self._ensure_csrf(ctx)
         identity, denied = _require_identity(ctx)
         if denied:
             return denied
@@ -4231,6 +4275,7 @@ class AdminController(Controller):
     @GET("/testing/")
     async def testing_view(self, request, ctx: RequestCtx) -> Response:
         """Testing framework -- test infrastructure, coverage, assertions."""
+        self._ensure_csrf(ctx)
         identity, denied = _require_identity(ctx)
         if denied:
             return denied
@@ -4301,6 +4346,7 @@ class AdminController(Controller):
     @GET("/mlops/")
     async def mlops_view(self, request, ctx: RequestCtx) -> Response:
         """MLOps dashboard -- model registry, serving, drift, rollouts."""
+        self._ensure_csrf(ctx)
         identity, denied = _require_identity(ctx)
         if denied:
             return denied
@@ -5108,6 +5154,7 @@ class AdminController(Controller):
     @GET("/admin-users/")
     async def admin_users_view(self, request, ctx: RequestCtx) -> Response:
         """List and manage admin users with hierarchy."""
+        self._ensure_csrf(ctx)
         identity, denied = _require_identity(ctx)
         if denied:
             return denied
@@ -5467,6 +5514,7 @@ class AdminController(Controller):
     @GET("/profile/")
     async def profile_view(self, request, ctx: RequestCtx) -> Response:
         """View the admin profile management page."""
+        self._ensure_csrf(ctx)
         identity, denied = _require_identity(ctx)
         if denied:
             return denied
