@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import Literal, Any, Protocol
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
+from enum import Enum
 from pathlib import Path
 import json
 import base64
@@ -21,15 +22,15 @@ import time
 # Key Management
 # ============================================================================
 
-class KeyAlgorithm(str):
-    """Supported signing algorithms."""
+class KeyAlgorithm(str, Enum):
+    """Supported signing algorithms (Enum prevents arbitrary values)."""
     RS256 = "RS256"  # RSA with SHA-256
     ES256 = "ES256"  # ECDSA with SHA-256
     EdDSA = "EdDSA"  # Ed25519
 
 
-class KeyStatus(str):
-    """Key status in lifecycle."""
+class KeyStatus(str, Enum):
+    """Key status in lifecycle (Enum prevents invalid state transitions)."""
     ACTIVE = "active"        # Current signing key
     ROTATING = "rotating"    # Being promoted
     RETIRED = "retired"      # No longer signs, but verifies
@@ -60,8 +61,15 @@ class KeyDescriptor:
         """Check if key can be used for verification."""
         return self.status in (KeyStatus.ACTIVE, KeyStatus.ROTATING, KeyStatus.RETIRED)
     
-    def to_dict(self) -> dict[str, Any]:
-        """Serialize to dict."""
+    def to_dict(self, include_private_key: bool = False) -> dict[str, Any]:
+        """
+        Serialize to dict.
+        
+        Args:
+            include_private_key: If True, include private key PEM. 
+                                 Defaults to False to prevent accidental exposure
+                                 (OWASP Cryptographic Storage Cheat Sheet).
+        """
         res = {
             "kid": self.kid,
             "algorithm": self.algorithm,
@@ -71,7 +79,7 @@ class KeyDescriptor:
             "retire_after": self.retire_after.isoformat() if self.retire_after else None,
             "revoked_at": self.revoked_at.isoformat() if self.revoked_at else None,
         }
-        if self.private_key_pem:
+        if include_private_key and self.private_key_pem:
             res["private_key"] = self.private_key_pem
         return res
     
@@ -101,10 +109,10 @@ class KeyDescriptor:
         from cryptography.hazmat.backends import default_backend
         
         if algorithm == KeyAlgorithm.RS256:
-            # Generate RSA key pair (2048-bit)
+            # Generate RSA key pair (3072-bit per NIST SP 800-57 post-2030 guidance)
             private_key = rsa.generate_private_key(
                 public_exponent=65537,
-                key_size=2048,
+                key_size=3072,
                 backend=default_backend(),
             )
         elif algorithm == KeyAlgorithm.ES256:
@@ -208,11 +216,17 @@ class KeyRing:
             key.status = KeyStatus.REVOKED
             key.revoked_at = datetime.now(timezone.utc)
     
-    def to_dict(self) -> dict[str, Any]:
-        """Serialize to dict."""
+    def to_dict(self, include_private_keys: bool = True) -> dict[str, Any]:
+        """
+        Serialize to dict.
+        
+        Args:
+            include_private_keys: Include private keys (needed for persistence).
+                                  Set False for public JWKS endpoints.
+        """
         return {
             "current_kid": self.current_kid,
-            "keys": [k.to_dict() for k in self.keys.values()],
+            "keys": [k.to_dict(include_private_key=include_private_keys) for k in self.keys.values()],
         }
     
     @classmethod
@@ -383,61 +397,86 @@ class TokenManager:
         """
         Validate and decode access token.
         
-        Checks:
+        Checks (per OWASP JWT Cheat Sheet):
         1. Format (3 parts)
-        2. Header (alg, kid)
+        2. Header (alg, kid) — rejects 'none' algorithm
         3. Signature
-        4. Expiration
-        5. Not revoked
+        4. Issuer (iss)
+        5. Audience (aud)
+        6. Expiration (exp)
+        7. Not before (nbf)
+        8. Not revoked
         
         Raises:
-            ValueError: Invalid token
+            AUTH_TOKEN_INVALID: Malformed or invalid token
+            AUTH_TOKEN_EXPIRED: Token has expired
+            AUTH_TOKEN_REVOKED: Token has been revoked
         """
+        from .faults import AUTH_TOKEN_INVALID, AUTH_TOKEN_EXPIRED, AUTH_TOKEN_REVOKED
+        
         # Parse token
         try:
             header_b64, payload_b64, signature_b64 = token.split(".")
         except ValueError:
-            raise ValueError("Malformed token: expected 3 parts")
+            raise AUTH_TOKEN_INVALID()
         
         # Decode header
         header = self._base64_decode_json(header_b64)
         kid = header.get("kid")
+        alg = header.get("alg", "")
         
         if not kid:
-            raise ValueError("Missing kid in header")
+            raise AUTH_TOKEN_INVALID()
+        
+        # Reject 'none' algorithm (OWASP JWT Cheat Sheet)
+        if alg.lower() == "none":
+            raise AUTH_TOKEN_INVALID()
         
         # Get verification key
         key = self.key_ring.get_verification_key(kid)
         
         if not key:
-            raise ValueError(f"Unknown kid: {kid}")
+            raise AUTH_TOKEN_INVALID()
         
         # Verify signature
         message = f"{header_b64}.{payload_b64}".encode()
         signature = self._base64_decode(signature_b64)
         
         if not self._verify_signature(message, signature, key):
-            raise ValueError("Invalid signature")
+            raise AUTH_TOKEN_INVALID()
         
         # Decode payload
         payload = self._base64_decode_json(payload_b64)
+        
+        # Check issuer (OWASP: always validate iss)
+        iss = payload.get("iss")
+        if iss != self.config.issuer:
+            raise AUTH_TOKEN_INVALID()
+        
+        # Check audience (OWASP: always validate aud)
+        aud = payload.get("aud")
+        if aud is not None and self.config.audience:
+            # aud can be a string or list
+            token_audiences = aud if isinstance(aud, list) else [aud]
+            if not any(a in self.config.audience for a in token_audiences):
+                raise AUTH_TOKEN_INVALID()
         
         # Check expiration
         now = int(time.time())
         exp = payload.get("exp")
         
         if not exp or exp < now:
-            raise ValueError("Token expired")
+            raise AUTH_TOKEN_EXPIRED()
         
         # Check not before
         nbf = payload.get("nbf", 0)
         if nbf > now:
-            raise ValueError("Token not yet valid")
+            raise AUTH_TOKEN_INVALID()
         
         # Check revocation
         jti = payload.get("jti")
         if jti and await self.token_store.is_token_revoked(jti):
-            raise ValueError("Token revoked")
+            raise AUTH_TOKEN_REVOKED()
         
         return payload
     
@@ -446,20 +485,27 @@ class TokenManager:
         Validate refresh token.
         
         Refresh tokens are opaque and stored in token_store.
+        
+        Raises:
+            AUTH_TOKEN_INVALID: Invalid refresh token
+            AUTH_TOKEN_EXPIRED: Refresh token expired
+            AUTH_TOKEN_REVOKED: Refresh token revoked
         """
+        from .faults import AUTH_TOKEN_INVALID, AUTH_TOKEN_EXPIRED, AUTH_TOKEN_REVOKED
+        
         data = await self.token_store.get_refresh_token(token)
         
         if not data:
-            raise ValueError("Invalid refresh token")
+            raise AUTH_TOKEN_INVALID()
         
         # Check revocation
         if await self.token_store.is_token_revoked(token):
-            raise ValueError("Refresh token revoked")
+            raise AUTH_TOKEN_REVOKED()
         
         # Check expiration
         expires_at = data.get("expires_at")
         if expires_at and datetime.fromisoformat(expires_at) < datetime.now(timezone.utc):
-            raise ValueError("Refresh token expired")
+            raise AUTH_TOKEN_EXPIRED()
         
         return data
     

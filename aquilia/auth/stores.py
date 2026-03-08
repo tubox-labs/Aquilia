@@ -269,10 +269,13 @@ class MemoryOAuthClientStore:
     async def list(
         self, owner_id: str | None = None, limit: int = 100, offset: int = 0
     ) -> list[OAuthClient]:
-        """List OAuth clients."""
+        """List OAuth clients, optionally filtered by owner (from metadata)."""
         clients = list(self._clients.values())
         if owner_id:
-            clients = [c for c in clients if c.owner_id == owner_id]
+            clients = [
+                c for c in clients
+                if c.metadata.get("owner_id") == owner_id
+            ]
         return clients[offset : offset + limit]
 
 

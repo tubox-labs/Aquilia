@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 import secrets
 import hashlib
+import hmac as _hmac
 
 
 # ============================================================================
@@ -212,8 +213,27 @@ class ApiKeyCredential:
     
     @staticmethod
     def hash_key(key: str) -> str:
-        """Hash API key with SHA256."""
-        return hashlib.sha256(key.encode()).hexdigest()
+        """
+        Hash API key with HMAC-SHA256 (OWASP recommended).
+        
+        Uses a domain-specific prefix as the HMAC key to prevent
+        cross-context hash collisions.
+        """
+        return _hmac.new(
+            b"aquilia:api_key",
+            key.encode(),
+            hashlib.sha256,
+        ).hexdigest()
+    
+    @staticmethod
+    def verify_key(key: str, stored_hash: str) -> bool:
+        """
+        Verify API key against stored hash using constant-time comparison.
+        
+        Prevents timing attacks on API key validation.
+        """
+        computed = ApiKeyCredential.hash_key(key)
+        return _hmac.compare_digest(computed, stored_hash)
     
     def to_dict(self) -> dict[str, Any]:
         """Serialize to dict."""
@@ -283,8 +303,27 @@ class OAuthClient:
     
     @staticmethod
     def hash_client_secret(secret: str) -> str:
-        """Hash client secret with SHA256."""
-        return hashlib.sha256(secret.encode()).hexdigest()
+        """
+        Hash client secret with HMAC-SHA256 (OWASP recommended).
+        
+        Uses a domain-specific prefix as the HMAC key to prevent
+        cross-context hash collisions between API keys and client secrets.
+        """
+        return _hmac.new(
+            b"aquilia:client_secret",
+            secret.encode(),
+            hashlib.sha256,
+        ).hexdigest()
+    
+    @staticmethod
+    def verify_client_secret(secret: str, stored_hash: str) -> bool:
+        """
+        Verify client secret against stored hash using constant-time comparison.
+        
+        Prevents timing attacks on OAuth client authentication.
+        """
+        computed = OAuthClient.hash_client_secret(secret)
+        return _hmac.compare_digest(computed, stored_hash)
     
     def to_dict(self) -> dict[str, Any]:
         """Serialize to dict."""

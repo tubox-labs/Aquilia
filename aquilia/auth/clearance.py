@@ -428,7 +428,9 @@ class ClearanceEngine:
     Thread-safe, stateless evaluator. Instantiate once at app level.
     """
     
-    _identity_level_cache: ClassVar[Dict[str, AccessLevel]] = {}
+    # Cache TTL in seconds (5 minutes). After this, cached identity levels
+    # are re-evaluated to pick up role/attribute changes.
+    _CACHE_TTL: ClassVar[int] = 300
     
     def __init__(
         self,
@@ -456,17 +458,23 @@ class ClearanceEngine:
         self.entitlement_resolver = entitlement_resolver
         self.audit_logger = audit_logger or logger
         self.deny_by_default = deny_by_default
+        # Instance-level cache with TTL (not ClassVar to prevent cross-instance leakage)
+        self._identity_level_cache: Dict[str, tuple[AccessLevel, float]] = {}
     
     def resolve_identity_level(self, identity: Any) -> AccessLevel:
         """Determine the highest AccessLevel an identity holds."""
         if identity is None:
             return AccessLevel.PUBLIC
         
-        # Check cache
+        # Check cache (with TTL expiry)
         identity_id = str(getattr(identity, "id", id(identity)))
         cached = self._identity_level_cache.get(identity_id)
         if cached is not None:
-            return cached
+            cached_level, cached_at = cached
+            import time as _time
+            if (_time.time() - cached_at) < self._CACHE_TTL:
+                return cached_level
+            # Expired — fall through to recompute
         
         # Determine from roles
         roles = getattr(identity, "roles", set()) or set()
@@ -489,7 +497,8 @@ class ClearanceEngine:
             except (ValueError, TypeError):
                 pass
         
-        self._identity_level_cache[identity_id] = highest
+        import time as _time
+        self._identity_level_cache[identity_id] = (highest, _time.time())
         return highest
     
     def resolve_entitlements(self, identity: Any) -> Set[str]:

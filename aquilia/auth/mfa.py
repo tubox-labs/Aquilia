@@ -173,15 +173,22 @@ class TOTPProvider:
     @staticmethod
     def hash_backup_code(code: str) -> str:
         """
-        Hash backup code for storage.
+        Hash backup code for storage using HMAC-SHA256.
+
+        Uses domain-specific key to prevent cross-context collisions.
+        (OWASP: avoid unsalted hash for secret material.)
 
         Args:
             code: Backup code
 
         Returns:
-            SHA256 hash
+            HMAC-SHA256 hex digest
         """
-        return hashlib.sha256(code.encode()).hexdigest()
+        return hmac.new(
+            b"aquilia:backup_code",
+            code.encode(),
+            hashlib.sha256,
+        ).hexdigest()
 
     @staticmethod
     def verify_backup_code(code: str, code_hash: str) -> bool:

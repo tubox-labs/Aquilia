@@ -198,10 +198,10 @@ class AUTHZ_INSUFFICIENT_SCOPE(Fault):
     public_message = "Insufficient permissions"
     retryable = False
     
-    def __init__(self, required: list[str] | None = None, **metadata):
+    def __init__(self, required_scopes: list[str] | None = None, **metadata):
         super().__init__(**metadata)
-        if required:
-            self.metadata["required_scopes"] = required
+        if required_scopes:
+            self.metadata["required_scopes"] = required_scopes
 
 
 class AUTHZ_INSUFFICIENT_ROLE(Fault):
@@ -213,10 +213,10 @@ class AUTHZ_INSUFFICIENT_ROLE(Fault):
     public_message = "Insufficient permissions"
     retryable = False
     
-    def __init__(self, required: list[str] | None = None, **metadata):
+    def __init__(self, required_roles: list[str] | None = None, **metadata):
         super().__init__(**metadata)
-        if required:
-            self.metadata["required_roles"] = required
+        if required_roles:
+            self.metadata["required_roles"] = required_roles
 
 
 class AUTHZ_RESOURCE_FORBIDDEN(Fault):

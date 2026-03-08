@@ -319,11 +319,19 @@ class PasswordPolicy:
     async def validate_async(self, password: str) -> tuple[bool, list[str]]:
         """Async password validation (non-blocking breach check)."""
         errors = []
-        # Run sync validations first (cheap)
-        valid, sync_errors = self.validate(password) if hasattr(self, 'validate') else (True, [])
+        
+        # Run sync validations (cheap, no breach check)
+        # Temporarily disable breach checking for sync validation
+        original_check_breached = self.check_breached
+        self.check_breached = False
+        try:
+            _valid, sync_errors = self.validate(password)
+        finally:
+            self.check_breached = original_check_breached
         errors.extend(sync_errors)
-        # Run async breach check if enabled
-        if self.check_breached:
+        
+        # Run async breach check if enabled (only once, non-blocking)
+        if original_check_breached:
             if await self._is_breached_async(password):
                 errors.append("Password has been found in data breaches")
         return (len(errors) == 0, errors)

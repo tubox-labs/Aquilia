@@ -7,6 +7,7 @@ Orchestrates identity verification, token issuance, and session management.
 
 from __future__ import annotations
 
+import logging
 import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -293,9 +294,8 @@ class AuthManager:
         if not credential:
             raise AUTH_INVALID_CREDENTIALS()
 
-        # Verify hash
-        key_hash = ApiKeyCredential.hash_key(api_key)
-        if key_hash != credential.key_hash:
+        # Verify hash (constant-time comparison via HMAC)
+        if not ApiKeyCredential.verify_key(api_key, credential.key_hash):
             raise AUTH_INVALID_CREDENTIALS()
 
         # Check expiration
@@ -371,6 +371,7 @@ class AuthManager:
             token: Token to revoke
             token_type: Type of token ("refresh" or "access")
         """
+        _logger = logging.getLogger("aquilia.auth.manager")
         if token_type == "refresh":
             await self.token_manager.revoke_token(token)
         else:
@@ -379,8 +380,11 @@ class AuthManager:
                 claims = await self.token_manager.validate_access_token(token)
                 if jti := claims.get("jti"):
                     await self.token_manager.revoke_token(jti)
-            except Exception:
-                pass  # Already invalid
+            except Exception as e:
+                # Log the error instead of silently swallowing it
+                _logger.warning(
+                    "Failed to revoke access token (may already be invalid): %s", e
+                )
 
     async def logout(
         self,

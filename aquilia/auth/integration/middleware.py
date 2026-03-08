@@ -221,12 +221,14 @@ class AquilAuthMiddleware:
         if isinstance(fault, Fault):
             status_map = {
                 FaultDomain.ROUTING: 404,
-                FaultDomain.SECURITY: 403,
+                FaultDomain.SECURITY: 401,  # Auth failures → 401 (OWASP)
                 FaultDomain.IO: 502,
                 FaultDomain.EFFECT: 503,
             }
             status = status_map.get(fault.domain, 500)
-            message = fault.message if (getattr(fault, 'public', False)) else "Internal server error"
+            
+            # Use public_message for client-facing response (never leak internals)
+            message = getattr(fault, 'public_message', None) or "Internal server error"
             return Response.json(
                 {"error": {"code": fault.code, "message": message, "domain": fault.domain.value}},
                 status=status,
@@ -384,7 +386,16 @@ class FaultHandlerMiddleware:
                 
                 # Create response from fault
                 if hasattr(e, "error_code"):
-                    # Structured fault
+                    # Structured fault — map domain to HTTP status
+                    from aquilia.faults import FaultDomain
+                    status_map = {
+                        FaultDomain.ROUTING: 404,
+                        FaultDomain.SECURITY: 401,
+                        FaultDomain.IO: 502,
+                        FaultDomain.EFFECT: 503,
+                    }
+                    fault_domain = getattr(e, "domain", None)
+                    status = status_map.get(fault_domain, 500)
                     return Response.json(
                         {
                             "error": {
@@ -393,7 +404,7 @@ class FaultHandlerMiddleware:
                                 "retryable": e.retryable,
                             }
                         },
-                        status=e.http_status if hasattr(e, "http_status") else 500,
+                        status=status,
                     )
                 else:
                     # Unknown error

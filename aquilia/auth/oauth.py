@@ -164,10 +164,10 @@ class OAuth2Manager:
 
         # Verify client secret if provided
         if client_secret:
-            from .hashing import PasswordHasher
+            if not client.client_secret_hash:
+                raise AUTH_CLIENT_INVALID(client_id=client_id)
 
-            hasher = PasswordHasher()
-            if not hasher.verify(client.client_secret_hash, client_secret):
+            if not OAuthClient.verify_client_secret(client_secret, client.client_secret_hash):
                 raise AUTH_CLIENT_INVALID(client_id=client_id)
 
         return client

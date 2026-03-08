@@ -12,7 +12,7 @@ from typing import Any, Callable, Coroutine
 
 from .authz import AuthzContext, AuthzEngine
 from .core import Identity
-from .faults import AUTH_REQUIRED, AUTH_TOKEN_INVALID
+from .faults import AUTH_REQUIRED, AUTH_TOKEN_INVALID, AUTH_TOKEN_EXPIRED, AUTH_TOKEN_REVOKED
 from .manager import AuthManager
 
 
@@ -103,11 +103,16 @@ class AuthGuard(Guard):
                 token
             )
 
-        except Exception as e:
+        except (AUTH_TOKEN_INVALID, AUTH_TOKEN_EXPIRED, AUTH_TOKEN_REVOKED, AUTH_REQUIRED):
             if self.optional:
                 context["identity"] = None
                 return context
             raise
+        except Exception as e:
+            if self.optional:
+                context["identity"] = None
+                return context
+            raise AUTH_TOKEN_INVALID() from e
 
         return context
 
