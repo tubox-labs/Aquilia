@@ -2568,11 +2568,9 @@ def admin_createsuperuser(ctx, username: str, email: str, password: str, first_n
         try:
             from aquilia.admin.models import (
                 AdminUser,
-                ContentType,
-                AdminPermission,
-                AdminGroup,
-                AdminLogEntry,
-                AdminSession,
+                AdminAuditEntry,
+                AdminAPIKey,
+                AdminPreference,
             )
 
             if db is None:
@@ -2585,12 +2583,10 @@ def admin_createsuperuser(ctx, username: str, email: str, password: str, first_n
             # The admin models live in the framework, not the workspace,
             # so users may not have run makemigrations for them yet.
             _admin_models = [
-                ContentType,
-                AdminPermission,
-                AdminGroup,
                 AdminUser,
-                AdminLogEntry,
-                AdminSession,
+                AdminAuditEntry,
+                AdminAPIKey,
+                AdminPreference,
             ]
             _dialect = getattr(db, "dialect", "sqlite")
             for _model in _admin_models:
@@ -2836,11 +2832,9 @@ def admin_createstaff(ctx, username: str, email: str, password: str, first_name:
         try:
             from aquilia.admin.models import (
                 AdminUser,
-                ContentType,
-                AdminPermission,
-                AdminGroup,
-                AdminLogEntry,
-                AdminSession,
+                AdminAuditEntry,
+                AdminAPIKey,
+                AdminPreference,
             )
 
             if db is None:
@@ -2850,12 +2844,10 @@ def admin_createstaff(ctx, username: str, email: str, password: str, first_name:
                 )
 
             _admin_models = [
-                ContentType,
-                AdminPermission,
-                AdminGroup,
                 AdminUser,
-                AdminLogEntry,
-                AdminSession,
+                AdminAuditEntry,
+                AdminAPIKey,
+                AdminPreference,
             ]
             _dialect = getattr(db, "dialect", "sqlite")
             for _model in _admin_models:

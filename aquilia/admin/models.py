@@ -32,7 +32,10 @@ import json
 import secrets
 import time
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from aquilia.auth.core import Identity
 
 try:
     from aquilia.models import (
@@ -48,6 +51,14 @@ try:
     _ORM_AVAILABLE = True
 except ImportError:
     _ORM_AVAILABLE = False
+
+# Password hashing — use framework's Argon2id/PBKDF2 hasher
+try:
+    from aquilia.auth.hashing import PasswordHasher as _PasswordHasher
+
+    _pw_hasher = _PasswordHasher()
+except Exception:
+    _pw_hasher = None  # type: ignore[assignment]
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -109,8 +120,8 @@ if _ORM_AVAILABLE:
         * ``password_hash`` stores an Argon2id (or PBKDF2-SHA256 fallback)
           digest — never the plaintext password.
         * ``display_name`` replaces the legacy ``first_name`` / ``last_name``
-          pair.  A single free-form field is simpler to validate, index,
-          and display.
+          pair.  Compatibility properties are provided for callers that
+          still reference the old field names.
         * ``login_count`` and ``last_active_at`` give the superadmin a
           quick health signal without querying the audit table.
         """
@@ -125,6 +136,14 @@ if _ORM_AVAILABLE:
         role = CharField(max_length=32, default=DEFAULT_ROLE)
         is_active = BooleanField(default=True)
 
+        # Profile fields (used by controller profile views) ----------------
+        first_name = CharField(max_length=100, default="")
+        last_name = CharField(max_length=100, default="")
+        bio = TextField(default="")
+        phone = CharField(max_length=32, default="")
+        timezone = CharField(max_length=64, default="UTC")
+        locale = CharField(max_length=16, default="en")
+
         # Tracking -----------------------------------------------------------
         login_count = IntegerField(default=0)
         last_login_at = CharField(max_length=64, default="")
@@ -135,6 +154,27 @@ if _ORM_AVAILABLE:
         # Optional metadata ---------------------------------------------------
         avatar_url = CharField(max_length=512, default="")
         notes = TextField(default="")
+
+        # ── Compatibility aliases ────────────────────────────────────────
+
+        @property
+        def avatar_path(self) -> str:
+            """Alias for ``avatar_url`` — controller templates use this name."""
+            return self.avatar_url
+
+        @avatar_path.setter
+        def avatar_path(self, value: str) -> None:
+            self.avatar_url = value
+
+        @property
+        def last_login(self) -> str:
+            """Alias for ``last_login_at``."""
+            return self.last_login_at
+
+        @property
+        def date_joined(self) -> str:
+            """Alias for ``created_at``."""
+            return self.created_at
 
         # ── Computed properties ──────────────────────────────────────────
 
@@ -152,14 +192,34 @@ if _ORM_AVAILABLE:
         def is_viewer(self) -> bool:
             return self.role == "viewer"
 
+        # ── Password management ──────────────────────────────────────────
+
+        def set_password(self, raw_password: str) -> None:
+            """Hash *raw_password* and store it in ``password_hash``.
+
+            Uses Argon2id (preferred) or PBKDF2-SHA256 fallback.
+            Caller is responsible for calling ``.save()`` afterward.
+            """
+            if _pw_hasher is None:
+                raise RuntimeError(
+                    "Password hashing unavailable — "
+                    "install argon2-cffi or check aquilia.auth.hashing"
+                )
+            self.password_hash = _pw_hasher.hash(raw_password)
+
+        def check_password(self, raw_password: str) -> bool:
+            """Verify *raw_password* against the stored hash."""
+            if _pw_hasher is None or not self.password_hash:
+                return False
+            try:
+                return _pw_hasher.verify(self.password_hash, raw_password)
+            except Exception:
+                return False
+
         # ── Permission bridge ────────────────────────────────────────────
 
         def has_perm(self, permission: str) -> bool:
-            """Check a fine-grained permission against the RBAC matrix.
-
-            Delegates to :func:`permissions.has_admin_permission` so that
-            all authorisation logic lives in one place.
-            """
+            """Check a fine-grained permission against the RBAC matrix."""
             try:
                 from aquilia.admin.permissions import (
                     AdminRole,
@@ -216,6 +276,144 @@ if _ORM_AVAILABLE:
         def activate(self) -> None:
             self.is_active = True
 
+        # ── Identity bridge (for session auth) ───────────────────────────
+
+        def to_identity(self) -> "Identity":
+            """Convert this admin user to an ``Identity`` for session storage."""
+            from aquilia.auth.core import Identity, IdentityType, IdentityStatus
+
+            return Identity(
+                id=str(getattr(self, "id", None) or getattr(self, "pk", "?")),
+                type=IdentityType.USER,
+                attributes={
+                    "name": self.display_name or f"{self.first_name} {self.last_name}".strip() or self.username,
+                    "username": self.username,
+                    "email": self.email,
+                    "first_name": self.first_name,
+                    "last_name": self.last_name,
+                    "roles": [self.role],
+                    "is_superuser": self.is_superuser,
+                    "is_staff": self.is_staff,
+                    "admin_role": self.role,
+                    "avatar_url": self.avatar_url,
+                },
+                status=IdentityStatus.ACTIVE,
+            )
+
+        # ── Class-level factories ────────────────────────────────────────
+
+        @classmethod
+        async def create_superuser(
+            cls,
+            username: str,
+            password: str,
+            email: str,
+            **extra_fields: Any,
+        ) -> "AdminUser":
+            """Create and persist a superadmin user.
+
+            Accepts optional ``first_name``, ``last_name``, ``bio``,
+            ``phone``, ``timezone``, ``locale`` in *extra_fields*.
+            """
+            return await cls._create_user(
+                username=username,
+                password=password,
+                email=email,
+                role="superadmin",
+                **extra_fields,
+            )
+
+        @classmethod
+        async def create_staff_user(
+            cls,
+            username: str,
+            password: str,
+            email: str,
+            **extra_fields: Any,
+        ) -> "AdminUser":
+            """Create and persist a staff user."""
+            return await cls._create_user(
+                username=username,
+                password=password,
+                email=email,
+                role="staff",
+                **extra_fields,
+            )
+
+        @classmethod
+        async def _create_user(
+            cls,
+            *,
+            username: str,
+            password: str,
+            email: str,
+            role: str = DEFAULT_ROLE,
+            **extra_fields: Any,
+        ) -> "AdminUser":
+            """Internal factory shared by ``create_superuser`` / ``create_staff_user``."""
+            if _pw_hasher is None:
+                raise RuntimeError(
+                    "Password hashing unavailable — "
+                    "install argon2-cffi or check aquilia.auth.hashing"
+                )
+            now = _now_utc()
+            user = cls(
+                username=username.strip(),
+                email=email.strip(),
+                password_hash=_pw_hasher.hash(password),
+                role=role,
+                is_active=True,
+                first_name=extra_fields.get("first_name", ""),
+                last_name=extra_fields.get("last_name", ""),
+                display_name=extra_fields.get(
+                    "display_name",
+                    f"{extra_fields.get('first_name', '')} {extra_fields.get('last_name', '')}".strip(),
+                ),
+                bio=extra_fields.get("bio", ""),
+                phone=extra_fields.get("phone", ""),
+                timezone=extra_fields.get("timezone", "UTC"),
+                locale=extra_fields.get("locale", "en"),
+                login_count=0,
+                last_login_at="",
+                last_active_at="",
+                created_at=now,
+                updated_at=now,
+                avatar_url=extra_fields.get("avatar_url", extra_fields.get("avatar_path", "")),
+                notes="",
+            )
+            await user.save()
+            return user
+
+        # ── Authentication ───────────────────────────────────────────────
+
+        @classmethod
+        async def authenticate(
+            cls, username: str, password: str
+        ) -> Optional["AdminUser"]:
+            """Look up a user by username and verify the password.
+
+            Returns the ``AdminUser`` instance on success, ``None`` on failure.
+            """
+            try:
+                user = await cls.filter(username=username).first()
+            except Exception:
+                return None
+
+            if user is None or not user.is_active:
+                return None
+
+            if not user.check_password(password):
+                return None
+
+            # Bump login stats (best-effort)
+            try:
+                user.record_login()
+                await user.save()
+            except Exception:
+                pass
+
+            return user
+
         # ── Serialisation ────────────────────────────────────────────────
 
         def to_safe_dict(self) -> Dict[str, Any]:
@@ -225,6 +423,8 @@ if _ORM_AVAILABLE:
                 "username": self.username,
                 "email": self.email,
                 "display_name": self.display_name,
+                "first_name": self.first_name,
+                "last_name": self.last_name,
                 "role": self.role,
                 "is_active": self.is_active,
                 "is_superuser": self.is_superuser,
@@ -636,6 +836,51 @@ else:
 
         def has_perms(self, perms: List[str]) -> bool:
             return self.is_superuser
+
+        def set_password(self, raw_password: str) -> None:
+            if _pw_hasher is not None:
+                self.password_hash = _pw_hasher.hash(raw_password)
+
+        def check_password(self, raw_password: str) -> bool:
+            if _pw_hasher is None:
+                return False
+            try:
+                return _pw_hasher.verify(
+                    getattr(self, "password_hash", ""), raw_password
+                )
+            except Exception:
+                return False
+
+        def to_identity(self) -> Any:
+            try:
+                from aquilia.auth.core import Identity, IdentityType, IdentityStatus
+                return Identity(
+                    id=str(getattr(self, "id", "?")),
+                    type=IdentityType.USER,
+                    attributes={
+                        "name": getattr(self, "username", "admin"),
+                        "username": getattr(self, "username", ""),
+                        "roles": [getattr(self, "role", "staff")],
+                        "is_superuser": self.is_superuser,
+                        "is_staff": self.is_staff,
+                        "admin_role": getattr(self, "role", "staff"),
+                    },
+                    status=IdentityStatus.ACTIVE,
+                )
+            except Exception:
+                return None
+
+        @classmethod
+        async def create_superuser(cls, username: str, password: str, email: str, **kw: Any) -> "AdminUser":
+            raise RuntimeError("ORM not available — cannot create superuser without database models")
+
+        @classmethod
+        async def create_staff_user(cls, username: str, password: str, email: str, **kw: Any) -> "AdminUser":
+            raise RuntimeError("ORM not available — cannot create staff user without database models")
+
+        @classmethod
+        async def authenticate(cls, username: str, password: str) -> Optional["AdminUser"]:
+            return None
 
         def __repr__(self) -> str:
             return f"<AdminUser(stub) {getattr(self, 'username', '?')!r}>"

@@ -50,31 +50,27 @@ def _discover_admin_models(verbose: bool = False) -> list:
     """
     Import and return all admin ORM models from aquilia.admin.models.
 
-    These models (ContentType, AdminPermission, AdminGroup, AdminUser,
-    AdminLogEntry, AdminSession) live in the framework package and are
-    not discovered by _find_model_files which only scans the workspace.
+    These models (AdminUser, AdminAuditEntry, AdminAPIKey, AdminPreference)
+    live in the framework package and are not discovered by _find_model_files
+    which only scans the workspace.
     """
     try:
         from aquilia.models.base import Model
         from aquilia.admin.models import (
-            ContentType,
-            AdminPermission,
-            AdminGroup,
             AdminUser,
-            AdminLogEntry,
-            AdminSession,
+            AdminAuditEntry,
+            AdminAPIKey,
+            AdminPreference,
             _HAS_ORM,
         )
         if not _HAS_ORM:
             return []
 
         admin_models = [
-            ContentType,
-            AdminPermission,
-            AdminGroup,
             AdminUser,
-            AdminLogEntry,
-            AdminSession,
+            AdminAuditEntry,
+            AdminAPIKey,
+            AdminPreference,
         ]
         # Only return actual Model subclasses
         result = [
