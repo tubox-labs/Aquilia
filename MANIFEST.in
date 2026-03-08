@@ -2,6 +2,7 @@
 # =============================================================================
 
 # Package data (HTML templates, deploy manifests)
+include aquilia/py.typed
 recursive-include aquilia/admin/templates *.html
 recursive-include aquilia/mlops/deploy/grafana *.json
 recursive-include aquilia/mlops/deploy/k8s *.yaml
@@ -14,7 +15,8 @@ include README.md
 include CHANGELOG.md
 include pyproject.toml
 include setup.py
-include requirements.txt
+include requirements-cli.txt
+include requirements-dev.txt
 
 # Exclude dev/test artifacts
 prune tests

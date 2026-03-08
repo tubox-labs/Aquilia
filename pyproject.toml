@@ -202,10 +202,14 @@ where = ["."]
 include = ["aquilia*"]
 
 [tool.setuptools.package-data]
+"aquilia" = ["py.typed"]
 "aquilia.admin" = ["templates/**/*.html"]
 "aquilia.mlops.deploy" = ["grafana/*.json", "k8s/*.yaml"]
 "aquilia.patterns" = ["README.md"]
 "aquilia.templates" = ["README.md"]
+
+[tool.setuptools.dynamic]
+version = {attr = "aquilia._version.__version__"}
 
 # ---------------------------------------------------------------------------
 # Tool configuration
@@ -234,9 +238,6 @@ exclude_lines = [
 [tool.ruff]
 target-version = "py310"
 line-length = 120
-
-[tool.setuptools.dynamic]
-version = {attr = "aquilia._version.__version__"}
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "N", "UP", "B", "SIM"]

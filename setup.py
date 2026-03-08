@@ -113,6 +113,7 @@ setup(
     ),
     include_package_data=True,
     package_data={
+        "aquilia": ["py.typed"],
         "aquilia.admin": ["templates/**/*.html"],
         "aquilia.mlops.deploy": ["grafana/*.json", "k8s/*.yaml"],
         "aquilia.patterns": ["README.md"],
