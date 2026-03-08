@@ -57,6 +57,37 @@ from .default_handlers import (
 )
 
 from .domains import (
+    # Config faults
+    ConfigFault,
+    ConfigMissingFault,
+    ConfigInvalidFault,
+    # Registry faults
+    RegistryFault,
+    DependencyCycleFault,
+    ManifestInvalidFault,
+    # DI faults
+    DIFault,
+    ProviderNotFoundFault,
+    ScopeViolationFault,
+    DIResolutionFault,
+    # Routing faults
+    RoutingFault,
+    RouteNotFoundFault,
+    RouteAmbiguousFault,
+    PatternInvalidFault,
+    # Flow faults
+    FlowFault,
+    HandlerFault,
+    MiddlewareFault,
+    FlowCancelledFault,
+    # Effect faults
+    EffectFault,
+    DatabaseFault,
+    CacheFault,
+    # IO faults
+    IOFault,
+    NetworkFault,
+    FilesystemFault,
     # Model faults
     ModelFault,
     AMDLParseFault,
@@ -67,6 +98,9 @@ from .domains import (
     QueryFault,
     DatabaseConnectionFault,
     SchemaFault,
+    FieldValidationFault,
+    ProtectedDeleteFault,
+    RestrictedDeleteFault,
     # Security faults
     SecurityFault,
     AuthenticationFault,
@@ -75,6 +109,10 @@ from .domains import (
     CORSViolationFault,
     RateLimitExceededFault,
     CSPViolationFault,
+    # System faults
+    SystemFault,
+    UnrecoverableFault,
+    ResourceExhaustedFault,
     # HTTP faults
     HTTPFault,
     http_reason,
@@ -132,6 +170,44 @@ __all__ = [
     "LoggingHandler",
     "HTTPResponse",
     
+    # Config faults
+    "ConfigFault",
+    "ConfigMissingFault",
+    "ConfigInvalidFault",
+    
+    # Registry faults
+    "RegistryFault",
+    "DependencyCycleFault",
+    "ManifestInvalidFault",
+    
+    # DI faults
+    "DIFault",
+    "ProviderNotFoundFault",
+    "ScopeViolationFault",
+    "DIResolutionFault",
+    
+    # Routing faults
+    "RoutingFault",
+    "RouteNotFoundFault",
+    "RouteAmbiguousFault",
+    "PatternInvalidFault",
+    
+    # Flow faults
+    "FlowFault",
+    "HandlerFault",
+    "MiddlewareFault",
+    "FlowCancelledFault",
+    
+    # Effect faults
+    "EffectFault",
+    "DatabaseFault",
+    "CacheFault",
+    
+    # IO faults
+    "IOFault",
+    "NetworkFault",
+    "FilesystemFault",
+    
     # Model faults
     "ModelFault",
     "AMDLParseFault",
@@ -142,6 +218,9 @@ __all__ = [
     "QueryFault",
     "DatabaseConnectionFault",
     "SchemaFault",
+    "FieldValidationFault",
+    "ProtectedDeleteFault",
+    "RestrictedDeleteFault",
     
     # Security faults
     "SecurityFault",
@@ -151,6 +230,11 @@ __all__ = [
     "CORSViolationFault",
     "RateLimitExceededFault",
     "CSPViolationFault",
+    
+    # System faults
+    "SystemFault",
+    "UnrecoverableFault",
+    "ResourceExhaustedFault",
     
     # HTTP faults
     "HTTPFault",

@@ -246,7 +246,11 @@ class RequestDAG:
             self._teardowns.append(gen)
             return value
         else:
-            raise TypeError(f"{dep.call} is not a generator function")
+            from ..faults.domains import DIResolutionFault
+            raise DIResolutionFault(
+                provider=repr(dep.call),
+                reason="Dependency call is not a generator function",
+            )
 
     async def _resolve_from_container(self, param_type: type, tag: str | None) -> Any:
         """Resolve from DI container by type."""
@@ -268,7 +272,11 @@ class RequestDAG:
         """Extract header value from request."""
         if self._request is None:
             if header.required:
-                raise ValueError(f"No request available for Header('{header.name}')")
+                from ..faults.domains import BadRequestFault
+                raise BadRequestFault(
+                    message=f"No request available for Header('{header.name}')",
+                    detail=f"No request available for Header('{header.name}')",
+                )
             return header.default
 
         # Try Aquilia's request API
@@ -282,7 +290,11 @@ class RequestDAG:
 
         if value is None:
             if header.required:
-                raise ValueError(f"Missing required header: {header.name}")
+                from ..faults.domains import BadRequestFault
+                raise BadRequestFault(
+                    message=f"Missing required header: {header.name}",
+                    detail=f"Missing required header: {header.name}",
+                )
             return header.default
 
         return value
@@ -302,7 +314,11 @@ class RequestDAG:
 
         if value is None:
             if query.required:
-                raise ValueError(f"Missing required query parameter: {query.name}")
+                from ..faults.domains import BadRequestFault
+                raise BadRequestFault(
+                    message=f"Missing required query parameter: {query.name}",
+                    detail=f"Missing required query parameter: {query.name}",
+                )
             return query.default
 
         # Try to cast to expected type (SEC-DI-08: guard against bad input)
@@ -315,9 +331,16 @@ class RequestDAG:
             elif base_type is bool:
                 return value.lower() in ("true", "1", "yes")
         except (ValueError, TypeError, AttributeError) as exc:
-            raise ValueError(
-                f"Invalid value for query parameter '{query.name}': "
-                f"cannot convert {value!r} to {base_type.__name__}"
+            from ..faults.domains import BadRequestFault
+            raise BadRequestFault(
+                message=(
+                    f"Invalid value for query parameter '{query.name}': "
+                    f"cannot convert {value!r} to {base_type.__name__}"
+                ),
+                detail=(
+                    f"Invalid value for query parameter '{query.name}': "
+                    f"cannot convert {value!r} to {base_type.__name__}"
+                ),
             ) from exc
         return value
 

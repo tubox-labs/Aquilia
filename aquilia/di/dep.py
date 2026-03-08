@@ -184,7 +184,11 @@ class Header:
         request = context.get("request")
         if request is None:
             if self.required:
-                raise ValueError(f"No request available for Header('{self.name}')")
+                from ..faults.domains import BadRequestFault
+                raise BadRequestFault(
+                    message=f"No request available for Header('{self.name}')",
+                    detail=f"No request available for Header('{self.name}')",
+                )
             return self.default
 
         value = None
@@ -197,7 +201,11 @@ class Header:
 
         if value is None:
             if self.required:
-                raise ValueError(f"Missing required header: {self.name}")
+                from ..faults.domains import BadRequestFault
+                raise BadRequestFault(
+                    message=f"Missing required header: {self.name}",
+                    detail=f"Missing required header: {self.name}",
+                )
             return self.default
         return value
 
@@ -233,7 +241,11 @@ class Query:
 
         if value is None:
             if self.required:
-                raise ValueError(f"Missing required query parameter: {self.name}")
+                from ..faults.domains import BadRequestFault
+                raise BadRequestFault(
+                    message=f"Missing required query parameter: {self.name}",
+                    detail=f"Missing required query parameter: {self.name}",
+                )
             return self.default
         return value
 

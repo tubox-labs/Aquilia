@@ -160,7 +160,11 @@ class DatabaseConfig:
         elif url.startswith("oracle"):
             return OracleConfig.from_url(url, **overrides)
         else:
-            raise ValueError(f"Unsupported database URL scheme: {url}")
+            from ..faults.domains import ConfigInvalidFault
+            raise ConfigInvalidFault(
+                key="database.url",
+                reason=f"Unsupported database URL scheme: {url}",
+            )
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(engine={self.engine!r})"
