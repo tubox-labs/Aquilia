@@ -587,6 +587,7 @@
         <div class="glass-card card-padded form-page" id="formCard">
             {% set action_url = (url_prefix|default('/admin') ~ '/' ~ model_name|lower ~ '/add') if is_create else (url_prefix|default('/admin') ~ '/' ~ model_name|lower ~ '/' ~ pk) %}
             <form method="POST" action="{{ action_url }}" id="adminForm" data-dirty="false" novalidate>
+                {% if csrf_token %}<input type="hidden" name="_csrf_token" value="{{ csrf_token }}">{% endif %}
 
                 {# ── Unsaved changes indicator ── #}
                 <div id="unsaved-bar" class="unsaved-bar">
@@ -792,7 +793,7 @@
                     <i class="icon-trash-2" style="font-size:14px;"></i> Delete
                 </button>
             </div>
-            <form method="POST" action="{{ url_prefix|default('/admin') }}/{{ model_name|lower }}/{{ pk }}/delete" id="deleteRecordForm" style="display:none;"></form>
+            <form method="POST" action="{{ url_prefix|default('/admin') }}/{{ model_name|lower }}/{{ pk }}/delete" id="deleteRecordForm" style="display:none;">{% if csrf_token %}<input type="hidden" name="_csrf_token" value="{{ csrf_token }}">{% endif %}</form>
         </div>
         {% endif %}
     </div>

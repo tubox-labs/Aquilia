@@ -17,10 +17,16 @@ Design system: matches aqdocx exactly.
 
 from __future__ import annotations
 
+import contextvars
 import html
 import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+# ── Request-scoped CSRF token (set by controller before rendering) ───────
+_csrf_token_var: contextvars.ContextVar[str] = contextvars.ContextVar(
+    "_admin_csrf_token", default=""
+)
 
 
 class _AttrDict(dict):
@@ -120,6 +126,10 @@ def _render_template(template_name: str, **ctx: Any) -> str:
 
     # Provide a default so base.html / sidebar can always reference it
     ctx.setdefault("identity_avatar", "")
+
+    # Auto-inject CSRF token so every template can use {{ csrf_token }}
+    if "csrf_token" not in ctx:
+        ctx["csrf_token"] = _csrf_token_var.get("")
 
     if _admin_engine is not None:
         # Synchronous render via the framework engine

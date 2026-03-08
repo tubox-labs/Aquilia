@@ -139,6 +139,7 @@
             Create Admin User
         </h3>
         <form method="POST" action="{{ url_prefix|default('/admin') }}/admin-users/create">
+            {% if csrf_token %}<input type="hidden" name="_csrf_token" value="{{ csrf_token }}">{% endif %}
             <div class="form-group">
                 <label class="form-label">Username *</label>
                 <input type="text" name="username" class="form-input" required placeholder="e.g. john_admin" autocomplete="off">
@@ -185,6 +186,7 @@
             Reset Password — <span id="resetPasswordUsername"></span>
         </h3>
         <form method="POST" action="{{ url_prefix|default('/admin') }}/admin-users/reset-password" id="resetPasswordForm">
+            {% if csrf_token %}<input type="hidden" name="_csrf_token" value="{{ csrf_token }}">{% endif %}
             <input type="hidden" name="user_id" id="resetPasswordUserId">
             <div class="form-group">
                 <label class="form-label">New Password</label>
@@ -215,6 +217,7 @@ function toggleUserStatus(userId, isActive) {
             var form = document.createElement('form');
             form.method = 'POST';
             form.action = '{{ url_prefix|default("/admin") }}/admin-users/toggle-status';
+            var _t = document.querySelector('meta[name="csrf-token"]'); if (_t) { var c = document.createElement('input'); c.type='hidden'; c.name='_csrf_token'; c.value=_t.content; form.appendChild(c); }
             var input = document.createElement('input');
             input.type = 'hidden'; input.name = 'user_id'; input.value = userId;
             form.appendChild(input);
@@ -232,6 +235,7 @@ function confirmDeleteUser(userId, username) {
             var form = document.createElement('form');
             form.method = 'POST';
             form.action = '{{ url_prefix|default("/admin") }}/admin-users/delete';
+            var _t = document.querySelector('meta[name="csrf-token"]'); if (_t) { var c = document.createElement('input'); c.type='hidden'; c.name='_csrf_token'; c.value=_t.content; form.appendChild(c); }
             var input = document.createElement('input');
             input.type = 'hidden'; input.name = 'user_id'; input.value = userId;
             form.appendChild(input);

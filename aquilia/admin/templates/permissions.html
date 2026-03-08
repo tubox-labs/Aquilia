@@ -60,6 +60,7 @@
         Toggle checkboxes to grant or revoke permissions per role. Superadmin permissions cannot be modified.
     </div>
     <form method="POST" action="{{ url_prefix|default('/admin') }}/permissions/update" id="matrixForm">
+        {% if csrf_token %}<input type="hidden" name="_csrf_token" value="{{ csrf_token }}">{% endif %}
         <input type="hidden" name="update_type" value="roles">
         <div class="table-container">
             <table class="admin-table">
@@ -121,6 +122,7 @@
         Override default role-based permissions for specific models. Changes apply to all non-superadmin roles.
     </div>
     <form method="POST" action="{{ url_prefix|default('/admin') }}/permissions/update" id="modelPermsForm">
+        {% if csrf_token %}<input type="hidden" name="_csrf_token" value="{{ csrf_token }}">{% endif %}
         <input type="hidden" name="update_type" value="models">
         <div class="table-container">
             <table class="admin-table">

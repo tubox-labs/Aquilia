@@ -155,6 +155,7 @@
                 <i class="icon-user"></i>Personal Information
             </div>
             <form method="POST" action="{{ url_prefix|default('/admin') }}/profile/update">
+                {% if csrf_token %}<input type="hidden" name="_csrf_token" value="{{ csrf_token }}">{% endif %}
                 <div class="profile-form-grid">
                     <div class="form-group">
                         <label class="form-label">First Name</label>
@@ -221,6 +222,7 @@
                 <i class="icon-lock"></i>Change Password
             </div>
             <form method="POST" action="{{ url_prefix|default('/admin') }}/profile/change-password">
+                {% if csrf_token %}<input type="hidden" name="_csrf_token" value="{{ csrf_token }}">{% endif %}
                 <div class="form-group">
                     <label class="form-label">Current Password</label>
                     <input type="password" name="current_password" class="form-input"

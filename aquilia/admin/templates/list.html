@@ -632,6 +632,7 @@
         <span id="selectedCount">0</span> selected
     </span>
     <form method="POST" action="{{ url_prefix|default('/admin') }}/{{ model_name|lower }}/action" id="bulkActionForm" style="display:flex;gap:8px;align-items:center;margin-left:auto;">
+        {% if csrf_token %}<input type="hidden" name="_csrf_token" value="{{ csrf_token }}">{% endif %}
         <input type="hidden" name="selected" id="bulkSelectedPks" value="">
         <input type="hidden" name="action" id="bulkActionValue" value="">
         <div class="custom-select" id="bulkActionSelectWrap" style="min-width:160px;">
@@ -1363,9 +1364,10 @@ function showConfirmModal(title, message, onConfirm, isDanger) {
 }
 
 // ── Delete / Duplicate ──────────────────────────────────────────
-function doDelete(pk) { var f = document.createElement('form'); f.method = 'POST'; f.action = BASE_URL + '/' + pk + '/delete'; document.body.appendChild(f); f.submit(); }
+function doDelete(pk) { var f = document.createElement('form'); f.method = 'POST'; f.action = BASE_URL + '/' + pk + '/delete'; var _t = document.querySelector('meta[name="csrf-token"]'); if (_t) { var c = document.createElement('input'); c.type='hidden'; c.name='_csrf_token'; c.value=_t.content; f.appendChild(c); } document.body.appendChild(f); f.submit(); }
 function doDuplicate(pk) {
     var f = document.createElement('form'); f.method = 'POST'; f.action = BASE_URL + '/action';
+    var _t = document.querySelector('meta[name="csrf-token"]'); if (_t) { var c = document.createElement('input'); c.type='hidden'; c.name='_csrf_token'; c.value=_t.content; f.appendChild(c); }
     var a = document.createElement('input'); a.type = 'hidden'; a.name = 'action'; a.value = 'duplicate_selected'; f.appendChild(a);
     var s = document.createElement('input'); s.type = 'hidden'; s.name = 'selected'; s.value = pk; f.appendChild(s);
     document.body.appendChild(f); f.submit();

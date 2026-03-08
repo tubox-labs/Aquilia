@@ -523,6 +523,15 @@ class AdminController(Controller):
             )
         return None
 
+    # ── Lifecycle ────────────────────────────────────────────────────
+
+    async def on_request(self, ctx: RequestCtx) -> None:
+        """Populate the CSRF contextvar so every template gets the token."""
+        from .templates import _csrf_token_var
+
+        token = self.site.security.csrf.get_or_create_token(ctx)
+        _csrf_token_var.set(token)
+
     # ── Dashboard ────────────────────────────────────────────────────
 
     @GET("/")

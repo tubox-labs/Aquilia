@@ -22,6 +22,7 @@
         </div>
         <div class="delete-actions">
             <form method="POST" action="{{ url_prefix|default('/admin') }}/{{ model_name|lower }}/{{ pk }}/delete">
+                {% if csrf_token %}<input type="hidden" name="_csrf_token" value="{{ csrf_token }}">{% endif %}
                 <button type="submit" class="btn btn-danger">
                     <i class="icon-trash-2" style="font-size:14px;"></i> Yes, Delete
                 </button>

@@ -49,6 +49,7 @@
     {% include "partials/css.html" %}
     {% endblock %}
     </style>
+    {% if csrf_token %}<meta name="csrf-token" content="{{ csrf_token }}">{% endif %}
     {% block extra_head %}{% endblock %}
 </head>
 <body>
@@ -788,32 +789,58 @@
             btn._aqRestore = restore;
         }, true);
 
-        /* 4. Intercept fetch / XHR globally — progress bar only */
+        /* 4. Intercept fetch / XHR globally — progress bar + CSRF header injection */
         (function(){
             var _pending = 0;
             function inc(){ if(++_pending === 1) barStart(); }
             function dec(){ if(--_pending <= 0){ _pending=0; barDone(); } }
 
-            /* Patch fetch */
+            /* Read CSRF token from <meta> tag */
+            function _csrfToken(){
+                var el = document.querySelector('meta[name="csrf-token"]');
+                return el ? el.getAttribute('content') : '';
+            }
+            var _SAFE = {GET:1, HEAD:1, OPTIONS:1, TRACE:1};
+
+            /* Patch fetch — auto-inject X-CSRF-Token on mutating methods */
             var _fetch = window.fetch;
-            window.fetch = function(){
+            window.fetch = function(resource, init){
                 inc();
-                var p = _fetch.apply(this, arguments);
+                init = init || {};
+                var method = (init.method || 'GET').toUpperCase();
+                if (!_SAFE[method]) {
+                    var token = _csrfToken();
+                    if (token) {
+                        if (init.headers instanceof Headers) {
+                            if (!init.headers.has('X-CSRF-Token')) init.headers.set('X-CSRF-Token', token);
+                        } else if (typeof init.headers === 'object' && init.headers) {
+                            if (!init.headers['X-CSRF-Token']) init.headers['X-CSRF-Token'] = token;
+                        } else {
+                            init.headers = {'X-CSRF-Token': token};
+                        }
+                    }
+                }
+                var p = _fetch.call(this, resource, init);
                 p.then(dec, dec);
                 return p;
             };
 
-            /* Patch XMLHttpRequest */
+            /* Patch XMLHttpRequest — progress bar + CSRF header */
             var _open = XMLHttpRequest.prototype.open;
             var _send = XMLHttpRequest.prototype.send;
-            XMLHttpRequest.prototype.open = function(){
+            XMLHttpRequest.prototype.open = function(method){
                 this._aqTracked = true;
+                this._aqMethod = (method || 'GET').toUpperCase();
                 return _open.apply(this, arguments);
             };
             XMLHttpRequest.prototype.send = function(){
                 if (this._aqTracked) {
                     inc();
                     this.addEventListener('loadend', dec);
+                    if (!_SAFE[this._aqMethod]) {
+                        var token = _csrfToken();
+                        if (token) { try { this.setRequestHeader('X-CSRF-Token', token); } catch(e){} }
+                    }
                 }
                 return _send.apply(this, arguments);
             };
