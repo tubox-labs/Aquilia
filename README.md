@@ -1,9 +1,9 @@
 <div align="center">
-  <img src="aqdocx/public/logo.png" alt="Aquilia Logo" width="200" />
+  <img src="https://github.com/tubox-labs/Aquilia/blob/master/assets/logo.png" alt="Aquilia Logo" width="200" />
   <h1>Aquilia</h1>
   <p><strong>The speed of a microframework. The reliability of an enterprise engine.</strong></p>
 
-  [![Version](https://img.shields.io/badge/version-1.0.1b1-orange.svg)](https://aquilia.tubox.cloud)
+  [![Version](https://img.shields.io/badge/version-1.0.1b2-orange.svg)](https://aquilia.tubox.cloud)
   [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
   [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
   [![Tests](https://img.shields.io/badge/tests-5085%20passing-brightgreen.svg)](#-testing)
@@ -30,35 +30,71 @@ Current frameworks force a trade-off: use a microframework for speed but spend m
 pip install aquilia
 ```
 
-Or use the CLI to initialize a new project:
+`jinja2` (templates + admin panel) and `aiosqlite` (default SQLite backend) are
+**bundled in the core install** — no extras needed to get started.
 
-```bash
-aq init my-awesome-app
-```
+| Extra | What it adds |
+|-------|-------------|
+| `aquilia[auth]` | Argon2 hashing, JWT, OAuth, cryptography |
+| `aquilia[files]` | Async file I/O for static serving & uploads |
+| `aquilia[multipart]` | Multipart form / file-upload parsing |
+| `aquilia[redis]` | Redis cache & WebSocket adapter |
+| `aquilia[mail]` | SMTP email provider |
+| `aquilia[server]` | Gunicorn + Uvicorn workers for production |
+| `aquilia[all]` | Everything above + MLOps stack |
 
 ## ⚡ Quick Start
 
-Create a controller in `app/controllers.py`:
+Aquilia is a **workspace-first, batteries-included** framework. Projects are
+scaffolded through the `aq` CLI — you don't write routing glue code by hand.
+
+### 1 — Create a workspace
+
+```bash
+aq init workspace my-app          # full workspace (Dockerfile, config/, tests/, …)
+cd my-app
+```
+
+This generates `workspace.py` (the workspace manifest), `config/base.yaml`,
+and a starter page that serves `GET /` immediately.
+
+### 2 — Add a module
+
+```bash
+aq add module users     # generates modules/users/{manifest,controllers,services,faults,models}.py
+```
+
+Each module has its own `manifest.py` that registers controllers, services,
+middleware, and database config for that module only.
+
+### 3 — Edit the generated controller
 
 ```python
-from aquilia import Controller, GET, RequestCtx
+# modules/users/controllers.py
+from aquilia import Controller, GET, POST, RequestCtx, Response
 
-class HelloWorld(Controller):
+class UsersController(Controller):
+    prefix = "/users"
+    tags  = ["users"]
+
     @GET("/")
-    async def hello(self, ctx: RequestCtx):
-        return {"message": "Hello from Aquilia!"}
+    async def list_users(self, ctx: RequestCtx):
+        return Response.json({"users": []})
+
+    @POST("/")
+    async def create_user(self, ctx: RequestCtx):
+        body = await ctx.json()
+        return Response.json({"created": body}, status=201)
 ```
 
-Register it in your `manifest.py`:
+### 4 — Run the development server
 
-```python
-from aquilia import AppManifest, ServiceConfig
-
-class MyManifest(AppManifest):
-    name = "main"
-    version = "1.0.0"
-    controllers = ["app.controllers:HelloWorld"]
+```bash
+aq serve                # hot-reload dev server on http://127.0.0.1:8000
 ```
+
+> **No manual route registration needed.** Controllers declared in a module's
+> `manifest.py` are discovered and wired automatically.
 
 ## 🏛️ Core Pillars
 
