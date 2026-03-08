@@ -31,11 +31,17 @@ Usage (explicit in handler)::
 from __future__ import annotations
 
 import base64
+import hashlib
+import hmac
 import json
+import logging
 import math
+import os
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Type, Union
 from urllib.parse import urlencode, urlparse, parse_qs, urlunparse
+
+_cursor_logger = logging.getLogger("aquilia.pagination")
 
 
 __all__ = [
@@ -466,18 +472,54 @@ class CursorPagination(BasePagination):
         if ordering is not None:
             self.ordering = ordering
 
+    @staticmethod
+    def _get_cursor_secret() -> bytes:
+        """Retrieve the cursor signing secret. Falls back to a random per-process key."""
+        secret = os.environ.get("AQUILIA_CURSOR_SECRET", "")
+        if not secret:
+            # Per-process ephemeral key — cursors won't survive restarts,
+            # which is acceptable for stateless pagination tokens.
+            if not hasattr(CursorPagination, "_ephemeral_secret"):
+                CursorPagination._ephemeral_secret = os.urandom(32).hex()
+                _cursor_logger.warning(
+                    "AQUILIA_CURSOR_SECRET not set; using ephemeral key. "
+                    "Cursors will not survive process restarts."
+                )
+            secret = CursorPagination._ephemeral_secret
+        return secret.encode("utf-8")
+
     def _decode_cursor(self, raw: Optional[str]) -> Optional[Dict[str, Any]]:
+        """Decode and verify an HMAC-signed cursor token."""
         if not raw:
             return None
         try:
-            decoded = base64.urlsafe_b64decode(raw + "==").decode("utf-8")
-            return json.loads(decoded)
+            # Cursor format: <base64-payload>.<base64-signature>
+            if "." not in raw:
+                _cursor_logger.warning("Rejected unsigned cursor token (legacy format).")
+                return None
+            payload_b64, sig_b64 = raw.rsplit(".", 1)
+            sig = base64.urlsafe_b64decode(sig_b64 + "==")
+            payload_bytes = base64.urlsafe_b64decode(payload_b64 + "==")
+            expected_sig = hmac.new(
+                self._get_cursor_secret(), payload_bytes, hashlib.sha256
+            ).digest()
+            if not hmac.compare_digest(sig, expected_sig):
+                _cursor_logger.warning("Cursor HMAC verification failed — possible tampering.")
+                return None
+            return json.loads(payload_bytes.decode("utf-8"))
         except Exception:
+            _cursor_logger.warning("Failed to decode cursor token.", exc_info=True)
             return None
 
     def _encode_cursor(self, data: Dict[str, Any]) -> str:
-        raw = json.dumps(data, default=str).encode("utf-8")
-        return base64.urlsafe_b64encode(raw).decode("utf-8").rstrip("=")
+        """Encode cursor data with HMAC-SHA256 signature."""
+        payload = json.dumps(data, default=str).encode("utf-8")
+        sig = hmac.new(
+            self._get_cursor_secret(), payload, hashlib.sha256
+        ).digest()
+        payload_b64 = base64.urlsafe_b64encode(payload).decode("utf-8").rstrip("=")
+        sig_b64 = base64.urlsafe_b64encode(sig).decode("utf-8").rstrip("=")
+        return f"{payload_b64}.{sig_b64}"
 
     def _get_page_size(self, request: Any) -> int:
         params = _get_current_params(request)

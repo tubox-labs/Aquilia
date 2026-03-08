@@ -286,14 +286,13 @@ class ControllerFactory:
         elif hasattr(container, 'get'):
             return container.get(param_type)
         else:
-            # Last resort: try to instantiate (may fail for abstracts)
-            try:
-                return param_type()
-            except (TypeError, Exception) as e:
-                raise TypeError(
-                    f"Cannot instantiate {param_type!r} -- no container "
-                    f"provider found and default construction failed: {e}"
-                ) from e
+            # SEC-CTRL-02: Do NOT fall back to param_type() instantiation.
+            # Arbitrary class instantiation is a security risk.
+            raise TypeError(
+                f"Cannot resolve {param_type!r} -- no container "
+                f"provider found. Register a provider for this type "
+                f"in your DI container."
+            )
     
     async def shutdown(self):
         """Shutdown all singleton controllers."""

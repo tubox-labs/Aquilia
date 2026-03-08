@@ -56,6 +56,55 @@ from typing import (
     Union,
 )
 
+import logging
+
+_logger = logging.getLogger("aquilia.controller.filters")
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  Regex safety — ReDoS prevention
+# ═══════════════════════════════════════════════════════════════════════════
+
+# Maximum length for a user-supplied regex pattern.
+_MAX_REGEX_LENGTH: int = 256
+
+# Patterns that are known to cause catastrophic backtracking.
+# We reject any user-supplied regex that contains these sub-patterns.
+_DANGEROUS_REGEX_PATTERNS: tuple[re.Pattern, ...] = (
+    re.compile(r'\(.*[\+\*].*\)[\+\*]'),   # (a+)+ or (a*)*
+    re.compile(r'\(.*\|.*\)[\+\*]'),        # (a|a)+ alternation amplifier
+    re.compile(r'\.[\+\*].*\.[\+\*]'),      # .+.+ nested quantifiers
+)
+
+
+def _safe_regex_compile(pattern: str, flags: int = 0) -> re.Pattern:
+    """
+    Compile a user-supplied regex pattern with safety guards against ReDoS.
+
+    Raises ``ValueError`` if the pattern is too long, contains dangerous
+    constructs, or is syntactically invalid.
+    """
+    if len(pattern) > _MAX_REGEX_LENGTH:
+        raise ValueError(
+            f"Regex pattern too long ({len(pattern)} chars, max {_MAX_REGEX_LENGTH}). "
+            f"This limit prevents Regular Expression Denial of Service (ReDoS)."
+        )
+
+    for dangerous in _DANGEROUS_REGEX_PATTERNS:
+        if dangerous.search(pattern):
+            _logger.warning(
+                "Rejected potentially dangerous regex pattern: %r", pattern
+            )
+            raise ValueError(
+                "Regex pattern rejected: contains constructs that may cause "
+                "catastrophic backtracking (ReDoS). Simplify the pattern or "
+                "avoid nested quantifiers."
+            )
+
+    try:
+        return re.compile(pattern, flags)
+    except re.error as exc:
+        raise ValueError(f"Invalid regex pattern: {exc}") from exc
+
 
 __all__ = [
     "BaseFilterBackend",
@@ -192,9 +241,11 @@ def _matches_lookup(item_value: Any, lookup: str, filter_value: Any) -> bool:
         else:
             return item_value is not None
     elif lookup == "regex":
-        return bool(re.search(str(filter_value), str(item_value)))
+        compiled = _safe_regex_compile(str(filter_value))
+        return bool(compiled.search(str(item_value)))
     elif lookup == "iregex":
-        return bool(re.search(str(filter_value), str(item_value), re.IGNORECASE))
+        compiled = _safe_regex_compile(str(filter_value), re.IGNORECASE)
+        return bool(compiled.search(str(item_value)))
     elif lookup == "year":
         return getattr(item_value, "year", None) == int(filter_value)
     elif lookup == "month":

@@ -712,8 +712,17 @@ class ControllerEngine:
             elif param.source == "query":
                 value = request.query_param(param_name)
                 if value is not None:
-                    # Cast to expected type
-                    kwargs[param_name] = self._cast_value(value, param.type)
+                    # Cast to expected type (SEC-CTRL-01: catch cast errors)
+                    try:
+                        kwargs[param_name] = self._cast_value(value, param.type)
+                    except (ValueError, TypeError) as cast_err:
+                        from ..faults.domains import RoutingFault
+                        raise RoutingFault(
+                            code="INVALID_QUERY_PARAM",
+                            message=f"Invalid query parameter '{param_name}': {cast_err}",
+                            public=True,
+                            metadata={"param": param_name, "value": value},
+                        ) from cast_err
                 elif not param.required and param.default is not inspect.Parameter.empty:
                     kwargs[param_name] = param.default
             
@@ -842,15 +851,25 @@ class ControllerEngine:
         return kwargs, request_dag
     
     def _cast_value(self, value: str, annotation: Any) -> Any:
-        """Cast string value to target type."""
-        if annotation is int or annotation == "int":
-            return int(value)
-        elif annotation is float or annotation == "float":
-            return float(value)
-        elif annotation is bool or annotation == "bool":
-            return value.lower() in ("true", "1", "yes")
-        else:
-            return value
+        """Cast string value to target type.
+        
+        Raises ValueError with a user-friendly message on bad input
+        (SEC-CTRL-01: was previously uncaught).
+        """
+        try:
+            if annotation is int or annotation == "int":
+                return int(value)
+            elif annotation is float or annotation == "float":
+                return float(value)
+            elif annotation is bool or annotation == "bool":
+                return value.lower() in ("true", "1", "yes")
+            else:
+                return value
+        except (ValueError, TypeError) as exc:
+            raise ValueError(
+                f"Invalid value {value!r} for expected type "
+                f"{getattr(annotation, '__name__', annotation)}"
+            ) from exc
     
     _blueprint_base_class = None   # Cached Blueprint class
 
@@ -1159,11 +1178,27 @@ class ControllerEngine:
         route_metadata: Any,
     ) -> List[Any]:
         """
-        Collect interceptors from the controller class.
+        Collect interceptors from the controller class AND route metadata.
+
+        SEC-CTRL-05: Now merges route-level interceptors with class-level.
+        Route-level interceptors execute after class-level interceptors.
 
         Returns a list of Interceptor instances.
         """
-        return getattr(controller_class, 'interceptors', []) or []
+        class_interceptors = getattr(controller_class, 'interceptors', []) or []
+        
+        # Collect route-level interceptors from metadata
+        route_interceptors = []
+        if route_metadata is not None:
+            # Check raw metadata dict
+            raw_meta = getattr(route_metadata, '_raw_metadata', None)
+            if raw_meta and isinstance(raw_meta, dict):
+                route_interceptors = raw_meta.get('interceptors', []) or []
+            # Also check direct attribute
+            if not route_interceptors:
+                route_interceptors = getattr(route_metadata, 'interceptors', []) or []
+        
+        return list(class_interceptors) + list(route_interceptors)
 
     # ── Exception Filters ────────────────────────────────────────────
 
@@ -1177,9 +1212,23 @@ class ControllerEngine:
         """
         Try to handle an exception through exception filters.
 
+        SEC-CTRL-06: Now logs filter failures instead of silently swallowing.
+        Also merges route-level exception filters with class-level.
+
         Returns a Response if handled, None if the exception should propagate.
         """
-        filters = getattr(controller_class, 'exception_filters', []) or []
+        class_filters = getattr(controller_class, 'exception_filters', []) or []
+        
+        # Merge route-level filters
+        route_filters = []
+        if route_metadata is not None:
+            raw_meta = getattr(route_metadata, '_raw_metadata', None)
+            if raw_meta and isinstance(raw_meta, dict):
+                route_filters = raw_meta.get('exception_filters', []) or []
+            if not route_filters:
+                route_filters = getattr(route_metadata, 'exception_filters', []) or []
+        
+        filters = list(class_filters) + list(route_filters)
         exc_type = type(exception)
 
         for ef in filters:
@@ -1189,9 +1238,15 @@ class ControllerEngine:
                     result = await self._safe_call(ef.catch, exception, ctx)
                     if isinstance(result, Response):
                         return result
-                except Exception:
-                    # If filter itself fails, continue to next
-                    pass
+                except Exception as filter_err:
+                    # SEC-CTRL-06: Log instead of silently swallowing
+                    self.logger.error(
+                        "ExceptionFilter %s.catch() failed while handling %s: %s",
+                        type(ef).__name__,
+                        type(exception).__name__,
+                        filter_err,
+                        exc_info=True,
+                    )
 
         return None
 
@@ -1224,9 +1279,15 @@ class ControllerEngine:
                     timeout=timeout,
                 )
             except asyncio.TimeoutError:
-                raise TimeoutError(
-                    f"Handler {controller_class.__name__}.{handler.__name__} "
-                    f"timed out after {timeout}s"
+                # SEC-CTRL-13: Use structured fault instead of raw TimeoutError
+                from ..faults.domains import FlowCancelledFault
+                raise FlowCancelledFault(
+                    reason=f"timeout ({timeout}s)",
+                    metadata={
+                        "controller": controller_class.__name__,
+                        "handler": getattr(handler, '__name__', str(handler)),
+                        "timeout": timeout,
+                    },
                 )
         else:
             return await self._safe_call(handler, **kwargs)
@@ -1249,7 +1310,11 @@ class ControllerEngine:
         cls._is_coro_cache.clear()
     
     def _to_response(self, result: Any) -> Response:
-        """Convert handler result to Response."""
+        """Convert handler result to Response.
+        
+        SEC-CTRL-03: no longer uses str(result) fallback which could
+        leak internal object representations.
+        """
         if isinstance(result, Response):
             return result
         elif isinstance(result, dict):
@@ -1260,6 +1325,23 @@ class ControllerEngine:
             return Response(result, media_type="text/plain")
         elif result is None:
             return Response("", status=204)
+        elif isinstance(result, (int, float, bool)):
+            return Response.json({"result": result})
         else:
-            # Try to serialize
-            return Response.json({"result": str(result)})
+            # SEC-CTRL-03: Do NOT serialize unknown types via str().
+            # Log the type server-side and return a generic error.
+            self.logger.warning(
+                "Handler returned unsupported type %s; returning generic JSON envelope. "
+                "Consider returning a dict, list, str, or Response.",
+                type(result).__name__,
+            )
+            # Try JSON-safe serialization via __dict__ or generic wrapper
+            if hasattr(result, '__dict__'):
+                try:
+                    return Response.json(result.__dict__)
+                except (TypeError, ValueError):
+                    pass
+            return Response.json(
+                {"error": "Unsupported response type"},
+                status=500,
+            )
