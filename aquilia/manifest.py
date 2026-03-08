@@ -59,9 +59,12 @@ class ComponentRef:
 
     def __post_init__(self):
         if ":" not in self.class_path:
-            raise ValueError(
-                f"ComponentRef class_path must be 'module.path:ClassName', "
-                f"got '{self.class_path}'"
+            from .faults.domains import ManifestInvalidFault
+            raise ManifestInvalidFault(
+                manifest_name="ComponentRef",
+                errors=[
+                    f"class_path must be 'module.path:ClassName', got '{self.class_path}'"
+                ],
             )
 
     @property
@@ -478,14 +481,24 @@ class AppManifest:
     
     def __post_init__(self):
         """Validate and normalize manifest structure."""
+        from .faults.domains import ManifestInvalidFault
         if not self.name:
-            raise ValueError("Manifest must have a name")
+            raise ManifestInvalidFault(
+                manifest_name="unknown",
+                errors=["Manifest must have a name"],
+            )
         if not self.version:
-            raise ValueError("Manifest must have a version")
+            raise ManifestInvalidFault(
+                manifest_name=self.name,
+                errors=["Manifest must have a version"],
+            )
         
         # Validate name format (alphanumeric + underscore)
         if not self.name.replace("_", "").isalnum():
-            raise ValueError(f"Invalid app name '{self.name}': must be alphanumeric with underscores")
+            raise ManifestInvalidFault(
+                manifest_name=self.name,
+                errors=[f"Invalid app name '{self.name}': must be alphanumeric with underscores"],
+            )
         
         # Convert legacy middleware format to new format if needed
         if self.middlewares and not self.middleware:

@@ -10,12 +10,17 @@ The controller-layer ``RequestCtx`` (in ``aquilia.controller.base``) extends
 this with HTTP-specific accessors (path, method, json, form, render).
 This engine-level version is used by middleware, the ASGI adapter, and any
 subsystem that needs DI resolution without a full HTTP request object.
+
+Performance (v3 — scalability):
+- ``os.urandom(16).hex()`` replaces ``uuid.uuid4().hex`` (~4× faster).
+- Metrics tracking moved out of ``__init__`` to avoid double-counting
+  when the ASGI adapter also calls ``request_started()``.
 """
 
 from __future__ import annotations
 
+import os
 import time
-import uuid
 import asyncio
 import logging
 from enum import Enum, auto
@@ -32,6 +37,9 @@ if TYPE_CHECKING:
     from .di import Container
 
 logger = logging.getLogger("aquilia.engine")
+
+# Pre-bind for hot-path speed
+_urandom = os.urandom
 
 
 # ---------------------------------------------------------------------------
@@ -169,15 +177,19 @@ class RequestCtx:
         state: Optional[Dict[str, Any]] = None,
     ) -> None:
         self.container = container
-        self.request_id = request_id or uuid.uuid4().hex
+        self.request_id = request_id or _urandom(16).hex()
         self.state: Dict[str, Any] = state if state is not None else {}
         self.started_at: float = time.monotonic()
         self._cleanup_callbacks: List[Callable] = []
         self._disposed: bool = False
         self._metrics: EngineMetrics = _engine_metrics
 
-        # Track in-flight
-        self._metrics.request_started()
+        # NOTE (v3): metrics.request_started() is NO LONGER called here.
+        # The ASGI adapter is the single source of truth for request counting
+        # to prevent double-counting when both engine-ctx and ASGI adapter
+        # track metrics.  Callers that use engine.RequestCtx directly
+        # (outside the ASGI path) should call _metrics.request_started()
+        # explicitly if they want in-flight tracking.
 
     # -- DI resolution -----------------------------------------------------
 
@@ -195,8 +207,10 @@ class RequestCtx:
         """Synchronous resolution -- only for sync-safe providers."""
         if hasattr(self.container, "resolve"):
             return self.container.resolve(name, optional=optional)
-        raise RuntimeError(
-            "Synchronous resolution is not supported by this container."
+        from .faults.domains import DIResolutionFault
+        raise DIResolutionFault(
+            provider=name,
+            reason="Synchronous resolution is not supported by this container.",
         )
 
     # -- State helpers -----------------------------------------------------

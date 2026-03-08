@@ -16,7 +16,9 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import hmac
 import logging
+import os
 import time
 from typing import Any, Dict, Optional, Tuple, TYPE_CHECKING
 
@@ -84,14 +86,19 @@ class CacheMiddleware:
         if request.method not in self._cacheable_methods:
             return await next_handler(request, ctx)
         
-        # Check for cache bypass header
+        # Check for cache bypass header (requires valid secret token)
         bypass = ""
         if hasattr(request, "headers") and hasattr(request.headers, "get"):
             bypass = request.headers.get("x-cache-bypass", "") or ""
-        if bypass.lower() in ("1", "true", "yes"):
-            response = await next_handler(request, ctx)
-            response.headers["X-Cache"] = "BYPASS"
-            return response
+        if bypass:
+            bypass_secret = os.environ.get("AQUILIA_CACHE_BYPASS_SECRET", "")
+            if bypass_secret and hmac.compare_digest(bypass.strip(), bypass_secret):
+                response = await next_handler(request, ctx)
+                response.headers["X-Cache"] = "BYPASS"
+                return response
+            else:
+                # Ignore invalid bypass attempts silently — treat as normal request
+                logger.warning("Rejected X-Cache-Bypass: invalid or missing secret.")
         
         # Respect no-cache/no-store directives
         cache_control = ""
@@ -264,6 +271,6 @@ class CacheMiddleware:
         return ":".join(parts)
     
     def _generate_etag(self, body: bytes) -> str:
-        """Generate ETag from response body."""
-        digest = hashlib.md5(body).hexdigest()[:16]
+        """Generate ETag from response body using SHA-256."""
+        digest = hashlib.sha256(body).hexdigest()[:32]
         return f'W/"{digest}"'

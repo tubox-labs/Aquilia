@@ -1,5 +1,11 @@
 """
 Middleware system - Composable, async-first middleware with effect awareness.
+
+Performance (v3 — scalability):
+- ``build_fast_handler()`` builds a minimal chain skipping Logging / Timeout
+  middleware for latency-sensitive routes.
+- ``CompressionMiddleware`` offloads ``gzip.compress`` to a thread pool to
+  avoid blocking the event loop.
 """
 
 from __future__ import annotations
@@ -7,7 +13,6 @@ from __future__ import annotations
 from typing import Callable, Awaitable, Optional, Dict, Any, List, TYPE_CHECKING
 from dataclasses import dataclass
 import time
-import uuid
 import traceback
 import logging
 
@@ -21,6 +26,10 @@ if TYPE_CHECKING:
 # Type alias for middleware - use string annotation to avoid circular import
 Handler = Callable[[Request, "RequestCtx"], Awaitable[Response]]
 Middleware = Callable[[Request, "RequestCtx", Handler], Awaitable[Response]]
+
+# Names of middleware that are safe to skip on the fast path.
+# Only non-essential (observability / timeout) middleware.
+_FAST_SKIP_NAMES = frozenset({"LoggingMiddleware", "TimeoutMiddleware"})
 
 
 @dataclass
@@ -87,6 +96,32 @@ class MiddlewareStack:
         for desc in reversed(self.middlewares):
             handler = self._wrap_middleware(desc.middleware, handler)
         
+        return handler
+
+    def build_fast_handler(self, final_handler: Handler) -> Handler:
+        """Build a *minimal* middleware chain for latency-sensitive routes.
+
+        Skips middleware whose class name is in ``_FAST_SKIP_NAMES``
+        (e.g. ``LoggingMiddleware``, ``TimeoutMiddleware``).
+        Essential middleware (RequestId, Exception, CORS, Compression) is
+        kept.
+
+        Returns: A callable identical in signature to ``build_handler()``.
+        """
+        if not self._sorted:
+            self._sort_middlewares()
+            self._sorted = True
+
+        handler = final_handler
+
+        for desc in reversed(self.middlewares):
+            # Derive class name from the middleware callable
+            mw = desc.middleware
+            cls_name = type(mw).__name__ if not isinstance(mw, type) else mw.__name__
+            if cls_name in _FAST_SKIP_NAMES:
+                continue  # skip this middleware
+            handler = self._wrap_middleware(mw, handler)
+
         return handler
     
     def _wrap_middleware(self, middleware: Middleware, next_handler: Handler) -> Handler:
@@ -206,16 +241,6 @@ class ExceptionMiddleware:
         try:
             return await next(request, ctx)
         
-        except ValueError as e:
-            # Client error -- 400
-            self.logger.warning(f"ValueError: {e}")
-            if self.debug and self._wants_html(request):
-                return self._render_debug_http_error(400, "Bad Request", str(e), request)
-            return Response.json(
-                {"error": str(e)},
-                status=400,
-            )
-        
         except PermissionError as e:
             # Forbidden -- 403
             self.logger.warning(f"PermissionError: {e}")
@@ -300,11 +325,12 @@ class ExceptionMiddleware:
             if self.debug and self._wants_html(request):
                 return self._render_debug_exception(e, request)
             
+            # ARCH-04: Never leak tracebacks in JSON responses, even in debug.
+            # Stack traces are only shown in debug HTML pages where they are
+            # useful for local development and cannot be scraped by bots.
             error_data = {"error": "Internal server error"}
-            
             if self.debug:
                 error_data["detail"] = str(e)
-                error_data["traceback"] = traceback.format_exc()
             
             return Response.json(error_data, status=500)
 
@@ -407,7 +433,16 @@ class CORSMiddleware:
         return "*" in self.allow_origins or origin in self.allow_origins
     
     def _preflight_response(self, request: Request) -> Response:
-        """Handle OPTIONS preflight request."""
+        """Handle OPTIONS preflight request.
+
+        ARCH-11: Validates ``Access-Control-Request-Method`` against the
+        configured *allow_methods* list before echoing it back.  Returns
+        403 if the requested method is not allowed.
+        """
+        requested_method = request.header("access-control-request-method")
+        if requested_method and requested_method.upper() not in (m.upper() for m in self.allow_methods):
+            return Response(b"", status=403, headers={})
+
         headers = {
             "access-control-allow-methods": ", ".join(self.allow_methods),
             "access-control-allow-headers": ", ".join(self.allow_headers),
@@ -427,12 +462,22 @@ class CORSMiddleware:
 
 
 class CompressionMiddleware:
-    """Compresses response bodies."""
+    """Compresses response bodies.
+
+    Performance (v3 — scalability):
+    - ``gzip.compress`` is offloaded to a thread pool via
+      ``asyncio.to_thread()`` so the event loop is never blocked.
+    - Pre-bound ``gzip.compress`` avoids repeated module-level lookup.
+    """
     
     def __init__(self, minimum_size: int = 500):
         self.minimum_size = minimum_size
+        import gzip as _gzip
+        self._compress = _gzip.compress  # pre-bind for speed
     
     async def __call__(self, request: Request, ctx: RequestCtx, next: Handler) -> Response:
+        import asyncio as _aio
+
         response = await next(request, ctx)
         
         # Check if client accepts gzip
@@ -451,13 +496,15 @@ class CompressionMiddleware:
         if len(body) < self.minimum_size:
             return response
         
-        # Compress
-        import gzip
-        compressed = gzip.compress(body)
+        # Compress in a thread pool to avoid blocking the event loop
+        compressed = await _aio.to_thread(self._compress, body)
         
         # Update response
         response._content = compressed
         response.headers["content-encoding"] = "gzip"
         response.headers["content-length"] = str(len(compressed))
+        # ARCH-13: Vary header prevents caches from serving gzipped content
+        # to clients that don't support it (and vice versa).
+        response.headers["vary"] = "Accept-Encoding"
         
         return response

@@ -168,12 +168,16 @@ class FlowContext:
         """Get an acquired effect resource by name.
 
         Raises:
-            KeyError: If the effect has not been acquired.
+            EffectFault: If the effect has not been acquired.
         """
         if name not in self.effects:
-            raise KeyError(
-                f"Effect '{name}' not acquired. "
-                f"Declare it with @requires('{name}') or add it to the pipeline."
+            from .faults.domains import EffectFault
+            raise EffectFault(
+                code="EFFECT_NOT_ACQUIRED",
+                message=(
+                    f"Effect '{name}' not acquired. "
+                    f"Declare it with @requires('{name}') or add it to the pipeline."
+                ),
             )
         return self.effects[name]
 

@@ -25,6 +25,9 @@ from .controller.openapi import OpenAPIGenerator, OpenAPIConfig, generate_swagge
 from .faults.engine import FaultEngine, FaultMiddleware
 from .response import Response
 from .health import HealthRegistry, HealthStatus, SubsystemStatus
+from .faults.domains import (
+    ConfigMissingFault, ConfigInvalidFault, RoutingFault, ManifestInvalidFault,
+)
 # Template Integration
 from .templates.middleware import TemplateMiddleware
 from .templates.di_providers import register_template_providers
@@ -92,7 +95,9 @@ class AquiliaServer:
             self.aquilary = aquilary_registry
         else:
             if manifests is None:
-                raise ValueError("Must provide either manifests or aquilary_registry")
+                raise ConfigMissingFault(
+                    key="manifests_or_aquilary_registry",
+                )
             
             # Build Aquilary registry from manifests
             self.aquilary = Aquilary.from_manifests(
@@ -525,6 +530,16 @@ class AquiliaServer:
         if not class_path:
             return
 
+        # Validate class_path to prevent arbitrary code loading
+        if not isinstance(class_path, str) or not all(
+            part.isidentifier() for part in class_path.replace(":", ".").split(".")
+        ):
+            self.logger.warning(
+                "Invalid middleware class_path '%s' -- must be dotted Python identifiers",
+                class_path,
+            )
+            return
+
         # Import class
         if ":" in class_path:
             module_path, class_name = class_path.split(":", 1)
@@ -596,8 +611,13 @@ class AquiliaServer:
                 elif hasattr(item, "class_path"):
                     import_paths.append(item.class_path)
                 else:
-                    # Unknown type -- try str() as last resort
-                    import_paths.append(str(item))
+                    # ARCH-16: Skip unknown types instead of str() which
+                    # could produce garbage import paths.
+                    self.logger.debug(
+                        "Skipping unknown service/controller type %r in static dir discovery",
+                        type(item).__name__,
+                    )
+                    continue
 
             for import_path in import_paths:
                 if ":" in import_path:
@@ -774,9 +794,10 @@ class AquiliaServer:
                 mw = EnhancedCORSMiddleware(allow_origins=["*"])
             self.middleware_stack.add(mw, scope="global", priority=11, name="cors")
 
-        # ── CSRF Protection (priority 10) ────────────────────────────────
-        # Must run AFTER session middleware (priority 15) so session is available,
-        # but BEFORE route handlers. Priority 10 places it between CSP and CORS.
+        # ── CSRF Protection (priority 20) ────────────────────────────────
+        # Must run AFTER session/auth middleware (priority 15) so session
+        # is available for CSRF token storage and validation.  Priority 20
+        # places it between session/auth (15) and i18n (24).
         if security_config.get("csrf_protection"):
             from .middleware_ext.security import CSRFMiddleware, csrf_token_func as _csrf_token_func
             csrf_cfg = security_config.get("csrf_config", {})
@@ -800,7 +821,7 @@ class AquiliaServer:
                 rotate_token=csrf_cfg.get("rotate_token", False),
                 failure_status=csrf_cfg.get("failure_status", 403),
             )
-            self.middleware_stack.add(mw, scope="global", priority=10, name="csrf")
+            self.middleware_stack.add(mw, scope="global", priority=20, name="csrf")
 
             # Wire CSRF token function into TemplateMiddleware if present
             self._csrf_token_func = _csrf_token_func
@@ -1631,9 +1652,13 @@ class AquiliaServer:
             or self._is_debug()
         )
         if secret in _INSECURE_SECRETS and not is_dev:
-            raise ValueError(
-                "FATAL: Auth secret_key is insecure or unset in non-DEV mode. "
-                "Set a strong secret via AQ_AUTH__TOKENS__SECRET_KEY or config."
+            from .faults.domains import ConfigInvalidFault
+            raise ConfigInvalidFault(
+                key="auth.tokens.secret_key",
+                reason=(
+                    "Auth secret_key is insecure or unset in non-DEV mode. "
+                    "Set a strong secret via AQ_AUTH__TOKENS__SECRET_KEY or config."
+                ),
             )
             
         # Generate KeyRing (simple for now, just one RS256 key)
@@ -1717,7 +1742,10 @@ class AquiliaServer:
                     f"  {c['method']} {c['route1']['path']}: "
                     f"{c['route1']['controller']} vs {c['route2']['controller']}"
                 )
-            raise RuntimeError(f"Found {len(conflicts)} route conflicts. check logs.")
+            raise RoutingFault(
+                    code="ROUTE_CONFLICT",
+                    message=f"Found {len(conflicts)} route conflicts. Check logs for details.",
+                )
 
         # Step 1.2: Initialize WebSocket runtime and load socket controllers
         await self.aquila_sockets.initialize()
@@ -2645,9 +2673,12 @@ class AquiliaServer:
         import importlib
         
         if ":" not in controller_path:
-            raise ValueError(
-                f"Invalid controller path '{controller_path}': "
-                f"Expected format 'module.path:ClassName'"
+            raise ConfigInvalidFault(
+                key="controller_path",
+                reason=(
+                    f"Invalid controller path '{controller_path}': "
+                    f"Expected format 'module.path:ClassName'"
+                ),
             )
         
         try:
@@ -2656,9 +2687,12 @@ class AquiliaServer:
             controller_class = getattr(module, class_name)
             
             if not isinstance(controller_class, type):
-                raise TypeError(
-                    f"{controller_path} resolved to {type(controller_class).__name__}, "
-                    f"expected a class"
+                raise ConfigInvalidFault(
+                    key="controller_path",
+                    reason=(
+                        f"{controller_path} resolved to {type(controller_class).__name__}, "
+                        f"expected a class"
+                    ),
                 )
             
             return controller_class

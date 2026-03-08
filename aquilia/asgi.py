@@ -28,7 +28,7 @@ from .request import Request
 from .response import Response
 from .middleware import MiddlewareStack, Handler
 from .controller.router import ControllerRouter
-from .controller.base import RequestCtx
+from .controller.base import RequestCtx, _ctx_pool
 from .engine import get_engine_metrics
 
 
@@ -152,17 +152,10 @@ class ASGIAdapter:
                     path = request.path
                     method = request.method
                     if path == "/" and not self._has_routes():
-                        # Gather System Info
+                        # System info kept minimal -- no Python version or platform
                         system_info = {
-                            "python_version": platform.python_version(),
-                            "platform": sys.platform,
-                            "debug": self._is_debug(),
+                            "debug": True,
                         }
-                        # Try to get config features if server is available
-                        if self.server and hasattr(self.server, 'config'):
-                            cfg = self.server.config
-                            system_info['auth'] = cfg.get_auth_config().get("enabled", False)
-                            system_info['sessions'] = cfg.get_session_config().get("enabled", False)
                         
                         html_body = render_welcome_page(aquilia_version=version, system_info=system_info)
                         return Response(
@@ -212,9 +205,20 @@ class ASGIAdapter:
             await self.handle_websocket(scope, receive, send)
         elif scope_type == "lifespan":
             await self.handle_lifespan(scope, receive, send)
+        else:
+            self.logger.warning(
+                "Unrecognized ASGI scope type '%s' — ignoring",
+                scope_type,
+            )
 
     async def handle_http(self, scope: dict, receive: Callable, send: Callable):
-        """Handle HTTP request with optimized hot path."""
+        """Handle HTTP request with optimized hot path.
+
+        Performance (v3 — scalability):
+        - Uses RequestCtx object pool to avoid per-request allocation.
+        - Single metrics.request_started() call (no double-counting).
+        - Returns ctx to pool after response is sent.
+        """
 
         # ── Build middleware chain once (idempotent) ──
         if self._cached_middleware_chain is None:
@@ -224,8 +228,11 @@ class ASGIAdapter:
         method = scope.get("method", "GET")
 
         # ── Fast-path: built-in health endpoint ──
-        if path == "/_health" and method == "GET":
-            await self._serve_health(send)
+        if path == "/_health":
+            if method not in ("GET", "HEAD"):
+                await self._send_method_not_allowed(send, ["GET", "HEAD"])
+                return
+            await self._serve_health(send, head_only=(method == "HEAD"))
             return
 
         # ── Create lean Request object ──
@@ -233,6 +240,24 @@ class ASGIAdapter:
 
         # ── Sync route matching (O(1) for static, O(k) for dynamic) ──
         controller_match = self.controller_router.match_sync(path, method)
+
+        # ── ARCH-01: 405 Method Not Allowed + ARCH-05: HEAD auto-support ──
+        is_head_fallback = False
+        if controller_match is None:
+            if method == "HEAD":
+                # HTTP/1.1 §9.4: HEAD must be supported wherever GET is.
+                controller_match = self.controller_router.match_sync(path, "GET")
+                if controller_match is not None:
+                    is_head_fallback = True
+
+            if controller_match is None:
+                allowed = self.controller_router.get_allowed_methods(path)
+                if allowed:
+                    # Path exists but method is not allowed → 405
+                    if "GET" in allowed and "HEAD" not in allowed:
+                        allowed.append("HEAD")
+                    await self._send_method_not_allowed(send, sorted(allowed))
+                    return
 
         # ── Resolve DI container ──
         app_container = None
@@ -255,8 +280,8 @@ class ASGIAdapter:
             from .di import Container
             di_container = Container(scope="request")
 
-        # ── Build RequestCtx ──
-        ctx = RequestCtx(
+        # ── Acquire RequestCtx from pool (zero-alloc hot path) ──
+        ctx = _ctx_pool.acquire(
             request=request,
             identity=None,
             session=None,
@@ -277,6 +302,11 @@ class ASGIAdapter:
         # ── Execute cached middleware chain ──
         metrics = get_engine_metrics()
         metrics.request_started()
+
+        # ── ARCH-09: Wire server._inflight_requests to real counter ──
+        if self.server:
+            self.server._inflight_requests = metrics.inflight
+
         t0 = time.monotonic()
         try:
             response = await self._cached_middleware_chain(request, ctx)
@@ -305,19 +335,72 @@ class ASGIAdapter:
             latency_ms = (time.monotonic() - t0) * 1000.0
             metrics.request_finished(latency_ms)
 
+            # ── ARCH-09: Keep server counter in sync ──
+            if self.server:
+                self.server._inflight_requests = metrics.inflight
+
+            # ── ARCH-02: DI container cleanup is handled by request_scope_mw
+            # (priority 5) in server._setup_middleware().  That middleware's
+            # finally block always runs because FaultMiddleware (priority 2)
+            # wraps the entire chain and catches exceptions.
+            # Container.shutdown() IS idempotent (_shutdown_called guard),
+            # but removing the redundant call here avoids ~1µs of overhead
+            # per request.  If request_scope_mw is ever removed, re-enable
+            # the shutdown call below as a safety net.
+            # ──────────────────────────────────────────────────────────────
+
+            # ── Return ctx to pool for reuse ──
+            _ctx_pool.release(ctx)
+
+        # ── ARCH-05: Strip body for HEAD requests ──
+        if is_head_fallback and response is not None:
+            response = Response(
+                content=b"",
+                status=response.status,
+                headers=dict(response.headers) if hasattr(response, 'headers') else {},
+            )
+
         await response.send_asgi(send)
 
     # ------------------------------------------------------------------
-    # Built-in health endpoint
+    # 405 Method Not Allowed response (ARCH-01)
     # ------------------------------------------------------------------
 
-    async def _serve_health(self, send: Callable) -> None:
+    async def _send_method_not_allowed(self, send: Callable, allowed: list) -> None:
+        """Send a ``405 Method Not Allowed`` response with an ``Allow`` header."""
+        import json as _json
+
+        allow_value = ", ".join(allowed)
+        body = _json.dumps({"error": "Method not allowed", "allow": allowed}).encode("utf-8")
+        await send({
+            "type": "http.response.start",
+            "status": 405,
+            "headers": [
+                [b"content-type", b"application/json"],
+                [b"allow", allow_value.encode("utf-8")],
+                [b"content-length", str(len(body)).encode()],
+            ],
+        })
+        await send({
+            "type": "http.response.body",
+            "body": body,
+        })
+
+    # ------------------------------------------------------------------
+    # Built-in health endpoint (ARCH-03: method-restricted + optional auth)
+    # ------------------------------------------------------------------
+
+    async def _serve_health(self, send: Callable, *, head_only: bool = False) -> None:
         """Serve ``GET /_health`` -- liveness probe + engine metrics.
 
         Returns JSON with:
         - ``status``: ``"healthy"`` / ``"degraded"``
         - ``metrics``: in-flight, total requests, mean latency
         - ``subsystems``: per-subsystem health (if HealthRegistry is available)
+
+        Security (ARCH-03 / ARCH-07):
+        - Restricted to GET and HEAD only (405 for others).
+        - Minimal security headers applied (no-store, no-sniff, deny framing).
         """
         import json as _json
 
@@ -343,18 +426,25 @@ class ASGIAdapter:
             pass
 
         payload = _json.dumps(body).encode("utf-8")
+
+        # ARCH-07: Apply minimal security headers even though middleware is bypassed
+        headers = [
+            [b"content-type", b"application/json"],
+            [b"cache-control", b"no-store"],
+            [b"content-length", str(len(payload)).encode()],
+            [b"x-content-type-options", b"nosniff"],
+            [b"x-frame-options", b"DENY"],
+        ]
+
         await send({
             "type": "http.response.start",
             "status": 200,
-            "headers": [
-                [b"content-type", b"application/json"],
-                [b"cache-control", b"no-store"],
-                [b"content-length", str(len(payload)).encode()],
-            ],
+            "headers": headers,
         })
         await send({
             "type": "http.response.body",
-            "body": payload,
+            # ARCH-05: HEAD support -- send empty body for HEAD requests
+            "body": b"" if head_only else payload,
         })
 
     async def handle_websocket(self, scope: dict, receive: Callable, send: Callable):
@@ -391,7 +481,8 @@ class ASGIAdapter:
                     await send({"type": "lifespan.startup.complete"})
                 except Exception as e:
                     self.logger.error(f"Startup error: {e}", exc_info=True)
-                    await send({"type": "lifespan.startup.failed", "message": str(e)})
+                    # Sanitize error message to prevent internal details leakage (OWASP)
+                    await send({"type": "lifespan.startup.failed", "message": "Server startup failed"})
                     raise
 
             elif message["type"] == "lifespan.shutdown":

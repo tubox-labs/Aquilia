@@ -700,7 +700,11 @@ class EffectRegistry:
     def get_provider(self, effect_name: str) -> EffectProvider:
         """Get provider for effect."""
         if effect_name not in self.providers:
-            raise KeyError(f"Effect '{effect_name}' not registered")
+            from .faults.domains import EffectFault
+            raise EffectFault(
+                code="EFFECT_NOT_REGISTERED",
+                message=f"Effect '{effect_name}' not registered",
+            )
         return self.providers[effect_name]
 
     # -- Health -----------------------------------------------------------
