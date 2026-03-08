@@ -291,6 +291,9 @@ class TextFacet(Facet):
 
     _type_name = "string"
 
+    # Maximum allowed length for regex patterns to prevent ReDoS
+    MAX_PATTERN_LENGTH = 500
+
     def __init__(
         self,
         *,
@@ -304,14 +307,39 @@ class TextFacet(Facet):
         self.min_length = min_length
         self.max_length = max_length
         self.trim = trim
-        self.pattern = re.compile(pattern) if pattern else None
+        if pattern:
+            if len(pattern) > self.MAX_PATTERN_LENGTH:
+                raise CastFault(
+                    "<pattern>",
+                    f"Regex pattern too long ({len(pattern)} chars). "
+                    f"Maximum allowed: {self.MAX_PATTERN_LENGTH}",
+                )
+            # Check for dangerous nested quantifiers (basic ReDoS detection)
+            import re as _re
+            _nested_quantifier = _re.compile(
+                r'(\([^)]*[+*]\)[+*?]|\([^)]*\)\{[0-9,]+\}[+*?]|'
+                r'[+*]\{[0-9,]+\}|[+*][+*])'
+            )
+            if _nested_quantifier.search(pattern):
+                raise CastFault(
+                    "<pattern>",
+                    "Regex pattern contains potentially dangerous nested quantifiers "
+                    "(ReDoS risk). Simplify the pattern or use a non-backtracking engine.",
+                )
+            self.pattern = re.compile(pattern)
+        else:
+            self.pattern = None
 
     def cast(self, value: Any) -> str:
-        if not isinstance(value, str):
-            try:
-                value = str(value)
-            except (ValueError, TypeError) as exc:
-                raise CastFault(self.name or "<unbound>", f"Expected string, got {type(value).__name__}") from exc
+        if isinstance(value, str):
+            if self.trim:
+                value = value.strip()
+            return value
+        # Only coerce safe primitive types to string
+        if isinstance(value, (int, float, bool)):
+            value = str(value)
+        else:
+            raise CastFault(self.name or "<unbound>", f"Expected string, got {type(value).__name__}")
         if self.trim:
             value = value.strip()
         return value
@@ -469,17 +497,27 @@ class FloatFacet(Facet):
         *,
         min_value: float | None = None,
         max_value: float | None = None,
+        allow_nan: bool = False,
+        allow_infinity: bool = False,
         **kwargs,
     ):
         super().__init__(**kwargs)
         self.min_value = min_value
         self.max_value = max_value
+        self.allow_nan = allow_nan
+        self.allow_infinity = allow_infinity
 
     def cast(self, value: Any) -> float:
+        import math
         try:
-            return float(value)
+            result = float(value)
         except (ValueError, TypeError, OverflowError) as exc:
             raise CastFault(self.name or "<unbound>", f"Expected number, got {type(value).__name__}") from exc
+        if not self.allow_nan and math.isnan(result):
+            raise CastFault(self.name or "<unbound>", "NaN is not allowed")
+        if not self.allow_infinity and math.isinf(result):
+            raise CastFault(self.name or "<unbound>", "Infinity is not allowed")
+        return result
 
     def seal(self, value: Any) -> float:
         if self.min_value is not None and value < self.min_value:
@@ -801,24 +839,35 @@ class DictFacet(Facet):
 
     _type_name = "object"
 
-    def __init__(self, *, value_facet: Facet | None = None, **kwargs):
+    # Default maximum number of keys to prevent hash-collision DoS
+    DEFAULT_MAX_KEYS = 1000
+
+    def __init__(self, *, value_facet: Facet | None = None, max_keys: int | None = None, **kwargs):
         super().__init__(**kwargs)
-        if value_facet is not None:
-            # Bind child facet's initial name
-            value_facet.name = f"{self.name or '<unbound>'}[*]"
         self.value_facet = value_facet
+        self.max_keys = max_keys if max_keys is not None else self.DEFAULT_MAX_KEYS
 
     def cast(self, value: Any) -> dict:
         if not isinstance(value, dict):
             raise CastFault(self.name or "<unbound>", f"Expected object, got {type(value).__name__}")
+
+        if self.max_keys is not None and len(value) > self.max_keys:
+            raise CastFault(
+                self.name or "<unbound>",
+                f"Too many keys: {len(value)} exceeds maximum of {self.max_keys}",
+            )
         
         result = {}
         for k, v in value.items():
             if not isinstance(k, str):
                 raise CastFault(self.name or "<unbound>", f"Dictionary keys must be strings, got {type(k).__name__}")
             if self.value_facet:
-                self.value_facet.name = f"{self.name or '<unbound>'}[{k}]"
-                result[k] = self.value_facet.cast(v)
+                # Thread-safe: use local variable for name instead of mutating shared facet
+                child_name = f"{self.name or '<unbound>'}[{k}]"
+                try:
+                    result[k] = self.value_facet.cast(v)
+                except CastFault:
+                    raise CastFault(child_name, f"Invalid value for key '{k}'")
             else:
                 result[k] = v
         return result
@@ -829,8 +878,11 @@ class DictFacet(Facet):
             
         result = {}
         for k, v in value.items():
-            self.value_facet.name = f"{self.name or '<unbound>'}[{k}]"
-            result[k] = self.value_facet.seal(v)
+            child_name = f"{self.name or '<unbound>'}[{k}]"
+            try:
+                result[k] = self.value_facet.seal(v)
+            except CastFault:
+                raise CastFault(child_name, f"Validation failed for key '{k}'")
         return result
 
     def mold(self, value: Any) -> dict | None:
@@ -847,7 +899,6 @@ class DictFacet(Facet):
             
         result = {}
         for k, v in value.items():
-            self.value_facet.name = f"{self.name or '<unbound>'}[{k}]"
             result[k] = self.value_facet.mold(v)
         return result
 
@@ -859,12 +910,48 @@ class DictFacet(Facet):
 
 
 class JSONFacet(Facet):
-    """Arbitrary JSON facet (any JSON-serializable value)."""
+    """Arbitrary JSON facet with configurable depth and type restrictions."""
 
     _type_name = "object"
 
+    # Default maximum nesting depth for JSON structures
+    DEFAULT_MAX_DEPTH = 32
+
+    # Safe JSON-primitive types (default allowlist)
+    JSON_SAFE_TYPES = (str, int, float, bool, type(None), list, dict)
+
+    def __init__(
+        self,
+        *,
+        max_depth: int | None = None,
+        allowed_types: tuple | None = None,
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+        self.max_depth = max_depth if max_depth is not None else self.DEFAULT_MAX_DEPTH
+        self.allowed_types = allowed_types if allowed_types is not None else self.JSON_SAFE_TYPES
+
+    def _check_depth(self, value: Any, current_depth: int = 0) -> None:
+        """Recursively check nesting depth and type safety."""
+        if current_depth > self.max_depth:
+            raise CastFault(
+                self.name or "<unbound>",
+                f"JSON nesting depth exceeds maximum of {self.max_depth}",
+            )
+        if not isinstance(value, self.allowed_types):
+            raise CastFault(
+                self.name or "<unbound>",
+                f"Type {type(value).__name__} is not allowed in JSON field",
+            )
+        if isinstance(value, dict):
+            for v in value.values():
+                self._check_depth(v, current_depth + 1)
+        elif isinstance(value, list):
+            for item in value:
+                self._check_depth(item, current_depth + 1)
+
     def cast(self, value: Any) -> Any:
-        # Accept any JSON-serializable value
+        self._check_depth(value)
         return value
 
 
