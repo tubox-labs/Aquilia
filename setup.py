@@ -34,6 +34,9 @@ CORE_DEPS = [
     "markupsafe>=2.1.0",
     # Async SQLite — default database backend
     "aiosqlite>=0.20.0",
+    # Crous compiler — used for manifest compilation and runtime evaluation
+    "crousr",
+    "crous-native",
 ]
 
 # ---------------------------------------------------------------------------
