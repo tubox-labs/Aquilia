@@ -36,6 +36,7 @@
             {% endif %}
 
             <form method="POST" action="{{ url_prefix|default('/admin') }}/login" autocomplete="off">
+                {% if csrf_token %}<input type="hidden" name="_csrf_token" value="{{ csrf_token }}">{% endif %}
                 <div class="form-group">
                     <label class="form-label" for="username"><i class="icon-user" style="font-size:13px;vertical-align:-1px;margin-right:4px;opacity:0.5;"></i>Username</label>
                     <input class="form-input" type="text" id="username" name="username" placeholder="Enter your username" required autofocus>
