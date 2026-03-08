@@ -111,7 +111,8 @@ class SessionID:
         if raw is None:
             raw = secrets.token_bytes(self.ENTROPY_BYTES)
         elif len(raw) != self.ENTROPY_BYTES:
-            raise ValueError(f"Session ID must be exactly {self.ENTROPY_BYTES} bytes")
+            from .faults import SessionInvalidFault
+            raise SessionInvalidFault()
         
         self._raw = raw
         self._encoded = f"{self.PREFIX}{base64.urlsafe_b64encode(raw).decode().rstrip('=')}"
@@ -130,10 +131,20 @@ class SessionID:
     def __hash__(self) -> int:
         return hash(self._raw)
     
+    # Maximum allowed length for an encoded session ID string.
+    # sess_ (5) + base64url of 32 bytes (43) + padding (3) = 51 chars max.
+    _MAX_ENCODED_LENGTH = 128
+
     @classmethod
     def from_string(cls, encoded: str) -> SessionID:
+        from .faults import SessionInvalidFault
+
+        # Guard: reject oversized input before any processing
+        if not isinstance(encoded, str) or len(encoded) > cls._MAX_ENCODED_LENGTH:
+            raise SessionInvalidFault()
+
         if not encoded.startswith(cls.PREFIX):
-            raise ValueError(f"Invalid session ID format: must start with '{cls.PREFIX}'")
+            raise SessionInvalidFault()
         
         raw_b64 = encoded[len(cls.PREFIX):]
         
@@ -143,11 +154,11 @@ class SessionID:
         
         try:
             raw = base64.urlsafe_b64decode(raw_b64)
-        except Exception as e:
-            raise ValueError(f"Invalid session ID encoding: {e}")
+        except Exception:
+            raise SessionInvalidFault()
         
         if len(raw) != cls.ENTROPY_BYTES:
-            raise ValueError(f"Decoded session ID has wrong length: {len(raw)} bytes")
+            raise SessionInvalidFault()
         
         return cls(raw)
     
@@ -294,9 +305,28 @@ class Session:
     def __getitem__(self, key: str) -> Any:
         return self.data[key]
     
-    def __setitem__(self, key: str, value: Any) -> None:
+    # Maximum allowed size of session data dict in bytes (approximate).
+    MAX_DATA_KEYS = 256
+
+    def _check_writable(self) -> None:
+        """Raise SessionLockedFault if session is read-only."""
         if self.is_read_only:
-            raise RuntimeError("Cannot mutate read-only session")
+            from .faults import SessionLockedFault
+            raise SessionLockedFault()
+
+    def _check_data_limit(self) -> None:
+        """Raise SessionPolicyViolationFault if data exceeds key limit."""
+        if len(self.data) >= self.MAX_DATA_KEYS:
+            from .faults import SessionPolicyViolationFault
+            raise SessionPolicyViolationFault(
+                violation=f"Session data exceeds {self.MAX_DATA_KEYS} key limit",
+                policy_name=self._policy_name or "unknown",
+            )
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        self._check_writable()
+        if key not in self.data:
+            self._check_data_limit()
         self.data[key] = value
         self._dirty = True
     
@@ -304,8 +334,7 @@ class Session:
         return key in self.data
     
     def __delitem__(self, key: str) -> None:
-        if self.is_read_only:
-            raise RuntimeError("Cannot mutate read-only session")
+        self._check_writable()
         del self.data[key]
         self._dirty = True
     
@@ -313,21 +342,20 @@ class Session:
         return self.data.get(key, default)
     
     def set(self, key: str, value: Any) -> None:
-        if self.is_read_only:
-            raise RuntimeError("Cannot mutate read-only session")
+        self._check_writable()
+        if key not in self.data:
+            self._check_data_limit()
         self.data[key] = value
         self._dirty = True
     
     def delete(self, key: str) -> None:
-        if self.is_read_only:
-            raise RuntimeError("Cannot mutate read-only session")
+        self._check_writable()
         if key in self.data:
             del self.data[key]
             self._dirty = True
     
     def clear_data(self) -> None:
-        if self.is_read_only:
-            raise RuntimeError("Cannot mutate read-only session")
+        self._check_writable()
         self.data.clear()
         self._dirty = True
     
@@ -450,6 +478,8 @@ class Session:
     # ========================================================================
     
     def to_dict(self) -> dict[str, Any]:
+        # Serialize data as a plain dict (strip _DirtyTrackingDict wrapper)
+        serialized_data = dict(self.data)
         return {
             "id": str(self.id),
             "principal": (
@@ -461,44 +491,94 @@ class Session:
                 if self.principal
                 else None
             ),
-            "data": self.data,
+            "data": serialized_data,
             "created_at": self.created_at.isoformat(),
             "last_accessed_at": self.last_accessed_at.isoformat(),
             "expires_at": self.expires_at.isoformat() if self.expires_at else None,
             "scope": self.scope.value,
-            "flags": [f.value for f in self.flags],
+            "flags": sorted(f.value for f in self.flags),
             "version": self.version,
             "_policy_name": self._policy_name,
             "_fingerprint": self._fingerprint,
         }
     
+    # Maximum size of a serialized session dict (in bytes, approximate).
+    _MAX_SERIALIZED_SIZE = 1_048_576  # 1 MiB
+
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Session:
+        from .faults import SessionStoreCorruptedFault
+
+        if not isinstance(data, dict):
+            raise SessionStoreCorruptedFault(
+                message="Session data must be a dict",
+            )
+
+        # Guard: required keys
+        for key in ("id", "created_at", "last_accessed_at", "scope"):
+            if key not in data:
+                raise SessionStoreCorruptedFault(
+                    message=f"Missing required session field: {key}",
+                )
+
         session_id = SessionID.from_string(data["id"])
         
         principal = None
         if data.get("principal"):
+            p = data["principal"]
+            if not isinstance(p, dict) or "kind" not in p or "id" not in p:
+                raise SessionStoreCorruptedFault(
+                    message="Invalid principal structure in session data",
+                )
             principal = SessionPrincipal(
-                kind=data["principal"]["kind"],
-                id=data["principal"]["id"],
-                attributes=data["principal"].get("attributes", {}),
+                kind=p["kind"],
+                id=str(p["id"]),
+                attributes=p.get("attributes", {}),
             )
         
-        created_at = datetime.fromisoformat(data["created_at"])
-        last_accessed_at = datetime.fromisoformat(data["last_accessed_at"])
-        expires_at = (
-            datetime.fromisoformat(data["expires_at"])
-            if data.get("expires_at")
-            else None
-        )
+        try:
+            created_at = datetime.fromisoformat(data["created_at"])
+            last_accessed_at = datetime.fromisoformat(data["last_accessed_at"])
+        except (ValueError, TypeError) as e:
+            raise SessionStoreCorruptedFault(
+                message=f"Invalid timestamp in session data: {e}",
+            )
+
+        expires_at = None
+        if data.get("expires_at"):
+            try:
+                expires_at = datetime.fromisoformat(data["expires_at"])
+            except (ValueError, TypeError) as e:
+                raise SessionStoreCorruptedFault(
+                    message=f"Invalid expires_at in session data: {e}",
+                )
         
-        scope = SessionScope(data["scope"])
-        flags = {SessionFlag(f) for f in data.get("flags", [])}
+        try:
+            scope = SessionScope(data["scope"])
+        except ValueError:
+            raise SessionStoreCorruptedFault(
+                message=f"Invalid scope value: {data['scope']}",
+            )
+
+        flags_raw = data.get("flags", [])
+        flags = set()
+        for f in flags_raw:
+            try:
+                flags.add(SessionFlag(f))
+            except ValueError:
+                pass  # Ignore unknown flags for forward-compat
         
+        # Guard: session data payload size
+        session_data = data.get("data", {})
+        if not isinstance(session_data, dict):
+            raise SessionStoreCorruptedFault(
+                message="Session data payload must be a dict",
+            )
+
         session = cls(
             id=session_id,
             principal=principal,
-            data=data.get("data", {}),
+            data=session_data,
             created_at=created_at,
             last_accessed_at=last_accessed_at,
             expires_at=expires_at,

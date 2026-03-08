@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 from collections import OrderedDict
 from pathlib import Path
 from typing import Protocol, Any
@@ -20,6 +21,7 @@ from .faults import (
     SessionNotFoundFault,
     SessionStoreUnavailableFault,
     SessionStoreCorruptedFault,
+    SessionForgeryAttemptFault,
 )
 
 
@@ -201,8 +203,25 @@ class FileStore:
         self.directory.mkdir(parents=True, exist_ok=True)
         self._lock = asyncio.Lock()
     
+    # Pattern: sess_ followed by base64url characters (A-Z, a-z, 0-9, -, _)
+    _SAFE_ID_PATTERN = re.compile(r'^sess_[A-Za-z0-9_-]{20,64}$')
+
     def _get_path(self, session_id: SessionID) -> Path:
-        return self.directory / f"{session_id}.json"
+        sid_str = str(session_id)
+        # Guard: reject session IDs that don't match expected format
+        if not self._SAFE_ID_PATTERN.match(sid_str):
+            raise SessionForgeryAttemptFault(
+                reason=f"Session ID contains invalid characters",
+            )
+        path = self.directory / f"{sid_str}.json"
+        # Guard: ensure resolved path stays within the session directory
+        try:
+            path.resolve().relative_to(self.directory.resolve())
+        except ValueError:
+            raise SessionForgeryAttemptFault(
+                reason="Session ID attempted path traversal",
+            )
+        return path
     
     async def load(self, session_id: SessionID) -> Session | None:
         path = self._get_path(session_id)

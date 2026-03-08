@@ -29,6 +29,7 @@ from .faults import (
     SessionPolicyViolationFault,
     SessionStoreUnavailableFault,
     SessionFingerprintMismatchFault,
+    SessionHijackAttemptFault,
 )
 
 if TYPE_CHECKING:
@@ -98,7 +99,7 @@ class SessionEngine:
                     self._emit_event("session_loaded", session, request)
                     return session
             
-            except ValueError:
+            except (ValueError, SessionInvalidFault):
                 self.logger.warning(f"Invalid session ID format: {session_id_str[:16]}...")
                 self._emit_event("session_invalid", None, request)
             
@@ -165,6 +166,11 @@ class SessionEngine:
                 user_agent = request.header("user-agent") or ""
             
             if not session.verify_fingerprint(client_ip, user_agent):
+                # Delete the hijacked session from store (OWASP: destroy on hijack)
+                try:
+                    await self.store.delete(session_id)
+                except Exception:
+                    pass
                 raise SessionFingerprintMismatchFault(session_id=str(session_id))
         
         # Touch session (update last_accessed_at)
