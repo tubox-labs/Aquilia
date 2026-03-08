@@ -45,13 +45,19 @@ class Lifecycle:
         "_shutdown_hooks",
         "_finalizers",
         "_disposal_strategy",
+        "_hook_timeout",
     )
     
-    def __init__(self, disposal_strategy: DisposalStrategy = DisposalStrategy.LIFO):
+    def __init__(
+        self,
+        disposal_strategy: DisposalStrategy = DisposalStrategy.LIFO,
+        hook_timeout: float = 30.0,  # SEC-DI-10: default 30s per hook
+    ):
         self._startup_hooks: List[LifecycleHook] = []
         self._shutdown_hooks: List[LifecycleHook] = []
         self._finalizers: List[Callable[[], Coroutine]] = []
         self._disposal_strategy = disposal_strategy
+        self._hook_timeout = hook_timeout
     
     def on_startup(
         self,
@@ -116,12 +122,16 @@ class Lifecycle:
         self._finalizers.append(finalizer)
     
     async def run_startup_hooks(self) -> None:
-        """Run all startup hooks in priority order."""
+        """Run all startup hooks in priority order with per-hook timeout (SEC-DI-10)."""
         errors = []
         
         for hook in self._startup_hooks:
             try:
-                await hook.callback()
+                await asyncio.wait_for(hook.callback(), timeout=self._hook_timeout)
+            except asyncio.TimeoutError:
+                errors.append((hook.name, TimeoutError(
+                    f"Startup hook '{hook.name}' timed out after {self._hook_timeout}s"
+                )))
             except Exception as e:
                 errors.append((hook.name, e))
         
@@ -129,15 +139,25 @@ class Lifecycle:
             error_msg = "Startup hooks failed:\n"
             for name, error in errors:
                 error_msg += f"  - {name}: {error}\n"
-            raise RuntimeError(error_msg)
+            from ..faults.domains import SystemFault
+            raise SystemFault(
+                code="STARTUP_HOOKS_FAILED",
+                message=error_msg.strip(),
+                metadata={"failed_hooks": [name for name, _ in errors]},
+            )
     
     async def run_shutdown_hooks(self) -> None:
-        """Run all shutdown hooks in priority order."""
+        """Run all shutdown hooks in priority order with per-hook timeout (SEC-DI-10)."""
         errors = []
         
         for hook in self._shutdown_hooks:
             try:
-                await hook.callback()
+                await asyncio.wait_for(hook.callback(), timeout=self._hook_timeout)
+            except asyncio.TimeoutError:
+                errors.append((hook.name, TimeoutError(
+                    f"Shutdown hook '{hook.name}' timed out after {self._hook_timeout}s"
+                )))
+                # Continue with other hooks even if one times out
             except Exception as e:
                 errors.append((hook.name, e))
                 # Continue with other hooks even if one fails

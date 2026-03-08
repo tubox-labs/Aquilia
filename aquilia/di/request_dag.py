@@ -99,9 +99,10 @@ class RequestDAG:
         if dep.cached and cache_key in self._cache:
             cached = self._cache[cache_key]
             if cached is _RESOLVING:
-                raise RuntimeError(
-                    f"Circular dependency detected in request DAG: "
-                    f"{dep.call.__qualname__ if dep.call else param_type}"
+                from ..faults.domains import DIResolutionFault
+                raise DIResolutionFault(
+                    provider=str(dep.call.__qualname__ if dep.call else param_type),
+                    reason="Circular dependency detected in request DAG",
                 )
             return cached
 
@@ -304,14 +305,20 @@ class RequestDAG:
                 raise ValueError(f"Missing required query parameter: {query.name}")
             return query.default
 
-        # Try to cast to expected type
+        # Try to cast to expected type (SEC-DI-08: guard against bad input)
         base_type = _get_base_type(ptype)
-        if base_type is int:
-            return int(value)
-        elif base_type is float:
-            return float(value)
-        elif base_type is bool:
-            return value.lower() in ("true", "1", "yes")
+        try:
+            if base_type is int:
+                return int(value)
+            elif base_type is float:
+                return float(value)
+            elif base_type is bool:
+                return value.lower() in ("true", "1", "yes")
+        except (ValueError, TypeError, AttributeError) as exc:
+            raise ValueError(
+                f"Invalid value for query parameter '{query.name}': "
+                f"cannot convert {value!r} to {base_type.__name__}"
+            ) from exc
         return value
 
     async def _extract_body_value(self, body: Body) -> Any:
@@ -325,6 +332,11 @@ class RequestDAG:
             try:
                 return await self._request.form()
             except Exception:
+                # A-2: Log parse failure instead of silently swallowing
+                import logging as _log
+                _log.getLogger("aquilia.di.request_dag").debug(
+                    "Failed to parse request body as JSON or form data"
+                )
                 return {}
 
 

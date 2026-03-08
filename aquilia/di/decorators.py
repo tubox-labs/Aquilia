@@ -187,8 +187,21 @@ def auto_inject(func: Callable[..., T]) -> Callable[..., T]:
         # Get request container from context
         container = get_request_container()
         if container is None:
-            raise RuntimeError("No request container in context; cannot auto-inject")
+            from ..faults.domains import DIResolutionFault
+            raise DIResolutionFault(
+                provider="auto_inject",
+                reason="No request container in context; cannot auto-inject",
+            )
         
+        # SEC-DI-12: Warn if auto-injecting from a non-request container
+        if hasattr(container, '_scope') and container._scope not in ('request', 'ephemeral'):
+            import logging as _log
+            _log.getLogger('aquilia.di').warning(
+                "@auto_inject resolving from %s-scoped container; "
+                "expected request/ephemeral scope.",
+                container._scope,
+            )
+
         # Resolve missing dependencies
         if sig:
             params = sig.parameters

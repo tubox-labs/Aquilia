@@ -6,6 +6,7 @@ from contextvars import ContextVar
 from typing import Optional
 
 from .core import Container
+from .errors import DIError
 
 
 # Context variable for request container (legacy support)
@@ -49,14 +50,16 @@ class RequestCtx:
         """
         try:
             return self._container.resolve(token, tag=tag, optional=default is not None)
-        except Exception:
+        except DIError:
+            # SEC-DI-11: Only catch DI-specific errors, not arbitrary exceptions
             return default
     
     async def get_async(self, token, *, tag: Optional[str] = None, default=None):
         """Async version of get."""
         try:
             return await self._container.resolve_async(token, tag=tag, optional=default is not None)
-        except Exception:
+        except DIError:
+            # SEC-DI-11: Only catch DI-specific errors, not arbitrary exceptions
             return default
     
     @classmethod

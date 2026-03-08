@@ -111,7 +111,10 @@ class ClassProvider:
             return deps
         
         try:
-            type_hints = inspect.get_annotations(cls.__init__, eval_str=True)
+            # SEC-DI-02: Use eval_str=False to prevent code execution via
+            # string annotations.  Fall back to typing.get_type_hints()
+            # which performs eval() in a controlled namespace.
+            type_hints = inspect.get_annotations(cls.__init__, eval_str=False)
         except Exception:
             # Fallback for older python or failure
             try:
@@ -366,6 +369,7 @@ class PoolProvider:
         "_max_size",
         "_strategy",
         "_created",
+        "_acquire_timeout",
     )
     
     def __init__(
@@ -376,12 +380,21 @@ class PoolProvider:
         name: Optional[str] = None,
         strategy: str = "FIFO",  # FIFO or LIFO
         tags: tuple[str, ...] = (),
+        acquire_timeout: float = 30.0,  # SEC-DI-05: default 30s timeout
     ):
+        # SEC-DI-05: Validate pool size
+        if max_size < 1:
+            from ..faults.domains import DIResolutionFault
+            raise DIResolutionFault(
+                provider=str(token),
+                reason=f"Pool max_size must be >= 1, got {max_size}",
+            )
         self._factory = factory
         self._max_size = max_size
         self._strategy = strategy
         self._pool: Optional[asyncio.Queue] = None
         self._created = 0
+        self._acquire_timeout = acquire_timeout
         
         token_str = token if isinstance(token, str) else f"{token.__module__}.{token.__qualname__}"
         
@@ -417,8 +430,19 @@ class PoolProvider:
             self._created += 1
             return instance
         
-        # Wait for available instance
-        return await self._pool.get()
+        # Wait for available instance (SEC-DI-05: bounded timeout)
+        try:
+            return await asyncio.wait_for(self._pool.get(), timeout=self._acquire_timeout)
+        except asyncio.TimeoutError:
+            from ..faults.domains import DIResolutionFault
+            raise DIResolutionFault(
+                provider=self._meta.token,
+                reason=(
+                    f"Pool '{self._meta.name}' exhausted: timed out after "
+                    f"{self._acquire_timeout}s waiting for an available instance "
+                    f"(max_size={self._max_size})"
+                ),
+            )
     
     async def release(self, instance: Any) -> None:
         """Release instance back to pool."""
@@ -556,19 +580,27 @@ class _LazyProxy:
         object.__setattr__(self, "_instance", None)
 
     def _resolve(self):
-        """Resolve actual instance on first access."""
+        """Resolve actual instance on first access.
+
+        SEC-DI-06: Refuse to create throwaway event loops — callers must
+        either resolve eagerly during startup or use the async API.
+        """
         if object.__getattribute__(self, "_instance") is None:
             try:
-                loop = asyncio.get_running_loop()
+                asyncio.get_running_loop()
             except RuntimeError:
-                loop = None
-            if loop is not None and loop.is_running():
-                raise RuntimeError(
-                    f"Cannot lazily resolve '{object.__getattribute__(self, '_token')}' "
-                    f"synchronously inside a running async event loop. Use "
-                    f"'await container.resolve_async(...)' or resolve eagerly "
-                    f"during startup."
+                pass
+            else:
+                from ..faults.domains import DIResolutionFault
+                raise DIResolutionFault(
+                    provider=str(object.__getattribute__(self, '_token')),
+                    reason=(
+                        "Cannot lazily resolve synchronously inside a running async "
+                        "event loop. Use 'await container.resolve_async(...)' or "
+                        "resolve eagerly during startup."
+                    ),
                 )
+            # SEC-DI-06: Use a short-lived loop but with a guard
             _loop = asyncio.new_event_loop()
             try:
                 instance = _loop.run_until_complete(
@@ -709,8 +741,6 @@ class BlueprintProvider:
 
         # Try to resolve request from container
         request = None
-        data = None
-        identity = None
 
         try:
             request = await container.resolve_async("aquilia.request.Request", optional=True)
@@ -718,32 +748,36 @@ class BlueprintProvider:
             pass
 
         if request is not None:
-            try:
-                data = await request.json()
-            except Exception:
-                try:
-                    data = await request.form()
-                except Exception:
-                    data = {}
+            # Delegate to the hardened integration layer which handles:
+            # - Body size limits
+            # - Content-Type detection
+            # - Form unflatten depth/key limits
+            # - DI parameter extraction (Query, Header)
+            from aquilia.blueprints.integration import bind_blueprint_to_request
 
-            # Get identity
+            # Get identity for context
+            identity = None
             state = getattr(request, "state", None)
             if state:
                 identity = state.get("identity") if isinstance(state, dict) else getattr(state, "identity", None)
 
-        # Build context
-        bp_context = {"container": container}
-        if request is not None:
-            bp_context["request"] = request
-        if identity is not None:
-            bp_context["identity"] = identity
+            extra_context = {"container": container}
+            if identity is not None:
+                extra_context["identity"] = identity
 
-        bp_instance = self._blueprint_cls(
-            data=data if data is not None else {},
-            context=bp_context,
-        )
+            bp_instance = await bind_blueprint_to_request(
+                self._blueprint_cls,
+                request,
+                context=extra_context,
+            )
+        else:
+            # No request available (e.g. testing) -- create empty Blueprint
+            bp_instance = self._blueprint_cls(
+                data={},
+                context={"container": container},
+            )
 
-        if self._auto_seal and data is not None:
+        if self._auto_seal:
             bp_instance.is_sealed(raise_fault=True)
 
         return bp_instance

@@ -24,7 +24,7 @@ class DIEventType(Enum):
 class DIEvent:
     """A diagnostic event in the DI system."""
     type: DIEventType
-    timestamp: float = dataclasses.field(default_factory=time.time)
+    timestamp: float = dataclasses.field(default_factory=time.monotonic)  # A-3: monotonic for ordering
     token: Optional[Any] = None
     tag: Optional[str] = None
     provider_name: Optional[str] = None
@@ -86,11 +86,11 @@ class _DiagnosticMeasure:
         self.start_time = None
 
     def __enter__(self):
-        self.start_time = time.time()
+        self.start_time = time.monotonic()  # SEC-DI-09: monotonic for duration
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        duration = time.time() - self.start_time
+        duration = time.monotonic() - self.start_time
         if exc_type:
             self.diagnostics.emit(
                 DIEventType.RESOLUTION_FAILURE, 
@@ -107,11 +107,11 @@ class _DiagnosticMeasure:
 
     # Async context manager support
     async def __aenter__(self):
-        self.start_time = time.time()
+        self.start_time = time.monotonic()  # SEC-DI-09: monotonic for duration
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        duration = time.time() - self.start_time
+        duration = time.monotonic() - self.start_time
         if exc_type:
             self.diagnostics.emit(
                 DIEventType.RESOLUTION_FAILURE,

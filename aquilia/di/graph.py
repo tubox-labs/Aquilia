@@ -2,6 +2,7 @@
 Graph analysis and cycle detection for DI system.
 """
 
+import sys
 from typing import Dict, List, Set, Tuple, Optional
 from collections import defaultdict, deque
 
@@ -42,6 +43,8 @@ class DependencyGraph:
         """
         Detect cycles using Tarjan's algorithm.
         
+        SEC-DI-13: Raises recursion limit temporarily to handle deep graphs.
+        
         Returns:
             List of strongly connected components (cycles)
         """
@@ -52,9 +55,18 @@ class DependencyGraph:
         self._on_stack = set()
         self._sccs = []
         
-        for token in self.providers:
-            if token not in self._index:
-                self._strongconnect(token)
+        # SEC-DI-13: Guard against RecursionError on deep graphs
+        original_limit = sys.getrecursionlimit()
+        needed = len(self.providers) + 100
+        if needed > original_limit:
+            sys.setrecursionlimit(max(needed, original_limit))
+        
+        try:
+            for token in self.providers:
+                if token not in self._index:
+                    self._strongconnect(token)
+        finally:
+            sys.setrecursionlimit(original_limit)
         
         # Filter out trivial SCCs (single node with no self-loop)
         cycles = [

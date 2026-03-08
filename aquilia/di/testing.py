@@ -137,6 +137,11 @@ async def override_container(
     original_provider = container._providers.get(cache_key)
     original_cached = container._cache.get(cache_key)
     
+    # SEC-DI-07: Ensure COW ownership before mutating _providers
+    if not container._providers_owned:
+        container._providers = container._providers.copy()
+        container._providers_owned = True
+
     # Force-replace provider (bypass duplicate check)
     container._providers[cache_key] = mock
     

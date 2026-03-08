@@ -253,7 +253,12 @@ class Body:
     _di_requires_coercion: bool = field(default=True, init=False, repr=False)
 
     def resolve(self, context: dict[str, Any]) -> Any:
-        """Resolve body from request context (async behavior not supported inside sync Serializer)."""
+        """Resolve body from request context (async behavior not supported inside sync Serializer).
+
+        SEC-DI-06: Never call asyncio.run() inside a sync context that
+        may be nested in an async event loop — this causes deadlocks.
+        Only return the cached body or an empty dict.
+        """
         # Serializer validation is sync, so Body extraction inside a field default is not fully supported
         # unless the request body is already parsed/cached.
         request = context.get("request")
@@ -261,13 +266,9 @@ class Body:
             return {}
 
         if hasattr(request, "_body_cache"):
-            import asyncio
-            try:
-                loop = asyncio.get_running_loop()
-            except RuntimeError:
-                loop = None
-            if not loop or not loop.is_running():
-                return asyncio.run(request.json())
+            # Return the already-parsed cached body instead of
+            # creating a throwaway event loop (SEC-DI-06).
+            return getattr(request, "_body_cache", {})
         return {}
 
 

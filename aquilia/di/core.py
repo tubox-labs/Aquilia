@@ -145,6 +145,7 @@ class Container:
     
     __slots__ = (
         "_providers",
+        "_providers_owned",
         "_cache",
         "_scope",
         "_parent",
@@ -152,6 +153,7 @@ class Container:
         "_resolve_plans",
         "_diagnostics",
         "_lifecycle",
+        "_shutdown_called",
     )
     
     def __init__(
@@ -164,6 +166,7 @@ class Container:
         from .lifecycle import Lifecycle
 
         self._providers: Dict[str, Provider] = {}  # {cache_key: provider}
+        self._providers_owned: bool = True  # True when we own the dict (can mutate in-place)
         self._cache: Dict[str, Any] = {}  # {cache_key: instance}
         self._scope = scope
         self._parent = parent
@@ -171,10 +174,17 @@ class Container:
         self._resolve_plans: Dict[str, List[str]] = {}  # Precomputed dependency lists
         self._diagnostics = diagnostics or DIDiagnostics()
         self._lifecycle = Lifecycle()
+        self._shutdown_called = False
     
     def register(self, provider: Provider, tag: Optional[str] = None):
         """
         Register a provider.
+
+        Performance (v3 — copy-on-write):
+        If this container shares its ``_providers`` dict with a parent
+        (i.e. it was created via ``create_request_scope()``), the first
+        call to ``register()`` copies the dict before mutating.
+        Subsequent ``register()`` calls on the same container are O(1).
         
         Args:
             provider: Provider instance
@@ -190,9 +200,17 @@ class Container:
             # Idempotency: if same provider, ignore. If different, error.
             if existing == provider:
                 return
-            raise ValueError(
-                f"Provider for {token} (tag={tag}) already registered: {existing.meta.name}"
+            from ..faults.domains import DIFault
+            raise DIFault(
+                code="PROVIDER_ALREADY_REGISTERED",
+                message=f"Provider for {token} (tag={tag}) already registered: {existing.meta.name}",
+                metadata={"token": str(token), "tag": tag, "existing": existing.meta.name},
             )
+
+        # ── Copy-on-write: copy the shared dict before mutating ──
+        if not self._providers_owned:
+            self._providers = self._providers.copy()
+            self._providers_owned = True
         
         self._providers[key] = provider
 
@@ -229,6 +247,12 @@ class Container:
         
         # We manually register it under the interface key
         key = self._make_cache_key(token, tag)
+
+        # ── Copy-on-write: copy shared dict before mutating (SEC-DI-01) ──
+        if not self._providers_owned:
+            self._providers = self._providers.copy()
+            self._providers_owned = True
+
         self._providers[key] = provider
 
         # Emit diagnostic event
@@ -279,6 +303,12 @@ class Container:
         # register() doesn't raise "already registered".
         token_key = self._token_to_key(token)
         cache_key = self._make_cache_key(token_key, tag)
+
+        # ── Copy-on-write: copy shared dict before mutating (SEC-DI-01) ──
+        if not self._providers_owned:
+            self._providers = self._providers.copy()
+            self._providers_owned = True
+
         self._providers.pop(cache_key, None)
         self._cache.pop(cache_key, None)
 
@@ -326,23 +356,26 @@ class Container:
         # For sync access, check if there's already a running loop
         try:
             asyncio.get_running_loop()
+        except RuntimeError:
+            # No running loop -- safe to use sync resolution
+            pass
+        else:
             # We're in async context -- caller should use resolve_async() instead
-            raise RuntimeError(
-                "resolve() called from async context; use await resolve_async() instead"
+            from ..faults.domains import DIResolutionFault
+            raise DIResolutionFault(
+                provider=str(token_key),
+                reason="resolve() called from async context; use await resolve_async() instead",
             )
-        except RuntimeError as e:
-            if "resolve()" in str(e):
-                raise  # Re-raise our own error
-            # No running loop -- create a temporary one for sync usage
-            # Use asyncio.Runner (3.11+) to avoid destroying global state
-            try:
-                loop = asyncio.new_event_loop()
-                instance = loop.run_until_complete(
-                    self.resolve_async(token, tag=tag, optional=optional)
-                )
-                return instance
-            finally:
-                loop.close()
+        
+        # No running loop -- create a temporary one for sync usage
+        try:
+            loop = asyncio.new_event_loop()
+            instance = loop.run_until_complete(
+                self.resolve_async(token, tag=tag, optional=optional)
+            )
+            return instance
+        finally:
+            loop.close()
     
     async def resolve_async(
         self,
@@ -395,6 +428,18 @@ class Container:
             if parent_provider is provider:
                 return await self._parent.resolve_async(token, tag=tag, optional=optional)
         
+        # ── SEC-DI-04: Scope validation — detect captive dependency ──
+        # Prevent request/ephemeral scoped providers from being cached
+        # in singleton/app scoped containers (captive dependency).
+        from .scopes import ScopeValidator
+        if not ScopeValidator.validate_injection(provider.meta.scope, self._scope):
+            import logging as _log
+            _log.getLogger('aquilia.di').warning(
+                "Scope violation: %s-scoped provider '%s' resolved in %s-scoped "
+                "container. This may cause captive dependency issues.",
+                provider.meta.scope, provider.meta.name, self._scope,
+            )
+
         # Create resolution context
         ctx = ResolveCtx(container=self)
         ctx.push(cache_key)
@@ -459,13 +504,16 @@ class Container:
         """
         Create a request-scoped child container (very cheap).
 
-        Performance (v2):
+        Performance (v3 — copy-on-write):
+        - Providers dict is **shared by reference** (zero-copy).
+          If the child calls ``register()``, it copies on first write.
         - No import of DIDiagnostics/Lifecycle at call time (cached).
         - Lifecycle is a lightweight NullLifecycle for request scope.
         - Shared diagnostics reference from parent.
         """
         child = Container.__new__(Container)
-        child._providers = self._providers.copy()  # Shallow copy -- child can add without mutating parent
+        child._providers = self._providers  # Share by ref (copy-on-write)
+        child._providers_owned = False  # Mark as borrowed — copy on first register()
         child._cache = {}  # Fresh cache per request
         child._scope = "request"
         child._parent = self
@@ -473,6 +521,7 @@ class Container:
         child._resolve_plans = self._resolve_plans  # Read-only, share by ref
         child._diagnostics = self._diagnostics  # Share parent diagnostics
         child._lifecycle = _NullLifecycle  # Singleton no-op lifecycle
+        child._shutdown_called = False
         return child
     
     async def shutdown(self) -> None:
@@ -480,7 +529,13 @@ class Container:
         Shutdown container - run lifecycle hooks and finalizers in LIFO order.
 
         Performance (v2): Short-circuit for empty request-scoped containers.
+        Idempotency (A-1): Guard against double-shutdown via _shutdown_called flag.
         """
+        # A-1: Idempotency guard — prevent double-shutdown corruption
+        if getattr(self, "_shutdown_called", False):
+            return
+        self._shutdown_called = True
+
         # Fast path: request scope with nothing to clean up
         if self._scope == "request" and not self._finalizers and not self._cache:
             return
@@ -653,6 +708,25 @@ class Registry:
         
         from .providers import ClassProvider
         import importlib
+        import re as _re
+        import logging as _log
+        
+        _logger = _log.getLogger('aquilia.di')
+        
+        # ── Security: restrict importable module paths ──────────────────
+        # Only allow dotted Python identifiers (no path traversal, no dunders).
+        _SAFE_MODULE_RE = _re.compile(
+            r'^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)*$'
+        )
+        _SAFE_CLASS_RE = _re.compile(
+            r'^[a-zA-Z_][a-zA-Z0-9_]*$'
+        )
+        # Block known dangerous top-level modules from being loaded via manifest.
+        _BLOCKED_MODULES = frozenset({
+            'os', 'sys', 'subprocess', 'shutil', 'importlib', 'ctypes',
+            'pickle', 'shelve', 'code', 'codeop', 'compile', 'compileall',
+            'builtins', '__builtin__', 'runpy', 'pty', 'commands',
+        })
         
         for service_entry in manifest.services:
             # Handle both string format and dict format
@@ -673,12 +747,48 @@ class Registry:
             # Parse module path and class name
             module_path, class_name = service_str.rsplit(':', 1)
             
+            # ── Validate module path & class name ───────────────────────
+            if not _SAFE_MODULE_RE.match(module_path):
+                _logger.warning(
+                    "Rejected service %r: module path contains illegal characters.", service_str
+                )
+                continue
+            
+            if not _SAFE_CLASS_RE.match(class_name):
+                _logger.warning(
+                    "Rejected service %r: class name contains illegal characters.", service_str
+                )
+                continue
+            
+            # Check top-level module against blocklist
+            top_module = module_path.split('.')[0]
+            if top_module in _BLOCKED_MODULES:
+                _logger.warning(
+                    "Rejected service %r: top-level module %r is blocked for security.",
+                    service_str, top_module,
+                )
+                continue
+            
+            # Reject dunder class names (e.g. __import__)
+            if class_name.startswith('__') and class_name.endswith('__'):
+                _logger.warning(
+                    "Rejected service %r: dunder class names are not allowed.", service_str
+                )
+                continue
+            
             try:
                 # Import module
                 module = importlib.import_module(module_path)
                 
                 # Get class
                 service_class = getattr(module, class_name)
+                
+                # Verify it's actually a class, not a function/module/arbitrary object
+                if not isinstance(service_class, type):
+                    _logger.warning(
+                        "Rejected service %r: resolved object is not a class.", service_str
+                    )
+                    continue
                 
                 # Create provider
                 provider = ClassProvider(
@@ -691,8 +801,7 @@ class Registry:
                 
             except (ImportError, AttributeError) as e:
                 # Log error but continue
-                import logging as _log
-                _log.getLogger('aquilia.di').warning(f"Could not load service {service_str}: {e}")
+                _logger.warning(f"Could not load service {service_str}: {e}")
     
     def _build_dependency_graph(self) -> None:
         """
