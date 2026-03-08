@@ -19,6 +19,7 @@ import logging
 from .request import Request
 from .response import Response, InternalError
 from .faults import Fault, FaultDomain
+from .faults.domains import HTTPFault
 
 if TYPE_CHECKING:
     from .controller.base import RequestCtx
@@ -250,6 +251,42 @@ class ExceptionMiddleware:
                 {"error": "Forbidden"},
                 status=403,
             )
+
+        except HTTPFault as e:
+            # ── First-class HTTP error faults (explicit status code) ──
+            status = e.status
+            reason = e.message
+            detail = e.detail or e.message
+
+            if status >= 500:
+                self.logger.error(f"HTTPFault {status} {e.code}: {reason}")
+            else:
+                self.logger.warning(f"HTTPFault {status} {e.code}: {reason}")
+
+            # Collect any extra headers (Allow, Retry-After, WWW-Authenticate, etc.)
+            extra_headers: dict[str, str] = e.metadata.get("headers", {})
+
+            if self._wants_html(request):
+                if status >= 500 and self.debug:
+                    return self._render_debug_exception(e, request)
+                resp = self._render_debug_http_error(status, reason, detail, request)
+                for hk, hv in extra_headers.items():
+                    resp.headers[hk] = hv
+                return resp
+
+            body = {
+                "error": {
+                    "code": e.code,
+                    "message": reason,
+                    "status": status,
+                }
+            }
+            if e.public and e.detail:
+                body["error"]["detail"] = e.detail
+            resp = Response.json(body, status=status)
+            for hk, hv in extra_headers.items():
+                resp.headers[hk] = hv
+            return resp
 
         except Fault as e:
             # Typed Fault

@@ -229,7 +229,7 @@ class ASGIAdapter:
         # ── Fast-path: built-in health endpoint ──
         if path == "/_health":
             if method not in ("GET", "HEAD"):
-                await self._send_method_not_allowed(send, ["GET", "HEAD"])
+                await self._send_method_not_allowed(send, ["GET", "HEAD"], scope)
                 return
             await self._serve_health(send, head_only=(method == "HEAD"))
             return
@@ -255,7 +255,7 @@ class ASGIAdapter:
                     # Path exists but method is not allowed → 405
                     if "GET" in allowed and "HEAD" not in allowed:
                         allowed.append("HEAD")
-                    await self._send_method_not_allowed(send, sorted(allowed))
+                    await self._send_method_not_allowed(send, sorted(allowed), scope)
                     return
 
         # ── Resolve DI container ──
@@ -372,25 +372,64 @@ class ASGIAdapter:
     # 405 Method Not Allowed response (ARCH-01)
     # ------------------------------------------------------------------
 
-    async def _send_method_not_allowed(self, send: Callable, allowed: list) -> None:
-        """Send a ``405 Method Not Allowed`` response with an ``Allow`` header."""
-        import json as _json
+    async def _send_method_not_allowed(
+        self, send: Callable, allowed: list, scope: dict | None = None,
+    ) -> None:
+        """Send a ``405 Method Not Allowed`` response with an ``Allow`` header.
 
-        allow_value = ", ".join(allowed)
-        body = _json.dumps({"error": "Method not allowed", "allow": allowed}).encode("utf-8")
-        await send({
-            "type": "http.response.start",
-            "status": 405,
-            "headers": [
-                [b"content-type", b"application/json"],
-                [b"allow", allow_value.encode("utf-8")],
-                [b"content-length", str(len(body)).encode()],
-            ],
-        })
-        await send({
-            "type": "http.response.body",
-            "body": body,
-        })
+        Renders the styled Tubox error page for browser clients and
+        returns structured JSON for API clients.
+        """
+        allow_value = ", ".join(sorted(allowed))
+        method = (scope or {}).get("method", "?")
+        path = (scope or {}).get("path", "?")
+        detail = f"Method {method} is not allowed for {path}. Allowed: {allow_value}"
+
+        # Check Accept header from raw ASGI scope
+        accept = ""
+        for hdr_name, hdr_val in (scope or {}).get("headers", []):
+            if hdr_name == b"accept":
+                accept = hdr_val.decode("latin-1", errors="replace")
+                break
+
+        if "text/html" in accept:
+            from .debug.pages import render_http_error_page
+            html_body = render_http_error_page(
+                405, "Method Not Allowed", detail,
+                aquilia_version=self._get_version(),
+            )
+            body = html_body.encode("utf-8")
+            await send({
+                "type": "http.response.start",
+                "status": 405,
+                "headers": [
+                    [b"content-type", b"text/html; charset=utf-8"],
+                    [b"allow", allow_value.encode("utf-8")],
+                    [b"content-length", str(len(body)).encode()],
+                ],
+            })
+            await send({"type": "http.response.body", "body": body})
+        else:
+            import json as _json
+            body = _json.dumps({
+                "error": {
+                    "code": "HTTP_405",
+                    "message": "Method Not Allowed",
+                    "status": 405,
+                    "detail": detail,
+                    "allowed_methods": sorted(allowed),
+                },
+            }).encode("utf-8")
+            await send({
+                "type": "http.response.start",
+                "status": 405,
+                "headers": [
+                    [b"content-type", b"application/json"],
+                    [b"allow", allow_value.encode("utf-8")],
+                    [b"content-length", str(len(body)).encode()],
+                ],
+            })
+            await send({"type": "http.response.body", "body": body})
 
     # ------------------------------------------------------------------
     # Built-in health endpoint (ARCH-03: method-restricted + optional auth)

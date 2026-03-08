@@ -733,4 +733,323 @@ class RestrictedDeleteFault(ModelFault):
         )
 
 
+# ============================================================================
+# HTTP Faults — First-class HTTP protocol errors
+# ============================================================================
+#
+# Standard HTTP status codes as typed fault signals.
+#
+# Design principles:
+#   • Every fault carries an explicit ``status`` attribute — no guessing.
+#   • ``public=True`` by default: HTTP errors are user-facing.
+#   • Each subclass has sensible defaults but accepts overrides.
+#   • The ``detail`` kwarg provides the human-readable explanation shown
+#     on the styled error page.
+#   • Extra headers (e.g. ``Allow`` for 405, ``Retry-After`` for 429/503)
+#     are stored in ``metadata["headers"]`` and applied by the transport.
+#
+# Usage:
+#     raise NotFoundFault(detail="/api/users/999 does not exist")
+#     raise MethodNotAllowedFault(allowed=["GET", "POST"])
+#     raise TooManyRequestsFault(retry_after=60)
+# ============================================================================
+
+# Canonical reason phrases (RFC 9110 §15)
+_HTTP_REASONS: dict[int, str] = {
+    400: "Bad Request",
+    401: "Unauthorized",
+    402: "Payment Required",
+    403: "Forbidden",
+    404: "Not Found",
+    405: "Method Not Allowed",
+    406: "Not Acceptable",
+    407: "Proxy Authentication Required",
+    408: "Request Timeout",
+    409: "Conflict",
+    410: "Gone",
+    411: "Length Required",
+    412: "Precondition Failed",
+    413: "Content Too Large",
+    414: "URI Too Long",
+    415: "Unsupported Media Type",
+    416: "Range Not Satisfiable",
+    417: "Expectation Failed",
+    418: "I'm a Teapot",
+    421: "Misdirected Request",
+    422: "Unprocessable Content",
+    423: "Locked",
+    424: "Failed Dependency",
+    425: "Too Early",
+    426: "Upgrade Required",
+    428: "Precondition Required",
+    429: "Too Many Requests",
+    431: "Request Header Fields Too Large",
+    451: "Unavailable For Legal Reasons",
+    500: "Internal Server Error",
+    501: "Not Implemented",
+    502: "Bad Gateway",
+    503: "Service Unavailable",
+    504: "Gateway Timeout",
+    505: "HTTP Version Not Supported",
+    506: "Variant Also Negotiates",
+    507: "Insufficient Storage",
+    508: "Loop Detected",
+    510: "Not Extended",
+    511: "Network Authentication Required",
+}
+
+
+def http_reason(status: int) -> str:
+    """Return the canonical RFC 9110 reason phrase for *status*."""
+    return _HTTP_REASONS.get(status, "Unknown Error")
+
+
+class HTTPFault(Fault):
+    """Base class for HTTP protocol error faults.
+
+    Every HTTP fault carries:
+      * ``status`` — the HTTP status code (e.g. 404)
+      * ``detail`` — a human-readable explanation for the error page
+      * optional extra ``headers`` in ``metadata["headers"]``
+
+    ``public`` defaults to ``True`` because HTTP errors are user-facing.
+    ``domain`` is always ``FaultDomain.HTTP``.
+    """
+
+    def __init__(
+        self,
+        status: int,
+        *,
+        code: str | None = None,
+        message: str | None = None,
+        detail: str = "",
+        severity: Severity = Severity.WARN,
+        headers: dict[str, str] | None = None,
+        public: bool = True,
+        metadata: dict[str, Any] | None = None,
+    ):
+        self.status = status
+        self.detail = detail
+        reason = http_reason(status)
+        _code = code or f"HTTP_{status}"
+        _message = message or reason
+        _meta: dict[str, Any] = metadata.copy() if metadata else {}
+        _meta["status"] = status
+        _meta["reason"] = reason
+        if detail:
+            _meta["detail"] = detail
+        if headers:
+            _meta["headers"] = headers
+        super().__init__(
+            code=_code,
+            message=_message,
+            domain=FaultDomain.HTTP,
+            severity=severity,
+            retryable=False,
+            public=public,
+            metadata=_meta,
+        )
+
+    def __repr__(self) -> str:
+        return (
+            f"{type(self).__name__}(status={self.status}, "
+            f"code={self.code!r}, detail={self.detail!r})"
+        )
+
+
+# ── 4xx Client Errors ────────────────────────────────────────────────
+
+class BadRequestFault(HTTPFault):
+    """400 Bad Request."""
+    def __init__(self, detail: str = "", **kw: Any):
+        super().__init__(400, detail=detail, **kw)
+
+
+class UnauthorizedFault(HTTPFault):
+    """401 Unauthorized."""
+    def __init__(self, detail: str = "", *, scheme: str = "Bearer", **kw: Any):
+        headers = kw.pop("headers", None) or {}
+        if "WWW-Authenticate" not in headers:
+            headers["WWW-Authenticate"] = scheme
+        super().__init__(401, detail=detail, headers=headers, **kw)
+
+
+class PaymentRequiredFault(HTTPFault):
+    """402 Payment Required."""
+    def __init__(self, detail: str = "", **kw: Any):
+        super().__init__(402, detail=detail, **kw)
+
+
+class ForbiddenFault(HTTPFault):
+    """403 Forbidden."""
+    def __init__(self, detail: str = "", **kw: Any):
+        super().__init__(403, detail=detail, **kw)
+
+
+class NotFoundFault(HTTPFault):
+    """404 Not Found."""
+    def __init__(self, detail: str = "", **kw: Any):
+        super().__init__(404, detail=detail, **kw)
+
+
+class MethodNotAllowedFault(HTTPFault):
+    """405 Method Not Allowed.
+
+    Requires an ``allowed`` list of methods per RFC 9110 §15.5.6.
+    The ``Allow`` header is stored in ``metadata["headers"]`` and
+    applied automatically by the transport layer.
+    """
+    def __init__(self, allowed: list[str] | None = None, *, detail: str = "", **kw: Any):
+        allowed = allowed or []
+        headers = kw.pop("headers", None) or {}
+        headers["Allow"] = ", ".join(sorted(allowed))
+        _meta = kw.pop("metadata", None) or {}
+        _meta["allowed_methods"] = sorted(allowed)
+        super().__init__(
+            405, detail=detail or f"Allowed methods: {', '.join(sorted(allowed))}",
+            headers=headers, metadata=_meta, **kw,
+        )
+
+
+class NotAcceptableFault(HTTPFault):
+    """406 Not Acceptable."""
+    def __init__(self, detail: str = "", **kw: Any):
+        super().__init__(406, detail=detail, **kw)
+
+
+class RequestTimeoutFault(HTTPFault):
+    """408 Request Timeout."""
+    def __init__(self, detail: str = "", **kw: Any):
+        super().__init__(408, detail=detail, **kw)
+
+
+class ConflictFault(HTTPFault):
+    """409 Conflict."""
+    def __init__(self, detail: str = "", **kw: Any):
+        super().__init__(409, detail=detail, **kw)
+
+
+class GoneFault(HTTPFault):
+    """410 Gone."""
+    def __init__(self, detail: str = "", **kw: Any):
+        super().__init__(410, detail=detail, **kw)
+
+
+class PayloadTooLargeFault(HTTPFault):
+    """413 Content Too Large."""
+    def __init__(self, detail: str = "", **kw: Any):
+        super().__init__(413, detail=detail, **kw)
+
+
+class URITooLongFault(HTTPFault):
+    """414 URI Too Long."""
+    def __init__(self, detail: str = "", **kw: Any):
+        super().__init__(414, detail=detail, **kw)
+
+
+class UnsupportedMediaTypeFault(HTTPFault):
+    """415 Unsupported Media Type."""
+    def __init__(self, detail: str = "", **kw: Any):
+        super().__init__(415, detail=detail, **kw)
+
+
+class UnprocessableEntityFault(HTTPFault):
+    """422 Unprocessable Content."""
+    def __init__(self, detail: str = "", **kw: Any):
+        super().__init__(422, detail=detail, **kw)
+
+
+class LockedFault(HTTPFault):
+    """423 Locked."""
+    def __init__(self, detail: str = "", **kw: Any):
+        super().__init__(423, detail=detail, **kw)
+
+
+class TooEarlyFault(HTTPFault):
+    """425 Too Early."""
+    def __init__(self, detail: str = "", **kw: Any):
+        super().__init__(425, detail=detail, **kw)
+
+
+class PreconditionRequiredFault(HTTPFault):
+    """428 Precondition Required."""
+    def __init__(self, detail: str = "", **kw: Any):
+        super().__init__(428, detail=detail, **kw)
+
+
+class TooManyRequestsFault(HTTPFault):
+    """429 Too Many Requests.
+
+    Includes ``Retry-After`` header when *retry_after* is provided.
+    """
+    def __init__(self, detail: str = "", *, retry_after: int | None = None, **kw: Any):
+        headers = kw.pop("headers", None) or {}
+        if retry_after is not None:
+            headers["Retry-After"] = str(retry_after)
+        _meta = kw.pop("metadata", None) or {}
+        if retry_after is not None:
+            _meta["retry_after"] = retry_after
+        super().__init__(
+            429,
+            detail=detail or (f"Retry after {retry_after}s" if retry_after else ""),
+            headers=headers, metadata=_meta, **kw,
+        )
+
+
+class RequestHeaderFieldsTooLargeFault(HTTPFault):
+    """431 Request Header Fields Too Large."""
+    def __init__(self, detail: str = "", **kw: Any):
+        super().__init__(431, detail=detail, **kw)
+
+
+class UnavailableForLegalReasonsFault(HTTPFault):
+    """451 Unavailable For Legal Reasons."""
+    def __init__(self, detail: str = "", **kw: Any):
+        super().__init__(451, detail=detail, **kw)
+
+
+# ── 5xx Server Errors ────────────────────────────────────────────────
+
+class InternalServerErrorFault(HTTPFault):
+    """500 Internal Server Error."""
+    def __init__(self, detail: str = "", **kw: Any):
+        super().__init__(500, detail=detail, severity=Severity.ERROR, **kw)
+
+
+class NotImplementedFault(HTTPFault):
+    """501 Not Implemented."""
+    def __init__(self, detail: str = "", **kw: Any):
+        super().__init__(501, detail=detail, severity=Severity.ERROR, **kw)
+
+
+class BadGatewayFault(HTTPFault):
+    """502 Bad Gateway."""
+    def __init__(self, detail: str = "", **kw: Any):
+        super().__init__(502, detail=detail, severity=Severity.ERROR, **kw)
+
+
+class ServiceUnavailableFault(HTTPFault):
+    """503 Service Unavailable.
+
+    Includes ``Retry-After`` header when *retry_after* is provided.
+    """
+    def __init__(self, detail: str = "", *, retry_after: int | None = None, **kw: Any):
+        headers = kw.pop("headers", None) or {}
+        if retry_after is not None:
+            headers["Retry-After"] = str(retry_after)
+        _meta = kw.pop("metadata", None) or {}
+        if retry_after is not None:
+            _meta["retry_after"] = retry_after
+        super().__init__(
+            503, detail=detail, severity=Severity.ERROR,
+            headers=headers, metadata=_meta, **kw,
+        )
+
+
+class GatewayTimeoutFault(HTTPFault):
+    """504 Gateway Timeout."""
+    def __init__(self, detail: str = "", **kw: Any):
+        super().__init__(504, detail=detail, severity=Severity.ERROR, **kw)
+
+
 

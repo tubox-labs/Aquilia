@@ -337,6 +337,7 @@ class ResponseMapper(FaultHandler):
             FaultDomain.IO: 502,
             FaultDomain.SECURITY: 401,
             FaultDomain.SYSTEM: 500,
+            FaultDomain.HTTP: 500,  # Overridden by fault.status for HTTPFault
         }
     
     def can_handle(self, ctx: FaultContext) -> bool:

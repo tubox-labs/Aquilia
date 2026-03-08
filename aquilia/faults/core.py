@@ -97,6 +97,7 @@ FaultDomain.CACHE = FaultDomain("cache", "Cache subsystem faults")
 FaultDomain.STORAGE = FaultDomain("storage", "File storage faults")
 FaultDomain.TASKS = FaultDomain("tasks", "Background task faults")
 FaultDomain.TEMPLATE = FaultDomain("template", "Template engine faults")
+FaultDomain.HTTP = FaultDomain("http", "HTTP protocol errors (4xx/5xx)")
 
 
 class RecoveryStrategy(str, Enum):
@@ -126,6 +127,7 @@ DOMAIN_DEFAULTS = {
     FaultDomain.SYSTEM: {"severity": Severity.FATAL, "retryable": False},
     FaultDomain.MODEL: {"severity": Severity.ERROR, "retryable": False},
     FaultDomain.CACHE: {"severity": Severity.ERROR, "retryable": True},
+    FaultDomain.HTTP: {"severity": Severity.WARN, "retryable": False},
 }
 
 
