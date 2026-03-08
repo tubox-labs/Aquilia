@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import copy
 import inspect
+import warnings
 from typing import (
     Any,
     Dict,
@@ -68,6 +69,8 @@ class _SpecData:
         "default_projection",
         "depth",
         "validators",
+        "extra_fields",
+        "max_many_items",
     )
 
     def __init__(self, spec_cls: type | None = None):
@@ -82,6 +85,8 @@ class _SpecData:
             self.default_projection = None
             self.depth = 3
             self.validators = []
+            self.extra_fields = "ignore"
+            self.max_many_items = 10000
             return
 
         self.model = getattr(spec_cls, "model", None)
@@ -94,6 +99,8 @@ class _SpecData:
         self.default_projection = getattr(spec_cls, "default_projection", None)
         self.depth = getattr(spec_cls, "depth", 3)
         self.validators = list(getattr(spec_cls, "validators", []))
+        self.extra_fields = getattr(spec_cls, "extra_fields", "ignore")
+        self.max_many_items = getattr(spec_cls, "max_many_items", 10000)
 
 
 # ── Metaclass ────────────────────────────────────────────────────────────
@@ -198,8 +205,13 @@ class BlueprintMeta(type):
                     if val is not UNSET:
                         ann_namespace[fname] = val
             annotated_facets = introspect_annotations(cls, ann_namespace, bases)
-        except Exception:
-            pass  # Defensive -- never break metaclass construction
+        except Exception as exc:
+            warnings.warn(
+                f"Blueprint '{name}': annotation introspection failed: {exc}. "
+                f"Annotation-derived facets will be unavailable.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
 
         cls._annotated_facets = annotated_facets
 
@@ -563,6 +575,28 @@ class Blueprint(metaclass=BlueprintMeta):
 
         data = self._input_data if isinstance(self._input_data, dict) else {}
 
+        # ── Unknown field rejection ──────────────────────────────────
+        extra_fields_mode = self._spec.extra_fields if self._spec else "ignore"
+        # Also check context for runtime override
+        if self.context.get("extra_fields"):
+            extra_fields_mode = self.context["extra_fields"]
+        
+        if extra_fields_mode == "reject" and isinstance(data, dict):
+            known_fields = set(self._bound_facets.keys())
+            unknown = set(data.keys()) - known_fields
+            if unknown:
+                for field_name in sorted(unknown):
+                    self._errors.setdefault(field_name, []).append(
+                        f"Unknown field '{field_name}' is not allowed"
+                    )
+                self._is_sealed = False
+                if raise_fault:
+                    raise SealFault(
+                        message="Unknown fields in input data",
+                        errors=self._errors,
+                    )
+                return False
+
         # Phase 1 + 2: Cast + Field Seals
         for fname, facet in self._bound_facets.items():
             if isinstance(facet, (Computed, Constant)):
@@ -715,6 +749,27 @@ class Blueprint(metaclass=BlueprintMeta):
             self._is_sealed = False
             if raise_fault:
                 raise SealFault(message="Expected a list", errors=self._errors)
+            return False
+
+        # Enforce maximum list size to prevent resource exhaustion
+        max_items = self._spec.max_many_items if self._spec else 10000
+        # Allow runtime override via context
+        if self.context.get("max_many_items"):
+            max_items = self.context["max_many_items"]
+
+        if len(self._input_data) > max_items:
+            self._errors = {
+                "__all__": [
+                    f"List contains {len(self._input_data)} items, "
+                    f"exceeding the maximum of {max_items}"
+                ]
+            }
+            self._is_sealed = False
+            if raise_fault:
+                raise SealFault(
+                    message=f"Too many items ({len(self._input_data)} > {max_items})",
+                    errors=self._errors,
+                )
             return False
 
         all_validated = []

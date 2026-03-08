@@ -15,10 +15,24 @@ from typing import Any, Dict, Type, TYPE_CHECKING
 
 from .core import Blueprint, BlueprintMeta
 from .lenses import _ProjectedRef
+from .exceptions import SealFault
 
 if TYPE_CHECKING:
     from ..request import Request
     from ..response import Response
+
+
+# ── Security Constants ──────────────────────────────────────────────────
+
+# Maximum request body size (bytes) before Blueprint parsing.
+# Can be overridden via context["max_body_size"].
+MAX_BODY_SIZE: int = 10 * 1024 * 1024  # 10 MB
+
+# Maximum depth for unflattening dot-notated form keys.
+MAX_UNFLATTEN_DEPTH: int = 10
+
+# Maximum number of form keys to process.
+MAX_UNFLATTEN_KEYS: int = 1000
 
 
 __all__ = [
@@ -63,11 +77,29 @@ def resolve_blueprint_from_annotation(
     return None, None
 
 
-def _unflatten_dict(flat_dict: dict) -> dict:
-    """Unflatten dot-notated dictionary keys into nested dictionaries."""
+def _unflatten_dict(flat_dict: dict, *, max_depth: int | None = None, max_keys: int | None = None) -> dict:
+    """Unflatten dot-notated dictionary keys into nested dictionaries.
+    
+    Security: Limits nesting depth and key count to prevent resource
+    exhaustion from crafted form field names.
+    """
+    _max_depth = max_depth if max_depth is not None else MAX_UNFLATTEN_DEPTH
+    _max_keys = max_keys if max_keys is not None else MAX_UNFLATTEN_KEYS
+
+    if len(flat_dict) > _max_keys:
+        raise SealFault(
+            message=f"Too many form keys ({len(flat_dict)} > {_max_keys})",
+            errors={"__all__": [f"Form key count {len(flat_dict)} exceeds limit of {_max_keys}"]},
+        )
+
     result = {}
     for key, value in flat_dict.items():
         parts = key.split('.')
+        if len(parts) > _max_depth:
+            raise SealFault(
+                message=f"Form key nesting depth ({len(parts)}) exceeds maximum of {_max_depth}",
+                errors={"__all__": [f"Form key '{key[:50]}...' nesting too deep ({len(parts)} > {_max_depth})"]},
+            )
         current = result
         for part in parts[:-1]:
             current = current.setdefault(part, {})
@@ -99,10 +131,51 @@ async def bind_blueprint_to_request(
     Returns:
         A validated Blueprint instance (is_sealed() has been called)
     """
+    # ── Security: Body size check ────────────────────────────────────
+    max_body = MAX_BODY_SIZE
+    if context and context.get("max_body_size"):
+        max_body = context["max_body_size"]
+
+    content_length = None
+    if hasattr(request, "headers"):
+        headers = request.headers
+        if isinstance(headers, dict):
+            cl = headers.get("content-length") or headers.get("Content-Length")
+        elif hasattr(headers, "get"):
+            cl = headers.get("content-length")
+        else:
+            cl = None
+        if cl is not None:
+            try:
+                content_length = int(cl)
+            except (ValueError, TypeError):
+                pass
+
+    if content_length is not None and content_length > max_body:
+        raise SealFault(
+            message=f"Request body too large ({content_length} bytes). "
+                    f"Maximum allowed: {max_body} bytes",
+            errors={"__all__": [f"Request body exceeds {max_body} byte limit"]},
+        )
+
+    # ── Content-Type detection ───────────────────────────────────────
+    content_type = ""
+    if hasattr(request, "headers"):
+        headers = request.headers
+        if isinstance(headers, dict):
+            content_type = headers.get("content-type", "") or headers.get("Content-Type", "")
+        elif hasattr(headers, "get"):
+            content_type = headers.get("content-type", "")
+
     # Parse request body
-    try:
-        body = await request.json()
-    except Exception:
+    body = {}
+    if "application/json" in content_type or not content_type:
+        try:
+            body = await request.json()
+        except Exception:
+            body = {}
+
+    if not body and ("multipart/form-data" in content_type or "application/x-www-form-urlencoded" in content_type or not content_type):
         try:
             form_data = await request.form()
             form_dict = form_data.fields.to_dict() if hasattr(form_data, "fields") else dict(form_data)

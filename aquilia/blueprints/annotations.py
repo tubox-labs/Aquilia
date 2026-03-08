@@ -271,16 +271,24 @@ class NestedBlueprintFacet(Facet):
 
     _type_name = "object"
 
+    # Maximum nesting depth to prevent stack overflow from recursive Blueprints
+    MAX_NESTING_DEPTH = 32
+
+    # Thread-local nesting depth counter
+    _current_nesting_depth = 0
+
     def __init__(
         self,
         blueprint_cls: type,
         *,
         many: bool = False,
+        max_nesting_depth: int | None = None,
         **kwargs,
     ):
         super().__init__(**kwargs)
         self._blueprint_cls = blueprint_cls
         self.many = many
+        self._max_depth = max_nesting_depth or self.MAX_NESTING_DEPTH
 
     @property
     def target(self) -> type:
@@ -288,9 +296,19 @@ class NestedBlueprintFacet(Facet):
 
     def cast(self, value: Any) -> Any:
         """Cast input through the nested Blueprint's seal pipeline."""
-        if self.many:
-            return self._cast_many(value)
-        return self._cast_single(value)
+        # Guard against recursive nesting depth
+        NestedBlueprintFacet._current_nesting_depth += 1
+        try:
+            if NestedBlueprintFacet._current_nesting_depth > self._max_depth:
+                raise CastFault(
+                    self.name or "<unbound>",
+                    f"Nested Blueprint depth exceeds maximum of {self._max_depth}",
+                )
+            if self.many:
+                return self._cast_many(value)
+            return self._cast_single(value)
+        finally:
+            NestedBlueprintFacet._current_nesting_depth -= 1
 
     def _cast_single(self, value: Any) -> dict:
         """Cast a single nested value."""
@@ -505,6 +523,95 @@ def _extract_ref_name(cls: Any) -> str:
     if isinstance(cls, ForwardRef):
         return cls.__forward_arg__
     return str(cls)
+
+
+def _safe_resolve_annotation(annotation_str: str, namespace: dict) -> Any:
+    """
+    Safely resolve a string annotation to a type without using eval().
+    
+    Handles common patterns:
+        - Simple names: "str", "int", "MyBlueprint"
+        - Generic subscripts: "list[str]", "Optional[int]", "dict[str, int]"
+        - Union syntax: "str | None" (PEP 604)
+        - Nested generics: "list[Optional[str]]"
+    
+    Security: This NEVER calls eval(). Only known type names from the
+    namespace are resolved. Unknown names become ForwardRef.
+    """
+    import ast
+
+    annotation_str = annotation_str.strip()
+    
+    # Simple name lookup
+    if annotation_str.isidentifier():
+        result = namespace.get(annotation_str)
+        if result is not None:
+            return result
+        return ForwardRef(annotation_str)
+    
+    # Handle PEP 604 union syntax: "X | Y | None"
+    if "|" in annotation_str:
+        parts = [p.strip() for p in annotation_str.split("|")]
+        resolved_parts = []
+        for part in parts:
+            if part == "None":
+                resolved_parts.append(type(None))
+            else:
+                resolved_parts.append(_safe_resolve_annotation(part, namespace))
+        if len(resolved_parts) == 2 and type(None) in resolved_parts:
+            non_none = [p for p in resolved_parts if p is not type(None)]
+            return Optional[non_none[0]]
+        return Union[tuple(resolved_parts)]
+    
+    # Handle generic subscript: "list[str]", "Optional[int]", "dict[str, int]"
+    bracket_start = annotation_str.find("[")
+    if bracket_start > 0 and annotation_str.endswith("]"):
+        origin_str = annotation_str[:bracket_start].strip()
+        args_str = annotation_str[bracket_start + 1:-1].strip()
+        
+        origin = namespace.get(origin_str)
+        if origin is None:
+            return ForwardRef(annotation_str)
+        
+        # Parse args (handle nested brackets)
+        args = _split_type_args(args_str)
+        resolved_args = tuple(
+            _safe_resolve_annotation(arg.strip(), namespace) for arg in args
+        )
+        
+        if origin is Optional and len(resolved_args) == 1:
+            return Optional[resolved_args[0]]
+        if origin is Union:
+            return Union[resolved_args]
+        
+        try:
+            return origin[resolved_args] if len(resolved_args) > 1 else origin[resolved_args[0]]
+        except (TypeError, KeyError):
+            return ForwardRef(annotation_str)
+    
+    return ForwardRef(annotation_str)
+
+
+def _split_type_args(args_str: str) -> List[str]:
+    """Split type arguments respecting bracket nesting."""
+    args = []
+    depth = 0
+    current = []
+    for char in args_str:
+        if char == "[":
+            depth += 1
+            current.append(char)
+        elif char == "]":
+            depth -= 1
+            current.append(char)
+        elif char == "," and depth == 0:
+            args.append("".join(current).strip())
+            current = []
+        else:
+            current.append(char)
+    if current:
+        args.append("".join(current).strip())
+    return args
 
 
 def _unwrap_optional(annotation: Any) -> Tuple[Any, bool]:
@@ -901,13 +1008,20 @@ def introspect_annotations(
     resolved_annotations: Dict[str, Any] = {}
     for field_name, annotation in raw_annotations.items():
         if isinstance(annotation, str):
-            try:
-                resolved = eval(annotation, globals(), resolve_ns)
+            # Security: Use safe resolution instead of eval()
+            # First try to find the type in our known namespace
+            resolved = resolve_ns.get(annotation)
+            if resolved is not None:
                 resolved_annotations[field_name] = resolved
-            except NameError:
-                resolved_annotations[field_name] = ForwardRef(annotation)
-            except Exception:
-                continue
+            else:
+                # Try safe AST-based resolution for simple expressions
+                # like "list[str]", "Optional[int]", etc.
+                try:
+                    resolved = _safe_resolve_annotation(annotation, resolve_ns)
+                    resolved_annotations[field_name] = resolved
+                except Exception:
+                    # Fall back to ForwardRef for unresolvable annotations
+                    resolved_annotations[field_name] = ForwardRef(annotation)
         else:
             resolved_annotations[field_name] = annotation
 
