@@ -34,24 +34,43 @@ source env/bin/activate  # On Windows use `env\Scripts\activate`
 
 Install the dependencies, including the development ones:
 ```bash
-pip install -e ".[dev,mlops-all]"
+pip install -e ".[dev,templates,auth,db,files]"
+pip install -r requirements-dev.txt
 ```
 
 ### 4. Making Changes
 Make your code changes, following our style guides.
 * Aquilia adopts standard Python PEP 8 style formatting.
-* We recommend using `black` and `ruff` for linting/formatting.
+* We recommend using `ruff` for linting and formatting.
 * Ensure all your changes are typed properly.
+* **Use structured Faults, not raw exceptions.** All errors should use `aquilia.faults.core.Fault` subclasses with proper domain, code, and severity. See `aquilia/faults/domains.py` for examples.
 
-### 5. Testing
+### 5. Fault System Guidelines
+When adding error handling to any subsystem:
+- Create fault classes in a `faults.py` module within the subsystem
+- Use `FaultDomain.custom("name", "description")` for new domains
+- Every fault must have a stable `code` (e.g., `"TASK_SCHEDULE_INVALID"`), descriptive `message`, and appropriate `severity`
+- Never raise raw `ValueError`, `RuntimeError`, `TypeError`, or `KeyError` — wrap them in a Fault subclass
+- See existing examples: `aquilia/tasks/faults.py`, `aquilia/storage/base.py`, `aquilia/templates/faults.py`, `aquilia/admin/faults.py`
+
+### 6. Security Guidelines
+- Never use `pickle.load()` or `pickle.loads()` on untrusted data — use JSON with HMAC verification
+- Always validate and normalize file paths (null bytes, `..` traversal, length limits)
+- Use parameterized queries — never interpolate user input into SQL strings
+- Template rendering must use `SandboxedEnvironment` with autoescape enabled
+- Background task resolution must only use the registered task registry
+
+### 7. Testing
 Before submitting, run our test suite using `pytest`:
 
 ```bash
-pytest tests/
+pytest tests/ -q
 ```
+
+The full suite has 5,085+ tests and should complete in under 60 seconds.
 Ensure all tests pass and consider adding new tests to cover any new logic or edge cases you introduce. Use `pytest --cov=aquilia` to check coverage.
 
-### 6. Submit a Pull Request
+### 8. Submit a Pull Request
 Push your branch to your forked repository and submit a Pull Request against the `master` branch.
 Provide a clear description of the problem your PR solves or feature it adds.
 

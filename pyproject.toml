@@ -62,6 +62,7 @@ dependencies = [
 # Jinja2 template engine (admin panel & user templates)
 templates = [
     "jinja2>=3.1.0",
+    "markupsafe>=2.1.0",
 ]
 
 # Auth subsystem — cryptography + password hashing
