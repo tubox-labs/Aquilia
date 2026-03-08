@@ -720,7 +720,12 @@ class Response:
         path = Path(path)
         
         if not path.exists():
-            raise FileNotFoundError(f"File not found: {path}")
+            from .faults.domains import FilesystemFault
+            raise FilesystemFault(
+                path=str(path),
+                operation="read",
+                reason="File not found",
+            )
         
         if not path.is_file():
             from .faults.domains import IOFault
@@ -1075,7 +1080,11 @@ class Response:
         """
         if signed:
             if signer is None:
-                raise ValueError("signer required when signed=True")
+                from .faults.domains import ConfigInvalidFault
+                raise ConfigInvalidFault(
+                    key="cookie_signer",
+                    reason="signer is required when signed=True; pass a CookieSigner instance",
+                )
             value = signer.sign(value)
         
         cookie_parts = [f"{name}={value}"]

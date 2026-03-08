@@ -288,10 +288,13 @@ class ControllerFactory:
         else:
             # SEC-CTRL-02: Do NOT fall back to param_type() instantiation.
             # Arbitrary class instantiation is a security risk.
-            raise TypeError(
-                f"Cannot resolve {param_type!r} -- no container "
-                f"provider found. Register a provider for this type "
-                f"in your DI container."
+            from ..faults.domains import DIResolutionFault
+            raise DIResolutionFault(
+                provider=repr(param_type),
+                reason=(
+                    "No container provider found. Register a provider for "
+                    "this type in your DI container."
+                ),
             )
     
     async def shutdown(self):

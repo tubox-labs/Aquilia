@@ -174,7 +174,10 @@ class ASGIAdapter:
                     headers={"content-type": "text/html; charset=utf-8"},
                 )
 
-            return Response.json({"error": "Not found"}, status=404)
+            from .faults.domains import NotFoundFault
+            raise NotFoundFault(
+                detail=f"No route matches {request.method} {request.path}",
+            )
 
         self._cached_middleware_chain = self.middleware_stack.build_handler(_final_handler)
 

@@ -1098,7 +1098,8 @@ class TestDep:
         h = Header("X-Custom", required=True)
         req = MagicMock()
         req.headers = {}
-        with pytest.raises(ValueError, match="Missing required header"):
+        from aquilia.faults.domains import BadRequestFault
+        with pytest.raises(BadRequestFault, match="Missing required header"):
             h.resolve({"request": req})
 
     def test_header_resolve_missing_optional(self):

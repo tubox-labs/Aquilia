@@ -277,7 +277,11 @@ class EffectSubsystem(BaseSubsystem):
         """Import a factory function from a dotted path."""
         import importlib
         if not factory_path:
-            raise ValueError("Empty factory path")
+            from ..faults.domains import ConfigInvalidFault
+            raise ConfigInvalidFault(
+                key="effect_factory_path",
+                reason="Factory path must not be empty",
+            )
         if ":" in factory_path:
             module_path, func_name = factory_path.split(":", 1)
         else:

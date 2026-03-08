@@ -498,4 +498,5 @@ class ControllerRouter:
 
         if name.startswith("/"):
             return name
-        raise ValueError(f"No route found with name: {name}")
+        from ..faults.domains import RouteNotFoundFault
+        raise RouteNotFoundFault(path=name, method="*")

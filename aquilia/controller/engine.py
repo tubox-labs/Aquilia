@@ -145,9 +145,9 @@ class ControllerEngine:
                     except (ValueError, TypeError):
                         pass
             if content_length > max_body:
-                return Response.json(
-                    {"error": "Request body too large", "max_bytes": max_body},
-                    status=413,
+                from ..faults.domains import PayloadTooLargeFault
+                raise PayloadTooLargeFault(
+                    detail=f"Request body too large ({content_length} bytes, max {max_body})",
                 )
 
         # Singleton lifecycle init (once per controller class)
@@ -547,15 +547,24 @@ class ControllerEngine:
             if result.error:
                 # Guard raised an exception -- re-raise for fault engine
                 raise result.error
-            return Response.json({"error": "Pipeline guard failed"}, status=403)
+            from ..faults.domains import ForbiddenFault
+            raise ForbiddenFault(
+                detail=f"Pipeline guard blocked request in {pipeline_name}",
+            )
 
         if result.status == FlowStatus.ERROR:
             if result.error:
                 raise result.error
-            return Response.json({"error": "Pipeline error"}, status=500)
+            from ..faults.domains import InternalServerErrorFault
+            raise InternalServerErrorFault(
+                detail=f"Pipeline error in {pipeline_name}",
+            )
 
         if result.status == FlowStatus.TIMEOUT:
-            return Response.json({"error": "Pipeline timeout"}, status=504)
+            from ..faults.domains import GatewayTimeoutFault
+            raise GatewayTimeoutFault(
+                detail=f"Pipeline timeout in {pipeline_name}",
+            )
 
         # SUCCESS -- continue to handler
         return None
@@ -851,7 +860,7 @@ class ControllerEngine:
     def _cast_value(self, value: str, annotation: Any) -> Any:
         """Cast string value to target type.
         
-        Raises ValueError with a user-friendly message on bad input
+        Raises BadRequestFault with a user-friendly message on bad input
         (SEC-CTRL-01: was previously uncaught).
         """
         try:
@@ -864,9 +873,16 @@ class ControllerEngine:
             else:
                 return value
         except (ValueError, TypeError) as exc:
-            raise ValueError(
-                f"Invalid value {value!r} for expected type "
-                f"{getattr(annotation, '__name__', annotation)}"
+            from ..faults.domains import BadRequestFault
+            raise BadRequestFault(
+                message=(
+                    f"Invalid value {value!r} for expected type "
+                    f"{getattr(annotation, '__name__', annotation)}"
+                ),
+                detail=(
+                    f"Invalid value {value!r} for expected type "
+                    f"{getattr(annotation, '__name__', annotation)}"
+                ),
             ) from exc
     
     _blueprint_base_class = None   # Cached Blueprint class

@@ -346,9 +346,10 @@ class MessagePackRenderer(BaseRenderer):
             import msgpack  # type: ignore[import-untyped]
             return msgpack.packb(data, use_bin_type=True, default=str)
         except ImportError:
-            raise RuntimeError(
-                "MessagePack rendering requires the 'msgpack' package. "
-                "Install it with: pip install msgpack"
+            from ..faults.domains import ConfigMissingFault
+            raise ConfigMissingFault(
+                key="msgpack",
+                metadata={"install": "pip install msgpack"},
             )
 
 

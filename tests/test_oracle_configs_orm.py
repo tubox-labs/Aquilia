@@ -151,7 +151,8 @@ class TestDatabaseConfigBase:
 
     def test_from_url_unsupported_scheme(self):
         from aquilia.db.configs import DatabaseConfig
-        with pytest.raises(ValueError, match="Unsupported database URL"):
+        from aquilia.faults.domains import ConfigInvalidFault
+        with pytest.raises(ConfigInvalidFault, match="Unsupported database URL"):
             DatabaseConfig.from_url("mongodb://host/db")
 
     def test_base_to_url_raises(self):
