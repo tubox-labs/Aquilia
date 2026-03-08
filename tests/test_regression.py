@@ -1085,7 +1085,8 @@ class TestProjectConfig:
         # These are not imported anywhere in the aquilia package
         assert "passlib" not in content, "passlib should be removed (unused)"
         assert "python-dotenv" not in content, "python-dotenv should be removed (unused)"
-        assert "crousr" not in content, "crousr should be removed (unused)"
+        # crousr is used by aquilia.artifacts.store for .crous binary format
+        assert "crousr" in content, "crousr is required by artifact store"
 
     def test_pyproject_has_server_extras(self):
         """pyproject.toml should have [server] optional dependency group."""
@@ -1191,7 +1192,7 @@ class TestFullImportChain:
     def test_import_aquilia_root(self):
         import aquilia
         assert hasattr(aquilia, "__version__")
-        assert aquilia.__version__ == "1.0.1"
+        assert aquilia.__version__ == "1.0.1b3"
 
     def test_import_server(self):
         from aquilia.server import AquiliaServer

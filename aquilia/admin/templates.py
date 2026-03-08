@@ -1071,6 +1071,70 @@ def render_profile_page(
 <body><div style="padding:24px"><h1>Profile</h1><p>{uname}</p></div></body></html>"""
 
 
+def render_api_keys_page(
+    keys: List[Dict[str, Any]],
+    app_list: Optional[List[Dict[str, Any]]] = None,
+    identity_name: str = "Admin",
+    identity_avatar: str = "",
+    *,
+    flash: str = "",
+    flash_type: str = "success",
+    site_title: str = "Aquilia Admin",
+    url_prefix: str = "/admin",
+) -> str:
+    """Render the API keys management page."""
+    if _HAS_JINJA2:
+        return _render_template(
+            "api_keys.html",
+            keys=keys,
+            app_list=app_list or [],
+            active_page="api-keys",
+            identity_name=identity_name,
+            identity_avatar=identity_avatar,
+            flash=flash,
+            flash_type=flash_type,
+            site_title=site_title,
+            url_prefix=url_prefix,
+            page_title="API Keys",
+        )
+    total = len(keys)
+    return f"""<!DOCTYPE html><html lang="en" data-theme="dark"><head>
+<meta charset="UTF-8"><title>API Keys -- Aquilia Admin</title><style>{_FALLBACK_CSS}</style></head>
+<body><div style="padding:24px"><h1>API Keys</h1><p>{total} keys</p></div></body></html>"""
+
+
+def render_preferences_page(
+    preferences: List[Dict[str, Any]],
+    app_list: Optional[List[Dict[str, Any]]] = None,
+    identity_name: str = "Admin",
+    identity_avatar: str = "",
+    *,
+    flash: str = "",
+    flash_type: str = "success",
+    site_title: str = "Aquilia Admin",
+    url_prefix: str = "/admin",
+) -> str:
+    """Render the user preferences management page."""
+    if _HAS_JINJA2:
+        return _render_template(
+            "preferences.html",
+            preferences=preferences,
+            app_list=app_list or [],
+            active_page="preferences",
+            identity_name=identity_name,
+            identity_avatar=identity_avatar,
+            flash=flash,
+            flash_type=flash_type,
+            site_title=site_title,
+            url_prefix=url_prefix,
+            page_title="Preferences",
+        )
+    total = len(preferences)
+    return f"""<!DOCTYPE html><html lang="en" data-theme="dark"><head>
+<meta charset="UTF-8"><title>Preferences -- Aquilia Admin</title><style>{_FALLBACK_CSS}</style></head>
+<body><div style="padding:24px"><h1>Preferences</h1><p>{total} namespaces</p></div></body></html>"""
+
+
 def render_forbidden_page(
     module_name: str = "this page",
     required_permission: str = "",
@@ -1604,6 +1668,9 @@ def _fallback_login(error: str = "", **kw: Any) -> str:
 <input type="text" name="username" class="form-input" required autofocus></div>
 <div class="form-group"><label class="form-label">Password</label>
 <input type="password" name="password" class="form-input" required></div>
+<div class="form-group" style="display:flex;align-items:center;gap:8px;margin-top:4px;">
+<input type="checkbox" id="remember_me" name="remember_me" value="1" checked style="accent-color:#22c55e;width:16px;height:16px;">
+<label for="remember_me" style="font-size:.8rem;color:var(--text-muted);cursor:pointer;">Remember me for 30 days</label></div>
 <button type="submit" class="btn btn-primary" style="width:100%">Sign In</button>
 </form></div></div><script>var s=localStorage.getItem('aquilia-admin-theme');
 if(s)document.documentElement.setAttribute('data-theme',s);</script></body></html>"""

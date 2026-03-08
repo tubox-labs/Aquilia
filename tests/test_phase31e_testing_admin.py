@@ -984,7 +984,7 @@ class TestTestingTemplateFile:
     def test_template_has_javascript_section(self):
         with open(self._template_path()) as f:
             content = f.read()
-        assert "<script>" in content or "{% block extra_js %}" in content
+        assert "<script" in content or "{% block extra_js %}" in content
 
     def test_template_creates_chart_instances(self):
         with open(self._template_path()) as f:

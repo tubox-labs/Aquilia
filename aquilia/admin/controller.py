@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import logging
 import os
+from datetime import datetime, timedelta, timezone as _tz
 from pathlib import Path
 from typing import Any, Dict, Optional, TYPE_CHECKING
 
@@ -53,6 +54,8 @@ from .templates import (
     render_storage_page,
     render_admin_users_page,
     render_profile_page,
+    render_api_keys_page,
+    render_preferences_page,
     render_error_page,
     render_disabled_page,
     render_forbidden_page,
@@ -813,6 +816,7 @@ class AdminController(Controller):
 
         username = form_data.get("username", "")
         password = form_data.get("password", "")
+        remember_me = form_data.get("remember_me", "") in ("1", "on", "true")
 
         if not username or not password:
             csrf_token = self.site.security.csrf.get_or_create_token(ctx)
@@ -890,10 +894,24 @@ class AdminController(Controller):
         # Store identity in session
         if ctx.session and hasattr(ctx.session, "data"):
             ctx.session.data["_admin_identity"] = identity.to_dict()
+            ctx.session.data["_admin_remember_me"] = remember_me
+
+        # ── Remember me: extend session lifetime ─────────────────
+        # Checked (default): persistent session — 30 days.
+        # Unchecked: browser-session cookie — expires_at=None means
+        #   the transport emits max_age=None (session cookie).
+        _REMEMBER_ME_TTL = timedelta(days=30)
+        if ctx.session:
+            if remember_me:
+                ctx.session.expires_at = datetime.now(_tz.utc) + _REMEMBER_ME_TTL
+            else:
+                # Session cookie: no explicit expiry (browser clears on close)
+                ctx.session.expires_at = None
 
         # Log successful login
         meta = _extract_request_meta(request)
         audit = self.site.audit_log
+        _login_meta = {"remember_me": remember_me}
         if hasattr(audit, "alog"):
             await audit.alog(
                 user_id=identity.id,
@@ -902,6 +920,7 @@ class AdminController(Controller):
                 action=AdminAction.LOGIN,
                 ip_address=meta.get("ip_address"),
                 user_agent=meta.get("user_agent"),
+                metadata=_login_meta,
             )
         else:
             audit.log(
@@ -911,6 +930,7 @@ class AdminController(Controller):
                 action=AdminAction.LOGIN,
                 ip_address=meta.get("ip_address"),
                 user_agent=meta.get("user_agent"),
+                metadata=_login_meta,
             )
 
         return _redirect("/admin/")
@@ -5558,6 +5578,594 @@ class AdminController(Controller):
                 ctx.session.data["_admin_flash_type"] = "error"
 
         return _redirect("/admin/admin-users/")
+
+    # ── API Key Management ───────────────────────────────────────────
+
+    @GET("/api-keys/")
+    async def api_keys_view(self, request, ctx: RequestCtx) -> Response:
+        """API keys management page."""
+        self._ensure_csrf(ctx)
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return denied
+
+        if not self.site.admin_config.is_module_enabled("api_keys"):
+            return self._module_disabled_response("API Keys", identity)
+
+        if not has_admin_permission(identity, AdminPermission.API_KEY_VIEW):
+            return _redirect("/admin/")
+
+        self._ensure_initialized()
+
+        username = identity.get_attribute("username", identity.id)
+        keys = []
+        try:
+            from aquilia.admin.models import AdminUser, AdminAPIKey
+            user = await AdminUser.objects.filter(username=username).first()
+            if user:
+                user_keys = await AdminAPIKey.objects.filter(user_id=user.pk).all()
+                keys = [k.to_safe_dict() for k in user_keys]
+        except Exception:
+            pass
+
+        flash = ""
+        flash_type = "success"
+        if ctx.session and hasattr(ctx.session, "data"):
+            flash = ctx.session.data.pop("_admin_flash", "")
+            flash_type = ctx.session.data.pop("_admin_flash_type", "success")
+
+        app_list = self.site.get_app_list(identity)
+
+        try:
+            meta = _extract_request_meta(request)
+            self.site.audit_log.log(
+                user_id=getattr(identity, "id", ""),
+                username=_get_identity_name(identity),
+                role=str(get_admin_role(identity) or "unknown"),
+                action=AdminAction.PAGE_VIEW,
+                model_name="APIKeys",
+                ip_address=meta.get("ip_address"),
+                user_agent=meta.get("user_agent"),
+            )
+        except Exception:
+            pass
+
+        html = render_api_keys_page(
+            keys=keys,
+            app_list=app_list,
+            identity_name=_get_identity_name(identity),
+            identity_avatar=_get_identity_avatar(identity),
+            flash=flash,
+            flash_type=flash_type,
+        )
+        return _html_response(html)
+
+    @POST("/api-keys/create")
+    async def api_keys_create(self, request, ctx: RequestCtx) -> Response:
+        """Create a new API key for the current user.
+
+        The raw key is returned **once** in the response. Only the
+        SHA-256 hash is persisted — the raw key cannot be retrieved later.
+
+        Accepts JSON body:
+            name     — human-readable label (required)
+            scopes   — list of permission strings (optional, [] = wildcard)
+            expires_at — ISO-8601 expiry datetime (optional, null = never)
+        """
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return denied
+
+        self._ensure_initialized()
+        import json as _json
+        form_data = await _parse_form(ctx)
+
+        # CSRF validation
+        csrf_denied = self._csrf_reject_json(request, ctx, form_data)
+        if csrf_denied:
+            return csrf_denied
+
+        key_name = (form_data.get("name") or "").strip()
+        if not key_name:
+            return Response(
+                content=_json.dumps({"error": "Key name is required."}).encode("utf-8"),
+                status=400,
+                headers={"content-type": "application/json"},
+            )
+
+        scopes_raw = form_data.get("scopes", "[]")
+        try:
+            scopes = _json.loads(scopes_raw) if isinstance(scopes_raw, str) else scopes_raw
+            if not isinstance(scopes, list):
+                scopes = []
+        except (ValueError, TypeError):
+            scopes = []
+
+        expires_at = None
+        expires_raw = form_data.get("expires_at", "")
+        if expires_raw:
+            try:
+                from datetime import datetime as _dt, timezone as _tz
+                expires_at = _dt.fromisoformat(expires_raw)
+                if expires_at.tzinfo is None:
+                    expires_at = expires_at.replace(tzinfo=_tz.utc)
+            except (ValueError, TypeError):
+                expires_at = None
+
+        username = identity.get_attribute("username", identity.id)
+        try:
+            from aquilia.admin.models import AdminUser, AdminAPIKey
+            user = await AdminUser.objects.filter(username=username).first()
+            if not user:
+                return Response(
+                    content=_json.dumps({"error": "User not found."}).encode("utf-8"),
+                    status=404,
+                    headers={"content-type": "application/json"},
+                )
+
+            key_obj, raw_key = AdminAPIKey.generate(
+                user_id=user.pk,
+                name=key_name,
+                scopes=scopes,
+                expires_at=expires_at,
+            )
+            await key_obj.save()
+
+            # Audit
+            try:
+                meta = _extract_request_meta(request)
+                self.site.audit_log.log(
+                    user_id=getattr(identity, "id", ""),
+                    username=_get_identity_name(identity),
+                    role=str(get_admin_role(identity) or "unknown"),
+                    action=AdminAction.API_KEY_CREATE,
+                    model_name="AdminAPIKey",
+                    record_pk=str(getattr(key_obj, "id", "")),
+                    metadata={"key_name": key_name, "prefix": key_obj.prefix, "scopes": scopes},
+                    ip_address=meta.get("ip_address"),
+                    user_agent=meta.get("user_agent"),
+                )
+            except Exception:
+                pass
+
+            return Response(
+                content=_json.dumps({
+                    "success": True,
+                    "raw_key": raw_key,
+                    "key": key_obj.to_safe_dict(),
+                    "message": "API key created. Copy the raw key now — it will not be shown again.",
+                }).encode("utf-8"),
+                status=201,
+                headers={"content-type": "application/json"},
+            )
+        except Exception as e:
+            return Response(
+                content=_json.dumps({"error": f"Failed to create API key: {e}"}).encode("utf-8"),
+                status=500,
+                headers={"content-type": "application/json"},
+            )
+
+    @POST("/api-keys/revoke")
+    async def api_keys_revoke(self, request, ctx: RequestCtx) -> Response:
+        """Revoke (deactivate) an API key without deleting the record.
+
+        Accepts JSON body:
+            key_id — PK of the API key to revoke (required)
+        """
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return denied
+
+        self._ensure_initialized()
+        import json as _json
+        form_data = await _parse_form(ctx)
+
+        csrf_denied = self._csrf_reject_json(request, ctx, form_data)
+        if csrf_denied:
+            return csrf_denied
+
+        key_id = form_data.get("key_id", "")
+        if not key_id:
+            return Response(
+                content=_json.dumps({"error": "key_id is required."}).encode("utf-8"),
+                status=400,
+                headers={"content-type": "application/json"},
+            )
+
+        username = identity.get_attribute("username", identity.id)
+        try:
+            from aquilia.admin.models import AdminUser, AdminAPIKey
+            user = await AdminUser.objects.filter(username=username).first()
+            if not user:
+                return Response(
+                    content=_json.dumps({"error": "User not found."}).encode("utf-8"),
+                    status=404,
+                    headers={"content-type": "application/json"},
+                )
+
+            key_obj = await AdminAPIKey.objects.filter(pk=key_id, user_id=user.pk).first()
+            if not key_obj:
+                return Response(
+                    content=_json.dumps({"error": "API key not found."}).encode("utf-8"),
+                    status=404,
+                    headers={"content-type": "application/json"},
+                )
+
+            key_obj.revoke()
+            await key_obj.save()
+
+            # Audit
+            try:
+                meta = _extract_request_meta(request)
+                self.site.audit_log.log(
+                    user_id=getattr(identity, "id", ""),
+                    username=_get_identity_name(identity),
+                    role=str(get_admin_role(identity) or "unknown"),
+                    action=AdminAction.API_KEY_REVOKE,
+                    model_name="AdminAPIKey",
+                    record_pk=str(key_id),
+                    metadata={"key_name": key_obj.name, "prefix": key_obj.prefix},
+                    ip_address=meta.get("ip_address"),
+                    user_agent=meta.get("user_agent"),
+                )
+            except Exception:
+                pass
+
+            if ctx.session and hasattr(ctx.session, "data"):
+                ctx.session.data["_admin_flash"] = f"API key '{key_obj.name}' revoked."
+                ctx.session.data["_admin_flash_type"] = "success"
+            return _redirect("/admin/api-keys/")
+        except Exception as e:
+            if ctx.session and hasattr(ctx.session, "data"):
+                ctx.session.data["_admin_flash"] = f"Failed: {e}"
+                ctx.session.data["_admin_flash_type"] = "error"
+            return _redirect("/admin/api-keys/")
+
+    @POST("/api-keys/delete")
+    async def api_keys_delete(self, request, ctx: RequestCtx) -> Response:
+        """Permanently delete an API key record.
+
+        Accepts JSON body:
+            key_id — PK of the API key to delete (required)
+        """
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return denied
+
+        self._ensure_initialized()
+        import json as _json
+        form_data = await _parse_form(ctx)
+
+        csrf_denied = self._csrf_reject_json(request, ctx, form_data)
+        if csrf_denied:
+            return csrf_denied
+
+        key_id = form_data.get("key_id", "")
+        if not key_id:
+            return Response(
+                content=_json.dumps({"error": "key_id is required."}).encode("utf-8"),
+                status=400,
+                headers={"content-type": "application/json"},
+            )
+
+        username = identity.get_attribute("username", identity.id)
+        try:
+            from aquilia.admin.models import AdminUser, AdminAPIKey
+            user = await AdminUser.objects.filter(username=username).first()
+            if not user:
+                return Response(
+                    content=_json.dumps({"error": "User not found."}).encode("utf-8"),
+                    status=404,
+                    headers={"content-type": "application/json"},
+                )
+
+            key_obj = await AdminAPIKey.objects.filter(pk=key_id, user_id=user.pk).first()
+            if not key_obj:
+                return Response(
+                    content=_json.dumps({"error": "API key not found."}).encode("utf-8"),
+                    status=404,
+                    headers={"content-type": "application/json"},
+                )
+
+            key_name = key_obj.name
+            key_prefix = key_obj.prefix
+            await key_obj.delete()
+
+            # Audit
+            try:
+                meta = _extract_request_meta(request)
+                self.site.audit_log.log(
+                    user_id=getattr(identity, "id", ""),
+                    username=_get_identity_name(identity),
+                    role=str(get_admin_role(identity) or "unknown"),
+                    action=AdminAction.API_KEY_DELETE,
+                    model_name="AdminAPIKey",
+                    record_pk=str(key_id),
+                    metadata={"key_name": key_name, "prefix": key_prefix},
+                    ip_address=meta.get("ip_address"),
+                    user_agent=meta.get("user_agent"),
+                )
+            except Exception:
+                pass
+
+            if ctx.session and hasattr(ctx.session, "data"):
+                ctx.session.data["_admin_flash"] = f"API key '{key_name}' deleted permanently."
+                ctx.session.data["_admin_flash_type"] = "success"
+            return _redirect("/admin/api-keys/")
+        except Exception as e:
+            if ctx.session and hasattr(ctx.session, "data"):
+                ctx.session.data["_admin_flash"] = f"Failed: {e}"
+                ctx.session.data["_admin_flash_type"] = "error"
+            return _redirect("/admin/api-keys/")
+
+    # ── User Preferences Management ──────────────────────────────────
+
+    @GET("/preferences/")
+    async def preferences_view(self, request, ctx: RequestCtx) -> Response:
+        """Preferences management page."""
+        self._ensure_csrf(ctx)
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return denied
+
+        if not self.site.admin_config.is_module_enabled("preferences"):
+            return self._module_disabled_response("Preferences", identity)
+
+        if not has_admin_permission(identity, AdminPermission.PREFERENCE_VIEW):
+            return _redirect("/admin/")
+
+        self._ensure_initialized()
+
+        username = identity.get_attribute("username", identity.id)
+        prefs = []
+        try:
+            from aquilia.admin.models import AdminUser, AdminPreference
+            user = await AdminUser.objects.filter(username=username).first()
+            if user:
+                user_prefs = await AdminPreference.objects.filter(user_id=user.pk).all()
+                prefs = [p.to_dict() for p in user_prefs]
+        except Exception:
+            pass
+
+        flash = ""
+        flash_type = "success"
+        if ctx.session and hasattr(ctx.session, "data"):
+            flash = ctx.session.data.pop("_admin_flash", "")
+            flash_type = ctx.session.data.pop("_admin_flash_type", "success")
+
+        app_list = self.site.get_app_list(identity)
+
+        try:
+            meta = _extract_request_meta(request)
+            self.site.audit_log.log(
+                user_id=getattr(identity, "id", ""),
+                username=_get_identity_name(identity),
+                role=str(get_admin_role(identity) or "unknown"),
+                action=AdminAction.PAGE_VIEW,
+                model_name="Preferences",
+                ip_address=meta.get("ip_address"),
+                user_agent=meta.get("user_agent"),
+            )
+        except Exception:
+            pass
+
+        html = render_preferences_page(
+            preferences=prefs,
+            app_list=app_list,
+            identity_name=_get_identity_name(identity),
+            identity_avatar=_get_identity_avatar(identity),
+            flash=flash,
+            flash_type=flash_type,
+        )
+        return _html_response(html)
+
+    @GET("/preferences/<namespace>")
+    async def preferences_get(self, request, ctx: RequestCtx, namespace: str = "ui") -> Response:
+        """Get preferences for a specific namespace (JSON API)."""
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return denied
+
+        self._ensure_initialized()
+        import json as _json
+
+        username = identity.get_attribute("username", identity.id)
+        try:
+            from aquilia.admin.models import AdminUser, AdminPreference
+            user = await AdminUser.objects.filter(username=username).first()
+            if not user:
+                return Response(
+                    content=_json.dumps({"error": "User not found."}).encode("utf-8"),
+                    status=404,
+                    headers={"content-type": "application/json"},
+                )
+
+            pref = await AdminPreference.get_or_create(user_id=user.pk, namespace=namespace)
+            return Response(
+                content=_json.dumps({
+                    "namespace": namespace,
+                    "data": pref.get_data(),
+                    "updated_at": str(pref.updated_at or ""),
+                }).encode("utf-8"),
+                status=200,
+                headers={"content-type": "application/json"},
+            )
+        except Exception as e:
+            return Response(
+                content=_json.dumps({"error": str(e)}).encode("utf-8"),
+                status=500,
+                headers={"content-type": "application/json"},
+            )
+
+    @POST("/preferences/update")
+    async def preferences_update(self, request, ctx: RequestCtx) -> Response:
+        """Create or update preferences for a namespace.
+
+        Accepts JSON body:
+            namespace — preference namespace (default: "ui")
+            data      — dict of preference key-value pairs
+            merge     — if true, shallow-merge into existing data (default: false)
+        """
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return denied
+
+        self._ensure_initialized()
+        import json as _json
+        form_data = await _parse_form(ctx)
+
+        csrf_denied = self._csrf_reject_json(request, ctx, form_data)
+        if csrf_denied:
+            return csrf_denied
+
+        namespace = (form_data.get("namespace") or "ui").strip()
+        data_raw = form_data.get("data", "{}")
+        merge = form_data.get("merge", "false")
+        merge = merge in (True, "true", "1", "yes")
+
+        try:
+            data = _json.loads(data_raw) if isinstance(data_raw, str) else data_raw
+            if not isinstance(data, dict):
+                return Response(
+                    content=_json.dumps({"error": "data must be a JSON object."}).encode("utf-8"),
+                    status=400,
+                    headers={"content-type": "application/json"},
+                )
+        except (ValueError, TypeError):
+            return Response(
+                content=_json.dumps({"error": "Invalid JSON in data field."}).encode("utf-8"),
+                status=400,
+                headers={"content-type": "application/json"},
+            )
+
+        username = identity.get_attribute("username", identity.id)
+        try:
+            from aquilia.admin.models import AdminUser, AdminPreference
+            user = await AdminUser.objects.filter(username=username).first()
+            if not user:
+                return Response(
+                    content=_json.dumps({"error": "User not found."}).encode("utf-8"),
+                    status=404,
+                    headers={"content-type": "application/json"},
+                )
+
+            pref = await AdminPreference.get_or_create(user_id=user.pk, namespace=namespace)
+
+            if merge:
+                pref.merge(data)
+            else:
+                pref.set_data(data)
+            await pref.save()
+
+            # Audit
+            try:
+                meta = _extract_request_meta(request)
+                self.site.audit_log.log(
+                    user_id=getattr(identity, "id", ""),
+                    username=_get_identity_name(identity),
+                    role=str(get_admin_role(identity) or "unknown"),
+                    action=AdminAction.PREFERENCE_UPDATE,
+                    model_name="AdminPreference",
+                    record_pk=str(getattr(pref, "id", "")),
+                    metadata={"namespace": namespace, "merge": merge},
+                    ip_address=meta.get("ip_address"),
+                    user_agent=meta.get("user_agent"),
+                )
+            except Exception:
+                pass
+
+            return Response(
+                content=_json.dumps({
+                    "success": True,
+                    "namespace": namespace,
+                    "data": pref.get_data(),
+                    "message": f"Preferences for '{namespace}' updated.",
+                }).encode("utf-8"),
+                status=200,
+                headers={"content-type": "application/json"},
+            )
+        except Exception as e:
+            return Response(
+                content=_json.dumps({"error": f"Failed: {e}"}).encode("utf-8"),
+                status=500,
+                headers={"content-type": "application/json"},
+            )
+
+    @POST("/preferences/delete")
+    async def preferences_delete(self, request, ctx: RequestCtx) -> Response:
+        """Delete a preference namespace for the current user.
+
+        Accepts JSON body:
+            namespace — the namespace to delete (required)
+        """
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return denied
+
+        self._ensure_initialized()
+        import json as _json
+        form_data = await _parse_form(ctx)
+
+        csrf_denied = self._csrf_reject_json(request, ctx, form_data)
+        if csrf_denied:
+            return csrf_denied
+
+        namespace = (form_data.get("namespace") or "").strip()
+        if not namespace:
+            return Response(
+                content=_json.dumps({"error": "namespace is required."}).encode("utf-8"),
+                status=400,
+                headers={"content-type": "application/json"},
+            )
+
+        username = identity.get_attribute("username", identity.id)
+        try:
+            from aquilia.admin.models import AdminUser, AdminPreference
+            user = await AdminUser.objects.filter(username=username).first()
+            if not user:
+                return Response(
+                    content=_json.dumps({"error": "User not found."}).encode("utf-8"),
+                    status=404,
+                    headers={"content-type": "application/json"},
+                )
+
+            pref = await AdminPreference.objects.filter(
+                user_id=user.pk, namespace=namespace
+            ).first()
+            if not pref:
+                return Response(
+                    content=_json.dumps({"error": f"No preferences found for namespace '{namespace}'."}).encode("utf-8"),
+                    status=404,
+                    headers={"content-type": "application/json"},
+                )
+
+            await pref.delete()
+
+            # Audit
+            try:
+                meta = _extract_request_meta(request)
+                self.site.audit_log.log(
+                    user_id=getattr(identity, "id", ""),
+                    username=_get_identity_name(identity),
+                    role=str(get_admin_role(identity) or "unknown"),
+                    action=AdminAction.PREFERENCE_DELETE,
+                    model_name="AdminPreference",
+                    metadata={"namespace": namespace},
+                    ip_address=meta.get("ip_address"),
+                    user_agent=meta.get("user_agent"),
+                )
+            except Exception:
+                pass
+
+            if ctx.session and hasattr(ctx.session, "data"):
+                ctx.session.data["_admin_flash"] = f"Preferences for '{namespace}' deleted."
+                ctx.session.data["_admin_flash_type"] = "success"
+            return _redirect("/admin/preferences/")
+        except Exception as e:
+            if ctx.session and hasattr(ctx.session, "data"):
+                ctx.session.data["_admin_flash"] = f"Failed: {e}"
+                ctx.session.data["_admin_flash_type"] = "error"
+            return _redirect("/admin/preferences/")
 
     # ── Profile ──────────────────────────────────────────────────────
 

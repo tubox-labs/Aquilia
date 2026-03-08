@@ -89,6 +89,15 @@ class AdminAction(str, Enum):
     ALERT_CONFIG = "alert_config"
     SNAPSHOT_EXPORT = "snapshot_export"
 
+    # ── API Key Management ───────────────────────────────────────────
+    API_KEY_CREATE = "api_key_create"
+    API_KEY_REVOKE = "api_key_revoke"
+    API_KEY_DELETE = "api_key_delete"
+
+    # ── User Preferences ─────────────────────────────────────────────
+    PREFERENCE_UPDATE = "preference_update"
+    PREFERENCE_DELETE = "preference_delete"
+
 
 @dataclass(frozen=True)
 class AdminAuditEntry:

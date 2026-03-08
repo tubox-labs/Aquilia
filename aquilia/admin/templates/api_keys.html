@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}API Keys{% endblock %}
+{% block breadcrumb %}API Keys{% endblock %}
+
+{% block content %}
+<div class="page-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+    <div>
+        <h1><span class="gradient-text">API Keys</span></h1>
+        <p>Manage programmatic access keys for the admin API.</p>
+    </div>
+</div>
+
+{# ── Coming Soon ── #}
+<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;text-align:center;padding:40px 20px;">
+    <div style="position:relative;margin-bottom:32px;">
+        <div style="width:120px;height:120px;border-radius:50%;background:linear-gradient(135deg,var(--accent-subtle),rgba(99,102,241,0.08));display:flex;align-items:center;justify-content:center;">
+            <i class="icon-key" style="font-size:48px;color:var(--accent);opacity:.7;"></i>
+        </div>
+        <div style="position:absolute;top:-4px;right:-4px;width:36px;height:36px;border-radius:50%;background:var(--warning);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(234,179,8,0.3);">
+            <i class="icon-clock" style="font-size:18px;color:#fff;"></i>
+        </div>
+    </div>
+
+    <h2 style="font-size:1.5rem;font-weight:700;margin:0 0 12px;background:linear-gradient(135deg,var(--accent),var(--info));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">
+        Coming Soon
+    </h2>
+    <p style="font-size:.95rem;color:var(--text-secondary);max-width:480px;margin:0 0 24px;line-height:1.6;">
+        API Key management is under active development. This feature will allow you to create,
+        manage, and revoke programmatic access keys for the admin API.
+    </p>
+
+    <div class="glass-card" style="padding:24px 32px;max-width:520px;width:100%;text-align:left;">
+        <div style="font-size:.82rem;font-weight:600;margin-bottom:16px;color:var(--text-secondary);display:flex;align-items:center;gap:8px;">
+            <i class="icon-info" style="font-size:14px;color:var(--info);"></i>
+            What to Expect
+        </div>
+        <div style="display:flex;flex-direction:column;gap:12px;font-size:.82rem;color:var(--text-muted);">
+            <div style="display:flex;align-items:flex-start;gap:10px;">
+                <i class="icon-lock" style="font-size:14px;color:var(--accent);flex-shrink:0;margin-top:2px;"></i>
+                <span><strong style="color:var(--text-secondary);">SHA-256 hashed storage</strong> — raw keys shown only once at creation</span>
+            </div>
+            <div style="display:flex;align-items:flex-start;gap:10px;">
+                <i class="icon-shield" style="font-size:14px;color:var(--info);flex-shrink:0;margin-top:2px;"></i>
+                <span><strong style="color:var(--text-secondary);">Fine-grained scopes</strong> — restrict what each key can access</span>
+            </div>
+            <div style="display:flex;align-items:flex-start;gap:10px;">
+                <i class="icon-clock" style="font-size:14px;color:var(--warning);flex-shrink:0;margin-top:2px;"></i>
+                <span><strong style="color:var(--text-secondary);">Expiry &amp; rotation</strong> — automatic key lifecycle management</span>
+            </div>
+            <div style="display:flex;align-items:flex-start;gap:10px;">
+                <i class="icon-activity" style="font-size:14px;color:var(--success);flex-shrink:0;margin-top:2px;"></i>
+                <span><strong style="color:var(--text-secondary);">Usage analytics</strong> — track last used, request counts, and more</span>
+            </div>
+        </div>
+    </div>
+
+    <p style="font-size:.75rem;color:var(--text-faint);margin-top:24px;">
+        This feature is not functional yet. Stay tuned for an upcoming release.
+    </p>
+</div>
+{% endblock %}

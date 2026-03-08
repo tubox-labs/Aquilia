@@ -47,6 +47,31 @@ if TYPE_CHECKING:
 __all__: list[str] = []
 
 
+# ── FK action normalization ───────────────────────────────────────────────────
+
+_ON_DELETE_SQL_MAP: dict[str, str] = {
+    "CASCADE": "CASCADE",
+    "SET_NULL": "SET NULL",
+    "SET NULL": "SET NULL",
+    "SETNULL": "SET NULL",
+    "SET_DEFAULT": "SET DEFAULT",
+    "SET DEFAULT": "SET DEFAULT",
+    "SETDEFAULT": "SET DEFAULT",
+    "RESTRICT": "RESTRICT",
+    "NO_ACTION": "NO ACTION",
+    "NO ACTION": "NO ACTION",
+    "DO_NOTHING": "NO ACTION",
+    "DO NOTHING": "NO ACTION",
+    "DONOTHING": "NO ACTION",
+    "PROTECT": "RESTRICT",
+}
+
+
+def _normalize_fk_action(action: str) -> str:
+    """Normalize a Python on_delete/on_update constant to valid SQL."""
+    return _ON_DELETE_SQL_MAP.get(action.upper().strip(), action)
+
+
 # ── Field Errors ─────────────────────────────────────────────────────────────
 
 # Import the Fault base so field validation errors flow through the fault pipeline
@@ -1691,8 +1716,8 @@ class ForeignKey(RelationField):
             table = getattr(self.related_model, '_table_name', self.related_model.__name__.lower())
             pk = getattr(self.related_model, '_pk_name', 'id')
             base += f' REFERENCES "{table}"("{pk}")'
-            base += f" ON DELETE {self.on_delete}"
-            base += f" ON UPDATE {self.on_update}"
+            base += f" ON DELETE {_normalize_fk_action(self.on_delete)}"
+            base += f" ON UPDATE {_normalize_fk_action(self.on_update)}"
         return base
 
     def deconstruct(self) -> Dict[str, Any]:
