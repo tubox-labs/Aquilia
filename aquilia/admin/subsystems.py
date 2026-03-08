@@ -365,6 +365,10 @@ class AdminTasks:
 
         Returns:
             Dict with ``cleaned`` count.
+
+        Note: AdminSession is now a stub — sessions are managed by
+        ``aquilia.sessions`` at the framework level.  This method is
+        retained for interface compatibility.
         """
         cleaned = 0
         try:

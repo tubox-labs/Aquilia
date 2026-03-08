@@ -2,7 +2,7 @@
 AquilAdmin -- Blueprints for Admin Models.
 
 Provides Aquilia Blueprint definitions for serialization,
-validation, and projection of all admin models.
+validation, and projection of the admin models.
 
 Each Blueprint uses the ``Spec`` inner class to bind to a model
 and define which fields are readable, writable, and projected.
@@ -29,44 +29,17 @@ except ImportError:
     _HAS_BLUEPRINTS = False
 
 from .models import (
-    ContentType,
-    AdminPermission,
-    AdminGroup,
     AdminUser,
-    AdminLogEntry,
-    AdminSession,
+    AdminAuditEntry,
+    AdminAPIKey,
+    AdminPreference,
     _HAS_ORM,
 )
 
 if _HAS_BLUEPRINTS and _HAS_ORM:
 
-    class ContentTypeBlueprint(Blueprint):
-        """Blueprint for ContentType serialization."""
-
-        class Spec:
-            model = ContentType
-            fields = ["id", "app_label", "model"]
-            read_only_fields = ["id"]
-
-    class AdminPermissionBlueprint(Blueprint):
-        """Blueprint for AdminPermission serialization."""
-
-        class Spec:
-            model = AdminPermission
-            fields = ["id", "name", "codename", "content_type"]
-            read_only_fields = ["id"]
-
-    class AdminGroupBlueprint(Blueprint):
-        """Blueprint for AdminGroup serialization."""
-
-        class Spec:
-            model = AdminGroup
-            fields = ["id", "name", "permissions"]
-            read_only_fields = ["id"]
-
     class AdminUserBlueprint(Blueprint):
-        """
-        Blueprint for AdminUser serialization.
+        """Blueprint for AdminUser serialization.
 
         Excludes ``password_hash`` from output (write_only).
         """
@@ -74,11 +47,12 @@ if _HAS_BLUEPRINTS and _HAS_ORM:
         class Spec:
             model = AdminUser
             fields = [
-                "id", "username", "email", "first_name", "last_name",
-                "is_superuser", "is_staff", "is_active",
-                "last_login", "date_joined", "groups", "user_permissions",
+                "id", "username", "email", "display_name",
+                "role", "is_active",
+                "login_count", "last_login_at", "last_active_at",
+                "created_at", "updated_at", "avatar_url",
             ]
-            read_only_fields = ["id", "last_login", "date_joined"]
+            read_only_fields = ["id", "login_count", "last_login_at", "last_active_at", "created_at"]
 
     class AdminUserCreateBlueprint(Blueprint):
         """Blueprint for creating a new AdminUser (accepts password)."""
@@ -86,62 +60,85 @@ if _HAS_BLUEPRINTS and _HAS_ORM:
         class Spec:
             model = AdminUser
             fields = [
-                "username", "email", "first_name", "last_name",
-                "is_superuser", "is_staff", "is_active",
+                "username", "email", "display_name", "role", "is_active",
             ]
 
-    class AdminLogEntryBlueprint(Blueprint):
-        """Blueprint for AdminLogEntry serialization (read-only)."""
+    class AdminAuditEntryBlueprint(Blueprint):
+        """Blueprint for AdminAuditEntry serialization (read-only)."""
 
         class Spec:
-            model = AdminLogEntry
+            model = AdminAuditEntry
             fields = [
-                "id", "action_time", "user", "content_type",
-                "object_id", "object_repr", "action_flag", "change_message",
+                "id", "user_id", "username", "ip_address",
+                "action", "resource_type", "resource_id", "summary",
+                "detail", "diff", "timestamp", "severity", "category",
             ]
             read_only_fields = [
-                "id", "action_time", "user", "content_type",
-                "object_id", "object_repr", "action_flag", "change_message",
+                "id", "user_id", "username", "ip_address",
+                "action", "resource_type", "resource_id", "summary",
+                "detail", "diff", "timestamp", "severity", "category",
             ]
 
-    class AdminSessionBlueprint(Blueprint):
-        """Blueprint for AdminSession serialization."""
+    class AdminAPIKeyBlueprint(Blueprint):
+        """Blueprint for AdminAPIKey serialization.
+
+        Excludes ``key_hash`` — the raw key is only shown once on creation.
+        """
 
         class Spec:
-            model = AdminSession
-            fields = ["id", "session_key", "expire_date"]
-            read_only_fields = ["id", "session_key"]
+            model = AdminAPIKey
+            fields = [
+                "id", "user_id", "name", "prefix", "scopes",
+                "is_active", "last_used_at", "expires_at", "created_at",
+            ]
+            read_only_fields = ["id", "prefix", "last_used_at", "created_at"]
+
+    class AdminPreferenceBlueprint(Blueprint):
+        """Blueprint for AdminPreference serialization."""
+
+        class Spec:
+            model = AdminPreference
+            fields = ["id", "user_id", "namespace", "data", "updated_at"]
+            read_only_fields = ["id", "updated_at"]
 
 else:
     # Stubs when blueprints or ORM are not available
-    class ContentTypeBlueprint:  # type: ignore[no-redef]
-        pass
-
-    class AdminPermissionBlueprint:  # type: ignore[no-redef]
-        pass
-
-    class AdminGroupBlueprint:  # type: ignore[no-redef]
-        pass
-
     class AdminUserBlueprint:  # type: ignore[no-redef]
         pass
 
     class AdminUserCreateBlueprint:  # type: ignore[no-redef]
         pass
 
-    class AdminLogEntryBlueprint:  # type: ignore[no-redef]
+    class AdminAuditEntryBlueprint:  # type: ignore[no-redef]
         pass
 
-    class AdminSessionBlueprint:  # type: ignore[no-redef]
+    class AdminAPIKeyBlueprint:  # type: ignore[no-redef]
         pass
+
+    class AdminPreferenceBlueprint:  # type: ignore[no-redef]
+        pass
+
+
+# ── Backward-compat aliases (import these names won't crash) ──────────
+
+ContentTypeBlueprint = type("ContentTypeBlueprint", (), {})
+AdminPermissionBlueprint = type("AdminPermissionBlueprint", (), {})
+AdminGroupBlueprint = type("AdminGroupBlueprint", (), {})
+AdminLogEntryBlueprint = type("AdminLogEntryBlueprint", (), {})
+AdminSessionBlueprint = type("AdminSessionBlueprint", (), {})
 
 
 __all__ = [
+    # Active blueprints
+    "AdminUserBlueprint",
+    "AdminUserCreateBlueprint",
+    "AdminAuditEntryBlueprint",
+    "AdminAPIKeyBlueprint",
+    "AdminPreferenceBlueprint",
+    # Backward-compat stubs
     "ContentTypeBlueprint",
     "AdminPermissionBlueprint",
     "AdminGroupBlueprint",
-    "AdminUserBlueprint",
-    "AdminUserCreateBlueprint",
     "AdminLogEntryBlueprint",
     "AdminSessionBlueprint",
 ]
