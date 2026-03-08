@@ -514,7 +514,7 @@ class AdminController(Controller):
             if ctx.session and hasattr(ctx.session, "data"):
                 ctx.session.data["_admin_flash"] = "Invalid or expired security token. Please try again."
                 ctx.session.data["_admin_flash_type"] = "error"
-            raise AdminCSRFViolationFault(f"CSRF validation failed for {redirect_url}")
+            return _redirect(redirect_url)
         return None
 
     def _csrf_reject_json(
@@ -540,7 +540,15 @@ class AdminController(Controller):
             self.site.security.event_tracker.record(
                 "csrf_violation", client_ip, endpoint="json-api",
             )
-            raise AdminCSRFViolationFault("CSRF validation failed")
+            import json as _json
+            return Response(
+                content=_json.dumps({
+                    "error": "csrf_failed",
+                    "message": "Invalid or expired security token. Please reload the page and try again.",
+                }).encode("utf-8"),
+                status=403,
+                headers={"content-type": "application/json"},
+            )
         return None
 
     # ── Lifecycle ────────────────────────────────────────────────────

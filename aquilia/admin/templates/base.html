@@ -140,8 +140,8 @@
                             </a>
                             {% endif %}
                             <div class="topbar-dropdown-divider"></div>
-                            <a href="{{ url_prefix|default('/admin') }}/logout" class="topbar-dropdown-item topbar-dropdown-danger">
-                                <i class="icon-log-out" style="font-size:15px;"></i> Logout
+                            <a href="{{ url_prefix|default('/admin') }}/logout" class="topbar-dropdown-item topbar-dropdown-danger" id="logoutBtn">
+                                <i class="icon-log-out" style="font-size:15px;" id="logoutIcon"></i> <span id="logoutText">Logout</span>
                             </a>
                         </div>
                     </div>
@@ -802,7 +802,7 @@
             }
             var _SAFE = {GET:1, HEAD:1, OPTIONS:1, TRACE:1};
 
-            /* Patch fetch — auto-inject X-CSRF-Token on mutating methods */
+            /* Patch fetch — auto-inject X-CSRF-Token on mutating methods + error toasts */
             var _fetch = window.fetch;
             window.fetch = function(resource, init){
                 inc();
@@ -820,8 +820,35 @@
                         }
                     }
                 }
-                var p = _fetch.call(this, resource, init);
-                p.then(dec, dec);
+                var p = _fetch.call(this, resource, init).then(function(resp) {
+                    dec();
+                    /* Global error interception for admin API responses */
+                    if (!resp.ok && typeof showToast === 'function') {
+                        var ct = resp.headers.get('content-type') || '';
+                        if (ct.indexOf('application/json') !== -1) {
+                            /* Clone so downstream .json() still works */
+                            resp.clone().json().then(function(body) {
+                                if (body && body.error === 'csrf_failed') {
+                                    showToast(body.message || 'Security token expired. Please reload the page.', 'error', 5000);
+                                } else if (resp.status === 401) {
+                                    showToast('Session expired. Redirecting to login\u2026', 'warning', 3000);
+                                    setTimeout(function(){ window.location.href = '{{ url_prefix|default("/admin") }}/login'; }, 1500);
+                                } else if (resp.status === 403) {
+                                    showToast(body.message || 'Access denied. You do not have permission for this action.', 'error', 4500);
+                                }
+                            }).catch(function(){});
+                        } else if (resp.status === 401) {
+                            showToast('Session expired. Redirecting to login\u2026', 'warning', 3000);
+                            setTimeout(function(){ window.location.href = '{{ url_prefix|default("/admin") }}/login'; }, 1500);
+                        } else if (resp.status === 403) {
+                            showToast('Access denied. You do not have permission for this action.', 'error', 4500);
+                        }
+                    }
+                    return resp;
+                }, function(err) {
+                    dec();
+                    throw err;
+                });
                 return p;
             };
 
@@ -836,7 +863,37 @@
             XMLHttpRequest.prototype.send = function(){
                 if (this._aqTracked) {
                     inc();
-                    this.addEventListener('loadend', dec);
+                    var xhr = this;
+                    xhr.addEventListener('loadend', function() {
+                        dec();
+                        /* XHR global error interception for 401/403 */
+                        if (typeof showToast === 'function') {
+                            var ct = (xhr.getResponseHeader('content-type') || '');
+                            if (xhr.status === 401 || xhr.status === 403) {
+                                var msg;
+                                if (ct.indexOf('application/json') !== -1) {
+                                    try {
+                                        var body = JSON.parse(xhr.responseText);
+                                        if (body && body.error === 'csrf_failed') {
+                                            msg = body.message || 'Security token expired. Please reload the page.';
+                                        } else if (xhr.status === 401) {
+                                            msg = 'Session expired. Redirecting to login\u2026';
+                                        } else {
+                                            msg = body.message || 'Access denied.';
+                                        }
+                                    } catch(e) {
+                                        msg = xhr.status === 401 ? 'Session expired.' : 'Access denied.';
+                                    }
+                                } else {
+                                    msg = xhr.status === 401 ? 'Session expired. Redirecting to login\u2026' : 'Access denied.';
+                                }
+                                showToast(msg, xhr.status === 401 ? 'warning' : 'error', 4000);
+                                if (xhr.status === 401) {
+                                    setTimeout(function(){ window.location.href = '{{ url_prefix|default("/admin") }}/login'; }, 1500);
+                                }
+                            }
+                        }
+                    });
                     if (!_SAFE[this._aqMethod]) {
                         var token = _csrfToken();
                         if (token) { try { this.setRequestHeader('X-CSRF-Token', token); } catch(e){} }
@@ -854,6 +911,30 @@
             // Complete bar in case it was started by link click
             barDone();
         });
+
+        /* 6. Logout button spinner */
+        (function(){
+            var logoutBtn = document.getElementById('logoutBtn');
+            if (!logoutBtn) return;
+            logoutBtn.addEventListener('click', function(e){
+                var icon = document.getElementById('logoutIcon');
+                var text = document.getElementById('logoutText');
+                if (icon && text) {
+                    icon.className = '';
+                    icon.style.cssText = 'display:inline-block;width:15px;height:15px;border:2px solid rgba(255,255,255,.2);border-top-color:currentColor;border-radius:50%;animation:aq-logout-spin .5s linear infinite;vertical-align:-2px;';
+                    text.textContent = 'Signing out\u2026';
+                    logoutBtn.style.pointerEvents = 'none';
+                    logoutBtn.style.opacity = '0.7';
+                }
+            });
+            /* Add the keyframe animation if not already present */
+            if (!document.getElementById('aq-logout-spin-style')) {
+                var style = document.createElement('style');
+                style.id = 'aq-logout-spin-style';
+                style.textContent = '@keyframes aq-logout-spin{to{transform:rotate(360deg)}}';
+                document.head.appendChild(style);
+            }
+        })();
     })();
     </script>
 </body>
