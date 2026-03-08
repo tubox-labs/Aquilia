@@ -107,6 +107,11 @@ def _html_response(html_content: str, status: int = 200) -> Response:
     )
 
 
+# Placeholder used in templates for the per-request CSP nonce.
+# _secure_html_response replaces every occurrence before sending.
+_CSP_NONCE_PLACEHOLDER = "__CSP_NONCE__"
+
+
 def _secure_html_response(
     html_content: str,
     site: "AdminSite",
@@ -114,13 +119,24 @@ def _secure_html_response(
     *,
     is_asset: bool = False,
 ) -> Response:
-    """Create an HTML response with security headers applied."""
+    """Create an HTML response with security headers applied.
+
+    Generates a per-request CSP nonce, substitutes the ``__CSP_NONCE__``
+    placeholder that appears in every inline ``<script nonce=...>`` tag,
+    then passes the same nonce to the security-headers layer so the
+    Content-Security-Policy header matches.
+    """
+    nonce = site.security.headers.generate_nonce()
+    # Replace placeholder in rendered HTML so every inline <script> carries
+    # the correct nonce attribute before the bytes are written to the wire.
+    if _CSP_NONCE_PLACEHOLDER in html_content:
+        html_content = html_content.replace(_CSP_NONCE_PLACEHOLDER, nonce)
     resp = Response(
         content=html_content.encode("utf-8"),
         status=status,
         headers={"content-type": "text/html; charset=utf-8"},
     )
-    return site.security.protect_response(resp, is_asset=is_asset)
+    return site.security.protect_response(resp, nonce=nonce, is_asset=is_asset)
 
 
 def _redirect(url: str) -> Response:

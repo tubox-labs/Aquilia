@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en" data-theme="dark">
 <head>
-    <script>
+    <script nonce="__CSP_NONCE__">
     (function(){
         var s = localStorage.getItem('aquilia-admin-theme') || 'dark';
         document.documentElement.setAttribute('data-theme', s);
@@ -178,7 +178,7 @@
         </div>
     </div>
 
-    <script>
+    <script nonce="__CSP_NONCE__">
     {% block base_js %}
     function toggleTheme() {
         const html = document.documentElement;
@@ -650,12 +650,12 @@
     })();
     {% endblock %}
     </script>
-    <script>
+    <script nonce="__CSP_NONCE__">
     {% block extra_js %}{% endblock %}
     </script>
 
     {# ── Global Spinner API ── #}
-    <script>
+    <script nonce="__CSP_NONCE__">
     (function(){
         'use strict';
         var bar     = document.getElementById('aq-progress-bar');

@@ -730,7 +730,7 @@ async def seeded_app(app):
 {% endif %}
 
 {# ═══ CHART.JS INITIALIZATION ═══ #}
-<script>
+<script nonce="__CSP_NONCE__">
 document.addEventListener('DOMContentLoaded', function() {
     if (typeof Chart === 'undefined') return;
 
