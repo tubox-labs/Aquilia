@@ -250,7 +250,6 @@ def enhance_engine_with_sessions(
         # This needs current session from context
         return default
     
-    logger.info("Template engine enhanced with session integration")
 
 
 def inject_session_context(
@@ -374,4 +373,3 @@ def enhance_middleware_with_sessions():
         return response
     
     TemplateMiddleware.process_request = patched_process
-    logger.info("TemplateMiddleware enhanced with session injection")

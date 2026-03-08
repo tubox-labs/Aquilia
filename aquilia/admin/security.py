@@ -948,9 +948,8 @@ def register_security_providers(container: Any, config: Optional[Dict[str, Any]]
             ValueProvider(policy.event_tracker),
         )
 
-        logger.debug("Admin security providers registered with DI container.")
     except ImportError:
-        logger.debug("DI system not available; admin security DI registration skipped.")
+        pass
     except Exception as exc:
         logger.warning("Failed to register admin security DI providers: %s", exc)
 

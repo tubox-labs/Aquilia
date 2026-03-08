@@ -151,8 +151,4 @@ def parse_mlops_config(config: Dict[str, Any]) -> MLOpsManifestConfig:
             )
             manifest.models.append(entry)
 
-    logger.info(
-        "Parsed MLOps config: enabled=%s, %d model(s)",
-        manifest.enabled, len(manifest.models),
-    )
     return manifest

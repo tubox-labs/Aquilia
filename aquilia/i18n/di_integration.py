@@ -66,22 +66,18 @@ def register_i18n_providers(
             # Registry API
             container.register_value(I18nService, service)
             container.register_value(I18nConfig, cfg)
-            logger.debug("I18n providers registered via Registry API")
         elif hasattr(container, "register"):
             # Generic Container.register(type, instance)
             container.register(I18nService, service)
             container.register(I18nConfig, cfg)
-            logger.debug("I18n providers registered via Container API")
         elif hasattr(container, "set"):
             # Simple dict-like container
             container.set(I18nService, service)
             container.set(I18nConfig, cfg)
-            logger.debug("I18n providers registered via set() API")
         elif isinstance(container, dict):
             # Plain dict (testing)
             container[I18nService] = service
             container[I18nConfig] = cfg
-            logger.debug("I18n providers registered in dict container")
         else:
             logger.warning(
                 "Cannot register i18n providers — container type %s not recognized",
@@ -123,5 +119,5 @@ def register_i18n_request_providers(
         elif isinstance(container, dict):
             container[Locale] = locale_obj
             container["locale"] = locale
-    except Exception as e:
-        logger.debug("Failed to register request-scoped locale: %s", e)
+    except Exception:
+        pass

@@ -124,10 +124,6 @@ class OracleAdapter(DatabaseAdapter):
         # Pool creation in async mode requires await
         self._pool = await self._pool
         self._connected = True
-        logger.info(
-            f"Oracle connected via oracledb: "
-            f"{conn_kwargs.get('dsn', '?')}"
-        )
 
     async def disconnect(self) -> None:
         if not self._connected:
@@ -148,7 +144,6 @@ class OracleAdapter(DatabaseAdapter):
             await self._pool.close(force=True)
             self._pool = None
         self._connected = False
-        logger.debug("Oracle disconnected")
 
     def adapt_sql(self, sql: str) -> str:
         """

@@ -219,26 +219,10 @@ workspace = (
         audit=(
             Integration.AdminAudit()
             .enable()
-        )
+        ),
+        security = Integration.AdminSecurity()
+        .csrf_enabled()
     ))
-
-    .integrate(
-        Integration.mail(
-            default_from = "Aquilia Team <embrakeproject@gmail.com>",
-            auth = Integration.MailAuth.plain(
-                username = "embrakeproject@gmail.com",
-                password = "jkohyutipglocgck"
-            ),
-            providers = [
-                Integration.MailProvider.SMTP(
-                    name = "gmail",
-                    host = "smtp.gmail.com",
-                    port = 587,
-                    use_tls = True,
-                )
-            ]
-        )
-    )
 )
 
 # Export for CLI/server

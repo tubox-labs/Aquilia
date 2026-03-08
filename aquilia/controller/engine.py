@@ -385,7 +385,6 @@ class ControllerEngine:
                 )
                 ctx = RequestCtx(request=dummy_request, identity=None, session=None, container=container, state={})
                 await self._safe_call(temp_instance.on_startup, ctx)
-                self.logger.info(f"Executed on_startup for {controller_class.__name__}")
             except Exception as e:
                 self.logger.error(
                     f"Error in on_startup for {controller_class.__name__}: {e}",
@@ -413,7 +412,6 @@ class ControllerEngine:
                 )
                 ctx = RequestCtx(request=dummy_request, identity=None, session=None, container=container, state={})
                 await self._safe_call(temp_instance.on_shutdown, ctx)
-                self.logger.info(f"Executed on_shutdown for {controller_class.__name__}")
             except Exception as e:
                 self.logger.error(
                     f"Error in on_shutdown for {controller_class.__name__}: {e}",

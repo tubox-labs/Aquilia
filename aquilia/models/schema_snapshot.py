@@ -289,7 +289,6 @@ def save_snapshot(snapshot: Dict[str, Any], path: Path) -> None:
     # Always use CROUS binary format via _crous_native
     import _crous_native as crous_backend
     crous_backend.encode_to_file(snapshot, str(path))
-    logger.info(f"Schema snapshot saved (CROUS): {path}")
 
 
 def load_snapshot(path: Path) -> Optional[Dict[str, Any]]:

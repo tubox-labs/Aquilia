@@ -119,7 +119,6 @@ class TestServer:
 
         await self._server.startup()
         self._started = True
-        logger.info("TestServer started")
         return self
 
     async def stop(self) -> None:
@@ -128,7 +127,6 @@ class TestServer:
             return
         await self._server.shutdown()
         self._started = False
-        logger.info("TestServer stopped")
 
     # -- Async context manager -------------------------------------------
 

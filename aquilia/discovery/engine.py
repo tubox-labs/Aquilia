@@ -449,9 +449,6 @@ class ManifestWriter:
 
         if changes > 0 and not dry_run:
             manifest_path.write_text(source, encoding="utf-8")
-            logger.info(
-                f"Updated {manifest_path.name}: {changes} component(s) added"
-            )
 
         return changes
 

@@ -55,11 +55,6 @@ class TemplateLoaderProvider:
     def provide(self) -> TemplateLoader:
         """Provide TemplateLoader with configured search paths."""
         search_paths = self._discover_template_paths()
-        
-        logger.info(
-            f"TemplateLoader initialized with {len(search_paths)} search paths"
-        )
-        
         return TemplateLoader(search_paths=search_paths)
     
     def _discover_template_paths(self) -> List[Path]:
@@ -214,11 +209,6 @@ class TemplateEngineProvider:
         if self.config:
             engine.register_global("config", self.config)
         
-        logger.info(
-            f"TemplateEngine initialized (sandbox={bool(self.sandbox)}, "
-            f"cache={type(self.bytecode_cache).__name__})"
-        )
-        
         return engine
     
     def _register_session_helpers(self, engine: TemplateEngine) -> None:
@@ -284,7 +274,6 @@ def register_template_providers(container, engine: Optional[TemplateEngine] = No
             container.register(ValueProvider(value=engine.bytecode_cache, token=BytecodeCache, scope="app"))
         if engine.sandbox:
             container.register(ValueProvider(value=engine.sandbox, token=TemplateSandbox, scope="app"))
-        logger.info("AquilaTemplates: Registered existing engine instance")
         return
 
     async def provide_loader(loader_provider: TemplateLoaderProvider) -> TemplateLoader:
@@ -303,8 +292,6 @@ def register_template_providers(container, engine: Optional[TemplateEngine] = No
     container.register(FactoryProvider(provide_cache, scope="app"))
     container.register(FactoryProvider(provide_sandbox, scope="app"))
     container.register(FactoryProvider(provide_engine, scope="app"))
-    
-    logger.info("AquilaTemplates providers registered with DI container")
 
 
 # ============================================================================
@@ -331,7 +318,6 @@ def create_development_engine(
         sandbox=sandbox,
     )
     
-    logger.info("Development TemplateEngine created")
     return engine
 
 
@@ -355,7 +341,6 @@ def create_production_engine(
         sandbox=sandbox,
     )
     
-    logger.info("Production TemplateEngine created")
     return engine
 
 
@@ -381,5 +366,4 @@ def create_testing_engine(
         sandbox=None,  # No sandbox in tests
     )
     
-    logger.info("Testing TemplateEngine created")
     return engine

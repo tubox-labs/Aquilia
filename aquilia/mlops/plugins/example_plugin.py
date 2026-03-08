@@ -40,7 +40,6 @@ class HealthCheckPlugin:
 
     def activate(self, ctx: Dict[str, Any]) -> None:
         self._start_time = time.monotonic()
-        logger.info("[health-check] activated")
 
         # If a PluginHost reference is in the context, subscribe to events
         host = ctx.get("host")
@@ -49,11 +48,6 @@ class HealthCheckPlugin:
 
     def deactivate(self) -> None:
         uptime = time.monotonic() - self._start_time
-        logger.info(
-            "[health-check] deactivated -- served %d inferences in %.1fs",
-            self._inference_count,
-            uptime,
-        )
 
     # ── hooks ────────────────────────────────────────────────────────────
 

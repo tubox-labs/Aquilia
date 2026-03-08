@@ -146,10 +146,6 @@ class DynamicBatcher:
         else:
             self._task = asyncio.create_task(self._batch_loop())
             mode = self.strategy.value
-        logger.info(
-            "Batcher started (max_batch=%d, max_latency=%.1fms, mode=%s, token_budget=%d)",
-            self.max_batch_size, self.max_latency_ms, mode, self._token_budget,
-        )
 
     async def stop(self) -> None:
         """Stop the batcher and drain remaining requests."""

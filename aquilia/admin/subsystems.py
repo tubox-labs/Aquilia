@@ -140,8 +140,8 @@ class AdminCacheIntegration:
         key = self._model_list_key(model_name, page, filters, search, ordering)
         try:
             await self._cache.set(key, data, ttl=self.MODEL_LIST_TTL, namespace=self.NAMESPACE)
-        except Exception as exc:
-            logger.debug("Admin cache set failed for %s: %s", key, exc)
+        except Exception:
+            pass
 
     async def invalidate_model(self, model_name: str) -> int:
         """
@@ -161,8 +161,7 @@ class AdminCacheIntegration:
                 return await self._cache.invalidate_tag(f"model:{model_name}")
             # Fallback: delete known key patterns
             return 0
-        except Exception as exc:
-            logger.debug("Admin cache invalidation failed for %s: %s", model_name, exc)
+        except Exception:
             return 0
 
     async def get_dashboard_stats(self) -> Optional[Dict[str, Any]]:
@@ -184,8 +183,8 @@ class AdminCacheIntegration:
                 ttl=self.DASHBOARD_TTL,
                 namespace=self.NAMESPACE,
             )
-        except Exception as exc:
-            logger.debug("Admin dashboard cache set failed: %s", exc)
+        except Exception:
+            pass
 
     async def get_fragment(self, fragment_key: str) -> Optional[str]:
         """Get a cached template fragment."""
@@ -206,8 +205,8 @@ class AdminCacheIntegration:
                 ttl=ttl or self.FRAGMENT_TTL,
                 namespace=self.NAMESPACE,
             )
-        except Exception as exc:
-            logger.debug("Admin fragment cache set failed: %s", exc)
+        except Exception:
+            pass
 
     def _model_list_key(
         self,
@@ -355,7 +354,6 @@ class AdminTasks:
                 if hasattr(audit_log, "_entries"):
                     audit_log._entries = audit_log._entries[-max_entries:]
 
-            logger.info("Audit log cleanup: pruned %d entries, %d remaining", pruned, total - pruned)
             return {"pruned": pruned, "remaining": total - pruned}
         except Exception as exc:
             logger.error("Audit log cleanup failed: %s", exc)
@@ -379,10 +377,9 @@ class AdminTasks:
                     expires_at__lt=now
                 ).delete()
                 cleaned = expired if isinstance(expired, int) else 0
-        except Exception as exc:
-            logger.debug("Session cleanup (expected if no ORM): %s", exc)
+        except Exception:
+            pass
 
-        logger.info("Admin session cleanup: %d sessions removed", cleaned)
         return {"cleaned": cleaned}
 
     async def security_report(self) -> Dict[str, Any]:
@@ -414,7 +411,6 @@ class AdminTasks:
                 "top_ips": [{"ip": ip, "count": cnt} for ip, cnt in top_ips],
                 "generated_at": time.time(),
             }
-            logger.info("Security report generated: %d events", len(events))
             return report
         except Exception as exc:
             logger.error("Security report generation failed: %s", exc)
@@ -442,10 +438,6 @@ class AdminTasks:
             cleaned_login = before_login - len(limiter._login_records)
             cleaned_sensitive = before_sensitive - len(limiter._sensitive_records)
 
-            logger.info(
-                "Rate limiter cleanup: %d login records, %d sensitive records removed",
-                cleaned_login, cleaned_sensitive,
-            )
             return {
                 "cleaned_login": max(0, cleaned_login),
                 "cleaned_sensitive": max(0, cleaned_sensitive),
@@ -699,8 +691,8 @@ class AdminAuditHook:
                 model_name=self.model_name,
                 ip_address=ip,
             )
-        except Exception as exc:
-            logger.debug("Audit hook logging failed: %s", exc)
+        except Exception:
+            pass
 
     def __repr__(self) -> str:
         return f"AdminAuditHook(action={self.action!r}, model={self.model_name!r})"
@@ -806,8 +798,6 @@ class AdminLifecycle:
         if self._started:
             return
 
-        logger.info("Admin lifecycle: starting up...")
-
         try:
             # 1. Initialize admin site
             from .site import AdminSite
@@ -821,9 +811,8 @@ class AdminLifecycle:
                     cache = container.resolve(CacheService)
                     if cache:
                         self._cache_integration.set_cache_service(cache)
-                        logger.debug("Admin cache integration enabled")
                 except Exception:
-                    logger.debug("CacheService not available in DI container")
+                    pass
 
                 # 3. Wire task manager from DI
                 try:
@@ -831,9 +820,8 @@ class AdminLifecycle:
                     task_mgr = container.resolve(TaskManager)
                     if task_mgr:
                         self._tasks.set_task_manager(task_mgr)
-                        logger.debug("Admin task integration enabled")
                 except Exception:
-                    logger.debug("TaskManager not available in DI container")
+                    pass
 
                 # 4. Register security DI providers
                 try:
@@ -843,10 +831,9 @@ class AdminLifecycle:
                         security_config = site.admin_config.security_config
                     register_security_providers(container, security_config)
                 except Exception:
-                    logger.debug("Admin security DI registration skipped")
+                    pass
 
             self._started = True
-            logger.info("Admin lifecycle: startup complete")
 
         except Exception as exc:
             logger.error("Admin lifecycle startup error: %s", exc)
@@ -865,8 +852,6 @@ class AdminLifecycle:
             config: Application configuration dict
             container: DI container
         """
-        logger.info("Admin lifecycle: shutting down...")
-
         try:
             # 1. Flush audit log
             from .site import AdminSite
@@ -880,8 +865,8 @@ class AdminLifecycle:
             # 2. Rate limiter cleanup
             try:
                 await self._tasks.rate_limit_cleanup()
-            except Exception as exc:
-                logger.debug("Rate limit cleanup on shutdown: %s", exc)
+            except Exception:
+                pass
 
             # 3. Clear security event tracker
             try:
@@ -890,7 +875,6 @@ class AdminLifecycle:
                 pass
 
             self._started = False
-            logger.info("Admin lifecycle: shutdown complete")
 
         except Exception as exc:
             logger.error("Admin lifecycle shutdown error: %s", exc)

@@ -118,15 +118,10 @@ class VersionRouter:
             base_version=base,
             percentage=max(0.0, min(100.0, percentage)),
         )
-        logger.info(
-            "Canary configured: %s → %s (%.1f%%), base=%s",
-            model_name, canary_version, percentage, base,
-        )
 
     def clear_canary(self, model_name: str) -> None:
         """Remove canary routing for a model."""
         self._canaries.pop(model_name, None)
-        logger.info("Canary cleared for %s", model_name)
 
     def get_canary(self, model_name: str) -> Optional[CanaryConfig]:
         """Get the active canary config for a model."""

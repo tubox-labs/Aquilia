@@ -434,11 +434,6 @@ class TaskManager:
             name="aquilia-task-scheduler",
         )
 
-        logger.info(
-            f"TaskManager started: {self.num_workers} workers, "
-            f"backend={self.backend.__class__.__name__}"
-        )
-
     async def stop(self, timeout: float = 10.0) -> None:
         """Gracefully stop all workers."""
         self._running = False
@@ -461,7 +456,6 @@ class TaskManager:
         self._workers.clear()
         self._cleanup_task = None
         self._scheduler_task = None
-        logger.info("TaskManager stopped")
 
     @property
     def is_running(self) -> bool:
@@ -546,8 +540,6 @@ class TaskManager:
 
         await self.backend.push(job)
         self._total_enqueued += 1
-
-        logger.debug(f"Enqueued job {job.id} ({job.name}) → queue={_queue}, priority={_priority.name}")
         return job.id
 
     # ========================================================================
@@ -572,15 +564,11 @@ class TaskManager:
     async def cancel(self, job_id: str) -> bool:
         """Cancel a pending/running job."""
         result = await self.backend.cancel(job_id)
-        if result:
-            logger.info(f"Cancelled job {job_id}")
         return result
 
     async def retry_job(self, job_id: str) -> bool:
         """Manually retry a failed/dead job."""
         result = await self.backend.retry(job_id)
-        if result:
-            logger.info(f"Retrying job {job_id}")
         return result
 
     async def flush(self, queue: Optional[str] = None) -> int:
@@ -637,7 +625,6 @@ class TaskManager:
 
     async def _worker_loop(self, worker_name: str) -> None:
         """Main worker loop — polls backend for jobs and executes them."""
-        logger.debug(f"{worker_name} started")
         while self._running:
             try:
                 job = None
@@ -664,8 +651,6 @@ class TaskManager:
         job.state = JobState.RUNNING
         job.started_at = datetime.now(timezone.utc)
         await self.backend.update(job)
-
-        logger.info(f"{worker_name} executing {job.id} ({job.name})")
 
         start_time = time.monotonic()
         try:
@@ -696,8 +681,6 @@ class TaskManager:
             )
             await self.backend.update(job)
             self._total_completed += 1
-
-            logger.info(f"{worker_name} completed {job.id} in {elapsed:.1f}ms")
 
             # Notify listeners
             for cb in self._on_complete:
@@ -794,9 +777,7 @@ class TaskManager:
         while self._running:
             try:
                 await asyncio.sleep(self.cleanup_interval)
-                removed = await self.backend.cleanup(self.cleanup_max_age)
-                if removed:
-                    logger.debug(f"Cleaned up {removed} old jobs")
+                await self.backend.cleanup(self.cleanup_max_age)
             except asyncio.CancelledError:
                 break
             except Exception as e:
@@ -822,12 +803,6 @@ class TaskManager:
             descriptor.bind(self)
 
         periodic = get_periodic_tasks()
-        if periodic:
-            schedules = ", ".join(
-                f"{n} ({d.schedule.human_readable})"
-                for n, d in periodic.items()
-            )
-            logger.info(f"Scheduler bound {len(periodic)} periodic task(s): {schedules}")
 
     async def _scheduler_loop(self) -> None:
         """
@@ -866,10 +841,6 @@ class TaskManager:
                         try:
                             await self.enqueue(descriptor)
                             self._schedule_last_run[name] = now
-                            logger.debug(
-                                "Scheduler enqueued periodic task: %s (%s)",
-                                name, descriptor.schedule.human_readable,
-                            )
                         except Exception as e:
                             logger.warning(
                                 "Scheduler failed to enqueue %s: %s", name, e

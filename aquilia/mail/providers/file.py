@@ -97,10 +97,6 @@ class FileProvider:
         if self._initialized:
             return
 
-        logger.info(
-            f"File provider '{self.name}' initializing "
-            f"(dir={self.output_dir})"
-        )
 
         try:
             self.output_dir.mkdir(parents=True, exist_ok=True)
@@ -112,10 +108,6 @@ class FileProvider:
 
     async def shutdown(self) -> None:
         """No cleanup needed for file provider."""
-        logger.info(
-            f"File provider '{self.name}' shutdown "
-            f"(sent={self._total_sent}, errors={self._total_errors})"
-        )
         self._initialized = False
 
     # ── MIME Construction ───────────────────────────────────────────
@@ -295,10 +287,6 @@ class FileProvider:
             await self._rotate_if_needed()
 
             self._total_sent += 1
-            logger.info(
-                f"File mail written: {filepath} "
-                f"(envelope={envelope.id}, to={envelope.to})"
-            )
 
             return ProviderResult(
                 status=ProviderResultStatus.SUCCESS,
@@ -335,7 +323,6 @@ class FileProvider:
             test_file.unlink()
             return True
         except Exception as e:
-            logger.debug(f"File provider health check failed: {e}")
             return False
 
     # ── Utility ─────────────────────────────────────────────────────

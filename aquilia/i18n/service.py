@@ -166,12 +166,6 @@ class I18nService:
         else:
             self.catalog = self._build_catalog()
 
-        logger.info(
-            "I18nService initialized — default=%s available=%s fallback=%s",
-            config.default_locale,
-            config.available_locales,
-            config.fallback_locale,
-        )
 
     # ── Public API ───────────────────────────────────────────────────
 
@@ -314,7 +308,6 @@ class I18nService:
     def reload_catalogs(self) -> None:
         """Force reload all file-based catalogs."""
         self.catalog = self._build_catalog()
-        logger.info("I18n catalogs reloaded")
 
     # ── Internal ─────────────────────────────────────────────────────
 
@@ -392,7 +385,7 @@ class I18nService:
                 else:
                     catalogs.append(FileCatalog([path]))
             else:
-                logger.debug("Catalog directory not found: %s", catalog_dir)
+                pass
 
         if not catalogs:
             logger.warning(

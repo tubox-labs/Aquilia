@@ -234,7 +234,6 @@ class ModelpackBuilder:
             pinfo.mtime = int(time.time())
             tar.addfile(pinfo, io.BytesIO(prov_data))
 
-        logger.info("Built modelpack: %s (%d bytes)", archive_path, archive_path.stat().st_size)
 
         # ── Produce a typed ModelArtifact alongside the archive ─────────
         try:
@@ -257,11 +256,6 @@ class ModelpackBuilder:
             artifact_dir = output_path / ".aq"
             store = FilesystemArtifactStore(str(artifact_dir))
             store.save(model_artifact)
-            logger.info(
-                "ModelArtifact written: %s [%s]",
-                model_artifact.qualified_name,
-                model_artifact.digest,
-            )
         except Exception as exc:
             pass
 
@@ -315,7 +309,6 @@ class ModelpackBuilder:
                         },
                     )
 
-        logger.info("Unpacked modelpack: %s v%s", manifest.name, manifest.version)
         return manifest
 
     @staticmethod

@@ -73,7 +73,6 @@ class PluginMarketplace:
             for item in json.loads(raw)
         ]
         self._cache = entries
-        logger.info("Fetched %d plugins from marketplace index", len(entries))
         return entries
 
     def search(
@@ -121,14 +120,12 @@ class PluginMarketplace:
         else:
             pkg = entry_or_name
 
-        logger.info("Installing plugin package '%s'...", pkg)
         try:
             subprocess.check_call(
                 [sys.executable, "-m", "pip", "install", pkg],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
             )
-            logger.info("Successfully installed '%s'", pkg)
             return True
         except subprocess.CalledProcessError as exc:
             logger.error("Failed to install '%s': %s", pkg, exc)
@@ -136,14 +133,12 @@ class PluginMarketplace:
 
     def uninstall(self, pypi_name: str) -> bool:
         """Uninstall a plugin package."""
-        logger.info("Uninstalling plugin package '%s'...", pypi_name)
         try:
             subprocess.check_call(
                 [sys.executable, "-m", "pip", "uninstall", "-y", pypi_name],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
             )
-            logger.info("Successfully uninstalled '%s'", pypi_name)
             return True
         except subprocess.CalledProcessError as exc:
             logger.error("Failed to uninstall '%s': %s", pypi_name, exc)

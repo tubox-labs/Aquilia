@@ -89,9 +89,6 @@ class ModelFaultHandler(FaultHandler):
             retry_count = fault.metadata.get("_retry_count", 0)
             if retry_count < self._max_retries:
                 fault.metadata["_retry_count"] = retry_count + 1
-                logger.info(
-                    f"Retrying database connection (attempt {retry_count + 1}/{self._max_retries})"
-                )
                 return Transformed(fault, preserve_context=True)
         
         if isinstance(fault, (AMDLParseFault, SchemaFault)):

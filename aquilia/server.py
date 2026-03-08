@@ -613,10 +613,6 @@ class AquiliaServer:
                 else:
                     # ARCH-16: Skip unknown types instead of str() which
                     # could produce garbage import paths.
-                    self.logger.debug(
-                        "Skipping unknown service/controller type %r in static dir discovery",
-                        type(item).__name__,
-                    )
                     continue
 
             for import_path in import_paths:
@@ -1056,11 +1052,6 @@ class AquiliaServer:
             self._storage_registry = registry
             # Also store on runtime for admin fallback resolution
             self.runtime._storage_registry = registry
-            self.logger.debug(
-                "Storage subsystem configured: %s (default=%s)",
-                ", ".join(registry.aliases()),
-                registry._default_alias,
-            )
 
         except Exception as e:
             self._storage_registry = None
@@ -1109,14 +1100,8 @@ class AquiliaServer:
                 try:
                     from .i18n.template_integration import register_i18n_template_globals
                     register_i18n_template_globals(self.template_engine.env, svc)
-                except Exception as e:
-                    self.logger.debug(f"I18n template integration skipped: {e}")
-
-            self.logger.info(
-                "I18n subsystem initialized — default=%s locales=%s",
-                config_obj.default_locale,
-                config_obj.available_locales,
-            )
+                except Exception:
+                    pass
 
         except Exception as e:
             self._i18n_service = None
@@ -1216,21 +1201,8 @@ class AquiliaServer:
             try:
                 from .tasks.decorators import get_registered_tasks
                 registered = get_registered_tasks()
-                if registered:
-                    self.logger.info(
-                        "Discovered %d registered @task function(s): %s",
-                        len(registered),
-                        ", ".join(registered.keys()),
-                    )
             except Exception:
                 pass
-
-            self.logger.info(
-                "Tasks subsystem initialized — workers=%d backend=%s queue=%s",
-                manager.num_workers,
-                backend.__class__.__name__,
-                manager.default_queue,
-            )
 
         except Exception as e:
             self._task_manager = None
@@ -1253,11 +1225,8 @@ class AquiliaServer:
             if hasattr(self, "fault_engine") and self.fault_engine:
                 self.fault_engine.on_fault(tracker.capture)
 
-            self.logger.info("Error tracker wired to FaultEngine")
-
         except Exception as e:
             self._error_tracker = None
-            self.logger.info(f"Error tracker init skipped: {e}")
 
     def _resolve_store_from_name(self, store_name: str, **kwargs):
         """
@@ -1378,10 +1347,6 @@ class AquiliaServer:
                 object.__setattr__(policy, "cookie_secure", False)
             except (AttributeError, TypeError, Exception):
                 pass  # frozen dataclass -- can't patch
-            self.logger.debug(
-                "Dev mode detected -- set cookie_secure=False for session cookies "
-                "(browsers reject Secure cookies over plain HTTP)"
-            )
 
     def _create_session_engine(self, session_config: dict):
         """
@@ -1475,12 +1440,7 @@ class AquiliaServer:
             # (typically the "web" policy) as default.
             policy = policies_list[0]
             
-            if len(policies_list) > 1:
-                self.logger.debug(
-                    f"Multiple session policies configured: "
-                    f"{[p.name for p in policies_list]}. "
-                    f"Using '{policy.name}' as primary engine policy."
-                )
+
             
             # Resolve store from PersistencePolicy.store_name
             # The store_name is a label string (e.g., "memory", "default", "redis"),
@@ -1632,7 +1592,6 @@ class AquiliaServer:
                             )
                             credential_store._passwords[user_id] = credential
                         
-                        self.logger.debug(f"Loaded initial user: {attributes.get('email', user_id)}")
                     except Exception as e:
                         self.logger.warning(f"Failed to load initial user: {e}")
         else:
@@ -2200,8 +2159,7 @@ class AquiliaServer:
             registry = _get_global_registry()
             model_names = registry.list_models() if registry else []
 
-            if not model_names:
-                self.logger.debug("MLOps admin wiring: no @model-registered models found")
+
 
             # ── 2. Metrics Collector (seed with telemetry) ───────────
             metrics = MetricsCollector()
@@ -2339,13 +2297,8 @@ class AquiliaServer:
                 lru_cache=lru_cache,
             )
 
-            self.logger.info(
-                "MLOps admin services wired (%d models, 11 subsystems)",
-                len(model_names),
-            )
-
-        except ImportError as e:
-            self.logger.debug("MLOps admin wiring skipped (import error): %s", e)
+        except ImportError:
+            pass
         except Exception as e:
             self.logger.warning("MLOps admin wiring failed: %s", e)
 
@@ -2740,7 +2693,6 @@ class AquiliaServer:
                         handler_instance = handler_obj
                         
                     self.fault_engine.register_app(app_ctx.name, handler_instance)
-                    self.logger.debug(f"Registered fault handler from {app_ctx.name} manifest")
                 except Exception as e:
                     self.logger.error(f"Failed to register fault handler {handler_cfg.handler_path} for app {app_ctx.name}: {e}")
     
@@ -3081,7 +3033,6 @@ class AquiliaServer:
             if hasattr(self, '_task_manager') and self._task_manager is not None:
                 try:
                     await self._task_manager.start()
-                    self.logger.info("Background task manager started")
                 except Exception as e:
                     self.logger.error(f"Task manager startup failed: {e}")
                     # Non-fatal -- app can run without background tasks
@@ -3121,10 +3072,6 @@ class AquiliaServer:
             if hasattr(self, '_storage_registry') and self._storage_registry is not None:
                 try:
                     await self._storage_registry.initialize_all()
-                    self.logger.info(
-                        "Storage backends initialized: %s",
-                        ", ".join(self._storage_registry.aliases()),
-                    )
                 except Exception as e:
                     self.logger.error(f"Storage startup failed: {e}")
                     # Non-fatal -- app can run without storage
@@ -3195,8 +3142,6 @@ class AquiliaServer:
         if not self._startup_complete:
             return  # Nothing to shut down
         
-        self.logger.debug("Shutting down Aquilia server...")
-        
         # Run lifecycle shutdown hooks
         await self.coordinator.shutdown()
         
@@ -3204,7 +3149,6 @@ class AquiliaServer:
         if hasattr(self, '_mail_service') and self._mail_service is not None:
             try:
                 await self._mail_service.on_shutdown()
-                self.logger.debug("Mail subsystem shut down")
             except Exception as e:
                 self.logger.warning(f"Error shutting down mail subsystem: {e}")
 
@@ -3212,7 +3156,6 @@ class AquiliaServer:
         if hasattr(self, '_task_manager') and self._task_manager is not None:
             try:
                 await self._task_manager.stop()
-                self.logger.debug("Task manager shut down")
             except Exception as e:
                 self.logger.warning(f"Error shutting down task manager: {e}")
 
@@ -3220,7 +3163,6 @@ class AquiliaServer:
         if hasattr(self, '_cache_service') and self._cache_service is not None:
             try:
                 await self._cache_service.shutdown()
-                self.logger.debug("Cache subsystem shut down")
             except Exception as e:
                 self.logger.warning(f"Error shutting down cache subsystem: {e}")
 
@@ -3228,7 +3170,6 @@ class AquiliaServer:
         if hasattr(self, '_storage_registry') and self._storage_registry is not None:
             try:
                 await self._storage_registry.shutdown_all()
-                self.logger.debug("Storage subsystem shut down")
             except Exception as e:
                 self.logger.warning(f"Error shutting down storage subsystem: {e}")
 
@@ -3243,7 +3184,6 @@ class AquiliaServer:
         if hasattr(self, '_effect_registry') and self._effect_registry:
             try:
                 await self._effect_registry.finalize_all()
-                self.logger.debug("Effect providers finalized")
             except Exception as e:
                 self.logger.warning(f"Error finalizing effect providers: {e}")
         
@@ -3251,7 +3191,6 @@ class AquiliaServer:
         if hasattr(self, 'aquila_sockets') and self.aquila_sockets:
             try:
                 await self.aquila_sockets.shutdown()
-                self.logger.debug("WebSocket runtime shut down")
             except Exception as e:
                 self.logger.warning(f"Error shutting down WebSocket runtime: {e}")
 
@@ -3259,13 +3198,11 @@ class AquiliaServer:
         if hasattr(self, '_amdl_database') and self._amdl_database:
             try:
                 await self._amdl_database.disconnect()
-                self.logger.debug("AMDL database disconnected")
             except Exception as e:
                 self.logger.warning(f"Error disconnecting AMDL database: {e}")
 
         # Reset startup state
         self._startup_complete = False
-        self.logger.debug("All apps stopped")
     
     def get_health(self) -> dict:
         """
@@ -3289,15 +3226,10 @@ class AquiliaServer:
         """
         import asyncio
         
-        self.logger.debug("Initiating graceful shutdown...")
         self._accepting = False
         
         # Wait for in-flight requests to complete
         if self._inflight_requests > 0:
-            self.logger.debug(
-                f"Draining {self._inflight_requests} in-flight requests "
-                f"(timeout: {timeout}s)..."
-            )
             deadline = asyncio.get_running_loop().time() + timeout
             while self._inflight_requests > 0:
                 if asyncio.get_running_loop().time() > deadline:
@@ -3310,7 +3242,6 @@ class AquiliaServer:
         
         # Run standard shutdown
         await self.shutdown()
-        self.logger.debug("Graceful shutdown complete")
 
     def run(
         self,
@@ -3342,8 +3273,6 @@ class AquiliaServer:
         try:
             # Try to import uvicorn
             import uvicorn
-            
-            self.logger.debug(f"Starting uvicorn server on {host}:{port}")
             
             # uvicorn manages the event loop and lifespan (startup/shutdown)
             # via the ASGI lifespan protocol -- no need to call startup() manually

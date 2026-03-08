@@ -250,7 +250,6 @@ class FilesystemArtifactStore(ArtifactStoreProtocol):
                 tmp.unlink()
             raise
 
-        logger.info("Saved artifact: %s → %s", artifact.qualified_name, crous_path)
         return artifact.digest
 
     def load(self, name: str, *, version: str = "") -> Optional[Artifact]:
@@ -333,7 +332,6 @@ class FilesystemArtifactStore(ArtifactStoreProtocol):
             if a and a.digest not in referenced:
                 f.unlink()
                 removed += 1
-                logger.info("GC removed: %s", f.name)
         return removed
 
     def export_bundle(
@@ -370,7 +368,6 @@ class FilesystemArtifactStore(ArtifactStoreProtocol):
         else:
             out.write_text(bundle.to_json(), encoding="utf-8")
 
-        logger.info("Exported bundle: %d artifacts → %s", len(items), out)
         return str(out)
 
     # ── Internal ─────────────────────────────────────────────────────
@@ -439,7 +436,6 @@ class FilesystemArtifactStore(ArtifactStoreProtocol):
             a = Artifact.from_dict(item_dict)
             self.save(a)
             imported += 1
-        logger.info("Imported %d artifact(s) from %s", imported, path)
         return imported
 
 

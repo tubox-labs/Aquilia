@@ -127,9 +127,6 @@ class SESProvider:
         if self._initialized:
             return
 
-        logger.info(
-            f"SES provider '{self.name}' initializing (region={self.region})"
-        )
 
         # Try aiobotocore first (fully async)
         try:
@@ -182,7 +179,6 @@ class SESProvider:
 
     async def shutdown(self) -> None:
         """Close the SES client."""
-        logger.info(f"SES provider '{self.name}' shutting down...")
         if self._use_aiobotocore and self._client_ctx is not None:
             try:
                 await self._client_ctx.__aexit__(None, None, None)
@@ -191,10 +187,6 @@ class SESProvider:
         self._client = None
         self._client_ctx = None
         self._initialized = False
-        logger.info(
-            f"SES provider '{self.name}' shutdown complete "
-            f"(sent={self._total_sent}, errors={self._total_errors})"
-        )
 
     # ── MIME Construction ───────────────────────────────────────────
 
@@ -339,10 +331,6 @@ class SESProvider:
         message_id = response.get("MessageId", "")
 
         self._total_sent += 1
-        logger.info(
-            f"SES sent via {self.name}: {envelope.id} "
-            f"(ses_msg_id={message_id})"
-        )
 
         return ProviderResult(
             status=ProviderResultStatus.SUCCESS,
@@ -393,10 +381,6 @@ class SESProvider:
         message_id = response.get("MessageId", "")
 
         self._total_sent += 1
-        logger.info(
-            f"SES sent via {self.name}: {envelope.id} "
-            f"(ses_msg_id={message_id})"
-        )
 
         return ProviderResult(
             status=ProviderResultStatus.SUCCESS,
@@ -422,7 +406,6 @@ class SESProvider:
             send_quota = response.get("SendQuota", {})
             return send_quota.get("Max24HourSend", 0) > 0
         except Exception as e:
-            logger.debug(f"SES health check failed: {e}")
             return False
 
     # ── Error Classification ────────────────────────────────────────

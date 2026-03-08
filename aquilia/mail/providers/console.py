@@ -73,14 +73,6 @@ class ConsoleProvider:
         output += f"{separator}\n"
 
         print(output)
-        logger.info(
-            "Console mail sent",
-            extra={
-                "envelope_id": envelope.id,
-                "to": envelope.to,
-                "subject": envelope.subject,
-            },
-        )
 
         return ProviderResult(
             status=ProviderResultStatus.SUCCESS,

@@ -269,7 +269,6 @@ class MigrationRunner:
             [rev, slug, checksum],
         )
         action = "Faked" if fake else "Applied"
-        logger.info(f"{action} migration: {rev} ({slug})")
 
     async def _execute_dsl_migration(self, migration: Migration) -> None:
         """Execute a DSL migration transactionally."""
@@ -363,7 +362,6 @@ class MigrationRunner:
             )
             rolled_back.append(rev)
             action = "Faked rollback" if fake else "Rolled back"
-            logger.info(f"{action} migration: {rev}")
 
         return rolled_back
 

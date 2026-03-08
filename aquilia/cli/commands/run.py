@@ -1047,7 +1047,6 @@ if _modules_dir.is_dir():
                 if _m is not None:
                     _manifests.append(_m)
                     config.config_data["apps"].setdefault(_pkg.name, {{}})
-                    _logger.info("Auto-discovered module: %s", _pkg.name)
             except Exception as _exc:
                 _logger.warning(
                     "Could not import manifest for module %s: %s",

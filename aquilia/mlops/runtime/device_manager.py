@@ -119,10 +119,6 @@ class DeviceManager:
             self._default_device = "cpu"
 
         self._initialized = True
-        logger.info(
-            "DeviceManager initialized: %d device(s), default=%s",
-            len(self._devices), self._default_device,
-        )
 
     # ── Device Selection ─────────────────────────────────────────────
 

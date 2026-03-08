@@ -116,7 +116,6 @@ class PostgresAdapter(DatabaseAdapter):
             url, min_size=min_size, max_size=max_size, **options
         )
         self._connected = True
-        logger.info(f"PostgreSQL connected via asyncpg: {_mask_url(url)}")
 
     async def disconnect(self) -> None:
         if not self._connected:
@@ -139,7 +138,6 @@ class PostgresAdapter(DatabaseAdapter):
             await self._pool.close()
             self._pool = None
         self._connected = False
-        logger.debug("PostgreSQL disconnected")
 
     def adapt_sql(self, sql: str) -> str:
         """

@@ -236,7 +236,6 @@ class AquiliaDatabase:
             try:
                 await self._adapter.disconnect()
                 self._connected = False
-                logger.debug("Database disconnected")
             except Exception as exc:
                 self._connected = False
                 raise DatabaseConnectionFault(

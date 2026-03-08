@@ -582,7 +582,6 @@ async def downgrade(conn):
 
     filepath = mdir / filename
     filepath.write_text(content, encoding="utf-8")
-    logger.info(f"Generated migration: {filepath}")
     return filepath
 
 
@@ -666,7 +665,6 @@ async def downgrade(conn):
 
     filepath = mdir / filename
     filepath.write_text(content, encoding="utf-8")
-    logger.info(f"Generated migration from Python models: {filepath}")
     return filepath
 
 
@@ -872,7 +870,6 @@ class MigrationRunner:
             f'INSERT INTO "{MIGRATION_TABLE}" ("revision", "slug", "checksum") VALUES (?, ?, ?)',
             [rev, slug, checksum],
         )
-        logger.info(f"Applied migration: {rev} ({slug})")
 
     async def migrate(self, target: Optional[str] = None) -> List[str]:
         """
@@ -958,7 +955,6 @@ class MigrationRunner:
                 [rev],
             )
             rolled_back.append(rev)
-            logger.info(f"Rolled back migration: {rev}")
 
         return rolled_back
 

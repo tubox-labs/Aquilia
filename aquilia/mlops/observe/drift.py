@@ -56,7 +56,6 @@ class DriftDetector:
             data: Dict mapping feature names to value sequences.
         """
         self._reference = {k: list(v) for k, v in data.items()}
-        logger.info("Reference distribution set (%d features)", len(self._reference))
 
     def detect(
         self,

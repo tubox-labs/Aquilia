@@ -35,7 +35,6 @@ class TorchServeExporter(BaseRuntime):
 
     async def load(self) -> None:
         self._loaded = True
-        logger.info("TorchServe exporter ready")
 
     async def infer(self, batch: BatchRequest) -> List[InferenceResult]:
         results: List[InferenceResult] = []
@@ -87,5 +86,4 @@ class AquiliaHandler(BaseHandler):
         handler_path = out / "handler.py"
         handler_path.write_text(handler_code)
 
-        logger.info("Exported TorchServe handler: %s", handler_path)
         return str(mar_path)

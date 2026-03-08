@@ -187,7 +187,6 @@ class ModelLoader:
         """Run *n* synthetic warmup requests through the loaded pipeline."""
         from .._types import InferenceRequest
 
-        logger.info("Warming up %s with %d requests...", loaded.entry.key, n)
         for i in range(n):
             try:
                 req = InferenceRequest(
@@ -201,7 +200,6 @@ class ModelLoader:
                 )
             except Exception as exc:
                 pass
-        logger.info("Warmup complete for %s", loaded.entry.key)
 
     async def _load_model(self, entry: ModelEntry) -> LoadedModel:
         """Instantiate and load a model from its registry entry."""
@@ -273,9 +271,6 @@ class ModelLoader:
             self._loaded[key] = loaded
 
             self._registry.update_state(entry.name, entry.version, ModelState.LOADED)
-            logger.info(
-                "Model %s loaded in %.1fms (device=%s)", key, load_time_ms, device,
-            )
             return loaded
 
         except Exception as exc:
@@ -340,7 +335,6 @@ class ModelLoader:
         # Update active version in registry
         await self._registry.set_active_version(name, new_version)
 
-        logger.info("Hot-reloaded %s to version %s", name, new_version)
         return new_loaded
 
     # ── Unloading ────────────────────────────────────────────────────
@@ -385,7 +379,6 @@ class ModelLoader:
                 else:
                     loaded.instance.unload()
 
-            logger.info("Unloaded model %s", loaded.entry.key)
 
         except Exception as exc:
             logger.error("Error unloading model %s: %s", loaded.entry.key, exc)

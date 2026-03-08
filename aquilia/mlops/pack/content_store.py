@@ -51,7 +51,6 @@ class ContentStore:
 
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(data)
-        logger.info("Stored blob: %s (%d bytes)", digest, len(data))
         return str(path)
 
     async def retrieve(self, digest: str) -> bytes:
@@ -70,7 +69,6 @@ class ContentStore:
         path = self._blob_path(digest)
         if path.exists():
             path.unlink()
-            logger.info("Deleted blob: %s", digest)
 
     async def list_digests(self) -> List[str]:
         """List all stored blob digests."""
@@ -103,7 +101,6 @@ class ContentStore:
             if digest not in referenced_digests:
                 await self.delete(digest)
                 deleted += 1
-        logger.info("GC: deleted %d unreferenced blobs", deleted)
         return deleted
 
     @property

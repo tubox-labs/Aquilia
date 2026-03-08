@@ -62,7 +62,6 @@ class TrafficRouter:
             version=version, weight=weight, handler=handler
         )
         self._normalize_weights()
-        logger.info("Added route target: %s (weight=%.2f)", version, weight)
 
     def remove_target(self, version: str) -> None:
         """Remove a routing target."""

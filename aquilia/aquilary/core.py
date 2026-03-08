@@ -491,9 +491,8 @@ class RuntimeRegistry:
                     if path not in ctx.controllers:
                         ctx.controllers.append(path)
                         
-            except Exception as e:
-                import logging as _log
-                _log.getLogger('aquilia.aquilary').debug(f"Discovery warning for {ctx.name}: {e}")
+            except Exception:
+                pass
 
             # 2. Discover Services (Recursive)
             try:
@@ -546,24 +545,16 @@ class RuntimeRegistry:
                 tasks_module_name = f"{base_package}.tasks"
                 try:
                     importlib.import_module(tasks_module_name)
-                    import logging as _log
-                    _log.getLogger('aquilia.aquilary').debug(
-                        f"Discovered tasks module: {tasks_module_name}"
-                    )
                 except ImportError:
                     pass  # No tasks.py — that's fine
-            except Exception as e:
-                import logging as _log
-                _log.getLogger('aquilia.aquilary').debug(
-                    f"Task discovery warning for {ctx.name}: {e}"
-                )
+            except Exception:
+                pass
 
             # 5. Discover AMDL Model Files (Filesystem scan)
             try:
                 self._discover_amdl_models(ctx)
-            except Exception as e:
-                import logging as _log
-                _log.getLogger('aquilia.aquilary').debug(f"Model discovery warning for {ctx.name}: {e}")
+            except Exception:
+                pass
     
     def compile_routes(self) -> None:
         """
@@ -856,9 +847,6 @@ class RuntimeRegistry:
                             pass
         
         self._models_registered = True
-        if registered_count:
-            import logging as _log
-            _log.getLogger('aquilia.aquilary').info(f"Registered {registered_count} model(s) in DI")
     
     def _register_services(self):
         """Register services from manifests with DI containers."""
@@ -974,9 +962,7 @@ class RuntimeRegistry:
                         container.register(alias_provider)
                         if tag:
                             container.register(alias_provider, tag=tag)
-                        
-                    _svc_logger.info(f"Registered service: {service_class.__name__} in app '{ctx.name}'")
-                
+
                 except Exception as e:
                     _svc_logger.warning(f"Failed to register service {service_item}: {e}")
         

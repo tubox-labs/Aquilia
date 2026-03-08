@@ -142,7 +142,6 @@ class SocketCompiler:
         
         self.controllers.append(metadata)
         
-        logger.info(f"Compiled controller: {controller_class.__name__} ({namespace})")
         
         return metadata
     
@@ -205,7 +204,6 @@ class SocketCompiler:
         with open(output_path, "w") as f:
             json.dump(artifact, f, indent=2)
         
-        logger.info(f"Generated WebSocket artifacts: {output_path}")
     
     def validate(self) -> List[str]:
         """

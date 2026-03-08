@@ -273,31 +273,12 @@ class AdminHooksMixin:
 
     def log_addition(self, request: Any, obj: Any, message: str = "") -> None:
         """Log the creation of a new object."""
-        logger.info(
-            "Admin create: %s (pk=%s) by %s",
-            obj.__class__.__name__,
-            getattr(obj, "pk", "?"),
-            getattr(request, "identity", "unknown"),
-        )
 
     def log_change(self, request: Any, obj: Any, message: str = "") -> None:
         """Log a change to an existing object."""
-        logger.info(
-            "Admin update: %s (pk=%s) by %s – %s",
-            obj.__class__.__name__,
-            getattr(obj, "pk", "?"),
-            getattr(request, "identity", "unknown"),
-            message,
-        )
 
     def log_deletion(self, request: Any, obj: Any) -> None:
         """Log the deletion of an object."""
-        logger.info(
-            "Admin delete: %s (pk=%s) by %s",
-            obj.__class__.__name__,
-            getattr(obj, "pk", "?"),
-            getattr(request, "identity", "unknown"),
-        )
 
     # -- View Customization Hooks --
 

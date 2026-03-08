@@ -73,8 +73,6 @@ class RouteGenerator:
         for model_name in self._registry.list_models():
             routes.extend(self._generate_model_routes(model_name))
 
-        logger.info("Generated %d routes for %d models",
-                     len(routes), len(self._registry.list_models()))
         return routes
 
     # ── Global Routes ────────────────────────────────────────────────

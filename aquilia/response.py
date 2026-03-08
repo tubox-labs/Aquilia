@@ -582,9 +582,6 @@ class Response:
         """
         if not _HAS_CROUS:
             # Graceful degradation — fall back to JSON
-            logger.debug(
-                "crous library not installed; falling back to JSON response"
-            )
             return cls.json(obj, status=status, headers=headers, **kwargs)
 
         try:

@@ -672,16 +672,6 @@ class ClearanceEngine:
             identity_id=identity_id,
         )
         
-        # Audit log
-        if clearance.audit:
-            action = "GRANTED" if granted else "DENIED"
-            self.audit_logger.info(
-                f"Clearance {action} | identity={identity_id} "
-                f"level={clearance.level.name} "
-                f"entitlements={clearance.entitlements} "
-                f"message={message}"
-            )
-        
         return verdict
     
     def clear_cache(self) -> None:

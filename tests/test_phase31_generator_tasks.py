@@ -727,15 +727,15 @@ class TestWorkspaceTasksIntegration:
 
 
 class TestErrorTrackerLogLevel:
-    """Verify error tracker uses INFO level logging."""
+    """Verify error tracker uses minimal logging (no verbose info/debug)."""
 
-    def test_error_tracker_info_log(self):
-        """_setup_error_tracker should use self.logger.info, not debug."""
+    def test_error_tracker_no_info_log(self):
+        """_setup_error_tracker should NOT contain verbose info logs (production-minimal)."""
         import inspect
         from aquilia.server import AquiliaServer
 
         source = inspect.getsource(AquiliaServer._setup_error_tracker)
-        assert 'self.logger.info("Error tracker wired to FaultEngine")' in source
+        assert 'self.logger.info("Error tracker wired to FaultEngine")' not in source
         assert 'self.logger.debug("Error tracker wired to FaultEngine")' not in source
 
 

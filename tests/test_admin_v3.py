@@ -1777,7 +1777,7 @@ class TestDevModeCookieSecureOverride:
             self._cleanup_env(["AQUILIA_ENV"])
 
     def test_apply_override_logs_when_patching(self):
-        """When patching cookie_secure, should log a debug message."""
+        """In production-minimal mode, no debug log should be emitted."""
         from aquilia.sessions.policy import TransportPolicy
         from aquilia.sessions.transport import CookieTransport
 
@@ -1787,15 +1787,8 @@ class TestDevModeCookieSecureOverride:
 
         server._apply_dev_cookie_override(transport)
 
-        server.logger.debug.assert_called()
-        # Find the call that contains the cookie_secure message
-        found = False
-        for call in server.logger.debug.call_args_list:
-            log_msg = call[0][0]
-            if "cookie_secure=False" in log_msg and "Dev mode" in log_msg:
-                found = True
-                break
-        assert found, "Expected debug log about cookie_secure=False"
+        # After log cleanup, no debug call should be emitted
+        server.logger.debug.assert_not_called()
 
 
 class TestTransportPolicyDefault:

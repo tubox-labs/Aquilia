@@ -92,7 +92,6 @@ class RedisAdapter(Adapter):
         # Start subscriber task
         self._subscriber_task = asyncio.create_task(self._subscriber_loop())
         
-        logger.info(f"RedisAdapter initialized (worker: {self.worker_id})")
     
     async def shutdown(self) -> None:
         """Shutdown Redis connection."""
@@ -110,7 +109,6 @@ class RedisAdapter(Adapter):
         if self._redis:
             await self._redis.close()
         
-        logger.info("RedisAdapter shut down")
     
     def register_send_callback(
         self,

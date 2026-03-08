@@ -306,7 +306,6 @@ class FileCatalog(TranslationCatalog):
         """Load all translation files from configured directories."""
         for directory in self._directories:
             if not directory.exists():
-                logger.debug("i18n directory does not exist: %s", directory)
                 continue
             self._scan_directory(directory)
         self._loaded = True
@@ -351,10 +350,6 @@ class FileCatalog(TranslationCatalog):
                 data = self._load_file(file_path)
                 if data:
                     self._inner.add(locale_tag, {namespace: data})
-                    logger.debug(
-                        "Loaded i18n: %s/%s (%d keys)",
-                        locale_tag, namespace, len(data),
-                    )
 
     def _load_file(self, path: Path) -> Optional[Dict]:
         """Load a single translation file."""
@@ -477,7 +472,6 @@ class CrousCatalog(TranslationCatalog):
         """Load translations from CROUS and/or JSON files."""
         for directory in self._directories:
             if not directory.exists():
-                logger.debug("i18n directory does not exist: %s", directory)
                 continue
             self._scan_directory(directory)
         self._loaded = True
@@ -518,7 +512,6 @@ class CrousCatalog(TranslationCatalog):
                         crous_path = out_dir / json_file.with_suffix(".crous").name
                         self._write_crous_file(crous_path, locale_tag, json_file.stem, data)
                         compiled += 1
-                        logger.debug("Compiled %s → %s", json_file, crous_path)
                     except Exception as exc:
                         logger.error("Failed to compile %s: %s", json_file, exc)
         return compiled
@@ -601,19 +594,14 @@ class CrousCatalog(TranslationCatalog):
 
                 if data:
                     self._inner.add(locale_tag, {namespace: data})
-                    logger.debug(
-                        "Loaded i18n [%s]: %s/%s (%d keys)",
-                        source_type, locale_tag, namespace, len(data),
-                    )
 
                     # Auto-compile JSON → CROUS if crous is available and no .crous exists
                     if source_type == "json" and self._auto_compile and _HAS_CROUS and not crous_file:
                         try:
                             out_path = source_path.with_suffix(".crous")
                             self._write_crous_file(out_path, locale_tag, namespace, data)
-                            logger.debug("Auto-compiled %s → %s", source_path, out_path)
-                        except Exception as exc:
-                            logger.debug("Auto-compile failed for %s: %s", source_path, exc)
+                        except Exception:
+                            pass
 
     @staticmethod
     def _load_crous_file(path: Path) -> Optional[Dict]:

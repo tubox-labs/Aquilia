@@ -356,10 +356,6 @@ class LoggingMiddleware:
         response = await next(request, ctx)
         elapsed_ms = (time.monotonic() - start) * 1000.0
 
-        self.logger.info(
-            "%s %s - %d (%.1fms)",
-            request.method, request.path, response.status, elapsed_ms,
-        )
 
         if elapsed_ms > 1000:
             self.logger.warning(

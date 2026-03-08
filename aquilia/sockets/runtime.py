@@ -92,10 +92,8 @@ class SocketRouter:
                 ast = parse_pattern(metadata.path_pattern)
                 compiled = self._pattern_compiler.compile(ast)
                 self._compiled_patterns[namespace] = compiled
-            except Exception as e:
-                logger.debug(f"Could not compile pattern for {namespace}: {e}")
-        
-        logger.info(f"Registered WebSocket namespace: {namespace}")
+            except Exception:
+                pass
     
     def match(self, path: str) -> Optional[tuple[str, RouteMetadata, Dict[str, Any]]]:
         """
@@ -208,7 +206,6 @@ class AquilaSockets:
         
         await self.adapter.shutdown()
         self._initialized = False
-        logger.debug("AquilaSockets shut down")
     
     async def handle_websocket(self, scope: dict, receive: callable, send: callable):
         """
@@ -304,11 +301,8 @@ class AquilaSockets:
             headers=headers,
         )
         
-        logger.info(f"Handshake starting for {namespace} path={req.path}")
-        
         # Authenticate using the robust Request object
         identity, session = await self._authenticate_handshake(req)
-        logger.info(f"Auth result: identity={identity}, session={session}")
         
         # Run guards
         for guard in route_metadata.guards:
@@ -317,7 +311,6 @@ class AquilaSockets:
         # Check origin
         if route_metadata.allowed_origins:
             origin = headers.get("origin", "")
-            logger.info(f"Checking origin: {origin} vs {route_metadata.allowed_origins}")
             if origin and origin not in route_metadata.allowed_origins:
                 from .faults import WS_ORIGIN_NOT_ALLOWED
                 raise WS_ORIGIN_NOT_ALLOWED(origin)
@@ -367,8 +360,6 @@ class AquilaSockets:
         if hasattr(self.adapter, "register_send_callback"):
             self.adapter.register_send_callback(namespace, connection_id, send_func)
         
-        logger.info(f"Handshake successful: {connection_id} ({namespace})")
-        
         return conn
     
     async def _authenticate_handshake(
@@ -398,8 +389,8 @@ class AquilaSockets:
         if scheme and scheme.lower() == "bearer" and credentials and self.auth_manager:
             try:
                 identity = await self.auth_manager.get_identity_from_token(credentials)
-            except Exception as e:
-                logger.debug(f"Token auth failed: {e}")
+            except Exception:
+                pass
         
         # 2. Try query string token
         if not identity and self.auth_manager:
@@ -407,8 +398,8 @@ class AquilaSockets:
             if token:
                 try:
                     identity = await self.auth_manager.get_identity_from_token(token)
-                except Exception as e:
-                    logger.debug(f"Query token auth failed: {e}")
+                except Exception:
+                    pass
         
         # 3. Try session cookie (Unified with HTTP flow)
         if self.session_engine:
@@ -425,8 +416,8 @@ class AquilaSockets:
                         identity_id = session.data["identity_id"]
                         identity = await self.auth_manager.identity_store.get(identity_id)
                         
-            except Exception as e:
-                logger.debug(f"Session auth failed: {e}")
+            except Exception:
+                pass
         
         return identity, session
     
@@ -564,8 +555,6 @@ class AquilaSockets:
         del self.connections[conn.connection_id]
         
         conn.mark_closed()
-        
-        logger.info(f"Connection closed: {conn.connection_id} ({reason})")
     
     async def _call_on_disconnect(
         self,

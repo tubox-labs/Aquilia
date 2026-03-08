@@ -104,15 +104,12 @@ class SessionEngine:
                 self._emit_event("session_invalid", None, request)
             
             except SessionExpiredFault:
-                self.logger.info(f"Session expired, creating new: {session_id_str[:16]}...")
                 self._emit_event("session_expired", None, request)
             
             except SessionIdleTimeoutFault:
-                self.logger.info(f"Session idle timeout: {session_id_str[:16]}...")
                 self._emit_event("session_idle_timeout", None, request)
             
             except SessionAbsoluteTimeoutFault:
-                self.logger.info(f"Session absolute timeout: {session_id_str[:16]}...")
                 self._emit_event("session_absolute_timeout", None, request)
             
             except SessionFingerprintMismatchFault:
@@ -323,14 +320,12 @@ class SessionEngine:
                 if sessions:
                     oldest = min(sessions, key=lambda s: s.last_accessed_at)
                     await self.store.delete(oldest.id)
-                    self.logger.info(f"Evicted oldest session for principal {session.principal.id}")
             
             elif self.policy.concurrency.should_evict_all():
                 sessions = await self.store.list_by_principal(session.principal.id)
                 for s in sessions:
                     if s.id != session.id:
                         await self.store.delete(s.id)
-                self.logger.info(f"Evicted all sessions for principal {session.principal.id}")
     
     async def refresh(self, session: Session, now: datetime | None = None) -> None:
         """Refresh session expiry (extend TTL)."""
@@ -398,7 +393,6 @@ class SessionEngine:
         """Remove expired sessions from store."""
         try:
             count = await self.store.cleanup_expired()
-            self.logger.info(f"Cleaned up {count} expired sessions")
             return count
         except Exception as e:
             self.logger.error(f"Cleanup failed: {e}")

@@ -332,11 +332,6 @@ class RequestDAG:
             try:
                 return await self._request.form()
             except Exception:
-                # A-2: Log parse failure instead of silently swallowing
-                import logging as _log
-                _log.getLogger("aquilia.di.request_dag").debug(
-                    "Failed to parse request body as JSON or form data"
-                )
                 return {}
 
 

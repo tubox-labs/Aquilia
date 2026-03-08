@@ -96,11 +96,6 @@ class EffectSubsystem(BaseSubsystem):
 
         # Step 4: Initialize all providers
         await self._registry.initialize_all()
-        self._logger.info(
-            "Initialized %d effect providers: %s",
-            len(self._registry.providers),
-            list(self._registry.providers.keys()),
-        )
 
         # Step 5: Register middleware
         self._register_middleware(ctx)
@@ -225,7 +220,6 @@ class EffectSubsystem(BaseSubsystem):
             composition = LayerComposition(layers)
             initial_deps = {"Config": ctx.config}
             await composition.register_with(self._registry, initial_deps)
-            self._logger.info("Built %d effect layers", len(layers))
 
     def _register_middleware(self, ctx: BootContext) -> None:
         """Register EffectMiddleware in the middleware stack."""
@@ -326,7 +320,6 @@ class EffectSubsystem(BaseSubsystem):
         """Finalize all effect providers."""
         if self._registry:
             await self._registry.finalize_all()
-            self._logger.info("All effect providers finalized")
 
     @property
     def registry(self) -> Optional["EffectRegistry"]:

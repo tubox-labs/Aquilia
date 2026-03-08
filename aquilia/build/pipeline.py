@@ -538,10 +538,6 @@ class AquiliaBuildPipeline:
         if ws_str not in sys.path:
             sys.path.insert(0, ws_str)
 
-        if self.config.verbose:
-            logger.info(f"Building workspace: {self.workspace_root}")
-            logger.info(f"Mode: {self.config.mode} | Compression: {self.config.compression}")
-
         _log("info", f"Build started -- workspace: {self.workspace_root}")
         _log("info", f"Mode: {self.config.mode} | Compression: {self.config.compression}")
         if self.config.force:
@@ -709,9 +705,6 @@ class AquiliaBuildPipeline:
             for w in result.warnings:
                 _log("warn", str(w))
 
-        if self.config.verbose:
-            logger.info(f"Build complete: {result.summary()}")
-
         self._write_build_log(result)
         return result
 
@@ -865,12 +858,8 @@ class AquiliaBuildPipeline:
         try:
             workspace_meta, module_names = self._discover_workspace_ast(content)
             ast_ok = True
-            if self.config.verbose:
-                logger.info("  Discovery method: AST")
         except Exception as e:
             # AST failed — fall back to regex
-            if self.config.verbose:
-                logger.info(f"  AST discovery failed ({e}), falling back to regex")
             result.warnings.append(BuildError(
                 phase=BuildPhase.DISCOVERY,
                 message=f"AST discovery failed, using regex fallback: {e}",
@@ -880,13 +869,8 @@ class AquiliaBuildPipeline:
         # ── Regex fallback ───────────────────────────────────────────
         if not ast_ok:
             workspace_meta, module_names = self._discover_workspace_regex(content)
-            if self.config.verbose:
-                logger.info("  Discovery method: regex (fallback)")
 
         workspace_meta["modules"] = module_names
-
-        if self.config.verbose:
-            logger.info(f"  Discovered {len(module_names)} module(s): {', '.join(module_names)}")
 
         # Load each module's manifest
         for mod_name in module_names:
@@ -911,7 +895,6 @@ class AquiliaBuildPipeline:
                     v = getattr(manifest_obj, "version", "?")
                     c = len(getattr(manifest_obj, "controllers", []) or [])
                     s = len(getattr(manifest_obj, "services", []) or [])
-                    logger.info(f"    {mod_name} v{v}: {c} controller(s), {s} service(s)")
 
             except Exception as e:
                 result.errors.append(BuildError(
@@ -1576,9 +1559,6 @@ class AquiliaBuildPipeline:
                 "providers": providers,
             },
         }
-
-        if self.config.verbose:
-            logger.info(f"  Compiled {len(compiled)} artifacts")
 
         return compiled
 

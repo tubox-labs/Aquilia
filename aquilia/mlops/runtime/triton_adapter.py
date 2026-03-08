@@ -70,7 +70,6 @@ class TritonAdapter(BaseRuntime):
             raise
 
         self._set_state(ModelState.LOADED)
-        logger.info("Connected to Triton at %s", self._url)
 
     async def infer(self, batch: BatchRequest) -> List[InferenceResult]:
         if not self._client:

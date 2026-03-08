@@ -149,7 +149,6 @@ class CacheService:
         
         await self._backend.shutdown()
         self._initialized = False
-        logger.debug("Cache service shut down")
     
     # DI lifecycle aliases
     async def startup(self) -> None:
@@ -546,8 +545,6 @@ class CacheService:
             except Exception as e:
                 logger.warning(f"Cache warm failed for key '{key}': {e}")
         
-        if count > 0:
-            logger.info(f"Cache warmed with {count}/{len(items)} entries (ns={namespace or self._default_namespace})")
         return count
     
     async def health_check(self) -> bool:
@@ -624,7 +621,7 @@ class CacheService:
                         reason="Health check failed",
                     ))
                 elif not was_healthy and self._healthy:
-                    logger.info("Cache backend recovered")
+                    pass
             except asyncio.CancelledError:
                 break
             except Exception:

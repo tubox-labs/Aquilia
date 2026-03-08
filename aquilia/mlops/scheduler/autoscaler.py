@@ -234,12 +234,6 @@ class Autoscaler:
         if decision.desired_replicas != self._current_replicas:
             self._last_scale_time = time.monotonic()
         self._current_replicas = decision.desired_replicas
-        logger.info(
-            "Scaling: %d → %d (%s)",
-            decision.current_replicas,
-            decision.desired_replicas,
-            decision.reason,
-        )
 
     def generate_hpa_manifest(
         self,

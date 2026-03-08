@@ -150,7 +150,6 @@ class ModelRegistry:
             if set_active or name not in self._active:
                 self._active[name] = version
 
-        logger.info("Registered model: %s (version=%s)", name, version)
         return entry
 
     def register_sync(
@@ -175,7 +174,6 @@ class ModelRegistry:
         self._entries[entry.key] = entry
         if set_active or name not in self._active:
             self._active[name] = version
-        logger.info("Registered model (sync): %s (version=%s)", name, version)
         return entry
 
     # ── Lookup ───────────────────────────────────────────────────────
@@ -233,7 +231,6 @@ class ModelRegistry:
             return False
         async with self._lock:
             self._active[name] = version
-        logger.info("Active version for %s set to %s", name, version)
         return True
 
     # ── Removal ──────────────────────────────────────────────────────
@@ -252,7 +249,6 @@ class ModelRegistry:
                     self._active[name] = remaining[-1]
                 else:
                     del self._active[name]
-        logger.info("Unregistered model: %s:%s", name, version)
         return True
 
     def summary(self) -> Dict[str, Any]:
