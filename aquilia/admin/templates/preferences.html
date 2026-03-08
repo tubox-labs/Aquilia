@@ -1,0 +1,267 @@
+{% extends "base.html" %}
+{% block title %}Preferences{% endblock %}
+{% block breadcrumb %}Preferences{% endblock %}
+
+{% block extra_head %}
+<style>
+.pref-namespace-card {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 20px 24px;
+    transition: border-color .2s, box-shadow .2s;
+}
+.pref-namespace-card:hover {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent-subtle);
+}
+.pref-namespace-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+}
+.pref-namespace-title {
+    font-size: .92rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.pref-namespace-badge {
+    font-size: .68rem;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: var(--accent-subtle);
+    color: var(--accent);
+    font-weight: 500;
+}
+.pref-json-editor {
+    width: 100%;
+    min-height: 140px;
+    font-family: var(--font-mono);
+    font-size: .8rem;
+    line-height: 1.6;
+    padding: 14px;
+    border-radius: 8px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    color: var(--text-primary);
+    resize: vertical;
+    tab-size: 2;
+}
+.pref-json-editor:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-subtle);
+}
+.pref-updated {
+    font-size: .72rem;
+    color: var(--text-faint);
+    margin-top: 8px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+    <div>
+        <h1><span class="gradient-text">Preferences</span></h1>
+        <p>Per-user settings stored as JSON documents, organized by namespace.</p>
+    </div>
+    <button class="btn btn-primary" onclick="document.getElementById('createPrefModal').style.display='flex'">
+        <i class="icon-plus" style="font-size:14px;"></i> New Namespace
+    </button>
+</div>
+
+{# ── Stats ── #}
+<div class="stats-row" style="margin-bottom:28px;">
+    <div class="stat-item">
+        <div class="stat-number">{{ preferences|length }}</div>
+        <div class="stat-label">Namespaces</div>
+    </div>
+    <div class="stat-item">
+        <div class="stat-number" id="totalKeysCount">0</div>
+        <div class="stat-label">Total Settings</div>
+    </div>
+</div>
+
+{# ── Info Card ── #}
+<div class="glass-card card-padded" style="margin-bottom:24px;">
+    <div style="font-size:.82rem;font-weight:600;margin-bottom:12px;color:var(--text-secondary);">About Preferences</div>
+    <div style="display:flex;gap:24px;flex-wrap:wrap;font-size:.78rem;color:var(--text-muted);">
+        <div style="display:flex;align-items:flex-start;gap:8px;">
+            <i class="icon-layers" style="font-size:14px;color:var(--accent);flex-shrink:0;margin-top:2px;"></i>
+            <span><strong style="color:var(--text-secondary);">Namespaces</strong> group related settings: <code>ui</code> for theme, <code>notifications</code> for alerts, <code>dashboard</code> for layout.</span>
+        </div>
+        <div style="display:flex;align-items:flex-start;gap:8px;">
+            <i class="icon-git-merge" style="font-size:14px;color:var(--info);flex-shrink:0;margin-top:2px;"></i>
+            <span><strong style="color:var(--text-secondary);">Merge mode</strong> shallow-merges new keys into existing data instead of replacing.</span>
+        </div>
+    </div>
+</div>
+
+{# ── Namespace Cards ── #}
+<div style="display:grid;gap:20px;">
+    {% for pref in preferences %}
+    <div class="pref-namespace-card" id="pref-card-{{ loop.index }}">
+        <div class="pref-namespace-header">
+            <div class="pref-namespace-title">
+                <i class="icon-{% if pref.namespace == 'ui' %}palette{% elif pref.namespace == 'notifications' %}bell{% elif pref.namespace == 'dashboard' %}layout-dashboard{% else %}settings{% endif %}" style="color:var(--accent);"></i>
+                {{ pref.namespace }}
+                {% set key_count = pref.data.keys()|list|length if pref.data is mapping else 0 %}
+                <span class="pref-namespace-badge">{{ key_count }} key{{ 's' if key_count != 1 else '' }}</span>
+            </div>
+            <div style="display:flex;gap:6px;">
+                <button class="btn btn-sm btn-ghost" title="Save Changes" onclick="savePref('{{ pref.namespace }}', {{ loop.index }})">
+                    <i class="icon-save" style="font-size:13px;color:var(--accent);"></i>
+                </button>
+                <button class="btn btn-sm btn-ghost" title="Merge Update" onclick="savePref('{{ pref.namespace }}', {{ loop.index }}, true)">
+                    <i class="icon-git-merge" style="font-size:13px;color:var(--info);"></i>
+                </button>
+                <button class="btn btn-sm btn-ghost" title="Delete Namespace" style="color:var(--danger);" onclick="confirmDeletePref('{{ pref.namespace }}')">
+                    <i class="icon-trash-2" style="font-size:13px;"></i>
+                </button>
+            </div>
+        </div>
+        <textarea class="pref-json-editor" id="pref-data-{{ loop.index }}" spellcheck="false">{{ pref.data|tojson(indent=2) if pref.data is mapping else '{}' }}</textarea>
+        <div class="pref-updated">
+            Last updated: {{ pref.updated_at if pref.updated_at else 'Never' }}
+        </div>
+    </div>
+    {% else %}
+    <div class="glass-card card-padded" style="text-align:center;padding:48px 24px;">
+        <i class="icon-settings" style="font-size:32px;display:block;margin-bottom:12px;opacity:.3;"></i>
+        <div style="font-size:.88rem;color:var(--text-muted);margin-bottom:16px;">No preferences yet</div>
+        <button class="btn btn-primary btn-sm" onclick="document.getElementById('createPrefModal').style.display='flex'">
+            <i class="icon-plus" style="font-size:12px;"></i> Create your first namespace
+        </button>
+    </div>
+    {% endfor %}
+</div>
+
+{# ═══ Create Namespace Modal ═══ #}
+<div id="createPrefModal" style="display:none;position:fixed;inset:0;z-index:10003;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);" onclick="if(event.target===this)this.style.display='none'">
+    <div style="background:var(--bg-elevated);border:1px solid var(--border-color);border-radius:14px;padding:32px;max-width:480px;width:90%;box-shadow:0 24px 64px rgba(0,0,0,0.5);">
+        <h3 style="margin:0 0 20px;font-size:1rem;font-weight:600;display:flex;align-items:center;gap:8px;">
+            <i class="icon-plus" style="font-size:18px;color:var(--accent);"></i>
+            New Preference Namespace
+        </h3>
+        <form method="POST" action="{{ url_prefix|default('/admin') }}/preferences/update" id="createPrefForm">
+            {% if csrf_token %}<input type="hidden" name="_csrf_token" value="{{ csrf_token }}">{% endif %}
+            <div class="form-group">
+                <label class="form-label">Namespace *</label>
+                <input type="text" name="namespace" class="form-input" required placeholder="e.g. ui, notifications, dashboard" autocomplete="off" pattern="[a-zA-Z0-9_-]+" title="Only letters, numbers, hyphens and underscores">
+                <span style="font-size:.72rem;color:var(--text-faint);margin-top:4px;display:block;">A short identifier for this group of settings.</span>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Initial Data (JSON)</label>
+                <textarea name="data" class="pref-json-editor" style="min-height:100px;" placeholder='{"theme":"dark","sidebar_collapsed":false}'>{}</textarea>
+                <span style="font-size:.72rem;color:var(--text-faint);margin-top:4px;display:block;">Must be a valid JSON object.</span>
+            </div>
+            <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:24px;padding-top:16px;border-top:1px solid var(--border-subtle);">
+                <button type="button" class="btn btn-secondary" onclick="document.getElementById('createPrefModal').style.display='none'">Cancel</button>
+                <button type="submit" class="btn btn-primary">Create</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{# ── Count total keys across all namespaces ── #}
+(function() {
+    var total = 0;
+    {% for pref in preferences %}
+    try {
+        var d = JSON.parse(document.getElementById('pref-data-{{ loop.index }}').value);
+        total += Object.keys(d).length;
+    } catch(e) {}
+    {% endfor %}
+    var el = document.getElementById('totalKeysCount');
+    if (el) el.textContent = total;
+})();
+
+function savePref(namespace, idx, merge) {
+    var textarea = document.getElementById('pref-data-' + idx);
+    if (!textarea) return;
+    var raw = textarea.value.trim();
+    try { JSON.parse(raw); } catch(e) {
+        showFlashMessage('Invalid JSON: ' + e.message, 'error');
+        return;
+    }
+    var fd = new FormData();
+    var csrfMeta = document.querySelector('meta[name="csrf-token"]');
+    if (csrfMeta) fd.append('_csrf_token', csrfMeta.content);
+    fd.append('namespace', namespace);
+    fd.append('data', raw);
+    fd.append('merge', merge ? 'true' : 'false');
+
+    fetch('{{ url_prefix|default("/admin") }}/preferences/update', {
+        method: 'POST',
+        body: fd,
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.error) {
+            showFlashMessage(data.error, 'error');
+            return;
+        }
+        showFlashMessage('Preferences for "' + namespace + '" ' + (merge ? 'merged' : 'saved') + '.', 'success');
+        if (data.data) {
+            textarea.value = JSON.stringify(data.data, null, 2);
+        }
+    })
+    .catch(function(err) {
+        showFlashMessage('Failed: ' + err, 'error');
+    });
+}
+
+function confirmDeletePref(namespace) {
+    showConfirmModal(
+        'Delete namespace "' + namespace + '"?',
+        'All preferences in this namespace will be permanently removed.',
+        function() {
+            var form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '{{ url_prefix|default("/admin") }}/preferences/delete';
+            var _t = document.querySelector('meta[name="csrf-token"]'); if (_t) { var c = document.createElement('input'); c.type='hidden'; c.name='_csrf_token'; c.value=_t.content; form.appendChild(c); }
+            var input = document.createElement('input');
+            input.type = 'hidden'; input.name = 'namespace'; input.value = namespace;
+            form.appendChild(input);
+            document.body.appendChild(form);
+            form.submit();
+        },
+        true
+    );
+}
+
+{# ── Intercept create form for inline feedback ── #}
+(function() {
+    var form = document.getElementById('createPrefForm');
+    if (!form) return;
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        var fd = new FormData(form);
+        fetch(form.action, {
+            method: 'POST',
+            body: fd,
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.error) {
+                showFlashMessage(data.error, 'error');
+                return;
+            }
+            showFlashMessage('Namespace "' + (data.namespace || '') + '" created.', 'success');
+            document.getElementById('createPrefModal').style.display = 'none';
+            setTimeout(function() { location.reload(); }, 600);
+        })
+        .catch(function(err) {
+            showFlashMessage('Failed: ' + err, 'error');
+        });
+    });
+})();
+{% endblock %}

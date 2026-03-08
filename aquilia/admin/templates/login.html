@@ -19,6 +19,15 @@
     .login-spinner{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,.25);border-top-color:#fff;border-radius:50%;animation:login-spin .6s linear infinite;vertical-align:-2px;}
     @keyframes login-spin{to{transform:rotate(360deg)}}
     .btn-loading{pointer-events:none;opacity:.7;}
+
+    /* ── Remember Me Toggle ── */
+    .aq-toggle{position:relative;display:inline-block;width:36px;height:20px;cursor:pointer;}
+    .aq-toggle input{opacity:0;width:0;height:0;position:absolute;}
+    .aq-toggle-track{position:absolute;inset:0;border-radius:10px;background:var(--border,#333);transition:background .2s ease;}
+    .aq-toggle-thumb{position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;transition:transform .2s ease;box-shadow:0 1px 3px rgba(0,0,0,.3);}
+    .aq-toggle input:checked+.aq-toggle-track{background:var(--accent,#22c55e);}
+    .aq-toggle input:checked+.aq-toggle-track .aq-toggle-thumb{transform:translateX(16px);}
+    .aq-toggle input:focus-visible+.aq-toggle-track{outline:2px solid var(--accent,#22c55e);outline-offset:2px;}
     </style>
 </head>
 <body>
@@ -45,6 +54,17 @@
                 <div class="form-group">
                     <label class="form-label" for="password"><i class="icon-lock" style="font-size:13px;vertical-align:-1px;margin-right:4px;opacity:0.5;"></i>Password</label>
                     <input class="form-input" type="password" id="password" name="password" placeholder="Enter your password" required>
+                </div>
+                <div class="form-group" style="display:flex;align-items:center;gap:8px;margin-top:4px;user-select:none;">
+                    <label class="aq-toggle" for="remember_me" style="flex-shrink:0;">
+                        <input type="checkbox" id="remember_me" name="remember_me" value="1" checked>
+                        <span class="aq-toggle-track">
+                            <span class="aq-toggle-thumb"></span>
+                        </span>
+                    </label>
+                    <label for="remember_me" style="font-size:0.8rem;color:var(--text-muted);cursor:pointer;line-height:1.3;">
+                        Remember me for 30 days
+                    </label>
                 </div>
                 <button class="btn btn-primary" type="submit" id="loginBtn" style="width:100%;justify-content:center;padding:11px 0;margin-top:8px;">
                     <i class="icon-log-in" style="font-size:15px;" id="loginIcon"></i> <span id="loginText">Sign In</span>

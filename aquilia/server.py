@@ -1925,6 +1925,22 @@ class AquiliaServer:
                     ("POST", f"{url_prefix}/profile/update",         "profile_update",          ctrl.profile_update),
                     ("POST", f"{url_prefix}/profile/change-password", "profile_change_password", ctrl.profile_change_password),
                 ])
+            # API Keys management routes
+            if _mod("api_keys"):
+                admin_routes.extend([
+                    ("GET",  f"{url_prefix}/api-keys/",        "api_keys_view",    ctrl.api_keys_view),
+                    ("POST", f"{url_prefix}/api-keys/create",  "api_keys_create",  ctrl.api_keys_create),
+                    ("POST", f"{url_prefix}/api-keys/revoke",  "api_keys_revoke",  ctrl.api_keys_revoke),
+                    ("POST", f"{url_prefix}/api-keys/delete",  "api_keys_delete",  ctrl.api_keys_delete),
+                ])
+            # User Preferences management routes
+            if _mod("preferences"):
+                admin_routes.extend([
+                    ("GET",  f"{url_prefix}/preferences/",                "preferences_view",   ctrl.preferences_view),
+                    ("GET",  f"{url_prefix}/preferences/<namespace:str>", "preferences_get",    ctrl.preferences_get),
+                    ("POST", f"{url_prefix}/preferences/update",          "preferences_update", ctrl.preferences_update),
+                    ("POST", f"{url_prefix}/preferences/delete",          "preferences_delete", ctrl.preferences_delete),
+                ])
             # Containers, Pods, and DevTools routes are ALWAYS registered
             # regardless of whether the module is enabled. The controller
             # handlers themselves check is_module_enabled() and return a

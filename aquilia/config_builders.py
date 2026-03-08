@@ -1724,7 +1724,8 @@ class Integration:
                      "_monitoring", "_admin_users", "_profile", "_audit",
                      "_containers", "_pods",
                      "_query_inspector", "_tasks", "_errors",
-                     "_testing", "_mlops", "_storage", "_mailer")
+                     "_testing", "_mlops", "_storage", "_mailer",
+                     "_api_keys", "_preferences")
 
         def __init__(self) -> None:
             self._dashboard: bool = True
@@ -1747,6 +1748,8 @@ class Integration:
             self._mlops: bool = False             # disabled by default
             self._storage: bool = False           # disabled by default
             self._mailer: bool = False            # disabled by default
+            self._api_keys: bool = True
+            self._preferences: bool = True
 
         # ── Dashboard ──
         def enable_dashboard(self) -> "Integration.AdminModules":
@@ -1968,6 +1971,28 @@ class Integration:
             self._mailer = False
             return self
 
+        # ── API Keys ──
+        def enable_api_keys(self) -> "Integration.AdminModules":
+            """Show the API Keys page."""
+            self._api_keys = True
+            return self
+
+        def disable_api_keys(self) -> "Integration.AdminModules":
+            """Hide the API Keys page."""
+            self._api_keys = False
+            return self
+
+        # ── Preferences ──
+        def enable_preferences(self) -> "Integration.AdminModules":
+            """Show the Preferences page."""
+            self._preferences = True
+            return self
+
+        def disable_preferences(self) -> "Integration.AdminModules":
+            """Hide the Preferences page."""
+            self._preferences = False
+            return self
+
         # ── Convenience ──
         def enable_all(self) -> "Integration.AdminModules":
             """Enable every admin module (including monitoring & audit)."""
@@ -2004,6 +2029,8 @@ class Integration:
                 "mlops": self._mlops,
                 "storage": self._storage,
                 "mailer": self._mailer,
+                "api_keys": self._api_keys,
+                "preferences": self._preferences,
             }
 
         def __repr__(self) -> str:
@@ -3054,6 +3081,8 @@ class Integration:
         audit_log_logins: Optional[bool] = None,
         audit_log_views: Optional[bool] = None,
         audit_log_searches: Optional[bool] = None,
+        enable_api_keys: Optional[bool] = None,
+        enable_preferences: Optional[bool] = None,
         audit_excluded_actions: Optional[List[str]] = None,
         monitoring_metrics: Optional[List[str]] = None,
         monitoring_refresh_interval: Optional[int] = None,
@@ -3154,6 +3183,8 @@ class Integration:
                 "mlops": kwargs.pop("enable_mlops", False),
                 "storage": kwargs.pop("enable_storage", False),
                 "mailer": kwargs.pop("enable_mailer", False),
+                "api_keys": enable_api_keys if enable_api_keys is not None else True,
+                "preferences": enable_preferences if enable_preferences is not None else True,
             }
 
         # ── Resolve audit ────────────────────────────────────────────

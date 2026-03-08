@@ -100,6 +100,12 @@
         <a class="sidebar-link{{ ' active' if active_page == 'admin-users' else '' }}" href="{{ url_prefix|default('/admin') }}/admin-users/" data-sidebar-label="admin users management hierarchy">
             <i class="icon-users"></i> <span>Admin Users</span>
         </a>
+        <a class="sidebar-link{{ ' active' if active_page == 'api-keys' else '' }}" href="{{ url_prefix|default('/admin') }}/api-keys/" data-sidebar-label="api keys tokens programmatic access">
+            <i class="icon-key"></i> <span>API Keys</span>
+        </a>
+        <a class="sidebar-link{{ ' active' if active_page == 'preferences' else '' }}" href="{{ url_prefix|default('/admin') }}/preferences/" data-sidebar-label="preferences settings user config">
+            <i class="icon-sliders"></i> <span>Preferences</span>
+        </a>
     </div>
     {% endif %}
 

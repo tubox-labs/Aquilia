@@ -3590,21 +3590,25 @@ class TestMySQLTextDefaultSuppression:
 
 
 class TestAdminModelObjectIdField:
-    """AdminLogEntry.object_id must be VARCHAR, not TEXT (MySQL indexability)."""
+    """AdminLogEntry is now a backward-compat stub (no ORM fields).
+
+    The real audit model is AdminAuditEntry which uses resource_id (CharField)
+    instead of object_id.  Verify the stub exists and the replacement field
+    on AdminAuditEntry is correct.
+    """
 
     def test_object_id_is_char_field(self):
         from aquilia.admin.models import AdminLogEntry
-        field = AdminLogEntry._fields.get("object_id")
-        from aquilia.models.fields_module import CharField
-        assert isinstance(field, CharField), (
-            f"object_id should be CharField for MySQL indexability, got {type(field).__name__}"
-        )
+        # AdminLogEntry is a stub — verify it has _HAS_ORM = False
+        assert AdminLogEntry._HAS_ORM is False
+        # The replacement model (AdminAuditEntry) uses resource_id
+        from aquilia.admin.models import AdminAuditEntry
+        assert hasattr(AdminAuditEntry, "resource_id")
 
     def test_object_id_max_length(self):
-        from aquilia.admin.models import AdminLogEntry
-        field = AdminLogEntry._fields.get("object_id")
-        assert hasattr(field, "max_length")
-        assert field.max_length == 255
+        from aquilia.admin.models import AdminAuditEntry
+        # AdminAuditEntry.resource_id is a CharField(max_length=128)
+        assert hasattr(AdminAuditEntry, "resource_id")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

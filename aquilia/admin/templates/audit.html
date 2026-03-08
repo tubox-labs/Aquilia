@@ -283,7 +283,7 @@
                     </div>
                 </div>
                 <div><div class="detail-label">IP Address</div><div class="detail-value">{{ entry.ip_address|default('—') }}</div></div>
-                <div><div class="detail-label">User Agent</div><div class="detail-value" style="font-size:0.72rem;">{{ entry.user_agent|default('—')|truncate(80) }}</div></div>
+                <div><div class="detail-label">User Agent</div><div class="detail-value" style="font-size:0.72rem;">{{ (entry.user_agent or '—')|truncate(80) }}</div></div>
                 <div><div class="detail-label">Timestamp</div><div class="detail-value" style="font-family:var(--font-mono);font-size:0.75rem;">{{ entry.timestamp|default('—') }}</div></div>
                 {% if entry.user_id %}
                 <div><div class="detail-label">User ID</div><div class="detail-value" style="font-family:var(--font-mono);">{{ entry.user_id }}</div></div>

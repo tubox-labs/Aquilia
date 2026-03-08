@@ -34,6 +34,7 @@ from .migration_dsl import (
     DropIndex,
     Operation,
     _SENTINEL,
+    _normalize_fk_action,
 )
 
 logger = logging.getLogger("aquilia.models.schema_snapshot")
@@ -198,13 +199,36 @@ def _serialize_field(fld) -> Dict[str, Any]:
     if isinstance(fld, (ForeignKey, OneToOneField)):
         to = fld.to
         if isinstance(to, str):
-            info["references"] = {"model": to}
+            # Resolve string reference → table name via the model registry.
+            # The related model class is resolved during metaclass init and
+            # stored on ``fld.related_model``.  If resolution hasn't happened
+            # yet (or failed), fall back to the Django convention of
+            # ``<ModelName> → <modelname>`` table name.
+            resolved = getattr(fld, 'related_model', None)
+            if resolved is not None and hasattr(resolved, '_meta'):
+                ref_table = getattr(resolved._meta, 'table_name', to.lower())
+            else:
+                # Best-effort: look up in all known model classes that were
+                # passed alongside this one during snapshot creation.
+                ref_table = None
+                try:
+                    from .base import _model_registry
+                    for _reg_cls in _model_registry.values():
+                        if _reg_cls.__name__ == to:
+                            ref_table = getattr(_reg_cls._meta, 'table_name', to.lower())
+                            break
+                except Exception:
+                    pass
+                if ref_table is None:
+                    ref_table = to.lower()
+            info["references"] = {"model": to, "table": ref_table}
         elif isinstance(to, type):
             info["references"] = {
                 "model": to.__name__,
                 "table": getattr(to._meta, 'table_name', to.__name__.lower()),
             }
-        info["on_delete"] = getattr(fld, 'on_delete_action', 'CASCADE')
+        info["on_delete"] = getattr(fld, 'on_delete', 'CASCADE')
+        info["on_update"] = getattr(fld, 'on_update', 'CASCADE')
 
     # Decimal params
     if hasattr(fld, 'max_digits') and fld.max_digits:
@@ -646,10 +670,16 @@ def _snapshot_field_to_column_def(name: str, data: Dict[str, Any]) -> ColumnDef:
     references = None
     on_delete = "CASCADE"
     on_update = "CASCADE"
-    if ref and isinstance(ref, dict) and "table" in ref:
-        references = (ref["table"], ref.get("column", "id"))
-        on_delete = data.get("on_delete", "CASCADE")
-        on_update = data.get("on_update", "CASCADE")
+    if ref and isinstance(ref, dict):
+        # Accept both {"table": "..."} and {"model": "..."} — the serializer
+        # now always writes both keys, but legacy snapshots may have only "model".
+        ref_table = ref.get("table")
+        if not ref_table and "model" in ref:
+            ref_table = ref["model"].lower()
+        if ref_table:
+            references = (ref_table, ref.get("column", "id"))
+            on_delete = _normalize_fk_action(data.get("on_delete", "CASCADE"))
+            on_update = _normalize_fk_action(data.get("on_update", "CASCADE"))
 
     default = data.get("default", _SENTINEL)
     if default is not None and isinstance(default, str) and default.startswith("<callable:"):

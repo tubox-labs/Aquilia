@@ -113,6 +113,14 @@ class AdminPermission(str, Enum):
     MAILER_VIEW = "admin.mailer.view"
     MAILER_MANAGE = "admin.mailer.manage"
 
+    # API Keys
+    API_KEY_VIEW = "admin.api_key.view"
+    API_KEY_MANAGE = "admin.api_key.manage"
+
+    # Preferences
+    PREFERENCE_VIEW = "admin.preference.view"
+    PREFERENCE_MANAGE = "admin.preference.manage"
+
     # Profile
     PROFILE_VIEW = "admin.profile.view"
     PROFILE_MANAGE = "admin.profile.manage"

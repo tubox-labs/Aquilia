@@ -74,6 +74,35 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 # ── Sentinel for distinguishing 'no default' from None ──────────────────────
 
 
+# Map Python-style on_delete/on_update constants to valid SQL keywords.
+# E.g. "SET_NULL" → "SET NULL", "DO_NOTHING" → "NO ACTION".
+_ON_DELETE_SQL_MAP: dict[str, str] = {
+    "CASCADE": "CASCADE",
+    "SET_NULL": "SET NULL",
+    "SET NULL": "SET NULL",
+    "SETNULL": "SET NULL",
+    "SET_DEFAULT": "SET DEFAULT",
+    "SET DEFAULT": "SET DEFAULT",
+    "SETDEFAULT": "SET DEFAULT",
+    "RESTRICT": "RESTRICT",
+    "NO_ACTION": "NO ACTION",
+    "NO ACTION": "NO ACTION",
+    "DO_NOTHING": "NO ACTION",
+    "DO NOTHING": "NO ACTION",
+    "DONOTHING": "NO ACTION",
+    "PROTECT": "RESTRICT",
+}
+
+
+def _normalize_fk_action(action: str) -> str:
+    """Normalize a Python on_delete/on_update constant to valid SQL.
+
+    Converts underscored Python-style constants (``SET_NULL``) to their
+    SQL equivalents (``SET NULL``).  Unknown values pass through unchanged.
+    """
+    return _ON_DELETE_SQL_MAP.get(action.upper().strip(), action)
+
+
 class _SentinelType:
     """Sentinel to distinguish 'no default' from None."""
     _instance = None
@@ -167,8 +196,8 @@ class ColumnDef:
         if self.references:
             ref_table, ref_col = self.references
             parts.append(f'REFERENCES "{ref_table}"("{ref_col}")')
-            parts.append(f"ON DELETE {self.on_delete}")
-            parts.append(f"ON UPDATE {self.on_update}")
+            parts.append(f"ON DELETE {_normalize_fk_action(self.on_delete)}")
+            parts.append(f"ON UPDATE {_normalize_fk_action(self.on_update)}")
 
         return " ".join(parts)
 

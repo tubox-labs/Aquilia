@@ -1107,6 +1107,12 @@ class TestAdminTemplates:
         assert "username" in html
         assert "password" in html
 
+    def test_render_login_page_has_remember_me(self):
+        html = render_login_page()
+        assert 'name="remember_me"' in html
+        # Should be checked by default
+        assert "checked" in html
+
     def test_render_login_page_with_error(self):
         html = render_login_page(error="Invalid credentials")
         assert "Invalid credentials" in html
@@ -1369,6 +1375,16 @@ class TestAdminControllerRoutes:
         assert b"login" in resp._content.lower() or b"Login" in resp._content
 
     @pytest.mark.asyncio
+    async def test_login_page_has_remember_me_checkbox(self):
+        """Login page should include a remember_me checkbox, checked by default."""
+        ctx = self._make_ctx()
+        req = self._make_request()
+        resp = await self.ctrl.login_page(req, ctx)
+        body = resp._content.decode() if isinstance(resp._content, bytes) else resp._content
+        assert 'name="remember_me"' in body
+        assert "checked" in body
+
+    @pytest.mark.asyncio
     async def test_login_submit_empty_credentials(self):
         ctx = self._make_ctx()
         ctx.form = AsyncMock(return_value={"username": "", "password": ""})
@@ -1397,6 +1413,57 @@ class TestAdminControllerRoutes:
             resp = await self.ctrl.login_submit(req, ctx)
         assert resp.status == 302
         assert resp.headers["location"] == "/admin/"
+
+    @pytest.mark.asyncio
+    async def test_login_remember_me_checked_extends_session(self):
+        """When remember_me=1, session.expires_at should be set ~30 days ahead."""
+        ctx = self._make_ctx(session_data={})
+        ctx.form = AsyncMock(return_value={
+            "username": "admin", "password": "admin", "remember_me": "1",
+        })
+        req = self._make_request()
+
+        with patch.dict(os.environ, {"AQUILIA_ADMIN_USER": "admin", "AQUILIA_ADMIN_PASSWORD": "admin"}):
+            resp = await self.ctrl.login_submit(req, ctx)
+        assert resp.status == 302
+        # Session should store the remember_me flag
+        assert ctx.session.data.get("_admin_remember_me") is True
+        # Session.expires_at should be set (persistent cookie)
+        assert ctx.session.expires_at is not None
+
+    @pytest.mark.asyncio
+    async def test_login_remember_me_unchecked_session_cookie(self):
+        """When remember_me is absent, session.expires_at should be None (session cookie)."""
+        ctx = self._make_ctx(session_data={})
+        ctx.form = AsyncMock(return_value={
+            "username": "admin", "password": "admin",
+        })
+        req = self._make_request()
+
+        with patch.dict(os.environ, {"AQUILIA_ADMIN_USER": "admin", "AQUILIA_ADMIN_PASSWORD": "admin"}):
+            resp = await self.ctrl.login_submit(req, ctx)
+        assert resp.status == 302
+        assert ctx.session.data.get("_admin_remember_me") is False
+        # Session.expires_at should be None (browser-session cookie)
+        assert ctx.session.expires_at is None
+
+    @pytest.mark.asyncio
+    async def test_login_remember_me_audited(self):
+        """The remember_me flag should be recorded in audit metadata."""
+        ctx = self._make_ctx(session_data={})
+        ctx.form = AsyncMock(return_value={
+            "username": "admin", "password": "admin", "remember_me": "1",
+        })
+        req = self._make_request()
+
+        with patch.dict(os.environ, {"AQUILIA_ADMIN_USER": "admin", "AQUILIA_ADMIN_PASSWORD": "admin"}):
+            resp = await self.ctrl.login_submit(req, ctx)
+        assert resp.status == 302
+        # Check audit log recorded the remember_me metadata
+        from aquilia.admin.audit import AdminAction
+        entries = self.site.audit_log.get_entries(action=AdminAction.LOGIN)
+        assert len(entries) >= 1
+        assert entries[0].metadata.get("remember_me") is True
 
     @pytest.mark.asyncio
     async def test_logout_redirects(self):

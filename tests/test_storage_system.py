@@ -2490,4 +2490,5 @@ class TestModuleExports:
     def test_version(self):
         import aquilia.storage as storage_mod
         assert hasattr(storage_mod, "__version__")
-        assert storage_mod.__version__ == "1.0.0"
+        from aquilia._version import __version__ as framework_version
+        assert storage_mod.__version__ == framework_version
