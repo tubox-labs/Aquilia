@@ -29,6 +29,11 @@ CORE_DEPS = [
     "click>=8.1.0",
     "PyYAML>=6.0.0",
     "uvicorn>=0.30.0",
+    # Template engine — used by admin panel and user templates (always loaded)
+    "jinja2>=3.1.0",
+    "markupsafe>=2.1.0",
+    # Async SQLite — default database backend
+    "aiosqlite>=0.20.0",
 ]
 
 # ---------------------------------------------------------------------------
@@ -36,9 +41,12 @@ CORE_DEPS = [
 # ---------------------------------------------------------------------------
 EXTRAS = {
     # -- Framework extras --
-    "templates": ["jinja2>=3.1.0"],
+    # NOTE: jinja2/markupsafe and aiosqlite are now core dependencies.
+    # Keep these keys as empty lists so existing installs that request
+    # aquilia[templates] or aquilia[db] don't get a "no such extra" error.
+    "templates": [],
+    "db": [],
     "auth": ["cryptography>=42.0.0", "argon2-cffi>=23.1.0"],
-    "db": ["aiosqlite>=0.20.0"],
     "files": ["aiofiles>=23.0.0"],
     "multipart": ["python-multipart>=0.0.9"],
     "redis": ["redis[asyncio]>=5.0.0"],
@@ -81,9 +89,7 @@ EXTRAS["mlops-all"] = (
     + EXTRAS["mlops-explain"]
 )
 EXTRAS["full"] = (
-    EXTRAS["templates"]
-    + EXTRAS["auth"]
-    + EXTRAS["db"]
+    EXTRAS["auth"]
     + EXTRAS["files"]
     + EXTRAS["multipart"]
     + EXTRAS["redis"]

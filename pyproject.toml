@@ -46,12 +46,17 @@ keywords = [
 ]
 
 # ---------------------------------------------------------------------------
-# Core dependencies — only what *every* install needs
+# Core dependencies — required by every install
 # ---------------------------------------------------------------------------
 dependencies = [
     "click>=8.1.0",
     "PyYAML>=6.0.0",
     "uvicorn>=0.30.0",
+    # Template engine — used by admin panel and user templates (always loaded)
+    "jinja2>=3.1.0",
+    "markupsafe>=2.1.0",
+    # Async SQLite — default database backend
+    "aiosqlite>=0.20.0",
 ]
 
 # ---------------------------------------------------------------------------
@@ -59,21 +64,17 @@ dependencies = [
 # ---------------------------------------------------------------------------
 [project.optional-dependencies]
 
-# Jinja2 template engine (admin panel & user templates)
-templates = [
-    "jinja2>=3.1.0",
-    "markupsafe>=2.1.0",
-]
+# NOTE: jinja2/markupsafe and aiosqlite are now in core dependencies.
+# These aliases are kept for backwards compatibility with existing installs
+# that specify `pip install aquilia[templates]` or `pip install aquilia[db]`.
+templates = []
+
+db = []
 
 # Auth subsystem — cryptography + password hashing
 auth = [
     "cryptography>=42.0.0",
     "argon2-cffi>=23.1.0",
-]
-
-# Async SQLite database backend
-db = [
-    "aiosqlite>=0.20.0",
 ]
 
 # Async file I/O (static file serving, uploads)
@@ -153,9 +154,9 @@ mlops-all = [
 
 # ---- Convenience bundles ----------------------------------------------------
 
-# Everything except MLOps
+# Everything except MLOps (templates & db are now core — kept in list for clarity)
 full = [
-    "aquilia[templates,auth,db,files,multipart,redis,mail,mail-ses,mail-sendgrid,server]",
+    "aquilia[auth,files,multipart,redis,mail,mail-ses,mail-sendgrid,server]",
 ]
 
 # Absolutely everything
