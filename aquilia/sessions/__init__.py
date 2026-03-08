@@ -155,4 +155,4 @@ __all__ = [
     "UserPreferencesState",
 ]
 
-__version__ = "0.1.0"
+from aquilia._version import __version__  # noqa: F401 — re-exported

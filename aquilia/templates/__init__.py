@@ -27,7 +27,7 @@ Example:
             )
 """
 
-__version__ = "1.0.0"
+from aquilia._version import __version__  # noqa: F401 — re-exported
 
 from .engine import TemplateEngine
 from .loader import TemplateLoader, PackageLoader

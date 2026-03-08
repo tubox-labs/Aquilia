@@ -107,7 +107,7 @@ Usage:
     # All models are auto-registered with default ModelAdmin
 """
 
-__version__ = "1.0.0"
+from aquilia._version import __version__  # noqa: F401 — re-exported
 
 from .site import AdminSite, AdminConfig
 from .options import ModelAdmin

@@ -14,7 +14,7 @@ Key Features:
 - LSP integration via di_manifest.json
 """
 
-__version__ = "1.0.0"
+from aquilia._version import __version__  # noqa: F401 — re-exported
 
 from .core import (
     Provider,

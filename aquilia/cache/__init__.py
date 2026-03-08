@@ -38,7 +38,7 @@ Usage::
         return await db.fetch_all("SELECT * FROM users")
 """
 
-__version__ = "1.0.0"
+from aquilia._version import __version__  # noqa: F401 — re-exported
 
 from .core import (
     CacheBackend,

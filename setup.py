@@ -10,6 +10,13 @@ from setuptools import setup, find_packages
 from pathlib import Path
 
 # ---------------------------------------------------------------------------
+# Version — single source of truth is aquilia/_version.py
+# ---------------------------------------------------------------------------
+_version: dict = {}
+exec(Path("aquilia/_version.py").read_text(encoding="utf-8"), _version)
+_FRAMEWORK_VERSION: str = _version["__version__"]
+
+# ---------------------------------------------------------------------------
 # Long description from README
 # ---------------------------------------------------------------------------
 readme_file = Path(__file__).parent / "README.md"
@@ -92,7 +99,7 @@ EXTRAS["all"] = EXTRAS["full"] + EXTRAS["mlops-all"]
 # ---------------------------------------------------------------------------
 setup(
     name="aquilia",
-    version="1.0.1",
+    version=_FRAMEWORK_VERSION,
     description="Async-native Python web framework with flow-first routing",
     long_description=long_description,
     long_description_content_type="text/markdown",

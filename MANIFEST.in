@@ -27,3 +27,5 @@ prune __pycache__
 global-exclude *.pyc
 global-exclude *.pyo
 global-exclude .DS_Store
+global-exclude *.bak
+global-exclude *.bak2

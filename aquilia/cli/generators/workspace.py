@@ -555,7 +555,7 @@ class WorkspaceGenerator:
             workspace = (
                 Workspace(
                     name="{self.name}",
-                    version="0.1.0",
+                    version="1.0.0",
                     description="Aquilia workspace",
                 )
                 # Starter module -- registered here so the server does not need
@@ -709,7 +709,7 @@ class WorkspaceGenerator:
             workspace = (
                 Workspace(
                     name="{self.name}",
-                    version="0.1.0",
+                    version="1.0.0",
                     description="{self.name} workspace",
                 )
                 # Starter module -- remove once you add GET /
