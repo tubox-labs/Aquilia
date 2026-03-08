@@ -1,4 +1,4 @@
-"""
+r"""
 Formal EBNF grammar for AquilaPatterns.
 
 Grammar Specification
