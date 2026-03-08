@@ -1419,9 +1419,12 @@ function jsonToHtml(obj,indent){
 function postAPI(endpoint,params){
     var body=new URLSearchParams();
     for(var k in params)body.append(k,params[k]);
+    var csrfMeta=document.querySelector('meta[name="csrf-token"]');
+    var hdrs={'Content-Type':'application/x-www-form-urlencoded'};
+    if(csrfMeta&&csrfMeta.content)hdrs['X-CSRF-Token']=csrfMeta.content;
     return fetch(_API+endpoint,{
         method:'POST',
-        headers:{'Content-Type':'application/x-www-form-urlencoded'},
+        headers:hdrs,
         body:body.toString()
     }).then(function(r){return r.json();});
 }

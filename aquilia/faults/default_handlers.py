@@ -347,13 +347,17 @@ class ResponseMapper(FaultHandler):
         """Map fault to HTTP response."""
         fault = ctx.fault
         
-        # Determine status code
-        status = self.status_map.get(fault.domain, 500)
-        
-        # For security faults, distinguish auth vs authz
-        if fault.domain == FaultDomain.SECURITY:
-            if isinstance(fault, AuthorizationFault):
-                status = 403
+        # Determine status code — prefer explicit fault.status when set
+        explicit_status = getattr(fault, "status", None)
+        if isinstance(explicit_status, int):
+            status = explicit_status
+        else:
+            status = self.status_map.get(fault.domain, 500)
+            
+            # For security faults, distinguish auth vs authz
+            if fault.domain == FaultDomain.SECURITY:
+                if isinstance(fault, AuthorizationFault):
+                    status = 403
         
         # Build response body
         body = {

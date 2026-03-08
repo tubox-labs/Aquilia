@@ -1036,6 +1036,7 @@
 {% block extra_js %}
 (function(){
     'use strict';
+    function _csrfHdrs(){var h={'Content-Type':'application/json'};var el=document.querySelector('meta[name="csrf-token"]');if(el&&el.content)h['X-CSRF-Token']=el.content;return h;}
 
     // ── Theme ──
     const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
@@ -1666,7 +1667,7 @@
 
         fetch('{{ url_prefix|default("/admin") }}/storage/api/delete', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: _csrfHdrs(),
             body: JSON.stringify({ backend: pendingDelete.backend, path: pendingDelete.name }),
         })
         .then(r => r.json())

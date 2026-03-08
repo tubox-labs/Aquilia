@@ -849,6 +849,7 @@ await msg.asend()</code></pre>
 {% block extra_js %}
 (function(){
     const PREFIX = '{{ url_prefix|default("/admin") }}';
+    function _csrfHdrs(){var h={'Content-Type':'application/json'};var el=document.querySelector('meta[name="csrf-token"]');if(el&&el.content)h['X-CSRF-Token']=el.content;return h;}
 
     // ── Tab switching ──
     window.switchTab = function(name) {
@@ -905,7 +906,7 @@ await msg.asend()</code></pre>
 
         fetch(PREFIX + '/mailer/send-test/', {
             method: 'POST',
-            headers: {'Content-Type': 'application/json'},
+            headers: _csrfHdrs(),
             body: JSON.stringify(payload),
         })
         .then(r => r.json())
@@ -983,7 +984,7 @@ await msg.asend()</code></pre>
 
         fetch(PREFIX + '/mailer/health-check/', {
             method: 'POST',
-            headers: {'Content-Type': 'application/json'},
+            headers: _csrfHdrs(),
         })
         .then(r => r.json())
         .then(data => {

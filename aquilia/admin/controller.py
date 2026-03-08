@@ -33,7 +33,7 @@ from .permissions import (
     require_admin_access,
 )
 from .audit import AdminAction
-from .faults import AdminAuthorizationFault, AdminAuthenticationFault
+from .faults import AdminAuthorizationFault, AdminAuthenticationFault, AdminCSRFViolationFault
 from .security import AdminSecurityPolicy
 from .templates import (
     render_login_page,
@@ -491,7 +491,7 @@ class AdminController(Controller):
             if ctx.session and hasattr(ctx.session, "data"):
                 ctx.session.data["_admin_flash"] = "Invalid or expired security token. Please try again."
                 ctx.session.data["_admin_flash_type"] = "error"
-            return _redirect(redirect_url)
+            raise AdminCSRFViolationFault(f"CSRF validation failed for {redirect_url}")
         return None
 
     def _csrf_reject_json(
@@ -501,7 +501,7 @@ class AdminController(Controller):
         form_data: Dict[str, Any],
     ) -> Optional[Response]:
         """
-        Validate CSRF token from form_data; return JSON error on failure, None on success.
+        Validate CSRF token from form_data; raise AdminCSRFViolationFault on failure.
 
         Usage in POST handlers that return JSON::
 
@@ -509,18 +509,12 @@ class AdminController(Controller):
             if denied:
                 return denied
         """
-        import json as _json
-
         if not self.site.security.csrf.validate_request(ctx, form_data):
             client_ip = self.site.security.extract_client_ip(request)
             self.site.security.event_tracker.record(
                 "csrf_violation", client_ip, endpoint="json-api",
             )
-            return Response(
-                content=_json.dumps({"error": "CSRF validation failed"}).encode("utf-8"),
-                status=403,
-                headers={"content-type": "application/json; charset=utf-8"},
-            )
+            raise AdminCSRFViolationFault("CSRF validation failed")
         return None
 
     # ── Lifecycle ────────────────────────────────────────────────────
@@ -5210,14 +5204,9 @@ class AdminController(Controller):
         form_data = await _parse_form(ctx)
 
         # CSRF validation
-        if not self.site.security.csrf.validate_request(ctx, form_data):
-            self.site.security.event_tracker.record(
-                "csrf_violation", client_ip, endpoint="admin_users_create",
-            )
-            if ctx.session and hasattr(ctx.session, "data"):
-                ctx.session.data["_admin_flash"] = "Security validation failed. Please try again."
-                ctx.session.data["_admin_flash_type"] = "error"
-            return _redirect("/admin/admin-users/")
+        csrf_denied = self._csrf_reject_redirect(request, ctx, form_data, "/admin/admin-users/")
+        if csrf_denied:
+            return csrf_denied
 
         username = (form_data.get("username") or "").strip()
         email = (form_data.get("email") or "").strip()
@@ -5366,15 +5355,9 @@ class AdminController(Controller):
         form_data = await _parse_form(ctx)
 
         # CSRF validation
-        client_ip = self.site.security.extract_client_ip(request)
-        if not self.site.security.csrf.validate_request(ctx, form_data):
-            self.site.security.event_tracker.record(
-                "csrf_violation", client_ip, endpoint="reset_password",
-            )
-            if ctx.session and hasattr(ctx.session, "data"):
-                ctx.session.data["_admin_flash"] = "Security validation failed. Please try again."
-                ctx.session.data["_admin_flash_type"] = "error"
-            return _redirect("/admin/admin-users/")
+        csrf_denied = self._csrf_reject_redirect(request, ctx, form_data, "/admin/admin-users/")
+        if csrf_denied:
+            return csrf_denied
 
         user_id = form_data.get("user_id", "")
         new_password = form_data.get("new_password", "")
@@ -5658,12 +5641,9 @@ class AdminController(Controller):
                 multipart_fields = dict(form_data.fields)
         except Exception:
             pass
-        if not self.site.security.csrf.validate_request(ctx, multipart_fields):
-            client_ip = self.site.security.extract_client_ip(request)
-            self.site.security.event_tracker.record(
-                "csrf_violation", client_ip, endpoint="/profile/upload-avatar",
-            )
-            return _flash("Invalid or expired security token. Please try again.")
+        csrf_denied = self._csrf_reject_json(request, ctx, multipart_fields)
+        if csrf_denied:
+            return csrf_denied
 
         # Retrieve file from the 'avatar' field
         upload_file = None
@@ -5843,15 +5823,9 @@ class AdminController(Controller):
         form_data = await _parse_form(ctx)
 
         # CSRF validation
-        client_ip = self.site.security.extract_client_ip(request)
-        if not self.site.security.csrf.validate_request(ctx, form_data):
-            self.site.security.event_tracker.record(
-                "csrf_violation", client_ip, endpoint="change_password",
-            )
-            if ctx.session and hasattr(ctx.session, "data"):
-                ctx.session.data["_admin_flash"] = "Security validation failed. Please try again."
-                ctx.session.data["_admin_flash_type"] = "error"
-            return _redirect("/admin/profile/")
+        csrf_denied = self._csrf_reject_redirect(request, ctx, form_data, "/admin/profile/")
+        if csrf_denied:
+            return csrf_denied
 
         current_password = form_data.get("current_password", "")
         new_password = form_data.get("new_password", "")

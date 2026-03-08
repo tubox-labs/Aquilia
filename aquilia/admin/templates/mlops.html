@@ -2580,6 +2580,8 @@ function copyPrometheusText() {
 
 // ── MLOps API Base URL ──────────────────────────────────────────
 var MLOPS_BASE = window.location.pathname.replace(/\/$/, '');
+function _mlCsrf(){var el=document.querySelector('meta[name="csrf-token"]');return el?el.content:'';}
+function _mlHeaders(){var h={'Content-Type':'application/json'};var t=_mlCsrf();if(t)h['X-CSRF-Token']=t;return h;}
 
 // ── Inference History Data (live — pre-seeded from server render) ──
 var _inferenceHistory = {{ inference_history|default([])|tojson }};
@@ -2842,7 +2844,7 @@ function runPlayground() {
 
     fetch(MLOPS_BASE + '/api/predict/', {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
+        headers: _mlHeaders(),
         body: JSON.stringify({model: model, input: inputData})
     })
     .then(function(r) { return r.json(); })
@@ -2921,7 +2923,7 @@ function runComparison() {
 
     fetch(MLOPS_BASE + '/api/compare/', {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
+        headers: _mlHeaders(),
         body: JSON.stringify({models: models, input: inputData})
     })
     .then(function(r) { return r.json(); })
@@ -2996,7 +2998,7 @@ function runBatch() {
 
     fetch(MLOPS_BASE + '/api/batch-predict/', {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
+        headers: _mlHeaders(),
         body: JSON.stringify({model: modelSel.value, inputs: inputs})
     })
     .then(function(r) { return r.json(); })
@@ -3062,7 +3064,7 @@ function runHealthCheck() {
 
     fetch(MLOPS_BASE + '/api/health-check/', {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
+        headers: _mlHeaders(),
         body: '{}'
     })
     .then(function(r) { return r.json(); })
@@ -3193,7 +3195,7 @@ function saveAlertRules() {
 
     fetch(MLOPS_BASE + '/api/alerts/', {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
+        headers: _mlHeaders(),
         body: JSON.stringify({rules: rules})
     })
     .then(function(r) { return r.json(); })
@@ -3273,7 +3275,7 @@ function viewHistoryDetail(idx) {
 function exportSnapshot() {
     fetch(MLOPS_BASE + '/api/export-snapshot/', {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
+        headers: _mlHeaders(),
         body: '{}'
     })
     .then(function(r) { return r.blob(); })
