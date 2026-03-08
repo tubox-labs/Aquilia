@@ -819,9 +819,9 @@ class HTTPFault(Fault):
     def __init__(
         self,
         status: int,
+        message: str | None = None,
         *,
         code: str | None = None,
-        message: str | None = None,
         detail: str = "",
         severity: Severity = Severity.WARN,
         headers: dict[str, str] | None = None,
@@ -855,10 +855,14 @@ class HTTPFault(Fault):
         )
 
     def __repr__(self) -> str:
-        return (
-            f"{type(self).__name__}(status={self.status}, "
-            f"code={self.code!r}, detail={self.detail!r})"
-        )
+        try:
+            return (
+                f"{type(self).__name__}(status={self.status}, "
+                f"code={self.code!r}, detail={self.detail!r})"
+            )
+        except AttributeError:
+            # __init__ may have raised before setting all attributes
+            return f"{type(self).__name__}(<incomplete>)"
 
 
 # ── 4xx Client Errors ────────────────────────────────────────────────

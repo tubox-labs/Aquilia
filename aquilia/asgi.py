@@ -314,17 +314,32 @@ class ASGIAdapter:
             self.logger.error(f"Critical error in request pipeline: {e}", exc_info=True)
             accept = self._get_accept_from_request(request)
             if "text/html" in accept:
-                if self._is_debug():
-                    from .debug.pages import render_debug_exception_page
-                    html_body = render_debug_exception_page(
-                        e, request, aquilia_version=self._get_version(),
+                try:
+                    if self._is_debug():
+                        from .debug.pages import render_debug_exception_page
+                        html_body = render_debug_exception_page(
+                            e, request, aquilia_version=self._get_version(),
+                        )
+                    else:
+                        from .debug.pages import render_http_error_page
+                        html_body = render_http_error_page(
+                            500, "Internal Server Error",
+                            "An unexpected error occurred processing your request.",
+                            request, aquilia_version=self._get_version(),
+                        )
+                except Exception as render_exc:
+                    self.logger.error(
+                        f"Error page renderer crashed: {render_exc}",
+                        exc_info=True,
                     )
-                else:
-                    from .debug.pages import render_http_error_page
-                    html_body = render_http_error_page(
-                        500, "Internal Server Error",
-                        "An unexpected error occurred processing your request.",
-                        request, aquilia_version=self._get_version(),
+                    html_body = (
+                        '<!DOCTYPE html><html><head><meta charset="utf-8">'
+                        '<title>500</title></head><body style="font-family:'
+                        'system-ui;background:#000;color:#eee;display:flex;'
+                        'justify-content:center;align-items:center;height:'
+                        '100vh;margin:0;"><div style="text-align:center;">'
+                        '<h1 style="color:#ef4444;">500</h1>'
+                        '<p>Internal Server Error</p></div></body></html>'
                     )
                 response = Response(
                     content=html_body.encode("utf-8"),

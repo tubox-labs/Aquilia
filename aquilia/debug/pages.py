@@ -689,6 +689,21 @@ _BASE_JS = r"""
 def _esc(text: Any) -> str:
     return html.escape(str(text), quote=True)
 
+
+def _safe_repr(obj: Any) -> str:
+    """repr() that never raises — returns a fallback on broken __repr__."""
+    try:
+        r = repr(obj)
+        # Truncate extremely long reprs to prevent page bloat
+        if len(r) > 2000:
+            return r[:2000] + "...<truncated>"
+        return r
+    except Exception as _repr_exc:
+        try:
+            return f"<repr error: {type(obj).__name__}: {_repr_exc}>"
+        except Exception:
+            return "<repr unavailable>"
+
 def _read_source_lines(filename: str, lineno: int, context: int = 7) -> List[Tuple[int, str, bool]]:
     lines: List[Tuple[int, str, bool]] = []
     start = max(1, lineno - context)
@@ -853,7 +868,7 @@ def render_debug_exception_page(exc: BaseException, request: Any = None, *, aqui
         
         locals_html = ""
         if f['locals']:
-            rows = "".join(f'<div class="local-row"><div class="local-key">{_esc(k)}</div><div class="local-val">{_esc(repr(v))}</div></div>' for k,v in f['locals'].items())
+            rows = "".join(f'<div class="local-row"><div class="local-key">{_esc(k)}</div><div class="local-val">{_esc(_safe_repr(v))}</div></div>' for k,v in f['locals'].items())
             locals_html = f'<div class="locals"><div class="locals-header">Local Variables</div>{rows}</div>'
             
         badge = '<span class="badge green">App</span>' if f['is_app'] else '<span class="badge gray">Lib</span>'
