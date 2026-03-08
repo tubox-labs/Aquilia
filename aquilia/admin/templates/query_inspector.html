@@ -251,7 +251,7 @@
 {% endif %}
 
 {# ═══ AUTO-REFRESH ═══ #}
-<script>
+<script nonce="__CSP_NONCE__">
 (function(){
     const url = '{{ url_prefix }}/query-inspector/api/';
     let refreshTimer;

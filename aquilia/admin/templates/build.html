@@ -326,7 +326,7 @@
     </div>
 
     <script id="buildLogData" type="application/json">{{ build_log | tojson }}</script>
-    <script>
+    <script nonce="__CSP_NONCE__">
     (function() {
         var raw = JSON.parse(document.getElementById('buildLogData').textContent);
         var lines = raw.split('\n');
@@ -507,7 +507,7 @@
 </div>
 {% endif %}
 
-<script>
+<script nonce="__CSP_NONCE__">
 function viewArtifact(name) {
     // Switch to File Viewer tab
     switchTab('build', 'file-viewer');
