@@ -107,6 +107,7 @@ class AdminCSRFProtection:
     FORM_FIELD = "_csrf_token"
     HEADER_NAME = "x-csrf-token"
     SESSION_KEY = "_admin_csrf_token"
+    COOKIE_NAME = "_admin_csrf"  # Fallback cookie for pre-session state
 
     def __init__(
         self,
@@ -122,6 +123,8 @@ class AdminCSRFProtection:
         ).encode("utf-8")
         self._max_age = max_age
         self._token_length = token_length
+        # Pending CSRF cookie to be set on next response
+        self._pending_cookie_token: Optional[str] = None
 
     def generate_token(self) -> str:
         """Generate a new HMAC-signed CSRF token with timestamp."""
@@ -167,20 +170,58 @@ class AdminCSRFProtection:
         """
         Get existing CSRF token from session, or create a new one.
 
-        Ensures the token is stored in the session for later validation.
+        Uses session storage when available, falls back to a signed
+        cookie for pre-authentication pages (e.g. the login form)
+        where no session exists yet.  This is the standard
+        "double-submit cookie" pattern used by Django and Rails.
         """
+        # 1. Try session storage first (preferred)
         if ctx.session and hasattr(ctx.session, "data"):
             existing = ctx.session.data.get(self.SESSION_KEY)
             if existing and self.validate_token(existing):
                 return existing
 
-            # Generate new token and store in session
             token = self.generate_token()
             ctx.session.data[self.SESSION_KEY] = token
             return token
 
-        # No session available — generate ephemeral token
-        return self.generate_token()
+        # 2. No session — use cookie-based double-submit pattern
+        #    Check if we already have a valid token in the cookie
+        request = getattr(ctx, "request", None)
+        if request:
+            cookies = getattr(request, "cookies", None)
+            if cookies:
+                cookie_val = cookies.get(self.COOKIE_NAME) if hasattr(cookies, "get") else None
+                if cookie_val and self.validate_token(cookie_val):
+                    return cookie_val
+
+        # Generate a new token and stage it for the cookie
+        token = self.generate_token()
+        self._pending_cookie_token = token
+        return token
+
+    def apply_cookie(self, response: "Response", *, secure: bool = False) -> None:
+        """
+        Attach the pending CSRF cookie to a response.
+
+        Called by the controller after ``get_or_create_token`` when a
+        cookie-based token was generated (no session available).
+        The cookie is HttpOnly=False so the form hidden field can
+        mirror it, but it is still HMAC-signed for integrity.
+        """
+        token = self._pending_cookie_token
+        if not token:
+            return
+        self._pending_cookie_token = None
+        response.set_cookie(
+            self.COOKIE_NAME,
+            token,
+            max_age=self._max_age,
+            path="/admin",
+            secure=secure,
+            httponly=False,   # form JS needs to read it
+            samesite="Lax",
+        )
 
     def validate_request(self, ctx: "RequestCtx", form_data: Optional[Dict] = None) -> bool:
         """
@@ -190,12 +231,23 @@ class AdminCSRFProtection:
         1. Form body field ``_csrf_token``
         2. Header ``X-CSRF-Token``
 
-        Compares against the token stored in the session.
+        Compares against the token stored in the session, or the
+        cookie-based token if no session is present (login page).
         """
-        # Get the session-stored token
+        # Get the stored token — session first, cookie fallback
         session_token = None
         if ctx.session and hasattr(ctx.session, "data"):
             session_token = ctx.session.data.get(self.SESSION_KEY)
+
+        if not session_token:
+            # Cookie fallback for pre-session pages
+            request = getattr(ctx, "request", None)
+            if request:
+                cookies = getattr(request, "cookies", None)
+                if cookies and hasattr(cookies, "get"):
+                    cookie_val = cookies.get(self.COOKIE_NAME)
+                    if isinstance(cookie_val, str) and cookie_val:
+                        session_token = cookie_val
 
         if not session_token:
             return False

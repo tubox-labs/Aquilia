@@ -3261,11 +3261,24 @@ class AquiliaServer:
             log_level: Logging level
             graceful_timeout: Seconds to wait for in-flight requests on shutdown
         """
-        # Setup logging
-        logging.basicConfig(
-            level=getattr(logging, log_level.upper()),
-            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        )
+        # Setup logging with color support
+        class _ColorFmt(logging.Formatter):
+            _C = {
+                logging.DEBUG: "\033[36m", logging.INFO: "\033[32m",
+                logging.WARNING: "\033[33m", logging.ERROR: "\033[31m",
+                logging.CRITICAL: "\033[1;31m",
+            }
+            _R = "\033[0m"
+            def format(self, record):
+                c = self._C.get(record.levelno, "")
+                m = super().format(record)
+                return f"{c}{m}{self._R}" if c else m
+
+        _h = logging.StreamHandler()
+        _h.setFormatter(_ColorFmt('%(levelname)-8s | %(name)s -- %(message)s'))
+        logging.root.handlers.clear()
+        logging.root.addHandler(_h)
+        logging.root.setLevel(getattr(logging, log_level.upper()))
         # Silence noisy third-party loggers
         for _noisy in ("python_multipart", "python_multipart.multipart"):
             logging.getLogger(_noisy).setLevel(logging.WARNING)

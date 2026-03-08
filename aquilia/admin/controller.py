@@ -686,9 +686,12 @@ class AdminController(Controller):
         # Generate CSRF token for the login form
         csrf_token = self.site.security.csrf.get_or_create_token(ctx)
 
-        return _secure_html_response(
+        resp = _secure_html_response(
             render_login_page(csrf_token=csrf_token), self.site,
         )
+        # Attach CSRF cookie for pre-session double-submit pattern
+        self.site.security.csrf.apply_cookie(resp, secure=False)
+        return resp
 
     @POST("/login")
     async def login_submit(self, request, ctx: RequestCtx) -> Response:
@@ -729,7 +732,7 @@ class AdminController(Controller):
                 "csrf_violation", client_ip, endpoint="login",
             )
             csrf_token = self.site.security.csrf.get_or_create_token(ctx)
-            return _secure_html_response(
+            resp = _secure_html_response(
                 render_login_page(
                     error="Security validation failed. Please try again.",
                     csrf_token=csrf_token,
@@ -737,6 +740,8 @@ class AdminController(Controller):
                 self.site,
                 403,
             )
+            self.site.security.csrf.apply_cookie(resp, secure=False)
+            return resp
 
         username = form_data.get("username", "")
         password = form_data.get("password", "")
