@@ -65,3 +65,9 @@ dist/
 .hypothesis/
 .aquilia/
 .aquilia-store/
+
+.mod/
+.mod/*
+
+myapp/
+myapp/*
