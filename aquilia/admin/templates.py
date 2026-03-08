@@ -194,6 +194,45 @@ def render_login_page(
     return _fallback_login(error, csrf_token=csrf_token, site_title=site_title, url_prefix=url_prefix)
 
 
+def _render_offline_page(
+    *,
+    site_title: str = "Aquilia Admin",
+    url_prefix: str = "/admin",
+) -> str:
+    """Render the offline detection / no-internet page.
+
+    This is a standalone page (does not extend ``base.html``) that
+    uses the same theme system (dark/light, ambient blobs, Inter font)
+    but has no sidebar or auth requirement.  It checks connectivity
+    client-side and auto-redirects back once the browser is online.
+    """
+    if _HAS_JINJA2:
+        return _render_template(
+            "offline.html",
+            site_title=site_title,
+            url_prefix=url_prefix,
+        )
+    # Minimal inline fallback when Jinja2 is not available
+    return f"""<!DOCTYPE html><html lang="en" data-theme="dark"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Offline — {html.escape(site_title)}</title>
+<style>body{{font-family:system-ui,sans-serif;background:#000;color:#e4e4e7;display:flex;
+align-items:center;justify-content:center;min-height:100vh;margin:0;text-align:center}}
+.c{{max-width:420px;padding:48px 32px}}.t{{font-size:1.4rem;font-weight:700;margin-bottom:12px}}
+.s{{color:#a1a1aa;font-size:.85rem;margin-bottom:24px}}
+.btn{{padding:10px 28px;background:#22c55e;color:#fff;border:none;border-radius:8px;
+cursor:pointer;font-size:.85rem;font-weight:600}}.btn:hover{{background:#16a34a}}</style></head>
+<body><div class="c"><div style="font-size:3rem;margin-bottom:16px">⚡</div>
+<div class="t">No Internet Connection</div>
+<div class="s">The admin panel requires an internet connection for external assets.
+Check your network and try again.</div>
+<button class="btn" onclick="location.reload()">Retry Connection</button>
+<p style="margin-top:24px;font-size:.7rem;color:#3f3f46">Powered by <span style="color:#22c55e">Aquilia</span></p>
+</div>
+<script>window.addEventListener('online',function(){{window.location.href='{url_prefix}/'}});</script>
+</body></html>"""
+
+
 def render_dashboard(
     app_list: List[Dict[str, Any]],
     stats: Dict[str, Any],

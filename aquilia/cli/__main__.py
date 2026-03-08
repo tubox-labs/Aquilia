@@ -532,7 +532,7 @@ async def _check_admin_user_unique(
     email_err: Optional[str] = None
     try:
         row = await db.fetch_one(
-            "SELECT id FROM admin_users WHERE username = :u",
+            "SELECT id FROM aq_admin_users WHERE username = :u",
             {"u": username},
         )
         if row:
@@ -541,7 +541,7 @@ async def _check_admin_user_unique(
         pass  # Table may not exist yet -- skip the check
     try:
         row = await db.fetch_one(
-            "SELECT id FROM admin_users WHERE email = :e",
+            "SELECT id FROM aq_admin_users WHERE email = :e",
             {"e": email},
         )
         if row:
@@ -2282,7 +2282,7 @@ def admin_check(ctx, fix: bool, as_json: bool):
             db = configure_database(database_url)
             await db.connect()
             try:
-                result = await db.fetch_one("SELECT COUNT(*) as cnt FROM admin_users WHERE is_superuser = 1")
+                result = await db.fetch_one("SELECT COUNT(*) as cnt FROM aq_admin_users WHERE role = 'superadmin'")
                 return result["cnt"] if result else 0
             finally:
                 await db.disconnect()
@@ -2618,6 +2618,22 @@ def admin_createsuperuser(ctx, username: str, email: str, password: str, first_n
                 )
                 return True, str(getattr(user, 'pk', '?'))
             except Exception as e:
+                err_msg = str(e).lower()
+                if "unique constraint" in err_msg and "username" in err_msg:
+                    raise RuntimeError(
+                        f"Username '{username}' already exists. "
+                        "Choose a different username or update the existing user."
+                    ) from e
+                if "unique constraint" in err_msg and "email" in err_msg:
+                    raise RuntimeError(
+                        f"Email '{email}' is already registered to another admin account. "
+                        "Use a different email address."
+                    ) from e
+                if "unique constraint" in err_msg:
+                    raise RuntimeError(
+                        f"A user with that username or email already exists. "
+                        "Choose different credentials."
+                    ) from e
                 raise RuntimeError(
                     f"Failed to create superuser: {e}\n"
                     "Ensure 'aq db makemigrations' and 'aq db migrate' have been run first."
@@ -2634,20 +2650,34 @@ def admin_createsuperuser(ctx, username: str, email: str, password: str, first_n
         ok, pk_info = asyncio.run(_create())
     except Exception as e:
         click.echo()
-        error(f"  {_CROSS} {e}")
+        err_str = str(e)
+        error(f"  {_CROSS} {err_str}")
         click.echo()
-        panel(
-            [
-                "Troubleshooting:",
-                "",
-                "1. Ensure the database is running",
-                "2. Run: aq db makemigrations",
-                "3. Run: aq db migrate",
-                "4. Then retry: aq admin createsuperuser",
-            ],
-            title="Help",
-            fg="red",
-        )
+        _is_dup = any(w in err_str.lower() for w in ("already exists", "already taken", "already registered"))
+        if not _is_dup:
+            panel(
+                [
+                    "Troubleshooting:",
+                    "",
+                    "1. Ensure the database is running",
+                    "2. Run: aq db makemigrations",
+                    "3. Run: aq db migrate",
+                    "4. Then retry: aq admin createsuperuser",
+                ],
+                title="Help",
+                fg="red",
+            )
+        else:
+            panel(
+                [
+                    "The username or email you specified is already in use.",
+                    "",
+                    "• Use a different --username or --email",
+                    "• Or run: aq admin listusers  to see existing accounts",
+                ],
+                title="Duplicate User",
+                fg="yellow",
+            )
         sys.exit(1)
 
     elapsed = (_ctime.monotonic() - t0) * 1000
@@ -2876,6 +2906,22 @@ def admin_createstaff(ctx, username: str, email: str, password: str, first_name:
                 )
                 return True, str(getattr(user, 'pk', '?'))
             except Exception as e:
+                err_msg = str(e).lower()
+                if "unique constraint" in err_msg and "username" in err_msg:
+                    raise RuntimeError(
+                        f"Username '{username}' already exists. "
+                        "Choose a different username or update the existing user."
+                    ) from e
+                if "unique constraint" in err_msg and "email" in err_msg:
+                    raise RuntimeError(
+                        f"Email '{email}' is already registered to another admin account. "
+                        "Use a different email address."
+                    ) from e
+                if "unique constraint" in err_msg:
+                    raise RuntimeError(
+                        f"A user with that username or email already exists. "
+                        "Choose different credentials."
+                    ) from e
                 raise RuntimeError(
                     f"Failed to create staff user: {e}\n"
                     "Ensure 'aq db makemigrations' and 'aq db migrate' have been run first."
@@ -2892,20 +2938,34 @@ def admin_createstaff(ctx, username: str, email: str, password: str, first_name:
         ok, pk_info = asyncio.run(_create())
     except Exception as e:
         click.echo()
-        error(f"  {_CROSS} {e}")
+        err_str = str(e)
+        error(f"  {_CROSS} {err_str}")
         click.echo()
-        panel(
-            [
-                "Troubleshooting:",
-                "",
-                "1. Ensure the database is running",
-                "2. Run: aq db makemigrations",
-                "3. Run: aq db migrate",
-                "4. Then retry: aq admin createstaff",
-            ],
-            title="Help",
-            fg="red",
-        )
+        _is_dup = any(w in err_str.lower() for w in ("already exists", "already taken", "already registered"))
+        if not _is_dup:
+            panel(
+                [
+                    "Troubleshooting:",
+                    "",
+                    "1. Ensure the database is running",
+                    "2. Run: aq db makemigrations",
+                    "3. Run: aq db migrate",
+                    "4. Then retry: aq admin createstaff",
+                ],
+                title="Help",
+                fg="red",
+            )
+        else:
+            panel(
+                [
+                    "The username or email you specified is already in use.",
+                    "",
+                    "• Use a different --username or --email",
+                    "• Or run: aq admin listusers  to see existing accounts",
+                ],
+                title="Duplicate User",
+                fg="yellow",
+            )
         sys.exit(1)
 
     elapsed = (_ctime.monotonic() - t0) * 1000
@@ -2971,10 +3031,10 @@ def admin_listusers(ctx, database_url: Optional[str], as_json: bool, active_only
         db = configure_database(database_url)
         await db.connect()
         try:
-            query = "SELECT id, username, email, is_active, is_superuser, is_staff, date_joined, last_login FROM admin_users"
+            query = "SELECT id, username, email, is_active, role, created_at, last_login_at FROM aq_admin_users"
             if active_only:
                 query += " WHERE is_active = 1"
-            query += " ORDER BY date_joined DESC"
+            query += " ORDER BY created_at DESC"
             rows = await db.fetch_all(query)
             return [dict(r) for r in rows]
         finally:
@@ -3007,19 +3067,24 @@ def admin_listusers(ctx, database_url: Optional[str], as_json: bool, active_only
         if not users:
             info("  No admin users found. Run: aq admin createsuperuser")
         else:
-            headers = ["ID", "Username", "Email", "Active", "Super", "Staff", "Joined"]
+            headers = ["ID", "Username", "Email", "Active", "Role", "Joined"]
             rows_data = []
             for u in users:
-                joined = u.get("date_joined", "")
+                joined = u.get("created_at", "")
                 if hasattr(joined, 'strftime'):
                     joined = joined.strftime("%Y-%m-%d")
+                role = u.get("role", "staff")
+                role_display = {
+                    "superadmin": click.style("superadmin", fg="magenta", bold=True),
+                    "staff": click.style("staff", fg="yellow"),
+                    "viewer": click.style("viewer", fg="cyan"),
+                }.get(role, role)
                 rows_data.append([
                     str(u.get("id", "?"))[:8],
                     u.get("username", ""),
                     u.get("email", ""),
                     _CHECK if u.get("is_active") else _CROSS,
-                    _CHECK if u.get("is_superuser") else _CROSS,
-                    _CHECK if u.get("is_staff") else _CROSS,
+                    role_display,
                     str(joined)[:10],
                 ])
             table(headers, rows_data)
@@ -3061,12 +3126,12 @@ def admin_changepassword(ctx, username: str, password: str, database_url: Option
             hasher = PasswordHasher()
             hashed = hasher.hash(password)
             result = await db.execute(
-                "UPDATE admin_users SET password_hash = :hash WHERE username = :username",
+                "UPDATE aq_admin_users SET password_hash = :hash WHERE username = :username",
                 {"hash": hashed, "username": username},
             )
             # Check if user was found
             row = await db.fetch_one(
-                "SELECT id FROM admin_users WHERE username = :username",
+                "SELECT id FROM aq_admin_users WHERE username = :username",
                 {"username": username},
             )
             return row is not None
@@ -3481,7 +3546,7 @@ def admin_setup(ctx, non_interactive: bool, database_url: Optional[str]):
             await db.connect()
             try:
                 result = await db.fetch_one(
-                    "SELECT COUNT(*) as cnt FROM admin_users WHERE is_superuser = 1"
+                    "SELECT COUNT(*) as cnt FROM aq_admin_users WHERE role = 'superadmin'"
                 )
                 return result["cnt"] if result else 0
             finally:

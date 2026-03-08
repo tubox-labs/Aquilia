@@ -81,6 +81,18 @@
                 }, 0);
             });
         }
+
+        /* ── Offline detection ── */
+        var offlinePath = '{{ url_prefix|default("/admin") }}/offline';
+        function goOffline() {
+            sessionStorage.setItem('aq_offline_return', window.location.href);
+            window.location.href = offlinePath;
+        }
+        window.addEventListener('offline', function() { goOffline(); });
+        document.addEventListener('submit', function(e) {
+            if (!navigator.onLine) { e.preventDefault(); goOffline(); }
+        });
+        if (!navigator.onLine) { goOffline(); }
     })();
     </script>
 </body>
