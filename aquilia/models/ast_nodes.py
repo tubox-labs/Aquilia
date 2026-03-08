@@ -1,15 +1,29 @@
 """
 AMDL AST Node Types -- Aquilia Model Definition Language.
 
+.. deprecated:: 1.0
+    The AMDL system is deprecated. Use the Python-native ``Model`` class
+    system (``aquilia.models.base.Model``) instead. AMDL will be removed
+    in a future release.
+
 These dataclasses represent the parsed structure of `.amdl` files.
 Each node maps directly to an AMDL directive.
 """
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 from enum import Enum
+
+warnings.warn(
+    "The AMDL AST nodes module (aquilia.models.ast_nodes) is deprecated. "
+    "Use the Python-native Model class system (aquilia.models.base.Model) instead. "
+    "AMDL will be removed in a future release.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 
 class FieldType(str, Enum):

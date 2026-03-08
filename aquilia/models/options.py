@@ -127,4 +127,13 @@ class Options:
         return self.label.lower()
 
     def __repr__(self) -> str:
-        return f"<Options: {self.table_name}>"
+        parts = [f"table={self.table_name!r}"]
+        if self.abstract:
+            parts.append("abstract=True")
+        if self.ordering:
+            parts.append(f"ordering={self.ordering!r}")
+        if self.app_label:
+            parts.append(f"app_label={self.app_label!r}")
+        if not self.managed:
+            parts.append("managed=False")
+        return f"<Options: {', '.join(parts)}>"

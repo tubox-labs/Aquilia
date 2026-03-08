@@ -18,7 +18,15 @@ Usage:
 
 from __future__ import annotations
 
+import re
 from typing import Any, List, Optional, Tuple, Union
+
+# Security: whitelist patterns for SQL function names and type names
+_SAFE_FUNC_RE = re.compile(r'^[A-Z_][A-Z0-9_]*$', re.IGNORECASE)
+_SAFE_TYPE_RE = re.compile(
+    r'^[A-Z][A-Z0-9_ ]*(?:\([0-9]+(?:\s*,\s*[0-9]+)?\))?$',
+    re.IGNORECASE,
+)
 
 
 __all__ = [
@@ -232,12 +240,32 @@ class RawSQL(Expression):
 
     Params are bound using the standard ? placeholder.
 
+    .. warning::
+        ``RawSQL`` bypasses the ORM's query builder and injects SQL directly.
+        **Always** use ``?`` placeholders for user-supplied values. Never
+        interpolate user input into the *sql* string.
+
     Usage:
         RawSQL("COALESCE(price, 0)")
         RawSQL("price * ?", [1.1])
     """
 
+    # Guard: reject destructive DDL/DCL keywords in expression context
+    _DANGEROUS_RE = __import__("re").compile(
+        r"\b(DROP|ALTER|TRUNCATE|GRANT|REVOKE|EXEC|EXECUTE)\b",
+        __import__("re").IGNORECASE,
+    )
+
     def __init__(self, sql: str, params: Optional[List[Any]] = None):
+        if self._DANGEROUS_RE.search(sql):
+            from ..faults.domains import QueryFault
+            raise QueryFault(
+                model="<expression>",
+                operation="RawSQL",
+                reason=f"RawSQL contains dangerous DDL/DCL keyword — rejected: {sql[:80]!r}. "
+                       "DDL/DCL statements (DROP, ALTER, TRUNCATE, GRANT, REVOKE, EXEC) "
+                       "are not allowed in expression context.",
+            )
         self.sql = sql
         self.params = params or []
 
@@ -353,10 +381,25 @@ class When(Expression):
 
         # Build condition
         if isinstance(self.condition, str):
+            # Guard: reject raw string conditions containing DDL keywords
+            _upper = self.condition.upper().strip()
+            _DANGEROUS = {"DROP", "ALTER", "TRUNCATE", "EXEC", "EXECUTE", "--", ";"}
+            for kw in _DANGEROUS:
+                if kw in _upper:
+                    from ..faults.domains import QueryFault
+                    raise QueryFault(
+                        model="<expression>",
+                        operation="When",
+                        reason=f"Potentially unsafe When condition rejected: contains '{kw}'. "
+                               "Use parameterized dict/lookup conditions for user-supplied data.",
+                    )
             cond_sql = self.condition
         elif isinstance(self.condition, dict):
             parts = []
             for key, val in self.condition.items():
+                # Validate dict keys to prevent identifier injection
+                from .query import _validate_field_name
+                _validate_field_name(key, context="When")
                 parts.append(f'"{key}" = ?')
                 params.append(val)
             cond_sql = " AND ".join(parts)
@@ -514,6 +557,14 @@ class Func(Expression):
     """
 
     def __init__(self, function: str, *args: Any):
+        if not _SAFE_FUNC_RE.match(function):
+            from ..faults.domains import QueryFault
+            raise QueryFault(
+                model="<expression>",
+                operation="Func",
+                reason=f"Invalid SQL function name: {function!r}. "
+                       "Function names must contain only letters, digits, and underscores.",
+            )
         self.function = function
         self.args = [a if isinstance(a, Expression) else Value(a) for a in args]
 
@@ -539,6 +590,15 @@ class Cast(Expression):
     """
 
     def __init__(self, expression: Any, output_type: str):
+        if not _SAFE_TYPE_RE.match(output_type):
+            from ..faults.domains import QueryFault
+            raise QueryFault(
+                model="<expression>",
+                operation="Cast",
+                reason=f"Invalid SQL type: {output_type!r}. "
+                       "Type names must be valid SQL type identifiers "
+                       "(e.g. INTEGER, VARCHAR(255), NUMERIC(10, 2)).",
+            )
         self.expression = expression if isinstance(expression, Expression) else F(expression) if isinstance(expression, str) else Value(expression)
         self.output_type = output_type
 

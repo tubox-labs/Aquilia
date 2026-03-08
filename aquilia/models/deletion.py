@@ -26,6 +26,9 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("aquilia.models.deletion")
 
+# Import fault classes for fault-system integration
+from ..faults.domains import ProtectedDeleteFault, RestrictedDeleteFault
+
 __all__ = [
     "CASCADE",
     "SET_NULL",
@@ -253,17 +256,37 @@ class SET:
             return hash(("SET", id(self._value)))
 
 
-class ProtectedError(Exception):
-    """Raised when trying to delete a protected object."""
+class ProtectedError(ProtectedDeleteFault, Exception):
+    """Raised when trying to delete a protected object.
+
+    Inherits from ``ProtectedDeleteFault`` (Aquilia fault pipeline)
+    and ``Exception`` (backward compatibility with existing except clauses).
+    """
 
     def __init__(self, message: str, protected_objects: int = 0):
-        super().__init__(message)
         self.protected_objects = protected_objects
+        ProtectedDeleteFault.__init__(
+            self,
+            model="<protected>",
+            reason=message,
+            protected_count=protected_objects,
+        )
+        self.args = (message,)
 
 
-class RestrictedError(Exception):
-    """Raised when trying to delete a restricted object."""
+class RestrictedError(RestrictedDeleteFault, Exception):
+    """Raised when trying to delete a restricted object.
+
+    Inherits from ``RestrictedDeleteFault`` (Aquilia fault pipeline)
+    and ``Exception`` (backward compatibility with existing except clauses).
+    """
 
     def __init__(self, message: str, restricted_objects: int = 0):
-        super().__init__(message)
         self.restricted_objects = restricted_objects
+        RestrictedDeleteFault.__init__(
+            self,
+            model="<restricted>",
+            reason=message,
+            restricted_count=restricted_objects,
+        )
+        self.args = (message,)

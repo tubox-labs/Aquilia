@@ -31,6 +31,21 @@ logger = logging.getLogger("aquilia.models.query")
 # Regex for validating field names in order() to prevent injection
 _SAFE_FIELD_RE = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*$')
 
+
+def _validate_field_name(name: str, *, context: str = "query") -> None:
+    """Validate a field name to prevent identifier injection.
+
+    Raises QueryFault if *name* does not match ``_SAFE_FIELD_RE``.
+    """
+    if not _SAFE_FIELD_RE.match(name):
+        from ..faults.domains import QueryFault
+        raise QueryFault(
+            model="<query>",
+            operation=context,
+            reason=f"Invalid field name: {name!r}. "
+                   "Field names must contain only letters, digits, and underscores.",
+        )
+
 # Module-level cached lookup registry -- avoid calling lookup_registry()
 # on every filter clause.
 _cached_lookup_registry = None
@@ -179,6 +194,9 @@ def _build_filter_clause(key: str, value: Any) -> Tuple[str, List[Any]]:
     Supports F() expressions and Subquery as the comparison value:
         filter(balance__gt=F("min_balance"))  → "balance" > "min_balance"
         filter(dept_id__in=Subquery(...))     → "dept_id" IN (SELECT ...)
+
+    Security: All field names are validated against ``_SAFE_FIELD_RE`` to
+    prevent SQL injection through dict-key controlled identifier positions.
     """
     from .expression import Expression, Combinable
 
@@ -190,6 +208,9 @@ def _build_filter_clause(key: str, value: Any) -> Tuple[str, List[Any]]:
 
     if "__" in key:
         field, op = key.rsplit("__", 1)
+
+        # Validate field name to prevent identifier injection
+        _validate_field_name(field, context="filter")
 
         # If value is an F()/Expression, handle comparisons directly
         # This MUST come before the lookup registry which treats values as literals
@@ -225,6 +246,7 @@ def _build_filter_clause(key: str, value: Any) -> Tuple[str, List[Any]]:
             rhs, params = _render_value(value)
             return f'"{field}" = {rhs}', params
     else:
+        _validate_field_name(key, context="filter")
         rhs, params = _render_value(value)
         return f'"{key}" = {rhs}', params
 
@@ -354,10 +376,26 @@ class Q:
 
         Supports positional (?) and named (:name) parameters.
 
+        .. warning::
+            This is a low-level method intended for advanced use cases.
+            Always use parameterized values (``?`` placeholders) for any
+            user-supplied data. Never interpolate user input directly
+            into the clause string.
+
         Usage:
             .where("age > ?", 18)
             .where("status = :status AND role = :role", status="active", role="admin")
         """
+        # Guard: reject clauses with dangerous DDL keywords
+        _upper = clause.upper().strip()
+        _DANGEROUS_DDL = {"DROP ", "ALTER ", "TRUNCATE ", "EXEC ", "EXECUTE "}
+        for kw in _DANGEROUS_DDL:
+            if kw in _upper:
+                raise ValueError(
+                    f"Potentially unsafe WHERE clause rejected: contains '{kw.strip()}'. "
+                    f"Use Model.raw() for DDL/DCL operations."
+                )
+
         new = self._clone()
         if kwargs:
             processed = clause
@@ -557,6 +595,8 @@ class Q:
         Usage:
             users = await User.objects.only("id", "name").all()
         """
+        for f in fields:
+            _validate_field_name(f, context="only")
         new = self._clone()
         # Always include PK
         pk = self._model_cls._pk_attr
@@ -573,6 +613,8 @@ class Q:
         Usage:
             users = await User.objects.defer("bio", "avatar").all()
         """
+        for f in fields:
+            _validate_field_name(f, context="defer")
         new = self._clone()
         new._defer_fields = list(fields)
         return new
@@ -595,12 +637,29 @@ class Q:
 
     def group_by(self, *fields: str) -> Q:
         """GROUP BY clause."""
+        for f in fields:
+            _validate_field_name(f, context="group_by")
         new = self._clone()
         new._group_by.extend(fields)
         return new
 
     def having(self, clause: str, *args: Any) -> Q:
-        """HAVING clause (use after group_by)."""
+        """HAVING clause (use after group_by).
+
+        The clause must use ``?`` placeholders for all user-supplied values.
+        Clauses containing dangerous SQL keywords without bind parameters
+        are rejected to prevent injection.
+        """
+        # Guard: reject clauses with dangerous keywords when no params provided
+        if not args:
+            _upper = clause.upper().strip()
+            _DANGEROUS = {"DROP", "ALTER", "TRUNCATE", "EXEC", "EXECUTE", "--", ";"}
+            for kw in _DANGEROUS:
+                if kw in _upper:
+                    raise ValueError(
+                        f"Potentially unsafe HAVING clause rejected: contains '{kw}'. "
+                        f"Use parameterized values (?) for user-supplied data."
+                    )
         new = self._clone()
         new._having.append(clause)
         new._having_params.extend(args)
@@ -920,11 +979,18 @@ class Q:
             if meta_ordering:
                 default_order = []
                 for f in meta_ordering:
+                    raw = f.lstrip("-")
+                    if not _SAFE_FIELD_RE.match(raw):
+                        logger.warning(
+                            "Meta.ordering field %r rejected by _SAFE_FIELD_RE — skipped", f
+                        )
+                        continue
                     if f.startswith("-"):
-                        default_order.append(f'"{f[1:]}" DESC')
+                        default_order.append(f'"{raw}" DESC')
                     else:
-                        default_order.append(f'"{f}" ASC')
-                sql += " ORDER BY " + ", ".join(default_order)
+                        default_order.append(f'"{raw}" ASC')
+                if default_order:
+                    sql += " ORDER BY " + ", ".join(default_order)
 
         if not count and self._limit_val is not None:
             sql += f" LIMIT {self._limit_val}"
@@ -934,7 +1000,13 @@ class Q:
         # SELECT FOR UPDATE (PostgreSQL/MySQL only)
         if self._select_for_update and not count:
             if dialect == "sqlite":
-                logger.warning("select_for_update() has no effect on SQLite")
+                from ..faults.domains import QueryFault
+                raise QueryFault(
+                    model=getattr(self._model_cls, '__name__', self._table),
+                    operation="select_for_update",
+                    reason="SELECT FOR UPDATE is not supported on SQLite. "
+                           "Use transactions (atomic()) for concurrency control.",
+                )
             else:
                 sql += " FOR UPDATE"
                 if self._sfu_nowait:
@@ -1286,6 +1358,12 @@ class Q:
 
         Supports F() expressions for race-safe updates:
             await Product.objects.filter(id=1).update(stock=F("stock") - 1)
+
+        .. note::
+            **Signals are NOT fired** for bulk ``update()``.  ``pre_save``
+            and ``post_save`` signals are only sent when using instance-level
+            ``save()``.  If you need signals for each row, iterate with
+            ``async for obj in qs`` and call ``await obj.save()``.
         """
         if self._is_none:
             return 0
@@ -1296,6 +1374,7 @@ class Q:
         set_params = []
 
         for k, v in data.items():
+            _validate_field_name(k, context="update")
             if isinstance(v, Expression):
                 expr_sql, expr_params = v.as_sql(dialect)
                 set_parts.append(f'"{k}" = {expr_sql}')
@@ -1319,7 +1398,15 @@ class Q:
         return cursor.rowcount
 
     async def delete(self) -> int:
-        """Delete matching rows. Returns number of deleted rows."""
+        """Delete matching rows. Returns number of deleted rows.
+
+        .. note::
+            **Signals are NOT fired** for bulk ``delete()``.  ``pre_delete``
+            and ``post_delete`` signals are only sent when using instance-level
+            ``delete_instance()``.  On-delete cascade handlers are also
+            bypassed.  If you need per-instance behaviour, iterate and call
+            ``await obj.delete_instance()`` on each object.
+        """
         if self._is_none:
             return 0
         sql = f'DELETE FROM "{self._table}"'
@@ -1348,6 +1435,10 @@ class Q:
         if self._is_none:
             return []
 
+        # Validate field names to prevent identifier injection
+        for f in fields:
+            _validate_field_name(f, context="values")
+
         # Delegate to _build_select with explicit column list
         col_list = list(fields) if fields else None
         sql, params = self._build_select(columns=col_list)
@@ -1375,9 +1466,12 @@ class Q:
             return [row[fields[0]] for row in rows]
         return [tuple(row.values()) for row in rows]
 
-    async def in_bulk(self, id_list: List[Any]) -> Dict[Any, Model]:
+    async def in_bulk(self, id_list: List[Any], *, batch_size: int = 999) -> Dict[Any, Model]:
         """
         Return a dict mapping PKs to instances for the given ID list.
+
+        To prevent extremely large IN clauses the list is automatically
+        chunked into batches of ``batch_size`` (default 999, SQLite max).
 
         Usage:
             users = await User.objects.in_bulk([1, 2, 3])
@@ -1386,14 +1480,18 @@ class Q:
         if not id_list or self._is_none:
             return {}
         pk_name = self._model_cls._pk_name
-        placeholders = ", ".join("?" for _ in id_list)
-        sql = f'SELECT * FROM "{self._table}" WHERE "{pk_name}" IN ({placeholders})'
-        rows = await self._db.fetch_all(sql, list(id_list))
-        result = {}
         pk_attr = self._model_cls._pk_attr
-        for row in rows:
-            instance = self._model_cls.from_row(row)
-            result[getattr(instance, pk_attr)] = instance
+        result: Dict[Any, Model] = {}
+
+        # Process in batches to avoid overly large IN clauses
+        for i in range(0, len(id_list), batch_size):
+            chunk = id_list[i:i + batch_size]
+            placeholders = ", ".join("?" for _ in chunk)
+            sql = f'SELECT * FROM "{self._table}" WHERE "{pk_name}" IN ({placeholders})'
+            rows = await self._db.fetch_all(sql, list(chunk))
+            for row in rows:
+                instance = self._model_cls.from_row(row)
+                result[getattr(instance, pk_attr)] = instance
         return result
 
     async def aggregate(self, **expressions: Any) -> Dict[str, Any]:
@@ -1422,7 +1520,13 @@ class Q:
                 select_parts.append(f'{sql_fragment} AS "{alias}"')
                 params.extend(expr_params)
             else:
-                select_parts.append(f'{expr} AS "{alias}"')
+                from ..faults.domains import QueryFault
+                raise QueryFault(
+                    model=self._model_cls.__name__,
+                    operation="aggregate",
+                    reason=f"aggregate() expects Aggregate/Expression objects, got {type(expr).__name__}. "
+                           "Raw strings are not allowed — use Count(), Sum(), Avg(), etc.",
+                )
 
         sql = f'SELECT {", ".join(select_parts)} FROM "{self._table}"'
         if self._wheres:
@@ -1474,11 +1578,19 @@ class Q:
             plan = await User.objects.filter(active=True).explain()
             print(plan)
         """
+        # Whitelist allowed format values to prevent injection
+        _ALLOWED_FORMATS = {"TEXT", "JSON", "YAML", "XML", "TRADITIONAL", "TREE"}
+        if format is not None and format.upper() not in _ALLOWED_FORMATS:
+            raise ValueError(
+                f"Invalid EXPLAIN format: {format!r}. "
+                f"Allowed: {', '.join(sorted(_ALLOWED_FORMATS))}"
+            )
+
         sql, params = self._build_select()
         dialect = self._get_dialect()
         if dialect == "postgresql":
             fmt = format or "TEXT"
-            explain_sql = f"EXPLAIN (FORMAT {fmt}) {sql}"
+            explain_sql = f"EXPLAIN (FORMAT {fmt.upper()}) {sql}"
         elif dialect == "mysql":
             if format and format.upper() == "JSON":
                 explain_sql = f"EXPLAIN FORMAT=JSON {sql}"

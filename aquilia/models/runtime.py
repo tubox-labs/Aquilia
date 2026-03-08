@@ -1,6 +1,12 @@
 """
 Aquilia Model Runtime -- ModelProxy, Q (query), and ModelRegistry.
 
+.. deprecated:: 1.0
+    The AMDL runtime (ModelProxy, AMDL-based Q and ModelRegistry) is
+    deprecated. Use the Python-native ``Model`` class system
+    (``aquilia.models.base.Model``) instead. AMDL will be removed
+    in a future release.
+
 Generates lightweight Python proxy classes from AMDL AST nodes.
 All data-access methods use the `$` prefix (Aquilia convention).
 
@@ -17,7 +23,16 @@ import datetime
 import logging
 import os
 import uuid
+import warnings
 from typing import Any, Dict, List, Optional, Sequence, Type
+
+warnings.warn(
+    "The AMDL runtime module (aquilia.models.runtime) is deprecated. "
+    "Use the Python-native Model class system (aquilia.models.base.Model) instead. "
+    "AMDL will be removed in a future release.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 from ..db.engine import AquiliaDatabase, get_database
 from ..di.decorators import service
