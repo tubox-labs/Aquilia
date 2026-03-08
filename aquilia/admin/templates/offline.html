@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#22c55e">
+    <meta name="color-scheme" content="dark light">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Offline — {{ site_title|default('Aquilia Admin') }}</title>
+    <link rel="icon" type="image/x-icon" href="https://raw.githubusercontent.com/tubox-labs/Aquilia/master/assets/favicon.ico">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+    {% include "partials/css.html" %}
+
+    /* ── Offline page specific styles ── */
+    .offline-container {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        position: relative;
+    }
+    .offline-container::before {
+        content: '';
+        position: fixed;
+        inset: 0;
+        z-index: -1;
+        background:
+            linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+        background-size: 40px 40px;
+    }
+    .offline-card {
+        width: 100%;
+        max-width: 460px;
+        background: var(--bg-glass);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius);
+        padding: 48px 36px;
+        backdrop-filter: blur(20px);
+        text-align: center;
+    }
+    .offline-icon-wrap {
+        width: 80px;
+        height: 80px;
+        margin: 0 auto 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        background: var(--warning-subtle);
+        position: relative;
+    }
+    .offline-icon-wrap::after {
+        content: '';
+        position: absolute;
+        inset: -6px;
+        border-radius: 50%;
+        border: 2px solid rgba(245,158,11,0.15);
+        animation: offline-pulse 2s ease-in-out infinite;
+    }
+    @keyframes offline-pulse {
+        0%, 100% { transform: scale(1); opacity: 0.6; }
+        50% { transform: scale(1.08); opacity: 0; }
+    }
+    .offline-icon {
+        font-size: 32px;
+        color: var(--warning);
+    }
+    .offline-title {
+        font-size: 1.4rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-bottom: 8px;
+        letter-spacing: -0.02em;
+    }
+    .offline-subtitle {
+        font-size: 0.82rem;
+        color: var(--text-muted);
+        margin-bottom: 28px;
+        line-height: 1.6;
+    }
+    .offline-status-bar {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 12px 16px;
+        background: var(--bg-surface);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-sm);
+        margin-bottom: 24px;
+        font-size: 0.78rem;
+    }
+    .offline-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--danger);
+        flex-shrink: 0;
+        animation: offline-dot-blink 1.5s ease-in-out infinite;
+    }
+    .offline-dot.online {
+        background: var(--success);
+        animation: none;
+    }
+    @keyframes offline-dot-blink {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.3; }
+    }
+    .offline-status-text {
+        color: var(--text-secondary);
+        font-family: var(--font-mono);
+    }
+    .offline-checklist {
+        text-align: left;
+        margin-bottom: 28px;
+        padding: 16px 20px;
+        background: var(--bg-surface);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-sm);
+    }
+    .offline-checklist-title {
+        font-size: 0.72rem;
+        font-weight: 600;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        margin-bottom: 10px;
+    }
+    .offline-checklist-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+        padding: 6px 0;
+    }
+    .offline-checklist-item .check-icon {
+        font-size: 14px;
+        flex-shrink: 0;
+        opacity: 0.5;
+    }
+    .offline-checklist-item .check-icon.pass {
+        color: var(--success);
+        opacity: 1;
+    }
+    .offline-checklist-item .check-icon.fail {
+        color: var(--danger);
+        opacity: 1;
+    }
+    .offline-actions {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+    .btn-retry {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 28px;
+        background: var(--accent);
+        color: #fff;
+        border: none;
+        border-radius: var(--radius-sm);
+        font-size: 0.82rem;
+        font-weight: 600;
+        font-family: var(--font-sans);
+        cursor: pointer;
+        transition: background 0.2s, transform 0.15s;
+    }
+    .btn-retry:hover {
+        background: var(--accent-hover);
+        transform: translateY(-1px);
+    }
+    .btn-retry:active {
+        transform: translateY(0);
+    }
+    .btn-retry.checking {
+        pointer-events: none;
+        opacity: 0.7;
+    }
+    .retry-spinner {
+        display: none;
+        width: 14px;
+        height: 14px;
+        border: 2px solid rgba(255,255,255,0.25);
+        border-top-color: #fff;
+        border-radius: 50%;
+        animation: retry-spin 0.6s linear infinite;
+    }
+    .btn-retry.checking .retry-spinner { display: inline-block; }
+    .btn-retry.checking .retry-icon { display: none; }
+    .btn-retry.checking .retry-text { }
+    @keyframes retry-spin { to { transform: rotate(360deg); } }
+
+    /* Reconnected state */
+    .offline-card.reconnected .offline-icon-wrap {
+        background: var(--success-subtle);
+    }
+    .offline-card.reconnected .offline-icon-wrap::after {
+        border-color: rgba(34,197,94,0.15);
+    }
+    .offline-card.reconnected .offline-icon {
+        color: var(--success);
+    }
+    .offline-card.reconnected .offline-title {
+        color: var(--success);
+    }
+    .reconnect-redirect {
+        display: none;
+        font-size: 0.78rem;
+        color: var(--text-muted);
+        margin-top: 16px;
+    }
+    .offline-card.reconnected .reconnect-redirect {
+        display: block;
+    }
+    .offline-card.reconnected .offline-actions,
+    .offline-card.reconnected .offline-checklist {
+        display: none;
+    }
+
+    .offline-footer {
+        margin-top: 28px;
+        font-size: 0.7rem;
+        color: var(--text-faint);
+    }
+    </style>
+</head>
+<body>
+    {# ── Ambient background blobs ── #}
+    <div class="ambient-blob ambient-blob-green"></div>
+    <div class="ambient-blob ambient-blob-blue"></div>
+    <div class="ambient-blob ambient-blob-purple"></div>
+    <div class="ambient-blob ambient-blob-cyan"></div>
+
+    <div class="offline-container">
+        <div class="offline-card" id="offlineCard">
+            <div class="offline-icon-wrap">
+                <span class="offline-icon" id="offlineIcon">⚡</span>
+            </div>
+            <h1 class="offline-title" id="offlineTitle">No Internet Connection</h1>
+            <p class="offline-subtitle" id="offlineSubtitle">
+                The admin panel requires an active internet connection to load
+                external assets (fonts, icons). Please check your network and try again.
+            </p>
+
+            {# ── Status indicator ── #}
+            <div class="offline-status-bar">
+                <div class="offline-dot" id="statusDot"></div>
+                <span class="offline-status-text" id="statusText">Disconnected</span>
+            </div>
+
+            {# ── Connectivity checklist ── #}
+            <div class="offline-checklist">
+                <div class="offline-checklist-title">Connectivity Checks</div>
+                <div class="offline-checklist-item" id="checkBrowser">
+                    <span class="check-icon" id="checkBrowserIcon">●</span>
+                    <span>Browser navigator.onLine</span>
+                    <span style="margin-left:auto;font-family:var(--font-mono);font-size:0.72rem;color:var(--text-faint);" id="checkBrowserVal">—</span>
+                </div>
+                <div class="offline-checklist-item" id="checkFetch">
+                    <span class="check-icon" id="checkFetchIcon">●</span>
+                    <span>Network reachability</span>
+                    <span style="margin-left:auto;font-family:var(--font-mono);font-size:0.72rem;color:var(--text-faint);" id="checkFetchVal">—</span>
+                </div>
+                <div class="offline-checklist-item" id="checkCDN">
+                    <span class="check-icon" id="checkCDNIcon">●</span>
+                    <span>CDN assets (fonts/icons)</span>
+                    <span style="margin-left:auto;font-family:var(--font-mono);font-size:0.72rem;color:var(--text-faint);" id="checkCDNVal">—</span>
+                </div>
+            </div>
+
+            {# ── Actions ── #}
+            <div class="offline-actions">
+                <button class="btn-retry" id="retryBtn" onclick="runConnectivityCheck()">
+                    <span class="retry-spinner"></span>
+                    <span class="retry-icon">↻</span>
+                    <span class="retry-text">Retry Connection</span>
+                </button>
+            </div>
+
+            <div class="reconnect-redirect" id="reconnectMsg">
+                Reconnected! Redirecting in <span id="countdownSec">3</span>s…
+            </div>
+
+            <p class="offline-footer">
+                Powered by <span style="color:var(--accent);font-weight:500;">Aquilia</span> Framework
+            </p>
+        </div>
+    </div>
+
+    <script nonce="__CSP_NONCE__">
+    (function() {
+        /* ── Theme persistence ── */
+        var saved = localStorage.getItem('aquilia-admin-theme');
+        if (saved) document.documentElement.setAttribute('data-theme', saved);
+
+        var card      = document.getElementById('offlineCard');
+        var btn       = document.getElementById('retryBtn');
+        var dot       = document.getElementById('statusDot');
+        var statusTxt = document.getElementById('statusText');
+        var titleEl   = document.getElementById('offlineTitle');
+        var subtitleEl = document.getElementById('offlineSubtitle');
+        var iconEl    = document.getElementById('offlineIcon');
+
+        /* Helper: update a checklist row */
+        function setCheck(id, ok, label) {
+            var iconEl = document.getElementById(id + 'Icon');
+            var valEl  = document.getElementById(id + 'Val');
+            if (iconEl) {
+                iconEl.className = 'check-icon ' + (ok ? 'pass' : 'fail');
+            }
+            if (valEl) valEl.textContent = label || (ok ? 'OK' : 'FAIL');
+        }
+
+        /* Run full connectivity diagnostic */
+        window.runConnectivityCheck = function() {
+            btn.classList.add('checking');
+            btn.querySelector('.retry-text').textContent = 'Checking…';
+
+            /* 1. Browser API */
+            var browserOnline = navigator.onLine;
+            setCheck('checkBrowser', browserOnline, browserOnline ? 'online' : 'offline');
+
+            /* 2. Network reachability — try to fetch our own server */
+            var fetchOk = false;
+            var cdnOk   = false;
+
+            var fetchCheck = fetch(window.location.origin + '/admin/login', {
+                method: 'HEAD',
+                cache: 'no-store',
+                mode: 'no-cors'
+            }).then(function() {
+                fetchOk = true;
+                setCheck('checkFetch', true, 'reachable');
+            }).catch(function() {
+                setCheck('checkFetch', false, 'unreachable');
+            });
+
+            /* 3. CDN check — try to load a small Google Font CSS */
+            var cdnCheck = fetch('https://fonts.googleapis.com/css2?family=Inter:wght@400&display=swap', {
+                method: 'HEAD',
+                mode: 'no-cors',
+                cache: 'no-store'
+            }).then(function() {
+                cdnOk = true;
+                setCheck('checkCDN', true, 'reachable');
+            }).catch(function() {
+                setCheck('checkCDN', false, 'unreachable');
+            });
+
+            Promise.all([fetchCheck, cdnCheck]).then(function() {
+                btn.classList.remove('checking');
+                btn.querySelector('.retry-text').textContent = 'Retry Connection';
+
+                if (browserOnline && fetchOk) {
+                    /* Reconnected — show success state and redirect */
+                    card.classList.add('reconnected');
+                    dot.classList.add('online');
+                    statusTxt.textContent = 'Connected';
+                    titleEl.textContent = 'Connection Restored';
+                    subtitleEl.textContent = 'Your internet connection is back. Redirecting to the admin panel…';
+                    iconEl.textContent = '✓';
+
+                    var sec = 3;
+                    var countEl = document.getElementById('countdownSec');
+                    var countdown = setInterval(function() {
+                        sec--;
+                        if (countEl) countEl.textContent = sec;
+                        if (sec <= 0) {
+                            clearInterval(countdown);
+                            /* Go back to where user wanted to be */
+                            var returnTo = sessionStorage.getItem('aq_offline_return') || '/admin/';
+                            sessionStorage.removeItem('aq_offline_return');
+                            window.location.href = returnTo;
+                        }
+                    }, 1000);
+                } else {
+                    dot.classList.remove('online');
+                    statusTxt.textContent = 'Disconnected';
+                }
+            });
+        };
+
+        /* Auto-check on page load */
+        runConnectivityCheck();
+
+        /* Listen for browser online event */
+        window.addEventListener('online', function() {
+            runConnectivityCheck();
+        });
+    })();
+    </script>
+</body>
+</html>

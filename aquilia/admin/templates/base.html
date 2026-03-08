@@ -938,6 +938,49 @@
                 }
             });
         })();
+
+        /* 7. Offline detection — redirect to /admin/offline when disconnected */
+        (function(){
+            var offlinePath = '{{ url_prefix|default("/admin") }}/offline';
+            var isOfflinePage = window.location.pathname === offlinePath;
+
+            function goOffline() {
+                if (isOfflinePage) return;
+                sessionStorage.setItem('aq_offline_return', window.location.href);
+                window.location.href = offlinePath;
+            }
+
+            /* Browser fires 'offline' when network drops */
+            window.addEventListener('offline', function() {
+                goOffline();
+            });
+
+            /* Also check on every link click / form submit */
+            document.addEventListener('click', function(e) {
+                var link = e.target.closest('a[href]');
+                if (!link) return;
+                var href = link.getAttribute('href') || '';
+                /* Only intercept internal admin links */
+                if (href.startsWith('/') || href.startsWith(window.location.origin)) {
+                    if (!navigator.onLine) {
+                        e.preventDefault();
+                        goOffline();
+                    }
+                }
+            });
+
+            document.addEventListener('submit', function(e) {
+                if (!navigator.onLine) {
+                    e.preventDefault();
+                    goOffline();
+                }
+            });
+
+            /* Initial check on page load */
+            if (!navigator.onLine) {
+                goOffline();
+            }
+        })();
     })();
     </script>
 </body>

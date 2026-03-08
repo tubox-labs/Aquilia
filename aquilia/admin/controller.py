@@ -724,6 +724,23 @@ class AdminController(Controller):
         )
         return _html_response(html)
 
+    # ── Offline Detection Page ───────────────────────────────────────
+
+    @GET("/offline")
+    async def offline_page(self, request, ctx: RequestCtx) -> Response:
+        """Render the offline detection page.
+
+        This is a standalone page (no auth required) that checks whether
+        the user has an active internet connection.  The admin panel
+        relies on external CDN assets (Google Fonts, Lucide icons) so
+        it redirects here when the browser detects ``navigator.onLine``
+        is ``false``.  The page auto-redirects back once connectivity
+        is restored.
+        """
+        from .templates import _render_offline_page
+        html = _render_offline_page()
+        return _secure_html_response(html, self.site)
+
     # ── Login / Logout ───────────────────────────────────────────────
 
     @GET("/login")
@@ -5353,8 +5370,17 @@ class AdminController(Controller):
                 ctx.session.data["_admin_flash"] = f"Admin '{username}' created successfully as {role}."
                 ctx.session.data["_admin_flash_type"] = "success"
         except Exception as e:
+            err_msg = str(e).lower()
+            if "unique constraint" in err_msg and "username" in err_msg:
+                flash_msg = f"Username '{username}' already exists. Choose a different username."
+            elif "unique constraint" in err_msg and "email" in err_msg:
+                flash_msg = f"Email '{email}' is already registered to another admin."
+            elif "unique constraint" in err_msg:
+                flash_msg = f"A user with that username or email already exists."
+            else:
+                flash_msg = f"Failed to create admin: {e}"
             if ctx.session and hasattr(ctx.session, "data"):
-                ctx.session.data["_admin_flash"] = f"Failed to create admin: {e}"
+                ctx.session.data["_admin_flash"] = flash_msg
                 ctx.session.data["_admin_flash_type"] = "error"
 
         return _redirect("/admin/admin-users/")
