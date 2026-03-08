@@ -2725,6 +2725,300 @@ class Integration:
         def __repr__(self) -> str:
             return f"AdminPods(ns={self._namespace!r}, refresh={self._refresh_interval}s)"
 
+    class AdminSecurity:
+        """
+        Fluent builder for admin security configuration.
+
+        Controls CSRF protection, rate limiting, password policies,
+        security headers, session fixation protection, and progressive
+        lockout for the admin dashboard.
+
+        **Enabled by default** with sensible defaults (OWASP compliant).
+
+        Example::
+
+            security = (
+                Integration.AdminSecurity()
+                .csrf_enabled()
+                .csrf_max_age(7200)
+                .rate_limit_max_attempts(5)
+                .rate_limit_window(900)
+                .password_min_length(12)
+                .password_require_special()
+                .security_headers_enabled()
+                .session_fixation_protection()
+            )
+        """
+
+        __slots__ = (
+            "_csrf_enabled", "_csrf_max_age", "_csrf_token_length",
+            "_rate_limit_enabled", "_rate_limit_max_attempts", "_rate_limit_window",
+            "_sensitive_op_limit", "_sensitive_op_window",
+            "_progressive_lockout", "_lockout_tiers",
+            "_password_min_length", "_password_max_length",
+            "_password_require_upper", "_password_require_lower",
+            "_password_require_digit", "_password_require_special",
+            "_security_headers_enabled", "_csp_template",
+            "_frame_options", "_permissions_policy",
+            "_session_fixation_protection",
+            "_event_tracker_max_events",
+        )
+
+        def __init__(self) -> None:
+            # CSRF defaults
+            self._csrf_enabled: bool = True
+            self._csrf_max_age: int = 7200           # 2 hours
+            self._csrf_token_length: int = 32
+            # Rate limiting defaults
+            self._rate_limit_enabled: bool = True
+            self._rate_limit_max_attempts: int = 5
+            self._rate_limit_window: int = 900       # 15 minutes
+            self._sensitive_op_limit: int = 30
+            self._sensitive_op_window: int = 300     # 5 minutes
+            # Progressive lockout
+            self._progressive_lockout: bool = True
+            self._lockout_tiers: Optional[List[List[int]]] = None  # [[threshold, duration], ...]
+            # Password policy defaults
+            self._password_min_length: int = 10
+            self._password_max_length: int = 128
+            self._password_require_upper: bool = True
+            self._password_require_lower: bool = True
+            self._password_require_digit: bool = True
+            self._password_require_special: bool = True
+            # Security headers defaults
+            self._security_headers_enabled: bool = True
+            self._csp_template: Optional[str] = None
+            self._frame_options: str = "DENY"
+            self._permissions_policy: Optional[str] = None
+            # Session
+            self._session_fixation_protection: bool = True
+            # Event tracking
+            self._event_tracker_max_events: int = 1000
+
+        # ── CSRF ──────────────────────────────────────────────────────
+
+        def csrf_enabled(self, enabled: bool = True) -> "Integration.AdminSecurity":
+            """Enable or disable CSRF protection."""
+            self._csrf_enabled = enabled
+            return self
+
+        def no_csrf(self) -> "Integration.AdminSecurity":
+            """Disable CSRF protection (NOT recommended for production)."""
+            self._csrf_enabled = False
+            return self
+
+        def csrf_max_age(self, seconds: int) -> "Integration.AdminSecurity":
+            """Set CSRF token max age in seconds (default: 7200 = 2h)."""
+            self._csrf_max_age = max(60, int(seconds))
+            return self
+
+        def csrf_token_length(self, length: int) -> "Integration.AdminSecurity":
+            """Set CSRF token random nonce length (default: 32)."""
+            self._csrf_token_length = max(16, int(length))
+            return self
+
+        # ── Rate Limiting ─────────────────────────────────────────────
+
+        def rate_limit_enabled(self, enabled: bool = True) -> "Integration.AdminSecurity":
+            """Enable or disable login rate limiting."""
+            self._rate_limit_enabled = enabled
+            return self
+
+        def no_rate_limit(self) -> "Integration.AdminSecurity":
+            """Disable rate limiting (NOT recommended for production)."""
+            self._rate_limit_enabled = False
+            return self
+
+        def rate_limit_max_attempts(self, n: int) -> "Integration.AdminSecurity":
+            """Max login attempts before lockout (default: 5)."""
+            self._rate_limit_max_attempts = max(1, int(n))
+            return self
+
+        def rate_limit_window(self, seconds: int) -> "Integration.AdminSecurity":
+            """Rate limit window in seconds (default: 900 = 15min)."""
+            self._rate_limit_window = max(10, int(seconds))
+            return self
+
+        def sensitive_op_limit(self, n: int) -> "Integration.AdminSecurity":
+            """Max sensitive operations per window (default: 30)."""
+            self._sensitive_op_limit = max(1, int(n))
+            return self
+
+        def sensitive_op_window(self, seconds: int) -> "Integration.AdminSecurity":
+            """Sensitive operation window in seconds (default: 300 = 5min)."""
+            self._sensitive_op_window = max(10, int(seconds))
+            return self
+
+        # ── Progressive Lockout ───────────────────────────────────────
+
+        def progressive_lockout(self, enabled: bool = True) -> "Integration.AdminSecurity":
+            """Enable progressive lockout (escalating durations)."""
+            self._progressive_lockout = enabled
+            return self
+
+        def lockout_tiers(self, tiers: List[List[int]]) -> "Integration.AdminSecurity":
+            """
+            Set custom lockout tiers.
+
+            Each tier is ``[failure_threshold, lockout_seconds]``.
+
+            Default::
+
+                [[5, 300], [10, 900], [20, 3600], [50, 86400]]
+            """
+            self._lockout_tiers = tiers
+            return self
+
+        # ── Password Policy ───────────────────────────────────────────
+
+        def password_min_length(self, n: int) -> "Integration.AdminSecurity":
+            """Set minimum password length (default: 10)."""
+            self._password_min_length = max(4, int(n))
+            return self
+
+        def password_max_length(self, n: int) -> "Integration.AdminSecurity":
+            """Set maximum password length (default: 128)."""
+            self._password_max_length = max(32, int(n))
+            return self
+
+        def password_require_upper(self, required: bool = True) -> "Integration.AdminSecurity":
+            """Require at least one uppercase letter."""
+            self._password_require_upper = required
+            return self
+
+        def password_require_lower(self, required: bool = True) -> "Integration.AdminSecurity":
+            """Require at least one lowercase letter."""
+            self._password_require_lower = required
+            return self
+
+        def password_require_digit(self, required: bool = True) -> "Integration.AdminSecurity":
+            """Require at least one digit."""
+            self._password_require_digit = required
+            return self
+
+        def password_require_special(self, required: bool = True) -> "Integration.AdminSecurity":
+            """Require at least one special character."""
+            self._password_require_special = required
+            return self
+
+        def relaxed_password_policy(self) -> "Integration.AdminSecurity":
+            """Use relaxed password policy (length-only, min 8)."""
+            self._password_min_length = 8
+            self._password_require_upper = False
+            self._password_require_lower = False
+            self._password_require_digit = False
+            self._password_require_special = False
+            return self
+
+        def strict_password_policy(self) -> "Integration.AdminSecurity":
+            """Use strict password policy (min 12, all character classes)."""
+            self._password_min_length = 12
+            self._password_require_upper = True
+            self._password_require_lower = True
+            self._password_require_digit = True
+            self._password_require_special = True
+            return self
+
+        # ── Security Headers ──────────────────────────────────────────
+
+        def security_headers_enabled(self, enabled: bool = True) -> "Integration.AdminSecurity":
+            """Enable or disable security header injection."""
+            self._security_headers_enabled = enabled
+            return self
+
+        def no_security_headers(self) -> "Integration.AdminSecurity":
+            """Disable security headers."""
+            self._security_headers_enabled = False
+            return self
+
+        def csp_template(self, template: str) -> "Integration.AdminSecurity":
+            """
+            Set custom Content-Security-Policy template.
+
+            Use ``{nonce}`` placeholder for per-request nonce injection.
+
+            Default::
+
+                "default-src 'self'; script-src 'self' {nonce}; ..."
+            """
+            self._csp_template = template
+            return self
+
+        def frame_options(self, value: str) -> "Integration.AdminSecurity":
+            """Set X-Frame-Options header (default: DENY)."""
+            self._frame_options = value
+            return self
+
+        def permissions_policy(self, policy: str) -> "Integration.AdminSecurity":
+            """Set Permissions-Policy header."""
+            self._permissions_policy = policy
+            return self
+
+        # ── Session ───────────────────────────────────────────────────
+
+        def session_fixation_protection(self, enabled: bool = True) -> "Integration.AdminSecurity":
+            """Enable session fixation protection (regenerate session on login)."""
+            self._session_fixation_protection = enabled
+            return self
+
+        # ── Event Tracking ────────────────────────────────────────────
+
+        def event_tracker_max_events(self, n: int) -> "Integration.AdminSecurity":
+            """Set max security events in the FIFO buffer (default: 1000)."""
+            self._event_tracker_max_events = max(100, int(n))
+            return self
+
+        # ── Serialization ─────────────────────────────────────────────
+
+        def to_dict(self) -> Dict[str, Any]:
+            """Serialize to a dict consumed by AdminConfig / AdminSecurityPolicy."""
+            result: Dict[str, Any] = {
+                "csrf": {
+                    "enabled": self._csrf_enabled,
+                    "max_age": self._csrf_max_age,
+                    "token_length": self._csrf_token_length,
+                },
+                "rate_limit": {
+                    "enabled": self._rate_limit_enabled,
+                    "max_login_attempts": self._rate_limit_max_attempts,
+                    "login_window": self._rate_limit_window,
+                    "sensitive_op_limit": self._sensitive_op_limit,
+                    "sensitive_op_window": self._sensitive_op_window,
+                    "progressive_lockout": self._progressive_lockout,
+                },
+                "password": {
+                    "min_length": self._password_min_length,
+                    "max_length": self._password_max_length,
+                    "require_upper": self._password_require_upper,
+                    "require_lower": self._password_require_lower,
+                    "require_digit": self._password_require_digit,
+                    "require_special": self._password_require_special,
+                },
+                "headers": {
+                    "enabled": self._security_headers_enabled,
+                    "frame_options": self._frame_options,
+                },
+                "session_fixation_protection": self._session_fixation_protection,
+                "event_tracker_max_events": self._event_tracker_max_events,
+            }
+            if self._lockout_tiers is not None:
+                result["rate_limit"]["lockout_tiers"] = self._lockout_tiers
+            if self._csp_template is not None:
+                result["headers"]["csp_template"] = self._csp_template
+            if self._permissions_policy is not None:
+                result["headers"]["permissions_policy"] = self._permissions_policy
+            return result
+
+        def __repr__(self) -> str:
+            parts = []
+            if self._csrf_enabled:
+                parts.append("csrf")
+            if self._rate_limit_enabled:
+                parts.append("rate_limit")
+            if self._security_headers_enabled:
+                parts.append("headers")
+            return f"AdminSecurity({', '.join(parts) or 'minimal'})"
+
     @staticmethod
     def admin(
         url_prefix: str = "/admin",
@@ -2741,6 +3035,7 @@ class Integration:
         sidebar: Optional["Integration.AdminSidebar"] = None,
         containers: Optional["Integration.AdminContainers"] = None,
         pods: Optional["Integration.AdminPods"] = None,
+        security: Optional["Integration.AdminSecurity"] = None,
         # ── Legacy flat params (backward compat) ─────────────────
         enable_audit: Optional[bool] = None,
         audit_max_entries: int = 10_000,
@@ -2964,6 +3259,40 @@ class Integration:
                 },
             }
 
+        # ── Resolve security config ───────────────────────────────
+        if security is not None:
+            security_dict = security.to_dict()
+        else:
+            security_dict = {
+                "csrf": {
+                    "enabled": True,
+                    "max_age": 7200,
+                    "token_length": 32,
+                },
+                "rate_limit": {
+                    "enabled": True,
+                    "max_login_attempts": 5,
+                    "login_window": 900,
+                    "sensitive_op_limit": 30,
+                    "sensitive_op_window": 300,
+                    "progressive_lockout": True,
+                },
+                "password": {
+                    "min_length": 10,
+                    "max_length": 128,
+                    "require_upper": True,
+                    "require_lower": True,
+                    "require_digit": True,
+                    "require_special": True,
+                },
+                "headers": {
+                    "enabled": True,
+                    "frame_options": "DENY",
+                },
+                "session_fixation_protection": True,
+                "event_tracker_max_events": 1000,
+            }
+
         return {
             "_integration_type": "admin",
             "enabled": True,
@@ -2981,6 +3310,7 @@ class Integration:
             "monitoring_config": mon_dict,
             "containers_config": containers_dict,
             "pods_config": pods_dict,
+            "security_config": security_dict,
             "sidebar_sections": sidebar_dict,
             **kwargs,
         }
