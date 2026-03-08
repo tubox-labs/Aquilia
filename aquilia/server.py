@@ -1884,6 +1884,7 @@ class AquiliaServer:
             admin_routes = [
                 # Always registered (core admin)
                 ("GET",  f"{url_prefix}/",                  "dashboard",        ctrl.dashboard),
+                ("GET",  f"{url_prefix}/offline",           "offline_page",     ctrl.offline_page),
                 ("GET",  f"{url_prefix}/login",             "login_page",       ctrl.login_page),
                 ("POST", f"{url_prefix}/login",             "login_submit",     ctrl.login_submit),
                 ("GET",  f"{url_prefix}/logout",            "logout",           ctrl.logout),

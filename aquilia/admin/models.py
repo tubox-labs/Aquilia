@@ -395,7 +395,7 @@ if _ORM_AVAILABLE:
             Returns the ``AdminUser`` instance on success, ``None`` on failure.
             """
             try:
-                user = await cls.filter(username=username).first()
+                user = await cls.objects.filter(username=username).first()
             except Exception:
                 return None
 
