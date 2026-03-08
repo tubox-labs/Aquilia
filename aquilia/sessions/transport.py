@@ -108,15 +108,32 @@ class CookieTransport:
                 samesite=self.policy.cookie_samesite,
             )
     
+    # Maximum length of the Cookie header to parse (16 KiB).
+    _MAX_COOKIE_HEADER_LENGTH = 16384
+    # Maximum number of cookie pairs to parse.
+    _MAX_COOKIE_PAIRS = 64
+
     @staticmethod
     def _parse_cookies(cookie_header: str) -> dict[str, str]:
-        """Parse cookie header into dict."""
+        """Parse cookie header into dict with length and count limits."""
+        # Guard: reject oversized Cookie headers
+        if len(cookie_header) > CookieTransport._MAX_COOKIE_HEADER_LENGTH:
+            return {}
+
         cookies = {}
+        count = 0
         for part in cookie_header.split(";"):
+            if count >= CookieTransport._MAX_COOKIE_PAIRS:
+                break
             part = part.strip()
             if "=" in part:
                 name, value = part.split("=", 1)
-                cookies[name.strip()] = value.strip()
+                name = name.strip()
+                value = value.strip()
+                # Reject cookie names with control characters or spaces
+                if name and all(32 < ord(c) < 127 and c not in '();,"\\' for c in name):
+                    cookies[name] = value
+                    count += 1
         return cookies
     
     # ========================================================================
@@ -241,11 +258,19 @@ class HeaderTransport:
 
 def create_transport(policy: TransportPolicy) -> CookieTransport | HeaderTransport:
     """Create transport adapter from policy."""
+    from .faults import SessionTransportFault
+
     if policy.adapter == "cookie":
         return CookieTransport(policy)
     elif policy.adapter == "header":
         return HeaderTransport(policy)
     elif policy.adapter == "token":
-        raise NotImplementedError("Token transport not yet implemented")
+        raise SessionTransportFault(
+            transport_type="token",
+            cause="Token transport not yet implemented",
+        )
     else:
-        raise ValueError(f"Unsupported transport adapter: {policy.adapter}")
+        raise SessionTransportFault(
+            transport_type=str(policy.adapter),
+            cause=f"Unsupported transport adapter: {policy.adapter}",
+        )
