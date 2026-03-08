@@ -244,7 +244,7 @@ class ExceptionMiddleware:
         except PermissionError as e:
             # Forbidden -- 403
             self.logger.warning(f"PermissionError: {e}")
-            if self.debug and self._wants_html(request):
+            if self._wants_html(request):
                 return self._render_debug_http_error(403, "Forbidden", str(e), request)
             return Response.json(
                 {"error": "Forbidden"},
@@ -300,11 +300,13 @@ class ExceptionMiddleware:
             else:
                 self.logger.warning(f"Fault {e.code}: {e.message}")
 
-            # Debug HTML page for Fault exceptions
-            if self.debug and self._wants_html(request):
-                if status >= 500:
+            # HTML error pages for browser clients
+            if self._wants_html(request):
+                if status >= 500 and self.debug:
+                    # Full traceback only in debug mode
                     return self._render_debug_exception(e, request)
                 else:
+                    # Styled error page for all HTML clients (debug or production)
                     return self._render_debug_http_error(status, e.code, message, request)
                 
             return Response.json(
@@ -322,8 +324,17 @@ class ExceptionMiddleware:
             # Internal error -- 500
             self.logger.error(f"Unhandled exception: {e}", exc_info=True)
 
-            if self.debug and self._wants_html(request):
-                return self._render_debug_exception(e, request)
+            if self._wants_html(request):
+                if self.debug:
+                    # Full traceback with source context in debug mode
+                    return self._render_debug_exception(e, request)
+                else:
+                    # Styled error page in production (no traceback leak)
+                    return self._render_debug_http_error(
+                        500, "Internal Server Error",
+                        "An unexpected error occurred processing your request.",
+                        request,
+                    )
             
             # ARCH-04: Never leak tracebacks in JSON responses, even in debug.
             # Stack traces are only shown in debug HTML pages where they are

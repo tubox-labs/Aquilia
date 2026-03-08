@@ -4,6 +4,28 @@
 
 {% block extra_head %}
 <script src="//cdn.jsdelivr.net/npm/force-graph"></script>
+<style>
+/* ── SQL Syntax Highlighting ─────────────────────────────────────── */
+pre.sql-highlight { tab-size:4; }
+.sql-keyword    { color: #c084fc; font-weight: 600; }           /* purple-400 */
+.sql-type       { color: #38bdf8; font-weight: 500; }           /* sky-400 */
+.sql-function   { color: #facc15; }                              /* yellow-400 */
+.sql-string     { color: #4ade80; }                              /* green-400 */
+.sql-number     { color: #fb923c; }                              /* orange-400 */
+.sql-comment    { color: #64748b; font-style: italic; }          /* slate-500 */
+.sql-identifier { color: #67e8f9; }                              /* cyan-300 */
+.sql-punctuation{ color: #94a3b8; }                              /* slate-400 */
+
+/* Light theme overrides */
+[data-theme="light"] .sql-keyword    { color: #7c3aed; }        /* violet-600 */
+[data-theme="light"] .sql-type       { color: #0284c7; }        /* sky-600 */
+[data-theme="light"] .sql-function   { color: #ca8a04; }        /* yellow-600 */
+[data-theme="light"] .sql-string     { color: #16a34a; }        /* green-600 */
+[data-theme="light"] .sql-number     { color: #ea580c; }        /* orange-600 */
+[data-theme="light"] .sql-comment    { color: #94a3b8; }        /* slate-400 */
+[data-theme="light"] .sql-identifier { color: #0891b2; }        /* cyan-600 */
+[data-theme="light"] .sql-punctuation{ color: #64748b; }        /* slate-500 */
+</style>
 {% endblock %}
 
 {% block content %}
@@ -643,19 +665,19 @@
             <div class="schema-sub-content" data-sub="sql" data-model="{{ model.name }}" style="display:none;">
                 <div style="padding:16px 20px;">
                     <div style="font-size:0.72rem;font-weight:600;color:var(--text-secondary);margin-bottom:8px;">CREATE TABLE</div>
-                    <pre style="background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:14px 16px;font-size:0.72rem;font-family:var(--font-mono);overflow-x:auto;line-height:1.7;color:var(--text-primary);margin-bottom:16px;">{{ model.sql.create_table }}</pre>
+                    <pre class="sql-highlight" style="background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:14px 16px;font-size:0.72rem;font-family:var(--font-mono);overflow-x:auto;line-height:1.7;color:var(--text-primary);margin-bottom:16px;">{{ model.sql.create_table }}</pre>
 
                     {% if model.sql.indexes %}
                     <div style="font-size:0.72rem;font-weight:600;color:var(--text-secondary);margin-bottom:8px;">CREATE INDEX ({{ model.sql.indexes|length }})</div>
                     {% for idx_sql in model.sql.indexes %}
-                    <pre style="background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:10px 16px;font-size:0.68rem;font-family:var(--font-mono);overflow-x:auto;line-height:1.5;color:var(--text-primary);margin-bottom:8px;">{{ idx_sql }}</pre>
+                    <pre class="sql-highlight" style="background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:10px 16px;font-size:0.68rem;font-family:var(--font-mono);overflow-x:auto;line-height:1.5;color:var(--text-primary);margin-bottom:8px;">{{ idx_sql }}</pre>
                     {% endfor %}
                     {% endif %}
 
                     {% if model.sql.m2m_tables %}
                     <div style="font-size:0.72rem;font-weight:600;color:var(--text-secondary);margin-bottom:8px;margin-top:12px;">M2M Junction Tables ({{ model.sql.m2m_tables|length }})</div>
                     {% for m2m_sql in model.sql.m2m_tables %}
-                    <pre style="background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:10px 16px;font-size:0.68rem;font-family:var(--font-mono);overflow-x:auto;line-height:1.5;color:var(--text-primary);margin-bottom:8px;">{{ m2m_sql }}</pre>
+                    <pre class="sql-highlight" style="background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:10px 16px;font-size:0.68rem;font-family:var(--font-mono);overflow-x:auto;line-height:1.5;color:var(--text-primary);margin-bottom:8px;">{{ m2m_sql }}</pre>
                     {% endfor %}
                     {% endif %}
                 </div>
@@ -858,14 +880,14 @@
         </div>
         <div class="schema-model-body">
             <div style="padding:16px 20px;">
-                <pre style="background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:14px 16px;font-size:0.72rem;font-family:var(--font-mono);overflow-x:auto;line-height:1.7;color:var(--text-primary);margin-bottom:12px;white-space:pre-wrap;">{{ model.sql.create_table }}</pre>
+                <pre class="sql-highlight" style="background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:14px 16px;font-size:0.72rem;font-family:var(--font-mono);overflow-x:auto;line-height:1.7;color:var(--text-primary);margin-bottom:12px;white-space:pre-wrap;">{{ model.sql.create_table }}</pre>
 
                 {% for idx_sql in model.sql.indexes %}
-                <pre style="background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:10px 16px;font-size:0.68rem;font-family:var(--font-mono);overflow-x:auto;line-height:1.5;color:var(--text-primary);margin-bottom:6px;white-space:pre-wrap;">{{ idx_sql }}</pre>
+                <pre class="sql-highlight" style="background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:10px 16px;font-size:0.68rem;font-family:var(--font-mono);overflow-x:auto;line-height:1.5;color:var(--text-primary);margin-bottom:6px;white-space:pre-wrap;">{{ idx_sql }}</pre>
                 {% endfor %}
 
                 {% for m2m_sql in model.sql.m2m_tables %}
-                <pre style="background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:10px 16px;font-size:0.68rem;font-family:var(--font-mono);overflow-x:auto;line-height:1.5;color:var(--info);margin-bottom:6px;white-space:pre-wrap;">{{ m2m_sql }}</pre>
+                <pre class="sql-highlight" style="background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:10px 16px;font-size:0.68rem;font-family:var(--font-mono);overflow-x:auto;line-height:1.5;color:var(--text-primary);margin-bottom:6px;white-space:pre-wrap;">{{ m2m_sql }}</pre>
                 {% endfor %}
             </div>
         </div>
@@ -1695,5 +1717,104 @@ function initAnalytics() {
         idxCovEl.innerHTML = ihtml;
     }
 }
+
+// ── SQL Syntax Highlighting ─────────────────────────────────────────
+(function() {
+    // Token rules ordered by priority (first match wins)
+    var SQL_RULES = [
+        // 1. Block comments  /* ... */
+        { re: /\/\*[\s\S]*?\*\//g,               cls: 'sql-comment' },
+        // 2. Single-line comments  -- ...
+        { re: /--[^\n]*/g,                        cls: 'sql-comment' },
+        // 3. Strings  '...'
+        { re: /'(?:[^'\\]|\\.)*'/g,               cls: 'sql-string' },
+        // 4. Quoted identifiers  "..."
+        { re: /"(?:[^"\\]|\\.)*"/g,               cls: 'sql-identifier' },
+        // 5. Backtick identifiers  `...`
+        { re: /`[^`]*`/g,                          cls: 'sql-identifier' },
+        // 6. Numbers (integer and decimal)
+        { re: /\b\d+(?:\.\d+)?\b/g,               cls: 'sql-number' },
+        // 7. SQL keywords
+        { re: /\b(?:CREATE|TABLE|INDEX|UNIQUE|IF|NOT|EXISTS|DROP|ALTER|ADD|COLUMN|CONSTRAINT|PRIMARY|KEY|FOREIGN|REFERENCES|ON|DELETE|UPDATE|CASCADE|SET|NULL|DEFAULT|CHECK|INSERT|INTO|VALUES|SELECT|FROM|WHERE|AND|OR|IN|BETWEEN|LIKE|ORDER|BY|ASC|DESC|GROUP|HAVING|LIMIT|OFFSET|JOIN|LEFT|RIGHT|INNER|OUTER|CROSS|NATURAL|UNION|ALL|AS|DISTINCT|COUNT|SUM|AVG|MIN|MAX|CASE|WHEN|THEN|ELSE|END|USING|WITH|RECURSIVE|REPLACE|TEMPORARY|TEMP|AUTOINCREMENT|AUTO_INCREMENT|SERIAL|BIGSERIAL|RETURNING|DEFERRABLE|INITIALLY|DEFERRED|IMMEDIATE|RESTRICT|NO|ACTION|TRIGGER|BEFORE|AFTER|FOR|EACH|ROW|BEGIN|COMMIT|ROLLBACK|TRANSACTION|GRANT|REVOKE|EXPLAIN|ANALYZE|VACUUM|PRAGMA|ATTACH|DETACH|RENAME|TO|TRUNCATE|COMMENT|SEQUENCE|OWNED|NEXTVAL|CURRVAL|TRUE|FALSE|BOOLEAN|NULLS|FIRST|LAST|ONLY|COLLATE|CONFLICT|ABORT|FAIL|IGNORE|CURRENT_TIMESTAMP|CURRENT_DATE|CURRENT_TIME)\b/gi, cls: 'sql-keyword' },
+        // 8. Data types
+        { re: /\b(?:INTEGER|INT|SMALLINT|BIGINT|TINYINT|MEDIUMINT|FLOAT|DOUBLE|REAL|DECIMAL|NUMERIC|CHAR|VARCHAR|NCHAR|NVARCHAR|TEXT|TINYTEXT|MEDIUMTEXT|LONGTEXT|BLOB|TINYBLOB|MEDIUMBLOB|LONGBLOB|CLOB|DATE|TIME|DATETIME|TIMESTAMP|TIMESTAMPTZ|INTERVAL|YEAR|BOOLEAN|BOOL|BIT|BINARY|VARBINARY|BYTEA|UUID|JSON|JSONB|XML|ARRAY|ENUM|MONEY|INET|CIDR|MACADDR|POINT|LINE|POLYGON|CIRCLE|BOX|PATH|SERIAL|BIGSERIAL|SMALLSERIAL)\b/gi, cls: 'sql-type' },
+        // 9. SQL functions (common)
+        { re: /\b(?:COALESCE|NULLIF|CAST|CONVERT|IFNULL|NVL|LENGTH|SUBSTR|SUBSTRING|TRIM|UPPER|LOWER|REPLACE|CONCAT|NOW|STRFTIME|DATE_TRUNC|EXTRACT|TO_CHAR|TO_DATE|ROUND|CEIL|FLOOR|ABS|MOD|RANDOM|ROW_NUMBER|RANK|DENSE_RANK|LEAD|LAG|FIRST_VALUE|LAST_VALUE|NTILE|OVER|PARTITION|RANGE|ROWS|UNBOUNDED|PRECEDING|FOLLOWING|CURRENT)\b/gi, cls: 'sql-function' },
+        // 10. Punctuation
+        { re: /[(),;]/g,                           cls: 'sql-punctuation' }
+    ];
+
+    function highlightSQL(text) {
+        // Collect all token matches with their positions
+        var tokens = [];
+        SQL_RULES.forEach(function(rule) {
+            var re = new RegExp(rule.re.source, rule.re.flags);
+            var m;
+            while ((m = re.exec(text)) !== null) {
+                tokens.push({ start: m.index, end: m.index + m[0].length, text: m[0], cls: rule.cls });
+            }
+        });
+        // Sort by start position, then by length descending (longer match wins)
+        tokens.sort(function(a, b) { return a.start - b.start || (b.end - b.start) - (a.end - a.start); });
+        // Remove overlapping tokens (first match wins)
+        var filtered = [];
+        var lastEnd = 0;
+        tokens.forEach(function(tok) {
+            if (tok.start >= lastEnd) {
+                filtered.push(tok);
+                lastEnd = tok.end;
+            }
+        });
+        // Build highlighted HTML
+        var result = '';
+        var pos = 0;
+        filtered.forEach(function(tok) {
+            if (tok.start > pos) {
+                result += escHTML(text.substring(pos, tok.start));
+            }
+            result += '<span class="' + tok.cls + '">' + escHTML(tok.text) + '</span>';
+            pos = tok.end;
+        });
+        if (pos < text.length) {
+            result += escHTML(text.substring(pos));
+        }
+        return result;
+    }
+
+    function escHTML(s) {
+        return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    // Apply highlighting to all sql-highlight pre blocks
+    function applySQLHighlighting() {
+        document.querySelectorAll('pre.sql-highlight').forEach(function(el) {
+            if (el.getAttribute('data-highlighted')) return;
+            el.setAttribute('data-highlighted', '1');
+            var raw = el.textContent || '';
+            el.innerHTML = highlightSQL(raw);
+        });
+    }
+
+    // Run on load and observe for lazy-loaded content (sub-tabs)
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', applySQLHighlighting);
+    } else {
+        applySQLHighlighting();
+    }
+
+    // Re-highlight when sub-tabs are switched (content becomes visible)
+    var origSwitch = window.switchSchemaSubTab;
+    window.switchSchemaSubTab = function(btn, subName) {
+        origSwitch(btn, subName);
+        applySQLHighlighting();
+    };
+
+    // Also highlight when DDL accordion cards are expanded
+    document.querySelectorAll('.schema-model-header').forEach(function(hdr) {
+        hdr.addEventListener('click', function() {
+            setTimeout(applySQLHighlighting, 50);
+        });
+    });
+})();
 
 {% endblock %}

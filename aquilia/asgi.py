@@ -144,36 +144,35 @@ class ASGIAdapter:
                 )
 
             # No controller matched -- 404
-            if self._is_debug():
-                accept = self._get_accept_from_request(request)
-                if "text/html" in accept:
-                    from .debug.pages import render_http_error_page, render_welcome_page
-                    version = self._get_version()
-                    path = request.path
-                    method = request.method
-                    if path == "/" and not self._has_routes():
-                        # System info kept minimal -- no Python version or platform
-                        system_info = {
-                            "debug": True,
-                        }
-                        
-                        html_body = render_welcome_page(aquilia_version=version, system_info=system_info)
-                        return Response(
-                            content=html_body.encode("utf-8"),
-                            status=200,
-                            headers={"content-type": "text/html; charset=utf-8"},
-                        )
-                    html_body = render_http_error_page(
-                        404, "Not Found",
-                        f"No route matches {method} {path}",
-                        request,
-                        aquilia_version=version,
-                    )
+            accept = self._get_accept_from_request(request)
+            if "text/html" in accept:
+                from .debug.pages import render_http_error_page, render_welcome_page
+                version = self._get_version()
+                path = request.path
+                method = request.method
+                if self._is_debug() and path == "/" and not self._has_routes():
+                    # Welcome page only in debug mode
+                    system_info = {
+                        "debug": True,
+                    }
+                    
+                    html_body = render_welcome_page(aquilia_version=version, system_info=system_info)
                     return Response(
                         content=html_body.encode("utf-8"),
-                        status=404,
+                        status=200,
                         headers={"content-type": "text/html; charset=utf-8"},
                     )
+                html_body = render_http_error_page(
+                    404, "Not Found",
+                    f"No route matches {method} {path}",
+                    request,
+                    aquilia_version=version,
+                )
+                return Response(
+                    content=html_body.encode("utf-8"),
+                    status=404,
+                    headers={"content-type": "text/html; charset=utf-8"},
+                )
 
             return Response.json({"error": "Not found"}, status=404)
 
@@ -313,20 +312,27 @@ class ASGIAdapter:
         except Exception as e:
             metrics.request_errored()
             self.logger.error(f"Critical error in request pipeline: {e}", exc_info=True)
-            if self._is_debug():
-                accept = self._get_accept_from_request(request)
-                if "text/html" in accept:
+            accept = self._get_accept_from_request(request)
+            if "text/html" in accept:
+                if self._is_debug():
                     from .debug.pages import render_debug_exception_page
                     html_body = render_debug_exception_page(
                         e, request, aquilia_version=self._get_version(),
                     )
-                    response = Response(
-                        content=html_body.encode("utf-8"),
-                        status=500,
-                        headers={"content-type": "text/html; charset=utf-8"},
+                else:
+                    from .debug.pages import render_http_error_page
+                    html_body = render_http_error_page(
+                        500, "Internal Server Error",
+                        "An unexpected error occurred processing your request.",
+                        request, aquilia_version=self._get_version(),
                     )
-                    await response.send_asgi(send)
-                    return
+                response = Response(
+                    content=html_body.encode("utf-8"),
+                    status=500,
+                    headers={"content-type": "text/html; charset=utf-8"},
+                )
+                await response.send_asgi(send)
+                return
             response = Response.json(
                 {"error": "Internal server error"},
                 status=500,
