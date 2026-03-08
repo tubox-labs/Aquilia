@@ -9,10 +9,84 @@ from __future__ import annotations
 
 import html
 import linecache
+import logging
 import os
 import sys
 import traceback
 from typing import Any, Dict, List, Tuple
+
+logger = logging.getLogger("aquilia.debug")
+
+# ============================================================================
+# Sensitive Data Redaction
+# ============================================================================
+
+_REDACTED = "[REDACTED]"
+
+# Header names (lowercase) whose values must never appear in debug output.
+_SENSITIVE_HEADERS: frozenset[str] = frozenset({
+    "authorization",
+    "cookie",
+    "set-cookie",
+    "x-api-key",
+    "x-auth-token",
+    "x-csrf-token",
+    "proxy-authorization",
+    "x-forwarded-access-token",
+})
+
+# If any of these substrings appear in a local-variable *name*, its repr
+# is replaced with _REDACTED.  Comparison is case-insensitive.
+_SENSITIVE_VAR_PATTERNS: tuple[str, ...] = (
+    "password",
+    "passwd",
+    "secret",
+    "token",
+    "api_key",
+    "apikey",
+    "access_key",
+    "private_key",
+    "credential",
+    "auth",
+    "ssn",
+    "credit_card",
+)
+
+
+def _is_sensitive_var(name: str) -> bool:
+    """Return True if *name* looks like it holds sensitive data."""
+    lower = name.lower()
+    return any(pat in lower for pat in _SENSITIVE_VAR_PATTERNS)
+
+
+def _redact_headers(headers: dict) -> dict:
+    """Return a copy of *headers* with sensitive values replaced."""
+    clean: dict[str, str] = {}
+    for k, v in headers.items():
+        key_lower = k.lower() if isinstance(k, str) else k.decode("utf-8", errors="replace").lower()
+        if key_lower in _SENSITIVE_HEADERS:
+            clean[k] = _REDACTED
+        else:
+            clean[k] = v
+    return clean
+
+
+def _redact_locals(locals_dict: dict) -> dict:
+    """Return a copy of *locals_dict* with sensitive values replaced."""
+    clean: dict[str, Any] = {}
+    for k, v in locals_dict.items():
+        if _is_sensitive_var(k):
+            clean[k] = _REDACTED
+        else:
+            clean[k] = v
+    return clean
+
+
+def _is_production_environment() -> bool:
+    """Detect whether the process is running in a production-like environment."""
+    env = os.environ.get("AQUILIA_ENV", "").lower() or os.environ.get("APP_ENV", "").lower()
+    return env in ("production", "prod", "staging")
+
 
 # ============================================================================
 # CSS Styles -- Tubox Premium Theme (Dark & Light)
@@ -675,6 +749,7 @@ def _extract_frames(exc: BaseException) -> List[Dict[str, Any]]:
         
         source = _read_source_lines(filename, lineno)
         locals_dict = {k: v for k, v in frame.f_locals.items() if not (k.startswith('__') and k.endswith('__'))} if frame.f_locals else {}
+        locals_dict = _redact_locals(locals_dict)
         
         try:
             cwd = os.getcwd()
@@ -700,7 +775,7 @@ def _extract_request_info(request: Any) -> Dict[str, Any]:
     try:
         info['Method'] = getattr(request, 'method', 'GET')
         info['Path'] = getattr(request, 'path', '/')
-        if hasattr(request, 'headers'): info['Headers'] = dict(request.headers)
+        if hasattr(request, 'headers'): info['Headers'] = _redact_headers(dict(request.headers))
         if hasattr(request, 'query_params'): info['Query Params'] = dict(request.query_params)
         if hasattr(request, 'path_params'): info['Path Params'] = dict(request.path_params)
     except Exception: pass
@@ -753,6 +828,20 @@ def _icon(name: str, cls: str = "icon") -> str:
     return f'<svg class="{cls}" viewBox="0 0 24 24">{icons.get(name, "")}</svg>'
 
 def render_debug_exception_page(exc: BaseException, request: Any = None, *, aquilia_version: str = "") -> str:
+    # ── Production safety guard ──────────────────────────────────────────
+    # Even if debug=True was set by accident, refuse to render the full
+    # debug page in a production-class environment.
+    if _is_production_environment():
+        logger.critical(
+            "Debug exception page was requested in a PRODUCTION environment. "
+            "Refusing to render sensitive debug information. "
+            "Set AQUILIA_ENV to 'development' to enable debug pages."
+        )
+        return render_http_error_page(
+            500, "Internal Server Error",
+            "An internal error occurred. Debug output is disabled in production.",
+            request, aquilia_version=aquilia_version,
+        )
     frames = _extract_frames(exc)
     req_info = _extract_request_info(request)
     

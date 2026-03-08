@@ -349,7 +349,11 @@ class LocalUploadStore:
             Final file path
         """
         if upload_id not in self._uploads:
-            raise ValueError(f"Unknown upload ID: {upload_id}")
+            from .faults.domains import IOFault
+            raise IOFault(
+                code="UPLOAD_NOT_FOUND",
+                message=f"Unknown upload ID: {upload_id}",
+            )
         
         temp_path = self._uploads[upload_id]
         

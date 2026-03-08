@@ -406,10 +406,17 @@ class Response:
         if encoder:
             content = encoder(obj)
         elif JSON_ENCODER == "orjson":
-            content = orjson.dumps(obj, default=_json_default_serializer, **kwargs)
+            # Fast path: when kwargs is empty (common case), avoid **kwargs overhead.
+            if kwargs:
+                content = orjson.dumps(obj, default=_json_default_serializer, **kwargs)
+            else:
+                content = orjson.dumps(obj, default=_json_default_serializer)
         else:
             try:
-                content = orjson.dumps(obj, default=_json_default_serializer, **kwargs)
+                if kwargs:
+                    content = orjson.dumps(obj, default=_json_default_serializer, **kwargs)
+                else:
+                    content = orjson.dumps(obj, default=_json_default_serializer)
             except Exception:
                 import json
                 content = json.dumps(obj, default=_json_default_serializer)
@@ -719,7 +726,8 @@ class Response:
             raise FileNotFoundError(f"File not found: {path}")
         
         if not path.is_file():
-            raise ValueError(f"Not a file: {path}")
+            from .faults.domains import IOFault
+            raise IOFault(code="NOT_A_FILE", message=f"Not a file: {path}")
         
         # Detect media type
         if media_type is None:

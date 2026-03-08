@@ -460,28 +460,65 @@ class Request:
         
         Respects trust_proxy configuration to parse forwarded headers.
         
+        When ``trust_proxy`` is a list of CIDR/IP strings, only the
+        **right-most** X-Forwarded-For entry that is **not** in the trusted
+        set is returned.  This prevents attackers from injecting a fake IP
+        by prepending to the header.
+        
         Returns:
             Client IP address as string
         """
-        if not self.trust_proxy:
-            # Direct connection
-            client = self.client
-            return client[0] if client else "0.0.0.0"
+        # Direct client from ASGI scope
+        direct_client = self.client
+        direct_ip = direct_client[0] if direct_client else "0.0.0.0"
         
-        # Parse forwarded headers
-        # Try X-Forwarded-For first
+        if not self.trust_proxy:
+            return direct_ip
+        
+        # Build trusted network set when trust_proxy is a list of CIDRs
+        trusted_networks = None
+        if isinstance(self.trust_proxy, (list, tuple)):
+            trusted_networks = []
+            for entry in self.trust_proxy:
+                try:
+                    trusted_networks.append(ipaddress.ip_network(entry, strict=False))
+                except ValueError:
+                    pass  # skip unparseable entries
+        
+        def _is_trusted(ip_str: str) -> bool:
+            """Check whether an IP falls within the trusted proxy list."""
+            if trusted_networks is None:
+                # trust_proxy=True (blanket trust) -- all proxies trusted
+                return True
+            try:
+                addr = ipaddress.ip_address(ip_str.strip())
+            except ValueError:
+                return False
+            return any(addr in net for net in trusted_networks)
+        
+        # Parse X-Forwarded-For (preferred)
         forwarded_for = self.header("x-forwarded-for")
         if forwarded_for:
-            # X-Forwarded-For can be comma-separated list
-            ips = [ip.strip() for ip in forwarded_for.split(",")]
-            if ips:
-                # Return first (original client)
-                return ips[0]
+            ips = [ip.strip() for ip in forwarded_for.split(",") if ip.strip()]
+            
+            if trusted_networks is not None:
+                # Walk the chain **right-to-left**.  The right-most entry is
+                # the one appended by the first proxy (which we trust).  We
+                # skip all trusted entries and return the first non-trusted
+                # one (the real client).
+                for ip_candidate in reversed(ips):
+                    if not _is_trusted(ip_candidate):
+                        return ip_candidate
+                # Every entry was trusted → fall back to direct client
+                return direct_ip
+            else:
+                # trust_proxy=True (blanket) -- legacy behaviour: return leftmost
+                if ips:
+                    return ips[0]
         
         # Try Forwarded header (RFC 7239)
         forwarded = self.header("forwarded")
         if forwarded:
-            # Parse "for=..." directive
             import re
             match = re.search(r'for=([^;,]+)', forwarded)
             if match:
@@ -492,8 +529,7 @@ class Request:
                 return ip_part.strip("[]")
         
         # Fallback to direct client
-        client = self.client
-        return client[0] if client else "0.0.0.0"
+        return direct_ip
     
     # ========================================================================
     # Content Helpers
@@ -1607,7 +1643,11 @@ class Request:
         if not container:
             if optional:
                 return None
-            raise RuntimeError("DI container not available in request")
+            from .faults.domains import DIResolutionFault
+            raise DIResolutionFault(
+                provider=str(service_type),
+                reason="DI container not available in request",
+            )
         
         # Support both sync and async resolve
         if hasattr(container, "resolve_async"):
@@ -1621,7 +1661,11 @@ class Request:
         else:
             if optional:
                 return None
-            raise RuntimeError("Container does not support resolution")
+            from .faults.domains import DIResolutionFault
+            raise DIResolutionFault(
+                provider=str(service_type),
+                reason="Container does not support resolution",
+            )
     
     async def inject(self, **services) -> Dict[str, Any]:
         """
@@ -1784,9 +1828,13 @@ class Request:
             flow_ctx = self.state.get("flow_context")
             if flow_ctx is not None and hasattr(flow_ctx, "get_effect"):
                 return flow_ctx.get_effect(name)
-            raise KeyError(
-                f"Effect '{name}' not acquired. "
-                f"Use @requires('{name}') on your handler."
+            from .faults.domains import EffectFault
+            raise EffectFault(
+                code="EFFECT_NOT_ACQUIRED",
+                message=(
+                    f"Effect '{name}' not acquired. "
+                    f"Use @requires('{name}') on your handler."
+                ),
             )
         return effects[name]
 
