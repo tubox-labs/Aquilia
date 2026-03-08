@@ -2,9 +2,7 @@
 AquilaTasks — Schedule Definitions.
 
 Provides ``every()`` and ``cron()`` helpers for declaring periodic
-task schedules on ``@task`` decorators, following the industry-standard
-patterns established by Celery Beat, ARQ cron, Huey periodic tasks,
-and Laravel Scheduler.
+task schedules on ``@task`` decorators.
 
 Usage::
 

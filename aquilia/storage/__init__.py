@@ -14,9 +14,9 @@ Supported Backends:
     - SFTPStorage       : SFTP/SSH remote filesystem
     - CompositeStorage  : Fan-out writes to multiple backends
 
-Architecture (inspired by Django STORAGES + async-first design):
+Architecture:
     - StorageBackend    : ABC defining the backend contract (async)
-    - StorageRegistry   : Named backend registry (Django-style aliases)
+    - StorageRegistry   : Named backend registry (keyed by alias)
     - StorageFile       : Async file wrapper with streaming support
     - StorageConfig     : Typed config dataclasses per backend
     - StorageSubsystem  : Lifecycle-managed subsystem initializer

@@ -414,7 +414,7 @@ def _get_state(request: Any) -> Dict[str, Any]:
         state = request.state
         if isinstance(state, dict):
             return state
-        # Starlette-style state object
+        # dict-like state object
         if hasattr(state, "__dict__"):
             return state.__dict__
     return {}

@@ -97,7 +97,7 @@ Aquilia is composed of several deeply integrated subsystems:
 | **Faults** | Structured error handling with 14 fault domains |
 | **Auth** | JWT/session auth, MFA, OAuth, RBAC, guards |
 | **DI** | Hierarchical dependency injection with lifecycle scopes |
-| **Controller** | Django-style controllers with filters, pagination, routing |
+| **Controller** | Aquilia-native controllers with filters, pagination, and typed routing |
 | **Sessions** | Pluggable session backends (cookie, Redis, memory) |
 | **Cache** | Multi-backend caching with middleware integration |
 | **Storage** | Async file storage (local, S3, GCS, Azure, SFTP, memory) |

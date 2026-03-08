@@ -173,7 +173,7 @@ class AdminCSRFProtection:
         Uses session storage when available, falls back to a signed
         cookie for pre-authentication pages (e.g. the login form)
         where no session exists yet.  This is the standard
-        "double-submit cookie" pattern used by Django and Rails.
+        "double-submit cookie" CSRF protection pattern.
         """
         # 1. Try session storage first (preferred)
         if ctx.session and hasattr(ctx.session, "data"):
