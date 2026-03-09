@@ -77,14 +77,17 @@ class ConfigLoader:
         Load configuration from multiple sources with proper merge strategy.
         
         Merge order (later overrides earlier):
-        1. Workspace structure from aquilia.py (modules, integrations)
-        2. Base config from config/base.yaml (shared defaults)
-        3. Environment config from config/{mode}.yaml (dev, prod, etc.)
-        4. Environment variables (AQ_* prefix)
-        5. Manual overrides
+        1. Workspace structure from workspace.py / aquilia.py (modules, integrations,
+           and inline AquilaConfig via .env_config())
+        2. Environment variables (AQ_* prefix)
+        3. Manual overrides
         
-        Supports both Python (aquilia.py) and YAML (aquilia.yaml) config files.
-        Python files take precedence over YAML if both exist.
+        All configuration is Python-native.  YAML is no longer supported.
+        The AquilaConfig environment classes are defined inline in workspace.py
+        and wired via ``Workspace.env_config(BaseEnv)``.
+        
+        For backward compatibility, ``config/env.py`` is still loaded if it
+        exists (legacy projects).
         
         Args:
             paths: List of config file paths (glob patterns supported)
@@ -97,13 +100,12 @@ class ConfigLoader:
         """
         loader = cls(env_prefix=env_prefix)
         
-        # Step 1: Load workspace structure from aquilia.py or aquilia.yaml
+        # Step 1: Load workspace structure from workspace.py or aquilia.py
         if not paths:
-            # Auto-detect workspace config file
-            if Path("aquilia.py").exists():
+            if Path("workspace.py").exists():
+                paths = ["workspace.py"]
+            elif Path("aquilia.py").exists():
                 paths = ["aquilia.py"]
-            elif Path("aquilia.yaml").exists():
-                paths = ["aquilia.yaml"]
         
         if paths:
             for pattern in paths:
@@ -112,16 +114,11 @@ class ConfigLoader:
                 else:
                     loader._load_from_files(pattern)
         
-        # Step 2: Load base config (shared defaults)
-        if Path("config/base.yaml").exists():
-            loader._load_yaml_file(Path("config/base.yaml"))
-        
-        # Step 3: Load environment-specific config
-        # Determine environment from workspace config or default to 'dev'
-        mode = loader.config_data.get('runtime', {}).get('mode', 'dev')
-        env_config_path = Path(f"config/{mode}.yaml")
+        # Step 2: Legacy fallback — load config/env.py if it exists
+        # (New projects inline AquilaConfig in workspace.py via .env_config())
+        env_config_path = Path("config/env.py")
         if env_config_path.exists():
-            loader._load_yaml_file(env_config_path)
+            loader._load_pyconfig_file(env_config_path)
         
         # Step 4: Load from .env file
         if env_file:
@@ -165,8 +162,66 @@ class ConfigLoader:
                 config_dict = workspace.to_dict()
                 self._merge_dict(self.config_data, config_dict)
     
+    def _load_pyconfig_file(self, path: Path):
+        """
+        Load config from a Python file containing AquilaConfig subclasses.
+
+        Uses ``PyConfigLoader`` from ``aquilia.pyconfig`` to import the
+        file, resolve the correct environment variant, and merge the
+        resulting dict into ``self.config_data``.
+        """
+        import importlib.util
+        from pathlib import Path as _Path
+
+        path = _Path(path)
+        if not path.exists():
+            return
+
+        spec = importlib.util.spec_from_file_location("_aq_env_config", path)
+        if spec is None or spec.loader is None:
+            return
+
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+
+        # Look for AquilaConfig subclass
+        from aquilia.pyconfig import AquilaConfig
+        import os
+
+        base_cls = None
+        for name in dir(module):
+            obj = getattr(module, name)
+            if (
+                isinstance(obj, type)
+                and issubclass(obj, AquilaConfig)
+                and obj is not AquilaConfig
+                and not name.startswith("_")
+            ):
+                base_cls = obj
+                break
+
+        if base_cls is None:
+            return
+
+        # Resolve environment variant
+        env_name = os.environ.get("AQ_ENV", "dev")
+        try:
+            resolved = base_cls.for_env(env_name)
+        except ValueError:
+            resolved = base_cls
+
+        data = resolved.to_dict()
+
+        # Normalise server → runtime
+        if "server" in data and "runtime" not in data:
+            data["runtime"] = data.pop("server")
+        elif "server" in data and "runtime" in data:
+            data["runtime"].update(data.pop("server"))
+
+        self._merge_dict(self.config_data, data)
+
     def _load_from_files(self, pattern: str):
-        """Load config from Python, JSON, or YAML files."""
+        """Load config from Python or JSON files."""
         from glob import glob
         
         for path_str in glob(pattern):
@@ -176,8 +231,6 @@ class ConfigLoader:
                 self._load_python_config(path)
             elif path.suffix == ".json":
                 self._load_json_file(path)
-            elif path.suffix in (".yaml", ".yml"):
-                self._load_yaml_file(path)
     
     def _load_python_file(self, path: Path):
         """Load config from Python module."""
@@ -203,12 +256,20 @@ class ConfigLoader:
             self._merge_dict(self.config_data, data)
 
     def _load_yaml_file(self, path: Path):
-        """Load config from YAML file."""
-        import yaml
-        with open(path) as f:
-            data = yaml.safe_load(f)
-            if data:
-                self._merge_dict(self.config_data, data)
+        """REMOVED — YAML config is no longer supported.
+
+        Use Python-native configuration via ``AquilaConfig`` subclasses
+        inlined in ``workspace.py``.  See ``aquilia.pyconfig`` for
+        the migration guide.
+
+        Raises:
+            RuntimeError: Always, directing user to migrate.
+        """
+        raise RuntimeError(
+            f"YAML configuration is no longer supported ({path}). "
+            "Migrate to Python-native config: define AquilaConfig subclasses "
+            "in workspace.py and wire via .env_config(). See aquilia.pyconfig docs."
+        )
     
     def _load_env_file(self, path: str):
         """Load config from .env file."""

@@ -4431,6 +4431,7 @@ class Workspace:
         self._middleware_chain: Optional[List[Dict[str, Any]]] = None
         self._on_startup: Optional[str] = None
         self._on_shutdown: Optional[str] = None
+        self._env_config: Optional["AquilaConfig"] = None  # pyconfig bridge
     
     def on_startup(self, hook: str) -> "Workspace":
         """
@@ -4450,6 +4451,48 @@ class Workspace:
             hook: Import path to a callable in "module:func" format.
         """
         self._on_shutdown = hook
+        return self
+
+    # ------------------------------------------------------------------
+    # Python-native environment config bridge
+    # ------------------------------------------------------------------
+
+    def env_config(self, config_cls: "type | AquilaConfig") -> "Workspace":
+        """
+        Attach a :class:`~aquilia.pyconfig.AquilaConfig` subclass
+        (or instance) as the operational environment config.
+
+        This replaces the old ``config/base.yaml`` / ``config/dev.yaml``
+        approach.  The *structural* config lives in ``workspace.py``
+        (modules, integrations, DI, routing) while the *operational*
+        config (server host/port, auth tokens, password hasher params,
+        database URL, mail credentials, etc.) is defined in a
+        class-based :class:`AquilaConfig` hierarchy.
+
+        The environment is resolved at startup from ``AQ_ENV``.
+
+        Args:
+            config_cls: An :class:`AquilaConfig` **subclass** or
+                        already-resolved **instance**.  If a class is
+                        passed, ``.for_env(os.environ.get('AQ_ENV', 'dev'))``
+                        is called automatically at :meth:`to_dict` time.
+
+        Returns:
+            Self for chaining.
+
+        Example::
+
+            class BaseEnv(AquilaConfig):
+                class server(AquilaConfig.Server):
+                    port = 8000
+
+            workspace = (
+                Workspace("myapp")
+                .env_config(BaseEnv)  # resolved by AQ_ENV at runtime
+                .module(...)
+            )
+        """
+        self._env_config = config_cls
         return self
     
     def starter(self, module_name: str) -> "Workspace":
@@ -4952,6 +4995,34 @@ class Workspace:
             "on_shutdown": self._on_shutdown,
         }
         
+        # Merge env_config (pyconfig bridge) if provided
+        if self._env_config is not None:
+            import os
+            env_cfg = self._env_config
+            # If it's a class (not instance), resolve for current environment
+            if isinstance(env_cfg, type):
+                env_name = os.environ.get("AQ_ENV", "dev")
+                try:
+                    env_cfg = env_cfg.for_env(env_name)
+                except (ValueError, AttributeError):
+                    pass  # use base class as-is
+            # Merge the dict representation
+            try:
+                env_data = env_cfg.to_dict()
+            except (TypeError, AttributeError):
+                env_data = {}
+            # server → runtime mapping
+            if "server" in env_data:
+                runtime_overlay = env_data.pop("server")
+                config["runtime"].update(runtime_overlay)
+            for key, val in env_data.items():
+                if key in ("env",):
+                    continue  # skip meta
+                if key in config and isinstance(config[key], dict) and isinstance(val, dict):
+                    config[key].update(val)
+                else:
+                    config[key] = val
+
         # Add optional configurations
         if self._sessions_config:
             config["sessions"] = self._sessions_config
@@ -5000,6 +5071,18 @@ __all__ = [
     "ModuleConfig",
     "AuthConfig",
 ]
+
+# Re-export pyconfig types for single-import convenience in workspace.py
+try:
+    from aquilia.pyconfig import (
+        AquilaConfig,
+        Secret,
+        Env,
+        section,
+    )
+    __all__ += ["AquilaConfig", "Secret", "Env", "section"]
+except ImportError:
+    pass
 
 # Re-export config classes for convenient access
 try:
