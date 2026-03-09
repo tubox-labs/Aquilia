@@ -1620,9 +1620,15 @@ class AquiliaServer:
                 ),
             )
             
-        # Generate KeyRing (simple for now, just one RS256 key)
-        # In prod, this should load from file/KMS
-        key = KeyDescriptor.generate(kid="active", algorithm="RS256")
+        # Generate KeyRing — algorithm is read from config, default HS256 (stdlib, no extra deps).
+        # Asymmetric algorithms (RS256, ES256, EdDSA) require ``pip install cryptography``
+        # and must be opted in explicitly via AquilaConfig.Auth.algorithm.
+        algorithm = token_config.get("algorithm", "HS256")
+        key = KeyDescriptor.generate(
+            kid="active",
+            algorithm=algorithm,
+            secret=secret if algorithm.startswith("HS") else None,
+        )
         key_ring = KeyRing([key])
         
         token_store = MemoryTokenStore()

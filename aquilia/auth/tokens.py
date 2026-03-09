@@ -2,10 +2,29 @@
 AquilAuth - Token Management
 
 JWT-like token generation, validation, and key ring management.
+
+Algorithm tiers
+---------------
+**Zero-dependency (stdlib only) — used by default:**
+  * HS256   HMAC-SHA-256  (Django / DRF default)
+  * HS384   HMAC-SHA-384
+  * HS512   HMAC-SHA-512
+
+**Asymmetric — requires ``pip install cryptography``:**
+  * RS256   RSA-PKCS1v15 + SHA-256
+  * ES256   ECDSA P-256  + SHA-256
+  * EdDSA   Ed25519
+
+The server automatically selects HS256 unless you explicitly configure
+an asymmetric algorithm in ``AquilaConfig.Auth.algorithm``.  Attempting
+to use an asymmetric algorithm without the ``cryptography`` package
+installed raises a :class:`ConfigInvalidFault` at startup with a clear
+installation message.
 """
 
 from __future__ import annotations
 
+import hmac as _hmac
 from typing import Literal, Any, Protocol
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
@@ -19,14 +38,62 @@ import time
 
 
 # ============================================================================
+# Algorithm catalogue
+# ============================================================================
+
+# Algorithms that only need stdlib (hmac + hashlib)
+_HMAC_ALGORITHMS: frozenset[str] = frozenset({"HS256", "HS384", "HS512"})
+
+# Algorithms that require the ``cryptography`` package
+_ASYMMETRIC_ALGORITHMS: frozenset[str] = frozenset({"RS256", "ES256", "EdDSA"})
+
+_SUPPORTED_ALGORITHMS: frozenset[str] = _HMAC_ALGORITHMS | _ASYMMETRIC_ALGORITHMS
+
+# stdlib digest map for HMAC algorithms
+_HMAC_DIGEST: dict[str, str] = {
+    "HS256": "sha256",
+    "HS384": "sha384",
+    "HS512": "sha512",
+}
+
+
+def _require_cryptography(algorithm: str) -> None:
+    """Raise a clear ConfigInvalidFault when cryptography is not installed."""
+    try:
+        import cryptography  # noqa: F401
+    except ImportError:
+        # Import lazily so the auth module itself never hard-imports server code
+        try:
+            from aquilia.faults.domains import ConfigInvalidFault
+            raise ConfigInvalidFault(
+                key="auth.algorithm",
+                reason=(
+                    f"Algorithm '{algorithm}' requires the 'cryptography' package. "
+                    "Install it with:  pip install cryptography\n"
+                    "Or switch to a zero-dependency algorithm in your AquilaConfig:\n"
+                    "    class auth(AquilaConfig.Auth):\n"
+                    "        algorithm = 'HS256'  # default — no extra deps"
+                ),
+            )
+        except ImportError:
+            raise ImportError(
+                f"Algorithm '{algorithm}' requires the 'cryptography' package. "
+                "Install it with:  pip install cryptography"
+            )
+
+
+# ============================================================================
 # Key Management
 # ============================================================================
 
 class KeyAlgorithm(str, Enum):
     """Supported signing algorithms (Enum prevents arbitrary values)."""
-    RS256 = "RS256"  # RSA with SHA-256
-    ES256 = "ES256"  # ECDSA with SHA-256
-    EdDSA = "EdDSA"  # Ed25519
+    HS256 = "HS256"  # HMAC-SHA-256  (stdlib, default)
+    HS384 = "HS384"  # HMAC-SHA-384  (stdlib)
+    HS512 = "HS512"  # HMAC-SHA-512  (stdlib)
+    RS256 = "RS256"  # RSA + SHA-256 (requires cryptography)
+    ES256 = "ES256"  # ECDSA P-256   (requires cryptography)
+    EdDSA = "EdDSA"  # Ed25519       (requires cryptography)
 
 
 class KeyStatus(str, Enum):
@@ -98,49 +165,84 @@ class KeyDescriptor:
         )
     
     @classmethod
-    def generate(cls, kid: str, algorithm: str = KeyAlgorithm.RS256) -> KeyDescriptor:
+    def generate(cls, kid: str, algorithm: str = KeyAlgorithm.HS256, secret: str | None = None) -> "KeyDescriptor":
         """
-        Generate new key pair.
-        
-        Requires cryptography library.
+        Generate a new key (or wrap an existing secret) for *algorithm*.
+
+        **HMAC algorithms (HS256 / HS384 / HS512) — stdlib, no extra deps:**
+            A 256-bit (32-byte) random secret is generated and stored in
+            ``public_key_pem`` (the field is reused as the symmetric key
+            material).  Pass *secret* to use a pre-existing value (e.g.
+            loaded from an environment variable).
+
+        **Asymmetric algorithms (RS256 / ES256 / EdDSA) — requires cryptography:**
+            A fresh key pair is generated.  ``public_key_pem`` holds the PEM
+            public key; ``private_key_pem`` holds the PEM private key.
+
+        Args:
+            kid:       Key identifier (e.g. ``"active"``).
+            algorithm: Signing algorithm.  Defaults to ``"HS256"``.
+            secret:    Pre-existing secret for HMAC algorithms.
+                       Ignored for asymmetric algorithms.
+
+        Raises:
+            ConfigInvalidFault: If an asymmetric algorithm is requested but
+                                ``cryptography`` is not installed.
+            ValueError:         If *algorithm* is not supported.
         """
+        if algorithm not in _SUPPORTED_ALGORITHMS:
+            raise ValueError(
+                f"Unsupported algorithm '{algorithm}'. "
+                f"Choose from: {', '.join(sorted(_SUPPORTED_ALGORITHMS))}"
+            )
+
+        # ── HMAC (stdlib) ────────────────────────────────────────────────
+        if algorithm in _HMAC_ALGORITHMS:
+            if secret is None:
+                # Generate 256-bit (32-byte) secret — same strength as Django's SECRET_KEY
+                secret = secrets.token_urlsafe(32)
+            # Store the secret in public_key_pem (symmetric — no separate public key)
+            return cls(
+                kid=kid,
+                algorithm=algorithm,
+                public_key_pem=secret,   # symmetric: secret IS the key
+                private_key_pem=secret,  # both fields point to the same secret
+            )
+
+        # ── Asymmetric (requires cryptography) ──────────────────────────
+        _require_cryptography(algorithm)
+
         from cryptography.hazmat.primitives.asymmetric import rsa, ec, ed25519
         from cryptography.hazmat.primitives import serialization
         from cryptography.hazmat.backends import default_backend
-        
+
         if algorithm == KeyAlgorithm.RS256:
-            # Generate RSA key pair (3072-bit per NIST SP 800-57 post-2030 guidance)
             private_key = rsa.generate_private_key(
                 public_exponent=65537,
                 key_size=3072,
                 backend=default_backend(),
             )
         elif algorithm == KeyAlgorithm.ES256:
-            # Generate ECDSA key pair (P-256 curve)
             private_key = ec.generate_private_key(
                 ec.SECP256R1(),
                 backend=default_backend(),
             )
         elif algorithm == KeyAlgorithm.EdDSA:
-            # Generate Ed25519 key pair
             private_key = ed25519.Ed25519PrivateKey.generate()
         else:
             raise ValueError(f"Unsupported algorithm: {algorithm}")
-        
-        # Serialize private key
+
         private_pem = private_key.private_bytes(
             encoding=serialization.Encoding.PEM,
             format=serialization.PrivateFormat.PKCS8,
             encryption_algorithm=serialization.NoEncryption(),
         ).decode()
-        
-        # Serialize public key
-        public_key = private_key.public_key()
-        public_pem = public_key.public_bytes(
+
+        public_pem = private_key.public_key().public_bytes(
             encoding=serialization.Encoding.PEM,
             format=serialization.PublicFormat.SubjectPublicKeyInfo,
         ).decode()
-        
+
         return cls(
             kid=kid,
             algorithm=algorithm,
@@ -570,71 +672,68 @@ class TokenManager:
         
         return f"{header_b64}.{payload_b64}.{signature_b64}"
     
-    def _create_signature(self, message: bytes, key: KeyDescriptor) -> bytes:
-        """Create signature for message."""
+    def _create_signature(self, message: bytes, key: "KeyDescriptor") -> bytes:
+        """Create signature for message using the key's algorithm."""
+        algo = key.algorithm
+
+        # ── HMAC (stdlib — zero deps) ────────────────────────────────────
+        if algo in _HMAC_ALGORITHMS:
+            secret = (key.private_key_pem or key.public_key_pem).encode()
+            digest = _HMAC_DIGEST[algo]
+            return _hmac.new(secret, message, digest).digest()
+
+        # ── Asymmetric (requires cryptography) ──────────────────────────
+        _require_cryptography(algo)
         from cryptography.hazmat.primitives import hashes, serialization
-        from cryptography.hazmat.primitives.asymmetric import rsa, ec, ed25519, padding
+        from cryptography.hazmat.primitives.asymmetric import ec, padding
         from cryptography.hazmat.backends import default_backend
-        
-        # Load private key
+
         private_key = serialization.load_pem_private_key(
             key.private_key_pem.encode(),
             password=None,
             backend=default_backend(),
         )
-        
-        if key.algorithm == KeyAlgorithm.RS256:
-            signature = private_key.sign(
-                message,
-                padding.PKCS1v15(),
-                hashes.SHA256(),
-            )
-        elif key.algorithm == KeyAlgorithm.ES256:
-            signature = private_key.sign(
-                message,
-                ec.ECDSA(hashes.SHA256()),
-            )
-        elif key.algorithm == KeyAlgorithm.EdDSA:
-            signature = private_key.sign(message)
+        if algo == KeyAlgorithm.RS256:
+            return private_key.sign(message, padding.PKCS1v15(), hashes.SHA256())
+        elif algo == KeyAlgorithm.ES256:
+            return private_key.sign(message, ec.ECDSA(hashes.SHA256()))
+        elif algo == KeyAlgorithm.EdDSA:
+            return private_key.sign(message)
         else:
-            raise ValueError(f"Unsupported algorithm: {key.algorithm}")
-        
-        return signature
-    
-    def _verify_signature(self, message: bytes, signature: bytes, key: KeyDescriptor) -> bool:
-        """Verify signature."""
+            raise ValueError(f"Unsupported algorithm: {algo}")
+
+    def _verify_signature(self, message: bytes, signature: bytes, key: "KeyDescriptor") -> bool:
+        """Verify signature against message using the key's algorithm."""
+        algo = key.algorithm
+
+        # ── HMAC (stdlib — zero deps) ────────────────────────────────────
+        if algo in _HMAC_ALGORITHMS:
+            secret = (key.private_key_pem or key.public_key_pem).encode()
+            digest = _HMAC_DIGEST[algo]
+            expected = _hmac.new(secret, message, digest).digest()
+            return _hmac.compare_digest(expected, signature)
+
+        # ── Asymmetric (requires cryptography) ──────────────────────────
+        _require_cryptography(algo)
         from cryptography.hazmat.primitives import hashes, serialization
-        from cryptography.hazmat.primitives.asymmetric import rsa, ec, ed25519, padding
+        from cryptography.hazmat.primitives.asymmetric import ec, padding
         from cryptography.hazmat.backends import default_backend
         from cryptography.exceptions import InvalidSignature
-        
+
         try:
-            # Load public key
             public_key = serialization.load_pem_public_key(
                 key.public_key_pem.encode(),
                 backend=default_backend(),
             )
-            
-            if key.algorithm == KeyAlgorithm.RS256:
-                public_key.verify(
-                    signature,
-                    message,
-                    padding.PKCS1v15(),
-                    hashes.SHA256(),
-                )
-            elif key.algorithm == KeyAlgorithm.ES256:
-                public_key.verify(
-                    signature,
-                    message,
-                    ec.ECDSA(hashes.SHA256()),
-                )
-            elif key.algorithm == KeyAlgorithm.EdDSA:
+            if algo == KeyAlgorithm.RS256:
+                public_key.verify(signature, message, padding.PKCS1v15(), hashes.SHA256())
+            elif algo == KeyAlgorithm.ES256:
+                public_key.verify(signature, message, ec.ECDSA(hashes.SHA256()))
+            elif algo == KeyAlgorithm.EdDSA:
                 public_key.verify(signature, message)
             else:
                 return False
-            
             return True
-        
         except InvalidSignature:
             return False
     
