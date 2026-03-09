@@ -10,6 +10,8 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, Optional
 
+from aquilia.faults.domains import ConfigInvalidFault
+
 from .core import CacheBackend, CacheConfig
 from .service import CacheService
 from .backends.memory import MemoryBackend
@@ -83,7 +85,10 @@ def create_cache_backend(config: CacheConfig) -> CacheBackend:
         return NullBackend()
     
     else:
-        raise ValueError(f"Unknown cache backend: {backend_type}")
+        raise ConfigInvalidFault(
+            key="cache.backend",
+            reason=f"Unknown cache backend: {backend_type}",
+        )
 
 
 def create_cache_service(config: CacheConfig) -> CacheService:

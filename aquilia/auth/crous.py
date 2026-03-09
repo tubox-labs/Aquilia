@@ -12,6 +12,8 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from typing import Any
 
+from aquilia.faults.domains import ConfigInvalidFault
+
 from .tokens import KeyDescriptor
 
 
@@ -194,7 +196,10 @@ class ArtifactSigner:
                 hashes.SHA256(),
             )
         else:
-            raise ValueError(f"Unsupported key type: {type(private_key)}")
+            raise ConfigInvalidFault(
+                key="crous.signing_key",
+                reason=f"Unsupported key type: {type(private_key)}",
+            )
 
         # Encode signature
         return base64.b64encode(signature).decode()
@@ -238,7 +243,10 @@ class ArtifactSigner:
                     hashes.SHA256(),
                 )
             else:
-                raise ValueError(f"Unsupported key type: {type(public_key)}")
+                raise ConfigInvalidFault(
+                    key="crous.verification_key",
+                    reason=f"Unsupported key type: {type(public_key)}",
+                )
 
             return True
 

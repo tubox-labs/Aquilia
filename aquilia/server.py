@@ -74,7 +74,11 @@ class AquiliaServer:
         self.config = config or ConfigLoader()
         self.logger = logging.getLogger("aquilia.server")
         self.mode = mode
-        
+
+        # Bootstrap the signing engine from config so all subsystems
+        # (sessions, CSRF, cache, activation links) share a consistent key.
+        self._bootstrap_signing()
+
         # v2: Health registry for subsystem tracking
         self.health_registry = HealthRegistry()
         self._inflight_requests = 0
@@ -1528,6 +1532,82 @@ class AquiliaServer:
         
         return engine
     
+    def _bootstrap_signing(self) -> None:
+        """
+        Initialise the :mod:`aquilia.signing` engine from config.
+
+        Resolution order for the signing secret:
+        1. ``AquilaConfig.Signing.secret``  (new Python-native config)
+        2. ``AquilaConfig.Auth.secret_key``  (legacy path)
+        3. Environment variable ``AQ_SECRET_KEY``
+        4. Environment variable ``SECRET_KEY``
+        5. Insecure dev fallback ``"aquilia-dev-secret-key-CHANGEME"``
+           (warned in non-DEV modes)
+
+        Any configured ``fallback_secrets`` are also wired in for transparent
+        key rotation.
+        """
+        import os
+        from aquilia import signing as _signing
+
+        # 1. Try new signing config section
+        signing_cfg = self.config.get("signing", {}) or {}
+        secret = signing_cfg.get("secret") if isinstance(signing_cfg, dict) else None
+
+        # 2. Fall back to auth.secret_key
+        if not secret:
+            auth_cfg = self.config.get_auth_config() or {}
+            token_cfg = auth_cfg.get("tokens", {}) or {}
+            secret = token_cfg.get("secret_key") or auth_cfg.get("secret_key")
+
+        # 3–4. Fall back to env vars
+        if not secret:
+            secret = os.environ.get("AQ_SECRET_KEY") or os.environ.get("SECRET_KEY")
+
+        _INSECURE_FALLBACK = "aquilia-dev-secret-key-CHANGEME"
+        is_dev = (
+            self.mode == RegistryMode.DEV
+            or self.config.get("mode", "") in ("dev", "development")
+            or self.config.get("server.mode", "") in ("dev", "development")
+        )
+
+        if not secret:
+            if not is_dev:
+                self.logger.warning(
+                    "aquilia.signing: no secret_key configured — using insecure "
+                    "dev fallback.  Set AQ_SECRET_KEY or AquilaConfig.Signing.secret "
+                    "before going to production."
+                )
+            secret = _INSECURE_FALLBACK
+
+        # Gather fallback secrets (for key rotation)
+        fallback_secrets: list[str] = []
+        if isinstance(signing_cfg, dict):
+            raw_fb = signing_cfg.get("fallback_secrets", [])
+            if isinstance(raw_fb, (list, tuple)):
+                fallback_secrets = [s for s in raw_fb if s]
+
+        algorithm = "HS256"
+        if isinstance(signing_cfg, dict):
+            algorithm = signing_cfg.get("algorithm", "HS256") or "HS256"
+        salt = "aquilia.signing"
+        if isinstance(signing_cfg, dict):
+            salt = signing_cfg.get("salt", "aquilia.signing") or "aquilia.signing"
+
+        try:
+            _signing.configure(
+                secret=secret,
+                fallback_secrets=fallback_secrets or None,
+                algorithm=algorithm,
+                salt=salt,
+            )
+        except Exception as exc:
+            self.logger.warning(
+                "aquilia.signing: configuration failed (%s) — signing will be "
+                "unavailable until configure() is called manually.",
+                exc,
+            )
+
     def _create_auth_manager(self, auth_config: dict) -> AuthManager:
         """
         Create AuthManager from configuration.

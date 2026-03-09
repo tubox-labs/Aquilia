@@ -12,6 +12,8 @@ import json
 import logging
 from typing import Any
 
+from aquilia.faults.domains import CacheFault, ConfigInvalidFault, SecurityFault
+
 logger = logging.getLogger("aquilia.cache.serializers")
 
 
@@ -60,11 +62,12 @@ class PickleCacheSerializer:
 
     def __init__(self, *, secret_key: str | bytes | None = None) -> None:
         if not secret_key:
-            raise ValueError(
-                "PickleCacheSerializer requires a 'secret_key' argument. "
+            raise ConfigInvalidFault(
+                key="cache.pickle.secret_key",
+                reason="PickleCacheSerializer requires a 'secret_key' argument. "
                 "This key is used to HMAC-sign serialized data to prevent "
                 "deserialization of tampered payloads. Pass the application "
-                "secret key or a dedicated cache-signing key."
+                "secret key or a dedicated cache-signing key.",
             )
         self._key: bytes = (
             secret_key.encode("utf-8") if isinstance(secret_key, str) else secret_key
@@ -98,7 +101,10 @@ class PickleCacheSerializer:
         import hmac as _hmac
         import pickle
         if len(data) < self._HMAC_SIZE:
-            raise ValueError("Pickle payload too short — missing HMAC signature.")
+            raise CacheFault(
+                code="CACHE_PICKLE_MALFORMED",
+                message="Pickle payload too short — missing HMAC signature.",
+            )
         stored_sig = data[: self._HMAC_SIZE]
         payload = data[self._HMAC_SIZE :]
         expected_sig = self._sign(payload)
@@ -107,9 +113,10 @@ class PickleCacheSerializer:
                 "HMAC verification failed for pickle cache entry. "
                 "The data may have been tampered with. Refusing to deserialize."
             )
-            raise ValueError(
-                "Pickle HMAC verification failed — refusing to deserialize "
-                "potentially tampered data."
+            raise SecurityFault(
+                code="CACHE_HMAC_TAMPERED",
+                message="Pickle HMAC verification failed — refusing to deserialize "
+                "potentially tampered data.",
             )
         try:
             return pickle.loads(payload)
@@ -182,9 +189,10 @@ def get_serializer(name: str = "json", *, secret_key: str | bytes | None = None)
 
     cls = serializers.get(name)
     if cls is None:
-        raise ValueError(
-            f"Unknown serializer: {name!r}. "
-            f"Options: {['json', 'pickle', 'msgpack']}"
+        raise ConfigInvalidFault(
+            key="cache.serializer",
+            reason=f"Unknown serializer: {name!r}. "
+            f"Options: {['json', 'pickle', 'msgpack']}",
         )
 
     return cls()

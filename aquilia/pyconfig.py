@@ -680,6 +680,67 @@ class AquilaConfig:
         catalog_dirs: "List[str]" = field(default_factory=lambda: ["locales"])  # type: ignore[misc]
         catalog_format: str     = "json"
 
+    class Signing:
+        """
+        Cryptographic signing engine configuration (``aquilia.signing``).
+
+        Controls the :mod:`aquilia.signing` module that backs session
+        cookies, CSRF tokens, one-time activation links, cache integrity
+        checks, and any other value that must be tamper-proof without a
+        database round-trip.
+
+        **Quick-start** — override in your config::
+
+            class signing(AquilaConfig.Signing):
+                secret = Secret(env="AQ_SECRET_KEY", required=True)
+
+        **Algorithm selection (all zero-dependency, stdlib only):**
+
+        * ``"HS256"`` — HMAC-SHA-256 ← **default**
+        * ``"HS384"`` — HMAC-SHA-384
+        * ``"HS512"`` — HMAC-SHA-512
+
+        **Key rotation** — list retired secrets in ``fallback_secrets``::
+
+            class signing(AquilaConfig.Signing):
+                secret           = Secret(env="AQ_NEW_KEY", required=True)
+                fallback_secrets = [Secret(env="AQ_OLD_KEY")]
+
+        Old tokens signed with the old key continue to work until
+        ``fallback_secrets`` is cleared (after the TTL of your tokens
+        has elapsed).
+
+        **Namespace salts** — each subsystem uses an isolated salt so
+        cross-subsystem token reuse is cryptographically impossible::
+
+            Salt "aquilia.sessions"    → session cookies
+            Salt "aquilia.csrf"        → CSRF tokens
+            Salt "aquilia.activation"  → activation / password-reset links
+            Salt "aquilia.cache"       → cache integrity (signed pickle)
+            Salt "aquilia.cookies"     → generic signed cookies
+            Salt "aquilia.apikeys"     → short-lived signed API keys
+        """
+        #: Primary signing secret.  **Must** be set in production.
+        #: Use ``Secret(env="AQ_SECRET_KEY", required=True)`` in real apps.
+        secret: "Optional[str]"                   = None
+
+        #: Retired secrets kept for backward-compatible verification
+        #: (key rotation).  Tokens signed with these can still be read;
+        #: new tokens always use ``secret``.
+        fallback_secrets: "List[str]"             = []   # type: ignore[assignment]
+
+        #: Default HMAC algorithm.  One of ``"HS256"`` / ``"HS384"`` / ``"HS512"``.
+        algorithm: str                            = "HS256"
+
+        #: Default namespace salt (used by the plain :class:`~aquilia.signing.Signer`).
+        salt: str                                 = "aquilia.signing"
+
+        # ── Per-subsystem salts — override to isolate subsystems further ──
+        session_salt: str    = "aquilia.sessions"
+        csrf_salt: str       = "aquilia.csrf"
+        activation_salt: str = "aquilia.activation"
+        cache_salt: str      = "aquilia.cache"
+
     # ── Class-level helpers ───────────────────────────────────────────────
 
     @classmethod

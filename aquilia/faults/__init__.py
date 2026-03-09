@@ -109,6 +109,12 @@ from .domains import (
     CORSViolationFault,
     RateLimitExceededFault,
     CSPViolationFault,
+    # Signing faults
+    SigningFault,
+    BadSignatureFault,
+    SignatureExpiredFault,
+    SignatureMalformedFault,
+    UnsupportedAlgorithmFault,
     # System faults
     SystemFault,
     UnrecoverableFault,
@@ -230,6 +236,13 @@ __all__ = [
     "CORSViolationFault",
     "RateLimitExceededFault",
     "CSPViolationFault",
+    
+    # Signing faults
+    "SigningFault",
+    "BadSignatureFault",
+    "SignatureExpiredFault",
+    "SignatureMalformedFault",
+    "UnsupportedAlgorithmFault",
     
     # System faults
     "SystemFault",

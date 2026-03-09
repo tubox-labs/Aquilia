@@ -783,6 +783,46 @@ except ImportError:
     pass
 
 # ============================================================================
+# Signing Engine  (aquilia.signing — zero-dependency HMAC signing)
+# ============================================================================
+
+from .signing import (
+    # Exceptions
+    SigningError,
+    BadSignature,
+    SignatureExpired,
+    SignatureMalformed,
+    UnsupportedAlgorithmError,
+    # Core signer classes
+    Signer,
+    TimestampSigner,
+    RotatingSigner,
+    # Structured payload helpers
+    dumps as signing_dumps,
+    loads as signing_loads,
+    # Backend protocol + default
+    SignerBackend,
+    HmacSignerBackend,
+    # Specialised subsystem signers
+    SessionSigner,
+    CSRFSigner,
+    ActivationLinkSigner,
+    CacheKeySigner,
+    CookieSigner,
+    APIKeySigner,
+    # Configuration
+    SigningConfig,
+    configure as configure_signing,
+    make_signer,
+    make_timestamp_signer,
+    # Low-level primitives
+    b64_encode,
+    b64_decode,
+    constant_time_compare,
+    derive_key,
+)
+
+# ============================================================================
 # Admin System (AquilAdmin -- auto-detecting admin)
 # ============================================================================
 
@@ -829,6 +869,34 @@ __all__ = [
     "ConfigLoader",
     "Request",
     "Response",
+
+    # Signing engine
+    "SigningError",
+    "BadSignature",
+    "SignatureExpired",
+    "SignatureMalformed",
+    "UnsupportedAlgorithmError",
+    "Signer",
+    "TimestampSigner",
+    "RotatingSigner",
+    "signing_dumps",
+    "signing_loads",
+    "SignerBackend",
+    "HmacSignerBackend",
+    "SessionSigner",
+    "CSRFSigner",
+    "ActivationLinkSigner",
+    "CacheKeySigner",
+    "CookieSigner",
+    "APIKeySigner",
+    "SigningConfig",
+    "configure_signing",
+    "make_signer",
+    "make_timestamp_signer",
+    "b64_encode",
+    "b64_decode",
+    "constant_time_compare",
+    "derive_key",
     
     # Request data structures
     "MultiDict",

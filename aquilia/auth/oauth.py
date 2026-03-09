@@ -28,6 +28,7 @@ from .faults import (
     AUTH_SCOPE_INVALID,
     AUTH_SLOW_DOWN,
 )
+from aquilia.faults.domains import ConfigInvalidFault
 from .stores import (
     MemoryAuthorizationCodeStore,
     MemoryDeviceCodeStore,
@@ -91,7 +92,10 @@ class PKCEVerifier:
         elif method == "plain":
             return verifier
         else:
-            raise ValueError(f"Unknown PKCE method: {method}")
+            raise ConfigInvalidFault(
+                key="oauth.pkce_method",
+                reason=f"Unknown PKCE method: {method}",
+            )
 
     @staticmethod
     def verify_code_challenge(

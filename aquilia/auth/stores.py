@@ -20,6 +20,8 @@ from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from typing import Any, Protocol
 
+from aquilia.faults.domains import ConflictFault, NotFoundFault
+
 from .core import (
     ApiKeyCredential,
     Identity,
@@ -49,7 +51,7 @@ class MemoryIdentityStore:
         """Create new identity."""
         async with self._lock:
             if identity.id in self._identities:
-                raise ValueError(f"Identity {identity.id} already exists")
+                raise ConflictFault(detail=f"Identity {identity.id} already exists")
 
             self._identities[identity.id] = identity
 
@@ -77,7 +79,7 @@ class MemoryIdentityStore:
         """Update existing identity."""
         async with self._lock:
             if identity.id not in self._identities:
-                raise ValueError(f"Identity {identity.id} not found")
+                raise NotFoundFault(detail=f"Identity {identity.id} not found")
 
             old_identity = self._identities[identity.id]
 
@@ -242,7 +244,7 @@ class MemoryOAuthClientStore:
         """Create OAuth client."""
         async with self._lock:
             if client.client_id in self._clients:
-                raise ValueError(f"Client {client.client_id} already exists")
+                raise ConflictFault(detail=f"Client {client.client_id} already exists")
             self._clients[client.client_id] = client
             return client
 
@@ -254,7 +256,7 @@ class MemoryOAuthClientStore:
         """Update OAuth client."""
         async with self._lock:
             if client.client_id not in self._clients:
-                raise ValueError(f"Client {client.client_id} not found")
+                raise NotFoundFault(detail=f"Client {client.client_id} not found")
             self._clients[client.client_id] = client
             return client
 

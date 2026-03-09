@@ -516,6 +516,121 @@ class CSPViolationFault(SecurityFault):
         )
 
 
+# ── Signing Faults ──────────────────────────────────────────────────────
+
+class SigningFault(SecurityFault):
+    """Base class for all signing/verification faults."""
+
+    def __init__(
+        self,
+        code: str = "SIGNING_ERROR",
+        message: str = "Signing operation failed",
+        *,
+        severity: Severity = Severity.ERROR,
+        metadata: Optional[dict[str, Any]] = None,
+    ):
+        super().__init__(
+            code=code,
+            message=message,
+            severity=severity,
+            public=False,
+            metadata=metadata,
+        )
+
+
+class BadSignatureFault(SigningFault):
+    """
+    Signature verification failed — potential tampering.
+
+    Callers should treat this as a security event and **not** use
+    the payload value.
+    """
+
+    def __init__(
+        self,
+        message: str = "Signature is invalid",
+        *,
+        original: str | None = None,
+        metadata: Optional[dict[str, Any]] = None,
+    ):
+        #: The raw signed value that failed verification (for logging).
+        self.original = original
+        super().__init__(
+            code="SIGNING_BAD_SIGNATURE",
+            message=message,
+            metadata={"original": original, **(metadata or {})},
+        )
+
+
+class SignatureExpiredFault(BadSignatureFault):
+    """
+    The signature is valid but the embedded timestamp has exceeded max_age.
+
+    Subclasses :class:`BadSignatureFault` so callers that only catch
+    ``BadSignatureFault`` also catch expired signatures automatically.
+    """
+
+    def __init__(
+        self,
+        message: str = "Signature has expired",
+        *,
+        original: str | None = None,
+        date_signed: Any = None,
+        age_seconds: float | None = None,
+        max_age_seconds: float | None = None,
+        metadata: Optional[dict[str, Any]] = None,
+    ):
+        #: When the token was originally signed (UTC).
+        self.date_signed = date_signed
+        #: How old the token is in seconds.
+        self.age_seconds = age_seconds
+        #: The configured maximum age in seconds.
+        self.max_age_seconds = max_age_seconds
+        super().__init__(
+            message=message,
+            original=original,
+            metadata={
+                "date_signed": str(date_signed) if date_signed else None,
+                "age_seconds": age_seconds,
+                "max_age_seconds": max_age_seconds,
+                **(metadata or {}),
+            },
+        )
+
+
+class SignatureMalformedFault(SigningFault):
+    """
+    The signed value could not be parsed at all (wrong number of parts,
+    non-base64 characters, corrupted JSON, etc.).
+
+    Unlike :class:`BadSignatureFault`, this indicates a malformed input
+    rather than a valid-but-wrong signature.
+    """
+
+    def __init__(self, message: str = "Signed value is malformed", **kwargs):
+        super().__init__(
+            code="SIGNING_MALFORMED",
+            message=message,
+            metadata=kwargs.get("metadata"),
+        )
+
+
+class UnsupportedAlgorithmFault(SigningFault):
+    """
+    The requested algorithm is not available (e.g. asymmetric algorithm
+    requested but the ``cryptography`` package is not installed).
+    """
+
+    def __init__(self, algorithm: str, reason: str = "", **kwargs):
+        super().__init__(
+            code="SIGNING_UNSUPPORTED_ALGORITHM",
+            message=f"Unsupported signing algorithm '{algorithm}'"
+            + (f": {reason}" if reason else ""),
+            severity=Severity.FATAL,
+            metadata={"algorithm": algorithm, "reason": reason, **(kwargs.get("metadata") or {})},
+        )
+
+
 # ============================================================================
 # SYSTEM Faults
 # ============================================================================

@@ -36,6 +36,8 @@ import secrets
 import hashlib
 import time
 
+from aquilia.faults.domains import ConfigInvalidFault, ConfigMissingFault
+
 
 # ============================================================================
 # Algorithm catalogue
@@ -191,9 +193,10 @@ class KeyDescriptor:
             ValueError:         If *algorithm* is not supported.
         """
         if algorithm not in _SUPPORTED_ALGORITHMS:
-            raise ValueError(
-                f"Unsupported algorithm '{algorithm}'. "
-                f"Choose from: {', '.join(sorted(_SUPPORTED_ALGORITHMS))}"
+            raise ConfigInvalidFault(
+                key="auth.algorithm",
+                reason=f"Unsupported algorithm '{algorithm}'. "
+                f"Choose from: {', '.join(sorted(_SUPPORTED_ALGORITHMS))}",
             )
 
         # ── HMAC (stdlib) ────────────────────────────────────────────────
@@ -230,7 +233,10 @@ class KeyDescriptor:
         elif algorithm == KeyAlgorithm.EdDSA:
             private_key = ed25519.Ed25519PrivateKey.generate()
         else:
-            raise ValueError(f"Unsupported algorithm: {algorithm}")
+            raise ConfigInvalidFault(
+                key="auth.algorithm",
+                reason=f"Unsupported algorithm: {algorithm}",
+            )
 
         private_pem = private_key.private_bytes(
             encoding=serialization.Encoding.PEM,
@@ -267,7 +273,10 @@ class KeyRing:
         # Find active signing key
         active_keys = [k for k in keys if k.is_active()]
         if not active_keys:
-            raise ValueError("No active signing key in key ring")
+            raise ConfigMissingFault(
+                key="auth.key_ring.active_key",
+                metadata={"hint": "No active signing key in key ring."},
+            )
         
         self.current_kid = active_keys[0].kid
     
@@ -276,7 +285,10 @@ class KeyRing:
         key = self.keys.get(self.current_kid)
         
         if not key or not key.is_active():
-            raise ValueError(f"No active signing key: {self.current_kid}")
+            raise ConfigMissingFault(
+                key="auth.key_ring.signing_key",
+                metadata={"hint": f"No active signing key: {self.current_kid}"},
+            )
         
         return key
     
@@ -298,7 +310,10 @@ class KeyRing:
         new_key = self.keys.get(kid)
         
         if not new_key:
-            raise ValueError(f"Key not found: {kid}")
+            raise ConfigInvalidFault(
+                key="auth.key_ring.kid",
+                reason=f"Key not found: {kid}",
+            )
         
         # Retire current key
         if self.current_kid in self.keys:
@@ -700,7 +715,10 @@ class TokenManager:
         elif algo == KeyAlgorithm.EdDSA:
             return private_key.sign(message)
         else:
-            raise ValueError(f"Unsupported algorithm: {algo}")
+            raise ConfigInvalidFault(
+                key="auth.algorithm",
+                reason=f"Unsupported algorithm: {algo}",
+            )
 
     def _verify_signature(self, message: bytes, signature: bytes, key: "KeyDescriptor") -> bool:
         """Verify signature against message using the key's algorithm."""

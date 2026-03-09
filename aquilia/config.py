@@ -9,6 +9,8 @@ from pathlib import Path
 import os
 import json
 
+from aquilia.faults.domains import ConfigInvalidFault
+
 
 class NestedNamespace:
     """
@@ -265,10 +267,11 @@ class ConfigLoader:
         Raises:
             RuntimeError: Always, directing user to migrate.
         """
-        raise RuntimeError(
-            f"YAML configuration is no longer supported ({path}). "
+        raise ConfigInvalidFault(
+            key=str(path),
+            reason="YAML configuration is no longer supported. "
             "Migrate to Python-native config: define AquilaConfig subclasses "
-            "in workspace.py and wire via .env_config(). See aquilia.pyconfig docs."
+            "in workspace.py and wire via .env_config(). See aquilia.pyconfig docs.",
         )
     
     def _load_env_file(self, path: str):

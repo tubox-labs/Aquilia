@@ -25,6 +25,8 @@ import base64
 import hashlib
 import secrets
 
+from aquilia.faults.domains import ConfigInvalidFault
+
 # ── Optional C-accelerated backends ────────────────────────────────────────
 
 try:
@@ -157,9 +159,10 @@ class PasswordHasher:
                 algorithm = "pbkdf2_sha256"
 
         if algorithm not in SUPPORTED_ALGORITHMS:
-            raise ValueError(
-                f"Unsupported algorithm {algorithm!r}. "
-                f"Choose from: {', '.join(SUPPORTED_ALGORITHMS)}"
+            raise ConfigInvalidFault(
+                key="auth.hashing.algorithm",
+                reason=f"Unsupported algorithm {algorithm!r}. "
+                f"Choose from: {', '.join(SUPPORTED_ALGORITHMS)}",
             )
 
         self.algorithm = algorithm
