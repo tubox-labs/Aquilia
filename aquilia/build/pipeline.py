@@ -151,15 +151,15 @@ class BuildManifest:
             total_controllers += len(mod.get("controllers", []))
             total_services += len(mod.get("services", []))
 
-        # Detect DB driver from workspace (fast filesystem check)
+        # Detect DB driver from workspace.py or aquilia.py (Python-native)
         db_driver = "sqlite"
-        for cfg_name in ("prod.yaml", "production.yaml", "base.yaml"):
-            cfg_path = workspace_root / "config" / cfg_name
+        for cfg_name in ("workspace.py", "aquilia.py"):
+            cfg_path = workspace_root / cfg_name
             if cfg_path.exists():
                 try:
                     import re as _re
                     cfg_text = cfg_path.read_text(encoding="utf-8")
-                    m = _re.search(r'url:\s*"?([^"\s]+)', cfg_text)
+                    m = _re.search(r'(?:url|path|host)\s*[=:]\s*["\']?([^"\'\'\s,)]+)', cfg_text)
                     if m:
                         url_lower = m.group(1).lower()
                         if "postgres" in url_lower:

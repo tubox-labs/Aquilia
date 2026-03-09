@@ -2,7 +2,7 @@
 
 from pathlib import Path
 from typing import Dict, List, Any
-import yaml
+import json
 from dataclasses import dataclass, field
 
 
@@ -24,7 +24,7 @@ class ModuleManifest:
     def from_file(cls, path: Path) -> 'ModuleManifest':
         """Load module manifest from file."""
         with open(path, 'r') as f:
-            data = yaml.safe_load(f)
+            data = json.load(f)
         
         module = data.get('module', {})
         routing = data.get('routing', {})

@@ -2,7 +2,7 @@
 
 from pathlib import Path
 from typing import Dict, List, Any
-import yaml
+import json
 from dataclasses import dataclass, field
 
 
@@ -22,7 +22,7 @@ class WorkspaceManifest:
     def from_file(cls, path: Path) -> 'WorkspaceManifest':
         """Load workspace manifest from file."""
         with open(path, 'r') as f:
-            data = yaml.safe_load(f)
+            data = json.load(f)
         
         workspace = data.get('workspace', {})
         modules_data = data.get('modules', [])
@@ -62,4 +62,4 @@ class WorkspaceManifest:
     def save(self, path: Path) -> None:
         """Save manifest to file."""
         with open(path, 'w') as f:
-            yaml.dump(self._raw, f, default_flow_style=False, sort_keys=False)
+            json.dump(self._raw, f, indent=2, ensure_ascii=False)

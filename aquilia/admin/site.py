@@ -3262,7 +3262,10 @@ class AdminSite:
 
     def get_config_data(self) -> Dict[str, Any]:
         """
-        Read workspace YAML configuration files and workspace.py.
+        Read workspace.py configuration (single-file config).
+
+        Also reads config/*.py for legacy projects that still use
+        a separate config directory.
 
         Returns file contents for display in the admin config page.
         """
@@ -3271,21 +3274,22 @@ class AdminSite:
             "workspace": None,
         }
 
+        # Legacy: config/ directory files (backward compat)
         config_dir = self._find_workspace_path("config")
         if config_dir and config_dir.is_dir():
-            for fname in ["base.yaml", "dev.yaml", "prod.yaml", "test.yaml"]:
-                fpath = config_dir / fname
-                if fpath.exists():
-                    try:
-                        content = fpath.read_text(encoding="utf-8")
-                        result["files"].append({
-                            "name": fname,
-                            "path": f"config/{fname}",
-                            "content": content,
-                            "content_highlighted": self._highlight_yaml(content),
-                        })
-                    except Exception:
-                        pass
+            for fpath in sorted(config_dir.glob("*.py")):
+                if fpath.name.startswith("_"):
+                    continue
+                try:
+                    content = fpath.read_text(encoding="utf-8")
+                    result["files"].append({
+                        "name": fpath.name,
+                        "path": f"config/{fpath.name}",
+                        "content": content,
+                        "content_highlighted": self._highlight_python(content),
+                    })
+                except Exception:
+                    pass
 
         # Read workspace.py for workspace info
         ws_path = self._find_workspace_path("workspace.py", is_file=True)

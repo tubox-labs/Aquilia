@@ -123,18 +123,13 @@ class WorkspaceIntrospector:
             result["has_pyproject"] = True
             result.update(self._parse_pyproject(pyproject_file.read_text()))
 
-        # ── Parse workspace.py ──
+        # ── Parse workspace.py (includes inline AquilaConfig) ──
         workspace_file = self.root / "workspace.py"
         if workspace_file.exists():
             content = workspace_file.read_text()
             result.update(self._parse_workspace(content))
-
-        # ── Parse config/prod.yaml (or config/base.yaml) for production settings ──
-        for cfg_name in ("prod.yaml", "production.yaml", "base.yaml"):
-            cfg_path = self.root / "config" / cfg_name
-            if cfg_path.exists():
-                result.update(self._parse_yaml_config(cfg_path.read_text()))
-                break
+            # Also extract server settings from AquilaConfig inline
+            result.update(self._parse_pyconfig_file(workspace_file))
 
         # ── Detect modules & count controllers/services ──
         modules_dir = self.root / "modules"
@@ -387,16 +382,38 @@ class WorkspaceIntrospector:
 
         return data
 
-    def _parse_yaml_config(self, content: str) -> Dict[str, Any]:
+    def _parse_pyconfig_file(self, path: Path) -> Dict[str, Any]:
         """
-        Parse YAML config for server settings.
+        Parse Python config file for server settings.
 
-        Supports nested structure like:
-            server:
-              port: 8000
-              workers: 4
-        as well as flat keys.
+        Reads the file as text and extracts key=value assignments
+        from class bodies (e.g. host, port, workers).
         """
+        import re as _re
+        data: Dict[str, Any] = {}
+        try:
+            content = path.read_text(encoding="utf-8")
+        except Exception:
+            return data
+
+        # Look for port, host, workers assignments
+        port_m = _re.search(r'\bport\s*=\s*(\d+)', content)
+        if port_m:
+            data["port"] = int(port_m.group(1))
+
+        host_m = _re.search(r'\bhost\s*=\s*["\']([^"\']+)["\']', content)
+        if host_m:
+            data["host"] = host_m.group(1)
+
+        workers_m = _re.search(r'\bworkers\s*=\s*(\d+)', content)
+        if workers_m:
+            data["workers"] = int(workers_m.group(1))
+
+        return data
+
+    def _parse_yaml_config(self, content: str) -> Dict[str, Any]:
+        """DEPRECATED — kept for backwards compat. Use _parse_pyconfig_file."""
+        return {}
         data: Dict[str, Any] = {}
         in_server_block = False
 

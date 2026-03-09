@@ -379,22 +379,25 @@ def inspect_config(verbose: bool = False) -> None:
 
     config_dir = workspace_root / 'config'
     if config_dir.exists():
-        config_files = sorted(config_dir.glob('*.yaml')) + sorted(config_dir.glob('*.yml'))
-        print(f"\n  Config directory: config/")
-        for cf in config_files:
-            print(f"    • {cf.name}")
-
-        if verbose:
+        config_files = sorted(config_dir.glob('*.py'))
+        if config_files:
+            print(f"\n  Config directory: config/ (legacy)")
             for cf in config_files:
-                print(f"\n  ── {cf.name} ──")
-                try:
-                    content = cf.read_text()
-                    for line in content.strip().splitlines():
-                        print(f"    {line}")
-                except Exception as e:
-                    print(f"    Error reading: {e}")
+                print(f"    • {cf.name}")
+
+            if verbose:
+                for cf in config_files:
+                    print(f"\n  ── {cf.name} ──")
+                    try:
+                        content = cf.read_text()
+                        for line in content.strip().splitlines():
+                            print(f"    {line}")
+                    except Exception as e:
+                        print(f"    Error reading: {e}")
+        else:
+            print(f"\n  Config: inline in workspace.py (AquilaConfig)")
     else:
-        print(f"\n  Config directory: NOT FOUND")
+        print(f"\n  Config: inline in workspace.py (AquilaConfig)")
 
     import os
     aquilia_vars = {k: v for k, v in os.environ.items() if k.startswith('AQUILIA_')}
