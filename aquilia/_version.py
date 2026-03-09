@@ -16,7 +16,7 @@ Versioning scheme: CalVer-inspired SemVer  MAJOR.MINOR.PATCHbN
 """
 
 #: Framework version — single source of truth.
-__version__: str = "1.0.1b5"
+__version__: str = "1.0.1b6"
 
 #: Version tuple for programmatic comparison.
 VERSION: tuple[int, int, int] = (1, 0, 1)
