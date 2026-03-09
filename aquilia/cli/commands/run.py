@@ -5,7 +5,99 @@ import os
 import re
 import importlib
 from pathlib import Path
-from typing import Optional, Dict, List, Set
+from typing import Any, Optional, Dict, List, Set
+
+
+def _load_workspace_runtime_config(workspace_root: Path) -> Dict[str, Any]:
+    """
+    Load runtime configuration from workspace.py's AquilaConfig.
+
+    Reads the ``workspace`` variable, calls ``to_dict()``, and returns
+    the ``runtime`` section.  This gives us the resolved env_config
+    values (host, port, workers, reload, etc.) that the user defined
+    in their ``AquilaConfig.Server`` subclass.
+
+    Returns an empty dict if anything goes wrong so callers can
+    safely fall back to hardcoded defaults.
+    """
+    ws_file = workspace_root / "workspace.py"
+    if not ws_file.exists():
+        return {}
+
+    try:
+        import importlib.util
+
+        # Ensure the workspace root is importable
+        if str(workspace_root) not in sys.path:
+            sys.path.insert(0, str(workspace_root))
+
+        spec = importlib.util.spec_from_file_location(
+            "_aq_ws_runtime", ws_file,
+        )
+        if spec is None or spec.loader is None:
+            return {}
+
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+
+        workspace = getattr(module, "workspace", None)
+        if workspace is None:
+            return {}
+
+        config_dict = workspace.to_dict()
+        return config_dict.get("runtime", {})
+    except Exception:
+        return {}
+
+
+# Fields from AquilaConfig.Server that map directly to uvicorn.Config
+# parameters.  Anything NOT in this set is silently ignored so that
+# Aquilia-only fields (mode, debug) don't cause TypeError.
+_UVICORN_KNOWN_PARAMS = frozenset({
+    "host", "port", "uds", "fd",
+    "loop", "http", "ws", "ws_max_size", "ws_max_queue",
+    "ws_ping_interval", "ws_ping_timeout", "ws_per_message_deflate",
+    "lifespan", "interface",
+    "reload", "reload_dirs", "reload_delay",
+    "reload_includes", "reload_excludes",
+    "workers",
+    "log_level", "access_log", "use_colors",
+    "proxy_headers", "server_header", "date_header",
+    "forwarded_allow_ips", "root_path",
+    "limit_concurrency", "limit_max_requests",
+    "backlog", "timeout_keep_alive", "timeout_worker_healthcheck",
+    "timeout_graceful_shutdown",
+    "ssl_keyfile", "ssl_certfile", "ssl_keyfile_password",
+    "ssl_ca_certs", "ssl_ciphers",
+    "headers", "factory",
+    "h11_max_incomplete_event_size",
+})
+
+
+def _build_uvicorn_kwargs(
+    rt: Dict[str, Any],
+    *,
+    overrides: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """
+    Build a ``uvicorn.run()`` keyword-argument dict from the runtime
+    config section (``AquilaConfig.Server`` → ``to_dict()["server"]``).
+
+    Only keys that match a known ``uvicorn.Config`` parameter are
+    included.  ``None`` values are omitted so uvicorn uses its own
+    default for that parameter.
+
+    *overrides* are merged last and always win (CLI flags).
+    """
+    kwargs: Dict[str, Any] = {}
+    for key, val in rt.items():
+        if key in _UVICORN_KNOWN_PARAMS and val is not None:
+            kwargs[key] = val
+    if overrides:
+        for key, val in overrides.items():
+            if val is not None:
+                kwargs[key] = val
+    return kwargs
 
 
 def _validate_workspace_config(workspace_root: Path, verbose: bool = False) -> List[str]:
@@ -686,19 +778,24 @@ def _write_discovery_report(workspace_root: Path, discovered: Dict, sorted_names
 
 def run_dev_server(
     mode: str = 'dev',
-    host: str = '127.0.0.1',
-    port: int = 8000,
-    reload: bool = True,
+    host: Optional[str] = None,
+    port: Optional[int] = None,
+    reload: Optional[bool] = None,
     verbose: bool = False,
 ) -> None:
     """
     Start development server using uvicorn.
-    
+
+    Resolution order for host / port / workers / reload:
+    1. Explicit CLI flags (``--host``, ``--port``, ``--reload``)
+    2. AquilaConfig values from ``workspace.py``
+    3. Hardcoded fallback defaults
+
     Args:
         mode: Runtime mode (dev, test)
-        host: Server host
-        port: Server port
-        reload: Enable hot-reload
+        host: Server host (None = read from workspace config)
+        port: Server port (None = read from workspace config)
+        reload: Enable hot-reload (None = read from workspace config)
         verbose: Enable verbose output
     """
     try:
@@ -715,6 +812,12 @@ def run_dev_server(
     # Add workspace root to Python path for imports
     if str(workspace_root) not in sys.path:
         sys.path.insert(0, str(workspace_root))
+
+    # ── Resolve runtime settings from AquilaConfig ───────────────────
+    rt = _load_workspace_runtime_config(workspace_root)
+    host   = host   if host   is not None else rt.get("host",   "127.0.0.1")
+    port   = port   if port   is not None else rt.get("port",   8000)
+    reload = reload if reload is not None else rt.get("reload", True)
     
     # Set environment variables
     os.environ['AQUILIA_ENV'] = mode
@@ -814,25 +917,32 @@ def run_dev_server(
         print(f"  Host: {host}:{port}")
         print(f"  Reload: {reload}")
         print(f"  App: {app_module}")
+        if rt:
+            extras = {k: v for k, v in rt.items()
+                      if k not in ("host", "port", "reload", "mode", "debug")
+                      and v is not None}
+            if extras:
+                print(f"  Server config: {extras}")
         print()
     
     # Discover and display all routes before starting server
     _discover_and_display_routes(workspace_root, verbose)
     
-    # Configure uvicorn
-    uvicorn.run(
-        app=app_module,
-        host=host,
-        port=port,
-        reload=reload,
-        reload_dirs=[str(workspace_root)] if reload else None,
-        log_level="debug" if verbose else "info",
-        access_log=True,
-        use_colors=True,
-    )
+    # Build uvicorn kwargs from AquilaConfig.Server, with CLI overrides
+    uv_kwargs = _build_uvicorn_kwargs(rt, overrides={
+        "host": host,
+        "port": port,
+        "reload": reload,
+    })
+    # Dev-mode defaults that kick in unless the user overrode them
+    uv_kwargs.setdefault("reload_dirs", [str(workspace_root)] if reload else None)
+    uv_kwargs.setdefault("use_colors", True)
+    if verbose:
+        uv_kwargs["log_level"] = "debug"
+    else:
+        uv_kwargs.setdefault("log_level", "info")
     
-    # server = uvicorn.Server(config)
-    # server.run()
+    uvicorn.run(app=app_module, **uv_kwargs)
 
 
 def _create_workspace_app(workspace_root: Path, mode: str, verbose: bool = False) -> str:

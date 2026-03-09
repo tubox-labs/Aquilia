@@ -19,13 +19,14 @@ The production pipeline:
 import os
 import sys
 from pathlib import Path
+from typing import Optional
 
 from ..utils.workspace import get_workspace_file
 
 
 def serve_production(
-    workers: int = 1,
-    bind: str = '0.0.0.0:8000',
+    workers: Optional[int] = None,
+    bind: Optional[str] = None,
     verbose: bool = False,
     use_gunicorn: bool = False,
     timeout: int = 120,
@@ -34,9 +35,14 @@ def serve_production(
     """
     Start production server.
 
+    Resolution order for host / port / workers:
+    1. Explicit CLI flags (``--bind``, ``--workers``)
+    2. AquilaConfig values from ``workspace.py``
+    3. Hardcoded production defaults
+
     Args:
-        workers: Number of workers
-        bind: Bind address (host:port)
+        workers: Number of workers (None = from workspace config or 1)
+        bind: Bind address host:port (None = from workspace config or 0.0.0.0:8000)
         verbose: Enable verbose output
         use_gunicorn: Use gunicorn with UvicornWorker (recommended for production)
         timeout: Worker timeout in seconds (gunicorn only)
@@ -48,13 +54,24 @@ def serve_production(
     if not ws_file:
         raise ValueError("Not in an Aquilia workspace (workspace.py not found)")
 
-    # Parse host:port from bind
-    if ':' in bind:
-        host, port_str = bind.rsplit(':', 1)
-        port = int(port_str)
+    # ── Resolve runtime settings from AquilaConfig ───────────────────
+    from .run import _load_workspace_runtime_config
+    rt = _load_workspace_runtime_config(workspace_root)
+
+    if bind is not None:
+        # Explicit --bind flag: parse host:port
+        if ':' in bind:
+            host, port_str = bind.rsplit(':', 1)
+            port = int(port_str)
+        else:
+            host = bind
+            port = rt.get("port", 8000)
     else:
-        host = bind
-        port = 8000
+        # No explicit bind — read from config
+        host = rt.get("host", "0.0.0.0")
+        port = rt.get("port", 8000)
+
+    workers = workers if workers is not None else rt.get("workers", 1)
 
     # Add workspace to path
     if str(workspace_root) not in sys.path:
@@ -150,6 +167,7 @@ def serve_production(
             port=port,
             workers=workers,
             verbose=verbose,
+            runtime_config=rt,
         )
 
 
@@ -204,8 +222,14 @@ def _serve_with_uvicorn(
     port: int,
     workers: int,
     verbose: bool,
+    runtime_config: Optional[dict] = None,
 ) -> None:
-    """Start production server using uvicorn directly."""
+    """Start production server using uvicorn directly.
+
+    All ``AquilaConfig.Server`` fields are forwarded to uvicorn so that
+    settings like ``timeout_keep_alive``, ``limit_max_requests``,
+    ``proxy_headers``, SSL certs, etc. take effect automatically.
+    """
     try:
         import uvicorn
     except ImportError:
@@ -215,12 +239,16 @@ def _serve_with_uvicorn(
             "Or with extras: pip install 'aquilia[server]'"
         )
 
-    uvicorn.run(
-        app=app_module,
-        host=host,
-        port=port,
-        workers=workers,
-        reload=False,
-        log_level="warning" if not verbose else "info",
-        access_log=False,
-    )
+    from .run import _build_uvicorn_kwargs
+
+    uv_kwargs = _build_uvicorn_kwargs(runtime_config or {}, overrides={
+        "host": host,
+        "port": port,
+        "workers": workers,
+    })
+    # Production-mode defaults
+    uv_kwargs["reload"] = False
+    uv_kwargs.setdefault("log_level", "info" if verbose else "warning")
+    uv_kwargs.setdefault("access_log", False)
+
+    uvicorn.run(app=app_module, **uv_kwargs)

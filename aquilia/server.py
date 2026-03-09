@@ -852,7 +852,7 @@ class AquiliaServer:
 
         Checks multiple locations for the debug flag:
         1. Top-level ``debug`` key (set by generated runtime/app.py)
-        2. ``server.debug`` (dev.yaml / prod.yaml convention)
+        2. ``server.debug`` (env config convention)
         3. ``AQUILIA_ENV`` environment variable (``dev`` implies debug)
         """
         if self.config.get("debug", False):
@@ -1394,7 +1394,7 @@ class AquiliaServer:
                     policy.persistence.store_name if policy.persistence else "memory"
                 )
             elif isinstance(store, str):
-                # String store name from YAML config (e.g., "memory") -- resolve to object
+                # String store name from config (e.g., "memory") -- resolve to object
                 store = self._resolve_store_from_name(store)
             elif isinstance(store, dict):
                 store = self._resolve_store_from_name(
@@ -3262,22 +3262,30 @@ class AquiliaServer:
 
     def run(
         self,
-        host: str = "127.0.0.1",
-        port: int = 8000,
-        reload: bool = False,
+        host: Optional[str] = None,
+        port: Optional[int] = None,
+        reload: Optional[bool] = None,
         log_level: str = "info",
         graceful_timeout: float = 30.0,
     ):
         """
         Run the development server with graceful shutdown support.
-        
+
+        Values default to the loaded ``AquilaConfig`` runtime settings,
+        falling back to ``127.0.0.1:8000`` if no config is available.
+
         Args:
-            host: Host to bind to
-            port: Port to bind to
-            reload: Enable auto-reload
+            host: Host to bind to (None = from config or 127.0.0.1)
+            port: Port to bind to (None = from config or 8000)
+            reload: Enable auto-reload (None = from config or False)
             log_level: Logging level
             graceful_timeout: Seconds to wait for in-flight requests on shutdown
         """
+        # Resolve from loaded config if not explicitly provided
+        rt = self.config.config_data.get("runtime", {})
+        host   = host   if host   is not None else rt.get("host",   "127.0.0.1")
+        port   = port   if port   is not None else rt.get("port",   8000)
+        reload = reload if reload is not None else rt.get("reload", False)
         # Setup logging with color support
         class _ColorFmt(logging.Formatter):
             _C = {
@@ -3301,18 +3309,21 @@ class AquiliaServer:
             logging.getLogger(_noisy).setLevel(logging.WARNING)
         
         try:
-            # Try to import uvicorn
             import uvicorn
-            
+            from aquilia.cli.commands.run import _build_uvicorn_kwargs
+
+            # Build kwargs from the full runtime config, with explicit
+            # overrides taking priority.
+            uv_kwargs = _build_uvicorn_kwargs(rt, overrides={
+                "host": host,
+                "port": port,
+                "reload": reload,
+                "log_level": log_level,
+            })
+
             # uvicorn manages the event loop and lifespan (startup/shutdown)
             # via the ASGI lifespan protocol -- no need to call startup() manually
-            uvicorn.run(
-                self.app,
-                host=host,
-                port=port,
-                reload=reload,
-                log_level=log_level,
-            )
+            uvicorn.run(self.app, **uv_kwargs)
         
         except ImportError:
             self.logger.error(
