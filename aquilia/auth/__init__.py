@@ -40,6 +40,7 @@ from .core import (
 from .hashing import (
     PasswordHasher,
     PasswordPolicy,
+    HasherConfig,
     hash_password,
     verify_password,
     validate_password,
@@ -197,6 +198,7 @@ __all__ = [
     # Password hashing
     "PasswordHasher",
     "PasswordPolicy",
+    "HasherConfig",
     "hash_password",
     "verify_password",
     "validate_password",
