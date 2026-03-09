@@ -5,7 +5,7 @@ Provides typed, validated configuration dataclasses for each database backend,
 with Python-native developer ergonomics using dataclasses and fluent builders.
 
 Supported backends:
-    - SqliteConfig     → SQLite via aiosqlite
+    - SqliteConfig     → SQLite via native aquilia.sqlite
     - PostgresConfig   → PostgreSQL via asyncpg
     - MysqlConfig      → MySQL/MariaDB via aiomysql
     - OracleConfig     → Oracle via python-oracledb

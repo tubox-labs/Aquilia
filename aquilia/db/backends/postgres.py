@@ -46,7 +46,7 @@ class _PgCursorResult:
     """
     Thin cursor-like wrapper around asyncpg results so the ORM can
     access ``.lastrowid`` and ``.rowcount`` the same way it does for
-    aiosqlite / aiomysql cursors.
+    aquilia.sqlite / aiomysql cursors.
     """
 
     __slots__ = ("lastrowid", "rowcount")

@@ -448,7 +448,7 @@ def check_migrations_applied(db_url: str, migrations_dir: str | Path = "migratio
     if not migration_files:
         return True
 
-    # Read-only probe using sqlite3 (not aiosqlite) to avoid WAL
+    # Read-only probe using sqlite3 (synchronous, not via pool) to avoid WAL
     try:
         import sqlite3
         # Use mode=ro to prevent WAL/SHM creation

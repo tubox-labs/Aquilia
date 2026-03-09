@@ -1,7 +1,7 @@
 """
 Registry data models -- SQLite backend (default).
 
-Uses ``aiosqlite`` which is already an Aquilia dependency.
+Uses the native ``aquilia.sqlite`` async module (stdlib ``sqlite3``).
 """
 
 from __future__ import annotations
@@ -27,15 +27,19 @@ class RegistryDB:
     def __init__(self, db_path: str = "registry.db"):
         self.db_path = db_path
         self._conn = None
+        self._pool = None
 
     async def initialize(self) -> None:
         """Create tables if they don't exist."""
-        import aiosqlite
+        from aquilia.sqlite import create_pool, SqlitePoolConfig
 
-        self._conn = await aiosqlite.connect(self.db_path)
-        self._conn.row_factory = aiosqlite.Row
+        self._pool = await create_pool(
+            SqlitePoolConfig(path=self.db_path, pool_size=2, pool_min_size=1)
+        )
+        self._conn = self._pool  # duck-typed: execute, fetch_all, etc.
 
-        await self._conn.executescript(
+        async with self._pool.acquire(readonly=False) as conn:
+            await conn.execute_script(
             """
             CREATE TABLE IF NOT EXISTS packs (
                 id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -71,12 +75,12 @@ class RegistryDB:
 
             CREATE INDEX IF NOT EXISTS idx_blobs_digest ON blobs(digest);
             """
-        )
-        await self._conn.commit()
+            )
 
     async def close(self) -> None:
-        if self._conn:
-            await self._conn.close()
+        if self._pool:
+            await self._pool.close()
+            self._pool = None
             self._conn = None
 
     # ── Packs ────────────────────────────────────────────────────────
@@ -96,37 +100,34 @@ class RegistryDB:
             INSERT OR IGNORE INTO packs (name, tag, digest, manifest_json, signed_by)
             VALUES (?, ?, ?, ?, ?)
             """,
-            (name, tag, digest, manifest_json, signed_by),
+            [name, tag, digest, manifest_json, signed_by],
         )
-        await self._conn.commit()
 
     async def get_pack(self, name: str, tag: str) -> Optional[Dict[str, Any]]:
         """Get pack by name:tag via the tags table."""
         assert self._conn is not None
-        cursor = await self._conn.execute(
+        row = await self._conn.fetch_one(
             """
             SELECT p.* FROM packs p
             INNER JOIN tags t ON p.digest = t.digest
             WHERE t.name = ? AND t.tag = ?
             """,
-            (name, tag),
+            [name, tag],
         )
-        row = await cursor.fetchone()
-        return dict(row) if row else None
+        return row.to_dict() if row else None
 
     async def get_pack_by_digest(self, digest: str) -> Optional[Dict[str, Any]]:
         """Get pack by content digest."""
         assert self._conn is not None
-        cursor = await self._conn.execute(
-            "SELECT * FROM packs WHERE digest = ?", (digest,)
+        row = await self._conn.fetch_one(
+            "SELECT * FROM packs WHERE digest = ?", [digest]
         )
-        row = await cursor.fetchone()
-        return dict(row) if row else None
+        return row.to_dict() if row else None
 
     async def list_versions(self, name: str) -> List[Dict[str, Any]]:
         """List all versions (tags) of a named pack."""
         assert self._conn is not None
-        cursor = await self._conn.execute(
+        rows = await self._conn.fetch_all(
             """
             SELECT t.tag, t.digest, t.updated_at, p.signed_by
             FROM tags t
@@ -134,17 +135,16 @@ class RegistryDB:
             WHERE t.name = ?
             ORDER BY t.updated_at DESC
             """,
-            (name,),
+            [name],
         )
-        rows = await cursor.fetchall()
-        return [dict(r) for r in rows]
+        return [r.to_dict() for r in rows]
 
     async def list_packs(
         self, limit: int = 100, offset: int = 0
     ) -> List[Dict[str, Any]]:
         """List distinct pack names with latest tag info."""
         assert self._conn is not None
-        cursor = await self._conn.execute(
+        rows = await self._conn.fetch_all(
             """
             SELECT DISTINCT p.name, t.tag, p.digest, p.created_at, p.signed_by
             FROM packs p
@@ -152,10 +152,9 @@ class RegistryDB:
             ORDER BY p.created_at DESC
             LIMIT ? OFFSET ?
             """,
-            (limit, offset),
+            [limit, offset],
         )
-        rows = await cursor.fetchall()
-        return [dict(r) for r in rows]
+        return [r.to_dict() for r in rows]
 
     # ── Tags ─────────────────────────────────────────────────────────
 
@@ -169,17 +168,15 @@ class RegistryDB:
             ON CONFLICT(name, tag)
             DO UPDATE SET digest = excluded.digest, updated_at = excluded.updated_at
             """,
-            (name, tag, digest),
+            [name, tag, digest],
         )
-        await self._conn.commit()
 
     async def delete_tag(self, name: str, tag: str) -> None:
         """Delete a tag."""
         assert self._conn is not None
         await self._conn.execute(
-            "DELETE FROM tags WHERE name = ? AND tag = ?", (name, tag)
+            "DELETE FROM tags WHERE name = ? AND tag = ?", [name, tag]
         )
-        await self._conn.commit()
 
     # ── Blobs ────────────────────────────────────────────────────────
 
@@ -193,6 +190,5 @@ class RegistryDB:
             INSERT OR IGNORE INTO blobs (digest, size, storage_path)
             VALUES (?, ?, ?)
             """,
-            (digest, size, storage_path),
+            [digest, size, storage_path],
         )
-        await self._conn.commit()

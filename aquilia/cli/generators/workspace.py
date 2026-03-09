@@ -1049,7 +1049,7 @@ class WorkspaceGenerator:
             aquilia>=1.0.0
 
             # ── Database drivers (uncomment as needed) ────────────────────────
-            # aiosqlite>=0.20.0         # SQLite (async)
+            # SQLite is built-in via aquilia.sqlite (no extra dependency needed)
             # asyncpg>=0.29.0           # PostgreSQL
             # aiomysql>=0.2.0           # MySQL / MariaDB
 

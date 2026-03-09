@@ -55,8 +55,6 @@ dependencies = [
     # Template engine — used by admin panel and user templates (always loaded)
     "jinja2>=3.1.0",
     "markupsafe>=2.1.0",
-    # Async SQLite — default database backend
-    "aiosqlite>=0.20.0",
     # Crous compiler — used for manifest compilation and runtime evaluation
     "crousr",
     "crous-native",
@@ -67,12 +65,16 @@ dependencies = [
 # ---------------------------------------------------------------------------
 [project.optional-dependencies]
 
-# NOTE: jinja2/markupsafe and aiosqlite are now in core dependencies.
+# NOTE: jinja2/markupsafe are now in core dependencies.
 # These aliases are kept for backwards compatibility with existing installs
 # that specify `pip install aquilia[templates]` or `pip install aquilia[db]`.
 templates = []
 
 db = []
+
+# Async SQLite compat shim — DEPRECATED: aiosqlite replaced by native aquilia.sqlite.
+# Kept for gradual migration; will be removed in next major version.
+sqlite-compat = ["aiosqlite>=0.20.0"]
 
 # Auth subsystem — cryptography + password hashing
 auth = [
@@ -80,10 +82,9 @@ auth = [
     "argon2-cffi>=23.1.0",
 ]
 
-# Async file I/O (static file serving, uploads)
-files = [
-    "aiofiles>=23.0.0",
-]
+# Async file I/O — DEPRECATED: aiofiles replaced by native aquilia.filesystem.
+# Kept as an empty list so existing `pip install aquilia[files]` won't break.
+files = []
 
 # Multipart form / file-upload parsing
 multipart = [
@@ -157,9 +158,9 @@ mlops-all = [
 
 # ---- Convenience bundles ----------------------------------------------------
 
-# Everything except MLOps (templates & db are now core — kept in list for clarity)
+# Everything except MLOps (templates, db & files are now core — kept in list for compat)
 full = [
-    "aquilia[auth,files,multipart,redis,mail,mail-ses,mail-sendgrid,server]",
+    "aquilia[auth,multipart,redis,mail,mail-ses,mail-sendgrid,server]",
 ]
 
 # Absolutely everything

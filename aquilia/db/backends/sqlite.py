@@ -1,8 +1,16 @@
 """
-Aquilia DB Backend -- SQLite adapter via aiosqlite.
+Aquilia DB Backend -- SQLite adapter via native aquilia.sqlite module.
 
-This is the default backend. It wraps aiosqlite and implements
-the full DatabaseAdapter interface including introspection.
+This is the default backend. It uses the native ``aquilia.sqlite``
+connection pool (built on stdlib ``sqlite3``) and implements the full
+``DatabaseAdapter`` interface including introspection.
+
+Built on the native aquilia.sqlite module with:
+- Connection pooling (N readers + 1 writer)
+- Prepared statement caching
+- Full PRAGMA hardening (busy_timeout, synchronous, etc.)
+- Observable metrics
+- Cooperative cancellation
 """
 
 from __future__ import annotations
@@ -19,10 +27,15 @@ from .base import (
     TableInfo,
 )
 
-try:
-    import aiosqlite
-except ImportError:
-    aiosqlite = None  # type: ignore[assignment]
+from aquilia.sqlite import (
+    ConnectionPool,
+    SqlitePoolConfig,
+    SqliteMetrics,
+    create_pool,
+    SqliteError,
+    SqliteConnectionError,
+    Row,
+)
 
 logger = logging.getLogger("aquilia.db.backends.sqlite")
 
@@ -34,14 +47,17 @@ _SP_NAME_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
 
 class SQLiteAdapter(DatabaseAdapter):
     """
-    SQLite adapter using aiosqlite.
+    SQLite adapter using the native ``aquilia.sqlite`` connection pool.
 
     Features:
-    - WAL journal mode for concurrent reads
+    - Connection pooling (WAL-mode concurrent readers + serialized writer)
+    - Full PRAGMA hardening (busy_timeout, synchronous=NORMAL, etc.)
+    - Prepared statement caching per connection
     - Foreign key enforcement
     - Full introspection support
     - Savepoint-based nested transactions
     - SQL injection prevention on savepoint names
+    - Observable metrics (queries, cache hits, pool utilization)
     """
 
     capabilities = AdapterCapabilities(
@@ -59,123 +75,153 @@ class SQLiteAdapter(DatabaseAdapter):
         name="sqlite",
     )
 
-    def __init__(self):
-        self._connection: Any = None
+    def __init__(self) -> None:
+        self._pool: Optional[ConnectionPool] = None
         self._connected = False
         self._lock = asyncio.Lock()
         self._in_transaction = False
+        self._writer_conn: Any = None  # held during transaction
 
     async def connect(self, url: str, **options) -> None:
         if self._connected:
             return
-        if aiosqlite is None:
-            raise ImportError(
-                "aiosqlite is required for SQLite backend. "
-                "Install: pip install aiosqlite"
-            )
         async with self._lock:
             if self._connected:
                 return
             db_path = self._parse_url(url)
-            self._connection = await aiosqlite.connect(db_path)
-            await self._connection.execute("PRAGMA journal_mode=WAL")
-            await self._connection.execute("PRAGMA foreign_keys=ON")
-            self._connection.row_factory = aiosqlite.Row
+            config = SqlitePoolConfig(
+                path=db_path,
+                journal_mode=options.get("journal_mode", "WAL"),
+                foreign_keys=options.get("foreign_keys", True),
+                busy_timeout=options.get("busy_timeout", 5000),
+                synchronous=options.get("synchronous", "NORMAL"),
+                pool_size=options.get("pool_size", 5),
+                pool_min_size=options.get("pool_min_size", 2),
+                statement_cache_size=options.get("statement_cache_size", 256),
+                echo=options.get("echo", False),
+            )
+            self._pool = await create_pool(config)
             self._connected = True
 
     async def disconnect(self) -> None:
         if not self._connected:
             return
         async with self._lock:
-            if self._connection:
-                await self._connection.close()
-                self._connection = None
+            if self._pool:
+                await self._pool.close()
+                self._pool = None
             self._connected = False
 
     async def execute(self, sql: str, params: Optional[Sequence[Any]] = None) -> Any:
-        if not self._connected:
+        if not self._connected or self._pool is None:
             raise RuntimeError("Not connected")
         params = params or []
-        cursor = await self._connection.execute(sql, params)
-        if not self._in_transaction:
-            await self._connection.commit()
-        return cursor
+        if self._in_transaction and self._writer_conn is not None:
+            return await self._writer_conn.execute(sql, params)
+        # Auto-commit mode: use pool quick method (acquires writer)
+        return await self._pool.execute(sql, params)
 
     async def execute_many(self, sql: str, params_list: Sequence[Sequence[Any]]) -> None:
-        if not self._connected:
+        if not self._connected or self._pool is None:
             raise RuntimeError("Not connected")
-        await self._connection.executemany(sql, params_list)
-        if not self._in_transaction:
-            await self._connection.commit()
+        if self._in_transaction and self._writer_conn is not None:
+            await self._writer_conn.execute_many(sql, params_list)
+            return
+        await self._pool.execute_many(sql, params_list)
 
     async def fetch_all(self, sql: str, params: Optional[Sequence[Any]] = None) -> List[Dict[str, Any]]:
-        if not self._connected:
+        if not self._connected or self._pool is None:
             raise RuntimeError("Not connected")
         params = params or []
-        cursor = await self._connection.execute(sql, params)
-        rows = await cursor.fetchall()
-        if rows and hasattr(rows[0], "keys"):
-            return [dict(row) for row in rows]
-        if cursor.description and rows:
-            cols = [d[0] for d in cursor.description]
-            return [dict(zip(cols, row)) for row in rows]
-        return []
+        if self._in_transaction and self._writer_conn is not None:
+            rows = await self._writer_conn.fetch_all(sql, params)
+        else:
+            rows = await self._pool.fetch_all(sql, params)
+        # Convert Row objects to dicts for backward compatibility
+        result = []
+        for row in rows:
+            if isinstance(row, Row):
+                result.append(row.to_dict())
+            elif hasattr(row, "keys"):
+                result.append(dict(row))
+            else:
+                result.append(row)  # type: ignore[arg-type]
+        return result
 
     async def fetch_one(self, sql: str, params: Optional[Sequence[Any]] = None) -> Optional[Dict[str, Any]]:
-        if not self._connected:
+        if not self._connected or self._pool is None:
             raise RuntimeError("Not connected")
         params = params or []
-        cursor = await self._connection.execute(sql, params)
-        row = await cursor.fetchone()
+        if self._in_transaction and self._writer_conn is not None:
+            row = await self._writer_conn.fetch_one(sql, params)
+        else:
+            row = await self._pool.fetch_one(sql, params)
         if row is None:
             return None
+        if isinstance(row, Row):
+            return row.to_dict()
         if hasattr(row, "keys"):
             return dict(row)
-        if cursor.description:
-            cols = [d[0] for d in cursor.description]
-            return dict(zip(cols, row))
         return None
 
     async def fetch_val(self, sql: str, params: Optional[Sequence[Any]] = None) -> Any:
-        if not self._connected:
+        if not self._connected or self._pool is None:
             raise RuntimeError("Not connected")
         params = params or []
-        cursor = await self._connection.execute(sql, params)
-        row = await cursor.fetchone()
-        if row is None:
-            return None
-        if isinstance(row, dict):
-            return next(iter(row.values()))
-        return row[0]
+        if self._in_transaction and self._writer_conn is not None:
+            return await self._writer_conn.fetch_val(sql, params)
+        return await self._pool.fetch_val(sql, params)
 
     # ── Transactions ─────────────────────────────────────────────────
 
     async def begin(self) -> None:
-        await self._connection.execute("BEGIN")
+        if not self._connected or self._pool is None:
+            raise RuntimeError("Not connected")
+        # Acquire the writer connection and hold it for the transaction
+        self._writer_conn = await self._pool._acquire(readonly=False)
+        await self._writer_conn.begin(mode="DEFERRED")
         self._in_transaction = True
 
     async def commit(self) -> None:
-        await self._connection.commit()
+        if self._writer_conn is not None:
+            await self._writer_conn.commit()
+            await self._pool._release(self._writer_conn)  # type: ignore[union-attr]
+            self._writer_conn = None
         self._in_transaction = False
 
     async def rollback(self) -> None:
-        await self._connection.rollback()
+        if self._writer_conn is not None:
+            await self._writer_conn.rollback()
+            await self._pool._release(self._writer_conn)  # type: ignore[union-attr]
+            self._writer_conn = None
         self._in_transaction = False
 
     async def savepoint(self, name: str) -> None:
         if not _SP_NAME_RE.match(name):
             raise ValueError(f"Invalid savepoint name: {name!r}")
-        await self._connection.execute(f'SAVEPOINT "{name}"')
+        if self._writer_conn is not None:
+            await self._writer_conn.savepoint(name)
+        elif self._pool is not None:
+            async with self._pool.acquire(readonly=False) as conn:
+                await conn.savepoint(name)
 
     async def release_savepoint(self, name: str) -> None:
         if not _SP_NAME_RE.match(name):
             raise ValueError(f"Invalid savepoint name: {name!r}")
-        await self._connection.execute(f'RELEASE SAVEPOINT "{name}"')
+        if self._writer_conn is not None:
+            await self._writer_conn.release_savepoint(name)
+        elif self._pool is not None:
+            async with self._pool.acquire(readonly=False) as conn:
+                await conn.release_savepoint(name)
 
     async def rollback_to_savepoint(self, name: str) -> None:
         if not _SP_NAME_RE.match(name):
             raise ValueError(f"Invalid savepoint name: {name!r}")
-        await self._connection.execute(f'ROLLBACK TO SAVEPOINT "{name}"')
+        if self._writer_conn is not None:
+            await self._writer_conn.rollback_to_savepoint(name)
+        elif self._pool is not None:
+            async with self._pool.acquire(readonly=False) as conn:
+                await conn.rollback_to_savepoint(name)
 
     # ── Introspection ────────────────────────────────────────────────
 
@@ -242,6 +288,18 @@ class SQLiteAdapter(DatabaseAdapter):
     @property
     def dialect(self) -> str:
         return "sqlite"
+
+    @property
+    def pool(self) -> Optional[ConnectionPool]:
+        """Access the underlying connection pool (for advanced usage)."""
+        return self._pool
+
+    @property
+    def metrics(self) -> Optional[SqliteMetrics]:
+        """Access pool metrics."""
+        if self._pool:
+            return self._pool.metrics
+        return None
 
     @staticmethod
     def _parse_url(url: str) -> str:

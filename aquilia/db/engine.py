@@ -3,7 +3,7 @@ Aquilia Database Engine -- async-first, multi-backend, production-ready.
 
 Provides:
 - AquiliaDatabase: async connection manager delegating to backend adapters
-- SQLite (aiosqlite), PostgreSQL (asyncpg), MySQL (aiomysql), Oracle (oracledb) backends
+- SQLite (native aquilia.sqlite), PostgreSQL (asyncpg), MySQL (aiomysql), Oracle (oracledb) backends
 - Typed config classes: SqliteConfig, PostgresConfig, MysqlConfig, OracleConfig
 - Full integration with AquilaFaults and DI container
 - Lifecycle hooks for startup/shutdown

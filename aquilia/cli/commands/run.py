@@ -1016,7 +1016,7 @@ logging.root.addHandler(_handler)
 logging.root.setLevel(_LOG_LEVEL)
 
 # Silence noisy third-party loggers in dev mode
-for _noisy in ("aiosqlite", "asyncio", "urllib3", "httpcore", "httpx",
+for _noisy in ("aquilia.sqlite", "asyncio", "urllib3", "httpcore", "httpx",
                "watchfiles", "uvicorn.error", "python_multipart",
                "python_multipart.multipart"):
     logging.getLogger(_noisy).setLevel(logging.WARNING)
