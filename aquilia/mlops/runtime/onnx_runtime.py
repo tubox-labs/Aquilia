@@ -45,7 +45,8 @@ class ONNXRuntimeAdapter(BaseRuntime):
 
     async def load(self) -> None:
         if not self._manifest:
-            raise RuntimeError("Runtime not prepared")
+            from aquilia.faults.domains import ConfigMissingFault
+            raise ConfigMissingFault(key="mlops.runtime.manifest")
 
         self._set_state(ModelState.LOADING)
 
@@ -83,7 +84,8 @@ class ONNXRuntimeAdapter(BaseRuntime):
 
     async def infer(self, batch: BatchRequest) -> List[InferenceResult]:
         if not self._session:
-            raise RuntimeError("Model not loaded")
+            from aquilia.faults.domains import ConfigMissingFault
+            raise ConfigMissingFault(key="mlops.runtime.session")
 
         results: List[InferenceResult] = []
         input_names = [inp.name for inp in self._session.get_inputs()]

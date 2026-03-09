@@ -32,12 +32,20 @@ def load_manifests_from_settings(settings_path: str) -> tuple[List[Any], Any]:
     if not resolved.is_file():
         raise FileNotFoundError(f"Settings file not found: {resolved}")
     if resolved.suffix != ".py":
-        raise ValueError(f"Settings file must be a .py file, got: {resolved.suffix}")
+        from aquilia.faults.domains import ConfigInvalidFault
+        raise ConfigInvalidFault(
+            key="settings_path",
+            reason=f"Settings file must be a .py file, got: {resolved.suffix}",
+        )
 
     # SEC-DI-03: Validate module name is a valid Python identifier
     module_name = resolved.stem
     if not re.match(r"^[A-Za-z_][A-Za-z0-9_]*$", module_name):
-        raise ValueError(f"Invalid module name derived from settings path: {module_name!r}")
+        from aquilia.faults.domains import ConfigInvalidFault
+        raise ConfigInvalidFault(
+            key="settings_path.module_name",
+            reason=f"Invalid module name derived from settings path: {module_name!r}",
+        )
 
     sys.path.insert(0, str(resolved.parent))
     

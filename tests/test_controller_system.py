@@ -407,7 +407,8 @@ class TestDecorators:
         assert methods == {"GET", "POST"}
 
     def test_route_function_invalid_method(self):
-        with pytest.raises(ValueError, match="Invalid HTTP method"):
+        from aquilia.faults.domains import ConfigInvalidFault
+        with pytest.raises(ConfigInvalidFault, match="Invalid HTTP method"):
             @route("INVALID", "/")
             async def handler(self, ctx): pass
 

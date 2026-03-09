@@ -126,7 +126,8 @@ class PluginHost:
         """Import and instantiate a discovered plugin."""
         desc = self._plugins.get(name)
         if desc is None:
-            raise KeyError(f"Plugin '{name}' not found")
+            from aquilia.faults.domains import RegistryFault
+            raise RegistryFault(name=name, message=f"Plugin '{name}' not found")
 
         if desc.state not in (PluginState.DISCOVERED, PluginState.DEACTIVATED):
             return desc
@@ -152,7 +153,8 @@ class PluginHost:
         """Activate a loaded plugin."""
         desc = self._plugins.get(name)
         if desc is None:
-            raise KeyError(f"Plugin '{name}' not found")
+            from aquilia.faults.domains import RegistryFault
+            raise RegistryFault(name=name, message=f"Plugin '{name}' not found")
 
         if desc.state == PluginState.ACTIVATED:
             return

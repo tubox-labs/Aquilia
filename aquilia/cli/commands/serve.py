@@ -52,7 +52,8 @@ def serve_production(
     ws_file = get_workspace_file(workspace_root)
 
     if not ws_file:
-        raise ValueError("Not in an Aquilia workspace (workspace.py not found)")
+        from aquilia.faults.domains import ConfigMissingFault
+        raise ConfigMissingFault(key="workspace.py")
 
     # ── Resolve runtime settings from AquilaConfig ───────────────────
     from .run import _load_workspace_runtime_config

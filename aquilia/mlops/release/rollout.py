@@ -96,10 +96,15 @@ class RolloutEngine:
         """Advance a rollout to a higher canary percentage."""
         state = self._rollouts.get(rollout_id)
         if not state:
-            raise KeyError(f"Rollout not found: {rollout_id}")
+            from aquilia.faults.domains import RegistryFault
+            raise RegistryFault(name=rollout_id, message=f"Rollout not found: {rollout_id}")
 
         if state.phase != RolloutPhase.IN_PROGRESS:
-            raise RuntimeError(f"Cannot advance rollout in phase: {state.phase.value}")
+            from aquilia.faults.domains import ConfigInvalidFault
+            raise ConfigInvalidFault(
+                key="mlops.rollout.phase",
+                reason=f"Cannot advance rollout in phase: {state.phase.value}",
+            )
 
         # Check for auto-rollback
         if state.config.auto_rollback and self._router.should_rollback(state.config):
@@ -131,7 +136,8 @@ class RolloutEngine:
         """Complete a rollout (100% traffic to new version)."""
         state = self._rollouts.get(rollout_id)
         if not state:
-            raise KeyError(f"Rollout not found: {rollout_id}")
+            from aquilia.faults.domains import RegistryFault
+            raise RegistryFault(name=rollout_id, message=f"Rollout not found: {rollout_id}")
 
         state.phase = RolloutPhase.COMPLETED
         state.current_percentage = 100
@@ -150,7 +156,8 @@ class RolloutEngine:
         """Rollback a rollout to the original version."""
         state = self._rollouts.get(rollout_id)
         if not state:
-            raise KeyError(f"Rollout not found: {rollout_id}")
+            from aquilia.faults.domains import RegistryFault
+            raise RegistryFault(name=rollout_id, message=f"Rollout not found: {rollout_id}")
 
         state.phase = RolloutPhase.ROLLED_BACK
         state.current_percentage = 0

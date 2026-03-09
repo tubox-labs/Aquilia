@@ -2567,9 +2567,13 @@ def admin_createsuperuser(ctx, username: str, email: str, password: str, first_n
             )
 
             if db is None:
-                raise RuntimeError(
-                    "No database connection available. "
-                    "Run 'aq db migrate' first to set up the database."
+                from aquilia.faults.domains import DatabaseConnectionFault
+                raise DatabaseConnectionFault(
+                    backend="unknown",
+                    reason=(
+                        "No database connection available. "
+                        "Run 'aq db migrate' first to set up the database."
+                    ),
                 )
 
             # Auto-ensure admin tables exist (safety net).
@@ -2599,7 +2603,11 @@ def admin_createsuperuser(ctx, username: str, email: str, password: str, first_n
             uname_err, email_err = await _check_admin_user_unique(db, username, email)
             if uname_err or email_err:
                 msgs = [m for m in (uname_err, email_err) if m]
-                raise RuntimeError("\n".join(msgs))
+                from aquilia.faults.domains import ConfigInvalidFault
+                raise ConfigInvalidFault(
+                    key="admin.user",
+                    reason="\n".join(msgs),
+                )
 
             # ORM-based creation
             try:
@@ -2613,23 +2621,39 @@ def admin_createsuperuser(ctx, username: str, email: str, password: str, first_n
             except Exception as e:
                 err_msg = str(e).lower()
                 if "unique constraint" in err_msg and "username" in err_msg:
-                    raise RuntimeError(
-                        f"Username '{username}' already exists. "
-                        "Choose a different username or update the existing user."
+                    from aquilia.faults.domains import ConfigInvalidFault
+                    raise ConfigInvalidFault(
+                        key="admin.username",
+                        reason=(
+                            f"Username '{username}' already exists. "
+                            "Choose a different username or update the existing user."
+                        ),
                     ) from e
                 if "unique constraint" in err_msg and "email" in err_msg:
-                    raise RuntimeError(
-                        f"Email '{email}' is already registered to another admin account. "
-                        "Use a different email address."
+                    from aquilia.faults.domains import ConfigInvalidFault
+                    raise ConfigInvalidFault(
+                        key="admin.email",
+                        reason=(
+                            f"Email '{email}' is already registered to another admin account. "
+                            "Use a different email address."
+                        ),
                     ) from e
                 if "unique constraint" in err_msg:
-                    raise RuntimeError(
-                        f"A user with that username or email already exists. "
-                        "Choose different credentials."
+                    from aquilia.faults.domains import ConfigInvalidFault
+                    raise ConfigInvalidFault(
+                        key="admin.user",
+                        reason=(
+                            f"A user with that username or email already exists. "
+                            "Choose different credentials."
+                        ),
                     ) from e
-                raise RuntimeError(
-                    f"Failed to create superuser: {e}\n"
-                    "Ensure 'aq db makemigrations' and 'aq db migrate' have been run first."
+                from aquilia.faults.domains import DatabaseFault
+                raise DatabaseFault(
+                    operation="create_superuser",
+                    reason=(
+                        f"Failed to create superuser: {e}\n"
+                        "Ensure 'aq db makemigrations' and 'aq db migrate' have been run first."
+                    ),
                 ) from e
         finally:
             if db is not None:
@@ -2861,9 +2885,13 @@ def admin_createstaff(ctx, username: str, email: str, password: str, first_name:
             )
 
             if db is None:
-                raise RuntimeError(
-                    "No database connection available. "
-                    "Run 'aq db migrate' first to set up the database."
+                from aquilia.faults.domains import DatabaseConnectionFault
+                raise DatabaseConnectionFault(
+                    backend="unknown",
+                    reason=(
+                        "No database connection available. "
+                        "Run 'aq db migrate' first to set up the database."
+                    ),
                 )
 
             _admin_models = [
@@ -2888,7 +2916,11 @@ def admin_createstaff(ctx, username: str, email: str, password: str, first_name:
             uname_err, email_err = await _check_admin_user_unique(db, username, email)
             if uname_err or email_err:
                 msgs = [m for m in (uname_err, email_err) if m]
-                raise RuntimeError("\n".join(msgs))
+                from aquilia.faults.domains import ConfigInvalidFault
+                raise ConfigInvalidFault(
+                    key="admin.user",
+                    reason="\n".join(msgs),
+                )
 
             try:
                 user = await AdminUser.create_staff_user(
@@ -2901,23 +2933,39 @@ def admin_createstaff(ctx, username: str, email: str, password: str, first_name:
             except Exception as e:
                 err_msg = str(e).lower()
                 if "unique constraint" in err_msg and "username" in err_msg:
-                    raise RuntimeError(
-                        f"Username '{username}' already exists. "
-                        "Choose a different username or update the existing user."
+                    from aquilia.faults.domains import ConfigInvalidFault
+                    raise ConfigInvalidFault(
+                        key="admin.username",
+                        reason=(
+                            f"Username '{username}' already exists. "
+                            "Choose a different username or update the existing user."
+                        ),
                     ) from e
                 if "unique constraint" in err_msg and "email" in err_msg:
-                    raise RuntimeError(
-                        f"Email '{email}' is already registered to another admin account. "
-                        "Use a different email address."
+                    from aquilia.faults.domains import ConfigInvalidFault
+                    raise ConfigInvalidFault(
+                        key="admin.email",
+                        reason=(
+                            f"Email '{email}' is already registered to another admin account. "
+                            "Use a different email address."
+                        ),
                     ) from e
                 if "unique constraint" in err_msg:
-                    raise RuntimeError(
-                        f"A user with that username or email already exists. "
-                        "Choose different credentials."
+                    from aquilia.faults.domains import ConfigInvalidFault
+                    raise ConfigInvalidFault(
+                        key="admin.user",
+                        reason=(
+                            f"A user with that username or email already exists. "
+                            "Choose different credentials."
+                        ),
                     ) from e
-                raise RuntimeError(
-                    f"Failed to create staff user: {e}\n"
-                    "Ensure 'aq db makemigrations' and 'aq db migrate' have been run first."
+                from aquilia.faults.domains import DatabaseFault
+                raise DatabaseFault(
+                    operation="create_staff_user",
+                    reason=(
+                        f"Failed to create staff user: {e}\n"
+                        "Ensure 'aq db makemigrations' and 'aq db migrate' have been run first."
+                    ),
                 ) from e
         finally:
             if db is not None:

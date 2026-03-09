@@ -15,6 +15,7 @@ from aquilia.middleware import Handler
 from aquilia.request import Request
 from aquilia.response import Response
 from aquilia.di import RequestCtx
+from aquilia.faults.domains import ConfigInvalidFault
 
 if TYPE_CHECKING:
     from aquilia.sessions import SessionEngine, Session
@@ -197,7 +198,10 @@ def create_session_middleware(
         return OptionalSessionMiddleware(session_engine)
     
     if session_engine is None:
-        raise ValueError("session_engine required when optional=False")
+        raise ConfigInvalidFault(
+            key="session_middleware.session_engine",
+            reason="session_engine required when optional=False",
+        )
     
     return SessionMiddleware(session_engine)
 

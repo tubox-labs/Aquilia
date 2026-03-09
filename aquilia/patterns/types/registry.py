@@ -39,7 +39,11 @@ class TypeRegistry:
             return True
         elif lower in ("false", "0", "no", "off"):
             return False
-        raise ValueError(f"Invalid boolean value: {value}")
+        from aquilia.faults.domains import ConfigInvalidFault
+        raise ConfigInvalidFault(
+            key="type_cast.bool",
+            reason=f"Invalid boolean value: {value}",
+        )
 
     @staticmethod
     def _cast_uuid(value: str) -> uuid_lib.UUID:
@@ -50,7 +54,11 @@ class TypeRegistry:
     def _cast_slug(value: str) -> str:
         """Validate and return slug."""
         if not value.replace("-", "").replace("_", "").isalnum():
-            raise ValueError(f"Invalid slug: {value}")
+            from aquilia.faults.domains import ConfigInvalidFault
+            raise ConfigInvalidFault(
+                key="type_cast.slug",
+                reason=f"Invalid slug: {value}",
+            )
         return value
 
     @staticmethod
@@ -65,7 +73,11 @@ class TypeRegistry:
     def get_castor(self, type_name: str) -> Callable[[str], Any]:
         """Get castor for type."""
         if type_name not in self.castors:
-            raise ValueError(f"Unknown type: {type_name}")
+            from aquilia.faults.domains import RegistryFault
+            raise RegistryFault(
+                name=type_name,
+                message=f"Unknown type: {type_name}",
+            )
         return self.castors[type_name]
 
     def has_type(self, type_name: str) -> bool:

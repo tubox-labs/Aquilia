@@ -204,12 +204,14 @@ class OracleAdapter(DatabaseAdapter):
 
     async def execute(self, sql: str, params: Optional[Sequence[Any]] = None) -> Any:
         if not self._connected:
-            raise RuntimeError("Not connected to Oracle")
+            from aquilia.faults.domains import DatabaseConnectionFault
+            raise DatabaseConnectionFault(backend="oracle", reason="Not connected to Oracle")
         return await self._execute_with_cursor(sql, params)
 
     async def execute_many(self, sql: str, params_list: Sequence[Sequence[Any]]) -> None:
         if not self._connected:
-            raise RuntimeError("Not connected to Oracle")
+            from aquilia.faults.domains import DatabaseConnectionFault
+            raise DatabaseConnectionFault(backend="oracle", reason="Not connected to Oracle")
         adapted_sql = self.adapt_sql(sql)
         conn = self._get_conn()
         if conn is not None:
@@ -226,7 +228,8 @@ class OracleAdapter(DatabaseAdapter):
 
     async def fetch_all(self, sql: str, params: Optional[Sequence[Any]] = None) -> List[Dict[str, Any]]:
         if not self._connected:
-            raise RuntimeError("Not connected to Oracle")
+            from aquilia.faults.domains import DatabaseConnectionFault
+            raise DatabaseConnectionFault(backend="oracle", reason="Not connected to Oracle")
         adapted_sql = self.adapt_sql(sql)
         conn = self._get_conn()
 
@@ -248,7 +251,8 @@ class OracleAdapter(DatabaseAdapter):
 
     async def fetch_one(self, sql: str, params: Optional[Sequence[Any]] = None) -> Optional[Dict[str, Any]]:
         if not self._connected:
-            raise RuntimeError("Not connected to Oracle")
+            from aquilia.faults.domains import DatabaseConnectionFault
+            raise DatabaseConnectionFault(backend="oracle", reason="Not connected to Oracle")
         adapted_sql = self.adapt_sql(sql)
         conn = self._get_conn()
 
@@ -272,7 +276,8 @@ class OracleAdapter(DatabaseAdapter):
 
     async def fetch_val(self, sql: str, params: Optional[Sequence[Any]] = None) -> Any:
         if not self._connected:
-            raise RuntimeError("Not connected to Oracle")
+            from aquilia.faults.domains import DatabaseConnectionFault
+            raise DatabaseConnectionFault(backend="oracle", reason="Not connected to Oracle")
         adapted_sql = self.adapt_sql(sql)
         conn = self._get_conn()
 
@@ -326,26 +331,31 @@ class OracleAdapter(DatabaseAdapter):
     async def savepoint(self, name: str) -> None:
         """Create a savepoint (must be inside a transaction)."""
         if not _SP_NAME_RE.match(name):
-            raise ValueError(f"Invalid savepoint name: {name!r}")
+            from aquilia.faults.domains import QueryFault
+            raise QueryFault(message=f"Invalid savepoint name: {name!r}")
         conn = self._get_conn()
         if conn is None:
-            raise RuntimeError("Cannot create savepoint outside a transaction")
+            from aquilia.faults.domains import QueryFault
+            raise QueryFault(message="Cannot create savepoint outside a transaction")
         cursor = conn.cursor()
         await cursor.execute(f'SAVEPOINT {name}')
 
     async def release_savepoint(self, name: str) -> None:
         """Oracle does not support RELEASE SAVEPOINT -- no-op."""
         if not _SP_NAME_RE.match(name):
-            raise ValueError(f"Invalid savepoint name: {name!r}")
+            from aquilia.faults.domains import QueryFault
+            raise QueryFault(message=f"Invalid savepoint name: {name!r}")
         # Oracle does not have RELEASE SAVEPOINT -- this is a no-op
         pass
 
     async def rollback_to_savepoint(self, name: str) -> None:
         if not _SP_NAME_RE.match(name):
-            raise ValueError(f"Invalid savepoint name: {name!r}")
+            from aquilia.faults.domains import QueryFault
+            raise QueryFault(message=f"Invalid savepoint name: {name!r}")
         conn = self._get_conn()
         if conn is None:
-            raise RuntimeError("Cannot rollback savepoint outside a transaction")
+            from aquilia.faults.domains import QueryFault
+            raise QueryFault(message="Cannot rollback savepoint outside a transaction")
         cursor = conn.cursor()
         await cursor.execute(f'ROLLBACK TO SAVEPOINT {name}')
 

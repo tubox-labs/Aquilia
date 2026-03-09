@@ -114,7 +114,8 @@ class SQLiteAdapter(DatabaseAdapter):
 
     async def execute(self, sql: str, params: Optional[Sequence[Any]] = None) -> Any:
         if not self._connected or self._pool is None:
-            raise RuntimeError("Not connected")
+            from aquilia.faults.domains import DatabaseConnectionFault
+            raise DatabaseConnectionFault(backend="sqlite", reason="Not connected")
         params = params or []
         if self._in_transaction and self._writer_conn is not None:
             return await self._writer_conn.execute(sql, params)
@@ -123,7 +124,8 @@ class SQLiteAdapter(DatabaseAdapter):
 
     async def execute_many(self, sql: str, params_list: Sequence[Sequence[Any]]) -> None:
         if not self._connected or self._pool is None:
-            raise RuntimeError("Not connected")
+            from aquilia.faults.domains import DatabaseConnectionFault
+            raise DatabaseConnectionFault(backend="sqlite", reason="Not connected")
         if self._in_transaction and self._writer_conn is not None:
             await self._writer_conn.execute_many(sql, params_list)
             return
@@ -131,7 +133,8 @@ class SQLiteAdapter(DatabaseAdapter):
 
     async def fetch_all(self, sql: str, params: Optional[Sequence[Any]] = None) -> List[Dict[str, Any]]:
         if not self._connected or self._pool is None:
-            raise RuntimeError("Not connected")
+            from aquilia.faults.domains import DatabaseConnectionFault
+            raise DatabaseConnectionFault(backend="sqlite", reason="Not connected")
         params = params or []
         if self._in_transaction and self._writer_conn is not None:
             rows = await self._writer_conn.fetch_all(sql, params)
@@ -150,7 +153,8 @@ class SQLiteAdapter(DatabaseAdapter):
 
     async def fetch_one(self, sql: str, params: Optional[Sequence[Any]] = None) -> Optional[Dict[str, Any]]:
         if not self._connected or self._pool is None:
-            raise RuntimeError("Not connected")
+            from aquilia.faults.domains import DatabaseConnectionFault
+            raise DatabaseConnectionFault(backend="sqlite", reason="Not connected")
         params = params or []
         if self._in_transaction and self._writer_conn is not None:
             row = await self._writer_conn.fetch_one(sql, params)
@@ -166,7 +170,8 @@ class SQLiteAdapter(DatabaseAdapter):
 
     async def fetch_val(self, sql: str, params: Optional[Sequence[Any]] = None) -> Any:
         if not self._connected or self._pool is None:
-            raise RuntimeError("Not connected")
+            from aquilia.faults.domains import DatabaseConnectionFault
+            raise DatabaseConnectionFault(backend="sqlite", reason="Not connected")
         params = params or []
         if self._in_transaction and self._writer_conn is not None:
             return await self._writer_conn.fetch_val(sql, params)
@@ -176,7 +181,8 @@ class SQLiteAdapter(DatabaseAdapter):
 
     async def begin(self) -> None:
         if not self._connected or self._pool is None:
-            raise RuntimeError("Not connected")
+            from aquilia.faults.domains import DatabaseConnectionFault
+            raise DatabaseConnectionFault(backend="sqlite", reason="Not connected")
         # Acquire the writer connection and hold it for the transaction
         self._writer_conn = await self._pool._acquire(readonly=False)
         await self._writer_conn.begin(mode="DEFERRED")
@@ -198,7 +204,8 @@ class SQLiteAdapter(DatabaseAdapter):
 
     async def savepoint(self, name: str) -> None:
         if not _SP_NAME_RE.match(name):
-            raise ValueError(f"Invalid savepoint name: {name!r}")
+            from aquilia.faults.domains import QueryFault
+            raise QueryFault(message=f"Invalid savepoint name: {name!r}")
         if self._writer_conn is not None:
             await self._writer_conn.savepoint(name)
         elif self._pool is not None:
@@ -207,7 +214,8 @@ class SQLiteAdapter(DatabaseAdapter):
 
     async def release_savepoint(self, name: str) -> None:
         if not _SP_NAME_RE.match(name):
-            raise ValueError(f"Invalid savepoint name: {name!r}")
+            from aquilia.faults.domains import QueryFault
+            raise QueryFault(message=f"Invalid savepoint name: {name!r}")
         if self._writer_conn is not None:
             await self._writer_conn.release_savepoint(name)
         elif self._pool is not None:
@@ -216,7 +224,8 @@ class SQLiteAdapter(DatabaseAdapter):
 
     async def rollback_to_savepoint(self, name: str) -> None:
         if not _SP_NAME_RE.match(name):
-            raise ValueError(f"Invalid savepoint name: {name!r}")
+            from aquilia.faults.domains import QueryFault
+            raise QueryFault(message=f"Invalid savepoint name: {name!r}")
         if self._writer_conn is not None:
             await self._writer_conn.rollback_to_savepoint(name)
         elif self._pool is not None:

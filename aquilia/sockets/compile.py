@@ -71,8 +71,10 @@ class SocketCompiler:
         """
         # Extract @Socket metadata
         if not hasattr(controller_class, "__socket_metadata__"):
-            raise ValueError(
-                f"{controller_class.__name__} is missing @Socket decorator"
+            from aquilia.faults.domains import ConfigInvalidFault
+            raise ConfigInvalidFault(
+                key="socket.controller",
+                reason=f"{controller_class.__name__} is missing @Socket decorator",
             )
         
         socket_meta = controller_class.__socket_metadata__
@@ -82,9 +84,11 @@ class SocketCompiler:
         
         # Check for namespace conflicts
         if namespace in self.namespaces:
-            raise ValueError(
-                f"Namespace conflict: {namespace} already registered by "
-                f"{self.namespaces[namespace]}"
+            from aquilia.faults.domains import RegistryFault
+            raise RegistryFault(
+                name=namespace,
+                message=f"Namespace conflict: {namespace} already registered by "
+                f"{self.namespaces[namespace]}",
             )
         
         self.namespaces[namespace] = module_path
@@ -262,7 +266,11 @@ def compile_socket_controllers(
     if errors:
         for error in errors:
             logger.error(f"Validation error: {error}")
-        raise ValueError(f"WebSocket compilation failed with {len(errors)} errors")
+        from aquilia.faults.domains import ConfigInvalidFault
+        raise ConfigInvalidFault(
+            key="websocket.compilation",
+            reason=f"WebSocket compilation failed with {len(errors)} errors",
+        )
     
     # Generate artifacts
     artifact_path = output_dir / "ws.crous"

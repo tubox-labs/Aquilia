@@ -202,7 +202,11 @@ class CompositePrimaryKey:
 
     def __init__(self, *, fields: List[str]):
         if len(fields) < 2:
-            raise ValueError("CompositePrimaryKey requires at least 2 fields")
+            from aquilia.faults.domains import ConfigInvalidFault
+            raise ConfigInvalidFault(
+                key="composite_primary_key.fields",
+                reason="CompositePrimaryKey requires at least 2 fields",
+            )
         self.fields = fields
 
     def sql(self) -> str:

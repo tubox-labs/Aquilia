@@ -2096,21 +2096,23 @@ class TestBuildManifest:
             BuildManifest.load(tmp_path)
 
     def test_load_raises_value_error_on_invalid_format(self, tmp_path):
-        """Wrong __format__ → ValueError."""
+        """Wrong __format__ → ConfigInvalidFault."""
         from aquilia.build.pipeline import BuildManifest
+        from aquilia.faults.domains import ConfigInvalidFault
 
         (tmp_path / "manifest.json").write_text('{"__format__": "not-aquilia"}')
 
-        with pytest.raises(ValueError, match="Invalid build manifest format"):
+        with pytest.raises(ConfigInvalidFault, match="Invalid build manifest format"):
             BuildManifest.load(tmp_path)
 
     def test_load_raises_value_error_on_missing_format(self, tmp_path):
-        """Missing __format__ key → ValueError (defaults to empty string)."""
+        """Missing __format__ key → ConfigInvalidFault (defaults to empty string)."""
         from aquilia.build.pipeline import BuildManifest
+        from aquilia.faults.domains import ConfigInvalidFault
 
         (tmp_path / "manifest.json").write_text('{"workspace_name": "test"}')
 
-        with pytest.raises(ValueError, match="Invalid build manifest format"):
+        with pytest.raises(ConfigInvalidFault, match="Invalid build manifest format"):
             BuildManifest.load(tmp_path)
 
     def test_to_deploy_context_basic_fields(self, tmp_path):

@@ -88,7 +88,8 @@ class PluginMarketplace:
         Call :meth:`fetch_index` first to populate the cache.
         """
         if self._cache is None:
-            raise RuntimeError("Call fetch_index() before search()")
+            from aquilia.faults.domains import ConfigMissingFault
+            raise ConfigMissingFault(key="mlops.marketplace.index")
 
         q = query.lower()
         results: List[MarketplaceEntry] = []

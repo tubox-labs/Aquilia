@@ -391,9 +391,10 @@ class Q:
         _DANGEROUS_DDL = {"DROP ", "ALTER ", "TRUNCATE ", "EXEC ", "EXECUTE "}
         for kw in _DANGEROUS_DDL:
             if kw in _upper:
-                raise ValueError(
-                    f"Potentially unsafe WHERE clause rejected: contains '{kw.strip()}'. "
-                    f"Use Model.raw() for DDL/DCL operations."
+                from aquilia.faults.domains import SecurityFault
+                raise SecurityFault(
+                    message=f"Potentially unsafe WHERE clause rejected: contains '{kw.strip()}'. "
+                    f"Use Model.raw() for DDL/DCL operations.",
                 )
 
         new = self._clone()
@@ -502,9 +503,10 @@ class Q:
                 else:
                     name = f.lstrip("-")
                     if not _SAFE_FIELD_RE.match(name):
-                        raise ValueError(
-                            f"Invalid field name in order(): {name!r}. "
-                            f"Field names must contain only alphanumeric characters and underscores."
+                        from aquilia.faults.domains import QueryFault
+                        raise QueryFault(
+                            message=f"Invalid field name in order(): {name!r}. "
+                            f"Field names must contain only alphanumeric characters and underscores.",
                         )
                     if f.startswith("-"):
                         new._order_clauses.append(f'"{name}" DESC')
@@ -656,9 +658,10 @@ class Q:
             _DANGEROUS = {"DROP", "ALTER", "TRUNCATE", "EXEC", "EXECUTE", "--", ";"}
             for kw in _DANGEROUS:
                 if kw in _upper:
-                    raise ValueError(
-                        f"Potentially unsafe HAVING clause rejected: contains '{kw}'. "
-                        f"Use parameterized values (?) for user-supplied data."
+                    from aquilia.faults.domains import SecurityFault
+                    raise SecurityFault(
+                        message=f"Potentially unsafe HAVING clause rejected: contains '{kw}'. "
+                        f"Use parameterized values (?) for user-supplied data.",
                     )
         new = self._clone()
         new._having.append(clause)
@@ -775,15 +778,17 @@ class Q:
     # ── Guard methods ────────────────────────────────────────────────
 
     def __bool__(self) -> bool:
-        raise TypeError(
-            "Q objects cannot be used in boolean context. "
-            "Use 'await qs.exists()' instead."
+        from aquilia.faults.domains import QueryFault
+        raise QueryFault(
+            message="Q objects cannot be used in boolean context. "
+            "Use 'await qs.exists()' instead.",
         )
 
     def __len__(self) -> int:
-        raise TypeError(
-            "Q objects don't support len(). "
-            "Use 'await qs.count()' instead."
+        from aquilia.faults.domains import QueryFault
+        raise QueryFault(
+            message="Q objects don't support len(). "
+            "Use 'await qs.count()' instead.",
         )
 
     # ── Slicing support ──────────────────────────────────────────────
@@ -809,7 +814,10 @@ class Q:
             new._offset_val = key
             new._limit_val = 1
             return new
-        raise TypeError(f"Q indices must be integers or slices, not {type(key).__name__}")
+        from aquilia.faults.domains import QueryFault
+        raise QueryFault(
+            message=f"Q indices must be integers or slices, not {type(key).__name__}",
+        )
 
     # ── Internal ─────────────────────────────────────────────────────
 
@@ -1292,8 +1300,9 @@ class Q:
         """
         field = field_name or getattr(self._model_cls._meta, "get_latest_by", None)
         if not field:
-            raise ValueError(
-                f"latest() requires 'field_name' or Meta.get_latest_by"
+            from aquilia.faults.domains import QueryFault
+            raise QueryFault(
+                message="latest() requires 'field_name' or Meta.get_latest_by",
             )
         result = await self.order(f"-{field}").first()
         if result is None:
@@ -1309,8 +1318,9 @@ class Q:
         """
         field = field_name or getattr(self._model_cls._meta, "get_latest_by", None)
         if not field:
-            raise ValueError(
-                f"earliest() requires 'field_name' or Meta.get_latest_by"
+            from aquilia.faults.domains import QueryFault
+            raise QueryFault(
+                message="earliest() requires 'field_name' or Meta.get_latest_by",
             )
         result = await self.order(field).first()
         if result is None:
@@ -1581,9 +1591,10 @@ class Q:
         # Whitelist allowed format values to prevent injection
         _ALLOWED_FORMATS = {"TEXT", "JSON", "YAML", "XML", "TRADITIONAL", "TREE"}
         if format is not None and format.upper() not in _ALLOWED_FORMATS:
-            raise ValueError(
-                f"Invalid EXPLAIN format: {format!r}. "
-                f"Allowed: {', '.join(sorted(_ALLOWED_FORMATS))}"
+            from aquilia.faults.domains import QueryFault
+            raise QueryFault(
+                message=f"Invalid EXPLAIN format: {format!r}. "
+                f"Allowed: {', '.join(sorted(_ALLOWED_FORMATS))}",
             )
 
         sql, params = self._build_select()

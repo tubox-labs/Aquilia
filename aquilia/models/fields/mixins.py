@@ -213,7 +213,11 @@ class _StdlibAESGCM:
             nonce, ct = raw[:self._NONCE_LEN], raw[self._NONCE_LEN:]
             return AESGCM(self._key).decrypt(nonce, ct, None)
         except ImportError:
-            raise ValueError("Cannot decrypt GCM token without cryptography package")
+            from aquilia.faults.domains import ConfigMissingFault
+            raise ConfigMissingFault(
+                key="cryptography",
+                metadata={"hint": "Cannot decrypt GCM token without cryptography package"},
+            )
 
     # ── AES-CBC + HMAC-SHA256 (pure stdlib fallback) ─────────────────
     # Format: 0x80 | iv(16) | len(4, big-endian) | ciphertext | hmac(32)
@@ -250,7 +254,10 @@ class _StdlibAESGCM:
         header = raw[:21]
         mac_expected = _hmac_mod.new(mac_key, header + ct, "sha256").digest()
         if not _hmac_mod.compare_digest(mac_expected, mac_stored):
-            raise ValueError("Invalid token — authentication failed")
+            from aquilia.faults.domains import SecurityFault
+            raise SecurityFault(
+                message="Invalid token — authentication failed",
+            )
         padded = _sha256_ctr_encrypt(enc_key, iv, ct)  # CTR decrypt == encrypt
         pad_len = padded[-1]
         return padded[:-pad_len]

@@ -254,9 +254,11 @@ def route(
         for http_method in methods:
             upper = http_method.upper()
             if upper not in VALID_HTTP_METHODS:
-                raise ValueError(
-                    f"Invalid HTTP method '{http_method}'. "
-                    f"Valid methods: {', '.join(sorted(VALID_HTTP_METHODS))}"
+                from aquilia.faults.domains import ConfigInvalidFault
+                raise ConfigInvalidFault(
+                    key="http_method",
+                    reason=f"Invalid HTTP method '{http_method}'. "
+                    f"Valid methods: {', '.join(sorted(VALID_HTTP_METHODS))}",
                 )
             decorator_cls = _METHOD_MAP.get(upper)
             if decorator_cls:

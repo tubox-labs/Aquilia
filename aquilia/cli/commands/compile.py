@@ -35,7 +35,8 @@ def compile_workspace(
     workspace_config = workspace_root / 'workspace.py'
 
     if not workspace_config.exists():
-        raise ValueError("Not in an Aquilia workspace (workspace.py not found)")
+        from aquilia.faults.domains import ConfigMissingFault
+        raise ConfigMissingFault(key="workspace.py")
 
     output = Path(output_dir) if output_dir else workspace_root / 'build'
     output.mkdir(parents=True, exist_ok=True)

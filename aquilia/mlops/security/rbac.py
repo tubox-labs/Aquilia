@@ -81,7 +81,8 @@ class RBACManager:
 
     def assign_role(self, user_id: str, role_name: str) -> None:
         if role_name not in self._roles:
-            raise ValueError(f"Unknown role: {role_name}")
+            from aquilia.faults.domains import RegistryFault
+            raise RegistryFault(name=role_name, message=f"Unknown role: {role_name}")
         self._user_roles.setdefault(user_id, set()).add(role_name)
 
     def revoke_role(self, user_id: str, role_name: str) -> None:

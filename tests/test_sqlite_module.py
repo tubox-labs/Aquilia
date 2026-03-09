@@ -98,26 +98,31 @@ class TestSqlitePoolConfig:
         assert cfg.statement_cache_size == 256
 
     def test_journal_mode_validation(self):
+        from aquilia.faults.domains import ConfigInvalidFault
         SqlitePoolConfig(journal_mode="DELETE")  # ok
-        with pytest.raises(ValueError, match="journal_mode"):
+        with pytest.raises(ConfigInvalidFault, match="journal_mode"):
             SqlitePoolConfig(journal_mode="INVALID")
 
     def test_synchronous_validation(self):
+        from aquilia.faults.domains import ConfigInvalidFault
         SqlitePoolConfig(synchronous="FULL")  # ok
-        with pytest.raises(ValueError, match="synchronous"):
+        with pytest.raises(ConfigInvalidFault, match="synchronous"):
             SqlitePoolConfig(synchronous="BOGUS")
 
     def test_temp_store_validation(self):
+        from aquilia.faults.domains import ConfigInvalidFault
         SqlitePoolConfig(temp_store="FILE")  # ok
-        with pytest.raises(ValueError, match="temp_store"):
+        with pytest.raises(ConfigInvalidFault, match="temp_store"):
             SqlitePoolConfig(temp_store="DISK")
 
     def test_pool_size_validation(self):
-        with pytest.raises(ValueError, match="pool_size"):
+        from aquilia.faults.domains import ConfigInvalidFault
+        with pytest.raises(ConfigInvalidFault, match="pool_size"):
             SqlitePoolConfig(pool_size=0)
 
     def test_pool_min_exceeds_max(self):
-        with pytest.raises(ValueError, match="pool_min_size"):
+        from aquilia.faults.domains import ConfigInvalidFault
+        with pytest.raises(ConfigInvalidFault, match="pool_min_size"):
             SqlitePoolConfig(pool_size=2, pool_min_size=5)
 
     def test_from_url(self):
@@ -439,8 +444,9 @@ class TestSavepoints:
 
     @pytest.mark.asyncio
     async def test_invalid_savepoint_name(self, pool: ConnectionPool):
+        from aquilia.faults.domains import QueryFault
         async with pool.acquire(readonly=False) as conn:
-            with pytest.raises(ValueError, match="Invalid savepoint"):
+            with pytest.raises(QueryFault, match="Invalid savepoint"):
                 await conn.savepoint("bad name!")
 
 

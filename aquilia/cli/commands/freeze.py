@@ -37,9 +37,8 @@ def freeze_artifacts(
     ws_file = get_workspace_file(workspace_root)
 
     if not ws_file:
-        raise ValueError(
-            "Not in an Aquilia workspace (workspace.py not found)"
-        )
+        from aquilia.faults.domains import ConfigMissingFault
+        raise ConfigMissingFault(key="workspace.py")
 
     output = output_dir or str(workspace_root / 'build')
     artifacts_dir = Path(output)

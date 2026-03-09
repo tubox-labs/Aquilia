@@ -259,7 +259,8 @@ class InsertBuilder:
     def build_many(self, rows: List[Dict[str, Any]]) -> Tuple[str, List[List[Any]]]:
         """Build INSERT for executemany."""
         if not rows:
-            raise ValueError("No rows to insert")
+            from aquilia.faults.domains import QueryFault
+            raise QueryFault(message="No rows to insert")
         cols = list(rows[0].keys())
         col_names = ", ".join(f'"{c}"' for c in cols)
         placeholders = ", ".join("?" for _ in cols)

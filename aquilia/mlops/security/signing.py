@@ -38,7 +38,8 @@ class ArtifactSigner:
         elif self._private_key:
             signer = RSASigner(self._private_key, self._public_key)
         else:
-            raise ValueError("No signing key configured")
+            from aquilia.faults.domains import ConfigMissingFault
+            raise ConfigMissingFault(key="mlops.signing.key")
 
         return await sign_archive(archive_path, signer)
 
@@ -51,7 +52,8 @@ class ArtifactSigner:
         elif self._public_key:
             signer = RSASigner(public_key_path=self._public_key)
         else:
-            raise ValueError("No verification key configured")
+            from aquilia.faults.domains import ConfigMissingFault
+            raise ConfigMissingFault(key="mlops.signing.verification_key")
 
         return await verify_archive(archive_path, sig_path, signer)
 

@@ -354,7 +354,11 @@ class ConnectionPool:
         """
         mode = mode.upper()
         if mode not in ("PASSIVE", "FULL", "RESTART", "TRUNCATE"):
-            raise ValueError(f"Invalid checkpoint mode: {mode!r}")
+            from aquilia.faults.domains import ConfigInvalidFault
+            raise ConfigInvalidFault(
+                key="sqlite.checkpoint_mode",
+                reason=f"Invalid checkpoint mode: {mode!r}",
+            )
         async with self.acquire(readonly=False) as conn:
             await conn.execute(f"PRAGMA wal_checkpoint({mode})")
 

@@ -306,7 +306,9 @@ def resolve_lookup(field_name: str, lookup_name: str, value: Any) -> Lookup:
     """
     cls = _REGISTRY.get(lookup_name)
     if cls is None:
-        raise ValueError(
-            f"Unknown lookup '{lookup_name}'. Available: {sorted(_REGISTRY.keys())}"
+        from aquilia.faults.domains import RegistryFault
+        raise RegistryFault(
+            name=lookup_name,
+            message=f"Unknown lookup '{lookup_name}'. Available: {sorted(_REGISTRY.keys())}",
         )
     return cls(field_name, value)

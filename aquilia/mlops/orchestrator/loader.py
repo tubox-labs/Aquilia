@@ -130,7 +130,11 @@ class ModelLoader:
 
             entry = self._registry.get(name, version)
             if entry is None:
-                raise KeyError(f"Model '{name}:{version}' not found in registry")
+                from aquilia.faults.domains import ModelNotFoundFault
+                raise ModelNotFoundFault(
+                    model=f"{name}:{version}",
+                    reason=f"Model '{name}:{version}' not found in registry",
+                )
 
             # Auto-eviction: if memory tracker is configured and memory
             # is above soft limit, evict the LRU model before loading
@@ -467,8 +471,10 @@ class _InstanceRuntimeAdapter(BaseRuntime):
                 if predict_fn is None:
                     predict_fn = getattr(self._instance, "__call__", None)
                 if predict_fn is None:
-                    raise RuntimeError(
-                        f"Model {type(self._instance).__name__} has no predict() or __call__() method"
+                    from aquilia.faults.domains import ConfigMissingFault
+                    raise ConfigMissingFault(
+                        key="mlops.model.predict_method",
+                        metadata={"hint": f"Model {type(self._instance).__name__} has no predict() or __call__() method"},
                     )
 
                 if inspect.iscoroutinefunction(predict_fn):

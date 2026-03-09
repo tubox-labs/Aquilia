@@ -87,7 +87,8 @@ def validate_workspace(
     workspace_config = workspace_root / "workspace.py"
 
     if not workspace_config.exists():
-        raise ValueError("Not in an Aquilia workspace (workspace.py not found)")
+        from aquilia.faults.domains import ConfigMissingFault
+        raise ConfigMissingFault(key="workspace.py")
 
     faults: List[str] = []
     warnings: List[str] = []

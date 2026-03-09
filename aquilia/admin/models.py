@@ -268,9 +268,13 @@ if _ORM_AVAILABLE:
             Caller is responsible for calling ``.save()`` afterward.
             """
             if _pw_hasher is None:
-                raise RuntimeError(
-                    "Password hashing unavailable — "
-                    "install argon2-cffi or check aquilia.auth.hashing"
+                from aquilia.faults.domains import ConfigMissingFault
+                raise ConfigMissingFault(
+                    key="auth.password_hasher",
+                    metadata={
+                        "hint": "Password hashing unavailable — "
+                        "install argon2-cffi or check aquilia.auth.hashing",
+                    },
                 )
             self.password_hash = _pw_hasher.hash(raw_password)
 
@@ -333,8 +337,10 @@ if _ORM_AVAILABLE:
         def set_role(self, role: str) -> None:
             """Validate and assign a new role."""
             if role not in VALID_ROLES:
-                raise ValueError(
-                    f"Invalid role {role!r}. Must be one of {VALID_ROLES}"
+                from aquilia.faults.domains import ConfigInvalidFault
+                raise ConfigInvalidFault(
+                    key="admin_user.role",
+                    reason=f"Invalid role {role!r}. Must be one of {VALID_ROLES}",
                 )
             self.role = role
 
@@ -420,9 +426,13 @@ if _ORM_AVAILABLE:
         ) -> "AdminUser":
             """Internal factory shared by ``create_superuser`` / ``create_staff_user``."""
             if _pw_hasher is None:
-                raise RuntimeError(
-                    "Password hashing unavailable — "
-                    "install argon2-cffi or check aquilia.auth.hashing"
+                from aquilia.faults.domains import ConfigMissingFault
+                raise ConfigMissingFault(
+                    key="auth.password_hasher",
+                    metadata={
+                        "hint": "Password hashing unavailable — "
+                        "install argon2-cffi or check aquilia.auth.hashing",
+                    },
                 )
             now = _now_utc()
             user = cls(
@@ -1020,11 +1030,19 @@ else:
 
         @classmethod
         async def create_superuser(cls, username: str, password: str, email: str, **kw: Any) -> "AdminUser":
-            raise RuntimeError("ORM not available — cannot create superuser without database models")
+            from aquilia.faults.domains import ConfigMissingFault
+            raise ConfigMissingFault(
+                key="orm",
+                metadata={"hint": "ORM not available — cannot create superuser without database models"},
+            )
 
         @classmethod
         async def create_staff_user(cls, username: str, password: str, email: str, **kw: Any) -> "AdminUser":
-            raise RuntimeError("ORM not available — cannot create staff user without database models")
+            from aquilia.faults.domains import ConfigMissingFault
+            raise ConfigMissingFault(
+                key="orm",
+                metadata={"hint": "ORM not available — cannot create staff user without database models"},
+            )
 
         @classmethod
         async def authenticate(cls, username: str, password: str) -> Optional["AdminUser"]:

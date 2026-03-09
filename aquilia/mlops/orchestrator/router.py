@@ -88,7 +88,11 @@ class VersionRouter:
         # 3. Default -- active version
         active = self._registry.get_active_version(model_name)
         if active is None:
-            raise KeyError(f"Model '{model_name}' is not registered")
+            from aquilia.faults.domains import ModelNotFoundFault
+            raise ModelNotFoundFault(
+                model=model_name,
+                reason=f"Model '{model_name}' is not registered",
+            )
         return active
 
     # ── Canary Management ────────────────────────────────────────────
@@ -111,7 +115,11 @@ class VersionRouter:
         """
         base = base_version or self._registry.get_active_version(model_name)
         if base is None:
-            raise KeyError(f"Model '{model_name}' has no active version")
+            from aquilia.faults.domains import ModelNotFoundFault
+            raise ModelNotFoundFault(
+                model=model_name,
+                reason=f"Model '{model_name}' has no active version",
+            )
 
         self._canaries[model_name] = CanaryConfig(
             canary_version=canary_version,

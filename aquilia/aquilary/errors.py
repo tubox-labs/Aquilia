@@ -433,7 +433,11 @@ class ValidationReport:
     def to_exception(self) -> RegistryError:
         """Convert report to exception."""
         if not self.errors:
-            raise ValueError("Cannot convert empty report to exception")
+            from aquilia.faults.domains import ConfigInvalidFault
+            raise ConfigInvalidFault(
+                key="validation_report",
+                reason="Cannot convert empty report to exception",
+            )
         
         if len(self.errors) == 1:
             return self.errors[0]

@@ -70,11 +70,19 @@ class RouteCompiler:
                 
                 # Get the specific class
                 if not hasattr(module, class_name):
-                    raise AttributeError(f"Class '{class_name}' not found in module '{module_path}'")
+                    from aquilia.faults.domains import RegistryFault
+                    raise RegistryFault(
+                        name=class_name,
+                        message=f"Class '{class_name}' not found in module '{module_path}'",
+                    )
                 
                 controller_class = getattr(module, class_name)
                 if not inspect.isclass(controller_class):
-                    raise TypeError(f"{class_name} is not a class")
+                    from aquilia.faults.domains import ConfigInvalidFault
+                    raise ConfigInvalidFault(
+                        key="controller",
+                        reason=f"{class_name} is not a class",
+                    )
                 
                 # Extract routes from this specific controller
                 routes.extend(self._extract_routes_from_controller(controller_class, config))

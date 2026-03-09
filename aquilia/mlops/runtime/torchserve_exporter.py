@@ -57,7 +57,8 @@ class TorchServeExporter(BaseRuntime):
         Returns path to the created ``.mar`` file.
         """
         if not self._manifest:
-            raise RuntimeError("Not prepared")
+            from aquilia.faults.domains import ConfigMissingFault
+            raise ConfigMissingFault(key="mlops.runtime.manifest")
 
         out = Path(output_dir)
         out.mkdir(parents=True, exist_ok=True)

@@ -96,7 +96,8 @@ class WorkspaceCompiler:
         # Load workspace configuration
         workspace_file = self.workspace_root / 'workspace.py'
         if not workspace_file.exists():
-             raise ValueError("workspace.py not found")
+             from aquilia.faults.domains import ConfigMissingFault
+             raise ConfigMissingFault(key="workspace.py")
              
         workspace_content = workspace_file.read_text()
         import re

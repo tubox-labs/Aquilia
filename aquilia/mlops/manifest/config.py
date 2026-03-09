@@ -57,9 +57,13 @@ class ModelManifestEntry:
         """Import and return the model class from its dotted path."""
         module_path, _, class_name = self.class_path.rpartition(".")
         if not module_path:
-            raise ValueError(
-                f"Invalid class path '{self.class_path}' for model '{self.name}'. "
-                f"Must be a fully qualified dotted path like 'myapp.models.MyModel'"
+            from aquilia.faults.domains import ConfigInvalidFault
+            raise ConfigInvalidFault(
+                key="mlops.model.class_path",
+                reason=(
+                    f"Invalid class path '{self.class_path}' for model '{self.name}'. "
+                    f"Must be a fully qualified dotted path like 'myapp.models.MyModel'"
+                ),
             )
         try:
             module = importlib.import_module(module_path)

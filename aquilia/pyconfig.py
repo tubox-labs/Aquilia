@@ -137,9 +137,12 @@ class Secret:
         if self._default is not None:
             return self._default
         if self._required:
-            raise ValueError(
-                f"Required secret not set. "
-                f"Set environment variable {self._env_name!r} or provide a literal value."
+            from aquilia.faults.domains import ConfigMissingFault
+            raise ConfigMissingFault(
+                key=self._env_name or "secret",
+                metadata={
+                    "hint": f"Set environment variable {self._env_name!r} or provide a literal value.",
+                },
             )
         return None
 
@@ -864,9 +867,13 @@ class AquilaConfig:
             for subsub in subcls.__subclasses__():
                 if getattr(subsub, "env", "").lower() == env_name.lower():
                     return subsub
-        raise ValueError(
-            f"No AquilaConfig subclass with env={env_name!r} found. "
-            f"Available: {[getattr(s, 'env', '?') for s in cls.__subclasses__()]}"
+        from aquilia.faults.domains import ConfigMissingFault
+        raise ConfigMissingFault(
+            key=f"AquilaConfig.env={env_name}",
+            metadata={
+                "hint": f"No AquilaConfig subclass with env={env_name!r} found. "
+                f"Available: {[getattr(s, 'env', '?') for s in cls.__subclasses__()]}",
+            },
         )
 
     @classmethod

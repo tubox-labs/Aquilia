@@ -25,7 +25,11 @@ class ConstraintRegistry:
     def get_validator(self, name: str) -> Callable:
         """Get validator by name."""
         if name not in self.validators:
-            raise ValueError(f"Unknown constraint: {name}")
+            from aquilia.faults.domains import RegistryFault
+            raise RegistryFault(
+                name=name,
+                message=f"Unknown constraint: {name}",
+            )
         return self.validators[name]
 
 

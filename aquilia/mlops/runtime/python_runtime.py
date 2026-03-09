@@ -92,7 +92,8 @@ class PythonRuntime(BaseStreamingRuntime):
     async def load(self) -> None:
         """Load model into memory, transitioning through LOADING → LOADED."""
         if not self._manifest:
-            raise RuntimeError("Runtime not prepared. Call prepare() first.")
+            from aquilia.faults.domains import ConfigMissingFault
+            raise ConfigMissingFault(key="mlops.runtime.manifest")
 
         self._set_state(ModelState.LOADING)
         start = time.monotonic()
@@ -159,7 +160,11 @@ class PythonRuntime(BaseStreamingRuntime):
             logger.warning("ONNX model detected in PythonRuntime; consider using ONNXRuntimeAdapter")
             self._model = None
         else:
-            raise ValueError(f"Unsupported model format: {ext}")
+            from aquilia.faults.domains import ConfigInvalidFault
+            raise ConfigInvalidFault(
+                key="mlops.runtime.model_format",
+                reason=f"Unsupported model format: {ext}",
+            )
 
     async def _load_llm(self) -> None:
         """Load an LLM/SLM model with HuggingFace Transformers."""
@@ -217,8 +222,10 @@ class PythonRuntime(BaseStreamingRuntime):
 
     async def infer(self, batch: BatchRequest) -> List[InferenceResult]:
         if self._state != ModelState.LOADED:
-            raise RuntimeError(
-                f"Model not loaded (state={self._state.value}). Call load() first."
+            from aquilia.faults.domains import ConfigMissingFault
+            raise ConfigMissingFault(
+                key="mlops.runtime.model",
+                metadata={"hint": f"Model not loaded (state={self._state.value}). Call load() first."},
             )
 
         results: List[InferenceResult] = []
@@ -238,7 +245,11 @@ class PythonRuntime(BaseStreamingRuntime):
                 elif callable(self._model):
                     outputs = self._model(req.inputs)
                 else:
-                    raise RuntimeError("Model has no predict/forward/callable method")
+                    from aquilia.faults.domains import ConfigMissingFault
+                    raise ConfigMissingFault(
+                        key="mlops.runtime.predict_method",
+                        metadata={"hint": "Model has no predict/forward/callable method"},
+                    )
 
                 latency = (time.monotonic() - start) * 1000
                 self._inference_count += 1
@@ -314,7 +325,11 @@ class PythonRuntime(BaseStreamingRuntime):
     async def stream_infer(self, request: InferenceRequest) -> AsyncIterator[StreamChunk]:
         """Stream tokens one at a time for LLM inference."""
         if not self._is_llm or self._tokenizer is None:
-            raise RuntimeError("Streaming inference requires an LLM model")
+            from aquilia.faults.domains import ConfigInvalidFault
+            raise ConfigInvalidFault(
+                key="mlops.runtime.stream",
+                reason="Streaming inference requires an LLM model",
+            )
 
         import asyncio
         import torch

@@ -190,7 +190,11 @@ class ArtifactBuilder:
             ValueError: If *name* is empty.
         """
         if not self._name or not self._name.strip():
-            raise ValueError("Artifact name must not be empty")
+            from aquilia.faults.domains import ConfigInvalidFault
+            raise ConfigInvalidFault(
+                key="artifact.name",
+                reason="Artifact name must not be empty",
+            )
 
         # Provenance -- auto-fill only once
         if self._provenance is not None:

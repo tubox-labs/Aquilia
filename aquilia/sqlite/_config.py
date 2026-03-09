@@ -83,48 +83,72 @@ class SqlitePoolConfig:
 
     def _validate(self) -> None:
         """Validate configuration values."""
+        from aquilia.faults.domains import ConfigInvalidFault
+
         jm = self.journal_mode.upper()
         if jm not in JOURNAL_MODES:
-            raise ValueError(
-                f"Invalid journal_mode {self.journal_mode!r}. "
-                f"Must be one of: {', '.join(sorted(JOURNAL_MODES))}"
+            raise ConfigInvalidFault(
+                key="sqlite.journal_mode",
+                reason=(
+                    f"Invalid journal_mode {self.journal_mode!r}. "
+                    f"Must be one of: {', '.join(sorted(JOURNAL_MODES))}"
+                ),
             )
         self.journal_mode = jm
 
         sm = self.synchronous.upper()
         if sm not in SYNC_MODES:
-            raise ValueError(
-                f"Invalid synchronous {self.synchronous!r}. "
-                f"Must be one of: {', '.join(sorted(SYNC_MODES))}"
+            raise ConfigInvalidFault(
+                key="sqlite.synchronous",
+                reason=(
+                    f"Invalid synchronous {self.synchronous!r}. "
+                    f"Must be one of: {', '.join(sorted(SYNC_MODES))}"
+                ),
             )
         self.synchronous = sm
 
         ts = self.temp_store.upper()
         if ts not in TEMP_STORE_MODES:
-            raise ValueError(
-                f"Invalid temp_store {self.temp_store!r}. "
-                f"Must be one of: {', '.join(sorted(TEMP_STORE_MODES))}"
+            raise ConfigInvalidFault(
+                key="sqlite.temp_store",
+                reason=(
+                    f"Invalid temp_store {self.temp_store!r}. "
+                    f"Must be one of: {', '.join(sorted(TEMP_STORE_MODES))}"
+                ),
             )
         self.temp_store = ts
 
         if self.busy_timeout < 0:
-            raise ValueError(f"busy_timeout must be >= 0, got {self.busy_timeout}")
+            raise ConfigInvalidFault(
+                key="sqlite.busy_timeout",
+                reason=f"busy_timeout must be >= 0, got {self.busy_timeout}",
+            )
 
         if self.pool_size < 1:
-            raise ValueError(f"pool_size must be >= 1, got {self.pool_size}")
+            raise ConfigInvalidFault(
+                key="sqlite.pool_size",
+                reason=f"pool_size must be >= 1, got {self.pool_size}",
+            )
 
         if self.pool_min_size < 0:
-            raise ValueError(f"pool_min_size must be >= 0, got {self.pool_min_size}")
+            raise ConfigInvalidFault(
+                key="sqlite.pool_min_size",
+                reason=f"pool_min_size must be >= 0, got {self.pool_min_size}",
+            )
 
         if self.pool_min_size > self.pool_size:
-            raise ValueError(
-                f"pool_min_size ({self.pool_min_size}) must be <= "
-                f"pool_size ({self.pool_size})"
+            raise ConfigInvalidFault(
+                key="sqlite.pool_min_size",
+                reason=(
+                    f"pool_min_size ({self.pool_min_size}) must be <= "
+                    f"pool_size ({self.pool_size})"
+                ),
             )
 
         if self.statement_cache_size < 0:
-            raise ValueError(
-                f"statement_cache_size must be >= 0, got {self.statement_cache_size}"
+            raise ConfigInvalidFault(
+                key="sqlite.statement_cache_size",
+                reason=f"statement_cache_size must be >= 0, got {self.statement_cache_size}",
             )
 
     @classmethod

@@ -267,9 +267,10 @@ class Atomic:
     async def rollback_to_savepoint(self, savepoint_id: str) -> None:
         """Roll back to a specific savepoint."""
         if not _SP_NAME_RE.match(savepoint_id):
-            raise ValueError(
-                f"Invalid savepoint name: {savepoint_id!r}. "
-                f"Must be alphanumeric/underscores only."
+            from aquilia.faults.domains import QueryFault
+            raise QueryFault(
+                message=f"Invalid savepoint name: {savepoint_id!r}. "
+                f"Must be alphanumeric/underscores only.",
             )
         db = self._get_db()
         await db.execute(f"ROLLBACK TO SAVEPOINT {savepoint_id}")
@@ -277,9 +278,10 @@ class Atomic:
     async def release_savepoint(self, savepoint_id: str) -> None:
         """Release (commit) a savepoint."""
         if not _SP_NAME_RE.match(savepoint_id):
-            raise ValueError(
-                f"Invalid savepoint name: {savepoint_id!r}. "
-                f"Must be alphanumeric/underscores only."
+            from aquilia.faults.domains import QueryFault
+            raise QueryFault(
+                message=f"Invalid savepoint name: {savepoint_id!r}. "
+                f"Must be alphanumeric/underscores only.",
             )
         db = self._get_db()
         await db.execute(f"RELEASE SAVEPOINT {savepoint_id}")

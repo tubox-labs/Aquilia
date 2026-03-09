@@ -64,7 +64,11 @@ class EdgeExporter:
         elif target == ExportTarget.TENSORRT:
             return await self._to_tensorrt(path, out)
         else:
-            raise ValueError(f"Unsupported export target: {target}")
+            from aquilia.faults.domains import ConfigInvalidFault
+            raise ConfigInvalidFault(
+                key="mlops.export.target",
+                reason=f"Unsupported export target: {target}",
+            )
 
     async def _to_tflite(
         self, path: Path, out: Path, optimize: bool
@@ -125,7 +129,11 @@ class EdgeExporter:
                 mlmodel = ct.converters.onnx.convert(model=str(path))
                 notes.append("ONNX → CoreML conversion")
             else:
-                raise ValueError(f"Cannot convert {path.suffix} to CoreML")
+                from aquilia.faults.domains import ConfigInvalidFault
+                raise ConfigInvalidFault(
+                    key="mlops.export.coreml.input",
+                    reason=f"Cannot convert {path.suffix} to CoreML",
+                )
 
             mlmodel.save(str(dest))
         except ImportError:

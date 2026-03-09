@@ -20,7 +20,8 @@ def _ensure_workspace_root() -> Path:
     workspace_root = Path.cwd()
     ws_file = get_workspace_file(workspace_root)
     if not ws_file:
-        raise ValueError("Not in an Aquilia workspace (workspace.py not found)")
+        from aquilia.faults.domains import ConfigMissingFault
+        raise ConfigMissingFault(key="workspace.py")
     return workspace_root
 
 

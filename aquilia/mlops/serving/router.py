@@ -75,7 +75,8 @@ class TrafficRouter:
     def set_canary_percentage(self, version: str, percentage: int) -> None:
         """Set canary percentage for a specific version."""
         if version not in self._targets:
-            raise KeyError(f"Unknown target: {version}")
+            from aquilia.faults.domains import RegistryFault
+            raise RegistryFault(name=version, message=f"Unknown target: {version}")
 
         # Set weight for canary target
         for v, target in self._targets.items():
@@ -92,7 +93,8 @@ class TrafficRouter:
             The selected version string.
         """
         if not self._targets:
-            raise RuntimeError("No routing targets configured")
+            from aquilia.faults.domains import ConfigMissingFault
+            raise ConfigMissingFault(key="mlops.routing.targets")
 
         if len(self._targets) == 1:
             version = next(iter(self._targets))
@@ -123,7 +125,8 @@ class TrafficRouter:
         Adding/removing a target only redistributes ~1/n of keys.
         """
         if not self._targets:
-            raise RuntimeError("No routing targets configured")
+            from aquilia.faults.domains import ConfigMissingFault
+            raise ConfigMissingFault(key="mlops.routing.targets")
         targets = sorted(self._targets.keys())
         # Use ConsistentHash buckets mapped to target list
         bucket = self._hasher.bucket(key) % len(targets)

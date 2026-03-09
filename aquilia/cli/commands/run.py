@@ -890,25 +890,31 @@ def run_dev_server(
         app_module = _find_app_module(workspace_root, verbose)
         
         if not app_module:
-            raise ValueError(
-                "Could not find ASGI application.\n\n"
-                "Expected one of:\n"
-                "  1. Workspace configuration: workspace.py (recommended)\n"
-                "  2. main.py with 'app' variable\n"
-                "  3. app.py with 'app' variable\n"
-                "  4. server.py with 'app' or 'server' variable\n\n"
-                "For workspace-based projects:\n"
-                "  Run: aq init workspace <name>\n"
-                "  Then: aq add module <module_name>\n\n"
-                "For standalone apps, create main.py:\n"
-                "  from aquilia import AquiliaServer\n"
-                "  from aquilia.manifest import AppManifest\n\n"
-                "  class MyAppManifest(AppManifest):\n"
-                "      name = 'myapp'\n"
-                "      version = '1.0.0'\n"
-                "      controllers = []\n\n"
-                "  server = AquiliaServer(manifests=[MyAppManifest])\n"
-                "  app = server.app\n"
+            from aquilia.faults.domains import ConfigMissingFault
+            raise ConfigMissingFault(
+                key="asgi.application",
+                metadata={
+                    "hint": (
+                        "Could not find ASGI application.\n\n"
+                        "Expected one of:\n"
+                        "  1. Workspace configuration: workspace.py (recommended)\n"
+                        "  2. main.py with 'app' variable\n"
+                        "  3. app.py with 'app' variable\n"
+                        "  4. server.py with 'app' or 'server' variable\n\n"
+                        "For workspace-based projects:\n"
+                        "  Run: aq init workspace <name>\n"
+                        "  Then: aq add module <module_name>\n\n"
+                        "For standalone apps, create main.py:\n"
+                        "  from aquilia import AquiliaServer\n"
+                        "  from aquilia.manifest import AppManifest\n\n"
+                        "  class MyAppManifest(AppManifest):\n"
+                        "      name = 'myapp'\n"
+                        "      version = '1.0.0'\n"
+                        "      controllers = []\n\n"
+                        "  server = AquiliaServer(manifests=[MyAppManifest])\n"
+                        "  app = server.app\n"
+                    ),
+                },
             )
     
     if verbose:

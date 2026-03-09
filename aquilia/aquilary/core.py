@@ -53,9 +53,17 @@ class AppContext:
     def __post_init__(self):
         """Validate app context."""
         if not self.name:
-            raise ValueError("AppContext must have a name")
+            from aquilia.faults.domains import ConfigInvalidFault
+            raise ConfigInvalidFault(
+                key="app_context.name",
+                reason="AppContext must have a name",
+            )
         if not self.version:
-            raise ValueError("AppContext must have a version")
+            from aquilia.faults.domains import ConfigInvalidFault
+            raise ConfigInvalidFault(
+                key="app_context.version",
+                reason="AppContext must have a version",
+            )
 
 
 @dataclass
@@ -601,7 +609,10 @@ class RuntimeRegistry:
         # Validate routes
         errors = compiler.validate_routes()
         if errors:
-            raise RuntimeError(f"Route compilation failed:\n" + "\n".join(errors))
+            from aquilia.faults.domains import RoutingFault
+            raise RoutingFault(
+                message=f"Route compilation failed:\n" + "\n".join(errors),
+            )
         
         # Build router from compiled routes
         # Router building removed - flow system deprecated
@@ -1033,7 +1044,10 @@ class RuntimeRegistry:
                 errors.append(f"App '{app_name}' service '{service_name}': {e}")
         
         if errors:
-            raise RuntimeError(f"Dependency resolution failed:\n" + "\n".join(errors))
+            from aquilia.faults.domains import DIResolutionFault
+            raise DIResolutionFault(
+                message=f"Dependency resolution failed:\n" + "\n".join(errors),
+            )
     
     def validate_dependencies(self) -> List[str]:
         """
@@ -1201,8 +1215,10 @@ class RuntimeRegistry:
                 all_errors.extend(f"  - {err}" for err in errors)
         
         if all_errors:
-            raise RuntimeError(
-                "Runtime validation failed:\n" + "\n".join(all_errors)
+            from aquilia.faults.domains import ConfigInvalidFault
+            raise ConfigInvalidFault(
+                key="runtime_validation",
+                reason="Runtime validation failed:\n" + "\n".join(all_errors),
             )
     
     def build_runtime_instance(self) -> Any:

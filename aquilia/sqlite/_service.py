@@ -94,9 +94,13 @@ class SqliteService:
             RuntimeError: If the service has not been started.
         """
         if self._pool is None:
-            raise RuntimeError(
-                "SqliteService not started. Call startup() first "
-                "or register with the lifecycle coordinator."
+            from aquilia.faults.domains import DatabaseConnectionFault
+            raise DatabaseConnectionFault(
+                backend="sqlite",
+                reason=(
+                    "SqliteService not started. Call startup() first "
+                    "or register with the lifecycle coordinator."
+                ),
             )
         return self._pool
 

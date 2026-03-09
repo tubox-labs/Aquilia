@@ -136,7 +136,10 @@ class AquiliaTestCase(unittest.IsolatedAsyncioTestCase, AquiliaAssertions):
         try:
             return self.controller_router.url_for(route_name, **params)
         except Exception:
-            raise ValueError(f"Cannot reverse route {route_name!r}")
+            from aquilia.faults.domains import RoutingFault
+            raise RoutingFault(
+                message=f"Cannot reverse route {route_name!r}",
+            )
 
     async def login(
         self,

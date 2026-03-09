@@ -174,7 +174,8 @@ class TestSqlitePoolConfigValidation:
             assert cfg.journal_mode == mode
 
     def test_invalid_journal_mode(self):
-        with pytest.raises(ValueError, match="journal_mode"):
+        from aquilia.faults.domains import ConfigInvalidFault
+        with pytest.raises(ConfigInvalidFault, match="journal_mode"):
             SqlitePoolConfig(journal_mode="BOGUS")
 
     def test_valid_synchronous(self):
@@ -183,7 +184,8 @@ class TestSqlitePoolConfigValidation:
             assert cfg.synchronous == sync
 
     def test_invalid_synchronous(self):
-        with pytest.raises(ValueError, match="synchronous"):
+        from aquilia.faults.domains import ConfigInvalidFault
+        with pytest.raises(ConfigInvalidFault, match="synchronous"):
             SqlitePoolConfig(synchronous="INVALID")
 
     def test_valid_temp_store(self):
@@ -191,19 +193,23 @@ class TestSqlitePoolConfigValidation:
             SqlitePoolConfig(temp_store=ts)
 
     def test_invalid_temp_store(self):
-        with pytest.raises(ValueError, match="temp_store"):
+        from aquilia.faults.domains import ConfigInvalidFault
+        with pytest.raises(ConfigInvalidFault, match="temp_store"):
             SqlitePoolConfig(temp_store="DISK")
 
     def test_pool_size_zero(self):
-        with pytest.raises(ValueError, match="pool_size"):
+        from aquilia.faults.domains import ConfigInvalidFault
+        with pytest.raises(ConfigInvalidFault, match="pool_size"):
             SqlitePoolConfig(pool_size=0)
 
     def test_pool_size_negative(self):
-        with pytest.raises(ValueError, match="pool_size"):
+        from aquilia.faults.domains import ConfigInvalidFault
+        with pytest.raises(ConfigInvalidFault, match="pool_size"):
             SqlitePoolConfig(pool_size=-1)
 
     def test_pool_min_exceeds_max(self):
-        with pytest.raises(ValueError, match="pool_min_size"):
+        from aquilia.faults.domains import ConfigInvalidFault
+        with pytest.raises(ConfigInvalidFault, match="pool_min_size"):
             SqlitePoolConfig(pool_size=2, pool_min_size=5)
 
     def test_pool_min_equals_max(self):
@@ -929,14 +935,16 @@ class TestSavepoints:
 
     @pytest.mark.asyncio
     async def test_invalid_savepoint_name_space(self, pool: ConnectionPool):
+        from aquilia.faults.domains import QueryFault
         async with pool.acquire(readonly=False) as conn:
-            with pytest.raises(ValueError, match="Invalid savepoint"):
+            with pytest.raises(QueryFault, match="Invalid savepoint"):
                 await conn.savepoint("bad name")
 
     @pytest.mark.asyncio
     async def test_invalid_savepoint_name_special(self, pool: ConnectionPool):
+        from aquilia.faults.domains import QueryFault
         async with pool.acquire(readonly=False) as conn:
-            with pytest.raises(ValueError, match="Invalid savepoint"):
+            with pytest.raises(QueryFault, match="Invalid savepoint"):
                 await conn.savepoint("sp;drop table")
 
     @pytest.mark.asyncio
@@ -1173,8 +1181,9 @@ class TestSqliteService:
 
     @pytest.mark.asyncio
     async def test_service_pool_not_started_raises(self):
+        from aquilia.faults.domains import DatabaseConnectionFault
         svc = SqliteService()
-        with pytest.raises(RuntimeError, match="not started"):
+        with pytest.raises(DatabaseConnectionFault, match="not started"):
             _ = svc.pool
 
     @pytest.mark.asyncio

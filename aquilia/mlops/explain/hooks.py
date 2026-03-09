@@ -98,7 +98,11 @@ class SHAPExplainer:
         elif method == ExplainMethod.SHAP_DEEP:
             self._explainer = shap.DeepExplainer(predict_fn, background_data)
         else:
-            raise ValueError(f"Unsupported SHAP method: {method}")
+            from aquilia.faults.domains import ConfigInvalidFault
+            raise ConfigInvalidFault(
+                key="mlops.explain.shap_method",
+                reason=f"Unsupported SHAP method: {method}",
+            )
 
     def explain(self, instance: Any, **kwargs: Any) -> Explanation:
         """Compute SHAP values for *instance* (single row)."""
@@ -178,7 +182,11 @@ class LIMEExplainer:
                 class_names=list(class_names) if class_names else None,
             )
         else:
-            raise ValueError(f"Unsupported LIME method: {method}")
+            from aquilia.faults.domains import ConfigInvalidFault
+            raise ConfigInvalidFault(
+                key="mlops.explain.lime_method",
+                reason=f"Unsupported LIME method: {method}",
+            )
 
         self._feature_names = list(feature_names) if feature_names else None
 

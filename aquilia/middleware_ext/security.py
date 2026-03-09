@@ -24,7 +24,6 @@ Ecosystem Integration:
 
 from __future__ import annotations
 
-import hashlib
 import ipaddress
 import os
 import re
@@ -897,8 +896,11 @@ class CSRFMiddleware:
         rotate_token: bool = False,
         failure_status: int = 403,
     ):
-        import hmac as _hmac_mod
-        self._secret_key = (secret_key or secrets.token_urlsafe(32)).encode()
+        from aquilia.signing import CSRFSigner
+
+        self._csrf_signer = CSRFSigner(
+            secret=secret_key or secrets.token_urlsafe(32),
+        )
         self._token_length = token_length
         self._header_name = header_name.lower()
         self._field_name = field_name
@@ -925,25 +927,17 @@ class CSRFMiddleware:
         return secrets.token_urlsafe(self._token_length)
 
     def _sign_token(self, token: str) -> str:
-        """Sign a token with HMAC-SHA256 for cookie integrity."""
-        import hmac as _hmac_mod
-        sig = _hmac_mod.new(
-            self._secret_key, token.encode(), hashlib.sha256
-        ).hexdigest()
-        return f"{token}.{sig}"
+        """Sign a token using the Aquilia signing subsystem (CSRFSigner)."""
+        return self._csrf_signer.sign(token)
 
     def _verify_signed_token(self, signed: str) -> Optional[str]:
         """Verify a signed token. Returns the token if valid, None otherwise."""
-        import hmac as _hmac_mod
-        if "." not in signed:
+        from aquilia.signing import BadSignature, SignatureMalformed
+
+        try:
+            return self._csrf_signer.unsign(signed)
+        except (BadSignature, SignatureMalformed):
             return None
-        token, sig = signed.rsplit(".", 1)
-        expected_sig = _hmac_mod.new(
-            self._secret_key, token.encode(), hashlib.sha256
-        ).hexdigest()
-        if _hmac_mod.compare_digest(sig, expected_sig):
-            return token
-        return None
 
     # ── Token Storage (Session + Cookie Fallback) ────────────────────────
 
@@ -1079,8 +1073,8 @@ class CSRFMiddleware:
 
     def _validate_token(self, stored: str, submitted: str) -> bool:
         """Constant-time comparison of CSRF tokens."""
-        import hmac as _hmac_mod
-        return _hmac_mod.compare_digest(stored, submitted)
+        from aquilia.signing import constant_time_compare
+        return constant_time_compare(stored, submitted)
 
     # ── Main Handler ─────────────────────────────────────────────────────
 

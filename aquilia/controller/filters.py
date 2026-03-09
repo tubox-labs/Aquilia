@@ -84,9 +84,11 @@ def _safe_regex_compile(pattern: str, flags: int = 0) -> re.Pattern:
     constructs, or is syntactically invalid.
     """
     if len(pattern) > _MAX_REGEX_LENGTH:
-        raise ValueError(
-            f"Regex pattern too long ({len(pattern)} chars, max {_MAX_REGEX_LENGTH}). "
-            f"This limit prevents Regular Expression Denial of Service (ReDoS)."
+        from aquilia.faults.domains import ConfigInvalidFault
+        raise ConfigInvalidFault(
+            key="filter.regex_pattern",
+            reason=f"Regex pattern too long ({len(pattern)} chars, max {_MAX_REGEX_LENGTH}). "
+            f"This limit prevents Regular Expression Denial of Service (ReDoS).",
         )
 
     for dangerous in _DANGEROUS_REGEX_PATTERNS:
@@ -94,16 +96,21 @@ def _safe_regex_compile(pattern: str, flags: int = 0) -> re.Pattern:
             _logger.warning(
                 "Rejected potentially dangerous regex pattern: %r", pattern
             )
-            raise ValueError(
-                "Regex pattern rejected: contains constructs that may cause "
+            raise ConfigInvalidFault(
+                key="filter.regex_pattern",
+                reason="Regex pattern rejected: contains constructs that may cause "
                 "catastrophic backtracking (ReDoS). Simplify the pattern or "
-                "avoid nested quantifiers."
+                "avoid nested quantifiers.",
             )
 
     try:
         return re.compile(pattern, flags)
     except re.error as exc:
-        raise ValueError(f"Invalid regex pattern: {exc}") from exc
+        from aquilia.faults.domains import ConfigInvalidFault
+        raise ConfigInvalidFault(
+            key="filter.regex_pattern",
+            reason=f"Invalid regex pattern: {exc}",
+        ) from exc
 
 
 __all__ = [

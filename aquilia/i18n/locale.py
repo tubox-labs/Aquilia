@@ -178,7 +178,11 @@ def parse_locale(tag: str) -> Locale:
         ValueError: If the tag cannot be parsed
     """
     if not tag or not isinstance(tag, str):
-        raise ValueError(f"Invalid locale tag: {tag!r}")
+        from aquilia.faults.domains import ConfigInvalidFault
+        raise ConfigInvalidFault(
+            key="i18n.locale",
+            reason=f"Invalid locale tag: {tag!r}",
+        )
 
     # Normalize: underscores → hyphens, strip whitespace
     tag = tag.strip().replace("_", "-")
@@ -188,7 +192,11 @@ def parse_locale(tag: str) -> Locale:
         # Try simple 2-3 letter language code
         if re.match(r"^[a-zA-Z]{2,3}$", tag):
             return Locale(language=tag)
-        raise ValueError(f"Cannot parse locale tag: {tag!r}")
+        from aquilia.faults.domains import ConfigInvalidFault
+        raise ConfigInvalidFault(
+            key="i18n.locale",
+            reason=f"Cannot parse locale tag: {tag!r}",
+        )
 
     return Locale(
         language=m.group("language"),
@@ -215,7 +223,7 @@ def normalize_locale(tag: str) -> Optional[str]:
     """
     try:
         return parse_locale(tag).tag
-    except (ValueError, TypeError):
+    except Exception:
         return None
 
 

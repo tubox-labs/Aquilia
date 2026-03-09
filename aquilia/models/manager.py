@@ -72,7 +72,11 @@ class QuerySet:
 
     def _get_queryset(self) -> Q:
         if self._model_cls is None:
-            raise RuntimeError("QuerySet is not bound to a model")
+            from aquilia.faults.domains import ModelRegistrationFault
+            raise ModelRegistrationFault(
+                model="<unknown>",
+                reason="QuerySet is not bound to a model",
+            )
         return self._model_cls.query()
 
     def get_queryset(self) -> Q:
@@ -107,7 +111,11 @@ class BaseManager:
     def _get_queryset(self) -> Q:
         """Return a fresh Q (QuerySet) for the model."""
         if self._model_cls is None:
-            raise RuntimeError("Manager is not bound to a model")
+            from aquilia.faults.domains import ModelRegistrationFault
+            raise ModelRegistrationFault(
+                model="<unknown>",
+                reason="Manager is not bound to a model",
+            )
         return self._model_cls.query()
 
     def get_queryset(self) -> Q:
@@ -275,7 +283,11 @@ class BaseManager:
             user = await User.objects.get(email="alice@example.com")
         """
         if self._model_cls is None:
-            raise RuntimeError("Manager is not bound to a model")
+            from aquilia.faults.domains import ModelRegistrationFault
+            raise ModelRegistrationFault(
+                model="<unknown>",
+                reason="Manager is not bound to a model",
+            )
         return await self._model_cls.get(pk=pk, **filters)
 
     async def get_or_create(
@@ -293,7 +305,11 @@ class BaseManager:
             )
         """
         if self._model_cls is None:
-            raise RuntimeError("Manager is not bound to a model")
+            from aquilia.faults.domains import ModelRegistrationFault
+            raise ModelRegistrationFault(
+                model="<unknown>",
+                reason="Manager is not bound to a model",
+            )
         return await self._model_cls.get_or_create(defaults=defaults, **lookup)
 
     async def update_or_create(
@@ -311,7 +327,11 @@ class BaseManager:
             )
         """
         if self._model_cls is None:
-            raise RuntimeError("Manager is not bound to a model")
+            from aquilia.faults.domains import ModelRegistrationFault
+            raise ModelRegistrationFault(
+                model="<unknown>",
+                reason="Manager is not bound to a model",
+            )
         return await self._model_cls.update_or_create(defaults=defaults, **lookup)
 
     async def create(self, **data: Any) -> Model:
@@ -322,7 +342,11 @@ class BaseManager:
             user = await User.objects.create(name="Alice", email="a@b.com")
         """
         if self._model_cls is None:
-            raise RuntimeError("Manager is not bound to a model")
+            from aquilia.faults.domains import ModelRegistrationFault
+            raise ModelRegistrationFault(
+                model="<unknown>",
+                reason="Manager is not bound to a model",
+            )
         return await self._model_cls.create(**data)
 
     async def bulk_create(
@@ -341,7 +365,11 @@ class BaseManager:
             ], batch_size=100)
         """
         if self._model_cls is None:
-            raise RuntimeError("Manager is not bound to a model")
+            from aquilia.faults.domains import ModelRegistrationFault
+            raise ModelRegistrationFault(
+                model="<unknown>",
+                reason="Manager is not bound to a model",
+            )
         return await self._model_cls.bulk_create(
             instances, batch_size=batch_size, ignore_conflicts=ignore_conflicts
         )
@@ -363,7 +391,11 @@ class BaseManager:
             await User.objects.bulk_update(users, ["score"], batch_size=50)
         """
         if self._model_cls is None:
-            raise RuntimeError("Manager is not bound to a model")
+            from aquilia.faults.domains import ModelRegistrationFault
+            raise ModelRegistrationFault(
+                model="<unknown>",
+                reason="Manager is not bound to a model",
+            )
         return await self._model_cls.bulk_update(
             instances, fields, batch_size=batch_size
         )
@@ -378,7 +410,11 @@ class BaseManager:
             )
         """
         if self._model_cls is None:
-            raise RuntimeError("Manager is not bound to a model")
+            from aquilia.faults.domains import ModelRegistrationFault
+            raise ModelRegistrationFault(
+                model="<unknown>",
+                reason="Manager is not bound to a model",
+            )
         return await self._model_cls.raw(sql, params)
 
     # ── Slicing support ──────────────────────────────────────────────

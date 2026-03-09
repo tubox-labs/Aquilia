@@ -107,9 +107,13 @@ class BuildManifest:
 
         fmt = data.get("__format__", "")
         if fmt != "aquilia-build-manifest":
-            raise ValueError(
-                f"Invalid build manifest format: {fmt!r} "
-                f"(expected 'aquilia-build-manifest')"
+            from aquilia.faults.domains import ConfigInvalidFault
+            raise ConfigInvalidFault(
+                key="build.manifest.format",
+                reason=(
+                    f"Invalid build manifest format: {fmt!r} "
+                    f"(expected 'aquilia-build-manifest')"
+                ),
             )
 
         return cls(
@@ -370,7 +374,8 @@ class BuildResult:
             AquilaryRegistry instance
         """
         if not self.success:
-            raise RuntimeError("Cannot create registry from failed build")
+            from aquilia.faults.domains import SystemFault
+            raise SystemFault(message="Cannot create registry from failed build")
 
         from aquilia.aquilary.core import (
             AquilaryRegistry,
@@ -1303,9 +1308,15 @@ class AquiliaBuildPipeline:
             if isinstance(obj, AppManifest):
                 return obj
 
-        raise ValueError(
-            f"No 'manifest' variable found in {manifest_path}. "
-            f"Expected: manifest = AppManifest(name='{module_name}', ...)"
+        from aquilia.faults.domains import ConfigMissingFault
+        raise ConfigMissingFault(
+            key="manifest",
+            metadata={
+                "hint": (
+                    f"No 'manifest' variable found in {manifest_path}. "
+                    f"Expected: manifest = AppManifest(name='{module_name}', ...)"
+                ),
+            },
         )
 
     # ── Phase 2: Validation ──────────────────────────────────────────

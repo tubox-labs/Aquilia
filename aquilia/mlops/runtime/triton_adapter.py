@@ -73,7 +73,8 @@ class TritonAdapter(BaseRuntime):
 
     async def infer(self, batch: BatchRequest) -> List[InferenceResult]:
         if not self._client:
-            raise RuntimeError("Triton client not connected")
+            from aquilia.faults.domains import DatabaseConnectionFault
+            raise DatabaseConnectionFault(backend="triton", reason="Triton client not connected")
 
         results: List[InferenceResult] = []
 

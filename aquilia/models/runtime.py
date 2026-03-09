@@ -62,7 +62,11 @@ def _eval_default(expr: str) -> Any:
     if expr.startswith('env("') and expr.endswith('")'):
         var_name = expr[5:-2]
         return os.environ.get(var_name)
-    raise ValueError(f"Disallowed default expression: {expr}")
+    from aquilia.faults.domains import ConfigInvalidFault
+    raise ConfigInvalidFault(
+        key="amdl.default_expression",
+        reason=f"Disallowed default expression: {expr}",
+    )
 
 
 # ── SQL type mapping (SQLite) ────────────────────────────────────────────────

@@ -146,7 +146,11 @@ class ManifestLoader:
                     # Directory - scan for manifests
                     resolved.extend(self._discover_in_directory(path))
                 else:
-                    raise ValueError(f"Unknown manifest source type: {source}")
+                    from aquilia.faults.domains import ConfigInvalidFault
+                    raise ConfigInvalidFault(
+                        key="manifest_source",
+                        reason=f"Unknown manifest source type: {source}",
+                    )
             else:
                 # Check for instance-based manifest (e.g. Module builder)
                 if hasattr(source, "build"):
@@ -168,7 +172,11 @@ class ManifestLoader:
                         )
                     )
                 else:
-                    raise ValueError(f"Unknown manifest source type: {source}")
+                    from aquilia.faults.domains import ConfigInvalidFault
+                    raise ConfigInvalidFault(
+                        key="manifest_source",
+                        reason=f"Unknown manifest source type: {source}",
+                    )
         
         # Filesystem autodiscovery
         if allow_fs_autodiscovery:
@@ -207,7 +215,11 @@ class ManifestLoader:
         elif source.type == "instance":
             return source.value
         else:
-            raise ValueError(f"Unknown source type: {source.type}")
+            from aquilia.faults.domains import ConfigInvalidFault
+            raise ConfigInvalidFault(
+                key="manifest_source.type",
+                reason=f"Unknown source type: {source.type}",
+            )
     
     def _load_from_python_file(self, path: Path) -> Any:
         """
@@ -255,7 +267,11 @@ class ManifestLoader:
                     break
             
             if manifest_cls is None:
-                raise ValueError(f"No manifest class found in {path}")
+                from aquilia.faults.domains import RegistryFault
+                raise RegistryFault(
+                    name=str(path),
+                    message=f"No manifest class found in {path}",
+                )
             
             return manifest_cls
         finally:
@@ -299,7 +315,11 @@ class ManifestLoader:
                     "Install with: pip install pyyaml"
                 )
         else:
-            raise ValueError(f"Unsupported DSL format: {path.suffix}")
+            from aquilia.faults.domains import ConfigInvalidFault
+            raise ConfigInvalidFault(
+                key="dsl_format",
+                reason=f"Unsupported DSL format: {path.suffix}",
+            )
         
         # Convert dict to manifest class
         return self._dict_to_manifest(data, str(path))

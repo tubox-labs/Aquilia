@@ -216,7 +216,11 @@ async def spy_provider(
 
     original_provider = container._providers.get(cache_key)
     if original_provider is None:
-        raise KeyError(f"No provider registered for {token!r}")
+        from aquilia.faults.domains import ProviderNotFoundFault
+        raise ProviderNotFoundFault(
+            token=repr(token),
+            message=f"No provider registered for {token!r}",
+        )
 
     spy = _SpyProvider(original_provider)
     container._providers[cache_key] = spy

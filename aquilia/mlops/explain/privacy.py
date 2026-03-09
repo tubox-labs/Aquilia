@@ -148,7 +148,11 @@ class LaplaceNoise:
 
     def __init__(self, epsilon: float = 1.0, sensitivity: float = 1.0):
         if epsilon <= 0:
-            raise ValueError("epsilon must be > 0")
+            from aquilia.faults.domains import ConfigInvalidFault
+            raise ConfigInvalidFault(
+                key="mlops.privacy.epsilon",
+                reason="epsilon must be > 0",
+            )
         self._epsilon = epsilon
         self._sensitivity = sensitivity
         self._scale = sensitivity / epsilon

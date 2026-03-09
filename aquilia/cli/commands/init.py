@@ -54,7 +54,11 @@ def create_workspace(
     workspace_path = Path.cwd() / name
 
     if workspace_path.exists():
-        raise ValueError(f"Directory '{name}' already exists")
+        from aquilia.faults.domains import ConfigInvalidFault
+        raise ConfigInvalidFault(
+            key="workspace.path",
+            reason=f"Directory '{name}' already exists",
+        )
 
     generator = WorkspaceGenerator(
         name=name,

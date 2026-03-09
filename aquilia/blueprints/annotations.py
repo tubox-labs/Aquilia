@@ -215,7 +215,11 @@ class Field:
         alias: str | None = None,
     ):
         if default is not UNSET and default_factory is not None:
-            raise ValueError("Cannot specify both 'default' and 'default_factory'")
+            from aquilia.faults.domains import ConfigInvalidFault
+            raise ConfigInvalidFault(
+                key="field.default",
+                reason="Cannot specify both 'default' and 'default_factory'",
+            )
 
         self.default = default
         self.default_factory = default_factory
@@ -419,7 +423,11 @@ class LazyBlueprintFacet(Facet):
 
         blueprint_cls = _blueprint_registry.get(self.ref)
         if blueprint_cls is None:
-            raise RuntimeError(f"Cannot resolve forward reference '{self.ref}'. Blueprint not found.")
+            from aquilia.faults.domains import RegistryFault
+            raise RegistryFault(
+                name=self.ref,
+                message=f"Cannot resolve forward reference '{self.ref}'. Blueprint not found.",
+            )
 
         kwargs = {
             "source": self.source,
@@ -882,7 +890,11 @@ def _build_constraint_validators(field_spec: Field) -> List[Callable]:
 
         def _gt_validator(v, _b=bound):
             if v <= _b:
-                raise ValueError(f"Must be greater than {_b}")
+                from aquilia.faults.domains import FieldValidationFault
+                raise FieldValidationFault(
+                    field_name="value",
+                    message=f"Must be greater than {_b}",
+                )
         extra.append(_gt_validator)
 
     if field_spec.lt is not None:
@@ -890,7 +902,11 @@ def _build_constraint_validators(field_spec: Field) -> List[Callable]:
 
         def _lt_validator(v, _b=bound):
             if v >= _b:
-                raise ValueError(f"Must be less than {_b}")
+                from aquilia.faults.domains import FieldValidationFault
+                raise FieldValidationFault(
+                    field_name="value",
+                    message=f"Must be less than {_b}",
+                )
         extra.append(_lt_validator)
 
     return extra

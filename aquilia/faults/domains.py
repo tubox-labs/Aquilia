@@ -671,10 +671,10 @@ class UnrecoverableFault(SystemFault):
 class ResourceExhaustedFault(SystemFault):
     """System resources exhausted."""
     
-    def __init__(self, resource: str, **kwargs):
+    def __init__(self, resource: str, *, message: str = "", **kwargs):
         super().__init__(
             code="RESOURCE_EXHAUSTED",
-            message=f"System resource exhausted: {resource}",
+            message=message or f"System resource exhausted: {resource}",
             severity=Severity.FATAL,
             metadata={"resource": resource, **kwargs.get("metadata", {})},
         )
@@ -768,10 +768,12 @@ class MigrationConflictFault(ModelFault):
 class QueryFault(ModelFault):
     """Query execution failed."""
     
-    def __init__(self, model: str, operation: str, reason: str, **kwargs):
+    def __init__(self, model: str = "unknown", operation: str = "query", reason: str = "", *, message: str = "", **kwargs):
+        if message and not reason:
+            reason = message
         super().__init__(
             code="QUERY_FAILED",
-            message=f"Query on '{model}' ({operation}) failed: {reason}",
+            message=message or f"Query on '{model}' ({operation}) failed: {reason}",
             retryable=True,
             metadata={"model": model, "operation": operation, "reason": reason, **kwargs.get("metadata", {})},
         )
@@ -780,13 +782,14 @@ class QueryFault(ModelFault):
 class DatabaseConnectionFault(ModelFault):
     """Database connection failed."""
     
-    def __init__(self, url: str, reason: str, **kwargs):
+    def __init__(self, url: str = "", reason: str = "", *, backend: str = "", **kwargs):
+        display = backend or url
         super().__init__(
             code="DB_CONNECTION_FAILED",
-            message=f"Database connection failed ({url}): {reason}",
+            message=f"Database connection failed ({display}): {reason}",
             severity=Severity.FATAL,
             retryable=True,
-            metadata={"url": url, "reason": reason, **kwargs.get("metadata", {})},
+            metadata={"url": url, "backend": backend, "reason": reason, **kwargs.get("metadata", {})},
         )
 
 

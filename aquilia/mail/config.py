@@ -215,7 +215,11 @@ class RetryConfigBlueprint(Blueprint):
         base = attrs.get("base_delay", 1.0)
         mx = attrs.get("max_delay", 3600.0)
         if base > mx:
-            raise ValueError("base_delay must be <= max_delay")
+            from aquilia.faults.domains import ConfigInvalidFault
+            raise ConfigInvalidFault(
+                key="retry.base_delay",
+                reason="base_delay must be <= max_delay",
+            )
         return attrs
 
 

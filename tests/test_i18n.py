@@ -89,17 +89,20 @@ class TestLocaleParsing:
 
     def test_invalid_empty(self):
         from aquilia.i18n.locale import parse_locale
-        with pytest.raises(ValueError):
+        from aquilia.faults.domains import ConfigInvalidFault
+        with pytest.raises(ConfigInvalidFault):
             parse_locale("")
 
     def test_invalid_none(self):
         from aquilia.i18n.locale import parse_locale
-        with pytest.raises(ValueError):
+        from aquilia.faults.domains import ConfigInvalidFault
+        with pytest.raises(ConfigInvalidFault):
             parse_locale(None)
 
     def test_invalid_garbage(self):
         from aquilia.i18n.locale import parse_locale
-        with pytest.raises(ValueError):
+        from aquilia.faults.domains import ConfigInvalidFault
+        with pytest.raises(ConfigInvalidFault):
             parse_locale("!!!invalid!!!")
 
     def test_three_letter_language(self):

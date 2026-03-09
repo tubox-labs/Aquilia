@@ -101,7 +101,8 @@ class TestConfig:
     def __getitem__(self, key: str) -> Any:
         val = self.get(key, _SENTINEL)
         if val is _SENTINEL:
-            raise KeyError(key)
+            from aquilia.faults.domains import ConfigMissingFault
+            raise ConfigMissingFault(key=key)
         return val
 
     def __repr__(self) -> str:

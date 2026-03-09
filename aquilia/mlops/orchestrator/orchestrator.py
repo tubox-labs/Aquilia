@@ -147,8 +147,10 @@ class ModelOrchestrator:
         # Check if the runtime supports streaming
         runtime = loaded.pipeline._runtime
         if not isinstance(runtime, BaseStreamingRuntime):
-            raise RuntimeError(
-                f"Model '{model_name}:{version}' does not support streaming inference"
+            from aquilia.faults.domains import ConfigInvalidFault
+            raise ConfigInvalidFault(
+                key="mlops.inference.stream",
+                reason=f"Model '{model_name}:{version}' does not support streaming inference",
             )
 
         request = InferenceRequest(

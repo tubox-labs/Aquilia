@@ -167,7 +167,8 @@ class MySQLAdapter(DatabaseAdapter):
 
     async def execute(self, sql: str, params: Optional[Sequence[Any]] = None) -> Any:
         if not self._connected:
-            raise RuntimeError("Not connected to MySQL")
+            from aquilia.faults.domains import DatabaseConnectionFault
+            raise DatabaseConnectionFault(backend="mysql", reason="Not connected to MySQL")
         adapted_sql = self.adapt_sql(sql)
         conn = self._get_conn()
         import warnings
@@ -187,7 +188,8 @@ class MySQLAdapter(DatabaseAdapter):
 
     async def execute_many(self, sql: str, params_list: Sequence[Sequence[Any]]) -> None:
         if not self._connected:
-            raise RuntimeError("Not connected to MySQL")
+            from aquilia.faults.domains import DatabaseConnectionFault
+            raise DatabaseConnectionFault(backend="mysql", reason="Not connected to MySQL")
         adapted_sql = self.adapt_sql(sql)
         conn = self._get_conn()
         if conn is not None:
@@ -200,7 +202,8 @@ class MySQLAdapter(DatabaseAdapter):
 
     async def fetch_all(self, sql: str, params: Optional[Sequence[Any]] = None) -> List[Dict[str, Any]]:
         if not self._connected:
-            raise RuntimeError("Not connected to MySQL")
+            from aquilia.faults.domains import DatabaseConnectionFault
+            raise DatabaseConnectionFault(backend="mysql", reason="Not connected to MySQL")
         adapted_sql = self.adapt_sql(sql)
         conn = self._get_conn()
         if conn is not None:
@@ -217,7 +220,8 @@ class MySQLAdapter(DatabaseAdapter):
 
     async def fetch_one(self, sql: str, params: Optional[Sequence[Any]] = None) -> Optional[Dict[str, Any]]:
         if not self._connected:
-            raise RuntimeError("Not connected to MySQL")
+            from aquilia.faults.domains import DatabaseConnectionFault
+            raise DatabaseConnectionFault(backend="mysql", reason="Not connected to MySQL")
         adapted_sql = self.adapt_sql(sql)
         conn = self._get_conn()
         if conn is not None:
@@ -234,7 +238,8 @@ class MySQLAdapter(DatabaseAdapter):
 
     async def fetch_val(self, sql: str, params: Optional[Sequence[Any]] = None) -> Any:
         if not self._connected:
-            raise RuntimeError("Not connected to MySQL")
+            from aquilia.faults.domains import DatabaseConnectionFault
+            raise DatabaseConnectionFault(backend="mysql", reason="Not connected to MySQL")
         adapted_sql = self.adapt_sql(sql)
         conn = self._get_conn()
         if conn is not None:
@@ -288,28 +293,34 @@ class MySQLAdapter(DatabaseAdapter):
     async def savepoint(self, name: str) -> None:
         """Create a savepoint (must be inside a transaction)."""
         if not _SP_NAME_RE.match(name):
-            raise ValueError(f"Invalid savepoint name: {name!r}")
+            from aquilia.faults.domains import QueryFault
+            raise QueryFault(message=f"Invalid savepoint name: {name!r}")
         conn = self._get_conn()
         if conn is None:
-            raise RuntimeError("Cannot create savepoint outside a transaction")
+            from aquilia.faults.domains import QueryFault
+            raise QueryFault(message="Cannot create savepoint outside a transaction")
         async with conn.cursor() as cur:
             await cur.execute(f'SAVEPOINT `{name}`')
 
     async def release_savepoint(self, name: str) -> None:
         if not _SP_NAME_RE.match(name):
-            raise ValueError(f"Invalid savepoint name: {name!r}")
+            from aquilia.faults.domains import QueryFault
+            raise QueryFault(message=f"Invalid savepoint name: {name!r}")
         conn = self._get_conn()
         if conn is None:
-            raise RuntimeError("Cannot release savepoint outside a transaction")
+            from aquilia.faults.domains import QueryFault
+            raise QueryFault(message="Cannot release savepoint outside a transaction")
         async with conn.cursor() as cur:
             await cur.execute(f'RELEASE SAVEPOINT `{name}`')
 
     async def rollback_to_savepoint(self, name: str) -> None:
         if not _SP_NAME_RE.match(name):
-            raise ValueError(f"Invalid savepoint name: {name!r}")
+            from aquilia.faults.domains import QueryFault
+            raise QueryFault(message=f"Invalid savepoint name: {name!r}")
         conn = self._get_conn()
         if conn is None:
-            raise RuntimeError("Cannot rollback savepoint outside a transaction")
+            from aquilia.faults.domains import QueryFault
+            raise QueryFault(message="Cannot rollback savepoint outside a transaction")
         async with conn.cursor() as cur:
             await cur.execute(f'ROLLBACK TO SAVEPOINT `{name}`')
 

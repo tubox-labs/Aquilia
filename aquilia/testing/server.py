@@ -213,7 +213,11 @@ class TestServer:
         """Reverse a named route to its URL."""
         router = self.controller_router
         if router is None:
-            raise RuntimeError("No controller router available")
+            from aquilia.faults.domains import ConfigMissingFault
+            raise ConfigMissingFault(
+                key="test_server.controller_router",
+                metadata={"hint": "No controller router available"},
+            )
         return router.url_for(route_name, **params)
 
 

@@ -31,7 +31,11 @@ class TransformRegistry:
     def get_transform(self, name: str) -> Callable:
         """Get transform by name."""
         if name not in self.transforms:
-            raise ValueError(f"Unknown transform: {name}")
+            from aquilia.faults.domains import RegistryFault
+            raise RegistryFault(
+                name=name,
+                message=f"Unknown transform: {name}",
+            )
         return self.transforms[name]
 
 

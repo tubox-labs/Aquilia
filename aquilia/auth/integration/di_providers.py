@@ -328,7 +328,10 @@ def _register_provider_class(container: Container, provider_cls: Any) -> None:
     
     # 2. Extract return type
     if not hasattr(provider_cls, "provide"):
-        raise ValueError(f"Provider {provider_cls.__name__} missing 'provide' method")
+        from aquilia.faults.domains import DIFault
+        raise DIFault(
+            message=f"Provider {provider_cls.__name__} missing 'provide' method",
+        )
         
     provide_method = provider_cls.provide
     hints = get_type_hints(provide_method)

@@ -76,7 +76,11 @@ class RingBuffer(Generic[T]):
 
     def __init__(self, capacity: int) -> None:
         if capacity < 1:
-            raise ValueError("capacity must be ≥ 1")
+            from aquilia.faults.domains import ConfigInvalidFault
+            raise ConfigInvalidFault(
+                key="mlops.ring_buffer.capacity",
+                reason="capacity must be ≥ 1",
+            )
         self._cap = capacity
         self._buf: list[Any] = [None] * capacity
         self._head = 0          # next write index
@@ -170,7 +174,11 @@ class LRUCache(Generic[KT, VT]):
 
     def __init__(self, capacity: int = 128) -> None:
         if capacity < 1:
-            raise ValueError("capacity must be ≥ 1")
+            from aquilia.faults.domains import ConfigInvalidFault
+            raise ConfigInvalidFault(
+                key="mlops.lru_cache.capacity",
+                reason="capacity must be ≥ 1",
+            )
         self._cap = capacity
         self._data: OrderedDict[KT, VT] = OrderedDict()
         self._lock = threading.Lock()
@@ -301,7 +309,11 @@ class ExponentialDecay:
 
     def __init__(self, alpha: float = 0.1) -> None:
         if not (0.0 < alpha <= 1.0):
-            raise ValueError("alpha must be in (0, 1]")
+            from aquilia.faults.domains import ConfigInvalidFault
+            raise ConfigInvalidFault(
+                key="mlops.ewma.alpha",
+                reason="alpha must be in (0, 1]",
+            )
         self._alpha = alpha
         self._value = 0.0
         self._initialized = False
@@ -351,7 +363,11 @@ class SlidingWindow:
 
     def __init__(self, window_seconds: float = 60.0, bucket_width: float = 1.0):
         if bucket_width <= 0 or window_seconds <= 0:
-            raise ValueError("window and bucket must be > 0")
+            from aquilia.faults.domains import ConfigInvalidFault
+            raise ConfigInvalidFault(
+                key="mlops.sliding_window",
+                reason="window and bucket must be > 0",
+            )
         self._window = window_seconds
         self._width = bucket_width
         self._n_buckets = int(math.ceil(window_seconds / bucket_width))
@@ -537,7 +553,11 @@ class ConsistentHash:
 
     def __init__(self, num_buckets: int = 1) -> None:
         if num_buckets < 1:
-            raise ValueError("num_buckets must be ≥ 1")
+            from aquilia.faults.domains import ConfigInvalidFault
+            raise ConfigInvalidFault(
+                key="mlops.consistent_hash.num_buckets",
+                reason="num_buckets must be ≥ 1",
+            )
         self._n = num_buckets
 
     def bucket(self, key: str) -> int:
@@ -550,7 +570,11 @@ class ConsistentHash:
 
     def remove_bucket(self) -> int:
         if self._n <= 1:
-            raise ValueError("cannot remove last bucket")
+            from aquilia.faults.domains import ConfigInvalidFault
+            raise ConfigInvalidFault(
+                key="mlops.consistent_hash.num_buckets",
+                reason="cannot remove last bucket",
+            )
         self._n -= 1
         return self._n
 
@@ -621,13 +645,21 @@ class ModelLineageDAG:
         metadata: Optional[Dict[str, Any]] = None,
     ) -> LineageNode:
         if model_id in self._nodes:
-            raise ValueError(f"Model '{model_id}' already exists in lineage")
+            from aquilia.faults.domains import ModelRegistrationFault
+            raise ModelRegistrationFault(
+                model=model_id,
+                reason=f"Model '{model_id}' already exists in lineage",
+            )
 
         parent_ids = parents or []
         # Validate parents exist
         for pid in parent_ids:
             if pid not in self._nodes:
-                raise ValueError(f"Parent model '{pid}' not found in lineage")
+                from aquilia.faults.domains import ModelNotFoundFault
+                raise ModelNotFoundFault(
+                    model=pid,
+                    reason=f"Parent model '{pid}' not found in lineage",
+                )
             self._nodes[pid].children.append(model_id)
 
         node = LineageNode(
@@ -783,7 +815,11 @@ class ExperimentLedger:
         metadata: Optional[Dict[str, Any]] = None,
     ) -> Experiment:
         if experiment_id in self._experiments:
-            raise ValueError(f"Experiment '{experiment_id}' already exists")
+            from aquilia.faults.domains import RegistryFault
+            raise RegistryFault(
+                name=experiment_id,
+                message=f"Experiment '{experiment_id}' already exists",
+            )
 
         arm_objs = []
         for arm_data in (arms or []):

@@ -297,7 +297,11 @@ class AsyncConnection:
         """
         mode = mode.upper()
         if mode not in ("DEFERRED", "IMMEDIATE", "EXCLUSIVE"):
-            raise ValueError(f"Invalid transaction mode: {mode!r}")
+            from aquilia.faults.domains import ConfigInvalidFault
+            raise ConfigInvalidFault(
+                key="sqlite.transaction_mode",
+                reason=f"Invalid transaction mode: {mode!r}",
+            )
 
         try:
             await self._run(self._raw.execute, f"BEGIN {mode}")
@@ -329,7 +333,8 @@ class AsyncConnection:
             name: Savepoint name (alphanumeric + underscore only).
         """
         if not _SP_NAME_RE.match(name):
-            raise ValueError(f"Invalid savepoint name: {name!r}")
+            from aquilia.faults.domains import QueryFault
+            raise QueryFault(message=f"Invalid savepoint name: {name!r}")
         try:
             await self._run(self._raw.execute, f'SAVEPOINT "{name}"')
         except sqlite3.Error as exc:
@@ -338,7 +343,8 @@ class AsyncConnection:
     async def release_savepoint(self, name: str) -> None:
         """Release (commit) a savepoint."""
         if not _SP_NAME_RE.match(name):
-            raise ValueError(f"Invalid savepoint name: {name!r}")
+            from aquilia.faults.domains import QueryFault
+            raise QueryFault(message=f"Invalid savepoint name: {name!r}")
         try:
             await self._run(self._raw.execute, f'RELEASE SAVEPOINT "{name}"')
         except sqlite3.Error as exc:
@@ -347,7 +353,8 @@ class AsyncConnection:
     async def rollback_to_savepoint(self, name: str) -> None:
         """Rollback to a savepoint."""
         if not _SP_NAME_RE.match(name):
-            raise ValueError(f"Invalid savepoint name: {name!r}")
+            from aquilia.faults.domains import QueryFault
+            raise QueryFault(message=f"Invalid savepoint name: {name!r}")
         try:
             await self._run(self._raw.execute, f'ROLLBACK TO SAVEPOINT "{name}"')
         except sqlite3.Error as exc:

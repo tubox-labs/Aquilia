@@ -5004,8 +5004,8 @@ class Workspace:
                 env_name = os.environ.get("AQ_ENV", "dev")
                 try:
                     env_cfg = env_cfg.for_env(env_name)
-                except (ValueError, AttributeError):
-                    pass  # use base class as-is
+                except Exception:
+                    pass  # use base class as-is (includes Fault subclasses)
             # Merge the dict representation
             try:
                 env_data = env_cfg.to_dict()

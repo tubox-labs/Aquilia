@@ -613,8 +613,9 @@ class TestOracleAdapterCapabilities:
 
     def test_not_connected_raises(self):
         from aquilia.db.backends.oracle import OracleAdapter
+        from aquilia.faults.domains import DatabaseConnectionFault
         adapter = OracleAdapter()
-        with pytest.raises(RuntimeError):
+        with pytest.raises(DatabaseConnectionFault):
             asyncio.run(adapter.execute("SELECT 1"))
 
 
@@ -710,8 +711,9 @@ class TestOracleAdapterImportGuard:
 
     def test_savepoint_validation(self):
         from aquilia.db.backends.oracle import OracleAdapter
+        from aquilia.faults.domains import QueryFault, DatabaseConnectionFault
         adapter = OracleAdapter()
-        with pytest.raises((ValueError, RuntimeError)):
+        with pytest.raises((QueryFault, DatabaseConnectionFault)):
             asyncio.run(adapter.savepoint("invalid name!"))
 
     def test_release_savepoint_no_op(self):

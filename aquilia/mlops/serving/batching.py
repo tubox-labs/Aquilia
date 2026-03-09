@@ -184,8 +184,10 @@ class DynamicBatcher:
             current_depth = self._queue.qsize() + len(self._priority_heap)
             if current_depth >= self._max_queue_depth:
                 self._backpressure_rejections += 1
-                raise RuntimeError(
-                    f"Queue depth limit exceeded ({current_depth}/{self._max_queue_depth})"
+                from aquilia.faults.domains import ResourceExhaustedFault
+                raise ResourceExhaustedFault(
+                    resource="inference_queue",
+                    message=f"Queue depth limit exceeded ({current_depth}/{self._max_queue_depth})",
                 )
 
         pending = _PendingRequest(request)

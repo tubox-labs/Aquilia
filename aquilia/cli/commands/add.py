@@ -83,7 +83,8 @@ def add_module(
     workspace_file = workspace_root / 'workspace.py'
 
     if not workspace_file.exists():
-        raise ValueError("Not in an Aquilia workspace (workspace.py not found)")
+        from aquilia.faults.domains import ConfigMissingFault
+        raise ConfigMissingFault(key="workspace.py")
 
     if verbose:
         info(f"Adding module '{name}'...")
@@ -106,7 +107,11 @@ def add_module(
     # Check if module already exists
     module_path = modules_dir / name
     if module_path.exists():
-        raise ValueError(f"Module '{name}' already exists")
+        from aquilia.faults.domains import ConfigInvalidFault
+        raise ConfigInvalidFault(
+            key="module.name",
+            reason=f"Module '{name}' already exists",
+        )
 
     # Parse existing workspace.py to find existing modules
     workspace_content = workspace_file.read_text()
@@ -120,7 +125,11 @@ def add_module(
     # Validate dependencies
     for dep in depends_on:
         if dep not in existing_modules:
-            raise ValueError(f"Dependency '{dep}' not found in workspace")
+            from aquilia.faults.domains import ConfigInvalidFault
+            raise ConfigInvalidFault(
+                key="module.depends_on",
+                reason=f"Dependency '{dep}' not found in workspace",
+            )
 
     # Generate module structure
     generator = ModuleGenerator(

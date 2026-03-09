@@ -458,8 +458,10 @@ def _build_multipart(
             else:
                 filename, content, content_type = file_info[:3]
         else:
-            raise TypeError(
-                f"File for {field_name!r}: expected bytes or tuple, got {type(file_info)}"
+            from aquilia.faults.domains import ConfigInvalidFault
+            raise ConfigInvalidFault(
+                key="multipart.file",
+                reason=f"File for {field_name!r}: expected bytes or tuple, got {type(file_info)}",
             )
 
         if isinstance(content, str):

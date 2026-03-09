@@ -135,7 +135,11 @@ class ModelPersistenceManager:
         framework = metadata["framework"]
         loader = self._loaders.get(framework)
         if not loader:
-            raise ValueError(f"No loader for framework: {framework}")
+            from aquilia.faults.domains import ConfigInvalidFault
+            raise ConfigInvalidFault(
+                key="mlops.persistence.framework",
+                reason=f"No loader for framework: {framework}",
+            )
             
         # Find weights file (assuming first non-json file)
         weights_file = next(

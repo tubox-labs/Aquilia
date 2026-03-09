@@ -149,10 +149,18 @@ class InferenceExecutor:
             Exception: Re-raises any exception from ``fn``.
         """
         if not self._started or self._pool is None:
-            raise RuntimeError("InferenceExecutor not started; call start() first")
+            from aquilia.faults.domains import ConfigMissingFault
+            raise ConfigMissingFault(
+                key="mlops.executor",
+                metadata={"hint": "InferenceExecutor not started; call start() first"},
+            )
 
         if self._shutdown_event.is_set():
-            raise RuntimeError("InferenceExecutor is shutting down")
+            from aquilia.faults.domains import ResourceExhaustedFault
+            raise ResourceExhaustedFault(
+                resource="inference_executor",
+                message="InferenceExecutor is shutting down",
+            )
 
         loop = asyncio.get_running_loop()
 

@@ -73,7 +73,11 @@ class StatementCache:
 
     def __init__(self, capacity: int = 256) -> None:
         if capacity < 0:
-            raise ValueError(f"capacity must be >= 0, got {capacity}")
+            from aquilia.faults.domains import ConfigInvalidFault
+            raise ConfigInvalidFault(
+                key="sqlite.statement_cache.capacity",
+                reason=f"capacity must be >= 0, got {capacity}",
+            )
         self._capacity = capacity
         self._lru: OrderedDict[str, None] = OrderedDict()
         self._stats = CacheStats(capacity=capacity)
