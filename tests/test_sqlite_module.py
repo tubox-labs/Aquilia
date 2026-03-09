@@ -520,8 +520,9 @@ class TestPoolQuickMethods:
     @pytest.mark.asyncio
     async def test_execute_returns_rowcount(self, pool: ConnectionPool):
         await pool.execute("CREATE TABLE t (id INTEGER PRIMARY KEY, val TEXT)")
-        rc = await pool.execute("INSERT INTO t (val) VALUES (?)", ["x"])
-        assert rc == 1
+        cursor = await pool.execute("INSERT INTO t (val) VALUES (?)", ["x"])
+        assert cursor.rowcount == 1
+        assert cursor.lastrowid is not None
 
     @pytest.mark.asyncio
     async def test_pool_closed_raises(self, tmp_db: str):

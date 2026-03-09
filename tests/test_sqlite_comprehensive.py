@@ -693,18 +693,18 @@ class TestQueryCRUD:
     @pytest.mark.asyncio
     async def test_insert_and_select(self, pool: ConnectionPool):
         await pool.execute("CREATE TABLE t (id INTEGER PRIMARY KEY, val TEXT)")
-        rc = await pool.execute("INSERT INTO t (val) VALUES (?)", ["hello"])
-        assert rc == 1
+        cursor = await pool.execute("INSERT INTO t (val) VALUES (?)", ["hello"])
+        assert cursor.rowcount == 1
         rows = await pool.fetch_all("SELECT val FROM t")
         assert len(rows) == 1
         assert rows[0]["val"] == "hello"
 
     @pytest.mark.asyncio
     async def test_update(self, seeded_pool: ConnectionPool):
-        rc = await seeded_pool.execute(
+        cursor = await seeded_pool.execute(
             "UPDATE users SET age = ? WHERE name = ?", [31, "Alice"]
         )
-        assert rc == 1
+        assert cursor.rowcount == 1
         row = await seeded_pool.fetch_one(
             "SELECT age FROM users WHERE name = ?", ["Alice"]
         )
@@ -713,10 +713,10 @@ class TestQueryCRUD:
 
     @pytest.mark.asyncio
     async def test_delete(self, seeded_pool: ConnectionPool):
-        rc = await seeded_pool.execute(
+        cursor = await seeded_pool.execute(
             "DELETE FROM users WHERE name = ?", ["Bob"]
         )
-        assert rc == 1
+        assert cursor.rowcount == 1
         rows = await seeded_pool.fetch_all("SELECT * FROM users")
         assert len(rows) == 3
         names = [r["name"] for r in rows]
@@ -1688,8 +1688,9 @@ class TestPoolQuickMethods:
     @pytest.mark.asyncio
     async def test_execute_returns_rowcount(self, pool: ConnectionPool):
         await pool.execute("CREATE TABLE t (id INTEGER PRIMARY KEY, val TEXT)")
-        rc = await pool.execute("INSERT INTO t (val) VALUES (?)", ["x"])
-        assert rc == 1
+        cursor = await pool.execute("INSERT INTO t (val) VALUES (?)", ["x"])
+        assert cursor.rowcount == 1
+        assert cursor.lastrowid is not None
 
     @pytest.mark.asyncio
     async def test_execute_many_via_pool(self, pool: ConnectionPool):
