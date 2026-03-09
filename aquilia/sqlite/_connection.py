@@ -108,7 +108,7 @@ class AsyncConnection:
         self,
         sql: str,
         params: Optional[Sequence[Any]] = None,
-    ) -> int:
+    ) -> "AsyncCursor":
         """
         Execute a single SQL statement.
 
@@ -117,8 +117,12 @@ class AsyncConnection:
             params: Parameter sequence.
 
         Returns:
-            Number of rows affected (``cursor.rowcount``).
+            :class:`AsyncCursor` wrapping the raw ``sqlite3.Cursor``.
+            Callers can read ``.lastrowid`` for INSERT statements and
+            ``.rowcount`` for UPDATE / DELETE.
         """
+        from ._cursor import AsyncCursor  # local import avoids circular dependency
+
         params = params or []
         self._log_sql(sql, params)
 
@@ -128,13 +132,13 @@ class AsyncConnection:
             self._metrics.record_cache_access(hit=cached)
 
         try:
-            cursor = await self._run(self._raw.execute, sql, params)
+            raw_cursor = await self._run(self._raw.execute, sql, params)
             if self._config.auto_commit and not self._in_transaction:
                 await self._run(self._raw.commit)
             elapsed = time.monotonic_ns() - t0
             if self._metrics:
                 self._metrics.record_query(elapsed)
-            return cursor.rowcount
+            return AsyncCursor(raw_cursor, self._executor)
         except sqlite3.Error as exc:
             if self._metrics:
                 self._metrics.record_query_error()

@@ -276,7 +276,7 @@ class ConnectionPool:
         self,
         sql: str,
         params: Optional[Sequence[Any]] = None,
-    ) -> int:
+    ) -> Any:
         """Execute a write statement (acquires writer automatically)."""
         async with self.acquire(readonly=False) as conn:
             return await conn.execute(sql, params)
