@@ -866,14 +866,21 @@ class TestServeCommand:
         assert "bind" in params
 
     def test_serve_production_defaults(self):
-        """Default values should be sane for production."""
+        """Default values should be sane for production.
+
+        ``workers`` and ``bind`` default to ``None`` so that values are
+        resolved from the workspace AquilaConfig at runtime.  The fixed
+        defaults (use_gunicorn, timeout, graceful_timeout) remain.
+        """
         import inspect
         from aquilia.cli.commands.serve import serve_production
         sig = inspect.signature(serve_production)
         assert sig.parameters["use_gunicorn"].default is False
         assert sig.parameters["timeout"].default == 120
         assert sig.parameters["graceful_timeout"].default == 30
-        assert sig.parameters["workers"].default == 1
+        # workers and bind are None — resolved from workspace config at runtime
+        assert sig.parameters["workers"].default is None
+        assert sig.parameters["bind"].default is None
 
     def test_serve_gunicorn_function_exists(self):
         from aquilia.cli.commands.serve import _serve_with_gunicorn
@@ -909,6 +916,62 @@ class TestServeDocstring:
         doc = serve.__doc__
         assert "gunicorn" in doc.lower()
         assert "uvicorn" in doc.lower()
+
+
+# ════════════════════════════════════════════════════════════════════════
+# MODULE 6b: CONFIG RESOLUTION — CLI reads AquilaConfig from workspace.py
+# ════════════════════════════════════════════════════════════════════════
+
+
+class TestRuntimeConfigResolution:
+    """Verify that run/serve commands read AquilaConfig from workspace.py."""
+
+    def test_load_workspace_runtime_config_reads_port(self, tmp_path):
+        """_load_workspace_runtime_config returns port from AquilaConfig."""
+        from aquilia.cli.commands.run import _load_workspace_runtime_config
+
+        ws = tmp_path / "workspace.py"
+        ws.write_text(
+            "from aquilia.config_builders import Workspace, AquilaConfig\n"
+            "\n"
+            "class BaseEnv(AquilaConfig):\n"
+            "    env = 'dev'\n"
+            "    class server(AquilaConfig.Server):\n"
+            "        host = '0.0.0.0'\n"
+            "        port = 9000\n"
+            "        workers = 2\n"
+            "        reload = False\n"
+            "\n"
+            "workspace = Workspace('test-app').env_config(BaseEnv)\n"
+        )
+        rt = _load_workspace_runtime_config(tmp_path)
+        assert rt.get("host") == "0.0.0.0"
+        assert rt.get("port") == 9000
+        assert rt.get("workers") == 2
+        assert rt.get("reload") is False
+
+    def test_load_workspace_runtime_config_empty_on_missing(self, tmp_path):
+        """Returns empty dict when workspace.py does not exist."""
+        from aquilia.cli.commands.run import _load_workspace_runtime_config
+        assert _load_workspace_runtime_config(tmp_path) == {}
+
+    def test_run_dev_server_signature_uses_none_defaults(self):
+        """run_dev_server accepts None for host/port/reload (resolved from config)."""
+        import inspect
+        from aquilia.cli.commands.run import run_dev_server
+        sig = inspect.signature(run_dev_server)
+        assert sig.parameters["host"].default is None
+        assert sig.parameters["port"].default is None
+        assert sig.parameters["reload"].default is None
+
+    def test_server_run_signature_uses_none_defaults(self):
+        """AquiliaServer.run() accepts None for host/port/reload."""
+        import inspect
+        from aquilia.server import AquiliaServer
+        sig = inspect.signature(AquiliaServer.run)
+        assert sig.parameters["host"].default is None
+        assert sig.parameters["port"].default is None
+        assert sig.parameters["reload"].default is None
 
 
 # ════════════════════════════════════════════════════════════════════════
@@ -2136,24 +2199,20 @@ class TestBuildManifest:
         assert ctx2["session_store"] == "memory"
 
     def test_to_deploy_context_db_driver_detection_postgres(self, tmp_path):
-        """Detects postgres from config/prod.yaml."""
+        """Detects postgres from workspace.py."""
         from aquilia.build.pipeline import BuildManifest
 
-        cfg_dir = tmp_path / "config"
-        cfg_dir.mkdir()
-        (cfg_dir / "prod.yaml").write_text('db:\n  url: "postgresql://user:pass@db:5432/mydb"')
+        (tmp_path / "workspace.py").write_text('db_url = "postgresql://user:pass@db:5432/mydb"')
 
         m = BuildManifest(workspace_name="pg-app", features={"db": True})
         ctx = m.to_deploy_context(tmp_path)
         assert ctx["db_driver"] == "postgres"
 
     def test_to_deploy_context_db_driver_detection_mysql(self, tmp_path):
-        """Detects mysql from config/prod.yaml."""
+        """Detects mysql from workspace.py."""
         from aquilia.build.pipeline import BuildManifest
 
-        cfg_dir = tmp_path / "config"
-        cfg_dir.mkdir()
-        (cfg_dir / "prod.yaml").write_text('db:\n  url: "mysql://user:pass@db:3306/mydb"')
+        (tmp_path / "workspace.py").write_text('db_url = "mysql://user:pass@db:3306/mydb"')
 
         m = BuildManifest(workspace_name="mysql-app", features={"db": True})
         ctx = m.to_deploy_context(tmp_path)
@@ -2289,35 +2348,29 @@ class TestBuildManifest:
         """Detects mariadb as mysql driver."""
         from aquilia.build.pipeline import BuildManifest
 
-        cfg_dir = tmp_path / "config"
-        cfg_dir.mkdir()
-        (cfg_dir / "prod.yaml").write_text('db:\n  url: "mariadb://user:pass@db:3306/mydb"')
+        (tmp_path / "workspace.py").write_text('db_url = "mariadb://user:pass@db:3306/mydb"')
 
         m = BuildManifest(workspace_name="maria-app", features={"db": True})
         ctx = m.to_deploy_context(tmp_path)
         assert ctx["db_driver"] == "mysql"
 
-    def test_load_detects_production_yaml_variant(self, tmp_path):
-        """Falls back to production.yaml if prod.yaml doesn't exist."""
+    def test_load_detects_db_from_workspace_py(self, tmp_path):
+        """Detects DB driver from workspace.py."""
         from aquilia.build.pipeline import BuildManifest
 
-        cfg_dir = tmp_path / "config"
-        cfg_dir.mkdir()
-        (cfg_dir / "production.yaml").write_text('db:\n  url: "postgresql://host/db"')
+        (tmp_path / "workspace.py").write_text('url = "postgresql://host/db"')
 
-        m = BuildManifest(workspace_name="prod-yaml", features={"db": True})
+        m = BuildManifest(workspace_name="ws-py", features={"db": True})
         ctx = m.to_deploy_context(tmp_path)
         assert ctx["db_driver"] == "postgres"
 
-    def test_load_detects_base_yaml_fallback(self, tmp_path):
-        """Falls back to base.yaml when neither prod.yaml nor production.yaml exists."""
+    def test_load_detects_aquilia_py_fallback(self, tmp_path):
+        """Detects DB driver from aquilia.py when workspace.py absent."""
         from aquilia.build.pipeline import BuildManifest
 
-        cfg_dir = tmp_path / "config"
-        cfg_dir.mkdir()
-        (cfg_dir / "base.yaml").write_text('db:\n  url: "mysql://host/db"')
+        (tmp_path / "aquilia.py").write_text('host = "mysql://host/db"')
 
-        m = BuildManifest(workspace_name="base-yaml", features={"db": True})
+        m = BuildManifest(workspace_name="aquilia-py", features={"db": True})
         ctx = m.to_deploy_context(tmp_path)
         assert ctx["db_driver"] == "mysql"
 
