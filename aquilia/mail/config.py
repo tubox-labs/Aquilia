@@ -558,7 +558,7 @@ class MailConfig:
     Top-level mail configuration.
 
     Integrates with Aquilia's layered config:
-        config/base.yaml → config/{mode}.yaml → env vars → workspace.py overrides
+        workspace.py (AquilaConfig inline) → env vars → Workspace builder overrides
 
     Usage in workspace.py::
 
