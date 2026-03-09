@@ -566,6 +566,27 @@ class AquilaConfig:
         Authentication & JWT configuration.
 
         Maps to the ``auth`` config path.
+
+        **Algorithm selection:**
+
+        Zero-dependency algorithms (stdlib ``hmac`` + ``hashlib``):
+          * ``"HS256"`` — HMAC-SHA-256  ← **default, no extra packages**
+          * ``"HS384"`` — HMAC-SHA-384
+          * ``"HS512"`` — HMAC-SHA-512
+
+        Asymmetric algorithms (requires ``pip install cryptography``):
+          * ``"RS256"`` — RSA 3072-bit + SHA-256
+          * ``"ES256"`` — ECDSA P-256  + SHA-256
+          * ``"EdDSA"`` — Ed25519
+
+        Example::
+
+            class auth(AquilaConfig.Auth):
+                # Use HS512 (stdlib, no deps):
+                algorithm = "HS512"
+
+                # Use RS256 (requires: pip install cryptography):
+                # algorithm = "RS256"
         """
         enabled: bool                        = True
         store_type: str                      = "memory"
