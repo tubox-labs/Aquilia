@@ -433,13 +433,6 @@ def init_workspace(ctx, name: Optional[str], minimal: bool, template: Optional[s
             section("Generated Files")
             tree_item("workspace.py", depth=0)
             tree_item("starter.py", depth=0)
-            tree_item("config/", depth=0)
-            tree_item("base.yaml", depth=1)
-            if not minimal:
-                tree_item("dev.yaml", depth=1)
-                tree_item("prod.yaml", depth=1, last=True)
-            else:
-                tree_item("base.yaml", depth=1, last=True)
             tree_item(".env.example", depth=0)
             tree_item(".editorconfig", depth=0)
             if include_gitignore:
@@ -903,12 +896,12 @@ def compile(ctx, watch: bool, output: Optional[str]):
 
 @cli.command('run')
 @click.option('--mode', type=click.Choice(['dev', 'test']), default='dev', help='Runtime mode')
-@click.option('--port', type=int, default=8000, help='Server port')
-@click.option('--host', type=str, default='127.0.0.1', help='Server host')
-@click.option('--reload/--no-reload', default=True, help='Enable hot-reload')
+@click.option('--port', type=int, default=None, help='Server port (default: from workspace.py AquilaConfig, or 8000)')
+@click.option('--host', type=str, default=None, help='Server host (default: from workspace.py AquilaConfig, or 127.0.0.1)')
+@click.option('--reload/--no-reload', default=None, help='Enable hot-reload (default: from workspace.py AquilaConfig, or True)')
 @click.option('--skip-checks', is_flag=True, help='Skip pre-flight dependency checks')
 @click.pass_context
-def run(ctx, mode: str, port: int, host: str, reload: bool, skip_checks: bool):
+def run(ctx, mode: str, port, host, reload, skip_checks: bool):
     """
     Start development server.
 
@@ -969,13 +962,13 @@ def run(ctx, mode: str, port: int, host: str, reload: bool, skip_checks: bool):
 
 
 @cli.command('serve')
-@click.option('--workers', type=int, default=1, help='Number of workers')
-@click.option('--bind', type=str, default='0.0.0.0:8000', help='Bind address')
+@click.option('--workers', type=int, default=None, help='Number of workers (default: from workspace.py AquilaConfig, or 1)')
+@click.option('--bind', type=str, default=None, help='Bind address (default: from workspace.py AquilaConfig, or 0.0.0.0:8000)')
 @click.option('--use-gunicorn', is_flag=True, help='Use gunicorn with UvicornWorker (recommended for production)')
 @click.option('--timeout', type=int, default=120, help='Worker timeout in seconds (gunicorn only)')
 @click.option('--graceful-timeout', type=int, default=30, help='Graceful shutdown timeout (gunicorn only)')
 @click.pass_context
-def serve(ctx, workers: int, bind: str, use_gunicorn: bool, timeout: int, graceful_timeout: int):
+def serve(ctx, workers, bind, use_gunicorn: bool, timeout: int, graceful_timeout: int):
     """
     Start production server with compiled Crous artifacts.
     

@@ -24,9 +24,8 @@ def create_workspace(
     Create a new Aquilia workspace.
 
     When ``minimal=True``, generates the absolute minimum needed to run:
-      - workspace.py (lean config -- no sessions, no security, no telemetry)
+      - workspace.py (structure + inline AquilaConfig env config)
       - modules/ directory
-      - config/base.yaml (minimal)
       - starter.py (welcome page)
     No Docker files, no artifacts dir, no README, no .gitignore.
 
@@ -78,11 +77,7 @@ def create_workspace(
         dim(f"    workspace.py")
         dim(f"    starter.py")
         dim(f"    modules/")
-        dim(f"    config/")
-        dim(f"      base.yaml")
         if not minimal:
-            dim(f"      dev.yaml")
-            dim(f"      prod.yaml")
             dim(f"    artifacts/")
             dim(f"    runtime/")
             if include_docker:

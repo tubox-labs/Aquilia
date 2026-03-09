@@ -144,7 +144,7 @@ def _check_workspace_structure(
     ws_file = get_workspace_file(workspace_root)
     if not ws_file:
         report.add("Workspace", "Workspace config file", False,
-                    "Missing workspace.py or aquilia.yaml")
+                    "Missing workspace.py or aquilia.py")
         return None
 
     report.add("Workspace", f"Workspace file: {ws_file.name}", True)
@@ -158,22 +158,23 @@ def _check_workspace_structure(
             report.add("Workspace", f"{dir_name}/ directory", False, "Missing")
 
     # Recommended directories
-    for dir_name in ("config",):
+    for dir_name in ():
         d = workspace_root / dir_name
         if d.exists():
             report.add("Workspace", f"{dir_name}/ directory", True)
         else:
             report.warn(f"Recommended directory missing: {dir_name}/")
 
-    # Config files
-    config_dir = workspace_root / "config"
-    if config_dir.exists():
-        for cfg in ("base.yaml", "dev.yaml", "prod.yaml"):
-            cfg_path = config_dir / cfg
-            if cfg_path.exists():
-                report.add("Config", cfg, True)
+    # Check for inline AquilaConfig in workspace.py
+    if ws_file:
+        try:
+            ws_content = ws_file.read_text(encoding="utf-8")
+            if "AquilaConfig" in ws_content:
+                report.add("Config", "AquilaConfig in workspace.py", True)
             else:
-                report.warn(f"Missing config file: config/{cfg}")
+                report.warn("workspace.py has no AquilaConfig — env config missing")
+        except Exception:
+            pass
 
     return ws_file
 
