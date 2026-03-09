@@ -60,12 +60,8 @@ try:
 except ImportError:
     BROTLI_AVAILABLE = False
 
-# Optional async file I/O
-try:
-    import aiofiles
-    AIOFILES_AVAILABLE = True
-except ImportError:
-    AIOFILES_AVAILABLE = False
+# Native async file I/O
+from .filesystem import stream_read as _fs_stream_read
 
 # Import Crous binary serializer
 try:
@@ -752,27 +748,8 @@ class Response:
         
         # Create streaming iterator
         async def _file_stream() -> AsyncIterator[bytes]:
-            if AIOFILES_AVAILABLE:
-                async with aiofiles.open(path, "rb") as f:
-                    while True:
-                        chunk = await f.read(chunk_size)
-                        if not chunk:
-                            break
-                        yield chunk
-            else:
-                # Fallback: sync read in executor
-                import asyncio
-                loop = asyncio.get_running_loop()
-                
-                def _read_chunk(fp, size):
-                    return fp.read(size)
-                
-                with open(path, "rb") as f:
-                    while True:
-                        chunk = await loop.run_in_executor(None, _read_chunk, f, chunk_size)
-                        if not chunk:
-                            break
-                        yield chunk
+            async for chunk in _fs_stream_read(path, chunk_size=chunk_size):
+                yield chunk
         
         response = cls(
             content=_file_stream(),
@@ -1435,29 +1412,11 @@ class Response:
             Chunks of bytes from the specified range
         """
         async def _range_stream():
-            remaining = end - start + 1
-            if AIOFILES_AVAILABLE:
-                async with aiofiles.open(file_path, "rb") as f:
-                    await f.seek(start)
-                    while remaining > 0:
-                        read_size = min(chunk_size, remaining)
-                        chunk = await f.read(read_size)
-                        if not chunk:
-                            break
-                        remaining -= len(chunk)
-                        yield chunk
-            else:
-                import asyncio as _aio
-                loop = _aio.get_running_loop()
-                with open(file_path, "rb") as f:
-                    f.seek(start)
-                    while remaining > 0:
-                        read_size = min(chunk_size, remaining)
-                        chunk = await loop.run_in_executor(None, f.read, read_size)
-                        if not chunk:
-                            break
-                        remaining -= len(chunk)
-                        yield chunk
+            async for chunk in _fs_stream_read(
+                file_path, chunk_size=chunk_size,
+                offset=start, end=end + 1,
+            ):
+                yield chunk
         return _range_stream()
 
     def _prepare_headers(self) -> List[tuple]:

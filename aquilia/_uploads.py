@@ -20,11 +20,7 @@ from typing import (
     Protocol, Union, Any
 )
 
-try:
-    import aiofiles
-    AIOFILES_AVAILABLE = True
-except ImportError:
-    AIOFILES_AVAILABLE = False
+from .filesystem import async_open, read_file, stream_read, write_file, append_file
 
 from ._datastructures import MultiDict
 
@@ -66,20 +62,12 @@ class UploadFile:
                 return self._content[:size]
         
         elif self._file_path is not None:
-            # File on disk
-            if AIOFILES_AVAILABLE:
-                async with aiofiles.open(self._file_path, "rb") as f:
-                    if size == -1:
-                        return await f.read()
-                    else:
-                        return await f.read(size)
+            # File on disk — use native async I/O
+            if size == -1:
+                return await read_file(self._file_path)
             else:
-                # Fallback to sync I/O
-                with open(self._file_path, "rb") as f:
-                    if size == -1:
-                        return f.read()
-                    else:
-                        return f.read(size)
+                async with async_open(self._file_path, "rb") as f:
+                    return await f.read(size)
         
         return b""
     
@@ -101,22 +89,9 @@ class UploadFile:
                 yield self._content[i:i + chunk_size]
         
         elif self._file_path is not None:
-            # File on disk - stream
-            if AIOFILES_AVAILABLE:
-                async with aiofiles.open(self._file_path, "rb") as f:
-                    while True:
-                        chunk = await f.read(chunk_size)
-                        if not chunk:
-                            break
-                        yield chunk
-            else:
-                # Fallback to sync I/O
-                with open(self._file_path, "rb") as f:
-                    while True:
-                        chunk = f.read(chunk_size)
-                        if not chunk:
-                            break
-                        yield chunk
+            # File on disk — native async streaming
+            async for chunk in stream_read(self._file_path, chunk_size=chunk_size):
+                yield chunk
     
     async def save(self, path: Union[str, Path], overwrite: bool = False) -> Path:
         """
@@ -141,27 +116,13 @@ class UploadFile:
         dest.parent.mkdir(parents=True, exist_ok=True)
         
         if self._content is not None:
-            # Write in-memory content
-            if AIOFILES_AVAILABLE:
-                async with aiofiles.open(dest, "wb") as f:
-                    await f.write(self._content)
-            else:
-                with open(dest, "wb") as f:
-                    f.write(self._content)
+            # Write in-memory content — native async I/O
+            await write_file(dest, self._content)
         
         elif self._file_path is not None:
-            # Copy temp file to destination
-            if AIOFILES_AVAILABLE:
-                async with aiofiles.open(self._file_path, "rb") as src:
-                    async with aiofiles.open(dest, "wb") as dst:
-                        while True:
-                            chunk = await src.read(self._chunk_size)
-                            if not chunk:
-                                break
-                            await dst.write(chunk)
-            else:
-                import shutil
-                shutil.copy2(self._file_path, dest)
+            # Copy temp file to destination — native async streaming
+            from .filesystem import copy_file
+            await copy_file(self._file_path, dest)
         
         return dest
     
@@ -330,12 +291,7 @@ class LocalUploadStore:
         
         temp_path = self._uploads[upload_id]
         
-        if AIOFILES_AVAILABLE:
-            async with aiofiles.open(temp_path, "ab") as f:
-                await f.write(chunk)
-        else:
-            with open(temp_path, "ab") as f:
-                f.write(chunk)
+        await append_file(temp_path, chunk)
     
     async def finalize(self, upload_id: str, metadata: Optional[Dict[str, Any]] = None) -> Path:
         """

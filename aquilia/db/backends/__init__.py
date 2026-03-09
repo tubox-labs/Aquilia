@@ -2,7 +2,7 @@
 Aquilia DB Backends Package -- pluggable database adapters.
 
 Provides a common adapter interface and implementations for:
-- SQLite (default, via aiosqlite)
+- SQLite (default, via native aquilia.sqlite)
 - PostgreSQL (via asyncpg)
 - MySQL / MariaDB (via aiomysql)
 - Oracle (via python-oracledb)

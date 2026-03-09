@@ -32,6 +32,9 @@ from typing import (
     Union,
 )
 
+from ...filesystem._pool import FileSystemPool as _FsPool
+from ...filesystem._config import FileSystemConfig as _FsConfig
+
 from ..base import (
     FileNotFoundError,
     PermissionError,
@@ -41,6 +44,16 @@ from ..base import (
     StorageMetadata,
 )
 from ..configs import LocalConfig
+
+# Lazy-initialised shared pool for all LocalStorage instances
+_pool: Optional[_FsPool] = None
+
+def _get_pool() -> _FsPool:
+    global _pool
+    if _pool is None:
+        _pool = _FsPool(_FsConfig())
+        _pool.initialize()
+    return _pool
 
 
 class LocalStorage(StorageBackend):
@@ -99,7 +112,7 @@ class LocalStorage(StorageBackend):
             if self._config.permissions:
                 os.chmod(full, self._config.permissions)
 
-        await asyncio.get_event_loop().run_in_executor(None, _write)
+        await _get_pool().run(_write)
         return name
 
     async def open(self, name: str, mode: str = "rb") -> StorageFile:
@@ -114,7 +127,7 @@ class LocalStorage(StorageBackend):
         def _read() -> bytes:
             return full.read_bytes()
 
-        data = await asyncio.get_event_loop().run_in_executor(None, _read)
+        data = await _get_pool().run(_read)
         meta = await self.stat(name)
         return StorageFile(name=name, mode=mode, content=data, meta=meta)
 
@@ -126,12 +139,12 @@ class LocalStorage(StorageBackend):
             if full.exists():
                 full.unlink()
 
-        await asyncio.get_event_loop().run_in_executor(None, _delete)
+        await _get_pool().run(_delete)
 
     async def exists(self, name: str) -> bool:
         name = self._normalize_path(name)
         full = self._full_path(name)
-        return await asyncio.get_event_loop().run_in_executor(None, full.exists)
+        return await _get_pool().run(full.exists)
 
     async def stat(self, name: str) -> StorageMetadata:
         name = self._normalize_path(name)
@@ -145,7 +158,7 @@ class LocalStorage(StorageBackend):
         def _stat() -> os.stat_result:
             return full.stat()
 
-        st = await asyncio.get_event_loop().run_in_executor(None, _stat)
+        st = await _get_pool().run(_stat)
 
         return StorageMetadata(
             name=name,
@@ -170,7 +183,7 @@ class LocalStorage(StorageBackend):
                     files.append(entry.name)
             return dirs, files
 
-        return await asyncio.get_event_loop().run_in_executor(None, _list)
+        return await _get_pool().run(_list)
 
     async def size(self, name: str) -> int:
         meta = await self.stat(name)
@@ -197,7 +210,7 @@ class LocalStorage(StorageBackend):
         def _copy() -> None:
             shutil.copy2(str(src_path), str(dst_path))
 
-        await asyncio.get_event_loop().run_in_executor(None, _copy)
+        await _get_pool().run(_copy)
         return dst
 
     # -- Internal ----------------------------------------------------------

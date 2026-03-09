@@ -32,8 +32,6 @@ CORE_DEPS = [
     # Template engine — used by admin panel and user templates (always loaded)
     "jinja2>=3.1.0",
     "markupsafe>=2.1.0",
-    # Async SQLite — default database backend
-    "aiosqlite>=0.20.0",
     # Crous compiler — used for manifest compilation and runtime evaluation
     "crousr",
     "crous-native",
@@ -43,14 +41,15 @@ CORE_DEPS = [
 # Optional dependency groups — mirrors [project.optional-dependencies]
 # ---------------------------------------------------------------------------
 EXTRAS = {
-    # -- Framework extras --
-    # NOTE: jinja2/markupsafe and aiosqlite are now core dependencies.
+    # NOTE: jinja2/markupsafe are now core dependencies.
+    # aiosqlite has been replaced by native aquilia.sqlite (stdlib sqlite3).
     # Keep these keys as empty lists so existing installs that request
     # aquilia[templates] or aquilia[db] don't get a "no such extra" error.
     "templates": [],
     "db": [],
     "auth": ["cryptography>=42.0.0", "argon2-cffi>=23.1.0"],
-    "files": ["aiofiles>=23.0.0"],
+    "files": [],  # DEPRECATED: aiofiles replaced by native aquilia.filesystem
+    "sqlite-compat": ["aiosqlite>=0.20.0"],  # DEPRECATED: aiosqlite replaced by native aquilia.sqlite
     "multipart": ["python-multipart>=0.0.9"],
     "redis": ["redis[asyncio]>=5.0.0"],
     "mail": ["aiosmtplib>=3.0.0"],
