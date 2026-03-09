@@ -1,112 +1,262 @@
 """
 AquilAuth - Password Hashing
 
-Argon2id implementation for secure password hashing.
+Production-grade, multi-algorithm password hashing engine.
+
+Supported algorithms (ordered by recommendation):
+  1. **argon2id** — Memory-hard, GPU-resistant, PHC winner.
+     Requires: ``pip install argon2-cffi``
+  2. **scrypt** — Memory-hard KDF, built into Python ``hashlib`` (3.6+). No extra deps.
+  3. **bcrypt** — Time-tested Blowfish-based KDF. Requires: ``pip install bcrypt``
+  4. **pbkdf2_sha512** — PBKDF2-HMAC-SHA-512, built-in ``hashlib``. NIST SP 800-132.
+  5. **pbkdf2_sha256** — PBKDF2-HMAC-SHA-256, built-in ``hashlib``. Legacy fallback.
+
+All outputs are self-describing PHC-format strings so ``verify()``
+always picks the correct back-end.
+
+OWASP 2024 recommended minimums are used as defaults.
 """
 
-from typing import Literal
-import secrets
-import hashlib
+from __future__ import annotations
 
+from dataclasses import dataclass
+from typing import Any, Dict
+import base64
+import hashlib
+import secrets
+
+# ── Optional C-accelerated backends ────────────────────────────────────────
 
 try:
     from argon2 import PasswordHasher as Argon2PasswordHasher
-    from argon2.exceptions import VerifyMismatchError, InvalidHash
+    from argon2.exceptions import VerifyMismatchError, InvalidHashError as InvalidHash
     HAS_ARGON2 = True
 except ImportError:
     HAS_ARGON2 = False
 
+try:
+    import bcrypt as _bcrypt_mod
+    HAS_BCRYPT = True
+except ImportError:
+    HAS_BCRYPT = False
+
+
+# ============================================================================
+# HasherConfig — algorithm parameters in a portable data object
+# ============================================================================
+
+SUPPORTED_ALGORITHMS = (
+    "argon2id",
+    "scrypt",
+    "bcrypt",
+    "pbkdf2_sha512",
+    "pbkdf2_sha256",
+)
+
+
+@dataclass
+class HasherConfig:
+    """
+    Algorithm-agnostic configuration for :class:`PasswordHasher`.
+
+    Instantiate directly, or use :meth:`from_dict` / the
+    ``AquilaConfig.PasswordHasher`` builder from ``aquilia.pyconfig``.
+
+    Example::
+
+        cfg = HasherConfig(algorithm="argon2id", time_cost=3, memory_cost=131072)
+        hasher = PasswordHasher.from_config(cfg)
+    """
+
+    algorithm: str = "argon2id"
+
+    # Argon2
+    time_cost: int = 2
+    memory_cost: int = 65536       # 64 MiB (KiB units)
+    parallelism: int = 4
+    hash_len: int = 32
+    salt_len: int = 16
+
+    # scrypt
+    scrypt_n: int = 32768
+    scrypt_r: int = 8
+    scrypt_p: int = 1
+    scrypt_dklen: int = 32
+
+    # bcrypt
+    bcrypt_rounds: int = 12
+
+    # PBKDF2
+    pbkdf2_iterations: int = 600_000
+    pbkdf2_sha512_iterations: int = 210_000
+    pbkdf2_dklen: int = 32
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "HasherConfig":
+        """Build from a plain dict (e.g. serialised from ``pyconfig``)."""
+        known = {f.name for f in cls.__dataclass_fields__.values()}
+        filtered = {k: v for k, v in data.items() if k in known}
+        return cls(**filtered)
+
+    def to_dict(self) -> Dict[str, Any]:
+        from dataclasses import asdict
+        return asdict(self)
+
+
+# ============================================================================
+# PasswordHasher — multi-algorithm password hashing engine
+# ============================================================================
 
 class PasswordHasher:
     """
-    Password hasher using Argon2id (recommended) or PBKDF2 (fallback).
-    
-    Argon2id is memory-hard and GPU-resistant, making it excellent
-    for password hashing. Falls back to PBKDF2-HMAC-SHA256 if argon2
-    is not available.
-    
-    Security parameters:
-    - Argon2id: time_cost=2, memory_cost=65536 (64MB), parallelism=4
-    - PBKDF2: iterations=600000, hash=SHA256
+    Multi-algorithm password hasher with automatic algorithm detection.
+
+    Supports argon2id, scrypt, bcrypt, PBKDF2-SHA-256, and PBKDF2-SHA-512.
+    Hash strings are self-describing (PHC format) so ``verify()`` always
+    picks the correct back-end regardless of what ``algorithm`` was
+    configured at construction time.
+
+    Usage::
+
+        hasher = PasswordHasher()                       # argon2id (default)
+        hasher = PasswordHasher(algorithm="scrypt")     # scrypt (zero-dep)
+        hasher = PasswordHasher.from_config(cfg)        # from HasherConfig
+
+        hashed = hasher.hash("s3cret")
+        assert hasher.verify(hashed, "s3cret")
     """
-    
+
     def __init__(
         self,
-        algorithm: Literal["argon2id", "pbkdf2_sha256"] | None = None,
-        # Argon2 parameters
+        algorithm: str | None = None,
+        # Argon2
         time_cost: int = 2,
-        memory_cost: int = 65536,  # 64 MB
+        memory_cost: int = 65536,
         parallelism: int = 4,
         hash_len: int = 32,
         salt_len: int = 16,
-        # PBKDF2 parameters
-        iterations: int = 600000,
+        # scrypt
+        scrypt_n: int = 32768,
+        scrypt_r: int = 8,
+        scrypt_p: int = 1,
+        scrypt_dklen: int = 32,
+        # bcrypt
+        bcrypt_rounds: int = 12,
+        # PBKDF2
+        pbkdf2_iterations: int = 600_000,
+        pbkdf2_sha512_iterations: int = 210_000,
+        pbkdf2_dklen: int = 32,
+        # Legacy compat
+        iterations: int | None = None,
     ):
-        """
-        Initialize password hasher.
-        
-        Args:
-            algorithm: Hash algorithm (auto-detect if None)
-            time_cost: Argon2 time cost (iterations)
-            memory_cost: Argon2 memory cost (KB)
-            parallelism: Argon2 parallelism (threads)
-            hash_len: Output hash length
-            salt_len: Salt length
-            iterations: PBKDF2 iterations
-        """
-        # Auto-detect best algorithm
+        # Auto-detect best available algorithm
         if algorithm is None:
-            algorithm = "argon2id" if HAS_ARGON2 else "pbkdf2_sha256"
-        
+            if HAS_ARGON2:
+                algorithm = "argon2id"
+            else:
+                algorithm = "pbkdf2_sha256"
+
+        if algorithm not in SUPPORTED_ALGORITHMS:
+            raise ValueError(
+                f"Unsupported algorithm {algorithm!r}. "
+                f"Choose from: {', '.join(SUPPORTED_ALGORITHMS)}"
+            )
+
         self.algorithm = algorithm
-        
+
+        # ── Argon2 ──────────────────────────────────────────────────
+        self.time_cost = time_cost
+        self.memory_cost = memory_cost
+        self.parallelism = parallelism
+        self.hash_len = hash_len
+        self.salt_len = salt_len
+
         if algorithm == "argon2id":
             if not HAS_ARGON2:
                 raise ImportError(
                     "argon2-cffi not installed. Install with: pip install argon2-cffi"
                 )
-            
-            self.hasher = Argon2PasswordHasher(
+            self._argon2 = Argon2PasswordHasher(
                 time_cost=time_cost,
                 memory_cost=memory_cost,
                 parallelism=parallelism,
                 hash_len=hash_len,
                 salt_len=salt_len,
             )
-        else:
-            self.iterations = iterations
-            self.hash_len = hash_len
-            self.salt_len = salt_len
-    
+
+        # ── scrypt ──────────────────────────────────────────────────
+        self.scrypt_n = scrypt_n
+        self.scrypt_r = scrypt_r
+        self.scrypt_p = scrypt_p
+        self.scrypt_dklen = scrypt_dklen
+
+        # ── bcrypt ──────────────────────────────────────────────────
+        self.bcrypt_rounds = bcrypt_rounds
+        if algorithm == "bcrypt" and not HAS_BCRYPT:
+            raise ImportError(
+                "bcrypt not installed. Install with: pip install bcrypt"
+            )
+
+        # ── PBKDF2 ─────────────────────────────────────────────────
+        self.pbkdf2_iterations = iterations or pbkdf2_iterations
+        self.pbkdf2_sha512_iterations = pbkdf2_sha512_iterations
+        self.pbkdf2_dklen = pbkdf2_dklen
+
+    @classmethod
+    def from_config(cls, config: HasherConfig) -> "PasswordHasher":
+        """Build a PasswordHasher from a :class:`HasherConfig`."""
+        return cls(
+            algorithm=config.algorithm,
+            time_cost=config.time_cost,
+            memory_cost=config.memory_cost,
+            parallelism=config.parallelism,
+            hash_len=config.hash_len,
+            salt_len=config.salt_len,
+            scrypt_n=config.scrypt_n,
+            scrypt_r=config.scrypt_r,
+            scrypt_p=config.scrypt_p,
+            scrypt_dklen=config.scrypt_dklen,
+            bcrypt_rounds=config.bcrypt_rounds,
+            pbkdf2_iterations=config.pbkdf2_iterations,
+            pbkdf2_sha512_iterations=config.pbkdf2_sha512_iterations,
+            pbkdf2_dklen=config.pbkdf2_dklen,
+        )
+
+    # ════════════════════════════════════════════════════════════════
+    #  hash()
+    # ════════════════════════════════════════════════════════════════
+
     def hash(self, password: str) -> str:
-        """
-        Hash password.
-        
-        Returns encoded hash that includes algorithm, parameters, salt, and hash.
-        
-        Example Argon2 output:
-            $argon2id$v=19$m=65536,t=2,p=4$saltbase64$hashbase64
-        
-        Example PBKDF2 output:
-            $pbkdf2_sha256$600000$saltbase64$hashbase64
-        """
-        if self.algorithm == "argon2id":
-            return self.hasher.hash(password)
+        """Hash *password* with the configured algorithm (PHC format output)."""
+        algo = self.algorithm
+        if algo == "argon2id":
+            return self._hash_argon2(password)
+        elif algo == "scrypt":
+            return self._hash_scrypt(password)
+        elif algo == "bcrypt":
+            return self._hash_bcrypt(password)
+        elif algo == "pbkdf2_sha512":
+            return self._hash_pbkdf2(password, "sha512", self.pbkdf2_sha512_iterations)
         else:
-            return self._hash_pbkdf2(password)
-    
+            return self._hash_pbkdf2(password, "sha256", self.pbkdf2_iterations)
+
+    # ════════════════════════════════════════════════════════════════
+    #  verify()
+    # ════════════════════════════════════════════════════════════════
+
     def verify(self, password_hash: str, password: str) -> bool:
-        """
-        Verify password against hash.
-        
-        Returns True if password matches hash, False otherwise.
-        Constant-time comparison to prevent timing attacks.
-        """
+        """Verify *password* against *password_hash* (auto-detects algorithm)."""
         try:
-            if password_hash.startswith("$argon2id"):
+            if password_hash.startswith("$argon2"):
                 return self._verify_argon2(password_hash, password)
-            elif password_hash.startswith("$pbkdf2_sha256"):
-                return self._verify_pbkdf2(password_hash, password)
+            elif password_hash.startswith("$scrypt$"):
+                return self._verify_scrypt(password_hash, password)
+            elif password_hash.startswith(("$2b$", "$2a$", "$2y$")):
+                return self._verify_bcrypt(password_hash, password)
+            elif password_hash.startswith("$pbkdf2_sha512$"):
+                return self._verify_pbkdf2(password_hash, password, "sha512")
+            elif password_hash.startswith("$pbkdf2_sha256$"):
+                return self._verify_pbkdf2(password_hash, password, "sha256")
             else:
                 return False
         except Exception:
@@ -121,83 +271,150 @@ class PasswordHasher:
         """Verify password without blocking the event loop."""
         import asyncio
         return await asyncio.to_thread(self.verify, password_hash, password)
-    
+
+    # ════════════════════════════════════════════════════════════════
+    #  Rehash detection
+    # ════════════════════════════════════════════════════════════════
+
     def check_needs_rehash(self, password_hash: str) -> bool:
-        """
-        Check if password hash needs rehashing (parameters changed).
-        
-        Returns True if hash should be regenerated with new parameters.
-        """
+        """Check if *password_hash* should be regenerated with current params."""
         if self.algorithm == "argon2id" and HAS_ARGON2:
-            try:
-                return self.hasher.check_needs_rehash(password_hash)
-            except (InvalidHash, AttributeError):
+            if password_hash.startswith("$argon2"):
+                try:
+                    return self._argon2.check_needs_rehash(password_hash)
+                except (InvalidHash, AttributeError):
+                    return True
+            return True
+
+        if self.algorithm == "scrypt":
+            if not password_hash.startswith("$scrypt$"):
                 return True
-        
-        # For PBKDF2, check if iterations match
-        if password_hash.startswith("$pbkdf2_sha256"):
             try:
                 parts = password_hash.split("$")
-                iterations = int(parts[2])
-                return iterations != self.iterations
+                param_dict = dict(p.split("=") for p in parts[2].split(","))
+                return (
+                    int(param_dict.get("n", 0)) != self.scrypt_n
+                    or int(param_dict.get("r", 0)) != self.scrypt_r
+                    or int(param_dict.get("p", 0)) != self.scrypt_p
+                )
             except (IndexError, ValueError):
                 return True
-        
+
+        if self.algorithm == "bcrypt":
+            if not password_hash.startswith(("$2b$", "$2a$", "$2y$")):
+                return True
+            try:
+                rounds = int(password_hash.split("$")[2])
+                return rounds != self.bcrypt_rounds
+            except (IndexError, ValueError):
+                return True
+
+        if self.algorithm == "pbkdf2_sha512":
+            if not password_hash.startswith("$pbkdf2_sha512$"):
+                return True
+            try:
+                iterations = int(password_hash.split("$")[2])
+                return iterations != self.pbkdf2_sha512_iterations
+            except (IndexError, ValueError):
+                return True
+
+        if self.algorithm == "pbkdf2_sha256":
+            if not password_hash.startswith("$pbkdf2_sha256$"):
+                return True
+            try:
+                iterations = int(password_hash.split("$")[2])
+                return iterations != self.pbkdf2_iterations
+            except (IndexError, ValueError):
+                return True
+
         return True
-    
-    def _hash_pbkdf2(self, password: str) -> str:
-        """Hash password with PBKDF2-HMAC-SHA256."""
-        salt = secrets.token_bytes(self.salt_len)
-        
-        password_hash = hashlib.pbkdf2_hmac(
-            "sha256",
-            password.encode(),
-            salt,
-            self.iterations,
-            dklen=self.hash_len,
-        )
-        
-        # Encode in custom format: $pbkdf2_sha256$iterations$salt$hash
-        import base64
-        salt_b64 = base64.b64encode(salt).decode()
-        hash_b64 = base64.b64encode(password_hash).decode()
-        
-        return f"$pbkdf2_sha256${self.iterations}${salt_b64}${hash_b64}"
-    
+
+    # ── Argon2id ───────────────────────────────────────────────────
+
+    def _hash_argon2(self, password: str) -> str:
+        return self._argon2.hash(password)
+
     def _verify_argon2(self, password_hash: str, password: str) -> bool:
-        """Verify Argon2 password."""
+        if not HAS_ARGON2:
+            return False
         try:
-            self.hasher.verify(password_hash, password)
+            hasher = getattr(self, "_argon2", None)
+            if hasher is None:
+                hasher = Argon2PasswordHasher()
+            hasher.verify(password_hash, password)
             return True
         except VerifyMismatchError:
             return False
-    
-    def _verify_pbkdf2(self, password_hash: str, password: str) -> bool:
-        """Verify PBKDF2 password."""
-        import base64
-        
+
+    # ── scrypt (stdlib — zero deps) ────────────────────────────────
+
+    def _hash_scrypt(self, password: str) -> str:
+        salt = secrets.token_bytes(self.salt_len)
+        dk = hashlib.scrypt(
+            password.encode(), salt=salt,
+            n=self.scrypt_n, r=self.scrypt_r, p=self.scrypt_p,
+            dklen=self.scrypt_dklen,
+        )
+        salt_b64 = base64.b64encode(salt).decode()
+        dk_b64 = base64.b64encode(dk).decode()
+        params = f"n={self.scrypt_n},r={self.scrypt_r},p={self.scrypt_p}"
+        return f"$scrypt${params}${salt_b64}${dk_b64}"
+
+    def _verify_scrypt(self, password_hash: str, password: str) -> bool:
         try:
-            # Parse hash: $pbkdf2_sha256$iterations$salt$hash
             parts = password_hash.split("$")
-            if len(parts) != 5 or parts[1] != "pbkdf2_sha256":
+            if len(parts) != 5 or parts[1] != "scrypt":
                 return False
-            
+            param_dict = dict(p.split("=") for p in parts[2].split(","))
+            n, r, p = int(param_dict["n"]), int(param_dict["r"]), int(param_dict["p"])
+            salt = base64.b64decode(parts[3])
+            stored = base64.b64decode(parts[4])
+            computed = hashlib.scrypt(
+                password.encode(), salt=salt, n=n, r=r, p=p, dklen=len(stored),
+            )
+            return secrets.compare_digest(computed, stored)
+        except (IndexError, ValueError, KeyError):
+            return False
+
+    # ── bcrypt ─────────────────────────────────────────────────────
+
+    def _hash_bcrypt(self, password: str) -> str:
+        salt = _bcrypt_mod.gensalt(rounds=self.bcrypt_rounds)
+        return _bcrypt_mod.hashpw(password.encode(), salt).decode()
+
+    def _verify_bcrypt(self, password_hash: str, password: str) -> bool:
+        if not HAS_BCRYPT:
+            return False
+        try:
+            return _bcrypt_mod.checkpw(password.encode(), password_hash.encode())
+        except (ValueError, TypeError):
+            return False
+
+    # ── PBKDF2 (SHA-256 / SHA-512) ────────────────────────────────
+
+    def _hash_pbkdf2(self, password: str, digest: str, iterations: int) -> str:
+        salt = secrets.token_bytes(self.salt_len)
+        dk = hashlib.pbkdf2_hmac(
+            digest, password.encode(), salt, iterations, dklen=self.pbkdf2_dklen,
+        )
+        salt_b64 = base64.b64encode(salt).decode()
+        dk_b64 = base64.b64encode(dk).decode()
+        tag = f"pbkdf2_{digest}"
+        return f"${tag}${iterations}${salt_b64}${dk_b64}"
+
+    def _verify_pbkdf2(self, password_hash: str, password: str, digest: str) -> bool:
+        try:
+            tag = f"pbkdf2_{digest}"
+            parts = password_hash.split("$")
+            if len(parts) != 5 or parts[1] != tag:
+                return False
             iterations = int(parts[2])
             salt = base64.b64decode(parts[3])
-            stored_hash = base64.b64decode(parts[4])
-            
-            # Compute hash with same parameters
-            computed_hash = hashlib.pbkdf2_hmac(
-                "sha256",
-                password.encode(),
-                salt,
-                iterations,
-                dklen=len(stored_hash),
+            stored = base64.b64decode(parts[4])
+            computed = hashlib.pbkdf2_hmac(
+                digest, password.encode(), salt, iterations, dklen=len(stored),
             )
-            
-            # Constant-time comparison
-            return secrets.compare_digest(computed_hash, stored_hash)
-        
+            return secrets.compare_digest(computed, stored)
         except (IndexError, ValueError):
             return False
 
@@ -209,14 +426,14 @@ class PasswordHasher:
 class PasswordPolicy:
     """
     Password policy validator.
-    
+
     Enforces:
     - Minimum length
     - Character requirements (uppercase, lowercase, digit, special)
     - Breached password check (optional, requires external API)
     - Common password blacklist
     """
-    
+
     def __init__(
         self,
         min_length: int = 12,
@@ -232,96 +449,70 @@ class PasswordPolicy:
         self.require_digit = require_digit
         self.require_special = require_special
         self.check_breached = check_breached
-        
-        # Common passwords to reject
+
         self.blacklist = {
             "password", "password123", "12345678", "qwerty", "abc123",
             "monkey", "1234567", "letmein", "trustno1", "dragon",
             "baseball", "iloveyou", "master", "sunshine", "ashley",
             "bailey", "passw0rd", "shadow", "123123", "654321",
         }
-    
+
     def validate(self, password: str) -> tuple[bool, list[str]]:
-        """
-        Validate password against policy.
-        
-        Returns:
-            (is_valid, error_messages)
-        """
+        """Validate password against policy. Returns (is_valid, errors)."""
         errors = []
-        
-        # Check length
+
         if len(password) < self.min_length:
             errors.append(f"Password must be at least {self.min_length} characters")
-        
-        # Check character requirements
+
         if self.require_uppercase and not any(c.isupper() for c in password):
             errors.append("Password must contain at least one uppercase letter")
-        
+
         if self.require_lowercase and not any(c.islower() for c in password):
             errors.append("Password must contain at least one lowercase letter")
-        
+
         if self.require_digit and not any(c.isdigit() for c in password):
             errors.append("Password must contain at least one digit")
-        
+
         if self.require_special:
             special_chars = "!@#$%^&*()_+-=[]{}|;:,.<>?"
             if not any(c in special_chars for c in password):
                 errors.append("Password must contain at least one special character")
-        
-        # Check blacklist
+
         if password.lower() in self.blacklist:
             errors.append("Password is too common")
-        
-        # Check breached passwords (requires external API)
+
         if self.check_breached and self._is_breached(password):
             errors.append("Password has been found in data breaches")
-        
+
         return (len(errors) == 0, errors)
-    
+
     def _is_breached(self, password: str) -> bool:
-        """
-        Check if password has been breached (Have I Been Pwned API).
-        
-        Uses k-anonymity: only first 5 chars of SHA1 hash sent to API.
-        """
-        import hashlib
+        """Check if password has been breached (Have I Been Pwned API, k-anonymity)."""
         import urllib.request
-        
-        # Hash password
+
         sha1_hash = hashlib.sha1(password.encode()).hexdigest().upper()
         prefix = sha1_hash[:5]
         suffix = sha1_hash[5:]
-        
+
         try:
-            # Query API
             url = f"https://api.pwnedpasswords.com/range/{prefix}"
             response = urllib.request.urlopen(url, timeout=2)
-            
-            # Check if suffix in response
             hashes = response.read().decode().splitlines()
             for line in hashes:
-                hash_suffix, count = line.split(":")
+                hash_suffix, _count = line.split(":")
                 if hash_suffix == suffix:
-                    return True  # Password breached
-            
+                    return True
             return False
-        
         except Exception:
-            # API unavailable, assume not breached
             return False
 
     async def _is_breached_async(self, password: str) -> bool:
-        """Async version of breach check -- does not block event loop."""
         import asyncio
         return await asyncio.to_thread(self._is_breached, password)
 
     async def validate_async(self, password: str) -> tuple[bool, list[str]]:
         """Async password validation (non-blocking breach check)."""
         errors = []
-        
-        # Run sync validations (cheap, no breach check)
-        # Temporarily disable breach checking for sync validation
         original_check_breached = self.check_breached
         self.check_breached = False
         try:
@@ -329,8 +520,6 @@ class PasswordPolicy:
         finally:
             self.check_breached = original_check_breached
         errors.extend(sync_errors)
-        
-        # Run async breach check if enabled (only once, non-blocking)
         if original_check_breached:
             if await self._is_breached_async(password):
                 errors.append("Password has been found in data breaches")
@@ -341,17 +530,14 @@ class PasswordPolicy:
 # Convenience Functions
 # ============================================================================
 
-# Global hasher instance
-_default_hasher = None
+_default_hasher: PasswordHasher | None = None
 
 
 def get_password_hasher() -> PasswordHasher:
     """Get default password hasher instance."""
     global _default_hasher
-    
     if _default_hasher is None:
         _default_hasher = PasswordHasher()
-    
     return _default_hasher
 
 
@@ -369,5 +555,4 @@ def validate_password(password: str, policy: PasswordPolicy | None = None) -> tu
     """Validate password against policy."""
     if policy is None:
         policy = PasswordPolicy()
-    
     return policy.validate(password)
