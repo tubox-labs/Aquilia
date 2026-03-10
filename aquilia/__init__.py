@@ -130,6 +130,42 @@ from .controller import (
 )
 
 # ============================================================================
+# API Versioning System
+# ============================================================================
+
+from .versioning import (
+    ApiVersion,
+    VersionChannel,
+    VersionStatus,
+    VERSION_NEUTRAL,
+    VERSION_ANY,
+    VersionStrategy,
+    VersionConfig,
+    VersionMiddleware,
+    SunsetPolicy,
+    SunsetRegistry,
+    VersionGraph,
+    VersionNegotiator,
+    # Resolvers
+    HeaderResolver,
+    URLPathResolver,
+    QueryParamResolver,
+    MediaTypeResolver,
+    CompositeResolver,
+    ChannelResolver,
+    # Decorators
+    version,
+    version_neutral,
+    version_range,
+    # Errors
+    VersionError,
+    InvalidVersionError,
+    UnsupportedVersionError,
+    VersionSunsetError,
+    MissingVersionError,
+)
+
+# ============================================================================
 # Engine
 # ============================================================================
 
@@ -972,6 +1008,34 @@ __all__ = [
     "PlainTextRenderer",
     "HTMLRenderer",
     "ContentNegotiator",
+    
+    # API Versioning
+    "ApiVersion",
+    "VersionChannel",
+    "VersionStatus",
+    "VERSION_NEUTRAL",
+    "VERSION_ANY",
+    "VersionStrategy",
+    "VersionConfig",
+    "VersionMiddleware",
+    "SunsetPolicy",
+    "SunsetRegistry",
+    "VersionGraph",
+    "VersionNegotiator",
+    "HeaderResolver",
+    "URLPathResolver",
+    "QueryParamResolver",
+    "MediaTypeResolver",
+    "CompositeResolver",
+    "ChannelResolver",
+    "version",
+    "version_neutral",
+    "version_range",
+    "VersionError",
+    "InvalidVersionError",
+    "UnsupportedVersionError",
+    "VersionSunsetError",
+    "MissingVersionError",
     
     
     # DI
