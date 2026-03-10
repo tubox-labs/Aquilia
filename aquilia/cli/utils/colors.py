@@ -115,11 +115,25 @@ _L_RT = "\u2524"   # ┤
 # Other
 _BULLET = "\u2022"     # •
 _ARROW  = "\u2192"     # →
-_CHECK  = "[ok]"
-_CROSS  = "[!!]"
+_CHECK  = "\u2714"     # ✔
+_CROSS  = "\u2718"     # ✘
 _CIRCLE = "\u25cb"     # ○
 _DOT    = "\u00b7"     # ·
 _DASH   = "\u2500"     # ─
+_ROCKET = "\U0001f680" # 🚀
+_LOCK   = "\U0001f512" # 🔒
+_GLOBE  = "\U0001f310" # 🌐
+_PKG    = "\U0001f4e6" # 📦
+_GEAR   = "\u2699"     # ⚙
+_BOLT   = "\u26a1"     # ⚡
+_SHIELD = "\U0001f6e1" # 🛡
+_LINK   = "\U0001f517" # 🔗
+_CLOCK  = "\U0001f551" # 🕑
+_SPARK  = "\u2728"     # ✨
+_WARN   = "\u26a0"     # ⚠
+_CLOUD  = "\u2601"     # ☁
+_KEY    = "\U0001f511" # 🔑
+_EYE    = "\U0001f441" # 👁
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -133,12 +147,13 @@ def banner(
     *,
     width: Optional[int] = None,
     fg: str = "cyan",
+    icon: str = "",
 ) -> None:
     """
-    Print a bordered banner with centred title.
+    Print a bordered banner with centred title and optional icon.
 
         ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-        ┃                     Aquilia                         ┃
+        ┃              🚀  Deploy to Render                   ┃
         ┃           Manifest-driven web framework             ┃
         ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
     """
@@ -146,7 +161,8 @@ def banner(
     inner = w - 2
     top = f"{_H_TL}{_H_H * inner}{_H_TR}"
     bot = f"{_H_BL}{_H_H * inner}{_H_BR}"
-    title_line = f"{_H_V}{title.center(inner)}{_H_V}"
+    display_title = f"{icon}  {title}" if icon else title
+    title_line = f"{_H_V}{display_title.center(inner)}{_H_V}"
 
     click.echo(click.style(top, fg=fg))
     click.echo(click.style(title_line, fg=fg, bold=True))
@@ -423,3 +439,107 @@ def next_steps(steps_list: Sequence[str], *, title: str = "Next steps") -> None:
     """Print a numbered next-steps panel."""
     content = [f"{i}. {s}" for i, s in enumerate(steps_list, 1)]
     panel(content, title=title)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Enhanced UX primitives
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def status_line(
+    icon: str,
+    label: str,
+    value: str,
+    *,
+    label_fg: str = "white",
+    value_fg: str = "cyan",
+    indent: int = 2,
+) -> None:
+    """Print a status indicator with icon, label and value.
+
+        🔒  Encryption     AES-256-GCM
+        ☁   Provider       Render
+    """
+    prefix = " " * indent
+    lbl = click.style(label, fg=label_fg, bold=True)
+    val = click.style(value, fg=value_fg)
+    padding = " " * max(1, 18 - len(label))
+    click.echo(f"{prefix}{icon}  {lbl}{padding}{val}")
+
+
+def progress_bar(
+    label: str,
+    current: int,
+    total: int,
+    *,
+    width: int = 30,
+    filled_fg: str = "cyan",
+    empty_fg: str = "white",
+) -> None:
+    """Print a styled progress bar.
+
+        Building  [████████████░░░░░░░░░░░░░░░░░░]  40%
+    """
+    pct = min(current / max(total, 1), 1.0)
+    filled = int(width * pct)
+    empty = width - filled
+    bar = click.style("█" * filled, fg=filled_fg) + click.style("░" * empty, dim=True)
+    pct_str = click.style(f"{int(pct * 100):>3}%", fg=filled_fg, bold=True)
+    lbl = click.style(f"  {label}", fg="white")
+    click.echo(f"{lbl}  [{bar}]  {pct_str}")
+
+
+def detail_card(
+    title: str,
+    items: Sequence[tuple],
+    *,
+    icon: str = "",
+    fg: str = "cyan",
+) -> None:
+    """Print a compact detail card with key-value pairs.
+
+        ┌─ 🔒 Credentials ───────────────────────┐
+        │  Status       Configured                │
+        │  Encrypted    AES-256-GCM               │
+        │  Stored at    2024-01-15 09:30:12        │
+        └─────────────────────────────────────────┘
+    """
+    w = min(_tw(), 52)
+    inner = w - 4  # 2 for borders, 2 for padding
+    display_title = f"{icon} {title}" if icon else title
+    tbar = f"{_L_TL}{_L_H} {display_title} {_L_H * max(1, w - len(display_title) - 5)}{_L_TR}"
+    bbar = f"{_L_BL}{_L_H * (w - 2)}{_L_BR}"
+    click.echo(click.style(tbar, fg=fg))
+    for key, value in items:
+        k = click.style(f"{key}", fg="white")
+        v = click.style(f"{value}", fg=fg)
+        padding = " " * max(1, 16 - len(key))
+        line = f"{k}{padding}{v}"
+        # Pad to fill card width
+        visible_len = len(key) + len(str(padding)) + len(str(value))
+        right_pad = " " * max(1, inner - visible_len)
+        click.echo(
+            click.style(f"{_L_V} ", fg=fg)
+            + line
+            + right_pad
+            + click.style(f" {_L_V}", fg=fg)
+        )
+    click.echo(click.style(bbar, fg=fg))
+
+
+def phase_header(
+    phase_num: int,
+    title: str,
+    *,
+    icon: str = "",
+    fg: str = "cyan",
+) -> None:
+    """Print a numbered phase header for multi-step flows.
+
+        ◆ [1/5]  Build Gate
+    """
+    num = click.style(f"[{phase_num}]", fg=fg, bold=True)
+    ico = f"{icon} " if icon else ""
+    ttl = click.style(title, fg="white", bold=True)
+    click.echo(f"\n  {click.style('◆', fg=fg)} {num}  {ico}{ttl}")
+    click.echo()
