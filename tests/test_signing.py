@@ -559,7 +559,15 @@ class TestTimestampSigner:
     def test_tampered_token_raises(self):
         ts = TimestampSigner(secret=SECRET)
         token = ts.sign("hello")
-        tampered = token[:-1] + ("X" if token[-1] != "X" else "Y")
+        # Tamper a character in the middle of the signature, not the last
+        # character.  The last base64 char of a 32-byte HMAC may only
+        # encode padding bits, so flipping it might not change the
+        # decoded bytes at all.  Flipping a mid-signature character
+        # always changes the decoded bytes and must trigger BadSignature.
+        sep_idx = token.rfind(":")
+        mid = sep_idx + (len(token) - sep_idx) // 2  # middle of signature
+        flip = "A" if token[mid] != "A" else "B"
+        tampered = token[:mid] + flip + token[mid + 1:]
         with pytest.raises(BadSignature):
             ts.unsign(tampered)
 
