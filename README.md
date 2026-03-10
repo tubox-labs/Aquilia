@@ -3,7 +3,7 @@
   <h1>Aquilia</h1>
   <p><strong>The speed of a microframework. The reliability of an enterprise engine.</strong></p>
 
-  [![Version](https://img.shields.io/badge/version-1.0.1b6-orange.svg)](https://aquilia.tubox.cloud)
+  [![Version](https://img.shields.io/badge/version-1.0.1a1-orange.svg)](https://aquilia.tubox.cloud)
   [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
   [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
   [![Tests](https://img.shields.io/badge/tests-5085%20passing-brightgreen.svg)](#-testing)
