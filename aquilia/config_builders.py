@@ -30,6 +30,12 @@ from typing import Optional, List, Any, Dict, Union
 from dataclasses import dataclass, field
 from datetime import timedelta
 
+# Typed integration protocol (lazy import to avoid circular deps)
+try:
+    from aquilia.integrations._protocol import IntegrationConfig as _IntegrationConfig
+except ImportError:  # pragma: no cover
+    _IntegrationConfig = None  # type: ignore[assignment,misc]
+
 
 @dataclass
 class RuntimeConfig:
@@ -4790,8 +4796,34 @@ class Workspace:
         self._modules.append(module.build())
         return self
     
-    def integrate(self, integration: Dict[str, Any]) -> "Workspace":
-        """Add an integration."""
+    def integrate(self, integration: "Dict[str, Any] | Any") -> "Workspace":
+        """
+        Add an integration.
+
+        Accepts either:
+
+        * A plain ``dict`` (legacy) produced by ``Integration.xyz()``.
+        * A typed :class:`IntegrationConfig` dataclass from
+          ``aquilia.integrations`` (new API).  The object's
+          ``.to_dict()`` is called automatically and the result is
+          routed to the correct config slot.
+
+        Examples::
+
+            # Legacy dict API (still works)
+            workspace.integrate(Integration.mail(...))
+
+            # New typed API
+            from aquilia.integrations import MailIntegration, SmtpProvider
+            workspace.integrate(MailIntegration(
+                default_from="hi@app.com",
+                providers=[SmtpProvider(host="smtp.app.com")],
+            ))
+        """
+        # ── NEW: typed IntegrationConfig protocol objects ────────────
+        if _IntegrationConfig is not None and isinstance(integration, _IntegrationConfig):
+            integration = integration.to_dict()
+
         # Check for explicit integration type marker
         integration_type = integration.get("_integration_type")
         if integration_type:
@@ -5295,6 +5327,73 @@ __all__ = [
     "ModuleConfig",
     "AuthConfig",
 ]
+
+# Re-export typed integration types for convenience in workspace.py
+try:
+    from aquilia.integrations import (  # noqa: E402
+        IntegrationConfig as IntegrationConfig,
+        AuthIntegration as AuthIntegration,
+        DatabaseIntegration as DatabaseIntegration,
+        SessionIntegration as SessionIntegration,
+        MailIntegration as MailIntegration,
+        MailAuth as MailAuth,
+        SmtpProvider as SmtpProvider,
+        SesProvider as SesProvider,
+        SendGridProvider as SendGridProvider,
+        ConsoleProvider as ConsoleProvider,
+        FileProvider as FileProvider,
+        AdminIntegration as AdminIntegration,
+        AdminModules as AdminModules,
+        AdminAudit as AdminAudit,
+        AdminMonitoring as AdminMonitoring,
+        AdminSidebar as AdminSidebar,
+        AdminContainers as AdminContainers,
+        AdminPods as AdminPods,
+        AdminSecurity as AdminSecurity,
+        MiddlewareChain as MiddlewareChain,
+        MiddlewareEntry as MiddlewareEntry,
+        CacheIntegration as CacheIntegration,
+        TasksIntegration as TasksIntegration,
+        StorageIntegration as StorageIntegration,
+        TemplatesIntegration as TemplatesIntegration,
+        CorsIntegration as CorsIntegration,
+        CspIntegration as CspIntegration,
+        RateLimitIntegration as RateLimitIntegration,
+        CsrfIntegration as CsrfIntegration,
+        OpenAPIIntegration as OpenAPIIntegration,
+        I18nIntegration as I18nIntegration,
+        MLOpsIntegration as MLOpsIntegration,
+        VersioningIntegration as VersioningIntegration,
+        RenderIntegration as RenderIntegration,
+        LoggingIntegration as LoggingIntegration,
+        StaticFilesIntegration as StaticFilesIntegration,
+        DiIntegration as DiIntegration,
+        RoutingIntegration as RoutingIntegration,
+        FaultHandlingIntegration as FaultHandlingIntegration,
+        PatternsIntegration as PatternsIntegration,
+        RegistryIntegration as RegistryIntegration,
+        SerializersIntegration as SerializersIntegration,
+    )
+    __all__ += [
+        "IntegrationConfig",
+        "AuthIntegration", "DatabaseIntegration", "SessionIntegration",
+        "MailIntegration", "MailAuth", "SmtpProvider", "SesProvider",
+        "SendGridProvider", "ConsoleProvider", "FileProvider",
+        "AdminIntegration", "AdminModules", "AdminAudit", "AdminMonitoring",
+        "AdminSidebar", "AdminContainers", "AdminPods", "AdminSecurity",
+        "MiddlewareChain", "MiddlewareEntry",
+        "CacheIntegration", "TasksIntegration", "StorageIntegration",
+        "TemplatesIntegration",
+        "CorsIntegration", "CspIntegration", "RateLimitIntegration",
+        "CsrfIntegration",
+        "OpenAPIIntegration", "I18nIntegration", "MLOpsIntegration",
+        "VersioningIntegration", "RenderIntegration", "LoggingIntegration",
+        "StaticFilesIntegration",
+        "DiIntegration", "RoutingIntegration", "FaultHandlingIntegration",
+        "PatternsIntegration", "RegistryIntegration", "SerializersIntegration",
+    ]
+except ImportError:
+    pass
 
 # Re-export pyconfig types for single-import convenience in workspace.py
 try:
