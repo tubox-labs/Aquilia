@@ -210,6 +210,7 @@ class ControllerRouter:
         path: str,
         method: str,
         query_params: Optional[Dict[str, str]] = None,
+        api_version: Optional[Any] = None,
     ) -> Optional[ControllerRouteMatch]:
         """
         Synchronous route matching -- the hot path.
@@ -221,6 +222,11 @@ class ControllerRouter:
 
         Path normalisation (trailing slash strip) is inlined to avoid
         a separate str method call.
+
+        When ``api_version`` is provided (from versioning middleware),
+        version-filtered matching is applied: routes with explicit
+        ``version_metadata`` only match if the resolved version is
+        compatible.  Version-neutral routes always match.
         """
         if not self._initialized:
             self.initialize()
@@ -236,14 +242,16 @@ class ControllerRouter:
         if static_map:
             hit = static_map.get(norm_path)
             if hit is not None:
-                return ControllerRouteMatch(route=hit[0], params=hit[1], query=hit[2])
+                if self._version_matches(hit[0], api_version):
+                    return ControllerRouteMatch(route=hit[0], params=hit[1], query=hit[2])
 
         # ── Tier 2: Trie O(k) segment walk ──
         trie_root = self._tries.get(method)
         if trie_root is not None:
             trie_result = self._trie_match(trie_root, norm_path, query_params)
             if trie_result is not None:
-                return trie_result
+                if self._version_matches(trie_result.route, api_version):
+                    return trie_result
 
         # ── Tier 3: Regex O(n) fallback ──
         dynamic_list = self._dynamic_routes.get(method)
@@ -306,6 +314,82 @@ class ControllerRouter:
                 return ControllerRouteMatch(route=route, params=params, query=query)
 
         return None
+
+    @staticmethod
+    def _version_matches(route: CompiledRoute, api_version: Optional[Any]) -> bool:
+        """
+        Check whether a route is compatible with the resolved API version.
+
+        Rules (evaluated in order):
+        1. If ``api_version`` is ``None`` (versioning disabled) → always match.
+        2. If the route has no ``version_metadata`` → fall back to
+           controller-level version; if that's also ``None`` → match.
+        3. If the route/controller is version-neutral (``VERSION_NEUTRAL``) →
+           always match.
+        4. If the route has an explicit version list (from ``@version()`` or
+           ``@GET(version=…)``) → match only if ``api_version`` is in the list.
+        5. If the route has a version range (from ``@version_range()``) →
+           match if ``min <= api_version <= max``.
+        6. If the controller has a version string → match if equal.
+
+        This check runs **after** a path/method match succeeds, so it never
+        affects latency for unversioned apps.
+        """
+        if api_version is None:
+            return True  # versioning not active
+
+        # Import sentinels lazily (zero cost when versioning is off)
+        try:
+            from aquilia.versioning.core import VERSION_NEUTRAL as _VN
+        except ImportError:
+            return True  # versioning module not available
+
+        vm = getattr(route, 'version_metadata', None)
+
+        # ── Route-level check ──
+        if vm is not None:
+            if vm.get('neutral'):
+                return True
+
+            # Explicit version list
+            route_versions = vm.get('versions', [])
+            if route_versions:
+                return str(api_version) in [str(v) for v in route_versions]
+
+            # Version range
+            min_v = vm.get('min_version')
+            max_v = vm.get('max_version')
+            if min_v or max_v:
+                try:
+                    from aquilia.versioning.parser import SemanticVersionParser
+                    parser = SemanticVersionParser()
+                    if min_v:
+                        parsed_min = parser.parse(str(min_v))
+                        if api_version < parsed_min:
+                            return False
+                    if max_v:
+                        parsed_max = parser.parse(str(max_v))
+                        if api_version > parsed_max:
+                            return False
+                    return True
+                except Exception:
+                    return True
+
+        # ── Controller-level fallback ──
+        ctrl_version = getattr(route.controller_metadata, 'version', None)
+        if ctrl_version is None:
+            return True  # no version constraint
+        if ctrl_version is _VN:
+            return True  # version-neutral controller
+
+        # Compare by parsing both sides to handle "1.0" == ApiVersion(1, 0)
+        try:
+            from aquilia.versioning.core import ApiVersion as _AV
+            ctrl_parsed = _AV.parse(str(ctrl_version)) if not isinstance(ctrl_version, _AV) else ctrl_version
+            api_parsed = _AV.parse(str(api_version)) if not isinstance(api_version, _AV) else api_version
+            return ctrl_parsed == api_parsed
+        except Exception:
+            return str(api_version) == str(ctrl_version)
 
     @staticmethod
     def _trie_match(
@@ -422,9 +506,10 @@ class ControllerRouter:
         path: str,
         method: str,
         query_params: Optional[Dict[str, str]] = None,
+        api_version: Optional[Any] = None,
     ) -> Optional[ControllerRouteMatch]:
         """Async compat wrapper -- delegates to sync hot path."""
-        return self.match_sync(path, method, query_params)
+        return self.match_sync(path, method, query_params, api_version=api_version)
 
     def get_routes(self) -> List[Dict[str, Any]]:
         """Get all registered routes."""
@@ -462,8 +547,12 @@ class ControllerRouter:
         """Check if a route exists."""
         return self.match_sync(path, method) is not None
 
-    def url_for(self, name: str, **params) -> str:
-        """Reverse URL generation."""
+    def url_for(self, name: str, *, api_version: Optional[str] = None, **params) -> str:
+        """Reverse URL generation.
+        
+        When ``api_version`` is provided and the app uses URL-path versioning,
+        the version prefix segment is prepended to the generated path.
+        """
         for controller in self.compiled_controllers:
             for route in controller.routes:
                 full_name = f"{route.controller_class.__name__}.{route.route_metadata.handler_name}"

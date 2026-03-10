@@ -70,6 +70,7 @@ class RouteMetadata:
     response_model: Optional[Type] = None
     status_code: int = 200
     specificity: int = 0
+    version: Optional[Any] = None   # API version: str, list, or sentinel
     _raw_metadata: Dict[str, Any] = field(default_factory=dict, repr=False)
     
     def compute_specificity(self) -> int:
@@ -142,6 +143,7 @@ class ControllerMetadata:
     tags: List[str] = field(default_factory=list)
     instantiation_mode: str = "per_request"
     constructor_params: List[ParameterMetadata] = field(default_factory=list)
+    version: Optional[Any] = None   # Controller-level API version
     
     def get_route(self, method: str, path: str) -> Optional[RouteMetadata]:
         """Find route by method and path."""
@@ -205,6 +207,7 @@ def extract_controller_metadata(
     pipeline = getattr(controller_class, 'pipeline', [])
     tags = getattr(controller_class, 'tags', [])
     instantiation_mode = getattr(controller_class, 'instantiation_mode', 'per_request')
+    version = getattr(controller_class, 'version', None)
     
     # Extract constructor parameters for DI
     constructor_params = _extract_constructor_params(controller_class)
@@ -236,6 +239,7 @@ def extract_controller_metadata(
         tags=tags,
         instantiation_mode=instantiation_mode,
         constructor_params=constructor_params,
+        version=version,
     )
 
 
@@ -319,6 +323,7 @@ def _extract_route_metadata(
         deprecated=route_meta['deprecated'],
         response_model=route_meta['response_model'],
         status_code=route_meta['status_code'],
+        version=route_meta.get('version'),
         _raw_metadata=route_meta,
     )
 

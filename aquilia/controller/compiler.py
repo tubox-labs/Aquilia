@@ -38,6 +38,7 @@ class CompiledRoute:
     http_method: str
     specificity: int
     app_name: Optional[str] = None
+    version_metadata: Optional[Dict[str, Any]] = None
     
     def to_dict(self) -> Dict[str, Any]:
         """Serialize to dict for caching."""
