@@ -4505,6 +4505,127 @@ class Integration:
             config["image"] = image
         return config
 
+    @staticmethod
+    def versioning(
+        strategy: str = "header",
+        versions: Optional[List[str]] = None,
+        default_version: Optional[str] = None,
+        require_version: bool = False,
+        header_name: str = "X-API-Version",
+        query_param: str = "api_version",
+        url_prefix: str = "v",
+        url_segment_index: int = 0,
+        strip_version_from_path: bool = True,
+        media_type_param: str = "version",
+        channels: Optional[Dict[str, str]] = None,
+        channel_header: str = "X-API-Channel",
+        channel_query_param: str = "api_channel",
+        negotiation_mode: str = "exact",
+        sunset_policy: Optional[Any] = None,
+        sunset_schedules: Optional[Dict[str, Dict[str, Any]]] = None,
+        include_version_header: bool = True,
+        response_header_name: str = "X-API-Version",
+        include_supported_versions_header: bool = True,
+        neutral_paths: Optional[List[str]] = None,
+        enabled: bool = True,
+        **kwargs,
+    ) -> Dict[str, Any]:
+        """
+        Configure API versioning integration.
+
+        Aquilia's Epoch-Based Versioning supports multiple strategies:
+        URL path, header, query param, media type, channel, and composite.
+
+        Features:
+        - Multi-strategy resolution with fallback chains
+        - Version channels (stable, preview, legacy, canary)
+        - Sunset lifecycle with RFC 8594/9745 headers
+        - Version negotiation (exact, compatible, best_match, nearest)
+        - Version-neutral endpoints
+        - Compile-time version graph
+
+        Args:
+            strategy: Version extraction strategy.
+                "url" — from URL path segment (``/v2/users``)
+                "header" — from HTTP header (``X-API-Version: 2``)
+                "query" — from query parameter (``?api_version=2``)
+                "media_type" — from Accept header (``Accept: application/json; version=2``)
+                "channel" — from channel header (``X-API-Channel: stable``)
+                "composite" — try all strategies with fallback
+            versions: List of supported version strings.
+            default_version: Fallback version when not specified.
+            require_version: If True, reject requests without a version.
+            header_name: Header name for header-based versioning.
+            query_param: Query parameter name for query-based versioning.
+            url_prefix: URL segment prefix (default "v").
+            url_segment_index: URL path segment index (0-based).
+            strip_version_from_path: Remove version from URL for routing.
+            media_type_param: Parameter name in Accept header.
+            channels: Channel → version mapping (e.g. {"stable": "2.0"}).
+            channel_header: Header for channel-based resolution.
+            channel_query_param: Query param for channel-based resolution.
+            negotiation_mode: Version negotiation strategy.
+                "exact" — exact match only
+                "compatible" — backward-compatible match (same major)
+                "best_match" — intelligent best-fit selection
+                "nearest" — closest registered version
+                "latest" — always use latest
+            sunset_policy: SunsetPolicy instance for deprecation handling.
+            sunset_schedules: Per-version sunset schedule dicts.
+            include_version_header: Add X-API-Version to responses.
+            response_header_name: Response header name for version.
+            include_supported_versions_header: Add supported versions header.
+            neutral_paths: Paths that skip version resolution.
+            enabled: Enable/disable versioning.
+            **kwargs: Extra config passed through.
+
+        Returns:
+            Config dict with ``_integration_type: "versioning"``.
+
+        Example::
+
+            workspace = (
+                Workspace("myapp")
+                .integrate(Integration.versioning(
+                    strategy="composite",
+                    versions=["1.0", "2.0", "2.1"],
+                    default_version="2.0",
+                    channels={"stable": "2.0", "preview": "2.1"},
+                    negotiation_mode="compatible",
+                ))
+            )
+        """
+        config: Dict[str, Any] = {
+            "_integration_type": "versioning",
+            "enabled": enabled,
+            "strategy": strategy,
+            "versions": versions or [],
+            "default_version": default_version,
+            "require_version": require_version,
+            "header_name": header_name,
+            "query_param": query_param,
+            "url_prefix": url_prefix,
+            "url_segment_index": url_segment_index,
+            "strip_version_from_path": strip_version_from_path,
+            "media_type_param": media_type_param,
+            "channels": channels or {},
+            "channel_header": channel_header,
+            "channel_query_param": channel_query_param,
+            "negotiation_mode": negotiation_mode,
+            "include_version_header": include_version_header,
+            "response_header_name": response_header_name,
+            "include_supported_versions_header": include_supported_versions_header,
+            "neutral_paths": neutral_paths or [
+                "/_health", "/openapi.json", "/docs", "/redoc",
+            ],
+            **kwargs,
+        }
+        if sunset_policy is not None:
+            config["sunset_policy"] = sunset_policy
+        if sunset_schedules:
+            config["sunset_schedules"] = sunset_schedules
+        return config
+
 
 class Workspace:
     """Fluent workspace builder."""
