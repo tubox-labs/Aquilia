@@ -446,6 +446,9 @@ class AquiliaServer:
                 name="templates",
             )
 
+        # ── Versioning subsystem ─────────────────────────────────────────
+        self._setup_versioning()
+
         # ── Mail subsystem ───────────────────────────────────────────────
         self._setup_mail()
 
@@ -913,6 +916,134 @@ class AquiliaServer:
                 exc,
             )
             return None
+
+    def _setup_versioning(self):
+        """
+        Initialize the API versioning subsystem from workspace config.
+
+        Reads ``Integration.versioning()`` configuration, builds a
+        :class:`VersionStrategy` orchestrator (resolver → parser → graph →
+        negotiator → sunset enforcer), and registers the
+        :class:`VersionMiddleware` at **priority 5** — after faults (2)
+        and request-scope (5), before security middleware (3-12).
+
+        The strategy object is stored on ``self._version_strategy`` so the
+        controller loading phase can register per-controller and per-route
+        version bindings into the compile-time version graph.
+
+        If versioning is not configured, the subsystem is silently skipped.
+        """
+        versioning_config = self.config.get("integrations.versioning", {})
+        if not versioning_config:
+            versioning_config = self.config.get("versioning", {})
+        if not versioning_config or not versioning_config.get("enabled", False):
+            self._version_strategy = None
+            return
+
+        try:
+            from .versioning.strategy import VersionConfig, VersionStrategy
+            from .versioning.middleware import VersionMiddleware
+            from .versioning.sunset import SunsetPolicy
+            from datetime import timedelta
+
+            # Build SunsetPolicy from config if provided
+            sunset_policy = None
+            sp_cfg = versioning_config.get("sunset_policy", {})
+            if sp_cfg:
+                sunset_policy = SunsetPolicy(
+                    warn_header=sp_cfg.get("warn_header", True),
+                    grace_period=timedelta(
+                        days=sp_cfg.get("grace_period_days", 180),
+                    ),
+                    enforce_sunset=sp_cfg.get("enforce_sunset", True),
+                    enforce_retired=sp_cfg.get("enforce_retired", True),
+                    gradual_rejection_percent=sp_cfg.get(
+                        "gradual_rejection_percent", 0,
+                    ),
+                    migration_url_template=sp_cfg.get(
+                        "migration_url_template", None,
+                    ),
+                )
+
+            # Build VersionConfig dataclass from workspace config dict
+            config = VersionConfig(
+                strategy=versioning_config.get("strategy", "header"),
+                versions=versioning_config.get("versions", []),
+                default_version=versioning_config.get("default_version"),
+                require_version=versioning_config.get("require_version", False),
+                header_name=versioning_config.get(
+                    "header_name", "X-API-Version",
+                ),
+                query_param=versioning_config.get("query_param", "api_version"),
+                url_prefix=versioning_config.get("url_prefix", "v"),
+                url_segment_index=versioning_config.get(
+                    "url_segment_index", 0,
+                ),
+                strip_version_from_path=versioning_config.get(
+                    "strip_version_from_path", True,
+                ),
+                media_type_param=versioning_config.get(
+                    "media_type_param", "version",
+                ),
+                channels=versioning_config.get("channels", {}),
+                channel_header=versioning_config.get(
+                    "channel_header", "X-API-Channel",
+                ),
+                channel_query_param=versioning_config.get(
+                    "channel_query_param", "api_channel",
+                ),
+                negotiation_mode=versioning_config.get(
+                    "negotiation_mode", "exact",
+                ),
+                sunset_policy=sunset_policy,
+                sunset_schedules=versioning_config.get(
+                    "sunset_schedules", {},
+                ),
+                include_version_header=versioning_config.get(
+                    "include_version_header", True,
+                ),
+                response_header_name=versioning_config.get(
+                    "response_header_name", "X-API-Version",
+                ),
+                include_supported_versions_header=versioning_config.get(
+                    "include_supported_versions_header", True,
+                ),
+                supported_versions_header=versioning_config.get(
+                    "supported_versions_header", "X-API-Supported-Versions",
+                ),
+                neutral_paths=versioning_config.get("neutral_paths", [
+                    "/_health", "/openapi.json", "/docs", "/redoc",
+                ]),
+            )
+
+            # Build central strategy orchestrator
+            strategy = VersionStrategy(config)
+            self._version_strategy = strategy
+
+            # Register versioning middleware at priority 5
+            # After faults (2), aligned with request-scope, before security (3+)
+            mw = VersionMiddleware(strategy)
+            self.middleware_stack.add(
+                mw,
+                scope="global",
+                priority=5,
+                name="versioning",
+            )
+
+            self.logger.info(
+                "Versioning enabled: strategy=%s, versions=%s, default=%s",
+                config.strategy,
+                config.versions,
+                config.default_version,
+            )
+
+        except Exception as e:
+            self.logger.error(
+                "Failed to initialize versioning subsystem: %s",
+                e,
+                exc_info=True,
+            )
+            self._version_strategy = None
 
     def _setup_mail(self):
         """
@@ -1749,10 +1880,6 @@ class AquiliaServer:
                     # Get route prefix from manifest if available
                     route_prefix = getattr(app_ctx.manifest, "route_prefix", None)
                     
-                    # VERSIONING: If version support is enabled, prepend version?
-                    # This is better done if route_prefix was smart, but let's check config
-                    # Currently basic implementation: just use route_prefix
-                    
                     # Compile controller
                     compiled = self.controller_compiler.compile_controller(
                         controller_class,
@@ -1762,6 +1889,10 @@ class AquiliaServer:
                     # Inject app context info for DI resolution
                     for route in compiled.routes:
                         route.app_name = app_ctx.name
+                    
+                    # ── VERSIONING: Register controller & route versions ──
+                    if self._version_strategy is not None:
+                        self._register_controller_versions(compiled)
                     
                     # Register with controller router
                     self.controller_router.add_controller(compiled)
@@ -1805,6 +1936,90 @@ class AquiliaServer:
         # Step 2: Register OpenAPI/Docs routes if enabled
         if self.config.get("docs_enabled", True):
             self._register_docs_routes()
+
+    def _register_controller_versions(self, compiled):
+        """
+        Register controller and route version bindings in the version graph.
+
+        Called during ``_load_controllers`` for each compiled controller when
+        the versioning subsystem is active.  Reads the controller-level
+        ``version`` attribute and per-route ``__version_metadata__`` set by
+        the ``@version()`` / ``@version_range()`` decorators.
+
+        This populates the compile-time :class:`VersionGraph` so the
+        :class:`VersionNegotiator` and :class:`SunsetEnforcer` can operate
+        in O(1) at request time.
+        """
+        from .versioning.core import VERSION_NEUTRAL, VERSION_ANY
+
+        strategy = self._version_strategy
+        controller_class = compiled.controller_class
+
+        # ── Controller-level version ─────────────────────────────────────
+        ctrl_version_raw = getattr(controller_class, "version", None)
+        ctrl_is_neutral = ctrl_version_raw is VERSION_NEUTRAL
+
+        if ctrl_version_raw and not ctrl_is_neutral:
+            try:
+                ctrl_version = strategy.parser.parse(str(ctrl_version_raw))
+                strategy.register_version(ctrl_version)
+                strategy.register_controller_version(
+                    ctrl_version,
+                    controller_class.__name__,
+                )
+            except Exception as e:
+                self.logger.warning(
+                    "Could not parse version '%s' on %s: %s",
+                    ctrl_version_raw,
+                    controller_class.__name__,
+                    e,
+                )
+
+        # ── Route-level versions ─────────────────────────────────────────
+        for route in compiled.routes:
+            handler_name = route.route_metadata.handler_name
+            handler_func = getattr(controller_class, handler_name, None)
+            if handler_func is None:
+                continue
+
+            # Check for @version() / @version_neutral / @version_range()
+            version_meta = getattr(handler_func, "__version_metadata__", None)
+            if version_meta:
+                # Store on CompiledRoute for engine dispatch
+                route.version_metadata = version_meta
+
+                if version_meta.get("neutral"):
+                    continue  # version-neutral, skip registration
+
+                # Explicit version list from @version("2.0") or @version(["1.0","2.0"])
+                for v_str in version_meta.get("versions", []):
+                    try:
+                        v = strategy.parser.parse(str(v_str))
+                        strategy.register_version(v)
+                        strategy.register_route_version(
+                            v,
+                            route.http_method,
+                            route.full_path,
+                        )
+                    except Exception:
+                        pass
+
+                # Version range from @version_range("1.0", "3.0")
+                min_v = version_meta.get("min_version")
+                max_v = version_meta.get("max_version")
+                if min_v:
+                    try:
+                        strategy.register_version(strategy.parser.parse(str(min_v)))
+                    except Exception:
+                        pass
+                if max_v:
+                    try:
+                        strategy.register_version(strategy.parser.parse(str(max_v)))
+                    except Exception:
+                        pass
+            else:
+                # No route-level version — inherits controller version
+                route.version_metadata = None
     
     def _register_docs_routes(self):
         """Register OpenAPI JSON, Swagger UI, and ReDoc routes."""

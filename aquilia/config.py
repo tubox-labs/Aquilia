@@ -897,4 +897,49 @@ class ConfigLoader:
             return chain
         return None
 
+    def get_versioning_config(self) -> dict:
+        """
+        Get API versioning configuration with defaults.
+
+        Returns:
+            Versioning configuration dictionary.
+        """
+        default_versioning_config = {
+            "enabled": False,
+            "strategy": "header",
+            "versions": [],
+            "default_version": None,
+            "require_version": False,
+            "header_name": "X-API-Version",
+            "query_param": "api_version",
+            "url_prefix": "v",
+            "url_segment_index": 0,
+            "strip_version_from_path": True,
+            "media_type_param": "version",
+            "channels": {},
+            "channel_header": "X-API-Channel",
+            "channel_query_param": "api_channel",
+            "negotiation_mode": "exact",
+            "sunset_policy": {},
+            "sunset_schedules": {},
+            "include_version_header": True,
+            "response_header_name": "X-API-Version",
+            "include_supported_versions_header": True,
+            "supported_versions_header": "X-API-Supported-Versions",
+            "neutral_paths": ["/_health", "/openapi.json", "/docs", "/redoc"],
+        }
+
+        # Get user-provided versioning config
+        user_config = self.get("versioning", {})
+        if not user_config:
+            user_config = self.get("integrations.versioning", {})
+
+        # Merge with defaults
+        merged = default_versioning_config.copy()
+        if user_config:
+            merged["enabled"] = user_config.get("enabled", True)
+            self._merge_dict(merged, user_config)
+
+        return merged
+
 
