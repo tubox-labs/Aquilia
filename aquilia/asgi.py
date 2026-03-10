@@ -241,14 +241,22 @@ class ASGIAdapter:
         request = Request(scope, receive)
 
         # ── Sync route matching (O(1) for static, O(k) for dynamic) ──
-        controller_match = self.controller_router.match_sync(path, method)
+        # If versioning middleware ran, it stored the resolved ApiVersion
+        # in request.state["api_version"].  Pass it to the router so
+        # version-filtered matching can discriminate versioned routes.
+        _api_version = request.state.get("api_version") if isinstance(request.state, dict) else None
+        controller_match = self.controller_router.match_sync(
+            path, method, api_version=_api_version,
+        )
 
         # ── ARCH-01: 405 Method Not Allowed + ARCH-05: HEAD auto-support ──
         is_head_fallback = False
         if controller_match is None:
             if method == "HEAD":
                 # HTTP/1.1 §9.4: HEAD must be supported wherever GET is.
-                controller_match = self.controller_router.match_sync(path, "GET")
+                controller_match = self.controller_router.match_sync(
+                    path, "GET", api_version=_api_version,
+                )
                 if controller_match is not None:
                     is_head_fallback = True
 

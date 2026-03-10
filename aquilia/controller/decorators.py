@@ -52,6 +52,8 @@ class RouteDecorator:
         # ── Controller-level overrides ───────────────────────────────
         throttle: Optional[Any] = None,
         timeout: Optional[float] = None,
+        # ── API Versioning ───────────────────────────────────────────
+        version: Optional[Union[str, List[str]]] = None,
     ):
         """
         Initialize route decorator.
@@ -85,6 +87,10 @@ class RouteDecorator:
                               content negotiation
             throttle: Per-route Throttle override
             timeout: Per-route handler timeout override (seconds)
+            version: API version binding for this route. Single version
+                     string (e.g. ``"2.0"``) or list of versions
+                     (e.g. ``["1.0", "2.0"]``). Overrides the
+                     controller-level ``version`` attribute.
         """
         self.path = path
         self.method: Optional[str] = method
@@ -105,6 +111,7 @@ class RouteDecorator:
         self.renderer_classes = renderer_classes
         self.throttle = throttle
         self.timeout = timeout
+        self.version = version
     
     def __call__(self, func: F) -> F:
         """
@@ -143,9 +150,20 @@ class RouteDecorator:
             'renderer_classes': self.renderer_classes,
             'throttle': self.throttle,
             'timeout': self.timeout,
+            'version': self.version,
         }
         
         func.__route_metadata__.append(metadata)
+
+        # ── Versioning: store __version_metadata__ for server registration
+        if self.version is not None:
+            if not hasattr(func, '__version_metadata__'):
+                func.__version_metadata__ = {}
+            versions = self.version if isinstance(self.version, list) else [self.version]
+            existing = func.__version_metadata__.get('versions', [])
+            func.__version_metadata__['versions'] = list(
+                dict.fromkeys(existing + versions),  # deduplicate, preserve order
+            )
         
         return func
 
