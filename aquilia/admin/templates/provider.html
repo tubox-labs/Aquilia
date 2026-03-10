@@ -1,0 +1,1634 @@
+{% extends "base.html" %}
+{% block title %}Provider &amp; Deployment{% endblock %}
+{% block breadcrumb %}Provider &amp; Deployment{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+{# ═══════════════════════════════════════════════════════════════════
+   AQUILIA ADMIN — PROVIDER & DEPLOYMENT DASHBOARD v2
+   Chart.js · Real-time · Analytics · Full Operations · Security
+   ═══════════════════════════════════════════════════════════════════ #}
+
+<style>
+/* ═══ Provider Page Styles v2 ═══ */
+.pv-greeting{margin-bottom:20px;}
+.pv-greeting h1{font-size:1.6rem;font-weight:800;margin:0 0 4px;}
+.pv-greeting p{font-size:0.82rem;color:var(--text-faint);margin:0;}
+.pv-greeting .pv-provider-badge{display:inline-flex;align-items:center;gap:6px;padding:3px 12px;border-radius:20px;font-size:0.7rem;font-weight:600;background:rgba(34,197,94,0.12);color:#22c55e;margin-left:8px;vertical-align:middle;}
+.pv-greeting .pv-live-dot{width:8px;height:8px;border-radius:50%;background:#22c55e;display:inline-block;animation:pv-pulse-dot 2s infinite;margin-left:8px;vertical-align:middle;}
+@keyframes pv-pulse-dot{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(34,197,94,0.4);}50%{opacity:0.7;box-shadow:0 0 0 6px rgba(34,197,94,0);}}
+
+/* Status badges */
+.pv-status{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:99px;font-size:0.68rem;font-weight:600;letter-spacing:0.03em;text-transform:uppercase;}
+.pv-status.live{background:rgba(34,197,94,0.12);color:#22c55e;}
+.pv-status.deploying,.pv-status.build_in_progress,.pv-status.update_in_progress{background:rgba(59,130,246,0.12);color:#3b82f6;animation:pv-pulse 1.5s infinite;}
+.pv-status.failed,.pv-status.build_failed{background:rgba(239,68,68,0.12);color:#ef4444;}
+.pv-status.canceled,.pv-status.deactivated{background:rgba(113,113,122,0.12);color:#71717a;}
+.pv-status.suspended{background:rgba(245,158,11,0.12);color:#f59e0b;}
+.pv-status.created{background:rgba(99,102,241,0.12);color:#6366f1;}
+.pv-status.unknown{background:rgba(113,113,122,0.08);color:#71717a;}
+@keyframes pv-pulse{0%,100%{opacity:1;}50%{opacity:0.5;}}
+
+/* Stat cards */
+.pv-stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:12px;margin-bottom:22px;}
+.pv-stat{background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:16px;position:relative;overflow:hidden;transition:border-color .2s,transform .15s;}
+.pv-stat:hover{border-color:var(--accent);transform:translateY(-2px);}
+.pv-stat::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:var(--radius-md) var(--radius-md) 0 0;}
+.pv-stat.green::before{background:linear-gradient(90deg,#22c55e,#4ade80);}
+.pv-stat.blue::before{background:linear-gradient(90deg,#3b82f6,#60a5fa);}
+.pv-stat.amber::before{background:linear-gradient(90deg,#f59e0b,#fbbf24);}
+.pv-stat.purple::before{background:linear-gradient(90deg,#a855f7,#c084fc);}
+.pv-stat.cyan::before{background:linear-gradient(90deg,#06b6d4,#22d3ee);}
+.pv-stat.red::before{background:linear-gradient(90deg,#ef4444,#f87171);}
+.pv-stat.indigo::before{background:linear-gradient(90deg,#6366f1,#818cf8);}
+.pv-stat-icon{font-size:16px;opacity:0.4;margin-bottom:8px;}
+.pv-stat-value{font-size:1.5rem;font-weight:800;line-height:1.1;margin-bottom:3px;font-variant-numeric:tabular-nums;}
+.pv-stat-label{font-size:0.68rem;color:var(--text-faint);text-transform:uppercase;letter-spacing:0.06em;}
+.pv-stat-sub{font-size:0.66rem;color:var(--text-muted);margin-top:3px;}
+
+/* Tabs */
+.pv-tabs{display:flex;gap:0;border-bottom:1px solid var(--border-color);margin-bottom:22px;overflow-x:auto;scrollbar-width:none;position:relative;}
+.pv-tabs::-webkit-scrollbar{display:none;}
+.pv-tab{padding:10px 18px;font-size:0.8rem;font-weight:500;color:var(--text-muted);cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;white-space:nowrap;background:none;border-top:none;border-left:none;border-right:none;font-family:var(--font-sans);position:relative;}
+.pv-tab:hover{color:var(--text-secondary);}
+.pv-tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+.pv-tab .pv-tab-badge{position:absolute;top:4px;right:4px;min-width:16px;height:16px;padding:0 4px;border-radius:99px;background:var(--accent);color:#fff;font-size:0.58rem;font-weight:700;display:flex;align-items:center;justify-content:center;line-height:1;}
+.pv-panel{display:none;animation:pv-fade-in .25s ease;}
+.pv-panel.active{display:block;}
+@keyframes pv-fade-in{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
+
+/* Section labels */
+.pv-section{font-size:0.72rem;font-weight:700;color:var(--text-faint);text-transform:uppercase;letter-spacing:0.08em;margin:20px 0 10px;display:flex;align-items:center;gap:8px;}
+.pv-section i{font-size:14px;opacity:0.5;}
+
+/* Cards */
+.pv-card{background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:var(--radius-md);overflow:hidden;margin-bottom:14px;}
+.pv-card-header{padding:14px 18px;border-bottom:1px solid var(--border-subtle);display:flex;align-items:center;justify-content:space-between;}
+.pv-card-header h3{margin:0;font-size:0.86rem;font-weight:700;}
+.pv-card-body{padding:18px;}
+
+/* Charts grid */
+.pv-charts{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px;margin-bottom:20px;}
+.pv-chart-card{background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:18px;position:relative;}
+.pv-chart-card h4{margin:0 0 14px;font-size:0.82rem;font-weight:700;display:flex;align-items:center;gap:8px;}
+.pv-chart-card h4 i{font-size:14px;opacity:0.5;}
+.pv-chart-wrap{position:relative;height:220px;}
+
+/* Tables */
+.pv-table{width:100%;border-collapse:collapse;font-size:0.8rem;}
+.pv-table th{text-align:left;padding:9px 12px;font-size:0.68rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-faint);border-bottom:1px solid var(--border-color);font-weight:600;white-space:nowrap;}
+.pv-table td{padding:9px 12px;border-bottom:1px solid rgba(255,255,255,0.04);color:var(--text-secondary);vertical-align:middle;}
+.pv-table tr:hover td{background:rgba(34,197,94,0.03);}
+.pv-table .mono{font-family:var(--font-mono);font-size:0.72rem;}
+
+/* Service cards */
+.pv-svc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:14px;}
+.pv-svc{background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:18px;position:relative;transition:border-color .2s;}
+.pv-svc:hover{border-color:var(--accent);}
+.pv-svc-header{display:flex;align-items:center;gap:12px;margin-bottom:14px;}
+.pv-svc-icon{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:17px;}
+.pv-svc-icon.web{background:rgba(34,197,94,0.12);color:#22c55e;}
+.pv-svc-icon.worker{background:rgba(245,158,11,0.12);color:#f59e0b;}
+.pv-svc-icon.cron{background:rgba(99,102,241,0.12);color:#6366f1;}
+.pv-svc-icon.static{background:rgba(6,182,212,0.12);color:#06b6d4;}
+.pv-svc-icon.default{background:rgba(34,197,94,0.12);color:#22c55e;}
+.pv-svc-name{font-weight:700;font-size:0.86rem;}
+.pv-svc-type{font-size:0.7rem;color:var(--text-faint);}
+.pv-svc-meta{display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:0.73rem;}
+.pv-svc-meta dt{color:var(--text-faint);font-weight:500;}
+.pv-svc-meta dd{color:var(--text-secondary);margin:0;text-align:right;font-family:var(--font-mono);font-size:0.7rem;}
+.pv-svc-url{display:block;font-size:0.68rem;margin-top:8px;padding:6px 10px;background:rgba(34,197,94,0.06);border-radius:6px;font-family:var(--font-mono);color:var(--accent);word-break:break-all;text-decoration:none;}
+.pv-svc-url:hover{background:rgba(34,197,94,0.12);}
+
+/* Buttons */
+.pv-btn{display:inline-flex;align-items:center;gap:5px;padding:7px 14px;border-radius:var(--radius-sm);font-size:0.76rem;font-weight:600;border:none;cursor:pointer;transition:all .15s;font-family:inherit;}
+.pv-btn.primary{background:var(--accent);color:#fff;}
+.pv-btn.primary:hover{background:var(--accent-hover);transform:translateY(-1px);box-shadow:0 4px 12px rgba(34,197,94,0.3);}
+.pv-btn.secondary{background:var(--bg-surface);color:var(--text-secondary);border:1px solid var(--border-subtle);}
+.pv-btn.secondary:hover{border-color:var(--accent);color:var(--accent);}
+.pv-btn.danger{background:rgba(239,68,68,0.1);color:#ef4444;border:1px solid rgba(239,68,68,0.2);}
+.pv-btn.danger:hover{background:rgba(239,68,68,0.2);}
+.pv-btn.warning{background:rgba(245,158,11,0.1);color:#f59e0b;border:1px solid rgba(245,158,11,0.2);}
+.pv-btn.warning:hover{background:rgba(245,158,11,0.2);}
+.pv-btn.info{background:rgba(59,130,246,0.1);color:#3b82f6;border:1px solid rgba(59,130,246,0.2);}
+.pv-btn.info:hover{background:rgba(59,130,246,0.2);}
+.pv-btn:disabled{opacity:0.5;cursor:not-allowed;transform:none !important;box-shadow:none !important;}
+.pv-btn-group{display:flex;gap:6px;flex-wrap:wrap;}
+.pv-btn-sm{padding:4px 10px;font-size:0.7rem;}
+
+/* Credential panel */
+.pv-cred{background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:16px;margin-bottom:14px;}
+.pv-cred-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border-subtle);font-size:0.76rem;}
+.pv-cred-row:last-child{border-bottom:none;}
+.pv-cred-key{color:var(--text-faint);font-weight:500;}
+.pv-cred-val{color:var(--text-secondary);font-family:var(--font-mono);font-size:0.72rem;}
+.pv-cred-val.on{color:#22c55e;}
+.pv-cred-val.off{color:#ef4444;}
+
+/* Log viewer */
+.pv-log-viewer{background:#0a0a0a;border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:16px;max-height:420px;overflow-y:auto;font-family:var(--font-mono);font-size:0.72rem;line-height:1.7;color:#a1a1aa;position:relative;}
+.pv-log-line{white-space:pre-wrap;word-break:break-all;}
+.pv-log-line .ts{color:#3b82f6;}
+.pv-log-line .lvl-error{color:#ef4444;font-weight:700;}
+.pv-log-line .lvl-warn,.pv-log-line .lvl-warning{color:#f59e0b;}
+.pv-log-line .lvl-info{color:#22c55e;}
+.pv-log-line .lvl-debug{color:#6366f1;}
+.pv-log-controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+.pv-log-controls input{font-size:0.76rem;padding:5px 10px;background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:6px;color:var(--text-primary);font-family:inherit;transition:border-color .15s;}
+.pv-log-controls input:focus{border-color:var(--accent);outline:none;box-shadow:0 0 0 3px rgba(34,197,94,0.12);}
+
+/* Form elements */
+.pv-form-group{display:flex;flex-direction:column;gap:4px;}
+.pv-form-group label{font-size:0.68rem;font-weight:600;color:var(--text-faint);text-transform:uppercase;letter-spacing:0.05em;}
+.pv-form-group input{background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);color:var(--text-primary);padding:7px 11px;font-size:0.78rem;font-family:inherit;transition:border-color .15s;}
+.pv-form-group input:focus{border-color:var(--accent);outline:none;box-shadow:0 0 0 3px rgba(34,197,94,0.15);}
+
+/* Custom Select */
+.pv-select{position:relative;width:100%;}
+.pv-select-hidden{position:absolute;opacity:0;pointer-events:none;width:0;height:0;}
+.pv-select-trigger{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;padding:9px 14px;background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:10px;color:var(--text-primary);font-size:0.78rem;font-family:inherit;cursor:pointer;transition:all .2s;box-sizing:border-box;user-select:none;}
+.pv-select-trigger:hover{border-color:rgba(34,197,94,0.4);}
+.pv-select-trigger.open{border-color:var(--accent);box-shadow:0 0 0 3px rgba(34,197,94,0.12);border-radius:10px 10px 0 0;}
+.pv-select-trigger .pv-select-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.pv-select-trigger .pv-select-arrow{width:16px;height:16px;flex-shrink:0;transition:transform .2s;color:var(--text-faint);}
+.pv-select-trigger.open .pv-select-arrow{transform:rotate(180deg);}
+.pv-select-dropdown{position:absolute;top:100%;left:0;right:0;z-index:999;background:var(--bg-card);border:1px solid var(--accent);border-top:none;border-radius:0 0 10px 10px;max-height:200px;overflow-y:auto;box-shadow:0 12px 36px rgba(0,0,0,0.4);display:none;scrollbar-width:thin;scrollbar-color:rgba(34,197,94,0.3) transparent;}
+.pv-select-dropdown.open{display:block;animation:pv-dropdown-in .15s ease;}
+@keyframes pv-dropdown-in{from{opacity:0;transform:translateY(-4px);}to{opacity:1;transform:translateY(0);}}
+.pv-select-option{padding:9px 14px;font-size:0.78rem;color:var(--text-secondary);cursor:pointer;transition:all .12s;display:flex;align-items:center;gap:8px;}
+.pv-select-option:hover{background:rgba(34,197,94,0.08);color:var(--text-primary);}
+.pv-select-option.selected{background:rgba(34,197,94,0.12);color:#22c55e;font-weight:600;}
+.pv-select-option .pv-opt-icon{width:14px;height:14px;flex-shrink:0;opacity:0;}
+.pv-select-option.selected .pv-opt-icon{opacity:1;color:#22c55e;}
+.pv-select-option:last-child{border-radius:0 0 10px 10px;}
+/* Custom select inside log controls */
+.pv-log-controls .pv-select{width:auto;min-width:150px;}
+.pv-log-controls .pv-select-trigger{padding:5px 10px;font-size:0.76rem;border-radius:6px;}
+.pv-log-controls .pv-select-trigger.open{border-radius:6px 6px 0 0;}
+.pv-log-controls .pv-select-dropdown{border-radius:0 0 6px 6px;}
+.pv-log-controls .pv-select-option{padding:6px 10px;font-size:0.76rem;}
+.pv-log-controls .pv-select-option:last-child{border-radius:0 0 6px 6px;}
+/* Login field custom select */
+.pv-login-field .pv-select-trigger{padding:12px 16px;font-size:0.84rem;border-radius:10px;}
+.pv-login-field .pv-select-trigger.open{border-radius:10px 10px 0 0;}
+.pv-login-field .pv-select-dropdown{border-radius:0 0 10px 10px;}
+.pv-login-field .pv-select-option{padding:10px 16px;font-size:0.84rem;}
+.pv-login-field .pv-select-option:last-child{border-radius:0 0 10px 10px;}
+
+/* Empty state */
+.pv-empty{text-align:center;padding:48px 24px;color:var(--text-faint);}
+.pv-empty i{font-size:48px;margin-bottom:12px;opacity:0.3;display:block;}
+.pv-empty h3{font-size:1rem;margin-bottom:6px;color:var(--text-muted);}
+.pv-empty p{font-size:0.78rem;max-width:400px;margin:0 auto;}
+
+/* Infra overview bar */
+.pv-infra-bar{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;margin-bottom:20px;}
+.pv-infra-item{background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:8px;padding:12px;text-align:center;transition:border-color .2s;}
+.pv-infra-item:hover{border-color:var(--accent);}
+.pv-infra-item i{font-size:20px;opacity:0.4;margin-bottom:6px;display:block;}
+.pv-infra-item .val{font-size:1.2rem;font-weight:800;display:block;}
+.pv-infra-item .lbl{font-size:0.64rem;color:var(--text-faint);text-transform:uppercase;letter-spacing:0.06em;}
+
+/* Toast */
+.pv-toast{position:fixed;bottom:24px;right:24px;padding:14px 24px;border-radius:var(--radius-sm);font-size:0.82rem;font-weight:600;z-index:9999;transform:translateY(100px);opacity:0;transition:all .3s;pointer-events:none;max-width:380px;}
+.pv-toast.show{transform:translateY(0);opacity:1;}
+.pv-toast.success{background:#22c55e;color:#fff;}
+.pv-toast.error{background:#ef4444;color:#fff;}
+.pv-toast.info{background:#3b82f6;color:#fff;}
+
+/* Refresh indicator */
+.pv-refresh-indicator{position:absolute;top:8px;right:8px;font-size:0.62rem;color:var(--text-faint);display:flex;align-items:center;gap:4px;}
+.pv-refresh-indicator .dot{width:6px;height:6px;border-radius:50%;background:#22c55e;animation:pv-pulse-dot 2s infinite;}
+
+/* Bulk ops */
+.pv-bulk-bar{background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:14px 18px;margin-bottom:14px;display:none;align-items:center;justify-content:space-between;animation:pv-fade-in .2s ease;}
+.pv-bulk-bar.visible{display:flex;}
+.pv-bulk-info{font-size:0.78rem;color:var(--text-secondary);font-weight:600;}
+
+/* Health ring */
+.pv-health-ring{width:14px;height:14px;border-radius:50%;border:2px solid;display:inline-block;vertical-align:middle;margin-right:4px;}
+.pv-health-ring.healthy{border-color:#22c55e;background:rgba(34,197,94,0.2);}
+.pv-health-ring.unhealthy{border-color:#ef4444;background:rgba(239,68,68,0.2);}
+.pv-health-ring.unknown{border-color:#71717a;background:rgba(113,113,122,0.2);}
+
+/* ═══ Provider Login Gate ═══ */
+.pv-login-gate{display:flex;align-items:center;justify-content:center;min-height:70vh;animation:pv-fade-in .5s ease;}
+.pv-login-card{background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:16px;padding:0;width:100%;max-width:480px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.3),0 0 0 1px rgba(255,255,255,0.05);position:relative;}
+.pv-login-card::before{content:'';position:absolute;top:0;left:0;right:0;height:4px;background:linear-gradient(90deg,#22c55e,#3b82f6,#a855f7);border-radius:16px 16px 0 0;}
+.pv-login-header{padding:36px 36px 0;text-align:center;}
+.pv-login-header .pv-login-icon{width:64px;height:64px;border-radius:16px;background:linear-gradient(135deg,rgba(34,197,94,0.15),rgba(59,130,246,0.15));display:flex;align-items:center;justify-content:center;margin:0 auto 18px;font-size:28px;color:#22c55e;animation:pv-icon-float 3s ease-in-out infinite;}
+@keyframes pv-icon-float{0%,100%{transform:translateY(0);}50%{transform:translateY(-6px);}}
+.pv-login-header h2{font-size:1.3rem;font-weight:800;margin:0 0 6px;background:linear-gradient(135deg,#22c55e,#3b82f6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.pv-login-header p{font-size:0.8rem;color:var(--text-faint);margin:0 0 4px;line-height:1.5;}
+.pv-login-body{padding:28px 36px 36px;}
+.pv-login-field{margin-bottom:18px;position:relative;}
+.pv-login-field label{display:block;font-size:0.7rem;font-weight:700;color:var(--text-faint);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;}
+.pv-login-field label .required{color:#ef4444;margin-left:2px;}
+.pv-login-field input,.pv-login-field select{width:100%;background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:10px;color:var(--text-primary);padding:12px 16px;font-size:0.84rem;font-family:inherit;transition:all .2s;box-sizing:border-box;}
+.pv-login-field input:focus,.pv-login-field select:focus{border-color:#22c55e;outline:none;box-shadow:0 0 0 4px rgba(34,197,94,0.12);}
+.pv-login-field input.error{border-color:#ef4444;box-shadow:0 0 0 4px rgba(239,68,68,0.12);}
+.pv-login-field input.valid{border-color:#22c55e;box-shadow:0 0 0 4px rgba(34,197,94,0.12);}
+.pv-login-field .pv-field-hint{font-size:0.68rem;color:var(--text-faint);margin-top:4px;}
+.pv-login-field .pv-field-error{font-size:0.68rem;color:#ef4444;margin-top:4px;display:none;}
+.pv-login-field .pv-field-error.show{display:block;}
+.pv-token-toggle{position:absolute;right:12px;top:32px;background:none;border:none;color:var(--text-faint);cursor:pointer;padding:4px;font-size:16px;transition:color .15s;}
+.pv-token-toggle:hover{color:var(--text-primary);}
+.pv-login-submit{width:100%;padding:14px;border:none;border-radius:10px;background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;font-size:0.88rem;font-weight:700;cursor:pointer;transition:all .2s;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:8px;position:relative;overflow:hidden;}
+.pv-login-submit:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 8px 24px rgba(34,197,94,0.35);}
+.pv-login-submit:active:not(:disabled){transform:translateY(0);}
+.pv-login-submit:disabled{opacity:0.6;cursor:not-allowed;transform:none !important;box-shadow:none !important;}
+.pv-login-submit .pv-spinner{display:none;width:18px;height:18px;border:2px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;animation:pv-spin .6s linear infinite;}
+.pv-login-submit.loading .pv-spinner{display:block;}
+.pv-login-submit.loading .pv-submit-text{display:none;}
+@keyframes pv-spin{to{transform:rotate(360deg);}}
+.pv-login-footer{padding:0 36px 28px;text-align:center;}
+.pv-login-footer p{font-size:0.7rem;color:var(--text-faint);margin:0;line-height:1.5;}
+.pv-login-footer i{font-size:11px;vertical-align:-1px;margin-right:2px;opacity:0.5;}
+.pv-login-security-badges{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:12px;}
+.pv-login-security-badges .badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:0.62rem;font-weight:600;background:rgba(34,197,94,0.08);color:#22c55e;letter-spacing:0.03em;}
+/* Login alert messages */
+.pv-login-alert{padding:12px 16px;border-radius:10px;font-size:0.8rem;font-weight:500;margin-bottom:18px;display:none;align-items:center;gap:8px;animation:pv-fade-in .3s ease;}
+.pv-login-alert.show{display:flex;}
+.pv-login-alert.success{background:rgba(34,197,94,0.1);color:#22c55e;border:1px solid rgba(34,197,94,0.2);}
+.pv-login-alert.error{background:rgba(239,68,68,0.1);color:#ef4444;border:1px solid rgba(239,68,68,0.2);}
+.pv-login-alert i{font-size:16px;flex-shrink:0;}
+.pv-login-success-overlay{position:absolute;inset:0;background:rgba(0,0,0,0.85);display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:16px;z-index:10;animation:pv-fade-in .3s ease;}
+.pv-login-success-overlay .checkmark{width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#22c55e,#16a34a);display:flex;align-items:center;justify-content:center;font-size:28px;color:#fff;margin-bottom:16px;animation:pv-scale-in .4s ease;}
+.pv-login-success-overlay p{font-size:0.9rem;color:#fff;font-weight:600;margin:0 0 6px;}
+.pv-login-success-overlay span{font-size:0.74rem;color:rgba(255,255,255,0.6);}
+@keyframes pv-scale-in{from{transform:scale(0);opacity:0;}to{transform:scale(1);opacity:1;}}
+</style>
+
+{# ── Greeting ── #}
+{% if not provider_authenticated|default(false) %}
+{# ═══════════════════════════════════════════════════════════════════
+   PROVIDER LOGIN GATE — User must connect their Render API token
+   ═══════════════════════════════════════════════════════════════════ #}
+<div class="pv-login-gate" id="pvLoginGate">
+    <div class="pv-login-card" id="pvLoginCard">
+        <div class="pv-login-header">
+            <div class="pv-login-icon"><i class="icon-rocket"></i></div>
+            <h2>Connect to Render</h2>
+            <p>Enter your Render API token to access the provider dashboard.<br>Your credentials are encrypted with military-grade security.</p>
+        </div>
+        <div class="pv-login-body">
+            <div class="pv-login-alert" id="pvLoginAlert">
+                <i class="icon-alert-circle"></i>
+                <span id="pvLoginAlertText"></span>
+            </div>
+            <div class="pv-login-field">
+                <label>API Token <span class="required">*</span></label>
+                <input type="password" id="pvLoginToken" placeholder="rnd_xxxxxxxxxxxxxxxxxxxxxxxx" autocomplete="off" spellcheck="false">
+                <button type="button" class="pv-token-toggle" onclick="pvToggleToken()" title="Show/Hide token"><i class="icon-eye" id="pvTokenEyeIcon"></i></button>
+                <div class="pv-field-hint">Find your API key at <a href="https://dashboard.render.com/u/settings#api-keys" target="_blank" rel="noopener" style="color:#22c55e;text-decoration:none;">Render Dashboard → Account Settings → API Keys</a></div>
+                <div class="pv-field-error" id="pvTokenError">Please enter a valid API token.</div>
+            </div>
+            <div class="pv-login-field">
+                <label>Owner Name <span style="font-weight:400;text-transform:none;letter-spacing:0;">(optional)</span></label>
+                <input type="text" id="pvLoginOwner" placeholder="e.g. my-team">
+                <div class="pv-field-hint">The Render account or team owner name for display purposes.</div>
+            </div>
+            <div class="pv-login-field">
+                <label>Default Region</label>
+                <div class="pv-select" data-target="pvLoginRegion">
+                    <input type="hidden" id="pvLoginRegion" value="oregon">
+                    <div class="pv-select-trigger" onclick="pvSelectToggle(this)">
+                        <span class="pv-select-text"><i class="icon-globe" style="font-size:13px;opacity:0.5;margin-right:4px;vertical-align:-1px;"></i> Oregon (US West)</span>
+                        <svg class="pv-select-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <div class="pv-select-dropdown">
+                        <div class="pv-select-option selected" data-value="oregon"><svg class="pv-opt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg><i class="icon-globe" style="font-size:13px;opacity:0.5;"></i> Oregon (US West)</div>
+                        <div class="pv-select-option" data-value="ohio"><svg class="pv-opt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg><i class="icon-globe" style="font-size:13px;opacity:0.5;"></i> Ohio (US East)</div>
+                        <div class="pv-select-option" data-value="frankfurt"><svg class="pv-opt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg><i class="icon-globe" style="font-size:13px;opacity:0.5;"></i> Frankfurt (EU Central)</div>
+                        <div class="pv-select-option" data-value="singapore"><svg class="pv-opt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg><i class="icon-globe" style="font-size:13px;opacity:0.5;"></i> Singapore (Asia Pacific)</div>
+                    </div>
+                </div>
+            </div>
+            <button class="pv-login-submit" id="pvLoginSubmit" onclick="pvProviderLogin()">
+                <span class="pv-submit-text"><i class="icon-log-in" style="font-size:15px;"></i> Connect Provider</span>
+                <span class="pv-spinner"></span>
+            </button>
+        </div>
+        <div class="pv-login-footer">
+            <p><i class="icon-shield"></i> Your API token is encrypted with AES-256-GCM and stored securely with PBKDF2 key derivation (600k iterations).</p>
+            <div class="pv-login-security-badges">
+                <span class="badge"><i class="icon-lock" style="font-size:10px;"></i> AES-256-GCM</span>
+                <span class="badge"><i class="icon-key" style="font-size:10px;"></i> PBKDF2</span>
+                <span class="badge"><i class="icon-shield" style="font-size:10px;"></i> HMAC-SHA512</span>
+                <span class="badge"><i class="icon-check-circle" style="font-size:10px;"></i> Secure Wipe</span>
+            </div>
+        </div>
+    </div>
+</div>
+{% else %}
+{# ═══════════════════════════════════════════════════════════════════
+   PROVIDER DASHBOARD — Full dashboard (only shown when authenticated)
+   ═══════════════════════════════════════════════════════════════════ #}
+<div class="pv-greeting">
+    <h1>
+        <i class="icon-rocket" style="font-size:24px;vertical-align:middle;margin-right:6px;"></i>
+        Provider &amp; Deployment
+        <span class="pv-provider-badge">
+            <i class="icon-zap" style="font-size:12px;"></i>
+            {{ provider_name|default('Render') }}
+        </span>
+        {% if available %}
+        <span class="pv-live-dot" title="Connected"></span>
+        {% endif %}
+    </h1>
+    <p>Manage cloud provider, services, deployments, credentials, analytics, and infrastructure from one place.</p>
+</div>
+
+{# ── User Profile Card ── #}
+{% if user_profile|default({}) and user_profile.get('id', '—') != '—' %}
+<div class="pv-user-card" style="background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:18px 22px;margin-bottom:18px;display:flex;align-items:center;gap:18px;position:relative;overflow:hidden;">
+    <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#22c55e,#3b82f6,#a855f7);"></div>
+    <div style="width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,#22c55e 0%,#3b82f6 100%);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;color:#fff;flex-shrink:0;">
+        {{ (user_profile.get('name', '?')[0])|upper }}
+    </div>
+    <div style="flex:1;min-width:0;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+            <span style="font-size:1.1rem;font-weight:700;">{{ user_profile.get('name', '—') }}</span>
+            <span style="display:inline-flex;align-items:center;gap:4px;padding:2px 10px;border-radius:99px;font-size:0.62rem;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;{% if user_profile.get('type') == 'team' %}background:rgba(99,102,241,0.12);color:#6366f1;{% else %}background:rgba(34,197,94,0.12);color:#22c55e;{% endif %}">
+                <i class="{% if user_profile.get('type') == 'team' %}icon-users{% else %}icon-user{% endif %}" style="font-size:10px;"></i>
+                {{ user_profile.get('type', 'user') }}
+            </span>
+            {% if user_profile.get('two_factor_enabled') %}
+            <span style="display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:99px;font-size:0.6rem;font-weight:600;background:rgba(34,197,94,0.12);color:#22c55e;"><i class="icon-shield" style="font-size:9px;"></i> 2FA</span>
+            {% endif %}
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:16px;font-size:0.78rem;color:var(--text-muted);">
+            {% if user_profile.get('email') and user_profile.get('email') != '—' %}
+            <span><i class="icon-mail" style="font-size:12px;opacity:0.5;margin-right:3px;vertical-align:-1px;"></i> {{ user_profile.get('email') }}</span>
+            {% endif %}
+            <span><i class="icon-hash" style="font-size:12px;opacity:0.5;margin-right:3px;vertical-align:-1px;"></i> {{ user_profile.get('id', '—') }}</span>
+            {% if user_profile.get('created_at') and user_profile.get('created_at') != '—' %}
+            <span><i class="icon-calendar" style="font-size:12px;opacity:0.5;margin-right:3px;vertical-align:-1px;"></i> {{ user_profile.get('created_at', '—') }}</span>
+            {% endif %}
+        </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end;">
+        {% if render_workspaces|default([]) %}
+        <span style="font-size:0.68rem;color:var(--text-faint);text-transform:uppercase;letter-spacing:0.06em;">Workspaces</span>
+        {% for ws in render_workspaces|default([]) %}
+        <span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:99px;font-size:0.7rem;font-weight:500;background:rgba(59,130,246,0.08);color:var(--text-secondary);">
+            <i class="icon-folder" style="font-size:10px;opacity:0.5;"></i> {{ ws.get('name', ws.get('id', '—')) }}
+        </span>
+        {% endfor %}
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+{# ── Infrastructure Overview Bar ── #}
+<div class="pv-infra-bar">
+    <div class="pv-infra-item"><i class="icon-server"></i><span class="val" id="pvStatSvc">{{ services|default([])|length }}</span><span class="lbl">Services</span></div>
+    <div class="pv-infra-item"><i class="icon-check-circle"></i><span class="val" style="color:#22c55e;" id="pvStatLive">{{ services_live|default(0) }}</span><span class="lbl">Live</span></div>
+    <div class="pv-infra-item"><i class="icon-git-commit"></i><span class="val" id="pvStatDeploys">{{ total_deploys|default(0) }}</span><span class="lbl">Deploys</span></div>
+    <div class="pv-infra-item"><i class="icon-database"></i><span class="val">{{ postgres_count|default(0) }}</span><span class="lbl">Postgres</span></div>
+    <div class="pv-infra-item"><i class="icon-zap"></i><span class="val">{{ kv_count|default(0) }}</span><span class="lbl">Key-Value</span></div>
+    <div class="pv-infra-item"><i class="icon-lock"></i><span class="val">{{ env_group_count|default(0) }}</span><span class="lbl">Env Groups</span></div>
+    <div class="pv-infra-item"><i class="icon-globe"></i><span class="val">{{ custom_domain_count|default(0) }}</span><span class="lbl">Domains</span></div>
+    <div class="pv-infra-item"><i class="icon-folder"></i><span class="val">{{ project_count|default(0) }}</span><span class="lbl">Projects</span></div>
+    <div class="pv-infra-item"><i class="icon-layers"></i><span class="val">{{ blueprint_count|default(0) }}</span><span class="lbl">Blueprints</span></div>
+    <div class="pv-infra-item"><i class="icon-shield"></i><span class="val {{ 'on' if credential_status == 'active' else 'off' }}" style="font-size:0.9rem;">{{ credential_status|default('N/A')|upper }}</span><span class="lbl">Credentials</span></div>
+    <div class="pv-infra-item"><i class="icon-map-pin"></i><span class="val">{{ default_region|default('—') }}</span><span class="lbl">Region</span></div>
+</div>
+
+{# ── Tabs ── #}
+<div class="pv-tabs" id="pvTabs">
+    <button class="pv-tab active" data-tab="overview"><i class="icon-layout-dashboard" style="font-size:13px;margin-right:4px;vertical-align:-1px;"></i> Overview</button>
+    <button class="pv-tab" data-tab="services"><i class="icon-server" style="font-size:13px;margin-right:4px;vertical-align:-1px;"></i> Services {% if services %}<span class="pv-tab-badge">{{ services|length }}</span>{% endif %}</button>
+    <button class="pv-tab" data-tab="deploys"><i class="icon-git-commit" style="font-size:13px;margin-right:4px;vertical-align:-1px;"></i> Deploys {% if deploys %}<span class="pv-tab-badge">{{ deploys|length }}</span>{% endif %}</button>
+    <button class="pv-tab" data-tab="analytics"><i class="icon-bar-chart-2" style="font-size:13px;margin-right:4px;vertical-align:-1px;"></i> Analytics</button>
+    <button class="pv-tab" data-tab="databases"><i class="icon-database" style="font-size:13px;margin-right:4px;vertical-align:-1px;"></i> Databases</button>
+    <button class="pv-tab" data-tab="envvars"><i class="icon-lock" style="font-size:13px;margin-right:4px;vertical-align:-1px;"></i> Env Vars</button>
+    <button class="pv-tab" data-tab="credentials"><i class="icon-shield" style="font-size:13px;margin-right:4px;vertical-align:-1px;"></i> Security</button>
+    <button class="pv-tab" data-tab="infra"><i class="icon-layers" style="font-size:13px;margin-right:4px;vertical-align:-1px;"></i> Infrastructure</button>
+    <button class="pv-tab" data-tab="logs"><i class="icon-terminal" style="font-size:13px;margin-right:4px;vertical-align:-1px;"></i> Logs</button>
+    <button class="pv-tab" data-tab="actions"><i class="icon-zap" style="font-size:13px;margin-right:4px;vertical-align:-1px;"></i> Actions</button>
+</div>
+
+{# ═══════════════════════════════════════════════════════════════════
+   TAB: Overview (summary + mini charts)
+   ═══════════════════════════════════════════════════════════════════ #}
+<div class="pv-panel active" id="panel-overview">
+    <div class="pv-charts">
+        {# Service Status Doughnut #}
+        <div class="pv-chart-card">
+            <h4><i class="icon-pie-chart"></i> Service Status Distribution</h4>
+            <div class="pv-chart-wrap"><canvas id="chartSvcStatus"></canvas></div>
+        </div>
+        {# Deploy Status Doughnut #}
+        <div class="pv-chart-card">
+            <h4><i class="icon-git-commit"></i> Deploy Status Breakdown</h4>
+            <div class="pv-chart-wrap"><canvas id="chartDeployStatus"></canvas></div>
+        </div>
+        {# Service Types Bar #}
+        <div class="pv-chart-card">
+            <h4><i class="icon-layers"></i> Service Types</h4>
+            <div class="pv-chart-wrap"><canvas id="chartSvcTypes"></canvas></div>
+        </div>
+        {# Region Distribution #}
+        <div class="pv-chart-card">
+            <h4><i class="icon-globe"></i> Region Distribution</h4>
+            <div class="pv-chart-wrap"><canvas id="chartRegions"></canvas></div>
+        </div>
+        {# Infrastructure Breakdown #}
+        <div class="pv-chart-card">
+            <h4><i class="icon-server"></i> Infrastructure Resources</h4>
+            <div class="pv-chart-wrap"><canvas id="chartInfra"></canvas></div>
+        </div>
+        {# Env Vars per Service #}
+        <div class="pv-chart-card">
+            <h4><i class="icon-lock"></i> Env Variables per Service</h4>
+            <div class="pv-chart-wrap"><canvas id="chartEnvVars"></canvas></div>
+        </div>
+    </div>
+
+    {# Quick summary cards #}
+    <div class="pv-section"><i class="icon-activity"></i> Quick Health Summary</div>
+    <div class="pv-stats">
+        <div class="pv-stat green">
+            <div class="pv-stat-icon"><i class="icon-check-circle"></i></div>
+            <div class="pv-stat-value">{{ services_live|default(0) }}/{{ services|default([])|length }}</div>
+            <div class="pv-stat-label">Healthy</div>
+            <div class="pv-stat-sub">Services live</div>
+        </div>
+        <div class="pv-stat blue">
+            <div class="pv-stat-icon"><i class="icon-git-commit"></i></div>
+            <div class="pv-stat-value">{{ total_deploys|default(0) }}</div>
+            <div class="pv-stat-label">Total Deploys</div>
+            <div class="pv-stat-sub">All services</div>
+        </div>
+        <div class="pv-stat purple">
+            <div class="pv-stat-icon"><i class="icon-database"></i></div>
+            <div class="pv-stat-value">{{ postgres_count|default(0) + kv_count|default(0) }}</div>
+            <div class="pv-stat-label">Data Stores</div>
+            <div class="pv-stat-sub">PG + Redis</div>
+        </div>
+        <div class="pv-stat {{ 'green' if credential_status == 'active' else 'red' }}">
+            <div class="pv-stat-icon"><i class="icon-shield"></i></div>
+            <div class="pv-stat-value">{{ credential_cipher|default('—') }}</div>
+            <div class="pv-stat-label">Cipher</div>
+            <div class="pv-stat-sub">{{ credential_status|default('—')|upper }}</div>
+        </div>
+        <div class="pv-stat amber">
+            <div class="pv-stat-icon"><i class="icon-key"></i></div>
+            <div class="pv-stat-value">{{ env_group_count|default(0) }}</div>
+            <div class="pv-stat-label">Env Groups</div>
+            <div class="pv-stat-sub">Shared secrets</div>
+        </div>
+        <div class="pv-stat indigo">
+            <div class="pv-stat-icon"><i class="icon-globe"></i></div>
+            <div class="pv-stat-value">{{ default_region|default('—') }}</div>
+            <div class="pv-stat-label">Region</div>
+            <div class="pv-stat-sub">Primary</div>
+        </div>
+    </div>
+</div>
+
+{# ═══════════════════════════════════════════════════════════════════
+   TAB: Services
+   ═══════════════════════════════════════════════════════════════════ #}
+<div class="pv-panel" id="panel-services">
+    {# Bulk operations bar #}
+    <div class="pv-bulk-bar" id="pvBulkBar">
+        <span class="pv-bulk-info"><span id="pvBulkCount">0</span> service(s) selected</span>
+        <div class="pv-btn-group">
+            <button class="pv-btn secondary pv-btn-sm" onclick="pvBulkAction('restart')"><i class="icon-refresh-cw" style="font-size:12px;"></i> Restart All</button>
+            <button class="pv-btn info pv-btn-sm" onclick="pvBulkAction('redeploy')"><i class="icon-rocket" style="font-size:12px;"></i> Redeploy All</button>
+            <button class="pv-btn warning pv-btn-sm" onclick="pvBulkAction('suspend')"><i class="icon-pause" style="font-size:12px;"></i> Suspend All</button>
+            <button class="pv-btn secondary pv-btn-sm" onclick="pvClearBulk()">Clear</button>
+        </div>
+    </div>
+
+    <div class="pv-section"><i class="icon-server"></i> Active Services ({{ services|default([])|length }})</div>
+    {% if services %}
+    <div class="pv-svc-grid">
+        {% for svc in services %}
+        <div class="pv-svc" data-svc-id="{{ svc.id|default('') }}">
+            <div style="position:absolute;top:12px;right:12px;">
+                <input type="checkbox" class="pv-svc-check" data-id="{{ svc.id|default('') }}" style="accent-color:#22c55e;width:15px;height:15px;cursor:pointer;" title="Select for bulk action">
+            </div>
+            <div class="pv-svc-header">
+                {% set svc_type_lower = (svc.type|default('web'))|lower %}
+                {% if 'worker' in svc_type_lower %}{% set svc_type_class = 'worker' %}
+                {% elif 'cron' in svc_type_lower %}{% set svc_type_class = 'cron' %}
+                {% elif 'static' in svc_type_lower %}{% set svc_type_class = 'static' %}
+                {% else %}{% set svc_type_class = 'web' %}{% endif %}
+                <div class="pv-svc-icon {{ svc_type_class }}">
+                    {% if svc_type_class == 'web' %}<i class="icon-globe"></i>
+                    {% elif svc_type_class == 'worker' %}<i class="icon-cpu"></i>
+                    {% elif svc_type_class == 'cron' %}<i class="icon-clock"></i>
+                    {% elif svc_type_class == 'static' %}<i class="icon-file-text"></i>
+                    {% else %}<i class="icon-server"></i>{% endif %}
+                </div>
+                <div>
+                    {% set svc_status_lower = (svc.status|default('unknown'))|lower %}
+                    <div class="pv-svc-name">
+                        <span class="pv-health-ring {{ 'healthy' if svc_status_lower == 'live' else ('unhealthy' if svc_status_lower in ['failed','build_failed'] else 'unknown') }}"></span>
+                        {{ svc.name }}
+                    </div>
+                    <div class="pv-svc-type">
+                        {{ svc.type|default('web_service') }}
+                        <span class="pv-status {{ svc_status_lower }}">{{ svc.status|default('unknown') }}</span>
+                    </div>
+                </div>
+            </div>
+            <dl class="pv-svc-meta">
+                <dt>ID</dt><dd>{{ svc.id|default('—') }}</dd>
+                <dt>Region</dt><dd>{{ svc.region|default('—') }}</dd>
+                <dt>Plan</dt><dd>{{ svc.plan|default('—') }}</dd>
+                <dt>Created</dt><dd>{{ svc.created_at|default('—') }}</dd>
+            </dl>
+            {% if svc.url and svc.url != '—' %}
+            <a class="pv-svc-url" href="{{ svc.url }}" target="_blank" rel="noopener">{{ svc.url }}</a>
+            {% endif %}
+            <div class="pv-btn-group" style="margin-top:12px;">
+                <button class="pv-btn secondary pv-btn-sm" onclick="pvAction('restart','{{ svc.id }}')"><i class="icon-refresh-cw" style="font-size:12px;"></i> Restart</button>
+                <button class="pv-btn secondary pv-btn-sm" onclick="pvAction('purge_cache','{{ svc.id }}')"><i class="icon-trash-2" style="font-size:12px;"></i> Purge</button>
+                <button class="pv-btn info pv-btn-sm" onclick="pvAction('redeploy','{{ svc.id }}')"><i class="icon-rocket" style="font-size:12px;"></i> Deploy</button>
+                {% if svc_status_lower == 'live' %}
+                <button class="pv-btn warning pv-btn-sm" onclick="pvAction('suspend','{{ svc.id }}')"><i class="icon-pause" style="font-size:12px;"></i> Suspend</button>
+                {% elif svc_status_lower == 'suspended' %}
+                <button class="pv-btn primary pv-btn-sm" onclick="pvAction('resume','{{ svc.id }}')"><i class="icon-play" style="font-size:12px;"></i> Resume</button>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="pv-empty">
+        <i class="icon-server"></i>
+        <h3>No services found</h3>
+        <p>Deploy your first service using <code>aq deploy render</code> or configure your provider credentials.</p>
+    </div>
+    {% endif %}
+</div>
+
+{# ═══════════════════════════════════════════════════════════════════
+   TAB: Deploys — FIXED: uses |truncate() instead of [:12]
+   ═══════════════════════════════════════════════════════════════════ #}
+<div class="pv-panel" id="panel-deploys">
+    <div class="pv-section"><i class="icon-git-commit"></i> Deployment History ({{ total_deploys|default(0) }})</div>
+    {% if deploys %}
+    <div class="pv-card">
+        <div class="pv-card-header">
+            <h3>Recent Deployments</h3>
+            <div class="pv-refresh-indicator"><span class="dot"></span> Live</div>
+        </div>
+        <div class="pv-card-body" style="padding:0;">
+            <table class="pv-table">
+                <thead>
+                    <tr>
+                        <th>Deploy ID</th>
+                        <th>Service</th>
+                        <th>Status</th>
+                        <th>Trigger</th>
+                        <th>Commit</th>
+                        <th>Created</th>
+                        <th style="text-align:right;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for d in deploys %}
+                    <tr>
+                        <td class="mono">{{ d.id|default('—')|truncate(16, True, '…') }}</td>
+                        <td>{{ d.service_name|default('—') }}</td>
+                        <td><span class="pv-status {{ (d.status|default('unknown'))|lower }}">{{ d.status|default('unknown') }}</span></td>
+                        <td>{{ d.trigger|default('manual') }}</td>
+                        <td class="mono">{% set commit_raw = d.commit_id|default('—') %}{{ commit_raw|truncate(12, True, '') }}</td>
+                        <td>{{ d.created_at|default('—') }}</td>
+                        <td style="text-align:right;">
+                            <div class="pv-btn-group" style="justify-content:flex-end;">
+                                {% set d_status_lower = (d.status|default(''))|lower %}
+                                {% if d_status_lower in ['build_in_progress','update_in_progress','deploying'] %}
+                                <button class="pv-btn danger pv-btn-sm" onclick="pvAction('cancel_deploy','{{ d.service_id|default('') }}','{{ d.id|default('') }}')">Cancel</button>
+                                {% endif %}
+                                {% if d_status_lower == 'live' %}
+                                <button class="pv-btn secondary pv-btn-sm" onclick="pvAction('rollback','{{ d.service_id|default('') }}','{{ d.id|default('') }}')">Rollback</button>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% else %}
+    <div class="pv-empty">
+        <i class="icon-git-commit"></i>
+        <h3>No deployments yet</h3>
+        <p>Trigger your first deployment from the Actions tab or via the CLI.</p>
+    </div>
+    {% endif %}
+</div>
+
+{# ═══════════════════════════════════════════════════════════════════
+   TAB: Analytics (Chart.js dashboards)
+   ═══════════════════════════════════════════════════════════════════ #}
+<div class="pv-panel" id="panel-analytics">
+    <div class="pv-section"><i class="icon-bar-chart-2"></i> Infrastructure Analytics</div>
+    <div class="pv-charts">
+        <div class="pv-chart-card" style="grid-column:span 2;">
+            <h4><i class="icon-trending-up"></i> Deploy Success Rate</h4>
+            <div class="pv-chart-wrap" style="height:250px;"><canvas id="chartDeploySuccess"></canvas></div>
+        </div>
+        <div class="pv-chart-card">
+            <h4><i class="icon-pie-chart"></i> Resource Allocation</h4>
+            <div class="pv-chart-wrap"><canvas id="chartResourceAlloc"></canvas></div>
+        </div>
+        <div class="pv-chart-card">
+            <h4><i class="icon-shield"></i> Security Posture</h4>
+            <div class="pv-chart-wrap"><canvas id="chartSecurityPosture"></canvas></div>
+        </div>
+    </div>
+
+    {# Deploy metrics table #}
+    <div class="pv-section" style="margin-top:10px;"><i class="icon-bar-chart-2"></i> Deploy Metrics by Service</div>
+    <div class="pv-card">
+        <div class="pv-card-body" style="padding:0;">
+            <table class="pv-table">
+                <thead><tr><th>Service</th><th>Total</th><th>Live</th><th>Failed</th><th>Success Rate</th></tr></thead>
+                <tbody>
+                {% set ns = namespace(seen={}) %}
+                {% for d in deploys|default([]) %}
+                    {% if d.service_name not in ns.seen %}
+                        {% set _n = d.service_name|default('—') %}
+                        {% set _total = deploys|selectattr('service_name','equalto', _n)|list|length %}
+                        {% set _live = deploys|selectattr('service_name','equalto', _n)|selectattr('status','equalto','live')|list|length %}
+                        {% set _failed = deploys|selectattr('service_name','equalto', _n)|selectattr('status','equalto','failed')|list|length %}
+                        {% set _rate = ((_live / _total * 100)|round(1)) if _total > 0 else 0 %}
+                        <tr>
+                            <td>{{ _n }}</td>
+                            <td class="mono">{{ _total }}</td>
+                            <td class="mono" style="color:#22c55e;">{{ _live }}</td>
+                            <td class="mono" style="color:#ef4444;">{{ _failed }}</td>
+                            <td>
+                                <div style="display:flex;align-items:center;gap:8px;">
+                                    <div style="flex:1;background:var(--border-subtle);border-radius:99px;height:6px;overflow:hidden;">
+                                        <div style="width:{{ _rate }}%;height:100%;background:{{ '#22c55e' if _rate >= 80 else ('#f59e0b' if _rate >= 50 else '#ef4444') }};border-radius:99px;"></div>
+                                    </div>
+                                    <span class="mono" style="font-size:0.7rem;">{{ _rate }}%</span>
+                                </div>
+                            </td>
+                        </tr>
+                        {% if ns.seen.update({_n: True}) %}{% endif %}
+                    {% endif %}
+                {% endfor %}
+                {% if not deploys %}<tr><td colspan="5" style="text-align:center;color:var(--text-faint);padding:20px;">No deploy data available.</td></tr>{% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{# ═══════════════════════════════════════════════════════════════════
+   TAB: Databases
+   ═══════════════════════════════════════════════════════════════════ #}
+<div class="pv-panel" id="panel-databases">
+    <div class="pv-section"><i class="icon-database"></i> PostgreSQL Instances ({{ postgres_count|default(0) }})</div>
+    {% if postgres_instances %}
+    <div class="pv-svc-grid">
+        {% for db in postgres_instances %}
+        <div class="pv-svc">
+            <div class="pv-svc-header">
+                <div class="pv-svc-icon" style="background:rgba(99,102,241,0.12);color:#6366f1;"><i class="icon-database"></i></div>
+                <div>
+                    <div class="pv-svc-name"><span class="pv-health-ring healthy"></span>{{ db.name|default('unnamed') }}</div>
+                    <div class="pv-svc-type">PostgreSQL {{ db.version|default('16') }} · {{ db.plan|default('starter') }}</div>
+                </div>
+            </div>
+            <dl class="pv-svc-meta">
+                <dt>ID</dt><dd>{{ db.id|default('—') }}</dd>
+                <dt>Region</dt><dd>{{ db.region|default('—') }}</dd>
+            </dl>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="pv-empty"><i class="icon-database"></i><h3>No databases</h3><p>No PostgreSQL instances found.</p></div>
+    {% endif %}
+
+    <div class="pv-section" style="margin-top:28px;"><i class="icon-zap"></i> Key-Value (Redis) Instances ({{ kv_count|default(0) }})</div>
+    {% if kv_instances %}
+    <div class="pv-svc-grid">
+        {% for kv in kv_instances %}
+        <div class="pv-svc">
+            <div class="pv-svc-header">
+                <div class="pv-svc-icon" style="background:rgba(239,68,68,0.12);color:#ef4444;"><i class="icon-zap"></i></div>
+                <div>
+                    <div class="pv-svc-name"><span class="pv-health-ring healthy"></span>{{ kv.name|default('unnamed') }}</div>
+                    <div class="pv-svc-type">Key-Value · {{ kv.plan|default('starter') }}</div>
+                </div>
+            </div>
+            <dl class="pv-svc-meta">
+                <dt>ID</dt><dd>{{ kv.id|default('—') }}</dd>
+                <dt>Region</dt><dd>{{ kv.region|default('—') }}</dd>
+            </dl>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="pv-empty"><i class="icon-zap"></i><h3>No key-value stores</h3><p>No Redis instances found.</p></div>
+    {% endif %}
+</div>
+
+{# ═══════════════════════════════════════════════════════════════════
+   TAB: Env Vars
+   ═══════════════════════════════════════════════════════════════════ #}
+<div class="pv-panel" id="panel-envvars">
+    <div class="pv-section"><i class="icon-lock"></i> Environment Variables by Service</div>
+    {% if env_vars_by_service %}
+    {% for svc_name, vars in env_vars_by_service.items() %}
+    <div class="pv-card">
+        <div class="pv-card-header">
+            <h3><i class="icon-server" style="font-size:14px;margin-right:6px;opacity:0.5;"></i>{{ svc_name }}</h3>
+            <span style="font-size:0.7rem;color:var(--text-faint);">{{ vars|length }} variables</span>
+        </div>
+        <div class="pv-card-body" style="padding:0;">
+            <table class="pv-table">
+                <thead><tr><th>Key</th><th>Value</th></tr></thead>
+                <tbody>
+                    {% for v in vars %}
+                    <tr>
+                        <td class="mono">{{ v.key }}</td>
+                        <td class="mono" style="color:var(--text-faint);">{{ '••••••••' if v.value and v.value|length > 0 else '(empty)' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="pv-empty">
+        <i class="icon-lock"></i>
+        <h3>No environment variables</h3>
+        <p>Add env vars through the Render dashboard or deploy config.</p>
+    </div>
+    {% endif %}
+</div>
+
+{# ═══════════════════════════════════════════════════════════════════
+   TAB: Security / Credentials
+   ═══════════════════════════════════════════════════════════════════ #}
+<div class="pv-panel" id="panel-credentials">
+    <div class="pv-section"><i class="icon-shield"></i> Credential Store — Military-Grade Security</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+        <div class="pv-card">
+            <div class="pv-card-header"><h3><i class="icon-key" style="font-size:14px;margin-right:6px;opacity:0.5;"></i>Store Status</h3></div>
+            <div class="pv-card-body">
+                <div class="pv-cred">
+                    <div class="pv-cred-row"><span class="pv-cred-key">Status</span><span class="pv-cred-val {{ 'on' if credential_status == 'active' else 'off' }}">{{ credential_status|default('unconfigured')|upper }}</span></div>
+                    <div class="pv-cred-row"><span class="pv-cred-key">Crous Version</span><span class="pv-cred-val">{{ crous_version|default('—') }}</span></div>
+                    <div class="pv-cred-row"><span class="pv-cred-key">Cipher Suite</span><span class="pv-cred-val">{{ credential_cipher|default('—') }}</span></div>
+                    <div class="pv-cred-row"><span class="pv-cred-key">Token Age</span><span class="pv-cred-val">{{ token_age|default('—') }}</span></div>
+                    <div class="pv-cred-row"><span class="pv-cred-key">Expired</span><span class="pv-cred-val {{ 'off' if token_expired else 'on' }}">{{ 'Yes' if token_expired else 'No' }}</span></div>
+                    <div class="pv-cred-row"><span class="pv-cred-key">Owner</span><span class="pv-cred-val">{{ owner_name|default('—') }}</span></div>
+                    <div class="pv-cred-row"><span class="pv-cred-key">Default Region</span><span class="pv-cred-val">{{ default_region|default('—') }}</span></div>
+                </div>
+                <div class="pv-btn-group">
+                    <button class="pv-btn primary pv-btn-sm" onclick="pvAction('validate_token')"><i class="icon-check-circle" style="font-size:12px;"></i> Validate Token</button>
+                    <button class="pv-btn secondary pv-btn-sm" onclick="pvAction('rotate_key')"><i class="icon-refresh-cw" style="font-size:12px;"></i> Rotate Key</button>
+                    <button class="pv-btn danger pv-btn-sm" onclick="if(confirm('Clear all stored credentials? This cannot be undone.'))pvAction('clear_credentials')"><i class="icon-trash-2" style="font-size:12px;"></i> Clear</button>
+                </div>
+            </div>
+        </div>
+        <div class="pv-card">
+            <div class="pv-card-header"><h3><i class="icon-shield" style="font-size:14px;margin-right:6px;opacity:0.5;"></i>Security Features</h3></div>
+            <div class="pv-card-body">
+                <div class="pv-cred">
+                    <div class="pv-cred-row"><span class="pv-cred-key">Encryption</span><span class="pv-cred-val on">AES-256-GCM</span></div>
+                    <div class="pv-cred-row"><span class="pv-cred-key">Key Derivation</span><span class="pv-cred-val on">PBKDF2 600k iter</span></div>
+                    <div class="pv-cred-row"><span class="pv-cred-key">Integrity</span><span class="pv-cred-val on">HMAC-SHA512</span></div>
+                    <div class="pv-cred-row"><span class="pv-cred-key">Canary Validation</span><span class="pv-cred-val on">Enabled</span></div>
+                    <div class="pv-cred-row"><span class="pv-cred-key">Secure Wipe</span><span class="pv-cred-val on">Enabled</span></div>
+                    <div class="pv-cred-row"><span class="pv-cred-key">Audit Logging</span><span class="pv-cred-val on">Enabled</span></div>
+                    <div class="pv-cred-row"><span class="pv-cred-key">Key Rotation</span><span class="pv-cred-val on">Available</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="pv-section" style="margin-top:18px;"><i class="icon-scroll-text"></i> Credential Audit Trail</div>
+    <div class="pv-card">
+        <div class="pv-card-body" style="padding:0;">
+            {% if audit_entries %}
+            <table class="pv-table">
+                <thead><tr><th>Timestamp</th><th>Action</th><th>Details</th></tr></thead>
+                <tbody>
+                    {% for e in audit_entries[:30] %}
+                    {% set action_lower = (e.action|default(''))|lower %}
+                    <tr>
+                        <td class="mono">{{ e.ts|default('—') }}</td>
+                        <td><span class="pv-status {{ 'live' if 'save' in action_lower or 'load' in action_lower else ('failed' if 'clear' in action_lower or 'error' in action_lower else 'created') }}">{{ e.action|default('—') }}</span></td>
+                        <td class="mono" style="font-size:0.68rem;">{{ e.details|default('') }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="pv-empty" style="padding:24px;"><p>No audit entries recorded yet.</p></div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{# ═══════════════════════════════════════════════════════════════════
+   TAB: Logs
+   ═══════════════════════════════════════════════════════════════════ #}
+<div class="pv-panel" id="panel-logs">
+    <div class="pv-section"><i class="icon-terminal"></i> Service Logs</div>
+    <div class="pv-card">
+        <div class="pv-card-header">
+            <h3>Log Viewer</h3>
+            <div class="pv-log-controls">
+                <div class="pv-select" data-target="pvLogService">
+                    <input type="hidden" id="pvLogService" value="">
+                    <div class="pv-select-trigger" onclick="pvSelectToggle(this)">
+                        <span class="pv-select-text" style="color:var(--text-faint);"><i class="icon-server" style="font-size:12px;opacity:0.5;margin-right:3px;vertical-align:-1px;"></i> Select service…</span>
+                        <svg class="pv-select-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <div class="pv-select-dropdown">
+                        <div class="pv-select-option" data-value="" style="color:var(--text-faint);font-style:italic;"><svg class="pv-opt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg> Select service…</div>
+                        {% for svc in services|default([]) %}
+                        <div class="pv-select-option" data-value="{{ svc.id }}"><svg class="pv-opt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg><i class="icon-server" style="font-size:11px;opacity:0.4;"></i> {{ svc.name }}</div>
+                        {% endfor %}
+                    </div>
+                </div>
+                <input type="text" id="pvLogFilter" placeholder="Filter logs…" style="width:160px;">
+                <div class="pv-select" data-target="pvLogLevel">
+                    <input type="hidden" id="pvLogLevel" value="">
+                    <div class="pv-select-trigger" onclick="pvSelectToggle(this)">
+                        <span class="pv-select-text" style="color:var(--text-faint);"><i class="icon-filter" style="font-size:12px;opacity:0.5;margin-right:3px;vertical-align:-1px;"></i> All levels</span>
+                        <svg class="pv-select-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <div class="pv-select-dropdown">
+                        <div class="pv-select-option selected" data-value=""><svg class="pv-opt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg> All levels</div>
+                        <div class="pv-select-option" data-value="error"><svg class="pv-opt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg><span style="color:#ef4444;">●</span> Error</div>
+                        <div class="pv-select-option" data-value="warn"><svg class="pv-opt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg><span style="color:#f59e0b;">●</span> Warning</div>
+                        <div class="pv-select-option" data-value="info"><svg class="pv-opt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg><span style="color:#22c55e;">●</span> Info</div>
+                        <div class="pv-select-option" data-value="debug"><svg class="pv-opt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg><span style="color:#6366f1;">●</span> Debug</div>
+                    </div>
+                </div>
+                <button class="pv-btn primary pv-btn-sm" onclick="pvFetchLogs()"><i class="icon-terminal" style="font-size:12px;"></i> Fetch</button>
+                <button class="pv-btn secondary pv-btn-sm" onclick="pvClearLogs()"><i class="icon-trash-2" style="font-size:12px;"></i> Clear</button>
+                <label style="font-size:0.7rem;color:var(--text-faint);display:flex;align-items:center;gap:4px;cursor:pointer;">
+                    <input type="checkbox" id="pvLogAutoScroll" checked style="accent-color:#22c55e;"> Auto-scroll
+                </label>
+            </div>
+        </div>
+        <div class="pv-card-body" style="padding:0;">
+            <div class="pv-log-viewer" id="pvLogViewer" style="border:none;border-radius:0;">
+                <div class="pv-log-line" style="color:var(--text-faint);">Select a service and click Fetch to view logs…</div>
+            </div>
+            <div style="padding:8px 16px;border-top:1px solid var(--border-subtle);display:flex;justify-content:space-between;align-items:center;">
+                <span id="pvLogCount" style="font-size:0.68rem;color:var(--text-faint);">0 lines</span>
+                <button class="pv-btn secondary pv-btn-sm" onclick="pvDownloadLogs()" style="font-size:0.68rem;">
+                    <i class="icon-download" style="font-size:11px;"></i> Download
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# ═══════════════════════════════════════════════════════════════════
+   TAB: Actions
+   ═══════════════════════════════════════════════════════════════════ #}
+<div class="pv-panel" id="panel-actions">
+    <div class="pv-section"><i class="icon-zap"></i> Quick Actions</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;">
+        {# Deploy #}
+        <div class="pv-card">
+            <div class="pv-card-header"><h3><i class="icon-rocket" style="font-size:14px;margin-right:6px;opacity:0.5;"></i>Trigger Deploy</h3></div>
+            <div class="pv-card-body">
+                <p style="font-size:0.76rem;color:var(--text-muted);margin-bottom:12px;">Trigger a new deployment for a service.</p>
+                <div class="pv-form-group" style="margin-bottom:12px;">
+                    <label>Service</label>
+                    <div class="pv-select" data-target="pvDeployService">
+                        <input type="hidden" id="pvDeployService" value="">
+                        <div class="pv-select-trigger" onclick="pvSelectToggle(this)">
+                            <span class="pv-select-text" style="color:var(--text-faint);"><i class="icon-server" style="font-size:12px;opacity:0.5;margin-right:3px;vertical-align:-1px;"></i> Select service…</span>
+                            <svg class="pv-select-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                        </div>
+                        <div class="pv-select-dropdown">
+                            <div class="pv-select-option" data-value="" style="color:var(--text-faint);font-style:italic;"><svg class="pv-opt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg> Select service…</div>
+                            {% for svc in services|default([]) %}
+                            <div class="pv-select-option" data-value="{{ svc.id }}"><svg class="pv-opt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg><i class="icon-rocket" style="font-size:11px;opacity:0.4;"></i> {{ svc.name }}</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                <button class="pv-btn primary" onclick="pvAction('deploy',document.getElementById('pvDeployService').value)"><i class="icon-rocket" style="font-size:13px;"></i> Deploy Now</button>
+            </div>
+        </div>
+        {# Preview #}
+        <div class="pv-card">
+            <div class="pv-card-header"><h3><i class="icon-eye" style="font-size:14px;margin-right:6px;opacity:0.5;"></i>Preview Environment</h3></div>
+            <div class="pv-card-body">
+                <p style="font-size:0.76rem;color:var(--text-muted);margin-bottom:12px;">Create a preview environment for testing.</p>
+                <div class="pv-form-group" style="margin-bottom:12px;">
+                    <label>Source Service</label>
+                    <div class="pv-select" data-target="pvPreviewService">
+                        <input type="hidden" id="pvPreviewService" value="">
+                        <div class="pv-select-trigger" onclick="pvSelectToggle(this)">
+                            <span class="pv-select-text" style="color:var(--text-faint);"><i class="icon-server" style="font-size:12px;opacity:0.5;margin-right:3px;vertical-align:-1px;"></i> Select service…</span>
+                            <svg class="pv-select-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                        </div>
+                        <div class="pv-select-dropdown">
+                            <div class="pv-select-option" data-value="" style="color:var(--text-faint);font-style:italic;"><svg class="pv-opt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg> Select service…</div>
+                            {% for svc in services|default([]) %}
+                            <div class="pv-select-option" data-value="{{ svc.id }}"><svg class="pv-opt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg><i class="icon-eye" style="font-size:11px;opacity:0.4;"></i> {{ svc.name }}</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                <button class="pv-btn secondary" onclick="pvAction('create_preview',document.getElementById('pvPreviewService').value)"><i class="icon-eye" style="font-size:13px;"></i> Create Preview</button>
+            </div>
+        </div>
+        {# Validate #}
+        <div class="pv-card">
+            <div class="pv-card-header"><h3><i class="icon-check-circle" style="font-size:14px;margin-right:6px;opacity:0.5;"></i>Validate Token</h3></div>
+            <div class="pv-card-body">
+                <p style="font-size:0.76rem;color:var(--text-muted);margin-bottom:12px;">Verify the stored API token is valid.</p>
+                <button class="pv-btn primary" onclick="pvAction('validate_token')"><i class="icon-check-circle" style="font-size:13px;"></i> Validate</button>
+            </div>
+        </div>
+        {# Security #}
+        <div class="pv-card">
+            <div class="pv-card-header"><h3><i class="icon-shield" style="font-size:14px;margin-right:6px;opacity:0.5;"></i>Security Operations</h3></div>
+            <div class="pv-card-body">
+                <p style="font-size:0.76rem;color:var(--text-muted);margin-bottom:12px;">Manage encryption keys and credential security.</p>
+                <div class="pv-btn-group">
+                    <button class="pv-btn secondary" onclick="pvAction('rotate_key')"><i class="icon-refresh-cw" style="font-size:13px;"></i> Rotate Key</button>
+                    <button class="pv-btn danger" onclick="if(confirm('This will remove all stored credentials. Continue?'))pvAction('clear_credentials')"><i class="icon-trash-2" style="font-size:13px;"></i> Clear All</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# ═══════════════════════════════════════════════════════════════════
+   TAB: Infrastructure — Projects · Domains · Blueprints · Webhooks · Members · Registries
+   ═══════════════════════════════════════════════════════════════════ #}
+<div class="pv-panel" id="panel-infra">
+
+    {# ── Workspace Members ── #}
+    {% if workspace_members|default([]) %}
+    <div class="pv-section"><i class="icon-users"></i> Workspace Members ({{ workspace_member_count|default(0) }})</div>
+    <div class="pv-card">
+        <div class="pv-card-body" style="padding:0;">
+            <table class="pv-table">
+                <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Joined</th></tr></thead>
+                <tbody>
+                {% for m in workspace_members|default([]) %}
+                <tr>
+                    <td><div style="display:flex;align-items:center;gap:8px;"><div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#3b82f6,#a855f7);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;">{{ (m.name[0])|upper if m.name and m.name != '—' else '?' }}</div><span style="font-weight:600;">{{ m.name }}</span></div></td>
+                    <td><span class="mono">{{ m.email }}</span></td>
+                    <td><span class="pv-status {{ 'live' if m.role == 'admin' or m.role == 'owner' else 'created' }}">{{ m.role }}</span></td>
+                    <td style="font-size:0.72rem;color:var(--text-faint);">{{ m.joined_at }}</td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    {# ── Custom Domains ── #}
+    {% if custom_domains|default([]) %}
+    <div class="pv-section"><i class="icon-globe"></i> Custom Domains ({{ custom_domain_count|default(0) }})</div>
+    <div class="pv-card">
+        <div class="pv-card-body" style="padding:0;">
+            <table class="pv-table">
+                <thead><tr><th>Domain</th><th>Service</th><th>Status</th><th>Created</th></tr></thead>
+                <tbody>
+                {% for d in custom_domains|default([]) %}
+                <tr>
+                    <td><span style="font-weight:600;"><i class="icon-link" style="font-size:11px;opacity:0.4;margin-right:4px;"></i>{{ d.name }}</span></td>
+                    <td>{{ d.service_name }}</td>
+                    <td><span class="pv-status {{ 'live' if d.verification_status == 'verified' else 'suspended' if d.verification_status == 'pending' else 'unknown' }}">{{ d.verification_status }}</span></td>
+                    <td style="font-size:0.72rem;color:var(--text-faint);">{{ d.created_at }}</td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    {# ── Projects ── #}
+    {% if projects|default([]) %}
+    <div class="pv-section"><i class="icon-folder"></i> Projects ({{ project_count|default(0) }})</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;margin-bottom:20px;">
+        {% for p in projects|default([]) %}
+        <div class="pv-card" style="margin-bottom:0;">
+            <div class="pv-card-body">
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+                    <div style="width:34px;height:34px;border-radius:8px;background:rgba(99,102,241,0.12);display:flex;align-items:center;justify-content:center;"><i class="icon-folder" style="font-size:15px;color:#6366f1;"></i></div>
+                    <div><div style="font-weight:700;font-size:0.86rem;">{{ p.name }}</div><div style="font-size:0.68rem;color:var(--text-faint);" class="mono">{{ p.id }}</div></div>
+                </div>
+                <div style="font-size:0.72rem;color:var(--text-faint);"><i class="icon-calendar" style="font-size:11px;opacity:0.5;margin-right:3px;"></i> {{ p.created_at }}</div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {# ── Blueprints ── #}
+    {% if blueprints|default([]) %}
+    <div class="pv-section"><i class="icon-layers"></i> Blueprints ({{ blueprint_count|default(0) }})</div>
+    <div class="pv-card">
+        <div class="pv-card-body" style="padding:0;">
+            <table class="pv-table">
+                <thead><tr><th>Name</th><th>Repository</th><th>Branch</th><th>Auto Sync</th><th>Status</th></tr></thead>
+                <tbody>
+                {% for b in blueprints|default([]) %}
+                <tr>
+                    <td><span style="font-weight:600;">{{ b.name }}</span></td>
+                    <td><span class="mono" style="font-size:0.7rem;">{{ b.repo }}</span></td>
+                    <td><span style="display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:99px;font-size:0.65rem;background:rgba(59,130,246,0.08);color:var(--text-secondary);"><i class="icon-git-branch" style="font-size:9px;opacity:0.5;"></i> {{ b.branch }}</span></td>
+                    <td>{% if b.auto_sync %}<span style="color:#22c55e;font-size:0.72rem;"><i class="icon-check" style="font-size:11px;"></i> On</span>{% else %}<span style="color:var(--text-faint);font-size:0.72rem;">Off</span>{% endif %}</td>
+                    <td><span class="pv-status {{ 'live' if b.status == 'synced' or b.status == 'active' else 'unknown' }}">{{ b.status }}</span></td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    {# ── Webhooks ── #}
+    {% if webhooks|default([]) %}
+    <div class="pv-section"><i class="icon-link"></i> Webhooks ({{ webhook_count|default(0) }})</div>
+    <div class="pv-card">
+        <div class="pv-card-body" style="padding:0;">
+            <table class="pv-table">
+                <thead><tr><th>URL</th><th>Status</th><th>Created</th></tr></thead>
+                <tbody>
+                {% for w in webhooks|default([]) %}
+                <tr>
+                    <td><span class="mono" style="font-size:0.7rem;word-break:break-all;">{{ w.url }}</span></td>
+                    <td><span class="pv-status {{ 'live' if w.enabled else 'suspended' }}">{{ 'enabled' if w.enabled else 'disabled' }}</span></td>
+                    <td style="font-size:0.72rem;color:var(--text-faint);">{{ w.created_at }}</td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    {# ── Registry Credentials ── #}
+    {% if registry_credentials|default([]) %}
+    <div class="pv-section"><i class="icon-package"></i> Registry Credentials ({{ registry_credential_count|default(0) }})</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;margin-bottom:20px;">
+        {% for rc in registry_credentials|default([]) %}
+        <div class="pv-card" style="margin-bottom:0;">
+            <div class="pv-card-body">
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <div style="width:34px;height:34px;border-radius:8px;background:rgba(245,158,11,0.12);display:flex;align-items:center;justify-content:center;"><i class="icon-package" style="font-size:15px;color:#f59e0b;"></i></div>
+                    <div>
+                        <div style="font-weight:700;font-size:0.86rem;">{{ rc.name }}</div>
+                        <div style="font-size:0.72rem;color:var(--text-faint);"><i class="icon-server" style="font-size:10px;opacity:0.5;margin-right:3px;"></i>{{ rc.registry }} · <i class="icon-user" style="font-size:10px;opacity:0.5;margin-right:3px;"></i>{{ rc.username }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {# ── Empty state ── #}
+    {% if not workspace_members|default([]) and not custom_domains|default([]) and not projects|default([]) and not blueprints|default([]) and not webhooks|default([]) and not registry_credentials|default([]) %}
+    <div style="text-align:center;padding:60px 20px;color:var(--text-faint);">
+        <i class="icon-layers" style="font-size:40px;opacity:0.3;display:block;margin-bottom:12px;"></i>
+        <p style="font-size:0.86rem;margin-bottom:4px;">No additional infrastructure resources found.</p>
+        <p style="font-size:0.74rem;">Projects, custom domains, blueprints, webhooks, and registry credentials will appear here when configured.</p>
+    </div>
+    {% endif %}
+</div>
+
+{% endif %}
+
+{# ── Toast ── #}
+<div class="pv-toast" id="pvToast"></div>
+
+{# ═══════════════════════════════════════════════════════════════════
+   JAVASCRIPT — Tabs · Actions · Logs · Charts · Bulk · Auto-Refresh
+   ═══════════════════════════════════════════════════════════════════ #}
+<script nonce="__CSP_NONCE__">
+(function(){
+    'use strict';
+
+    /* ── Color palette ── */
+    var C={
+        green:'#22c55e', greenA:'rgba(34,197,94,0.15)',
+        blue:'#3b82f6', blueA:'rgba(59,130,246,0.15)',
+        red:'#ef4444', redA:'rgba(239,68,68,0.15)',
+        amber:'#f59e0b', amberA:'rgba(245,158,11,0.15)',
+        purple:'#a855f7', purpleA:'rgba(168,85,247,0.15)',
+        cyan:'#06b6d4', cyanA:'rgba(6,182,212,0.15)',
+        indigo:'#6366f1', indigoA:'rgba(99,102,241,0.15)',
+        gray:'#71717a', grayA:'rgba(113,113,122,0.15)',
+        pink:'#ec4899', pinkA:'rgba(236,72,153,0.15)'
+    };
+    var STATUS_COLORS={
+        live:C.green, deployed:C.green, active:C.green,
+        failed:C.red, build_failed:C.red, error:C.red,
+        deploying:C.blue, build_in_progress:C.blue, update_in_progress:C.blue, building:C.blue,
+        canceled:C.gray, deactivated:C.gray, cancelled:C.gray,
+        suspended:C.amber, paused:C.amber,
+        created:C.indigo, pending:C.indigo,
+        unknown:C.gray
+    };
+
+    /* ── Chart.js global defaults ── */
+    if(typeof Chart!=='undefined'){
+        Chart.defaults.font.family="'Inter',system-ui,sans-serif";
+        Chart.defaults.font.size=11;
+        Chart.defaults.color='#71717a';
+        Chart.defaults.plugins.legend.labels.usePointStyle=true;
+        Chart.defaults.plugins.legend.labels.pointStyle='circle';
+        Chart.defaults.plugins.legend.labels.padding=14;
+    }
+
+    /* ── Tabs ── */
+    var tabs=document.querySelectorAll('.pv-tab');
+    if(tabs.length){
+    tabs.forEach(function(t){
+        t.addEventListener('click',function(){
+            tabs.forEach(function(x){x.classList.remove('active');});
+            document.querySelectorAll('.pv-panel').forEach(function(p){p.classList.remove('active');});
+            t.classList.add('active');
+            var panel=document.getElementById('panel-'+t.dataset.tab);
+            if(panel)panel.classList.add('active');
+        });
+    });
+    }
+
+    /* ── Toast ── */
+    window.pvToast=function(msg,type){
+        var el=document.getElementById('pvToast');
+        el.textContent=msg;
+        el.className='pv-toast show '+(type||'success');
+        setTimeout(function(){el.classList.remove('show');},3500);
+    };
+
+    /* ── CSRF ── */
+    var csrfMeta=document.querySelector('meta[name="csrf-token"]');
+    var csrf=csrfMeta?csrfMeta.content:'';
+
+    /* ── Custom Select Component ── */
+    window.pvSelectToggle=function(trigger){
+        var wrap=trigger.parentElement;
+        var dropdown=wrap.querySelector('.pv-select-dropdown');
+        var isOpen=trigger.classList.contains('open');
+        /* Close all other open selects */
+        document.querySelectorAll('.pv-select-trigger.open').forEach(function(t){
+            t.classList.remove('open');
+            t.parentElement.querySelector('.pv-select-dropdown').classList.remove('open');
+        });
+        if(!isOpen){
+            trigger.classList.add('open');
+            dropdown.classList.add('open');
+        }
+    };
+    /* Click handler for options */
+    document.addEventListener('click',function(e){
+        var opt=e.target.closest('.pv-select-option');
+        if(opt){
+            var wrap=opt.closest('.pv-select');
+            var trigger=wrap.querySelector('.pv-select-trigger');
+            var dropdown=wrap.querySelector('.pv-select-dropdown');
+            var hidden=wrap.querySelector('input[type="hidden"]');
+            var textEl=trigger.querySelector('.pv-select-text');
+            /* Deselect all */
+            wrap.querySelectorAll('.pv-select-option').forEach(function(o){o.classList.remove('selected');});
+            opt.classList.add('selected');
+            /* Update value */
+            var val=opt.getAttribute('data-value');
+            if(hidden)hidden.value=val;
+            /* Update trigger text — clone option content minus the checkmark icon */
+            var clone=opt.cloneNode(true);
+            var chk=clone.querySelector('.pv-opt-icon');if(chk)chk.remove();
+            textEl.innerHTML=clone.innerHTML;
+            textEl.style.color=val?'':'var(--text-faint)';
+            /* Close */
+            trigger.classList.remove('open');
+            dropdown.classList.remove('open');
+            /* Dispatch change event on hidden input */
+            if(hidden){
+                var evt=new Event('change',{bubbles:true});
+                hidden.dispatchEvent(evt);
+            }
+            e.stopPropagation();
+            return;
+        }
+        /* Close all selects when clicking outside */
+        if(!e.target.closest('.pv-select')){
+            document.querySelectorAll('.pv-select-trigger.open').forEach(function(t){
+                t.classList.remove('open');
+                t.parentElement.querySelector('.pv-select-dropdown').classList.remove('open');
+            });
+        }
+    });
+
+    /* ── Provider Login ── */
+    window.pvToggleToken=function(){
+        var inp=document.getElementById('pvLoginToken');
+        var icon=document.getElementById('pvTokenEyeIcon');
+        if(inp){
+            if(inp.type==='password'){inp.type='text';if(icon)icon.className='icon-eye-off';}
+            else{inp.type='password';if(icon)icon.className='icon-eye';}
+        }
+    };
+    window.pvProviderLogin=function(){
+        var tokenInp=document.getElementById('pvLoginToken');
+        var ownerInp=document.getElementById('pvLoginOwner');
+        var regionSel=document.getElementById('pvLoginRegion');
+        var submitBtn=document.getElementById('pvLoginSubmit');
+        var alertEl=document.getElementById('pvLoginAlert');
+        var alertText=document.getElementById('pvLoginAlertText');
+        var tokenErr=document.getElementById('pvTokenError');
+
+        if(!tokenInp)return;
+        var token=tokenInp.value.trim();
+        var owner=ownerInp?ownerInp.value.trim():'';
+        var region=regionSel?regionSel.value:'oregon';
+
+        /* ── Client-side validation ── */
+        tokenInp.classList.remove('error','valid');
+        if(tokenErr)tokenErr.classList.remove('show');
+        if(alertEl)alertEl.classList.remove('show');
+
+        if(!token){
+            tokenInp.classList.add('error');
+            if(tokenErr){tokenErr.textContent='API token is required.';tokenErr.classList.add('show');}
+            tokenInp.focus();return;
+        }
+        if(token.length<10){
+            tokenInp.classList.add('error');
+            if(tokenErr){tokenErr.textContent='Token appears too short. Please enter a valid Render API key.';tokenErr.classList.add('show');}
+            tokenInp.focus();return;
+        }
+
+        /* ── Submit ── */
+        submitBtn.disabled=true;
+        submitBtn.classList.add('loading');
+
+        fetch('{{ url_prefix|default("/admin") }}/provider/action/',{
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({
+                action:'provider_login',
+                token:token,
+                owner_name:owner,
+                default_region:region,
+                _csrf_token:csrf
+            })
+        }).then(function(r){return r.json();}).then(function(d){
+            submitBtn.disabled=false;
+            submitBtn.classList.remove('loading');
+
+            if(d.success){
+                /* Show success state */
+                tokenInp.classList.add('valid');
+                if(alertEl){
+                    alertEl.className='pv-login-alert show success';
+                    if(alertText)alertText.textContent=d.message||'Connected successfully!';
+                }
+                /* Show success overlay */
+                var card=document.getElementById('pvLoginCard');
+                if(card){
+                    var overlay=document.createElement('div');
+                    overlay.className='pv-login-success-overlay';
+                    overlay.innerHTML='<div class="checkmark"><i class="icon-check" style="font-size:28px;"></i></div><p>Provider Connected!</p><span>Redirecting to dashboard…</span>';
+                    card.appendChild(overlay);
+                }
+                pvToast(d.message||'Provider connected!','success');
+                setTimeout(function(){location.reload();},2000);
+            }else{
+                tokenInp.classList.add('error');
+                if(alertEl){
+                    alertEl.className='pv-login-alert show error';
+                    if(alertText)alertText.textContent=d.message||'Login failed. Please check your token.';
+                }
+                pvToast(d.message||'Login failed','error');
+            }
+        }).catch(function(e){
+            submitBtn.disabled=false;
+            submitBtn.classList.remove('loading');
+            tokenInp.classList.add('error');
+            if(alertEl){
+                alertEl.className='pv-login-alert show error';
+                if(alertText)alertText.textContent='Network error: '+e.message;
+            }
+            pvToast('Network error: '+e.message,'error');
+        });
+    };
+    /* Enter key support for login */
+    var loginToken=document.getElementById('pvLoginToken');
+    if(loginToken){
+        loginToken.addEventListener('keydown',function(e){if(e.key==='Enter')pvProviderLogin();});
+        /* Real-time validation feedback */
+        loginToken.addEventListener('input',function(){
+            this.classList.remove('error','valid');
+            var errEl=document.getElementById('pvTokenError');
+            if(errEl)errEl.classList.remove('show');
+            if(this.value.trim().length>=10)this.classList.add('valid');
+        });
+    }
+    var loginOwner=document.getElementById('pvLoginOwner');
+    if(loginOwner)loginOwner.addEventListener('keydown',function(e){if(e.key==='Enter')pvProviderLogin();});
+
+    /* ── Action dispatcher ── */
+    window.pvAction=function(action,arg1,arg2){
+        var body={action:action,_csrf_token:csrf};
+        if(arg1)body.service_id=arg1;
+        if(arg2)body.deploy_id=arg2;
+        if(!arg1&&['restart','purge_cache','redeploy','suspend','resume','deploy','create_preview'].indexOf(action)>=0){
+            pvToast('Please select a service','error');return;
+        }
+        pvToast('Executing '+action+'…','info');
+        fetch('{{ url_prefix|default("/admin") }}/provider/action/',{
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body:JSON.stringify(body)
+        }).then(function(r){return r.json();}).then(function(d){
+            pvToast(d.message||'Action completed',d.success?'success':'error');
+            if(d.success)setTimeout(function(){location.reload();},1800);
+        }).catch(function(e){pvToast('Network error: '+e.message,'error');});
+    };
+
+    /* ── Bulk selection ── */
+    var bulkIds=[];
+    document.querySelectorAll('.pv-svc-check').forEach(function(cb){
+        cb.addEventListener('change',function(){
+            var id=this.dataset.id;
+            if(this.checked){if(bulkIds.indexOf(id)<0)bulkIds.push(id);}
+            else{bulkIds=bulkIds.filter(function(x){return x!==id;});}
+            var bar=document.getElementById('pvBulkBar');
+            var cnt=document.getElementById('pvBulkCount');
+            if(bulkIds.length>0){bar.classList.add('visible');cnt.textContent=bulkIds.length;}
+            else{bar.classList.remove('visible');}
+        });
+    });
+    window.pvBulkAction=function(action){
+        if(!bulkIds.length){pvToast('No services selected','error');return;}
+        pvToast('Executing '+action+' on '+bulkIds.length+' service(s)…','info');
+        var promises=bulkIds.map(function(id){
+            return fetch('{{ url_prefix|default("/admin") }}/provider/action/',{
+                method:'POST',headers:{'Content-Type':'application/json'},
+                body:JSON.stringify({action:action,service_id:id,_csrf_token:csrf})
+            }).then(function(r){return r.json();});
+        });
+        Promise.all(promises).then(function(results){
+            var ok=results.filter(function(r){return r.success;}).length;
+            pvToast(ok+'/'+results.length+' succeeded','success');
+            setTimeout(function(){location.reload();},2000);
+        }).catch(function(e){pvToast('Bulk action failed: '+e.message,'error');});
+    };
+    window.pvClearBulk=function(){
+        bulkIds=[];
+        document.querySelectorAll('.pv-svc-check').forEach(function(c){c.checked=false;});
+        document.getElementById('pvBulkBar').classList.remove('visible');
+    };
+
+    /* ── Logs ── */
+    var logLines=[];
+    window.pvFetchLogs=function(){
+        var svcId=document.getElementById('pvLogService').value;
+        if(!svcId){pvToast('Select a service first','error');return;}
+        var viewer=document.getElementById('pvLogViewer');
+        viewer.innerHTML='<div class="pv-log-line" style="color:var(--text-faint);">Loading logs…</div>';
+        fetch('{{ url_prefix|default("/admin") }}/provider/api/logs?service_id='+encodeURIComponent(svcId))
+        .then(function(r){return r.json();})
+        .then(function(d){
+            logLines=d.logs||[];
+            pvRenderLogs();
+        }).catch(function(e){viewer.innerHTML='<div class="pv-log-line lvl-error">Error: '+e.message+'</div>';});
+    };
+    function pvRenderLogs(){
+        var viewer=document.getElementById('pvLogViewer');
+        var filter=(document.getElementById('pvLogFilter').value||'').toLowerCase();
+        var level=document.getElementById('pvLogLevel').value;
+        var filtered=logLines.filter(function(l){
+            if(level&&(l.level||'')!==level)return false;
+            if(filter&&(l.message||'').toLowerCase().indexOf(filter)<0)return false;
+            return true;
+        });
+        if(!filtered.length){viewer.innerHTML='<div class="pv-log-line" style="color:var(--text-faint);">No logs match your filters.</div>';document.getElementById('pvLogCount').textContent='0 lines';return;}
+        viewer.innerHTML='';
+        filtered.forEach(function(l){
+            var line=document.createElement('div');
+            line.className='pv-log-line';
+            var ts=l.timestamp?'<span class="ts">['+l.timestamp+']</span> ':'';
+            var lvl=l.level?'<span class="lvl-'+l.level+'">'+l.level.toUpperCase()+'</span> ':'';
+            line.innerHTML=ts+lvl+(l.message||'');
+            viewer.appendChild(line);
+        });
+        document.getElementById('pvLogCount').textContent=filtered.length+' lines';
+        if(document.getElementById('pvLogAutoScroll').checked)viewer.scrollTop=viewer.scrollHeight;
+    }
+    var logFilterEl=document.getElementById('pvLogFilter');
+    var logLevelEl=document.getElementById('pvLogLevel');
+    if(logFilterEl)logFilterEl.addEventListener('input',pvRenderLogs);
+    if(logLevelEl)logLevelEl.addEventListener('change',pvRenderLogs);
+    window.pvClearLogs=function(){
+        logLines=[];document.getElementById('pvLogViewer').innerHTML='<div class="pv-log-line" style="color:var(--text-faint);">Logs cleared.</div>';
+        document.getElementById('pvLogCount').textContent='0 lines';
+    };
+    window.pvDownloadLogs=function(){
+        if(!logLines.length){pvToast('No logs to download','error');return;}
+        var text=logLines.map(function(l){return (l.timestamp||'')+' '+(l.level||'').toUpperCase()+' '+(l.message||'');}).join('\n');
+        var blob=new Blob([text],{type:'text/plain'});
+        var a=document.createElement('a');a.href=URL.createObjectURL(blob);
+        a.download='service-logs-'+new Date().toISOString().slice(0,10)+'.txt';a.click();
+    };
+
+    /* ── Auto-refresh (45s) ── */
+    setInterval(function(){
+        fetch('{{ url_prefix|default("/admin") }}/provider/api/')
+        .then(function(r){return r.json();})
+        .then(function(d){
+            if(d.services_count!==undefined){
+                var el=document.getElementById('pvStatSvc');if(el)el.textContent=d.services_count;
+                el=document.getElementById('pvStatLive');if(el)el.textContent=d.services_live||0;
+                el=document.getElementById('pvStatDeploys');if(el)el.textContent=d.total_deploys||0;
+            }
+        }).catch(function(){});
+    },45000);
+
+    /* ═══════════════════════════════════════════════════════════════
+       CHART.JS INITIALIZATION
+       ═══════════════════════════════════════════════════════════════ */
+    if(typeof Chart==='undefined')return;
+
+    /* Helper: build labels/data from dict */
+    function dictToArrays(d){var l=[],v=[];for(var k in d){if(d.hasOwnProperty(k)){l.push(k);v.push(d[k]);}}return{labels:l,data:v};}
+    function statusColor(s){return STATUS_COLORS[s]||C.gray;}
+
+    /* ── Chart data from Jinja2 ── */
+    var svcStatusData={{ chart_service_status|default({})|tojson }};
+    var svcTypesData={{ chart_service_types|default({})|tojson }};
+    var deployStatusData={{ chart_deploy_status|default({})|tojson }};
+    var regionData={{ chart_regions|default({})|tojson }};
+    var envVarData={{ chart_env_var_counts|default({})|tojson }};
+    var infraData={{ infra_summary|default({})|tojson }};
+
+    /* ── 1. Service Status Doughnut (Overview) ── */
+    (function(){
+        var d=dictToArrays(svcStatusData);
+        if(!d.labels.length)return;
+        new Chart(document.getElementById('chartSvcStatus'),{
+            type:'doughnut',
+            data:{labels:d.labels,datasets:[{data:d.data,
+                backgroundColor:d.labels.map(function(l){return statusColor(l);}),
+                borderWidth:0,hoverOffset:6}]},
+            options:{responsive:true,maintainAspectRatio:false,cutout:'65%',
+                plugins:{legend:{position:'right'}}}
+        });
+    })();
+
+    /* ── 2. Deploy Status Doughnut (Overview) ── */
+    (function(){
+        var d=dictToArrays(deployStatusData);
+        if(!d.labels.length)return;
+        new Chart(document.getElementById('chartDeployStatus'),{
+            type:'doughnut',
+            data:{labels:d.labels,datasets:[{data:d.data,
+                backgroundColor:d.labels.map(function(l){return statusColor(l);}),
+                borderWidth:0,hoverOffset:6}]},
+            options:{responsive:true,maintainAspectRatio:false,cutout:'65%',
+                plugins:{legend:{position:'right'}}}
+        });
+    })();
+
+    /* ── 3. Service Types Horizontal Bar (Overview) ── */
+    (function(){
+        var d=dictToArrays(svcTypesData);
+        if(!d.labels.length)return;
+        var colors=[C.green,C.blue,C.amber,C.purple,C.cyan,C.pink,C.indigo];
+        new Chart(document.getElementById('chartSvcTypes'),{
+            type:'bar',
+            data:{labels:d.labels,datasets:[{data:d.data,
+                backgroundColor:d.labels.map(function(_,i){return colors[i%colors.length];}),
+                borderRadius:6,barPercentage:0.6}]},
+            options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',
+                plugins:{legend:{display:false}},
+                scales:{x:{grid:{display:false},ticks:{stepSize:1}},y:{grid:{display:false}}}}
+        });
+    })();
+
+    /* ── 4. Region Distribution Polar (Overview) ── */
+    (function(){
+        var d=dictToArrays(regionData);
+        if(!d.labels.length)return;
+        var colors=[C.greenA,C.blueA,C.amberA,C.purpleA,C.cyanA,C.pinkA];
+        var borders=[C.green,C.blue,C.amber,C.purple,C.cyan,C.pink];
+        new Chart(document.getElementById('chartRegions'),{
+            type:'polarArea',
+            data:{labels:d.labels,datasets:[{data:d.data,
+                backgroundColor:d.labels.map(function(_,i){return colors[i%colors.length];}),
+                borderColor:d.labels.map(function(_,i){return borders[i%borders.length];}),
+                borderWidth:2}]},
+            options:{responsive:true,maintainAspectRatio:false,
+                plugins:{legend:{position:'right'}}}
+        });
+    })();
+
+    /* ── 5. Infrastructure Resources Polar (Overview) ── */
+    (function(){
+        var labels=['Services','Databases','Key-Value','Env Groups'];
+        var data=[infraData.services||0,infraData.databases||0,infraData.kv_stores||0,infraData.env_groups||0];
+        if(!data.some(function(v){return v>0;}))return;
+        new Chart(document.getElementById('chartInfra'),{
+            type:'polarArea',
+            data:{labels:labels,datasets:[{data:data,
+                backgroundColor:[C.greenA,C.indigoA,C.redA,C.amberA],
+                borderColor:[C.green,C.indigo,C.red,C.amber],borderWidth:2}]},
+            options:{responsive:true,maintainAspectRatio:false,
+                plugins:{legend:{position:'right'}}}
+        });
+    })();
+
+    /* ── 6. Env Vars per Service Bar (Overview) ── */
+    (function(){
+        var d=dictToArrays(envVarData);
+        if(!d.labels.length)return;
+        new Chart(document.getElementById('chartEnvVars'),{
+            type:'bar',
+            data:{labels:d.labels,datasets:[{label:'Variables',data:d.data,
+                backgroundColor:C.amberA,borderColor:C.amber,borderWidth:1,borderRadius:4,barPercentage:0.7}]},
+            options:{responsive:true,maintainAspectRatio:false,
+                plugins:{legend:{display:false}},
+                scales:{x:{grid:{display:false}},y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{stepSize:1}}}}
+        });
+    })();
+
+    /* ── 7. Deploy Success Rate Bar (Analytics) ── */
+    (function(){
+        var el=document.getElementById('chartDeploySuccess');if(!el)return;
+        var d=dictToArrays(deployStatusData);
+        var total=d.data.reduce(function(a,b){return a+b;},0);
+        var live=(deployStatusData.live||0);
+        var failed=(deployStatusData.failed||0)+(deployStatusData.build_failed||0);
+        var other=total-live-failed;
+        if(total===0)return;
+        new Chart(el,{
+            type:'bar',
+            data:{labels:['Live / Success','Failed','Other'],
+                datasets:[{data:[live,failed,other],
+                    backgroundColor:[C.greenA,C.redA,C.grayA],
+                    borderColor:[C.green,C.red,C.gray],borderWidth:1,borderRadius:6,barPercentage:0.5}]},
+            options:{responsive:true,maintainAspectRatio:false,
+                plugins:{legend:{display:false}},
+                scales:{x:{grid:{display:false}},y:{grid:{color:'rgba(255,255,255,0.04)'},beginAtZero:true}}}
+        });
+    })();
+
+    /* ── 8. Resource Allocation Doughnut (Analytics) ── */
+    (function(){
+        var el=document.getElementById('chartResourceAlloc');if(!el)return;
+        var labels=['Services','Postgres','Key-Value','Env Groups'];
+        var data=[infraData.services||0,infraData.databases||0,infraData.kv_stores||0,infraData.env_groups||0];
+        if(!data.some(function(v){return v>0;}))return;
+        new Chart(el,{
+            type:'doughnut',
+            data:{labels:labels,datasets:[{data:data,
+                backgroundColor:[C.green,C.indigo,C.red,C.amber],borderWidth:0,hoverOffset:8}]},
+            options:{responsive:true,maintainAspectRatio:false,cutout:'60%',
+                plugins:{legend:{position:'bottom'}}}
+        });
+    })();
+
+    /* ── 9. Security Posture Radar (Analytics) ── */
+    (function(){
+        var el=document.getElementById('chartSecurityPosture');if(!el)return;
+        var cred='{{ credential_status|default("unconfigured") }}';
+        var expired={{ 'true' if token_expired else 'false' }};
+        new Chart(el,{
+            type:'radar',
+            data:{labels:['Encryption','Key Derivation','Integrity','Canary','Audit Log','Token Status','Rotation'],
+                datasets:[{label:'Current',
+                    data:[100,100,100,100,100,cred==='active'&&!expired?100:20,cred==='active'?80:10],
+                    backgroundColor:C.greenA,borderColor:C.green,borderWidth:2,pointRadius:3,pointBackgroundColor:C.green},
+                    {label:'Baseline',data:[50,50,50,50,50,50,50],
+                    backgroundColor:C.grayA,borderColor:C.gray,borderWidth:1,pointRadius:0,borderDash:[4,4]}]},
+            options:{responsive:true,maintainAspectRatio:false,
+                scales:{r:{beginAtZero:true,max:100,grid:{color:'rgba(255,255,255,0.06)'},
+                    pointLabels:{font:{size:10}},ticks:{display:false}}},
+                plugins:{legend:{position:'bottom'}}}
+        });
+    })();
+
+})();
+</script>
+{% endblock %}

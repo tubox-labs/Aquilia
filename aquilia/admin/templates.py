@@ -1341,6 +1341,82 @@ def render_query_inspector_page(
 <body><div style="padding:24px"><h1>Query Inspector</h1><p>{total} queries captured</p></div></body></html>"""
 
 
+def render_provider_page(
+    provider_data: Dict[str, Any],
+    app_list: Optional[List[Dict[str, Any]]] = None,
+    identity_name: str = "Admin",
+    identity_avatar: str = "",
+    *,
+    site_title: str = "Aquilia Admin",
+    url_prefix: str = "/admin",
+) -> str:
+    """Render the comprehensive provider & deployment administration page."""
+    if _HAS_JINJA2:
+        _cred_status = provider_data.get("credential_status", "unconfigured")
+        _provider_authenticated = _cred_status == "active"
+        return _render_template(
+            "provider.html",
+            data=_dict_to_ns(provider_data),
+            available=provider_data.get("available", False),
+            provider_authenticated=_provider_authenticated,
+            provider_name=provider_data.get("provider_name", "Render"),
+            services=provider_data.get("services", []),
+            services_live=provider_data.get("services_live", 0),
+            deploys=provider_data.get("deploys", []),
+            total_deploys=provider_data.get("total_deploys", 0),
+            postgres_instances=provider_data.get("postgres_instances", []),
+            postgres_count=provider_data.get("postgres_count", 0),
+            kv_instances=provider_data.get("kv_instances", []),
+            kv_count=provider_data.get("kv_count", 0),
+            env_groups=provider_data.get("env_groups", []),
+            env_group_count=provider_data.get("env_group_count", 0),
+            env_vars_by_service=provider_data.get("env_vars_by_service", {}),
+            credential_status=provider_data.get("credential_status", "unconfigured"),
+            credential_cipher=provider_data.get("credential_cipher", "—"),
+            crous_version=provider_data.get("crous_version", "—"),
+            token_age=provider_data.get("token_age", "—"),
+            token_expired=provider_data.get("token_expired", True),
+            owner_name=provider_data.get("owner_name", "—"),
+            default_region=provider_data.get("default_region", "—"),
+            audit_entries=provider_data.get("audit_entries", []),
+            # Extended data (Phase 18)
+            user_profile=provider_data.get("user_profile", {}),
+            render_workspaces=provider_data.get("render_workspaces", []),
+            workspace_members=provider_data.get("workspace_members", []),
+            workspace_member_count=provider_data.get("workspace_member_count", 0),
+            custom_domains=provider_data.get("custom_domains", []),
+            custom_domain_count=provider_data.get("custom_domain_count", 0),
+            projects=provider_data.get("projects", []),
+            project_count=provider_data.get("project_count", 0),
+            webhooks=provider_data.get("webhooks", []),
+            webhook_count=provider_data.get("webhook_count", 0),
+            blueprints=provider_data.get("blueprints", []),
+            blueprint_count=provider_data.get("blueprint_count", 0),
+            registry_credentials=provider_data.get("registry_credentials", []),
+            registry_credential_count=provider_data.get("registry_credential_count", 0),
+            notification_settings=provider_data.get("notification_settings", {}),
+            # Chart data
+            chart_service_status=provider_data.get("chart_service_status", {}),
+            chart_service_types=provider_data.get("chart_service_types", {}),
+            chart_deploy_status=provider_data.get("chart_deploy_status", {}),
+            chart_regions=provider_data.get("chart_regions", {}),
+            chart_env_var_counts=provider_data.get("chart_env_var_counts", {}),
+            infra_summary=provider_data.get("infra_summary", {}),
+            app_list=app_list or [],
+            active_page="provider",
+            identity_name=identity_name,
+            identity_avatar=identity_avatar,
+            site_title=site_title,
+            url_prefix=url_prefix,
+            page_title="Provider & Deployment",
+        )
+    status = provider_data.get("credential_status", "unconfigured")
+    svc_count = len(provider_data.get("services", []))
+    return f"""<!DOCTYPE html><html lang="en" data-theme="dark"><head>
+<meta charset="UTF-8"><title>Provider &amp; Deployment -- Aquilia Admin</title><style>{_FALLBACK_CSS}</style></head>
+<body><div style="padding:24px"><h1>Provider &amp; Deployment</h1><p>{svc_count} services · Credentials: {status}</p></div></body></html>"""
+
+
 def render_mailer_page(
     mailer_data: Dict[str, Any],
     app_list: Optional[List[Dict[str, Any]]] = None,

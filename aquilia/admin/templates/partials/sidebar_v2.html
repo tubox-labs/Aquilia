@@ -84,6 +84,9 @@
         <a class="sidebar-link{{ ' active' if active_page == 'mailer' else '' }}" href="{{ url_prefix|default('/admin') }}/mailer/" data-sidebar-label="mailer mail email smtp ses sendgrid providers templates">
             <i class="icon-mail"></i> <span>Mailer</span>
         </a>
+        <a class="sidebar-link{{ ' active' if active_page == 'provider' else '' }}" href="{{ url_prefix|default('/admin') }}/provider/" data-sidebar-label="provider deployment render services deploy credentials infrastructure cloud">
+            <i class="icon-rocket"></i> <span>Provider & Deploy</span>
+        </a>
     </div>
     {% endif %}
 

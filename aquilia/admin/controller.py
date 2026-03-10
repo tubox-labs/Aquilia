@@ -65,6 +65,7 @@ from .templates import (
     render_testing_page,
     render_mlops_page,
     render_mailer_page,
+    render_provider_page,
 )
 
 if TYPE_CHECKING:
@@ -444,6 +445,12 @@ class AdminController(Controller):
                 "enable_storage=True",
                 "hard-drive",
                 "Storage backend management, file browser, quota analytics, health monitoring, and Chart.js dashboards.",
+            ),
+            "Provider & Deployment": (
+                "Integration.AdminModules().enable_provider()",
+                "enable_provider=True",
+                "rocket",
+                "Cloud provider management, service dashboard, deployment history, credential rotation, and infrastructure controls.",
             ),
         }
 
@@ -4186,6 +4193,208 @@ class AdminController(Controller):
                 "checked_count": len(results),
             }, default=str).encode("utf-8"),
             status=200,
+            headers={"content-type": "application/json; charset=utf-8"},
+        )
+
+    # ── Provider & Deployment Page ───────────────────────────────────
+
+    @GET("/provider/")
+    async def provider_view(self, request, ctx: RequestCtx) -> Response:
+        """Cloud provider & deployment dashboard -- services, deploys, credentials, databases."""
+        self._ensure_csrf(ctx)
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return denied
+
+        if not self.site.admin_config.is_module_enabled("provider"):
+            return self._module_disabled_response("Provider & Deployment", identity)
+
+        if not has_admin_permission(identity, AdminPermission.PROVIDER_VIEW):
+            return self._permission_denied_response("Provider & Deployment", identity, AdminPermission.PROVIDER_VIEW)
+
+        self._ensure_initialized()
+
+        provider_data = self.site.get_provider_data()
+        app_list = self.site.get_app_list(identity)
+
+        try:
+            meta = _extract_request_meta(request)
+            self.site.audit_log.log(
+                user_id=getattr(identity, "id", ""),
+                username=_get_identity_name(identity),
+                role=str(get_admin_role(identity) or "unknown"),
+                action=AdminAction.PAGE_VIEW,
+                model_name="Provider",
+                ip_address=meta.get("ip_address"),
+                user_agent=meta.get("user_agent"),
+            )
+        except Exception:
+            pass
+
+        html = render_provider_page(
+            provider_data=provider_data,
+            app_list=app_list,
+            identity_name=_get_identity_name(identity),
+            identity_avatar=_get_identity_avatar(identity),
+        )
+        return _html_response(html)
+
+    @GET("/provider/api/")
+    async def provider_api(self, request, ctx: RequestCtx) -> Response:
+        """JSON API endpoint for live-polling provider data."""
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return Response(
+                content=b'{"error":"unauthorized"}',
+                status=401,
+                headers={"content-type": "application/json"},
+            )
+
+        if not self.site.admin_config.is_module_enabled("provider"):
+            return Response(
+                content=b'{"error":"provider disabled"}',
+                status=404,
+                headers={"content-type": "application/json"},
+            )
+
+        self._ensure_initialized()
+
+        import json as _json
+        provider_data = self.site.get_provider_data()
+        # Summary for lightweight polling
+        summary = {
+            "services_count": len(provider_data.get("services", [])),
+            "services_live": provider_data.get("services_live", 0),
+            "total_deploys": provider_data.get("total_deploys", 0),
+            "credential_status": provider_data.get("credential_status", "unconfigured"),
+            "postgres_count": provider_data.get("postgres_count", 0),
+            "kv_count": provider_data.get("kv_count", 0),
+        }
+        return Response(
+            content=_json.dumps(summary, default=str).encode("utf-8"),
+            status=200,
+            headers={"content-type": "application/json; charset=utf-8"},
+        )
+
+    @GET("/provider/api/logs")
+    async def provider_logs_api(self, request, ctx: RequestCtx) -> Response:
+        """JSON API endpoint to fetch service logs."""
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return Response(
+                content=b'{"error":"unauthorized"}',
+                status=401,
+                headers={"content-type": "application/json"},
+            )
+
+        if not has_admin_permission(identity, AdminPermission.PROVIDER_VIEW):
+            return Response(
+                content=b'{"error":"permission denied"}',
+                status=403,
+                headers={"content-type": "application/json"},
+            )
+
+        self._ensure_initialized()
+
+        import json as _json
+        # Get service_id from query params
+        service_id = ""
+        if hasattr(request, "query_params"):
+            service_id = request.query_params.get("service_id", "")
+        elif hasattr(request, "query"):
+            service_id = request.query.get("service_id", "")
+
+        if not service_id:
+            return Response(
+                content=_json.dumps({"error": "service_id required"}).encode(),
+                status=400,
+                headers={"content-type": "application/json"},
+            )
+
+        logs = self.site.get_provider_logs(service_id)
+        return Response(
+            content=_json.dumps({"logs": logs}, default=str).encode("utf-8"),
+            status=200,
+            headers={"content-type": "application/json; charset=utf-8"},
+        )
+
+    @POST("/provider/action/")
+    async def provider_action(self, request, ctx: RequestCtx) -> Response:
+        """Execute a provider/deployment action (deploy, restart, rollback, etc.)."""
+        import json as _json
+
+        identity, denied = _require_identity(ctx)
+        if denied:
+            return Response(content=b'{"error":"unauthorized"}', status=401,
+                            headers={"content-type": "application/json"})
+
+        if not self.site.admin_config.is_module_enabled("provider"):
+            return Response(content=b'{"error":"provider disabled"}', status=404,
+                            headers={"content-type": "application/json"})
+
+        if not has_admin_permission(identity, AdminPermission.PROVIDER_MANAGE):
+            return Response(content=b'{"error":"permission denied"}', status=403,
+                            headers={"content-type": "application/json"})
+
+        self._ensure_initialized()
+
+        # Parse JSON body
+        form_data = {}
+        try:
+            body = await request.body() if hasattr(request, "body") else b""
+            if isinstance(body, bytes):
+                form_data = _json.loads(body.decode("utf-8")) if body else {}
+            elif isinstance(body, str):
+                form_data = _json.loads(body) if body else {}
+        except Exception:
+            form_data = await _parse_form(ctx)
+
+        # CSRF validation
+        csrf_denied = self._csrf_reject_json(request, ctx, form_data)
+        if csrf_denied:
+            return csrf_denied
+
+        action = form_data.get("action", "")
+        service_id = form_data.get("service_id", "")
+        deploy_id = form_data.get("deploy_id", "")
+
+        if not action:
+            return Response(
+                content=_json.dumps({"success": False, "message": "Missing action"}).encode(),
+                status=400, headers={"content-type": "application/json"},
+            )
+
+        # Build extra_data for actions that need additional fields (e.g. provider_login)
+        extra_data = {}
+        if action == "provider_login":
+            extra_data["token"] = form_data.get("token", "")
+            extra_data["owner_name"] = form_data.get("owner_name", "")
+            extra_data["default_region"] = form_data.get("default_region", "oregon")
+
+        result = await self.site.execute_provider_action(
+            action, service_id, deploy_id, extra_data=extra_data,
+        )
+
+        # Audit log
+        try:
+            meta = _extract_request_meta(request)
+            self.site.audit_log.log(
+                user_id=getattr(identity, "id", ""),
+                username=_get_identity_name(identity),
+                role=str(get_admin_role(identity) or "unknown"),
+                action=AdminAction.CUSTOM_ACTION,
+                model_name="Provider",
+                details=f"{action} service={service_id} deploy={deploy_id}",
+                ip_address=meta.get("ip_address"),
+                user_agent=meta.get("user_agent"),
+            )
+        except Exception:
+            pass
+
+        status_code = 200 if result.get("success") else 400
+        return Response(
+            content=_json.dumps(result, default=str).encode("utf-8"),
+            status=status_code,
             headers={"content-type": "application/json; charset=utf-8"},
         )
 

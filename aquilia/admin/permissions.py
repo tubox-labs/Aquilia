@@ -113,6 +113,10 @@ class AdminPermission(str, Enum):
     MAILER_VIEW = "admin.mailer.view"
     MAILER_MANAGE = "admin.mailer.manage"
 
+    # Provider & Deployment
+    PROVIDER_VIEW = "admin.provider.view"
+    PROVIDER_MANAGE = "admin.provider.manage"
+
     # API Keys
     API_KEY_VIEW = "admin.api_key.view"
     API_KEY_MANAGE = "admin.api_key.manage"
@@ -148,6 +152,7 @@ ROLE_PERMISSIONS: dict[AdminRole, set[AdminPermission]] = {
         AdminPermission.CONFIG_VIEW,
         AdminPermission.WORKSPACE_VIEW,
         AdminPermission.MAILER_VIEW,
+        AdminPermission.PROVIDER_VIEW,
         AdminPermission.PROFILE_VIEW,
     },
     AdminRole.STAFF: {
@@ -181,6 +186,8 @@ ROLE_PERMISSIONS: dict[AdminRole, set[AdminPermission]] = {
         AdminPermission.WORKSPACE_VIEW,
         AdminPermission.MAILER_VIEW,
         AdminPermission.MAILER_MANAGE,
+        AdminPermission.PROVIDER_VIEW,
+        AdminPermission.PROVIDER_MANAGE,
         AdminPermission.PROFILE_VIEW,
         AdminPermission.PROFILE_MANAGE,
     },

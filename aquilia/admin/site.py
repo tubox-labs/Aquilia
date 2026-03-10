@@ -59,7 +59,7 @@ class AdminConfig:
         "containers": False, "pods": False,
         "query_inspector": False, "tasks": False, "errors": False,
         "testing": False, "mlops": False, "storage": False,
-        "mailer": False,
+        "mailer": False, "provider": False,
     })
 
     # Audit settings (disabled by default -- opt in)
@@ -289,7 +289,7 @@ class AdminConfig:
             "preferences": True,
             "containers": False, "pods": False,
             "query_inspector": False, "tasks": False, "errors": False,
-            "testing": False, "storage": False,
+            "testing": False, "storage": False, "provider": False,
         }
         modules = {**default_modules, **modules_raw}
 
@@ -1482,6 +1482,595 @@ class AdminSite:
             logger.warning(f"Error gathering mailer data: {e}")
 
         return data
+
+    # ── Provider & Deployment data ──────────────────────────────────
+
+    def set_provider_services(
+        self,
+        client=None,
+        deployer=None,
+        credential_store=None,
+    ) -> None:
+        """Register cloud provider services for admin integration.
+
+        Args:
+            client: A RenderClient (or compatible) instance for API calls.
+            deployer: A RenderDeployer (or compatible) instance for deployments.
+            credential_store: A RenderCredentialStore for credential management.
+        """
+        self._provider_client = client
+        self._provider_deployer = deployer
+        self._provider_credential_store = credential_store
+
+    def get_provider_data(self) -> Dict[str, Any]:
+        """
+        Gather comprehensive cloud provider data for the admin provider page.
+
+        Inspects the RenderClient, RenderDeployer, and RenderCredentialStore
+        to build a complete view of services, deployments, databases,
+        credentials, env groups, audit logs, user profile, projects,
+        custom domains, webhooks, blueprints, workspace members, and more.
+        """
+        data: Dict[str, Any] = {
+            "available": False,
+            "provider_name": "Render",
+            "services": [],
+            "services_live": 0,
+            "deploys": [],
+            "total_deploys": 0,
+            "postgres_instances": [],
+            "postgres_count": 0,
+            "kv_instances": [],
+            "kv_count": 0,
+            "env_groups": [],
+            "env_group_count": 0,
+            "env_vars_by_service": {},
+            "credential_status": "unconfigured",
+            "credential_cipher": "—",
+            "crous_version": "—",
+            "token_age": "—",
+            "token_expired": True,
+            "owner_name": "—",
+            "default_region": "—",
+            "audit_entries": [],
+            # ── Extended data (Phase 18) ──
+            "user_profile": {},
+            "render_workspaces": [],
+            "workspace_members": [],
+            "workspace_member_count": 0,
+            "custom_domains": [],
+            "custom_domain_count": 0,
+            "projects": [],
+            "project_count": 0,
+            "webhooks": [],
+            "webhook_count": 0,
+            "blueprints": [],
+            "blueprint_count": 0,
+            "registry_credentials": [],
+            "registry_credential_count": 0,
+            "notification_settings": {},
+        }
+
+        client = getattr(self, "_provider_client", None)
+        deployer = getattr(self, "_provider_deployer", None)
+        store = getattr(self, "_provider_credential_store", None)
+
+        # Auto-discover default credential store if none was wired
+        # (mirrors CLI: RenderCredentialStore() uses <workspace>/.aquilia/providers/render/)
+        if store is None:
+            try:
+                from aquilia.providers.render.store import RenderCredentialStore
+                _default_store = RenderCredentialStore()
+                if _default_store.is_configured():
+                    store = _default_store
+                    self._provider_credential_store = store
+                    # Also load token and create client if we don't have one
+                    if client is None:
+                        try:
+                            _token = store.load()
+                            if _token:
+                                from aquilia.providers.render.client import RenderClient
+                                client = RenderClient(token=_token)
+                                self._provider_client = client
+                                try:
+                                    from aquilia.providers.render.deployer import RenderDeployer
+                                    deployer = RenderDeployer(client=client)
+                                    self._provider_deployer = deployer
+                                except Exception:
+                                    pass
+                        except Exception:
+                            pass
+            except Exception:
+                pass
+
+        if client is None and deployer is None and store is None:
+            return data
+
+        data["available"] = True
+
+        # ── Credential store info ──
+        if store is not None:
+            try:
+                status = store.status() if hasattr(store, "status") else {}
+                is_configured = status.get("configured", False)
+                is_expired = status.get("expired", False)
+                data["credential_status"] = "active" if (is_configured and not is_expired) else ("inactive" if is_configured else "unconfigured")
+                data["credential_cipher"] = status.get("cipher_suite", "AES-256-GCM")
+                data["crous_version"] = f"v{status.get('crous_version', 2)}"
+                age_hours = status.get("token_age_hours")
+                data["token_age"] = f"{age_hours}h" if age_hours is not None else "—"
+                data["token_expired"] = is_expired
+                data["owner_name"] = status.get("owner_name") or "—"
+                data["default_region"] = status.get("default_region") or "—"
+            except Exception as e:
+                logger.warning(f"Error reading credential store: {e}")
+
+            try:
+                if hasattr(store, "get_audit_log"):
+                    audit_raw = store.get_audit_log()
+                    data["audit_entries"] = [
+                        {"ts": e.get("timestamp", "—"), "action": e.get("action", "—"),
+                         "details": e.get("details", "")}
+                        for e in (audit_raw or [])
+                    ]
+            except Exception:
+                pass
+
+        # ── Services ──
+        if client is not None:
+            try:
+                if hasattr(client, "list_services"):
+                    services_raw = client.list_services()
+                    if isinstance(services_raw, list):
+                        for svc in services_raw:
+                            s = svc if isinstance(svc, dict) else (svc.__dict__ if hasattr(svc, "__dict__") else {})
+                            data["services"].append({
+                                "id": s.get("id", s.get("service_id", "—")),
+                                "name": s.get("name", "unnamed"),
+                                "type": s.get("type", s.get("service_type", "web_service")),
+                                "status": s.get("status", s.get("state", "unknown")),
+                                "region": s.get("region", "—"),
+                                "plan": s.get("plan", s.get("instance_type", "—")),
+                                "url": s.get("url", s.get("service_url", "—")),
+                                "created_at": str(s.get("created_at", s.get("createdAt", "—"))),
+                                "updated_at": str(s.get("updated_at", s.get("updatedAt", "—"))),
+                            })
+                        data["services_live"] = sum(
+                            1 for s in data["services"] if s.get("status", "").lower() == "live"
+                        )
+            except Exception as e:
+                logger.warning(f"Error listing services: {e}")
+
+            # ── Deploys ──
+            try:
+                if hasattr(client, "list_deploys"):
+                    for svc in data["services"][:10]:
+                        svc_id = svc.get("id", "")
+                        if not svc_id or svc_id == "—":
+                            continue
+                        deploys_raw = client.list_deploys(svc_id)
+                        if isinstance(deploys_raw, list):
+                            for d in deploys_raw[:20]:
+                                dp = d if isinstance(d, dict) else (d.__dict__ if hasattr(d, "__dict__") else {})
+                                data["deploys"].append({
+                                    "id": dp.get("id", "—"),
+                                    "service_id": svc_id,
+                                    "service_name": svc.get("name", "—"),
+                                    "status": dp.get("status", "unknown"),
+                                    "trigger": dp.get("trigger", dp.get("type", "manual")),
+                                    "commit_id": dp.get("commit_id", dp.get("commitId", "—")),
+                                    "created_at": str(dp.get("created_at", dp.get("createdAt", "—"))),
+                                })
+                data["total_deploys"] = len(data["deploys"])
+            except Exception as e:
+                logger.warning(f"Error listing deploys: {e}")
+
+            # ── PostgreSQL instances ──
+            try:
+                if hasattr(client, "list_postgres"):
+                    pg_raw = client.list_postgres()
+                    if isinstance(pg_raw, list):
+                        for db in pg_raw:
+                            d = db if isinstance(db, dict) else (db.__dict__ if hasattr(db, "__dict__") else {})
+                            data["postgres_instances"].append({
+                                "id": d.get("id", "—"),
+                                "name": d.get("name", "unnamed"),
+                                "region": d.get("region", "—"),
+                                "plan": d.get("plan", "starter"),
+                                "version": d.get("version", d.get("databaseVersion", "16")),
+                            })
+                        data["postgres_count"] = len(data["postgres_instances"])
+            except Exception:
+                pass
+
+            # ── Key-Value (Redis) instances ──
+            try:
+                if hasattr(client, "list_key_value"):
+                    kv_raw = client.list_key_value()
+                    if isinstance(kv_raw, list):
+                        for kv in kv_raw:
+                            k = kv if isinstance(kv, dict) else (kv.__dict__ if hasattr(kv, "__dict__") else {})
+                            data["kv_instances"].append({
+                                "id": k.get("id", "—"),
+                                "name": k.get("name", "unnamed"),
+                                "region": k.get("region", "—"),
+                                "plan": k.get("plan", "starter"),
+                            })
+                        data["kv_count"] = len(data["kv_instances"])
+            except Exception:
+                pass
+
+            # ── Env groups ──
+            try:
+                if hasattr(client, "list_env_groups"):
+                    eg_raw = client.list_env_groups()
+                    if isinstance(eg_raw, list):
+                        data["env_groups"] = eg_raw
+                        data["env_group_count"] = len(eg_raw)
+            except Exception:
+                pass
+
+            # ── Env vars by service ──
+            try:
+                if hasattr(client, "get_env_vars"):
+                    for svc in data["services"][:10]:
+                        svc_id = svc.get("id", "")
+                        svc_name = svc.get("name", "unknown")
+                        if not svc_id or svc_id == "—":
+                            continue
+                        try:
+                            vars_raw = client.get_env_vars(svc_id)
+                            if isinstance(vars_raw, list):
+                                data["env_vars_by_service"][svc_name] = [
+                                    {"key": v.get("key", ""), "value": v.get("value", "")}
+                                    for v in vars_raw
+                                ]
+                        except Exception:
+                            pass
+            except Exception:
+                pass
+
+            # ── User Profile (GET /users) ──
+            try:
+                if hasattr(client, "get_user"):
+                    user_raw = client.get_user()
+                    if isinstance(user_raw, dict) and user_raw:
+                        data["user_profile"] = {
+                            "id": user_raw.get("id", "—"),
+                            "name": user_raw.get("name", "—"),
+                            "email": user_raw.get("email", "—"),
+                            "type": user_raw.get("type", "user"),
+                            "two_factor_enabled": user_raw.get("twoFactorAuth", user_raw.get("two_factor_auth", False)),
+                            "created_at": str(user_raw.get("createdAt", user_raw.get("created_at", "—"))),
+                        }
+            except Exception:
+                pass
+
+            # ── Render Workspaces (Owners) ──
+            try:
+                if hasattr(client, "list_owners"):
+                    owners_raw = client.list_owners()
+                    if isinstance(owners_raw, list):
+                        for own in owners_raw:
+                            o = own if isinstance(own, dict) else (own.__dict__ if hasattr(own, "__dict__") else {})
+                            data["render_workspaces"].append({
+                                "id": o.get("id", "—"),
+                                "name": o.get("name", "—"),
+                                "email": o.get("email", "—"),
+                                "type": o.get("type", "user"),
+                            })
+            except Exception:
+                pass
+
+            # ── Workspace Members ──
+            _primary_owner_id = data["user_profile"].get("id") or (
+                data["render_workspaces"][0]["id"] if data["render_workspaces"] else ""
+            )
+            if _primary_owner_id and _primary_owner_id != "—":
+                try:
+                    if hasattr(client, "list_workspace_members"):
+                        members_raw = client.list_workspace_members(_primary_owner_id)
+                        if isinstance(members_raw, list):
+                            for m in members_raw:
+                                mem = m if isinstance(m, dict) else (m.__dict__ if hasattr(m, "__dict__") else {})
+                                data["workspace_members"].append({
+                                    "id": mem.get("id", "—"),
+                                    "name": mem.get("name", "—"),
+                                    "email": mem.get("email", "—"),
+                                    "role": mem.get("role", "member"),
+                                    "joined_at": str(mem.get("joined_at", mem.get("joinedAt", "—"))),
+                                })
+                            data["workspace_member_count"] = len(data["workspace_members"])
+                except Exception:
+                    pass
+
+            # ── Custom Domains (per service) ──
+            try:
+                if hasattr(client, "list_custom_domains"):
+                    for svc in data["services"][:10]:
+                        svc_id = svc.get("id", "")
+                        svc_name = svc.get("name", "unknown")
+                        if not svc_id or svc_id == "—":
+                            continue
+                        try:
+                            domains_raw = client.list_custom_domains(svc_id)
+                            if isinstance(domains_raw, list):
+                                for dom in domains_raw:
+                                    dd = dom if isinstance(dom, dict) else (dom.__dict__ if hasattr(dom, "__dict__") else {})
+                                    data["custom_domains"].append({
+                                        "id": dd.get("id", "—"),
+                                        "name": dd.get("name", dd.get("domain", "—")),
+                                        "service_name": svc_name,
+                                        "verification_status": dd.get("verificationStatus", dd.get("verification_status", "unknown")),
+                                        "created_at": str(dd.get("createdAt", dd.get("created_at", "—"))),
+                                    })
+                        except Exception:
+                            pass
+                    data["custom_domain_count"] = len(data["custom_domains"])
+            except Exception:
+                pass
+
+            # ── Projects ──
+            try:
+                if hasattr(client, "list_projects"):
+                    proj_raw = client.list_projects()
+                    if isinstance(proj_raw, list):
+                        for p in proj_raw:
+                            pp = p if isinstance(p, dict) else (p.__dict__ if hasattr(p, "__dict__") else {})
+                            data["projects"].append({
+                                "id": pp.get("id", "—"),
+                                "name": pp.get("name", "unnamed"),
+                                "created_at": str(pp.get("createdAt", pp.get("created_at", "—"))),
+                            })
+                        data["project_count"] = len(data["projects"])
+            except Exception:
+                pass
+
+            # ── Webhooks ──
+            try:
+                if hasattr(client, "list_webhooks"):
+                    wh_raw = client.list_webhooks()
+                    if isinstance(wh_raw, list):
+                        for wh in wh_raw:
+                            w = wh if isinstance(wh, dict) else (wh.__dict__ if hasattr(wh, "__dict__") else {})
+                            data["webhooks"].append({
+                                "id": w.get("id", "—"),
+                                "url": w.get("url", "—"),
+                                "enabled": w.get("enabled", True),
+                                "created_at": str(w.get("createdAt", w.get("created_at", "—"))),
+                            })
+                        data["webhook_count"] = len(data["webhooks"])
+            except Exception:
+                pass
+
+            # ── Blueprints ──
+            try:
+                if hasattr(client, "list_blueprints"):
+                    bp_raw = client.list_blueprints()
+                    if isinstance(bp_raw, list):
+                        for bp in bp_raw:
+                            b = bp if isinstance(bp, dict) else (bp.__dict__ if hasattr(bp, "__dict__") else {})
+                            data["blueprints"].append({
+                                "id": b.get("id", "—"),
+                                "name": b.get("name", "unnamed"),
+                                "status": b.get("status", "unknown"),
+                                "repo": b.get("repo", b.get("repository", "—")),
+                                "branch": b.get("branch", "main"),
+                                "auto_sync": b.get("autoSync", b.get("auto_sync", False)),
+                                "created_at": str(b.get("createdAt", b.get("created_at", "—"))),
+                            })
+                        data["blueprint_count"] = len(data["blueprints"])
+            except Exception:
+                pass
+
+            # ── Registry Credentials ──
+            try:
+                if hasattr(client, "list_registry_credentials"):
+                    rc_raw = client.list_registry_credentials()
+                    if isinstance(rc_raw, list):
+                        for rc in rc_raw:
+                            r = rc if isinstance(rc, dict) else (rc.__dict__ if hasattr(rc, "__dict__") else {})
+                            data["registry_credentials"].append({
+                                "id": r.get("id", "—"),
+                                "name": r.get("name", "unnamed"),
+                                "registry": r.get("registry", r.get("server", "—")),
+                                "username": r.get("username", "—"),
+                            })
+                        data["registry_credential_count"] = len(data["registry_credentials"])
+            except Exception:
+                pass
+
+        # ── Chart data (computed from collected data) ──
+        # Service status distribution
+        status_counts: Dict[str, int] = {}
+        for s in data["services"]:
+            st = s.get("status", "unknown").lower()
+            status_counts[st] = status_counts.get(st, 0) + 1
+        data["chart_service_status"] = status_counts
+
+        # Service type distribution
+        type_counts: Dict[str, int] = {}
+        for s in data["services"]:
+            t = s.get("type", "unknown")
+            type_counts[t] = type_counts.get(t, 0) + 1
+        data["chart_service_types"] = type_counts
+
+        # Deploy status distribution
+        deploy_status_counts: Dict[str, int] = {}
+        for d in data["deploys"]:
+            ds = d.get("status", "unknown").lower()
+            deploy_status_counts[ds] = deploy_status_counts.get(ds, 0) + 1
+        data["chart_deploy_status"] = deploy_status_counts
+
+        # Region distribution
+        region_counts: Dict[str, int] = {}
+        for s in data["services"]:
+            r = s.get("region", "unknown")
+            if r and r != "—":
+                region_counts[r] = region_counts.get(r, 0) + 1
+        for db in data["postgres_instances"]:
+            r = db.get("region", "unknown")
+            if r and r != "—":
+                region_counts[r] = region_counts.get(r, 0) + 1
+        data["chart_regions"] = region_counts
+
+        # Infrastructure summary
+        data["infra_summary"] = {
+            "total_resources": (
+                len(data["services"]) + data["postgres_count"] +
+                data["kv_count"] + data["env_group_count"] +
+                data["project_count"] + data["blueprint_count"] +
+                data["webhook_count"] + data["custom_domain_count"]
+            ),
+            "services": len(data["services"]),
+            "databases": data["postgres_count"],
+            "kv_stores": data["kv_count"],
+            "env_groups": data["env_group_count"],
+            "projects": data["project_count"],
+            "blueprints": data["blueprint_count"],
+            "webhooks": data["webhook_count"],
+            "custom_domains": data["custom_domain_count"],
+            "registry_creds": data["registry_credential_count"],
+            "members": data["workspace_member_count"],
+        }
+
+        # Env var counts per service (for charts)
+        env_var_counts: Dict[str, int] = {}
+        for svc_name, vars_list in data["env_vars_by_service"].items():
+            env_var_counts[svc_name] = len(vars_list)
+        data["chart_env_var_counts"] = env_var_counts
+
+        return data
+
+    async def execute_provider_action(
+        self, action: str, service_id: str = "", deploy_id: str = "",
+        extra_data: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """
+        Execute a provider/deployment action and return the result.
+
+        Supported actions:
+            provider_login, resume,
+            restart, purge_cache, redeploy, suspend, deploy, cancel_deploy,
+            rollback, create_preview, validate_token, rotate_key, clear_credentials
+        """
+        client = getattr(self, "_provider_client", None)
+        deployer = getattr(self, "_provider_deployer", None)
+        store = getattr(self, "_provider_credential_store", None)
+
+        try:
+            # ── Provider Login (save token & rewire client) ──
+            if action == "provider_login":
+                _extra = extra_data or {}
+                token = _extra.get("token", "").strip()
+                owner_name = _extra.get("owner_name", "").strip() or None
+                region = _extra.get("default_region", "oregon").strip()
+                if not token:
+                    return {"success": False, "message": "API token is required."}
+                if len(token) < 10:
+                    return {"success": False, "message": "API token appears too short. Please enter a valid Render API key."}
+                # Ensure we have a credential store (workspace-local: .aquilia/providers/render/)
+                if store is None:
+                    try:
+                        from aquilia.providers.render.store import RenderCredentialStore
+                        store = RenderCredentialStore()  # <workspace>/.aquilia/providers/render/
+                        self._provider_credential_store = store
+                    except Exception as e:
+                        return {"success": False, "message": f"Cannot initialise credential store: {e}"}
+                # Save token with encryption
+                store.save(token, owner_name=owner_name, default_region=region)
+                # Re-create the RenderClient with the new token
+                try:
+                    from aquilia.providers.render.client import RenderClient
+                    new_client = RenderClient(token=token)
+                    self._provider_client = new_client
+                except Exception as e:
+                    logger.warning(f"Client re-creation warning (non-fatal): {e}")
+                # Re-create the RenderDeployer if possible
+                try:
+                    from aquilia.providers.render.deployer import RenderDeployer
+                    new_deployer = RenderDeployer(client=self._provider_client)
+                    self._provider_deployer = new_deployer
+                except Exception:
+                    pass  # deployer is optional
+                return {"success": True, "message": "Provider connected successfully! Your API token has been encrypted and stored with AES-256-GCM."}
+
+            # ── Resume service ──
+            elif action == "resume" and client and hasattr(client, "resume_service"):
+                client.resume_service(service_id)
+                return {"success": True, "message": f"Service {service_id} resumed."}
+
+            elif action == "restart" and client and hasattr(client, "restart_service"):
+                client.restart_service(service_id)
+                return {"success": True, "message": f"Service {service_id} restart triggered."}
+
+            elif action == "purge_cache" and deployer and hasattr(deployer, "purge_cache"):
+                deployer.purge_cache(service_id)
+                return {"success": True, "message": f"Cache purged for service {service_id}."}
+
+            elif action in ("redeploy", "deploy") and deployer and hasattr(deployer, "deploy"):
+                result = deployer.deploy(service_id)
+                msg = f"Deploy triggered for service {service_id}."
+                return {"success": True, "message": msg, "deploy_id": getattr(result, "deploy_id", "")}
+
+            elif action == "suspend" and client and hasattr(client, "suspend_service"):
+                client.suspend_service(service_id)
+                return {"success": True, "message": f"Service {service_id} suspended."}
+
+            elif action == "cancel_deploy" and client and hasattr(client, "cancel_deploy"):
+                client.cancel_deploy(service_id, deploy_id)
+                return {"success": True, "message": f"Deploy {deploy_id} cancelled."}
+
+            elif action == "rollback" and deployer and hasattr(deployer, "rollback"):
+                deployer.rollback(service_id, deploy_id)
+                return {"success": True, "message": f"Rollback to deploy {deploy_id} triggered."}
+
+            elif action == "create_preview" and client and hasattr(client, "create_preview"):
+                client.create_preview(service_id)
+                return {"success": True, "message": f"Preview environment created for {service_id}."}
+
+            elif action == "validate_token" and store and hasattr(store, "status"):
+                status = store.status()
+                valid = status.get("has_token", False) and not status.get("expired", True)
+                return {"success": valid, "message": "Token is valid." if valid else "Token is invalid or expired."}
+
+            elif action == "rotate_key" and store and hasattr(store, "rotate"):
+                store.rotate()
+                return {"success": True, "message": "Encryption key rotated successfully."}
+
+            elif action == "clear_credentials" and store and hasattr(store, "clear"):
+                store.clear()
+                self._provider_client = None
+                self._provider_deployer = None
+                return {"success": True, "message": "All credentials cleared. Please log in again to reconnect."}
+
+            else:
+                return {"success": False, "message": f"Unknown action: {action}"}
+
+        except Exception as e:
+            logger.warning(f"Provider action {action} failed: {e}")
+            return {"success": False, "message": f"Action failed: {e}"}
+
+    def get_provider_logs(self, service_id: str) -> list:
+        """Fetch recent logs for a provider service."""
+        client = getattr(self, "_provider_client", None)
+        if client is None:
+            return []
+        try:
+            if hasattr(client, "get_logs"):
+                logs_raw = client.get_logs(service_id)
+                if isinstance(logs_raw, list):
+                    return [
+                        {
+                            "timestamp": l.get("timestamp", ""),
+                            "level": l.get("level", "info"),
+                            "message": l.get("message", str(l)),
+                        }
+                        for l in logs_raw
+                    ]
+        except Exception as e:
+            logger.warning(f"Error fetching logs for {service_id}: {e}")
+        return []
 
     # ── Storage data ─────────────────────────────────────────────────
 
