@@ -1178,4 +1178,289 @@ class GatewayTimeoutFault(HTTPFault):
         super().__init__(504, detail=detail, severity=Severity.ERROR, **kw)
 
 
+# ============================================================================
+# PROVIDER Faults
+# ============================================================================
 
+class ProviderFault(Fault):
+    """Base class for cloud provider integration faults."""
+
+    def __init__(
+        self,
+        code: str,
+        message: str,
+        *,
+        severity: Severity = Severity.ERROR,
+        retryable: bool = True,
+        metadata: Optional[dict[str, Any]] = None,
+    ):
+        super().__init__(
+            code=code,
+            message=message,
+            domain=FaultDomain.PROVIDER,
+            severity=severity,
+            retryable=retryable,
+            public=False,
+            metadata=metadata,
+        )
+
+
+class ProviderAPIFault(ProviderFault):
+    """Cloud provider API returned an error response."""
+
+    def __init__(
+        self,
+        status_code: int,
+        message: str,
+        *,
+        detail: Optional[str] = None,
+        request_id: Optional[str] = None,
+        provider: str = "render",
+        **kwargs,
+    ):
+        self.status_code = status_code
+        self.detail = detail
+        self.request_id = request_id
+        retryable = status_code >= 500
+        super().__init__(
+            code="PROVIDER_API_ERROR",
+            message=f"[{status_code}] {message}",
+            severity=Severity.ERROR,
+            retryable=retryable,
+            metadata={
+                "status_code": status_code,
+                "provider": provider,
+                **({"detail": detail} if detail else {}),
+                **({"request_id": request_id} if request_id else {}),
+                **kwargs.get("metadata", {}),
+            },
+        )
+
+
+class ProviderAuthFault(ProviderFault):
+    """Cloud provider authentication failure (401/403)."""
+
+    def __init__(
+        self,
+        status_code: int = 401,
+        message: str = "Authentication failed",
+        *,
+        request_id: Optional[str] = None,
+        provider: str = "render",
+        **kwargs,
+    ):
+        self.status_code = status_code
+        self.request_id = request_id
+        super().__init__(
+            code="PROVIDER_AUTH_FAILED",
+            message=message,
+            severity=Severity.ERROR,
+            retryable=False,
+            metadata={
+                "status_code": status_code,
+                "provider": provider,
+                **({"request_id": request_id} if request_id else {}),
+                **kwargs.get("metadata", {}),
+            },
+        )
+
+
+class ProviderRateLimitFault(ProviderFault):
+    """Cloud provider rate limit exceeded (429)."""
+
+    def __init__(
+        self,
+        retry_after: float,
+        *,
+        provider: str = "render",
+        **kwargs,
+    ):
+        self.retry_after = retry_after
+        super().__init__(
+            code="PROVIDER_RATE_LIMITED",
+            message=f"Rate limited — retry after {retry_after:.1f}s",
+            severity=Severity.WARN,
+            retryable=True,
+            metadata={
+                "retry_after": retry_after,
+                "provider": provider,
+                **kwargs.get("metadata", {}),
+            },
+        )
+
+
+class ProviderTokenFault(ProviderFault):
+    """Provider API token is missing, invalid, or expired."""
+
+    def __init__(
+        self,
+        reason: str = "API token is required",
+        *,
+        provider: str = "render",
+        **kwargs,
+    ):
+        super().__init__(
+            code="PROVIDER_TOKEN_INVALID",
+            message=reason,
+            severity=Severity.ERROR,
+            retryable=False,
+            metadata={
+                "provider": provider,
+                **kwargs.get("metadata", {}),
+            },
+        )
+
+
+class ProviderCredentialFault(ProviderFault):
+    """Credential storage or retrieval failure."""
+
+    def __init__(
+        self,
+        reason: str,
+        *,
+        provider: str = "render",
+        path: Optional[str] = None,
+        **kwargs,
+    ):
+        super().__init__(
+            code="PROVIDER_CREDENTIAL_ERROR",
+            message=f"Credential store error: {reason}",
+            severity=Severity.ERROR,
+            retryable=False,
+            metadata={
+                "provider": provider,
+                "reason": reason,
+                **({"path": path} if path else {}),
+                **kwargs.get("metadata", {}),
+            },
+        )
+
+
+class ProviderConnectionFault(ProviderFault):
+    """Network connection to provider API failed."""
+
+    def __init__(
+        self,
+        reason: str,
+        *,
+        provider: str = "render",
+        **kwargs,
+    ):
+        super().__init__(
+            code="PROVIDER_CONNECTION_FAILED",
+            message=f"Connection failed: {reason}",
+            severity=Severity.ERROR,
+            retryable=True,
+            metadata={
+                "provider": provider,
+                "reason": reason,
+                **kwargs.get("metadata", {}),
+            },
+        )
+
+
+# ============================================================================
+# DEPLOY Faults
+# ============================================================================
+
+class DeployFault(Fault):
+    """Base class for deployment orchestration faults."""
+
+    def __init__(
+        self,
+        code: str,
+        message: str,
+        *,
+        severity: Severity = Severity.ERROR,
+        retryable: bool = False,
+        metadata: Optional[dict[str, Any]] = None,
+    ):
+        super().__init__(
+            code=code,
+            message=message,
+            domain=FaultDomain.DEPLOY,
+            severity=severity,
+            retryable=retryable,
+            public=False,
+            metadata=metadata,
+        )
+
+
+class DeployConfigFault(DeployFault):
+    """Deployment configuration is invalid or incomplete."""
+
+    def __init__(self, reason: str, **kwargs):
+        super().__init__(
+            code="DEPLOY_CONFIG_INVALID",
+            message=f"Invalid deploy configuration: {reason}",
+            metadata={"reason": reason, **kwargs.get("metadata", {})},
+        )
+
+
+class DeployImageFault(DeployFault):
+    """Docker image build or push failure."""
+
+    def __init__(self, phase: str, reason: str, **kwargs):
+        super().__init__(
+            code="DEPLOY_IMAGE_FAILED",
+            message=f"Docker {phase} failed: {reason}",
+            metadata={
+                "phase": phase,
+                "reason": reason,
+                **kwargs.get("metadata", {}),
+            },
+        )
+
+
+class DeployHealthFault(DeployFault):
+    """Deployed service did not become healthy."""
+
+    def __init__(
+        self,
+        last_status: str,
+        *,
+        timeout: Optional[int] = None,
+        messages: Optional[list[str]] = None,
+        **kwargs,
+    ):
+        super().__init__(
+            code="DEPLOY_UNHEALTHY",
+            message=f"Deployment unhealthy — last status: {last_status}",
+            retryable=True,
+            metadata={
+                "last_status": last_status,
+                **({"timeout": timeout} if timeout else {}),
+                **({"messages": messages} if messages else {}),
+                **kwargs.get("metadata", {}),
+            },
+        )
+
+
+class DeployAppFault(DeployFault):
+    """Failed to create or resolve the provider app."""
+
+    def __init__(self, app_name: str, reason: str, **kwargs):
+        super().__init__(
+            code="DEPLOY_APP_FAILED",
+            message=f"App '{app_name}': {reason}",
+            metadata={
+                "app_name": app_name,
+                "reason": reason,
+                **kwargs.get("metadata", {}),
+            },
+        )
+
+
+class DeployServiceFault(DeployFault):
+    """Failed to create or update the provider service."""
+
+    def __init__(self, service_name: str, reason: str, **kwargs):
+        super().__init__(
+            code="DEPLOY_SERVICE_FAILED",
+            message=f"Service '{service_name}': {reason}",
+            metadata={
+                "service_name": service_name,
+                "reason": reason,
+                **kwargs.get("metadata", {}),
+            },
+        )

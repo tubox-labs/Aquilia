@@ -119,6 +119,21 @@ from .domains import (
     SystemFault,
     UnrecoverableFault,
     ResourceExhaustedFault,
+    # Provider faults
+    ProviderFault,
+    ProviderAPIFault,
+    ProviderAuthFault,
+    ProviderRateLimitFault,
+    ProviderTokenFault,
+    ProviderCredentialFault,
+    ProviderConnectionFault,
+    # Deploy faults
+    DeployFault,
+    DeployConfigFault,
+    DeployImageFault,
+    DeployHealthFault,
+    DeployAppFault,
+    DeployServiceFault,
     # HTTP faults
     HTTPFault,
     http_reason,
@@ -248,6 +263,23 @@ __all__ = [
     "SystemFault",
     "UnrecoverableFault",
     "ResourceExhaustedFault",
+    
+    # Provider faults
+    "ProviderFault",
+    "ProviderAPIFault",
+    "ProviderAuthFault",
+    "ProviderRateLimitFault",
+    "ProviderTokenFault",
+    "ProviderCredentialFault",
+    "ProviderConnectionFault",
+    
+    # Deploy faults
+    "DeployFault",
+    "DeployConfigFault",
+    "DeployImageFault",
+    "DeployHealthFault",
+    "DeployAppFault",
+    "DeployServiceFault",
     
     # HTTP faults
     "HTTPFault",

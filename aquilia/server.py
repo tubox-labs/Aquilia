@@ -2111,6 +2111,14 @@ class AquiliaServer:
                 ("POST", f"{url_prefix}/mailer/health-check/", "mailer_health_check", ctrl.mailer_health_check),
             ])
 
+            # Provider & Deployment routes (always registered — disabled page on off)
+            admin_routes.extend([
+                ("GET",  f"{url_prefix}/provider/",            "provider_view",       ctrl.provider_view),
+                ("GET",  f"{url_prefix}/provider/api/",        "provider_api",        ctrl.provider_api),
+                ("GET",  f"{url_prefix}/provider/api/logs",    "provider_logs_api",   ctrl.provider_logs_api),
+                ("POST", f"{url_prefix}/provider/action/",     "provider_action",     ctrl.provider_action),
+            ])
+
             # Model CRUD routes -- always registered
             # NOTE: Static-suffix routes (export, action, add, search, batch-update,
             # filter-meta) MUST come before the bare /<pk:str> catch-all so the
@@ -2206,6 +2214,10 @@ class AquiliaServer:
             # displays live data for any @model-decorated pipelines.
             if _mod("mlops"):
                 self._wire_mlops_admin_services(site)
+
+            # ── Wire provider services into admin site ───────────────
+            if _mod("provider"):
+                self._wire_provider_admin_services(site)
 
             # ── Validate admin prerequisites ─────────────────────────────
             # The admin controller REQUIRES sessions to store the login
@@ -2404,6 +2416,85 @@ class AquiliaServer:
             pass
         except Exception as e:
             self.logger.warning("MLOps admin wiring failed: %s", e)
+
+    def _wire_provider_admin_services(self, site) -> None:
+        """
+        Auto-discover and wire cloud provider services (RenderClient,
+        RenderDeployer, RenderCredentialStore) into the admin site so
+        the Provider & Deployment page has live data.
+
+        Tries DI container first, then runtime attributes, then
+        direct import of the Render provider module.
+        """
+        try:
+            client = None
+            deployer = None
+            store = None
+
+            # Try DI container
+            if hasattr(self, 'container') and self.container is not None:
+                try:
+                    from .artifacts.render import RenderClient
+                    client = self.container.resolve(RenderClient)
+                except Exception:
+                    pass
+                try:
+                    from .artifacts.render import RenderDeployer
+                    deployer = self.container.resolve(RenderDeployer)
+                except Exception:
+                    pass
+                try:
+                    from .artifacts.render import RenderCredentialStore
+                    store = self.container.resolve(RenderCredentialStore)
+                except Exception:
+                    pass
+
+            # Fallback: check runtime shared state
+            if hasattr(self, 'runtime'):
+                if client is None:
+                    client = getattr(self.runtime, '_render_client', None)
+                if deployer is None:
+                    deployer = getattr(self.runtime, '_render_deployer', None)
+                if store is None:
+                    store = getattr(self.runtime, '_render_credential_store', None)
+
+            # Final fallback: create default credential store (same as CLI)
+            # and auto-discover credentials already saved on disk.
+            if store is None:
+                try:
+                    from aquilia.providers.render.store import RenderCredentialStore
+                    store = RenderCredentialStore()  # uses <workspace>/.aquilia/providers/render/
+                except Exception:
+                    pass
+
+            # If we have a store with saved credentials but no client, load & create one
+            if store is not None and client is None:
+                try:
+                    if store.is_configured() and not store.is_expired():
+                        _token = store.load()
+                        if _token:
+                            from aquilia.providers.render.client import RenderClient
+                            client = RenderClient(token=_token)
+                            try:
+                                from aquilia.providers.render.deployer import RenderDeployer
+                                deployer = RenderDeployer(client=client)
+                            except Exception:
+                                pass
+                except Exception:
+                    pass
+
+            # Wire whatever we found
+            if client is not None or deployer is not None or store is not None:
+                site.set_provider_services(
+                    client=client,
+                    deployer=deployer,
+                    credential_store=store,
+                )
+
+        except ImportError:
+            pass
+        except Exception as e:
+            self.logger.warning("Provider admin wiring failed: %s", e)
 
     def _validate_admin_prerequisites(self) -> None:
         """

@@ -98,6 +98,8 @@ FaultDomain.STORAGE = FaultDomain("storage", "File storage faults")
 FaultDomain.TASKS = FaultDomain("tasks", "Background task faults")
 FaultDomain.TEMPLATE = FaultDomain("template", "Template engine faults")
 FaultDomain.HTTP = FaultDomain("http", "HTTP protocol errors (4xx/5xx)")
+FaultDomain.PROVIDER = FaultDomain("provider", "Cloud provider integration faults")
+FaultDomain.DEPLOY = FaultDomain("deploy", "Deployment orchestration faults")
 
 
 class RecoveryStrategy(str, Enum):
@@ -131,6 +133,8 @@ DOMAIN_DEFAULTS = {
     FaultDomain.TASKS: {"severity": Severity.ERROR, "retryable": True},
     FaultDomain.TEMPLATE: {"severity": Severity.ERROR, "retryable": False},
     FaultDomain.HTTP: {"severity": Severity.WARN, "retryable": False},
+    FaultDomain.PROVIDER: {"severity": Severity.ERROR, "retryable": True},
+    FaultDomain.DEPLOY: {"severity": Severity.ERROR, "retryable": False},
 }
 
 

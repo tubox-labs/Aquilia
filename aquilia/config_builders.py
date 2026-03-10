@@ -1725,7 +1725,7 @@ class Integration:
                      "_containers", "_pods",
                      "_query_inspector", "_tasks", "_errors",
                      "_testing", "_mlops", "_storage", "_mailer",
-                     "_api_keys", "_preferences")
+                     "_api_keys", "_preferences", "_provider")
 
         def __init__(self) -> None:
             self._dashboard: bool = True
@@ -1750,6 +1750,7 @@ class Integration:
             self._mailer: bool = False            # disabled by default
             self._api_keys: bool = True
             self._preferences: bool = True
+            self._provider: bool = False             # disabled by default
 
         # ── Dashboard ──
         def enable_dashboard(self) -> "Integration.AdminModules":
@@ -1971,6 +1972,17 @@ class Integration:
             self._mailer = False
             return self
 
+        # ── Provider & Deployment (disabled by default) ──
+        def enable_provider(self) -> "Integration.AdminModules":
+            """Show the Provider & Deployment page (Render, services, deploys, credentials). Disabled by default -- opt in."""
+            self._provider = True
+            return self
+
+        def disable_provider(self) -> "Integration.AdminModules":
+            """Hide the Provider & Deployment page."""
+            self._provider = False
+            return self
+
         # ── API Keys ──
         def enable_api_keys(self) -> "Integration.AdminModules":
             """Show the API Keys page."""
@@ -2031,6 +2043,7 @@ class Integration:
                 "mailer": self._mailer,
                 "api_keys": self._api_keys,
                 "preferences": self._preferences,
+                "provider": self._provider,
             }
 
         def __repr__(self) -> str:
@@ -3185,6 +3198,7 @@ class Integration:
                 "mailer": kwargs.pop("enable_mailer", False),
                 "api_keys": enable_api_keys if enable_api_keys is not None else True,
                 "preferences": enable_preferences if enable_preferences is not None else True,
+                "provider": kwargs.pop("enable_provider", False),
             }
 
         # ── Resolve audit ────────────────────────────────────────────
@@ -4406,6 +4420,91 @@ class Integration:
             **kwargs,
         }
 
+    # ═══════════════════════════════════════════════════════════════════
+    # Render PaaS Deployment Configuration
+    # ═══════════════════════════════════════════════════════════════════
+    # NOTE: Render deployment config has moved to pyconfig.py
+    # (AquilaConfig.Render section).  Use the pyconfig DSL:
+    #
+    #   class render(AquilaConfig.Render):
+    #       region        = "frankfurt"
+    #       plan          = "standard"
+    #       num_instances = 2
+    #
+    # The Integration.render() helper and Integration.RenderConfig builder
+    # are kept for backward compatibility but delegate to the same
+    # configuration path.
+
+    @staticmethod
+    def render(
+        service_name: Optional[str] = None,
+        region: str = "oregon",
+        plan: str = "starter",
+        num_instances: int = 1,
+        image: Optional[str] = None,
+        health_path: str = "/_health",
+        auto_deploy: str = "no",
+        **kwargs,
+    ) -> Dict[str, Any]:
+        """
+        Configure Render PaaS deployment.
+
+        Defines how the workspace should be deployed to Render when
+        running ``aq deploy render``.  Settings here serve as defaults
+        that can be overridden via CLI flags.
+
+        Args:
+            service_name: Render service name (default: workspace name).
+            region: Deployment region (oregon, frankfurt, ohio, virginia, singapore).
+            plan: Compute plan (free, starter, standard, pro, pro_plus, ...).
+            num_instances: Number of running instances.
+            image: Docker image reference (registry/name:tag).
+            health_path: Health check endpoint path.
+            auto_deploy: Auto-deploy on image push ("yes" or "no").
+            **kwargs: Additional deployment options.
+
+        Returns:
+            Render deployment configuration dictionary.
+
+        Examples::
+
+            # Basic deployment
+            .integrate(Integration.render(
+                region="frankfurt",
+                plan="standard",
+            ))
+
+            # Production with multiple instances
+            .integrate(Integration.render(
+                service_name="my-api-prod",
+                region="oregon",
+                plan="pro",
+                num_instances=3,
+                image="ghcr.io/myorg/my-api:latest",
+            ))
+
+            # High-performance
+            .integrate(Integration.render(
+                plan="pro_plus",
+                num_instances=4,
+            ))
+        """
+        config: Dict[str, Any] = {
+            "_integration_type": "render",
+            "enabled": True,
+            "region": region,
+            "plan": plan,
+            "num_instances": num_instances,
+            "health_path": health_path,
+            "auto_deploy": auto_deploy,
+            **kwargs,
+        }
+        if service_name:
+            config["service_name"] = service_name
+        if image:
+            config["image"] = image
+        return config
+
 
 class Workspace:
     """Fluent workspace builder."""
@@ -4427,6 +4526,7 @@ class Workspace:
         self._i18n_config: Optional[Dict[str, Any]] = None
         self._tasks_config: Optional[Dict[str, Any]] = None
         self._storage_config: Optional[Dict[str, Any]] = None
+        self._render_config: Optional[Dict[str, Any]] = None
         self._starter: Optional[str] = None
         self._middleware_chain: Optional[List[Dict[str, Any]]] = None
         self._on_startup: Optional[str] = None
@@ -4612,6 +4712,9 @@ class Workspace:
             elif integration_type == "storage":
                 self._integrations["storage"] = integration
                 self._storage_config = integration
+            elif integration_type == "render":
+                self._integrations["render"] = integration
+                self._render_config = integration
             return self
 
         # Determine integration type from keys (legacy detection)

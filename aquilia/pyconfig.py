@@ -744,6 +744,73 @@ class AquilaConfig:
         activation_salt: str = "aquilia.activation"
         cache_salt: str      = "aquilia.cache"
 
+    class Render:
+        """
+        Render PaaS deployment configuration.
+
+        Controls how ``aq deploy render`` deploys the workspace to the
+        Render cloud platform.  All attributes can use ``Env()``
+        bindings for twelve-factor compatibility.
+
+        **Regions** (datacenter location):
+          * ``"oregon"``     — Oregon (US West) ← **default**
+          * ``"frankfurt"``  — Frankfurt (EU)
+          * ``"ohio"``       — Ohio (US East)
+          * ``"virginia"``   — Virginia (US East)
+          * ``"singapore"``  — Singapore (Asia)
+
+        **Plans** (compute size):
+          * ``"free"``      — shared CPU, 512 MiB RAM (hobby)
+          * ``"starter"``   — 0.5 CPU, 512 MiB RAM ← **default**
+          * ``"standard"``  — 1 CPU, 2 GiB RAM
+          * ``"pro"``       — 2 CPU, 4 GiB RAM
+          * ``"pro_plus"``  — 4 CPU, 8 GiB RAM
+          * ``"pro_max"``   — 8 CPU, 16 GiB RAM
+          * ``"pro_ultra"`` — 16 CPU, 32 GiB RAM
+
+        Example::
+
+            class render(AquilaConfig.Render):
+                service_name  = "my-api"
+                region        = "frankfurt"
+                plan          = "standard"
+                num_instances = 2
+                image         = Env("RENDER_IMAGE", default="ghcr.io/org/app:latest")
+                health_path   = "/_health"
+
+            # High-performance
+            class render(AquilaConfig.Render):
+                plan          = "pro_plus"
+                num_instances = 4
+        """
+        #: Enable/disable Render deployment integration.
+        enabled: bool         = True
+
+        #: Render service name (defaults to workspace name at deploy time).
+        service_name: "Optional[str]" = None
+
+        #: Deployment region.
+        region: str           = "oregon"
+
+        #: Render compute plan.
+        plan: str             = "starter"
+
+        #: Number of running instances.
+        num_instances: int    = 1
+
+        #: Docker image reference (``registry/name:tag``).
+        #: If ``None``, ``aq deploy render`` builds from the workspace Dockerfile.
+        image: "Optional[str]" = None
+
+        #: Health-check endpoint path.
+        health_path: str      = "/_health"
+
+        #: Auto-deploy on image push (``"yes"`` or ``"no"``).
+        auto_deploy: str      = "no"
+
+        #: Internal service port (the port your ASGI server listens on).
+        port: int             = 8000
+
     # ── Class-level helpers ───────────────────────────────────────────────
 
     @classmethod
