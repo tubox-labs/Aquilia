@@ -24,6 +24,7 @@ workspaces.  Each sub-command generates a specific deployment artefact:
     aq deploy env            -- .env.example template
     aq deploy makefile       -- Makefile with dev/build/deploy targets
     aq deploy all            -- Generate everything at once
+    aq deploy render         -- Deploy to Render PaaS (one command)
 
 Running ``aq deploy`` with **no** sub-command launches an interactive
 wizard (like ``aq init``) that lets you pick which artefacts to generate,
@@ -56,6 +57,9 @@ from ..utils.colors import (
     section, kv, rule, panel, next_steps, table,
     file_written, file_skipped, file_dry,
     banner, _CHECK, _CROSS, _ARROW,
+    status_line, progress_bar, detail_card, phase_header,
+    _ROCKET, _LOCK, _GLOBE, _PKG, _GEAR, _BOLT,
+    _SHIELD, _CLOUD, _CLOCK, _SPARK, _WARN, _KEY, _EYE,
 )
 from ..utils.prompts import (
     flow_header, flow_done, ask, select, multi_select, confirm, recap,
@@ -577,27 +581,38 @@ def _interactive_deploy(
     name = wctx["name"]
 
     if interactive:
-        flow_header(
-            "aquilia deploy",
-            "Generate & execute production deployment for your workspace.",
+        click.echo()
+        banner(
+            "Aquilia Deploy",
+            subtitle="Generate & execute production deployment for your workspace",
+            icon=_ROCKET,
+            fg="magenta",
         )
+        click.echo()
 
         # Show detected workspace info
         from_build = wctx.get("_from_build_manifest", False)
-        section("Workspace detected")
-        kv("Name", name)
-        kv("Source", "build manifest" if from_build else "live introspection")
-        if from_build and wctx.get("build_fingerprint"):
-            kv("Build", wctx["build_fingerprint"][:16] + "...")
-        kv("Modules", str(wctx.get("module_count", 0)))
-        kv("DB driver", wctx.get("db_driver", "none"))
-        kv("Python", wctx.get("python_version", "3.12"))
-        kv("Cache", "yes" if wctx.get("has_cache") else "no")
-        kv("WebSockets", "yes" if wctx.get("has_websockets") else "no")
-        kv("MLOps", "yes" if wctx.get("has_mlops") else "no")
+        phase_header(1, "Workspace detected", icon=_PKG)
+
+        detail_card(
+            "Workspace",
+            [
+                ("Name", name),
+                ("Source", "build manifest" if from_build else "live introspection"),
+                ("Build", (wctx["build_fingerprint"][:16] + "...") if from_build and wctx.get("build_fingerprint") else "—"),
+                ("Modules", str(wctx.get("module_count", 0))),
+                ("DB driver", wctx.get("db_driver", "none")),
+                ("Python", wctx.get("python_version", "3.12")),
+                ("Cache", "yes" if wctx.get("has_cache") else "no"),
+                ("WebSockets", "yes" if wctx.get("has_websockets") else "no"),
+                ("MLOps", "yes" if wctx.get("has_mlops") else "no"),
+            ],
+            icon=_GEAR,
+        )
         click.echo()
 
         # ── 2. Select artefacts ──────────────────────────────────────
+        phase_header(2, "Select artefacts", icon=_PKG)
         artefacts = multi_select("Artefacts to generate", [
             ("dockerfile",  "Dockerfile (prod + dev + mlops)",     True),
             ("compose",     "docker-compose.yml (full stack)",     True),
@@ -614,6 +629,7 @@ def _interactive_deploy(
             return
 
         # ── 3. Configure options ─────────────────────────────────────
+        phase_header(3, "Configure options", icon=_GEAR)
 
         # CI provider (only if ci selected)
         ci_provider = "github"
@@ -644,7 +660,7 @@ def _interactive_deploy(
         )
 
         # ── 4. Execution options ─────────────────────────────────────
-        section("Execution")
+        phase_header(4, "Execution options", icon=_BOLT)
 
         exec_actions = multi_select("After generating, execute", [
             ("docker-build",   "Build Docker image",                     "dockerfile" in artefacts),
@@ -655,6 +671,7 @@ def _interactive_deploy(
         ])
 
         # ── 5. Review & confirm ─────────────────────────────────────
+        phase_header(5, "Review & confirm", icon=_EYE)
         recap([
             ("Workspace",    name),
             ("Artefacts",    ", ".join(artefacts)),
@@ -688,7 +705,7 @@ def _interactive_deploy(
     out = Path(output_dir)
 
     click.echo()
-    banner(f"Deploy: {name}", subtitle="DRY RUN" if dry_run else "Generating deployment suite")
+    banner(f"Deploy: {name}", subtitle="DRY RUN" if dry_run else "Generating deployment suite", icon=_PKG, fg="magenta")
     click.echo()
 
     # -- Dockerfiles --
@@ -844,13 +861,13 @@ def _interactive_deploy(
     if dry_run:
         info(f"  {written} file(s) would be generated")
     else:
-        success(f"  {_CHECK} {written} file(s) generated for '{name}'")
+        success(f"  {_CHECK} {written} file(s) generated for '{name}' {_SPARK}")
     click.echo()
 
     # ── 7. Execute deployment ────────────────────────────────────────
     if exec_actions and not dry_run:
         rule()
-        banner(f"Execute: {name}", subtitle="Running deployment actions")
+        banner(f"Execute: {name}", subtitle="Running deployment actions", icon=_BOLT, fg="cyan")
         click.echo()
 
         exec_ok = 0
@@ -920,7 +937,7 @@ def _interactive_deploy(
         rule()
         click.echo()
         if exec_fail == 0:
-            success(f"  {_CHECK} All {exec_ok} action(s) completed successfully")
+            success(f"  {_CHECK} All {exec_ok} action(s) completed successfully {_SPARK}")
         elif exec_ok == 0 and exec_fail == 0:
             info(f"  {exec_skip} action(s) skipped (no cluster / tool unavailable)")
         else:
@@ -1730,3 +1747,377 @@ def deploy_makefile(ctx, output: str, force: bool, dry_run: bool):
     except Exception as e:
         error(f"  {_CROSS} Makefile generation failed: {e}")
         sys.exit(1)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# aq deploy render — One-command PaaS deployment
+# ═══════════════════════════════════════════════════════════════════════════
+
+@deploy_gen_group.command("render")
+@click.option("--image", "-i", type=str, default=None,
+              help="Docker image to deploy (e.g. registry/myapp:latest)")
+@click.option("--region", "-r", type=str, default=None,
+              help="Deployment region (oregon, frankfurt, ohio, virginia, singapore)")
+@click.option("--plan", type=click.Choice([
+    "free", "starter", "standard", "pro", "pro_plus", "pro_max", "pro_ultra",
+]), default=None, help="Render plan")
+@click.option("--num-instances", type=int, default=None,
+              help="Number of instances")
+@click.option("--service-name", type=str, default=None,
+              help="Render service name (default: workspace name)")
+@click.option("--destroy", is_flag=True, help="Destroy the deployed service")
+@click.option("--status", "show_status", is_flag=True,
+              help="Show deployment status")
+@deploy_options
+@click.pass_context
+def deploy_render(
+    ctx,
+    image: Optional[str],
+    region: Optional[str],
+    plan: Optional[str],
+    num_instances: Optional[int],
+    service_name: Optional[str],
+    destroy: bool,
+    show_status: bool,
+    force: bool,
+    dry_run: bool,
+):
+    """Deploy to Render PaaS with a single command.
+
+    Builds your Docker image, pushes it, creates the Render service,
+    syncs env vars, and waits for the deployment to go live.
+
+    Requires authentication first:
+      aq provider login render
+
+    \\b
+    Examples:
+      aq deploy render                                # Interactive deploy
+      aq deploy render --image ghcr.io/me/app:v1      # Deploy specific image
+      aq deploy render --region frankfurt --plan pro   # Frankfurt, pro plan
+      aq deploy render --num-instances 3               # 3 instances
+      aq deploy render --status                        # Check deployment status
+      aq deploy render --destroy                       # Tear down service
+      aq deploy render --dry-run                       # Preview without deploying
+    """
+    from aquilia.providers.render.store import RenderCredentialStore
+    from aquilia.providers.render.client import RenderClient, RenderAPIError
+    from aquilia.providers.render.deployer import RenderDeployer
+    from aquilia.providers.render.types import (
+        RenderDeployConfig,
+        RenderPlan,
+        RenderAutoscaling,
+    )
+
+    workspace_root = Path.cwd()
+    dry_run = dry_run or ctx.obj.get("dry_run", False)
+    force = force or ctx.obj.get("force", False)
+    skip_build = ctx.obj.get("skip_build_check", False)
+
+    # ── Auth gate ────────────────────────────────────────────────────
+    store = RenderCredentialStore()
+    if not store.is_configured():
+        error(f"  {_CROSS} Not authenticated with Render.")
+        info("  Run: aq provider login render")
+        sys.exit(1)
+
+    token = store.load()
+    if not token:
+        error(f"  {_CROSS} Could not decrypt Render credentials.")
+        info("  Re-authenticate: aq provider login render")
+        sys.exit(1)
+
+    client = RenderClient(token=token)
+
+    # ── Build gate ───────────────────────────────────────────────────
+    interactive = sys.stdin.isatty()
+    if not _ensure_production_build(
+        workspace_root,
+        interactive=interactive,
+        skip_build_check=skip_build,
+    ):
+        sys.exit(1)
+
+    # ── Introspect workspace ─────────────────────────────────────────
+    try:
+        wctx = _get_ctx(workspace_root, skip_build_check=skip_build)
+    except Exception as e:
+        error(f"  {_CROSS} Workspace introspection failed: {e}")
+        sys.exit(1)
+
+    ws_name = service_name or wctx.get("name", "aquilia-app")
+
+    # ── Status mode ──────────────────────────────────────────────────
+    if show_status:
+        _render_show_status(client, wctx, ws_name)
+        return
+
+    # ── Destroy mode ─────────────────────────────────────────────────
+    if destroy:
+        _render_destroy(client, ws_name)
+        return
+
+    # ── Configure deployment ─────────────────────────────────────────
+    banner("Deploy to Render", subtitle=f"Service: {ws_name}", icon=_ROCKET, fg="magenta")
+    click.echo()
+
+    # Resolve image name
+    if not image:
+        if interactive:
+            image = ask(
+                "Docker image",
+                default=f"docker.io/{ws_name}:latest",
+                hint="registry/name:tag",
+            )
+        else:
+            image = f"docker.io/{ws_name}:latest"
+
+    # Resolve region
+    if not region:
+        stored_region = store.get_default_region()
+        if interactive:
+            region = select("Deployment region", [
+                ("oregon", "Oregon (US West)"),
+                ("frankfurt", "Frankfurt (EU)"),
+                ("ohio", "Ohio (US East)"),
+                ("virginia", "Virginia (US East)"),
+                ("singapore", "Singapore (Asia)"),
+            ], default=["oregon", "frankfurt", "ohio", "virginia", "singapore"].index(stored_region)
+               if stored_region in ["oregon", "frankfurt", "ohio", "virginia", "singapore"] else 0)
+        else:
+            region = stored_region
+
+    # Resolve plan
+    render_plan = RenderPlan.STARTER
+    if plan:
+        try:
+            render_plan = RenderPlan(plan)
+        except ValueError:
+            render_plan = RenderPlan.STARTER
+    elif interactive:
+        plan_choice = select("Render plan", [
+            ("free",     "Free (shared CPU, 512MB RAM)"),
+            ("starter",  "Starter (0.5 CPU, 512MB RAM)"),
+            ("standard", "Standard (1 CPU, 2GB RAM)"),
+            ("pro",      "Pro (2 CPU, 4GB RAM)"),
+            ("pro_plus", "Pro Plus (4 CPU, 8GB RAM)"),
+        ], default=1)
+        try:
+            render_plan = RenderPlan(plan_choice)
+        except ValueError:
+            render_plan = RenderPlan.STARTER
+
+    # Resolve instances
+    instances = num_instances or 1
+    if not num_instances and interactive:
+        instances = int(ask("Number of instances", default="1"))
+
+    # ── Build deployment config ──────────────────────────────────────
+    config = RenderDeployConfig.from_workspace_context(
+        wctx,
+        image=image,
+        region=region,
+        plan=render_plan,
+        num_instances=instances,
+    )
+    config.service_name = ws_name
+
+    # ── Review ───────────────────────────────────────────────────────
+    click.echo()
+    detail_card(
+        "Deployment Configuration",
+        [
+            ("Service", config.service_name),
+            ("Image", config.image),
+            ("Region", config.region),
+            ("Plan", config.plan.value),
+            ("Instances", str(config.num_instances)),
+            ("Port", str(config.port)),
+            ("Health check", config.health_check_path),
+            ("Env vars", str(len(config.env_vars))),
+        ],
+        icon=_ROCKET,
+        fg="magenta",
+    )
+    click.echo()
+
+    generated_vars = [v for v in config.env_vars if v.generate_value == "yes"]
+    if generated_vars:
+        section(f"Auto-generated secrets ({len(generated_vars)})")
+        for gv in generated_vars:
+            status_line(_KEY, gv.key, "auto-generated", value_fg="yellow")
+        click.echo()
+
+    if interactive and not force:
+        if not confirm("Deploy to Render?", default=True):
+            info("  Cancelled.")
+            return
+
+    # ── Execute deployment ───────────────────────────────────────────
+    click.echo()
+    rule()
+    banner(f"Deploying: {ws_name}", subtitle="DRY RUN" if dry_run else "Executing deployment pipeline", icon=_BOLT, fg="cyan")
+    click.echo()
+
+    def on_step(phase: str, message: str):
+        if phase == "done":
+            success(f"  {_CHECK} {message}")
+        elif "failed" in message.lower() or "error" in message.lower():
+            error(f"  {_CROSS} {message}")
+        else:
+            status_line(_GEAR, phase, message)
+
+    deployer = RenderDeployer(
+        client=client,
+        workspace_root=workspace_root,
+        config=config,
+        on_step=on_step,
+        dry_run=dry_run,
+    )
+
+    result = deployer.deploy()
+
+    click.echo()
+    rule()
+    click.echo()
+
+    if result.success:
+        success(f"  {_CHECK} Deployment successful! {_SPARK}")
+        if result.url:
+            click.echo()
+            detail_card(
+                "Live",
+                [("URL", result.url)],
+                icon=_GLOBE,
+                fg="green",
+            )
+        click.echo()
+        next_steps([
+            f"aq deploy render --status            # Check deployment status",
+            f"aq provider render env set ... -s {ws_name}  # Add env vars",
+            f"aq deploy render --destroy           # Tear down",
+        ])
+    else:
+        error(f"  {_CROSS} Deployment failed.")
+        if result.errors:
+            click.echo()
+            for err in result.errors:
+                error(f"    {_CROSS} {err}")
+        click.echo()
+        next_steps([
+            "Check the error messages above",
+            "Verify your Dockerfile builds successfully: docker build .",
+            "Check Render dashboard: https://dashboard.render.com",
+        ])
+        if not dry_run:
+            sys.exit(1)
+
+
+def _render_show_status(client, wctx: dict, service_name: str) -> None:
+    """Show deployment status for the Render service."""
+    from aquilia.providers.render.deployer import RenderDeployer
+    from aquilia.providers.render.types import RenderDeployConfig
+
+    config = RenderDeployConfig(service_name=service_name)
+    deployer = RenderDeployer(client, Path.cwd(), config)
+    status = deployer.status()
+
+    click.echo()
+    banner(f"Render · {service_name}", subtitle="Deployment status", icon=_EYE, fg="cyan")
+    click.echo()
+
+    if status["status"] == "not_deployed":
+        info(f"  {_ARROW} Service not found on Render.")
+        click.echo()
+        next_steps(["aq deploy render  # Deploy your workspace"])
+        return
+
+    if status["status"] == "error":
+        error(f"  {_CROSS} {status.get('error', 'Unknown error')}")
+        return
+
+    # Status badge
+    svc_status = status.get("service_status", "unknown")
+    if svc_status in ("live", "deployed"):
+        st_display = click.style(f"● {svc_status}", fg="green")
+    elif svc_status in ("deploying", "building"):
+        st_display = click.style(f"● {svc_status}", fg="cyan")
+    elif svc_status in ("failed", "error"):
+        st_display = click.style(f"● {svc_status}", fg="red")
+    else:
+        st_display = click.style(f"○ {svc_status}", fg="yellow")
+
+    detail_card(
+        "Service",
+        [
+            ("Status", st_display),
+            ("Service ID", status.get("service_id", "—")),
+            ("Plan", status.get("plan", "—")),
+            ("Region", status.get("region", "—")),
+            ("Suspended", status.get("suspended", "—")),
+            ("URL", status.get("url", "—")),
+        ],
+        icon=_CLOUD,
+    )
+
+    latest = status.get("latest_deploy")
+    if latest:
+        click.echo()
+        deploy_status = latest.get("status", "unknown")
+        if deploy_status in ("live", "deployed"):
+            ds = click.style(f"● {deploy_status}", fg="green")
+        elif deploy_status in ("building", "deploying"):
+            ds = click.style(f"● {deploy_status}", fg="cyan")
+        else:
+            ds = click.style(f"○ {deploy_status}", fg="yellow")
+
+        detail_card(
+            "Latest Deploy",
+            [
+                ("Deploy ID", latest.get("id", "—")),
+                ("Status", ds),
+                ("Created", latest.get("created_at", "—")),
+            ],
+            icon=_ROCKET,
+            fg="green",
+        )
+    click.echo()
+
+
+def _render_destroy(client, service_name: str) -> None:
+    """Destroy a deployed Render service."""
+    from aquilia.providers.render.deployer import RenderDeployer
+    from aquilia.providers.render.types import RenderDeployConfig
+
+    click.echo()
+    banner(f"Destroy · {service_name}", subtitle="Permanently delete service and all resources", icon=_WARN, fg="red")
+    click.echo()
+
+    detail_card(
+        "Danger Zone",
+        [
+            ("Service", service_name),
+            ("Action", "Permanently delete"),
+            ("Deploys", "All removed"),
+            ("Reversible", "No"),
+        ],
+        icon=_WARN,
+        fg="red",
+    )
+    click.echo()
+
+    if not confirm(f"Destroy '{service_name}'?", default=False):
+        info(f"  {_ARROW} Cancelled.")
+        return
+
+    config = RenderDeployConfig(service_name=service_name)
+    deployer = RenderDeployer(client, Path.cwd(), config)
+
+    if deployer.destroy():
+        click.echo()
+        success(f"  {_CHECK} Service '{service_name}' destroyed.")
+    else:
+        click.echo()
+        error(f"  {_CROSS} Failed to destroy service.")
+        sys.exit(1)
+
