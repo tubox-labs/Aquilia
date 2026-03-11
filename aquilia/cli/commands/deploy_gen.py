@@ -295,7 +295,7 @@ def _write_file(
         return True
 
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(content)
+    path.write_text(content, encoding="utf-8")
     file_written(label, verbose=verbose, path=str(path))
     return True
 

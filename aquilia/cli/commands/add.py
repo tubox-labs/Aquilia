@@ -31,17 +31,17 @@ def _ensure_docker_files(workspace_root: Path, verbose: bool = False) -> None:
 
     dockerfile = workspace_root / "Dockerfile"
     if not dockerfile.exists():
-        dockerfile.write_text(docker_gen.generate_dockerfile())
+        dockerfile.write_text(docker_gen.generate_dockerfile(), encoding="utf-8")
         generated.append("Dockerfile")
 
     dockerignore = workspace_root / ".dockerignore"
     if not dockerignore.exists():
-        dockerignore.write_text(docker_gen.generate_dockerignore())
+        dockerignore.write_text(docker_gen.generate_dockerignore(), encoding="utf-8")
         generated.append(".dockerignore")
 
     compose_file = workspace_root / "docker-compose.yml"
     if not compose_file.exists():
-        compose_file.write_text(compose_gen.generate_compose(include_monitoring=False))
+        compose_file.write_text(compose_gen.generate_compose(include_monitoring=False), encoding="utf-8")
         generated.append("docker-compose.yml")
 
     if generated and verbose:

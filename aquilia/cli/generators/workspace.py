@@ -262,7 +262,7 @@ class WorkspaceGenerator:
             return
         
         # Write back
-        workspace_path.write_text(content)
+        workspace_path.write_text(content, encoding="utf-8")
         print(f"\u2705 Updated workspace.py with {len(discovered_modules)} module configurations")
 
     def _discover_modules(self) -> dict:
@@ -762,7 +762,7 @@ class WorkspaceGenerator:
             __all__ = ["workspace"]
         ''').strip()
 
-        (self.path / 'workspace.py').write_text(content)
+        (self.path / 'workspace.py').write_text(content, encoding="utf-8")
 
     def _create_minimal_workspace_manifest(self) -> None:
         """Create a minimal workspace.py -- just enough to run.
@@ -870,7 +870,7 @@ class WorkspaceGenerator:
             __all__ = ["workspace"]
         ''').strip()
 
-        (self.path / 'workspace.py').write_text(content)
+        (self.path / 'workspace.py').write_text(content, encoding="utf-8")
 
     def _create_config_files(self) -> None:
         """No-op — environment config is now inlined in workspace.py.
@@ -928,7 +928,7 @@ class WorkspaceGenerator:
                     )
         ''')
 
-        (self.path / 'starter.py').write_text(content)
+        (self.path / 'starter.py').write_text(content, encoding="utf-8")
 
     # ------------------------------------------------------------------
     # Scaffold files: models, cache, auth, templates
@@ -1003,8 +1003,8 @@ class WorkspaceGenerator:
                     return f"<{model_name}Item id={{self.id}} name={{self.name!r}}>"
         ''').strip()
 
-        (models_dir / '__init__.py').write_text(init_content)
-        (models_dir / f'{self.name}.py').write_text(model_content)
+        (models_dir / '__init__.py').write_text(init_content, encoding="utf-8")
+        (models_dir / f'{self.name}.py').write_text(model_content, encoding="utf-8")
 
     # ------------------------------------------------------------------
     # Industry-standard project files
@@ -1055,7 +1055,7 @@ class WorkspaceGenerator:
             LOG_LEVEL=INFO                         # DEBUG | INFO | WARNING | ERROR
         """)
 
-        (self.path / '.env.example').write_text(content)
+        (self.path / '.env.example').write_text(content, encoding="utf-8")
 
     def _create_editorconfig(self) -> None:
         """Create .editorconfig for consistent coding style across editors."""
@@ -1084,7 +1084,7 @@ class WorkspaceGenerator:
             indent_style = tab
         """)
 
-        (self.path / '.editorconfig').write_text(content)
+        (self.path / '.editorconfig').write_text(content, encoding="utf-8")
 
     def _create_requirements(self) -> None:
         """Create requirements.txt with pinned Aquilia dependency."""
@@ -1105,7 +1105,7 @@ class WorkspaceGenerator:
             # uvicorn[standard]>=0.30.0 # ASGI server (included with Aquilia)
         """)
 
-        (self.path / 'requirements.txt').write_text(content)
+        (self.path / 'requirements.txt').write_text(content, encoding="utf-8")
 
     def _create_tests_dir(self) -> None:
         """Create tests/ directory with conftest.py and example tests using aquilia.testing."""
@@ -1113,7 +1113,7 @@ class WorkspaceGenerator:
         tests_dir.mkdir(exist_ok=True)
 
         # __init__.py
-        (tests_dir / '__init__.py').write_text("")
+        (tests_dir / '__init__.py').write_text("", encoding="utf-8")
 
         # conftest.py -- registers Aquilia fixtures + any workspace-level overrides
         conftest = textwrap.dedent(f'''\
@@ -1155,7 +1155,7 @@ class WorkspaceGenerator:
                 }}
         ''')
 
-        (tests_dir / 'conftest.py').write_text(conftest)
+        (tests_dir / 'conftest.py').write_text(conftest, encoding="utf-8")
 
         # Smoke tests -- SimpleTestCase (no server) + AquiliaTestCase (full stack)
         test_smoke = textwrap.dedent(f'''\
@@ -1237,7 +1237,7 @@ class WorkspaceGenerator:
                     assert resp.status_code == 200
         ''')
 
-        (tests_dir / 'test_smoke.py').write_text(test_smoke)
+        (tests_dir / 'test_smoke.py').write_text(test_smoke, encoding="utf-8")
 
     def _create_makefile(self) -> None:
         """Create Makefile with common development commands."""
@@ -1313,7 +1313,7 @@ class WorkspaceGenerator:
             \taq doctor
         """)
 
-        (self.path / 'Makefile').write_text(content)
+        (self.path / 'Makefile').write_text(content, encoding="utf-8")
 
     def _create_template_files(self) -> None:
         """Create template scaffold files for --template flag.
@@ -1458,10 +1458,10 @@ class WorkspaceGenerator:
         css_dir.mkdir(parents=True, exist_ok=True)
         js_dir.mkdir(parents=True, exist_ok=True)
 
-        (includes_dir / 'base.html').write_text(base_html)
-        (templates_dir / 'index.html').write_text(index_html)
-        (css_dir / 'style.css').write_text(style_css)
-        (js_dir / 'app.js').write_text(app_js)
+        (includes_dir / 'base.html').write_text(base_html, encoding="utf-8")
+        (templates_dir / 'index.html').write_text(index_html, encoding="utf-8")
+        (css_dir / 'style.css').write_text(style_css, encoding="utf-8")
+        (js_dir / 'app.js').write_text(app_js, encoding="utf-8")
 
     def _create_gitignore(self) -> None:
         """Create .gitignore file."""
@@ -1514,7 +1514,7 @@ class WorkspaceGenerator:
             *.log
         """).strip()
 
-        (self.path / '.gitignore').write_text(content)
+        (self.path / '.gitignore').write_text(content, encoding="utf-8")
     
     def _create_readme(self) -> None:
         """Create README.md file."""
@@ -1597,7 +1597,7 @@ class WorkspaceGenerator:
             See Aquilia documentation for complete guides.
         """).strip()
 
-        (self.path / 'README.md').write_text(content)
+        (self.path / 'README.md').write_text(content, encoding="utf-8")
 
     def _create_license_file(self) -> None:
         """Create a LICENSE file based on the selected license type."""
@@ -1679,7 +1679,7 @@ class WorkspaceGenerator:
         else:
             return  # Unknown license -- skip
 
-        (self.path / 'LICENSE').write_text(content)
+        (self.path / 'LICENSE').write_text(content, encoding="utf-8")
 
     def _create_deployment_files(self) -> None:
         """Create default Docker and docker-compose files for the workspace.
@@ -1698,11 +1698,11 @@ class WorkspaceGenerator:
             docker_gen = DockerfileGenerator(wctx)
             compose_gen = ComposeGenerator(wctx)
 
-            (self.path / 'Dockerfile').write_text(docker_gen.generate_dockerfile())
-            (self.path / '.dockerignore').write_text(docker_gen.generate_dockerignore())
+            (self.path / 'Dockerfile').write_text(docker_gen.generate_dockerfile(), encoding="utf-8")
+            (self.path / '.dockerignore').write_text(docker_gen.generate_dockerignore(), encoding="utf-8")
             (self.path / 'docker-compose.yml').write_text(
                 compose_gen.generate_compose(include_monitoring=False)
-            )
+            , encoding="utf-8")
         except Exception:
             # Non-fatal -- the workspace is still usable without these files
             pass

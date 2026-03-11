@@ -44,7 +44,7 @@ def generate_controller(
     else:
         content = _generate_standard_controller(name, prefix or f"/{name.lower()}", resource or name.lower())
     
-    file_path.write_text(content)
+    file_path.write_text(content, encoding="utf-8")
     return file_path
 
 

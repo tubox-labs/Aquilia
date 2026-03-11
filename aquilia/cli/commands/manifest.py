@@ -347,7 +347,7 @@ def update_manifest(module_name: str, workspace_root: Path, check: bool = False,
         # Also handle cases where it might be omitted or default (trickier, implying explicit True is best practice)
         print(f" Freezing manifest (auto_discover=False)")
         
-    manifest_path.write_text(content)
+    manifest_path.write_text(content, encoding="utf-8")
     print(f"Updated {manifest_path.relative_to(workspace_root)}")
     
     if missing_controllers or missing_services:

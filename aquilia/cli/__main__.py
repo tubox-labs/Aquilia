@@ -2450,7 +2450,7 @@ def admin_check(ctx, fix: bool, as_json: bool):
                 else:
                     fixed_lines.append(line)
 
-            workspace_file.write_text("\n".join(fixed_lines))
+            workspace_file.write_text("\n".join(fixed_lines), encoding="utf-8")
             success(f"  {_CHECK} Auto-fixed: Uncommented .sessions(...) in workspace.py")
             click.echo()
             next_steps([
@@ -3558,7 +3558,7 @@ def admin_setup(ctx, non_interactive: bool, database_url: Optional[str]):
                 info(f"  {_CROSS} Aborted -- no changes written")
                 sys.exit(0)
 
-        workspace_file.write_text(content)
+        workspace_file.write_text(content, encoding="utf-8")
         success(f"  {_CHECK} workspace.py updated")
     else:
         click.echo()
