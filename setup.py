@@ -27,7 +27,6 @@ long_description = readme_file.read_text(encoding="utf-8") if readme_file.exists
 # ---------------------------------------------------------------------------
 CORE_DEPS = [
     "click>=8.1.0",
-    "PyYAML>=6.0.0",
     "uvicorn>=0.30.0",
     # Template engine — used by admin panel and user templates (always loaded)
     "jinja2>=3.1.0",
