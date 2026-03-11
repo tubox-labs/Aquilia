@@ -30,10 +30,10 @@ _IS_WINDOWS: bool = platform.system() == "Windows"
 # Glyphs & colour helpers
 # ═══════════════════════════════════════════════════════════════════════════
 
-_RADIO_ON  = "●"
-_RADIO_OFF = "○"
-_CHECK_ON  = "◼"
-_CHECK_OFF = "◻"
+_RADIO_ON  = _G("\u25cf", "(*)")
+_RADIO_OFF = _G("\u25cb", "( )")
+_CHECK_ON  = _G("\u25fc", "[x]")
+_CHECK_OFF = _G("\u25fb", "[ ]")
 
 
 def _c(text: str, fg: str = "cyan", bold: bool = False, dim_: bool = False) -> str:
@@ -315,7 +315,7 @@ def _render_select_rows(
 ) -> None:
     for i, (value, desc) in enumerate(choices):
         active  = i == current
-        pointer = _c(">>", fg="cyan") if active else "  "
+        pointer = _c(_G("\u25b6", ">"), fg="cyan") if active else " "
         marker  = _c(_RADIO_ON, fg="cyan") if active else _c(_RADIO_OFF, dim_=True)
         val     = _c(value, fg="cyan", bold=True) if active else _c(value, fg="white")
         d       = f"  {_c('-', dim_=True)} {_c(desc, dim_=True)}" if desc else ""
@@ -330,7 +330,7 @@ def _render_multi_rows(
     for i, (value, desc, _) in enumerate(choices):
         active  = i == current
         on      = selected[i]
-        pointer = _c(">>", fg="cyan") if active else "  "
+        pointer = _c(_G("\u25b6", ">"), fg="cyan") if active else " "
         marker  = _c(_CHECK_ON, fg="green") if on else _c(_CHECK_OFF, dim_=True)
         val     = (
             _c(value, fg="cyan",  bold=True) if active else
@@ -406,8 +406,8 @@ def ask_password(
 
         if confirm:
             confirm_text = (
-                f"  {_c('◆', fg='cyan')} {_c('Confirm password', fg='white', bold=True)} "
-                f"{_c('…', dim_=True)} "
+                f"  {_c(_DIAMOND, fg='cyan')} {_c('Confirm password', fg='white', bold=True)} "
+                f"{_c('...', dim_=True)} "
             )
             confirm_val = click.prompt(
                 "", prompt_suffix="", hide_input=True, default="", show_default=False
