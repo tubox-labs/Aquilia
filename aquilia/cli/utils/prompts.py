@@ -5,8 +5,9 @@ Beautiful interactive prompts built on Click.
 Provides select menus, confirm toggles, multi-select, and styled
 text input -- all with colour-coded feedback.
 
-Arrow-key navigation is handled via raw terminal mode (termios/tty)
-so ↑↓ keys work natively without any extra dependencies.
+Arrow-key navigation is handled via raw terminal mode:
+  - Unix/macOS: termios + tty
+  - Windows:    msvcrt (built-in, no extra dependencies)
 """
 
 from __future__ import annotations
@@ -15,11 +16,15 @@ import os
 import sys
 from typing import Callable, List, Optional, Sequence, Tuple
 
+import platform
+
 import click
 
 from .colors import (
     _CHECK, _CROSS, _ARROW, _L_H,
 )
+
+_IS_WINDOWS: bool = platform.system() == "Windows"
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Glyphs & colour helpers
@@ -80,24 +85,68 @@ def _drain_stdin() -> None:
     from arrow keys pressed during the previous prompt) are fed into
     the raw reader and misinterpreted.
     """
-    import termios
-    try:
-        termios.tcflush(_stdin_fd(), termios.TCIFLUSH)
-    except Exception:
-        pass
+    if _IS_WINDOWS:
+        import msvcrt
+        try:
+            while msvcrt.kbhit():
+                msvcrt.getwch()
+        except Exception:
+            pass
+    else:
+        import termios
+        try:
+            termios.tcflush(_stdin_fd(), termios.TCIFLUSH)
+        except Exception:
+            pass
 
 
 def _read_key() -> str:
     """
-    Read a single keypress in raw mode via the OS file descriptor.
+    Read a single keypress in raw mode.
 
-    Never goes through Python's buffered stdin so there is no mismatch
-    between what the buffer holds and what the fd delivers.
+    On Windows uses msvcrt.getwch() which is always available.
+    On Unix uses termios/tty via the OS file descriptor.
 
     Returns one of:
       'up', 'down', 'enter', 'space', 'tab', 'shift_tab', 'esc',
       or the literal character.
     """
+    if _IS_WINDOWS:
+        return _read_key_windows()
+    return _read_key_unix()
+
+
+def _read_key_windows() -> str:
+    """Windows key reader using msvcrt (built-in, no install needed)."""
+    import msvcrt
+
+    ch = msvcrt.getwch()
+    if ch in ("\r", "\n"):
+        return "enter"
+    if ch == " ":
+        return "space"
+    if ch == "\t":
+        return "tab"
+    if ch == "\x03":                            # Ctrl-C
+        raise KeyboardInterrupt
+    if ch == "\x04":                            # Ctrl-D
+        raise EOFError
+    if ch == "\x1b":                            # ESC (standalone)
+        return "esc"
+    if ch in ("\x00", "\xe0"):                  # Special / extended key prefix
+        ch2 = msvcrt.getwch()
+        if ch2 == "H":                          # Up arrow
+            return "up"
+        if ch2 == "P":                          # Down arrow
+            return "down"
+        if ch2 == "\x0f":                       # Shift+Tab (Back-Tab)
+            return "shift_tab"
+        return "esc"
+    return ch
+
+
+def _read_key_unix() -> str:
+    """Unix key reader using termios + tty via OS file descriptor."""
     import termios
     import tty
 
@@ -149,14 +198,57 @@ def _read_key() -> str:
 
 def _read_line_fd() -> str:
     """
-    Read one line directly from the OS stdin fd in canonical (cooked) mode.
+    Read one line directly from stdin in canonical (cooked) mode.
 
-    Unlike sys.stdin.readline() this bypasses Python's TextIOWrapper
-    buffer, so there are no stale bytes left in a layer that os.read()
-    can't see.  The terminal's line discipline still handles editing
-    (backspace, etc.) because we are NOT in raw mode here.
+    On Windows: reads character-by-character via msvcrt.getwch() with
+    echo, handling backspace manually (Windows has no terminal line
+    discipline exposed via a raw fd).
+
+    On Unix: bypasses Python's TextIOWrapper buffer via the OS fd so
+    there are no stale bytes left in a layer that os.read() can't see.
+    The terminal's line discipline still handles editing (backspace etc.)
+    because we are NOT in raw mode here.
     """
+    if _IS_WINDOWS:
+        return _read_line_fd_windows()
+    return _read_line_fd_unix()
+
+
+def _read_line_fd_windows() -> str:
+    """Windows line reader using msvcrt character-by-character."""
+    import msvcrt
+
+    buf = ""
+    while True:
+        ch = msvcrt.getwch()
+        if ch in ("\r", "\n"):
+            msvcrt.putch(b"\n")             # echo newline
+            break
+        if ch == "\x03":                    # Ctrl-C
+            raise KeyboardInterrupt
+        if ch == "\x04":                    # Ctrl-D
+            if not buf:
+                raise EOFError
+            break
+        if ch in ("\x08", "\x7f"):          # Backspace / DEL
+            if buf:
+                buf = buf[:-1]
+                msvcrt.putch(b"\x08")       # move cursor back
+                msvcrt.putch(b" ")          # overwrite with space
+                msvcrt.putch(b"\x08")       # move cursor back again
+            continue
+        if ch in ("\x00", "\xe0"):          # Extended key prefix — skip next byte
+            msvcrt.getwch()
+            continue
+        msvcrt.putwch(ch)                   # echo the character
+        buf += ch
+    return buf
+
+
+def _read_line_fd_unix() -> str:
+    """Unix line reader via OS fd in canonical (cooked) mode."""
     import termios
+
     fd  = _stdin_fd()
     old = termios.tcgetattr(fd)
     # Ensure canonical mode + echo are ON (reset any lingering raw state)
