@@ -488,10 +488,6 @@ def select(
         while True:
             key = _read_key()
 
-            if key in ("up", "shift_tab"):
-                current = (current - 1) % n
-            elif key in ("down", "tab"):
-                current = (current + 1) % n
             if key == "enter":
                 _erase_lines(n)
                 _write(
@@ -499,6 +495,10 @@ def select(
                     f"  {_c(choices[current][0], fg='cyan', bold=True)}\n"
                 )
                 return choices[current][0]
+            elif key in ("up", "shift_tab"):
+                current = (current - 1) % n
+            elif key in ("down", "tab"):
+                current = (current + 1) % n
             else:
                 continue
 
@@ -578,13 +578,7 @@ def multi_select(
         while True:
             key = _read_key()
 
-            if key in ("up", "shift_tab"):
-                current = (current - 1) % n
-            elif key in ("down", "tab"):
-                current = (current + 1) % n
-            elif key == "space":
-                selected[current] = not selected[current]
-            elif key == "enter":
+            if key == "enter":
                 result_vals = [choices[i][0] for i in range(n) if selected[i]]
                 summary = (
                     ", ".join(result_vals) if result_vals
@@ -596,6 +590,12 @@ def multi_select(
                     f"  {_c(summary, fg='cyan')}\n"
                 )
                 return result_vals
+            elif key in ("up", "shift_tab"):
+                current = (current - 1) % n
+            elif key in ("down", "tab"):
+                current = (current + 1) % n
+            elif key == "space":
+                selected[current] = not selected[current]
             else:
                 continue
 
