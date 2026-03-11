@@ -21,7 +21,7 @@ import platform
 import click
 
 from .colors import (
-    _CHECK, _CROSS, _ARROW, _L_H,
+    _CHECK, _CROSS, _ARROW, _L_H, _G, _DIAMOND,
 )
 
 _IS_WINDOWS: bool = platform.system() == "Windows"
@@ -315,10 +315,10 @@ def _render_select_rows(
 ) -> None:
     for i, (value, desc) in enumerate(choices):
         active  = i == current
-        pointer = _c("", fg="cyan") if active else "  "
+        pointer = _c(">>", fg="cyan") if active else "  "
         marker  = _c(_RADIO_ON, fg="cyan") if active else _c(_RADIO_OFF, dim_=True)
         val     = _c(value, fg="cyan", bold=True) if active else _c(value, fg="white")
-        d       = f"  {_c('─', dim_=True)} {_c(desc, dim_=True)}" if desc else ""
+        d       = f"  {_c('-', dim_=True)} {_c(desc, dim_=True)}" if desc else ""
         _write(f"  {pointer} {marker} {val}{d}\n")
 
 
@@ -330,14 +330,14 @@ def _render_multi_rows(
     for i, (value, desc, _) in enumerate(choices):
         active  = i == current
         on      = selected[i]
-        pointer = _c("", fg="cyan") if active else "  "
+        pointer = _c(">>", fg="cyan") if active else "  "
         marker  = _c(_CHECK_ON, fg="green") if on else _c(_CHECK_OFF, dim_=True)
         val     = (
             _c(value, fg="cyan",  bold=True) if active else
             _c(value, fg="white", bold=True) if on     else
             _c(value, fg="white")
         )
-        d = f"  {_c('─', dim_=True)} {_c(desc, dim_=True)}" if desc else ""
+        d = f"  {_c('-', dim_=True)} {_c(desc, dim_=True)}" if desc else ""
         _write(f"  {pointer} {marker} {val}{d}\n")
 
 
@@ -358,8 +358,8 @@ def ask(
         suffix   = f" ({_c(default, fg='white', dim_=True)})" if default else ""
         hint_str = f"  {_c(hint, dim_=True)}" if hint else ""
         _write(
-            f"  {_c('◆', fg='cyan')} {_c(label, fg='white', bold=True)}"
-            f"{suffix}{hint_str} {_c('…', dim_=True)} "
+            f"  {_c(_DIAMOND, fg='cyan')} {_c(label, fg='white', bold=True)}"
+            f"{suffix}{hint_str} {_c('...', dim_=True)} "
         )
 
         value = _read_line()
@@ -389,8 +389,8 @@ def ask_password(
     """Styled hidden password input with optional confirmation."""
     while True:
         prompt_text = (
-            f"  {_c('◆', fg='cyan')} {_c(label, fg='white', bold=True)} "
-            f"{_c('…', dim_=True)} "
+            f"  {_c(_DIAMOND, fg='cyan')} {_c(label, fg='white', bold=True)} "
+            f"{_c('...', dim_=True)} "
         )
         value = click.prompt(
             "", prompt_suffix="", hide_input=True, default="", show_default=False
@@ -454,11 +454,11 @@ def select(
 
     # ── Non-TTY fallback ────────────────────────────────────────────
     if not _is_tty():
-        _write(f"  {_c('◆', fg='cyan')} {_c(label, fg='white', bold=True)}\n")
+        _write(f"  {_c(_DIAMOND, fg='cyan')} {_c(label, fg='white', bold=True)}\n")
         for i, (value, desc) in enumerate(choices):
             mark = _c(f"{i + 1}.", dim_=True)
             v    = _c(value, fg="cyan" if i == default else "white")
-            d    = f"  {_c('─', dim_=True)} {_c(desc, dim_=True)}" if desc else ""
+            d    = f"  {_c('-', dim_=True)} {_c(desc, dim_=True)}" if desc else ""
             _write(f"    {mark} {v}{d}\n")
         while True:
             _write(f"  {_c(_ARROW, fg='cyan')} ")
@@ -473,11 +473,11 @@ def select(
                 for value, _ in choices:
                     if raw.lower() == value.lower():
                         return value
-            _write(f"    {_c(_CROSS, fg='red')} {_c(f'Enter 1–{n}', fg='red')}\n")
+            _write(f"    {_c(_CROSS, fg='red')} {_c(f'Enter 1-{n}', fg='red')}\n")
 
     # ── Interactive TTY mode ────────────────────────────────────────
-    hint   = _c("↑↓ navigate  Enter confirm", dim_=True)
-    header = f"  {_c('◆', fg='cyan')} {_c(label, fg='white', bold=True)}  {hint}\n"
+    hint   = _c("up/down navigate  Enter confirm", dim_=True)
+    header = f"  {_c(_DIAMOND, fg='cyan')} {_c(label, fg='white', bold=True)}  {hint}\n"
 
     _drain_stdin()   # flush buffered bytes from any preceding cooked prompt
     _write(_HIDE_CURSOR)
@@ -492,10 +492,10 @@ def select(
                 current = (current - 1) % n
             elif key in ("down", "tab"):
                 current = (current + 1) % n
-            elif key == "enter":
+            if key == "enter":
                 _erase_lines(n)
                 _write(
-                    f"  {_c('◆', fg='cyan')} {_c(label, fg='white', bold=True)}"
+                    f"  {_c(_DIAMOND, fg='cyan')} {_c(label, fg='white', bold=True)}"
                     f"  {_c(choices[current][0], fg='cyan', bold=True)}\n"
                 )
                 return choices[current][0]
@@ -539,7 +539,7 @@ def multi_select(
     # ── Non-TTY fallback ────────────────────────────────────────────
     if not _is_tty():
         _write(
-            f"  {_c('◆', fg='cyan')} {_c(label, fg='white', bold=True)}"
+            f"  {_c(_DIAMOND, fg='cyan')} {_c(label, fg='white', bold=True)}"
             f"  {_c('(comma-separated numbers, Enter for defaults)', dim_=True)}\n"
         )
         for i, (value, desc, on) in enumerate(choices):
@@ -547,7 +547,7 @@ def multi_select(
                       fg="green" if on else "white", dim_=not on)
             num  = _c(f"{i + 1}.", dim_=True)
             v    = _c(value, fg="white", bold=on)
-            d    = f"  {_c('─', dim_=True)} {_c(desc, dim_=True)}" if desc else ""
+            d    = f"  {_c('-', dim_=True)} {_c(desc, dim_=True)}" if desc else ""
             _write(f"    {mark} {num} {v}{d}\n")
         _write(f"  {_c(_ARROW, fg='cyan')} ")
         raw = _read_line().strip()
@@ -566,8 +566,8 @@ def multi_select(
         return result
 
     # ── Interactive TTY mode ────────────────────────────────────────
-    hint   = _c("↑↓ navigate  Space toggle  Enter confirm", dim_=True)
-    header = f"  {_c('◆', fg='cyan')} {_c(label, fg='white', bold=True)}  {hint}\n"
+    hint   = _c("up/down navigate  Space toggle  Enter confirm", dim_=True)
+    header = f"  {_c(_DIAMOND, fg='cyan')} {_c(label, fg='white', bold=True)}  {hint}\n"
 
     _drain_stdin()   # flush buffered bytes from any preceding cooked prompt
     _write(_HIDE_CURSOR)
@@ -592,7 +592,7 @@ def multi_select(
                 )
                 _erase_lines(n)
                 _write(
-                    f"  {_c('◆', fg='cyan')} {_c(label, fg='white', bold=True)}"
+                    f"  {_c(_DIAMOND, fg='cyan')} {_c(label, fg='white', bold=True)}"
                     f"  {_c(summary, fg='cyan')}\n"
                 )
                 return result_vals
@@ -621,8 +621,8 @@ def confirm(
     """Styled yes/no prompt."""
     hint = "Y/n" if default else "y/N"
     _write(
-        f"  {_c('◆', fg='cyan')} {_c(label, fg='white', bold=True)} "
-        f"{_c(f'({hint})', dim_=True)} {_c('…', dim_=True)} "
+        f"  {_c(_DIAMOND, fg='cyan')} {_c(label, fg='white', bold=True)} "
+        f"{_c(f'({hint})', dim_=True)} {_c('...', dim_=True)} "
     )
     raw = _read_line().strip().lower()
     if not raw:

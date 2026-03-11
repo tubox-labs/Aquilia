@@ -21,6 +21,37 @@ import sys
 from pathlib import Path
 from typing import Optional
 
+# ── Windows UTF-8 fix ────────────────────────────────────────────────────────
+# On Windows the default stdout/stderr codec is 'charmap' which cannot encode
+# most Unicode characters used for CLI glyphs (arrows, boxes, checkmarks …).
+# Reconfigure both streams to UTF-8 if possible; if the stream doesn't support
+# reconfigure (e.g. it's been redirected) we swap it for a UTF-8 wrapper so
+# the rest of the code never has to worry about the codec.
+if sys.platform == "win32":
+    import io
+    for _stream_name in ("stdout", "stderr"):
+        _stream = getattr(sys, _stream_name)
+        if hasattr(_stream, "reconfigure"):
+            try:
+                _stream.reconfigure(encoding="utf-8", errors="replace")
+            except Exception:
+                pass
+        elif hasattr(_stream, "buffer"):
+            try:
+                setattr(
+                    sys,
+                    _stream_name,
+                    io.TextIOWrapper(
+                        _stream.buffer,
+                        encoding="utf-8",
+                        errors="replace",
+                        line_buffering=_stream.line_buffering,
+                    ),
+                )
+            except Exception:
+                pass
+# ─────────────────────────────────────────────────────────────────────────────
+
 import click
 
 from . import __version__, __cli_name__

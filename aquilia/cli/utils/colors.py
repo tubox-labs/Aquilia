@@ -28,6 +28,7 @@ non-colour terminals (click.style handles NO_COLOR / TERM=dumb).
 from __future__ import annotations
 
 import os
+import sys
 import shutil
 from typing import Optional, Sequence
 
@@ -46,6 +47,29 @@ def _tw() -> int:
     if _TERM_WIDTH is None:
         _TERM_WIDTH = max(40, min(shutil.get_terminal_size((80, 24)).columns, 120))
     return _TERM_WIDTH
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Safe Unicode glyph resolution
+# ═══════════════════════════════════════════════════════════════════════════
+
+def _can_encode(char: str) -> bool:
+    """Return True if the current stdout codec can encode *char* without error."""
+    enc = getattr(sys.stdout, "encoding", None) or "ascii"
+    try:
+        char.encode(enc)
+        return True
+    except (UnicodeEncodeError, LookupError):
+        return False
+
+
+def _G(unicode_char: str, ascii_fallback: str) -> str:
+    """
+    Return *unicode_char* if the terminal can encode it, otherwise
+    return *ascii_fallback*.  Results are cached after the first call.
+    """
+    return unicode_char if _can_encode(unicode_char) else ascii_fallback
+
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -89,51 +113,53 @@ def accent(message: str) -> str:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# Box-drawing characters
+# Box-drawing characters — with ASCII fallbacks for narrow-codec terminals
 # ═══════════════════════════════════════════════════════════════════════════
 
 # Heavy box set
-_H_TL = "\u250f"   # ┏
-_H_TR = "\u2513"   # ┓
-_H_BL = "\u2517"   # ┗
-_H_BR = "\u251b"   # ┛
-_H_H  = "\u2501"   # ━
-_H_V  = "\u2503"   # ┃
+_H_TL = _G("\u250f", "+")   # ┏
+_H_TR = _G("\u2513", "+")   # ┓
+_H_BL = _G("\u2517", "+")   # ┗
+_H_BR = _G("\u251b", "+")   # ┛
+_H_H  = _G("\u2501", "-")   # ━
+_H_V  = _G("\u2503", "|")   # ┃
 
 # Light box set
-_L_TL = "\u250c"   # ┌
-_L_TR = "\u2510"   # ┐
-_L_BL = "\u2514"   # └
-_L_BR = "\u2518"   # ┘
-_L_H  = "\u2500"   # ─
-_L_V  = "\u2502"   # │
+_L_TL = _G("\u250c", "+")   # ┌
+_L_TR = _G("\u2510", "+")   # ┐
+_L_BL = _G("\u2514", "+")   # └
+_L_BR = _G("\u2518", "+")   # ┘
+_L_H  = _G("\u2500", "-")   # ─
+_L_V  = _G("\u2502", "|")   # │
 
 # Tee / cross
-_L_LT = "\u251c"   # ├
-_L_RT = "\u2524"   # ┤
+_L_LT = _G("\u251c", "+")   # ├
+_L_RT = _G("\u2524", "+")   # ┤
 
-# Other
-_BULLET = "\u2022"     # •
-_ARROW  = "\u2192"     # →
-_CHECK  = "\u2714"     # ✔
-_CROSS  = "\u2718"     # ✘
-_CIRCLE = "\u25cb"     # ○
-_DOT    = "\u00b7"     # ·
-_DASH   = "\u2500"     # ─
-_ROCKET = "\U0001f680" # 🚀
-_LOCK   = "\U0001f512" # 🔒
-_GLOBE  = "\U0001f310" # 🌐
-_PKG    = "\U0001f4e6" # 📦
-_GEAR   = "\u2699"     # ⚙
-_BOLT   = "\u26a1"     # ⚡
-_SHIELD = "\U0001f6e1" # 🛡
-_LINK   = "\U0001f517" # 🔗
-_CLOCK  = "\U0001f551" # 🕑
-_SPARK  = "\u2728"     # ✨
-_WARN   = "\u26a0"     # ⚠
-_CLOUD  = "\u2601"     # ☁
-_KEY    = "\U0001f511" # 🔑
-_EYE    = "\U0001f441" # 👁
+# Other symbols
+_BULLET = _G("\u2022", "*")      # •
+_ARROW  = _G("\u2192", "->")     # →
+_CHECK  = _G("\u2714", "[ok]")   # ✔
+_CROSS  = _G("\u2718", "[x]")    # ✘
+_CIRCLE = _G("\u25cb", "o")      # ○
+_DOT    = _G("\u00b7", ".")      # ·
+_DASH   = _G("\u2500", "-")      # ─
+_ROCKET = _G("\U0001f680", ">>") # 🚀
+_LOCK   = _G("\U0001f512", "[#]")# 🔒
+_GLOBE  = _G("\U0001f310", "(o)")# 🌐
+_PKG    = _G("\U0001f4e6", "[p]")# 📦
+_GEAR   = _G("\u2699", "[*]")    # ⚙
+_BOLT   = _G("\u26a1", "!")      # ⚡
+_SHIELD = _G("\U0001f6e1", "[S]")# 🛡
+_LINK   = _G("\U0001f517", "[@]")# 🔗
+_CLOCK  = _G("\U0001f551", "[t]")# 🕑
+_SPARK  = _G("\u2728", "*")      # ✨
+_WARN   = _G("\u26a0", "[!]")    # ⚠
+_CLOUD  = _G("\u2601", "(c)")    # ☁
+_KEY    = _G("\U0001f511", "[k]")# 🔑
+_EYE    = _G("\U0001f441", "(e)")# 👁
+_DIAMOND = _G("\u25c6", "*")        # ◆
+
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -536,10 +562,11 @@ def phase_header(
 ) -> None:
     """Print a numbered phase header for multi-step flows.
 
-        ◆ [1/5]  Build Gate
+        * [1/5]  Build Gate
     """
     num = click.style(f"[{phase_num}]", fg=fg, bold=True)
     ico = f"{icon} " if icon else ""
     ttl = click.style(title, fg="white", bold=True)
-    click.echo(f"\n  {click.style('◆', fg=fg)} {num}  {ico}{ttl}")
+    diamond = _G("\u25c6", "*")
+    click.echo(f"\n  {click.style(diamond, fg=fg)} {num}  {ico}{ttl}")
     click.echo()
