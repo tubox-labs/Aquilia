@@ -393,7 +393,7 @@ def _discover_and_update_manifests(workspace_root: Path, verbose: bool = False) 
             # Write updated manifest if there were changes
             if updated_content != manifest_content:
                 try:
-                    manifest_path.write_text(updated_content)
+                    manifest_path.write_text(updated_content, encoding="utf-8")
                     modules_updated += 1
                     if verbose:
                         total_changes = services_added + controllers_added
@@ -768,7 +768,7 @@ def _write_discovery_report(workspace_root: Path, discovered: Dict, sorted_names
         
         # Write report
         report_file = workspace_root / "ROUTES.md"
-        report_file.write_text("".join(report_lines))
+        report_file.write_text("".join(report_lines), encoding="utf-8")
     
     except Exception:
         # Silently fail - don't interrupt server startup
@@ -979,7 +979,7 @@ def _create_workspace_app(workspace_root: Path, mode: str, verbose: bool = False
     app_code = _generate_workspace_app_code(workspace_root, mode, verbose)
     
     # Write the app file
-    app_file.write_text(app_code)
+    app_file.write_text(app_code, encoding="utf-8")
     
     if verbose:
         print(f"  Generated runtime app: {app_file}")

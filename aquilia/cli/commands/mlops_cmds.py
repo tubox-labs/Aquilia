@@ -325,8 +325,8 @@ def deploy_ci_template(registry, output):
     workflow = generate_ci_workflow(output_dir=str(out))
     dockerfile = generate_dockerfile(output_dir=str(out))
 
-    (out / "mlops-ci.yml").write_text(workflow)
-    (out / "Dockerfile.model").write_text(dockerfile)
+    (out / "mlops-ci.yml").write_text(workflow, encoding="utf-8")
+    (out / "Dockerfile.model").write_text(dockerfile, encoding="utf-8")
     click.echo(click.style(f"Templates written to {out}/", fg="green"))
 
 

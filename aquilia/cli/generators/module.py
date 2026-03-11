@@ -159,7 +159,7 @@ class ModuleGenerator:
             __all__ = ["manifest"]
         ''').strip()
 
-        (self.path / 'manifest.py').write_text(content)
+        (self.path / 'manifest.py').write_text(content, encoding="utf-8")
 
     def _create_minimal_controller(self) -> None:
         """Create a minimal controllers.py -- single GET endpoint."""
@@ -182,7 +182,7 @@ class ModuleGenerator:
                     return Response.json({{"module": "{self.name}", "status": "ok"}})
         ''').strip()
 
-        (self.path / 'controllers.py').write_text(content)
+        (self.path / 'controllers.py').write_text(content, encoding="utf-8")
     
     def _create_module_manifest(self) -> None:
         """Create manifest.py as the module-level configuration hub.
@@ -305,7 +305,7 @@ class ModuleGenerator:
             __all__ = ["manifest"]
         ''').strip()
         
-        (self.path / 'manifest.py').write_text(content)
+        (self.path / 'manifest.py').write_text(content, encoding="utf-8")
     
     def _create_init_file(self) -> None:
         """Create __init__.py file.
@@ -357,7 +357,7 @@ class ModuleGenerator:
                 lines.insert(insert_idx + 1, test_import.lstrip("\n"))
                 content = "\n".join(lines)
 
-        (self.path / '__init__.py').write_text(content)
+        (self.path / '__init__.py').write_text(content, encoding="utf-8")
     
     def _create_controllers_file(self) -> None:
         """Create controllers.py file with modern controller architecture."""
@@ -462,7 +462,7 @@ class ModuleGenerator:
                     return Response(status=204)
         ''').strip()
         
-        (self.path / 'controllers.py').write_text(content)
+        (self.path / 'controllers.py').write_text(content, encoding="utf-8")
     
     def _create_services_file(self) -> None:
         """Create services.py file."""
@@ -534,7 +534,7 @@ class ModuleGenerator:
                     return False
         ''').strip()
         
-        (self.path / 'services.py').write_text(content)
+        (self.path / 'services.py').write_text(content, encoding="utf-8")
     
     def _create_faults_file(self) -> None:
         """Create faults.py file."""
@@ -622,7 +622,7 @@ class ModuleGenerator:
                     )
         ''').strip()
         
-        (self.path / 'faults.py').write_text(content)
+        (self.path / 'faults.py').write_text(content, encoding="utf-8")
     
     def _create_models_file(self) -> None:
         """Create models.py with Aquilia ORM scaffold."""
@@ -682,7 +682,7 @@ class ModuleGenerator:
                     return f"<{model_name} id={{self.id}} name={{self.name!r}}>"
         ''').strip()
         
-        (self.path / 'models.py').write_text(content)
+        (self.path / 'models.py').write_text(content, encoding="utf-8")
     
     def _create_test_routes_file(self) -> None:
         """Create test_routes.py file with demo endpoints."""
@@ -747,4 +747,4 @@ class ModuleGenerator:
                     }})
         ''').strip()
         
-        (self.path / 'test_routes.py').write_text(content)
+        (self.path / 'test_routes.py').write_text(content, encoding="utf-8")

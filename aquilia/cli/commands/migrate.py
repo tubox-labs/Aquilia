@@ -94,13 +94,13 @@ def migrate_legacy(
             f'    depends_on=[],\n'
             f')\n'
         )
-        (mod_dir / 'manifest.py').write_text(manifest_content)
+        (mod_dir / 'manifest.py').write_text(manifest_content, encoding="utf-8")
         result.changes.append(f"  Created modules/{app_name}/manifest.py")
 
         # __init__.py
         (mod_dir / '__init__.py').write_text(
             f'"""{app_name.capitalize()} module (migrated)."""\n'
-        )
+        , encoding="utf-8")
         result.changes.append(f"  Created modules/{app_name}/__init__.py")
 
         # Stub controllers from views.py
@@ -114,7 +114,7 @@ def migrate_legacy(
                 f'    async def index(self, ctx):\n'
                 f'        return {{"message": "Migrated {app_name}"}}\n'
             )
-            (mod_dir / 'controllers.py').write_text(ctrl_content)
+            (mod_dir / 'controllers.py').write_text(ctrl_content, encoding="utf-8")
             result.changes.append(f"  Created modules/{app_name}/controllers.py")
 
         # Stub services from models.py
@@ -125,7 +125,7 @@ def migrate_legacy(
                 f'    """Migrated service for {app_name}."""\n'
                 f'    pass\n'
             )
-            (mod_dir / 'services.py').write_text(svc_content)
+            (mod_dir / 'services.py').write_text(svc_content, encoding="utf-8")
             result.changes.append(f"  Created modules/{app_name}/services.py")
 
         # Stub faults
@@ -137,7 +137,7 @@ def migrate_legacy(
             f'    code = "NOT_FOUND"\n'
             f'    message = "{app_name.capitalize()} resource not found"\n'
         )
-        (mod_dir / 'faults.py').write_text(faults_content)
+        (mod_dir / 'faults.py').write_text(faults_content, encoding="utf-8")
         result.changes.append(f"  Created modules/{app_name}/faults.py")
 
     # Generate workspace.py if it doesn't exist
@@ -158,7 +158,7 @@ def migrate_legacy(
             '    .integrate(Integration.fault_handling(default_strategy="propagate"))\n'
             ')\n'
         )
-        ws_file.write_text(ws_content)
+        ws_file.write_text(ws_content, encoding="utf-8")
         result.changes.append(f"Created workspace.py with {len(module_names)} module(s)")
     elif dry_run and not ws_file.exists() and module_names:
         result.changes.append(f"Would create workspace.py with {len(module_names)} module(s)")
