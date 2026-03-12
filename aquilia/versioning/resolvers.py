@@ -22,7 +22,8 @@ from __future__ import annotations
 
 import re
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Dict, List, Optional, Sequence, TYPE_CHECKING
+from collections.abc import Callable, Sequence
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ..request import Request
@@ -44,7 +45,7 @@ class BaseVersionResolver(ABC):
         ...
 
     @abstractmethod
-    def resolve(self, request: "Request") -> Optional[str]:
+    def resolve(self, request: Request) -> str | None:
         """
         Extract version string from request.
 
@@ -106,7 +107,7 @@ class URLPathResolver(BaseVersionResolver):
     def strip_from_path(self) -> bool:
         return self._strip_from_path
 
-    def resolve(self, request: "Request") -> Optional[str]:
+    def resolve(self, request: Request) -> str | None:
         path = request.path if hasattr(request, "path") else "/"
         segments = [s for s in path.strip("/").split("/") if s]
 
@@ -157,7 +158,7 @@ class HeaderResolver(BaseVersionResolver):
     def name(self) -> str:
         return "header"
 
-    def resolve(self, request: "Request") -> Optional[str]:
+    def resolve(self, request: Request) -> str | None:
         headers = request.headers if hasattr(request, "headers") else {}
 
         # Try exact match first
@@ -202,7 +203,7 @@ class QueryParamResolver(BaseVersionResolver):
     def name(self) -> str:
         return "query_param"
 
-    def resolve(self, request: "Request") -> Optional[str]:
+    def resolve(self, request: Request) -> str | None:
         # Try request.query_param() first (Aquilia API)
         if hasattr(request, "query_param"):
             value = request.query_param(self._param_name)
@@ -256,7 +257,7 @@ class MediaTypeResolver(BaseVersionResolver):
     def __init__(
         self,
         param_name: str = "version",
-        vendor_pattern: Optional[str] = None,
+        vendor_pattern: str | None = None,
     ) -> None:
         self._param_name = param_name
         self._vendor_re = (
@@ -269,7 +270,7 @@ class MediaTypeResolver(BaseVersionResolver):
     def name(self) -> str:
         return "media_type"
 
-    def resolve(self, request: "Request") -> Optional[str]:
+    def resolve(self, request: Request) -> str | None:
         headers = request.headers if hasattr(request, "headers") else {}
         accept = None
 
@@ -330,11 +331,11 @@ class ChannelResolver(BaseVersionResolver):
 
     def __init__(
         self,
-        channel_map: Optional[Dict[str, str]] = None,
+        channel_map: dict[str, str] | None = None,
         header_name: str = "X-API-Channel",
         query_param: str = "api_channel",
     ) -> None:
-        self._channel_map: Dict[str, str] = channel_map or {}
+        self._channel_map: dict[str, str] = channel_map or {}
         self._header_name = header_name.lower()
         self._query_param = query_param
 
@@ -342,7 +343,7 @@ class ChannelResolver(BaseVersionResolver):
     def name(self) -> str:
         return "channel"
 
-    def resolve(self, request: "Request") -> Optional[str]:
+    def resolve(self, request: Request) -> str | None:
         channel_name = self._extract_channel(request)
         if not channel_name:
             return None
@@ -351,7 +352,7 @@ class ChannelResolver(BaseVersionResolver):
         version_str = self._channel_map.get(channel_name.lower())
         return version_str
 
-    def _extract_channel(self, request: "Request") -> Optional[str]:
+    def _extract_channel(self, request: Request) -> str | None:
         """Extract channel name from header or query param."""
         # Try header
         headers = request.headers if hasattr(request, "headers") else {}
@@ -408,19 +409,19 @@ class CompositeResolver(BaseVersionResolver):
         ])
     """
 
-    def __init__(self, resolvers: Optional[Sequence[BaseVersionResolver]] = None) -> None:
-        self._resolvers: List[BaseVersionResolver] = list(resolvers or [])
+    def __init__(self, resolvers: Sequence[BaseVersionResolver] | None = None) -> None:
+        self._resolvers: list[BaseVersionResolver] = list(resolvers or [])
 
     @property
     def name(self) -> str:
         return "composite"
 
-    def add(self, resolver: BaseVersionResolver) -> "CompositeResolver":
+    def add(self, resolver: BaseVersionResolver) -> CompositeResolver:
         """Add a resolver to the chain."""
         self._resolvers.append(resolver)
         return self
 
-    def resolve(self, request: "Request") -> Optional[str]:
+    def resolve(self, request: Request) -> str | None:
         for resolver in self._resolvers:
             result = resolver.resolve(request)
             if result is not None:
@@ -428,11 +429,11 @@ class CompositeResolver(BaseVersionResolver):
         return None
 
     @property
-    def resolvers(self) -> List[BaseVersionResolver]:
+    def resolvers(self) -> list[BaseVersionResolver]:
         """Get the resolver chain."""
         return list(self._resolvers)
 
-    def get_url_resolver(self) -> Optional[URLPathResolver]:
+    def get_url_resolver(self) -> URLPathResolver | None:
         """Get the URL path resolver (if any) for path stripping."""
         for r in self._resolvers:
             if isinstance(r, URLPathResolver):
@@ -465,7 +466,7 @@ class CustomResolver(BaseVersionResolver):
 
     def __init__(
         self,
-        extractor: Callable[["Request"], Optional[str]],
+        extractor: Callable[[Request], str | None],
         resolver_name: str = "custom",
     ) -> None:
         self._extractor = extractor
@@ -475,7 +476,7 @@ class CustomResolver(BaseVersionResolver):
     def name(self) -> str:
         return self._name
 
-    def resolve(self, request: "Request") -> Optional[str]:
+    def resolve(self, request: Request) -> str | None:
         try:
             return self._extractor(request)
         except Exception:
