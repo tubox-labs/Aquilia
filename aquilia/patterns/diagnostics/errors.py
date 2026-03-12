@@ -3,17 +3,18 @@ Diagnostic errors for AquilaPatterns.
 """
 
 from dataclasses import dataclass
-from typing import Optional, List
+
 from ..compiler.ast_nodes import Span
 
 
 @dataclass
 class PatternDiagnostic:
     """Base class for all pattern diagnostics."""
+
     message: str
-    span: Optional[Span] = None
-    file: Optional[str] = None
-    suggestions: List[str] = None
+    span: Span | None = None
+    file: str | None = None
+    suggestions: list[str] = None
 
     def __post_init__(self):
         if self.suggestions is None:
@@ -45,25 +46,20 @@ class PatternDiagnostic:
 
 class PatternSyntaxError(PatternDiagnostic, Exception):
     """Syntax error in pattern."""
+
     pass
 
 
 class PatternSemanticError(PatternDiagnostic, Exception):
     """Semantic error in pattern."""
+
     pass
 
 
 class RouteAmbiguityError(PatternDiagnostic, Exception):
     """Two routes have ambiguous patterns."""
 
-    def __init__(
-        self,
-        message: str,
-        pattern1: str,
-        pattern2: str,
-        specificity: int,
-        **kwargs
-    ):
+    def __init__(self, message: str, pattern1: str, pattern2: str, specificity: int, **kwargs):
         super().__init__(message, **kwargs)
         self.pattern1 = pattern1
         self.pattern2 = pattern2

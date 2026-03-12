@@ -2,14 +2,14 @@
 Transform function registry.
 """
 
-from typing import Callable, Dict, Any
+from collections.abc import Callable
 
 
 class TransformRegistry:
     """Registry of transform functions."""
 
     def __init__(self):
-        self.transforms: Dict[str, Callable] = {}
+        self.transforms: dict[str, Callable] = {}
 
     @classmethod
     def default(cls) -> "TransformRegistry":
@@ -32,6 +32,7 @@ class TransformRegistry:
         """Get transform by name."""
         if name not in self.transforms:
             from aquilia.faults.domains import RegistryFault
+
             raise RegistryFault(
                 name=name,
                 message=f"Unknown transform: {name}",
@@ -41,7 +42,9 @@ class TransformRegistry:
 
 def register_transform(name: str):
     """Decorator to register a custom transform."""
+
     def decorator(func: Callable) -> Callable:
         TransformRegistry.default().register(name, func)
         return func
+
     return decorator

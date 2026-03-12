@@ -21,76 +21,67 @@ Philosophy:
 
 from aquilia._version import __version__  # noqa: F401 — re-exported
 
-from .controller import (
-    SocketController,
-)
-
-from .connection import (
-    Connection,
-    ConnectionState,
-    ConnectionScope,
-)
-
-from .decorators import (
-    Socket,
-    OnConnect,
-    OnDisconnect,
-    Event,
-    AckEvent,
-    Subscribe,
-    Unsubscribe,
-    Guard,
-)
-
-from .envelope import (
-    MessageEnvelope,
-    MessageType,
-    MessageCodec,
-    JSONCodec,
-    Schema,
-)
-
-from .runtime import (
-    AquilaSockets,
-    SocketRouter,
-)
-
 from .adapters import (
     Adapter,
     InMemoryAdapter,
     RedisAdapter,
 )
-
-from .guards import (
-    SocketGuard,
-    HandshakeAuthGuard,
-    OriginGuard,
-    MessageAuthGuard,
-    RateLimitGuard,
+from .connection import (
+    Connection,
+    ConnectionScope,
+    ConnectionState,
 )
-
+from .controller import (
+    SocketController,
+)
+from .decorators import (
+    AckEvent,
+    Event,
+    Guard,
+    OnConnect,
+    OnDisconnect,
+    Socket,
+    Subscribe,
+    Unsubscribe,
+)
+from .envelope import (
+    JSONCodec,
+    MessageCodec,
+    MessageEnvelope,
+    MessageType,
+    Schema,
+)
 from .faults import (
-    SocketFault,
-    WS_HANDSHAKE_FAILED,
     WS_AUTH_REQUIRED,
-    WS_MESSAGE_INVALID,
-    WS_ROOM_FULL,
-    WS_RATE_LIMIT_EXCEEDED,
     WS_CONNECTION_CLOSED,
+    WS_HANDSHAKE_FAILED,
+    WS_MESSAGE_INVALID,
     WS_PAYLOAD_TOO_LARGE,
+    WS_RATE_LIMIT_EXCEEDED,
+    WS_ROOM_FULL,
+    SocketFault,
 )
-
+from .guards import (
+    HandshakeAuthGuard,
+    MessageAuthGuard,
+    OriginGuard,
+    RateLimitGuard,
+    SocketGuard,
+)
 from .middleware import (
-    SocketMiddleware,
     MessageValidationMiddleware,
     RateLimitMiddleware,
+    SocketMiddleware,
+)
+from .runtime import (
+    AquilaSockets,
+    SocketRouter,
 )
 
 __all__ = [
     # Core
     "SocketController",
     "Connection",
-    
     # Decorators
     "Socket",
     "OnConnect",
@@ -100,34 +91,28 @@ __all__ = [
     "Subscribe",
     "Unsubscribe",
     "Guard",
-    
     # Envelope
     "MessageEnvelope",
     "MessageType",
     "MessageCodec",
     "JSONCodec",
     "Schema",
-    
     # Connection
     "ConnectionState",
     "ConnectionScope",
-    
     # Runtime
     "AquilaSockets",
     "SocketRouter",
-    
     # Adapters
     "Adapter",
     "InMemoryAdapter",
     "RedisAdapter",
-    
     # Guards
     "SocketGuard",
     "HandshakeAuthGuard",
     "OriginGuard",
     "MessageAuthGuard",
     "RateLimitGuard",
-    
     # Faults
     "SocketFault",
     "WS_HANDSHAKE_FAILED",
@@ -137,7 +122,6 @@ __all__ = [
     "WS_RATE_LIMIT_EXCEEDED",
     "WS_CONNECTION_CLOSED",
     "WS_PAYLOAD_TOO_LARGE",
-    
     # Middleware
     "SocketMiddleware",
     "MessageValidationMiddleware",

@@ -16,7 +16,6 @@ from aquilia.faults.domains import ConfigInvalidFault
 
 from .tokens import KeyDescriptor
 
-
 # ============================================================================
 # Artifact Types
 # ============================================================================
@@ -175,9 +174,10 @@ class ArtifactSigner:
         Returns:
             Base64-encoded signature
         """
+        import base64
+
         from cryptography.hazmat.primitives import hashes, serialization
         from cryptography.hazmat.primitives.asymmetric import padding, rsa
-        import base64
 
         # Compute artifact hash
         artifact_hash = artifact.compute_hash()
@@ -204,9 +204,7 @@ class ArtifactSigner:
         # Encode signature
         return base64.b64encode(signature).decode()
 
-    def verify_artifact(
-        self, artifact: CrousArtifact, signature: str
-    ) -> bool:
+    def verify_artifact(self, artifact: CrousArtifact, signature: str) -> bool:
         """
         Verify artifact signature.
 
@@ -217,19 +215,18 @@ class ArtifactSigner:
         Returns:
             True if signature valid
         """
+        import base64
+
+        from cryptography.exceptions import InvalidSignature
         from cryptography.hazmat.primitives import hashes, serialization
         from cryptography.hazmat.primitives.asymmetric import padding, rsa
-        from cryptography.exceptions import InvalidSignature
-        import base64
 
         try:
             # Compute artifact hash
             artifact_hash = artifact.compute_hash()
 
             # Load public key
-            public_key = serialization.load_pem_public_key(
-                self.signing_key.public_key_pem.encode()
-            )
+            public_key = serialization.load_pem_public_key(self.signing_key.public_key_pem.encode())
 
             # Decode signature
             sig_bytes = base64.b64decode(signature)
@@ -275,16 +272,12 @@ class MemoryArtifactStore:
         """Get artifact by ID."""
         return self._artifacts.get(artifact_id)
 
-    async def list_artifacts(
-        self, artifact_type: str | None = None
-    ) -> list[CrousArtifact]:
+    async def list_artifacts(self, artifact_type: str | None = None) -> list[CrousArtifact]:
         """List artifacts by type."""
         artifacts = list(self._artifacts.values())
 
         if artifact_type:
-            artifacts = [
-                a for a in artifacts if a.artifact_type == artifact_type
-            ]
+            artifacts = [a for a in artifacts if a.artifact_type == artifact_type]
 
         return artifacts
 

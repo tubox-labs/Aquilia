@@ -13,23 +13,24 @@ Auto-discovery:
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable, Dict, List, Optional, Type, TYPE_CHECKING
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from aquilia.models.base import Model
-    from .options import ModelAdmin
+
     from .site import AdminSite
 
 logger = logging.getLogger("aquilia.admin.registry")
 
 # Pending registrations (before AdminSite is created)
-_pending_registrations: List[tuple] = []
+_pending_registrations: list[tuple] = []
 
 
 def register(
     model_or_admin: Any = None,
     *,
-    site: Optional[AdminSite] = None,
+    site: AdminSite | None = None,
 ) -> Callable:
     """
     Register a model or ModelAdmin with the admin site.
@@ -52,11 +53,12 @@ def register(
     """
     from .options import ModelAdmin as _ModelAdmin
 
-    def _do_register(admin_cls: Type[_ModelAdmin], model_cls: Optional[Type[Model]] = None):
+    def _do_register(admin_cls: type[_ModelAdmin], model_cls: type[Model] | None = None):
         """Actually register the admin class."""
         actual_model = model_cls or admin_cls.model
         if actual_model is None:
             from .faults import AdminRegistrationFault
+
             raise AdminRegistrationFault(
                 reason="Must specify a model class either via the 'model' attribute or as a decorator argument.",
                 model_name=admin_cls.__name__,
@@ -69,6 +71,7 @@ def register(
         else:
             # Try default site
             from .site import AdminSite
+
             default_site = AdminSite.default()
             if default_site._initialized:
                 default_site.register_admin(actual_model, admin_instance)
@@ -81,10 +84,12 @@ def register(
         def decorator(cls):
             _do_register(cls)
             return cls
+
         return decorator
 
     if isinstance(model_or_admin, type):
         from .options import ModelAdmin as _ModelAdmin
+
         if issubclass(model_or_admin, _ModelAdmin):
             # @register applied to ModelAdmin class
             _do_register(model_or_admin)
@@ -94,15 +99,17 @@ def register(
             def decorator(cls):
                 _do_register(cls, model_or_admin)
                 return cls
+
             return decorator
 
     from .faults import AdminRegistrationFault
+
     raise AdminRegistrationFault(
         reason=f"Invalid argument to @register: {model_or_admin!r}",
     )
 
 
-def autodiscover() -> Dict[str, Type[Model]]:
+def autodiscover() -> dict[str, type[Model]]:
     """
     Auto-discover and register all models from ModelRegistry.
 
@@ -115,12 +122,13 @@ def autodiscover() -> Dict[str, Type[Model]]:
     Returns:
         Dictionary of model_name -> model_class that were auto-registered.
     """
-    from .site import AdminSite
-    from .options import ModelAdmin
     from aquilia.models.registry import ModelRegistry
 
+    from .options import ModelAdmin
+    from .site import AdminSite
+
     site = AdminSite.default()
-    auto_registered: Dict[str, type] = {}
+    auto_registered: dict[str, type] = {}
 
     # ── Register built-in admin models with custom ModelAdmin configs ──
     _register_admin_models(site)
@@ -143,7 +151,7 @@ def autodiscover() -> Dict[str, Type[Model]]:
     return auto_registered
 
 
-def _register_admin_models(site: "AdminSite") -> None:
+def _register_admin_models(site: AdminSite) -> None:
     """
     Register the built-in admin models with rich ModelAdmin subclasses.
 
@@ -151,23 +159,33 @@ def _register_admin_models(site: "AdminSite") -> None:
     Legacy stubs (ContentType, AdminGroup, etc.) are skipped because
     they carry ``_HAS_ORM = False``.
     """
-    from .options import ModelAdmin
     from .models import _HAS_ORM
+    from .options import ModelAdmin
 
     if not _HAS_ORM:
         return
 
     from .models import (
-        AdminUser,
-        AdminAuditEntry,
         AdminAPIKey,
+        AdminAuditEntry,
         AdminPreference,
+        AdminUser,
     )
 
     # ── AdminUser Admin ──
     if not site.is_registered(AdminUser):
+
         class AdminUserAdmin(ModelAdmin):
-            list_display = ["id", "username", "email", "display_name", "role", "is_active", "login_count", "last_login_at"]
+            list_display = [
+                "id",
+                "username",
+                "email",
+                "display_name",
+                "role",
+                "is_active",
+                "login_count",
+                "last_login_at",
+            ]
             search_fields = ["username", "email", "display_name"]
             list_filter = ["role", "is_active"]
             ordering = ["-created_at"]
@@ -176,27 +194,51 @@ def _register_admin_models(site: "AdminSite") -> None:
             icon = "user"
             verbose_name = "Admin User"
             verbose_name_plural = "Admin Users"
+
         site.register_admin(AdminUser, AdminUserAdmin(model=AdminUser))
 
     # ── AdminAuditEntry Admin ──
     if not site.is_registered(AdminAuditEntry):
+
         class AdminAuditEntryAdmin(ModelAdmin):
-            list_display = ["id", "timestamp", "username", "action", "resource_type", "resource_id", "severity", "category"]
+            list_display = [
+                "id",
+                "timestamp",
+                "username",
+                "action",
+                "resource_type",
+                "resource_id",
+                "severity",
+                "category",
+            ]
             search_fields = ["username", "action", "resource_type", "summary"]
             list_filter = ["action", "severity", "category"]
             ordering = ["-timestamp"]
             readonly_fields = [
-                "id", "timestamp", "user_id", "username", "ip_address",
-                "user_agent", "action", "resource_type", "resource_id",
-                "summary", "detail", "diff", "severity", "category",
+                "id",
+                "timestamp",
+                "user_id",
+                "username",
+                "ip_address",
+                "user_agent",
+                "action",
+                "resource_type",
+                "resource_id",
+                "summary",
+                "detail",
+                "diff",
+                "severity",
+                "category",
             ]
             icon = "list"
             verbose_name = "Audit Entry"
             verbose_name_plural = "Audit Entries"
+
         site.register_admin(AdminAuditEntry, AdminAuditEntryAdmin(model=AdminAuditEntry))
 
     # ── AdminAPIKey Admin ──
     if not site.is_registered(AdminAPIKey):
+
         class AdminAPIKeyAdmin(ModelAdmin):
             list_display = ["id", "name", "prefix", "user_id", "is_active", "last_used_at", "expires_at", "created_at"]
             search_fields = ["name", "prefix"]
@@ -207,10 +249,12 @@ def _register_admin_models(site: "AdminSite") -> None:
             icon = "key"
             verbose_name = "API Key"
             verbose_name_plural = "API Keys"
+
         site.register_admin(AdminAPIKey, AdminAPIKeyAdmin(model=AdminAPIKey))
 
     # ── AdminPreference Admin ──
     if not site.is_registered(AdminPreference):
+
         class AdminPreferenceAdmin(ModelAdmin):
             list_display = ["id", "user_id", "namespace", "updated_at"]
             search_fields = ["namespace"]
@@ -220,6 +264,7 @@ def _register_admin_models(site: "AdminSite") -> None:
             icon = "settings"
             verbose_name = "User Preference"
             verbose_name_plural = "User Preferences"
+
         site.register_admin(AdminPreference, AdminPreferenceAdmin(model=AdminPreference))
 
 

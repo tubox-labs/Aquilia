@@ -19,14 +19,11 @@ from __future__ import annotations
 
 import contextvars
 import html
-import os
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 # ── Request-scoped CSRF token (set by controller before rendering) ───────
-_csrf_token_var: contextvars.ContextVar[str] = contextvars.ContextVar(
-    "_admin_csrf_token", default=""
-)
+_csrf_token_var: contextvars.ContextVar[str] = contextvars.ContextVar("_admin_csrf_token", default="")
 
 
 class _AttrDict(dict):
@@ -65,6 +62,7 @@ def _dict_to_ns(obj: Any) -> Any:
         return [_dict_to_ns(i) for i in obj]
     return obj
 
+
 # ── Template engine setup ────────────────────────────────────────────────────
 
 _TEMPLATES_DIR = Path(__file__).resolve().parent / "templates"
@@ -80,9 +78,9 @@ try:
     _admin_loader = TemplateLoader(search_paths=[str(_TEMPLATES_DIR)])
     _admin_engine = TemplateEngine(
         _admin_loader,
-        sandbox=False,          # Admin templates are trusted first-party code
+        sandbox=False,  # Admin templates are trusted first-party code
         autoescape=True,
-        enable_async=False,     # Admin renders synchronously within event loop
+        enable_async=False,  # Admin renders synchronously within event loop
     )
     # Enable trim_blocks / lstrip_blocks on the underlying Jinja2 env so
     # that admin templates render cleanly without extra whitespace.
@@ -119,6 +117,7 @@ def _render_template(template_name: str, **ctx: Any) -> str:
     if "admin_config" not in ctx:
         try:
             from .site import AdminSite
+
             site = AdminSite.default()
             ctx["admin_config"] = site.admin_config.to_dict()
         except Exception:
@@ -138,6 +137,7 @@ def _render_template(template_name: str, **ctx: Any) -> str:
         tpl = _jinja_env.get_template(template_name)
         return tpl.render(**ctx)
     from .faults import AdminConfigurationFault
+
     raise AdminConfigurationFault(
         "Jinja2 is required for admin templates. Install it with: pip install Jinja2",
         dependency="Jinja2",
@@ -234,20 +234,20 @@ Check your network and try again.</div>
 
 
 def render_dashboard(
-    app_list: List[Dict[str, Any]],
-    stats: Dict[str, Any],
+    app_list: list[dict[str, Any]],
+    stats: dict[str, Any],
     identity_name: str = "Admin",
     identity_avatar: str = "",
     *,
     site_title: str = "Aquilia Admin",
     url_prefix: str = "/admin",
-    containers_summary: Optional[Dict[str, Any]] = None,
-    pods_summary: Optional[Dict[str, Any]] = None,
-    orm_metadata: Optional[Dict[str, Any]] = None,
-    error_stats: Optional[Dict[str, Any]] = None,
-    tasks_stats: Optional[Dict[str, Any]] = None,
-    mlops_summary: Optional[Dict[str, Any]] = None,
-    storage_summary: Optional[Dict[str, Any]] = None,
+    containers_summary: dict[str, Any] | None = None,
+    pods_summary: dict[str, Any] | None = None,
+    orm_metadata: dict[str, Any] | None = None,
+    error_stats: dict[str, Any] | None = None,
+    tasks_stats: dict[str, Any] | None = None,
+    mlops_summary: dict[str, Any] | None = None,
+    storage_summary: dict[str, Any] | None = None,
 ) -> str:
     """Render the admin dashboard."""
     model_counts = stats.get("model_counts", {})
@@ -298,21 +298,26 @@ def render_dashboard(
             mlops_summary=mlops_summary or {},
             # Storage summary
             storage_summary=storage_summary or {},
-            admin_config={"modules": {
-                "containers": bool(containers_summary and containers_summary.get("available")),
-                "pods": bool(pods_summary and pods_summary.get("available")),
-                "storage": bool(storage_summary and storage_summary.get("available")),
-            }},
+            admin_config={
+                "modules": {
+                    "containers": bool(containers_summary and containers_summary.get("available")),
+                    "pods": bool(pods_summary and pods_summary.get("available")),
+                    "storage": bool(storage_summary and storage_summary.get("available")),
+                }
+            },
         )
     return _fallback_dashboard(
-        app_list, stats, identity_name,
-        site_title=site_title, url_prefix=url_prefix,
+        app_list,
+        stats,
+        identity_name,
+        site_title=site_title,
+        url_prefix=url_prefix,
     )
 
 
 def render_list_view(
-    data: Dict[str, Any],
-    app_list: List[Dict[str, Any]],
+    data: dict[str, Any],
+    app_list: list[dict[str, Any]],
     identity_name: str = "Admin",
     identity_avatar: str = "",
     flash: str = "",
@@ -362,20 +367,25 @@ def render_list_view(
             page_title=verbose_name_plural,
         )
     return _fallback_list(
-        data, app_list, identity_name, flash, flash_type,
-        site_title=site_title, url_prefix=url_prefix,
+        data,
+        app_list,
+        identity_name,
+        flash,
+        flash_type,
+        site_title=site_title,
+        url_prefix=url_prefix,
     )
 
 
 def render_form_view(
-    data: Dict[str, Any],
-    app_list: List[Dict[str, Any]],
+    data: dict[str, Any],
+    app_list: list[dict[str, Any]],
     identity_name: str = "Admin",
     identity_avatar: str = "",
     is_create: bool = False,
     flash: str = "",
     flash_type: str = "success",
-    query_inspection: Optional[List[Dict[str, Any]]] = None,
+    query_inspection: list[dict[str, Any]] | None = None,
     *,
     site_title: str = "Aquilia Admin",
     url_prefix: str = "/admin",
@@ -418,14 +428,20 @@ def render_form_view(
             page_title=f"{'Add' if is_create else 'Edit'} {verbose_name}" + (f" #{pk}" if not is_create else ""),
         )
     return _fallback_form(
-        data, app_list, identity_name, is_create, flash, flash_type,
-        site_title=site_title, url_prefix=url_prefix,
+        data,
+        app_list,
+        identity_name,
+        is_create,
+        flash,
+        flash_type,
+        site_title=site_title,
+        url_prefix=url_prefix,
     )
 
 
 def render_audit_page(
-    entries: List[Dict[str, Any]],
-    app_list: List[Dict[str, Any]],
+    entries: list[dict[str, Any]],
+    app_list: list[dict[str, Any]],
     identity_name: str = "Admin",
     identity_avatar: str = "",
     total: int = 0,
@@ -455,18 +471,22 @@ def render_audit_page(
             page_title="Audit Log",
         )
     return _fallback_audit(
-        entries, app_list, identity_name, total,
-        site_title=site_title, url_prefix=url_prefix,
+        entries,
+        app_list,
+        identity_name,
+        total,
+        site_title=site_title,
+        url_prefix=url_prefix,
     )
 
 
 def render_orm_page(
-    app_list: List[Dict[str, Any]],
-    model_counts: Dict[str, Any],
+    app_list: list[dict[str, Any]],
+    model_counts: dict[str, Any],
     identity_name: str = "Admin",
     identity_avatar: str = "",
-    model_schema: Optional[List[Dict[str, Any]]] = None,
-    orm_metadata: Optional[Dict[str, Any]] = None,
+    model_schema: list[dict[str, Any]] | None = None,
+    orm_metadata: dict[str, Any] | None = None,
     *,
     site_title: str = "Aquilia Admin",
     url_prefix: str = "/admin",
@@ -478,7 +498,7 @@ def render_orm_page(
     # Build relation edges and index stats from schema
     schema = model_schema or []
     metadata = orm_metadata or {}
-    all_relations: List[Dict[str, Any]] = []
+    all_relations: list[dict[str, Any]] = []
     total_indexes = 0
     total_fk = 0
     total_m2m = 0
@@ -497,20 +517,19 @@ def render_orm_page(
         # Also count M2M from m2m_tables (not in relations list)
         for jt in m.get("m2m_tables", []):
             # Avoid double-counting if already in relations
-            already = any(
-                r.get("type") == "M2M" and r.get("field") == jt.get("field")
-                for r in m.get("relations", [])
-            )
+            already = any(r.get("type") == "M2M" and r.get("field") == jt.get("field") for r in m.get("relations", []))
             if not already:
                 total_m2m += 1
-                all_relations.append({
-                    "type": "M2M",
-                    "field": jt.get("field", ""),
-                    "from": m["name"],
-                    "to": jt.get("target_model", "?"),
-                    "related_name": "",
-                    "db_table": jt.get("db_table", ""),
-                })
+                all_relations.append(
+                    {
+                        "type": "M2M",
+                        "field": jt.get("field", ""),
+                        "from": m["name"],
+                        "to": jt.get("target_model", "?"),
+                        "related_name": "",
+                        "db_table": jt.get("db_table", ""),
+                    }
+                )
 
     if _HAS_JINJA2:
         return _render_template(
@@ -539,12 +558,12 @@ def render_orm_page(
 
 
 def render_build_page(
-    build_info: Dict[str, Any],
-    artifacts: List[Dict[str, Any]],
-    pipeline_phases: List[Dict[str, Any]],
+    build_info: dict[str, Any],
+    artifacts: list[dict[str, Any]],
+    pipeline_phases: list[dict[str, Any]],
     build_log: str = "",
-    build_files: Optional[List[Dict[str, Any]]] = None,
-    app_list: Optional[List[Dict[str, Any]]] = None,
+    build_files: list[dict[str, Any]] | None = None,
+    app_list: list[dict[str, Any]] | None = None,
     identity_name: str = "Admin",
     identity_avatar: str = "",
     *,
@@ -574,8 +593,8 @@ def render_build_page(
 
 
 def render_migrations_page(
-    migrations: List[Dict[str, Any]],
-    app_list: Optional[List[Dict[str, Any]]] = None,
+    migrations: list[dict[str, Any]],
+    app_list: list[dict[str, Any]] | None = None,
     identity_name: str = "Admin",
     identity_avatar: str = "",
     *,
@@ -584,9 +603,7 @@ def render_migrations_page(
 ) -> str:
     """Render the migrations page with syntax highlighted source."""
     total_operations = sum(m.get("operations_count", 0) for m in migrations)
-    total_models_affected = len(set(
-        model for m in migrations for model in m.get("models", [])
-    ))
+    total_models_affected = len(set(model for m in migrations for model in m.get("models", [])))
 
     if _HAS_JINJA2:
         return _render_template(
@@ -608,9 +625,9 @@ def render_migrations_page(
 
 
 def render_config_page(
-    config_files: List[Dict[str, Any]],
-    workspace_info: Optional[Dict[str, Any]] = None,
-    app_list: Optional[List[Dict[str, Any]]] = None,
+    config_files: list[dict[str, Any]],
+    workspace_info: dict[str, Any] | None = None,
+    app_list: list[dict[str, Any]] | None = None,
     identity_name: str = "Admin",
     identity_avatar: str = "",
     *,
@@ -637,8 +654,8 @@ def render_config_page(
 
 
 def render_workspace_page(
-    workspace: Dict[str, Any],
-    app_list: Optional[List[Dict[str, Any]]] = None,
+    workspace: dict[str, Any],
+    app_list: list[dict[str, Any]] | None = None,
     identity_name: str = "Admin",
     identity_avatar: str = "",
     *,
@@ -665,10 +682,10 @@ def render_workspace_page(
 
 
 def render_permissions_page(
-    roles: List[Dict[str, Any]],
-    all_permissions: List[str],
-    model_permissions: List[Dict[str, Any]],
-    app_list: Optional[List[Dict[str, Any]]] = None,
+    roles: list[dict[str, Any]],
+    all_permissions: list[str],
+    model_permissions: list[dict[str, Any]],
+    app_list: list[dict[str, Any]] | None = None,
     identity_name: str = "Admin",
     identity_avatar: str = "",
     flash: str = "",
@@ -700,8 +717,8 @@ def render_permissions_page(
 
 
 def render_monitoring_page(
-    monitoring: Dict[str, Any],
-    app_list: Optional[List[Dict[str, Any]]] = None,
+    monitoring: dict[str, Any],
+    app_list: list[dict[str, Any]] | None = None,
     identity_name: str = "Admin",
     identity_avatar: str = "",
     *,
@@ -730,8 +747,8 @@ def render_monitoring_page(
 
 
 def render_containers_page(
-    containers_data: Dict[str, Any],
-    app_list: Optional[List[Dict[str, Any]]] = None,
+    containers_data: dict[str, Any],
+    app_list: list[dict[str, Any]] | None = None,
     identity_name: str = "Admin",
     identity_avatar: str = "",
     *,
@@ -768,8 +785,8 @@ def render_containers_page(
 
 
 def render_pods_page(
-    pods_data: Dict[str, Any],
-    app_list: Optional[List[Dict[str, Any]]] = None,
+    pods_data: dict[str, Any],
+    app_list: list[dict[str, Any]] | None = None,
     identity_name: str = "Admin",
     identity_avatar: str = "",
     *,
@@ -806,8 +823,8 @@ def render_pods_page(
 
 
 def render_storage_page(
-    storage_data: Dict[str, Any],
-    app_list: Optional[List[Dict[str, Any]]] = None,
+    storage_data: dict[str, Any],
+    app_list: list[dict[str, Any]] | None = None,
     identity_name: str = "Admin",
     identity_avatar: str = "",
     *,
@@ -815,7 +832,6 @@ def render_storage_page(
     url_prefix: str = "/admin",
 ) -> str:
     """Render the storage admin page with backend analytics and file browser."""
-    import json as _json
 
     available = storage_data.get("available", False)
     backends = storage_data.get("backends", [])
@@ -847,9 +863,9 @@ def render_storage_page(
     healthy_count = sum(1 for v in health.values() if v)
 
     # File type distribution
-    file_type_count: Dict[str, int] = {}
-    extension_count: Dict[str, int] = {}
-    size_by_type: Dict[str, int] = {}
+    file_type_count: dict[str, int] = {}
+    extension_count: dict[str, int] = {}
+    size_by_type: dict[str, int] = {}
     largest_file_size = 0
     largest_file_name = ""
 
@@ -1008,8 +1024,8 @@ def render_storage_page(
 
 
 def render_admin_users_page(
-    users: List[Dict[str, Any]],
-    app_list: Optional[List[Dict[str, Any]]] = None,
+    users: list[dict[str, Any]],
+    app_list: list[dict[str, Any]] | None = None,
     identity_name: str = "Admin",
     identity_avatar: str = "",
     *,
@@ -1040,8 +1056,8 @@ def render_admin_users_page(
 
 
 def render_profile_page(
-    user: Dict[str, Any],
-    app_list: Optional[List[Dict[str, Any]]] = None,
+    user: dict[str, Any],
+    app_list: list[dict[str, Any]] | None = None,
     identity_name: str = "Admin",
     identity_avatar: str = "",
     *,
@@ -1072,8 +1088,8 @@ def render_profile_page(
 
 
 def render_api_keys_page(
-    keys: List[Dict[str, Any]],
-    app_list: Optional[List[Dict[str, Any]]] = None,
+    keys: list[dict[str, Any]],
+    app_list: list[dict[str, Any]] | None = None,
     identity_name: str = "Admin",
     identity_avatar: str = "",
     *,
@@ -1104,8 +1120,8 @@ def render_api_keys_page(
 
 
 def render_preferences_page(
-    preferences: List[Dict[str, Any]],
-    app_list: Optional[List[Dict[str, Any]]] = None,
+    preferences: list[dict[str, Any]],
+    app_list: list[dict[str, Any]] | None = None,
     identity_name: str = "Admin",
     identity_avatar: str = "",
     *,
@@ -1139,7 +1155,7 @@ def render_forbidden_page(
     module_name: str = "this page",
     required_permission: str = "",
     current_role: str = "",
-    app_list: Optional[List[Dict[str, Any]]] = None,
+    app_list: list[dict[str, Any]] | None = None,
     identity_name: str = "Admin",
     identity_avatar: str = "",
     *,
@@ -1148,6 +1164,7 @@ def render_forbidden_page(
 ) -> str:
     """Render a styled 403 Forbidden page when a user lacks permissions."""
     import datetime as _dt
+
     ts = _dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     if _HAS_JINJA2:
         return _render_template(
@@ -1179,7 +1196,7 @@ def render_error_page(
     status: int = 404,
     title: str = "Not Found",
     message: str = "",
-    app_list: Optional[List[Dict[str, Any]]] = None,
+    app_list: list[dict[str, Any]] | None = None,
     identity_name: str = "Admin",
     identity_avatar: str = "",
     *,
@@ -1224,7 +1241,7 @@ def render_disabled_page(
     flat_hint: str = "",
     icon_key: str = "",
     description: str = "",
-    app_list: Optional[List[Dict[str, Any]]] = None,
+    app_list: list[dict[str, Any]] | None = None,
     identity_name: str = "Admin",
     identity_avatar: str = "",
     *,
@@ -1294,9 +1311,10 @@ def render_disabled_page(
 # Query Inspector, Tasks, Errors pages
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 def render_query_inspector_page(
-    query_data: Dict[str, Any],
-    app_list: Optional[List[Dict[str, Any]]] = None,
+    query_data: dict[str, Any],
+    app_list: list[dict[str, Any]] | None = None,
     identity_name: str = "Admin",
     identity_avatar: str = "",
     *,
@@ -1342,8 +1360,8 @@ def render_query_inspector_page(
 
 
 def render_provider_page(
-    provider_data: Dict[str, Any],
-    app_list: Optional[List[Dict[str, Any]]] = None,
+    provider_data: dict[str, Any],
+    app_list: list[dict[str, Any]] | None = None,
     identity_name: str = "Admin",
     identity_avatar: str = "",
     *,
@@ -1418,8 +1436,8 @@ def render_provider_page(
 
 
 def render_mailer_page(
-    mailer_data: Dict[str, Any],
-    app_list: Optional[List[Dict[str, Any]]] = None,
+    mailer_data: dict[str, Any],
+    app_list: list[dict[str, Any]] | None = None,
     identity_name: str = "Admin",
     identity_avatar: str = "",
     *,
@@ -1467,8 +1485,8 @@ def render_mailer_page(
 
 
 def render_tasks_page(
-    tasks_data: Dict[str, Any],
-    app_list: Optional[List[Dict[str, Any]]] = None,
+    tasks_data: dict[str, Any],
+    app_list: list[dict[str, Any]] | None = None,
     identity_name: str = "Admin",
     identity_avatar: str = "",
     *,
@@ -1516,8 +1534,8 @@ def render_tasks_page(
 
 
 def render_errors_page(
-    errors_data: Dict[str, Any],
-    app_list: Optional[List[Dict[str, Any]]] = None,
+    errors_data: dict[str, Any],
+    app_list: list[dict[str, Any]] | None = None,
     identity_name: str = "Admin",
     identity_avatar: str = "",
     *,
@@ -1561,8 +1579,8 @@ def render_errors_page(
 
 
 def render_mlops_page(
-    mlops_data: Dict[str, Any],
-    app_list: Optional[List[Dict[str, Any]]] = None,
+    mlops_data: dict[str, Any],
+    app_list: list[dict[str, Any]] | None = None,
     identity_name: str = "Admin",
     identity_avatar: str = "",
     *,
@@ -1640,8 +1658,8 @@ def render_mlops_page(
 
 
 def render_testing_page(
-    testing_data: Dict[str, Any],
-    app_list: Optional[List[Dict[str, Any]]] = None,
+    testing_data: dict[str, Any],
+    app_list: list[dict[str, Any]] | None = None,
     identity_name: str = "Admin",
     identity_avatar: str = "",
     *,
@@ -1760,8 +1778,9 @@ def _fallback_dashboard(app_list: list, stats: dict, identity_name: str = "Admin
 <p>Logged in as {html.escape(identity_name)}</p></div></body></html>"""
 
 
-def _fallback_list(data: dict, app_list: list, identity_name: str = "Admin",
-                   flash: str = "", flash_type: str = "success", **kw: Any) -> str:
+def _fallback_list(
+    data: dict, app_list: list, identity_name: str = "Admin", flash: str = "", flash_type: str = "success", **kw: Any
+) -> str:
     model = data.get("model_name", "Model")
     total = data.get("total", 0)
     return f"""<!DOCTYPE html><html lang="en" data-theme="dark"><head>
@@ -1769,8 +1788,15 @@ def _fallback_list(data: dict, app_list: list, identity_name: str = "Admin",
 <body><div style="padding:24px"><h1>{html.escape(model)}</h1><p>{total} records</p></div></body></html>"""
 
 
-def _fallback_form(data: dict, app_list: list, identity_name: str = "Admin",
-                   is_create: bool = False, flash: str = "", flash_type: str = "success", **kw: Any) -> str:
+def _fallback_form(
+    data: dict,
+    app_list: list,
+    identity_name: str = "Admin",
+    is_create: bool = False,
+    flash: str = "",
+    flash_type: str = "success",
+    **kw: Any,
+) -> str:
     model = data.get("model_name", "Model")
     title = f"{'Add' if is_create else 'Edit'} {model}"
     return f"""<!DOCTYPE html><html lang="en" data-theme="dark"><head>
@@ -1778,8 +1804,7 @@ def _fallback_form(data: dict, app_list: list, identity_name: str = "Admin",
 <body><div style="padding:24px"><h1>{html.escape(title)}</h1><p>Form view (install Jinja2 for full UI)</p></div></body></html>"""
 
 
-def _fallback_audit(entries: list, app_list: list, identity_name: str = "Admin",
-                    total: int = 0, **kw: Any) -> str:
+def _fallback_audit(entries: list, app_list: list, identity_name: str = "Admin", total: int = 0, **kw: Any) -> str:
     return f"""<!DOCTYPE html><html lang="en" data-theme="dark"><head>
 <meta charset="UTF-8"><title>Audit Log -- Aquilia Admin</title><style>{_FALLBACK_CSS}</style></head>
 <body><div style="padding:24px"><h1>Audit Log</h1><p>{total} entries</p></div></body></html>"""

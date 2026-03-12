@@ -24,9 +24,9 @@ from __future__ import annotations
 
 import abc
 import logging
-import time
+from collections.abc import AsyncIterator
 from enum import Enum
-from typing import Any, AsyncIterator, Dict, List, Optional
+from typing import Any
 
 from .._types import (
     BatchRequest,
@@ -42,6 +42,7 @@ logger = logging.getLogger("aquilia.mlops.runtime")
 
 # ── Model State FSM ──────────────────────────────────────────────────────
 
+
 class ModelState(str, Enum):
     """
     Lifecycle states for a model runtime.
@@ -49,21 +50,22 @@ class ModelState(str, Enum):
     The state machine enforces valid transitions and gives the orchestrator
     and health-check endpoints a clear view of model readiness.
     """
+
     UNLOADED = "unloaded"
-    PREPARED = "prepared"      # artifacts downloaded / validated
-    LOADING = "loading"        # model being loaded into memory / device
-    LOADED = "loaded"          # ready for inference
-    FAILED = "failed"          # load or inference caused a fatal error
-    UNLOADING = "unloading"    # graceful shutdown in progress
+    PREPARED = "prepared"  # artifacts downloaded / validated
+    LOADING = "loading"  # model being loaded into memory / device
+    LOADED = "loaded"  # ready for inference
+    FAILED = "failed"  # load or inference caused a fatal error
+    UNLOADING = "unloading"  # graceful shutdown in progress
 
 
 # Legal transitions: (from_state) → {to_states}
-_TRANSITIONS: Dict[ModelState, set] = {
-    ModelState.UNLOADED:  {ModelState.PREPARED},
-    ModelState.PREPARED:  {ModelState.LOADING, ModelState.UNLOADED},
-    ModelState.LOADING:   {ModelState.LOADED, ModelState.FAILED},
-    ModelState.LOADED:    {ModelState.UNLOADING, ModelState.FAILED},
-    ModelState.FAILED:    {ModelState.LOADING, ModelState.UNLOADED},
+_TRANSITIONS: dict[ModelState, set] = {
+    ModelState.UNLOADED: {ModelState.PREPARED},
+    ModelState.PREPARED: {ModelState.LOADING, ModelState.UNLOADED},
+    ModelState.LOADING: {ModelState.LOADED, ModelState.FAILED},
+    ModelState.LOADED: {ModelState.UNLOADING, ModelState.FAILED},
+    ModelState.FAILED: {ModelState.LOADING, ModelState.UNLOADED},
     ModelState.UNLOADING: {ModelState.UNLOADED},
 }
 
@@ -83,6 +85,7 @@ class InvalidStateTransition(RuntimeError):
 
 # ── Base Runtime ─────────────────────────────────────────────────────────
 
+
 class BaseRuntime(abc.ABC):
     """
     Abstract runtime for model inference.
@@ -96,14 +99,14 @@ class BaseRuntime(abc.ABC):
     """
 
     def __init__(self) -> None:
-        self._manifest: Optional[ModelpackManifest] = None
+        self._manifest: ModelpackManifest | None = None
         self._model_dir: str = ""
         self._state: ModelState = ModelState.UNLOADED
         self._load_time_ms: float = 0.0
         self._device: str = "cpu"
         self._total_infer_count: int = 0
         self._total_infer_time_ms: float = 0.0
-        self._last_error: Optional[str] = None
+        self._last_error: str | None = None
 
     # ── State Machine ────────────────────────────────────────────────
 
@@ -126,13 +129,12 @@ class BaseRuntime(abc.ABC):
         allowed = _TRANSITIONS.get(self._state, set())
         if target not in allowed:
             raise InvalidStateTransition(self._state, target)
-        old = self._state
         self._state = target
 
     # ── Properties ───────────────────────────────────────────────────
 
     @property
-    def manifest(self) -> Optional[ModelpackManifest]:
+    def manifest(self) -> ModelpackManifest | None:
         return self._manifest
 
     @property
@@ -140,7 +142,7 @@ class BaseRuntime(abc.ABC):
         return self._device
 
     @property
-    def last_error(self) -> Optional[str]:
+    def last_error(self) -> str | None:
         return self._last_error
 
     # ── Abstract Interface ───────────────────────────────────────────
@@ -162,12 +164,12 @@ class BaseRuntime(abc.ABC):
         """
 
     @abc.abstractmethod
-    async def infer(self, batch: BatchRequest) -> List[InferenceResult]:
+    async def infer(self, batch: BatchRequest) -> list[InferenceResult]:
         """Run inference on a batch of requests."""
 
     # ── Optional Overrides ───────────────────────────────────────────
 
-    async def preprocess(self, raw_input: Dict[str, Any]) -> Dict[str, Any]:
+    async def preprocess(self, raw_input: dict[str, Any]) -> dict[str, Any]:
         """
         Transform raw request inputs before inference.
 
@@ -176,7 +178,7 @@ class BaseRuntime(abc.ABC):
         """
         return raw_input
 
-    async def postprocess(self, raw_output: Dict[str, Any]) -> Dict[str, Any]:
+    async def postprocess(self, raw_output: dict[str, Any]) -> dict[str, Any]:
         """
         Transform raw model outputs before returning to the client.
 
@@ -185,7 +187,7 @@ class BaseRuntime(abc.ABC):
         """
         return raw_output
 
-    async def health(self) -> Dict[str, Any]:
+    async def health(self) -> dict[str, Any]:
         """Health check."""
         return {
             "status": self._state.value,
@@ -196,12 +198,9 @@ class BaseRuntime(abc.ABC):
             "last_error": self._last_error,
         }
 
-    async def metrics(self) -> Dict[str, float]:
+    async def metrics(self) -> dict[str, float]:
         """Collect runtime-specific metrics."""
-        avg = (
-            self._total_infer_time_ms / self._total_infer_count
-            if self._total_infer_count > 0 else 0.0
-        )
+        avg = self._total_infer_time_ms / self._total_infer_count if self._total_infer_count > 0 else 0.0
         return {
             "state": float(self._state == ModelState.LOADED),
             "load_time_ms": self._load_time_ms,
@@ -217,7 +216,7 @@ class BaseRuntime(abc.ABC):
         self._manifest = None
         self._set_state(ModelState.UNLOADED)
 
-    async def memory_info(self) -> Dict[str, Any]:
+    async def memory_info(self) -> dict[str, Any]:
         """Return memory / device usage info (override in subclasses)."""
         return {"device": self._device, "state": self._state.value}
 
@@ -225,6 +224,7 @@ class BaseRuntime(abc.ABC):
         """Auto-detect best available device."""
         try:
             import torch
+
             if torch.cuda.is_available():
                 return "cuda"
             if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
@@ -235,6 +235,7 @@ class BaseRuntime(abc.ABC):
 
 
 # ── Streaming Runtime ────────────────────────────────────────────────────
+
 
 class BaseStreamingRuntime(BaseRuntime):
     """
@@ -262,22 +263,25 @@ class BaseStreamingRuntime(BaseRuntime):
             total_tokens=self._total_prompt_tokens + self._total_tokens_generated,
         )
 
-    async def metrics(self) -> Dict[str, float]:
+    async def metrics(self) -> dict[str, float]:
         """Extended metrics including token stats."""
         base = await super().metrics()
-        base.update({
-            "total_tokens_generated": float(self._total_tokens_generated),
-            "total_prompt_tokens": float(self._total_prompt_tokens),
-            "total_stream_requests": float(self._total_stream_requests),
-        })
+        base.update(
+            {
+                "total_tokens_generated": float(self._total_tokens_generated),
+                "total_prompt_tokens": float(self._total_prompt_tokens),
+                "total_stream_requests": float(self._total_stream_requests),
+            }
+        )
         return base
 
 
 # ── Runtime Selection ────────────────────────────────────────────────────
 
+
 def select_runtime(
     manifest: ModelpackManifest,
-    preferred: Optional[str] = None,
+    preferred: str | None = None,
     gpu_available: bool = False,
 ) -> BaseRuntime:
     """
@@ -294,18 +298,22 @@ def select_runtime(
 
     if preferred == "onnxruntime":
         from .onnx_runtime import ONNXRuntimeAdapter
+
         return ONNXRuntimeAdapter()
 
     if preferred == "triton":
         from .triton_adapter import TritonAdapter
+
         return TritonAdapter()
 
     if preferred == "torchserve":
         from .torchserve_exporter import TorchServeExporter
+
         return TorchServeExporter()
 
     if preferred == "bentoml":
         from .bento_exporter import BentoExporter
+
         return BentoExporter()
 
     if preferred in ("huggingface", "vllm", "llamacpp", "ctransformers"):
@@ -319,6 +327,7 @@ def select_runtime(
     if manifest.entrypoint.endswith(".onnx"):
         try:
             from .onnx_runtime import ONNXRuntimeAdapter
+
             return ONNXRuntimeAdapter()
         except ImportError:
             pass
@@ -326,6 +335,7 @@ def select_runtime(
     if gpu_available:
         try:
             from .triton_adapter import TritonAdapter
+
             return TritonAdapter()
         except ImportError:
             pass

@@ -37,26 +37,13 @@ Usage:
 
 from __future__ import annotations
 
-import inspect
+import logging
 import re
-from dataclasses import dataclass, field
-from datetime import datetime, date
+from datetime import datetime
 from typing import (
     Any,
-    Callable,
     ClassVar,
-    Dict,
-    List,
-    Literal,
-    Optional,
-    Sequence,
-    Set,
-    Tuple,
-    Type,
-    Union,
 )
-
-import logging
 
 _logger = logging.getLogger("aquilia.controller.filters")
 
@@ -70,9 +57,9 @@ _MAX_REGEX_LENGTH: int = 256
 # Patterns that are known to cause catastrophic backtracking.
 # We reject any user-supplied regex that contains these sub-patterns.
 _DANGEROUS_REGEX_PATTERNS: tuple[re.Pattern, ...] = (
-    re.compile(r'\(.*[\+\*].*\)[\+\*]'),   # (a+)+ or (a*)*
-    re.compile(r'\(.*\|.*\)[\+\*]'),        # (a|a)+ alternation amplifier
-    re.compile(r'\.[\+\*].*\.[\+\*]'),      # .+.+ nested quantifiers
+    re.compile(r"\(.*[\+\*].*\)[\+\*]"),  # (a+)+ or (a*)*
+    re.compile(r"\(.*\|.*\)[\+\*]"),  # (a|a)+ alternation amplifier
+    re.compile(r"\.[\+\*].*\.[\+\*]"),  # .+.+ nested quantifiers
 )
 
 
@@ -85,6 +72,7 @@ def _safe_regex_compile(pattern: str, flags: int = 0) -> re.Pattern:
     """
     if len(pattern) > _MAX_REGEX_LENGTH:
         from aquilia.faults.domains import ConfigInvalidFault
+
         raise ConfigInvalidFault(
             key="filter.regex_pattern",
             reason=f"Regex pattern too long ({len(pattern)} chars, max {_MAX_REGEX_LENGTH}). "
@@ -93,9 +81,7 @@ def _safe_regex_compile(pattern: str, flags: int = 0) -> re.Pattern:
 
     for dangerous in _DANGEROUS_REGEX_PATTERNS:
         if dangerous.search(pattern):
-            _logger.warning(
-                "Rejected potentially dangerous regex pattern: %r", pattern
-            )
+            _logger.warning("Rejected potentially dangerous regex pattern: %r", pattern)
             raise ConfigInvalidFault(
                 key="filter.regex_pattern",
                 reason="Regex pattern rejected: contains constructs that may cause "
@@ -107,6 +93,7 @@ def _safe_regex_compile(pattern: str, flags: int = 0) -> re.Pattern:
         return re.compile(pattern, flags)
     except re.error as exc:
         from aquilia.faults.domains import ConfigInvalidFault
+
         raise ConfigInvalidFault(
             key="filter.regex_pattern",
             reason=f"Invalid regex pattern: {exc}",
@@ -129,35 +116,36 @@ __all__ = [
 # ═══════════════════════════════════════════════════════════════════════════
 
 # Supported lookup suffixes → description
-LOOKUP_TYPES: Dict[str, str] = {
-    "exact":       "Exact match (default)",
-    "iexact":      "Case-insensitive exact match",
-    "contains":    "Substring match (case-sensitive)",
-    "icontains":   "Substring match (case-insensitive)",
-    "startswith":  "Starts with",
+LOOKUP_TYPES: dict[str, str] = {
+    "exact": "Exact match (default)",
+    "iexact": "Case-insensitive exact match",
+    "contains": "Substring match (case-sensitive)",
+    "icontains": "Substring match (case-insensitive)",
+    "startswith": "Starts with",
     "istartswith": "Starts with (case-insensitive)",
-    "endswith":    "Ends with",
-    "iendswith":   "Ends with (case-insensitive)",
-    "gt":          "Greater than",
-    "gte":         "Greater than or equal",
-    "lt":          "Less than",
-    "lte":         "Less than or equal",
-    "in":          "In list (comma-separated)",
-    "range":       "Between two values (comma-separated)",
-    "isnull":      "Is null (true/false)",
-    "regex":       "Regex match",
-    "iregex":      "Regex match (case-insensitive)",
-    "ne":          "Not equal",
-    "date":        "Date portion of datetime",
-    "year":        "Year of date/datetime",
-    "month":       "Month of date/datetime",
-    "day":         "Day of date/datetime",
+    "endswith": "Ends with",
+    "iendswith": "Ends with (case-insensitive)",
+    "gt": "Greater than",
+    "gte": "Greater than or equal",
+    "lt": "Less than",
+    "lte": "Less than or equal",
+    "in": "In list (comma-separated)",
+    "range": "Between two values (comma-separated)",
+    "isnull": "Is null (true/false)",
+    "regex": "Regex match",
+    "iregex": "Regex match (case-insensitive)",
+    "ne": "Not equal",
+    "date": "Date portion of datetime",
+    "year": "Year of date/datetime",
+    "month": "Month of date/datetime",
+    "day": "Day of date/datetime",
 }
 
 
 # ═══════════════════════════════════════════════════════════════════════════
 #  Value coercion helpers
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 def _coerce_bool(val: str) -> bool:
     """Coerce a query-string value to a Python bool."""
@@ -201,6 +189,7 @@ def _coerce_value(val: str, lookup: str = "exact") -> Any:
 # ═══════════════════════════════════════════════════════════════════════════
 #  In-memory list filtering (for non-ORM data)
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 def _matches_lookup(item_value: Any, lookup: str, filter_value: Any) -> bool:
     """Test a single lookup predicate against a value."""
@@ -286,19 +275,16 @@ def _get_nested(obj: Any, dotted_key: str) -> Any:
     parts = dotted_key.split(".")
     current = obj
     for part in parts:
-        if isinstance(current, dict):
-            current = current.get(part)
-        else:
-            current = getattr(current, part, None)
+        current = current.get(part) if isinstance(current, dict) else getattr(current, part, None)
         if current is None:
             return None
     return current
 
 
 def apply_filters_to_list(
-    data: List[Any],
-    filters: Dict[str, Any],
-) -> List[Any]:
+    data: list[Any],
+    filters: dict[str, Any],
+) -> list[Any]:
     """
     Apply parsed filter clauses to an in-memory list of dicts / objects.
 
@@ -321,18 +307,15 @@ def apply_filters_to_list(
             field_name = key
             lookup = "exact"
 
-        result = [
-            item for item in result
-            if _matches_lookup(_get_nested(item, field_name), lookup, val)
-        ]
+        result = [item for item in result if _matches_lookup(_get_nested(item, field_name), lookup, val)]
     return result
 
 
 def apply_search_to_list(
-    data: List[Any],
+    data: list[Any],
     search_term: str,
-    search_fields: List[str],
-) -> List[Any]:
+    search_fields: list[str],
+) -> list[Any]:
     """
     Apply text search over *search_fields* on an in-memory list.
 
@@ -342,19 +325,13 @@ def apply_search_to_list(
     if not search_term or not search_fields:
         return data
     term_lower = search_term.lower()
-    return [
-        item for item in data
-        if any(
-            term_lower in str(_get_nested(item, f) or "").lower()
-            for f in search_fields
-        )
-    ]
+    return [item for item in data if any(term_lower in str(_get_nested(item, f) or "").lower() for f in search_fields)]
 
 
 def apply_ordering_to_list(
-    data: List[Any],
-    ordering: List[str],
-) -> List[Any]:
+    data: list[Any],
+    ordering: list[str],
+) -> list[Any]:
     """
     Sort an in-memory list by one or more fields.
 
@@ -390,6 +367,7 @@ def apply_ordering_to_list(
 # ═══════════════════════════════════════════════════════════════════════════
 #  FilterSet metaclass & class
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class FilterSetMeta(type):
     """
@@ -467,9 +445,9 @@ class FilterSet(metaclass=FilterSetMeta):
                 return {"category": value}
     """
 
-    _filter_fields: ClassVar[Dict[str, List[str]]] = {}
+    _filter_fields: ClassVar[dict[str, list[str]]] = {}
 
-    def __init__(self, *, request: Any = None, query_params: Optional[Dict[str, str]] = None):
+    def __init__(self, *, request: Any = None, query_params: dict[str, str] | None = None):
         if query_params is not None:
             self._params = query_params
         elif request is not None:
@@ -484,22 +462,19 @@ class FilterSet(metaclass=FilterSetMeta):
 
     # ── Public API ───────────────────────────────────────────────────
 
-    def parse(self) -> Dict[str, Any]:
+    def parse(self) -> dict[str, Any]:
         """
         Parse query parameters into ORM-compatible filter clauses.
 
         Returns a dict like ``{"field__lookup": value, ...}`` that can be
         spread into ``Model.objects.filter(**clauses)``.
         """
-        clauses: Dict[str, Any] = {}
+        clauses: dict[str, Any] = {}
         for field_name, lookups in self._filter_fields.items():
             for lookup in lookups:
                 # Query param key: ``field`` for exact, ``field__lookup``
                 # otherwise
-                if lookup == "exact":
-                    param_key = field_name
-                else:
-                    param_key = f"{field_name}__{lookup}"
+                param_key = field_name if lookup == "exact" else f"{field_name}__{lookup}"
 
                 raw = self._params.get(param_key)
                 if raw is None:
@@ -525,7 +500,7 @@ class FilterSet(metaclass=FilterSetMeta):
 
         return clauses
 
-    def filter_list(self, data: List[Any]) -> List[Any]:
+    def filter_list(self, data: list[Any]) -> list[Any]:
         """Convenience: parse + apply to an in-memory list."""
         clauses = self.parse()
         return apply_filters_to_list(data, clauses)
@@ -546,6 +521,7 @@ class FilterSet(metaclass=FilterSetMeta):
 #  Base filter backend protocol
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class BaseFilterBackend:
     """
     Abstract base for pluggable filter backends.
@@ -556,10 +532,10 @@ class BaseFilterBackend:
 
     def filter_data(
         self,
-        data: List[Any],
+        data: list[Any],
         request: Any,
         **options: Any,
-    ) -> List[Any]:
+    ) -> list[Any]:
         """Filter an in-memory list. Return the filtered list."""
         return data
 
@@ -576,6 +552,7 @@ class BaseFilterBackend:
 # ═══════════════════════════════════════════════════════════════════════════
 #  Built-in filter backends
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class SearchFilter(BaseFilterBackend):
     """
@@ -603,12 +580,12 @@ class SearchFilter(BaseFilterBackend):
 
     def filter_data(
         self,
-        data: List[Any],
+        data: list[Any],
         request: Any,
         *,
-        search_fields: Optional[List[str]] = None,
+        search_fields: list[str] | None = None,
         **options: Any,
-    ) -> List[Any]:
+    ) -> list[Any]:
         term = self._get_search_term(request)
         if not term or not search_fields:
             return data
@@ -619,7 +596,7 @@ class SearchFilter(BaseFilterBackend):
         queryset: Any,
         request: Any,
         *,
-        search_fields: Optional[List[str]] = None,
+        search_fields: list[str] | None = None,
         **options: Any,
     ) -> Any:
         term = self._get_search_term(request)
@@ -628,7 +605,8 @@ class SearchFilter(BaseFilterBackend):
 
         # Build icontains Q-node chain (OR)
         try:
-            from aquilia.models.query import QNode, QCombination
+            from aquilia.models.query import QCombination, QNode  # noqa: F401
+
             nodes = [QNode(**{f"{f}__icontains": term}) for f in search_fields]
             combined = nodes[0]
             for n in nodes[1:]:
@@ -656,8 +634,11 @@ class OrderingFilter(BaseFilterBackend):
     ordering_param: str = "ordering"
 
     def _get_ordering(
-        self, request: Any, *, ordering_fields: Optional[List[str]] = None,
-    ) -> List[str]:
+        self,
+        request: Any,
+        *,
+        ordering_fields: list[str] | None = None,
+    ) -> list[str]:
         qp = request.query_params if hasattr(request, "query_params") else {}
         raw = (qp.get(self.ordering_param) or "").strip()
         if not raw:
@@ -671,12 +652,12 @@ class OrderingFilter(BaseFilterBackend):
 
     def filter_data(
         self,
-        data: List[Any],
+        data: list[Any],
         request: Any,
         *,
-        ordering_fields: Optional[List[str]] = None,
+        ordering_fields: list[str] | None = None,
         **options: Any,
-    ) -> List[Any]:
+    ) -> list[Any]:
         ordering = self._get_ordering(request, ordering_fields=ordering_fields)
         if not ordering:
             return data
@@ -687,7 +668,7 @@ class OrderingFilter(BaseFilterBackend):
         queryset: Any,
         request: Any,
         *,
-        ordering_fields: Optional[List[str]] = None,
+        ordering_fields: list[str] | None = None,
         **options: Any,
     ) -> Any:
         ordering = self._get_ordering(request, ordering_fields=ordering_fields)
@@ -700,14 +681,15 @@ class OrderingFilter(BaseFilterBackend):
 #  Convenience entry point for the engine
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 async def filter_queryset(
     queryset: Any,
     request: Any,
     *,
-    filterset_class: Optional[Type[FilterSet]] = None,
-    filterset_fields: Optional[Union[List[str], Dict[str, List[str]]]] = None,
-    search_fields: Optional[List[str]] = None,
-    ordering_fields: Optional[List[str]] = None,
+    filterset_class: type[FilterSet] | None = None,
+    filterset_fields: list[str] | dict[str, list[str]] | None = None,
+    search_fields: list[str] | None = None,
+    ordering_fields: list[str] | None = None,
 ) -> Any:
     """
     One-shot convenience: apply FilterSet + SearchFilter + OrderingFilter
@@ -743,14 +725,14 @@ async def filter_queryset(
 
 
 def filter_data(
-    data: List[Any],
+    data: list[Any],
     request: Any,
     *,
-    filterset_class: Optional[Type[FilterSet]] = None,
-    filterset_fields: Optional[Union[List[str], Dict[str, List[str]]]] = None,
-    search_fields: Optional[List[str]] = None,
-    ordering_fields: Optional[List[str]] = None,
-) -> List[Any]:
+    filterset_class: type[FilterSet] | None = None,
+    filterset_fields: list[str] | dict[str, list[str]] | None = None,
+    search_fields: list[str] | None = None,
+    ordering_fields: list[str] | None = None,
+) -> list[Any]:
     """
     One-shot convenience: apply FilterSet + SearchFilter + OrderingFilter
     to an in-memory list of dicts/objects.

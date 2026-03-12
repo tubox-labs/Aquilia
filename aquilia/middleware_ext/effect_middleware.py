@@ -28,14 +28,13 @@ Usage:
 from __future__ import annotations
 
 import logging
-import time
-from typing import Any, Dict, List, Optional, Set, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from ..effects import EffectRegistry
+    from ..middleware import Handler
     from ..request import Request
     from ..response import Response
-    from ..middleware import Handler
 
 logger = logging.getLogger("aquilia.middleware.effects")
 
@@ -57,7 +56,7 @@ class EffectMiddleware:
 
     def __init__(
         self,
-        effect_registry: "EffectRegistry",
+        effect_registry: EffectRegistry,
         *,
         auto_detect: bool = True,
     ):
@@ -71,9 +70,9 @@ class EffectMiddleware:
 
     async def __call__(
         self,
-        request: "Request",
-        handler: "Handler",
-    ) -> "Response":
+        request: Request,
+        handler: Handler,
+    ) -> Response:
         """
         Middleware entry point.
 
@@ -87,7 +86,7 @@ class EffectMiddleware:
             return await handler(request)
 
         # Acquire effects
-        acquired: Dict[str, Any] = {}
+        acquired: dict[str, Any] = {}
         success = True
 
         try:
@@ -127,12 +126,15 @@ class EffectMiddleware:
             for effect_name, resource in acquired.items():
                 try:
                     await self._registry.release(
-                        effect_name, resource, success=success,
+                        effect_name,
+                        resource,
+                        success=success,
                     )
                 except Exception as exc:
                     logger.warning(
                         "Error releasing effect '%s': %s",
-                        effect_name, exc,
+                        effect_name,
+                        exc,
                     )
 
             # Clean up state
@@ -140,7 +142,7 @@ class EffectMiddleware:
                 request.state.pop("effects", None)
                 request.state.pop("_effect_middleware_active", None)
 
-    def _detect_required_effects(self, request: "Request") -> Set[str]:
+    def _detect_required_effects(self, request: Request) -> set[str]:
         """
         Detect required effects from route/handler metadata.
 
@@ -149,16 +151,15 @@ class EffectMiddleware:
         2. ``request.state["handler"].__flow_effects__`` -- @requires decorator
         3. ``request.state["pipeline_effects"]`` -- from pipeline nodes
         """
-        required: Set[str] = set()
+        required: set[str] = set()
 
         if not hasattr(request, "state") or not isinstance(request.state, dict):
             return required
 
         # From router metadata
         route_effects = request.state.get("route_effects")
-        if route_effects:
-            if isinstance(route_effects, (list, set, tuple)):
-                required.update(route_effects)
+        if route_effects and isinstance(route_effects, (list, set, tuple)):
+            required.update(route_effects)
 
         # From handler @requires
         if self._auto_detect:
@@ -182,17 +183,16 @@ class EffectMiddleware:
 
         # From pipeline nodes
         pipeline_effects = request.state.get("pipeline_effects")
-        if pipeline_effects:
-            if isinstance(pipeline_effects, (list, set, tuple)):
-                required.update(pipeline_effects)
+        if pipeline_effects and isinstance(pipeline_effects, (list, set, tuple)):
+            required.update(pipeline_effects)
 
         return required
 
     def _get_effect_mode(
         self,
-        request: "Request",
+        request: Request,
         effect_name: str,
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Determine the mode for an effect acquisition.
 
@@ -228,23 +228,22 @@ class FlowContextMiddleware:
 
     def __init__(
         self,
-        effect_registry: Optional["EffectRegistry"] = None,
+        effect_registry: EffectRegistry | None = None,
     ):
         self._registry = effect_registry
 
     async def __call__(
         self,
-        request: "Request",
-        handler: "Handler",
-    ) -> "Response":
+        request: Request,
+        handler: Handler,
+    ) -> Response:
         from ..flow import FlowContext
 
         # Create FlowContext for this request
         flow_ctx = FlowContext(
             request=request,
-            container=getattr(request, "_container", None) or (
-                request.state.get("container") if hasattr(request, "state") else None
-            ),
+            container=getattr(request, "_container", None)
+            or (request.state.get("container") if hasattr(request, "state") else None),
             identity=request.state.get("identity") if hasattr(request, "state") else None,
             session=request.state.get("session") if hasattr(request, "state") else None,
         )

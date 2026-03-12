@@ -25,20 +25,11 @@ import math
 import threading
 import time
 from collections import OrderedDict, deque
+from collections.abc import Hashable, Iterator, Sequence
 from dataclasses import dataclass, field
 from typing import (
     Any,
-    Callable,
-    Deque,
-    Dict,
     Generic,
-    Hashable,
-    Iterator,
-    List,
-    Optional,
-    Sequence,
-    Set,
-    Tuple,
     TypeVar,
 )
 
@@ -77,13 +68,14 @@ class RingBuffer(Generic[T]):
     def __init__(self, capacity: int) -> None:
         if capacity < 1:
             from aquilia.faults.domains import ConfigInvalidFault
+
             raise ConfigInvalidFault(
                 key="mlops.ring_buffer.capacity",
                 reason="capacity must be ≥ 1",
             )
         self._cap = capacity
         self._buf: list[Any] = [None] * capacity
-        self._head = 0          # next write index
+        self._head = 0  # next write index
         self._full = False
 
     # ── Mutations ────────────────────────────────────────────────────
@@ -175,6 +167,7 @@ class LRUCache(Generic[KT, VT]):
     def __init__(self, capacity: int = 128) -> None:
         if capacity < 1:
             from aquilia.faults.domains import ConfigInvalidFault
+
             raise ConfigInvalidFault(
                 key="mlops.lru_cache.capacity",
                 reason="capacity must be ≥ 1",
@@ -185,7 +178,7 @@ class LRUCache(Generic[KT, VT]):
         self._hits = 0
         self._misses = 0
 
-    def get(self, key: KT, default: Optional[VT] = None) -> Optional[VT]:
+    def get(self, key: KT, default: VT | None = None) -> VT | None:
         with self._lock:
             if key in self._data:
                 self._data.move_to_end(key)
@@ -229,7 +222,7 @@ class LRUCache(Generic[KT, VT]):
         return self._hits / total if total > 0 else 0.0
 
     @property
-    def stats(self) -> Dict[str, Any]:
+    def stats(self) -> dict[str, Any]:
         return {
             "capacity": self._cap,
             "size": len(self._data),
@@ -310,6 +303,7 @@ class ExponentialDecay:
     def __init__(self, alpha: float = 0.1) -> None:
         if not (0.0 < alpha <= 1.0):
             from aquilia.faults.domains import ConfigInvalidFault
+
             raise ConfigInvalidFault(
                 key="mlops.ewma.alpha",
                 reason="alpha must be in (0, 1]",
@@ -364,6 +358,7 @@ class SlidingWindow:
     def __init__(self, window_seconds: float = 60.0, bucket_width: float = 1.0):
         if bucket_width <= 0 or window_seconds <= 0:
             from aquilia.faults.domains import ConfigInvalidFault
+
             raise ConfigInvalidFault(
                 key="mlops.sliding_window",
                 reason="window and bucket must be > 0",
@@ -372,9 +367,7 @@ class SlidingWindow:
         self._width = bucket_width
         self._n_buckets = int(math.ceil(window_seconds / bucket_width))
         # Each bucket: (timestamp_floor, count, total_value)
-        self._buckets: Deque[Tuple[float, int, float]] = deque(
-            maxlen=self._n_buckets
-        )
+        self._buckets: deque[tuple[float, int, float]] = deque(maxlen=self._n_buckets)
 
     def _bucket_key(self, ts: float) -> float:
         return ts - (ts % self._width)
@@ -384,7 +377,7 @@ class SlidingWindow:
         while self._buckets and self._buckets[0][0] < cutoff:
             self._buckets.popleft()
 
-    def add(self, value: float = 1.0, *, ts: Optional[float] = None) -> None:
+    def add(self, value: float = 1.0, *, ts: float | None = None) -> None:
         now = ts or time.monotonic()
         self._expire(now)
         key = self._bucket_key(now)
@@ -394,24 +387,24 @@ class SlidingWindow:
         else:
             self._buckets.append((key, 1, value))
 
-    def count(self, *, ts: Optional[float] = None) -> int:
+    def count(self, *, ts: float | None = None) -> int:
         now = ts or time.monotonic()
         self._expire(now)
         return sum(c for _, c, _ in self._buckets)
 
-    def total(self, *, ts: Optional[float] = None) -> float:
+    def total(self, *, ts: float | None = None) -> float:
         now = ts or time.monotonic()
         self._expire(now)
         return sum(s for _, _, s in self._buckets)
 
-    def rate(self, *, ts: Optional[float] = None) -> float:
+    def rate(self, *, ts: float | None = None) -> float:
         """Events per second over the window."""
         now = ts or time.monotonic()
         self._expire(now)
         n = sum(c for _, c, _ in self._buckets)
         return n / self._window if self._window > 0 else 0.0
 
-    def mean(self, *, ts: Optional[float] = None) -> float:
+    def mean(self, *, ts: float | None = None) -> float:
         now = ts or time.monotonic()
         self._expire(now)
         n = sum(c for _, c, _ in self._buckets)
@@ -446,7 +439,7 @@ class TopKHeap(Generic[KT]):
 
     def __init__(self, k: int = 10) -> None:
         self._k = k
-        self._scores: Dict[KT, float] = {}
+        self._scores: dict[KT, float] = {}
 
     def push(self, key: KT, score: float) -> None:
         if key in self._scores:
@@ -461,7 +454,7 @@ class TopKHeap(Generic[KT]):
         top = sorted(self._scores.items(), key=lambda x: x[1], reverse=True)[: self._k]
         self._scores = dict(top)
 
-    def top(self) -> List[Tuple[KT, float]]:
+    def top(self) -> list[tuple[KT, float]]:
         items = sorted(self._scores.items(), key=lambda x: x[1], reverse=True)
         return items[: self._k]
 
@@ -503,7 +496,7 @@ class BloomFilter:
         self._k_hashes = max(1, int((self._m / expected_items) * ln2))
         self._bits = bytearray(self._m // 8 + 1)
 
-    def _hash_indices(self, item: str) -> List[int]:
+    def _hash_indices(self, item: str) -> list[int]:
         h1 = int(hashlib.md5(item.encode()).hexdigest(), 16)
         h2 = int(hashlib.sha1(item.encode()).hexdigest(), 16)
         return [(h1 + i * h2) % self._m for i in range(self._k_hashes)]
@@ -513,10 +506,7 @@ class BloomFilter:
             self._bits[idx // 8] |= 1 << (idx % 8)
 
     def __contains__(self, item: str) -> bool:
-        return all(
-            self._bits[idx // 8] & (1 << (idx % 8))
-            for idx in self._hash_indices(item)
-        )
+        return all(self._bits[idx // 8] & (1 << (idx % 8)) for idx in self._hash_indices(item))
 
     @property
     def size_bytes(self) -> int:
@@ -554,6 +544,7 @@ class ConsistentHash:
     def __init__(self, num_buckets: int = 1) -> None:
         if num_buckets < 1:
             from aquilia.faults.domains import ConfigInvalidFault
+
             raise ConfigInvalidFault(
                 key="mlops.consistent_hash.num_buckets",
                 reason="num_buckets must be ≥ 1",
@@ -571,6 +562,7 @@ class ConsistentHash:
     def remove_bucket(self) -> int:
         if self._n <= 1:
             from aquilia.faults.domains import ConfigInvalidFault
+
             raise ConfigInvalidFault(
                 key="mlops.consistent_hash.num_buckets",
                 reason="cannot remove last bucket",
@@ -601,13 +593,14 @@ class ConsistentHash:
 @dataclass
 class LineageNode:
     """A single node in the model lineage graph."""
+
     model_id: str
     version: str
     framework: str = ""
     created_at: float = field(default_factory=time.time)
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    parents: List[str] = field(default_factory=list)    # model_ids
-    children: List[str] = field(default_factory=list)    # model_ids
+    metadata: dict[str, Any] = field(default_factory=dict)
+    parents: list[str] = field(default_factory=list)  # model_ids
+    children: list[str] = field(default_factory=list)  # model_ids
 
 
 class ModelLineageDAG:
@@ -633,7 +626,7 @@ class ModelLineageDAG:
     __slots__ = ("_nodes",)
 
     def __init__(self) -> None:
-        self._nodes: Dict[str, LineageNode] = {}
+        self._nodes: dict[str, LineageNode] = {}
 
     def add_model(
         self,
@@ -641,11 +634,12 @@ class ModelLineageDAG:
         version: str,
         *,
         framework: str = "",
-        parents: Optional[List[str]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        parents: list[str] | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> LineageNode:
         if model_id in self._nodes:
             from aquilia.faults.domains import ModelRegistrationFault
+
             raise ModelRegistrationFault(
                 model=model_id,
                 reason=f"Model '{model_id}' already exists in lineage",
@@ -656,6 +650,7 @@ class ModelLineageDAG:
         for pid in parent_ids:
             if pid not in self._nodes:
                 from aquilia.faults.domains import ModelNotFoundFault
+
                 raise ModelNotFoundFault(
                     model=pid,
                     reason=f"Parent model '{pid}' not found in lineage",
@@ -672,13 +667,13 @@ class ModelLineageDAG:
         self._nodes[model_id] = node
         return node
 
-    def ancestors(self, model_id: str) -> List[str]:
+    def ancestors(self, model_id: str) -> list[str]:
         """All transitive ancestors (BFS)."""
         if model_id not in self._nodes:
             return []
-        visited: Set[str] = set()
-        queue: Deque[str] = deque(self._nodes[model_id].parents)
-        result: List[str] = []
+        visited: set[str] = set()
+        queue: deque[str] = deque(self._nodes[model_id].parents)
+        result: list[str] = []
         while queue:
             mid = queue.popleft()
             if mid not in visited:
@@ -687,13 +682,13 @@ class ModelLineageDAG:
                 queue.extend(self._nodes[mid].parents)
         return result
 
-    def descendants(self, model_id: str) -> List[str]:
+    def descendants(self, model_id: str) -> list[str]:
         """All transitive descendants (BFS)."""
         if model_id not in self._nodes:
             return []
-        visited: Set[str] = set()
-        queue: Deque[str] = deque(self._nodes[model_id].children)
-        result: List[str] = []
+        visited: set[str] = set()
+        queue: deque[str] = deque(self._nodes[model_id].children)
+        result: list[str] = []
         while queue:
             mid = queue.popleft()
             if mid not in visited:
@@ -702,7 +697,7 @@ class ModelLineageDAG:
                 queue.extend(self._nodes[mid].children)
         return result
 
-    def path(self, from_id: str, to_id: str) -> Optional[List[str]]:
+    def path(self, from_id: str, to_id: str) -> list[str] | None:
         """
         Find shortest derivation path from ``from_id`` → ``to_id``.
 
@@ -713,8 +708,8 @@ class ModelLineageDAG:
         if from_id == to_id:
             return [from_id]
 
-        visited: Set[str] = {from_id}
-        queue: Deque[List[str]] = deque([[from_id]])
+        visited: set[str] = {from_id}
+        queue: deque[list[str]] = deque([[from_id]])
 
         while queue:
             current_path = queue.popleft()
@@ -727,15 +722,15 @@ class ModelLineageDAG:
                     queue.append(current_path + [child])
         return None
 
-    def roots(self) -> List[str]:
+    def roots(self) -> list[str]:
         """Models with no parents (base models)."""
         return [mid for mid, n in self._nodes.items() if not n.parents]
 
-    def leaves(self) -> List[str]:
+    def leaves(self) -> list[str]:
         """Models with no children (leaf / production models)."""
         return [mid for mid, n in self._nodes.items() if not n.children]
 
-    def get(self, model_id: str) -> Optional[LineageNode]:
+    def get(self, model_id: str) -> LineageNode | None:
         return self._nodes.get(model_id)
 
     def __len__(self) -> int:
@@ -744,7 +739,7 @@ class ModelLineageDAG:
     def __contains__(self, model_id: str) -> bool:
         return model_id in self._nodes
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialise the full DAG for storage / visualisation."""
         return {
             mid: {
@@ -767,22 +762,24 @@ class ModelLineageDAG:
 @dataclass
 class ExperimentArm:
     """One arm of an A/B experiment."""
+
     name: str
     model_version: str
-    weight: float = 0.5           # traffic fraction
-    metrics: Dict[str, float] = field(default_factory=dict)
+    weight: float = 0.5  # traffic fraction
+    metrics: dict[str, float] = field(default_factory=dict)
     request_count: int = 0
 
 
 @dataclass
 class Experiment:
     """A/B experiment definition."""
+
     experiment_id: str
     description: str = ""
-    arms: List[ExperimentArm] = field(default_factory=list)
-    status: str = "active"        # active | paused | completed
+    arms: list[ExperimentArm] = field(default_factory=list)
+    status: str = "active"  # active | paused | completed
     created_at: float = field(default_factory=time.time)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 class ExperimentLedger:
@@ -804,30 +801,33 @@ class ExperimentLedger:
     __slots__ = ("_experiments",)
 
     def __init__(self) -> None:
-        self._experiments: Dict[str, Experiment] = {}
+        self._experiments: dict[str, Experiment] = {}
 
     def create(
         self,
         experiment_id: str,
         *,
         description: str = "",
-        arms: Optional[List[Dict[str, Any]]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        arms: list[dict[str, Any]] | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> Experiment:
         if experiment_id in self._experiments:
             from aquilia.faults.domains import RegistryFault
+
             raise RegistryFault(
                 name=experiment_id,
                 message=f"Experiment '{experiment_id}' already exists",
             )
 
         arm_objs = []
-        for arm_data in (arms or []):
-            arm_objs.append(ExperimentArm(
-                name=arm_data["name"],
-                model_version=arm_data.get("model_version", ""),
-                weight=arm_data.get("weight", 0.5),
-            ))
+        for arm_data in arms or []:
+            arm_objs.append(
+                ExperimentArm(
+                    name=arm_data["name"],
+                    model_version=arm_data.get("model_version", ""),
+                    weight=arm_data.get("weight", 0.5),
+                )
+            )
 
         exp = Experiment(
             experiment_id=experiment_id,
@@ -884,10 +884,10 @@ class ExperimentLedger:
                 arm.metrics[metric] = prev + (value - prev) / n
                 break
 
-    def get(self, experiment_id: str) -> Optional[Experiment]:
+    def get(self, experiment_id: str) -> Experiment | None:
         return self._experiments.get(experiment_id)
 
-    def list_active(self) -> List[Experiment]:
+    def list_active(self) -> list[Experiment]:
         return [e for e in self._experiments.values() if e.status == "active"]
 
     def conclude(self, experiment_id: str, winner: str = "") -> None:
@@ -907,7 +907,7 @@ class ExperimentLedger:
         if exp and exp.status == "paused":
             exp.status = "active"
 
-    def summary(self, experiment_id: str) -> Dict[str, Any]:
+    def summary(self, experiment_id: str) -> dict[str, Any]:
         """Get experiment summary with per-arm metrics."""
         exp = self._experiments.get(experiment_id)
         if not exp:
@@ -931,7 +931,7 @@ class ExperimentLedger:
     def __len__(self) -> int:
         return len(self._experiments)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {eid: self.summary(eid) for eid in self._experiments}
 
 
@@ -962,10 +962,19 @@ class CircuitBreaker:
     """
 
     __slots__ = (
-        "_failure_threshold", "_success_threshold", "_timeout",
-        "_half_open_max", "_state", "_failure_count", "_success_count",
-        "_last_failure_time", "_half_open_calls", "_lock",
-        "_total_failures", "_total_successes", "_total_rejections",
+        "_failure_threshold",
+        "_success_threshold",
+        "_timeout",
+        "_half_open_max",
+        "_state",
+        "_failure_count",
+        "_success_count",
+        "_last_failure_time",
+        "_half_open_calls",
+        "_lock",
+        "_total_failures",
+        "_total_successes",
+        "_total_rejections",
     )
 
     def __init__(
@@ -998,11 +1007,10 @@ class CircuitBreaker:
 
     def _maybe_transition(self) -> None:
         """Transition OPEN → HALF_OPEN if timeout has elapsed."""
-        if self._state == "open":
-            if time.monotonic() - self._last_failure_time >= self._timeout:
-                self._state = "half_open"
-                self._half_open_calls = 0
-                self._success_count = 0
+        if self._state == "open" and time.monotonic() - self._last_failure_time >= self._timeout:
+            self._state = "half_open"
+            self._half_open_calls = 0
+            self._success_count = 0
 
     def allow_request(self) -> bool:
         """Check if a request should be allowed through."""
@@ -1077,7 +1085,7 @@ class CircuitBreaker:
             self._success_count = 0
 
     @property
-    def stats(self) -> Dict[str, Any]:
+    def stats(self) -> dict[str, Any]:
         with self._lock:
             self._maybe_transition()
             return {
@@ -1110,8 +1118,7 @@ class TokenBucketRateLimiter:
     True
     """
 
-    __slots__ = ("_rate", "_capacity", "_tokens", "_last_refill", "_lock",
-                 "_total_allowed", "_total_rejected")
+    __slots__ = ("_rate", "_capacity", "_tokens", "_last_refill", "_lock", "_total_allowed", "_total_rejected")
 
     def __init__(self, rate: float = 100.0, capacity: int = 1000) -> None:
         self._rate = rate
@@ -1155,7 +1162,7 @@ class TokenBucketRateLimiter:
             return self._tokens
 
     @property
-    def stats(self) -> Dict[str, Any]:
+    def stats(self) -> dict[str, Any]:
         with self._lock:
             self._refill()
             return {
@@ -1199,13 +1206,12 @@ class AdaptiveBatchQueue(Generic[T]):
     2
     """
 
-    __slots__ = ("_queue", "_capacity", "_lock", "_total_enqueued",
-                 "_total_dequeued", "_total_dropped")
+    __slots__ = ("_queue", "_capacity", "_lock", "_total_enqueued", "_total_dequeued", "_total_dropped")
 
     def __init__(self, max_capacity: int = 1024) -> None:
         self._capacity = max_capacity
         # Each entry: (negative_priority, insert_order, token_estimate, item)
-        self._queue: List[Tuple[int, int, int, T]] = []
+        self._queue: list[tuple[int, int, int, T]] = []
         self._lock = threading.Lock()
         self._total_enqueued = 0
         self._total_dequeued = 0
@@ -1217,6 +1223,7 @@ class AdaptiveBatchQueue(Generic[T]):
         Higher priority values are dequeued first.
         """
         import heapq
+
         with self._lock:
             if len(self._queue) >= self._capacity:
                 self._total_dropped += 1
@@ -1232,18 +1239,19 @@ class AdaptiveBatchQueue(Generic[T]):
         self,
         max_items: int = 0,
         max_tokens: int = 0,
-    ) -> List[T]:
+    ) -> list[T]:
         """
         Drain items from the queue respecting token budget and/or max items.
 
         If both max_items and max_tokens are 0, drains everything.
         """
         import heapq
+
         with self._lock:
             if not self._queue:
                 return []
 
-            result: List[T] = []
+            result: list[T] = []
             token_total = 0
 
             while self._queue:
@@ -1269,7 +1277,7 @@ class AdaptiveBatchQueue(Generic[T]):
         return len(self._queue)
 
     @property
-    def stats(self) -> Dict[str, Any]:
+    def stats(self) -> dict[str, Any]:
         with self._lock:
             return {
                 "size": len(self._queue),
@@ -1306,7 +1314,7 @@ class MemoryTracker:
     def __init__(self, soft_limit_mb: int = 8192, hard_limit_mb: int = 12288) -> None:
         self._soft_limit = soft_limit_mb
         self._hard_limit = hard_limit_mb
-        self._allocations: Dict[str, int] = {}  # name → MB
+        self._allocations: dict[str, int] = {}  # name → MB
         self._lock = threading.Lock()
 
     def allocate(self, name: str, size_mb: int) -> bool:
@@ -1340,7 +1348,7 @@ class MemoryTracker:
     def available_mb(self) -> int:
         return max(0, self._hard_limit - self.current_usage_mb)
 
-    def largest_model(self) -> Optional[Tuple[str, int]]:
+    def largest_model(self) -> tuple[str, int] | None:
         """Return the name and size of the largest allocated model."""
         with self._lock:
             if not self._allocations:
@@ -1348,13 +1356,13 @@ class MemoryTracker:
             name = max(self._allocations, key=self._allocations.get)  # type: ignore[arg-type]
             return name, self._allocations[name]
 
-    def eviction_candidates(self) -> List[Tuple[str, int]]:
+    def eviction_candidates(self) -> list[tuple[str, int]]:
         """Return models sorted by size ascending (smallest first) for eviction."""
         with self._lock:
             return sorted(self._allocations.items(), key=lambda x: x[1])
 
     @property
-    def stats(self) -> Dict[str, Any]:
+    def stats(self) -> dict[str, Any]:
         with self._lock:
             return {
                 "current_usage_mb": sum(self._allocations.values()),

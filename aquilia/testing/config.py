@@ -9,8 +9,8 @@ from __future__ import annotations
 
 import copy
 import functools
-from contextlib import contextmanager
-from typing import Any, Callable, Dict, Optional
+from collections.abc import Callable
+from typing import Any
 
 from aquilia.config import ConfigLoader
 
@@ -32,10 +32,10 @@ class TestConfig:
 
     __slots__ = ("_base", "_overrides", "_merged")
 
-    def __init__(self, base: Optional[ConfigLoader] = None, **overrides: Any):
+    def __init__(self, base: ConfigLoader | None = None, **overrides: Any):
         self._base = base
         self._overrides = overrides
-        self._merged: Optional[dict] = None
+        self._merged: dict | None = None
 
     # ------------------------------------------------------------------
     # Public helpers
@@ -102,6 +102,7 @@ class TestConfig:
         val = self.get(key, _SENTINEL)
         if val is _SENTINEL:
             from aquilia.faults.domains import ConfigMissingFault
+
             raise ConfigMissingFault(key=key)
         return val
 
@@ -134,6 +135,7 @@ _SENTINEL = object()
 # override_settings – Context manager / decorator
 # -----------------------------------------------------------------------
 
+
 class override_settings:
     """
     Temporarily override Aquilia config values.
@@ -160,8 +162,8 @@ class override_settings:
 
     def __init__(self, **overrides: Any):
         self._overrides = overrides
-        self._saved: Dict[str, Any] = {}
-        self._target: Optional[ConfigLoader] = None
+        self._saved: dict[str, Any] = {}
+        self._target: ConfigLoader | None = None
 
     # -- Context manager -------------------------------------------------
 
@@ -185,6 +187,7 @@ class override_settings:
 
     def __call__(self, func: Callable):
         import inspect
+
         if inspect.iscoroutinefunction(func) or _is_async(func):
 
             @functools.wraps(func)
@@ -239,7 +242,7 @@ class override_settings:
 # Module-level active config registry
 # -----------------------------------------------------------------------
 
-_active_config: Optional[ConfigLoader] = None
+_active_config: ConfigLoader | None = None
 
 
 def set_active_config(cfg: ConfigLoader) -> None:
@@ -248,18 +251,19 @@ def set_active_config(cfg: ConfigLoader) -> None:
     _active_config = cfg
 
 
-def get_active_config() -> Optional[ConfigLoader]:
+def get_active_config() -> ConfigLoader | None:
     """Return the active config loader."""
     return _active_config
 
 
-def _get_active_config() -> Optional[ConfigLoader]:
+def _get_active_config() -> ConfigLoader | None:
     return _active_config
 
 
 # -----------------------------------------------------------------------
 # Helpers
 # -----------------------------------------------------------------------
+
 
 def _deep_merge(base: dict, overrides: dict) -> dict:
     """Recursively merge *overrides* into *base* (mutates base)."""
@@ -291,4 +295,5 @@ def _delete_nested(data: dict, dot_key: str):
 
 def _is_async(func: Callable) -> bool:
     import inspect
+
     return inspect.iscoroutinefunction(func) or inspect.isasyncgenfunction(func)

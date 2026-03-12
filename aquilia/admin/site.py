@@ -17,28 +17,37 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Dict, FrozenSet, List, Optional, Tuple, Type, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from aquilia.models.base import Model
     from aquilia.auth.core import Identity
+    from aquilia.models.base import Model
 
-from .options import ModelAdmin
-from .permissions import AdminRole, AdminPermission, get_admin_role, has_admin_permission, has_model_permission
-from .permissions import update_role_permissions, set_model_permission_override, get_model_permission_overrides
-from .audit import AdminAuditLog, ModelBackedAuditLog, AdminAction
+import contextlib
+
+from aquilia.controller.pagination import PageNumberPagination
+
+from .audit import AdminAction, ModelBackedAuditLog
 from .faults import (
     AdminAuthorizationFault,
     AdminModelNotFoundFault,
     AdminRecordNotFoundFault,
     AdminValidationFault,
 )
-from aquilia.controller.pagination import PageNumberPagination
+from .options import ModelAdmin
+from .permissions import (
+    AdminPermission,
+    AdminRole,
+    get_admin_role,
+    has_admin_permission,
+    set_model_permission_override,
+)
 
 logger = logging.getLogger("aquilia.admin.site")
 
 
 # ── AdminConfig -- Parsed, immutable admin configuration ──────────────────────
+
 
 @dataclass(frozen=True)
 class AdminConfig:
@@ -50,17 +59,33 @@ class AdminConfig:
     """
 
     # Module visibility
-    modules: Dict[str, bool] = field(default_factory=lambda: {
-        "dashboard": True, "orm": True, "build": True,
-        "migrations": True, "config": True, "workspace": True,
-        "permissions": True, "monitoring": False, "admin_users": True,
-        "profile": True, "audit": False, "api_keys": True,
-        "preferences": True,
-        "containers": False, "pods": False,
-        "query_inspector": False, "tasks": False, "errors": False,
-        "testing": False, "mlops": False, "storage": False,
-        "mailer": False, "provider": False,
-    })
+    modules: dict[str, bool] = field(
+        default_factory=lambda: {
+            "dashboard": True,
+            "orm": True,
+            "build": True,
+            "migrations": True,
+            "config": True,
+            "workspace": True,
+            "permissions": True,
+            "monitoring": False,
+            "admin_users": True,
+            "profile": True,
+            "audit": False,
+            "api_keys": True,
+            "preferences": True,
+            "containers": False,
+            "pods": False,
+            "query_inspector": False,
+            "tasks": False,
+            "errors": False,
+            "testing": False,
+            "mlops": False,
+            "storage": False,
+            "mailer": False,
+            "provider": False,
+        }
+    )
 
     # Audit settings (disabled by default -- opt in)
     audit_enabled: bool = False
@@ -68,97 +93,147 @@ class AdminConfig:
     audit_log_logins: bool = True
     audit_log_views: bool = True
     audit_log_searches: bool = True
-    audit_excluded_actions: FrozenSet[str] = field(default_factory=frozenset)
+    audit_excluded_actions: frozenset[str] = field(default_factory=frozenset)
 
     # Monitoring settings (disabled by default -- opt in)
     monitoring_enabled: bool = False
-    monitoring_metrics: FrozenSet[str] = field(default_factory=lambda: frozenset({
-        "cpu", "memory", "disk", "network", "process", "python", "system", "health_checks",
-    }))
+    monitoring_metrics: frozenset[str] = field(
+        default_factory=lambda: frozenset(
+            {
+                "cpu",
+                "memory",
+                "disk",
+                "network",
+                "process",
+                "python",
+                "system",
+                "health_checks",
+            }
+        )
+    )
     monitoring_refresh_interval: int = 30
 
     # Containers (Docker) settings
-    containers_config: Dict[str, Any] = field(default_factory=lambda: {
-        "docker_host": None,
-        "allowed_actions": [
-            "start", "stop", "restart", "pause", "unpause",
-            "kill", "rm", "logs", "inspect", "exec", "export",
-        ],
-        "log_tail": 200,
-        "log_since": "",
-        "refresh_interval": 15,
-        "compose_files": [],
-        "compose_project_dir": None,
-        "show_system_containers": False,
-        "capabilities": {
-            "exec": True, "prune": True, "build": True,
-            "export": True, "image_actions": True,
-            "volume_actions": True, "network_actions": True,
-        },
-    })
+    containers_config: dict[str, Any] = field(
+        default_factory=lambda: {
+            "docker_host": None,
+            "allowed_actions": [
+                "start",
+                "stop",
+                "restart",
+                "pause",
+                "unpause",
+                "kill",
+                "rm",
+                "logs",
+                "inspect",
+                "exec",
+                "export",
+            ],
+            "log_tail": 200,
+            "log_since": "",
+            "refresh_interval": 15,
+            "compose_files": [],
+            "compose_project_dir": None,
+            "show_system_containers": False,
+            "capabilities": {
+                "exec": True,
+                "prune": True,
+                "build": True,
+                "export": True,
+                "image_actions": True,
+                "volume_actions": True,
+                "network_actions": True,
+            },
+        }
+    )
 
     # Pods (Kubernetes) settings
-    pods_config: Dict[str, Any] = field(default_factory=lambda: {
-        "kubeconfig": None,
-        "namespace": "default",
-        "contexts": [],
-        "resources": [
-            "pods", "deployments", "services", "ingresses",
-            "configmaps", "secrets", "namespaces", "events",
-            "daemonsets", "statefulsets", "jobs", "cronjobs",
-            "persistentvolumeclaims", "nodes",
-        ],
-        "manifest_dirs": ["k8s"],
-        "manifest_patterns": ["*.yaml", "*.yml"],
-        "refresh_interval": 15,
-        "log_tail": 200,
-        "capabilities": {
-            "logs": True, "exec": True, "delete": True,
-            "scale": True, "restart": True, "apply": True,
-        },
-    })
+    pods_config: dict[str, Any] = field(
+        default_factory=lambda: {
+            "kubeconfig": None,
+            "namespace": "default",
+            "contexts": [],
+            "resources": [
+                "pods",
+                "deployments",
+                "services",
+                "ingresses",
+                "configmaps",
+                "secrets",
+                "namespaces",
+                "events",
+                "daemonsets",
+                "statefulsets",
+                "jobs",
+                "cronjobs",
+                "persistentvolumeclaims",
+                "nodes",
+            ],
+            "manifest_dirs": ["k8s"],
+            "manifest_patterns": ["*.yaml", "*.yml"],
+            "refresh_interval": 15,
+            "log_tail": 200,
+            "capabilities": {
+                "logs": True,
+                "exec": True,
+                "delete": True,
+                "scale": True,
+                "restart": True,
+                "apply": True,
+            },
+        }
+    )
 
     # Sidebar section visibility
-    sidebar_sections: Dict[str, bool] = field(default_factory=lambda: {
-        "overview": True, "data": True, "system": True,
-        "infrastructure": True, "security": True, "models": True,
-        "devtools": True,
-    })
+    sidebar_sections: dict[str, bool] = field(
+        default_factory=lambda: {
+            "overview": True,
+            "data": True,
+            "system": True,
+            "infrastructure": True,
+            "security": True,
+            "models": True,
+            "devtools": True,
+        }
+    )
 
     # UI
     theme: str = "auto"
     list_per_page: int = 25
 
     # Security settings (admin-specific security policy configuration)
-    security_config: Dict[str, Any] = field(default_factory=lambda: {
-        "csrf": {
-            "enabled": True,
-            "max_age": 7200,
-            "token_length": 32,
-        },
-        "rate_limit": {
-            "enabled": True,
-            "max_login_attempts": 5,
-            "login_window": 900,
-            "sensitive_op_limit": 30,
-            "sensitive_op_window": 300,
-            "progressive_lockout": True,
-        },
-        "password": {
-            "min_length": 10,
-            "max_length": 128,
-            "require_upper": True,
-            "require_lower": True,
-            "require_digit": True,
-            "require_special": True,
-        },
-        "headers": {
-            "enabled": True,
-            "frame_options": "DENY",
-        },
-        "session_fixation_protection": True,
-        "event_tracker_max_events": 1000,
-    })
+    security_config: dict[str, Any] = field(
+        default_factory=lambda: {
+            "csrf": {
+                "enabled": True,
+                "max_age": 7200,
+                "token_length": 32,
+            },
+            "rate_limit": {
+                "enabled": True,
+                "max_login_attempts": 5,
+                "login_window": 900,
+                "sensitive_op_limit": 30,
+                "sensitive_op_window": 300,
+                "progressive_lockout": True,
+            },
+            "password": {
+                "min_length": 10,
+                "max_length": 128,
+                "require_upper": True,
+                "require_lower": True,
+                "require_digit": True,
+                "require_special": True,
+            },
+            "headers": {
+                "enabled": True,
+                "frame_options": "DENY",
+            },
+            "session_fixation_protection": True,
+            "event_tracker_max_events": 1000,
+        }
+    )
 
     def is_module_enabled(self, module_name: str) -> bool:
         """Check if an admin module is enabled.
@@ -168,7 +243,7 @@ class AdminConfig:
         key = module_name.replace("-", "_")
         return self.modules.get(key, False)
 
-    def is_action_allowed(self, action: "AdminAction") -> bool:
+    def is_action_allowed(self, action: AdminAction) -> bool:
         """Return True if the given audit action should be recorded."""
         if not self.audit_enabled:
             return False
@@ -186,9 +261,7 @@ class AdminConfig:
             return False
         if action_upper in ("VIEW", "LIST", "PAGE_VIEW") and not self.audit_log_views:
             return False
-        if action_upper == "SEARCH" and not self.audit_log_searches:
-            return False
-        return True
+        return not (action_upper == "SEARCH" and not self.audit_log_searches)
 
     def is_metric_enabled(self, metric: str) -> bool:
         """Check if a monitoring metric section is enabled."""
@@ -200,7 +273,7 @@ class AdminConfig:
 
     # ── Containers (Docker) helpers ──────────────────────────────────
 
-    def get_docker_host(self) -> Optional[str]:
+    def get_docker_host(self) -> str | None:
         """Return the configured Docker host, or None for auto-detect."""
         return self.containers_config.get("docker_host")
 
@@ -244,7 +317,7 @@ class AdminConfig:
         caps = self.pods_config.get("capabilities", {})
         return caps.get(capability, True)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialise the config for template consumption."""
         return {
             "modules": dict(self.modules),
@@ -270,7 +343,7 @@ class AdminConfig:
         }
 
     @classmethod
-    def from_dict(cls, raw: Dict[str, Any]) -> "AdminConfig":
+    def from_dict(cls, raw: dict[str, Any]) -> AdminConfig:
         """Build an AdminConfig from the raw Integration.admin() config dict."""
         modules_raw = raw.get("modules", {})
         audit_raw = raw.get("audit_config", {})
@@ -282,14 +355,27 @@ class AdminConfig:
 
         # Defaults for modules (monitoring, audit, containers, pods disabled by default)
         default_modules = {
-            "dashboard": True, "orm": True, "build": True,
-            "migrations": True, "config": True, "workspace": True,
-            "permissions": True, "monitoring": False, "admin_users": True,
-            "profile": True, "audit": False, "api_keys": True,
+            "dashboard": True,
+            "orm": True,
+            "build": True,
+            "migrations": True,
+            "config": True,
+            "workspace": True,
+            "permissions": True,
+            "monitoring": False,
+            "admin_users": True,
+            "profile": True,
+            "audit": False,
+            "api_keys": True,
             "preferences": True,
-            "containers": False, "pods": False,
-            "query_inspector": False, "tasks": False, "errors": False,
-            "testing": False, "storage": False, "provider": False,
+            "containers": False,
+            "pods": False,
+            "query_inspector": False,
+            "tasks": False,
+            "errors": False,
+            "testing": False,
+            "storage": False,
+            "provider": False,
         }
         modules = {**default_modules, **modules_raw}
 
@@ -301,8 +387,17 @@ class AdminConfig:
         _default_containers = {
             "docker_host": None,
             "allowed_actions": [
-                "start", "stop", "restart", "pause", "unpause",
-                "kill", "rm", "logs", "inspect", "exec", "export",
+                "start",
+                "stop",
+                "restart",
+                "pause",
+                "unpause",
+                "kill",
+                "rm",
+                "logs",
+                "inspect",
+                "exec",
+                "export",
             ],
             "log_tail": 200,
             "log_since": "",
@@ -311,9 +406,13 @@ class AdminConfig:
             "compose_project_dir": None,
             "show_system_containers": False,
             "capabilities": {
-                "exec": True, "prune": True, "build": True,
-                "export": True, "image_actions": True,
-                "volume_actions": True, "network_actions": True,
+                "exec": True,
+                "prune": True,
+                "build": True,
+                "export": True,
+                "image_actions": True,
+                "volume_actions": True,
+                "network_actions": True,
             },
         }
         # Deep merge capabilities
@@ -330,18 +429,32 @@ class AdminConfig:
             "namespace": "default",
             "contexts": [],
             "resources": [
-                "pods", "deployments", "services", "ingresses",
-                "configmaps", "secrets", "namespaces", "events",
-                "daemonsets", "statefulsets", "jobs", "cronjobs",
-                "persistentvolumeclaims", "nodes",
+                "pods",
+                "deployments",
+                "services",
+                "ingresses",
+                "configmaps",
+                "secrets",
+                "namespaces",
+                "events",
+                "daemonsets",
+                "statefulsets",
+                "jobs",
+                "cronjobs",
+                "persistentvolumeclaims",
+                "nodes",
             ],
             "manifest_dirs": ["k8s"],
             "manifest_patterns": ["*.yaml", "*.yml"],
             "refresh_interval": 15,
             "log_tail": 200,
             "capabilities": {
-                "logs": True, "exec": True, "delete": True,
-                "scale": True, "restart": True, "apply": True,
+                "logs": True,
+                "exec": True,
+                "delete": True,
+                "scale": True,
+                "restart": True,
+                "apply": True,
             },
         }
         merged_pods = {**_default_pods, **pods_raw}
@@ -352,7 +465,7 @@ class AdminConfig:
             }
 
         # ── Resolve security config ──
-        _default_security: Dict[str, Any] = {
+        _default_security: dict[str, Any] = {
             "csrf": {
                 "enabled": True,
                 "max_age": 7200,
@@ -382,7 +495,7 @@ class AdminConfig:
             "event_tracker_max_events": 1000,
         }
         # Deep merge security config -- merge nested dicts
-        merged_security: Dict[str, Any] = {}
+        merged_security: dict[str, Any] = {}
         for key, default_val in _default_security.items():
             if isinstance(default_val, dict) and key in security_raw and isinstance(security_raw[key], dict):
                 merged_security[key] = {**default_val, **security_raw[key]}
@@ -400,9 +513,21 @@ class AdminConfig:
             audit_log_searches=audit_raw.get("log_searches", True),
             audit_excluded_actions=frozenset(audit_raw.get("excluded_actions", [])),
             monitoring_enabled=monitoring_raw.get("enabled", False),
-            monitoring_metrics=frozenset(monitoring_raw.get("metrics", [
-                "cpu", "memory", "disk", "network", "process", "python", "system", "health_checks",
-            ])),
+            monitoring_metrics=frozenset(
+                monitoring_raw.get(
+                    "metrics",
+                    [
+                        "cpu",
+                        "memory",
+                        "disk",
+                        "network",
+                        "process",
+                        "python",
+                        "system",
+                        "health_checks",
+                    ],
+                )
+            ),
             monitoring_refresh_interval=monitoring_raw.get("refresh_interval", 30),
             containers_config=merged_containers,
             pods_config=merged_pods,
@@ -436,7 +561,7 @@ class AdminSite:
         login_url: Login page URL
     """
 
-    _default_instance: Optional[AdminSite] = None
+    _default_instance: AdminSite | None = None
 
     def __init__(
         self,
@@ -454,7 +579,7 @@ class AdminSite:
         self.login_url = login_url
 
         # Registry: model_class -> ModelAdmin instance
-        self._registry: Dict[Type[Model], ModelAdmin] = {}
+        self._registry: dict[type[Model], ModelAdmin] = {}
 
         # Admin configuration -- populated by server._wire_admin_integration()
         self.admin_config: AdminConfig = AdminConfig()
@@ -464,9 +589,8 @@ class AdminSite:
 
         # Security policy -- built from admin_config.security_config
         from .security import AdminSecurityPolicy
-        self.security: AdminSecurityPolicy = AdminSecurityPolicy.from_config(
-            self.admin_config.security_config
-        )
+
+        self.security: AdminSecurityPolicy = AdminSecurityPolicy.from_config(self.admin_config.security_config)
 
         # Initialization state
         self._initialized = False
@@ -493,25 +617,25 @@ class AdminSite:
         if self._initialized:
             return
 
-        from .registry import flush_pending_registrations, autodiscover
+        from .registry import autodiscover, flush_pending_registrations
 
         # Flush any @register decorators that fired before init
-        flushed = flush_pending_registrations()
+        flush_pending_registrations()
 
         # Auto-discover remaining models
-        auto = autodiscover()
+        autodiscover()
 
         self._initialized = True
 
         # Restore audit history from CROUS file (server startup only)
         self.audit_log.start()
 
-    def register_admin(self, model_cls: Type[Model], admin: ModelAdmin) -> None:
+    def register_admin(self, model_cls: type[Model], admin: ModelAdmin) -> None:
         """Register a model with its ModelAdmin configuration."""
         admin.model = model_cls
         self._registry[model_cls] = admin
 
-    def register(self, model_cls: Type[Model], admin_class: Optional[Type[ModelAdmin]] = None) -> None:
+    def register(self, model_cls: type[Model], admin_class: type[ModelAdmin] | None = None) -> None:
         """
         Register a model (convenience method).
 
@@ -522,11 +646,11 @@ class AdminSite:
         admin = admin_class(model=model_cls)
         self.register_admin(model_cls, admin)
 
-    def unregister(self, model_cls: Type[Model]) -> None:
+    def unregister(self, model_cls: type[Model]) -> None:
         """Unregister a model."""
         self._registry.pop(model_cls, None)
 
-    def is_registered(self, model_cls: Type[Model]) -> bool:
+    def is_registered(self, model_cls: type[Model]) -> bool:
         """Check if a model is registered."""
         return model_cls in self._registry
 
@@ -551,7 +675,7 @@ class AdminSite:
                 )
             return admin
 
-    def get_model_class(self, model_name: str) -> Type[Model]:
+    def get_model_class(self, model_name: str) -> type[Model]:
         """
         Get model class by name.
 
@@ -562,14 +686,14 @@ class AdminSite:
                 return cls
         raise AdminModelNotFoundFault(model_name)
 
-    def get_app_list(self, identity: Optional[Identity] = None) -> List[Dict[str, Any]]:
+    def get_app_list(self, identity: Identity | None = None) -> list[dict[str, Any]]:
         """
         Get list of admin apps/models grouped by app_label.
 
         Filters by identity permissions.
         Returns list of app dicts with their models.
         """
-        apps: Dict[str, Dict[str, Any]] = {}
+        apps: dict[str, dict[str, Any]] = {}
 
         for model_cls, admin in self._registry.items():
             # Permission check
@@ -584,30 +708,32 @@ class AdminSite:
                     "models": [],
                 }
 
-            apps[app_label]["models"].append({
-                "name": admin.get_model_name(),
-                "name_plural": admin.get_model_name_plural(),
-                "model_name": model_cls.__name__,
-                "url_name": model_cls.__name__.lower(),
-                "icon": admin.icon,
-                "perms": {
-                    "view": admin.has_view_permission(identity),
-                    "add": admin.has_add_permission(identity),
-                    "change": admin.has_change_permission(identity),
-                    "delete": admin.has_delete_permission(identity),
-                },
-            })
+            apps[app_label]["models"].append(
+                {
+                    "name": admin.get_model_name(),
+                    "name_plural": admin.get_model_name_plural(),
+                    "model_name": model_cls.__name__,
+                    "url_name": model_cls.__name__.lower(),
+                    "icon": admin.icon,
+                    "perms": {
+                        "view": admin.has_view_permission(identity),
+                        "add": admin.has_add_permission(identity),
+                        "change": admin.has_change_permission(identity),
+                        "delete": admin.has_delete_permission(identity),
+                    },
+                }
+            )
 
         return sorted(apps.values(), key=lambda a: a["app_label"])
 
-    def get_registered_models(self) -> Dict[str, ModelAdmin]:
+    def get_registered_models(self) -> dict[str, ModelAdmin]:
         """Get all registered model name -> ModelAdmin pairs."""
         return {cls.__name__: admin for cls, admin in self._registry.items()}
 
     # ── ORM metadata helpers (private) ───────────────────────────────
 
     @staticmethod
-    def _inspect_model_methods(model_cls: type) -> Dict[str, List[str]]:
+    def _inspect_model_methods(model_cls: type) -> dict[str, list[str]]:
         """Categorise user-defined methods on a model class.
 
         Returns ``{"methods": [...], "class_methods": [...],
@@ -615,7 +741,6 @@ class AdminSite:
         Skips dunder / private names and anything inherited from the ORM
         base ``Model``.
         """
-        import inspect as _inspect
 
         try:
             from aquilia.models.base import Model as _BaseModel
@@ -623,7 +748,7 @@ class AdminSite:
             _BaseModel = object  # type: ignore[misc,assignment]
 
         base_names: set = set(dir(_BaseModel))
-        result: Dict[str, List[str]] = {
+        result: dict[str, list[str]] = {
             "methods": [],
             "class_methods": [],
             "static_methods": [],
@@ -660,18 +785,19 @@ class AdminSite:
 
     @staticmethod
     def _build_reverse_relations(
-        registry: Dict[type, "ModelAdmin"],
-    ) -> Dict[str, List[Dict[str, Any]]]:
+        registry: dict[type, ModelAdmin],
+    ) -> dict[str, list[dict[str, Any]]]:
         """Build a map of model_name → list of models that reference it.
 
         Scans every FK / O2O / M2M across all registered models and
         records the reverse side.
         """
         from aquilia.models.fields_module import (
-            ForeignKey, OneToOneField, ManyToManyField,
+            ForeignKey,
+            OneToOneField,
         )
 
-        reverse: Dict[str, List[Dict[str, Any]]] = {}
+        reverse: dict[str, list[dict[str, Any]]] = {}
 
         for model_cls in registry:
             source_name = model_cls.__name__
@@ -680,34 +806,34 @@ class AdminSite:
 
             for fname, field in all_fields.items():
                 if isinstance(field, (ForeignKey, OneToOneField)):
-                    target = field.to if isinstance(field.to, str) else (
-                        field.to.__name__ if field.to else None
-                    )
+                    target = field.to if isinstance(field.to, str) else (field.to.__name__ if field.to else None)
                     if target:
-                        reverse.setdefault(target, []).append({
-                            "from_model": source_name,
-                            "field": fname,
-                            "type": "O2O" if isinstance(field, OneToOneField) else "FK",
-                            "on_delete": getattr(field, "on_delete", "CASCADE"),
-                            "related_name": getattr(field, "related_name", None),
-                        })
+                        reverse.setdefault(target, []).append(
+                            {
+                                "from_model": source_name,
+                                "field": fname,
+                                "type": "O2O" if isinstance(field, OneToOneField) else "FK",
+                                "on_delete": getattr(field, "on_delete", "CASCADE"),
+                                "related_name": getattr(field, "related_name", None),
+                            }
+                        )
 
             for fname, m2m in m2m_fields.items():
-                target = m2m.to if isinstance(m2m.to, str) else (
-                    m2m.to.__name__ if m2m.to else None
-                )
+                target = m2m.to if isinstance(m2m.to, str) else (m2m.to.__name__ if m2m.to else None)
                 if target:
-                    reverse.setdefault(target, []).append({
-                        "from_model": source_name,
-                        "field": fname,
-                        "type": "M2M",
-                        "related_name": getattr(m2m, "related_name", None),
-                        "db_table": getattr(m2m, "db_table", None),
-                    })
+                    reverse.setdefault(target, []).append(
+                        {
+                            "from_model": source_name,
+                            "field": fname,
+                            "type": "M2M",
+                            "related_name": getattr(m2m, "related_name", None),
+                            "db_table": getattr(m2m, "db_table", None),
+                        }
+                    )
 
         return reverse
 
-    def get_model_schema(self) -> List[Dict[str, Any]]:
+    def get_model_schema(self) -> list[dict[str, Any]]:
         """
         Build rich schema metadata for every registered model.
 
@@ -734,7 +860,9 @@ class AdminSite:
         import inspect as _inspect
 
         from aquilia.models.fields_module import (
-            ForeignKey, OneToOneField, ManyToManyField, Field,
+            ForeignKey,
+            ManyToManyField,
+            OneToOneField,
         )
 
         # Pre-compute reverse relations once for all models
@@ -751,27 +879,28 @@ class AdminSite:
         except Exception:
             pass
 
-        models_data: List[Dict[str, Any]] = []
-        model_lookup = {cls.__name__: cls for cls in self._registry}
+        models_data: list[dict[str, Any]] = []
+        {cls.__name__: cls for cls in self._registry}
 
         for model_cls, admin in self._registry.items():
             name = model_cls.__name__
             meta = getattr(model_cls, "_meta", None)
-            fields_info: List[Dict[str, Any]] = []
-            relations: List[Dict[str, Any]] = []
+            fields_info: list[dict[str, Any]] = []
+            relations: list[dict[str, Any]] = []
 
             all_fields = getattr(model_cls, "_fields", {})
             m2m_fields = getattr(model_cls, "_m2m_fields", {})
 
             # ── Per-field introspection ──────────────────────────────
             for fname, field in all_fields.items():
-                field_data: Dict[str, Any] = {
+                field_data: dict[str, Any] = {
                     "name": fname,
                     "column": getattr(field, "column_name", fname),
                     "type": getattr(field, "_field_type", type(field).__name__),
                     "field_class": type(field).__name__,
                     "python_type": getattr(field, "_python_type", str).__name__
-                        if hasattr(field, "_python_type") else "str",
+                    if hasattr(field, "_python_type")
+                    else "str",
                     "null": getattr(field, "null", False),
                     "blank": getattr(field, "blank", False),
                     "unique": getattr(field, "unique", False),
@@ -779,22 +908,19 @@ class AdminSite:
                     "db_index": getattr(field, "db_index", False),
                     "db_column": getattr(field, "db_column", None),
                     "default": repr(getattr(field, "default", None))
-                        if hasattr(field, "default") and getattr(field, "default", None) is not None
-                        else None,
+                    if hasattr(field, "default") and getattr(field, "default", None) is not None
+                    else None,
                     "max_length": getattr(field, "max_length", None),
                     "help_text": getattr(field, "help_text", ""),
                     "verbose_name": getattr(field, "verbose_name", None),
                     "choices": bool(getattr(field, "choices", None)),
-                    "choices_list": [
-                        {"value": c[0], "label": c[1]}
-                        for c in (getattr(field, "choices", None) or [])
-                    ] if getattr(field, "choices", None) else [],
+                    "choices_list": [{"value": c[0], "label": c[1]} for c in (getattr(field, "choices", None) or [])]
+                    if getattr(field, "choices", None)
+                    else [],
                     "editable": getattr(field, "editable", True),
                     "auto_now": getattr(field, "auto_now", False),
                     "auto_now_add": getattr(field, "auto_now_add", False),
-                    "validators": [
-                        type(v).__name__ for v in (getattr(field, "validators", None) or [])
-                    ],
+                    "validators": [type(v).__name__ for v in (getattr(field, "validators", None) or [])],
                 }
 
                 # Decimal-specific attributes
@@ -805,63 +931,66 @@ class AdminSite:
 
                 # ── Relation info ────────────────────────────────────
                 if isinstance(field, ManyToManyField):
-                    target = field.to if isinstance(field.to, str) else (
-                        field.to.__name__ if field.to else "?"
-                    )
+                    target = field.to if isinstance(field.to, str) else (field.to.__name__ if field.to else "?")
                     m2m_db_table = getattr(field, "db_table", None)
                     through = getattr(field, "through", None)
                     if through and not isinstance(through, str):
                         through = through.__name__
                     related_name = getattr(field, "related_name", None)
-                    relations.append({
-                        "type": "M2M",
-                        "field": fname,
-                        "from": name,
-                        "to": target,
-                        "related_name": related_name,
-                        "through": through,
-                        "db_table": m2m_db_table,
-                    })
+                    relations.append(
+                        {
+                            "type": "M2M",
+                            "field": fname,
+                            "from": name,
+                            "to": target,
+                            "related_name": related_name,
+                            "through": through,
+                            "db_table": m2m_db_table,
+                        }
+                    )
                     field_data["relation"] = {
-                        "type": "M2M", "to": target,
+                        "type": "M2M",
+                        "to": target,
                         "db_table": m2m_db_table,
                         "related_name": related_name,
                     }
                 elif isinstance(field, OneToOneField):
-                    target = field.to if isinstance(field.to, str) else (
-                        field.to.__name__ if field.to else "?"
-                    )
+                    target = field.to if isinstance(field.to, str) else (field.to.__name__ if field.to else "?")
                     on_delete = getattr(field, "on_delete", "CASCADE")
                     related_name = getattr(field, "related_name", None)
-                    relations.append({
-                        "type": "O2O",
-                        "field": fname,
-                        "from": name,
-                        "to": target,
-                        "on_delete": on_delete,
-                        "related_name": related_name,
-                    })
+                    relations.append(
+                        {
+                            "type": "O2O",
+                            "field": fname,
+                            "from": name,
+                            "to": target,
+                            "on_delete": on_delete,
+                            "related_name": related_name,
+                        }
+                    )
                     field_data["relation"] = {
-                        "type": "O2O", "to": target,
+                        "type": "O2O",
+                        "to": target,
                         "on_delete": on_delete,
                         "related_name": related_name,
                     }
                 elif isinstance(field, ForeignKey):
-                    target = field.to if isinstance(field.to, str) else (
-                        field.to.__name__ if field.to else "?"
-                    )
+                    target = field.to if isinstance(field.to, str) else (field.to.__name__ if field.to else "?")
                     on_delete = getattr(field, "on_delete", "CASCADE")
                     related_name = getattr(field, "related_name", None)
-                    relations.append({
-                        "type": "FK",
-                        "field": fname,
-                        "from": name,
-                        "to": target,
-                        "on_delete": on_delete,
-                        "related_name": related_name,
-                    })
+                    relations.append(
+                        {
+                            "type": "FK",
+                            "field": fname,
+                            "from": name,
+                            "to": target,
+                            "on_delete": on_delete,
+                            "related_name": related_name,
+                        }
+                    )
                     field_data["relation"] = {
-                        "type": "FK", "to": target,
+                        "type": "FK",
+                        "to": target,
                         "on_delete": on_delete,
                         "related_name": related_name,
                     }
@@ -869,10 +998,10 @@ class AdminSite:
                 fields_info.append(field_data)
 
             # ── Indexes from Meta ────────────────────────────────────
-            indexes_info: List[Dict[str, Any]] = []
+            indexes_info: list[dict[str, Any]] = []
             if meta:
                 for idx in getattr(meta, "indexes", []):
-                    idx_entry: Dict[str, Any] = {
+                    idx_entry: dict[str, Any] = {
                         "fields": getattr(idx, "fields", []),
                         "name": getattr(idx, "name", None),
                         "unique": getattr(idx, "unique", False),
@@ -888,28 +1017,32 @@ class AdminSite:
                     indexes_info.append(idx_entry)
                 # unique_together → virtual unique index
                 for ut in getattr(meta, "unique_together", []):
-                    indexes_info.append({
-                        "fields": list(ut),
-                        "name": None,
-                        "unique": True,
-                        "source": "unique_together",
-                    })
+                    indexes_info.append(
+                        {
+                            "fields": list(ut),
+                            "name": None,
+                            "unique": True,
+                            "source": "unique_together",
+                        }
+                    )
 
             # Field-level indexes
             for fname, field in all_fields.items():
                 if getattr(field, "db_index", False) and not getattr(field, "primary_key", False):
-                    indexes_info.append({
-                        "fields": [fname],
-                        "name": f"idx_{name.lower()}_{fname}",
-                        "unique": getattr(field, "unique", False),
-                        "source": "field_level",
-                    })
+                    indexes_info.append(
+                        {
+                            "fields": [fname],
+                            "name": f"idx_{name.lower()}_{fname}",
+                            "unique": getattr(field, "unique", False),
+                            "source": "field_level",
+                        }
+                    )
 
             # ── Constraints from Meta ────────────────────────────────
-            constraints_info: List[Dict[str, Any]] = []
+            constraints_info: list[dict[str, Any]] = []
             if meta:
                 for c in getattr(meta, "constraints", []):
-                    c_entry: Dict[str, Any] = {
+                    c_entry: dict[str, Any] = {
                         "name": getattr(c, "name", None),
                         "type": type(c).__name__,
                     }
@@ -922,7 +1055,7 @@ class AdminSite:
                     constraints_info.append(c_entry)
 
             # ── Meta options (full) ──────────────────────────────────
-            meta_info: Dict[str, Any] = {}
+            meta_info: dict[str, Any] = {}
             if meta:
                 meta_info = {
                     "ordering": getattr(meta, "ordering", []),
@@ -936,10 +1069,7 @@ class AdminSite:
                     "select_on_save": getattr(meta, "select_on_save", False),
                     "db_tablespace": getattr(meta, "db_tablespace", ""),
                     "default_permissions": list(getattr(meta, "default_permissions", ())),
-                    "permissions": [
-                        {"codename": p[0], "name": p[1]}
-                        for p in getattr(meta, "permissions", [])
-                    ],
+                    "permissions": [{"codename": p[0], "name": p[1]} for p in getattr(meta, "permissions", [])],
                     "unique_together": [list(ut) for ut in getattr(meta, "unique_together", [])],
                     "order_with_respect_to": getattr(meta, "order_with_respect_to", None),
                     "default_related_name": getattr(meta, "default_related_name", None),
@@ -950,7 +1080,7 @@ class AdminSite:
                 }
 
             # ── SQL DDL generation ───────────────────────────────────
-            sql_info: Dict[str, Any] = {}
+            sql_info: dict[str, Any] = {}
             try:
                 sql_info["create_table"] = model_cls.generate_create_table_sql(dialect)
             except Exception:
@@ -966,18 +1096,14 @@ class AdminSite:
 
             # ── Model fingerprint ────────────────────────────────────
             fingerprint = None
-            try:
+            with contextlib.suppress(Exception):
                 fingerprint = model_cls.fingerprint()
-            except Exception:
-                pass
 
             # ── Source location ───────────────────────────────────────
             source_module = getattr(model_cls, "__module__", "")
             source_file = ""
-            try:
+            with contextlib.suppress(TypeError, OSError):
                 source_file = _inspect.getfile(model_cls)
-            except (TypeError, OSError):
-                pass
 
             # ── User-defined methods ─────────────────────────────────
             model_methods = self._inspect_model_methods(model_cls)
@@ -986,57 +1112,63 @@ class AdminSite:
             reverse_rels = reverse_map.get(name, [])
 
             # ── M2M junction table details ───────────────────────────
-            m2m_tables: List[Dict[str, Any]] = []
+            m2m_tables: list[dict[str, Any]] = []
             for m2m_name, m2m_field in m2m_fields.items():
                 try:
                     jt = m2m_field.junction_table_name(model_cls)
                     src_col, tgt_col = m2m_field.junction_columns(model_cls)
-                    target = m2m_field.to if isinstance(m2m_field.to, str) else (
-                        m2m_field.to.__name__ if m2m_field.to else "?"
+                    target = (
+                        m2m_field.to
+                        if isinstance(m2m_field.to, str)
+                        else (m2m_field.to.__name__ if m2m_field.to else "?")
                     )
-                    m2m_tables.append({
-                        "field": m2m_name,
-                        "junction_table": jt,
-                        "source_column": src_col,
-                        "target_column": tgt_col,
-                        "target_model": target,
-                        "db_table": getattr(m2m_field, "db_table", None),
-                        "through": getattr(m2m_field, "through", None),
-                    })
+                    m2m_tables.append(
+                        {
+                            "field": m2m_name,
+                            "junction_table": jt,
+                            "source_column": src_col,
+                            "target_column": tgt_col,
+                            "target_model": target,
+                            "db_table": getattr(m2m_field, "db_table", None),
+                            "through": getattr(m2m_field, "through", None),
+                        }
+                    )
                 except Exception:
                     pass
 
-            models_data.append({
-                "name": name,
-                "table_name": getattr(model_cls, "_table_name", name.lower()),
-                "app_label": admin.get_app_label(),
-                "verbose_name": admin.get_model_name(),
-                "verbose_name_plural": admin.get_model_name_plural(),
-                "fields": fields_info,
-                "field_count": len(fields_info),
-                "relations": relations,
-                "reverse_relations": reverse_rels,
-                "m2m_tables": m2m_tables,
-                "indexes": indexes_info,
-                "constraints": constraints_info,
-                "meta": meta_info,
-                "sql": sql_info,
-                "methods": model_methods,
-                "source": {
-                    "module": source_module,
-                    "file": source_file,
-                },
-                "fingerprint": fingerprint,
-                # Flat compat keys (kept for backward compatibility)
-                "ordering": meta_info.get("ordering", []),
-                "managed": meta_info.get("managed", True),
-                "abstract": meta_info.get("abstract", False),
-                "pk_field": getattr(model_cls, "_pk_attr", "id"),
-            })
+            models_data.append(
+                {
+                    "name": name,
+                    "table_name": getattr(model_cls, "_table_name", name.lower()),
+                    "app_label": admin.get_app_label(),
+                    "verbose_name": admin.get_model_name(),
+                    "verbose_name_plural": admin.get_model_name_plural(),
+                    "fields": fields_info,
+                    "field_count": len(fields_info),
+                    "relations": relations,
+                    "reverse_relations": reverse_rels,
+                    "m2m_tables": m2m_tables,
+                    "indexes": indexes_info,
+                    "constraints": constraints_info,
+                    "meta": meta_info,
+                    "sql": sql_info,
+                    "methods": model_methods,
+                    "source": {
+                        "module": source_module,
+                        "file": source_file,
+                    },
+                    "fingerprint": fingerprint,
+                    # Flat compat keys (kept for backward compatibility)
+                    "ordering": meta_info.get("ordering", []),
+                    "managed": meta_info.get("managed", True),
+                    "abstract": meta_info.get("abstract", False),
+                    "pk_field": getattr(model_cls, "_pk_attr", "id"),
+                }
+            )
 
         return models_data
 
-    def get_orm_metadata(self) -> Dict[str, Any]:
+    def get_orm_metadata(self) -> dict[str, Any]:
         """
         Gather comprehensive ORM-level metadata beyond individual models.
 
@@ -1047,9 +1179,9 @@ class AdminSite:
             - **dependency_graph**: model → [models it depends on via FK/M2M]
             - **models**: condensed model list with table names
         """
-        from aquilia.models.fields_module import ForeignKey, ManyToManyField
+        from aquilia.models.fields_module import ForeignKey
 
-        result: Dict[str, Any] = {
+        result: dict[str, Any] = {
             "database": {},
             "backend": {},
             "stats": {},
@@ -1070,7 +1202,8 @@ class AdminSite:
             url = getattr(db, "url", "")
             # Redact password from URL for display
             import re as _re
-            safe_url = _re.sub(r'://([^:]+):([^@]+)@', r'://\1:****@', url)
+
+            safe_url = _re.sub(r"://([^:]+):([^@]+)@", r"://\1:****@", url)
 
             result["database"] = {
                 "dialect": getattr(db, "dialect", "unknown"),
@@ -1102,14 +1235,26 @@ class AdminSite:
             config = getattr(db, "_config", None)
             if config is not None:
                 result["database"]["config_type"] = type(config).__name__
-                config_info: Dict[str, Any] = {
+                config_info: dict[str, Any] = {
                     "type": type(config).__name__,
                 }
-                for attr in ("host", "port", "user", "name", "database",
-                             "service_name", "charset", "collation",
-                             "min_connections", "max_connections",
-                             "ssl", "timeout", "pool_size",
-                             "pool_recycle", "echo"):
+                for attr in (
+                    "host",
+                    "port",
+                    "user",
+                    "name",
+                    "database",
+                    "service_name",
+                    "charset",
+                    "collation",
+                    "min_connections",
+                    "max_connections",
+                    "ssl",
+                    "timeout",
+                    "pool_size",
+                    "pool_recycle",
+                    "echo",
+                ):
                     val = getattr(config, attr, None)
                     if val is not None and val != "" and val != 0:
                         config_info[attr] = val
@@ -1155,7 +1300,7 @@ class AdminSite:
         # ── Dependency graph ─────────────────────────────────────────
         for model_cls in self._registry:
             model_name = model_cls.__name__
-            deps: List[str] = []
+            deps: list[str] = []
             seen: set = set()
 
             fields = getattr(model_cls, "_fields", {})
@@ -1163,17 +1308,13 @@ class AdminSite:
 
             for f in fields.values():
                 if isinstance(f, ForeignKey):
-                    target = f.to if isinstance(f.to, str) else (
-                        f.to.__name__ if f.to else None
-                    )
+                    target = f.to if isinstance(f.to, str) else (f.to.__name__ if f.to else None)
                     if target and target not in seen and target != model_name:
                         deps.append(target)
                         seen.add(target)
 
             for m in m2m.values():
-                target = m.to if isinstance(m.to, str) else (
-                    m.to.__name__ if m.to else None
-                )
+                target = m.to if isinstance(m.to, str) else (m.to.__name__ if m.to else None)
                 if target and target not in seen and target != model_name:
                     deps.append(target)
                     seen.add(target)
@@ -1190,50 +1331,53 @@ class AdminSite:
             for f in fields.values():
                 if getattr(f, "db_index", False) and not getattr(f, "primary_key", False):
                     idx_count += 1
-            result["models"].append({
-                "name": model_cls.__name__,
-                "table": getattr(model_cls, "_table_name", ""),
-                "app_label": admin.get_app_label(),
-                "field_count": len(fields),
-                "pk": getattr(model_cls, "_pk_attr", "id"),
-                "relation_count": rel_count,
-                "index_count": idx_count,
-                "managed": getattr(meta, "managed", True) if meta else True,
-            })
+            result["models"].append(
+                {
+                    "name": model_cls.__name__,
+                    "table": getattr(model_cls, "_table_name", ""),
+                    "app_label": admin.get_app_label(),
+                    "field_count": len(fields),
+                    "pk": getattr(model_cls, "_pk_attr", "id"),
+                    "relation_count": rel_count,
+                    "index_count": idx_count,
+                    "managed": getattr(meta, "managed", True) if meta else True,
+                }
+            )
 
         return result
 
     # ── Query Inspector data ─────────────────────────────────────────
 
-    def get_query_inspector_data(self) -> Dict[str, Any]:
+    def get_query_inspector_data(self) -> dict[str, Any]:
         """
         Gather query inspector data: recent queries, slow queries,
         N+1 detections, and aggregate stats.
         """
         from .query_inspector import get_query_inspector
+
         inspector = get_query_inspector()
         return inspector.get_stats()
 
     # ── Error Tracker data ───────────────────────────────────────────
 
-    def get_error_tracker_data(self) -> Dict[str, Any]:
+    def get_error_tracker_data(self) -> dict[str, Any]:
         """
         Gather error tracker data: recent errors, error groups,
         frequency analysis, and aggregate stats.
         """
         from .error_tracker import get_error_tracker
+
         tracker = get_error_tracker()
         return tracker.get_stats()
 
     # ── Background Tasks data ────────────────────────────────────────
 
-    async def get_tasks_data(self) -> Dict[str, Any]:
+    async def get_tasks_data(self) -> dict[str, Any]:
         """
         Gather background task manager data: job list, queue stats,
         worker status, and aggregate stats.
         """
         try:
-            from aquilia.tasks import TaskManager
             # Try to find the active TaskManager instance
             manager = getattr(self, "_task_manager", None)
             if manager is None:
@@ -1274,22 +1418,25 @@ class AdminSite:
             registered_tasks = []
             try:
                 from aquilia.tasks.decorators import get_registered_tasks
+
                 for name, desc in get_registered_tasks().items():
                     sched = getattr(desc, "schedule", None)
-                    registered_tasks.append({
-                        "name": name,
-                        "queue": getattr(desc, "queue", "default"),
-                        "priority": getattr(desc, "priority", "NORMAL").name
+                    registered_tasks.append(
+                        {
+                            "name": name,
+                            "queue": getattr(desc, "queue", "default"),
+                            "priority": getattr(desc, "priority", "NORMAL").name
                             if hasattr(getattr(desc, "priority", None), "name")
                             else str(getattr(desc, "priority", "NORMAL")),
-                        "max_retries": getattr(desc, "max_retries", 3),
-                        "timeout": getattr(desc, "timeout", 300.0),
-                        "retry_delay": getattr(desc, "retry_delay", 1.0),
-                        "retry_backoff": getattr(desc, "retry_backoff", 2.0),
-                        "tags": getattr(desc, "tags", []),
-                        "schedule": sched.human_readable if sched else "on-demand",
-                        "dispatch": "periodic" if sched else "on-demand",
-                    })
+                            "max_retries": getattr(desc, "max_retries", 3),
+                            "timeout": getattr(desc, "timeout", 300.0),
+                            "retry_delay": getattr(desc, "retry_delay", 1.0),
+                            "retry_backoff": getattr(desc, "retry_backoff", 2.0),
+                            "tags": getattr(desc, "tags", []),
+                            "schedule": sched.human_readable if sched else "on-demand",
+                            "dispatch": "periodic" if sched else "on-demand",
+                        }
+                    )
             except Exception:
                 pass
 
@@ -1319,14 +1466,14 @@ class AdminSite:
         """Register the application's MailService for admin integration."""
         self._mail_service = service
 
-    def get_mailer_data(self) -> Dict[str, Any]:
+    def get_mailer_data(self) -> dict[str, Any]:
         """
         Gather comprehensive mail subsystem data for the admin mailer page.
 
         Inspects the MailService, MailConfig, providers, template dirs,
         queue stats, rate limits, security settings, and recent envelope history.
         """
-        data: Dict[str, Any] = {
+        data: dict[str, Any] = {
             "available": False,
             "enabled": False,
             "config": {},
@@ -1395,27 +1542,29 @@ class AdminSite:
                 p_ssl = getattr(pc, "use_ssl", False)
                 p_timeout = getattr(pc, "timeout", 30.0)
 
-                providers_info.append({
-                    "name": p_name,
-                    "type": p_type,
-                    "type_display": {
-                        "smtp": "SMTP",
-                        "ses": "AWS SES",
-                        "sendgrid": "SendGrid",
-                        "console": "Console (Dev)",
-                        "file": "File (Dev)",
-                    }.get(p_type, p_type.title()),
-                    "enabled": p_enabled,
-                    "active": p_active,
-                    "priority": p_priority,
-                    "rate_limit_per_min": p_rate,
-                    "host": p_host,
-                    "port": p_port,
-                    "use_tls": p_tls,
-                    "use_ssl": p_ssl,
-                    "timeout": p_timeout,
-                    "status": "active" if p_active else ("disabled" if not p_enabled else "inactive"),
-                })
+                providers_info.append(
+                    {
+                        "name": p_name,
+                        "type": p_type,
+                        "type_display": {
+                            "smtp": "SMTP",
+                            "ses": "AWS SES",
+                            "sendgrid": "SendGrid",
+                            "console": "Console (Dev)",
+                            "file": "File (Dev)",
+                        }.get(p_type, p_type.title()),
+                        "enabled": p_enabled,
+                        "active": p_active,
+                        "priority": p_priority,
+                        "rate_limit_per_min": p_rate,
+                        "host": p_host,
+                        "port": p_port,
+                        "use_tls": p_tls,
+                        "use_ssl": p_ssl,
+                        "timeout": p_timeout,
+                        "status": "active" if p_active else ("disabled" if not p_enabled else "inactive"),
+                    }
+                )
 
             data["providers"] = providers_info
             data["provider_count"] = len(providers_info)
@@ -1502,7 +1651,7 @@ class AdminSite:
         self._provider_deployer = deployer
         self._provider_credential_store = credential_store
 
-    def get_provider_data(self) -> Dict[str, Any]:
+    def get_provider_data(self) -> dict[str, Any]:
         """
         Gather comprehensive cloud provider data for the admin provider page.
 
@@ -1511,7 +1660,7 @@ class AdminSite:
         credentials, env groups, audit logs, user profile, projects,
         custom domains, webhooks, blueprints, workspace members, and more.
         """
-        data: Dict[str, Any] = {
+        data: dict[str, Any] = {
             "available": False,
             "provider_name": "Render",
             "services": [],
@@ -1560,6 +1709,7 @@ class AdminSite:
         if store is None:
             try:
                 from aquilia.providers.render.store import RenderCredentialStore
+
                 _default_store = RenderCredentialStore()
                 if _default_store.is_configured():
                     store = _default_store
@@ -1570,10 +1720,12 @@ class AdminSite:
                             _token = store.load()
                             if _token:
                                 from aquilia.providers.render.client import RenderClient
+
                                 client = RenderClient(token=_token)
                                 self._provider_client = client
                                 try:
                                     from aquilia.providers.render.deployer import RenderDeployer
+
                                     deployer = RenderDeployer(client=client)
                                     self._provider_deployer = deployer
                                 except Exception:
@@ -1594,7 +1746,11 @@ class AdminSite:
                 status = store.status() if hasattr(store, "status") else {}
                 is_configured = status.get("configured", False)
                 is_expired = status.get("expired", False)
-                data["credential_status"] = "active" if (is_configured and not is_expired) else ("inactive" if is_configured else "unconfigured")
+                data["credential_status"] = (
+                    "active"
+                    if (is_configured and not is_expired)
+                    else ("inactive" if is_configured else "unconfigured")
+                )
                 data["credential_cipher"] = status.get("cipher_suite", "AES-256-GCM")
                 data["crous_version"] = f"v{status.get('crous_version', 2)}"
                 age_hours = status.get("token_age_hours")
@@ -1609,8 +1765,7 @@ class AdminSite:
                 if hasattr(store, "get_audit_log"):
                     audit_raw = store.get_audit_log()
                     data["audit_entries"] = [
-                        {"ts": e.get("timestamp", "—"), "action": e.get("action", "—"),
-                         "details": e.get("details", "")}
+                        {"ts": e.get("timestamp", "—"), "action": e.get("action", "—"), "details": e.get("details", "")}
                         for e in (audit_raw or [])
                     ]
             except Exception:
@@ -1624,17 +1779,19 @@ class AdminSite:
                     if isinstance(services_raw, list):
                         for svc in services_raw:
                             s = svc if isinstance(svc, dict) else (svc.__dict__ if hasattr(svc, "__dict__") else {})
-                            data["services"].append({
-                                "id": s.get("id", s.get("service_id", "—")),
-                                "name": s.get("name", "unnamed"),
-                                "type": s.get("type", s.get("service_type", "web_service")),
-                                "status": s.get("status", s.get("state", "unknown")),
-                                "region": s.get("region", "—"),
-                                "plan": s.get("plan", s.get("instance_type", "—")),
-                                "url": s.get("url", s.get("service_url", "—")),
-                                "created_at": str(s.get("created_at", s.get("createdAt", "—"))),
-                                "updated_at": str(s.get("updated_at", s.get("updatedAt", "—"))),
-                            })
+                            data["services"].append(
+                                {
+                                    "id": s.get("id", s.get("service_id", "—")),
+                                    "name": s.get("name", "unnamed"),
+                                    "type": s.get("type", s.get("service_type", "web_service")),
+                                    "status": s.get("status", s.get("state", "unknown")),
+                                    "region": s.get("region", "—"),
+                                    "plan": s.get("plan", s.get("instance_type", "—")),
+                                    "url": s.get("url", s.get("service_url", "—")),
+                                    "created_at": str(s.get("created_at", s.get("createdAt", "—"))),
+                                    "updated_at": str(s.get("updated_at", s.get("updatedAt", "—"))),
+                                }
+                            )
                         data["services_live"] = sum(
                             1 for s in data["services"] if s.get("status", "").lower() == "live"
                         )
@@ -1652,15 +1809,17 @@ class AdminSite:
                         if isinstance(deploys_raw, list):
                             for d in deploys_raw[:20]:
                                 dp = d if isinstance(d, dict) else (d.__dict__ if hasattr(d, "__dict__") else {})
-                                data["deploys"].append({
-                                    "id": dp.get("id", "—"),
-                                    "service_id": svc_id,
-                                    "service_name": svc.get("name", "—"),
-                                    "status": dp.get("status", "unknown"),
-                                    "trigger": dp.get("trigger", dp.get("type", "manual")),
-                                    "commit_id": dp.get("commit_id", dp.get("commitId", "—")),
-                                    "created_at": str(dp.get("created_at", dp.get("createdAt", "—"))),
-                                })
+                                data["deploys"].append(
+                                    {
+                                        "id": dp.get("id", "—"),
+                                        "service_id": svc_id,
+                                        "service_name": svc.get("name", "—"),
+                                        "status": dp.get("status", "unknown"),
+                                        "trigger": dp.get("trigger", dp.get("type", "manual")),
+                                        "commit_id": dp.get("commit_id", dp.get("commitId", "—")),
+                                        "created_at": str(dp.get("created_at", dp.get("createdAt", "—"))),
+                                    }
+                                )
                 data["total_deploys"] = len(data["deploys"])
             except Exception as e:
                 logger.warning(f"Error listing deploys: {e}")
@@ -1672,13 +1831,15 @@ class AdminSite:
                     if isinstance(pg_raw, list):
                         for db in pg_raw:
                             d = db if isinstance(db, dict) else (db.__dict__ if hasattr(db, "__dict__") else {})
-                            data["postgres_instances"].append({
-                                "id": d.get("id", "—"),
-                                "name": d.get("name", "unnamed"),
-                                "region": d.get("region", "—"),
-                                "plan": d.get("plan", "starter"),
-                                "version": d.get("version", d.get("databaseVersion", "16")),
-                            })
+                            data["postgres_instances"].append(
+                                {
+                                    "id": d.get("id", "—"),
+                                    "name": d.get("name", "unnamed"),
+                                    "region": d.get("region", "—"),
+                                    "plan": d.get("plan", "starter"),
+                                    "version": d.get("version", d.get("databaseVersion", "16")),
+                                }
+                            )
                         data["postgres_count"] = len(data["postgres_instances"])
             except Exception:
                 pass
@@ -1690,12 +1851,14 @@ class AdminSite:
                     if isinstance(kv_raw, list):
                         for kv in kv_raw:
                             k = kv if isinstance(kv, dict) else (kv.__dict__ if hasattr(kv, "__dict__") else {})
-                            data["kv_instances"].append({
-                                "id": k.get("id", "—"),
-                                "name": k.get("name", "unnamed"),
-                                "region": k.get("region", "—"),
-                                "plan": k.get("plan", "starter"),
-                            })
+                            data["kv_instances"].append(
+                                {
+                                    "id": k.get("id", "—"),
+                                    "name": k.get("name", "unnamed"),
+                                    "region": k.get("region", "—"),
+                                    "plan": k.get("plan", "starter"),
+                                }
+                            )
                         data["kv_count"] = len(data["kv_instances"])
             except Exception:
                 pass
@@ -1722,8 +1885,7 @@ class AdminSite:
                             vars_raw = client.get_env_vars(svc_id)
                             if isinstance(vars_raw, list):
                                 data["env_vars_by_service"][svc_name] = [
-                                    {"key": v.get("key", ""), "value": v.get("value", "")}
-                                    for v in vars_raw
+                                    {"key": v.get("key", ""), "value": v.get("value", "")} for v in vars_raw
                                 ]
                         except Exception:
                             pass
@@ -1753,12 +1915,14 @@ class AdminSite:
                     if isinstance(owners_raw, list):
                         for own in owners_raw:
                             o = own if isinstance(own, dict) else (own.__dict__ if hasattr(own, "__dict__") else {})
-                            data["render_workspaces"].append({
-                                "id": o.get("id", "—"),
-                                "name": o.get("name", "—"),
-                                "email": o.get("email", "—"),
-                                "type": o.get("type", "user"),
-                            })
+                            data["render_workspaces"].append(
+                                {
+                                    "id": o.get("id", "—"),
+                                    "name": o.get("name", "—"),
+                                    "email": o.get("email", "—"),
+                                    "type": o.get("type", "user"),
+                                }
+                            )
             except Exception:
                 pass
 
@@ -1773,13 +1937,15 @@ class AdminSite:
                         if isinstance(members_raw, list):
                             for m in members_raw:
                                 mem = m if isinstance(m, dict) else (m.__dict__ if hasattr(m, "__dict__") else {})
-                                data["workspace_members"].append({
-                                    "id": mem.get("id", "—"),
-                                    "name": mem.get("name", "—"),
-                                    "email": mem.get("email", "—"),
-                                    "role": mem.get("role", "member"),
-                                    "joined_at": str(mem.get("joined_at", mem.get("joinedAt", "—"))),
-                                })
+                                data["workspace_members"].append(
+                                    {
+                                        "id": mem.get("id", "—"),
+                                        "name": mem.get("name", "—"),
+                                        "email": mem.get("email", "—"),
+                                        "role": mem.get("role", "member"),
+                                        "joined_at": str(mem.get("joined_at", mem.get("joinedAt", "—"))),
+                                    }
+                                )
                             data["workspace_member_count"] = len(data["workspace_members"])
                 except Exception:
                     pass
@@ -1796,14 +1962,22 @@ class AdminSite:
                             domains_raw = client.list_custom_domains(svc_id)
                             if isinstance(domains_raw, list):
                                 for dom in domains_raw:
-                                    dd = dom if isinstance(dom, dict) else (dom.__dict__ if hasattr(dom, "__dict__") else {})
-                                    data["custom_domains"].append({
-                                        "id": dd.get("id", "—"),
-                                        "name": dd.get("name", dd.get("domain", "—")),
-                                        "service_name": svc_name,
-                                        "verification_status": dd.get("verificationStatus", dd.get("verification_status", "unknown")),
-                                        "created_at": str(dd.get("createdAt", dd.get("created_at", "—"))),
-                                    })
+                                    dd = (
+                                        dom
+                                        if isinstance(dom, dict)
+                                        else (dom.__dict__ if hasattr(dom, "__dict__") else {})
+                                    )
+                                    data["custom_domains"].append(
+                                        {
+                                            "id": dd.get("id", "—"),
+                                            "name": dd.get("name", dd.get("domain", "—")),
+                                            "service_name": svc_name,
+                                            "verification_status": dd.get(
+                                                "verificationStatus", dd.get("verification_status", "unknown")
+                                            ),
+                                            "created_at": str(dd.get("createdAt", dd.get("created_at", "—"))),
+                                        }
+                                    )
                         except Exception:
                             pass
                     data["custom_domain_count"] = len(data["custom_domains"])
@@ -1817,11 +1991,13 @@ class AdminSite:
                     if isinstance(proj_raw, list):
                         for p in proj_raw:
                             pp = p if isinstance(p, dict) else (p.__dict__ if hasattr(p, "__dict__") else {})
-                            data["projects"].append({
-                                "id": pp.get("id", "—"),
-                                "name": pp.get("name", "unnamed"),
-                                "created_at": str(pp.get("createdAt", pp.get("created_at", "—"))),
-                            })
+                            data["projects"].append(
+                                {
+                                    "id": pp.get("id", "—"),
+                                    "name": pp.get("name", "unnamed"),
+                                    "created_at": str(pp.get("createdAt", pp.get("created_at", "—"))),
+                                }
+                            )
                         data["project_count"] = len(data["projects"])
             except Exception:
                 pass
@@ -1833,12 +2009,14 @@ class AdminSite:
                     if isinstance(wh_raw, list):
                         for wh in wh_raw:
                             w = wh if isinstance(wh, dict) else (wh.__dict__ if hasattr(wh, "__dict__") else {})
-                            data["webhooks"].append({
-                                "id": w.get("id", "—"),
-                                "url": w.get("url", "—"),
-                                "enabled": w.get("enabled", True),
-                                "created_at": str(w.get("createdAt", w.get("created_at", "—"))),
-                            })
+                            data["webhooks"].append(
+                                {
+                                    "id": w.get("id", "—"),
+                                    "url": w.get("url", "—"),
+                                    "enabled": w.get("enabled", True),
+                                    "created_at": str(w.get("createdAt", w.get("created_at", "—"))),
+                                }
+                            )
                         data["webhook_count"] = len(data["webhooks"])
             except Exception:
                 pass
@@ -1850,15 +2028,17 @@ class AdminSite:
                     if isinstance(bp_raw, list):
                         for bp in bp_raw:
                             b = bp if isinstance(bp, dict) else (bp.__dict__ if hasattr(bp, "__dict__") else {})
-                            data["blueprints"].append({
-                                "id": b.get("id", "—"),
-                                "name": b.get("name", "unnamed"),
-                                "status": b.get("status", "unknown"),
-                                "repo": b.get("repo", b.get("repository", "—")),
-                                "branch": b.get("branch", "main"),
-                                "auto_sync": b.get("autoSync", b.get("auto_sync", False)),
-                                "created_at": str(b.get("createdAt", b.get("created_at", "—"))),
-                            })
+                            data["blueprints"].append(
+                                {
+                                    "id": b.get("id", "—"),
+                                    "name": b.get("name", "unnamed"),
+                                    "status": b.get("status", "unknown"),
+                                    "repo": b.get("repo", b.get("repository", "—")),
+                                    "branch": b.get("branch", "main"),
+                                    "auto_sync": b.get("autoSync", b.get("auto_sync", False)),
+                                    "created_at": str(b.get("createdAt", b.get("created_at", "—"))),
+                                }
+                            )
                         data["blueprint_count"] = len(data["blueprints"])
             except Exception:
                 pass
@@ -1870,40 +2050,42 @@ class AdminSite:
                     if isinstance(rc_raw, list):
                         for rc in rc_raw:
                             r = rc if isinstance(rc, dict) else (rc.__dict__ if hasattr(rc, "__dict__") else {})
-                            data["registry_credentials"].append({
-                                "id": r.get("id", "—"),
-                                "name": r.get("name", "unnamed"),
-                                "registry": r.get("registry", r.get("server", "—")),
-                                "username": r.get("username", "—"),
-                            })
+                            data["registry_credentials"].append(
+                                {
+                                    "id": r.get("id", "—"),
+                                    "name": r.get("name", "unnamed"),
+                                    "registry": r.get("registry", r.get("server", "—")),
+                                    "username": r.get("username", "—"),
+                                }
+                            )
                         data["registry_credential_count"] = len(data["registry_credentials"])
             except Exception:
                 pass
 
         # ── Chart data (computed from collected data) ──
         # Service status distribution
-        status_counts: Dict[str, int] = {}
+        status_counts: dict[str, int] = {}
         for s in data["services"]:
             st = s.get("status", "unknown").lower()
             status_counts[st] = status_counts.get(st, 0) + 1
         data["chart_service_status"] = status_counts
 
         # Service type distribution
-        type_counts: Dict[str, int] = {}
+        type_counts: dict[str, int] = {}
         for s in data["services"]:
             t = s.get("type", "unknown")
             type_counts[t] = type_counts.get(t, 0) + 1
         data["chart_service_types"] = type_counts
 
         # Deploy status distribution
-        deploy_status_counts: Dict[str, int] = {}
+        deploy_status_counts: dict[str, int] = {}
         for d in data["deploys"]:
             ds = d.get("status", "unknown").lower()
             deploy_status_counts[ds] = deploy_status_counts.get(ds, 0) + 1
         data["chart_deploy_status"] = deploy_status_counts
 
         # Region distribution
-        region_counts: Dict[str, int] = {}
+        region_counts: dict[str, int] = {}
         for s in data["services"]:
             r = s.get("region", "unknown")
             if r and r != "—":
@@ -1917,10 +2099,14 @@ class AdminSite:
         # Infrastructure summary
         data["infra_summary"] = {
             "total_resources": (
-                len(data["services"]) + data["postgres_count"] +
-                data["kv_count"] + data["env_group_count"] +
-                data["project_count"] + data["blueprint_count"] +
-                data["webhook_count"] + data["custom_domain_count"]
+                len(data["services"])
+                + data["postgres_count"]
+                + data["kv_count"]
+                + data["env_group_count"]
+                + data["project_count"]
+                + data["blueprint_count"]
+                + data["webhook_count"]
+                + data["custom_domain_count"]
             ),
             "services": len(data["services"]),
             "databases": data["postgres_count"],
@@ -1935,7 +2121,7 @@ class AdminSite:
         }
 
         # Env var counts per service (for charts)
-        env_var_counts: Dict[str, int] = {}
+        env_var_counts: dict[str, int] = {}
         for svc_name, vars_list in data["env_vars_by_service"].items():
             env_var_counts[svc_name] = len(vars_list)
         data["chart_env_var_counts"] = env_var_counts
@@ -1943,9 +2129,12 @@ class AdminSite:
         return data
 
     async def execute_provider_action(
-        self, action: str, service_id: str = "", deploy_id: str = "",
-        extra_data: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        self,
+        action: str,
+        service_id: str = "",
+        deploy_id: str = "",
+        extra_data: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """
         Execute a provider/deployment action and return the result.
 
@@ -1968,11 +2157,15 @@ class AdminSite:
                 if not token:
                     return {"success": False, "message": "API token is required."}
                 if len(token) < 10:
-                    return {"success": False, "message": "API token appears too short. Please enter a valid Render API key."}
+                    return {
+                        "success": False,
+                        "message": "API token appears too short. Please enter a valid Render API key.",
+                    }
                 # Ensure we have a credential store (workspace-local: .aquilia/providers/render/)
                 if store is None:
                     try:
                         from aquilia.providers.render.store import RenderCredentialStore
+
                         store = RenderCredentialStore()  # <workspace>/.aquilia/providers/render/
                         self._provider_credential_store = store
                     except Exception as e:
@@ -1982,6 +2175,7 @@ class AdminSite:
                 # Re-create the RenderClient with the new token
                 try:
                     from aquilia.providers.render.client import RenderClient
+
                     new_client = RenderClient(token=token)
                     self._provider_client = new_client
                 except Exception as e:
@@ -1989,11 +2183,15 @@ class AdminSite:
                 # Re-create the RenderDeployer if possible
                 try:
                     from aquilia.providers.render.deployer import RenderDeployer
+
                     new_deployer = RenderDeployer(client=self._provider_client)
                     self._provider_deployer = new_deployer
                 except Exception:
                     pass  # deployer is optional
-                return {"success": True, "message": "Provider connected successfully! Your API token has been encrypted and stored with AES-256-GCM."}
+                return {
+                    "success": True,
+                    "message": "Provider connected successfully! Your API token has been encrypted and stored with AES-256-GCM.",
+                }
 
             # ── Resume service ──
             elif action == "resume" and client and hasattr(client, "resume_service"):
@@ -2078,7 +2276,7 @@ class AdminSite:
         """Register the application's StorageRegistry for admin integration."""
         self._storage_registry = registry
 
-    async def get_storage_data(self) -> Dict[str, Any]:
+    async def get_storage_data(self) -> dict[str, Any]:
         """
         Gather comprehensive storage subsystem data for the admin page.
 
@@ -2087,9 +2285,8 @@ class AdminSite:
         arrays for the frontend.
         """
         import os as _os
-        from collections import defaultdict
 
-        data: Dict[str, Any] = {
+        data: dict[str, Any] = {
             "available": False,
             "backends": [],
             "health": {},
@@ -2133,7 +2330,7 @@ class AdminSite:
                 "composite": "Composite (Multi-Backend)",
             }
 
-            backend_info: Dict[str, Any] = {
+            backend_info: dict[str, Any] = {
                 "alias": alias,
                 "type": backend_type,
                 "type_display": _type_display.get(backend_type, backend_type.title()),
@@ -2167,10 +2364,18 @@ class AdminSite:
                         cfg_dict = cfg.to_dict()
                         backend_info["config"] = cfg_dict
                         # Build safe display config (hide secrets)
-                        _secrets = {"secret_key", "access_key", "session_token",
-                                    "password", "key_passphrase", "account_key",
-                                    "sas_token", "connection_string",
-                                    "credentials_json", "credentials_path"}
+                        _secrets = {
+                            "secret_key",
+                            "access_key",
+                            "session_token",
+                            "password",
+                            "key_passphrase",
+                            "account_key",
+                            "sas_token",
+                            "connection_string",
+                            "credentials_json",
+                            "credentials_path",
+                        }
                         display = {}
                         for k, v in cfg_dict.items():
                             if k in _secrets and v:
@@ -2201,8 +2406,7 @@ class AdminSite:
 
             # Extract capabilities
             caps = []
-            for cap in ("save", "open", "delete", "exists", "stat", "listdir",
-                        "url", "copy", "move", "ping"):
+            for cap in ("save", "open", "delete", "exists", "stat", "listdir", "url", "copy", "move", "ping"):
                 if hasattr(backend, cap) and callable(getattr(backend, cap)):
                     caps.append(cap)
             backend_info["capabilities"] = caps
@@ -2324,7 +2528,7 @@ class AdminSite:
 
     # ── MLOps data ───────────────────────────────────────────────────
 
-    def get_mlops_data(self) -> Dict[str, Any]:
+    def get_mlops_data(self) -> dict[str, Any]:
         """
         Gather comprehensive MLOps subsystem data for the admin page.
 
@@ -2333,17 +2537,20 @@ class AdminSite:
         circuit breaker, rate limiter, memory tracker, lineage, and
         scheduler.
         """
-        data: Dict[str, Any] = {"available": False}
+        data: dict[str, Any] = {"available": False}
 
         try:
             from aquilia.mlops import (
-                ModelOrchestrator, ModelRegistry, MetricsCollector,
-                DriftDetector, PluginHost, CircuitBreaker,
-                TokenBucketRateLimiter, MemoryTracker,
-                ModelLineageDAG, ExperimentLedger,
-                Framework, RuntimeKind, ModelType, DeviceType,
-                BatchingStrategy, RolloutStrategy, DriftMethod,
-                QuantizePreset, ExportTarget, InferenceMode,
+                BatchingStrategy,
+                DeviceType,
+                DriftMethod,
+                ExportTarget,
+                Framework,
+                InferenceMode,
+                ModelType,
+                QuantizePreset,
+                RolloutStrategy,
+                RuntimeKind,
             )
         except Exception:
             return data
@@ -2372,6 +2579,7 @@ class AdminSite:
         if registry is None or not hasattr(registry, "list_models"):
             try:
                 from aquilia.mlops.api.model_class import _get_global_registry
+
                 _global = _get_global_registry()
                 if _global is not None and hasattr(_global, "list_models"):
                     model_names = _global.list_models()
@@ -2387,11 +2595,15 @@ class AdminSite:
                 for name in registry.list_models():
                     entry = registry.get(name)
                     if entry:
-                        models.append(entry.to_dict() if hasattr(entry, "to_dict") else {
-                            "name": name,
-                            "version": getattr(entry, "version", "?"),
-                            "state": getattr(entry, "state", "unknown"),
-                        })
+                        models.append(
+                            entry.to_dict()
+                            if hasattr(entry, "to_dict")
+                            else {
+                                "name": name,
+                                "version": getattr(entry, "version", "?"),
+                                "state": getattr(entry, "state", "unknown"),
+                            }
+                        )
             except Exception:
                 pass
         data["models"] = models
@@ -2401,10 +2613,8 @@ class AdminSite:
         metrics_collector = getattr(self, "_mlops_metrics", None)
         metrics_summary = {}
         if metrics_collector is not None and hasattr(metrics_collector, "get_summary"):
-            try:
+            with contextlib.suppress(Exception):
                 metrics_summary = metrics_collector.get_summary()
-            except Exception:
-                pass
         data["metrics"] = metrics_summary
         data["total_inferences"] = metrics_summary.get("aquilia_inference_total", 0)
         data["total_errors"] = metrics_summary.get("aquilia_inference_errors_total", 0)
@@ -2415,11 +2625,8 @@ class AdminSite:
         # Hot models
         hot_models = []
         if metrics_collector is not None and hasattr(metrics_collector, "hot_models"):
-            try:
-                hot_models = [{"name": name, "score": score}
-                              for name, score in metrics_collector.hot_models(10)]
-            except Exception:
-                pass
+            with contextlib.suppress(Exception):
+                hot_models = [{"name": name, "score": score} for name, score in metrics_collector.hot_models(10)]
         data["hot_models"] = hot_models
 
         # Latency percentiles
@@ -2449,7 +2656,11 @@ class AdminSite:
         drift_detector = getattr(self, "_mlops_drift", None)
         if drift_detector is not None:
             try:
-                drift_data["method"] = drift_detector.method.value if hasattr(drift_detector.method, "value") else str(drift_detector.method)
+                drift_data["method"] = (
+                    drift_detector.method.value
+                    if hasattr(drift_detector.method, "value")
+                    else str(drift_detector.method)
+                )
                 drift_data["threshold"] = drift_detector.threshold
                 drift_data["has_reference"] = drift_detector._reference is not None
             except Exception:
@@ -2460,30 +2671,24 @@ class AdminSite:
         cb_data = {}
         circuit_breaker = getattr(self, "_mlops_circuit_breaker", None)
         if circuit_breaker is not None and hasattr(circuit_breaker, "stats"):
-            try:
+            with contextlib.suppress(Exception):
                 cb_data = circuit_breaker.stats
-            except Exception:
-                pass
         data["circuit_breaker"] = cb_data
 
         # ── 6. Rate Limiter ─────────────────────────────────────────
         rl_data = {}
         rate_limiter = getattr(self, "_mlops_rate_limiter", None)
         if rate_limiter is not None and hasattr(rate_limiter, "stats"):
-            try:
+            with contextlib.suppress(Exception):
                 rl_data = rate_limiter.stats
-            except Exception:
-                pass
         data["rate_limiter"] = rl_data
 
         # ── 7. Memory Tracker ───────────────────────────────────────
         mem_data = {}
         memory_tracker = getattr(self, "_mlops_memory_tracker", None)
         if memory_tracker is not None and hasattr(memory_tracker, "stats"):
-            try:
+            with contextlib.suppress(Exception):
                 mem_data = memory_tracker.stats
-            except Exception:
-                pass
         data["memory"] = mem_data
 
         # ── 8. Plugins ──────────────────────────────────────────────
@@ -2492,12 +2697,14 @@ class AdminSite:
         if plugin_host is not None and hasattr(plugin_host, "list_plugins"):
             try:
                 for desc in plugin_host.list_plugins():
-                    plugins.append({
-                        "name": desc.name,
-                        "version": desc.version,
-                        "state": desc.state.value if hasattr(desc.state, "value") else str(desc.state),
-                        "error": desc.error or "",
-                    })
+                    plugins.append(
+                        {
+                            "name": desc.name,
+                            "version": desc.version,
+                            "state": desc.state.value if hasattr(desc.state, "value") else str(desc.state),
+                            "error": desc.error or "",
+                        }
+                    )
             except Exception:
                 pass
         data["plugins"] = plugins
@@ -2510,7 +2717,7 @@ class AdminSite:
             try:
                 if hasattr(experiment_ledger, "to_dict"):
                     exp_dict = experiment_ledger.to_dict()
-                    for eid, edata in exp_dict.items():
+                    for _eid, edata in exp_dict.items():
                         experiments.append(edata)
             except Exception:
                 pass
@@ -2522,10 +2729,8 @@ class AdminSite:
         lineage_data = {}
         lineage_dag = getattr(self, "_mlops_lineage", None)
         if lineage_dag is not None and hasattr(lineage_dag, "to_dict"):
-            try:
+            with contextlib.suppress(Exception):
                 lineage_data = lineage_dag.to_dict()
-            except Exception:
-                pass
         data["lineage"] = lineage_data
         data["lineage_nodes"] = len(lineage_data)
 
@@ -2535,16 +2740,20 @@ class AdminSite:
         if rollout_engine is not None and hasattr(rollout_engine, "list_rollouts"):
             try:
                 for r in rollout_engine.list_rollouts():
-                    rollouts.append({
-                        "id": r.id,
-                        "from_version": r.config.from_version,
-                        "to_version": r.config.to_version,
-                        "strategy": r.config.strategy.value if hasattr(r.config.strategy, "value") else str(r.config.strategy),
-                        "phase": r.phase.value if hasattr(r.phase, "value") else str(r.phase),
-                        "percentage": r.current_percentage,
-                        "steps": r.steps_completed,
-                        "error": r.error or "",
-                    })
+                    rollouts.append(
+                        {
+                            "id": r.id,
+                            "from_version": r.config.from_version,
+                            "to_version": r.config.to_version,
+                            "strategy": r.config.strategy.value
+                            if hasattr(r.config.strategy, "value")
+                            else str(r.config.strategy),
+                            "phase": r.phase.value if hasattr(r.phase, "value") else str(r.phase),
+                            "percentage": r.current_percentage,
+                            "steps": r.steps_completed,
+                            "error": r.error or "",
+                        }
+                    )
             except Exception:
                 pass
         data["rollouts"] = rollouts
@@ -2552,7 +2761,7 @@ class AdminSite:
         data["active_rollouts"] = sum(1 for r in rollouts if r.get("phase") == "in_progress")
 
         # ── 12. Autoscaler ──────────────────────────────────────────
-        autoscaler_data: Dict[str, Any] = {}
+        autoscaler_data: dict[str, Any] = {}
         autoscaler = getattr(self, "_mlops_autoscaler", None)
         if autoscaler is not None:
             try:
@@ -2586,7 +2795,7 @@ class AdminSite:
         data["autoscaler"] = autoscaler_data
 
         # ── 13. RBAC / Security ─────────────────────────────────────
-        rbac_data: Dict[str, Any] = {}
+        rbac_data: dict[str, Any] = {}
         rbac_manager = getattr(self, "_mlops_rbac", None)
         if rbac_manager is not None:
             try:
@@ -2609,23 +2818,19 @@ class AdminSite:
         data["rbac"] = rbac_data
 
         # ── 14. Batch Queue ─────────────────────────────────────────
-        batch_queue_data: Dict[str, Any] = {}
+        batch_queue_data: dict[str, Any] = {}
         batch_queue = getattr(self, "_mlops_batch_queue", None)
         if batch_queue is not None and hasattr(batch_queue, "stats"):
-            try:
+            with contextlib.suppress(Exception):
                 batch_queue_data = batch_queue.stats
-            except Exception:
-                pass
         data["batch_queue"] = batch_queue_data
 
         # ── 15. LRU Cache ───────────────────────────────────────────
-        lru_cache_data: Dict[str, Any] = {}
+        lru_cache_data: dict[str, Any] = {}
         lru_cache = getattr(self, "_mlops_lru_cache", None)
         if lru_cache is not None and hasattr(lru_cache, "stats"):
-            try:
+            with contextlib.suppress(Exception):
                 lru_cache_data = lru_cache.stats
-            except Exception:
-                pass
         data["lru_cache"] = lru_cache_data
 
         # ── 16. Per-model metrics ───────────────────────────────────
@@ -2656,6 +2861,7 @@ class AdminSite:
         dtypes = []
         try:
             from aquilia.mlops._types import DType
+
             dtypes = [d.value for d in DType]
         except Exception:
             pass
@@ -2665,23 +2871,24 @@ class AdminSite:
         permissions = []
         try:
             from aquilia.mlops.security.rbac import Permission
+
             permissions = [p.value for p in Permission]
         except Exception:
             pass
         data["permissions"] = permissions
 
         # ── 20. Charts data ─────────────────────────────────────────
-        charts: Dict[str, Any] = {}
+        charts: dict[str, Any] = {}
 
         # Model states distribution
-        state_counts: Dict[str, int] = {}
+        state_counts: dict[str, int] = {}
         for m in models:
             state = m.get("state", "unknown")
             state_counts[state] = state_counts.get(state, 0) + 1
         charts["model_states"] = state_counts
 
         # Framework distribution
-        fw_counts: Dict[str, int] = {}
+        fw_counts: dict[str, int] = {}
         for m in models:
             fw = m.get("framework", "custom")
             if isinstance(fw, str):
@@ -2689,33 +2896,31 @@ class AdminSite:
         charts["frameworks"] = fw_counts
 
         # Plugin states
-        plugin_states: Dict[str, int] = {}
+        plugin_states: dict[str, int] = {}
         for p in plugins:
             pstate = p.get("state", "unknown")
             plugin_states[pstate] = plugin_states.get(pstate, 0) + 1
         charts["plugin_states"] = plugin_states
 
         # Experiment statuses
-        exp_statuses: Dict[str, int] = {}
+        exp_statuses: dict[str, int] = {}
         for e in experiments:
             estatus = e.get("status", "unknown")
             exp_statuses[estatus] = exp_statuses.get(estatus, 0) + 1
         charts["experiment_statuses"] = exp_statuses
 
         # Rollout phases
-        rollout_phases: Dict[str, int] = {}
+        rollout_phases: dict[str, int] = {}
         for r in rollouts:
             rphase = r.get("phase", "unknown")
             rollout_phases[rphase] = rollout_phases.get(rphase, 0) + 1
         charts["rollout_phases"] = rollout_phases
 
         # Memory breakdown (per-model allocations)
-        mem_allocations: Dict[str, int] = {}
+        mem_allocations: dict[str, int] = {}
         if memory_tracker is not None and hasattr(memory_tracker, "stats"):
-            try:
+            with contextlib.suppress(Exception):
                 mem_allocations = memory_tracker.stats.get("allocations", {})
-            except Exception:
-                pass
         charts["memory_allocations"] = mem_allocations
 
         data["charts"] = charts
@@ -2778,7 +2983,7 @@ class AdminSite:
 
     # ── Testing data ─────────────────────────────────────────────────
 
-    def get_testing_data(self) -> Dict[str, Any]:
+    def get_testing_data(self) -> dict[str, Any]:
         """
         Gather comprehensive testing framework data.
 
@@ -2792,10 +2997,8 @@ class AdminSite:
         - Coverage-style breakdown by component
         """
         import os
-        import importlib
-        import inspect
 
-        data: Dict[str, Any] = {
+        data: dict[str, Any] = {
             "available": True,
             "framework_version": "1.0.0",
             "components": [],
@@ -2810,10 +3013,6 @@ class AdminSite:
 
         # ── 1. Core test case classes ────────────────────────────────
         try:
-            from aquilia.testing.cases import (
-                AquiliaTestCase, TransactionTestCase,
-                LiveServerTestCase, SimpleTestCase,
-            )
             test_classes = [
                 {
                     "name": "SimpleTestCase",
@@ -2827,9 +3026,13 @@ class AdminSite:
                     "description": "Full async test case with server lifecycle",
                     "base": "IsolatedAsyncioTestCase",
                     "features": [
-                        "auto_server", "test_client", "di_container",
-                        "fault_engine", "config_override",
-                        "controller_router", "effect_registry",
+                        "auto_server",
+                        "test_client",
+                        "di_container",
+                        "fault_engine",
+                        "config_override",
+                        "controller_router",
+                        "effect_registry",
                     ],
                     "category": "integration",
                 },
@@ -2838,8 +3041,11 @@ class AdminSite:
                     "description": "Database tests with automatic transaction rollback",
                     "base": "AquiliaTestCase",
                     "features": [
-                        "auto_server", "test_client", "db_transaction",
-                        "auto_rollback", "isolation",
+                        "auto_server",
+                        "test_client",
+                        "db_transaction",
+                        "auto_rollback",
+                        "isolation",
                     ],
                     "category": "database",
                 },
@@ -2848,8 +3054,11 @@ class AdminSite:
                     "description": "Real ASGI server on random port for E2E testing",
                     "base": "AquiliaTestCase",
                     "features": [
-                        "real_server", "tcp_connection", "live_url",
-                        "browser_automation", "httpx_compatible",
+                        "real_server",
+                        "tcp_connection",
+                        "live_url",
+                        "browser_automation",
+                        "httpx_compatible",
                     ],
                     "category": "e2e",
                 },
@@ -2860,24 +3069,31 @@ class AdminSite:
 
         # ── 2. TestClient capabilities ───────────────────────────────
         try:
-            from aquilia.testing.client import TestClient, WebSocketTestClient
             data["client"] = {
                 "http": {
                     "name": "TestClient",
                     "methods": ["get", "post", "put", "patch", "delete", "head", "options"],
                     "features": [
-                        "in_process_asgi", "cookie_persistence",
-                        "auto_redirect_follow", "bearer_token_auth",
-                        "multipart_uploads", "response_history",
-                        "json_auto_parse", "content_type_detection",
+                        "in_process_asgi",
+                        "cookie_persistence",
+                        "auto_redirect_follow",
+                        "bearer_token_auth",
+                        "multipart_uploads",
+                        "response_history",
+                        "json_auto_parse",
+                        "content_type_detection",
                     ],
                 },
                 "websocket": {
                     "name": "WebSocketTestClient",
                     "features": [
-                        "connect", "send_text", "send_bytes",
-                        "receive_text", "receive_bytes",
-                        "close", "is_connected",
+                        "connect",
+                        "send_text",
+                        "send_bytes",
+                        "receive_text",
+                        "receive_bytes",
+                        "close",
+                        "is_connected",
                     ],
                 },
             }
@@ -2887,16 +3103,33 @@ class AdminSite:
         # ── 3. Assertion helpers ─────────────────────────────────────
         try:
             from aquilia.testing.assertions import AquiliaAssertions
+
             assertion_methods = [
-                m for m in dir(AquiliaAssertions)
-                if m.startswith("assert_") and callable(getattr(AquiliaAssertions, m))
+                m for m in dir(AquiliaAssertions) if m.startswith("assert_") and callable(getattr(AquiliaAssertions, m))
             ]
-            categories: Dict[str, list] = {}
+            categories: dict[str, list] = {}
             for method in sorted(assertion_methods):
-                if any(x in method for x in ["status", "success", "redirect", "created",
-                       "accepted", "no_content", "bad_request", "unauthorized",
-                       "forbidden", "not_found", "conflict", "gone", "unprocessable",
-                       "too_many", "server_error", "service_unavailable"]):
+                if any(
+                    x in method
+                    for x in [
+                        "status",
+                        "success",
+                        "redirect",
+                        "created",
+                        "accepted",
+                        "no_content",
+                        "bad_request",
+                        "unauthorized",
+                        "forbidden",
+                        "not_found",
+                        "conflict",
+                        "gone",
+                        "unprocessable",
+                        "too_many",
+                        "server_error",
+                        "service_unavailable",
+                    ]
+                ):
                     cat = "HTTP Status"
                 elif any(x in method for x in ["json", "json_contains", "json_key", "json_path", "json_list"]):
                     cat = "JSON"
@@ -2931,16 +3164,29 @@ class AdminSite:
         # ── 4. Fixtures ─────────────────────────────────────────────
         try:
             from aquilia.testing import fixtures as fx_mod
+
             fixture_names = [
-                name for name in dir(fx_mod)
-                if not name.startswith("_") and callable(getattr(fx_mod, name))
+                name
+                for name in dir(fx_mod)
+                if not name.startswith("_")
+                and callable(getattr(fx_mod, name))
                 and hasattr(getattr(fx_mod, name), "pytestmark")
-                or name in (
-                    "test_config", "fault_engine", "effect_registry",
-                    "cache_backend", "di_container", "identity_factory",
-                    "mail_outbox", "test_request", "test_scope",
-                    "test_server", "test_client", "ws_client",
-                    "settings_override", "aquilia_fixtures",
+                or name
+                in (
+                    "test_config",
+                    "fault_engine",
+                    "effect_registry",
+                    "cache_backend",
+                    "di_container",
+                    "identity_factory",
+                    "mail_outbox",
+                    "test_request",
+                    "test_scope",
+                    "test_server",
+                    "test_client",
+                    "ws_client",
+                    "settings_override",
+                    "aquilia_fixtures",
                 )
             ]
             data["fixtures"] = [
@@ -2953,125 +3199,153 @@ class AdminSite:
 
         # ── 5. Mock infrastructure ───────────────────────────────────
         mock_infra = []
+        with contextlib.suppress(Exception):
+            mock_infra.append(
+                {
+                    "name": "MockFaultEngine",
+                    "module": "faults",
+                    "description": "Capture & assert fault emissions",
+                    "features": [
+                        "emit_capture",
+                        "has_fault",
+                        "get_faults",
+                        "fault_codes",
+                        "fault_count",
+                        "last_fault",
+                        "reset",
+                        "context_manager",
+                    ],
+                }
+            )
         try:
-            from aquilia.testing.faults import MockFaultEngine
-            mock_infra.append({
-                "name": "MockFaultEngine",
-                "module": "faults",
-                "description": "Capture & assert fault emissions",
-                "features": [
-                    "emit_capture", "has_fault", "get_faults",
-                    "fault_codes", "fault_count", "last_fault",
-                    "reset", "context_manager",
-                ],
-            })
+            mock_infra.append(
+                {
+                    "name": "MockEffectRegistry",
+                    "module": "effects",
+                    "description": "Auto-stub missing effects for testing",
+                    "features": [
+                        "register_mock",
+                        "get_provider",
+                        "get_mock",
+                        "reset_all",
+                        "auto_stub",
+                    ],
+                }
+            )
+            mock_infra.append(
+                {
+                    "name": "MockEffectProvider",
+                    "module": "effects",
+                    "description": "Configurable provider with call tracking",
+                    "features": [
+                        "return_value",
+                        "return_sequence",
+                        "acquire_side_effect",
+                        "acquire_count",
+                        "call_history",
+                    ],
+                }
+            )
+            mock_infra.append(
+                {
+                    "name": "MockFlowContext",
+                    "module": "effects",
+                    "description": "Test-friendly FlowContext with pre-acquired mocks",
+                    "features": ["from_registry"],
+                }
+            )
         except Exception:
             pass
-        try:
-            from aquilia.testing.effects import MockEffectRegistry, MockEffectProvider, MockFlowContext
-            mock_infra.append({
-                "name": "MockEffectRegistry",
-                "module": "effects",
-                "description": "Auto-stub missing effects for testing",
-                "features": [
-                    "register_mock", "get_provider", "get_mock",
-                    "reset_all", "auto_stub",
-                ],
-            })
-            mock_infra.append({
-                "name": "MockEffectProvider",
-                "module": "effects",
-                "description": "Configurable provider with call tracking",
-                "features": [
-                    "return_value", "return_sequence",
-                    "acquire_side_effect", "acquire_count",
-                    "call_history",
-                ],
-            })
-            mock_infra.append({
-                "name": "MockFlowContext",
-                "module": "effects",
-                "description": "Test-friendly FlowContext with pre-acquired mocks",
-                "features": ["from_registry"],
-            })
-        except Exception:
-            pass
-        try:
-            from aquilia.testing.cache import MockCacheBackend
-            mock_infra.append({
-                "name": "MockCacheBackend",
-                "module": "cache",
-                "description": "In-memory cache with TTL tracking",
-                "features": [
-                    "get", "set", "delete", "exists", "clear",
-                    "get_or_set", "get_ttl", "ttl_tracking",
-                    "get_count", "set_count", "delete_count",
-                ],
-            })
-        except Exception:
-            pass
-        try:
-            from aquilia.testing.di import TestContainer
-            mock_infra.append({
-                "name": "TestContainer",
-                "module": "di",
-                "description": "DI container with relaxed validation for testing",
-                "features": [
-                    "mock_provider", "override_provider",
-                    "factory_provider", "spy_provider", "reset",
-                ],
-            })
-        except Exception:
-            pass
-        try:
-            from aquilia.testing.mail import MailTestMixin
-            mock_infra.append({
-                "name": "MailTestMixin",
-                "module": "mail",
-                "description": "Captured outbox for mail assertions",
-                "features": [
-                    "mail_outbox", "latest_mail", "get_mail_for",
-                    "assert_mail_sent", "assert_mail_subject_contains",
-                    "assert_no_mail_sent",
-                ],
-            })
-        except Exception:
-            pass
-        try:
-            from aquilia.testing.auth import TestIdentityFactory, IdentityBuilder
-            mock_infra.append({
-                "name": "TestIdentityFactory",
-                "module": "auth",
-                "description": "Create test identities with fluent builder",
-                "features": [
-                    "user", "admin", "service", "anonymous",
-                    "suspended", "build", "IdentityBuilder",
-                ],
-            })
-        except Exception:
-            pass
-        try:
-            from aquilia.testing.config import TestConfig
-            mock_infra.append({
-                "name": "TestConfig",
-                "module": "config",
-                "description": "Config overlay for test overrides",
-                "features": [
-                    "get", "set", "has", "to_dict",
-                    "override_settings", "dot_notation",
-                ],
-            })
-        except Exception:
-            pass
+        with contextlib.suppress(Exception):
+            mock_infra.append(
+                {
+                    "name": "MockCacheBackend",
+                    "module": "cache",
+                    "description": "In-memory cache with TTL tracking",
+                    "features": [
+                        "get",
+                        "set",
+                        "delete",
+                        "exists",
+                        "clear",
+                        "get_or_set",
+                        "get_ttl",
+                        "ttl_tracking",
+                        "get_count",
+                        "set_count",
+                        "delete_count",
+                    ],
+                }
+            )
+        with contextlib.suppress(Exception):
+            mock_infra.append(
+                {
+                    "name": "TestContainer",
+                    "module": "di",
+                    "description": "DI container with relaxed validation for testing",
+                    "features": [
+                        "mock_provider",
+                        "override_provider",
+                        "factory_provider",
+                        "spy_provider",
+                        "reset",
+                    ],
+                }
+            )
+        with contextlib.suppress(Exception):
+            mock_infra.append(
+                {
+                    "name": "MailTestMixin",
+                    "module": "mail",
+                    "description": "Captured outbox for mail assertions",
+                    "features": [
+                        "mail_outbox",
+                        "latest_mail",
+                        "get_mail_for",
+                        "assert_mail_sent",
+                        "assert_mail_subject_contains",
+                        "assert_no_mail_sent",
+                    ],
+                }
+            )
+        with contextlib.suppress(Exception):
+            mock_infra.append(
+                {
+                    "name": "TestIdentityFactory",
+                    "module": "auth",
+                    "description": "Create test identities with fluent builder",
+                    "features": [
+                        "user",
+                        "admin",
+                        "service",
+                        "anonymous",
+                        "suspended",
+                        "build",
+                        "IdentityBuilder",
+                    ],
+                }
+            )
+        with contextlib.suppress(Exception):
+            mock_infra.append(
+                {
+                    "name": "TestConfig",
+                    "module": "config",
+                    "description": "Config overlay for test overrides",
+                    "features": [
+                        "get",
+                        "set",
+                        "has",
+                        "to_dict",
+                        "override_settings",
+                        "dot_notation",
+                    ],
+                }
+            )
         data["mock_infra"] = mock_infra
         data["total_mocks"] = len(mock_infra)
 
         # ── 6. Utility functions ─────────────────────────────────────
         try:
-            from aquilia.testing.utils import (
-                make_test_scope, make_test_request, make_test_receive,
-                make_test_response, make_test_ws_scope, make_upload_file,
-            )
             data["utilities"] = [
                 {"name": "make_test_scope", "description": "Build ASGI HTTP scope"},
                 {"name": "make_test_request", "description": "Build full Request object"},
@@ -3090,13 +3364,12 @@ class AdminSite:
         total_test_classes_count = 0
         total_lines = 0
         total_assert_stmts = 0
-        category_counts: Dict[str, int] = {"unit": 0, "integration": 0, "database": 0, "e2e": 0, "other": 0}
-        imports_usage: Dict[str, int] = {}  # which testing imports are used
+        category_counts: dict[str, int] = {"unit": 0, "integration": 0, "database": 0, "e2e": 0, "other": 0}
+        imports_usage: dict[str, int] = {}  # which testing imports are used
         try:
             # ── Workspace-scoped test discovery ──────────────────────
             # Only discover tests from inside the user's workspace,
             # never from the framework's own test suite.
-            from pathlib import Path as _Path
 
             # Use workspace.py as the definitive anchor — it only
             # exists inside the user's project, never at the repo root.
@@ -3106,10 +3379,7 @@ class AdminSite:
             else:
                 # Fallback: look for a starter.py (alternative entry point)
                 starter = self._find_workspace_path("starter.py", is_file=True)
-                if starter is not None:
-                    workspace_root = starter.parent
-                else:
-                    workspace_root = None
+                workspace_root = starter.parent if starter is not None else None
 
             # Collect (display_dir, absolute_dir) pairs to scan
             scan_dirs: list = []
@@ -3132,7 +3402,8 @@ class AdminSite:
                             # Also check for test_*.py directly in modules/<mod>/
                             has_test_files = any(
                                 f.name.startswith("test_") and f.name.endswith(".py")
-                                for f in mod_path.iterdir() if f.is_file()
+                                for f in mod_path.iterdir()
+                                if f.is_file()
                             )
                             if has_test_files:
                                 scan_dirs.append((f"modules/{mod_name}", mod_path))
@@ -3142,7 +3413,7 @@ class AdminSite:
                 nonlocal total_test_count, total_test_classes_count
                 nonlocal total_lines, total_assert_stmts
                 try:
-                    with open(fpath, "r", encoding="utf-8") as f:
+                    with open(fpath, encoding="utf-8") as f:
                         source = f.read()
                     lines = source.count("\n") + 1
                     # Count test functions, classes, assert statements
@@ -3160,7 +3431,10 @@ class AdminSite:
                         category = "e2e"
                     elif any(x in name_lower for x in ["orm", "db", "migration", "model"]):
                         category = "database"
-                    elif any(x in name_lower for x in ["controller", "auth", "admin", "di", "sessions", "regression", "i18n", "integration"]):
+                    elif any(
+                        x in name_lower
+                        for x in ["controller", "auth", "admin", "di", "sessions", "regression", "i18n", "integration"]
+                    ):
                         category = "integration"
                     elif any(x in name_lower for x in ["unit", "util", "helper", "missing"]):
                         category = "unit"
@@ -3192,40 +3466,44 @@ class AdminSite:
                         "TestConfig": "aquilia.testing.config",
                         "override_settings": "aquilia.testing.config",
                     }
-                    for symbol, mod in _testing_imports_map.items():
+                    for symbol, _mod in _testing_imports_map.items():
                         if symbol in source:
                             file_imports.append(symbol)
                             imports_usage[symbol] = imports_usage.get(symbol, 0) + 1
 
-                    test_files.append({
-                        "name": fname,
-                        "directory": display_dir,
-                        "path": fpath,
-                        "lines": lines,
-                        "test_count": test_funcs,
-                        "class_count": test_cls,
-                        "assert_count": assert_count,
-                        "category": category,
-                        "density": density,
-                        "async_tests": async_test_count,
-                        "sync_tests": sync_test_count,
-                        "imports": file_imports,
-                    })
+                    test_files.append(
+                        {
+                            "name": fname,
+                            "directory": display_dir,
+                            "path": fpath,
+                            "lines": lines,
+                            "test_count": test_funcs,
+                            "class_count": test_cls,
+                            "assert_count": assert_count,
+                            "category": category,
+                            "density": density,
+                            "async_tests": async_test_count,
+                            "sync_tests": sync_test_count,
+                            "imports": file_imports,
+                        }
+                    )
                 except Exception:
-                    test_files.append({
-                        "name": fname,
-                        "directory": display_dir,
-                        "path": fpath,
-                        "lines": 0,
-                        "test_count": 0,
-                        "class_count": 0,
-                        "assert_count": 0,
-                        "category": "other",
-                        "density": 0,
-                        "async_tests": 0,
-                        "sync_tests": 0,
-                        "imports": [],
-                    })
+                    test_files.append(
+                        {
+                            "name": fname,
+                            "directory": display_dir,
+                            "path": fpath,
+                            "lines": 0,
+                            "test_count": 0,
+                            "class_count": 0,
+                            "assert_count": 0,
+                            "category": "other",
+                            "density": 0,
+                            "async_tests": 0,
+                            "sync_tests": 0,
+                            "imports": [],
+                        }
+                    )
 
             # Scan all discovered directories for test files
             seen_paths: set = set()
@@ -3311,7 +3589,10 @@ class AdminSite:
         mock_feature_counts = [len(m["features"]) for m in mock_infra]
 
         # Lines of test code per file
-        loc_labels = [f["name"].replace("test_", "").replace(".py", "") for f in sorted(test_files, key=lambda x: x["lines"], reverse=True)[:12]]
+        loc_labels = [
+            f["name"].replace("test_", "").replace(".py", "")
+            for f in sorted(test_files, key=lambda x: x["lines"], reverse=True)[:12]
+        ]
         loc_values = [f["lines"] for f in sorted(test_files, key=lambda x: x["lines"], reverse=True)[:12]]
 
         # Component coverage (for radar chart)
@@ -3384,7 +3665,7 @@ class AdminSite:
 
     # ── Dashboard data ───────────────────────────────────────────────
 
-    async def get_dashboard_stats(self) -> Dict[str, Any]:
+    async def get_dashboard_stats(self) -> dict[str, Any]:
         """
         Aggregate comprehensive dashboard statistics.
 
@@ -3393,12 +3674,11 @@ class AdminSite:
         """
         import os
         import platform
-        import sys
         import time
         from collections import Counter
         from datetime import datetime, timezone
 
-        stats: Dict[str, Any] = {
+        stats: dict[str, Any] = {
             "total_models": len(self._registry),
             "model_counts": {},
             "recent_actions": [],
@@ -3417,22 +3697,26 @@ class AdminSite:
                 count = await model_cls.objects.count()
                 stats["model_counts"][model_cls.__name__] = count
                 total_records += count if isinstance(count, int) else 0
-                model_record_list.append({
-                    "name": model_cls.__name__,
-                    "verbose_name": admin.get_model_name(),
-                    "count": count if isinstance(count, int) else 0,
-                    "icon": getattr(admin, "icon", "table"),
-                    "app_label": admin.get_app_label(),
-                })
+                model_record_list.append(
+                    {
+                        "name": model_cls.__name__,
+                        "verbose_name": admin.get_model_name(),
+                        "count": count if isinstance(count, int) else 0,
+                        "icon": getattr(admin, "icon", "table"),
+                        "app_label": admin.get_app_label(),
+                    }
+                )
             except Exception:
                 stats["model_counts"][model_cls.__name__] = "?"
-                model_record_list.append({
-                    "name": model_cls.__name__,
-                    "verbose_name": admin.get_model_name(),
-                    "count": 0,
-                    "icon": getattr(admin, "icon", "table"),
-                    "app_label": admin.get_app_label(),
-                })
+                model_record_list.append(
+                    {
+                        "name": model_cls.__name__,
+                        "verbose_name": admin.get_model_name(),
+                        "count": 0,
+                        "icon": getattr(admin, "icon", "table"),
+                        "app_label": admin.get_app_label(),
+                    }
+                )
 
         stats["total_records"] = total_records
 
@@ -3462,6 +3746,7 @@ class AdminSite:
                 ts = entry.timestamp
                 if ts.tzinfo is None:
                     from datetime import timezone as _tz
+
                     ts = ts.replace(tzinfo=_tz.utc)
                 diff_h = (now - ts).total_seconds() / 3600
                 if diff_h <= 24:
@@ -3504,10 +3789,7 @@ class AdminSite:
         stats["active_sessions"] = len(sessions_1h)
 
         # Active users (top 5 by activity)
-        stats["active_users"] = [
-            {"username": u, "actions": c}
-            for u, c in user_counter.most_common(5)
-        ]
+        stats["active_users"] = [{"username": u, "actions": c} for u, c in user_counter.most_common(5)]
 
         # ── Environment info ──
         stats["environment"] = {
@@ -3520,6 +3802,7 @@ class AdminSite:
         # Server uptime via process start time
         try:
             import psutil
+
             proc = psutil.Process(os.getpid())
             uptime_secs = time.time() - proc.create_time()
             if uptime_secs >= 86400:
@@ -3549,50 +3832,58 @@ class AdminSite:
         except Exception:
             db_ok = False
 
-        health_checks.append({
-            "name": "Database",
-            "status": "ok" if db_ok else "error",
-            "icon": "database",
-        })
+        health_checks.append(
+            {
+                "name": "Database",
+                "status": "ok" if db_ok else "error",
+                "icon": "database",
+            }
+        )
 
         # Audit log check (not overflowing)
         try:
             audit_log = self.audit_log
             # Support both AdminAuditLog (has _entries) and ModelBackedAuditLog (has _fallback)
-            if hasattr(audit_log, '_entries'):
+            if hasattr(audit_log, "_entries"):
                 current = len(audit_log._entries)
                 capacity = audit_log._max_entries
-            elif hasattr(audit_log, '_fallback'):
+            elif hasattr(audit_log, "_fallback"):
                 current = len(audit_log._fallback._entries)
                 capacity = audit_log._fallback._max_entries
             else:
                 current = 0
                 capacity = 10000
             audit_ok = current < capacity * 0.9
-            health_checks.append({
-                "name": "Audit Log",
-                "status": "ok" if audit_ok else "warning",
-                "icon": "scroll-text",
-                "detail": f"{current}/{capacity}",
-            })
+            health_checks.append(
+                {
+                    "name": "Audit Log",
+                    "status": "ok" if audit_ok else "warning",
+                    "icon": "scroll-text",
+                    "detail": f"{current}/{capacity}",
+                }
+            )
         except Exception:
-            health_checks.append({
-                "name": "Audit Log",
-                "status": "ok",
-                "icon": "scroll-text",
-            })
+            health_checks.append(
+                {
+                    "name": "Audit Log",
+                    "status": "ok",
+                    "icon": "scroll-text",
+                }
+            )
 
         # Memory check (if available)
         try:
             mem_mb = stats["environment"]["memory_mb"]
             if isinstance(mem_mb, (int, float)):
                 mem_ok = mem_mb < 512
-                health_checks.append({
-                    "name": "Memory",
-                    "status": "ok" if mem_ok else "warning",
-                    "icon": "cpu",
-                    "detail": f"{mem_mb} MB",
-                })
+                health_checks.append(
+                    {
+                        "name": "Memory",
+                        "status": "ok" if mem_ok else "warning",
+                        "icon": "cpu",
+                        "detail": f"{mem_mb} MB",
+                    }
+                )
         except Exception:
             pass
 
@@ -3610,16 +3901,15 @@ class AdminSite:
 
     # ── Build info ───────────────────────────────────────────────────
 
-    def get_build_info(self) -> Dict[str, Any]:
+    def get_build_info(self) -> dict[str, Any]:
         """
         Gather build information from Crous artifacts in the build directory.
 
         Scans the workspace build/ directory for .crous files and
         bundle.manifest.crous, returning artifact metadata.
         """
-        import os
 
-        result: Dict[str, Any] = {
+        result: dict[str, Any] = {
             "info": {},
             "artifacts": [],
             "pipeline_phases": [],
@@ -3657,60 +3947,85 @@ class AdminSite:
                 try:
                     stat = fpath.stat()
                     size_kb = stat.st_size / 1024
-                    size_str = f"{size_kb:.1f} KB" if size_kb < 1024 else f"{size_kb/1024:.2f} MB"
+                    size_str = f"{size_kb:.1f} KB" if size_kb < 1024 else f"{size_kb / 1024:.2f} MB"
 
                     # Compute SHA-256 digest
                     import hashlib
+
                     digest = hashlib.sha256(fpath.read_bytes()).hexdigest()
 
                     # Determine kind from filename
                     name = fpath.stem
-                    kind = "bundle" if "bundle" in name else (
-                        "routes" if "route" in name else (
-                        "di_graph" if "di" in name else (
-                        "workspace" if "workspace" in name else "module"
-                    )))
+                    kind = (
+                        "bundle"
+                        if "bundle" in name
+                        else (
+                            "routes"
+                            if "route" in name
+                            else ("di_graph" if "di" in name else ("workspace" if "workspace" in name else "module"))
+                        )
+                    )
 
-                    result["artifacts"].append({
-                        "name": fpath.name,
-                        "kind": kind,
-                        "size": size_str,
-                        "digest": digest,
-                        "path": str(fpath),
-                    })
+                    result["artifacts"].append(
+                        {
+                            "name": fpath.name,
+                            "kind": kind,
+                            "size": size_str,
+                            "digest": digest,
+                            "path": str(fpath),
+                        }
+                    )
                 except Exception:
-                    result["artifacts"].append({
-                        "name": fpath.name,
-                        "kind": "unknown",
-                        "size": "?",
-                        "digest": "",
-                    })
+                    result["artifacts"].append(
+                        {
+                            "name": fpath.name,
+                            "kind": "unknown",
+                            "size": "?",
+                            "digest": "",
+                        }
+                    )
 
         result["info"]["total_artifacts"] = len(result["artifacts"])
 
         # Build pipeline phases (static structure)
         result["pipeline_phases"] = [
-            {"name": "Discovery", "status": "success" if result["artifacts"] else "pending",
-             "detail": "Scan workspace for modules, controllers, models"},
-            {"name": "Validation", "status": "success" if result["artifacts"] else "pending",
-             "detail": "Validate manifest and module configuration"},
-            {"name": "Static Check", "status": "success" if result["artifacts"] else "pending",
-             "detail": "Pre-flight validation of all components"},
-            {"name": "Compilation", "status": "success" if result["artifacts"] else "pending",
-             "detail": "Compile modules to intermediate artifacts"},
-            {"name": "Bundling", "status": "success" if result["artifacts"] else "pending",
-             "detail": "Serialize to Crous binary format with dedup"},
-            {"name": "Fingerprint", "status": "success" if result["info"].get("fingerprint") else "pending",
-             "detail": "Compute content-addressed build fingerprint"},
+            {
+                "name": "Discovery",
+                "status": "success" if result["artifacts"] else "pending",
+                "detail": "Scan workspace for modules, controllers, models",
+            },
+            {
+                "name": "Validation",
+                "status": "success" if result["artifacts"] else "pending",
+                "detail": "Validate manifest and module configuration",
+            },
+            {
+                "name": "Static Check",
+                "status": "success" if result["artifacts"] else "pending",
+                "detail": "Pre-flight validation of all components",
+            },
+            {
+                "name": "Compilation",
+                "status": "success" if result["artifacts"] else "pending",
+                "detail": "Compile modules to intermediate artifacts",
+            },
+            {
+                "name": "Bundling",
+                "status": "success" if result["artifacts"] else "pending",
+                "detail": "Serialize to Crous binary format with dedup",
+            },
+            {
+                "name": "Fingerprint",
+                "status": "success" if result["info"].get("fingerprint") else "pending",
+                "detail": "Compute content-addressed build fingerprint",
+            },
         ]
 
         # Read build log if available
         build_log_path = build_dir / "build_output.txt"
         if build_log_path.exists():
-            try:
+            with contextlib.suppress(Exception):
                 result["build_log"] = build_log_path.read_text(encoding="utf-8")
-            except Exception:
-                pass
 
         # Read artifact contents for the file viewer
         for artifact in result["artifacts"]:
@@ -3721,15 +4036,18 @@ class AdminSite:
                 continue
             try:
                 from pathlib import Path as _P
+
                 fpath = _P(fpath_str)
                 raw = fpath.read_bytes()
 
                 # Try Crous decode first
                 try:
                     from aquilia.build.bundler import _CrousBackend
+
                     backend = _CrousBackend()
                     decoded = backend.decode(raw)
                     import json as _json
+
                     artifact["content"] = _json.dumps(decoded, indent=2, default=str)
                     artifact["content_type"] = "json"
                     artifact["content_highlighted"] = self._highlight_json(artifact["content"])
@@ -3741,9 +4059,10 @@ class AdminSite:
                         artifact["content_type"] = "text"
                         # Try to detect if it's JSON
                         text_stripped = text.strip()
-                        if text_stripped and text_stripped[0] in ('{', '['):
+                        if text_stripped and text_stripped[0] in ("{", "["):
                             try:
                                 import json as _json2
+
                                 _json2.loads(text_stripped)
                                 artifact["content_type"] = "json"
                                 artifact["content_highlighted"] = self._highlight_json(text)
@@ -3755,11 +4074,9 @@ class AdminSite:
                         # Show hex dump for binary
                         hex_lines = []
                         for offset in range(0, min(len(raw), 2048), 16):
-                            chunk = raw[offset:offset + 16]
+                            chunk = raw[offset : offset + 16]
                             hex_part = " ".join(f"{b:02x}" for b in chunk)
-                            ascii_part = "".join(
-                                chr(b) if 32 <= b < 127 else "." for b in chunk
-                            )
+                            ascii_part = "".join(chr(b) if 32 <= b < 127 else "." for b in chunk)
                             hex_lines.append(f"{offset:08x}  {hex_part:<48s}  |{ascii_part}|")
                         if len(raw) > 2048:
                             hex_lines.append(f"... ({len(raw)} bytes total, showing first 2048)")
@@ -3775,11 +4092,13 @@ class AdminSite:
             if fpath.is_file() and fpath.suffix != ".crous":
                 try:
                     content = fpath.read_text(encoding="utf-8")
-                    result["build_files"].append({
-                        "name": fpath.name,
-                        "content": content,
-                        "size": f"{fpath.stat().st_size / 1024:.1f} KB",
-                    })
+                    result["build_files"].append(
+                        {
+                            "name": fpath.name,
+                            "content": content,
+                            "size": f"{fpath.stat().st_size / 1024:.1f} KB",
+                        }
+                    )
                 except Exception:
                     pass
 
@@ -3787,7 +4106,7 @@ class AdminSite:
 
     # ── Migrations data ──────────────────────────────────────────────
 
-    def get_migrations_data(self) -> List[Dict[str, Any]]:
+    def get_migrations_data(self) -> list[dict[str, Any]]:
         """
         Scan the migrations directory for migration files and
         return their metadata and syntax-highlighted source.
@@ -3798,10 +4117,10 @@ class AdminSite:
         if migrations_dir is None or not migrations_dir.is_dir():
             return []
 
-        migrations: List[Dict[str, Any]] = []
+        migrations: list[dict[str, Any]] = []
 
         for fpath in sorted(migrations_dir.iterdir()):
-            if not fpath.suffix == ".py" or fpath.name.startswith("__"):
+            if fpath.suffix != ".py" or fpath.name.startswith("__"):
                 continue
 
             try:
@@ -3809,7 +4128,7 @@ class AdminSite:
 
                 # Extract metadata from the migration file
                 revision = ""
-                models: List[str] = []
+                models: list[str] = []
                 operations_count = 0
 
                 # Parse revision from Meta class
@@ -3818,38 +4137,44 @@ class AdminSite:
                     revision = rev_match.group(1)
 
                 # Parse model names from Meta.models list
-                models_match = re.search(r'models\s*=\s*\[([^\]]+)\]', source)
+                models_match = re.search(r"models\s*=\s*\[([^\]]+)\]", source)
                 if models_match:
                     models = re.findall(r"'(\w+)'", models_match.group(1))
 
                 # Count operations
-                operations_count = len(re.findall(r'(?:CreateModel|CreateIndex|AlterField|AddColumn|DropColumn|RenameField)\(', source))
+                operations_count = len(
+                    re.findall(r"(?:CreateModel|CreateIndex|AlterField|AddColumn|DropColumn|RenameField)\(", source)
+                )
 
                 # Syntax highlight the source
                 highlighted = self._highlight_python(source)
 
-                migrations.append({
-                    "filename": fpath.name,
-                    "revision": revision,
-                    "models": models,
-                    "operations_count": operations_count,
-                    "source": source,
-                    "source_highlighted": highlighted,
-                })
+                migrations.append(
+                    {
+                        "filename": fpath.name,
+                        "revision": revision,
+                        "models": models,
+                        "operations_count": operations_count,
+                        "source": source,
+                        "source_highlighted": highlighted,
+                    }
+                )
             except Exception:
-                migrations.append({
-                    "filename": fpath.name,
-                    "revision": "",
-                    "models": [],
-                    "operations_count": 0,
-                    "source": "",
-                })
+                migrations.append(
+                    {
+                        "filename": fpath.name,
+                        "revision": "",
+                        "models": [],
+                        "operations_count": 0,
+                        "source": "",
+                    }
+                )
 
         return migrations
 
     # ── Config data ──────────────────────────────────────────────────
 
-    def get_config_data(self) -> Dict[str, Any]:
+    def get_config_data(self) -> dict[str, Any]:
         """
         Read workspace.py configuration (single-file config).
 
@@ -3858,7 +4183,7 @@ class AdminSite:
 
         Returns file contents for display in the admin config page.
         """
-        result: Dict[str, Any] = {
+        result: dict[str, Any] = {
             "files": [],
             "workspace": None,
         }
@@ -3871,12 +4196,14 @@ class AdminSite:
                     continue
                 try:
                     content = fpath.read_text(encoding="utf-8")
-                    result["files"].append({
-                        "name": fpath.name,
-                        "path": f"config/{fpath.name}",
-                        "content": content,
-                        "content_highlighted": self._highlight_python(content),
-                    })
+                    result["files"].append(
+                        {
+                            "name": fpath.name,
+                            "path": f"config/{fpath.name}",
+                            "content": content,
+                            "content_highlighted": self._highlight_python(content),
+                        }
+                    )
                 except Exception:
                     pass
 
@@ -3909,12 +4236,14 @@ class AdminSite:
                 }
 
                 # Also add workspace.py as a config file
-                result["files"].append({
-                    "name": "workspace.py",
-                    "path": "workspace.py",
-                    "content": ws_source,
-                    "content_highlighted": self._highlight_python(ws_source),
-                })
+                result["files"].append(
+                    {
+                        "name": "workspace.py",
+                        "path": "workspace.py",
+                        "content": ws_source,
+                        "content_highlighted": self._highlight_python(ws_source),
+                    }
+                )
             except Exception:
                 pass
 
@@ -3931,7 +4260,7 @@ class AdminSite:
             b /= 1024  # type: ignore[assignment]
         return f"{b:.1f} PB"
 
-    def get_monitoring_data(self) -> Dict[str, Any]:
+    def get_monitoring_data(self) -> dict[str, Any]:
         """
         Gather comprehensive system monitoring data.
 
@@ -3959,7 +4288,7 @@ class AdminSite:
         import time
         from datetime import datetime, timezone
 
-        result: Dict[str, Any] = {
+        result: dict[str, Any] = {
             "cpu": {},
             "memory": {},
             "disk": {},
@@ -3982,12 +4311,14 @@ class AdminSite:
         gc_gens = []
         try:
             for i, stats in enumerate(gc.get_stats()):
-                gc_gens.append({
-                    "generation": i,
-                    "collections": stats.get("collections", 0),
-                    "collected": stats.get("collected", 0),
-                    "uncollectable": stats.get("uncollectable", 0),
-                })
+                gc_gens.append(
+                    {
+                        "generation": i,
+                        "collections": stats.get("collections", 0),
+                        "collected": stats.get("collected", 0),
+                        "uncollectable": stats.get("uncollectable", 0),
+                    }
+                )
         except Exception:
             pass
 
@@ -4082,10 +4413,7 @@ class AdminSite:
             # Disk
             try:
                 # Use platform-appropriate root path
-                if platform.system() == "Windows":
-                    _root = os.environ.get("SystemDrive", "C:") + "\\"
-                else:
-                    _root = "/"
+                _root = os.environ.get("SystemDrive", "C:") + "\\" if platform.system() == "Windows" else "/"
                 disk = psutil.disk_usage(_root)
                 result["disk"] = {
                     "total": disk.total,
@@ -4099,10 +4427,14 @@ class AdminSite:
                 }
             except Exception:
                 result["disk"] = {
-                    "total": 0, "total_human": "--",
-                    "used": 0, "used_human": "--",
-                    "free": 0, "free_human": "--",
-                    "percent": 0, "partitions": [],
+                    "total": 0,
+                    "total_human": "--",
+                    "used": 0,
+                    "used_human": "--",
+                    "free": 0,
+                    "free_human": "--",
+                    "percent": 0,
+                    "partitions": [],
                 }
 
             # Disk partitions
@@ -4110,15 +4442,17 @@ class AdminSite:
                 for p in psutil.disk_partitions(all=False):
                     try:
                         usage = psutil.disk_usage(p.mountpoint)
-                        result["disk"]["partitions"].append({
-                            "device": p.device,
-                            "mountpoint": p.mountpoint,
-                            "fstype": p.fstype,
-                            "total_human": self._fmt_bytes(usage.total),
-                            "used_human": self._fmt_bytes(usage.used),
-                            "free_human": self._fmt_bytes(usage.free),
-                            "percent": usage.percent,
-                        })
+                        result["disk"]["partitions"].append(
+                            {
+                                "device": p.device,
+                                "mountpoint": p.mountpoint,
+                                "fstype": p.fstype,
+                                "total_human": self._fmt_bytes(usage.total),
+                                "used_human": self._fmt_bytes(usage.used),
+                                "free_human": self._fmt_bytes(usage.free),
+                                "percent": usage.percent,
+                            }
+                        )
                     except (PermissionError, OSError):
                         continue
             except Exception:
@@ -4142,17 +4476,23 @@ class AdminSite:
                 }
             except Exception:
                 result["network"] = {
-                    "bytes_sent": 0, "bytes_sent_human": "--",
-                    "bytes_recv": 0, "bytes_recv_human": "--",
-                    "packets_sent": 0, "packets_recv": 0,
-                    "errin": 0, "errout": 0, "dropin": 0, "dropout": 0,
+                    "bytes_sent": 0,
+                    "bytes_sent_human": "--",
+                    "bytes_recv": 0,
+                    "bytes_recv_human": "--",
+                    "packets_sent": 0,
+                    "packets_recv": 0,
+                    "errin": 0,
+                    "errout": 0,
+                    "dropin": 0,
+                    "dropout": 0,
                     "connections_by_status": {},
                 }
 
             # Connections by status
             try:
                 conns = psutil.net_connections(kind="inet")
-                status_counts: Dict[str, int] = {}
+                status_counts: dict[str, int] = {}
                 for c in conns:
                     s = c.status if c.status else "NONE"
                     status_counts[s] = status_counts.get(s, 0) + 1
@@ -4188,9 +4528,7 @@ class AdminSite:
                 create_time = proc.create_time()
                 uptime_s = time.time() - create_time
                 uptime_human = self._format_uptime(uptime_s)
-                create_time_str = datetime.fromtimestamp(
-                    create_time, tz=timezone.utc
-                ).strftime("%Y-%m-%d %H:%M:%S UTC")
+                create_time_str = datetime.fromtimestamp(create_time, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
             except Exception:
                 uptime_human = "--"
                 create_time_str = "--"
@@ -4252,9 +4590,9 @@ class AdminSite:
             # psutil not available -- try to provide data via stdlib
             # and platform-specific fallbacks
             import logging
+
             logging.getLogger("aquilia.admin").warning(
-                "psutil is not installed — monitoring data will be limited. "
-                "Install it with: pip install psutil"
+                "psutil is not installed — monitoring data will be limited. Install it with: pip install psutil"
             )
             result["_psutil_missing"] = True
 
@@ -4266,11 +4604,17 @@ class AdminSite:
                 # Use WMI via subprocess to get CPU usage
                 try:
                     import subprocess
+
                     wmi_out = subprocess.run(
-                        ["powershell", "-NoProfile", "-Command",
-                         "Get-CimInstance Win32_Processor | "
-                         "Select-Object -ExpandProperty LoadPercentage"],
-                        capture_output=True, text=True, timeout=5,
+                        [
+                            "powershell",
+                            "-NoProfile",
+                            "-Command",
+                            "Get-CimInstance Win32_Processor | Select-Object -ExpandProperty LoadPercentage",
+                        ],
+                        capture_output=True,
+                        text=True,
+                        timeout=5,
                         encoding="utf-8",
                     )
                     if wmi_out.returncode == 0 and wmi_out.stdout.strip():
@@ -4280,10 +4624,12 @@ class AdminSite:
                 # Per-core via typeperf (quick one-shot)
                 try:
                     import subprocess
+
                     tp_out = subprocess.run(
-                        ["typeperf", r"\Processor(*)\% Processor Time",
-                         "-sc", "1"],
-                        capture_output=True, text=True, timeout=10,
+                        ["typeperf", r"\Processor(*)\% Processor Time", "-sc", "1"],
+                        capture_output=True,
+                        text=True,
+                        timeout=10,
                         encoding="utf-8",
                     )
                     if tp_out.returncode == 0:
@@ -4296,20 +4642,24 @@ class AdminSite:
                             _per_core = []
                             for v in core_vals:
                                 v = v.strip().strip('"')
-                                try:
+                                with contextlib.suppress(ValueError, TypeError):
                                     _per_core.append(round(float(v), 1))
-                                except (ValueError, TypeError):
-                                    pass
                 except Exception:
                     pass
 
             result["cpu"] = {
-                "percent": _cpu_pct, "per_core": _per_core,
+                "percent": _cpu_pct,
+                "per_core": _per_core,
                 "cores_physical": 0,
                 "cores_logical": _cores_logical,
-                "freq_current": 0, "freq_max": 0,
-                "load_avg_1": 0, "load_avg_5": 0, "load_avg_15": 0,
-                "times_user": 0, "times_system": 0, "times_idle": 0,
+                "freq_current": 0,
+                "freq_max": 0,
+                "load_avg_1": 0,
+                "load_avg_5": 0,
+                "load_avg_15": 0,
+                "times_user": 0,
+                "times_system": 0,
+                "times_idle": 0,
             }
 
             # ── Memory fallback ──
@@ -4320,6 +4670,7 @@ class AdminSite:
             if platform.system() == "Windows":
                 try:
                     import ctypes
+
                     class MEMORYSTATUSEX(ctypes.Structure):
                         _fields_ = [
                             ("dwLength", ctypes.c_ulong),
@@ -4332,6 +4683,7 @@ class AdminSite:
                             ("ullAvailVirtual", ctypes.c_ulonglong),
                             ("ullAvailExtendedVirtual", ctypes.c_ulonglong),
                         ]
+
                     stat = MEMORYSTATUSEX()
                     stat.dwLength = ctypes.sizeof(stat)
                     ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(stat))
@@ -4342,13 +4694,19 @@ class AdminSite:
                 except Exception:
                     pass
             result["memory"] = {
-                "total": _mem_total, "total_human": self._fmt_bytes(_mem_total),
-                "available": _mem_avail, "available_human": self._fmt_bytes(_mem_avail),
-                "used": _mem_used, "used_human": self._fmt_bytes(_mem_used),
+                "total": _mem_total,
+                "total_human": self._fmt_bytes(_mem_total),
+                "available": _mem_avail,
+                "available_human": self._fmt_bytes(_mem_avail),
+                "used": _mem_used,
+                "used_human": self._fmt_bytes(_mem_used),
                 "percent": _mem_pct,
-                "swap_total": 0, "swap_total_human": "--",
-                "swap_used": 0, "swap_used_human": "--",
-                "swap_free": 0, "swap_free_human": "--",
+                "swap_total": 0,
+                "swap_total_human": "--",
+                "swap_used": 0,
+                "swap_used_human": "--",
+                "swap_free": 0,
+                "swap_free_human": "--",
                 "swap_percent": 0,
             }
 
@@ -4359,10 +4717,8 @@ class AdminSite:
             _dk_pct = 0.0
             try:
                 import shutil
-                if platform.system() == "Windows":
-                    _dk_root = os.environ.get("SystemDrive", "C:") + "\\"
-                else:
-                    _dk_root = "/"
+
+                _dk_root = os.environ.get("SystemDrive", "C:") + "\\" if platform.system() == "Windows" else "/"
                 du = shutil.disk_usage(_dk_root)
                 _dk_total = du.total
                 _dk_used = du.used
@@ -4371,17 +4727,27 @@ class AdminSite:
             except Exception:
                 pass
             result["disk"] = {
-                "total": _dk_total, "total_human": self._fmt_bytes(_dk_total),
-                "used": _dk_used, "used_human": self._fmt_bytes(_dk_used),
-                "free": _dk_free, "free_human": self._fmt_bytes(_dk_free),
-                "percent": _dk_pct, "partitions": [],
+                "total": _dk_total,
+                "total_human": self._fmt_bytes(_dk_total),
+                "used": _dk_used,
+                "used_human": self._fmt_bytes(_dk_used),
+                "free": _dk_free,
+                "free_human": self._fmt_bytes(_dk_free),
+                "percent": _dk_pct,
+                "partitions": [],
             }
 
             result["network"] = {
-                "bytes_sent": 0, "bytes_sent_human": "--",
-                "bytes_recv": 0, "bytes_recv_human": "--",
-                "packets_sent": 0, "packets_recv": 0,
-                "errin": 0, "errout": 0, "dropin": 0, "dropout": 0,
+                "bytes_sent": 0,
+                "bytes_sent_human": "--",
+                "bytes_recv": 0,
+                "bytes_recv_human": "--",
+                "packets_sent": 0,
+                "packets_recv": 0,
+                "errin": 0,
+                "errout": 0,
+                "dropin": 0,
+                "dropout": 0,
                 "connections_by_status": {},
             }
 
@@ -4392,6 +4758,7 @@ class AdminSite:
                 try:
                     import ctypes
                     from ctypes import wintypes
+
                     # GetProcessMemoryInfo via kernel32/psapi
                     class PROCESS_MEMORY_COUNTERS(ctypes.Structure):
                         _fields_ = [
@@ -4406,31 +4773,41 @@ class AdminSite:
                             ("PagefileUsage", ctypes.c_size_t),
                             ("PeakPagefileUsage", ctypes.c_size_t),
                         ]
+
                     pmc = PROCESS_MEMORY_COUNTERS()
                     pmc.cb = ctypes.sizeof(pmc)
                     handle = ctypes.windll.kernel32.GetCurrentProcess()
-                    if ctypes.windll.psapi.GetProcessMemoryInfo(
-                        handle, ctypes.byref(pmc), pmc.cb
-                    ):
+                    if ctypes.windll.psapi.GetProcessMemoryInfo(handle, ctypes.byref(pmc), pmc.cb):
                         _p_rss = pmc.WorkingSetSize
                         _p_vms = pmc.PagefileUsage
                 except Exception:
                     pass
 
             import threading as _thr
+
             result["process"] = {
-                "pid": os.getpid(), "name": "python", "status": "running",
-                "create_time": "--", "uptime_human": "--",
-                "threads": _thr.active_count(), "open_files": 0,
-                "rss": _p_rss, "rss_human": self._fmt_bytes(_p_rss),
-                "vms": _p_vms, "vms_human": self._fmt_bytes(_p_vms),
-                "shared": 0, "private": _p_rss,
+                "pid": os.getpid(),
+                "name": "python",
+                "status": "running",
+                "create_time": "--",
+                "uptime_human": "--",
+                "threads": _thr.active_count(),
+                "open_files": 0,
+                "rss": _p_rss,
+                "rss_human": self._fmt_bytes(_p_rss),
+                "vms": _p_vms,
+                "vms_human": self._fmt_bytes(_p_vms),
+                "shared": 0,
+                "private": _p_rss,
                 "mem_percent": round(_p_rss / _mem_total * 100, 2) if _mem_total else 0,
                 "ctx_switches": 0,
-                "ctx_switches_voluntary": 0, "ctx_switches_involuntary": 0,
+                "ctx_switches_voluntary": 0,
+                "ctx_switches_involuntary": 0,
                 "env_snapshot": self._safe_env_snapshot(),
-                "io_read_count": "--", "io_write_count": "--",
-                "io_read_bytes_human": "--", "io_write_bytes_human": "--",
+                "io_read_count": "--",
+                "io_write_count": "--",
+                "io_read_bytes_human": "--",
+                "io_write_bytes_human": "--",
             }
 
         except Exception as _psutil_err:
@@ -4438,9 +4815,11 @@ class AdminSite:
             # Log it so the user can diagnose, and still return
             # partial data from stdlib fallbacks.
             import logging
+
             logging.getLogger("aquilia.admin").error(
                 "Monitoring: psutil raised %s: %s",
-                type(_psutil_err).__name__, _psutil_err,
+                type(_psutil_err).__name__,
+                _psutil_err,
             )
             result["_psutil_error"] = f"{type(_psutil_err).__name__}: {_psutil_err}"
 
@@ -4451,11 +4830,17 @@ class AdminSite:
             if platform.system() == "Windows":
                 try:
                     import subprocess
+
                     wmi_out = subprocess.run(
-                        ["powershell", "-NoProfile", "-Command",
-                         "Get-CimInstance Win32_Processor | "
-                         "Select-Object -ExpandProperty LoadPercentage"],
-                        capture_output=True, text=True, timeout=5,
+                        [
+                            "powershell",
+                            "-NoProfile",
+                            "-Command",
+                            "Get-CimInstance Win32_Processor | Select-Object -ExpandProperty LoadPercentage",
+                        ],
+                        capture_output=True,
+                        text=True,
+                        timeout=5,
                         encoding="utf-8",
                     )
                     if wmi_out.returncode == 0 and wmi_out.stdout.strip():
@@ -4465,12 +4850,18 @@ class AdminSite:
 
             if not result.get("cpu") or not result["cpu"].get("percent"):
                 result["cpu"] = {
-                    "percent": _cpu_fallback, "per_core": [],
+                    "percent": _cpu_fallback,
+                    "per_core": [],
                     "cores_physical": 0,
                     "cores_logical": _cores,
-                    "freq_current": 0, "freq_max": 0,
-                    "load_avg_1": 0, "load_avg_5": 0, "load_avg_15": 0,
-                    "times_user": 0, "times_system": 0, "times_idle": 0,
+                    "freq_current": 0,
+                    "freq_max": 0,
+                    "load_avg_1": 0,
+                    "load_avg_5": 0,
+                    "load_avg_15": 0,
+                    "times_user": 0,
+                    "times_system": 0,
+                    "times_idle": 0,
                 }
             if not result.get("memory") or not result["memory"].get("total"):
                 _mt = 0
@@ -4480,6 +4871,7 @@ class AdminSite:
                 if platform.system() == "Windows":
                     try:
                         import ctypes
+
                         class _MSEX(ctypes.Structure):
                             _fields_ = [
                                 ("dwLength", ctypes.c_ulong),
@@ -4492,6 +4884,7 @@ class AdminSite:
                                 ("ullAvailVirtual", ctypes.c_ulonglong),
                                 ("ullAvailExtendedVirtual", ctypes.c_ulonglong),
                             ]
+
                         _s = _MSEX()
                         _s.dwLength = ctypes.sizeof(_s)
                         ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(_s))
@@ -4502,67 +4895,101 @@ class AdminSite:
                     except Exception:
                         pass
                 result["memory"] = {
-                    "total": _mt, "total_human": self._fmt_bytes(_mt),
-                    "available": _ma, "available_human": self._fmt_bytes(_ma),
-                    "used": _mu, "used_human": self._fmt_bytes(_mu),
+                    "total": _mt,
+                    "total_human": self._fmt_bytes(_mt),
+                    "available": _ma,
+                    "available_human": self._fmt_bytes(_ma),
+                    "used": _mu,
+                    "used_human": self._fmt_bytes(_mu),
                     "percent": _mp,
-                    "swap_total": 0, "swap_total_human": "--",
-                    "swap_used": 0, "swap_used_human": "--",
-                    "swap_free": 0, "swap_free_human": "--",
+                    "swap_total": 0,
+                    "swap_total_human": "--",
+                    "swap_used": 0,
+                    "swap_used_human": "--",
+                    "swap_free": 0,
+                    "swap_free_human": "--",
                     "swap_percent": 0,
                 }
             if not result.get("disk") or not result["disk"].get("total"):
                 try:
                     import shutil
+
                     _r = (os.environ.get("SystemDrive", "C:") + "\\") if platform.system() == "Windows" else "/"
                     _du = shutil.disk_usage(_r)
                     result["disk"] = {
-                        "total": _du.total, "total_human": self._fmt_bytes(_du.total),
-                        "used": _du.used, "used_human": self._fmt_bytes(_du.used),
-                        "free": _du.free, "free_human": self._fmt_bytes(_du.free),
+                        "total": _du.total,
+                        "total_human": self._fmt_bytes(_du.total),
+                        "used": _du.used,
+                        "used_human": self._fmt_bytes(_du.used),
+                        "free": _du.free,
+                        "free_human": self._fmt_bytes(_du.free),
                         "percent": round(_du.used / _du.total * 100, 1) if _du.total else 0,
                         "partitions": [],
                     }
                 except Exception:
                     result["disk"] = {
-                        "total": 0, "total_human": "--",
-                        "used": 0, "used_human": "--",
-                        "free": 0, "free_human": "--",
-                        "percent": 0, "partitions": [],
+                        "total": 0,
+                        "total_human": "--",
+                        "used": 0,
+                        "used_human": "--",
+                        "free": 0,
+                        "free_human": "--",
+                        "percent": 0,
+                        "partitions": [],
                     }
             if not result.get("network") or not result["network"].get("bytes_sent"):
                 result["network"] = {
-                    "bytes_sent": 0, "bytes_sent_human": "--",
-                    "bytes_recv": 0, "bytes_recv_human": "--",
-                    "packets_sent": 0, "packets_recv": 0,
-                    "errin": 0, "errout": 0, "dropin": 0, "dropout": 0,
+                    "bytes_sent": 0,
+                    "bytes_sent_human": "--",
+                    "bytes_recv": 0,
+                    "bytes_recv_human": "--",
+                    "packets_sent": 0,
+                    "packets_recv": 0,
+                    "errin": 0,
+                    "errout": 0,
+                    "dropin": 0,
+                    "dropout": 0,
                     "connections_by_status": {},
                 }
             if not result.get("process") or not result["process"].get("pid"):
                 result["process"] = {
-                    "pid": os.getpid(), "name": "python", "status": "running",
-                    "create_time": "--", "uptime_human": "--",
-                    "threads": 0, "open_files": 0,
-                    "rss": 0, "rss_human": "--", "vms": 0, "vms_human": "--",
-                    "shared": 0, "private": 0,
-                    "mem_percent": 0, "ctx_switches": 0,
-                    "ctx_switches_voluntary": 0, "ctx_switches_involuntary": 0,
+                    "pid": os.getpid(),
+                    "name": "python",
+                    "status": "running",
+                    "create_time": "--",
+                    "uptime_human": "--",
+                    "threads": 0,
+                    "open_files": 0,
+                    "rss": 0,
+                    "rss_human": "--",
+                    "vms": 0,
+                    "vms_human": "--",
+                    "shared": 0,
+                    "private": 0,
+                    "mem_percent": 0,
+                    "ctx_switches": 0,
+                    "ctx_switches_voluntary": 0,
+                    "ctx_switches_involuntary": 0,
                     "env_snapshot": self._safe_env_snapshot(),
-                    "io_read_count": "--", "io_write_count": "--",
-                    "io_read_bytes_human": "--", "io_write_bytes_human": "--",
+                    "io_read_count": "--",
+                    "io_write_count": "--",
+                    "io_read_bytes_human": "--",
+                    "io_write_bytes_human": "--",
                 }
 
         # ── Health checks ──
         try:
             from aquilia.health import HealthRegistry
+
             # Try to find a HealthRegistry in the DI container or global
             registry = getattr(self, "_health_registry", None)
             if registry is None:
                 # Look for a global instance
                 import aquilia
+
                 registry = getattr(aquilia, "_health_registry", None)
             if registry and isinstance(registry, HealthRegistry):
-                for name, status in registry.all_statuses.items():
+                for _name, status in registry.all_statuses.items():
                     result["health_checks"].append(status.to_dict())
         except Exception:
             pass
@@ -4598,29 +5025,46 @@ class AdminSite:
         return " ".join(parts)
 
     @staticmethod
-    def _safe_env_snapshot() -> Dict[str, str]:
+    def _safe_env_snapshot() -> dict[str, str]:
         """Capture a safe subset of environment variables (no secrets)."""
         import os
         import platform as _plat
 
         # Cross-platform env var list
         safe_keys = [
-            "VIRTUAL_ENV", "PYTHONPATH", "PATH",
-            "AQUILIA_ENV", "AQUILIA_DEBUG",
+            "VIRTUAL_ENV",
+            "PYTHONPATH",
+            "PATH",
+            "AQUILIA_ENV",
+            "AQUILIA_DEBUG",
         ]
         if _plat.system() == "Windows":
-            safe_keys.extend([
-                "USERPROFILE", "USERNAME", "COMSPEC",
-                "SYSTEMROOT", "COMPUTERNAME", "APPDATA",
-                "TEMP", "TMP",
-            ])
+            safe_keys.extend(
+                [
+                    "USERPROFILE",
+                    "USERNAME",
+                    "COMSPEC",
+                    "SYSTEMROOT",
+                    "COMPUTERNAME",
+                    "APPDATA",
+                    "TEMP",
+                    "TMP",
+                ]
+            )
         else:
-            safe_keys.extend([
-                "HOME", "USER", "SHELL", "TERM",
-                "LANG", "LC_ALL", "TZ",
-            ])
+            safe_keys.extend(
+                [
+                    "HOME",
+                    "USER",
+                    "SHELL",
+                    "TERM",
+                    "LANG",
+                    "LC_ALL",
+                    "TZ",
+                ]
+            )
 
-        result: Dict[str, str] = {}
+        result: dict[str, str] = {}
         for key in safe_keys:
             val = os.environ.get(key)
             if val:
@@ -4632,7 +5076,7 @@ class AdminSite:
 
     # ── Containers & Pods data ───────────────────────────────────────
 
-    def get_containers_data(self) -> Dict[str, Any]:
+    def get_containers_data(self) -> dict[str, Any]:
         """
         Gather comprehensive Docker container and compose data.
 
@@ -4656,12 +5100,9 @@ class AdminSite:
             - error: optional error string
         """
         import json as _json
-        import os
         import subprocess
-        from datetime import datetime, timezone
-        from pathlib import Path
 
-        result: Dict[str, Any] = {
+        result: dict[str, Any] = {
             "docker_available": False,
             "docker_version": "",
             "containers": [],
@@ -4679,7 +5120,10 @@ class AdminSite:
             try:
                 proc = subprocess.run(
                     ["docker", *args],
-                    capture_output=True, text=True, encoding="utf-8", timeout=timeout,
+                    capture_output=True,
+                    text=True,
+                    encoding="utf-8",
+                    timeout=timeout,
                 )
                 return proc.returncode == 0, proc.stdout.strip(), proc.stderr.strip()
             except FileNotFoundError:
@@ -4703,13 +5147,15 @@ class AdminSite:
 
         # ── Docker system info ──
         ok, info_out, _ = _run_docker(
-            "system", "info", "--format",
+            "system",
+            "info",
+            "--format",
             '{"containers":{{.Containers}},"running":{{.ContainersRunning}},'
             '"paused":{{.ContainersPaused}},"stopped":{{.ContainersStopped}},'
             '"images":{{.Images}},"server_version":"{{.ServerVersion}}",'
             '"os":"{{.OperatingSystem}}","arch":"{{.Architecture}}",'
             '"cpus":{{.NCPU}},"memory":"{{.MemTotal}}",'
-            '"storage_driver":"{{.Driver}}"}'
+            '"storage_driver":"{{.Driver}}"}',
         )
         if ok and info_out:
             try:
@@ -4720,9 +5166,7 @@ class AdminSite:
         # ── List containers (all, including stopped) ──
         # Use {{json .}} to avoid broken JSON from embedded quotes
         # in Command/Labels fields. Docker escapes properly with json.
-        ok, ps_out, _ = _run_docker(
-            "ps", "-a", "--no-trunc", "--format", "{{json .}}"
-        )
+        ok, ps_out, _ = _run_docker("ps", "-a", "--no-trunc", "--format", "{{json .}}")
         if ok and ps_out:
             for line in ps_out.splitlines():
                 line = line.strip()
@@ -4775,15 +5219,17 @@ class AdminSite:
                     continue
 
         # ── Container stats (CPU/memory for running containers) ──
-        running_ids = [c["id"] for c in result["containers"]
-                       if c.get("status_class") == "running"]
+        running_ids = [c["id"] for c in result["containers"] if c.get("status_class") == "running"]
         if running_ids:
             ok, stats_out, _ = _run_docker(
-                "stats", "--no-stream", "--format", "{{json .}}",
+                "stats",
+                "--no-stream",
+                "--format",
+                "{{json .}}",
                 timeout=15,
             )
             if ok and stats_out:
-                stats_map: Dict[str, Dict] = {}
+                stats_map: dict[str, dict] = {}
                 for line in stats_out.splitlines():
                     line = line.strip()
                     if not line:
@@ -4810,9 +5256,7 @@ class AdminSite:
                         c["stats"] = stats_map[cid]
 
         # ── Docker images ──
-        ok, img_out, _ = _run_docker(
-            "images", "--format", "{{json .}}"
-        )
+        ok, img_out, _ = _run_docker("images", "--format", "{{json .}}")
         if ok and img_out:
             for line in img_out.splitlines():
                 line = line.strip()
@@ -4820,20 +5264,20 @@ class AdminSite:
                     continue
                 try:
                     raw_img = _json.loads(line)
-                    result["images"].append({
-                        "id": raw_img.get("ID", ""),
-                        "repository": raw_img.get("Repository", ""),
-                        "tag": raw_img.get("Tag", ""),
-                        "size": raw_img.get("Size", ""),
-                        "created": raw_img.get("CreatedAt", ""),
-                    })
+                    result["images"].append(
+                        {
+                            "id": raw_img.get("ID", ""),
+                            "repository": raw_img.get("Repository", ""),
+                            "tag": raw_img.get("Tag", ""),
+                            "size": raw_img.get("Size", ""),
+                            "created": raw_img.get("CreatedAt", ""),
+                        }
+                    )
                 except _json.JSONDecodeError:
                     continue
 
         # ── Docker volumes ──
-        ok, vol_out, _ = _run_docker(
-            "volume", "ls", "--format", "{{json .}}"
-        )
+        ok, vol_out, _ = _run_docker("volume", "ls", "--format", "{{json .}}")
         if ok and vol_out:
             for line in vol_out.splitlines():
                 line = line.strip()
@@ -4841,18 +5285,18 @@ class AdminSite:
                     continue
                 try:
                     raw_vol = _json.loads(line)
-                    result["volumes"].append({
-                        "name": raw_vol.get("Name", ""),
-                        "driver": raw_vol.get("Driver", ""),
-                        "mountpoint": raw_vol.get("Mountpoint", ""),
-                    })
+                    result["volumes"].append(
+                        {
+                            "name": raw_vol.get("Name", ""),
+                            "driver": raw_vol.get("Driver", ""),
+                            "mountpoint": raw_vol.get("Mountpoint", ""),
+                        }
+                    )
                 except _json.JSONDecodeError:
                     continue
 
         # ── Docker networks ──
-        ok, net_out, _ = _run_docker(
-            "network", "ls", "--format", "{{json .}}"
-        )
+        ok, net_out, _ = _run_docker("network", "ls", "--format", "{{json .}}")
         if ok and net_out:
             for line in net_out.splitlines():
                 line = line.strip()
@@ -4860,12 +5304,14 @@ class AdminSite:
                     continue
                 try:
                     raw_net = _json.loads(line)
-                    result["networks"].append({
-                        "id": raw_net.get("ID", ""),
-                        "name": raw_net.get("Name", ""),
-                        "driver": raw_net.get("Driver", ""),
-                        "scope": raw_net.get("Scope", ""),
-                    })
+                    result["networks"].append(
+                        {
+                            "id": raw_net.get("ID", ""),
+                            "name": raw_net.get("Name", ""),
+                            "driver": raw_net.get("Driver", ""),
+                            "scope": raw_net.get("Scope", ""),
+                        }
+                    )
                 except _json.JSONDecodeError:
                     continue
 
@@ -4879,44 +5325,52 @@ class AdminSite:
                 # Parse services from YAML
                 try:
                     import yaml
+
                     parsed = yaml.safe_load(content)
                     if isinstance(parsed, dict) and "services" in parsed:
                         for svc_name, svc_conf in parsed["services"].items():
-                            result["compose"]["services"].append({
-                                "name": svc_name,
-                                "image": svc_conf.get("image", ""),
-                                "build": str(svc_conf.get("build", "")),
-                                "ports": svc_conf.get("ports", []),
-                                "volumes": svc_conf.get("volumes", []),
-                                "depends_on": (
-                                    list(svc_conf["depends_on"].keys())
-                                    if isinstance(svc_conf.get("depends_on"), dict)
-                                    else svc_conf.get("depends_on", [])
-                                ),
-                                "environment": svc_conf.get("environment", {}),
-                                "profiles": svc_conf.get("profiles", []),
-                                "restart": svc_conf.get("restart", ""),
-                                "healthcheck": bool(svc_conf.get("healthcheck")),
-                            })
+                            result["compose"]["services"].append(
+                                {
+                                    "name": svc_name,
+                                    "image": svc_conf.get("image", ""),
+                                    "build": str(svc_conf.get("build", "")),
+                                    "ports": svc_conf.get("ports", []),
+                                    "volumes": svc_conf.get("volumes", []),
+                                    "depends_on": (
+                                        list(svc_conf["depends_on"].keys())
+                                        if isinstance(svc_conf.get("depends_on"), dict)
+                                        else svc_conf.get("depends_on", [])
+                                    ),
+                                    "environment": svc_conf.get("environment", {}),
+                                    "profiles": svc_conf.get("profiles", []),
+                                    "restart": svc_conf.get("restart", ""),
+                                    "healthcheck": bool(svc_conf.get("healthcheck")),
+                                }
+                            )
                 except ImportError:
                     # PyYAML not installed -- basic regex parsing
                     import re
+
                     svc_matches = re.findall(
-                        r'^\s{2}(\w[\w-]*):\s*$', content, re.MULTILINE,
+                        r"^\s{2}(\w[\w-]*):\s*$",
+                        content,
+                        re.MULTILINE,
                     )
                     for svc_name in svc_matches:
-                        result["compose"]["services"].append({
-                            "name": svc_name,
-                            "image": "",
-                            "build": "",
-                            "ports": [],
-                            "volumes": [],
-                            "depends_on": [],
-                            "environment": {},
-                            "profiles": [],
-                            "restart": "",
-                            "healthcheck": False,
-                        })
+                        result["compose"]["services"].append(
+                            {
+                                "name": svc_name,
+                                "image": "",
+                                "build": "",
+                                "ports": [],
+                                "volumes": [],
+                                "depends_on": [],
+                                "environment": {},
+                                "profiles": [],
+                                "restart": "",
+                                "healthcheck": False,
+                            }
+                        )
                 except Exception:
                     pass
             except Exception:
@@ -4928,6 +5382,7 @@ class AdminSite:
             try:
                 content = dockerfile_path.read_text(encoding="utf-8", errors="replace")
                 import re
+
                 result["dockerfile_info"] = {
                     "exists": True,
                     "path": str(dockerfile_path),
@@ -4940,9 +5395,7 @@ class AdminSite:
                     "run_count": 0,
                 }
                 # Extract ARG defaults so we can resolve ${VAR} in FROM lines
-                arg_defaults = dict(
-                    re.findall(r'^ARG\s+(\w+)=(\S+)', content, re.MULTILINE)
-                )
+                arg_defaults = dict(re.findall(r"^ARG\s+(\w+)=(\S+)", content, re.MULTILINE))
 
                 def _resolve_args(s: str) -> str:
                     """Resolve ${VAR} and $VAR references using ARG defaults."""
@@ -4951,28 +5404,26 @@ class AdminSite:
                     return s
 
                 # Extract FROM instructions (multi-stage)
-                froms = re.findall(r'^FROM\s+(\S+)(?:\s+AS\s+(\S+))?',
-                                   content, re.MULTILINE | re.IGNORECASE)
+                froms = re.findall(r"^FROM\s+(\S+)(?:\s+AS\s+(\S+))?", content, re.MULTILINE | re.IGNORECASE)
                 if froms:
                     resolved_base = _resolve_args(froms[0][0])
                     result["dockerfile_info"]["base_image"] = resolved_base
                     result["dockerfile_info"]["stages"] = [
-                        {"image": _resolve_args(img), "alias": alias or ""}
-                        for img, alias in froms
+                        {"image": _resolve_args(img), "alias": alias or ""} for img, alias in froms
                     ]
                 # Exposed ports
-                ports = re.findall(r'^EXPOSE\s+(.+)', content, re.MULTILINE | re.IGNORECASE)
+                ports = re.findall(r"^EXPOSE\s+(.+)", content, re.MULTILINE | re.IGNORECASE)
                 for p in ports:
                     result["dockerfile_info"]["exposed_ports"].extend(p.split())
                 # ENV vars
-                envs = re.findall(r'^ENV\s+(\S+)', content, re.MULTILINE | re.IGNORECASE)
+                envs = re.findall(r"^ENV\s+(\S+)", content, re.MULTILINE | re.IGNORECASE)
                 result["dockerfile_info"]["env_vars"] = envs
                 # Instruction counts
                 result["dockerfile_info"]["copy_count"] = len(
-                    re.findall(r'^COPY\s', content, re.MULTILINE | re.IGNORECASE)
+                    re.findall(r"^COPY\s", content, re.MULTILINE | re.IGNORECASE)
                 )
                 result["dockerfile_info"]["run_count"] = len(
-                    re.findall(r'^RUN\s', content, re.MULTILINE | re.IGNORECASE)
+                    re.findall(r"^RUN\s", content, re.MULTILINE | re.IGNORECASE)
                 )
             except Exception:
                 result["dockerfile_info"] = {"exists": True, "path": str(dockerfile_path)}
@@ -4984,9 +5435,11 @@ class AdminSite:
     # ── Docker Action Helpers ────────────────────────────────────────
 
     def execute_container_action(
-        self, container_id: str, action: str,
+        self,
+        container_id: str,
+        action: str,
         run_params: str = "",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Execute a Docker container lifecycle action.
 
@@ -5036,7 +5489,11 @@ class AdminSite:
 
             try:
                 proc = subprocess.run(
-                    args, capture_output=True, text=True, encoding="utf-8", timeout=120,
+                    args,
+                    capture_output=True,
+                    text=True,
+                    encoding="utf-8",
+                    timeout=120,
                 )
                 if proc.returncode == 0:
                     cid = proc.stdout.strip()[:12] or "started"
@@ -5064,7 +5521,11 @@ class AdminSite:
                 args.append("-f")
             args.append(cid)
             proc = subprocess.run(
-                args, capture_output=True, text=True, encoding="utf-8", timeout=30,
+                args,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                timeout=30,
             )
             if proc.returncode == 0:
                 return {"success": True, "message": f"Container {action} successful"}
@@ -5074,7 +5535,7 @@ class AdminSite:
         except Exception as e:
             return {"success": False, "error": str(e)}
 
-    def get_container_inspect(self, container_id: str) -> Dict[str, Any]:
+    def get_container_inspect(self, container_id: str) -> dict[str, Any]:
         """Return full ``docker inspect`` output for a container."""
         import json as _json
         import subprocess
@@ -5082,7 +5543,10 @@ class AdminSite:
         try:
             proc = subprocess.run(
                 ["docker", "inspect", container_id.strip()],
-                capture_output=True, text=True, encoding="utf-8", timeout=10,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                timeout=10,
             )
             if proc.returncode == 0:
                 data = _json.loads(proc.stdout)
@@ -5094,8 +5558,12 @@ class AdminSite:
             return {"success": False, "error": str(e)}
 
     def get_container_logs(
-        self, container_id: str, *, tail: int = 200, since: str = "",
-    ) -> Dict[str, Any]:
+        self,
+        container_id: str,
+        *,
+        tail: int = 200,
+        since: str = "",
+    ) -> dict[str, Any]:
         """Fetch recent logs from a container via ``docker logs``."""
         import subprocess
 
@@ -5106,7 +5574,11 @@ class AdminSite:
 
         try:
             proc = subprocess.run(
-                args, capture_output=True, text=True, encoding="utf-8", timeout=15,
+                args,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                timeout=15,
             )
             # docker logs outputs to both stdout and stderr
             output = proc.stdout + proc.stderr
@@ -5116,7 +5588,7 @@ class AdminSite:
         except Exception as e:
             return {"success": False, "error": str(e)}
 
-    def get_volume_inspect(self, volume_name: str) -> Dict[str, Any]:
+    def get_volume_inspect(self, volume_name: str) -> dict[str, Any]:
         """Return ``docker volume inspect`` output."""
         import json as _json
         import subprocess
@@ -5124,7 +5596,10 @@ class AdminSite:
         try:
             proc = subprocess.run(
                 ["docker", "volume", "inspect", volume_name.strip()],
-                capture_output=True, text=True, encoding="utf-8", timeout=10,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                timeout=10,
             )
             if proc.returncode == 0:
                 data = _json.loads(proc.stdout)
@@ -5135,7 +5610,7 @@ class AdminSite:
         except Exception as e:
             return {"success": False, "error": str(e)}
 
-    def get_network_inspect(self, network_id: str) -> Dict[str, Any]:
+    def get_network_inspect(self, network_id: str) -> dict[str, Any]:
         """Return ``docker network inspect`` output."""
         import json as _json
         import subprocess
@@ -5143,7 +5618,10 @@ class AdminSite:
         try:
             proc = subprocess.run(
                 ["docker", "network", "inspect", network_id.strip()],
-                capture_output=True, text=True, encoding="utf-8", timeout=10,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                timeout=10,
             )
             if proc.returncode == 0:
                 data = _json.loads(proc.stdout)
@@ -5154,7 +5632,7 @@ class AdminSite:
         except Exception as e:
             return {"success": False, "error": str(e)}
 
-    def get_image_inspect(self, image_id: str) -> Dict[str, Any]:
+    def get_image_inspect(self, image_id: str) -> dict[str, Any]:
         """Return ``docker image inspect`` output."""
         import json as _json
         import subprocess
@@ -5162,7 +5640,10 @@ class AdminSite:
         try:
             proc = subprocess.run(
                 ["docker", "image", "inspect", image_id.strip()],
-                capture_output=True, text=True, encoding="utf-8", timeout=10,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                timeout=10,
             )
             if proc.returncode == 0:
                 data = _json.loads(proc.stdout)
@@ -5174,8 +5655,10 @@ class AdminSite:
             return {"success": False, "error": str(e)}
 
     def execute_image_action(
-        self, image_id: str, action: str,
-    ) -> Dict[str, Any]:
+        self,
+        image_id: str,
+        action: str,
+    ) -> dict[str, Any]:
         """
         Execute a Docker image action.
 
@@ -5191,12 +5674,18 @@ class AdminSite:
             if action == "rm":
                 proc = subprocess.run(
                     ["docker", "rmi", "-f", image_id.strip()],
-                    capture_output=True, text=True, encoding="utf-8", timeout=30,
+                    capture_output=True,
+                    text=True,
+                    encoding="utf-8",
+                    timeout=30,
                 )
             else:  # pull
                 proc = subprocess.run(
                     ["docker", "pull", image_id.strip()],
-                    capture_output=True, text=True, encoding="utf-8", timeout=120,
+                    capture_output=True,
+                    text=True,
+                    encoding="utf-8",
+                    timeout=120,
                 )
 
             if proc.returncode == 0:
@@ -5207,14 +5696,13 @@ class AdminSite:
         except Exception as e:
             return {"success": False, "error": str(e)}
 
-    def execute_compose_action(self, action: str) -> Dict[str, Any]:
+    def execute_compose_action(self, action: str) -> dict[str, Any]:
         """
         Execute a Docker Compose action.
 
         Supported actions: up, down, restart, build, pull, stop, start
         """
         import subprocess
-        from pathlib import Path
 
         ALLOWED = {"up", "down", "restart", "build", "pull", "stop", "start"}
         if action not in ALLOWED:
@@ -5245,7 +5733,11 @@ class AdminSite:
                 args.append(action)
 
             proc = subprocess.run(
-                args, capture_output=True, text=True, encoding="utf-8", timeout=120,
+                args,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                timeout=120,
                 cwd=str(compose_dir),
             )
             output = proc.stdout + proc.stderr
@@ -5258,8 +5750,10 @@ class AdminSite:
             return {"success": False, "error": str(e)}
 
     def execute_volume_action(
-        self, volume_name: str, action: str,
-    ) -> Dict[str, Any]:
+        self,
+        volume_name: str,
+        action: str,
+    ) -> dict[str, Any]:
         """Execute a Docker volume action. Supported: rm"""
         import subprocess
 
@@ -5269,7 +5763,10 @@ class AdminSite:
         try:
             proc = subprocess.run(
                 ["docker", "volume", "rm", "-f", volume_name.strip()],
-                capture_output=True, text=True, encoding="utf-8", timeout=15,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                timeout=15,
             )
             if proc.returncode == 0:
                 return {"success": True, "message": "Volume removed"}
@@ -5278,8 +5775,10 @@ class AdminSite:
             return {"success": False, "error": str(e)}
 
     def execute_network_action(
-        self, network_id: str, action: str,
-    ) -> Dict[str, Any]:
+        self,
+        network_id: str,
+        action: str,
+    ) -> dict[str, Any]:
         """Execute a Docker network action. Supported: rm"""
         import subprocess
 
@@ -5289,7 +5788,10 @@ class AdminSite:
         try:
             proc = subprocess.run(
                 ["docker", "network", "rm", network_id.strip()],
-                capture_output=True, text=True, encoding="utf-8", timeout=15,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                timeout=15,
             )
             if proc.returncode == 0:
                 return {"success": True, "message": "Network removed"}
@@ -5299,7 +5801,7 @@ class AdminSite:
 
     # ── Advanced Docker Features ─────────────────────────────────────
 
-    def get_docker_disk_usage(self) -> Dict[str, Any]:
+    def get_docker_disk_usage(self) -> dict[str, Any]:
         """
         Return ``docker system df -v`` data: images, containers, volumes,
         build cache with reclaimable space information.
@@ -5310,7 +5812,10 @@ class AdminSite:
         try:
             proc = subprocess.run(
                 ["docker", "system", "df", "-v", "--format", "{{json .}}"],
-                capture_output=True, text=True, encoding="utf-8", timeout=15,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                timeout=15,
             )
             if proc.returncode != 0:
                 return {"success": False, "error": proc.stderr.strip()}
@@ -5328,14 +5833,17 @@ class AdminSite:
         except Exception as e:
             return {"success": False, "error": str(e)}
 
-    def get_docker_disk_usage_summary(self) -> Dict[str, Any]:
+    def get_docker_disk_usage_summary(self) -> dict[str, Any]:
         """Return a human-friendly summary of docker disk usage."""
         import subprocess
 
         try:
             proc = subprocess.run(
                 ["docker", "system", "df"],
-                capture_output=True, text=True, encoding="utf-8", timeout=10,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                timeout=10,
             )
             if proc.returncode == 0:
                 return {"success": True, "output": proc.stdout.strip()}
@@ -5343,7 +5851,7 @@ class AdminSite:
         except Exception as e:
             return {"success": False, "error": str(e)}
 
-    def execute_docker_prune(self, target: str) -> Dict[str, Any]:
+    def execute_docker_prune(self, target: str) -> dict[str, Any]:
         """
         Execute docker prune commands.
 
@@ -5364,7 +5872,10 @@ class AdminSite:
         try:
             proc = subprocess.run(
                 ALLOWED[target],
-                capture_output=True, text=True, encoding="utf-8", timeout=120,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                timeout=120,
             )
             output = (proc.stdout + proc.stderr).strip()
             if proc.returncode == 0:
@@ -5376,8 +5887,10 @@ class AdminSite:
             return {"success": False, "error": str(e)}
 
     def execute_container_exec(
-        self, container_id: str, command: str,
-    ) -> Dict[str, Any]:
+        self,
+        container_id: str,
+        command: str,
+    ) -> dict[str, Any]:
         """Execute a command inside a running container via ``docker exec``."""
         import shlex
         import subprocess
@@ -5391,7 +5904,11 @@ class AdminSite:
         try:
             args = ["docker", "exec", cid] + shlex.split(command)
             proc = subprocess.run(
-                args, capture_output=True, text=True, encoding="utf-8", timeout=30,
+                args,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                timeout=30,
             )
             output = proc.stdout + proc.stderr
             return {
@@ -5404,16 +5921,18 @@ class AdminSite:
         except Exception as e:
             return {"success": False, "error": str(e), "exit_code": -1}
 
-    def get_image_history(self, image_id: str) -> Dict[str, Any]:
+    def get_image_history(self, image_id: str) -> dict[str, Any]:
         """Return ``docker history`` for an image with layer sizes."""
         import json as _json
         import subprocess
 
         try:
             proc = subprocess.run(
-                ["docker", "history", image_id.strip(), "--no-trunc",
-                 "--format", "{{json .}}"],
-                capture_output=True, text=True, encoding="utf-8", timeout=10,
+                ["docker", "history", image_id.strip(), "--no-trunc", "--format", "{{json .}}"],
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                timeout=10,
             )
             if proc.returncode != 0:
                 return {"success": False, "error": proc.stderr.strip()}
@@ -5425,13 +5944,15 @@ class AdminSite:
                     continue
                 try:
                     raw = _json.loads(line)
-                    layers.append({
-                        "id": raw.get("ID", ""),
-                        "created_by": raw.get("CreatedBy", ""),
-                        "created_at": raw.get("CreatedAt", ""),
-                        "size": raw.get("Size", "0B"),
-                        "comment": raw.get("Comment", ""),
-                    })
+                    layers.append(
+                        {
+                            "id": raw.get("ID", ""),
+                            "created_by": raw.get("CreatedBy", ""),
+                            "created_at": raw.get("CreatedAt", ""),
+                            "size": raw.get("Size", "0B"),
+                            "comment": raw.get("Comment", ""),
+                        }
+                    )
                 except _json.JSONDecodeError:
                     continue
             return {"success": True, "layers": layers}
@@ -5439,8 +5960,10 @@ class AdminSite:
             return {"success": False, "error": str(e)}
 
     def execute_image_tag(
-        self, source_image: str, target_tag: str,
-    ) -> Dict[str, Any]:
+        self,
+        source_image: str,
+        target_tag: str,
+    ) -> dict[str, Any]:
         """Tag an image with a new name via ``docker tag``."""
         import subprocess
 
@@ -5452,7 +5975,10 @@ class AdminSite:
         try:
             proc = subprocess.run(
                 ["docker", "tag", src, tgt],
-                capture_output=True, text=True, encoding="utf-8", timeout=10,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                timeout=10,
             )
             if proc.returncode == 0:
                 return {"success": True, "message": f"Tagged {src} as {tgt}"}
@@ -5461,8 +5987,9 @@ class AdminSite:
             return {"success": False, "error": str(e)}
 
     def execute_container_export(
-        self, container_id: str,
-    ) -> Dict[str, Any]:
+        self,
+        container_id: str,
+    ) -> dict[str, Any]:
         """Export a container filesystem as a tar (returns path info)."""
         import subprocess
         import tempfile
@@ -5475,10 +6002,14 @@ class AdminSite:
         try:
             proc = subprocess.run(
                 ["docker", "export", "-o", outpath, cid],
-                capture_output=True, text=True, encoding="utf-8", timeout=120,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                timeout=120,
             )
             if proc.returncode == 0:
                 import os
+
                 size = os.path.getsize(outpath)
                 size_mb = size / (1024 * 1024)
                 return {
@@ -5494,10 +6025,13 @@ class AdminSite:
             return {"success": False, "error": str(e)}
 
     def create_docker_network(
-        self, name: str, driver: str = "bridge",
-        subnet: str = "", gateway: str = "",
+        self,
+        name: str,
+        driver: str = "bridge",
+        subnet: str = "",
+        gateway: str = "",
         internal: bool = False,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Create a new Docker network."""
         import subprocess
 
@@ -5517,7 +6051,11 @@ class AdminSite:
 
         try:
             proc = subprocess.run(
-                args, capture_output=True, text=True, encoding="utf-8", timeout=15,
+                args,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                timeout=15,
             )
             if proc.returncode == 0:
                 nid = proc.stdout.strip()[:12]
@@ -5527,9 +6065,11 @@ class AdminSite:
             return {"success": False, "error": str(e)}
 
     def create_docker_volume(
-        self, name: str, driver: str = "local",
+        self,
+        name: str,
+        driver: str = "local",
         labels: str = "",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Create a new Docker volume."""
         import subprocess
 
@@ -5548,7 +6088,11 @@ class AdminSite:
 
         try:
             proc = subprocess.run(
-                args, capture_output=True, text=True, encoding="utf-8", timeout=15,
+                args,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                timeout=15,
             )
             if proc.returncode == 0:
                 return {"success": True, "message": f"Volume '{name}' created"}
@@ -5556,7 +6100,7 @@ class AdminSite:
         except Exception as e:
             return {"success": False, "error": str(e)}
 
-    def get_docker_events(self, since: str = "10m") -> Dict[str, Any]:
+    def get_docker_events(self, since: str = "10m") -> dict[str, Any]:
         """
         Return recent docker events (from last N minutes).
         Uses ``docker events --since Nm --until now``.
@@ -5566,9 +6110,11 @@ class AdminSite:
 
         try:
             proc = subprocess.run(
-                ["docker", "events", "--since", since, "--until", "0s",
-                 "--format", "{{json .}}"],
-                capture_output=True, text=True, encoding="utf-8", timeout=10,
+                ["docker", "events", "--since", since, "--until", "0s", "--format", "{{json .}}"],
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                timeout=10,
             )
             events = []
             for line in proc.stdout.strip().splitlines():
@@ -5577,15 +6123,17 @@ class AdminSite:
                     continue
                 try:
                     raw = _json.loads(line)
-                    events.append({
-                        "type": raw.get("Type", ""),
-                        "action": raw.get("Action", ""),
-                        "actor": raw.get("Actor", {}).get("Attributes", {}).get("name", "")
+                    events.append(
+                        {
+                            "type": raw.get("Type", ""),
+                            "action": raw.get("Action", ""),
+                            "actor": raw.get("Actor", {}).get("Attributes", {}).get("name", "")
                             or raw.get("Actor", {}).get("ID", "")[:12],
-                        "time": raw.get("time", ""),
-                        "timeNano": raw.get("timeNano", ""),
-                        "status": raw.get("status", raw.get("Action", "")),
-                    })
+                            "time": raw.get("time", ""),
+                            "timeNano": raw.get("timeNano", ""),
+                            "status": raw.get("status", raw.get("Action", "")),
+                        }
+                    )
                 except _json.JSONDecodeError:
                     continue
             return {"success": True, "events": events}
@@ -5595,9 +6143,13 @@ class AdminSite:
             return {"success": False, "error": str(e)}
 
     def execute_docker_build(
-        self, *, tag: str = "", no_cache: bool = False,
-        build_args: str = "", target: str = "",
-    ) -> Dict[str, Any]:
+        self,
+        *,
+        tag: str = "",
+        no_cache: bool = False,
+        build_args: str = "",
+        target: str = "",
+    ) -> dict[str, Any]:
         """
         Execute ``docker build`` in the workspace directory.
         Returns the full build output.
@@ -5627,7 +6179,11 @@ class AdminSite:
 
         try:
             proc = subprocess.run(
-                args, capture_output=True, text=True, encoding="utf-8", timeout=600,
+                args,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                timeout=600,
                 cwd=str(build_dir),
             )
             output = proc.stdout + proc.stderr
@@ -5647,9 +6203,8 @@ class AdminSite:
         except Exception as e:
             return {"success": False, "error": str(e)}
 
-    def get_container_top(self, container_id: str) -> Dict[str, Any]:
+    def get_container_top(self, container_id: str) -> dict[str, Any]:
         """Return ``docker top`` output — processes running inside a container."""
-        import json as _json
         import platform
         import subprocess
 
@@ -5658,10 +6213,19 @@ class AdminSite:
             if platform.system() == "Windows":
                 cmd = ["docker", "top", container_id.strip()]
             else:
-                cmd = ["docker", "top", container_id.strip(),
-                       "-eo", "pid,user,%cpu,%mem,vsz,rss,tty,stat,start,time,command"]
+                cmd = [
+                    "docker",
+                    "top",
+                    container_id.strip(),
+                    "-eo",
+                    "pid,user,%cpu,%mem,vsz,rss,tty,stat,start,time,command",
+                ]
             proc = subprocess.run(
-                cmd, capture_output=True, text=True, encoding="utf-8", timeout=10,
+                cmd,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                timeout=10,
             )
             if proc.returncode != 0:
                 return {"success": False, "error": proc.stderr.strip()}
@@ -5677,14 +6241,17 @@ class AdminSite:
         except Exception as e:
             return {"success": False, "error": str(e)}
 
-    def get_container_diff(self, container_id: str) -> Dict[str, Any]:
+    def get_container_diff(self, container_id: str) -> dict[str, Any]:
         """Return ``docker diff`` — filesystem changes in a container."""
         import subprocess
 
         try:
             proc = subprocess.run(
                 ["docker", "diff", container_id.strip()],
-                capture_output=True, text=True, encoding="utf-8", timeout=10,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                timeout=10,
             )
             if proc.returncode != 0:
                 return {"success": False, "error": proc.stderr.strip()}
@@ -5700,16 +6267,18 @@ class AdminSite:
         except Exception as e:
             return {"success": False, "error": str(e)}
 
-    def get_container_stats_stream(self, container_id: str) -> Dict[str, Any]:
+    def get_container_stats_stream(self, container_id: str) -> dict[str, Any]:
         """Return a single snapshot of ``docker stats`` for one container."""
         import json as _json
         import subprocess
 
         try:
             proc = subprocess.run(
-                ["docker", "stats", "--no-stream", "--format", "{{json .}}",
-                 container_id.strip()],
-                capture_output=True, text=True, encoding="utf-8", timeout=10,
+                ["docker", "stats", "--no-stream", "--format", "{{json .}}", container_id.strip()],
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                timeout=10,
             )
             if proc.returncode != 0:
                 return {"success": False, "error": proc.stderr.strip()}
@@ -5733,7 +6302,7 @@ class AdminSite:
         except Exception as e:
             return {"success": False, "error": str(e)}
 
-    def get_pods_data(self) -> Dict[str, Any]:
+    def get_pods_data(self) -> dict[str, Any]:
         """
         Gather comprehensive Kubernetes pod and manifest data.
 
@@ -5757,13 +6326,11 @@ class AdminSite:
             - error: optional error string
         """
         import json as _json
-        import os
         import re
         import subprocess
         from datetime import datetime, timezone
-        from pathlib import Path
 
-        result: Dict[str, Any] = {
+        result: dict[str, Any] = {
             "kubectl_available": False,
             "cluster_info": {},
             "pods": [],
@@ -5781,7 +6348,10 @@ class AdminSite:
             try:
                 proc = subprocess.run(
                     ["kubectl", *args],
-                    capture_output=True, text=True, encoding="utf-8", timeout=timeout,
+                    capture_output=True,
+                    text=True,
+                    encoding="utf-8",
+                    timeout=timeout,
                 )
                 return proc.returncode == 0, proc.stdout.strip(), proc.stderr.strip()
             except FileNotFoundError:
@@ -5808,9 +6378,7 @@ class AdminSite:
 
         # ── Cluster connection check ──
         if result["kubectl_available"]:
-            ok, cluster_out, cluster_err = _run_kubectl(
-                "cluster-info", "--request-timeout=5s"
-            )
+            ok, cluster_out, cluster_err = _run_kubectl("cluster-info", "--request-timeout=5s")
             if ok:
                 result["cluster_info"]["connected"] = True
                 result["cluster_info"]["summary"] = cluster_out[:500]
@@ -5820,17 +6388,21 @@ class AdminSite:
 
             # ── Namespaces ──
             ok, ns_out, _ = _run_kubectl(
-                "get", "namespaces", "-o",
-                "jsonpath={range .items[*]}{.metadata.name}{\"\\n\"}{end}",
+                "get",
+                "namespaces",
+                "-o",
+                'jsonpath={range .items[*]}{.metadata.name}{"\\n"}{end}',
             )
             if ok and ns_out:
-                result["namespaces"] = [
-                    n.strip() for n in ns_out.splitlines() if n.strip()
-                ]
+                result["namespaces"] = [n.strip() for n in ns_out.splitlines() if n.strip()]
 
             # ── Pods (all namespaces) ──
             ok, pods_out, _ = _run_kubectl(
-                "get", "pods", "--all-namespaces", "-o", "json",
+                "get",
+                "pods",
+                "--all-namespaces",
+                "-o",
+                "json",
                 "--request-timeout=8s",
             )
             if ok and pods_out:
@@ -5847,16 +6419,17 @@ class AdminSite:
                             state_info = {}
                             for st_key in ("running", "waiting", "terminated"):
                                 if st_key in cs.get("state", {}):
-                                    state_info = {"state": st_key,
-                                                  **cs["state"][st_key]}
+                                    state_info = {"state": st_key, **cs["state"][st_key]}
                                     break
-                            container_statuses.append({
-                                "name": cs.get("name", ""),
-                                "ready": cs.get("ready", False),
-                                "restart_count": cs.get("restartCount", 0),
-                                "image": cs.get("image", ""),
-                                "state_info": state_info,
-                            })
+                            container_statuses.append(
+                                {
+                                    "name": cs.get("name", ""),
+                                    "ready": cs.get("ready", False),
+                                    "restart_count": cs.get("restartCount", 0),
+                                    "image": cs.get("image", ""),
+                                    "state_info": state_info,
+                                }
+                            )
 
                         # Resource requests/limits
                         resources = {}
@@ -5880,13 +6453,8 @@ class AdminSite:
                             "start_time": status.get("startTime", ""),
                             "containers": container_statuses,
                             "container_count": len(containers),
-                            "ready_count": sum(
-                                1 for cs in container_statuses if cs.get("ready")
-                            ),
-                            "restart_count": sum(
-                                cs.get("restart_count", 0)
-                                for cs in container_statuses
-                            ),
+                            "ready_count": sum(1 for cs in container_statuses if cs.get("ready")),
+                            "restart_count": sum(cs.get("restart_count", 0) for cs in container_statuses),
                             "resources": resources,
                             "labels": meta.get("labels", {}),
                             "age": "",
@@ -5896,13 +6464,9 @@ class AdminSite:
                         start_time = status.get("startTime")
                         if start_time:
                             try:
-                                st = datetime.fromisoformat(
-                                    start_time.replace("Z", "+00:00")
-                                )
+                                st = datetime.fromisoformat(start_time.replace("Z", "+00:00"))
                                 delta = datetime.now(tz=timezone.utc) - st
-                                pod_dict["age"] = self._format_uptime(
-                                    delta.total_seconds()
-                                )
+                                pod_dict["age"] = self._format_uptime(delta.total_seconds())
                             except Exception:
                                 pass
 
@@ -5912,7 +6476,11 @@ class AdminSite:
 
             # ── Deployments ──
             ok, dep_out, _ = _run_kubectl(
-                "get", "deployments", "--all-namespaces", "-o", "json",
+                "get",
+                "deployments",
+                "--all-namespaces",
+                "-o",
+                "json",
                 "--request-timeout=8s",
             )
             if ok and dep_out:
@@ -5922,33 +6490,33 @@ class AdminSite:
                         meta = item.get("metadata", {})
                         spec = item.get("spec", {})
                         status = item.get("status", {})
-                        result["deployments"].append({
-                            "name": meta.get("name", ""),
-                            "namespace": meta.get("namespace", ""),
-                            "replicas": spec.get("replicas", 0),
-                            "ready_replicas": status.get("readyReplicas", 0),
-                            "available_replicas": status.get("availableReplicas", 0),
-                            "updated_replicas": status.get("updatedReplicas", 0),
-                            "strategy": spec.get("strategy", {}).get("type", ""),
-                            "image": "",
-                            "labels": meta.get("labels", {}),
-                        })
-                        # Extract image from first container
-                        containers = (
-                            spec.get("template", {})
-                            .get("spec", {})
-                            .get("containers", [])
+                        result["deployments"].append(
+                            {
+                                "name": meta.get("name", ""),
+                                "namespace": meta.get("namespace", ""),
+                                "replicas": spec.get("replicas", 0),
+                                "ready_replicas": status.get("readyReplicas", 0),
+                                "available_replicas": status.get("availableReplicas", 0),
+                                "updated_replicas": status.get("updatedReplicas", 0),
+                                "strategy": spec.get("strategy", {}).get("type", ""),
+                                "image": "",
+                                "labels": meta.get("labels", {}),
+                            }
                         )
+                        # Extract image from first container
+                        containers = spec.get("template", {}).get("spec", {}).get("containers", [])
                         if containers:
-                            result["deployments"][-1]["image"] = containers[0].get(
-                                "image", ""
-                            )
+                            result["deployments"][-1]["image"] = containers[0].get("image", "")
                 except _json.JSONDecodeError:
                     pass
 
             # ── Services ──
             ok, svc_out, _ = _run_kubectl(
-                "get", "services", "--all-namespaces", "-o", "json",
+                "get",
+                "services",
+                "--all-namespaces",
+                "-o",
+                "json",
                 "--request-timeout=8s",
             )
             if ok and svc_out:
@@ -5959,28 +6527,34 @@ class AdminSite:
                         spec = item.get("spec", {})
                         ports = []
                         for p in spec.get("ports", []):
-                            ports.append({
-                                "port": p.get("port"),
-                                "target_port": p.get("targetPort"),
-                                "protocol": p.get("protocol", "TCP"),
-                                "name": p.get("name", ""),
-                            })
-                        result["services"].append({
-                            "name": meta.get("name", ""),
-                            "namespace": meta.get("namespace", ""),
-                            "type": spec.get("type", "ClusterIP"),
-                            "cluster_ip": spec.get("clusterIP", ""),
-                            "external_ip": ", ".join(
-                                spec.get("externalIPs", [])
-                            ) or "—",
-                            "ports": ports,
-                        })
+                            ports.append(
+                                {
+                                    "port": p.get("port"),
+                                    "target_port": p.get("targetPort"),
+                                    "protocol": p.get("protocol", "TCP"),
+                                    "name": p.get("name", ""),
+                                }
+                            )
+                        result["services"].append(
+                            {
+                                "name": meta.get("name", ""),
+                                "namespace": meta.get("namespace", ""),
+                                "type": spec.get("type", "ClusterIP"),
+                                "cluster_ip": spec.get("clusterIP", ""),
+                                "external_ip": ", ".join(spec.get("externalIPs", [])) or "—",
+                                "ports": ports,
+                            }
+                        )
                 except _json.JSONDecodeError:
                     pass
 
             # ── Ingresses ──
             ok, ing_out, _ = _run_kubectl(
-                "get", "ingresses", "--all-namespaces", "-o", "json",
+                "get",
+                "ingresses",
+                "--all-namespaces",
+                "-o",
+                "json",
                 "--request-timeout=8s",
             )
             if ok and ing_out:
@@ -5992,21 +6566,27 @@ class AdminSite:
                         hosts = []
                         for rule in spec.get("rules", []):
                             hosts.append(rule.get("host", ""))
-                        result["ingresses"].append({
-                            "name": meta.get("name", ""),
-                            "namespace": meta.get("namespace", ""),
-                            "hosts": hosts,
-                            "tls": bool(spec.get("tls")),
-                            "class_name": spec.get("ingressClassName", ""),
-                        })
+                        result["ingresses"].append(
+                            {
+                                "name": meta.get("name", ""),
+                                "namespace": meta.get("namespace", ""),
+                                "hosts": hosts,
+                                "tls": bool(spec.get("tls")),
+                                "class_name": spec.get("ingressClassName", ""),
+                            }
+                        )
                 except _json.JSONDecodeError:
                     pass
 
             # ── Recent events (last 20) ──
             ok, evt_out, _ = _run_kubectl(
-                "get", "events", "--all-namespaces",
+                "get",
+                "events",
+                "--all-namespaces",
                 "--sort-by=.metadata.creationTimestamp",
-                "-o", "json", "--request-timeout=8s",
+                "-o",
+                "json",
+                "--request-timeout=8s",
             )
             if ok and evt_out:
                 try:
@@ -6014,17 +6594,16 @@ class AdminSite:
                     items = evt_data.get("items", [])[-20:]
                     for item in items:
                         meta = item.get("metadata", {})
-                        result["events"].append({
-                            "type": item.get("type", "Normal"),
-                            "reason": item.get("reason", ""),
-                            "message": (item.get("message", "") or "")[:200],
-                            "namespace": meta.get("namespace", ""),
-                            "object": (
-                                item.get("involvedObject", {}).get("name", "")
-                            ),
-                            "timestamp": item.get("lastTimestamp")
-                            or meta.get("creationTimestamp", ""),
-                        })
+                        result["events"].append(
+                            {
+                                "type": item.get("type", "Normal"),
+                                "reason": item.get("reason", ""),
+                                "message": (item.get("message", "") or "")[:200],
+                                "namespace": meta.get("namespace", ""),
+                                "object": (item.get("involvedObject", {}).get("name", "")),
+                                "timestamp": item.get("lastTimestamp") or meta.get("creationTimestamp", ""),
+                            }
+                        )
                 except _json.JSONDecodeError:
                     pass
 
@@ -6034,35 +6613,41 @@ class AdminSite:
             for fpath in sorted(k8s_dir.iterdir()):
                 if fpath.suffix in (".yaml", ".yml") and fpath.is_file():
                     try:
-                        content = fpath.read_text(
-                            encoding="utf-8", errors="replace"
-                        )
+                        content = fpath.read_text(encoding="utf-8", errors="replace")
                         # Extract kind from YAML
                         kind_match = re.search(
-                            r'^kind:\s*(\S+)', content, re.MULTILINE,
+                            r"^kind:\s*(\S+)",
+                            content,
+                            re.MULTILINE,
                         )
                         name_match = re.search(
-                            r'^\s+name:\s*(\S+)', content, re.MULTILINE,
+                            r"^\s+name:\s*(\S+)",
+                            content,
+                            re.MULTILINE,
                         )
-                        result["manifests"].append({
-                            "filename": fpath.name,
-                            "kind": kind_match.group(1) if kind_match else "Unknown",
-                            "name": name_match.group(1) if name_match else "",
-                            "size": f"{fpath.stat().st_size / 1024:.1f} KB",
-                            "content": content,
-                        })
+                        result["manifests"].append(
+                            {
+                                "filename": fpath.name,
+                                "kind": kind_match.group(1) if kind_match else "Unknown",
+                                "name": name_match.group(1) if name_match else "",
+                                "size": f"{fpath.stat().st_size / 1024:.1f} KB",
+                                "content": content,
+                            }
+                        )
                     except Exception:
-                        result["manifests"].append({
-                            "filename": fpath.name,
-                            "kind": "Unknown",
-                            "name": "",
-                            "size": "?",
-                            "content": "",
-                        })
+                        result["manifests"].append(
+                            {
+                                "filename": fpath.name,
+                                "kind": "Unknown",
+                                "name": "",
+                                "size": "?",
+                                "content": "",
+                            }
+                        )
 
         return result
 
-    def get_workspace_data(self) -> Dict[str, Any]:
+    def get_workspace_data(self) -> dict[str, Any]:
         """
         Gather comprehensive workspace data for the admin workspace page.
 
@@ -6078,11 +6663,9 @@ class AdminSite:
             - registered_models: list of all ORM models
             - stats: module counts, model counts, etc.
         """
-        import os
         import sys
-        from pathlib import Path
 
-        result: Dict[str, Any] = {
+        result: dict[str, Any] = {
             "workspace": None,
             "modules": [],
             "integrations": [],
@@ -6110,26 +6693,28 @@ class AdminSite:
                 ws_desc = desc_match.group(1) if desc_match else ""
 
                 # Extract integrations from workspace
-                intg_matches = re.findall(r'Integration\.(\w+)', ws_source)
+                intg_matches = re.findall(r"Integration\.(\w+)", ws_source)
                 integrations_list = []
                 seen = set()
                 for intg in intg_matches:
                     if intg not in seen:
                         seen.add(intg)
                         # Extract inline params for the integration
-                        pattern = rf'Integration\.{intg}\((.*?)\)'
+                        pattern = rf"Integration\.{intg}\((.*?)\)"
                         param_match = re.search(pattern, ws_source, re.DOTALL)
                         params = {}
                         if param_match:
                             param_str = param_match.group(1)
-                            for kv in re.findall(r'(\w+)\s*=\s*([^,\)]+)', param_str):
-                                params[kv[0]] = kv[1].strip().strip('"\'')
-                        integrations_list.append({
-                            "name": intg,
-                            "display_name": intg.replace("_", " ").title(),
-                            "params": params,
-                            "icon": self._get_integration_icon(intg),
-                        })
+                            for kv in re.findall(r"(\w+)\s*=\s*([^,\)]+)", param_str):
+                                params[kv[0]] = kv[1].strip().strip("\"'")
+                        integrations_list.append(
+                            {
+                                "name": intg,
+                                "display_name": intg.replace("_", " ").title(),
+                                "params": params,
+                                "icon": self._get_integration_icon(intg),
+                            }
+                        )
 
                 result["workspace"] = {
                     "name": ws_name,
@@ -6152,7 +6737,7 @@ class AdminSite:
                     if not module_path.is_dir() or module_path.name.startswith(("_", ".")):
                         continue
 
-                    mod_info: Dict[str, Any] = {
+                    mod_info: dict[str, Any] = {
                         "name": module_path.name,
                         "path": str(module_path.relative_to(workspace_root)),
                         "has_manifest": False,
@@ -6166,17 +6751,21 @@ class AdminSite:
                     # List all files in the module
                     for f in sorted(module_path.iterdir()):
                         if f.is_file() and f.suffix == ".py" and not f.name.startswith("_"):
-                            mod_info["files"].append({
-                                "name": f.name,
-                                "size": f.stat().st_size,
-                                "kind": self._classify_module_file(f.name),
-                            })
+                            mod_info["files"].append(
+                                {
+                                    "name": f.name,
+                                    "size": f.stat().st_size,
+                                    "kind": self._classify_module_file(f.name),
+                                }
+                            )
                         elif f.name == "__init__.py":
-                            mod_info["files"].append({
-                                "name": f.name,
-                                "size": f.stat().st_size,
-                                "kind": "init",
-                            })
+                            mod_info["files"].append(
+                                {
+                                    "name": f.name,
+                                    "size": f.stat().st_size,
+                                    "kind": "init",
+                                }
+                            )
 
                     # Read manifest.py
                     manifest_path = module_path / "manifest.py"
@@ -6199,17 +6788,17 @@ class AdminSite:
                             models = _re.findall(r'"modules\.[^"]+models[^"]*"', manifest_source)
                             guards = _re.findall(r'"modules\.[^"]+guards[^"]*"', manifest_source)
                             pipes = _re.findall(r'"modules\.[^"]+pipes[^"]*"', manifest_source)
-                            imports = _re.findall(r'imports\s*=\s*\[(.*?)\]', manifest_source, _re.DOTALL)
-                            exports = _re.findall(r'exports\s*=\s*\[(.*?)\]', manifest_source, _re.DOTALL)
+                            _re.findall(r"imports\s*=\s*\[(.*?)\]", manifest_source, _re.DOTALL)
+                            _re.findall(r"exports\s*=\s*\[(.*?)\]", manifest_source, _re.DOTALL)
 
                             # Tags
-                            tags = _re.findall(r'tags\s*=\s*\[(.*?)\]', manifest_source, _re.DOTALL)
+                            tags = _re.findall(r"tags\s*=\s*\[(.*?)\]", manifest_source, _re.DOTALL)
                             tag_list = []
                             if tags:
                                 tag_list = _re.findall(r'["\']([^"\']+)["\']', tags[0])
 
                             # Auto-discover
-                            auto_disc = _re.search(r'auto_discover\s*=\s*(True|False)', manifest_source)
+                            auto_disc = _re.search(r"auto_discover\s*=\s*(True|False)", manifest_source)
 
                             # Fault handling
                             fault_domain = _re.search(r'default_domain\s*=\s*["\']([^"\']+)', manifest_source)
@@ -6253,6 +6842,7 @@ class AdminSite:
                 try:
                     content = pyproject.read_text(encoding="utf-8")
                     import re as _re
+
                     name_m = _re.search(r'name\s*=\s*"([^"]+)"', content)
                     ver_m = _re.search(r'version\s*=\s*"([^"]+)"', content)
                     desc_m = _re.search(r'description\s*=\s*"([^"]+)"', content)
@@ -6277,43 +6867,35 @@ class AdminSite:
                 if not lic_path.exists():
                     lic_path = workspace_root.parent / lic_name
                 if lic_path.exists():
-                    try:
+                    with contextlib.suppress(Exception):
                         license_text = lic_path.read_text(encoding="utf-8")
-                    except Exception:
-                        pass
                     break
         result["license_text"] = license_text
 
         # ── workspace.py source for admin display ────────────────────
         ws_source = ""
         if ws_path and ws_path.exists():
-            try:
+            with contextlib.suppress(Exception):
                 ws_source = ws_path.read_text(encoding="utf-8")
-            except Exception:
-                pass
         result["workspace_source"] = ws_source
         if ws_source:
             result["workspace_source_highlighted"] = self._highlight_python(ws_source)
 
         # ── Registered ORM models ────────────────────────────────────
         for model_cls, admin in self._registry.items():
-            result["registered_models"].append({
-                "name": model_cls.__name__,
-                "table": getattr(model_cls, "table", ""),
-                "app_label": admin.get_app_label(),
-                "field_count": len(model_cls._fields) if hasattr(model_cls, "_fields") else 0,
-                "icon": admin.icon or "box",
-            })
+            result["registered_models"].append(
+                {
+                    "name": model_cls.__name__,
+                    "table": getattr(model_cls, "table", ""),
+                    "app_label": admin.get_app_label(),
+                    "field_count": len(model_cls._fields) if hasattr(model_cls, "_fields") else 0,
+                    "icon": admin.icon or "box",
+                }
+            )
 
         # ── Stats ────────────────────────────────────────────────────
-        total_controllers = sum(
-            len(m.get("manifest", {}).get("controllers", []))
-            for m in result["modules"]
-        )
-        total_services = sum(
-            len(m.get("manifest", {}).get("services", []))
-            for m in result["modules"]
-        )
+        total_controllers = sum(len(m.get("manifest", {}).get("controllers", [])) for m in result["modules"])
+        total_services = sum(len(m.get("manifest", {}).get("services", [])) for m in result["modules"])
         result["stats"] = {
             "total_modules": len(result["modules"]),
             "total_models": len(result["registered_models"]),
@@ -6330,16 +6912,25 @@ class AdminSite:
         """Classify a Python file by its conventional name."""
         name = filename.replace(".py", "")
         mapping = {
-            "controllers": "controller", "controller": "controller",
-            "services": "service", "service": "service",
-            "models": "model", "model": "model",
-            "faults": "fault", "fault": "fault",
-            "guards": "guard", "guard": "guard",
-            "pipes": "pipe", "pipe": "pipe",
-            "interceptors": "interceptor", "interceptor": "interceptor",
+            "controllers": "controller",
+            "controller": "controller",
+            "services": "service",
+            "service": "service",
+            "models": "model",
+            "model": "model",
+            "faults": "fault",
+            "fault": "fault",
+            "guards": "guard",
+            "guard": "guard",
+            "pipes": "pipe",
+            "pipe": "pipe",
+            "interceptors": "interceptor",
+            "interceptor": "interceptor",
             "middleware": "middleware",
             "manifest": "manifest",
-            "views": "view", "schemas": "schema", "serializers": "serializer",
+            "views": "view",
+            "schemas": "schema",
+            "serializers": "serializer",
         }
         return mapping.get(name, "other")
 
@@ -6369,11 +6960,11 @@ class AdminSite:
 
     # ── Permissions data ─────────────────────────────────────────────
 
-    def get_permissions_data(self, identity: Optional["Identity"] = None) -> Dict[str, Any]:
+    def get_permissions_data(self, identity: Identity | None = None) -> dict[str, Any]:
         """
         Gather permission roles, matrix, and per-model permissions.
         """
-        from .permissions import AdminRole, AdminPermission, ROLE_PERMISSIONS
+        from .permissions import ROLE_PERMISSIONS, AdminPermission
 
         roles = []
         role_descriptions = {
@@ -6384,12 +6975,14 @@ class AdminSite:
 
         for role in AdminRole:
             perms = ROLE_PERMISSIONS.get(role, set())
-            roles.append({
-                "name": role.value,
-                "level": role.level,
-                "description": role_descriptions.get(role, ""),
-                "permissions": sorted(p.value for p in perms),
-            })
+            roles.append(
+                {
+                    "name": role.value,
+                    "level": role.level,
+                    "description": role_descriptions.get(role, ""),
+                    "permissions": sorted(p.value for p in perms),
+                }
+            )
 
         # Sort by level descending (highest first)
         roles.sort(key=lambda r: r["level"], reverse=True)
@@ -6399,16 +6992,18 @@ class AdminSite:
         # Model-level permissions for current identity
         model_permissions = []
         for model_cls, admin in self._registry.items():
-            model_permissions.append({
-                "name": model_cls.__name__,
-                "perms": {
-                    "view": admin.has_view_permission(identity),
-                    "add": admin.has_add_permission(identity),
-                    "change": admin.has_change_permission(identity),
-                    "delete": admin.has_delete_permission(identity),
-                    "export": True,  # Tied to MODEL_EXPORT permission
-                },
-            })
+            model_permissions.append(
+                {
+                    "name": model_cls.__name__,
+                    "perms": {
+                        "view": admin.has_view_permission(identity),
+                        "add": admin.has_add_permission(identity),
+                        "change": admin.has_change_permission(identity),
+                        "delete": admin.has_delete_permission(identity),
+                        "export": True,  # Tied to MODEL_EXPORT permission
+                    },
+                }
+            )
 
         return {
             "roles": roles,
@@ -6418,9 +7013,9 @@ class AdminSite:
 
     def update_permissions(
         self,
-        form_data: Dict[str, Any],
-        identity: Optional["Identity"] = None,
-    ) -> Dict[str, Any]:
+        form_data: dict[str, Any],
+        identity: Identity | None = None,
+    ) -> dict[str, Any]:
         """
         Update role permissions and/or model permission overrides from
         form POST data.
@@ -6433,9 +7028,11 @@ class AdminSite:
         Returns dict with status and message.
         """
         from .permissions import (
-            AdminRole, AdminPermission, ROLE_PERMISSIONS,
+            ROLE_PERMISSIONS,
+            AdminPermission,
+        )
+        from .permissions import (
             update_role_permissions as _update_role,
-            set_model_permission_override,
         )
 
         update_type = form_data.get("update_type", "roles")
@@ -6496,14 +7093,14 @@ class AdminSite:
 
     # ── Helpers ───────────────────────────────────────────────────────
 
-    def _find_workspace_path(self, name: str, is_file: bool = False) -> Optional["Path"]:
+    def _find_workspace_path(self, name: str, is_file: bool = False) -> Path | None:
         """
         Find a file/directory in the workspace root.
 
         Tries common workspace locations relative to CWD.
         """
-        from pathlib import Path
         import os
+        from pathlib import Path
 
         # Check common workspace roots
         candidates = [
@@ -6532,17 +7129,44 @@ class AdminSite:
         where regexes ran on HTML-escaped text and `&#x27;` / `&quot;`
         caused cascading mismatches.
         """
-        import re
         import html as html_mod
+        import re
 
         KEYWORDS = {
-            'def', 'class', 'import', 'from', 'return', 'if', 'elif',
-            'else', 'for', 'while', 'with', 'as', 'try', 'except',
-            'finally', 'raise', 'pass', 'break', 'continue', 'yield',
-            'async', 'await', 'not', 'and', 'or', 'in', 'is', 'None',
-            'True', 'False', 'self', 'lambda',
+            "def",
+            "class",
+            "import",
+            "from",
+            "return",
+            "if",
+            "elif",
+            "else",
+            "for",
+            "while",
+            "with",
+            "as",
+            "try",
+            "except",
+            "finally",
+            "raise",
+            "pass",
+            "break",
+            "continue",
+            "yield",
+            "async",
+            "await",
+            "not",
+            "and",
+            "or",
+            "in",
+            "is",
+            "None",
+            "True",
+            "False",
+            "self",
+            "lambda",
         }
-        KW_PATTERN = r'\b(' + '|'.join(KEYWORDS) + r')\b'
+        KW_PATTERN = r"\b(" + "|".join(KEYWORDS) + r")\b"
 
         def _tokenize_line(line: str):
             """
@@ -6553,37 +7177,37 @@ class AdminSite:
 
             # 1. Triple-quoted strings (rare on one line, but handle)
             for m in re.finditer(r'""".*?"""|\'\'\'.*?\'\'\'', line):
-                tokens.append((m.start(), m.end(), 'str'))
+                tokens.append((m.start(), m.end(), "str"))
 
             # 2. Single/double-quoted strings
             for m in re.finditer(r'"[^"\\]*(?:\\.[^"\\]*)*"|\'[^\'\\]*(?:\\.[^\'\\]*)*\'', line):
-                tokens.append((m.start(), m.end(), 'str'))
+                tokens.append((m.start(), m.end(), "str"))
 
             # 3. Comments (only if # is NOT inside a string)
-            cm = re.search(r'#', line)
+            cm = re.search(r"#", line)
             if cm:
                 # Check the # is not inside any string token
                 pos = cm.start()
                 inside = any(s <= pos < e for s, e, _ in tokens)
                 if not inside:
-                    tokens.append((pos, len(line), 'cmt'))
+                    tokens.append((pos, len(line), "cmt"))
 
             # 4. Decorators
-            dm = re.match(r'^(\s*)(@\w+)', line)
+            dm = re.match(r"^(\s*)(@\w+)", line)
             if dm:
-                tokens.append((dm.start(2), dm.end(2), 'dec'))
+                tokens.append((dm.start(2), dm.end(2), "dec"))
 
             # 5. Keywords
             for m in re.finditer(KW_PATTERN, line):
-                tokens.append((m.start(), m.end(), 'kw'))
+                tokens.append((m.start(), m.end(), "kw"))
 
             # 6. Numbers
-            for m in re.finditer(r'\b\d+\.?\d*\b', line):
-                tokens.append((m.start(), m.end(), 'num'))
+            for m in re.finditer(r"\b\d+\.?\d*\b", line):
+                tokens.append((m.start(), m.end(), "num"))
 
             # 7. Function calls  name(
-            for m in re.finditer(r'\b(\w+)\(', line):
-                tokens.append((m.start(1), m.end(1), 'fn'))
+            for m in re.finditer(r"\b(\w+)\(", line):
+                tokens.append((m.start(1), m.end(1), "fn"))
 
             # ── Resolve overlaps: earlier & longer wins ──
             tokens.sort(key=lambda t: (t[0], -(t[1] - t[0])))
@@ -6606,24 +7230,24 @@ class AdminSite:
             if pos < len(line):
                 parts.append(html_mod.escape(line[pos:]))
 
-            return ''.join(parts)
+            return "".join(parts)
 
-        lines = source.split('\n')
+        lines = source.split("\n")
         result_lines = []
         for i, line in enumerate(lines, 1):
             highlighted = _tokenize_line(line)
             line_num = f'<span class="code-line-num">{i}</span>'
-            result_lines.append(f'{line_num}{highlighted}')
+            result_lines.append(f"{line_num}{highlighted}")
 
-        return '\n'.join(result_lines)
+        return "\n".join(result_lines)
 
     @staticmethod
     def _highlight_yaml(source: str) -> str:
         """Apply simple syntax highlighting to YAML source."""
-        import re
         import html as html_mod
+        import re
 
-        lines = source.split('\n')
+        lines = source.split("\n")
         result_lines = []
 
         for i, line in enumerate(lines, 1):
@@ -6631,52 +7255,52 @@ class AdminSite:
 
             # Comments
             escaped = re.sub(
-                r'(#.*?)$',
+                r"(#.*?)$",
                 r'<span class="cmt">\1</span>',
                 escaped,
             )
 
             # Keys (word followed by colon)
             escaped = re.sub(
-                r'^(\s*)([\w\-]+)(:)',
+                r"^(\s*)([\w\-]+)(:)",
                 r'\1<span class="kw">\2</span>\3',
                 escaped,
             )
 
             # Strings
             escaped = re.sub(
-                r'(&quot;[^&]*?&quot;|&#x27;[^&]*?&#x27;)',
+                r"(&quot;[^&]*?&quot;|&#x27;[^&]*?&#x27;)",
                 r'<span class="str">\1</span>',
                 escaped,
             )
 
             # Numbers
             escaped = re.sub(
-                r':\s*(\d+\.?\d*)\s*$',
+                r":\s*(\d+\.?\d*)\s*$",
                 r': <span class="num">\1</span>',
                 escaped,
             )
 
             # Booleans
             escaped = re.sub(
-                r':\s*(true|false|yes|no|null)\s*$',
+                r":\s*(true|false|yes|no|null)\s*$",
                 r': <span class="kw">\1</span>',
                 escaped,
                 flags=re.IGNORECASE,
             )
 
             line_num = f'<span class="code-line-num">{i}</span>'
-            result_lines.append(f'{line_num}{escaped}')
+            result_lines.append(f"{line_num}{escaped}")
 
-        return '\n'.join(result_lines)
+        return "\n".join(result_lines)
 
     @staticmethod
     def _highlight_json(source: str) -> str:
         """Apply syntax highlighting to JSON source."""
-        import re
         import html as html_mod
+        import re
 
-        lines = source.split('\n')
+        lines = source.split("\n")
         result_lines = []
 
         for i, line in enumerate(lines, 1):
@@ -6684,58 +7308,58 @@ class AdminSite:
 
             # String values (after colon)
             escaped = re.sub(
-                r'(&quot;)(.*?)(&quot;)\s*(:)',
+                r"(&quot;)(.*?)(&quot;)\s*(:)",
                 r'<span class="prop">\1\2\3</span>\4',
                 escaped,
             )
 
             # String values (not keys)
             escaped = re.sub(
-                r':\s*(&quot;)(.*?)(&quot;)',
+                r":\s*(&quot;)(.*?)(&quot;)",
                 r': <span class="str">\1\2\3</span>',
                 escaped,
             )
 
             # Standalone strings (in arrays)
             escaped = re.sub(
-                r'(?<=[\[,\s])(&quot;)(.*?)(&quot;)(?=[,\]\s])',
+                r"(?<=[\[,\s])(&quot;)(.*?)(&quot;)(?=[,\]\s])",
                 r'<span class="str">\1\2\3</span>',
                 escaped,
             )
 
             # Numbers
             escaped = re.sub(
-                r'(?<=:\s)(-?\d+\.?\d*(?:[eE][+-]?\d+)?)(?=[,\s\}\]])',
+                r"(?<=:\s)(-?\d+\.?\d*(?:[eE][+-]?\d+)?)(?=[,\s\}\]])",
                 r'<span class="num">\1</span>',
                 escaped,
             )
 
             # Booleans and null
             escaped = re.sub(
-                r'\b(true|false|null)\b',
+                r"\b(true|false|null)\b",
                 r'<span class="kw">\1</span>',
                 escaped,
             )
 
             # Braces and brackets
             escaped = re.sub(
-                r'([\{\}\[\]])',
+                r"([\{\}\[\]])",
                 r'<span class="op">\1</span>',
                 escaped,
             )
 
             line_num = f'<span class="code-line-num">{i}</span>'
-            result_lines.append(f'{line_num}{escaped}')
+            result_lines.append(f"{line_num}{escaped}")
 
-        return '\n'.join(result_lines)
+        return "\n".join(result_lines)
 
     @staticmethod
     def _highlight_crous(source: str) -> str:
         """Apply syntax highlighting to Crous format data."""
-        import re
         import html as html_mod
+        import re
 
-        lines = source.split('\n')
+        lines = source.split("\n")
         result_lines = []
 
         for i, line in enumerate(lines, 1):
@@ -6743,47 +7367,47 @@ class AdminSite:
 
             # Comments (# or //)
             escaped = re.sub(
-                r'(#.*?)$',
+                r"(#.*?)$",
                 r'<span class="cmt">\1</span>',
                 escaped,
             )
             escaped = re.sub(
-                r'(//.*?)$',
+                r"(//.*?)$",
                 r'<span class="cmt">\1</span>',
                 escaped,
             )
 
             # Section headers [SectionName]
             escaped = re.sub(
-                r'^(\s*)(\[[\w\.\-]+\])',
+                r"^(\s*)(\[[\w\.\-]+\])",
                 r'\1<span class="cls">\2</span>',
                 escaped,
             )
 
             # Keys (before = or :)
             escaped = re.sub(
-                r'^(\s*)([\w\.\-]+)\s*(=|:)',
+                r"^(\s*)([\w\.\-]+)\s*(=|:)",
                 r'\1<span class="kw">\2</span> \3',
                 escaped,
             )
 
             # Strings
             escaped = re.sub(
-                r'(&quot;[^&]*?&quot;|&#x27;[^&]*?&#x27;)',
+                r"(&quot;[^&]*?&quot;|&#x27;[^&]*?&#x27;)",
                 r'<span class="str">\1</span>',
                 escaped,
             )
 
             # Numbers
             escaped = re.sub(
-                r'\b(\d+\.?\d*)\b',
+                r"\b(\d+\.?\d*)\b",
                 r'<span class="num">\1</span>',
                 escaped,
             )
 
             # Booleans
             escaped = re.sub(
-                r'\b(true|false|yes|no|null|none)\b',
+                r"\b(true|false|yes|no|null|none)\b",
                 r'<span class="kw">\1</span>',
                 escaped,
                 flags=re.IGNORECASE,
@@ -6791,20 +7415,20 @@ class AdminSite:
 
             # Hex values (common in Crous binary dumps)
             escaped = re.sub(
-                r'\b(0x[0-9a-fA-F]+)\b',
+                r"\b(0x[0-9a-fA-F]+)\b",
                 r'<span class="num">\1</span>',
                 escaped,
             )
 
             line_num = f'<span class="code-line-num">{i}</span>'
-            result_lines.append(f'{line_num}{escaped}')
+            result_lines.append(f"{line_num}{escaped}")
 
-        return '\n'.join(result_lines)
+        return "\n".join(result_lines)
 
     # ── CRUD operations ──────────────────────────────────────────────
 
     @staticmethod
-    def _coerce_form_data(model_cls: type, data: Dict[str, Any]) -> Dict[str, Any]:
+    def _coerce_form_data(model_cls: type, data: dict[str, Any]) -> dict[str, Any]:
         """
         Coerce form string values to the correct Python types for ORM fields.
 
@@ -6824,19 +7448,23 @@ class AdminSite:
 
         Prevents: "Field 'active': Expected boolean, got str"
         """
-        if not hasattr(model_cls, '_fields'):
+        if not hasattr(model_cls, "_fields"):
             return data
 
         from aquilia.models.fields_module import (
-            BooleanField, IntegerField, BigIntegerField, SmallIntegerField,
-            FloatField, DecimalField, PositiveIntegerField, PositiveSmallIntegerField,
+            BigIntegerField,
+            BooleanField,
+            DecimalField,
+            FloatField,
+            IntegerField,
+            PositiveIntegerField,
+            PositiveSmallIntegerField,
+            SmallIntegerField,
         )
 
         # Detect checkbox sentinel markers (_checkbox_{name}) and inject
         # False for unchecked checkboxes that the browser didn't send.
-        checkbox_sentinels = [
-            k[len("_checkbox_"):] for k in data if k.startswith("_checkbox_")
-        ]
+        checkbox_sentinels = [k[len("_checkbox_") :] for k in data if k.startswith("_checkbox_")]
         for cb_name in checkbox_sentinels:
             if cb_name not in data:
                 # Checkbox was rendered but NOT checked → explicitly False
@@ -6863,8 +7491,10 @@ class AdminSite:
                     coerced[field_name] = bool(value)
                 else:
                     coerced[field_name] = bool(value)
-            elif isinstance(field, (IntegerField, BigIntegerField, SmallIntegerField,
-                                     PositiveIntegerField, PositiveSmallIntegerField)):
+            elif isinstance(
+                field,
+                (IntegerField, BigIntegerField, SmallIntegerField, PositiveIntegerField, PositiveSmallIntegerField),
+            ):
                 if isinstance(value, str):
                     if value.strip() == "":
                         coerced[field_name] = None if field.null else 0
@@ -6898,10 +7528,10 @@ class AdminSite:
         page: int = 1,
         per_page: int = 25,
         search: str = "",
-        filters: Optional[Dict[str, Any]] = None,
-        ordering: Optional[str] = None,
-        identity: Optional[Identity] = None,
-    ) -> Dict[str, Any]:
+        filters: dict[str, Any] | None = None,
+        ordering: str | None = None,
+        identity: Identity | None = None,
+    ) -> dict[str, Any]:
         """
         List records for a model with pagination, search, and filtering.
 
@@ -6926,11 +7556,9 @@ class AdminSite:
             search_q = None
             for field_name in admin.get_search_fields():
                 from aquilia.models.query import QNode
+
                 q = QNode(**{f"{field_name}__icontains": search})
-                if search_q is None:
-                    search_q = q
-                else:
-                    search_q = search_q | q
+                search_q = q if search_q is None else search_q | q
             if search_q:
                 qs = qs.apply_q(search_q)
 
@@ -6952,13 +7580,17 @@ class AdminSite:
         # Build a lightweight request-like object that PageNumberPagination
         # can extract query params from (it calls _get_current_params which
         # looks for ``request.query_params``).
-        _fake_request = type("_R", (), {
-            "query_params": {
-                paginator.page_param: str(page),
-                paginator.page_size_param: str(per_page),
+        _fake_request = type(
+            "_R",
+            (),
+            {
+                "query_params": {
+                    paginator.page_param: str(page),
+                    paginator.page_size_param: str(per_page),
+                },
+                "scope": {"scheme": "http", "headers": [], "path": f"/admin/{model_name}/"},
             },
-            "scope": {"scheme": "http", "headers": [], "path": f"/admin/{model_name}/"},
-        })()
+        )()
 
         paginated = await paginator.paginate_queryset(qs, _fake_request)
 
@@ -7018,8 +7650,8 @@ class AdminSite:
         model_name: str,
         pk: Any,
         *,
-        identity: Optional[Identity] = None,
-    ) -> Dict[str, Any]:
+        identity: Identity | None = None,
+    ) -> dict[str, Any]:
         """
         Get a single record with field metadata for the edit form.
         """
@@ -7064,9 +7696,9 @@ class AdminSite:
     async def create_record(
         self,
         model_name: str,
-        data: Dict[str, Any],
+        data: dict[str, Any],
         *,
-        identity: Optional[Identity] = None,
+        identity: Identity | None = None,
     ) -> Any:
         """Create a new record."""
         model_cls = self.get_model_class(model_name)
@@ -7100,7 +7732,8 @@ class AdminSite:
             )
             # Persist to AdminAuditEntry (database-backed audit trail)
             try:
-                from .models import AdminAuditEntry, _HAS_ORM
+                from .models import _HAS_ORM, AdminAuditEntry
+
                 if _HAS_ORM:
                     await AdminAuditEntry.create_entry(
                         action="create",
@@ -7120,9 +7753,9 @@ class AdminSite:
         self,
         model_name: str,
         pk: Any,
-        data: Dict[str, Any],
+        data: dict[str, Any],
         *,
-        identity: Optional[Identity] = None,
+        identity: Identity | None = None,
     ) -> Any:
         """Update an existing record.
 
@@ -7147,8 +7780,8 @@ class AdminSite:
         # Coerce string values from HTML forms to correct Python types
         coerced_data = self._coerce_form_data(model_cls, data)
 
-        changes: Dict[str, Dict[str, Any]] = {}
-        update_data: Dict[str, Any] = {}
+        changes: dict[str, dict[str, Any]] = {}
+        update_data: dict[str, Any] = {}
 
         for field_name, new_value in coerced_data.items():
             if field_name not in editable:
@@ -7162,6 +7795,7 @@ class AdminSite:
         _captured_queries: list = []
         try:
             from .query_inspector import get_query_inspector
+
             _inspector = get_query_inspector()
             _qi_before = _inspector._counter
         except Exception:
@@ -7183,10 +7817,7 @@ class AdminSite:
                 if _qi_after > _qi_before:
                     all_queries = list(_inspector._queries)
                     # Grab only the queries that were recorded during this update
-                    _captured_queries = [
-                        q.to_dict() for q in all_queries
-                        if q.id > f"q-{_qi_before:06d}"
-                    ]
+                    _captured_queries = [q.to_dict() for q in all_queries if q.id > f"q-{_qi_before:06d}"]
             except Exception:
                 pass
 
@@ -7206,7 +7837,8 @@ class AdminSite:
             )
             # Persist to AdminAuditEntry (database-backed audit trail)
             try:
-                from .models import AdminAuditEntry, _HAS_ORM
+                from .models import _HAS_ORM, AdminAuditEntry
+
                 if _HAS_ORM:
                     await AdminAuditEntry.create_entry(
                         action="update",
@@ -7228,7 +7860,7 @@ class AdminSite:
         model_name: str,
         pk: Any,
         *,
-        identity: Optional[Identity] = None,
+        identity: Identity | None = None,
     ) -> bool:
         """Delete a record."""
         model_cls = self.get_model_class(model_name)
@@ -7258,7 +7890,8 @@ class AdminSite:
             )
             # Persist to AdminAuditEntry (database-backed audit trail)
             try:
-                from .models import AdminAuditEntry, _HAS_ORM
+                from .models import _HAS_ORM, AdminAuditEntry
+
                 if _HAS_ORM:
                     await AdminAuditEntry.create_entry(
                         action="delete",
@@ -7277,9 +7910,9 @@ class AdminSite:
         self,
         model_name: str,
         action_name: str,
-        selected_pks: List[Any],
+        selected_pks: list[Any],
         *,
-        identity: Optional[Identity] = None,
+        identity: Identity | None = None,
     ) -> str:
         """
         Execute a bulk action on selected records.
@@ -7295,6 +7928,7 @@ class AdminSite:
         actions = admin.get_actions()
         if action_name not in actions:
             from .faults import AdminActionFault
+
             raise AdminActionFault(action_name, "Action not found")
 
         action_desc = actions[action_name]
@@ -7306,6 +7940,7 @@ class AdminSite:
             result = await action_desc.func(admin, None, qs)
         except Exception as e:
             from .faults import AdminActionFault
+
             raise AdminActionFault(action_name, str(e))
 
         # Audit log

@@ -32,32 +32,17 @@ import asyncio
 import inspect
 import logging
 import time
-import functools
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import (
-    Any,
-    Awaitable,
-    Callable,
-    Dict,
-    Generic,
-    List,
-    Optional,
-    Sequence,
-    Set,
-    Tuple,
-    Type,
-    TypeVar,
-    Union,
     TYPE_CHECKING,
-    overload,
+    Any,
+    TypeVar,
 )
 
 if TYPE_CHECKING:
-    from .effects import EffectProvider, EffectRegistry
-    from .request import Request
-    from .response import Response
-    from .di import Container
+    from .effects import EffectRegistry
 
 logger = logging.getLogger("aquilia.flow")
 
@@ -73,6 +58,7 @@ E = TypeVar("E")
 
 class FlowNodeType(str, Enum):
     """Types of nodes in a flow pipeline."""
+
     GUARD = "guard"
     TRANSFORM = "transform"
     HANDLER = "handler"
@@ -83,22 +69,23 @@ class FlowNodeType(str, Enum):
 
 class FlowStatus(str, Enum):
     """Pipeline execution outcome."""
+
     SUCCESS = "success"
-    GUARDED = "guarded"      # Guard short-circuited
-    ERROR = "error"          # Unhandled exception
-    TIMEOUT = "timeout"      # Pipeline timed out
+    GUARDED = "guarded"  # Guard short-circuited
+    ERROR = "error"  # Unhandled exception
+    TIMEOUT = "timeout"  # Pipeline timed out
     CANCELLED = "cancelled"  # Pipeline was cancelled
 
 
 # Pipeline execution priority bands
-PRIORITY_CRITICAL = 10    # Security guards, rate limiting
-PRIORITY_AUTH = 20        # Authentication / authorization
-PRIORITY_VALIDATE = 30    # Input validation, schema checks
-PRIORITY_TRANSFORM = 40   # Data transformation
-PRIORITY_DEFAULT = 50     # Standard handlers
-PRIORITY_ENRICH = 60      # Response enrichment
-PRIORITY_LOG = 70         # Logging, audit hooks
-PRIORITY_CLEANUP = 80     # Cleanup hooks
+PRIORITY_CRITICAL = 10  # Security guards, rate limiting
+PRIORITY_AUTH = 20  # Authentication / authorization
+PRIORITY_VALIDATE = 30  # Input validation, schema checks
+PRIORITY_TRANSFORM = 40  # Data transformation
+PRIORITY_DEFAULT = 50  # Standard handlers
+PRIORITY_ENRICH = 60  # Response enrichment
+PRIORITY_LOG = 70  # Logging, audit hooks
+PRIORITY_CLEANUP = 80  # Cleanup hooks
 
 
 # ============================================================================
@@ -144,22 +131,22 @@ class FlowContext:
         request: Any = None,
         container: Any = None,
         *,
-        state: Optional[Dict[str, Any]] = None,
+        state: dict[str, Any] | None = None,
         identity: Any = None,
         session: Any = None,
     ) -> None:
         self.request = request
         self.container = container
-        self.state: Dict[str, Any] = state if state is not None else {}
+        self.state: dict[str, Any] = state if state is not None else {}
         self.identity = identity
         self.session = session
-        self.effects: Dict[str, Any] = {}
-        self.metadata: Dict[str, Any] = {
+        self.effects: dict[str, Any] = {}
+        self.metadata: dict[str, Any] = {
             "node_trace": [],
             "timings": {},
             "acquired_effects": [],
         }
-        self._cleanup: List[Callable[[], Awaitable[None]]] = []
+        self._cleanup: list[Callable[[], Awaitable[None]]] = []
         self._started_at: float = time.monotonic()
 
     # -- Effect access shortcuts -------------------------------------------
@@ -172,11 +159,11 @@ class FlowContext:
         """
         if name not in self.effects:
             from .faults.domains import EffectFault
+
             raise EffectFault(
                 code="EFFECT_NOT_ACQUIRED",
                 message=(
-                    f"Effect '{name}' not acquired. "
-                    f"Declare it with @requires('{name}') or add it to the pipeline."
+                    f"Effect '{name}' not acquired. Declare it with @requires('{name}') or add it to the pipeline."
                 ),
             )
         return self.effects[name]
@@ -225,7 +212,7 @@ class FlowContext:
 
     # -- Dict-like interface for backward compatibility --------------------
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dict for legacy FlowGuard compatibility."""
         return {
             "request": self.request,
@@ -240,11 +227,7 @@ class FlowContext:
 
     def __repr__(self) -> str:
         effects = list(self.effects.keys())
-        return (
-            f"<FlowContext effects={effects} "
-            f"elapsed={self.elapsed_ms:.1f}ms "
-            f"state_keys={list(self.state.keys())}>"
-        )
+        return f"<FlowContext effects={effects} elapsed={self.elapsed_ms:.1f}ms state_keys={list(self.state.keys())}>"
 
 
 # ============================================================================
@@ -266,13 +249,14 @@ class FlowNode:
         condition:  Optional predicate -- node only runs if True.
         timeout:    Per-node timeout in seconds (None = no limit).
     """
+
     type: FlowNodeType
     callable: Callable[..., Any]
     name: str
     priority: int = PRIORITY_DEFAULT
-    effects: List[str] = field(default_factory=list)
-    condition: Optional[Callable[["FlowContext"], bool]] = None
-    timeout: Optional[float] = None
+    effects: list[str] = field(default_factory=list)
+    condition: Callable[[FlowContext], bool] | None = None
+    timeout: float | None = None
 
     def __post_init__(self) -> None:
         # Auto-extract @requires effects from callable
@@ -299,12 +283,13 @@ class FlowResult:
         guard:    The guard node that short-circuited (if GUARDED).
         timings:  Per-node timing breakdown.
     """
+
     status: FlowStatus
     value: Any = None
-    context: Optional[FlowContext] = None
-    error: Optional[Exception] = None
-    guard: Optional[FlowNode] = None
-    timings: Dict[str, float] = field(default_factory=dict)
+    context: FlowContext | None = None
+    error: Exception | None = None
+    guard: FlowNode | None = None
+    timings: dict[str, float] = field(default_factory=dict)
 
     @property
     def is_success(self) -> bool:
@@ -327,9 +312,9 @@ class FlowError(Exception):
         self,
         message: str,
         *,
-        node: Optional[FlowNode] = None,
-        context: Optional[FlowContext] = None,
-        cause: Optional[Exception] = None,
+        node: FlowNode | None = None,
+        context: FlowContext | None = None,
+        cause: Exception | None = None,
     ):
         super().__init__(message)
         self.node = node
@@ -361,14 +346,16 @@ def requires(*effect_names: str) -> Callable:
     - Flow node callables
     - Standalone async functions
     """
+
     def decorator(func: Callable) -> Callable:
         existing = set(getattr(func, "__flow_effects__", []))
         func.__flow_effects__ = list(existing | set(effect_names))
         return func
+
     return decorator
 
 
-def get_required_effects(func: Callable) -> List[str]:
+def get_required_effects(func: Callable) -> list[str]:
     """Extract declared effect requirements from a callable."""
     return list(getattr(func, "__flow_effects__", []))
 
@@ -406,14 +393,15 @@ class Layer:
         # Compose layers
         app_layer = Layer.merge(db_layer, cache_layer)
     """
+
     name: str
     factory: Callable[..., Any]  # (...deps) -> EffectProvider
-    deps: List[str] = field(default_factory=list)
+    deps: list[str] = field(default_factory=list)
     scope: str = "app"  # "app" | "request"
     _built: bool = field(default=False, repr=False)
-    _provider: Optional[Any] = field(default=None, repr=False)
+    _provider: Any | None = field(default=None, repr=False)
 
-    async def build(self, resolved_deps: Dict[str, Any]) -> Any:
+    async def build(self, resolved_deps: dict[str, Any]) -> Any:
         """
         Build the effect provider using resolved dependencies.
 
@@ -439,7 +427,7 @@ class Layer:
         return result
 
     @staticmethod
-    def merge(*layers: "Layer") -> "LayerComposition":
+    def merge(*layers: Layer) -> LayerComposition:
         """
         Merge multiple layers into a single composition.
 
@@ -449,7 +437,7 @@ class Layer:
         return LayerComposition(list(layers))
 
     @staticmethod
-    def provide(layer: "Layer", *providers: "Layer") -> "LayerComposition":
+    def provide(layer: Layer, *providers: Layer) -> LayerComposition:
         """
         Provide dependencies for a layer from other layers.
 
@@ -469,13 +457,14 @@ class LayerComposition:
     The composition builds all layers topologically and registers
     the resulting providers with an EffectRegistry.
     """
-    layers: List[Layer]
-    _dependency_order: Optional[List[str]] = field(default=None, repr=False)
+
+    layers: list[Layer]
+    _dependency_order: list[str] | None = field(default=None, repr=False)
 
     async def build_all(
         self,
-        initial_deps: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        initial_deps: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """
         Build all layers in dependency order.
 
@@ -485,7 +474,7 @@ class LayerComposition:
         Returns:
             Dict of layer_name → built provider.
         """
-        resolved: Dict[str, Any] = dict(initial_deps) if initial_deps else {}
+        resolved: dict[str, Any] = dict(initial_deps) if initial_deps else {}
         built_order = self._resolve_build_order()
 
         for layer_name in built_order:
@@ -496,9 +485,7 @@ class LayerComposition:
             # Check all deps are available
             missing = [d for d in layer.deps if d not in resolved]
             if missing:
-                raise FlowError(
-                    f"Layer '{layer.name}' has unresolved dependencies: {missing}"
-                )
+                raise FlowError(f"Layer '{layer.name}' has unresolved dependencies: {missing}")
 
             provider = await layer.build(resolved)
             resolved[layer.name] = provider
@@ -507,8 +494,8 @@ class LayerComposition:
 
     async def register_with(
         self,
-        registry: "EffectRegistry",
-        initial_deps: Optional[Dict[str, Any]] = None,
+        registry: EffectRegistry,
+        initial_deps: dict[str, Any] | None = None,
     ) -> None:
         """Build all layers and register providers with the registry."""
         providers = await self.build_all(initial_deps)
@@ -516,23 +503,21 @@ class LayerComposition:
             if name in {l.name for l in self.layers}:
                 registry.register(name, provider)
 
-    def _resolve_build_order(self) -> List[str]:
+    def _resolve_build_order(self) -> list[str]:
         """Topological sort of layers by dependencies."""
         if self._dependency_order:
             return self._dependency_order
 
         # Build adjacency graph
         layer_map = {l.name: l for l in self.layers}
-        visited: Set[str] = set()
-        order: List[str] = []
+        visited: set[str] = set()
+        order: list[str] = []
 
-        def visit(name: str, path: Set[str]) -> None:
+        def visit(name: str, path: set[str]) -> None:
             if name in visited:
                 return
             if name in path:
-                raise FlowError(
-                    f"Circular layer dependency detected: {' → '.join(path)} → {name}"
-                )
+                raise FlowError(f"Circular layer dependency detected: {' → '.join(path)} → {name}")
             path = path | {name}
             layer = layer_map.get(name)
             if layer:
@@ -547,7 +532,7 @@ class LayerComposition:
 
         return order
 
-    def _get_layer(self, name: str) -> Optional[Layer]:
+    def _get_layer(self, name: str) -> Layer | None:
         for layer in self.layers:
             if layer.name == name:
                 return layer
@@ -598,123 +583,141 @@ class FlowPipeline:
             ...
     """
 
-    def __init__(self, name: str = "pipeline", *, timeout: Optional[float] = None):
+    def __init__(self, name: str = "pipeline", *, timeout: float | None = None):
         self.name = name
         self.timeout = timeout
-        self._nodes: List[FlowNode] = []
+        self._nodes: list[FlowNode] = []
         self._logger = logging.getLogger(f"aquilia.flow.{name}")
 
     # -- Builder API -------------------------------------------------------
 
     def guard(
         self,
-        callable_or_node: Union[Callable, FlowNode],
+        callable_or_node: Callable | FlowNode,
         *,
-        name: Optional[str] = None,
+        name: str | None = None,
         priority: int = PRIORITY_AUTH,
-        effects: Optional[List[str]] = None,
-        condition: Optional[Callable] = None,
-    ) -> "FlowPipeline":
+        effects: list[str] | None = None,
+        condition: Callable | None = None,
+    ) -> FlowPipeline:
         """Add a guard node. Guards can short-circuit the pipeline."""
         node = self._to_node(
-            callable_or_node, FlowNodeType.GUARD,
-            name=name, priority=priority, effects=effects, condition=condition,
+            callable_or_node,
+            FlowNodeType.GUARD,
+            name=name,
+            priority=priority,
+            effects=effects,
+            condition=condition,
         )
         self._nodes.append(node)
         return self
 
     def transform(
         self,
-        callable_or_node: Union[Callable, FlowNode],
+        callable_or_node: Callable | FlowNode,
         *,
-        name: Optional[str] = None,
+        name: str | None = None,
         priority: int = PRIORITY_TRANSFORM,
-        effects: Optional[List[str]] = None,
-    ) -> "FlowPipeline":
+        effects: list[str] | None = None,
+    ) -> FlowPipeline:
         """Add a transform node. Transforms modify the context/request data."""
         node = self._to_node(
-            callable_or_node, FlowNodeType.TRANSFORM,
-            name=name, priority=priority, effects=effects,
+            callable_or_node,
+            FlowNodeType.TRANSFORM,
+            name=name,
+            priority=priority,
+            effects=effects,
         )
         self._nodes.append(node)
         return self
 
     def handler(
         self,
-        callable_or_node: Union[Callable, FlowNode],
+        callable_or_node: Callable | FlowNode,
         *,
-        name: Optional[str] = None,
+        name: str | None = None,
         priority: int = PRIORITY_DEFAULT,
-        effects: Optional[List[str]] = None,
-    ) -> "FlowPipeline":
+        effects: list[str] | None = None,
+    ) -> FlowPipeline:
         """Set the handler node. The handler is the core business logic."""
         node = self._to_node(
-            callable_or_node, FlowNodeType.HANDLER,
-            name=name, priority=priority, effects=effects,
+            callable_or_node,
+            FlowNodeType.HANDLER,
+            name=name,
+            priority=priority,
+            effects=effects,
         )
         self._nodes.append(node)
         return self
 
     def hook(
         self,
-        callable_or_node: Union[Callable, FlowNode],
+        callable_or_node: Callable | FlowNode,
         *,
-        name: Optional[str] = None,
+        name: str | None = None,
         priority: int = PRIORITY_LOG,
-        effects: Optional[List[str]] = None,
-    ) -> "FlowPipeline":
+        effects: list[str] | None = None,
+    ) -> FlowPipeline:
         """Add a post-handler hook. Hooks run after the handler."""
         node = self._to_node(
-            callable_or_node, FlowNodeType.HOOK,
-            name=name, priority=priority, effects=effects,
+            callable_or_node,
+            FlowNodeType.HOOK,
+            name=name,
+            priority=priority,
+            effects=effects,
         )
         self._nodes.append(node)
         return self
 
     def effect(
         self,
-        callable_or_node: Union[Callable, FlowNode],
+        callable_or_node: Callable | FlowNode,
         *,
-        name: Optional[str] = None,
+        name: str | None = None,
         priority: int = PRIORITY_DEFAULT - 5,
-        effects: Optional[List[str]] = None,
-    ) -> "FlowPipeline":
+        effects: list[str] | None = None,
+    ) -> FlowPipeline:
         """Add an effect node. Effect nodes manage resource acquisition."""
         node = self._to_node(
-            callable_or_node, FlowNodeType.EFFECT,
-            name=name, priority=priority, effects=effects,
+            callable_or_node,
+            FlowNodeType.EFFECT,
+            name=name,
+            priority=priority,
+            effects=effects,
         )
         self._nodes.append(node)
         return self
 
     def middleware(
         self,
-        callable_or_node: Union[Callable, FlowNode],
+        callable_or_node: Callable | FlowNode,
         *,
-        name: Optional[str] = None,
+        name: str | None = None,
         priority: int = PRIORITY_CRITICAL,
-    ) -> "FlowPipeline":
+    ) -> FlowPipeline:
         """Add a middleware node. Middleware wraps the entire pipeline."""
         node = self._to_node(
-            callable_or_node, FlowNodeType.MIDDLEWARE,
-            name=name, priority=priority,
+            callable_or_node,
+            FlowNodeType.MIDDLEWARE,
+            name=name,
+            priority=priority,
         )
         self._nodes.append(node)
         return self
 
-    def add_node(self, node: FlowNode) -> "FlowPipeline":
+    def add_node(self, node: FlowNode) -> FlowPipeline:
         """Add a pre-built FlowNode."""
         self._nodes.append(node)
         return self
 
-    def add_nodes(self, nodes: Sequence[FlowNode]) -> "FlowPipeline":
+    def add_nodes(self, nodes: Sequence[FlowNode]) -> FlowPipeline:
         """Add multiple pre-built FlowNodes."""
         self._nodes.extend(nodes)
         return self
 
     # -- Composition -------------------------------------------------------
 
-    def compose(self, *other: "FlowPipeline") -> "FlowPipeline":
+    def compose(self, *other: FlowPipeline) -> FlowPipeline:
         """
         Compose this pipeline with others.
 
@@ -729,7 +732,7 @@ class FlowPipeline:
             composed._nodes.extend(pipeline._nodes)
         return composed
 
-    def __or__(self, other: "FlowPipeline") -> "FlowPipeline":
+    def __or__(self, other: FlowPipeline) -> FlowPipeline:
         """Pipeline composition via ``|`` operator."""
         return self.compose(other)
 
@@ -738,7 +741,7 @@ class FlowPipeline:
     async def execute(
         self,
         context: FlowContext,
-        effect_registry: Optional["EffectRegistry"] = None,
+        effect_registry: EffectRegistry | None = None,
     ) -> FlowResult:
         """
         Execute the pipeline.
@@ -753,9 +756,9 @@ class FlowPipeline:
         8. Release effects.
         9. Return FlowResult.
         """
-        timings: Dict[str, float] = {}
+        timings: dict[str, float] = {}
         pipeline_start = time.monotonic()
-        all_effects: Set[str] = set()
+        all_effects: set[str] = set()
         execution_success = True
 
         try:
@@ -810,6 +813,7 @@ class FlowPipeline:
 
                 # If guard returns a Response, treat as short-circuit with value
                 from .response import Response
+
                 if isinstance(result, Response):
                     return FlowResult(
                         status=FlowStatus.GUARDED,
@@ -877,7 +881,9 @@ class FlowPipeline:
                         handler_result = hook_result
                 except Exception as exc:
                     self._logger.warning(
-                        "Hook '%s' error (non-fatal): %s", node.name, exc,
+                        "Hook '%s' error (non-fatal): %s",
+                        node.name,
+                        exc,
                     )
                 timings[node.name] = (time.monotonic() - t0) * 1000
                 context.metadata["node_trace"].append(node.name)
@@ -902,7 +908,10 @@ class FlowPipeline:
             execution_success = False
             timings["__total__"] = (time.monotonic() - pipeline_start) * 1000
             self._logger.error(
-                "Pipeline '%s' error: %s", self.name, exc, exc_info=True,
+                "Pipeline '%s' error: %s",
+                self.name,
+                exc,
+                exc_info=True,
             )
             return FlowResult(
                 status=FlowStatus.ERROR,
@@ -914,14 +923,17 @@ class FlowPipeline:
             # Release effects
             if all_effects and effect_registry:
                 await self._release_effects(
-                    context, effect_registry, all_effects, success=execution_success,
+                    context,
+                    effect_registry,
+                    all_effects,
+                    success=execution_success,
                 )
 
     async def execute_with_timeout(
         self,
         context: FlowContext,
-        effect_registry: Optional["EffectRegistry"] = None,
-        timeout: Optional[float] = None,
+        effect_registry: EffectRegistry | None = None,
+        timeout: float | None = None,
     ) -> FlowResult:
         """Execute pipeline with optional timeout."""
         t = timeout or self.timeout
@@ -941,7 +953,7 @@ class FlowPipeline:
 
     # -- Internal helpers --------------------------------------------------
 
-    def _sort_nodes(self) -> List[FlowNode]:
+    def _sort_nodes(self) -> list[FlowNode]:
         """Sort nodes by type band then by priority."""
         type_order = {
             FlowNodeType.MIDDLEWARE: 0,
@@ -956,9 +968,9 @@ class FlowPipeline:
             key=lambda n: (type_order.get(n.type, 99), n.priority),
         )
 
-    def _collect_effects(self, nodes: List[FlowNode]) -> Set[str]:
+    def _collect_effects(self, nodes: list[FlowNode]) -> set[str]:
         """Collect all required effects from all nodes."""
-        effects: Set[str] = set()
+        effects: set[str] = set()
         for node in nodes:
             effects.update(node.effects)
             # Also check for @requires decorator
@@ -970,14 +982,15 @@ class FlowPipeline:
     async def _acquire_effects(
         self,
         context: FlowContext,
-        registry: "EffectRegistry",
-        effect_names: Set[str],
+        registry: EffectRegistry,
+        effect_names: set[str],
     ) -> None:
         """Acquire all required effects and inject into context."""
         for name in effect_names:
             if not registry.has_effect(name):
                 self._logger.warning(
-                    "Effect '%s' required but not registered -- skipping", name,
+                    "Effect '%s' required but not registered -- skipping",
+                    name,
                 )
                 continue
             try:
@@ -987,11 +1000,16 @@ class FlowPipeline:
                 context.metadata["acquired_effects"].append(name)
             except Exception as exc:
                 self._logger.error(
-                    "Failed to acquire effect '%s': %s", name, exc,
+                    "Failed to acquire effect '%s': %s",
+                    name,
+                    exc,
                 )
                 # Release already-acquired effects
                 await self._release_effects(
-                    context, registry, set(context.effects.keys()), success=False,
+                    context,
+                    registry,
+                    set(context.effects.keys()),
+                    success=False,
                 )
                 raise FlowError(
                     f"Effect acquisition failed: {name}",
@@ -1001,8 +1019,8 @@ class FlowPipeline:
     async def _release_effects(
         self,
         context: FlowContext,
-        registry: "EffectRegistry",
-        effect_names: Set[str],
+        registry: EffectRegistry,
+        effect_names: set[str],
         *,
         success: bool = True,
     ) -> None:
@@ -1016,7 +1034,9 @@ class FlowPipeline:
                 await provider.release(resource, success=success)
             except Exception as exc:
                 self._logger.warning(
-                    "Failed to release effect '%s': %s", name, exc,
+                    "Failed to release effect '%s': %s",
+                    name,
+                    exc,
                 )
 
     async def _call_node(
@@ -1037,7 +1057,7 @@ class FlowPipeline:
         callable_fn = node.callable
 
         # Handle FlowNode wrapping a class instance (e.g., FlowGuard)
-        if hasattr(callable_fn, "__call__") and not inspect.isfunction(callable_fn):
+        if callable(callable_fn) and not inspect.isfunction(callable_fn):
             # Instance with __call__ -- use it directly
             pass
 
@@ -1059,7 +1079,7 @@ class FlowPipeline:
             return await self._safe_call(callable_fn)
 
         # Build kwargs based on parameter names
-        kwargs: Dict[str, Any] = {}
+        kwargs: dict[str, Any] = {}
 
         for name, param in params.items():
             if name == "self":
@@ -1068,9 +1088,7 @@ class FlowPipeline:
             # Type-hint-based injection
             annotation = param.annotation
             if annotation is not inspect.Parameter.empty:
-                if annotation is FlowContext or (
-                    isinstance(annotation, str) and "FlowContext" in annotation
-                ):
+                if annotation is FlowContext or (isinstance(annotation, str) and "FlowContext" in annotation):
                     kwargs[name] = context
                     continue
                 if isinstance(annotation, str) and "Request" in annotation:
@@ -1134,13 +1152,13 @@ class FlowPipeline:
 
     def _to_node(
         self,
-        callable_or_node: Union[Callable, FlowNode],
+        callable_or_node: Callable | FlowNode,
         node_type: FlowNodeType,
         *,
-        name: Optional[str] = None,
+        name: str | None = None,
         priority: int = PRIORITY_DEFAULT,
-        effects: Optional[List[str]] = None,
-        condition: Optional[Callable] = None,
+        effects: list[str] | None = None,
+        condition: Callable | None = None,
     ) -> FlowNode:
         """Convert a callable or FlowNode to a FlowNode."""
         if isinstance(callable_or_node, FlowNode):
@@ -1161,19 +1179,17 @@ class FlowPipeline:
     # -- Inspection --------------------------------------------------------
 
     @property
-    def nodes(self) -> List[FlowNode]:
+    def nodes(self) -> list[FlowNode]:
         """Return a copy of the node list."""
         return list(self._nodes)
 
     @property
-    def required_effects(self) -> Set[str]:
+    def required_effects(self) -> set[str]:
         """All effects required by this pipeline."""
         return self._collect_effects(self._nodes)
 
     def __repr__(self) -> str:
-        node_summary = ", ".join(
-            f"{n.type.value}:{n.name}" for n in self._sort_nodes()
-        )
+        node_summary = ", ".join(f"{n.type.value}:{n.name}" for n in self._sort_nodes())
         return f"<FlowPipeline '{self.name}' [{node_summary}]>"
 
     def __len__(self) -> int:
@@ -1188,7 +1204,7 @@ class FlowPipeline:
 def pipeline(
     name: str = "pipeline",
     *,
-    timeout: Optional[float] = None,
+    timeout: float | None = None,
 ) -> FlowPipeline:
     """Create a new FlowPipeline."""
     return FlowPipeline(name, timeout=timeout)
@@ -1197,9 +1213,9 @@ def pipeline(
 def guard(
     fn: Callable,
     *,
-    name: Optional[str] = None,
+    name: str | None = None,
     priority: int = PRIORITY_AUTH,
-    effects: Optional[List[str]] = None,
+    effects: list[str] | None = None,
 ) -> FlowNode:
     """Create a guard FlowNode."""
     return FlowNode(
@@ -1214,9 +1230,9 @@ def guard(
 def transform(
     fn: Callable,
     *,
-    name: Optional[str] = None,
+    name: str | None = None,
     priority: int = PRIORITY_TRANSFORM,
-    effects: Optional[List[str]] = None,
+    effects: list[str] | None = None,
 ) -> FlowNode:
     """Create a transform FlowNode."""
     return FlowNode(
@@ -1231,9 +1247,9 @@ def transform(
 def handler(
     fn: Callable,
     *,
-    name: Optional[str] = None,
+    name: str | None = None,
     priority: int = PRIORITY_DEFAULT,
-    effects: Optional[List[str]] = None,
+    effects: list[str] | None = None,
 ) -> FlowNode:
     """Create a handler FlowNode."""
     return FlowNode(
@@ -1248,9 +1264,9 @@ def handler(
 def hook(
     fn: Callable,
     *,
-    name: Optional[str] = None,
+    name: str | None = None,
     priority: int = PRIORITY_LOG,
-    effects: Optional[List[str]] = None,
+    effects: list[str] | None = None,
 ) -> FlowNode:
     """Create a hook FlowNode."""
     return FlowNode(
@@ -1298,7 +1314,8 @@ def from_pipeline_list(
             pipe.guard(item, name=getattr(item, "__name__", "guard"))
         else:
             logger.warning(
-                "Ignoring non-callable pipeline item: %s", item,
+                "Ignoring non-callable pipeline item: %s",
+                item,
             )
 
     return pipe
@@ -1329,19 +1346,19 @@ class EffectScope:
 
     def __init__(
         self,
-        registry: "EffectRegistry",
+        registry: EffectRegistry,
         effect_names: Sequence[str],
         *,
-        context: Optional[FlowContext] = None,
-        modes: Optional[Dict[str, str]] = None,
+        context: FlowContext | None = None,
+        modes: dict[str, str] | None = None,
     ):
         self._registry = registry
         self._names = list(effect_names)
         self._context = context
         self._modes = modes or {}
-        self._acquired: Dict[str, Any] = {}
+        self._acquired: dict[str, Any] = {}
 
-    async def __aenter__(self) -> Dict[str, Any]:
+    async def __aenter__(self) -> dict[str, Any]:
         for name in self._names:
             if not self._registry.has_effect(name):
                 raise FlowError(f"Effect '{name}' not registered")

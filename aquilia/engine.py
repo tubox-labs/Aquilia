@@ -19,18 +19,15 @@ Performance (v3 — scalability):
 
 from __future__ import annotations
 
-import os
-import time
 import asyncio
 import logging
+import os
+import time
+from collections.abc import Callable
 from enum import Enum, auto
 from typing import (
-    Any,
-    Callable,
-    Dict,
-    List,
-    Optional,
     TYPE_CHECKING,
+    Any,
 )
 
 if TYPE_CHECKING:
@@ -46,8 +43,10 @@ _urandom = os.urandom
 # Lifecycle hook enum
 # ---------------------------------------------------------------------------
 
+
 class LifecycleHook(Enum):
     """Named lifecycle points that subsystems can subscribe to."""
+
     BEFORE_REQUEST = auto()
     AFTER_REQUEST = auto()
     ON_ERROR = auto()
@@ -58,6 +57,7 @@ class LifecycleHook(Enum):
 # ---------------------------------------------------------------------------
 # Engine-level metrics (lock-free via asyncio-safe counters)
 # ---------------------------------------------------------------------------
+
 
 class EngineMetrics:
     """
@@ -107,7 +107,7 @@ class EngineMetrics:
             return 0.0
         return self._cumulative_latency_ms / self.total_requests
 
-    def snapshot(self) -> Dict[str, Any]:
+    def snapshot(self) -> dict[str, Any]:
         """Return a JSON-serialisable snapshot of current metrics."""
         return {
             "total_requests": self.total_requests,
@@ -117,10 +117,7 @@ class EngineMetrics:
         }
 
     def __repr__(self) -> str:
-        return (
-            f"<EngineMetrics requests={self.total_requests} "
-            f"inflight={self.inflight} errors={self.total_errors}>"
-        )
+        return f"<EngineMetrics requests={self.total_requests} inflight={self.inflight} errors={self.total_errors}>"
 
 
 # ---------------------------------------------------------------------------
@@ -138,6 +135,7 @@ def get_engine_metrics() -> EngineMetrics:
 # ---------------------------------------------------------------------------
 # RequestCtx -- per-request execution context
 # ---------------------------------------------------------------------------
+
 
 class RequestCtx:
     """
@@ -172,15 +170,15 @@ class RequestCtx:
 
     def __init__(
         self,
-        container: "Container",
-        request_id: Optional[str] = None,
-        state: Optional[Dict[str, Any]] = None,
+        container: Container,
+        request_id: str | None = None,
+        state: dict[str, Any] | None = None,
     ) -> None:
         self.container = container
         self.request_id = request_id or _urandom(16).hex()
-        self.state: Dict[str, Any] = state if state is not None else {}
+        self.state: dict[str, Any] = state if state is not None else {}
         self.started_at: float = time.monotonic()
-        self._cleanup_callbacks: List[Callable] = []
+        self._cleanup_callbacks: list[Callable] = []
         self._disposed: bool = False
         self._metrics: EngineMetrics = _engine_metrics
 
@@ -208,6 +206,7 @@ class RequestCtx:
         if hasattr(self.container, "resolve"):
             return self.container.resolve(name, optional=optional)
         from .faults.domains import DIResolutionFault
+
         raise DIResolutionFault(
             provider=name,
             reason="Synchronous resolution is not supported by this container.",
@@ -281,7 +280,7 @@ class RequestCtx:
 
     # -- Context manager ---------------------------------------------------
 
-    async def __aenter__(self) -> "RequestCtx":
+    async def __aenter__(self) -> RequestCtx:
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
@@ -292,8 +291,4 @@ class RequestCtx:
     # -- Repr --------------------------------------------------------------
 
     def __repr__(self) -> str:
-        return (
-            f"<RequestCtx id={self.request_id!r} "
-            f"elapsed={self.elapsed_ms:.1f}ms "
-            f"disposed={self._disposed}>"
-        )
+        return f"<RequestCtx id={self.request_id!r} elapsed={self.elapsed_ms:.1f}ms disposed={self._disposed}>"

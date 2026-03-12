@@ -8,13 +8,13 @@ Provides:
 - Invalidation strategies
 """
 
+import hashlib
 import threading
 import time
-import hashlib
-from dataclasses import dataclass, field
-from typing import Optional, Dict, Any, Callable
 from collections import OrderedDict
 from contextlib import contextmanager
+from dataclasses import dataclass
+from typing import Any
 
 from .compiler.compiler import CompiledPattern, PatternCompiler
 from .compiler.parser import parse_pattern
@@ -23,19 +23,20 @@ from .compiler.parser import parse_pattern
 @dataclass
 class CacheStats:
     """Cache statistics for monitoring."""
+
     hits: int = 0
     misses: int = 0
     evictions: int = 0
     errors: int = 0
     total_compile_time: float = 0.0
-    
+
     @property
     def hit_rate(self) -> float:
         """Calculate cache hit rate."""
         total = self.hits + self.misses
         return self.hits / total if total > 0 else 0.0
-    
-    def to_dict(self) -> Dict[str, Any]:
+
+    def to_dict(self) -> dict[str, Any]:
         """Export stats as dictionary."""
         return {
             "hits": self.hits,
@@ -50,13 +51,14 @@ class CacheStats:
 @dataclass
 class CacheEntry:
     """Cache entry with metadata."""
+
     pattern: CompiledPattern
     created_at: float
     last_accessed: float
     access_count: int
     compile_time: float
-    
-    def is_expired(self, ttl: Optional[float]) -> bool:
+
+    def is_expired(self, ttl: float | None) -> bool:
         """Check if entry has expired."""
         if ttl is None:
             return False
@@ -65,16 +67,16 @@ class CacheEntry:
 
 class PatternCache:
     """Thread-safe LRU cache for compiled patterns with TTL support."""
-    
+
     def __init__(
         self,
         max_size: int = 1000,
-        ttl: Optional[float] = None,
+        ttl: float | None = None,
         enable_stats: bool = True,
     ):
         """
         Initialize pattern cache.
-        
+
         Args:
             max_size: Maximum number of patterns to cache
             ttl: Time-to-live in seconds (None = no expiration)
@@ -83,58 +85,54 @@ class PatternCache:
         self.max_size = max_size
         self.ttl = ttl
         self.enable_stats = enable_stats
-        
+
         self._cache: OrderedDict[str, CacheEntry] = OrderedDict()
         self._lock = threading.RLock()
         self._stats = CacheStats()
-        self._compiler: Optional[PatternCompiler] = None
-    
+        self._compiler: PatternCompiler | None = None
+
     def _get_compiler(self) -> PatternCompiler:
         """Get or create compiler instance."""
         if self._compiler is None:
             self._compiler = PatternCompiler()
         return self._compiler
-    
+
     def _fingerprint(self, pattern: str, **kwargs) -> str:
         """
         Generate cache key from pattern and context.
-        
+
         Args:
             pattern: Pattern string
             **kwargs: Additional context (e.g., type_registry settings)
-        
+
         Returns:
             Cache key fingerprint
         """
         # Include pattern and any context that affects compilation
         cache_input = f"{pattern}:{sorted(kwargs.items())}"
         return hashlib.sha256(cache_input.encode()).hexdigest()[:16]
-    
-    def get(
-        self,
-        pattern: str,
-        **kwargs
-    ) -> Optional[CompiledPattern]:
+
+    def get(self, pattern: str, **kwargs) -> CompiledPattern | None:
         """
         Get compiled pattern from cache.
-        
+
         Args:
             pattern: Pattern string
             **kwargs: Additional context for fingerprinting
-        
+
         Returns:
             Compiled pattern or None if not cached
         """
         key = self._fingerprint(pattern, **kwargs)
-        
+
         with self._lock:
             entry = self._cache.get(key)
-            
+
             if entry is None:
                 if self.enable_stats:
                     self._stats.misses += 1
                 return None
-            
+
             # Check expiration
             if entry.is_expired(self.ttl):
                 del self._cache[key]
@@ -142,27 +140,21 @@ class PatternCache:
                     self._stats.evictions += 1
                     self._stats.misses += 1
                 return None
-            
+
             # Update LRU order
             self._cache.move_to_end(key)
             entry.last_accessed = time.time()
             entry.access_count += 1
-            
+
             if self.enable_stats:
                 self._stats.hits += 1
-            
+
             return entry.pattern
-    
-    def put(
-        self,
-        pattern: str,
-        compiled: CompiledPattern,
-        compile_time: float = 0.0,
-        **kwargs
-    ):
+
+    def put(self, pattern: str, compiled: CompiledPattern, compile_time: float = 0.0, **kwargs):
         """
         Store compiled pattern in cache.
-        
+
         Args:
             pattern: Pattern string
             compiled: Compiled pattern
@@ -171,14 +163,14 @@ class PatternCache:
         """
         key = self._fingerprint(pattern, **kwargs)
         now = time.time()
-        
+
         with self._lock:
             # Evict LRU if at capacity
             if len(self._cache) >= self.max_size and key not in self._cache:
                 self._cache.popitem(last=False)
                 if self.enable_stats:
                     self._stats.evictions += 1
-            
+
             entry = CacheEntry(
                 pattern=compiled,
                 created_at=now,
@@ -186,27 +178,23 @@ class PatternCache:
                 access_count=0,
                 compile_time=compile_time,
             )
-            
+
             self._cache[key] = entry
             self._cache.move_to_end(key)
-    
-    def compile_with_cache(
-        self,
-        pattern: str,
-        **kwargs
-    ) -> CompiledPattern:
+
+    def compile_with_cache(self, pattern: str, **kwargs) -> CompiledPattern:
         """
         Compile pattern with caching.
-        
+
         This is the main API for cached compilation.
-        
+
         Args:
             pattern: Pattern string
             **kwargs: Additional context
-        
+
         Returns:
             Compiled pattern (from cache or freshly compiled)
-        
+
         Raises:
             PatternSyntaxError: Invalid pattern syntax
             PatternSemanticError: Invalid pattern semantics
@@ -215,34 +203,34 @@ class PatternCache:
         cached = self.get(pattern, **kwargs)
         if cached is not None:
             return cached
-        
+
         # Compile on miss
         start_time = time.time()
-        
+
         try:
             ast = parse_pattern(pattern)
             compiler = self._get_compiler()
             compiled = compiler.compile(ast)
-            
+
             compile_time = time.time() - start_time
-            
+
             # Store in cache
             self.put(pattern, compiled, compile_time, **kwargs)
-            
+
             if self.enable_stats:
                 self._stats.total_compile_time += compile_time
-            
+
             return compiled
-            
-        except Exception as e:
+
+        except Exception:
             if self.enable_stats:
                 self._stats.errors += 1
             raise
-    
-    def invalidate(self, pattern: Optional[str] = None, **kwargs):
+
+    def invalidate(self, pattern: str | None = None, **kwargs):
         """
         Invalidate cache entries.
-        
+
         Args:
             pattern: Specific pattern to invalidate (None = clear all)
             **kwargs: Additional context for fingerprinting
@@ -256,7 +244,7 @@ class PatternCache:
                 key = self._fingerprint(pattern, **kwargs)
                 if key in self._cache:
                     del self._cache[key]
-    
+
     def get_stats(self) -> CacheStats:
         """Get cache statistics."""
         with self._lock:
@@ -267,12 +255,12 @@ class PatternCache:
                 errors=self._stats.errors,
                 total_compile_time=self._stats.total_compile_time,
             )
-    
+
     def reset_stats(self):
         """Reset statistics counters."""
         with self._lock:
             self._stats = CacheStats()
-    
+
     @contextmanager
     def disabled(self):
         """Context manager to temporarily disable cache."""
@@ -282,12 +270,12 @@ class PatternCache:
             yield
         finally:
             self.max_size = old_size
-    
+
     def __len__(self) -> int:
         """Get current cache size."""
         with self._lock:
             return len(self._cache)
-    
+
     def __contains__(self, pattern: str) -> bool:
         """Check if pattern is cached."""
         key = self._fingerprint(pattern)
@@ -296,7 +284,7 @@ class PatternCache:
 
 
 # Global cache instance
-_global_cache: Optional[PatternCache] = None
+_global_cache: PatternCache | None = None
 
 
 def get_global_cache() -> PatternCache:
@@ -307,7 +295,7 @@ def get_global_cache() -> PatternCache:
     return _global_cache
 
 
-def set_global_cache(cache: Optional[PatternCache]):
+def set_global_cache(cache: PatternCache | None):
     """Set global cache instance."""
     global _global_cache
     _global_cache = cache
@@ -316,12 +304,12 @@ def set_global_cache(cache: Optional[PatternCache]):
 def compile_pattern(pattern: str, use_cache: bool = True, **kwargs) -> CompiledPattern:
     """
     Convenience function to compile patterns with optional caching.
-    
+
     Args:
         pattern: Pattern string
         use_cache: Whether to use global cache
         **kwargs: Additional context
-    
+
     Returns:
         Compiled pattern
     """

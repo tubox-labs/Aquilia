@@ -10,14 +10,16 @@ Requires asyncpg:
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import re
-from typing import Any, Dict, List, Optional, Sequence
+from collections.abc import Sequence
+from typing import Any
 
 from .base import (
-    DatabaseAdapter,
     AdapterCapabilities,
     ColumnInfo,
+    DatabaseAdapter,
 )
 
 logger = logging.getLogger("aquilia.db.backends.postgres")
@@ -27,6 +29,7 @@ __all__ = ["PostgresAdapter"]
 # Try importing async postgres driver
 try:
     import asyncpg
+
     _HAS_ASYNCPG = True
 except ImportError:
     asyncpg = None  # type: ignore
@@ -51,12 +54,12 @@ class _PgCursorResult:
 
     __slots__ = ("lastrowid", "rowcount")
 
-    def __init__(self, lastrowid: Optional[int] = None, rowcount: int = 0):
+    def __init__(self, lastrowid: int | None = None, rowcount: int = 0):
         self.lastrowid = lastrowid
         self.rowcount = rowcount
 
     @classmethod
-    def from_status(cls, status: str) -> "_PgCursorResult":
+    def from_status(cls, status: str) -> _PgCursorResult:
         """Build from an asyncpg status string like ``'INSERT 0 1'``."""
         m = _STATUS_ROWCOUNT_RE.search(status)
         rc = int(m.group(1)) if m else 0
@@ -96,7 +99,7 @@ class PostgresAdapter(DatabaseAdapter):
     def __init__(self):
         self._pool: Any = None
         self._txn_conn: Any = None  # Dedicated connection for active transaction
-        self._txn_obj: Any = None   # asyncpg Transaction object
+        self._txn_obj: Any = None  # asyncpg Transaction object
         self._connected = False
         self._in_transaction = False
 
@@ -105,16 +108,11 @@ class PostgresAdapter(DatabaseAdapter):
             return
 
         if not _HAS_ASYNCPG:
-            raise ImportError(
-                "asyncpg is required for PostgreSQL support.\n"
-                "Install: pip install asyncpg"
-            )
+            raise ImportError("asyncpg is required for PostgreSQL support.\nInstall: pip install asyncpg")
 
         min_size = options.pop("pool_min_size", 2)
         max_size = options.pop("pool_max_size", 10)
-        self._pool = await asyncpg.create_pool(
-            url, min_size=min_size, max_size=max_size, **options
-        )
+        self._pool = await asyncpg.create_pool(url, min_size=min_size, max_size=max_size, **options)
         self._connected = True
 
     async def disconnect(self) -> None:
@@ -127,10 +125,8 @@ class PostgresAdapter(DatabaseAdapter):
                     await self._txn_obj.rollback()
             except Exception:
                 pass
-            try:
+            with contextlib.suppress(Exception):
                 await self._txn_conn.close()
-            except Exception:
-                pass
             self._txn_conn = None
             self._txn_obj = None
             self._in_transaction = False
@@ -176,9 +172,10 @@ class PostgresAdapter(DatabaseAdapter):
             return self._txn_conn
         return None
 
-    async def execute(self, sql: str, params: Optional[Sequence[Any]] = None) -> Any:
+    async def execute(self, sql: str, params: Sequence[Any] | None = None) -> Any:
         if not self._connected:
             from aquilia.faults.domains import DatabaseConnectionFault
+
             raise DatabaseConnectionFault(backend="postgresql", reason="Not connected to PostgreSQL")
         adapted_sql = self.adapt_sql(sql)
         args = params or []
@@ -211,6 +208,7 @@ class PostgresAdapter(DatabaseAdapter):
     async def execute_many(self, sql: str, params_list: Sequence[Sequence[Any]]) -> None:
         if not self._connected:
             from aquilia.faults.domains import DatabaseConnectionFault
+
             raise DatabaseConnectionFault(backend="postgresql", reason="Not connected to PostgreSQL")
         adapted_sql = self.adapt_sql(sql)
         conn = self._get_conn()
@@ -220,9 +218,10 @@ class PostgresAdapter(DatabaseAdapter):
             async with self._pool.acquire() as c:
                 await c.executemany(adapted_sql, params_list)
 
-    async def fetch_all(self, sql: str, params: Optional[Sequence[Any]] = None) -> List[Dict[str, Any]]:
+    async def fetch_all(self, sql: str, params: Sequence[Any] | None = None) -> list[dict[str, Any]]:
         if not self._connected:
             from aquilia.faults.domains import DatabaseConnectionFault
+
             raise DatabaseConnectionFault(backend="postgresql", reason="Not connected to PostgreSQL")
         adapted_sql = self.adapt_sql(sql)
         conn = self._get_conn()
@@ -233,9 +232,10 @@ class PostgresAdapter(DatabaseAdapter):
                 rows = await c.fetch(adapted_sql, *(params or []))
         return [dict(row) for row in rows]
 
-    async def fetch_one(self, sql: str, params: Optional[Sequence[Any]] = None) -> Optional[Dict[str, Any]]:
+    async def fetch_one(self, sql: str, params: Sequence[Any] | None = None) -> dict[str, Any] | None:
         if not self._connected:
             from aquilia.faults.domains import DatabaseConnectionFault
+
             raise DatabaseConnectionFault(backend="postgresql", reason="Not connected to PostgreSQL")
         adapted_sql = self.adapt_sql(sql)
         conn = self._get_conn()
@@ -248,9 +248,10 @@ class PostgresAdapter(DatabaseAdapter):
             return None
         return dict(row)
 
-    async def fetch_val(self, sql: str, params: Optional[Sequence[Any]] = None) -> Any:
+    async def fetch_val(self, sql: str, params: Sequence[Any] | None = None) -> Any:
         if not self._connected:
             from aquilia.faults.domains import DatabaseConnectionFault
+
             raise DatabaseConnectionFault(backend="postgresql", reason="Not connected to PostgreSQL")
         adapted_sql = self.adapt_sql(sql)
         conn = self._get_conn()
@@ -298,30 +299,36 @@ class PostgresAdapter(DatabaseAdapter):
         """Create a savepoint (must be inside a transaction)."""
         if not _SP_NAME_RE.match(name):
             from aquilia.faults.domains import QueryFault
+
             raise QueryFault(message=f"Invalid savepoint name: {name!r}")
         conn = self._get_conn()
         if conn is None:
             from aquilia.faults.domains import QueryFault
+
             raise QueryFault(message="Cannot create savepoint outside a transaction")
         await conn.execute(f'SAVEPOINT "{name}"')
 
     async def release_savepoint(self, name: str) -> None:
         if not _SP_NAME_RE.match(name):
             from aquilia.faults.domains import QueryFault
+
             raise QueryFault(message=f"Invalid savepoint name: {name!r}")
         conn = self._get_conn()
         if conn is None:
             from aquilia.faults.domains import QueryFault
+
             raise QueryFault(message="Cannot release savepoint outside a transaction")
         await conn.execute(f'RELEASE SAVEPOINT "{name}"')
 
     async def rollback_to_savepoint(self, name: str) -> None:
         if not _SP_NAME_RE.match(name):
             from aquilia.faults.domains import QueryFault
+
             raise QueryFault(message=f"Invalid savepoint name: {name!r}")
         conn = self._get_conn()
         if conn is None:
             from aquilia.faults.domains import QueryFault
+
             raise QueryFault(message="Cannot rollback savepoint outside a transaction")
         await conn.execute(f'ROLLBACK TO SAVEPOINT "{name}"')
 
@@ -329,20 +336,18 @@ class PostgresAdapter(DatabaseAdapter):
 
     async def table_exists(self, table_name: str) -> bool:
         row = await self.fetch_one(
-            "SELECT EXISTS(SELECT 1 FROM information_schema.tables "
-            "WHERE table_schema='public' AND table_name=?) AS e",
+            "SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name=?) AS e",
             [table_name],
         )
         return bool(row and row.get("e"))
 
-    async def get_tables(self) -> List[str]:
+    async def get_tables(self) -> list[str]:
         rows = await self.fetch_all(
-            "SELECT table_name FROM information_schema.tables "
-            "WHERE table_schema='public' ORDER BY table_name"
+            "SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY table_name"
         )
         return [r["table_name"] for r in rows]
 
-    async def get_columns(self, table_name: str) -> List[ColumnInfo]:
+    async def get_columns(self, table_name: str) -> list[ColumnInfo]:
         rows = await self.fetch_all(
             "SELECT column_name, data_type, is_nullable, column_default, "
             "character_maximum_length "
@@ -353,32 +358,35 @@ class PostgresAdapter(DatabaseAdapter):
         )
         columns = []
         for row in rows:
-            columns.append(ColumnInfo(
-                name=row["column_name"],
-                data_type=row["data_type"],
-                nullable=row["is_nullable"] == "YES",
-                default=row.get("column_default"),
-                max_length=row.get("character_maximum_length"),
-            ))
+            columns.append(
+                ColumnInfo(
+                    name=row["column_name"],
+                    data_type=row["data_type"],
+                    nullable=row["is_nullable"] == "YES",
+                    default=row.get("column_default"),
+                    max_length=row.get("character_maximum_length"),
+                )
+            )
         return columns
 
-    async def get_indexes(self, table_name: str) -> List[Dict[str, Any]]:
+    async def get_indexes(self, table_name: str) -> list[dict[str, Any]]:
         """Get index info for a PostgreSQL table."""
         rows = await self.fetch_all(
-            "SELECT indexname, indexdef FROM pg_indexes "
-            "WHERE schemaname = 'public' AND tablename = ?",
+            "SELECT indexname, indexdef FROM pg_indexes WHERE schemaname = 'public' AND tablename = ?",
             [table_name],
         )
         indexes = []
         for row in rows:
-            indexes.append({
-                "name": row["indexname"],
-                "definition": row["indexdef"],
-                "unique": "UNIQUE" in row.get("indexdef", "").upper(),
-            })
+            indexes.append(
+                {
+                    "name": row["indexname"],
+                    "definition": row["indexdef"],
+                    "unique": "UNIQUE" in row.get("indexdef", "").upper(),
+                }
+            )
         return indexes
 
-    async def get_foreign_keys(self, table_name: str) -> List[Dict[str, Any]]:
+    async def get_foreign_keys(self, table_name: str) -> list[dict[str, Any]]:
         """Get foreign key info for a PostgreSQL table."""
         rows = await self.fetch_all(
             "SELECT kcu.column_name AS from_column, "

@@ -72,13 +72,7 @@ import re
 import secrets
 import time
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from typing import Any, Dict, FrozenSet, List, Optional, Set, Tuple, TYPE_CHECKING
-
-from aquilia.admin.faults import (
-    AdminAuthenticationFault,
-    AdminAuthorizationFault,
-)
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from aquilia.controller.base import RequestCtx
@@ -112,28 +106,22 @@ class AdminCSRFProtection:
     def __init__(
         self,
         *,
-        secret: Optional[str] = None,
+        secret: str | None = None,
         max_age: int = 7200,  # 2 hours
         token_length: int = 32,
     ):
-        self._secret = (
-            secret
-            or os.environ.get("AQUILIA_ADMIN_CSRF_SECRET")
-            or secrets.token_hex(32)
-        ).encode("utf-8")
+        self._secret = (secret or os.environ.get("AQUILIA_ADMIN_CSRF_SECRET") or secrets.token_hex(32)).encode("utf-8")
         self._max_age = max_age
         self._token_length = token_length
         # Pending CSRF cookie to be set on next response
-        self._pending_cookie_token: Optional[str] = None
+        self._pending_cookie_token: str | None = None
 
     def generate_token(self) -> str:
         """Generate a new HMAC-signed CSRF token with timestamp."""
         nonce = secrets.token_hex(self._token_length)
         timestamp = str(int(time.time()))
         payload = f"{nonce}:{timestamp}"
-        signature = hmac.new(
-            self._secret, payload.encode("utf-8"), hashlib.sha256
-        ).hexdigest()
+        signature = hmac.new(self._secret, payload.encode("utf-8"), hashlib.sha256).hexdigest()
         return f"{payload}:{signature}"
 
     def validate_token(self, token: str) -> bool:
@@ -149,9 +137,7 @@ class AdminCSRFProtection:
 
         # Verify signature using constant-time comparison
         payload = f"{nonce}:{timestamp_str}"
-        expected = hmac.new(
-            self._secret, payload.encode("utf-8"), hashlib.sha256
-        ).hexdigest()
+        expected = hmac.new(self._secret, payload.encode("utf-8"), hashlib.sha256).hexdigest()
 
         if not hmac.compare_digest(signature.encode(), expected.encode()):
             return False
@@ -166,7 +152,7 @@ class AdminCSRFProtection:
 
         return True
 
-    def get_or_create_token(self, ctx: "RequestCtx") -> str:
+    def get_or_create_token(self, ctx: RequestCtx) -> str:
         """
         Get existing CSRF token from session, or create a new one.
 
@@ -200,7 +186,7 @@ class AdminCSRFProtection:
         self._pending_cookie_token = token
         return token
 
-    def apply_cookie(self, response: "Response", *, secure: bool = False) -> None:
+    def apply_cookie(self, response: Response, *, secure: bool = False) -> None:
         """
         Attach the pending CSRF cookie to a response.
 
@@ -219,11 +205,11 @@ class AdminCSRFProtection:
             max_age=self._max_age,
             path="/admin",
             secure=secure,
-            httponly=False,   # form JS needs to read it
+            httponly=False,  # form JS needs to read it
             samesite="Lax",
         )
 
-    def validate_request(self, ctx: "RequestCtx", form_data: Optional[Dict] = None) -> bool:
+    def validate_request(self, ctx: RequestCtx, form_data: dict | None = None) -> bool:
         """
         Validate CSRF token from request.
 
@@ -292,7 +278,8 @@ class AdminCSRFProtection:
 @dataclass
 class _AttemptRecord:
     """Tracks attempts for a single key."""
-    attempts: List[float] = field(default_factory=list)
+
+    attempts: list[float] = field(default_factory=list)
     lockout_until: float = 0.0
     consecutive_failures: int = 0
 
@@ -310,17 +297,17 @@ class AdminRateLimiter:
 
     # Progressive lockout durations (seconds)
     LOCKOUT_TIERS = [
-        (5, 300),      # After 5 failures: 5 minutes
-        (10, 900),     # After 10 failures: 15 minutes
-        (20, 3600),    # After 20 failures: 1 hour
-        (50, 86400),   # After 50 failures: 24 hours
+        (5, 300),  # After 5 failures: 5 minutes
+        (10, 900),  # After 10 failures: 15 minutes
+        (20, 3600),  # After 20 failures: 1 hour
+        (50, 86400),  # After 50 failures: 24 hours
     ]
 
     def __init__(
         self,
         *,
         max_login_attempts: int = 5,
-        login_window: int = 900,      # 15 minutes
+        login_window: int = 900,  # 15 minutes
         sensitive_op_limit: int = 30,  # ops per window
         sensitive_op_window: int = 300,  # 5 minutes
         cleanup_interval: int = 3600,  # Clean up stale entries every hour
@@ -331,8 +318,8 @@ class AdminRateLimiter:
         self.sensitive_op_window = sensitive_op_window
         self.cleanup_interval = cleanup_interval
 
-        self._login_records: Dict[str, _AttemptRecord] = {}
-        self._sensitive_records: Dict[str, _AttemptRecord] = {}
+        self._login_records: dict[str, _AttemptRecord] = {}
+        self._sensitive_records: dict[str, _AttemptRecord] = {}
         self._last_cleanup = time.monotonic()
 
     def _maybe_cleanup(self) -> None:
@@ -345,8 +332,7 @@ class AdminRateLimiter:
         cutoff = now - max(self.login_window, self.sensitive_op_window) * 2
         for store in (self._login_records, self._sensitive_records):
             stale_keys = [
-                k for k, v in store.items()
-                if v.lockout_until < now and (not v.attempts or v.attempts[-1] < cutoff)
+                k for k, v in store.items() if v.lockout_until < now and (not v.attempts or v.attempts[-1] < cutoff)
             ]
             for k in stale_keys:
                 store.pop(k, None)
@@ -357,7 +343,7 @@ class AdminRateLimiter:
             self._login_records[key] = _AttemptRecord()
         return self._login_records[key]
 
-    def is_login_locked(self, ip: str) -> Tuple[bool, int]:
+    def is_login_locked(self, ip: str) -> tuple[bool, int]:
         """
         Check if an IP is locked out from login attempts.
 
@@ -374,7 +360,7 @@ class AdminRateLimiter:
 
         return False, 0
 
-    def record_login_failure(self, ip: str) -> Tuple[bool, int]:
+    def record_login_failure(self, ip: str) -> tuple[bool, int]:
         """
         Record a failed login attempt.
 
@@ -423,7 +409,7 @@ class AdminRateLimiter:
         recent = [t for t in record.attempts if t > cutoff]
         return max(0, self.max_login_attempts - len(recent))
 
-    def check_sensitive_op(self, ip: str, operation: str = "default") -> Tuple[bool, int]:
+    def check_sensitive_op(self, ip: str, operation: str = "default") -> tuple[bool, int]:
         """
         Check if a sensitive operation is rate-limited.
 
@@ -481,17 +467,15 @@ class AdminSecurityHeaders:
     )
 
     DEFAULT_PERMISSIONS_POLICY = (
-        "camera=(), microphone=(), geolocation=(), "
-        "payment=(), usb=(), magnetometer=(), gyroscope=(), "
-        "accelerometer=()"
+        "camera=(), microphone=(), geolocation=(), payment=(), usb=(), magnetometer=(), gyroscope=(), accelerometer=()"
     )
 
     def __init__(
         self,
         *,
-        csp_template: Optional[str] = None,
+        csp_template: str | None = None,
         frame_options: str = "DENY",
-        permissions_policy: Optional[str] = None,
+        permissions_policy: str | None = None,
     ):
         self._csp_template = csp_template or self.DEFAULT_CSP
         self._frame_options = frame_options
@@ -503,11 +487,11 @@ class AdminSecurityHeaders:
 
     def apply(
         self,
-        response: "Response",
+        response: Response,
         *,
-        nonce: Optional[str] = None,
+        nonce: str | None = None,
         cache_control: str = "no-store, no-cache, must-revalidate, max-age=0",
-    ) -> "Response":
+    ) -> Response:
         """
         Apply security headers to a response.
 
@@ -538,10 +522,7 @@ class AdminSecurityHeaders:
         }
 
         # Apply headers to response
-        if hasattr(response, "headers") and isinstance(response.headers, dict):
-            for key, value in security_headers.items():
-                response.headers[key] = value
-        elif hasattr(response, "headers"):
+        if hasattr(response, "headers") and isinstance(response.headers, dict) or hasattr(response, "headers"):
             for key, value in security_headers.items():
                 response.headers[key] = value
 
@@ -549,8 +530,8 @@ class AdminSecurityHeaders:
 
     def apply_for_asset(
         self,
-        response: "Response",
-    ) -> "Response":
+        response: Response,
+    ) -> Response:
         """
         Apply lighter security headers for static assets (avatars, downloads).
 
@@ -576,9 +557,10 @@ class AdminSecurityHeaders:
 @dataclass(frozen=True)
 class PasswordStrength:
     """Result of password complexity analysis."""
-    score: int          # 0-4 (0=terrible, 4=strong)
-    is_valid: bool      # Meets minimum requirements
-    feedback: List[str]  # Human-readable improvement suggestions
+
+    score: int  # 0-4 (0=terrible, 4=strong)
+    is_valid: bool  # Meets minimum requirements
+    feedback: list[str]  # Human-readable improvement suggestions
     length: int
     has_upper: bool
     has_lower: bool
@@ -603,16 +585,50 @@ class PasswordValidator:
     """
 
     # Top common passwords to reject (abbreviated list)
-    COMMON_PASSWORDS: FrozenSet[str] = frozenset({
-        "password", "123456", "12345678", "1234567890", "qwerty",
-        "abc123", "password1", "admin", "letmein", "welcome",
-        "monkey", "dragon", "master", "login", "princess",
-        "starwars", "passw0rd", "shadow", "sunshine", "trustno1",
-        "iloveyou", "batman", "access", "hello", "charlie",
-        "password123", "admin123", "root", "toor", "changeme",
-        "123456789", "12345", "1234", "qwerty123", "1q2w3e4r",
-        "qwertyuiop", "654321", "555555", "lovely", "password1!",
-    })
+    COMMON_PASSWORDS: frozenset[str] = frozenset(
+        {
+            "password",
+            "123456",
+            "12345678",
+            "1234567890",
+            "qwerty",
+            "abc123",
+            "password1",
+            "admin",
+            "letmein",
+            "welcome",
+            "monkey",
+            "dragon",
+            "master",
+            "login",
+            "princess",
+            "starwars",
+            "passw0rd",
+            "shadow",
+            "sunshine",
+            "trustno1",
+            "iloveyou",
+            "batman",
+            "access",
+            "hello",
+            "charlie",
+            "password123",
+            "admin123",
+            "root",
+            "toor",
+            "changeme",
+            "123456789",
+            "12345",
+            "1234",
+            "qwerty123",
+            "1q2w3e4r",
+            "qwertyuiop",
+            "654321",
+            "555555",
+            "lovely",
+            "password1!",
+        }
+    )
 
     def __init__(
         self,
@@ -635,7 +651,7 @@ class PasswordValidator:
         self,
         password: str,
         *,
-        username: Optional[str] = None,
+        username: str | None = None,
     ) -> PasswordStrength:
         """
         Validate password complexity.
@@ -719,10 +735,11 @@ class PasswordValidator:
 @dataclass(frozen=True)
 class SecurityEvent:
     """Immutable record of a security-relevant event."""
+
     timestamp: float
     event_type: str  # "login_failed", "csrf_violation", "rate_limited", "lockout"
     ip_address: str
-    details: Dict[str, Any] = field(default_factory=dict)
+    details: dict[str, Any] = field(default_factory=dict)
 
 
 class SecurityEventTracker:
@@ -734,7 +751,7 @@ class SecurityEventTracker:
     """
 
     def __init__(self, max_events: int = 1000):
-        self._events: List[SecurityEvent] = []
+        self._events: list[SecurityEvent] = []
         self._max_events = max_events
 
     def record(
@@ -754,22 +771,24 @@ class SecurityEventTracker:
 
         # Trim to max size
         if len(self._events) > self._max_events:
-            self._events = self._events[-self._max_events:]
+            self._events = self._events[-self._max_events :]
 
         logger.warning(
             "Security event: %s from %s — %s",
-            event_type, ip_address, details,
+            event_type,
+            ip_address,
+            details,
         )
         return event
 
     def get_events(
         self,
         *,
-        event_type: Optional[str] = None,
-        ip_address: Optional[str] = None,
-        since: Optional[float] = None,
+        event_type: str | None = None,
+        ip_address: str | None = None,
+        since: float | None = None,
         limit: int = 100,
-    ) -> List[SecurityEvent]:
+    ) -> list[SecurityEvent]:
         """Query recent security events with optional filters."""
         results = self._events
         if event_type:
@@ -784,8 +803,8 @@ class SecurityEventTracker:
         self,
         event_type: str,
         *,
-        ip_address: Optional[str] = None,
-        since: Optional[float] = None,
+        ip_address: str | None = None,
+        since: float | None = None,
     ) -> int:
         """Count events matching criteria."""
         results = [e for e in self._events if e.event_type == event_type]
@@ -819,11 +838,11 @@ class AdminSecurityPolicy:
     def __init__(
         self,
         *,
-        csrf: Optional[AdminCSRFProtection] = None,
-        rate_limiter: Optional[AdminRateLimiter] = None,
-        headers: Optional[AdminSecurityHeaders] = None,
-        password_validator: Optional[PasswordValidator] = None,
-        event_tracker: Optional[SecurityEventTracker] = None,
+        csrf: AdminCSRFProtection | None = None,
+        rate_limiter: AdminRateLimiter | None = None,
+        headers: AdminSecurityHeaders | None = None,
+        password_validator: PasswordValidator | None = None,
+        event_tracker: SecurityEventTracker | None = None,
     ):
         self.csrf = csrf or AdminCSRFProtection()
         self.rate_limiter = rate_limiter or AdminRateLimiter()
@@ -832,7 +851,7 @@ class AdminSecurityPolicy:
         self.event_tracker = event_tracker or SecurityEventTracker()
 
     @classmethod
-    def from_config(cls, config: Dict[str, Any]) -> "AdminSecurityPolicy":
+    def from_config(cls, config: dict[str, Any]) -> AdminSecurityPolicy:
         """
         Build an AdminSecurityPolicy from a security config dict.
 
@@ -905,11 +924,11 @@ class AdminSecurityPolicy:
 
     def protect_response(
         self,
-        response: "Response",
+        response: Response,
         *,
-        nonce: Optional[str] = None,
+        nonce: str | None = None,
         is_asset: bool = False,
-    ) -> "Response":
+    ) -> Response:
         """
         Apply all security policies to a response.
 
@@ -949,7 +968,7 @@ class AdminSecurityPolicy:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
-def register_security_providers(container: Any, config: Optional[Dict[str, Any]] = None) -> None:
+def register_security_providers(container: Any, config: dict[str, Any] | None = None) -> None:
     """
     Register admin security components with the DI container.
 
@@ -967,13 +986,10 @@ def register_security_providers(container: Any, config: Optional[Dict[str, Any]]
             If None, uses defaults.
     """
     try:
-        from aquilia.di.providers import FactoryProvider, ValueProvider
-        from aquilia.di.scopes import Scope
+        from aquilia.di.providers import FactoryProvider, ValueProvider  # noqa: F401
+        from aquilia.di.scopes import Scope  # noqa: F401
 
-        if config:
-            policy = AdminSecurityPolicy.from_config(config)
-        else:
-            policy = AdminSecurityPolicy()
+        policy = AdminSecurityPolicy.from_config(config) if config else AdminSecurityPolicy()
 
         container.register(
             AdminSecurityPolicy,

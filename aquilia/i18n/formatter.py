@@ -19,17 +19,17 @@ from __future__ import annotations
 import re
 from datetime import date, datetime, time
 from decimal import Decimal
-from typing import Any, Dict, Optional, Union
+from typing import Any
 
 from .plural import select_plural
 
-Number = Union[int, float, Decimal]
+Number = int | float | Decimal
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Locale-specific formatting data
 # ═══════════════════════════════════════════════════════════════════════════
 
-_NUMBER_FORMATS: Dict[str, Dict[str, str]] = {
+_NUMBER_FORMATS: dict[str, dict[str, str]] = {
     # language → { decimal_sep, group_sep, group_size }
     "en": {"decimal": ".", "group": ",", "size": "3"},
     "de": {"decimal": ",", "group": ".", "size": "3"},
@@ -64,23 +64,55 @@ _NUMBER_FORMATS: Dict[str, Dict[str, str]] = {
     "ms": {"decimal": ".", "group": ",", "size": "3"},
 }
 
-_CURRENCY_SYMBOLS: Dict[str, str] = {
-    "USD": "$", "EUR": "€", "GBP": "£", "JPY": "¥", "CNY": "¥",
-    "KRW": "₩", "INR": "₹", "RUB": "₽", "TRY": "₺", "BRL": "R$",
-    "CAD": "CA$", "AUD": "A$", "CHF": "CHF", "SEK": "kr", "NOK": "kr",
-    "DKK": "kr", "PLN": "zł", "CZK": "Kč", "HUF": "Ft", "RON": "lei",
-    "THB": "฿", "PHP": "₱", "MXN": "MX$", "ZAR": "R", "SGD": "S$",
-    "HKD": "HK$", "NZD": "NZ$", "ILS": "₪", "AED": "د.إ",
-    "SAR": "﷼", "EGP": "E£", "NGN": "₦", "KES": "KSh",
-    "MAD": "MAD", "TWD": "NT$", "MYR": "RM", "IDR": "Rp",
-    "VND": "₫", "UAH": "₴", "BGN": "лв", "HRK": "kn",
+_CURRENCY_SYMBOLS: dict[str, str] = {
+    "USD": "$",
+    "EUR": "€",
+    "GBP": "£",
+    "JPY": "¥",
+    "CNY": "¥",
+    "KRW": "₩",
+    "INR": "₹",
+    "RUB": "₽",
+    "TRY": "₺",
+    "BRL": "R$",
+    "CAD": "CA$",
+    "AUD": "A$",
+    "CHF": "CHF",
+    "SEK": "kr",
+    "NOK": "kr",
+    "DKK": "kr",
+    "PLN": "zł",
+    "CZK": "Kč",
+    "HUF": "Ft",
+    "RON": "lei",
+    "THB": "฿",
+    "PHP": "₱",
+    "MXN": "MX$",
+    "ZAR": "R",
+    "SGD": "S$",
+    "HKD": "HK$",
+    "NZD": "NZ$",
+    "ILS": "₪",
+    "AED": "د.إ",
+    "SAR": "﷼",
+    "EGP": "E£",
+    "NGN": "₦",
+    "KES": "KSh",
+    "MAD": "MAD",
+    "TWD": "NT$",
+    "MYR": "RM",
+    "IDR": "Rp",
+    "VND": "₫",
+    "UAH": "₴",
+    "BGN": "лв",
+    "HRK": "kn",
 }
 
 # English ordinal suffixes
 _ORDINAL_SUFFIXES_EN = {1: "st", 2: "nd", 3: "rd"}
 
 # Date format patterns per locale
-_DATE_FORMATS: Dict[str, Dict[str, str]] = {
+_DATE_FORMATS: dict[str, dict[str, str]] = {
     "en": {"short": "%m/%d/%Y", "medium": "%b %d, %Y", "long": "%B %d, %Y", "full": "%A, %B %d, %Y"},
     "en-US": {"short": "%m/%d/%Y", "medium": "%b %d, %Y", "long": "%B %d, %Y", "full": "%A, %B %d, %Y"},
     "en-GB": {"short": "%d/%m/%Y", "medium": "%d %b %Y", "long": "%d %B %Y", "full": "%A, %d %B %Y"},
@@ -97,7 +129,7 @@ _DATE_FORMATS: Dict[str, Dict[str, str]] = {
     "ar": {"short": "%d/%m/%Y", "medium": "%d %b %Y", "long": "%d %B %Y", "full": "%A، %d %B %Y"},
 }
 
-_TIME_FORMATS: Dict[str, Dict[str, str]] = {
+_TIME_FORMATS: dict[str, dict[str, str]] = {
     "en": {"short": "%I:%M %p", "medium": "%I:%M:%S %p", "long": "%I:%M:%S %p %Z"},
     "en-US": {"short": "%I:%M %p", "medium": "%I:%M:%S %p", "long": "%I:%M:%S %p %Z"},
     "en-GB": {"short": "%H:%M", "medium": "%H:%M:%S", "long": "%H:%M:%S %Z"},
@@ -128,25 +160,25 @@ def _find_icu_args(pattern: str):
     i = 0
     n = len(pattern)
     while i < n:
-        if pattern[i] == '{':
+        if pattern[i] == "{":
             # Find the argument name
             j = i + 1
-            while j < n and (pattern[j].isalnum() or pattern[j] == '_'):
+            while j < n and (pattern[j].isalnum() or pattern[j] == "_"):
                 j += 1
 
-            name = pattern[i + 1:j]
+            name = pattern[i + 1 : j]
             if not name:
                 i += 1
                 continue
 
             # Check for comma (typed argument)
-            while j < n and pattern[j] == ' ':
+            while j < n and pattern[j] == " ":
                 j += 1
 
-            if j < n and pattern[j] == ',':
+            if j < n and pattern[j] == ",":
                 # Typed argument: {name, type, ...}
                 j += 1
-                while j < n and pattern[j] == ' ':
+                while j < n and pattern[j] == " ":
                     j += 1
 
                 # Read type
@@ -155,32 +187,32 @@ def _find_icu_args(pattern: str):
                     j += 1
                 arg_type = pattern[type_start:j]
 
-                while j < n and pattern[j] == ' ':
+                while j < n and pattern[j] == " ":
                     j += 1
 
                 style = None
-                if j < n and pattern[j] == ',':
+                if j < n and pattern[j] == ",":
                     # Read style (rest until matching closing brace)
                     j += 1
-                    while j < n and pattern[j] == ' ':
+                    while j < n and pattern[j] == " ":
                         j += 1
                     style_start = j
                     depth = 1
                     while j < n and depth > 0:
-                        if pattern[j] == '{':
+                        if pattern[j] == "{":
                             depth += 1
-                        elif pattern[j] == '}':
+                        elif pattern[j] == "}":
                             depth -= 1
                         j += 1
-                    style = pattern[style_start:j - 1].strip()
-                elif j < n and pattern[j] == '}':
+                    style = pattern[style_start : j - 1].strip()
+                elif j < n and pattern[j] == "}":
                     j += 1
                 else:
                     i += 1
                     continue
 
                 yield (i, j, name, arg_type, style)
-            elif j < n and pattern[j] == '}':
+            elif j < n and pattern[j] == "}":
                 # Simple argument: {name}
                 j += 1
                 yield (i, j, name, None, None)
@@ -221,7 +253,7 @@ class MessageFormatter:
     def __init__(self, locale: str = "en"):
         self.locale = locale
 
-    def format(self, pattern: str, locale: Optional[str] = None, **kwargs: Any) -> str:
+    def format(self, pattern: str, locale: str | None = None, **kwargs: Any) -> str:
         """
         Format a message pattern with the given arguments.
 
@@ -323,7 +355,8 @@ def format_message(pattern: str, locale: str = "en", **kwargs: Any) -> str:
 # Number Formatting
 # ═══════════════════════════════════════════════════════════════════════════
 
-def _get_number_format(locale: str) -> Dict[str, str]:
+
+def _get_number_format(locale: str) -> dict[str, str]:
     """Get number formatting rules for a locale with fallback."""
     if locale in _NUMBER_FORMATS:
         return _NUMBER_FORMATS[locale]
@@ -334,7 +367,7 @@ def _get_number_format(locale: str) -> Dict[str, str]:
     return _NUMBER_FORMATS["en"]
 
 
-def format_number(value: Number, locale: str = "en", *, decimals: Optional[int] = None) -> str:
+def format_number(value: Number, locale: str = "en", *, decimals: int | None = None) -> str:
     """
     Format a number with locale-specific separators.
 
@@ -452,8 +485,28 @@ def format_currency(
 
     lang = locale.split("-")[0]
     # Symbol placement: before for en, ja, zh, ko, etc.  After for de, fr, etc.
-    symbol_after = lang in ("de", "fr", "es", "it", "pt", "nl", "ru", "pl", "cs", "sk",
-                            "hu", "ro", "sv", "da", "fi", "nb", "nn", "el", "tr", "vi")
+    symbol_after = lang in (
+        "de",
+        "fr",
+        "es",
+        "it",
+        "pt",
+        "nl",
+        "ru",
+        "pl",
+        "cs",
+        "sk",
+        "hu",
+        "ro",
+        "sv",
+        "da",
+        "fi",
+        "nb",
+        "nn",
+        "el",
+        "tr",
+        "vi",
+    )
     if symbol_after:
         return f"{num_str}\u00a0{symbol}"  # no-break space
     return f"{symbol}{num_str}"
@@ -473,10 +526,7 @@ def format_ordinal(value: int, locale: str = "en") -> str:
     lang = locale.split("-")[0]
 
     if lang == "en":
-        if 11 <= (value % 100) <= 13:
-            suffix = "th"
-        else:
-            suffix = _ORDINAL_SUFFIXES_EN.get(value % 10, "th")
+        suffix = "th" if 11 <= value % 100 <= 13 else _ORDINAL_SUFFIXES_EN.get(value % 10, "th")
         return f"{value}{suffix}"
     elif lang == "fr":
         return f"{value}{'er' if value == 1 else 'e'}"
@@ -497,6 +547,7 @@ def format_ordinal(value: int, locale: str = "en") -> str:
 # ═══════════════════════════════════════════════════════════════════════════
 # Date/Time Formatting
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 def format_date(
     value: date,
@@ -525,7 +576,7 @@ def format_date(
 
 
 def format_time(
-    value: Union[time, datetime],
+    value: time | datetime,
     locale: str = "en",
     *,
     style: str = "short",

@@ -16,37 +16,29 @@ Usage::
 
 from __future__ import annotations
 
-import asyncio
 import os
 import shutil
+from collections.abc import AsyncIterator
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import (
-    Any,
-    AsyncIterator,
     BinaryIO,
-    Dict,
-    List,
-    Optional,
-    Tuple,
-    Union,
 )
 
-from ...filesystem._pool import FileSystemPool as _FsPool
 from ...filesystem._config import FileSystemConfig as _FsConfig
-
+from ...filesystem._pool import FileSystemPool as _FsPool
 from ..base import (
     FileNotFoundError,
     PermissionError,
     StorageBackend,
     StorageFile,
-    StorageFullError,
     StorageMetadata,
 )
 from ..configs import LocalConfig
 
 # Lazy-initialised shared pool for all LocalStorage instances
-_pool: Optional[_FsPool] = None
+_pool: _FsPool | None = None
+
 
 def _get_pool() -> _FsPool:
     global _pool
@@ -88,10 +80,10 @@ class LocalStorage(StorageBackend):
     async def save(
         self,
         name: str,
-        content: Union[bytes, BinaryIO, AsyncIterator[bytes], StorageFile],
+        content: bytes | BinaryIO | AsyncIterator[bytes] | StorageFile,
         *,
-        content_type: Optional[str] = None,
-        metadata: Optional[Dict[str, str]] = None,
+        content_type: str | None = None,
+        metadata: dict[str, str] | None = None,
         overwrite: bool = False,
     ) -> str:
         name = self._normalize_path(name)
@@ -120,9 +112,7 @@ class LocalStorage(StorageBackend):
         full = self._full_path(name)
 
         if not full.exists():
-            raise FileNotFoundError(
-                f"File not found: {name}", backend="local", path=name
-            )
+            raise FileNotFoundError(f"File not found: {name}", backend="local", path=name)
 
         def _read() -> bytes:
             return full.read_bytes()
@@ -151,9 +141,7 @@ class LocalStorage(StorageBackend):
         full = self._full_path(name)
 
         if not full.exists():
-            raise FileNotFoundError(
-                f"File not found: {name}", backend="local", path=name
-            )
+            raise FileNotFoundError(f"File not found: {name}", backend="local", path=name)
 
         def _stat() -> os.stat_result:
             return full.stat()
@@ -168,12 +156,12 @@ class LocalStorage(StorageBackend):
             created_at=datetime.fromtimestamp(st.st_ctime, tz=timezone.utc),
         )
 
-    async def listdir(self, path: str = "") -> Tuple[List[str], List[str]]:
+    async def listdir(self, path: str = "") -> tuple[list[str], list[str]]:
         target = self._root / path if path else self._root
 
-        def _list() -> Tuple[List[str], List[str]]:
-            dirs: List[str] = []
-            files: List[str] = []
+        def _list() -> tuple[list[str], list[str]]:
+            dirs: list[str] = []
+            files: list[str] = []
             if not target.exists():
                 return dirs, files
             for entry in target.iterdir():
@@ -189,7 +177,7 @@ class LocalStorage(StorageBackend):
         meta = await self.stat(name)
         return meta.size
 
-    async def url(self, name: str, expire: Optional[int] = None) -> str:
+    async def url(self, name: str, expire: int | None = None) -> str:
         name = self._normalize_path(name)
         base = self._config.base_url.rstrip("/")
         return f"{base}/{name}"
@@ -200,9 +188,7 @@ class LocalStorage(StorageBackend):
         dst_path = self._full_path(dst)
 
         if not src_path.exists():
-            raise FileNotFoundError(
-                f"Source not found: {src}", backend="local", path=src
-            )
+            raise FileNotFoundError(f"Source not found: {src}", backend="local", path=src)
 
         if self._config.create_dirs:
             dst_path.parent.mkdir(parents=True, exist_ok=True)
@@ -219,9 +205,7 @@ class LocalStorage(StorageBackend):
         """Resolve name to full path, ensuring it stays within root."""
         full = (self._root / name).resolve()
         if not str(full).startswith(str(self._root)):
-            raise PermissionError(
-                f"Path traversal blocked: {name}", backend="local", path=name
-            )
+            raise PermissionError(f"Path traversal blocked: {name}", backend="local", path=name)
         return full
 
     # _read_content inherited from StorageBackend

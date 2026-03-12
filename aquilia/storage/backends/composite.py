@@ -25,16 +25,11 @@ Usage::
 
 from __future__ import annotations
 
+import contextlib
 import fnmatch
+from collections.abc import AsyncIterator
 from typing import (
-    Any,
-    AsyncIterator,
     BinaryIO,
-    Dict,
-    List,
-    Optional,
-    Tuple,
-    Union,
 )
 
 from ..base import (
@@ -59,8 +54,8 @@ class CompositeStorage(StorageBackend):
 
     def __init__(self, config: CompositeConfig) -> None:
         self._config = config
-        self._backends: Dict[str, StorageBackend] = {}
-        self._rules: list[tuple[str, str]] = []   # (glob, alias)
+        self._backends: dict[str, StorageBackend] = {}
+        self._rules: list[tuple[str, str]] = []  # (glob, alias)
         self._fallback: str = config.fallback
 
     @property
@@ -80,17 +75,12 @@ class CompositeStorage(StorageBackend):
             self._backends[alias] = backend
 
         # Parse rules
-        self._rules = [
-            (pattern, alias)
-            for pattern, alias in self._config.rules.items()
-        ]
+        self._rules = [(pattern, alias) for pattern, alias in self._config.rules.items()]
 
     async def shutdown(self) -> None:
         for backend in self._backends.values():
-            try:
+            with contextlib.suppress(Exception):
                 await backend.shutdown()
-            except Exception:
-                pass
 
     async def ping(self) -> bool:
         for backend in self._backends.values():
@@ -105,9 +95,8 @@ class CompositeStorage(StorageBackend):
         basename = name.rsplit("/", 1)[-1] if "/" in name else name
 
         for pattern, alias in self._rules:
-            if fnmatch.fnmatch(basename, pattern):
-                if alias in self._backends:
-                    return self._backends[alias]
+            if fnmatch.fnmatch(basename, pattern) and alias in self._backends:
+                return self._backends[alias]
 
         # Fallback
         if self._fallback in self._backends:
@@ -128,15 +117,16 @@ class CompositeStorage(StorageBackend):
     async def save(
         self,
         name: str,
-        content: Union[bytes, BinaryIO, AsyncIterator[bytes], StorageFile],
+        content: bytes | BinaryIO | AsyncIterator[bytes] | StorageFile,
         *,
-        content_type: Optional[str] = None,
-        metadata: Optional[Dict[str, str]] = None,
+        content_type: str | None = None,
+        metadata: dict[str, str] | None = None,
         overwrite: bool = False,
     ) -> str:
         backend = self._resolve(name)
         return await backend.save(
-            name, content,
+            name,
+            content,
             content_type=content_type,
             metadata=metadata,
             overwrite=overwrite,
@@ -158,7 +148,7 @@ class CompositeStorage(StorageBackend):
         backend = self._resolve(name)
         return await backend.stat(name)
 
-    async def listdir(self, path: str = "") -> Tuple[List[str], List[str]]:
+    async def listdir(self, path: str = "") -> tuple[list[str], list[str]]:
         # Aggregate from all backends
         all_dirs: set = set()
         all_files: set = set()
@@ -172,6 +162,6 @@ class CompositeStorage(StorageBackend):
         backend = self._resolve(name)
         return await backend.size(name)
 
-    async def url(self, name: str, expire: Optional[int] = None) -> str:
+    async def url(self, name: str, expire: int | None = None) -> str:
         backend = self._resolve(name)
         return await backend.url(name, expire)

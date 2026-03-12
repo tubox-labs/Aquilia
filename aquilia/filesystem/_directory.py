@@ -12,24 +12,18 @@ from __future__ import annotations
 
 import os
 import shutil
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from pathlib import Path
-from typing import (
-    AsyncIterator,
-    List,
-    Optional,
-    Tuple,
-    Union,
-)
 
 from ._config import FileSystemConfig
-from ._errors import wrap_os_error, FileSystemIOFault
+from ._errors import FileSystemIOFault, wrap_os_error
 from ._pool import FileSystemPool
-
 
 # ═══════════════════════════════════════════════════════════════════════════
 # DirEntry — Async-friendly directory entry
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 @dataclass(frozen=True, slots=True)
 class DirEntry:
@@ -63,11 +57,12 @@ class DirEntry:
 # Directory Operations
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 async def list_dir(
-    path: Union[str, Path],
+    path: str | Path,
     *,
-    pool: Optional[FileSystemPool] = None,
-) -> List[str]:
+    pool: FileSystemPool | None = None,
+) -> list[str]:
     """
     List directory contents (names only).
 
@@ -90,10 +85,10 @@ async def list_dir(
 
 
 async def scan_dir(
-    path: Union[str, Path],
+    path: str | Path,
     *,
-    pool: Optional[FileSystemPool] = None,
-) -> List[DirEntry]:
+    pool: FileSystemPool | None = None,
+) -> list[DirEntry]:
     """
     Scan directory contents with metadata.
 
@@ -110,18 +105,20 @@ async def scan_dir(
     _pool = pool or _get_default_pool()
     path_str = str(path)
 
-    def _scan() -> List[DirEntry]:
-        entries: List[DirEntry] = []
+    def _scan() -> list[DirEntry]:
+        entries: list[DirEntry] = []
         with os.scandir(path_str) as it:
             for entry in it:
-                entries.append(DirEntry(
-                    name=entry.name,
-                    path=entry.path,
-                    is_file_cached=entry.is_file(follow_symlinks=False),
-                    is_dir_cached=entry.is_dir(follow_symlinks=False),
-                    is_symlink_cached=entry.is_symlink(),
-                    inode=entry.inode(),
-                ))
+                entries.append(
+                    DirEntry(
+                        name=entry.name,
+                        path=entry.path,
+                        is_file_cached=entry.is_file(follow_symlinks=False),
+                        is_dir_cached=entry.is_dir(follow_symlinks=False),
+                        is_symlink_cached=entry.is_symlink(),
+                        inode=entry.inode(),
+                    )
+                )
         return entries
 
     try:
@@ -131,12 +128,12 @@ async def scan_dir(
 
 
 async def make_dir(
-    path: Union[str, Path],
+    path: str | Path,
     *,
     mode: int = 0o777,
     parents: bool = False,
     exist_ok: bool = False,
-    pool: Optional[FileSystemPool] = None,
+    pool: FileSystemPool | None = None,
 ) -> None:
     """
     Create a directory.
@@ -163,9 +160,9 @@ async def make_dir(
 
 
 async def remove_dir(
-    path: Union[str, Path],
+    path: str | Path,
     *,
-    pool: Optional[FileSystemPool] = None,
+    pool: FileSystemPool | None = None,
 ) -> None:
     """
     Remove an empty directory.
@@ -186,11 +183,11 @@ async def remove_dir(
 
 
 async def remove_tree(
-    path: Union[str, Path],
+    path: str | Path,
     *,
     ignore_errors: bool = False,
-    pool: Optional[FileSystemPool] = None,
-    config: Optional[FileSystemConfig] = None,
+    pool: FileSystemPool | None = None,
+    config: FileSystemConfig | None = None,
 ) -> None:
     """
     Recursively remove a directory tree.
@@ -224,11 +221,11 @@ async def remove_tree(
 
 
 async def copy_tree(
-    src: Union[str, Path],
-    dst: Union[str, Path],
+    src: str | Path,
+    dst: str | Path,
     *,
-    pool: Optional[FileSystemPool] = None,
-    config: Optional[FileSystemConfig] = None,
+    pool: FileSystemPool | None = None,
+    config: FileSystemConfig | None = None,
     symlinks: bool = False,
     dirs_exist_ok: bool = False,
 ) -> str:
@@ -258,7 +255,8 @@ async def copy_tree(
     def _copytree() -> str:
         _check_depth(src_str, cfg.max_recursion_depth)
         result = shutil.copytree(
-            src_str, dst_str,
+            src_str,
+            dst_str,
             symlinks=symlinks,
             dirs_exist_ok=dirs_exist_ok,
         )
@@ -271,13 +269,13 @@ async def copy_tree(
 
 
 async def walk(
-    top: Union[str, Path],
+    top: str | Path,
     *,
     topdown: bool = True,
     followlinks: bool = False,
-    pool: Optional[FileSystemPool] = None,
-    config: Optional[FileSystemConfig] = None,
-) -> AsyncIterator[Tuple[str, List[str], List[str]]]:
+    pool: FileSystemPool | None = None,
+    config: FileSystemConfig | None = None,
+) -> AsyncIterator[tuple[str, list[str], list[str]]]:
     """
     Recursively walk a directory tree.
 
@@ -299,11 +297,13 @@ async def walk(
     cfg = config or FileSystemConfig()
     top_str = str(top)
 
-    def _walk() -> List[Tuple[str, List[str], List[str]]]:
-        results: List[Tuple[str, List[str], List[str]]] = []
+    def _walk() -> list[tuple[str, list[str], list[str]]]:
+        results: list[tuple[str, list[str], list[str]]] = []
         depth = 0
         for dirpath, dirnames, filenames in os.walk(
-            top_str, topdown=topdown, followlinks=followlinks,
+            top_str,
+            topdown=topdown,
+            followlinks=followlinks,
         ):
             # Approximate depth check
             rel = os.path.relpath(dirpath, top_str)
@@ -327,6 +327,7 @@ async def walk(
 # Internal Helpers
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 def _check_depth(path: str, max_depth: int) -> None:
     """
     Verify that a directory tree doesn't exceed the depth limit.
@@ -335,7 +336,6 @@ def _check_depth(path: str, max_depth: int) -> None:
     This is a best-effort check — the actual recursive operation
     may encounter deeper paths created concurrently.
     """
-    depth = 0
     for dirpath, dirnames, _ in os.walk(path):
         rel = os.path.relpath(dirpath, path)
         current_depth = 0 if rel == "." else rel.count(os.sep) + 1
@@ -352,4 +352,5 @@ def _check_depth(path: str, max_depth: int) -> None:
 def _get_default_pool() -> FileSystemPool:
     """Get the default filesystem pool (lazy singleton)."""
     from ._path import _get_default_pool as _get
+
     return _get()

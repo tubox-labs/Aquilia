@@ -8,13 +8,12 @@ Decorators and middleware for protecting routes.
 from __future__ import annotations
 
 import functools
-from typing import Any, Callable, Coroutine
+from collections.abc import Callable, Coroutine
+from typing import Any
 
 from .authz import AuthzContext, AuthzEngine
-from .core import Identity
-from .faults import AUTH_REQUIRED, AUTH_TOKEN_INVALID, AUTH_TOKEN_EXPIRED, AUTH_TOKEN_REVOKED
+from .faults import AUTH_REQUIRED, AUTH_TOKEN_EXPIRED, AUTH_TOKEN_INVALID, AUTH_TOKEN_REVOKED
 from .manager import AuthManager
-
 
 # ============================================================================
 # Guard Base
@@ -99,9 +98,7 @@ class AuthGuard(Guard):
 
             # Inject identity into context
             context["identity"] = identity
-            context["token_claims"] = await self.auth_manager.verify_token(
-                token
-            )
+            context["token_claims"] = await self.auth_manager.verify_token(token)
 
         except (AUTH_TOKEN_INVALID, AUTH_TOKEN_EXPIRED, AUTH_TOKEN_REVOKED, AUTH_REQUIRED):
             if self.optional:
@@ -239,9 +236,7 @@ class AuthzGuard(Guard):
 
         # Evaluate policy
         if self.policy_id:
-            result = self.authz_engine.abac.evaluate(
-                authz_context, self.policy_id
-            )
+            result = self.authz_engine.abac.evaluate(authz_context, self.policy_id)
             if result.decision.value == "deny":
                 from .faults import AUTHZ_POLICY_DENIED
 
@@ -340,9 +335,7 @@ class RoleGuard(Guard):
 # ============================================================================
 
 
-def require_auth(
-    auth_manager: AuthManager, optional: bool = False
-) -> Callable:
+def require_auth(auth_manager: AuthManager, optional: bool = False) -> Callable:
     """
     Decorator: Require authentication.
 
@@ -356,18 +349,14 @@ def require_auth(
             return {"user": identity.id}
     """
 
-    def decorator(
-        func: Callable[..., Coroutine[Any, Any, Any]]
-    ) -> Callable[..., Coroutine[Any, Any, Any]]:
+    def decorator(func: Callable[..., Coroutine[Any, Any, Any]]) -> Callable[..., Coroutine[Any, Any, Any]]:
         @functools.wraps(func)
         async def wrapper(*args, **kwargs):
             # Extract request from args
             request = args[0] if args else kwargs.get("request")
 
             # Get Authorization header
-            auth_header = getattr(request, "headers", {}).get(
-                "authorization", ""
-            )
+            auth_header = getattr(request, "headers", {}).get("authorization", "")
             if not auth_header.startswith("Bearer "):
                 if optional:
                     kwargs["identity"] = None
@@ -403,9 +392,7 @@ def require_scopes(*scopes: str) -> Callable:
             ...
     """
 
-    def decorator(
-        func: Callable[..., Coroutine[Any, Any, Any]]
-    ) -> Callable[..., Coroutine[Any, Any, Any]]:
+    def decorator(func: Callable[..., Coroutine[Any, Any, Any]]) -> Callable[..., Coroutine[Any, Any, Any]]:
         @functools.wraps(func)
         async def wrapper(*args, **kwargs):
             # Get token_claims from kwargs (injected by require_auth)
@@ -443,9 +430,7 @@ def require_roles(*roles: str, require_all: bool = False) -> Callable:
             ...
     """
 
-    def decorator(
-        func: Callable[..., Coroutine[Any, Any, Any]]
-    ) -> Callable[..., Coroutine[Any, Any, Any]]:
+    def decorator(func: Callable[..., Coroutine[Any, Any, Any]]) -> Callable[..., Coroutine[Any, Any, Any]]:
         @functools.wraps(func)
         async def wrapper(*args, **kwargs):
             token_claims = kwargs.get("token_claims")

@@ -10,11 +10,10 @@ that scaling decisions are based on recent trends, not stale snapshots.
 
 from __future__ import annotations
 
-import json
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from .._structures import SlidingWindow
 
@@ -24,6 +23,7 @@ logger = logging.getLogger("aquilia.mlops.scheduler.autoscaler")
 @dataclass
 class ScalingPolicy:
     """Autoscaling policy definition."""
+
     min_replicas: int = 1
     max_replicas: int = 10
     target_concurrency: float = 10.0
@@ -46,10 +46,11 @@ class ScalingPolicy:
 @dataclass
 class ScalingDecision:
     """Output of a scaling evaluation."""
+
     current_replicas: int
     desired_replicas: int
     reason: str
-    metrics: Dict[str, float] = field(default_factory=dict)
+    metrics: dict[str, float] = field(default_factory=dict)
 
 
 class Autoscaler:
@@ -63,7 +64,7 @@ class Autoscaler:
     rather than reacting to momentary spikes.
     """
 
-    def __init__(self, policy: Optional[ScalingPolicy] = None):
+    def __init__(self, policy: ScalingPolicy | None = None):
         self.policy = policy or ScalingPolicy()
         self._current_replicas = 1
         self._last_scale_time = 0.0
@@ -131,7 +132,7 @@ class Autoscaler:
         return errors / total if total > 0 else 0.0
 
     @property
-    def window_stats(self) -> Dict[str, float]:
+    def window_stats(self) -> dict[str, float]:
         """Summary of windowed metrics."""
         return {
             "rps": self.window_rps,
@@ -147,7 +148,7 @@ class Autoscaler:
 
     def evaluate(
         self,
-        metrics: Optional[Dict[str, float]] = None,
+        metrics: dict[str, float] | None = None,
     ) -> ScalingDecision:
         """
         Evaluate current metrics and decide on scaling.
@@ -239,7 +240,7 @@ class Autoscaler:
         self,
         deployment_name: str,
         namespace: str = "default",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Generate a Kubernetes HorizontalPodAutoscaler manifest.
 

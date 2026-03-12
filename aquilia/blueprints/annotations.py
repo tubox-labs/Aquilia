@@ -29,30 +29,21 @@ Usage::
 
 from __future__ import annotations
 
-import inspect
-import re
 import sys
 import types
 import uuid
+from collections.abc import Callable, Sequence
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from typing import (
     Any,
-    Callable,
-    Dict,
-    FrozenSet,
-    List,
     Optional,
-    Sequence,
-    Set,
-    Tuple,
-    Type,
     Union,
     get_args,
     get_origin,
-    get_type_hints,
 )
 
+from .exceptions import CastFault
 from .facets import (
     UNSET,
     BoolFacet,
@@ -67,7 +58,6 @@ from .facets import (
     Facet,
     FloatFacet,
     IntFacet,
-    JSONFacet,
     ListFacet,
     PolymorphicFacet,
     TextFacet,
@@ -75,8 +65,6 @@ from .facets import (
     URLFacet,
     UUIDFacet,
 )
-from .exceptions import CastFault, SealFault
-
 
 __all__ = [
     "Field",
@@ -90,7 +78,7 @@ __all__ = [
 
 # ── Type → Facet Mapping ────────────────────────────────────────────────
 
-ANNOTATION_TO_FACET: Dict[type, Type[Facet]] = {
+ANNOTATION_TO_FACET: dict[type, type[Facet]] = {
     str: TextFacet,
     int: IntFacet,
     float: FloatFacet,
@@ -108,6 +96,7 @@ ANNOTATION_TO_FACET: Dict[type, Type[Facet]] = {
 
 
 # ── Field Descriptor ────────────────────────────────────────────────────
+
 
 class Field:
     """
@@ -216,6 +205,7 @@ class Field:
     ):
         if default is not UNSET and default_factory is not None:
             from aquilia.faults.domains import ConfigInvalidFault
+
             raise ConfigInvalidFault(
                 key="field.default",
                 reason="Cannot specify both 'default' and 'default_factory'",
@@ -261,6 +251,7 @@ class Field:
 
 
 # ── NestedBlueprintFacet ────────────────────────────────────────────────
+
 
 class NestedBlueprintFacet(Facet):
     """
@@ -347,9 +338,7 @@ class NestedBlueprintFacet(Facet):
                 else:
                     errors[f"{self.name or '<unbound>'}[{i}]"] = bp.errors
             else:
-                errors[f"{self.name or '<unbound>'}[{i}]"] = [
-                    f"Expected object, got {type(item).__name__}"
-                ]
+                errors[f"{self.name or '<unbound>'}[{i}]"] = [f"Expected object, got {type(item).__name__}"]
         if errors:
             raise CastFault(
                 self.name or "<unbound>",
@@ -382,13 +371,10 @@ class NestedBlueprintFacet(Facet):
         for part in parts:
             if obj is None:
                 return None
-            if isinstance(obj, dict):
-                obj = obj.get(part)
-            else:
-                obj = getattr(obj, part, None)
+            obj = obj.get(part) if isinstance(obj, dict) else getattr(obj, part, None)
         return obj
 
-    def to_schema(self) -> Dict[str, Any]:
+    def to_schema(self) -> dict[str, Any]:
         """Generate JSON Schema with $ref to nested Blueprint."""
         ref_name = self._blueprint_cls.__name__
         if self.many:
@@ -400,6 +386,7 @@ class NestedBlueprintFacet(Facet):
 
 
 # ── LazyBlueprintFacet ──────────────────────────────────────────────────
+
 
 class LazyBlueprintFacet(Facet):
     """
@@ -424,6 +411,7 @@ class LazyBlueprintFacet(Facet):
         blueprint_cls = _blueprint_registry.get(self.ref)
         if blueprint_cls is None:
             from aquilia.faults.domains import RegistryFault
+
             raise RegistryFault(
                 name=self.ref,
                 message=f"Cannot resolve forward reference '{self.ref}'. Blueprint not found.",
@@ -441,7 +429,7 @@ class LazyBlueprintFacet(Facet):
         }
         self._resolved_facet = NestedBlueprintFacet(blueprint_cls, many=self.many, **kwargs)
         self._resolved_facet.name = self.name
-        
+
         # Merge validators if any were added to the lazy facet
         if self.validators:
             self._resolved_facet.validators.extend(self.validators)
@@ -464,11 +452,12 @@ class LazyBlueprintFacet(Facet):
     def extract(self, instance: Any) -> Any:
         return self._get_resolved().extract(instance)
 
-    def to_schema(self) -> Dict[str, Any]:
+    def to_schema(self) -> dict[str, Any]:
         return self._get_resolved().to_schema()
 
 
 # ── @computed Decorator ─────────────────────────────────────────────────
+
 
 class _ComputedMarker:
     """Internal marker for methods decorated with @computed."""
@@ -511,6 +500,7 @@ def computed(func: Callable) -> _ComputedMarker:
 
 from typing import ForwardRef
 
+
 def _is_blueprint_class(cls: Any) -> bool:
     """Check if cls is a Blueprint subclass (avoiding circular import)."""
     if isinstance(cls, str):
@@ -526,6 +516,7 @@ def _is_blueprint_class(cls: Any) -> bool:
                 return True
     return False
 
+
 def _extract_ref_name(cls: Any) -> str:
     """Extract string name from string or ForwardRef."""
     if isinstance(cls, ForwardRef):
@@ -536,27 +527,26 @@ def _extract_ref_name(cls: Any) -> str:
 def _safe_resolve_annotation(annotation_str: str, namespace: dict) -> Any:
     """
     Safely resolve a string annotation to a type without using eval().
-    
+
     Handles common patterns:
         - Simple names: "str", "int", "MyBlueprint"
         - Generic subscripts: "list[str]", "Optional[int]", "dict[str, int]"
         - Union syntax: "str | None" (PEP 604)
         - Nested generics: "list[Optional[str]]"
-    
+
     Security: This NEVER calls eval(). Only known type names from the
     namespace are resolved. Unknown names become ForwardRef.
     """
-    import ast
 
     annotation_str = annotation_str.strip()
-    
+
     # Simple name lookup
     if annotation_str.isidentifier():
         result = namespace.get(annotation_str)
         if result is not None:
             return result
         return ForwardRef(annotation_str)
-    
+
     # Handle PEP 604 union syntax: "X | Y | None"
     if "|" in annotation_str:
         parts = [p.strip() for p in annotation_str.split("|")]
@@ -568,39 +558,37 @@ def _safe_resolve_annotation(annotation_str: str, namespace: dict) -> Any:
                 resolved_parts.append(_safe_resolve_annotation(part, namespace))
         if len(resolved_parts) == 2 and type(None) in resolved_parts:
             non_none = [p for p in resolved_parts if p is not type(None)]
-            return Optional[non_none[0]]
-        return Union[tuple(resolved_parts)]
-    
+            return Optional[non_none[0]]  # noqa: UP045
+        return Union[tuple(resolved_parts)]  # noqa: UP007
+
     # Handle generic subscript: "list[str]", "Optional[int]", "dict[str, int]"
     bracket_start = annotation_str.find("[")
     if bracket_start > 0 and annotation_str.endswith("]"):
         origin_str = annotation_str[:bracket_start].strip()
-        args_str = annotation_str[bracket_start + 1:-1].strip()
-        
+        args_str = annotation_str[bracket_start + 1 : -1].strip()
+
         origin = namespace.get(origin_str)
         if origin is None:
             return ForwardRef(annotation_str)
-        
+
         # Parse args (handle nested brackets)
         args = _split_type_args(args_str)
-        resolved_args = tuple(
-            _safe_resolve_annotation(arg.strip(), namespace) for arg in args
-        )
-        
+        resolved_args = tuple(_safe_resolve_annotation(arg.strip(), namespace) for arg in args)
+
         if origin is Optional and len(resolved_args) == 1:
-            return Optional[resolved_args[0]]
+            return Optional[resolved_args[0]]  # noqa: UP045
         if origin is Union:
-            return Union[resolved_args]
-        
+            return Union[resolved_args]  # noqa: UP007
+
         try:
             return origin[resolved_args] if len(resolved_args) > 1 else origin[resolved_args[0]]
         except (TypeError, KeyError):
             return ForwardRef(annotation_str)
-    
+
     return ForwardRef(annotation_str)
 
 
-def _split_type_args(args_str: str) -> List[str]:
+def _split_type_args(args_str: str) -> list[str]:
     """Split type arguments respecting bracket nesting."""
     args = []
     depth = 0
@@ -622,7 +610,7 @@ def _split_type_args(args_str: str) -> List[str]:
     return args
 
 
-def _unwrap_optional(annotation: Any) -> Tuple[Any, bool]:
+def _unwrap_optional(annotation: Any) -> tuple[Any, bool]:
     """
     Unwrap Optional[T] or T | None → (T, is_optional).
 
@@ -658,7 +646,7 @@ def _unwrap_optional(annotation: Any) -> Tuple[Any, bool]:
     return annotation, False
 
 
-def _resolve_list_child(annotation: Any) -> Tuple[bool, Any]:
+def _resolve_list_child(annotation: Any) -> tuple[bool, Any]:
     """
     Check if annotation is list[T] and extract T.
 
@@ -696,7 +684,7 @@ def _build_facet_from_annotation(
     inner_type, is_optional = _unwrap_optional(annotation)
 
     # Collect kwargs from Field descriptor
-    kwargs: Dict[str, Any] = {}
+    kwargs: dict[str, Any] = {}
 
     if field_spec is not None:
         if field_spec.source is not None:
@@ -742,8 +730,7 @@ def _build_facet_from_annotation(
 
     # ── Nested Blueprint ─────────────────────────────────────────────
     if _is_blueprint_class(inner_type):
-        nested_kwargs = {k: v for k, v in kwargs.items()
-                         if k not in ("allow_blank",)}
+        nested_kwargs = {k: v for k, v in kwargs.items() if k not in ("allow_blank",)}
         if isinstance(inner_type, (str, ForwardRef)):
             ref_name = _extract_ref_name(inner_type)
             return LazyBlueprintFacet(ref_name, many=False, **nested_kwargs)
@@ -766,16 +753,24 @@ def _build_facet_from_annotation(
                     choices.append(arg_facet_cls())
 
         if choices:
-            poly_kwargs = {k: v for k, v in kwargs.items() 
-                           if k not in ("allow_blank", "min_length", "max_length")}
+            poly_kwargs = {k: v for k, v in kwargs.items() if k not in ("allow_blank", "min_length", "max_length")}
             return PolymorphicFacet(choices=choices, **poly_kwargs)
 
     # ── list[T] ──────────────────────────────────────────────────────
     is_list, child_type = _resolve_list_child(inner_type)
     if is_list:
-        list_kwargs: Dict[str, Any] = {}
-        for k in ("allow_null", "required", "read_only", "write_only",
-                   "default", "source", "label", "help_text", "validators"):
+        list_kwargs: dict[str, Any] = {}
+        for k in (
+            "allow_null",
+            "required",
+            "read_only",
+            "write_only",
+            "default",
+            "source",
+            "label",
+            "help_text",
+            "validators",
+        ):
             if k in kwargs:
                 list_kwargs[k] = kwargs[k]
 
@@ -800,9 +795,8 @@ def _build_facet_from_annotation(
 
     # ── dict ─────────────────────────────────────────────────────────
     if inner_type is dict or get_origin(inner_type) is dict:
-        dict_kwargs = {k: v for k, v in kwargs.items()
-                       if k not in ("allow_blank", "min_length", "max_length")}
-        
+        dict_kwargs = {k: v for k, v in kwargs.items() if k not in ("allow_blank", "min_length", "max_length")}
+
         args = get_args(inner_type)
         value_facet = None
         if len(args) == 2:
@@ -824,8 +818,7 @@ def _build_facet_from_annotation(
     facet_cls = ANNOTATION_TO_FACET.get(inner_type)
     if facet_cls is None:
         # Unknown type -- use generic Facet
-        return Facet(**{k: v for k, v in kwargs.items()
-                        if k not in ("min_length", "max_length", "allow_blank")})
+        return Facet(**{k: v for k, v in kwargs.items() if k not in ("min_length", "max_length", "allow_blank")})
 
     # Build type-specific kwargs
     type_kwargs = dict(kwargs)
@@ -840,13 +833,15 @@ def _build_facet_from_annotation(
                 type_kwargs["pattern"] = field_spec.pattern
     elif facet_cls in (IntFacet, FloatFacet):
         if field_spec is not None:
-            min_val = field_spec.ge if field_spec.ge is not None else (
-                field_spec.gt + 1 if field_spec.gt is not None and facet_cls is IntFacet
-                else field_spec.gt
+            min_val = (
+                field_spec.ge
+                if field_spec.ge is not None
+                else (field_spec.gt + 1 if field_spec.gt is not None and facet_cls is IntFacet else field_spec.gt)
             )
-            max_val = field_spec.le if field_spec.le is not None else (
-                field_spec.lt - 1 if field_spec.lt is not None and facet_cls is IntFacet
-                else field_spec.lt
+            max_val = (
+                field_spec.le
+                if field_spec.le is not None
+                else (field_spec.lt - 1 if field_spec.lt is not None and facet_cls is IntFacet else field_spec.lt)
             )
             if min_val is not None:
                 type_kwargs["min_value"] = min_val
@@ -882,7 +877,7 @@ def _build_facet_from_annotation(
     return facet_cls(**type_kwargs)
 
 
-def _build_constraint_validators(field_spec: Field) -> List[Callable]:
+def _build_constraint_validators(field_spec: Field) -> list[Callable]:
     """Build extra validators from Field gt/lt constraints (for float)."""
     extra = []
     if field_spec.gt is not None:
@@ -891,10 +886,12 @@ def _build_constraint_validators(field_spec: Field) -> List[Callable]:
         def _gt_validator(v, _b=bound):
             if v <= _b:
                 from aquilia.faults.domains import FieldValidationFault
+
                 raise FieldValidationFault(
                     field_name="value",
                     message=f"Must be greater than {_b}",
                 )
+
         extra.append(_gt_validator)
 
     if field_spec.lt is not None:
@@ -903,10 +900,12 @@ def _build_constraint_validators(field_spec: Field) -> List[Callable]:
         def _lt_validator(v, _b=bound):
             if v >= _b:
                 from aquilia.faults.domains import FieldValidationFault
+
                 raise FieldValidationFault(
                     field_name="value",
                     message=f"Must be less than {_b}",
                 )
+
         extra.append(_lt_validator)
 
     return extra
@@ -914,9 +913,9 @@ def _build_constraint_validators(field_spec: Field) -> List[Callable]:
 
 def introspect_annotations(
     cls: type,
-    namespace: Dict[str, Any],
+    namespace: dict[str, Any],
     bases: tuple,
-) -> Dict[str, Facet]:
+) -> dict[str, Facet]:
     """
     Introspect a Blueprint class's type annotations and produce Facet instances.
 
@@ -944,7 +943,7 @@ def introspect_annotations(
     Returns:
         Dict of field_name → Facet, in declaration order.
     """
-    result: Dict[str, Facet] = {}
+    result: dict[str, Facet] = {}
 
     # Gather annotations from the class itself (not inherited)
     raw_annotations = namespace.get("__annotations__", {})
@@ -962,6 +961,7 @@ def introspect_annotations(
 
     class AutoResolveMapping(dict):
         """Auto-wrap unknown names as ForwardRefs during eval()."""
+
         def __missing__(self, key: str) -> Any:
             return ForwardRef(key)
 
@@ -971,17 +971,18 @@ def introspect_annotations(
 
     # Import standard types that annotations commonly reference
     import builtins
+
     resolve_ns.update(vars(builtins))
     resolve_ns["Optional"] = Optional
     resolve_ns["Union"] = Union
-    resolve_ns["List"] = List
-    resolve_ns["Dict"] = Dict
-    resolve_ns["Set"] = Set
-    resolve_ns["Tuple"] = Tuple
-    resolve_ns["FrozenSet"] = FrozenSet
+    resolve_ns["List"] = list
+    resolve_ns["Dict"] = dict
+    resolve_ns["Set"] = set
+    resolve_ns["Tuple"] = tuple
+    resolve_ns["FrozenSet"] = frozenset
     resolve_ns["Sequence"] = Sequence
     resolve_ns["Any"] = Any
-    resolve_ns["Type"] = Type
+    resolve_ns["Type"] = type
 
     # Standard library types
     resolve_ns["datetime"] = datetime
@@ -1021,7 +1022,7 @@ def introspect_annotations(
     resolve_ns.update(caller_globals)
 
     # Resolve string annotations to actual types
-    resolved_annotations: Dict[str, Any] = {}
+    resolved_annotations: dict[str, Any] = {}
     for field_name, annotation in raw_annotations.items():
         if isinstance(annotation, str):
             # Security: Use safe resolution instead of eval()
@@ -1076,7 +1077,10 @@ def introspect_annotations(
 
         # Build the facet
         facet = _build_facet_from_annotation(
-            field_name, annotation, field_spec, class_default,
+            field_name,
+            annotation,
+            field_spec,
+            class_default,
         )
 
         if facet is not None:
@@ -1089,4 +1093,3 @@ def introspect_annotations(
             result[field_name] = facet
 
     return result
-

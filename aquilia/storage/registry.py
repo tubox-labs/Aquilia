@@ -15,38 +15,31 @@ controllers and effects can consume it.
 from __future__ import annotations
 
 import importlib
-from typing import Any, Dict, Iterator, Optional, Type
+from collections.abc import Iterator
+from typing import Any
 
 from .base import BackendUnavailableError, StorageBackend, StorageConfigFault
 from .configs import (
-    AzureBlobConfig,
-    CompositeConfig,
-    GCSConfig,
-    LocalConfig,
-    MemoryConfig,
-    S3Config,
-    SFTPConfig,
     StorageConfig,
     config_from_dict,
 )
-
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Backend factory map (shorthand → dotted import path)
 # ═══════════════════════════════════════════════════════════════════════════
 
-_BUILTIN_BACKENDS: Dict[str, str] = {
-    "local":     "aquilia.storage.backends.local.LocalStorage",
-    "memory":    "aquilia.storage.backends.memory.MemoryStorage",
-    "s3":        "aquilia.storage.backends.s3.S3Storage",
-    "gcs":       "aquilia.storage.backends.gcs.GCSStorage",
-    "azure":     "aquilia.storage.backends.azure.AzureBlobStorage",
-    "sftp":      "aquilia.storage.backends.sftp.SFTPStorage",
+_BUILTIN_BACKENDS: dict[str, str] = {
+    "local": "aquilia.storage.backends.local.LocalStorage",
+    "memory": "aquilia.storage.backends.memory.MemoryStorage",
+    "s3": "aquilia.storage.backends.s3.S3Storage",
+    "gcs": "aquilia.storage.backends.gcs.GCSStorage",
+    "azure": "aquilia.storage.backends.azure.AzureBlobStorage",
+    "sftp": "aquilia.storage.backends.sftp.SFTPStorage",
     "composite": "aquilia.storage.backends.composite.CompositeStorage",
 }
 
 
-def _import_backend(dotted: str) -> Type[StorageBackend]:
+def _import_backend(dotted: str) -> type[StorageBackend]:
     """Import a StorageBackend class from a dotted path."""
     module_path, _, cls_name = dotted.rpartition(".")
     mod = importlib.import_module(module_path)
@@ -73,8 +66,7 @@ def create_backend(config: StorageConfig) -> StorageBackend:
         dotted = backend_key
     else:
         raise BackendUnavailableError(
-            f"Unknown storage backend: {backend_key!r}. "
-            f"Available: {', '.join(_BUILTIN_BACKENDS)}",
+            f"Unknown storage backend: {backend_key!r}. Available: {', '.join(_BUILTIN_BACKENDS)}",
             backend=backend_key,
         )
 
@@ -85,6 +77,7 @@ def create_backend(config: StorageConfig) -> StorageBackend:
 # ═══════════════════════════════════════════════════════════════════════════
 # StorageRegistry
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class StorageRegistry:
     """
@@ -105,7 +98,7 @@ class StorageRegistry:
     __slots__ = ("_backends", "_default_alias")
 
     def __init__(self) -> None:
-        self._backends: Dict[str, StorageBackend] = {}
+        self._backends: dict[str, StorageBackend] = {}
         self._default_alias: str = "default"
 
     # -- Registration ------------------------------------------------------
@@ -114,7 +107,7 @@ class StorageRegistry:
         """Register a backend under an alias."""
         self._backends[alias] = backend
 
-    def unregister(self, alias: str) -> Optional[StorageBackend]:
+    def unregister(self, alias: str) -> StorageBackend | None:
         """Remove and return a backend by alias."""
         return self._backends.pop(alias, None)
 
@@ -141,7 +134,7 @@ class StorageRegistry:
                 backend=self._default_alias,
             )
 
-    def get(self, alias: str) -> Optional[StorageBackend]:
+    def get(self, alias: str) -> StorageBackend | None:
         """Return a backend by alias, or None."""
         return self._backends.get(alias)
 
@@ -150,8 +143,7 @@ class StorageRegistry:
             return self._backends[alias]
         except KeyError:
             raise BackendUnavailableError(
-                f"Storage backend {alias!r} not registered. "
-                f"Available: {', '.join(self._backends) or '(none)'}",
+                f"Storage backend {alias!r} not registered. Available: {', '.join(self._backends) or '(none)'}",
                 backend=alias,
             )
 
@@ -175,20 +167,20 @@ class StorageRegistry:
 
     async def initialize_all(self) -> None:
         """Initialize every registered backend."""
-        for alias, backend in self._backends.items():
+        for _alias, backend in self._backends.items():
             await backend.initialize()
 
     async def shutdown_all(self) -> None:
         """Shutdown every registered backend."""
-        for alias, backend in self._backends.items():
+        for _alias, backend in self._backends.items():
             try:
                 await backend.shutdown()
             except Exception:
                 pass  # Best-effort cleanup
 
-    async def health_check(self) -> Dict[str, bool]:
+    async def health_check(self) -> dict[str, bool]:
         """Ping every backend and return alias → healthy map."""
-        results: Dict[str, bool] = {}
+        results: dict[str, bool] = {}
         for alias, backend in self._backends.items():
             try:
                 results[alias] = await backend.ping()
@@ -199,7 +191,7 @@ class StorageRegistry:
     # -- Factory from config -----------------------------------------------
 
     @classmethod
-    def from_config(cls, configs: list[Dict[str, Any]]) -> "StorageRegistry":
+    def from_config(cls, configs: list[dict[str, Any]]) -> StorageRegistry:
         """
         Build a registry from a list of config dicts.
 

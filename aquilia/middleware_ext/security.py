@@ -24,36 +24,23 @@ Ecosystem Integration:
 
 from __future__ import annotations
 
+import contextlib
 import ipaddress
-import os
 import re
 import secrets
-import time
 from collections import OrderedDict
+from collections.abc import Awaitable, Callable
+from re import Pattern
 from typing import (
-    Any,
-    Awaitable,
-    Callable,
-    Dict,
-    FrozenSet,
-    List,
-    Optional,
-    Pattern,
-    Set,
-    Tuple,
-    Union,
     TYPE_CHECKING,
 )
 
+from aquilia.faults.domains import (
+    CORSViolationFault,
+    CSRFViolationFault,
+)
 from aquilia.request import Request
 from aquilia.response import Response
-from aquilia.faults.domains import (
-    SecurityFault,
-    CSRFViolationFault,
-    CORSViolationFault,
-    RateLimitExceededFault,
-    CSPViolationFault,
-)
 
 if TYPE_CHECKING:
     from aquilia.controller.base import RequestCtx
@@ -64,6 +51,7 @@ Handler = Callable[[Request, "RequestCtx"], Awaitable[Response]]
 # ═══════════════════════════════════════════════════════════════════════════════
 #  CORS Middleware  (RFC 6454 / 7231 / Fetch Standard)
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class _OriginMatcher:
     """
@@ -80,12 +68,12 @@ class _OriginMatcher:
 
     def __init__(
         self,
-        origins: List[Union[str, Pattern]],
+        origins: list[str | Pattern],
         cache_size: int = 512,
     ):
         self._allow_all = False
-        self._exact: Set[str] = set()
-        self._regex_patterns: List[Pattern] = []
+        self._exact: set[str] = set()
+        self._regex_patterns: list[Pattern] = []
         self._cache: OrderedDict[str, bool] = OrderedDict()
         self._cache_limit = cache_size
 
@@ -127,10 +115,7 @@ class _OriginMatcher:
     def _evaluate(self, origin: str) -> bool:
         if origin in self._exact:
             return True
-        for pattern in self._regex_patterns:
-            if pattern.match(origin):
-                return True
-        return False
+        return any(pattern.match(origin) for pattern in self._regex_patterns)
 
     @property
     def is_wildcard(self) -> bool:
@@ -161,13 +146,13 @@ class CORSMiddleware:
 
     def __init__(
         self,
-        allow_origins: Optional[List[Union[str, Pattern]]] = None,
-        allow_methods: Optional[List[str]] = None,
-        allow_headers: Optional[List[str]] = None,
-        expose_headers: Optional[List[str]] = None,
+        allow_origins: list[str | Pattern] | None = None,
+        allow_methods: list[str] | None = None,
+        allow_headers: list[str] | None = None,
+        expose_headers: list[str] | None = None,
         allow_credentials: bool = False,
         max_age: int = 600,
-        allow_origin_regex: Optional[str] = None,
+        allow_origin_regex: str | None = None,
     ):
         origins = list(allow_origins or ["*"])
         if allow_origin_regex:
@@ -175,11 +160,22 @@ class CORSMiddleware:
 
         self._matcher = _OriginMatcher(origins)
         self._allow_methods = allow_methods or [
-            "GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS",
+            "GET",
+            "POST",
+            "PUT",
+            "PATCH",
+            "DELETE",
+            "HEAD",
+            "OPTIONS",
         ]
         self._allow_headers = allow_headers or [
-            "accept", "accept-language", "content-language", "content-type",
-            "authorization", "x-requested-with", "x-request-id",
+            "accept",
+            "accept-language",
+            "content-language",
+            "content-type",
+            "authorization",
+            "x-requested-with",
+            "x-request-id",
         ]
         self._expose_headers = expose_headers or []
         self._allow_credentials = allow_credentials
@@ -190,9 +186,7 @@ class CORSMiddleware:
         self._headers_str = ", ".join(self._allow_headers)
         self._expose_str = ", ".join(self._expose_headers) if self._expose_headers else ""
 
-    async def __call__(
-        self, request: Request, ctx: "RequestCtx", next_handler: Handler
-    ) -> Response:
+    async def __call__(self, request: Request, ctx: RequestCtx, next_handler: Handler) -> Response:
         origin = request.header("origin")
 
         # No origin → not a CORS request
@@ -223,7 +217,7 @@ class CORSMiddleware:
         return response
 
     def _preflight(self, origin: str, request: Request, allowed: bool) -> Response:
-        headers: Dict[str, str] = {}
+        headers: dict[str, str] = {}
 
         if allowed:
             self._set_origin_header(headers, origin)
@@ -239,9 +233,7 @@ class CORSMiddleware:
 
         return Response(b"", status=204, headers=headers)
 
-    def _apply_cors_headers(
-        self, response: Response, origin: str, allowed: bool
-    ) -> None:
+    def _apply_cors_headers(self, response: Response, origin: str, allowed: bool) -> None:
         if allowed:
             self._set_origin_header(response.headers, origin)
 
@@ -270,6 +262,7 @@ class CORSMiddleware:
 #  CSP Middleware  (Content-Security-Policy)
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class CSPPolicy:
     """
     Builder for Content-Security-Policy directives.
@@ -297,96 +290,96 @@ class CSPPolicy:
 
     def __init__(
         self,
-        directives: Optional[Dict[str, List[str]]] = None,
+        directives: dict[str, list[str]] | None = None,
         report_only: bool = False,
     ):
-        self.directives: Dict[str, List[str]] = directives if directives is not None else {}
+        self.directives: dict[str, list[str]] = directives if directives is not None else {}
         self.report_only = report_only
 
-    def default_src(self, *sources: str) -> "CSPPolicy":
+    def default_src(self, *sources: str) -> CSPPolicy:
         self.directives["default-src"] = list(sources)
         return self
 
-    def script_src(self, *sources: str) -> "CSPPolicy":
+    def script_src(self, *sources: str) -> CSPPolicy:
         self.directives["script-src"] = list(sources)
         return self
 
-    def style_src(self, *sources: str) -> "CSPPolicy":
+    def style_src(self, *sources: str) -> CSPPolicy:
         self.directives["style-src"] = list(sources)
         return self
 
-    def img_src(self, *sources: str) -> "CSPPolicy":
+    def img_src(self, *sources: str) -> CSPPolicy:
         self.directives["img-src"] = list(sources)
         return self
 
-    def font_src(self, *sources: str) -> "CSPPolicy":
+    def font_src(self, *sources: str) -> CSPPolicy:
         self.directives["font-src"] = list(sources)
         return self
 
-    def connect_src(self, *sources: str) -> "CSPPolicy":
+    def connect_src(self, *sources: str) -> CSPPolicy:
         self.directives["connect-src"] = list(sources)
         return self
 
-    def media_src(self, *sources: str) -> "CSPPolicy":
+    def media_src(self, *sources: str) -> CSPPolicy:
         self.directives["media-src"] = list(sources)
         return self
 
-    def object_src(self, *sources: str) -> "CSPPolicy":
+    def object_src(self, *sources: str) -> CSPPolicy:
         self.directives["object-src"] = list(sources)
         return self
 
-    def frame_src(self, *sources: str) -> "CSPPolicy":
+    def frame_src(self, *sources: str) -> CSPPolicy:
         self.directives["frame-src"] = list(sources)
         return self
 
-    def frame_ancestors(self, *sources: str) -> "CSPPolicy":
+    def frame_ancestors(self, *sources: str) -> CSPPolicy:
         self.directives["frame-ancestors"] = list(sources)
         return self
 
-    def base_uri(self, *sources: str) -> "CSPPolicy":
+    def base_uri(self, *sources: str) -> CSPPolicy:
         self.directives["base-uri"] = list(sources)
         return self
 
-    def form_action(self, *sources: str) -> "CSPPolicy":
+    def form_action(self, *sources: str) -> CSPPolicy:
         self.directives["form-action"] = list(sources)
         return self
 
-    def worker_src(self, *sources: str) -> "CSPPolicy":
+    def worker_src(self, *sources: str) -> CSPPolicy:
         self.directives["worker-src"] = list(sources)
         return self
 
-    def child_src(self, *sources: str) -> "CSPPolicy":
+    def child_src(self, *sources: str) -> CSPPolicy:
         self.directives["child-src"] = list(sources)
         return self
 
-    def manifest_src(self, *sources: str) -> "CSPPolicy":
+    def manifest_src(self, *sources: str) -> CSPPolicy:
         self.directives["manifest-src"] = list(sources)
         return self
 
-    def upgrade_insecure_requests(self) -> "CSPPolicy":
+    def upgrade_insecure_requests(self) -> CSPPolicy:
         self.directives["upgrade-insecure-requests"] = []
         return self
 
-    def block_all_mixed_content(self) -> "CSPPolicy":
+    def block_all_mixed_content(self) -> CSPPolicy:
         self.directives["block-all-mixed-content"] = []
         return self
 
-    def report_uri(self, uri: str) -> "CSPPolicy":
+    def report_uri(self, uri: str) -> CSPPolicy:
         self.directives["report-uri"] = [uri]
         return self
 
-    def report_to(self, group: str) -> "CSPPolicy":
+    def report_to(self, group: str) -> CSPPolicy:
         self.directives["report-to"] = [group]
         return self
 
-    def directive(self, name: str, *sources: str) -> "CSPPolicy":
+    def directive(self, name: str, *sources: str) -> CSPPolicy:
         """Add an arbitrary directive."""
         self.directives[name] = list(sources)
         return self
 
-    def build(self, nonce: Optional[str] = None) -> str:
+    def build(self, nonce: str | None = None) -> str:
         """Compile directives into a CSP header value string."""
-        parts: List[str] = []
+        parts: list[str] = []
         for directive, sources in self.directives.items():
             if not sources:
                 parts.append(directive)
@@ -401,7 +394,7 @@ class CSPPolicy:
         return "; ".join(parts)
 
     @classmethod
-    def strict(cls) -> "CSPPolicy":
+    def strict(cls) -> CSPPolicy:
         """Strict CSP suitable for most web applications."""
         return (
             cls()
@@ -418,7 +411,7 @@ class CSPPolicy:
         )
 
     @classmethod
-    def relaxed(cls) -> "CSPPolicy":
+    def relaxed(cls) -> CSPPolicy:
         """Relaxed CSP for rapid development."""
         return (
             cls()
@@ -447,7 +440,7 @@ class CSPMiddleware:
 
     def __init__(
         self,
-        policy: Optional[CSPPolicy] = None,
+        policy: CSPPolicy | None = None,
         report_only: bool = False,
         nonce: bool = True,
     ):
@@ -455,21 +448,15 @@ class CSPMiddleware:
         self._report_only = report_only or self._policy.report_only
         self._nonce_enabled = nonce
 
-    async def __call__(
-        self, request: Request, ctx: "RequestCtx", next_handler: Handler
-    ) -> Response:
-        nonce: Optional[str] = None
+    async def __call__(self, request: Request, ctx: RequestCtx, next_handler: Handler) -> Response:
+        nonce: str | None = None
         if self._nonce_enabled:
             nonce = secrets.token_urlsafe(16)
             request.state["csp_nonce"] = nonce
 
         response = await next_handler(request, ctx)
 
-        header_name = (
-            "content-security-policy-report-only"
-            if self._report_only
-            else "content-security-policy"
-        )
+        header_name = "content-security-policy-report-only" if self._report_only else "content-security-policy"
         response.headers[header_name] = self._policy.build(nonce=nonce)
 
         return response
@@ -478,6 +465,7 @@ class CSPMiddleware:
 # ═══════════════════════════════════════════════════════════════════════════════
 #  HSTS Middleware  (RFC 6797)
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class HSTSMiddleware:
     """
@@ -504,9 +492,7 @@ class HSTSMiddleware:
             parts.append("preload")
         self._header_value = "; ".join(parts)
 
-    async def __call__(
-        self, request: Request, ctx: "RequestCtx", next_handler: Handler
-    ) -> Response:
+    async def __call__(self, request: Request, ctx: RequestCtx, next_handler: Handler) -> Response:
         response = await next_handler(request, ctx)
         response.headers["strict-transport-security"] = self._header_value
         return response
@@ -515,6 +501,7 @@ class HSTSMiddleware:
 # ═══════════════════════════════════════════════════════════════════════════════
 #  HTTPS Redirect Middleware
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class HTTPSRedirectMiddleware:
     """
@@ -532,16 +519,14 @@ class HTTPSRedirectMiddleware:
     def __init__(
         self,
         redirect_status: int = 301,
-        exclude_paths: Optional[List[str]] = None,
-        exclude_hosts: Optional[List[str]] = None,
+        exclude_paths: list[str] | None = None,
+        exclude_hosts: list[str] | None = None,
     ):
         self._status = redirect_status
-        self._exclude_paths: Set[str] = set(exclude_paths or [])
-        self._exclude_hosts: Set[str] = set(exclude_hosts or ["localhost", "127.0.0.1", "0.0.0.0"])
+        self._exclude_paths: set[str] = set(exclude_paths or [])
+        self._exclude_hosts: set[str] = set(exclude_hosts or ["localhost", "127.0.0.1", "0.0.0.0"])
 
-    async def __call__(
-        self, request: Request, ctx: "RequestCtx", next_handler: Handler
-    ) -> Response:
+    async def __call__(self, request: Request, ctx: RequestCtx, next_handler: Handler) -> Response:
         scheme = request.state.get("forwarded_proto") or self._get_scheme(request)
 
         if scheme == "https":
@@ -584,6 +569,7 @@ class HTTPSRedirectMiddleware:
 #  Proxy Fix Middleware  (X-Forwarded-* correction)
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class ProxyFixMiddleware:
     """
     Fix request attributes when behind a reverse proxy.
@@ -610,27 +596,23 @@ class ProxyFixMiddleware:
 
     def __init__(
         self,
-        trusted_proxies: Optional[List[str]] = None,
+        trusted_proxies: list[str] | None = None,
         x_for: int = 1,
         x_proto: int = 1,
         x_host: int = 1,
         x_port: int = 0,
     ):
-        self._trusted_networks: List[ipaddress.IPv4Network | ipaddress.IPv6Network] = []
-        for proxy in (trusted_proxies or ["127.0.0.0/8", "::1/128", "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"]):
-            try:
+        self._trusted_networks: list[ipaddress.IPv4Network | ipaddress.IPv6Network] = []
+        for proxy in trusted_proxies or ["127.0.0.0/8", "::1/128", "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"]:
+            with contextlib.suppress(ValueError):
                 self._trusted_networks.append(ipaddress.ip_network(proxy, strict=False))
-            except ValueError:
-                pass
 
         self._x_for = x_for
         self._x_proto = x_proto
         self._x_host = x_host
         self._x_port = x_port
 
-    async def __call__(
-        self, request: Request, ctx: "RequestCtx", next_handler: Handler
-    ) -> Response:
+    async def __call__(self, request: Request, ctx: RequestCtx, next_handler: Handler) -> Response:
         # Determine connecting IP
         remote_addr = self._get_remote_addr(request)
         if remote_addr and not self._is_trusted(remote_addr):
@@ -673,7 +655,7 @@ class ProxyFixMiddleware:
 
         return await next_handler(request, ctx)
 
-    def _get_remote_addr(self, request: Request) -> Optional[str]:
+    def _get_remote_addr(self, request: Request) -> str | None:
         """Extract connecting IP from ASGI scope."""
         if hasattr(request, "_scope") and isinstance(request._scope, dict):
             client = request._scope.get("client")
@@ -693,6 +675,7 @@ class ProxyFixMiddleware:
 # ═══════════════════════════════════════════════════════════════════════════════
 #  Security Headers Middleware (Helmet-style)
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class SecurityHeadersMiddleware:
     """
@@ -723,14 +706,14 @@ class SecurityHeadersMiddleware:
         self,
         frame_options: str = "DENY",
         referrer_policy: str = "strict-origin-when-cross-origin",
-        permissions_policy: Optional[Dict[str, str]] = None,
+        permissions_policy: dict[str, str] | None = None,
         cross_origin_opener_policy: str = "same-origin",
-        cross_origin_embedder_policy: Optional[str] = None,
+        cross_origin_embedder_policy: str | None = None,
         cross_origin_resource_policy: str = "same-origin",
         content_type_nosniff: bool = True,
         remove_server_header: bool = True,
     ):
-        self._headers: Dict[str, str] = {}
+        self._headers: dict[str, str] = {}
 
         if content_type_nosniff:
             self._headers["x-content-type-options"] = "nosniff"
@@ -758,9 +741,7 @@ class SecurityHeadersMiddleware:
 
         self._remove_server = remove_server_header
 
-    async def __call__(
-        self, request: Request, ctx: "RequestCtx", next_handler: Handler
-    ) -> Response:
+    async def __call__(self, request: Request, ctx: RequestCtx, next_handler: Handler) -> Response:
         response = await next_handler(request, ctx)
 
         for name, value in self._headers.items():
@@ -775,6 +756,7 @@ class SecurityHeadersMiddleware:
 # ═══════════════════════════════════════════════════════════════════════════════
 #  CSRF Middleware  (Cross-Site Request Forgery Protection)
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class CSRFError(CSRFViolationFault):
     """
@@ -873,25 +855,25 @@ class CSRFMiddleware:
         # })
     """
 
-    _SAFE_METHODS_DEFAULT: FrozenSet[str] = frozenset({"GET", "HEAD", "OPTIONS", "TRACE"})
+    _SAFE_METHODS_DEFAULT: frozenset[str] = frozenset({"GET", "HEAD", "OPTIONS", "TRACE"})
     _SESSION_KEY: str = "_csrf_token"
 
     def __init__(
         self,
-        secret_key: Optional[str] = None,
+        secret_key: str | None = None,
         token_length: int = 32,
         header_name: str = "X-CSRF-Token",
         field_name: str = "_csrf_token",
         cookie_name: str = "_csrf_cookie",
         cookie_path: str = "/",
-        cookie_domain: Optional[str] = None,
+        cookie_domain: str | None = None,
         cookie_secure: bool = False,
         cookie_samesite: str = "Lax",
         cookie_httponly: bool = False,
         cookie_max_age: int = 3600,
-        safe_methods: Optional[FrozenSet[str]] = None,
-        exempt_paths: Optional[List[str]] = None,
-        exempt_content_types: Optional[List[str]] = None,
+        safe_methods: frozenset[str] | None = None,
+        exempt_paths: list[str] | None = None,
+        exempt_content_types: list[str] | None = None,
         trust_ajax: bool = True,
         rotate_token: bool = False,
         failure_status: int = 403,
@@ -912,10 +894,8 @@ class CSRFMiddleware:
         self._cookie_httponly = cookie_httponly
         self._cookie_max_age = cookie_max_age
         self._safe_methods = safe_methods or self._SAFE_METHODS_DEFAULT
-        self._exempt_paths: Set[str] = set(exempt_paths or [])
-        self._exempt_content_types: Set[str] = set(
-            ct.lower() for ct in (exempt_content_types or [])
-        )
+        self._exempt_paths: set[str] = set(exempt_paths or [])
+        self._exempt_content_types: set[str] = set(ct.lower() for ct in (exempt_content_types or []))
         self._trust_ajax = trust_ajax
         self._rotate_token = rotate_token
         self._failure_status = failure_status
@@ -930,7 +910,7 @@ class CSRFMiddleware:
         """Sign a token using the Aquilia signing subsystem (CSRFSigner)."""
         return self._csrf_signer.sign(token)
 
-    def _verify_signed_token(self, signed: str) -> Optional[str]:
+    def _verify_signed_token(self, signed: str) -> str | None:
         """Verify a signed token. Returns the token if valid, None otherwise."""
         from aquilia.signing import BadSignature, SignatureMalformed
 
@@ -941,7 +921,7 @@ class CSRFMiddleware:
 
     # ── Token Storage (Session + Cookie Fallback) ────────────────────────
 
-    def _get_session_token(self, request: Request) -> Optional[str]:
+    def _get_session_token(self, request: Request) -> str | None:
         """Get the stored CSRF token from the session."""
         session = request.state.get("session")
         if session is not None:
@@ -958,11 +938,10 @@ class CSRFMiddleware:
     def _set_session_token(self, request: Request, token: str) -> None:
         """Store CSRF token in the session."""
         session = request.state.get("session")
-        if session is not None:
-            if hasattr(session, "__setitem__"):
-                session[self._SESSION_KEY] = token
+        if session is not None and hasattr(session, "__setitem__"):
+            session[self._SESSION_KEY] = token
 
-    def _get_cookie_token(self, request: Request) -> Optional[str]:
+    def _get_cookie_token(self, request: Request) -> str | None:
         """Get the CSRF token from the double-submit cookie."""
         cookie_value = None
         # Try cookies dict
@@ -975,7 +954,7 @@ class CSRFMiddleware:
                 for pair in cookie_header.split(";"):
                     pair = pair.strip()
                     if pair.startswith(f"{self._cookie_name}="):
-                        cookie_value = pair[len(self._cookie_name) + 1:]
+                        cookie_value = pair[len(self._cookie_name) + 1 :]
                         break
         if cookie_value:
             return self._verify_signed_token(cookie_value)
@@ -1004,7 +983,7 @@ class CSRFMiddleware:
 
     # ── Token Extraction from Request ────────────────────────────────────
 
-    def _get_submitted_token(self, request: Request) -> Optional[str]:
+    def _get_submitted_token(self, request: Request) -> str | None:
         """
         Extract the submitted CSRF token from the request.
 
@@ -1074,13 +1053,12 @@ class CSRFMiddleware:
     def _validate_token(self, stored: str, submitted: str) -> bool:
         """Constant-time comparison of CSRF tokens."""
         from aquilia.signing import constant_time_compare
+
         return constant_time_compare(stored, submitted)
 
     # ── Main Handler ─────────────────────────────────────────────────────
 
-    async def __call__(
-        self, request: Request, ctx: "RequestCtx", next_handler: Handler
-    ) -> Response:
+    async def __call__(self, request: Request, ctx: RequestCtx, next_handler: Handler) -> Response:
         """
         CSRF protection middleware handler.
 

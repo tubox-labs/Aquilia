@@ -19,21 +19,21 @@ import logging
 from dataclasses import dataclass, field
 from difflib import SequenceMatcher
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple, Type
+from typing import Any
 
 from .migration_dsl import (
-    ColumnDef,
-    CreateModel,
-    DropModel,
-    RenameModel,
-    AddField,
-    RemoveField,
-    AlterField,
-    RenameField,
-    CreateIndex,
-    DropIndex,
-    Operation,
     _SENTINEL,
+    AddField,
+    AlterField,
+    ColumnDef,
+    CreateIndex,
+    CreateModel,
+    DropIndex,
+    DropModel,
+    Operation,
+    RemoveField,
+    RenameField,
+    RenameModel,
     _normalize_fk_action,
 )
 
@@ -46,7 +46,7 @@ logger = logging.getLogger("aquilia.models.schema_snapshot")
 SNAPSHOT_VERSION = 1
 
 
-def create_snapshot(model_classes: list) -> Dict[str, Any]:
+def create_snapshot(model_classes: list) -> dict[str, Any]:
     """
     Create a schema snapshot from a list of Model subclasses.
 
@@ -75,19 +75,9 @@ def create_snapshot(model_classes: list) -> Dict[str, Any]:
             }
         }
     """
-    from .fields_module import (
-        Field, ForeignKey, OneToOneField, ManyToManyField,
-        AutoField, BigAutoField, IntegerField, BigIntegerField,
-        SmallIntegerField, FloatField, DecimalField,
-        CharField, TextField, SlugField, EmailField, URLField,
-        UUIDField, BooleanField, BinaryField, JSONField,
-        DateField, TimeField, DateTimeField, DurationField,
-        FileField, ImageField, GenericIPAddressField,
-        ArrayField, HStoreField,
-    )
     from .fields_module import Index as ModelIndex
 
-    models_data: Dict[str, Any] = {}
+    models_data: dict[str, Any] = {}
 
     for model_cls in model_classes:
         meta = model_cls._meta
@@ -100,35 +90,39 @@ def create_snapshot(model_classes: list) -> Dict[str, Any]:
         table = meta.table_name
 
         # Serialize fields
-        fields_data: Dict[str, Any] = {}
+        fields_data: dict[str, Any] = {}
         for field_name, fld in model_cls._fields.items():
             fld_info = _serialize_field(fld)
             fields_data[field_name] = fld_info
 
         # Serialize indexes from Meta
-        indexes_data: List[Dict[str, Any]] = []
+        indexes_data: list[dict[str, Any]] = []
         for idx in getattr(meta, "indexes", []):
             if isinstance(idx, ModelIndex):
-                idx_fields = list(idx.fields) if hasattr(idx, 'fields') else []
-                idx_name = getattr(idx, 'name', None) or _auto_index_name(table, idx_fields)
-                indexes_data.append({
-                    "name": idx_name,
-                    "columns": idx_fields,
-                    "unique": getattr(idx, 'unique', False),
-                })
+                idx_fields = list(idx.fields) if hasattr(idx, "fields") else []
+                idx_name = getattr(idx, "name", None) or _auto_index_name(table, idx_fields)
+                indexes_data.append(
+                    {
+                        "name": idx_name,
+                        "columns": idx_fields,
+                        "unique": getattr(idx, "unique", False),
+                    }
+                )
 
         # Add indexes from individual field db_index=True
         for field_name, fld in model_cls._fields.items():
-            if getattr(fld, 'db_index', False) and not getattr(fld, 'primary_key', False):
-                col_name = getattr(fld, 'column_name', field_name)
+            if getattr(fld, "db_index", False) and not getattr(fld, "primary_key", False):
+                col_name = getattr(fld, "column_name", field_name)
                 idx_name = _auto_index_name(table, [col_name])
                 # Avoid duplicates
                 if not any(i["name"] == idx_name for i in indexes_data):
-                    indexes_data.append({
-                        "name": idx_name,
-                        "columns": [col_name],
-                        "unique": getattr(fld, 'unique', False),
-                    })
+                    indexes_data.append(
+                        {
+                            "name": idx_name,
+                            "columns": [col_name],
+                            "unique": getattr(fld, "unique", False),
+                        }
+                    )
 
         meta_data = {
             "ordering": list(meta.ordering) if meta.ordering else [],
@@ -151,19 +145,14 @@ def create_snapshot(model_classes: list) -> Dict[str, Any]:
     return snapshot
 
 
-def _serialize_field(fld) -> Dict[str, Any]:
+def _serialize_field(fld) -> dict[str, Any]:
     """Serialize a single Field instance to a snapshot dict."""
     from .fields_module import (
-        ForeignKey, OneToOneField, ManyToManyField,
-        AutoField, BigAutoField, IntegerField, BigIntegerField,
-        SmallIntegerField, FloatField, DecimalField,
-        CharField, TextField, SlugField, EmailField, URLField,
-        UUIDField, BooleanField, BinaryField, JSONField,
-        DateField, TimeField, DateTimeField, DurationField,
-        FileField, ImageField,
+        ForeignKey,
+        OneToOneField,
     )
 
-    info: Dict[str, Any] = {
+    info: dict[str, Any] = {
         "field_class": type(fld).__name__,
     }
 
@@ -172,14 +161,15 @@ def _serialize_field(fld) -> Dict[str, Any]:
     info["type"] = sql_type
 
     # Constraints
-    if getattr(fld, 'primary_key', False):
+    if getattr(fld, "primary_key", False):
         info["primary_key"] = True
-    if getattr(fld, 'unique', False):
+    if getattr(fld, "unique", False):
         info["unique"] = True
-    if getattr(fld, 'null', False):
+    if getattr(fld, "null", False):
         info["nullable"] = True
-    if hasattr(fld, 'default') and fld.default is not None:
+    if hasattr(fld, "default") and fld.default is not None:
         from .fields_module import UNSET
+
         if fld.default is not UNSET:
             try:
                 # Only serialize JSON-safe defaults
@@ -192,7 +182,7 @@ def _serialize_field(fld) -> Dict[str, Any]:
                     info["default"] = str(fld.default)
 
     # Max length
-    if hasattr(fld, 'max_length') and fld.max_length:
+    if hasattr(fld, "max_length") and fld.max_length:
         info["max_length"] = fld.max_length
 
     # FK reference
@@ -204,18 +194,19 @@ def _serialize_field(fld) -> Dict[str, Any]:
             # stored on ``fld.related_model``.  If resolution hasn't happened
             # yet (or failed), fall back to the Django convention of
             # ``<ModelName> → <modelname>`` table name.
-            resolved = getattr(fld, 'related_model', None)
-            if resolved is not None and hasattr(resolved, '_meta'):
-                ref_table = getattr(resolved._meta, 'table_name', to.lower())
+            resolved = getattr(fld, "related_model", None)
+            if resolved is not None and hasattr(resolved, "_meta"):
+                ref_table = getattr(resolved._meta, "table_name", to.lower())
             else:
                 # Best-effort: look up in all known model classes that were
                 # passed alongside this one during snapshot creation.
                 ref_table = None
                 try:
                     from .base import _model_registry
+
                     for _reg_cls in _model_registry.values():
                         if _reg_cls.__name__ == to:
-                            ref_table = getattr(_reg_cls._meta, 'table_name', to.lower())
+                            ref_table = getattr(_reg_cls._meta, "table_name", to.lower())
                             break
                 except Exception:
                     pass
@@ -225,19 +216,19 @@ def _serialize_field(fld) -> Dict[str, Any]:
         elif isinstance(to, type):
             info["references"] = {
                 "model": to.__name__,
-                "table": getattr(to._meta, 'table_name', to.__name__.lower()),
+                "table": getattr(to._meta, "table_name", to.__name__.lower()),
             }
-        info["on_delete"] = getattr(fld, 'on_delete', 'CASCADE')
-        info["on_update"] = getattr(fld, 'on_update', 'CASCADE')
+        info["on_delete"] = getattr(fld, "on_delete", "CASCADE")
+        info["on_update"] = getattr(fld, "on_update", "CASCADE")
 
     # Decimal params
-    if hasattr(fld, 'max_digits') and fld.max_digits:
+    if hasattr(fld, "max_digits") and fld.max_digits:
         info["max_digits"] = fld.max_digits
-    if hasattr(fld, 'decimal_places') and fld.decimal_places is not None:
+    if hasattr(fld, "decimal_places") and fld.decimal_places is not None:
         info["decimal_places"] = fld.decimal_places
 
     # Column name override
-    col = getattr(fld, 'column_name', None) or getattr(fld, 'name', None)
+    col = getattr(fld, "column_name", None) or getattr(fld, "name", None)
     if col:
         info["column"] = col
 
@@ -247,12 +238,30 @@ def _serialize_field(fld) -> Dict[str, Any]:
 def _field_to_sql_type(fld) -> str:
     """Map a Field instance to its SQL type string."""
     from .fields_module import (
-        AutoField, BigAutoField, IntegerField, BigIntegerField,
-        SmallIntegerField, FloatField, DecimalField,
-        CharField, TextField, SlugField, EmailField, URLField,
-        UUIDField, BooleanField, BinaryField, JSONField,
-        DateField, TimeField, DateTimeField, DurationField,
-        FileField, ImageField, ForeignKey, OneToOneField,
+        AutoField,
+        BigAutoField,
+        BigIntegerField,
+        BinaryField,
+        BooleanField,
+        CharField,
+        DateField,
+        DateTimeField,
+        DecimalField,
+        DurationField,
+        EmailField,
+        FileField,
+        FloatField,
+        ForeignKey,
+        ImageField,
+        IntegerField,
+        JSONField,
+        OneToOneField,
+        SlugField,
+        SmallIntegerField,
+        TextField,
+        TimeField,
+        URLField,
+        UUIDField,
     )
 
     type_map = {
@@ -279,49 +288,51 @@ def _field_to_sql_type(fld) -> str:
             return sql_type
 
     if isinstance(fld, (CharField, SlugField, EmailField, URLField, FileField, ImageField)):
-        ml = getattr(fld, 'max_length', 255) or 255
+        ml = getattr(fld, "max_length", 255) or 255
         return f"VARCHAR({ml})"
 
     if isinstance(fld, TextField):
         return "TEXT"
 
     if isinstance(fld, DecimalField):
-        md = getattr(fld, 'max_digits', 10) or 10
-        dp = getattr(fld, 'decimal_places', 2) or 2
+        md = getattr(fld, "max_digits", 10) or 10
+        dp = getattr(fld, "decimal_places", 2) or 2
         return f"DECIMAL({md},{dp})"
 
     return "TEXT"
 
 
-def _auto_index_name(table: str, columns: List[str]) -> str:
+def _auto_index_name(table: str, columns: list[str]) -> str:
     """Generate a deterministic index name."""
     cols = "_".join(columns)
     return f"idx_{table}_{cols}"
 
 
-def _compute_checksum(snapshot: Dict[str, Any]) -> str:
+def _compute_checksum(snapshot: dict[str, Any]) -> str:
     """Compute a stable checksum of the snapshot (excluding checksum field)."""
     data = {k: v for k, v in snapshot.items() if k != "checksum"}
     raw = json.dumps(data, sort_keys=True, default=str)
     return hashlib.sha256(raw.encode()).hexdigest()[:16]
 
 
-def save_snapshot(snapshot: Dict[str, Any], path: Path) -> None:
+def save_snapshot(snapshot: dict[str, Any], path: Path) -> None:
     """Write snapshot to file in CROUS binary format."""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     # Always use CROUS binary format via _crous_native
     import _crous_native as crous_backend
+
     crous_backend.encode_to_file(snapshot, str(path))
 
 
-def load_snapshot(path: Path) -> Optional[Dict[str, Any]]:
+def load_snapshot(path: Path) -> dict[str, Any] | None:
     """Load snapshot from file in CROUS binary format."""
     path = Path(path)
     if not path.exists():
         return None
     try:
         import _crous_native as crous_backend
+
         return crous_backend.decode_from_file(str(path))
     except (OSError, Exception) as exc:
         logger.warning(f"Failed to load snapshot {path}: {exc}")
@@ -338,31 +349,26 @@ RENAME_THRESHOLD = 0.6
 class SchemaDiff:
     """Result of comparing two snapshots."""
 
-    added_models: List[str] = field(default_factory=list)
-    removed_models: List[str] = field(default_factory=list)
-    renamed_models: List[Tuple[str, str]] = field(default_factory=list)  # (old, new)
-    altered_models: Dict[str, "ModelDiff"] = field(default_factory=dict)
+    added_models: list[str] = field(default_factory=list)
+    removed_models: list[str] = field(default_factory=list)
+    renamed_models: list[tuple[str, str]] = field(default_factory=list)  # (old, new)
+    altered_models: dict[str, ModelDiff] = field(default_factory=dict)
 
     @property
     def has_changes(self) -> bool:
-        return bool(
-            self.added_models
-            or self.removed_models
-            or self.renamed_models
-            or self.altered_models
-        )
+        return bool(self.added_models or self.removed_models or self.renamed_models or self.altered_models)
 
 
 @dataclass
 class ModelDiff:
     """Changes within a single model."""
 
-    added_fields: List[str] = field(default_factory=list)
-    removed_fields: List[str] = field(default_factory=list)
-    renamed_fields: List[Tuple[str, str]] = field(default_factory=list)
-    altered_fields: List[str] = field(default_factory=list)  # fields with changed type/constraints
-    added_indexes: List[Dict[str, Any]] = field(default_factory=list)
-    removed_indexes: List[Dict[str, Any]] = field(default_factory=list)
+    added_fields: list[str] = field(default_factory=list)
+    removed_fields: list[str] = field(default_factory=list)
+    renamed_fields: list[tuple[str, str]] = field(default_factory=list)
+    altered_fields: list[str] = field(default_factory=list)  # fields with changed type/constraints
+    added_indexes: list[dict[str, Any]] = field(default_factory=list)
+    removed_indexes: list[dict[str, Any]] = field(default_factory=list)
 
     @property
     def has_changes(self) -> bool:
@@ -376,7 +382,7 @@ class ModelDiff:
         )
 
 
-def compute_diff(old_snapshot: Dict[str, Any], new_snapshot: Dict[str, Any]) -> SchemaDiff:
+def compute_diff(old_snapshot: dict[str, Any], new_snapshot: dict[str, Any]) -> SchemaDiff:
     """
     Compute the diff between two schema snapshots.
 
@@ -395,7 +401,7 @@ def compute_diff(old_snapshot: Dict[str, Any], new_snapshot: Dict[str, Any]) -> 
     purely_added = new_names - old_names
     purely_removed = old_names - new_names
 
-    renamed_pairs: List[Tuple[str, str]] = []
+    renamed_pairs: list[tuple[str, str]] = []
     if purely_added and purely_removed:
         renamed_pairs = _detect_model_renames(old_models, new_models, purely_removed, purely_added)
         for old_name, new_name in renamed_pairs:
@@ -407,7 +413,7 @@ def compute_diff(old_snapshot: Dict[str, Any], new_snapshot: Dict[str, Any]) -> 
     diff.renamed_models = renamed_pairs
 
     # Diff models that exist in both snapshots (including renamed)
-    common_pairs: List[Tuple[str, str]] = []
+    common_pairs: list[tuple[str, str]] = []
     for name in old_names & new_names:
         common_pairs.append((name, name))
     for old_name, new_name in renamed_pairs:
@@ -422,9 +428,11 @@ def compute_diff(old_snapshot: Dict[str, Any], new_snapshot: Dict[str, Any]) -> 
 
 
 def _detect_model_renames(
-    old_models: Dict, new_models: Dict,
-    removed: Set[str], added: Set[str],
-) -> List[Tuple[str, str]]:
+    old_models: dict,
+    new_models: dict,
+    removed: set[str],
+    added: set[str],
+) -> list[tuple[str, str]]:
     """
     Detect likely model renames using table-name and field-structure similarity.
 
@@ -432,9 +440,9 @@ def _detect_model_renames(
     1. Same table name → definite rename
     2. High field-structure similarity → probable rename
     """
-    pairs: List[Tuple[str, str]] = []
-    used_old: Set[str] = set()
-    used_new: Set[str] = set()
+    pairs: list[tuple[str, str]] = []
+    used_old: set[str] = set()
+    used_new: set[str] = set()
 
     # Pass 1: exact table name match
     for old_name in list(removed):
@@ -475,7 +483,7 @@ def _detect_model_renames(
     return pairs
 
 
-def _diff_model(old_model: Dict, new_model: Dict) -> ModelDiff:
+def _diff_model(old_model: dict, new_model: dict) -> ModelDiff:
     """Diff two model snapshots."""
     diff = ModelDiff()
 
@@ -489,7 +497,7 @@ def _diff_model(old_model: Dict, new_model: Dict) -> ModelDiff:
     added_fields = new_field_names - old_field_names
     removed_fields = old_field_names - new_field_names
 
-    renamed_pairs: List[Tuple[str, str]] = []
+    renamed_pairs: list[tuple[str, str]] = []
     if added_fields and removed_fields:
         renamed_pairs = _detect_field_renames(old_fields, new_fields, removed_fields, added_fields)
         for old_name, new_name in renamed_pairs:
@@ -519,12 +527,14 @@ def _diff_model(old_model: Dict, new_model: Dict) -> ModelDiff:
 
 
 def _detect_field_renames(
-    old_fields: Dict, new_fields: Dict,
-    removed: Set[str], added: Set[str],
-) -> List[Tuple[str, str]]:
+    old_fields: dict,
+    new_fields: dict,
+    removed: set[str],
+    added: set[str],
+) -> list[tuple[str, str]]:
     """Detect field renames using type similarity."""
-    pairs: List[Tuple[str, str]] = []
-    used_new: Set[str] = set()
+    pairs: list[tuple[str, str]] = []
+    used_new: set[str] = set()
 
     for old_name in list(removed):
         old_type = old_fields[old_name].get("type", "")
@@ -550,13 +560,10 @@ def _detect_field_renames(
     return pairs
 
 
-def _field_changed(old_field: Dict, new_field: Dict) -> bool:
+def _field_changed(old_field: dict, new_field: dict) -> bool:
     """Check if a field's schema-relevant properties changed."""
     keys = ("type", "primary_key", "unique", "nullable", "default", "max_length", "references")
-    for k in keys:
-        if old_field.get(k) != new_field.get(k):
-            return True
-    return False
+    return any(old_field.get(k) != new_field.get(k) for k in keys)
 
 
 # ── Generate Operations from Diff ───────────────────────────────────────────
@@ -564,9 +571,9 @@ def _field_changed(old_field: Dict, new_field: Dict) -> bool:
 
 def diff_to_operations(
     diff: SchemaDiff,
-    old_snapshot: Dict[str, Any],
-    new_snapshot: Dict[str, Any],
-) -> List[Operation]:
+    old_snapshot: dict[str, Any],
+    new_snapshot: dict[str, Any],
+) -> list[Operation]:
     """
     Convert a SchemaDiff into a list of DSL operations.
 
@@ -574,7 +581,7 @@ def diff_to_operations(
     the previous snapshot and the current models, then emits the
     minimal set of operations to bring the schema up to date.
     """
-    ops: List[Operation] = []
+    ops: list[Operation] = []
     new_models = new_snapshot.get("models", {})
     old_models = old_snapshot.get("models", {})
 
@@ -583,10 +590,14 @@ def diff_to_operations(
         old_table = old_models[old_name]["table"]
         new_table = new_models[new_name]["table"]
         if old_table != new_table:
-            ops.append(RenameModel(
-                old_name=old_name, new_name=new_name,
-                old_table=old_table, new_table=new_table,
-            ))
+            ops.append(
+                RenameModel(
+                    old_name=old_name,
+                    new_name=new_name,
+                    old_table=old_table,
+                    new_table=new_table,
+                )
+            )
 
     # 2. Removed models
     for name in diff.removed_models:
@@ -601,12 +612,14 @@ def diff_to_operations(
 
         # Add indexes for new models
         for idx in model_data.get("indexes", []):
-            ops.append(CreateIndex(
-                name=idx["name"],
-                table=model_data["table"],
-                columns=idx["columns"],
-                unique=idx.get("unique", False),
-            ))
+            ops.append(
+                CreateIndex(
+                    name=idx["name"],
+                    table=model_data["table"],
+                    columns=idx["columns"],
+                    unique=idx.get("unique", False),
+                )
+            )
 
     # 4. Altered models
     for model_name, model_diff in diff.altered_models.items():
@@ -615,10 +628,14 @@ def diff_to_operations(
 
         # Renamed fields
         for old_fname, new_fname in model_diff.renamed_fields:
-            ops.append(RenameField(
-                model_name=model_name, table=table,
-                old_name=old_fname, new_name=new_fname,
-            ))
+            ops.append(
+                RenameField(
+                    model_name=model_name,
+                    table=table,
+                    old_name=old_fname,
+                    new_name=new_fname,
+                )
+            )
 
         # Removed fields
         for fname in model_diff.removed_fields:
@@ -633,18 +650,25 @@ def diff_to_operations(
         # Altered fields
         for fname in model_diff.altered_fields:
             fld_data = model_data["fields"][fname]
-            ops.append(AlterField(
-                model_name=model_name, table=table,
-                column_name=getattr(fld_data, "get", lambda k, d=None: d)("column", fname),
-                new_type=fld_data.get("type"),
-            ))
+            ops.append(
+                AlterField(
+                    model_name=model_name,
+                    table=table,
+                    column_name=getattr(fld_data, "get", lambda k, d=None: d)("column", fname),
+                    new_type=fld_data.get("type"),
+                )
+            )
 
         # Added indexes
         for idx in model_diff.added_indexes:
-            ops.append(CreateIndex(
-                name=idx["name"], table=table,
-                columns=idx["columns"], unique=idx.get("unique", False),
-            ))
+            ops.append(
+                CreateIndex(
+                    name=idx["name"],
+                    table=table,
+                    columns=idx["columns"],
+                    unique=idx.get("unique", False),
+                )
+            )
 
         # Removed indexes
         for idx in model_diff.removed_indexes:
@@ -653,15 +677,15 @@ def diff_to_operations(
     return ops
 
 
-def _snapshot_fields_to_column_defs(fields_data: Dict[str, Any]) -> List[ColumnDef]:
+def _snapshot_fields_to_column_defs(fields_data: dict[str, Any]) -> list[ColumnDef]:
     """Convert snapshot field dicts to ColumnDef objects."""
-    defs: List[ColumnDef] = []
+    defs: list[ColumnDef] = []
     for name, data in fields_data.items():
         defs.append(_snapshot_field_to_column_def(name, data))
     return defs
 
 
-def _snapshot_field_to_column_def(name: str, data: Dict[str, Any]) -> ColumnDef:
+def _snapshot_field_to_column_def(name: str, data: dict[str, Any]) -> ColumnDef:
     """Convert a single snapshot field dict to a ColumnDef."""
     col_name = data.get("column", name)
     col_type = data.get("type", "TEXT")

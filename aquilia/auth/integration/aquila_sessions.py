@@ -17,14 +17,12 @@ from datetime import timedelta
 from typing import TYPE_CHECKING, Any
 
 from aquilia.sessions import (
+    ConcurrencyPolicy,
+    PersistencePolicy,
     Session,
     SessionEngine,
-    SessionID,
     SessionPolicy,
     SessionPrincipal,
-    SessionScope,
-    PersistencePolicy,
-    ConcurrencyPolicy,
     TransportPolicy,
 )
 
@@ -41,10 +39,10 @@ if TYPE_CHECKING:
 class AuthPrincipal(SessionPrincipal):
     """
     Authentication principal for Aquilia Sessions.
-    
+
     Extends SessionPrincipal with auth-specific data.
     """
-    
+
     def __init__(
         self,
         identity_id: str,
@@ -55,7 +53,7 @@ class AuthPrincipal(SessionPrincipal):
     ):
         """
         Initialize auth principal.
-        
+
         Args:
             identity_id: Identity ID
             tenant_id: Optional tenant ID
@@ -71,13 +69,13 @@ class AuthPrincipal(SessionPrincipal):
                 "roles": roles or [],
                 "scopes": scopes or [],
                 "mfa_verified": mfa_verified,
-            }
+            },
         )
         self.tenant_id = tenant_id
         self.roles = roles or []
         self.scopes = scopes or []
         self.mfa_verified = mfa_verified
-    
+
     @classmethod
     def from_identity(cls, identity: Identity) -> AuthPrincipal:
         """Create AuthPrincipal from Identity."""
@@ -88,18 +86,20 @@ class AuthPrincipal(SessionPrincipal):
             scopes=identity.get_attribute("scopes", []),
             mfa_verified=False,  # Set by MFA flow
         )
-    
+
     def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         data = super().to_dict()
-        data.update({
-            "tenant_id": self.tenant_id,
-            "roles": self.roles,
-            "scopes": self.scopes,
-            "mfa_verified": self.mfa_verified,
-        })
+        data.update(
+            {
+                "tenant_id": self.tenant_id,
+                "roles": self.roles,
+                "scopes": self.scopes,
+                "mfa_verified": self.mfa_verified,
+            }
+        )
         return data
-    
+
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> AuthPrincipal:
         """Deserialize from dictionary."""
@@ -120,14 +120,14 @@ class AuthPrincipal(SessionPrincipal):
 def bind_identity(session: Session, identity: Identity) -> None:
     """
     Bind identity to session.
-    
+
     Args:
         session: Aquilia session
         identity: Auth identity
     """
     # Set principal and mark as authenticated
     session.mark_authenticated(AuthPrincipal.from_identity(identity))
-    
+
     # Store identity data in session
     session["identity_id"] = identity.id
     session["tenant_id"] = identity.tenant_id
@@ -140,7 +140,7 @@ def bind_identity(session: Session, identity: Identity) -> None:
 def bind_token_claims(session: Session, claims: TokenClaims) -> None:
     """
     Bind token claims to session.
-    
+
     Args:
         session: Aquilia session
         claims: Token claims
@@ -202,13 +202,13 @@ def user_session_policy(
 ) -> SessionPolicy:
     """
     Create policy for user web sessions.
-    
+
     Args:
         ttl: Total session lifetime
         idle_timeout: Max idle time
         max_sessions: Max concurrent sessions per user
         store_name: SessionStore name
-        
+
     Returns:
         Configured SessionPolicy
     """
@@ -246,11 +246,11 @@ def api_session_policy(
 ) -> SessionPolicy:
     """
     Create policy for API token sessions.
-    
+
     Args:
         ttl: Token lifetime
         max_sessions: Max concurrent sessions (None for unlimited)
-        
+
     Returns:
         Configured SessionPolicy
     """
@@ -284,11 +284,11 @@ def device_session_policy(
 ) -> SessionPolicy:
     """
     Create policy for device (mobile app) sessions.
-    
+
     Args:
         ttl: Total session lifetime
         idle_timeout: Max idle time
-        
+
     Returns:
         Configured SessionPolicy
     """
@@ -324,22 +324,22 @@ def device_session_policy(
 class SessionAuthBridge:
     """
     Bridge between AuthManager and SessionEngine.
-    
+
     Coordinates authentication with session management.
     """
-    
+
     def __init__(
         self,
         session_engine: SessionEngine,
     ):
         """
         Initialize session-auth bridge.
-        
+
         Args:
             session_engine: Aquilia SessionEngine
         """
         self.session_engine = session_engine
-    
+
     async def create_auth_session(
         self,
         identity: Identity,
@@ -348,27 +348,27 @@ class SessionAuthBridge:
     ) -> Session:
         """
         Create authenticated session.
-        
+
         Args:
             identity: Authenticated identity
             request: Request object
             token_claims: Optional token claims
-            
+
         Returns:
             Created session with auth data bound
         """
         # Resolve session (will create new one)
         session = await self.session_engine.resolve(request)
-        
+
         # Bind identity
         bind_identity(session, identity)
-        
+
         # Bind token claims if provided
         if token_claims:
             bind_token_claims(session, token_claims)
-        
+
         return session
-    
+
     async def rotate_on_privilege_escalation(
         self,
         session: Session,
@@ -376,32 +376,32 @@ class SessionAuthBridge:
     ) -> Session:
         """
         Rotate session ID after privilege escalation (e.g., MFA).
-        
+
         Args:
             session: Current session
             response: Response object
-            
+
         Returns:
             New session with rotated ID
         """
         # Rotate session ID
         new_session = await self.session_engine.rotate(session)
-        
+
         # Emit to response
         await self.session_engine.commit(new_session, response)
-        
+
         return new_session
-    
+
     async def verify_and_extend(
         self,
         session: Session,
     ) -> bool:
         """
         Verify session is valid and extend if needed.
-        
+
         Args:
             session: Session to verify
-            
+
         Returns:
             True if valid, False otherwise
         """
@@ -409,7 +409,7 @@ class SessionAuthBridge:
         # Just check if identity is bound
         identity_id = get_identity_id(session)
         return identity_id is not None
-    
+
     async def logout(
         self,
         session: Session,
@@ -417,26 +417,26 @@ class SessionAuthBridge:
     ) -> None:
         """
         Logout - destroy session.
-        
+
         Args:
             session: Session to destroy
             response: Response object
         """
         await self.session_engine.destroy(session, response)
-    
+
     async def logout_all_devices(
         self,
         identity_id: str,
     ) -> None:
         """
         Logout from all devices - destroy all sessions for identity.
-        
+
         Args:
             identity_id: Identity ID
         """
         # List all sessions for this principal
         sessions = await self.session_engine.store.list_by_principal(identity_id)
-        
+
         # Delete all sessions
         for session in sessions:
             await self.session_engine.store.delete(session.id)

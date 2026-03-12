@@ -22,18 +22,20 @@ Usage:
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Type, TYPE_CHECKING
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from aquilia.models.base import Model
     from aquilia.auth.core import Identity
+    from aquilia.models.base import Model
 
-from aquilia.admin.permissions import has_admin_permission, AdminPermission
+from aquilia.admin.permissions import AdminPermission, has_admin_permission
 
 logger = logging.getLogger("aquilia.admin.options")
 
 
 # ── Action descriptor ────────────────────────────────────────────────────────
+
 
 class AdminActionDescriptor:
     """
@@ -47,6 +49,7 @@ class AdminActionDescriptor:
         activate_users.short_description = "Activate selected users"
         activate_users.confirmation = "Are you sure you want to activate these users?"
     """
+
     def __init__(
         self,
         func: Callable,
@@ -57,7 +60,9 @@ class AdminActionDescriptor:
     ):
         self.func = func
         self.name = name or func.__name__
-        self.short_description = short_description or getattr(func, "short_description", self.name.replace("_", " ").title())
+        self.short_description = short_description or getattr(
+            func, "short_description", self.name.replace("_", " ").title()
+        )
         self.confirmation = confirmation or getattr(func, "confirmation", "")
         self.permission = permission or getattr(func, "permission", "")
 
@@ -78,16 +83,19 @@ def action(
             async def activate(self, request, queryset):
                 return await queryset.update({"active": True})
     """
+
     def decorator(func: Callable) -> Callable:
         func._admin_action = True
         func.short_description = short_description or func.__name__.replace("_", " ").title()
         func.confirmation = confirmation
         func.permission = permission
         return func
+
     return decorator
 
 
 # ── ModelAdmin ────────────────────────────────────────────────────────────────
+
 
 class ModelAdmin:
     """
@@ -120,46 +128,46 @@ class ModelAdmin:
     """
 
     # ── Model reference ──────────────────────────────────────────────
-    model: Optional[Type[Model]] = None
+    model: type[Model] | None = None
 
     # ── List view configuration ──────────────────────────────────────
-    list_display: List[str] = []
-    list_display_links: Optional[List[str]] = None
-    list_filter: List[str] = []
-    list_editable: List[str] = []
-    search_fields: List[str] = []
-    ordering: List[str] = []
+    list_display: list[str] = []
+    list_display_links: list[str] | None = None
+    list_filter: list[str] = []
+    list_editable: list[str] = []
+    search_fields: list[str] = []
+    ordering: list[str] = []
     list_per_page: int = 25
     list_max_show_all: int = 200
-    date_hierarchy: Optional[str] = None
+    date_hierarchy: str | None = None
     show_full_result_count: bool = True
     preserve_filters: bool = True
 
     # ── Detail/Form view configuration ───────────────────────────────
-    fieldsets: Optional[List[Tuple[str, Dict[str, Any]]]] = None
-    fields: Optional[List[str]] = None
-    readonly_fields: List[str] = []
-    exclude: List[str] = []
-    prepopulated_fields: Dict[str, List[str]] = {}
-    raw_id_fields: List[str] = []
+    fieldsets: list[tuple[str, dict[str, Any]]] | None = None
+    fields: list[str] | None = None
+    readonly_fields: list[str] = []
+    exclude: list[str] = []
+    prepopulated_fields: dict[str, list[str]] = {}
+    raw_id_fields: list[str] = []
     save_on_top: bool = False
-    save_as: bool = False           # Show "Save as new" button
-    save_as_continue: bool = True   # After "Save as new", redirect to new object
+    save_as: bool = False  # Show "Save as new" button
+    save_as_continue: bool = True  # After "Save as new", redirect to new object
 
     # ── Inlines ──────────────────────────────────────────────────────
-    inlines: List[Any] = []  # List of InlineModelAdmin subclasses
+    inlines: list[Any] = []  # List of InlineModelAdmin subclasses
 
     # ── Actions ──────────────────────────────────────────────────────
-    actions: List[Any] = []
+    actions: list[Any] = []
 
     # ── Export ────────────────────────────────────────────────────────
-    export_formats: List[str] = ["csv", "json", "xml"]  # Available export formats
-    export_fields: Optional[List[str]] = None  # Fields to include in exports
+    export_formats: list[str] = ["csv", "json", "xml"]  # Available export formats
+    export_fields: list[str] | None = None  # Fields to include in exports
 
     # ── Display ──────────────────────────────────────────────────────
     empty_value_display: str = "--"
-    verbose_name: Optional[str] = None
-    verbose_name_plural: Optional[str] = None
+    verbose_name: str | None = None
+    verbose_name_plural: str | None = None
     icon: str = "list"  # Emoji icon for nav
 
     # ── Lifecycle hooks (override in subclass) ───────────────────────
@@ -167,10 +175,10 @@ class ModelAdmin:
     # implementation. When AdminHooksMixin is mixed in, these
     # become real hook methods with before/after lifecycle.
 
-    def __init__(self, model: Optional[Type[Model]] = None):
+    def __init__(self, model: type[Model] | None = None):
         if model is not None:
             self.model = model
-        self._actions: Dict[str, AdminActionDescriptor] = {}
+        self._actions: dict[str, AdminActionDescriptor] = {}
         self._setup_actions()
 
     def _setup_actions(self) -> None:
@@ -249,7 +257,7 @@ class ModelAdmin:
 
     # ── Auto-detection ───────────────────────────────────────────────
 
-    def get_list_display(self) -> List[str]:
+    def get_list_display(self) -> list[str]:
         """
         Get fields to display in list view.
         Auto-detects from model if not explicitly set.
@@ -265,7 +273,7 @@ class ModelAdmin:
         pk_name = getattr(self.model, "_pk_attr", "id")
         fields.append(pk_name)
 
-        for attr_name, field in self.model._fields.items():
+        for attr_name, _field in self.model._fields.items():
             if attr_name == pk_name:
                 continue
             if len(fields) >= 6:
@@ -274,7 +282,7 @@ class ModelAdmin:
 
         return fields
 
-    def get_list_filter(self) -> List[str]:
+    def get_list_filter(self) -> list[str]:
         """Get filter fields. Auto-detects boolean and choice fields."""
         if self.list_filter:
             return list(self.list_filter)
@@ -282,21 +290,17 @@ class ModelAdmin:
         if self.model is None:
             return []
 
-        from aquilia.models.fields_module import BooleanField, DateTimeField, DateField
+        from aquilia.models.fields_module import BooleanField, DateField, DateTimeField
 
         filters = []
         for attr_name, field in self.model._fields.items():
-            if isinstance(field, BooleanField):
-                filters.append(attr_name)
-            elif field.choices:
-                filters.append(attr_name)
-            elif isinstance(field, (DateTimeField, DateField)):
+            if isinstance(field, BooleanField) or field.choices or isinstance(field, (DateTimeField, DateField)):
                 filters.append(attr_name)
             if len(filters) >= 5:
                 break
         return filters
 
-    def get_search_fields(self) -> List[str]:
+    def get_search_fields(self) -> list[str]:
         """Get search fields. Auto-detects CharField and TextField."""
         if self.search_fields:
             return list(self.search_fields)
@@ -304,7 +308,7 @@ class ModelAdmin:
         if self.model is None:
             return []
 
-        from aquilia.models.fields_module import CharField, TextField, EmailField
+        from aquilia.models.fields_module import CharField, EmailField, TextField
 
         search = []
         for attr_name, field in self.model._fields.items():
@@ -314,7 +318,7 @@ class ModelAdmin:
                 break
         return search
 
-    def get_fields(self) -> List[str]:
+    def get_fields(self) -> list[str]:
         """Get editable fields for the form view."""
         if self.fields:
             return [f for f in self.fields if f not in self.exclude]
@@ -335,12 +339,13 @@ class ModelAdmin:
                 editable.append(attr_name)
         return editable
 
-    def get_readonly_fields(self) -> List[str]:
+    def get_readonly_fields(self) -> list[str]:
         """Get read-only fields."""
         readonly = list(self.readonly_fields)
 
         if self.model:
             from aquilia.models.fields_module import AutoField, BigAutoField
+
             for attr_name, field in self.model._fields.items():
                 if isinstance(field, (AutoField, BigAutoField)) and attr_name not in readonly:
                     readonly.append(attr_name)
@@ -351,7 +356,7 @@ class ModelAdmin:
 
         return readonly
 
-    def get_fieldsets(self) -> List[Tuple[str, Dict[str, Any]]]:
+    def get_fieldsets(self) -> list[tuple[str, dict[str, Any]]]:
         """
         Get fieldsets for the form view.
         Auto-generates a single fieldset if not explicitly set.
@@ -365,7 +370,7 @@ class ModelAdmin:
 
         return [("General", {"fields": fields})]
 
-    def get_ordering(self) -> List[str]:
+    def get_ordering(self) -> list[str]:
         """Get default ordering."""
         if self.ordering:
             return list(self.ordering)
@@ -404,13 +409,13 @@ class ModelAdmin:
             return getattr(self.model._meta, "app_label", "") or "default"
         return "default"
 
-    def get_actions(self) -> Dict[str, AdminActionDescriptor]:
+    def get_actions(self) -> dict[str, AdminActionDescriptor]:
         """Get available actions."""
         return dict(self._actions)
 
     # ── Field metadata for templates ─────────────────────────────────
 
-    def get_field_metadata(self, field_name: str) -> Dict[str, Any]:
+    def get_field_metadata(self, field_name: str) -> dict[str, Any]:
         """Get metadata about a field for template rendering."""
         if not self.model or field_name not in self.model._fields:
             return {"name": field_name, "type": "text", "label": field_name.replace("_", " ").title()}
@@ -431,16 +436,29 @@ class ModelAdmin:
     def _get_field_input_type(self, field: Any) -> str:
         """Map model field to HTML input type."""
         from aquilia.models.fields_module import (
-            BooleanField, IntegerField, BigIntegerField, SmallIntegerField,
-            FloatField, DecimalField, DateField, TimeField, DateTimeField,
-            EmailField, URLField, TextField, JSONField, UUIDField,
-            PositiveIntegerField, PositiveSmallIntegerField,
+            BigIntegerField,
+            BooleanField,
+            DateField,
+            DateTimeField,
+            DecimalField,
+            EmailField,
+            FloatField,
+            IntegerField,
+            JSONField,
+            PositiveIntegerField,
+            PositiveSmallIntegerField,
+            SmallIntegerField,
+            TextField,
+            TimeField,
+            URLField,
+            UUIDField,
         )
 
         if isinstance(field, BooleanField):
             return "checkbox"
-        if isinstance(field, (IntegerField, BigIntegerField, SmallIntegerField,
-                              PositiveIntegerField, PositiveSmallIntegerField)):
+        if isinstance(
+            field, (IntegerField, BigIntegerField, SmallIntegerField, PositiveIntegerField, PositiveSmallIntegerField)
+        ):
             return "number"
         if isinstance(field, (FloatField, DecimalField)):
             return "number"
@@ -466,31 +484,31 @@ class ModelAdmin:
 
     # ── Permissions ──────────────────────────────────────────────────
 
-    def has_view_permission(self, identity: Optional[Identity] = None) -> bool:
+    def has_view_permission(self, identity: Identity | None = None) -> bool:
         """Check if user can view records."""
         if identity is None:
             return False
         return identity.is_active()
 
-    def has_add_permission(self, identity: Optional[Identity] = None) -> bool:
+    def has_add_permission(self, identity: Identity | None = None) -> bool:
         """Check if user can add records."""
         if identity is None:
             return False
         return has_admin_permission(identity, AdminPermission.MODEL_ADD)
 
-    def has_change_permission(self, identity: Optional[Identity] = None) -> bool:
+    def has_change_permission(self, identity: Identity | None = None) -> bool:
         """Check if user can change records."""
         if identity is None:
             return False
         return has_admin_permission(identity, AdminPermission.MODEL_CHANGE)
 
-    def has_delete_permission(self, identity: Optional[Identity] = None) -> bool:
+    def has_delete_permission(self, identity: Identity | None = None) -> bool:
         """Check if user can delete records."""
         if identity is None:
             return False
         return has_admin_permission(identity, AdminPermission.MODEL_DELETE)
 
-    def has_module_permission(self, identity: Optional[Identity] = None) -> bool:
+    def has_module_permission(self, identity: Identity | None = None) -> bool:
         """Check if user can access this model's admin section."""
         return self.has_view_permission(identity)
 
@@ -506,6 +524,7 @@ class ModelAdmin:
 
         if isinstance(value, (list, dict)):
             import json
+
             return json.dumps(value, default=str, indent=2)
 
         return str(value)
@@ -529,7 +548,7 @@ class ModelAdmin:
             if isinstance(record, dict):
                 data = {k: v for k, v in record.items() if k != pk_attr and not k.startswith("_")}
             else:
-                for field_name in (self.model._fields if self.model else {}):
+                for field_name in self.model._fields if self.model else {}:
                     if field_name == pk_attr:
                         continue
                     val = getattr(record, field_name, None)
@@ -589,11 +608,12 @@ class ModelAdmin:
         count = count if isinstance(count, int) else 0
         return f"Unmarked {count} record(s) from featured"
 
-    def _find_boolean_field(self, *candidates: str) -> Optional[str]:
+    def _find_boolean_field(self, *candidates: str) -> str | None:
         """Find the first matching boolean field name on the model."""
         if not self.model:
             return None
         from aquilia.models.fields_module import BooleanField
+
         for name in candidates:
             if name in self.model._fields:
                 field = self.model._fields[name]
@@ -603,11 +623,11 @@ class ModelAdmin:
 
     # ── Inline helpers ───────────────────────────────────────────────
 
-    def get_inlines(self) -> List:
+    def get_inlines(self) -> list:
         """Return inline classes for this admin."""
         return list(self.inlines)
 
-    def get_inline_instances(self) -> List:
+    def get_inline_instances(self) -> list:
         """
         Instantiate InlineModelAdmin subclasses and resolve FK relationships.
         """
@@ -625,19 +645,18 @@ class ModelAdmin:
                 instances.append(inline_cls)
         return instances
 
-    def get_inline_template_data(self) -> List[Dict[str, Any]]:
+    def get_inline_template_data(self) -> list[dict[str, Any]]:
         """Get inline data serialized for template rendering."""
         return [
-            inst.to_template_data() if hasattr(inst, "to_template_data") else {}
-            for inst in self.get_inline_instances()
+            inst.to_template_data() if hasattr(inst, "to_template_data") else {} for inst in self.get_inline_instances()
         ]
 
     # ── Export helpers ────────────────────────────────────────────────
 
-    def get_export_formats(self) -> List[str]:
+    def get_export_formats(self) -> list[str]:
         """Return available export format names."""
         return list(self.export_formats)
 
-    def get_export_fields(self) -> Optional[List[str]]:
+    def get_export_fields(self) -> list[str] | None:
         """Return fields to include in exports (None = all)."""
         return self.export_fields

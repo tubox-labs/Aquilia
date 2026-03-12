@@ -8,16 +8,16 @@ DI container management, and integrated assertion helpers.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import unittest
-from typing import Any, Dict, List, Optional, Sequence, Type
+from typing import Any
 
 from aquilia.manifest import AppManifest
 
 from .assertions import AquiliaAssertions
 from .client import TestClient, TestResponse
 from .server import TestServer
-
 
 logger = logging.getLogger("aquilia.testing.cases")
 
@@ -36,6 +36,7 @@ class SimpleTestCase(unittest.TestCase, AquiliaAssertions):
                 result = my_func()
                 self.assertEqual(result, 42)
     """
+
     pass
 
 
@@ -69,8 +70,8 @@ class AquiliaTestCase(unittest.IsolatedAsyncioTestCase, AquiliaAssertions):
     """
 
     # ── Overridable class-level config ──────────────────────────────
-    manifests: List[AppManifest] = []
-    settings: Dict[str, Any] = {}
+    manifests: list[AppManifest] = []
+    settings: dict[str, Any] = {}
     enable_cache: bool = False
     enable_sessions: bool = False
     enable_auth: bool = False
@@ -137,6 +138,7 @@ class AquiliaTestCase(unittest.IsolatedAsyncioTestCase, AquiliaAssertions):
             return self.controller_router.url_for(route_name, **params)
         except Exception:
             from aquilia.faults.domains import RoutingFault
+
             raise RoutingFault(
                 message=f"Cannot reverse route {route_name!r}",
             )
@@ -190,10 +192,8 @@ class TransactionTestCase(AquiliaTestCase):
     async def asyncTearDown(self) -> None:
         # Rollback the transaction
         if self._transaction is not None:
-            try:
+            with contextlib.suppress(Exception):
                 await self._transaction.rollback()
-            except Exception:
-                pass
         await super().asyncTearDown()
 
 
@@ -222,7 +222,7 @@ class LiveServerTestCase(AquiliaTestCase):
     port: int = 0  # 0 = random port
 
     _uvicorn_server: Any = None
-    _serve_task: Optional[asyncio.Task] = None
+    _serve_task: asyncio.Task | None = None
     live_server_url: str = ""
 
     async def asyncSetUp(self) -> None:

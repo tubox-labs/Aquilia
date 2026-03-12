@@ -7,7 +7,7 @@ including per-projection schemas and $ref for Lens'd Blueprints.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Type, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from .core import Blueprint
@@ -17,11 +17,11 @@ __all__ = ["generate_schema", "generate_component_schemas"]
 
 
 def generate_schema(
-    blueprint_cls: Type[Blueprint],
+    blueprint_cls: type[Blueprint],
     *,
     projection: str | None = None,
     mode: str = "output",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Generate a JSON Schema for a Blueprint.
 
@@ -37,9 +37,9 @@ def generate_schema(
 
 
 def generate_component_schemas(
-    *blueprint_classes: Type[Blueprint],
+    *blueprint_classes: type[Blueprint],
     include_projections: bool = True,
-) -> Dict[str, Dict[str, Any]]:
+) -> dict[str, dict[str, Any]]:
     """
     Generate OpenAPI component schemas for multiple Blueprints.
 
@@ -49,7 +49,7 @@ def generate_component_schemas(
         blueprint_classes: Blueprint classes to generate schemas for
         include_projections: If True, generate separate schemas for each projection
     """
-    schemas: Dict[str, Dict[str, Any]] = {}
+    schemas: dict[str, dict[str, Any]] = {}
 
     for bp_cls in blueprint_classes:
         # Default schema

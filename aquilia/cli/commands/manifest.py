@@ -10,12 +10,11 @@ This command scans for controllers/services, detects drift against
 what is declared in manifest.py, and optionally updates the file.
 """
 
-import sys
-import re
 import ast
-from pathlib import Path
 import logging
-from typing import List, Optional, Set, Tuple
+import re
+import sys
+from pathlib import Path
 
 from aquilia.utils.scanner import PackageScanner
 
@@ -25,6 +24,7 @@ logger = logging.getLogger("aquilia.cli.manifest")
 # ═══════════════════════════════════════════════════════════════════════════
 # AST-Based Manifest Parser
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class _ManifestParser:
     """
@@ -38,10 +38,10 @@ class _ManifestParser:
     def __init__(self, source: str):
         self.source = source
         self.tree = ast.parse(source)
-        self.controllers: Set[str] = set()
-        self.services: Set[str] = set()
+        self.controllers: set[str] = set()
+        self.services: set[str] = set()
 
-    def parse(self) -> Tuple[List[str], List[str]]:
+    def parse(self) -> tuple[list[str], list[str]]:
         """Parse and return (controllers, services)."""
         for node in ast.walk(self.tree):
             # ── AppManifest(...) dataclass ──
@@ -86,13 +86,13 @@ class _ManifestParser:
                                     self.services.add(sval)
 
     @staticmethod
-    def _extract_str(node: ast.AST) -> Optional[str]:
+    def _extract_str(node: ast.AST) -> str | None:
         if isinstance(node, ast.Constant) and isinstance(node.value, str):
             return node.value
         return None
 
     @staticmethod
-    def _get_call_name(node: ast.Call) -> Optional[str]:
+    def _get_call_name(node: ast.Call) -> str | None:
         if isinstance(node.func, ast.Name):
             return node.func.id
         if isinstance(node.func, ast.Attribute):
@@ -103,6 +103,7 @@ class _ManifestParser:
 # ═══════════════════════════════════════════════════════════════════════════
 # Manifest Format Detection
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 def _detect_manifest_format(source: str) -> str:
     """
@@ -117,10 +118,12 @@ def _detect_manifest_format(source: str) -> str:
     return "appmanifest"
 
 
-def update_manifest(module_name: str, workspace_root: Path, check: bool = False, freeze: bool = False, verbose: bool = False):
+def update_manifest(
+    module_name: str, workspace_root: Path, check: bool = False, freeze: bool = False, verbose: bool = False
+):
     """
     Update manifest.py with auto-discovered resources.
-    
+
     Args:
         module_name: Name of the module
         workspace_root: Root of the workspace
@@ -130,149 +133,159 @@ def update_manifest(module_name: str, workspace_root: Path, check: bool = False,
     """
     module_dir = workspace_root / "modules" / module_name
     manifest_path = module_dir / "manifest.py"
-    
+
     if not manifest_path.exists():
         print(f"Error: Module '{module_name}' not found or missing manifest.py")
         sys.exit(1)
-        
+
     if verbose:
         print(f"Scanning module '{module_name}'...")
-    
+
     # 1. Scan for resources
     scanner = PackageScanner()
     base_package = f"modules.{module_name}"
-    
+
     # Enhanced Controller Discovery with Intelligence
     all_controllers = []
-    
-    # Strategy 1: Standard subpackage scanning  
+
+    # Strategy 1: Standard subpackage scanning
     standard_locations = [
         f"{base_package}.controllers",
         f"{base_package}.test_routes",
         f"{base_package}.handlers",
-        f"{base_package}.views", 
+        f"{base_package}.views",
         f"{base_package}.routes",
     ]
-    
+
     for location in standard_locations:
         try:
             controllers = scanner.scan_package(
                 location,
                 predicate=lambda cls: (
-                    cls.__name__.endswith("Controller") or
-                    cls.__name__.endswith("Handler") or
-                    cls.__name__.endswith("View") or
-                    hasattr(cls, '__controller_routes__') or
-                    hasattr(cls, 'prefix')
+                    cls.__name__.endswith("Controller")
+                    or cls.__name__.endswith("Handler")
+                    or cls.__name__.endswith("View")
+                    or hasattr(cls, "__controller_routes__")
+                    or hasattr(cls, "prefix")
                 ),
             )
             all_controllers.extend(controllers)
         except ImportError:
             pass
-    
+
     # Strategy 2: Enhanced individual file scanning
     try:
         import importlib
         from pathlib import Path
+
         module_package = importlib.import_module(base_package)
-        if hasattr(module_package, '__path__'):
+        if hasattr(module_package, "__path__"):
             module_dir = Path(module_package.__path__[0])
-            
+
             # Intelligent file pattern matching
             controller_patterns = [
-                "*controller*.py", "*ctrl*.py", "*handler*.py", 
-                "*view*.py", "*route*.py", "*api*.py",
-                "*endpoint*.py", "*resource*.py"
+                "*controller*.py",
+                "*ctrl*.py",
+                "*handler*.py",
+                "*view*.py",
+                "*route*.py",
+                "*api*.py",
+                "*endpoint*.py",
+                "*resource*.py",
             ]
-            
+
             candidate_files = set()
             for pattern in controller_patterns:
                 candidate_files.update(module_dir.glob(pattern))
-            
+
             # Also scan all Python files (fallback)
             all_py_files = set(module_dir.glob("*.py"))
-            other_files = all_py_files - candidate_files - {
-                module_dir / "__init__.py", 
-                module_dir / "manifest.py",
-                module_dir / "config.py",
-                module_dir / "settings.py"
-            }
-            
+            other_files = (
+                all_py_files
+                - candidate_files
+                - {
+                    module_dir / "__init__.py",
+                    module_dir / "manifest.py",
+                    module_dir / "config.py",
+                    module_dir / "settings.py",
+                }
+            )
+
             for py_file in sorted(candidate_files) + sorted(other_files):
-                if py_file.stem in ['__init__', 'manifest', 'config', 'settings']:
+                if py_file.stem in ["__init__", "manifest", "config", "settings"]:
                     continue
-                
+
                 # Quick content analysis for performance
                 try:
-                    content = py_file.read_text(encoding='utf-8', errors='ignore')
-                    if not ('Controller' in content or 'Handler' in content or 
-                           'View' in content or 'class ' in content):
+                    content = py_file.read_text(encoding="utf-8", errors="ignore")
+                    if not (
+                        "Controller" in content or "Handler" in content or "View" in content or "class " in content
+                    ):
                         continue
                 except Exception:
                     continue
-                
+
                 submodule_name = f"{base_package}.{py_file.stem}"
                 try:
                     file_controllers = scanner.scan_package(
                         submodule_name,
                         predicate=lambda cls: (
-                            cls.__name__.endswith("Controller") or
-                            cls.__name__.endswith("Handler") or
-                            cls.__name__.endswith("View") or
-                            hasattr(cls, '__controller_routes__') or
-                            hasattr(cls, 'prefix') or
+                            cls.__name__.endswith("Controller")
+                            or cls.__name__.endswith("Handler")
+                            or cls.__name__.endswith("View")
+                            or hasattr(cls, "__controller_routes__")
+                            or hasattr(cls, "prefix")
+                            or
                             # Duck typing for controller-like classes
-                            any(hasattr(cls, method) for method in ['get', 'post', 'put', 'delete'])
+                            any(hasattr(cls, method) for method in ["get", "post", "put", "delete"])
                         ),
                     )
                     all_controllers.extend(file_controllers)
                 except Exception:
                     pass
-                    
+
     except Exception as scan_error:
         if verbose:
             print(f"  !  Enhanced individual file scan failed for {module_name}: {scan_error}")
-    
+
     # Deduplicate results
     unique_controllers = {}
     for controller in all_controllers:
         key = f"{controller.__module__}:{controller.__name__}"
         if key not in unique_controllers:
             unique_controllers[key] = controller
-    
+
     found_controllers = sorted(unique_controllers.keys())
-    
+
     # Discover Services
     services = scanner.scan_package(
         f"{base_package}.services",
         predicate=lambda cls: cls.__name__.endswith("Service") or hasattr(cls, "__di_scope__"),
     )
-    
-    found_services = sorted(list(set(
-        f"{s.__module__}:{s.__name__}" for s in services
-    )))
-    
+
+    found_services = sorted(list(set(f"{s.__module__}:{s.__name__}" for s in services)))
+
     # 2. Parse Existing Manifest -- AST-based for both formats
     content = manifest_path.read_text(encoding="utf-8")
-    
+
     try:
         parser = _ManifestParser(content)
         existing_controllers, existing_services = parser.parse()
     except SyntaxError as e:
         print(f"Error: manifest.py has a syntax error at line {e.lineno}: {e.msg}")
         sys.exit(1)
-    
+
     manifest_format = _detect_manifest_format(content)
-    
+
     # Compute Diff
     missing_controllers = set(found_controllers) - set(existing_controllers)
     extra_controllers = set(existing_controllers) - set(found_controllers)
-    
+
     missing_services = set(found_services) - set(existing_services)
     extra_services = set(existing_services) - set(found_services)
-    
+
     has_changes = bool(missing_controllers or extra_controllers or missing_services or extra_services)
-    
+
     # Handle Check Mode
     if check:
         if not has_changes:
@@ -289,7 +302,7 @@ def update_manifest(module_name: str, workspace_root: Path, check: bool = False,
             if extra_services:
                 print(f"  Extra Services:      {', '.join(extra_services)}")
             sys.exit(1)
-    
+
     # Handle Update
     if not has_changes and not freeze:
         print(f"Manifest for '{module_name}' is already up to date.")
@@ -300,7 +313,7 @@ def update_manifest(module_name: str, workspace_root: Path, check: bool = False,
         # Module builder: replace register_controllers/register_services calls
         sync_marker = "# --- Synced Resources (aq manifest update) ---"
 
-        def generate_builder_block(method: str, items: List[str]) -> str:
+        def generate_builder_block(method: str, items: list[str]) -> str:
             if not items:
                 return ""
             items_str = ",\n    ".join([f'"{item}"' for item in items])
@@ -324,8 +337,8 @@ def update_manifest(module_name: str, workspace_root: Path, check: bool = False,
 
         # Replace controllers list
         content = re.sub(
-            r'(controllers\s*=\s*\[)[^\]]*(\])',
-            rf'\g<1>{ctrl_items}\2',
+            r"(controllers\s*=\s*\[)[^\]]*(\])",
+            rf"\g<1>{ctrl_items}\2",
             content,
             count=1,
         )
@@ -334,21 +347,21 @@ def update_manifest(module_name: str, workspace_root: Path, check: bool = False,
         # Only replace if services are plain strings, not ServiceConfig objects
         if "ServiceConfig(" not in content:
             content = re.sub(
-                r'(services\s*=\s*\[)[^\]]*(\])',
-                rf'\g<1>{svc_items}\2',
+                r"(services\s*=\s*\[)[^\]]*(\])",
+                rf"\g<1>{svc_items}\2",
                 content,
                 count=1,
             )
-    
+
     # Handle Freeze Mode (Disable autodiscovery)
     if freeze:
         # Regex replace .auto_discover(True) -> .auto_discover(False)
-        content = re.sub(r'\.auto_discover\(True\)', '.auto_discover(False)', content)
+        content = re.sub(r"\.auto_discover\(True\)", ".auto_discover(False)", content)
         # Also handle cases where it might be omitted or default (trickier, implying explicit True is best practice)
-        print(f" Freezing manifest (auto_discover=False)")
-        
+        print(" Freezing manifest (auto_discover=False)")
+
     manifest_path.write_text(content, encoding="utf-8")
     print(f"Updated {manifest_path.relative_to(workspace_root)}")
-    
+
     if missing_controllers or missing_services:
         print(f"  Synced {len(missing_controllers) + len(missing_services)} new items.")

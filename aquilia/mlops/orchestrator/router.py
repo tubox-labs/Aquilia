@@ -18,8 +18,8 @@ from __future__ import annotations
 
 import logging
 import random
-from dataclasses import dataclass, field
-from typing import Any, Dict, Optional
+from dataclasses import dataclass
+from typing import Any
 
 from .registry import ModelRegistry
 
@@ -29,6 +29,7 @@ logger = logging.getLogger("aquilia.mlops.orchestrator.router")
 @dataclass
 class CanaryConfig:
     """Active canary configuration for a model."""
+
     canary_version: str
     base_version: str
     percentage: float = 10.0  # 0–100
@@ -48,15 +49,15 @@ class VersionRouter:
 
     def __init__(self, registry: ModelRegistry) -> None:
         self._registry = registry
-        self._canaries: Dict[str, CanaryConfig] = {}
+        self._canaries: dict[str, CanaryConfig] = {}
 
     # ── Routing ──────────────────────────────────────────────────────
 
     async def route(
         self,
         model_name: str,
-        headers: Optional[Dict[str, str]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        headers: dict[str, str] | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> str:
         """
         Resolve which model version should handle this request.
@@ -89,6 +90,7 @@ class VersionRouter:
         active = self._registry.get_active_version(model_name)
         if active is None:
             from aquilia.faults.domains import ModelNotFoundFault
+
             raise ModelNotFoundFault(
                 model=model_name,
                 reason=f"Model '{model_name}' is not registered",
@@ -102,7 +104,7 @@ class VersionRouter:
         model_name: str,
         canary_version: str,
         percentage: float = 10.0,
-        base_version: Optional[str] = None,
+        base_version: str | None = None,
     ) -> None:
         """
         Configure canary routing for a model.
@@ -116,6 +118,7 @@ class VersionRouter:
         base = base_version or self._registry.get_active_version(model_name)
         if base is None:
             from aquilia.faults.domains import ModelNotFoundFault
+
             raise ModelNotFoundFault(
                 model=model_name,
                 reason=f"Model '{model_name}' has no active version",
@@ -131,7 +134,7 @@ class VersionRouter:
         """Remove canary routing for a model."""
         self._canaries.pop(model_name, None)
 
-    def get_canary(self, model_name: str) -> Optional[CanaryConfig]:
+    def get_canary(self, model_name: str) -> CanaryConfig | None:
         """Get the active canary config for a model."""
         return self._canaries.get(model_name)
 
@@ -139,7 +142,7 @@ class VersionRouter:
         """Check if a canary is active for a model."""
         return model_name in self._canaries
 
-    def summary(self) -> Dict[str, Any]:
+    def summary(self) -> dict[str, Any]:
         """Canary routing summary."""
         return {
             name: {

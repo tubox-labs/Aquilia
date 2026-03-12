@@ -19,21 +19,12 @@ from __future__ import annotations
 import hashlib
 import mimetypes
 import os
-import stat
-import time
 from collections import OrderedDict
+from collections.abc import Awaitable, Callable
 from datetime import datetime, timezone
 from email.utils import formatdate, parsedate_to_datetime
 from pathlib import Path
 from typing import (
-    Any,
-    Awaitable,
-    Callable,
-    Dict,
-    List,
-    Optional,
-    Set,
-    Tuple,
     TYPE_CHECKING,
 )
 
@@ -46,7 +37,7 @@ if TYPE_CHECKING:
 Handler = Callable[[Request, "RequestCtx"], Awaitable[Response]]
 
 # ─── Custom MIME types beyond stdlib ──────────────────────────────────────────
-_EXTRA_MIME_TYPES: Dict[str, str] = {
+_EXTRA_MIME_TYPES: dict[str, str] = {
     ".woff2": "font/woff2",
     ".woff": "font/woff",
     ".ttf": "font/ttf",
@@ -71,14 +62,16 @@ for _ext, _mime in _EXTRA_MIME_TYPES.items():
 
 # ─── Radix Trie for prefix matching ──────────────────────────────────────────
 
+
 class _RadixNode:
     """Node in the radix trie for URL-prefix → directory mapping."""
+
     __slots__ = ("children", "directory", "prefix")
 
     def __init__(self, prefix: str = ""):
         self.prefix: str = prefix
-        self.children: Dict[str, "_RadixNode"] = {}
-        self.directory: Optional[Path] = None
+        self.children: dict[str, _RadixNode] = {}
+        self.directory: Path | None = None
 
 
 class _RadixTrie:
@@ -109,18 +102,18 @@ class _RadixTrie:
                 if common == key:
                     # Full match on this edge, continue down
                     node = child
-                    remaining = remaining[len(common):]
+                    remaining = remaining[len(common) :]
                     matched = True
                     break
                 else:
                     # Partial match -- split the edge
                     split_child = _RadixNode(prefix=common)
-                    child.prefix = key[len(common):]
+                    child.prefix = key[len(common) :]
                     split_child.children[child.prefix] = child
                     node.children[common] = split_child
                     del node.children[key]
 
-                    rest = remaining[len(common):]
+                    rest = remaining[len(common) :]
                     if rest:
                         new_node = _RadixNode(prefix=rest)
                         new_node.directory = directory
@@ -137,7 +130,7 @@ class _RadixTrie:
 
         node.directory = directory
 
-    def lookup(self, path: str) -> Optional[Tuple[Path, str]]:
+    def lookup(self, path: str) -> tuple[Path, str] | None:
         """
         Find the longest matching prefix for *path*.
 
@@ -147,7 +140,7 @@ class _RadixTrie:
         path = "/" + path.strip("/")
         node = self.root
         consumed = 0
-        best: Optional[Tuple[Path, int]] = None
+        best: tuple[Path, int] | None = None
 
         if node.directory is not None:
             best = (node.directory, consumed)
@@ -159,7 +152,7 @@ class _RadixTrie:
                 if remaining.startswith(key):
                     node = child
                     consumed += len(key)
-                    remaining = remaining[len(key):]
+                    remaining = remaining[len(key) :]
                     if node.directory is not None:
                         best = (node.directory, consumed)
                     advanced = True
@@ -185,6 +178,7 @@ class _RadixTrie:
 
 # ─── LRU File Cache ──────────────────────────────────────────────────────────
 
+
 class _LRUFileCache:
     """
     Thread-safe LRU cache for hot static files.
@@ -199,10 +193,10 @@ class _LRUFileCache:
     def __init__(self, capacity_bytes: int = 64 * 1024 * 1024, max_file_size: int = 1024 * 1024):
         self._capacity = capacity_bytes
         self._max_file_size = max_file_size
-        self._store: OrderedDict[str, Tuple[bytes, str, str, float]] = OrderedDict()
+        self._store: OrderedDict[str, tuple[bytes, str, str, float]] = OrderedDict()
         self._current_size = 0
 
-    def get(self, key: str) -> Optional[Tuple[bytes, str, str, float]]:
+    def get(self, key: str) -> tuple[bytes, str, str, float] | None:
         """Retrieve cached entry, promoting to MRU position."""
         entry = self._store.get(key)
         if entry is not None:
@@ -235,6 +229,7 @@ class _LRUFileCache:
 
 # ─── Static File Middleware ───────────────────────────────────────────────────
 
+
 class StaticMiddleware:
     """
     Production-grade static file serving middleware.
@@ -264,7 +259,7 @@ class StaticMiddleware:
 
     def __init__(
         self,
-        directories: Optional[Dict[str, str]] = None,
+        directories: dict[str, str] | None = None,
         cache_max_age: int = 86400,
         immutable: bool = False,
         etag: bool = True,
@@ -274,10 +269,10 @@ class StaticMiddleware:
         memory_cache: bool = True,
         memory_cache_size: int = 64 * 1024 * 1024,
         memory_cache_file_limit: int = 1024 * 1024,
-        allowed_extensions: Optional[Set[str]] = None,
-        index_file: Optional[str] = "index.html",
+        allowed_extensions: set[str] | None = None,
+        index_file: str | None = "index.html",
         html5_history: bool = False,
-        extra_directories: Optional[Dict[str, List[str]]] = None,
+        extra_directories: dict[str, list[str]] | None = None,
     ):
         self._trie = _RadixTrie()
         self._cache_max_age = cache_max_age
@@ -291,7 +286,7 @@ class StaticMiddleware:
         self._html5_history = html5_history
 
         # Resolve and validate directories
-        self._directories: Dict[str, Path] = {}
+        self._directories: dict[str, Path] = {}
         for url_prefix, fs_dir in (directories or {"/static": "static"}).items():
             resolved = Path(fs_dir).resolve()
             if not resolved.is_dir():
@@ -303,10 +298,10 @@ class StaticMiddleware:
         # Fallback directories per URL prefix (for module static dirs).
         # When a file isn't found in the primary directory for a prefix,
         # these are searched in order.
-        self._fallback_dirs: Dict[str, List[Path]] = {}
+        self._fallback_dirs: dict[str, list[Path]] = {}
         for url_prefix, fs_dirs in (extra_directories or {}).items():
             prefix_key = "/" + url_prefix.strip("/")
-            fallbacks: List[Path] = []
+            fallbacks: list[Path] = []
             for fs_dir in fs_dirs:
                 resolved = Path(fs_dir).resolve()
                 if not resolved.is_dir():
@@ -322,7 +317,7 @@ class StaticMiddleware:
                     self._directories[prefix_key] = fallbacks[0]
 
         # Memory cache
-        self._file_cache: Optional[_LRUFileCache] = None
+        self._file_cache: _LRUFileCache | None = None
         if memory_cache:
             self._file_cache = _LRUFileCache(
                 capacity_bytes=memory_cache_size,
@@ -334,7 +329,7 @@ class StaticMiddleware:
     async def __call__(
         self,
         request: Request,
-        ctx: "RequestCtx",
+        ctx: RequestCtx,
         next_handler: Handler,
     ) -> Response:
         """Serve static file or fall through to next handler."""
@@ -375,7 +370,7 @@ class StaticMiddleware:
 
         return await next_handler(request, ctx)
 
-    def _matched_prefix(self, path: str) -> Optional[str]:
+    def _matched_prefix(self, path: str) -> str | None:
         """Return the URL prefix that matched *path*, or None."""
         path = "/" + path.strip("/")
         # Walk from longest registered prefix to shortest
@@ -386,9 +381,7 @@ class StaticMiddleware:
 
     # ── Internals ─────────────────────────────────────────────────────────
 
-    def _serve_file(
-        self, request: Request, directory: Path, relative_path: str
-    ) -> Optional[Response]:
+    def _serve_file(self, request: Request, directory: Path, relative_path: str) -> Response | None:
         """Attempt to serve a single file.  Returns None on miss."""
         # Canonicalize and prevent traversal
         file_path = (directory / relative_path).resolve()
@@ -451,9 +444,7 @@ class StaticMiddleware:
             if cached:
                 content, cached_etag, cached_ct, cached_mtime = cached
                 if cached_mtime >= st.st_mtime:
-                    headers = self._build_headers(
-                        cached_ct, len(content), cached_etag, st, encoding
-                    )
+                    headers = self._build_headers(cached_ct, len(content), cached_etag, st, encoding)
                     body = b"" if request.method == "HEAD" else content
                     return Response(body, status=200, headers=headers)
                 else:
@@ -481,9 +472,7 @@ class StaticMiddleware:
         body = b"" if request.method == "HEAD" else content
         return Response(body, status=200, headers=headers)
 
-    def _negotiate_encoding(
-        self, original: Path, accept_encoding: str
-    ) -> Tuple[Path, Optional[str]]:
+    def _negotiate_encoding(self, original: Path, accept_encoding: str) -> tuple[Path, str | None]:
         """Select pre-compressed file if available and accepted."""
         ae_lower = accept_encoding.lower()
 
@@ -519,10 +508,8 @@ class StaticMiddleware:
         clean_etag = etag.strip('"').strip("W/").strip('"')
         return clean_etag in tags
 
-    def _build_cache_headers(
-        self, etag: Optional[str], st: os.stat_result
-    ) -> Dict[str, str]:
-        headers: Dict[str, str] = {}
+    def _build_cache_headers(self, etag: str | None, st: os.stat_result) -> dict[str, str]:
+        headers: dict[str, str] = {}
         if etag:
             headers["etag"] = etag
         headers["last-modified"] = formatdate(st.st_mtime, usegmt=True)
@@ -536,10 +523,10 @@ class StaticMiddleware:
         self,
         content_type: str,
         length: int,
-        etag: Optional[str],
+        etag: str | None,
         st: os.stat_result,
-        encoding: Optional[str],
-    ) -> Dict[str, str]:
+        encoding: str | None,
+    ) -> dict[str, str]:
         headers = self._build_cache_headers(etag, st)
         headers["content-type"] = content_type
         headers["content-length"] = str(length)
@@ -554,8 +541,8 @@ class StaticMiddleware:
         content: bytes,
         range_header: str,
         content_type: str,
-        base_headers: Dict[str, str],
-    ) -> Optional[Response]:
+        base_headers: dict[str, str],
+    ) -> Response | None:
         """Handle Range: bytes=start-end header."""
         total = len(content)
         try:

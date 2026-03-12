@@ -14,7 +14,7 @@ Usage on a Controller::
 
     class DocumentController(Controller):
         prefix = "/documents"
-        
+
         clearance = Clearance(
             level=AccessLevel.INTERNAL,
             entitlements=["documents:read"],
@@ -50,28 +50,19 @@ clearances at request time and evaluates the full matrix.
 
 from __future__ import annotations
 
+import contextlib
 import enum
-import functools
 import inspect
 import logging
 import time
-from dataclasses import dataclass, field
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass
 from typing import (
     Any,
-    Callable,
     ClassVar,
-    Dict,
-    List,
-    Optional,
     Protocol,
-    Sequence,
-    Set,
-    Tuple,
-    Type,
-    Union,
     runtime_checkable,
 )
-
 
 logger = logging.getLogger("aquilia.auth.clearance")
 
@@ -84,16 +75,17 @@ logger = logging.getLogger("aquilia.auth.clearance")
 class AccessLevel(enum.IntEnum):
     """
     Hierarchical access tiers -- higher ordinal = stricter.
-    
+
     Each level implicitly grants access to all lower levels.
-    A handler at INTERNAL allows identities with INTERNAL, CONFIDENTIAL, 
+    A handler at INTERNAL allows identities with INTERNAL, CONFIDENTIAL,
     or RESTRICTED clearance.
     """
-    PUBLIC = 0         # No auth required
+
+    PUBLIC = 0  # No auth required
     AUTHENTICATED = 10  # Any authenticated identity
-    INTERNAL = 20      # Internal/staff identities
+    INTERNAL = 20  # Internal/staff identities
     CONFIDENTIAL = 30  # Elevated clearance (managers, leads)
-    RESTRICTED = 40    # Highest clearance (admins, security)
+    RESTRICTED = 40  # Highest clearance (admins, security)
 
 
 # ============================================================================
@@ -105,15 +97,17 @@ class AccessLevel(enum.IntEnum):
 class ClearanceCondition(Protocol):
     """
     A callable predicate evaluated at request time.
-    
+
     Must accept (identity, request, ctx) and return bool.
     Can be sync or async.
     """
-    
+
     def __call__(
-        self, identity: Any, request: Any, ctx: Any,
-    ) -> Union[bool, Any]:
-        ...
+        self,
+        identity: Any,
+        request: Any,
+        ctx: Any,
+    ) -> bool | Any: ...
 
 
 # ============================================================================
@@ -173,10 +167,13 @@ def is_same_tenant(identity: Any, request: Any, ctx: Any) -> bool:
 
 def during_hours(start: int = 9, end: int = 17) -> Callable:
     """Factory: condition that restricts access to business hours (UTC)."""
+
     def _check(identity: Any, request: Any, ctx: Any) -> bool:
         import datetime
+
         hour = datetime.datetime.now(datetime.timezone.utc).hour
         return start <= hour < end
+
     _check.__name__ = f"during_hours({start}-{end})"
     _check.__qualname__ = _check.__name__
     return _check
@@ -184,6 +181,7 @@ def during_hours(start: int = 9, end: int = 17) -> Callable:
 
 def require_attribute(key: str, value: Any = None) -> Callable:
     """Factory: condition that requires a specific identity attribute."""
+
     def _check(identity: Any, request: Any, ctx: Any) -> bool:
         if identity is None:
             return False
@@ -191,6 +189,7 @@ def require_attribute(key: str, value: Any = None) -> Callable:
         if value is None:
             return key in attrs and attrs[key]
         return attrs.get(key) == value
+
     _check.__name__ = f"require_attribute({key!r})"
     _check.__qualname__ = _check.__name__
     return _check
@@ -199,13 +198,12 @@ def require_attribute(key: str, value: Any = None) -> Callable:
 def ip_allowlist(*cidrs: str) -> Callable:
     """Factory: condition restricting access to specific IP ranges."""
     import ipaddress
+
     networks = []
     for cidr in cidrs:
-        try:
+        with contextlib.suppress(ValueError):
             networks.append(ipaddress.ip_network(cidr, strict=False))
-        except ValueError:
-            pass
-    
+
     def _check(identity: Any, request: Any, ctx: Any) -> bool:
         client_ip = None
         if hasattr(request, "client") and request.client:
@@ -220,6 +218,7 @@ def ip_allowlist(*cidrs: str) -> Callable:
             return any(addr in net for net in networks)
         except ValueError:
             return False
+
     _check.__name__ = f"ip_allowlist({','.join(cidrs)})"
     _check.__qualname__ = _check.__name__
     return _check
@@ -234,22 +233,23 @@ def ip_allowlist(*cidrs: str) -> Callable:
 class Clearance:
     """
     Immutable clearance requirement descriptor.
-    
+
     Declaratively specifies the access matrix for a controller or route.
     """
+
     level: AccessLevel = AccessLevel.AUTHENTICATED
-    entitlements: Tuple[str, ...] = ()
-    conditions: Tuple[Callable, ...] = ()
-    compartment: Optional[str] = None  # Template: "tenant:{tenant_id}"
+    entitlements: tuple[str, ...] = ()
+    conditions: tuple[Callable, ...] = ()
+    compartment: str | None = None  # Template: "tenant:{tenant_id}"
     deny_message: str = "Insufficient clearance"
     audit: bool = True  # Log access decisions
-    
+
     def __init__(
         self,
         level: AccessLevel = AccessLevel.AUTHENTICATED,
         entitlements: Sequence[str] = (),
         conditions: Sequence[Callable] = (),
-        compartment: Optional[str] = None,
+        compartment: str | None = None,
         deny_message: str = "Insufficient clearance",
         audit: bool = True,
     ):
@@ -259,11 +259,11 @@ class Clearance:
         object.__setattr__(self, "compartment", compartment)
         object.__setattr__(self, "deny_message", deny_message)
         object.__setattr__(self, "audit", audit)
-    
+
     def merge(self, override: Clearance) -> Clearance:
         """
         Merge this (class-level) clearance with an override (method-level).
-        
+
         Rules:
         - Level: override wins if specified (non-AUTHENTICATED default)
         - Entitlements: union of both
@@ -277,22 +277,16 @@ class Clearance:
             merged_level = self.level
         if override.level != AccessLevel.AUTHENTICATED or self.level == AccessLevel.AUTHENTICATED:
             merged_level = override.level if override.level != AccessLevel.AUTHENTICATED else self.level
-        
+
         # Actually simpler: override always wins for level
         merged_level = override.level
-        
+
         merged_entitlements = tuple(set(self.entitlements) | set(override.entitlements))
-        merged_conditions = tuple(list(self.conditions) + [
-            c for c in override.conditions if c not in self.conditions
-        ])
+        merged_conditions = tuple(list(self.conditions) + [c for c in override.conditions if c not in self.conditions])
         merged_compartment = override.compartment or self.compartment
-        merged_deny = (
-            override.deny_message 
-            if override.deny_message != "Insufficient clearance" 
-            else self.deny_message
-        )
+        merged_deny = override.deny_message if override.deny_message != "Insufficient clearance" else self.deny_message
         merged_audit = override.audit
-        
+
         return Clearance(
             level=merged_level,
             entitlements=merged_entitlements,
@@ -311,17 +305,18 @@ class Clearance:
 @dataclass(frozen=True, slots=True)
 class ClearanceVerdict:
     """Result of a clearance evaluation."""
+
     granted: bool
     level_ok: bool
     entitlements_ok: bool
     conditions_ok: bool
     compartment_ok: bool
-    missing_entitlements: Tuple[str, ...] = ()
-    failed_conditions: Tuple[str, ...] = ()
+    missing_entitlements: tuple[str, ...] = ()
+    failed_conditions: tuple[str, ...] = ()
     message: str = ""
     evaluated_at: float = 0.0
-    identity_id: Optional[str] = None
-    
+    identity_id: str | None = None
+
     def __init__(
         self,
         granted: bool,
@@ -333,7 +328,7 @@ class ClearanceVerdict:
         failed_conditions: Sequence[str] = (),
         message: str = "",
         evaluated_at: float = 0.0,
-        identity_id: Optional[str] = None,
+        identity_id: str | None = None,
     ):
         object.__setattr__(self, "granted", granted)
         object.__setattr__(self, "level_ok", level_ok)
@@ -359,15 +354,15 @@ def grant(
     level: AccessLevel = AccessLevel.AUTHENTICATED,
     entitlements: Sequence[str] = (),
     conditions: Sequence[Callable] = (),
-    compartment: Optional[str] = None,
+    compartment: str | None = None,
     deny_message: str = "Insufficient clearance",
     audit: bool = True,
 ) -> Callable:
     """
     Decorator to attach clearance requirements to a route method.
-    
+
     Usage::
-    
+
         @GET("/")
         @grant(level=AccessLevel.INTERNAL, entitlements=["docs:read"])
         async def list_docs(self, ctx):
@@ -381,37 +376,41 @@ def grant(
         deny_message=deny_message,
         audit=audit,
     )
-    
+
     def decorator(fn: Callable) -> Callable:
         setattr(fn, _CLEARANCE_ATTR, clearance)
         return fn
-    
+
     return decorator
 
 
 def exempt(fn: Callable) -> Callable:
     """
     Decorator to exempt a route from class-level clearance.
-    
+
     Sets the clearance level to PUBLIC with no other requirements.
-    
+
     Usage::
-    
+
         @GET("/health")
         @exempt
         async def health(self, ctx):
             return {"status": "ok"}
     """
-    setattr(fn, _CLEARANCE_ATTR, Clearance(
-        level=AccessLevel.PUBLIC,
-        entitlements=(),
-        conditions=(),
-        audit=False,
-    ))
+    setattr(
+        fn,
+        _CLEARANCE_ATTR,
+        Clearance(
+            level=AccessLevel.PUBLIC,
+            entitlements=(),
+            conditions=(),
+            audit=False,
+        ),
+    )
     return fn
 
 
-def get_method_clearance(method: Any) -> Optional[Clearance]:
+def get_method_clearance(method: Any) -> Clearance | None:
     """Extract clearance from a decorated method."""
     return getattr(method, _CLEARANCE_ATTR, None)
 
@@ -424,19 +423,19 @@ def get_method_clearance(method: Any) -> Optional[Clearance]:
 class ClearanceEngine:
     """
     Evaluates clearance requirements against request context.
-    
+
     Thread-safe, stateless evaluator. Instantiate once at app level.
     """
-    
+
     # Cache TTL in seconds (5 minutes). After this, cached identity levels
     # are re-evaluated to pick up role/attribute changes.
     _CACHE_TTL: ClassVar[int] = 300
-    
+
     def __init__(
         self,
-        role_level_map: Optional[Dict[str, AccessLevel]] = None,
-        entitlement_resolver: Optional[Callable] = None,
-        audit_logger: Optional[logging.Logger] = None,
+        role_level_map: dict[str, AccessLevel] | None = None,
+        entitlement_resolver: Callable | None = None,
+        audit_logger: logging.Logger | None = None,
         deny_by_default: bool = True,
     ):
         """
@@ -459,33 +458,34 @@ class ClearanceEngine:
         self.audit_logger = audit_logger or logger
         self.deny_by_default = deny_by_default
         # Instance-level cache with TTL (not ClassVar to prevent cross-instance leakage)
-        self._identity_level_cache: Dict[str, tuple[AccessLevel, float]] = {}
-    
+        self._identity_level_cache: dict[str, tuple[AccessLevel, float]] = {}
+
     def resolve_identity_level(self, identity: Any) -> AccessLevel:
         """Determine the highest AccessLevel an identity holds."""
         if identity is None:
             return AccessLevel.PUBLIC
-        
+
         # Check cache (with TTL expiry)
         identity_id = str(getattr(identity, "id", id(identity)))
         cached = self._identity_level_cache.get(identity_id)
         if cached is not None:
             cached_level, cached_at = cached
             import time as _time
+
             if (_time.time() - cached_at) < self._CACHE_TTL:
                 return cached_level
             # Expired — fall through to recompute
-        
+
         # Determine from roles
         roles = getattr(identity, "roles", set()) or set()
         highest = AccessLevel.AUTHENTICATED  # Any identity gets at least this
-        
+
         for role in roles:
             role_str = str(role).lower()
             mapped = self.role_level_map.get(role_str, AccessLevel.AUTHENTICATED)
             if mapped > highest:
                 highest = mapped
-        
+
         # Check identity attributes for explicit level
         attrs = getattr(identity, "attributes", {}) or {}
         explicit_level = attrs.get("access_level") or attrs.get("clearance_level")
@@ -496,32 +496,33 @@ class ClearanceEngine:
                     highest = explicit
             except (ValueError, TypeError):
                 pass
-        
+
         import time as _time
+
         self._identity_level_cache[identity_id] = (highest, _time.time())
         return highest
-    
-    def resolve_entitlements(self, identity: Any) -> Set[str]:
+
+    def resolve_entitlements(self, identity: Any) -> set[str]:
         """Resolve the set of entitlements an identity holds."""
         if identity is None:
             return set()
-        
+
         # Custom resolver
         if self.entitlement_resolver:
             result = self.entitlement_resolver(identity)
             return set(result) if result else set()
-        
+
         # Default: combine scopes + permissions from roles
-        entitlements: Set[str] = set()
-        
+        entitlements: set[str] = set()
+
         # Scopes (OAuth-style)
         scopes = getattr(identity, "scopes", set()) or set()
         entitlements.update(str(s) for s in scopes)
-        
+
         # Permissions (RBAC-style, from authz engine)
         permissions = getattr(identity, "permissions", set()) or set()
         entitlements.update(str(p) for p in permissions)
-        
+
         # Attributes may carry entitlements
         attrs = getattr(identity, "attributes", {}) or {}
         attr_entitlements = attrs.get("entitlements") or attrs.get("capabilities")
@@ -530,49 +531,49 @@ class ClearanceEngine:
                 entitlements.update(str(e) for e in attr_entitlements)
             elif isinstance(attr_entitlements, str):
                 entitlements.update(attr_entitlements.split(","))
-        
+
         return entitlements
-    
+
     def resolve_compartment(
         self,
-        compartment_template: Optional[str],
+        compartment_template: str | None,
         identity: Any,
         request: Any,
         ctx: Any,
-    ) -> Optional[str]:
+    ) -> str | None:
         """Resolve a compartment template to a concrete value."""
         if not compartment_template:
             return None
-        
+
         # Gather substitution values
-        values: Dict[str, str] = {}
-        
+        values: dict[str, str] = {}
+
         # From identity
         if identity:
             values["identity_id"] = str(getattr(identity, "id", ""))
             values["tenant_id"] = str(getattr(identity, "tenant_id", "") or "")
             for k, v in (getattr(identity, "attributes", {}) or {}).items():
                 values[f"identity.{k}"] = str(v)
-        
+
         # From request state
         state = getattr(ctx, "state", {}) or {}
         if isinstance(state, dict):
             for k, v in state.items():
                 values[k] = str(v)
-        
+
         # From path params
         if hasattr(request, "path_params"):
             for k, v in (request.path_params or {}).items():
                 values[k] = str(v)
-        
+
         # Substitute
         try:
             resolved = compartment_template.format(**values)
         except (KeyError, IndexError):
             resolved = compartment_template
-        
+
         return resolved
-    
+
     async def evaluate(
         self,
         clearance: Clearance,
@@ -582,21 +583,21 @@ class ClearanceEngine:
     ) -> ClearanceVerdict:
         """
         Evaluate a clearance requirement against the current context.
-        
+
         Returns a ClearanceVerdict with detailed results.
         """
         identity_id = str(getattr(identity, "id", None))
-        
+
         # 1. Level check
         identity_level = self.resolve_identity_level(identity)
         level_ok = identity_level >= clearance.level
-        
+
         # PUBLIC level means no auth needed
         if clearance.level == AccessLevel.PUBLIC:
             level_ok = True
-        
+
         # 2. Entitlements check
-        missing_entitlements: List[str] = []
+        missing_entitlements: list[str] = []
         if clearance.entitlements:
             held = self.resolve_entitlements(identity)
             for required in clearance.entitlements:
@@ -608,9 +609,9 @@ class ClearanceEngine:
                 elif required not in held:
                     missing_entitlements.append(required)
         entitlements_ok = len(missing_entitlements) == 0
-        
+
         # 3. Conditions check
-        failed_conditions: List[str] = []
+        failed_conditions: list[str] = []
         if clearance.conditions:
             for cond in clearance.conditions:
                 try:
@@ -625,33 +626,33 @@ class ClearanceEngine:
                     name = getattr(cond, "__name__", str(cond))
                     failed_conditions.append(f"{name}(error:{e})")
         conditions_ok = len(failed_conditions) == 0
-        
+
         # 4. Compartment check
         compartment_ok = True
         if clearance.compartment:
             resolved = self.resolve_compartment(
-                clearance.compartment, identity, request, ctx,
+                clearance.compartment,
+                identity,
+                request,
+                ctx,
             )
             if resolved and identity:
                 # Check that identity belongs to this compartment
                 identity_tenant = str(getattr(identity, "tenant_id", "") or "")
-                if "tenant:" in (clearance.compartment or ""):
-                    if resolved.startswith("tenant:"):
-                        expected_tenant = resolved[7:]  # After "tenant:"
-                        compartment_ok = identity_tenant == expected_tenant
-        
+                if "tenant:" in (clearance.compartment or "") and resolved.startswith("tenant:"):
+                    expected_tenant = resolved[7:]  # After "tenant:"
+                    compartment_ok = identity_tenant == expected_tenant
+
         # Overall verdict
         granted = level_ok and entitlements_ok and conditions_ok and compartment_ok
-        
+
         # Build message
         if granted:
             message = "Access granted"
         else:
             parts = []
             if not level_ok:
-                parts.append(
-                    f"requires {clearance.level.name} (identity has {identity_level.name})"
-                )
+                parts.append(f"requires {clearance.level.name} (identity has {identity_level.name})")
             if missing_entitlements:
                 parts.append(f"missing entitlements: {', '.join(missing_entitlements)}")
             if failed_conditions:
@@ -659,7 +660,7 @@ class ClearanceEngine:
             if not compartment_ok:
                 parts.append("compartment mismatch")
             message = clearance.deny_message + " -- " + "; ".join(parts)
-        
+
         verdict = ClearanceVerdict(
             granted=granted,
             level_ok=level_ok,
@@ -671,9 +672,9 @@ class ClearanceEngine:
             message=message,
             identity_id=identity_id,
         )
-        
+
         return verdict
-    
+
     def clear_cache(self) -> None:
         """Clear identity level cache."""
         self._identity_level_cache.clear()
@@ -687,21 +688,19 @@ class ClearanceEngine:
 class ClearanceGuard:
     """
     Pipeline guard that enforces Clearance requirements.
-    
+
     Integrates with both Flow pipeline and Controller pipeline.
     """
-    
+
     def __init__(
         self,
         clearance: Clearance,
-        engine: Optional[ClearanceEngine] = None,
+        engine: ClearanceEngine | None = None,
     ):
         self.clearance = clearance
         self.engine = engine or ClearanceEngine()
-    
-    async def __call__(
-        self, request: Any = None, ctx: Any = None, **kwargs
-    ) -> Any:
+
+    async def __call__(self, request: Any = None, ctx: Any = None, **kwargs) -> Any:
         """Execute as pipeline guard."""
         identity = None
         if ctx is not None:
@@ -709,17 +708,21 @@ class ClearanceGuard:
         if identity is None and request is not None:
             state = getattr(request, "state", {})
             identity = state.get("identity") if isinstance(state, dict) else None
-        
+
         verdict = await self.engine.evaluate(
-            self.clearance, identity, request, ctx,
+            self.clearance,
+            identity,
+            request,
+            ctx,
         )
-        
+
         if not verdict.granted:
             # Store verdict in state for error handlers
             if ctx and hasattr(ctx, "state") and isinstance(ctx.state, dict):
                 ctx.state["clearance_verdict"] = verdict
-            
+
             from ..response import Response
+
             status = 401 if not verdict.level_ok and self.clearance.level > AccessLevel.PUBLIC else 403
             return Response.json(
                 {
@@ -732,13 +735,13 @@ class ClearanceGuard:
                 },
                 status=status,
             )
-        
+
         # Store successful verdict
         if ctx and hasattr(ctx, "state") and isinstance(ctx.state, dict):
             ctx.state["clearance_verdict"] = verdict
-        
+
         return True
-    
+
     def for_controller(self) -> ClearanceGuard:
         """Return self -- already works as controller pipeline guard."""
         return self
@@ -749,7 +752,7 @@ class ClearanceGuard:
 # ============================================================================
 
 
-def extract_controller_clearance(controller_class: type) -> Optional[Clearance]:
+def extract_controller_clearance(controller_class: type) -> Clearance | None:
     """Extract clearance from controller class."""
     return getattr(controller_class, "clearance", None)
 
@@ -757,20 +760,20 @@ def extract_controller_clearance(controller_class: type) -> Optional[Clearance]:
 def build_merged_clearance(
     controller_class: type,
     handler_method: Any,
-) -> Optional[Clearance]:
+) -> Clearance | None:
     """Build merged clearance from class + method."""
     class_clearance = extract_controller_clearance(controller_class)
     method_clearance = get_method_clearance(handler_method)
-    
+
     if class_clearance is None and method_clearance is None:
         return None
-    
+
     if class_clearance is None:
         return method_clearance
-    
+
     if method_clearance is None:
         return class_clearance
-    
+
     return class_clearance.merge(method_clearance)
 
 

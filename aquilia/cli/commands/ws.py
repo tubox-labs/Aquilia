@@ -10,111 +10,111 @@ Commands:
 """
 
 import argparse
-import json
 import asyncio
-from pathlib import Path
-from typing import Optional
+import json
 import sys
+from pathlib import Path
 
 
 def cmd_ws_inspect(args: dict):
     """
     Inspect compiled WebSocket namespaces.
-    
+
     Usage: aq ws inspect [--artifacts-dir artifacts]
     """
     artifacts_dir = Path(args.get("artifacts_dir", "artifacts"))
     ws_crous = artifacts_dir / "ws.crous"
-    
+
     if not ws_crous.exists():
         print(f"Error: {ws_crous} not found. Run 'aq compile' first.")
         sys.exit(1)
-    
+
     with open(ws_crous, encoding="utf-8") as f:
         data = json.load(f)
-    
+
     print(f"WebSocket Namespaces ({len(data['controllers'])} controllers)\n")
-    
+
     for controller in data["controllers"]:
         print(f"Namespace: {controller['namespace']}")
         print(f"  Controller: {controller['class_name']}")
         print(f"  Module: {controller['module_path']}")
         print(f"  Path: {controller['path_pattern']}")
         print(f"  Events: {len(controller['events'])}")
-        
+
         for event in controller["events"]:
             ack_str = " [ACK]" if event["ack"] else ""
             schema_str = " [SCHEMA]" if event["schema"] else ""
             print(f"    - {event['event']} → {event['handler_name']}{ack_str}{schema_str}")
-        
+
         if controller["guards"]:
             print(f"  Guards: {', '.join(controller['guards'])}")
-        
+
         config = controller["config"]
         if config.get("allowed_origins"):
             print(f"  Allowed Origins: {config['allowed_origins']}")
         if config.get("message_rate_limit"):
             print(f"  Rate Limit: {config['message_rate_limit']} msg/sec")
-        
+
         print()
 
 
 def cmd_ws_broadcast(args: dict):
     """
     Broadcast message to namespace or room.
-    
-    Usage: 
+
+    Usage:
         aq ws broadcast --namespace /chat --room room1 --event message.receive --payload '{"text":"hi"}'
     """
     namespace = args.get("namespace")
     room = args.get("room")
     event = args.get("event")
     payload = args.get("payload", "{}")
-    
+
     if not namespace or not event:
         print("Error: --namespace and --event are required")
         sys.exit(1)
-    
+
     try:
         payload_dict = json.loads(payload)
     except json.JSONDecodeError as e:
         print(f"Error: Invalid JSON payload: {e}")
         sys.exit(1)
-    
+
     print(f"Broadcasting to namespace={namespace}, room={room or 'all'}")
     print(f"Event: {event}")
     print(f"Payload: {payload_dict}")
-    
+
     # Connect to the runtime and broadcast via the adapter
     async def _do_broadcast():
         try:
-            from aquilia.sockets.envelope import MessageEnvelope, MessageType
             from aquilia.sockets.adapters.inmemory import InMemoryAdapter
-            
+            from aquilia.sockets.envelope import MessageEnvelope, MessageType
+
             # Try Redis adapter first (production), fallback to in-memory
             adapter = None
             redis_url = args.get("redis_url")
             if redis_url:
                 try:
                     from aquilia.sockets.adapters.redis import RedisAdapter
+
                     adapter = RedisAdapter(redis_url=redis_url)
                     await adapter.initialize()
                 except Exception:
                     print("Warning: Could not connect to Redis, using in-memory adapter")
                     adapter = None
-            
+
             if adapter is None:
                 # In-memory adapter - only works for same-process
                 print("Note: Using in-memory adapter (only reaches current process)")
                 adapter = InMemoryAdapter()
                 await adapter.initialize()
-            
+
             envelope = MessageEnvelope(
                 type=MessageType.EVENT,
                 event=event,
                 payload=payload_dict,
             )
-            
+
             if room:
                 await adapter.publish(
                     namespace=namespace,
@@ -128,7 +128,7 @@ def cmd_ws_broadcast(args: dict):
                     envelope=envelope,
                 )
                 print(f"Broadcast sent to namespace {namespace}")
-            
+
             await adapter.shutdown()
         except ImportError as e:
             print(f"Error: Missing dependency: {e}")
@@ -136,97 +136,99 @@ def cmd_ws_broadcast(args: dict):
         except Exception as e:
             print(f"Error: {e}")
             sys.exit(1)
-    
+
     asyncio.run(_do_broadcast())
 
 
 def cmd_ws_purge_room(args: dict):
     """
     Purge room state from adapter.
-    
+
     Usage: aq ws purge-room --namespace /chat --room room1
     """
     namespace = args.get("namespace")
     room = args.get("room")
-    
+
     if not namespace or not room:
         print("Error: --namespace and --room are required")
         sys.exit(1)
-    
+
     print(f"Purging room: {namespace}/{room}")
-    
+
     async def _do_purge():
         try:
             from aquilia.sockets.adapters.inmemory import InMemoryAdapter
-            
+
             adapter = None
             redis_url = args.get("redis_url")
             if redis_url:
                 try:
                     from aquilia.sockets.adapters.redis import RedisAdapter
+
                     adapter = RedisAdapter(redis_url=redis_url)
                     await adapter.initialize()
                 except Exception:
                     print("Warning: Could not connect to Redis, using in-memory adapter")
                     adapter = None
-            
+
             if adapter is None:
                 adapter = InMemoryAdapter()
                 await adapter.initialize()
-            
+
             # Get all connections in the room and remove them
             members = await adapter.get_room_members(namespace, room)
             for conn_id in members:
                 await adapter.leave_room(namespace, room, conn_id)
-            
+
             print(f"Purged room {namespace}/{room} ({len(members)} connections removed)")
             await adapter.shutdown()
         except Exception as e:
             print(f"Error: {e}")
             sys.exit(1)
-    
+
     asyncio.run(_do_purge())
 
 
 def cmd_ws_kick(args: dict):
     """
     Kick (disconnect) a connection.
-    
+
     Usage: aq ws kick --conn <connection-id> --reason "violated rules"
     """
     conn_id = args.get("conn")
     reason = args.get("reason", "kicked by admin")
-    
+
     if not conn_id:
         print("Error: --conn is required")
         sys.exit(1)
-    
+
     print(f"Kicking connection: {conn_id}")
     print(f"Reason: {reason}")
-    
+
     async def _do_kick():
         try:
             from aquilia.sockets.adapters.inmemory import InMemoryAdapter
-            
+
             adapter = None
             redis_url = args.get("redis_url")
             if redis_url:
                 try:
                     from aquilia.sockets.adapters.redis import RedisAdapter
+
                     adapter = RedisAdapter(redis_url=redis_url)
                     await adapter.initialize()
                 except Exception:
                     print("Warning: Could not connect to Redis, using in-memory adapter")
                     adapter = None
-            
+
             if adapter is None:
                 adapter = InMemoryAdapter()
                 await adapter.initialize()
-            
+
             # Unregister connection from all namespaces
             # Since we don't know the namespace, try to find it
             found = False
-            if hasattr(adapter, '_connections'):
+            if hasattr(adapter, "_connections"):
                 for ns, connections in adapter._connections.items():
                     if conn_id in connections:
                         await adapter.unregister_connection(ns, conn_id)
@@ -234,55 +236,55 @@ def cmd_ws_kick(args: dict):
                         print(f"  Reason: {reason}")
                         found = True
                         break
-            
+
             if not found:
                 print(f"Warning: Connection {conn_id} not found in any namespace")
                 print("  (Connection may have already disconnected or is on another worker)")
-            
+
             await adapter.shutdown()
         except Exception as e:
             print(f"Error: {e}")
             sys.exit(1)
-    
+
     asyncio.run(_do_kick())
 
 
 def cmd_ws_gen_client(args: dict):
     """
     Generate TypeScript client SDK from artifacts.
-    
+
     Usage: aq ws gen-client --lang ts --out clients/chat.ts
     """
     lang = args.get("lang", "ts")
     output_path = args.get("out")
     artifacts_dir = Path(args.get("artifacts_dir", "artifacts"))
-    
+
     if lang != "ts":
         print(f"Error: Language {lang} not supported (only 'ts' currently)")
         sys.exit(1)
-    
+
     if not output_path:
         print("Error: --out is required")
         sys.exit(1)
-    
+
     ws_crous = artifacts_dir / "ws.crous"
-    
+
     if not ws_crous.exists():
         print(f"Error: {ws_crous} not found. Run 'aq compile' first.")
         sys.exit(1)
-    
+
     with open(ws_crous, encoding="utf-8") as f:
         data = json.load(f)
-    
+
     # Generate TypeScript client
     output = Path(output_path)
     output.parent.mkdir(parents=True, exist_ok=True)
-    
+
     ts_code = _generate_typescript_client(data)
-    
+
     with open(output, "w", encoding="utf-8") as f:
         f.write(ts_code)
-    
+
     print(f"Generated TypeScript client: {output}")
 
 
@@ -305,19 +307,19 @@ def _generate_typescript_client(data: dict) -> str:
         "}",
         "",
     ]
-    
+
     for controller in data["controllers"]:
         namespace = controller["namespace"]
         class_name = controller["class_name"]
-        
+
         lines.append(f"// {class_name} ({namespace})")
         lines.append("")
-        
+
         # Generate event payload types
         for event in controller["events"]:
             event_name = event["event"]
             type_name = _to_pascal_case(event_name) + "Payload"
-            
+
             schema = event.get("schema")
             if schema and schema.get("spec"):
                 lines.append(f"export interface {type_name} {{")
@@ -327,72 +329,80 @@ def _generate_typescript_client(data: dict) -> str:
                 lines.append("}")
             else:
                 lines.append(f"export type {type_name} = any;")
-            
+
             lines.append("")
-        
+
         # Generate client class
-        lines.extend([
-            f"export class {class_name}Client {{",
-            "  private ws: WebSocket;",
-            "  private handlers: Map<string, (payload: any) => void> = new Map();",
-            "",
-            "  constructor(url: string, token?: string) {",
-            f"    const fullUrl = token ? `${{url}}?token=${{token}}` : url;",
-            "    this.ws = new WebSocket(fullUrl);",
-            "    this.ws.onmessage = (event) => this.handleMessage(event);",
-            "  }",
-            "",
-            "  private handleMessage(event: MessageEvent) {",
-            "    const envelope: MessageEnvelope = JSON.parse(event.data);",
-            "    const handler = this.handlers.get(envelope.event);",
-            "    if (handler) {",
-            "      handler(envelope.payload);",
-            "    }",
-            "  }",
-            "",
-        ])
-        
+        lines.extend(
+            [
+                f"export class {class_name}Client {{",
+                "  private ws: WebSocket;",
+                "  private handlers: Map<string, (payload: any) => void> = new Map();",
+                "",
+                "  constructor(url: string, token?: string) {",
+                "    const fullUrl = token ? `${url}?token=${token}` : url;",
+                "    this.ws = new WebSocket(fullUrl);",
+                "    this.ws.onmessage = (event) => this.handleMessage(event);",
+                "  }",
+                "",
+                "  private handleMessage(event: MessageEvent) {",
+                "    const envelope: MessageEnvelope = JSON.parse(event.data);",
+                "    const handler = this.handlers.get(envelope.event);",
+                "    if (handler) {",
+                "      handler(envelope.payload);",
+                "    }",
+                "  }",
+                "",
+            ]
+        )
+
         # Generate send methods
         for event in controller["events"]:
             if event["handler_type"] in ("event", "subscribe", "unsubscribe"):
                 event_name = event["event"]
                 method_name = _to_camel_case(event_name)
                 type_name = _to_pascal_case(event_name) + "Payload"
-                
-                lines.extend([
-                    f"  {method_name}(payload: {type_name}, ack: boolean = false): void {{",
-                    "    const envelope: MessageEnvelope = {",
-                    "      type: 'event',",
-                    f"      event: '{event_name}',",
-                    "      payload,",
-                    "      ack,",
-                    "    };",
-                    "    this.ws.send(JSON.stringify(envelope));",
-                    "  }",
-                    "",
-                ])
-        
+
+                lines.extend(
+                    [
+                        f"  {method_name}(payload: {type_name}, ack: boolean = false): void {{",
+                        "    const envelope: MessageEnvelope = {",
+                        "      type: 'event',",
+                        f"      event: '{event_name}',",
+                        "      payload,",
+                        "      ack,",
+                        "    };",
+                        "    this.ws.send(JSON.stringify(envelope));",
+                        "  }",
+                        "",
+                    ]
+                )
+
         # Generate listener methods
         for event in controller["events"]:
             event_name = event["event"]
             method_name = "on" + _to_pascal_case(event_name)
             type_name = _to_pascal_case(event_name) + "Payload"
-            
-            lines.extend([
-                f"  {method_name}(handler: (payload: {type_name}) => void): void {{",
-                f"    this.handlers.set('{event_name}', handler);",
+
+            lines.extend(
+                [
+                    f"  {method_name}(handler: (payload: {type_name}) => void): void {{",
+                    f"    this.handlers.set('{event_name}', handler);",
+                    "  }",
+                    "",
+                ]
+            )
+
+        lines.extend(
+            [
+                "  close(): void {",
+                "    this.ws.close();",
                 "  }",
+                "}",
                 "",
-            ])
-        
-        lines.extend([
-            "  close(): void {",
-            "    this.ws.close();",
-            "  }",
-            "}",
-            "",
-        ])
-    
+            ]
+        )
+
     return "\n".join(lines)
 
 
@@ -423,41 +433,42 @@ def _python_type_to_ts(py_type: str) -> str:
 
 # Main dispatch
 
+
 def main():
     """Main CLI entry point."""
     parser = argparse.ArgumentParser(description="Aquilia WebSocket CLI")
     subparsers = parser.add_subparsers(dest="command", help="Command to run")
-    
+
     # inspect
     inspect_parser = subparsers.add_parser("inspect", help="Inspect compiled WebSocket namespaces")
     inspect_parser.add_argument("--artifacts-dir", default="artifacts", help="Artifacts directory")
-    
+
     # broadcast
     broadcast_parser = subparsers.add_parser("broadcast", help="Broadcast message")
     broadcast_parser.add_argument("--namespace", required=True, help="Namespace")
     broadcast_parser.add_argument("--room", help="Room (optional)")
     broadcast_parser.add_argument("--event", required=True, help="Event name")
     broadcast_parser.add_argument("--payload", default="{}", help="JSON payload")
-    
+
     # purge-room
     purge_parser = subparsers.add_parser("purge-room", help="Purge room state")
     purge_parser.add_argument("--namespace", required=True, help="Namespace")
     purge_parser.add_argument("--room", required=True, help="Room")
-    
+
     # kick
     kick_parser = subparsers.add_parser("kick", help="Kick connection")
     kick_parser.add_argument("--conn", required=True, help="Connection ID")
     kick_parser.add_argument("--reason", default="kicked by admin", help="Reason")
-    
+
     # gen-client
     gen_parser = subparsers.add_parser("gen-client", help="Generate client SDK")
     gen_parser.add_argument("--lang", default="ts", help="Language (ts)")
     gen_parser.add_argument("--out", required=True, help="Output file")
     gen_parser.add_argument("--artifacts-dir", default="artifacts", help="Artifacts directory")
-    
+
     args = parser.parse_args()
     args_dict = vars(args)
-    
+
     commands = {
         "inspect": cmd_ws_inspect,
         "broadcast": cmd_ws_broadcast,
@@ -465,9 +476,9 @@ def main():
         "kick": cmd_ws_kick,
         "gen-client": cmd_ws_gen_client,
     }
-    
+
     command = args_dict.get("command")
-    
+
     if command in commands:
         commands[command](args_dict)
     else:

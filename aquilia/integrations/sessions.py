@@ -5,7 +5,7 @@ SessionIntegration — typed session configuration.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional
+from typing import Any
 
 
 @dataclass
@@ -24,13 +24,15 @@ class SessionIntegration:
     _integration_type: str = field(default="sessions", init=False, repr=False)
 
     enabled: bool = True
-    policy: Optional[Any] = None
-    store: Optional[Any] = None
-    transport: Optional[Any] = None
+    policy: Any | None = None
+    store: Any | None = None
+    transport: Any | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         from aquilia.sessions import (
-            SessionPolicy, MemoryStore, CookieTransport,
+            CookieTransport,
+            MemoryStore,
+            SessionPolicy,
         )
 
         policy = self.policy

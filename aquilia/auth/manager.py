@@ -17,7 +17,6 @@ from .core import (
     AuthResult,
     Identity,
     IdentityStatus,
-    PasswordCredential,
     TokenClaims,
 )
 from .faults import (
@@ -27,12 +26,10 @@ from .faults import (
     AUTH_KEY_EXPIRED,
     AUTH_KEY_REVOKED,
     AUTH_MFA_REQUIRED,
-    AUTH_RATE_LIMITED,
 )
 from .hashing import PasswordHasher
-from .stores import MemoryCredentialStore, MemoryIdentityStore, MemoryTokenStore
+from .stores import MemoryCredentialStore, MemoryIdentityStore
 from .tokens import TokenManager
-
 
 # ============================================================================
 # Rate Limiter
@@ -58,9 +55,7 @@ class RateLimiter:
         """Remove attempts outside the time window."""
         cutoff = datetime.now(timezone.utc) - timedelta(seconds=self.window_seconds)
         if key in self._attempts:
-            self._attempts[key] = [
-                ts for ts in self._attempts[key] if ts > cutoff
-            ]
+            self._attempts[key] = [ts for ts in self._attempts[key] if ts > cutoff]
 
     def record_attempt(self, key: str) -> None:
         """Record failed authentication attempt."""
@@ -73,9 +68,7 @@ class RateLimiter:
 
         # Check if should lock out
         if len(self._attempts[key]) >= self.max_attempts:
-            self._lockouts[key] = datetime.now(timezone.utc) + timedelta(
-                seconds=self.lockout_duration
-            )
+            self._lockouts[key] = datetime.now(timezone.utc) + timedelta(seconds=self.lockout_duration)
 
     def is_locked_out(self, key: str) -> bool:
         """Check if key is currently locked out."""
@@ -171,13 +164,9 @@ class AuthManager:
             )
 
         # Get identity by username/email
-        identity = await self.identity_store.get_by_attribute(
-            "email", username
-        )
+        identity = await self.identity_store.get_by_attribute("email", username)
         if not identity:
-            identity = await self.identity_store.get_by_attribute(
-                "username", username
-            )
+            identity = await self.identity_store.get_by_attribute("username", username)
 
         if not identity:
             self.rate_limiter.record_attempt(rate_key)
@@ -197,16 +186,12 @@ class AuthManager:
             raise AUTH_INVALID_CREDENTIALS(username=username)
 
         # Verify password
-        if not self.password_hasher.verify(
-            password_cred.password_hash, password
-        ):
+        if not self.password_hasher.verify(password_cred.password_hash, password):
             self.rate_limiter.record_attempt(rate_key)
             raise AUTH_INVALID_CREDENTIALS(username=username)
 
         # Check if password needs rehash (algorithm upgrade)
-        if self.password_hasher.check_needs_rehash(
-            password_cred.password_hash
-        ):
+        if self.password_hasher.check_needs_rehash(password_cred.password_hash):
             # Rehash with current parameters
             new_hash = self.password_hasher.hash(password)
             password_cred.password_hash = new_hash
@@ -344,9 +329,7 @@ class AuthManager:
             },
         )
 
-    async def refresh_access_token(
-        self, refresh_token: str
-    ) -> tuple[str, str]:
+    async def refresh_access_token(self, refresh_token: str) -> tuple[str, str]:
         """
         Refresh access token using refresh token.
 
@@ -382,9 +365,7 @@ class AuthManager:
                     await self.token_manager.revoke_token(jti)
             except Exception as e:
                 # Log the error instead of silently swallowing it
-                _logger.warning(
-                    "Failed to revoke access token (may already be invalid): %s", e
-                )
+                _logger.warning("Failed to revoke access token (may already be invalid): %s", e)
 
     async def logout(
         self,
@@ -435,9 +416,7 @@ class AuthManager:
             tenant_id=claims.get("tenant_id"),
         )
 
-    async def get_identity_from_token(
-        self, access_token: str
-    ) -> Identity | None:
+    async def get_identity_from_token(self, access_token: str) -> Identity | None:
         """
         Extract identity from access token.
 

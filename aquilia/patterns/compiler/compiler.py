@@ -2,59 +2,63 @@
 Compiler that transforms AST into executable compiled patterns.
 """
 
-import re
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Callable, Pattern
 import json
+import re
+from collections.abc import Callable
+from dataclasses import dataclass
+from re import Pattern
+from typing import Any
 
-from .ast_nodes import (
-    PatternAST,
-    StaticSegment,
-    TokenSegment,
-    OptionalGroup,
-    SplatSegment,
-    QueryParam,
-    Constraint,
-    ConstraintKind,
-    BaseSegment,
-)
-from .specificity import calculate_specificity
+from ..diagnostics.errors import PatternSemanticError
+from ..transforms.registry import TransformRegistry
 from ..types.registry import TypeRegistry
 from ..validators.registry import ConstraintRegistry
-from ..transforms.registry import TransformRegistry
-from ..diagnostics.errors import PatternSemanticError
+from .ast_nodes import (
+    BaseSegment,
+    Constraint,
+    ConstraintKind,
+    OptionalGroup,
+    PatternAST,
+    QueryParam,
+    SplatSegment,
+    StaticSegment,
+    TokenSegment,
+)
+from .specificity import calculate_specificity
 
 
 @dataclass
 class CompiledParam:
     """Compiled parameter metadata."""
+
     index: int
     name: str
     param_type: str
-    constraints: List[Dict[str, Any]]
-    default: Optional[Any]
-    transform: Optional[str]
+    constraints: list[dict[str, Any]]
+    default: Any | None
+    transform: str | None
     castor: Callable[[str], Any]
-    validators: List[Callable[[Any], bool]]
+    validators: list[Callable[[Any], bool]]
 
 
 @dataclass
 class CompiledPattern:
     """Fully compiled pattern ready for matching."""
+
     raw: str
-    file: Optional[str]
-    span: Optional[Dict[str, int]]
+    file: str | None
+    span: dict[str, int] | None
     static_prefix: str
-    segments: List[Dict[str, Any]]
-    params: Dict[str, CompiledParam]
-    query: Dict[str, CompiledParam]
+    segments: list[dict[str, Any]]
+    params: dict[str, CompiledParam]
+    query: dict[str, CompiledParam]
     specificity: int
-    compiled_re: Optional[Pattern]
-    castors: List[Callable]
-    openapi: Dict[str, Any]
+    compiled_re: Pattern | None
+    castors: list[Callable]
+    openapi: dict[str, Any]
     ast: PatternAST
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to JSON-serializable dict."""
         return {
             "raw": self.raw,
@@ -86,7 +90,7 @@ class CompiledPattern:
             "openapi": self.openapi,
         }
 
-    def to_json(self, indent: Optional[int] = 2) -> str:
+    def to_json(self, indent: int | None = 2) -> str:
         """Serialize to JSON string."""
         return json.dumps(self.to_dict(), indent=indent)
 
@@ -96,9 +100,9 @@ class PatternCompiler:
 
     def __init__(
         self,
-        type_registry: Optional[TypeRegistry] = None,
-        constraint_registry: Optional[ConstraintRegistry] = None,
-        transform_registry: Optional[TransformRegistry] = None,
+        type_registry: TypeRegistry | None = None,
+        constraint_registry: ConstraintRegistry | None = None,
+        transform_registry: TransformRegistry | None = None,
     ):
         self.type_registry = type_registry or TypeRegistry.default()
         self.constraint_registry = constraint_registry or ConstraintRegistry.default()
@@ -123,7 +127,7 @@ class PatternCompiler:
         params = {}
         param_index = 0
 
-        def compile_segments(segments: List[BaseSegment]):
+        def compile_segments(segments: list[BaseSegment]):
             nonlocal param_index
             for segment in segments:
                 if isinstance(segment, TokenSegment):
@@ -237,7 +241,7 @@ class PatternCompiler:
             validators=validators,
         )
 
-    def _compile_constraint(self, constraint: Constraint, param_type: str) -> Optional[Callable]:
+    def _compile_constraint(self, constraint: Constraint, param_type: str) -> Callable | None:
         """Compile a constraint into a validator function."""
         if constraint.kind == ConstraintKind.MIN:
             return lambda value: value >= constraint.value
@@ -258,16 +262,13 @@ class PatternCompiler:
         """Check if pattern requires regex matching."""
         # Patterns with any dynamic segments (tokens, splats, optional groups)
         # need regex for route matching at runtime.
-        for segment in ast.segments:
-            if isinstance(segment, (TokenSegment, SplatSegment, OptionalGroup)):
-                return True
-        return False
+        return any(isinstance(segment, (TokenSegment, SplatSegment, OptionalGroup)) for segment in ast.segments)
 
     def _compile_regex(self, ast: PatternAST) -> Pattern:
         """Compile AST into a regex pattern."""
         parts = ["^/"]
 
-        def build_regex(segments: List[BaseSegment], optional: bool = False):
+        def build_regex(segments: list[BaseSegment], optional: bool = False):
             group_parts = []
             for segment in segments:
                 if isinstance(segment, StaticSegment):
@@ -277,8 +278,7 @@ class PatternCompiler:
                     if segment.constraints:
                         # Check for regex constraint
                         regex_constraint = next(
-                            (c for c in segment.constraints if c.kind == ConstraintKind.REGEX),
-                            None
+                            (c for c in segment.constraints if c.kind == ConstraintKind.REGEX), None
                         )
                         if regex_constraint:
                             group_parts.append(f"(?P<{segment.name}>{regex_constraint.value})")
@@ -308,35 +308,39 @@ class PatternCompiler:
     def _generate_openapi(
         self,
         ast: PatternAST,
-        params: Dict[str, CompiledParam],
-        query: Dict[str, CompiledParam],
-    ) -> Dict[str, Any]:
+        params: dict[str, CompiledParam],
+        query: dict[str, CompiledParam],
+    ) -> dict[str, Any]:
         """Generate OpenAPI parameter schemas."""
         openapi_params = []
 
         # Path parameters
         for name, param in params.items():
             schema = self._param_to_openapi_schema(param)
-            openapi_params.append({
-                "name": name,
-                "in": "path",
-                "required": param.default is None,
-                "schema": schema,
-            })
+            openapi_params.append(
+                {
+                    "name": name,
+                    "in": "path",
+                    "required": param.default is None,
+                    "schema": schema,
+                }
+            )
 
         # Query parameters
         for name, param in query.items():
             schema = self._param_to_openapi_schema(param)
-            openapi_params.append({
-                "name": name,
-                "in": "query",
-                "required": param.default is None,
-                "schema": schema,
-            })
+            openapi_params.append(
+                {
+                    "name": name,
+                    "in": "query",
+                    "required": param.default is None,
+                    "schema": schema,
+                }
+            )
 
         return {"parameters": openapi_params}
 
-    def _param_to_openapi_schema(self, param: CompiledParam) -> Dict[str, Any]:
+    def _param_to_openapi_schema(self, param: CompiledParam) -> dict[str, Any]:
         """Convert parameter to OpenAPI schema."""
         type_map = {
             "str": "string",

@@ -23,9 +23,9 @@ After (new)::
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field, fields as dc_fields, replace
-from typing import Any, Dict, List, Optional
-
+from dataclasses import dataclass, field, replace
+from dataclasses import fields as dc_fields
+from typing import Any
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # AdminModules
@@ -92,142 +92,188 @@ class AdminModules:
     # ── Legacy fluent API (backward compat) ──────────────────────────
 
     def enable_dashboard(self) -> AdminModules:
-        self.dashboard = True; return self
+        self.dashboard = True
+        return self
 
     def disable_dashboard(self) -> AdminModules:
-        self.dashboard = False; return self
+        self.dashboard = False
+        return self
 
     def enable_orm(self) -> AdminModules:
-        self.orm = True; return self
+        self.orm = True
+        return self
 
     def disable_orm(self) -> AdminModules:
-        self.orm = False; return self
+        self.orm = False
+        return self
 
     def enable_build(self) -> AdminModules:
-        self.build = True; return self
+        self.build = True
+        return self
 
     def disable_build(self) -> AdminModules:
-        self.build = False; return self
+        self.build = False
+        return self
 
     def enable_migrations(self) -> AdminModules:
-        self.migrations = True; return self
+        self.migrations = True
+        return self
 
     def disable_migrations(self) -> AdminModules:
-        self.migrations = False; return self
+        self.migrations = False
+        return self
 
     def enable_config(self) -> AdminModules:
-        self.config = True; return self
+        self.config = True
+        return self
 
     def disable_config(self) -> AdminModules:
-        self.config = False; return self
+        self.config = False
+        return self
 
     def enable_workspace(self) -> AdminModules:
-        self.workspace = True; return self
+        self.workspace = True
+        return self
 
     def disable_workspace(self) -> AdminModules:
-        self.workspace = False; return self
+        self.workspace = False
+        return self
 
     def enable_permissions(self) -> AdminModules:
-        self.permissions = True; return self
+        self.permissions = True
+        return self
 
     def disable_permissions(self) -> AdminModules:
-        self.permissions = False; return self
+        self.permissions = False
+        return self
 
     def enable_monitoring(self) -> AdminModules:
-        self.monitoring = True; return self
+        self.monitoring = True
+        return self
 
     def disable_monitoring(self) -> AdminModules:
-        self.monitoring = False; return self
+        self.monitoring = False
+        return self
 
     def enable_admin_users(self) -> AdminModules:
-        self.admin_users = True; return self
+        self.admin_users = True
+        return self
 
     def disable_admin_users(self) -> AdminModules:
-        self.admin_users = False; return self
+        self.admin_users = False
+        return self
 
     def enable_profile(self) -> AdminModules:
-        self.profile = True; return self
+        self.profile = True
+        return self
 
     def disable_profile(self) -> AdminModules:
-        self.profile = False; return self
+        self.profile = False
+        return self
 
     def enable_containers(self) -> AdminModules:
-        self.containers = True; return self
+        self.containers = True
+        return self
 
     def disable_containers(self) -> AdminModules:
-        self.containers = False; return self
+        self.containers = False
+        return self
 
     def enable_pods(self) -> AdminModules:
-        self.pods = True; return self
+        self.pods = True
+        return self
 
     def disable_pods(self) -> AdminModules:
-        self.pods = False; return self
+        self.pods = False
+        return self
 
     def enable_audit(self) -> AdminModules:
-        self.audit = True; return self
+        self.audit = True
+        return self
 
     def disable_audit(self) -> AdminModules:
-        self.audit = False; return self
+        self.audit = False
+        return self
 
     def enable_query_inspector(self) -> AdminModules:
-        self.query_inspector = True; return self
+        self.query_inspector = True
+        return self
 
     def disable_query_inspector(self) -> AdminModules:
-        self.query_inspector = False; return self
+        self.query_inspector = False
+        return self
 
     def enable_tasks(self) -> AdminModules:
-        self.tasks = True; return self
+        self.tasks = True
+        return self
 
     def disable_tasks(self) -> AdminModules:
-        self.tasks = False; return self
+        self.tasks = False
+        return self
 
     def enable_errors(self) -> AdminModules:
-        self.errors = True; return self
+        self.errors = True
+        return self
 
     def disable_errors(self) -> AdminModules:
-        self.errors = False; return self
+        self.errors = False
+        return self
 
     def enable_testing(self) -> AdminModules:
-        self.testing = True; return self
+        self.testing = True
+        return self
 
     def disable_testing(self) -> AdminModules:
-        self.testing = False; return self
+        self.testing = False
+        return self
 
     def enable_mlops(self) -> AdminModules:
-        self.mlops = True; return self
+        self.mlops = True
+        return self
 
     def disable_mlops(self) -> AdminModules:
-        self.mlops = False; return self
+        self.mlops = False
+        return self
 
     def enable_storage(self) -> AdminModules:
-        self.storage = True; return self
+        self.storage = True
+        return self
 
     def disable_storage(self) -> AdminModules:
-        self.storage = False; return self
+        self.storage = False
+        return self
 
     def enable_mailer(self) -> AdminModules:
-        self.mailer = True; return self
+        self.mailer = True
+        return self
 
     def disable_mailer(self) -> AdminModules:
-        self.mailer = False; return self
+        self.mailer = False
+        return self
 
     def enable_provider(self) -> AdminModules:
-        self.provider = True; return self
+        self.provider = True
+        return self
 
     def disable_provider(self) -> AdminModules:
-        self.provider = False; return self
+        self.provider = False
+        return self
 
     def enable_api_keys(self) -> AdminModules:
-        self.api_keys = True; return self
+        self.api_keys = True
+        return self
 
     def disable_api_keys(self) -> AdminModules:
-        self.api_keys = False; return self
+        self.api_keys = False
+        return self
 
     def enable_preferences(self) -> AdminModules:
-        self.preferences = True; return self
+        self.preferences = True
+        return self
 
     def disable_preferences(self) -> AdminModules:
-        self.preferences = False; return self
+        self.preferences = False
+        return self
 
     def enable_all(self) -> AdminModules:
         for f in dc_fields(self):
@@ -239,7 +285,7 @@ class AdminModules:
             setattr(self, f.name, False)
         return self
 
-    def to_dict(self) -> Dict[str, bool]:
+    def to_dict(self) -> dict[str, bool]:
         return {f.name: getattr(self, f.name) for f in dc_fields(self)}
 
     def __repr__(self) -> str:
@@ -267,7 +313,7 @@ class AdminAudit:
     log_logins: bool = True
     log_views: bool = True
     log_searches: bool = True
-    excluded_actions: List[str] = field(default_factory=list)
+    excluded_actions: list[str] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         self.max_entries = max(100, self.max_entries)
@@ -275,13 +321,16 @@ class AdminAudit:
     # ── Legacy fluent API ────────────────────────────────────────────
 
     def enable(self) -> AdminAudit:
-        self.enabled = True; return self
+        self.enabled = True
+        return self
 
     def disable(self) -> AdminAudit:
-        self.enabled = False; return self
+        self.enabled = False
+        return self
 
     def max_entries_set(self, n: int) -> AdminAudit:
-        self.max_entries = max(100, int(n)); return self
+        self.max_entries = max(100, int(n))
+        return self
 
     # Keep old name for backward compat
     def set_max_entries(self, n: int) -> AdminAudit:  # type: ignore[override]
@@ -292,27 +341,34 @@ class AdminAudit:
         return self
 
     def log_logins_set(self, enabled: bool = True) -> AdminAudit:
-        self.log_logins = enabled; return self
+        self.log_logins = enabled
+        return self
 
     def no_log_logins(self) -> AdminAudit:
-        self.log_logins = False; return self
+        self.log_logins = False
+        return self
 
     def log_views_set(self, enabled: bool = True) -> AdminAudit:
-        self.log_views = enabled; return self
+        self.log_views = enabled
+        return self
 
     def no_log_views(self) -> AdminAudit:
-        self.log_views = False; return self
+        self.log_views = False
+        return self
 
     def log_searches_set(self, enabled: bool = True) -> AdminAudit:
-        self.log_searches = enabled; return self
+        self.log_searches = enabled
+        return self
 
     def no_log_searches(self) -> AdminAudit:
-        self.log_searches = False; return self
+        self.log_searches = False
+        return self
 
     def exclude_actions(self, *actions: str) -> AdminAudit:
-        self.excluded_actions = list(actions); return self
+        self.excluded_actions = list(actions)
+        return self
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "enabled": self.enabled,
             "max_entries": self.max_entries if isinstance(self.max_entries, int) else 10_000,
@@ -333,8 +389,14 @@ class AdminAudit:
 
 
 _ALL_METRICS = [
-    "cpu", "memory", "disk", "network",
-    "process", "python", "system", "health_checks",
+    "cpu",
+    "memory",
+    "disk",
+    "network",
+    "process",
+    "python",
+    "system",
+    "health_checks",
 ]
 
 
@@ -349,7 +411,7 @@ class AdminMonitoring:
     """
 
     enabled: bool = False
-    metrics: List[str] = field(default_factory=lambda: list(_ALL_METRICS))
+    metrics: list[str] = field(default_factory=lambda: list(_ALL_METRICS))
     refresh_interval: int = 30
 
     def __post_init__(self) -> None:
@@ -358,21 +420,26 @@ class AdminMonitoring:
     # ── Legacy fluent API ────────────────────────────────────────────
 
     def enable(self) -> AdminMonitoring:
-        self.enabled = True; return self
+        self.enabled = True
+        return self
 
     def disable(self) -> AdminMonitoring:
-        self.enabled = False; return self
+        self.enabled = False
+        return self
 
     def metrics_set(self, *names: str) -> AdminMonitoring:
-        self.metrics = list(names) if names else list(_ALL_METRICS); return self
+        self.metrics = list(names) if names else list(_ALL_METRICS)
+        return self
 
     def all_metrics(self) -> AdminMonitoring:
-        self.metrics = list(_ALL_METRICS); return self
+        self.metrics = list(_ALL_METRICS)
+        return self
 
     def refresh_interval_set(self, seconds: int) -> AdminMonitoring:
-        self.refresh_interval = max(5, int(seconds)); return self
+        self.refresh_interval = max(5, int(seconds))
+        return self
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "enabled": self.enabled,
             "metrics": list(self.metrics),
@@ -410,46 +477,60 @@ class AdminSidebar:
     # ── Legacy fluent API ────────────────────────────────────────────
 
     def show_overview(self) -> AdminSidebar:
-        self.overview = True; return self
+        self.overview = True
+        return self
 
     def hide_overview(self) -> AdminSidebar:
-        self.overview = False; return self
+        self.overview = False
+        return self
 
     def show_data(self) -> AdminSidebar:
-        self.data = True; return self
+        self.data = True
+        return self
 
     def hide_data(self) -> AdminSidebar:
-        self.data = False; return self
+        self.data = False
+        return self
 
     def show_system(self) -> AdminSidebar:
-        self.system = True; return self
+        self.system = True
+        return self
 
     def hide_system(self) -> AdminSidebar:
-        self.system = False; return self
+        self.system = False
+        return self
 
     def show_infrastructure(self) -> AdminSidebar:
-        self.infrastructure = True; return self
+        self.infrastructure = True
+        return self
 
     def hide_infrastructure(self) -> AdminSidebar:
-        self.infrastructure = False; return self
+        self.infrastructure = False
+        return self
 
     def show_security(self) -> AdminSidebar:
-        self.security = True; return self
+        self.security = True
+        return self
 
     def hide_security(self) -> AdminSidebar:
-        self.security = False; return self
+        self.security = False
+        return self
 
     def show_models(self) -> AdminSidebar:
-        self.models = True; return self
+        self.models = True
+        return self
 
     def hide_models(self) -> AdminSidebar:
-        self.models = False; return self
+        self.models = False
+        return self
 
     def show_devtools(self) -> AdminSidebar:
-        self.devtools = True; return self
+        self.devtools = True
+        return self
 
     def hide_devtools(self) -> AdminSidebar:
-        self.devtools = False; return self
+        self.devtools = False
+        return self
 
     def show_all(self) -> AdminSidebar:
         for f in dc_fields(self):
@@ -461,7 +542,7 @@ class AdminSidebar:
             setattr(self, f.name, False)
         return self
 
-    def to_dict(self) -> Dict[str, bool]:
+    def to_dict(self) -> dict[str, bool]:
         return {f.name: getattr(self, f.name) for f in dc_fields(self)}
 
     def __repr__(self) -> str:
@@ -474,8 +555,17 @@ class AdminSidebar:
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 _ALL_CONTAINER_ACTIONS = [
-    "start", "stop", "restart", "pause", "unpause",
-    "kill", "rm", "logs", "inspect", "exec", "export",
+    "start",
+    "stop",
+    "restart",
+    "pause",
+    "unpause",
+    "kill",
+    "rm",
+    "logs",
+    "inspect",
+    "exec",
+    "export",
 ]
 
 
@@ -493,14 +583,14 @@ class AdminContainers:
         )
     """
 
-    docker_host: Optional[str] = None
-    allowed_actions: List[str] = field(default_factory=lambda: list(_ALL_CONTAINER_ACTIONS))
-    denied_actions: List[str] = field(default_factory=list)
+    docker_host: str | None = None
+    allowed_actions: list[str] = field(default_factory=lambda: list(_ALL_CONTAINER_ACTIONS))
+    denied_actions: list[str] = field(default_factory=list)
     log_tail: int = 200
     log_since: str = ""
     refresh_interval: int = 15
-    compose_files: List[str] = field(default_factory=list)
-    compose_project_dir: Optional[str] = None
+    compose_files: list[str] = field(default_factory=list)
+    compose_project_dir: str | None = None
     show_system_containers: bool = False
     enable_exec: bool = True
     enable_prune: bool = True
@@ -513,7 +603,8 @@ class AdminContainers:
     # ── Legacy fluent API ────────────────────────────────────────────
 
     def docker_socket(self, path: str) -> AdminContainers:
-        self.docker_host = f"unix://{path}"; return self
+        self.docker_host = f"unix://{path}"
+        return self
 
     def read_only(self) -> AdminContainers:
         self.allowed_actions = ["logs", "inspect"]
@@ -526,7 +617,7 @@ class AdminContainers:
         self.enable_network_actions = False
         return self
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         effective = [a for a in self.allowed_actions if a not in self.denied_actions]
         return {
             "docker_host": self.docker_host,
@@ -557,10 +648,20 @@ class AdminContainers:
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 _ALL_K8S_RESOURCES = [
-    "pods", "deployments", "services", "ingresses",
-    "configmaps", "secrets", "namespaces", "events",
-    "daemonsets", "statefulsets", "jobs", "cronjobs",
-    "persistentvolumeclaims", "nodes",
+    "pods",
+    "deployments",
+    "services",
+    "ingresses",
+    "configmaps",
+    "secrets",
+    "namespaces",
+    "events",
+    "daemonsets",
+    "statefulsets",
+    "jobs",
+    "cronjobs",
+    "persistentvolumeclaims",
+    "nodes",
 ]
 
 
@@ -574,12 +675,12 @@ class AdminPods:
         AdminPods(namespace="production", refresh_interval=15)
     """
 
-    kubeconfig: Optional[str] = None
+    kubeconfig: str | None = None
     namespace: str = "default"
-    contexts: List[str] = field(default_factory=list)
-    resources: List[str] = field(default_factory=lambda: list(_ALL_K8S_RESOURCES))
-    manifest_dirs: List[str] = field(default_factory=lambda: ["k8s"])
-    manifest_patterns: List[str] = field(default_factory=lambda: ["*.yaml", "*.yml"])
+    contexts: list[str] = field(default_factory=list)
+    resources: list[str] = field(default_factory=lambda: list(_ALL_K8S_RESOURCES))
+    manifest_dirs: list[str] = field(default_factory=lambda: ["k8s"])
+    manifest_patterns: list[str] = field(default_factory=lambda: ["*.yaml", "*.yml"])
     refresh_interval: int = 15
     log_tail: int = 200
     enable_logs: bool = True
@@ -592,7 +693,8 @@ class AdminPods:
     # ── Legacy fluent API ────────────────────────────────────────────
 
     def all_namespaces(self) -> AdminPods:
-        self.namespace = "*"; return self
+        self.namespace = "*"
+        return self
 
     def read_only(self) -> AdminPods:
         self.enable_exec = False
@@ -602,7 +704,7 @@ class AdminPods:
         self.enable_apply = False
         return self
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "kubeconfig": self.kubeconfig,
             "namespace": self.namespace,
@@ -657,7 +759,7 @@ class AdminSecurity:
     sensitive_op_window: int = 300
     # Progressive lockout
     progressive_lockout: bool = True
-    lockout_tiers: Optional[List[List[int]]] = None
+    lockout_tiers: list[list[int]] | None = None
     # Password policy
     password_min_length: int = 10
     password_max_length: int = 128
@@ -667,9 +769,9 @@ class AdminSecurity:
     password_require_special: bool = True
     # Security headers
     security_headers_enabled: bool = True
-    csp_template: Optional[str] = None
+    csp_template: str | None = None
     frame_options: str = "DENY"
-    permissions_policy: Optional[str] = None
+    permissions_policy: str | None = None
     # Session
     session_fixation_protection: bool = True
     # Event tracking
@@ -678,13 +780,16 @@ class AdminSecurity:
     # ── Legacy fluent API ────────────────────────────────────────────
 
     def csrf_enabled_set(self, enabled: bool = True) -> AdminSecurity:
-        self.csrf_enabled = enabled; return self
+        self.csrf_enabled = enabled
+        return self
 
     def no_csrf(self) -> AdminSecurity:
-        self.csrf_enabled = False; return self
+        self.csrf_enabled = False
+        return self
 
     def no_rate_limit(self) -> AdminSecurity:
-        self.rate_limit_enabled = False; return self
+        self.rate_limit_enabled = False
+        return self
 
     def relaxed_password_policy(self) -> AdminSecurity:
         self.password_min_length = 8
@@ -703,10 +808,11 @@ class AdminSecurity:
         return self
 
     def no_security_headers(self) -> AdminSecurity:
-        self.security_headers_enabled = False; return self
+        self.security_headers_enabled = False
+        return self
 
-    def to_dict(self) -> Dict[str, Any]:
-        result: Dict[str, Any] = {
+    def to_dict(self) -> dict[str, Any]:
+        result: dict[str, Any] = {
             "csrf": {
                 "enabled": self.csrf_enabled,
                 "max_age": self.csrf_max_age,
@@ -779,18 +885,18 @@ class AdminIntegration:
     site_title: str = "Aquilia Admin"
     site_header: str = "Aquilia Administration"
     auto_discover: bool = True
-    login_url: Optional[str] = None
+    login_url: str | None = None
     list_per_page: int = 25
     theme: str = "auto"
-    modules: Optional[AdminModules] = None
-    audit: Optional[AdminAudit] = None
-    monitoring: Optional[AdminMonitoring] = None
-    sidebar: Optional[AdminSidebar] = None
-    containers: Optional[AdminContainers] = None
-    pods: Optional[AdminPods] = None
-    security: Optional[AdminSecurity] = None
+    modules: AdminModules | None = None
+    audit: AdminAudit | None = None
+    monitoring: AdminMonitoring | None = None
+    sidebar: AdminSidebar | None = None
+    containers: AdminContainers | None = None
+    pods: AdminPods | None = None
+    security: AdminSecurity | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         mod_dict = (self.modules or AdminModules()).to_dict()
         audit_dict = (self.audit or AdminAudit()).to_dict()
         mon_dict = (self.monitoring or AdminMonitoring()).to_dict()

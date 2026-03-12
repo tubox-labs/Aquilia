@@ -12,9 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-import sys
 from pathlib import Path
-from typing import Optional
 
 import click
 
@@ -137,7 +135,7 @@ def cmd_cache_stats(verbose: bool = False) -> None:
 
         async def _stats():
             await svc.initialize()
-            info = await svc.info() if hasattr(svc, 'info') else {}
+            info = await svc.info() if hasattr(svc, "info") else {}
             await svc.shutdown()
             return info
 
@@ -154,10 +152,11 @@ def cmd_cache_stats(verbose: bool = False) -> None:
         click.echo(click.style(f"Failed to get cache stats: {e}", fg="red"))
         if verbose:
             import traceback
+
             traceback.print_exc()
 
 
-def cmd_cache_clear(namespace: Optional[str] = None, verbose: bool = False) -> None:
+def cmd_cache_clear(namespace: str | None = None, verbose: bool = False) -> None:
     """
     Clear cache entries.
 
@@ -190,4 +189,5 @@ def cmd_cache_clear(namespace: Optional[str] = None, verbose: bool = False) -> N
         click.echo(click.style(f"Cache clear failed: {e}", fg="red"))
         if verbose:
             import traceback
+
             traceback.print_exc()

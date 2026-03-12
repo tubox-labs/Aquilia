@@ -27,11 +27,11 @@ Usage:
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional, Sequence, Tuple, Type, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from aquilia.models.base import Model
     from aquilia.auth.core import Identity
+    from aquilia.models.base import Model
 
 logger = logging.getLogger("aquilia.admin.inlines")
 
@@ -62,23 +62,23 @@ class InlineModelAdmin:
         template: Layout template type ("tabular" or "stacked")
     """
 
-    model: Optional[Type[Model]] = None
-    fk_name: Optional[str] = None
-    fields: Optional[List[str]] = None
-    readonly_fields: List[str] = []
-    exclude: List[str] = []
+    model: type[Model] | None = None
+    fk_name: str | None = None
+    fields: list[str] | None = None
+    readonly_fields: list[str] = []
+    exclude: list[str] = []
     extra: int = 3
-    max_num: Optional[int] = None
-    min_num: Optional[int] = None
+    max_num: int | None = None
+    min_num: int | None = None
     can_delete: bool = True
-    verbose_name: Optional[str] = None
-    verbose_name_plural: Optional[str] = None
-    ordering: Optional[List[str]] = None
+    verbose_name: str | None = None
+    verbose_name_plural: str | None = None
+    ordering: list[str] | None = None
     show_change_link: bool = False
-    classes: List[str] = []
+    classes: list[str] = []
     template: str = "tabular"  # "tabular" or "stacked"
 
-    def __init__(self, parent_model: Optional[Type[Model]] = None):
+    def __init__(self, parent_model: type[Model] | None = None):
         self._parent_model = parent_model
         self._fk_field = None
 
@@ -105,9 +105,7 @@ class InlineModelAdmin:
         fk_candidates = []
         for attr_name, field in getattr(self.model, "_fields", {}).items():
             if isinstance(field, (ForeignKey, OneToOneField)):
-                target = field.to if isinstance(field.to, str) else (
-                    field.to.__name__ if field.to else None
-                )
+                target = field.to if isinstance(field.to, str) else (field.to.__name__ if field.to else None)
                 if target == self._parent_model.__name__:
                     fk_candidates.append(attr_name)
 
@@ -115,6 +113,7 @@ class InlineModelAdmin:
             return fk_candidates[0]
         elif len(fk_candidates) == 0:
             from .faults import AdminInlineFault
+
             raise AdminInlineFault(
                 reason="No ForeignKey found. Set fk_name explicitly.",
                 inline_model=self.model.__name__,
@@ -122,13 +121,14 @@ class InlineModelAdmin:
             )
         else:
             from .faults import AdminInlineFault
+
             raise AdminInlineFault(
                 reason=f"Multiple ForeignKeys found: {fk_candidates}. Set fk_name explicitly.",
                 inline_model=self.model.__name__,
                 parent_model=self._parent_model.__name__,
             )
 
-    def get_fields(self) -> List[str]:
+    def get_fields(self) -> list[str]:
         """Get fields to display in the inline form."""
         if self.fields:
             return [f for f in self.fields if f not in self.exclude]
@@ -154,13 +154,14 @@ class InlineModelAdmin:
                 editable.append(attr_name)
         return editable
 
-    def get_readonly_fields(self) -> List[str]:
+    def get_readonly_fields(self) -> list[str]:
         """Get read-only fields for the inline."""
         readonly = list(self.readonly_fields)
 
         if self.model:
             try:
                 from aquilia.models.fields_module import AutoField, BigAutoField
+
                 for attr_name, field in self.model._fields.items():
                     if isinstance(field, (AutoField, BigAutoField)) and attr_name not in readonly:
                         readonly.append(attr_name)
@@ -187,32 +188,32 @@ class InlineModelAdmin:
             return name[:-1] + "ies"
         return name + "s"
 
-    def get_ordering(self) -> List[str]:
+    def get_ordering(self) -> list[str]:
         """Get ordering for inline records."""
         if self.ordering:
             return list(self.ordering)
         pk = getattr(self.model, "_pk_attr", "id") if self.model else "id"
         return [pk]
 
-    def has_add_permission(self, identity: Optional[Identity] = None) -> bool:
+    def has_add_permission(self, identity: Identity | None = None) -> bool:
         """Check if user can add inline records."""
         if identity is None:
             return False
         return identity.is_active()
 
-    def has_change_permission(self, identity: Optional[Identity] = None) -> bool:
+    def has_change_permission(self, identity: Identity | None = None) -> bool:
         """Check if user can change inline records."""
         if identity is None:
             return False
         return identity.is_active()
 
-    def has_delete_permission(self, identity: Optional[Identity] = None) -> bool:
+    def has_delete_permission(self, identity: Identity | None = None) -> bool:
         """Check if user can delete inline records."""
         if identity is None:
             return False
         return self.can_delete and identity.is_active()
 
-    def get_field_metadata(self, field_name: str) -> Dict[str, Any]:
+    def get_field_metadata(self, field_name: str) -> dict[str, Any]:
         """Get metadata about a field for template rendering."""
         if not self.model or field_name not in self.model._fields:
             return {
@@ -237,9 +238,19 @@ class InlineModelAdmin:
         """Map model field to HTML input type."""
         try:
             from aquilia.models.fields_module import (
-                BooleanField, IntegerField, BigIntegerField, SmallIntegerField,
-                FloatField, DecimalField, DateField, TimeField, DateTimeField,
-                EmailField, URLField, TextField, JSONField,
+                BigIntegerField,
+                BooleanField,
+                DateField,
+                DateTimeField,
+                DecimalField,
+                EmailField,
+                FloatField,
+                IntegerField,
+                JSONField,
+                SmallIntegerField,
+                TextField,
+                TimeField,
+                URLField,
             )
         except ImportError:
             return "text"
@@ -268,7 +279,7 @@ class InlineModelAdmin:
             return "select"
         return "text"
 
-    def to_template_data(self, records: List[Any] = None, parent_pk: Any = None) -> Dict[str, Any]:
+    def to_template_data(self, records: list[Any] = None, parent_pk: Any = None) -> dict[str, Any]:
         """
         Serialize inline configuration and data for template rendering.
 
@@ -319,6 +330,7 @@ class TabularInline(InlineModelAdmin):
     Each field appears as a column, making it ideal for models with
     few fields or when you need to see many records at once.
     """
+
     template = "tabular"
 
 
@@ -329,4 +341,5 @@ class StackedInline(InlineModelAdmin):
     Each record gets its own fieldset-like section, ideal for models
     with many fields or when fields need more visual space.
     """
+
     template = "stacked"

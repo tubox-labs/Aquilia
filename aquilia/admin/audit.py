@@ -17,19 +17,21 @@ Audit entries are immutable and include:
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import os
-from datetime import datetime, timezone
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger("aquilia.admin.audit")
 
 
 class AdminAction(str, Enum):
     """Admin action types for audit logging."""
+
     # ── Auth ─────────────────────────────────────────────────────────
     LOGIN = "login"
     LOGOUT = "logout"
@@ -107,22 +109,23 @@ class AdminAuditEntry:
     Captures the full context of an admin action for compliance
     and forensic analysis.
     """
+
     id: str
     timestamp: datetime
     user_id: str
     username: str
     role: str
     action: AdminAction
-    model_name: Optional[str] = None
-    record_pk: Optional[str] = None
-    changes: Optional[Dict[str, Any]] = None  # {"field": {"old": x, "new": y}}
-    ip_address: Optional[str] = None
-    user_agent: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    model_name: str | None = None
+    record_pk: str | None = None
+    changes: dict[str, Any] | None = None  # {"field": {"old": x, "new": y}}
+    ip_address: str | None = None
+    user_agent: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
     success: bool = True
-    error_message: Optional[str] = None
+    error_message: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "id": self.id,
@@ -142,7 +145,7 @@ class AdminAuditEntry:
         }
 
     @staticmethod
-    def from_dict(data: Dict[str, Any]) -> "AdminAuditEntry":
+    def from_dict(data: dict[str, Any]) -> AdminAuditEntry:
         """Reconstruct an entry from a serialized dictionary."""
         ts = data.get("timestamp", "")
         if isinstance(ts, str):
@@ -171,7 +174,7 @@ class AdminAuditEntry:
 # ── CROUS File Storage ──────────────────────────────────────────────
 
 
-def _resolve_workspace_root() -> Optional[Path]:
+def _resolve_workspace_root() -> Path | None:
     """
     Find the workspace root by looking for ``workspace.py`` or ``starter.py``
     in common locations relative to CWD.
@@ -205,8 +208,8 @@ class CrousAuditStore:
 
     def __init__(self) -> None:
         self._crous = None  # lazy-imported
-        self._available: Optional[bool] = None
-        self._path: Optional[Path] = None
+        self._available: bool | None = None
+        self._path: Path | None = None
 
     def _probe(self) -> bool:
         """Try to import crous once; cache the result."""
@@ -214,6 +217,7 @@ class CrousAuditStore:
             return self._available
         try:
             import crous  # type: ignore[import-untyped]
+
             self._crous = crous
             self._path = _get_crous_audit_path()
             self._available = True
@@ -223,18 +227,16 @@ class CrousAuditStore:
 
     # ── Write ────────────────────────────────────────────────────
 
-    def persist(self, entry: "AdminAuditEntry") -> None:
+    def persist(self, entry: AdminAuditEntry) -> None:
         """Append a single audit entry to the .crous file."""
         if not self._probe():
             return
-        try:
+        with contextlib.suppress(Exception):
             self._crous.append(entry.to_dict(), str(self._path))
-        except Exception:
-            pass
 
     # ── Read ─────────────────────────────────────────────────────
 
-    def load_all(self) -> List["AdminAuditEntry"]:
+    def load_all(self) -> list[AdminAuditEntry]:
         """Load all persisted entries from the .crous file."""
         if not self._probe() or self._path is None or not self._path.exists():
             return []
@@ -248,7 +250,7 @@ class CrousAuditStore:
                 raw = [raw]
             if not isinstance(raw, list):
                 return []
-            entries: List[AdminAuditEntry] = []
+            entries: list[AdminAuditEntry] = []
             for item in raw:
                 if isinstance(item, dict):
                     try:
@@ -256,17 +258,17 @@ class CrousAuditStore:
                     except Exception:
                         continue
             return entries
-        except Exception as exc:
+        except Exception:
             return []
 
-    def load_for_record(self, model_name: str, record_pk: str) -> List["AdminAuditEntry"]:
+    def load_for_record(self, model_name: str, record_pk: str) -> list[AdminAuditEntry]:
         """Load only entries matching a specific model + pk (case-insensitive)."""
         all_entries = self.load_all()
         model_lower = model_name.lower()
         return [
-            e for e in all_entries
-            if (e.model_name or "").lower() == model_lower
-            and str(e.record_pk or "") == str(record_pk)
+            e
+            for e in all_entries
+            if (e.model_name or "").lower() == model_lower and str(e.record_pk or "") == str(record_pk)
         ]
 
     # ── Maintenance ──────────────────────────────────────────────
@@ -274,10 +276,8 @@ class CrousAuditStore:
     def clear(self) -> None:
         """Remove the .crous audit file."""
         if self._path and self._path.exists():
-            try:
+            with contextlib.suppress(Exception):
                 self._path.unlink()
-            except Exception:
-                pass
 
     def truncate(self, keep: int = 10_000) -> None:
         """Keep only the *keep* most recent entries."""
@@ -302,7 +302,7 @@ class AdminAuditLog:
     """
 
     def __init__(self, max_entries: int = 10_000, *, persist: bool = False):
-        self._entries: List[AdminAuditEntry] = []
+        self._entries: list[AdminAuditEntry] = []
         self._max_entries = max_entries
         self._counter = 0
         # Admin config reference -- set by AdminSite after config is parsed
@@ -332,7 +332,7 @@ class AdminAuditLog:
                 self._entries.sort(key=lambda e: e.timestamp)
                 # Enforce retention
                 if len(self._entries) > self._max_entries:
-                    self._entries = self._entries[-self._max_entries:]
+                    self._entries = self._entries[-self._max_entries :]
                 self._counter = len(self._entries)
         except Exception:
             pass
@@ -344,14 +344,14 @@ class AdminAuditLog:
         role: str,
         action: AdminAction,
         *,
-        model_name: Optional[str] = None,
-        record_pk: Optional[str] = None,
-        changes: Optional[Dict[str, Any]] = None,
-        ip_address: Optional[str] = None,
-        user_agent: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        model_name: str | None = None,
+        record_pk: str | None = None,
+        changes: dict[str, Any] | None = None,
+        ip_address: str | None = None,
+        user_agent: str | None = None,
+        metadata: dict[str, Any] | None = None,
         success: bool = True,
-        error_message: Optional[str] = None,
+        error_message: str | None = None,
     ) -> AdminAuditEntry:
         """
         Record an admin action.
@@ -364,26 +364,26 @@ class AdminAuditLog:
         Returns the created audit entry.
         """
         # ── Check admin config filters ──
-        if self._admin_config is not None:
-            if not self._admin_config.is_action_allowed(action):
-                # Return a stub entry without persisting
-                import secrets
-                return AdminAuditEntry(
-                    id=f"audit_skip_{secrets.token_hex(4)}",
-                    timestamp=datetime.now(timezone.utc),
-                    user_id=user_id,
-                    username=username,
-                    role=role,
-                    action=action,
-                    model_name=model_name,
-                    record_pk=record_pk,
-                    changes=changes,
-                    ip_address=ip_address,
-                    user_agent=user_agent,
-                    metadata=metadata or {},
-                    success=success,
-                    error_message=error_message,
-                )
+        if self._admin_config is not None and not self._admin_config.is_action_allowed(action):
+            # Return a stub entry without persisting
+            import secrets
+
+            return AdminAuditEntry(
+                id=f"audit_skip_{secrets.token_hex(4)}",
+                timestamp=datetime.now(timezone.utc),
+                user_id=user_id,
+                username=username,
+                role=role,
+                action=action,
+                model_name=model_name,
+                record_pk=record_pk,
+                changes=changes,
+                ip_address=ip_address,
+                user_agent=user_agent,
+                metadata=metadata or {},
+                success=success,
+                error_message=error_message,
+            )
 
         import secrets
 
@@ -413,20 +413,19 @@ class AdminAuditLog:
 
         # Enforce retention limit (FIFO eviction)
         if len(self._entries) > self._max_entries:
-            self._entries = self._entries[-self._max_entries:]
-
+            self._entries = self._entries[-self._max_entries :]
 
         return entry
 
     def get_entries(
         self,
         *,
-        action: Optional[AdminAction] = None,
-        user_id: Optional[str] = None,
-        model_name: Optional[str] = None,
+        action: AdminAction | None = None,
+        user_id: str | None = None,
+        model_name: str | None = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> List[AdminAuditEntry]:
+    ) -> list[AdminAuditEntry]:
         """
         Query audit entries with optional filtering.
 
@@ -446,13 +445,13 @@ class AdminAuditLog:
         # Reverse chronological
         filtered = list(reversed(filtered))
 
-        return filtered[offset:offset + limit]
+        return filtered[offset : offset + limit]
 
     def count(
         self,
         *,
-        action: Optional[AdminAction] = None,
-        model_name: Optional[str] = None,
+        action: AdminAction | None = None,
+        model_name: str | None = None,
     ) -> int:
         """Count audit entries with optional filtering."""
         self._hydrate()
@@ -481,14 +480,14 @@ class AdminAuditLog:
         self,
         model_name: str,
         record_pk: str,
-    ) -> List["AdminAuditEntry"]:
+    ) -> list[AdminAuditEntry]:
         """Return all audit entries for a specific model + pk, newest-first."""
         self._hydrate()
         model_lower = model_name.lower()
         filtered = [
-            e for e in self._entries
-            if (e.model_name or "").lower() == model_lower
-            and str(e.record_pk or "") == str(record_pk)
+            e
+            for e in self._entries
+            if (e.model_name or "").lower() == model_lower and str(e.record_pk or "") == str(record_pk)
         ]
         filtered.sort(key=lambda e: e.timestamp, reverse=True)
         return filtered
@@ -514,7 +513,7 @@ class ModelBackedAuditLog:
         # persist=False for the fallback: ModelBackedAuditLog manages its own
         # CROUS store directly rather than through the fallback's hydration.
         self._fallback = AdminAuditLog(max_entries=fallback_max, persist=False)
-        self._db_available: Optional[bool] = None  # None = not yet probed
+        self._db_available: bool | None = None  # None = not yet probed
         # Admin config reference -- set by AdminSite after config is parsed
         self._admin_config: Any = None
         # CROUS file persistence (independent of fallback)
@@ -541,6 +540,7 @@ class ModelBackedAuditLog:
             return self._db_available
         try:
             from aquilia.admin.models import AdminAuditEntry
+
             # Lightweight probe -- count with limit 0
             await AdminAuditEntry.objects.filter(entry_id="__probe__").count()
             self._db_available = True
@@ -570,17 +570,17 @@ class ModelBackedAuditLog:
         user_id: str,
         username: str,
         role: str,
-        action: "AdminAction",
+        action: AdminAction,
         *,
-        model_name: Optional[str] = None,
-        record_pk: Optional[str] = None,
-        changes: Optional[Dict[str, Any]] = None,
-        ip_address: Optional[str] = None,
-        user_agent: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        model_name: str | None = None,
+        record_pk: str | None = None,
+        changes: dict[str, Any] | None = None,
+        ip_address: str | None = None,
+        user_agent: str | None = None,
+        metadata: dict[str, Any] | None = None,
         success: bool = True,
-        error_message: Optional[str] = None,
-    ) -> "AdminAuditEntry":
+        error_message: str | None = None,
+    ) -> AdminAuditEntry:
         """
         Record an audit entry.
 
@@ -646,8 +646,9 @@ class ModelBackedAuditLog:
             if not await self._probe_db():
                 return
             from aquilia.admin.models import AdminAuditEntry
+
             await AdminAuditEntry.create_entry(**kwargs)
-        except Exception as exc:
+        except Exception:
             # Disable DB writes for this session to avoid noise
             self._db_available = False
 
@@ -656,9 +657,9 @@ class ModelBackedAuditLog:
         user_id: str,
         username: str,
         role: str,
-        action: "AdminAction",
+        action: AdminAction,
         **kwargs: Any,
-    ) -> "AdminAuditEntry":
+    ) -> AdminAuditEntry:
         """
         Async version of log() -- awaits the DB write directly.
         Respects admin config action filtering.
@@ -688,12 +689,12 @@ class ModelBackedAuditLog:
     async def get_entries_async(
         self,
         *,
-        action: Optional["AdminAction"] = None,
-        user_id: Optional[str] = None,
-        model_name: Optional[str] = None,
+        action: AdminAction | None = None,
+        user_id: str | None = None,
+        model_name: str | None = None,
         limit: int = 100,
         offset: int = 0,
-    ) -> List["AdminAuditEntry"]:
+    ) -> list[AdminAuditEntry]:
         """
         Fetch entries from the DB (preferred) or in-memory fallback.
 
@@ -702,6 +703,7 @@ class ModelBackedAuditLog:
         if await self._probe_db():
             try:
                 from aquilia.admin.models import AdminAuditEntry
+
                 qs = AdminAuditEntry.objects.get_queryset()
                 if action is not None:
                     action_str = action.value if hasattr(action, "value") else str(action)
@@ -713,14 +715,17 @@ class ModelBackedAuditLog:
                 # Order by newest first
                 qs = qs.order_by("-timestamp")
                 all_rows = await qs.all()
-                return list(all_rows[offset:offset + limit])
-            except Exception as exc:
+                return list(all_rows[offset : offset + limit])
+            except Exception:
                 self._db_available = False
 
         # Fallback to in-memory
         return self._fallback.get_entries(
-            action=action, user_id=user_id, model_name=model_name,
-            limit=limit, offset=offset,
+            action=action,
+            user_id=user_id,
+            model_name=model_name,
+            limit=limit,
+            offset=offset,
         )  # type: ignore[return-value]
 
     def _hydrate(self) -> None:
@@ -737,7 +742,7 @@ class ModelBackedAuditLog:
                         self._fallback._entries.insert(0, entry)
                 self._fallback._entries.sort(key=lambda e: e.timestamp)
                 if len(self._fallback._entries) > self._fallback._max_entries:
-                    self._fallback._entries = self._fallback._entries[-self._fallback._max_entries:]
+                    self._fallback._entries = self._fallback._entries[-self._fallback._max_entries :]
                 self._fallback._counter = len(self._fallback._entries)
         except Exception:
             pass
@@ -745,12 +750,12 @@ class ModelBackedAuditLog:
     def get_entries(
         self,
         *,
-        action: Optional["AdminAction"] = None,
-        user_id: Optional[str] = None,
-        model_name: Optional[str] = None,
+        action: AdminAction | None = None,
+        user_id: str | None = None,
+        model_name: str | None = None,
         limit: int = 100,
         offset: int = 0,
-    ) -> List["AdminAuditEntry"]:
+    ) -> list[AdminAuditEntry]:
         """
         Synchronous get_entries -- returns in-memory entries only.
         Hydrates from the CROUS file on the first call.
@@ -759,20 +764,24 @@ class ModelBackedAuditLog:
         """
         self._hydrate()
         return self._fallback.get_entries(
-            action=action, user_id=user_id, model_name=model_name,
-            limit=limit, offset=offset,
+            action=action,
+            user_id=user_id,
+            model_name=model_name,
+            limit=limit,
+            offset=offset,
         )  # type: ignore[return-value]
 
     async def count_async(
         self,
         *,
-        action: Optional["AdminAction"] = None,
-        model_name: Optional[str] = None,
+        action: AdminAction | None = None,
+        model_name: str | None = None,
     ) -> int:
         """Count entries from DB if available, else in-memory."""
         if await self._probe_db():
             try:
                 from aquilia.admin.models import AdminAuditEntry
+
                 qs = AdminAuditEntry.objects.get_queryset()
                 if action is not None:
                     action_str = action.value if hasattr(action, "value") else str(action)
@@ -780,15 +789,15 @@ class ModelBackedAuditLog:
                 if model_name is not None:
                     qs = qs.filter(model_name=model_name)
                 return await qs.count()
-            except Exception as exc:
+            except Exception:
                 self._db_available = False
         return self._fallback.count(action=action, model_name=model_name)
 
     def count(
         self,
         *,
-        action: Optional["AdminAction"] = None,
-        model_name: Optional[str] = None,
+        action: AdminAction | None = None,
+        model_name: str | None = None,
     ) -> int:
         """Synchronous count -- returns in-memory count only."""
         self._hydrate()
@@ -804,7 +813,7 @@ class ModelBackedAuditLog:
         self,
         model_name: str,
         record_pk: str,
-    ) -> List["AdminAuditEntry"]:
+    ) -> list[AdminAuditEntry]:
         """
         Return all audit entries for a specific model + pk.
 
@@ -814,17 +823,14 @@ class ModelBackedAuditLog:
         # In-memory results (with hydration)
         self._hydrate()
         mem = self._fallback.get_entries(model_name=model_name, limit=10_000)
-        mem_filtered = [
-            e for e in mem
-            if str(e.record_pk or "") == str(record_pk)
-        ]
+        mem_filtered = [e for e in mem if str(e.record_pk or "") == str(record_pk)]
 
         # CROUS file direct lookup (catches entries not yet in memory)
         file_entries = self._crous_store.load_for_record(model_name, record_pk)
 
         # Merge, dedup by id, sort newest-first
         seen: set = set()
-        merged: List[AdminAuditEntry] = []
+        merged: list[AdminAuditEntry] = []
         for e in file_entries + mem_filtered:
             if e.id not in seen:
                 seen.add(e.id)

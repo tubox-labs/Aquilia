@@ -4,18 +4,18 @@ Provides convenient shortcuts for module discovery, inspection, and analytics.
 """
 
 import sys
-from pathlib import Path
-from typing import Optional
-from aquilia.cli.commands.discover import DiscoveryInspector
+
 from aquilia.cli.commands.analytics import DiscoveryAnalytics, print_analysis_report
+from aquilia.cli.commands.discover import DiscoveryInspector
 
 
 class DiscoveryCLI:
     """CLI interface for discovery operations."""
-    
+
     @staticmethod
-    def discover(workspace: str, path: Optional[str] = None, verbose: bool = False,
-                 sync: bool = False, dry_run: bool = False) -> None:
+    def discover(
+        workspace: str, path: str | None = None, verbose: bool = False, sync: bool = False, dry_run: bool = False
+    ) -> None:
         """Discover and list all modules. Optionally sync manifests."""
         try:
             inspector = DiscoveryInspector(workspace, path or workspace)
@@ -23,9 +23,9 @@ class DiscoveryCLI:
         except Exception as e:
             print(f"Error: {e}", file=sys.stderr)
             sys.exit(1)
-    
+
     @staticmethod
-    def analyze(workspace: str, path: Optional[str] = None) -> None:
+    def analyze(workspace: str, path: str | None = None) -> None:
         """Run analytics on discovered modules."""
         try:
             analytics = DiscoveryAnalytics(workspace, path or workspace)
@@ -34,72 +34,72 @@ class DiscoveryCLI:
         except Exception as e:
             print(f"Error: {e}", file=sys.stderr)
             sys.exit(1)
-    
+
     @staticmethod
-    def validate(workspace: str, path: Optional[str] = None) -> None:
+    def validate(workspace: str, path: str | None = None) -> None:
         """Validate all discovered modules."""
         try:
             inspector = DiscoveryInspector(workspace, path or workspace)
             generator = inspector.generator
             discovered = generator._discover_modules()
             validation = generator._validate_modules(discovered)
-            
-            print(f"\nModule Validation Report")
-            print(f"{'='*60}")
+
+            print("\nModule Validation Report")
+            print(f"{'=' * 60}")
             print(f"Workspace: {workspace}")
             print(f"Modules Checked: {len(discovered)}")
             print()
-            
-            if validation['errors']:
-                print(f"  Errors ({len(validation['errors'])}):") 
-                for error in validation['errors']:
+
+            if validation["errors"]:
+                print(f"  Errors ({len(validation['errors'])}):")
+                for error in validation["errors"]:
                     print(f"  - {error}")
                 print()
-            
-            if validation['warnings']:
-                print(f"  Warnings ({len(validation['warnings'])}):") 
-                for warning in validation['warnings']:
+
+            if validation["warnings"]:
+                print(f"  Warnings ({len(validation['warnings'])}):")
+                for warning in validation["warnings"]:
                     print(f"  - {warning}")
                 print()
-            
-            if validation['valid']:
-                print(f"All modules valid!")
+
+            if validation["valid"]:
+                print("All modules valid!")
             else:
-                print(f"Validation failed!")
+                print("Validation failed!")
                 sys.exit(1)
-        
+
         except Exception as e:
             print(f"Error: {e}", file=sys.stderr)
             sys.exit(1)
-    
+
     @staticmethod
-    def dependencies(workspace: str, path: Optional[str] = None) -> None:
+    def dependencies(workspace: str, path: str | None = None) -> None:
         """Show module dependency graph."""
         try:
             inspector = DiscoveryInspector(workspace, path or workspace)
             generator = inspector.generator
             discovered = generator._discover_modules()
             sorted_mods = generator._resolve_dependencies(discovered)
-            
-            print(f"\n  Module Dependency Graph")
-            print(f"{'='*60}")
+
+            print("\n  Module Dependency Graph")
+            print(f"{'=' * 60}")
             print(f"Workspace: {workspace}")
-            print(f"Load Order:")
+            print("Load Order:")
             print()
-            
+
             for i, mod_name in enumerate(sorted_mods, 1):
                 mod = discovered[mod_name]
-                deps = mod.get('depends_on', [])
-                
+                deps = mod.get("depends_on", [])
+
                 if deps:
                     deps_str = " → ".join(deps)
                     print(f"  {i}. {mod_name} (depends on: {deps_str})")
                 else:
                     print(f"  {i}. {mod_name} (no dependencies)")
-            
+
             print()
-            print(f"{'='*60}\n")
-        
+            print(f"{'=' * 60}\n")
+
         except Exception as e:
             print(f"Error: {e}", file=sys.stderr)
             sys.exit(1)
@@ -108,54 +108,44 @@ class DiscoveryCLI:
 def main():
     """Main CLI entry point."""
     import argparse
-    
-    parser = argparse.ArgumentParser(
-        description="Aquilia module auto-discovery CLI"
-    )
-    
-    subparsers = parser.add_subparsers(dest='command', help='Discovery commands')
-    
+
+    parser = argparse.ArgumentParser(description="Aquilia module auto-discovery CLI")
+
+    subparsers = parser.add_subparsers(dest="command", help="Discovery commands")
+
     # Discover command
-    discover_parser = subparsers.add_parser('discover', help='List discovered modules')
-    discover_parser.add_argument('workspace', help='Workspace name')
-    discover_parser.add_argument('--path', help='Workspace path')
-    discover_parser.add_argument('-v', '--verbose', action='store_true', help='Verbose output')
-    discover_parser.set_defaults(func=lambda args: DiscoveryCLI.discover(
-        args.workspace, args.path, args.verbose
-    ))
-    
+    discover_parser = subparsers.add_parser("discover", help="List discovered modules")
+    discover_parser.add_argument("workspace", help="Workspace name")
+    discover_parser.add_argument("--path", help="Workspace path")
+    discover_parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
+    discover_parser.set_defaults(func=lambda args: DiscoveryCLI.discover(args.workspace, args.path, args.verbose))
+
     # Analyze command
-    analyze_parser = subparsers.add_parser('analyze', help='Analyze modules')
-    analyze_parser.add_argument('workspace', help='Workspace name')
-    analyze_parser.add_argument('--path', help='Workspace path')
-    analyze_parser.set_defaults(func=lambda args: DiscoveryCLI.analyze(
-        args.workspace, args.path
-    ))
-    
+    analyze_parser = subparsers.add_parser("analyze", help="Analyze modules")
+    analyze_parser.add_argument("workspace", help="Workspace name")
+    analyze_parser.add_argument("--path", help="Workspace path")
+    analyze_parser.set_defaults(func=lambda args: DiscoveryCLI.analyze(args.workspace, args.path))
+
     # Validate command
-    validate_parser = subparsers.add_parser('validate', help='Validate modules')
-    validate_parser.add_argument('workspace', help='Workspace name')
-    validate_parser.add_argument('--path', help='Workspace path')
-    validate_parser.set_defaults(func=lambda args: DiscoveryCLI.validate(
-        args.workspace, args.path
-    ))
-    
+    validate_parser = subparsers.add_parser("validate", help="Validate modules")
+    validate_parser.add_argument("workspace", help="Workspace name")
+    validate_parser.add_argument("--path", help="Workspace path")
+    validate_parser.set_defaults(func=lambda args: DiscoveryCLI.validate(args.workspace, args.path))
+
     # Dependencies command
-    deps_parser = subparsers.add_parser('deps', help='Show dependency graph')
-    deps_parser.add_argument('workspace', help='Workspace name')
-    deps_parser.add_argument('--path', help='Workspace path')
-    deps_parser.set_defaults(func=lambda args: DiscoveryCLI.dependencies(
-        args.workspace, args.path
-    ))
-    
+    deps_parser = subparsers.add_parser("deps", help="Show dependency graph")
+    deps_parser.add_argument("workspace", help="Workspace name")
+    deps_parser.add_argument("--path", help="Workspace path")
+    deps_parser.set_defaults(func=lambda args: DiscoveryCLI.dependencies(args.workspace, args.path))
+
     args = parser.parse_args()
-    
+
     if args.command is None:
         parser.print_help()
         sys.exit(1)
-    
+
     args.func(args)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

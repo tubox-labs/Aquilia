@@ -38,28 +38,28 @@ registry and migration pipeline skip them automatically.
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
 import secrets
-import time
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from aquilia.auth.core import Identity
 
 try:
     from aquilia.models import (
-        Model,
-        CharField,
-        TextField,
         BooleanField,
-        IntegerField,
+        CharField,
         DateTimeField,
-        JSONField,
         ForeignKey,
         Index,
-        UniqueConstraint,
+        IntegerField,
+        JSONField,  # noqa: F401
+        Model,
+        TextField,
+        UniqueConstraint,  # noqa: F401
     )
     from aquilia.models.constraint import CheckConstraint
 
@@ -128,7 +128,6 @@ _ROLE_CHECK_SQL = "role IN ('superadmin', 'staff', 'viewer')"
 # ═══════════════════════════════════════════════════════════════════════════
 
 if _ORM_AVAILABLE:
-
     # -------------------------------------------------------------------
     #  AdminUser
     # -------------------------------------------------------------------
@@ -234,7 +233,11 @@ if _ORM_AVAILABLE:
             """Alias for ``last_login_at`` (returns ISO string for templates)."""
             if self.last_login_at is None:
                 return ""
-            return str(self.last_login_at.isoformat()) if hasattr(self.last_login_at, "isoformat") else str(self.last_login_at)
+            return (
+                str(self.last_login_at.isoformat())
+                if hasattr(self.last_login_at, "isoformat")
+                else str(self.last_login_at)
+            )
 
         @property
         def date_joined(self) -> str:
@@ -269,11 +272,11 @@ if _ORM_AVAILABLE:
             """
             if _pw_hasher is None:
                 from aquilia.faults.domains import ConfigMissingFault
+
                 raise ConfigMissingFault(
                     key="auth.password_hasher",
                     metadata={
-                        "hint": "Password hashing unavailable — "
-                        "install argon2-cffi or check aquilia.auth.hashing",
+                        "hint": "Password hashing unavailable — install argon2-cffi or check aquilia.auth.hashing",
                     },
                 )
             self.password_hash = _pw_hasher.hash(raw_password)
@@ -293,8 +296,8 @@ if _ORM_AVAILABLE:
             """Check a fine-grained permission against the RBAC matrix."""
             try:
                 from aquilia.admin.permissions import (
-                    AdminRole,
                     AdminPermission,
+                    AdminRole,
                     has_admin_permission,
                 )
 
@@ -304,7 +307,7 @@ if _ORM_AVAILABLE:
             except (ValueError, KeyError):
                 return False
 
-        def has_perms(self, permissions: List[str]) -> bool:
+        def has_perms(self, permissions: list[str]) -> bool:
             """Return ``True`` only if the user holds **every** permission."""
             return all(self.has_perm(p) for p in permissions)
 
@@ -338,6 +341,7 @@ if _ORM_AVAILABLE:
             """Validate and assign a new role."""
             if role not in VALID_ROLES:
                 from aquilia.faults.domains import ConfigInvalidFault
+
                 raise ConfigInvalidFault(
                     key="admin_user.role",
                     reason=f"Invalid role {role!r}. Must be one of {VALID_ROLES}",
@@ -352,9 +356,9 @@ if _ORM_AVAILABLE:
 
         # ── Identity bridge (for session auth) ───────────────────────────
 
-        def to_identity(self) -> "Identity":
+        def to_identity(self) -> Identity:
             """Convert this admin user to an ``Identity`` for session storage."""
-            from aquilia.auth.core import Identity, IdentityType, IdentityStatus
+            from aquilia.auth.core import Identity, IdentityStatus, IdentityType
 
             return Identity(
                 id=str(getattr(self, "id", None) or getattr(self, "pk", "?")),
@@ -383,7 +387,7 @@ if _ORM_AVAILABLE:
             password: str,
             email: str,
             **extra_fields: Any,
-        ) -> "AdminUser":
+        ) -> AdminUser:
             """Create and persist a superadmin user.
 
             Accepts optional ``first_name``, ``last_name``, ``bio``,
@@ -404,7 +408,7 @@ if _ORM_AVAILABLE:
             password: str,
             email: str,
             **extra_fields: Any,
-        ) -> "AdminUser":
+        ) -> AdminUser:
             """Create and persist a staff user."""
             return await cls._create_user(
                 username=username,
@@ -423,15 +427,15 @@ if _ORM_AVAILABLE:
             email: str,
             role: str = DEFAULT_ROLE,
             **extra_fields: Any,
-        ) -> "AdminUser":
+        ) -> AdminUser:
             """Internal factory shared by ``create_superuser`` / ``create_staff_user``."""
             if _pw_hasher is None:
                 from aquilia.faults.domains import ConfigMissingFault
+
                 raise ConfigMissingFault(
                     key="auth.password_hasher",
                     metadata={
-                        "hint": "Password hashing unavailable — "
-                        "install argon2-cffi or check aquilia.auth.hashing",
+                        "hint": "Password hashing unavailable — install argon2-cffi or check aquilia.auth.hashing",
                     },
                 )
             now = _now_utc()
@@ -465,9 +469,7 @@ if _ORM_AVAILABLE:
         # ── Authentication ───────────────────────────────────────────────
 
         @classmethod
-        async def authenticate(
-            cls, username: str, password: str
-        ) -> Optional["AdminUser"]:
+        async def authenticate(cls, username: str, password: str) -> AdminUser | None:
             """Look up a user by username and verify the password.
 
             Returns the ``AdminUser`` instance on success, ``None`` on failure.
@@ -494,7 +496,7 @@ if _ORM_AVAILABLE:
 
         # ── Serialisation ────────────────────────────────────────────────
 
-        def to_safe_dict(self) -> Dict[str, Any]:
+        def to_safe_dict(self) -> dict[str, Any]:
             """Return a JSON-safe dict **without** the password hash."""
             return {
                 "id": getattr(self, "id", None),
@@ -579,21 +581,21 @@ if _ORM_AVAILABLE:
         user_agent = CharField(max_length=512, default="")
 
         # What ─────────────────────────────────────────────────────────────
-        action = CharField(max_length=64)          # e.g. "create", "update", "delete", "login", "export"
-        resource_type = CharField(max_length=128, default="")   # model or subsystem name
-        resource_id = CharField(max_length=128, default="")     # PK of affected object
-        summary = CharField(max_length=512, default="")         # human-readable description
+        action = CharField(max_length=64)  # e.g. "create", "update", "delete", "login", "export"
+        resource_type = CharField(max_length=128, default="")  # model or subsystem name
+        resource_id = CharField(max_length=128, default="")  # PK of affected object
+        summary = CharField(max_length=512, default="")  # human-readable description
 
         # Detail (JSON) ────────────────────────────────────────────────────
-        detail = TextField(default="{}")            # arbitrary JSON payload
-        diff = TextField(default="{}")              # before/after snapshot
+        detail = TextField(default="{}")  # arbitrary JSON payload
+        diff = TextField(default="{}")  # before/after snapshot
 
         # When ─────────────────────────────────────────────────────────────
         timestamp = DateTimeField(auto_now_add=True, db_index=True)
 
         # Severity / category ──────────────────────────────────────────────
-        severity = CharField(max_length=16, default="info")     # info | warning | critical
-        category = CharField(max_length=64, default="admin")    # admin | auth | data | config | system
+        severity = CharField(max_length=16, default="info")  # info | warning | critical
+        category = CharField(max_length=64, default="admin")  # admin | auth | data | config | system
 
         # ── Factory ──────────────────────────────────────────────────────
 
@@ -602,7 +604,7 @@ if _ORM_AVAILABLE:
             cls,
             *,
             action: str,
-            user: Optional["AdminUser"] = None,
+            user: AdminUser | None = None,
             user_id: int = 0,
             username: str = "system",
             ip_address: str = "",
@@ -610,11 +612,11 @@ if _ORM_AVAILABLE:
             resource_type: str = "",
             resource_id: str = "",
             summary: str = "",
-            detail: Optional[Dict[str, Any]] = None,
-            diff: Optional[Dict[str, Any]] = None,
+            detail: dict[str, Any] | None = None,
+            diff: dict[str, Any] | None = None,
             severity: str = "info",
             category: str = "admin",
-        ) -> "AdminAuditEntry":
+        ) -> AdminAuditEntry:
             """High-level factory that normalises inputs and persists a row."""
             if user is not None:
                 user_id = getattr(user, "id", 0) or 0
@@ -646,13 +648,13 @@ if _ORM_AVAILABLE:
         @classmethod
         async def log_action(
             cls,
-            user: Optional["AdminUser"] = None,
+            user: AdminUser | None = None,
             action: str = "",
             resource_type: str = "",
             resource_id: str = "",
             summary: str = "",
             **kwargs: Any,
-        ) -> "AdminAuditEntry":
+        ) -> AdminAuditEntry:
             """Drop-in replacement for ``AdminLogEntry.log_action()``."""
             return await cls.create_entry(
                 action=action,
@@ -665,7 +667,7 @@ if _ORM_AVAILABLE:
 
         # ── Serialisation ────────────────────────────────────────────────
 
-        def to_dict(self) -> Dict[str, Any]:
+        def to_dict(self) -> dict[str, Any]:
             return {
                 "id": getattr(self, "id", None),
                 "user_id": self.user_id,
@@ -683,10 +685,7 @@ if _ORM_AVAILABLE:
             }
 
         def __repr__(self) -> str:
-            return (
-                f"<AdminAuditEntry action={self.action!r} "
-                f"user={self.username!r} ts={self.timestamp!r}>"
-            )
+            return f"<AdminAuditEntry action={self.action!r} user={self.username!r} ts={self.timestamp!r}>"
 
     # -------------------------------------------------------------------
     #  AdminAPIKey
@@ -732,12 +731,12 @@ if _ORM_AVAILABLE:
             db_column="user_id",
         )
         name = CharField(max_length=200)
-        prefix = CharField(max_length=16, db_index=True)   # first N chars for identification
+        prefix = CharField(max_length=16, db_index=True)  # first N chars for identification
         key_hash = CharField(max_length=128, unique=True, db_index=True)
-        scopes = TextField(default="[]")                     # JSON list of permission strings
+        scopes = TextField(default="[]")  # JSON list of permission strings
         is_active = BooleanField(default=True)
         last_used_at = DateTimeField(null=True, blank=True)
-        expires_at = DateTimeField(null=True, blank=True)    # NULL = never expires
+        expires_at = DateTimeField(null=True, blank=True)  # NULL = never expires
         created_at = DateTimeField(auto_now_add=True, db_index=True)
 
         # ── Factory ──────────────────────────────────────────────────────
@@ -748,9 +747,9 @@ if _ORM_AVAILABLE:
             *,
             user_id: int,
             name: str,
-            scopes: Optional[List[str]] = None,
-            expires_at: Optional[datetime] = None,
-        ) -> tuple["AdminAPIKey", str]:
+            scopes: list[str] | None = None,
+            expires_at: datetime | None = None,
+        ) -> tuple[AdminAPIKey, str]:
             """Create an ``AdminAPIKey`` instance **and** return the raw key.
 
             Returns ``(instance, raw_key)``.  The caller must ``await
@@ -773,7 +772,7 @@ if _ORM_AVAILABLE:
         # ── Lookup ───────────────────────────────────────────────────────
 
         @classmethod
-        async def verify(cls, raw_key: str) -> Optional["AdminAPIKey"]:
+        async def verify(cls, raw_key: str) -> AdminAPIKey | None:
             """Look up a key by its hash and check expiry / active flag.
 
             Returns the ``AdminAPIKey`` row if valid, else ``None``.
@@ -801,15 +800,13 @@ if _ORM_AVAILABLE:
 
             # Stamp last-used (fire-and-forget, best-effort)
             key_obj.last_used_at = _now_utc()
-            try:
+            with contextlib.suppress(Exception):
                 await key_obj.save()
-            except Exception:
-                pass
             return key_obj
 
         # ── Helpers ──────────────────────────────────────────────────────
 
-        def get_scopes(self) -> List[str]:
+        def get_scopes(self) -> list[str]:
             """Return the decoded scope list."""
             try:
                 return json.loads(self.scopes or "[]")
@@ -838,7 +835,7 @@ if _ORM_AVAILABLE:
             """Mark the key as inactive.  Caller must ``.save()``."""
             self.is_active = False
 
-        def to_safe_dict(self) -> Dict[str, Any]:
+        def to_safe_dict(self) -> dict[str, Any]:
             return {
                 "id": getattr(self, "id", None),
                 "user_id": self.user_id,
@@ -897,13 +894,13 @@ if _ORM_AVAILABLE:
 
         # ── Accessors ────────────────────────────────────────────────────
 
-        def get_data(self) -> Dict[str, Any]:
+        def get_data(self) -> dict[str, Any]:
             try:
                 return json.loads(self.data or "{}")
             except (json.JSONDecodeError, TypeError):
                 return {}
 
-        def set_data(self, payload: Dict[str, Any]) -> None:
+        def set_data(self, payload: dict[str, Any]) -> None:
             self.data = json.dumps(payload, default=str)
             self.updated_at = _now_utc()
 
@@ -915,7 +912,7 @@ if _ORM_AVAILABLE:
             d[key] = value
             self.set_data(d)
 
-        def merge(self, patch: Dict[str, Any]) -> None:
+        def merge(self, patch: dict[str, Any]) -> None:
             """Shallow-merge *patch* into the existing data."""
             d = self.get_data()
             d.update(patch)
@@ -924,14 +921,10 @@ if _ORM_AVAILABLE:
         # ── Factory ──────────────────────────────────────────────────────
 
         @classmethod
-        async def get_or_create(
-            cls, *, user_id: int, namespace: str = "ui"
-        ) -> "AdminPreference":
+        async def get_or_create(cls, *, user_id: int, namespace: str = "ui") -> AdminPreference:
             """Fetch the preference row or create an empty one."""
             try:
-                existing = await cls.objects.filter(
-                    user_id=user_id, namespace=namespace
-                ).first()
+                existing = await cls.objects.filter(user_id=user_id, namespace=namespace).first()
                 if existing is not None:
                     return existing
             except Exception:
@@ -942,13 +935,11 @@ if _ORM_AVAILABLE:
                 data="{}",
                 updated_at=_now_utc(),
             )
-            try:
+            with contextlib.suppress(Exception):
                 await pref.save()
-            except Exception:
-                pass
             return pref
 
-        def to_dict(self) -> Dict[str, Any]:
+        def to_dict(self) -> dict[str, Any]:
             return {
                 "id": getattr(self, "id", None),
                 "user_id": self.user_id,
@@ -958,10 +949,7 @@ if _ORM_AVAILABLE:
             }
 
         def __repr__(self) -> str:
-            return (
-                f"<AdminPreference user_id={self.user_id} "
-                f"ns={self.namespace!r}>"
-            )
+            return f"<AdminPreference user_id={self.user_id} ns={self.namespace!r}>"
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -992,7 +980,7 @@ else:
         def has_perm(self, perm: str) -> bool:
             return self.is_superuser
 
-        def has_perms(self, perms: List[str]) -> bool:
+        def has_perms(self, perms: list[str]) -> bool:
             return self.is_superuser
 
         def set_password(self, raw_password: str) -> None:
@@ -1003,15 +991,14 @@ else:
             if _pw_hasher is None:
                 return False
             try:
-                return _pw_hasher.verify(
-                    getattr(self, "password_hash", ""), raw_password
-                )
+                return _pw_hasher.verify(getattr(self, "password_hash", ""), raw_password)
             except Exception:
                 return False
 
         def to_identity(self) -> Any:
             try:
-                from aquilia.auth.core import Identity, IdentityType, IdentityStatus
+                from aquilia.auth.core import Identity, IdentityStatus, IdentityType
+
                 return Identity(
                     id=str(getattr(self, "id", "?")),
                     type=IdentityType.USER,
@@ -1029,23 +1016,25 @@ else:
                 return None
 
         @classmethod
-        async def create_superuser(cls, username: str, password: str, email: str, **kw: Any) -> "AdminUser":
+        async def create_superuser(cls, username: str, password: str, email: str, **kw: Any) -> AdminUser:
             from aquilia.faults.domains import ConfigMissingFault
+
             raise ConfigMissingFault(
                 key="orm",
                 metadata={"hint": "ORM not available — cannot create superuser without database models"},
             )
 
         @classmethod
-        async def create_staff_user(cls, username: str, password: str, email: str, **kw: Any) -> "AdminUser":
+        async def create_staff_user(cls, username: str, password: str, email: str, **kw: Any) -> AdminUser:
             from aquilia.faults.domains import ConfigMissingFault
+
             raise ConfigMissingFault(
                 key="orm",
                 metadata={"hint": "ORM not available — cannot create staff user without database models"},
             )
 
         @classmethod
-        async def authenticate(cls, username: str, password: str) -> Optional["AdminUser"]:
+        async def authenticate(cls, username: str, password: str) -> AdminUser | None:
             return None
 
         def __repr__(self) -> str:
@@ -1060,11 +1049,11 @@ else:
                 setattr(self, k, v)
 
         @classmethod
-        async def create_entry(cls, **kw: Any) -> "AdminAuditEntry":
+        async def create_entry(cls, **kw: Any) -> AdminAuditEntry:
             return cls(**kw)
 
         @classmethod
-        async def log_action(cls, **kw: Any) -> "AdminAuditEntry":
+        async def log_action(cls, **kw: Any) -> AdminAuditEntry:
             return cls(**kw)
 
     class AdminAPIKey:  # type: ignore[no-redef]
@@ -1100,7 +1089,7 @@ class ContentType:
         self.model: str = kw.get("model", "")
 
     @classmethod
-    def get_for_model(cls, model: Any) -> "ContentType":
+    def get_for_model(cls, model: Any) -> ContentType:
         name = getattr(model, "__name__", str(model))
         return cls(app_label="admin", model=name.lower())
 
@@ -1150,12 +1139,12 @@ class AdminLogEntry:
             setattr(self, k, v)
 
     @classmethod
-    async def log_action(cls, **kw: Any) -> "AdminAuditEntry":
+    async def log_action(cls, **kw: Any) -> AdminAuditEntry:
         """Proxy to :meth:`AdminAuditEntry.log_action`."""
         return await AdminAuditEntry.log_action(**kw)
 
     def __repr__(self) -> str:
-        return f"<AdminLogEntry(stub→AdminAuditEntry)>"
+        return "<AdminLogEntry(stub→AdminAuditEntry)>"
 
 
 class AdminSession:
@@ -1168,7 +1157,7 @@ class AdminSession:
             setattr(self, k, v)
 
     def __repr__(self) -> str:
-        return f"<AdminSession(stub)>"
+        return "<AdminSession(stub)>"
 
 
 # ═══════════════════════════════════════════════════════════════════════════

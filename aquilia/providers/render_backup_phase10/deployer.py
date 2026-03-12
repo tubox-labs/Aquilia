@@ -26,28 +26,21 @@ from __future__ import annotations
 import logging
 import subprocess
 import time
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any
 
-from .client import RenderClient
-from .store import RenderCredentialStore
-from .types import (
-    RenderAutoscaling,
-    RenderDeployConfig,
-    RenderDeployStatus,
-    RenderDeploy,
-    RenderEnvVar,
-    RenderPlan,
-    RenderService,
-    RenderServiceType,
-)
 from aquilia.faults.domains import (
     ProviderAPIFault,
     ProviderAuthFault,
-    DeployConfigFault,
-    DeployImageFault,
-    DeployHealthFault,
-    DeployServiceFault,
+)
+
+from .client import RenderClient
+from .types import (
+    RenderDeploy,
+    RenderDeployConfig,
+    RenderDeployStatus,
+    RenderService,
 )
 
 __all__ = ["RenderDeployer", "DeployResult"]
@@ -62,11 +55,11 @@ class DeployResult:
         self,
         *,
         success: bool,
-        service: Optional[RenderService] = None,
-        deploy: Optional[RenderDeploy] = None,
-        url: Optional[str] = None,
-        errors: Optional[List[str]] = None,
-        steps_completed: Optional[List[str]] = None,
+        service: RenderService | None = None,
+        deploy: RenderDeploy | None = None,
+        url: str | None = None,
+        errors: list[str] | None = None,
+        steps_completed: list[str] | None = None,
     ):
         self.success = success
         self.service = service
@@ -115,7 +108,7 @@ class RenderDeployer:
         workspace_root: Path,
         config: RenderDeployConfig,
         *,
-        on_step: Optional[Callable[[str, str], None]] = None,
+        on_step: Callable[[str, str], None] | None = None,
         dry_run: bool = False,
     ):
         self._client = client
@@ -123,8 +116,8 @@ class RenderDeployer:
         self._config = config
         self._on_step = on_step or (lambda phase, msg: None)
         self._dry_run = dry_run
-        self._steps: List[str] = []
-        self._errors: List[str] = []
+        self._steps: list[str] = []
+        self._errors: list[str] = []
 
     def _step(self, phase: str, message: str) -> None:
         """Record and report a deployment step."""
@@ -173,22 +166,20 @@ class RenderDeployer:
             )
 
         # ── 2. Docker build ──────────────────────────────────────────
-        if self._should_build_docker():
-            if not self._docker_build():
-                return DeployResult(
-                    success=False,
-                    errors=self._errors,
-                    steps_completed=self._steps,
-                )
+        if self._should_build_docker() and not self._docker_build():
+            return DeployResult(
+                success=False,
+                errors=self._errors,
+                steps_completed=self._steps,
+            )
 
         # ── 3. Docker push ───────────────────────────────────────────
-        if self._should_push_docker():
-            if not self._docker_push():
-                return DeployResult(
-                    success=False,
-                    errors=self._errors,
-                    steps_completed=self._steps,
-                )
+        if self._should_push_docker() and not self._docker_push():
+            return DeployResult(
+                success=False,
+                errors=self._errors,
+                steps_completed=self._steps,
+            )
 
         # ── 4. Resolve owner ─────────────────────────────────────────
         owner_id = self._resolve_owner()
@@ -282,15 +273,14 @@ class RenderDeployer:
 
         dockerfile = self._workspace_root / "Dockerfile"
         if not dockerfile.exists():
-            self._error(
-                "Dockerfile not found. Run 'aq deploy dockerfile' first "
-                "or use a pre-built image with --image."
-            )
+            self._error("Dockerfile not found. Run 'aq deploy dockerfile' first or use a pre-built image with --image.")
             return False
 
         cmd = [
-            "docker", "build",
-            "-t", self._config.image,
+            "docker",
+            "build",
+            "-t",
+            self._config.image,
             str(self._workspace_root),
         ]
 
@@ -329,7 +319,7 @@ class RenderDeployer:
         self._step("docker", "Image pushed successfully")
         return True
 
-    def _resolve_owner(self) -> Optional[str]:
+    def _resolve_owner(self) -> str | None:
         """Resolve the Render owner (workspace) ID."""
         if self._config.owner_id:
             return self._config.owner_id
@@ -349,16 +339,14 @@ class RenderDeployer:
             self._error(f"Failed to resolve workspace: {e}")
             return None
 
-    def _ensure_service(self) -> Optional[RenderService]:
+    def _ensure_service(self) -> RenderService | None:
         """Create or update the Render service."""
         service_name = self._config.service_name
         self._step("service", f"Resolving service: {service_name}")
 
         # Check for existing service
         try:
-            existing = self._client.get_service_by_name(
-                service_name, owner_id=self._config.owner_id
-            )
+            existing = self._client.get_service_by_name(service_name, owner_id=self._config.owner_id)
             if existing and existing.id:
                 self._step(
                     "service",
@@ -397,7 +385,7 @@ class RenderDeployer:
             _logger.warning("Could not sync env vars: %s", e)
             self._step("env", f"Warning: env var sync failed — {e}")
 
-    def _trigger_and_wait(self, service: RenderService) -> Optional[RenderDeploy]:
+    def _trigger_and_wait(self, service: RenderService) -> RenderDeploy | None:
         """Trigger a deploy and wait for it to become live."""
         if not service.id:
             self._error("Cannot trigger deploy — service has no ID")
@@ -420,7 +408,7 @@ class RenderDeployer:
         *,
         timeout: int = 300,
         poll_interval: int = 10,
-    ) -> Optional[RenderDeploy]:
+    ) -> RenderDeploy | None:
         """Poll the latest deploy until live or failed."""
         assert service.id is not None
         self._step("health", "Waiting for deployment to go live...")
@@ -430,9 +418,7 @@ class RenderDeployer:
 
         while time.time() < deadline:
             try:
-                deploys = self._client.list_deploys(
-                    service.id, limit=1
-                )
+                deploys = self._client.list_deploys(service.id, limit=1)
                 if not deploys:
                     time.sleep(poll_interval)
                     continue
@@ -463,10 +449,7 @@ class RenderDeployer:
 
             time.sleep(poll_interval)
 
-        self._error(
-            f"Deployment did not go live within {timeout}s. "
-            f"Last status: {last_status}"
-        )
+        self._error(f"Deployment did not go live within {timeout}s. Last status: {last_status}")
         return None
 
     def _configure_autoscaling(self, service: RenderService) -> None:
@@ -475,19 +458,16 @@ class RenderDeployer:
         self._step("autoscale", "Configuring autoscaling")
 
         try:
-            self._client.set_autoscaling(
-                service.id, self._config.autoscaling.to_dict()
-            )
+            self._client.set_autoscaling(service.id, self._config.autoscaling.to_dict())
             self._step(
                 "autoscale",
-                f"Autoscaling configured: {self._config.autoscaling.min}"
-                f"-{self._config.autoscaling.max} instances",
+                f"Autoscaling configured: {self._config.autoscaling.min}-{self._config.autoscaling.max} instances",
             )
         except ProviderAPIFault as e:
             _logger.warning("Could not configure autoscaling: %s", e)
             self._step("autoscale", f"Warning: autoscaling setup failed — {e}")
 
-    def _resolve_url(self, service: RenderService) -> Optional[str]:
+    def _resolve_url(self, service: RenderService) -> str | None:
         """Resolve the public URL for the deployed service."""
         # Render assigns URLs as {slug}.onrender.com
         if service.slug:
@@ -527,7 +507,7 @@ class RenderDeployer:
             self._error(f"Failed to destroy service: {e}")
             return False
 
-    def status(self) -> Dict[str, Any]:
+    def status(self) -> dict[str, Any]:
         """Get current deployment status."""
         try:
             svc = self._client.get_service_by_name(self._config.service_name)
@@ -554,7 +534,9 @@ class RenderDeployer:
                     "id": latest_deploy.id,
                     "status": latest_deploy.status,
                     "created_at": latest_deploy.created_at,
-                } if latest_deploy else None,
+                }
+                if latest_deploy
+                else None,
             }
         except ProviderAPIFault as e:
             return {

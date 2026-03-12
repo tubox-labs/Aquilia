@@ -17,8 +17,7 @@ After (new, flat)::
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
-
+from typing import Any
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # MailAuth
@@ -41,25 +40,25 @@ class MailAuth:
     """
 
     method: str = "none"
-    username: Optional[str] = None
-    password: Optional[str] = None
-    password_env: Optional[str] = None
-    domain: Optional[str] = None
-    api_key: Optional[str] = None
-    api_key_env: Optional[str] = None
-    aws_access_key_id: Optional[str] = None
-    aws_access_key_id_env: Optional[str] = None
-    aws_secret_access_key: Optional[str] = None
-    aws_secret_access_key_env: Optional[str] = None
-    aws_region: Optional[str] = None
-    aws_session_token: Optional[str] = None
-    access_token: Optional[str] = None
-    refresh_token: Optional[str] = None
-    token_url: Optional[str] = None
-    client_id: Optional[str] = None
-    client_secret: Optional[str] = None
-    client_secret_env: Optional[str] = None
-    scope: Optional[str] = None
+    username: str | None = None
+    password: str | None = None
+    password_env: str | None = None
+    domain: str | None = None
+    api_key: str | None = None
+    api_key_env: str | None = None
+    aws_access_key_id: str | None = None
+    aws_access_key_id_env: str | None = None
+    aws_secret_access_key: str | None = None
+    aws_secret_access_key_env: str | None = None
+    aws_region: str | None = None
+    aws_session_token: str | None = None
+    access_token: str | None = None
+    refresh_token: str | None = None
+    token_url: str | None = None
+    client_id: str | None = None
+    client_secret: str | None = None
+    client_secret_env: str | None = None
+    scope: str | None = None
 
     # ── Factory classmethods ─────────────────────────────────────────
 
@@ -67,9 +66,9 @@ class MailAuth:
     def plain(
         cls,
         username: str,
-        password: Optional[str] = None,
+        password: str | None = None,
         *,
-        password_env: Optional[str] = None,
+        password_env: str | None = None,
     ) -> MailAuth:
         """SMTP AUTH PLAIN / LOGIN."""
         return cls(
@@ -82,9 +81,9 @@ class MailAuth:
     @classmethod
     def api_key(
         cls,
-        key: Optional[str] = None,
+        key: str | None = None,
         *,
-        env: Optional[str] = None,
+        env: str | None = None,
     ) -> MailAuth:
         """API-key auth for SendGrid, Mailgun, Postmark, etc."""
         return cls(method="api_key", api_key=key, api_key_env=env)
@@ -92,13 +91,13 @@ class MailAuth:
     @classmethod
     def aws_ses(
         cls,
-        access_key_id: Optional[str] = None,
-        secret_access_key: Optional[str] = None,
+        access_key_id: str | None = None,
+        secret_access_key: str | None = None,
         region: str = "us-east-1",
-        session_token: Optional[str] = None,
+        session_token: str | None = None,
         *,
-        access_key_id_env: Optional[str] = None,
-        secret_access_key_env: Optional[str] = None,
+        access_key_id_env: str | None = None,
+        secret_access_key_env: str | None = None,
     ) -> MailAuth:
         """AWS SES credentials."""
         return cls(
@@ -115,13 +114,13 @@ class MailAuth:
     def oauth2(
         cls,
         client_id: str,
-        client_secret: Optional[str] = None,
+        client_secret: str | None = None,
         *,
-        client_secret_env: Optional[str] = None,
+        client_secret_env: str | None = None,
         token_url: str,
-        scope: Optional[str] = None,
-        access_token: Optional[str] = None,
-        refresh_token: Optional[str] = None,
+        scope: str | None = None,
+        access_token: str | None = None,
+        refresh_token: str | None = None,
     ) -> MailAuth:
         """OAuth2 bearer-token auth (Gmail, Microsoft 365, etc.)."""
         return cls(
@@ -139,10 +138,10 @@ class MailAuth:
     def ntlm(
         cls,
         username: str,
-        password: Optional[str] = None,
-        domain: Optional[str] = None,
+        password: str | None = None,
+        domain: str | None = None,
         *,
-        password_env: Optional[str] = None,
+        password_env: str | None = None,
     ) -> MailAuth:
         """Windows NTLM authentication."""
         return cls(
@@ -160,16 +159,28 @@ class MailAuth:
 
     # ── Serialisation ────────────────────────────────────────────────
 
-    def to_dict(self) -> Dict[str, Any]:
-        d: Dict[str, Any] = {"method": self.method}
+    def to_dict(self) -> dict[str, Any]:
+        d: dict[str, Any] = {"method": self.method}
         _optionals = [
-            "username", "password", "password_env", "domain",
-            "api_key", "api_key_env",
-            "aws_access_key_id", "aws_access_key_id_env",
-            "aws_secret_access_key", "aws_secret_access_key_env",
-            "aws_region", "aws_session_token",
-            "access_token", "refresh_token", "token_url",
-            "client_id", "client_secret", "client_secret_env", "scope",
+            "username",
+            "password",
+            "password_env",
+            "domain",
+            "api_key",
+            "api_key_env",
+            "aws_access_key_id",
+            "aws_access_key_id_env",
+            "aws_secret_access_key",
+            "aws_secret_access_key_env",
+            "aws_region",
+            "aws_session_token",
+            "access_token",
+            "refresh_token",
+            "token_url",
+            "client_id",
+            "client_secret",
+            "client_secret_env",
+            "scope",
         ]
         for attr in _optionals:
             val = getattr(self, attr)
@@ -191,10 +202,10 @@ class _ProviderBase:
     priority: int = 10
     enabled: bool = True
     rate_limit_per_min: int = 600
-    auth: Optional[MailAuth] = None
+    auth: MailAuth | None = None
 
-    def _base_dict(self) -> Dict[str, Any]:
-        d: Dict[str, Any] = {
+    def _base_dict(self) -> dict[str, Any]:
+        d: dict[str, Any] = {
             "name": self.name,
             "type": getattr(self, "_provider_type", ""),
             "priority": self.priority,
@@ -231,27 +242,29 @@ class SmtpProvider(_ProviderBase):
     pool_size: int = 3
     pool_recycle: float = 300.0
     validate_certs: bool = True
-    client_cert: Optional[str] = None
-    client_key: Optional[str] = None
-    source_address: Optional[str] = None
-    local_hostname: Optional[str] = None
+    client_cert: str | None = None
+    client_key: str | None = None
+    source_address: str | None = None
+    local_hostname: str | None = None
 
     def __post_init__(self) -> None:
         if not self.name:
             self.name = "smtp"
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         d = self._base_dict()
-        d.update({
-            "host": self.host,
-            "port": self.port,
-            "use_tls": self.use_tls,
-            "use_ssl": self.use_ssl,
-            "timeout": self.timeout,
-            "pool_size": self.pool_size,
-            "pool_recycle": self.pool_recycle,
-            "validate_certs": self.validate_certs,
-        })
+        d.update(
+            {
+                "host": self.host,
+                "port": self.port,
+                "use_tls": self.use_tls,
+                "use_ssl": self.use_ssl,
+                "timeout": self.timeout,
+                "pool_size": self.pool_size,
+                "pool_recycle": self.pool_recycle,
+                "validate_certs": self.validate_certs,
+            }
+        )
         if self.client_cert is not None:
             d["client_cert"] = self.client_cert
         if self.client_key is not None:
@@ -280,18 +293,18 @@ class SesProvider(_ProviderBase):
     _provider_type: str = field(default="ses", init=False, repr=False)
 
     region: str = "us-east-1"
-    configuration_set: Optional[str] = None
-    source_arn: Optional[str] = None
-    return_path: Optional[str] = None
-    tags: Dict[str, str] = field(default_factory=dict)
+    configuration_set: str | None = None
+    source_arn: str | None = None
+    return_path: str | None = None
+    tags: dict[str, str] = field(default_factory=dict)
     use_raw: bool = True
-    endpoint_url: Optional[str] = None
+    endpoint_url: str | None = None
 
     def __post_init__(self) -> None:
         if not self.name:
             self.name = "ses"
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         d = self._base_dict()
         d["region"] = self.region
         d["use_raw"] = self.use_raw
@@ -326,10 +339,10 @@ class SendGridProvider(_ProviderBase):
     sandbox_mode: bool = False
     click_tracking: bool = True
     open_tracking: bool = True
-    categories: List[str] = field(default_factory=list)
-    asm_group_id: Optional[int] = None
-    ip_pool_name: Optional[str] = None
-    template_id: Optional[str] = None
+    categories: list[str] = field(default_factory=list)
+    asm_group_id: int | None = None
+    ip_pool_name: str | None = None
+    template_id: str | None = None
     api_base_url: str = "https://api.sendgrid.com"
     timeout: float = 30.0
 
@@ -337,15 +350,17 @@ class SendGridProvider(_ProviderBase):
         if not self.name:
             self.name = "sendgrid"
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         d = self._base_dict()
-        d.update({
-            "sandbox_mode": self.sandbox_mode,
-            "click_tracking": self.click_tracking,
-            "open_tracking": self.open_tracking,
-            "api_base_url": self.api_base_url,
-            "timeout": self.timeout,
-        })
+        d.update(
+            {
+                "sandbox_mode": self.sandbox_mode,
+                "click_tracking": self.click_tracking,
+                "open_tracking": self.open_tracking,
+                "api_base_url": self.api_base_url,
+                "timeout": self.timeout,
+            }
+        )
         if self.categories:
             d["categories"] = self.categories
         if self.asm_group_id is not None:
@@ -369,7 +384,7 @@ class ConsoleProvider(_ProviderBase):
         if self.priority == 10:
             self.priority = 100
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return self._base_dict()
 
 
@@ -391,15 +406,17 @@ class FileProvider(_ProviderBase):
         if self.priority == 10:
             self.priority = 90
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         d = self._base_dict()
-        d.update({
-            "output_dir": self.output_dir,
-            "max_files": self.max_files,
-            "write_index": self.write_index,
-            "include_metadata": self.include_metadata,
-            "file_extension": self.file_extension,
-        })
+        d.update(
+            {
+                "output_dir": self.output_dir,
+                "max_files": self.max_files,
+                "write_index": self.write_index,
+                "include_metadata": self.include_metadata,
+                "file_extension": self.file_extension,
+            }
+        )
         return d
 
 
@@ -427,19 +444,19 @@ class MailIntegration:
     _integration_type: str = field(default="mail", init=False, repr=False)
 
     default_from: str = "noreply@localhost"
-    default_reply_to: Optional[str] = None
+    default_reply_to: str | None = None
     subject_prefix: str = ""
-    providers: List[Any] = field(default_factory=list)
-    auth: Optional[MailAuth] = None
+    providers: list[Any] = field(default_factory=list)
+    auth: MailAuth | None = None
     console_backend: bool = False
     preview_mode: bool = False
-    template_dirs: List[str] = field(default_factory=lambda: ["mail_templates"])
+    template_dirs: list[str] = field(default_factory=lambda: ["mail_templates"])
     retry_max_attempts: int = 5
     retry_base_delay: float = 1.0
     rate_limit_global: int = 1000
     rate_limit_per_domain: int = 100
     dkim_enabled: bool = False
-    dkim_domain: Optional[str] = None
+    dkim_domain: str | None = None
     dkim_selector: str = "aquilia"
     require_tls: bool = True
     pii_redaction: bool = False
@@ -447,18 +464,22 @@ class MailIntegration:
     tracing_enabled: bool = False
     enabled: bool = True
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         # Normalise auth
-        auth_dict: Optional[Dict[str, Any]] = None
+        auth_dict: dict[str, Any] | None = None
         if self.auth is not None:
             auth_dict = self.auth.to_dict() if hasattr(self.auth, "to_dict") else self.auth
 
         # Normalise providers
-        normalised: List[Dict[str, Any]] = []
+        normalised: list[dict[str, Any]] = []
         raw_providers = self.providers
-        if raw_providers is not None and hasattr(raw_providers, "to_dict") and not isinstance(raw_providers, (list, tuple)):
+        if (
+            raw_providers is not None
+            and hasattr(raw_providers, "to_dict")
+            and not isinstance(raw_providers, (list, tuple))
+        ):
             raw_providers = [raw_providers]
-        for p in (raw_providers or []):
+        for p in raw_providers or []:
             if hasattr(p, "to_dict"):
                 p = p.to_dict()
             elif isinstance(p, dict) and hasattr(p.get("auth"), "to_dict"):

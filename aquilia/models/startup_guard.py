@@ -23,7 +23,6 @@ import logging
 import os
 import sys
 from pathlib import Path
-from typing import Optional
 
 logger = logging.getLogger("aquilia.db.startup")
 
@@ -48,8 +47,10 @@ class DatabaseNotReadyError(SystemExit):
         # Log through fault system before exiting
         try:
             from ..faults.domains import SchemaFault
+
             fault = SchemaFault(table="(startup)", reason=message)
             import logging
+
             logging.getLogger("aquilia.models.startup_guard").error(
                 "Database not ready — %s [fault=%s]", message, fault.code
             )
@@ -62,7 +63,7 @@ def check_db_ready(
     db_url: str = "sqlite:///db.sqlite3",
     migrations_dir: str | Path = "migrations",
     *,
-    auto_migrate: Optional[bool] = None,
+    auto_migrate: bool | None = None,
 ) -> bool:
     """
     Check if the database is ready for the application to start.
@@ -103,14 +104,13 @@ def check_db_ready(
 
     # Check 2: Are all migrations applied?
     mdir = Path(migrations_dir)
-    if mdir.exists() and any(mdir.glob("*.py")):
-        if not check_migrations_applied(db_url, migrations_dir):
-            _warn_not_ready(
-                "Unapplied migrations detected",
-                db_url=db_url,
-                hint="Run the following commands to apply pending migrations:",
-            )
-            return False
+    if mdir.exists() and any(mdir.glob("*.py")) and not check_migrations_applied(db_url, migrations_dir):
+        _warn_not_ready(
+            "Unapplied migrations detected",
+            db_url=db_url,
+            hint="Run the following commands to apply pending migrations:",
+        )
+        return False
 
     return True
 

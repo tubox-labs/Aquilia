@@ -27,7 +27,7 @@ from __future__ import annotations
 import re
 import warnings
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 warnings.warn(
     "The AMDL parser module (aquilia.models.parser) is deprecated. "
@@ -45,9 +45,7 @@ from .ast_nodes import (
     IndexNode,
     LinkKind,
     LinkNode,
-    MetaNode,
     ModelNode,
-    NoteNode,
     SlotNode,
 )
 
@@ -56,37 +54,29 @@ ALLOWED_DEFAULTS = frozenset({"now_utc()", "uuid4()", "seq()"})
 ALLOWED_DEFAULT_PATTERN = re.compile(r'^(now_utc\(\)|uuid4\(\)|seq\(\)|env\("[A-Za-z_][A-Za-z0-9_]*"\))$')
 
 # ── Compiled regex patterns ──────────────────────────────────────────────────
-RE_MODEL_OPEN = re.compile(r'^\s*≪\s*MODEL\s+([A-Za-z_][A-Za-z0-9_]*)\s*≫\s*$')
-RE_MODEL_CLOSE = re.compile(r'^\s*≪\s*/MODEL\s*≫\s*$')
+RE_MODEL_OPEN = re.compile(r"^\s*≪\s*MODEL\s+([A-Za-z_][A-Za-z0-9_]*)\s*≫\s*$")
+RE_MODEL_CLOSE = re.compile(r"^\s*≪\s*/MODEL\s*≫\s*$")
 
 RE_SLOT = re.compile(
-    r'^\s*slot\s+([a-z_][a-z0-9_]*)\s*::\s*'
-    r'([A-Za-z]+(?:\([^)]*\))?)\s*'
-    r'(?:\[([^\]]*)\])?\s*$'
+    r"^\s*slot\s+([a-z_][a-z0-9_]*)\s*::\s*"
+    r"([A-Za-z]+(?:\([^)]*\))?)\s*"
+    r"(?:\[([^\]]*)\])?\s*$"
 )
 
 RE_LINK = re.compile(
-    r'^\s*link\s+([a-z_][a-z0-9_]*)\s*->\s*'
-    r'(ONE|MANY|MANY_THROUGH)\s+'
-    r'([A-Za-z_][A-Za-z0-9_]*)\s*'
-    r'(?:\[([^\]]*)\])?\s*$'
+    r"^\s*link\s+([a-z_][a-z0-9_]*)\s*->\s*"
+    r"(ONE|MANY|MANY_THROUGH)\s+"
+    r"([A-Za-z_][A-Za-z0-9_]*)\s*"
+    r"(?:\[([^\]]*)\])?\s*$"
 )
 
-RE_INDEX = re.compile(
-    r'^\s*index\s+\[([^\]]+)\]\s*(unique)?\s*$'
-)
+RE_INDEX = re.compile(r"^\s*index\s+\[([^\]]+)\]\s*(unique)?\s*$")
 
-RE_HOOK = re.compile(
-    r'^\s*hook\s+([a-z_][a-z0-9_]*)\s*->\s*([a-z_][a-z0-9_]*)\s*$'
-)
+RE_HOOK = re.compile(r"^\s*hook\s+([a-z_][a-z0-9_]*)\s*->\s*([a-z_][a-z0-9_]*)\s*$")
 
-RE_META = re.compile(
-    r'^\s*meta\s+([a-z_][a-z0-9_]*)\s*=\s*"([^"]*)"\s*$'
-)
+RE_META = re.compile(r'^\s*meta\s+([a-z_][a-z0-9_]*)\s*=\s*"([^"]*)"\s*$')
 
-RE_NOTE = re.compile(
-    r'^\s*note\s+"([^"]*)"\s*$'
-)
+RE_NOTE = re.compile(r'^\s*note\s+"([^"]*)"\s*$')
 
 # ── Field type mapping ───────────────────────────────────────────────────────
 FIELD_TYPE_MAP = {ft.value: ft for ft in FieldType}
@@ -105,7 +95,7 @@ class AMDLParseError(AMDLParseFault):
         super().__init__(file=file, line=line, reason=message)
 
 
-def _parse_type(raw: str) -> Tuple[FieldType, Optional[Tuple[Any, ...]]]:
+def _parse_type(raw: str) -> tuple[FieldType, tuple[Any, ...] | None]:
     """Parse a type token like 'Str', 'Decimal(10,2)', 'Enum(a,b,c)'."""
     paren_idx = raw.find("(")
     if paren_idx == -1:
@@ -133,12 +123,12 @@ def _parse_type(raw: str) -> Tuple[FieldType, Optional[Tuple[Any, ...]]]:
     return ft, tuple(converted)
 
 
-def _parse_modifiers(raw: Optional[str]) -> Dict[str, Any]:
+def _parse_modifiers(raw: str | None) -> dict[str, Any]:
     """Parse the modifier list inside square brackets."""
     if not raw or not raw.strip():
         return {}
 
-    mods: Dict[str, Any] = {}
+    mods: dict[str, Any] = {}
     # Split carefully -- handle default:=expr which may contain commas inside parens
     tokens = _split_modifier_tokens(raw.strip())
 
@@ -149,16 +139,15 @@ def _parse_modifiers(raw: Optional[str]) -> Dict[str, Any]:
 
         # default:=expr
         if token.startswith("default:="):
-            expr = token[len("default:="):].strip()
+            expr = token[len("default:=") :].strip()
             if not ALLOWED_DEFAULT_PATTERN.match(expr):
                 raise AMDLParseError(
-                    f"Disallowed default expression '{expr}'. "
-                    f"Allowed: now_utc(), uuid4(), seq(), env(\"VAR\")"
+                    f"Disallowed default expression '{expr}'. Allowed: now_utc(), uuid4(), seq(), env(\"VAR\")"
                 )
             mods["default"] = expr
         # note="..."
         elif token.startswith("note="):
-            mods["note"] = token[len("note="):].strip().strip('"')
+            mods["note"] = token[len("note=") :].strip().strip('"')
         # key=value
         elif "=" in token:
             key, val = token.split("=", 1)
@@ -175,9 +164,9 @@ def _parse_modifiers(raw: Optional[str]) -> Dict[str, Any]:
     return mods
 
 
-def _split_modifier_tokens(raw: str) -> List[str]:
+def _split_modifier_tokens(raw: str) -> list[str]:
     """Split modifier string by commas, respecting parentheses."""
-    tokens: List[str] = []
+    tokens: list[str] = []
     depth = 0
     current: list[str] = []
     for ch in raw:
@@ -209,7 +198,7 @@ def parse_amdl(source: str, file_path: str = "<string>") -> AMDLFile:
         AMDLFile with parsed models and any errors
     """
     result = AMDLFile(path=file_path)
-    current_model: Optional[ModelNode] = None
+    current_model: ModelNode | None = None
     lines = source.splitlines()
 
     for line_num_0, raw_line in enumerate(lines):
@@ -239,9 +228,7 @@ def parse_amdl(source: str, file_path: str = "<string>") -> AMDLFile:
         # ── MODEL close ──────────────────────────────────────────────
         if RE_MODEL_CLOSE.match(stripped):
             if current_model is None:
-                result.errors.append(
-                    f"{file_path}:{line_num}: ≪ /MODEL ≫ without matching ≪ MODEL ≫"
-                )
+                result.errors.append(f"{file_path}:{line_num}: ≪ /MODEL ≫ without matching ≪ MODEL ≫")
                 continue
             current_model.end_line = line_num
             result.models.append(current_model)
@@ -250,9 +237,7 @@ def parse_amdl(source: str, file_path: str = "<string>") -> AMDLFile:
 
         # Everything below requires being inside a MODEL stanza
         if current_model is None:
-            result.errors.append(
-                f"{file_path}:{line_num}: Directive outside MODEL stanza: {stripped[:60]}"
-            )
+            result.errors.append(f"{file_path}:{line_num}: Directive outside MODEL stanza: {stripped[:60]}")
             continue
 
         try:
@@ -263,8 +248,7 @@ def parse_amdl(source: str, file_path: str = "<string>") -> AMDLFile:
     # Unclosed model
     if current_model is not None:
         result.errors.append(
-            f"{file_path}: Unclosed MODEL stanza '{current_model.name}' "
-            f"(opened at line {current_model.start_line})"
+            f"{file_path}: Unclosed MODEL stanza '{current_model.name}' (opened at line {current_model.start_line})"
         )
 
     return result
@@ -398,13 +382,12 @@ def parse_amdl_file(path: str | Path) -> AMDLFile:
     result = parse_amdl(source, str(p))
     if result.errors:
         raise AMDLParseError(
-            f"Found {len(result.errors)} error(s) in {p}:\n"
-            + "\n".join(f"  • {e}" for e in result.errors)
+            f"Found {len(result.errors)} error(s) in {p}:\n" + "\n".join(f"  • {e}" for e in result.errors)
         )
     return result
 
 
-def parse_amdl_directory(directory: str | Path) -> List[AMDLFile]:
+def parse_amdl_directory(directory: str | Path) -> list[AMDLFile]:
     """
     Parse all `.amdl` files in a directory (non-recursive).
 
@@ -417,7 +400,7 @@ def parse_amdl_directory(directory: str | Path) -> List[AMDLFile]:
     d = Path(directory)
     if not d.is_dir():
         return []
-    files: List[AMDLFile] = []
+    files: list[AMDLFile] = []
     for amdl_path in sorted(d.glob("*.amdl")):
         files.append(parse_amdl_file(amdl_path))
     return files

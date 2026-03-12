@@ -1,26 +1,25 @@
 """Workspace generator."""
 
-from pathlib import Path
-from typing import Optional
 import textwrap
+from pathlib import Path
 
 
 class WorkspaceGenerator:
     """Generate Aquilia workspace structure."""
-    
+
     def __init__(
         self,
         name: str,
         path: Path,
         minimal: bool = False,
-        template: Optional[str] = None,
+        template: str | None = None,
         *,
         include_docker: bool = True,
         include_readme: bool = True,
         include_makefile: bool = True,
         include_tests: bool = True,
         include_gitignore: bool = True,
-        include_license: Optional[str] = None,
+        include_license: str | None = None,
     ):
         self.name = name
         self.path = path
@@ -32,24 +31,24 @@ class WorkspaceGenerator:
         self.include_tests = include_tests
         self.include_gitignore = include_gitignore
         self.include_license = include_license
-    
+
     def generate(self) -> None:
         """Generate workspace structure."""
         self.path.mkdir(parents=True, exist_ok=True)
-        
+
         # Create directory structure
         self._create_directories()
-        
+
         # Create manifest files
         self._create_workspace_manifest()
-        
+
         # Create starter page
         self._create_starter_page()
-        
+
         # Template files (--template flag or full mode)
         if self.template:
             self._create_template_files()
-        
+
         # Create additional files (industry-standard project structure)
         if self.include_gitignore:
             self._create_gitignore()
@@ -67,191 +66,190 @@ class WorkspaceGenerator:
                 self._create_deployment_files()
         if self.include_license:
             self._create_license_file()
-        
+
         # Create starter locale files (i18n readiness)
         self._create_locale_files()
-    
+
     def _create_directories(self) -> None:
         """Create workspace directories."""
-        dirs = ['modules']
-        
+        dirs = ["modules"]
+
         if not self.minimal:
-            dirs.extend(['artifacts'])
-        
+            dirs.extend(["artifacts"])
+
         # Always create locales directory for i18n readiness
-        dirs.extend(['locales', 'locales/en'])
-        
+        dirs.extend(["locales", "locales/en"])
+
         if self.template:
-            dirs.extend([
-                'templates',
-                'templates/includes',
-                'assets',
-                'assets/css',
-                'assets/js',
-            ])
-        
+            dirs.extend(
+                [
+                    "templates",
+                    "templates/includes",
+                    "assets",
+                    "assets/css",
+                    "assets/js",
+                ]
+            )
+
         for dir_name in dirs:
             (self.path / dir_name).mkdir(parents=True, exist_ok=True)
-    
+
     def _extract_field(self, content: str, pattern: str, default: str) -> str:
         """Extract a single field from manifest content."""
         import re
+
         match = re.search(pattern, content)
         return match.group(1) if match else default
-    
+
     def _extract_list(self, content: str, pattern: str, default: list = None) -> list:
         """Extract a list field from manifest content."""
         import re
+
         if default is None:
             default = []
         match = re.search(pattern, content, re.DOTALL)
         if not match:
             return default
-        
+
         list_content = match.group(1)
         # Extract quoted strings from the list
         items = re.findall(r'"([^"]+)"', list_content)
         return items if items else default
-    
+
     def generate_workspace_module_config(self, discovered_modules: dict) -> str:
         """
         Generate workspace module configuration as pointers to per-module manifests.
-        
+
         In the Manifest-First Architecture, workspace.py declares **which**
         modules exist and their orchestration metadata (route prefix, tags,
         dependencies). All component declarations (controllers, services,
         middleware, etc.) live exclusively in each module's ``manifest.py``.
-        
+
         Args:
             discovered_modules: Dictionary of discovered module data
-            
+
         Returns:
             String containing workspace module configuration (pointers only)
         """
         lines = []
-        
+
         for mod_name, mod_data in discovered_modules.items():
             # Generate module configuration -- pointer only
-            version = mod_data.get('version', '0.1.0')
-            description = mod_data.get('description', f'{mod_name.capitalize()} module')
-            route_prefix = mod_data.get('route_prefix', f'/{mod_name}')
-            tags = mod_data.get('tags', [])
-            depends_on = mod_data.get('depends_on', [])
-            
+            version = mod_data.get("version", "0.1.0")
+            description = mod_data.get("description", f"{mod_name.capitalize()} module")
+            route_prefix = mod_data.get("route_prefix", f"/{mod_name}")
+            tags = mod_data.get("tags", [])
+            depends_on = mod_data.get("depends_on", [])
+
             # Build slim module config (orchestration metadata only)
             base_config = f'Module("{mod_name}", version="{version}", description="{description}")'
-            
+
             # Add route prefix
             config_chain = f'{base_config}\n        .route_prefix("{route_prefix}")'
-            
+
             # Add tags
             if tags:
-                tags_str = ', '.join(f'"{tag}"' for tag in tags)
-                config_chain += f'\n        .tags({tags_str})'
-            
+                tags_str = ", ".join(f'"{tag}"' for tag in tags)
+                config_chain += f"\n        .tags({tags_str})"
+
             # Add dependencies
             if depends_on:
-                deps_str = ', '.join(f'"{dep}"' for dep in depends_on)
-                config_chain += f'\n        .depends_on({deps_str})'
-            
+                deps_str = ", ".join(f'"{dep}"' for dep in depends_on)
+                config_chain += f"\n        .depends_on({deps_str})"
+
             # .module at same level as .integrate (4 spaces)
-            module_line = f'    .module({config_chain})'
+            module_line = f"    .module({config_chain})"
             lines.append(module_line)
-        
+
         # Separate each .module() block with a blank line for readability
-        return '\n\n'.join(lines)
-    
+        return "\n\n".join(lines)
+
     def update_workspace_config(self, workspace_path: Path, discovered_modules: dict) -> None:
         """
         Update workspace.py with auto-discovered module configurations.
-        
+
         Safely strips existing .module() blocks and re-inserts them
         before the integrations section, preserving all other content.
-        
+
         Args:
             workspace_path: Path to workspace.py file
             discovered_modules: Dictionary of discovered module data
         """
         if not workspace_path.exists():
             return
-        
+
         content = workspace_path.read_text(encoding="utf-8")
-        
+
         # Generate new module configuration
         new_config = self.generate_workspace_module_config(discovered_modules)
-        
+
         import re
-        
+
         # --- Phase 1: Strip all existing .module() blocks ---
-        lines = content.split('\n')
+        lines = content.split("\n")
         new_lines = []
         i = 0
         while i < len(lines):
             line = lines[i]
             stripped = line.lstrip()
-            
+
             # Only match lines where .module( is at the START of meaningful content
             # (possibly preceded by whitespace). This avoids matching lines where
             # .module( appears embedded inside a comment.
-            if stripped.startswith('.module('):
+            if stripped.startswith(".module("):
                 # Skip the entire multi-line .module(...) block
                 paren_depth = 0
                 while i < len(lines):
-                    paren_depth += lines[i].count('(') - lines[i].count(')')
+                    paren_depth += lines[i].count("(") - lines[i].count(")")
                     i += 1
                     if paren_depth <= 0:
                         break
             else:
                 new_lines.append(line)
                 i += 1
-        
-        content = '\n'.join(new_lines)
-        
+
+        content = "\n".join(new_lines)
+
         # --- Phase 2: Remove any existing "# ---- Modules" section header ---
-        content = re.sub(r'\n\s*# -+ Modules -+\n', '\n', content)
-        
+        content = re.sub(r"\n\s*# -+ Modules -+\n", "\n", content)
+
         # --- Phase 3: Find the insertion point ---
         # Strategy: insert modules BEFORE the integrations section.
         # Look for known markers in order of preference:
         #   1. "# ---- Integrations" (our own marker)
         #   2. Any comment line containing "Integrations"
         #   3. First .integrate( call
-        
+
         insertion_re = re.search(
-            r'^(\s*# -+ Integrations)',
+            r"^(\s*# -+ Integrations)",
             content,
             re.MULTILINE,
         )
         if not insertion_re:
             insertion_re = re.search(
-                r'^(\s*#.*Integrations)',
+                r"^(\s*#.*Integrations)",
                 content,
                 re.MULTILINE,
             )
         if not insertion_re:
             insertion_re = re.search(
-                r'^(\s*\.integrate\()',
+                r"^(\s*\.integrate\()",
                 content,
                 re.MULTILINE,
             )
-        
+
         if insertion_re:
             pos = insertion_re.start()
             # Build the modules section with its own header
-            modules_section = (
-                '\n    # ---- Modules '
-                + '-' * 57
-                + '\n\n'
-                + new_config
-                + '\n\n'
-            )
+            modules_section = "\n    # ---- Modules " + "-" * 57 + "\n\n" + new_config + "\n\n"
             content = content[:pos] + modules_section + content[pos:]
-        
+
         # --- Phase 4: Clean up excessive blank lines ---
-        content = re.sub(r'\n{3,}', '\n\n', content)
-        
+        content = re.sub(r"\n{3,}", "\n\n", content)
+
         # --- Phase 5: Validate syntax before writing ---
         import ast
+
         try:
             ast.parse(content)
         except SyntaxError as exc:
@@ -260,72 +258,75 @@ class WorkspaceGenerator:
                 f"(line {exc.lineno}): {exc.msg} -- skipping write"
             )
             return
-        
+
         # Write back
         workspace_path.write_text(content, encoding="utf-8")
         print(f"\u2705 Updated workspace.py with {len(discovered_modules)} module configurations")
 
     def _discover_modules(self) -> dict:
         """Enhanced module discovery with intelligent classification.
-        
+
         Architecture v2: Uses AutoDiscoveryEngine (AST-based) as primary
         scanner, with EnhancedDiscovery as fallback for legacy workspaces.
         """
-        modules_dir = self.path / 'modules'
+        modules_dir = self.path / "modules"
         discovered_modules = {}
-        
+
         if not modules_dir.exists():
             return discovered_modules
-        
+
         # v2: Try AST-based auto-discovery engine first
         ast_results = {}
         try:
             from aquilia.discovery.engine import AutoDiscoveryEngine
+
             engine = AutoDiscoveryEngine(modules_dir)
             ast_results = engine.discover_all()
         except Exception:
             pass
-        
+
         # Legacy discovery as fallback
         try:
             from aquilia.cli.discovery_utils import EnhancedDiscovery
+
             discovery = EnhancedDiscovery(verbose=False)
         except Exception:
             discovery = None
-        
+
         # Find all module directories with manifest.py
-        module_dirs = [d for d in modules_dir.iterdir() 
-                      if d.is_dir() and (d / 'manifest.py').exists()]
-        
+        module_dirs = [d for d in modules_dir.iterdir() if d.is_dir() and (d / "manifest.py").exists()]
+
         # Parse all manifests
         for mod_dir in module_dirs:
             mod_name = mod_dir.name
             try:
-                manifest_content = (mod_dir / 'manifest.py').read_text(encoding="utf-8")
-                
+                manifest_content = (mod_dir / "manifest.py").read_text(encoding="utf-8")
+
                 # Extract all module metadata
                 version = self._extract_field(manifest_content, r'version="([^"]+)"', "0.1.0")
                 description = self._extract_field(manifest_content, r'description="([^"]+)"', mod_name.capitalize())
                 route_prefix = self._extract_field(manifest_content, r'route_prefix="([^"]+)"', f"/{mod_name}")
                 author = self._extract_field(manifest_content, r'author="([^"]+)"', "")
-                tags = self._extract_list(manifest_content, r'tags=\[(.*?)\]', [])
+                tags = self._extract_list(manifest_content, r"tags=\[(.*?)\]", [])
                 base_path = self._extract_field(manifest_content, r'base_path="([^"]+)"', f"modules.{mod_name}")
-                depends_on = self._extract_list(manifest_content, r'depends_on=\[(.*?)\]', [])
+                depends_on = self._extract_list(manifest_content, r"depends_on=\[(.*?)\]", [])
                 # v2: also extract imports field
-                imports_list = self._extract_list(manifest_content, r'imports=\s*\[(.*?)\]', [])
+                imports_list = self._extract_list(manifest_content, r"imports=\s*\[(.*?)\]", [])
                 if imports_list:
                     depends_on = imports_list  # v2 imports supersede legacy depends_on
-                
+
                 # Extract current manifest declarations (baseline)
-                manifest_services_list = self._extract_list(manifest_content, r'services=\s*\[(.*?)\]', [])
-                manifest_controllers_list = self._extract_list(manifest_content, r'controllers=\s*\[(.*?)\]', [])
-                manifest_middleware_list = self._extract_list(manifest_content, r'middleware=\s*\[(.*?)\]', [])
-                manifest_socket_controllers_list = self._extract_list(manifest_content, r'socket_controllers=\s*\[(.*?)\]', [])
+                manifest_services_list = self._extract_list(manifest_content, r"services=\s*\[(.*?)\]", [])
+                manifest_controllers_list = self._extract_list(manifest_content, r"controllers=\s*\[(.*?)\]", [])
+                manifest_middleware_list = self._extract_list(manifest_content, r"middleware=\s*\[(.*?)\]", [])
+                manifest_socket_controllers_list = self._extract_list(
+                    manifest_content, r"socket_controllers=\s*\[(.*?)\]", []
+                )
                 # v2: Extract new component types
-                manifest_guards_list = self._extract_list(manifest_content, r'guards=\s*\[(.*?)\]', [])
-                manifest_pipes_list = self._extract_list(manifest_content, r'pipes=\s*\[(.*?)\]', [])
-                manifest_interceptors_list = self._extract_list(manifest_content, r'interceptors=\s*\[(.*?)\]', [])
-                manifest_exports_list = self._extract_list(manifest_content, r'exports=\s*\[(.*?)\]', [])
+                manifest_guards_list = self._extract_list(manifest_content, r"guards=\s*\[(.*?)\]", [])
+                manifest_pipes_list = self._extract_list(manifest_content, r"pipes=\s*\[(.*?)\]", [])
+                manifest_interceptors_list = self._extract_list(manifest_content, r"interceptors=\s*\[(.*?)\]", [])
+                manifest_exports_list = self._extract_list(manifest_content, r"exports=\s*\[(.*?)\]", [])
 
                 # v2: Merge AST-discovered components with manifest declarations
                 if mod_name in ast_results:
@@ -345,24 +346,26 @@ class WorkspaceGenerator:
                     guards_list = manifest_guards_list
                     pipes_list = manifest_pipes_list
                     interceptors_list = manifest_interceptors_list
-                    
+
                     if discovery:
                         try:
-                            result = discovery.discover_module_controllers_and_services(
-                                base_path, mod_name
-                            )
+                            result = discovery.discover_module_controllers_and_services(base_path, mod_name)
                             if len(result) == 3:
                                 discovered_controllers, discovered_services, discovered_sockets = result
                             else:
                                 discovered_controllers, discovered_services = result
                                 discovered_sockets = []
-                            
+
                             services_list = discovered_services if discovered_services else manifest_services_list
-                            controllers_list = discovered_controllers if discovered_controllers else manifest_controllers_list
-                            socket_controllers_list = discovered_sockets if discovered_sockets else manifest_socket_controllers_list
+                            controllers_list = (
+                                discovered_controllers if discovered_controllers else manifest_controllers_list
+                            )
+                            socket_controllers_list = (
+                                discovered_sockets if discovered_sockets else manifest_socket_controllers_list
+                            )
                         except Exception:
                             pass
-                
+
                 # Check for actual declarations/discoveries
                 has_services = len(services_list) > 0
                 has_controllers = len(controllers_list) > 0
@@ -371,108 +374,106 @@ class WorkspaceGenerator:
                 has_guards = len(guards_list) > 0
                 has_pipes = len(pipes_list) > 0
                 has_interceptors = len(interceptors_list) > 0
-                
+
                 discovered_modules[mod_name] = {
-                    'name': mod_name,
-                    'path': mod_dir,
-                    'version': version,
-                    'description': description,
-                    'route_prefix': route_prefix,
-                    'author': author,
-                    'tags': tags,
-                    'base_path': base_path,
-                    'depends_on': depends_on,
-                    'has_services': has_services,
-                    'has_controllers': has_controllers,
-                    'has_sockets': has_sockets,
-                    'has_middleware': has_middleware,
-                    'has_guards': has_guards,
-                    'has_pipes': has_pipes,
-                    'has_interceptors': has_interceptors,
-                    'services_list': services_list,
-                    'controllers_list': controllers_list,
-                    'socket_controllers_list': socket_controllers_list,
-                    'middleware_list': manifest_middleware_list,
-                    'guards_list': guards_list,
-                    'pipes_list': pipes_list,
-                    'interceptors_list': interceptors_list,
-                    'exports_list': manifest_exports_list,
-                    'services_count': len(services_list),
-                    'controllers_count': len(controllers_list),
-                    'socket_controllers_count': len(socket_controllers_list),
-                    'middleware_count': len(manifest_middleware_list),
-                    'guards_count': len(guards_list),
-                    'pipes_count': len(pipes_list),
-                    'interceptors_count': len(interceptors_list),
-                    'manifest_path': mod_dir / 'manifest.py',
+                    "name": mod_name,
+                    "path": mod_dir,
+                    "version": version,
+                    "description": description,
+                    "route_prefix": route_prefix,
+                    "author": author,
+                    "tags": tags,
+                    "base_path": base_path,
+                    "depends_on": depends_on,
+                    "has_services": has_services,
+                    "has_controllers": has_controllers,
+                    "has_sockets": has_sockets,
+                    "has_middleware": has_middleware,
+                    "has_guards": has_guards,
+                    "has_pipes": has_pipes,
+                    "has_interceptors": has_interceptors,
+                    "services_list": services_list,
+                    "controllers_list": controllers_list,
+                    "socket_controllers_list": socket_controllers_list,
+                    "middleware_list": manifest_middleware_list,
+                    "guards_list": guards_list,
+                    "pipes_list": pipes_list,
+                    "interceptors_list": interceptors_list,
+                    "exports_list": manifest_exports_list,
+                    "services_count": len(services_list),
+                    "controllers_count": len(controllers_list),
+                    "socket_controllers_count": len(socket_controllers_list),
+                    "middleware_count": len(manifest_middleware_list),
+                    "guards_count": len(guards_list),
+                    "pipes_count": len(pipes_list),
+                    "interceptors_count": len(interceptors_list),
+                    "manifest_path": mod_dir / "manifest.py",
                 }
             except Exception:
                 # Silently skip modules with parsing errors
                 pass
-        
+
         return discovered_modules
-    
+
     def _resolve_dependencies(self, modules: dict) -> list:
         """Topologically sort modules based on dependencies (Kahn's algorithm)."""
         if not modules:
             return []
-        
+
         # Build dependency graph
-        graph = {name: mod.get('depends_on', []) for name, mod in modules.items()}
+        graph = {name: mod.get("depends_on", []) for name, mod in modules.items()}
         in_degree = {name: 0 for name in modules}
-        
+
         # Calculate in-degrees
         for name in modules:
             for dep in graph.get(name, []):
                 if dep in in_degree:
                     in_degree[name] += 1
-        
+
         # Process nodes with no dependencies
         sorted_modules = []
         queue = [name for name, degree in in_degree.items() if degree == 0]
-        
+
         while queue:
             node = queue.pop(0)
             sorted_modules.append(node)
-            
+
             # Reduce in-degree for dependent modules
             for name in modules:
                 if node in graph.get(name, []):
                     in_degree[name] -= 1
                     if in_degree[name] == 0:
                         queue.append(name)
-        
+
         # Return sorted modules, fall back to alphabetical if cycles detected
         return sorted_modules if len(sorted_modules) == len(modules) else sorted(modules.keys())
-    
+
     def _validate_modules(self, modules: dict) -> dict:
         """Validate modules and detect conflicts."""
         validation = {
-            'valid': True,
-            'warnings': [],
-            'errors': [],
+            "valid": True,
+            "warnings": [],
+            "errors": [],
         }
-        
+
         route_prefixes = {}
         for name, mod in modules.items():
-            route = mod['route_prefix']
+            route = mod["route_prefix"]
             if route in route_prefixes:
-                validation['warnings'].append(
+                validation["warnings"].append(
                     f"Route prefix conflict: '{route}' used by both '{name}' and '{route_prefixes[route]}'"
                 )
             else:
                 route_prefixes[route] = name
-            
+
             # Check for missing dependencies
-            for dep in mod.get('depends_on', []):
+            for dep in mod.get("depends_on", []):
                 if dep not in modules:
-                    validation['errors'].append(
-                        f"Module '{name}' depends on '{dep}' which is not installed"
-                    )
-                    validation['valid'] = False
-        
+                    validation["errors"].append(f"Module '{name}' depends on '{dep}' which is not installed")
+                    validation["valid"] = False
+
         return validation
-    
+
     def _create_workspace_manifest(self) -> None:
         """Create aquilia.py configuration (Python-based, production-grade).
 
@@ -488,44 +489,44 @@ class WorkspaceGenerator:
         # Discover all modules with enhanced detection
         discovered = self._discover_modules()
         module_registrations = ""
-        
+
         if discovered:
             # Validate modules
-            validation = self._validate_modules(discovered)
-            
+            self._validate_modules(discovered)
+
             # Resolve dependencies and get sorted order
             sorted_names = self._resolve_dependencies(discovered)
-            
+
             module_lines = []
             for mod_name in sorted_names:
                 mod = discovered[mod_name]
-                
+
                 # Build slim module registration -- pointer only
                 # Component declarations (controllers, services, etc.) live in manifest.py
-                
+
                 base_config = f'Module("{mod["name"]}", version="{mod["version"]}", description="{mod["description"]}")'
-                
+
                 # Add route prefix
                 config_chain = f'{base_config}\n        .route_prefix("{mod["route_prefix"]}")'
-                
+
                 # Add tags
-                if mod.get('tags'):
-                    tags_part = ", ".join(f'"{t}"' for t in mod['tags'])
-                    config_chain += f'\n        .tags({tags_part})'
-                
+                if mod.get("tags"):
+                    tags_part = ", ".join(f'"{t}"' for t in mod["tags"])
+                    config_chain += f"\n        .tags({tags_part})"
+
                 # Add dependencies
-                if mod.get('depends_on'):
-                    deps_part = ", ".join(f'"{d}"' for d in mod['depends_on'])
-                    config_chain += f'\n        .depends_on({deps_part})'
-                
+                if mod.get("depends_on"):
+                    deps_part = ", ".join(f'"{d}"' for d in mod["depends_on"])
+                    config_chain += f"\n        .depends_on({deps_part})"
+
                 # .module(Module(...) on same line, then chain methods indented
-                module_line = f'.module({config_chain}\n    ))'
+                module_line = f".module({config_chain}\n    ))"
                 module_lines.append(module_line)
-            
+
             if module_lines:
                 # Indent each module block with 4 spaces
                 module_registrations = "\n" + "\n".join("    " + line.replace("\n", "\n    ") for line in module_lines)
-        
+
         content = textwrap.dedent(f'''\
             """
             Aquilia Workspace Configuration - Production Grade
@@ -682,7 +683,7 @@ class WorkspaceGenerator:
                     max_size=1024,
                     key_prefix="{self.name}:",
                 ))
-                
+
                 # Templates - Fluent configuration
                 .integrate(
                     Integration.templates
@@ -762,7 +763,7 @@ class WorkspaceGenerator:
             __all__ = ["workspace"]
         ''').strip()
 
-        (self.path / 'workspace.py').write_text(content, encoding="utf-8")
+        (self.path / "workspace.py").write_text(content, encoding="utf-8")
 
     def _create_minimal_workspace_manifest(self) -> None:
         """Create a minimal workspace.py -- just enough to run.
@@ -870,7 +871,7 @@ class WorkspaceGenerator:
             __all__ = ["workspace"]
         ''').strip()
 
-        (self.path / 'workspace.py').write_text(content, encoding="utf-8")
+        (self.path / "workspace.py").write_text(content, encoding="utf-8")
 
     def _create_config_files(self) -> None:
         """No-op — environment config is now inlined in workspace.py.
@@ -928,7 +929,7 @@ class WorkspaceGenerator:
                     )
         ''')
 
-        (self.path / 'starter.py').write_text(content, encoding="utf-8")
+        (self.path / "starter.py").write_text(content, encoding="utf-8")
 
     # ------------------------------------------------------------------
     # Scaffold files: models, cache, auth, templates
@@ -936,7 +937,7 @@ class WorkspaceGenerator:
 
     def _create_models_dir(self) -> None:
         """Create models/{workspace_name}.py with a basic Aquilia ORM model."""
-        models_dir = self.path / 'models'
+        models_dir = self.path / "models"
         models_dir.mkdir(exist_ok=True)
 
         model_name = self.name.capitalize()
@@ -1003,8 +1004,8 @@ class WorkspaceGenerator:
                     return f"<{model_name}Item id={{self.id}} name={{self.name!r}}>"
         ''').strip()
 
-        (models_dir / '__init__.py').write_text(init_content, encoding="utf-8")
-        (models_dir / f'{self.name}.py').write_text(model_content, encoding="utf-8")
+        (models_dir / "__init__.py").write_text(init_content, encoding="utf-8")
+        (models_dir / f"{self.name}.py").write_text(model_content, encoding="utf-8")
 
     # ------------------------------------------------------------------
     # Industry-standard project files
@@ -1055,7 +1056,7 @@ class WorkspaceGenerator:
             LOG_LEVEL=INFO                         # DEBUG | INFO | WARNING | ERROR
         """)
 
-        (self.path / '.env.example').write_text(content, encoding="utf-8")
+        (self.path / ".env.example").write_text(content, encoding="utf-8")
 
     def _create_editorconfig(self) -> None:
         """Create .editorconfig for consistent coding style across editors."""
@@ -1084,7 +1085,7 @@ class WorkspaceGenerator:
             indent_style = tab
         """)
 
-        (self.path / '.editorconfig').write_text(content, encoding="utf-8")
+        (self.path / ".editorconfig").write_text(content, encoding="utf-8")
 
     def _create_requirements(self) -> None:
         """Create requirements.txt with pinned Aquilia dependency."""
@@ -1105,15 +1106,15 @@ class WorkspaceGenerator:
             # uvicorn[standard]>=0.30.0 # ASGI server (included with Aquilia)
         """)
 
-        (self.path / 'requirements.txt').write_text(content, encoding="utf-8")
+        (self.path / "requirements.txt").write_text(content, encoding="utf-8")
 
     def _create_tests_dir(self) -> None:
         """Create tests/ directory with conftest.py and example tests using aquilia.testing."""
-        tests_dir = self.path / 'tests'
+        tests_dir = self.path / "tests"
         tests_dir.mkdir(exist_ok=True)
 
         # __init__.py
-        (tests_dir / '__init__.py').write_text("", encoding="utf-8")
+        (tests_dir / "__init__.py").write_text("", encoding="utf-8")
 
         # conftest.py -- registers Aquilia fixtures + any workspace-level overrides
         conftest = textwrap.dedent(f'''\
@@ -1155,7 +1156,7 @@ class WorkspaceGenerator:
                 }}
         ''')
 
-        (tests_dir / 'conftest.py').write_text(conftest, encoding="utf-8")
+        (tests_dir / "conftest.py").write_text(conftest, encoding="utf-8")
 
         # Smoke tests -- SimpleTestCase (no server) + AquiliaTestCase (full stack)
         test_smoke = textwrap.dedent(f'''\
@@ -1237,7 +1238,7 @@ class WorkspaceGenerator:
                     assert resp.status_code == 200
         ''')
 
-        (tests_dir / 'test_smoke.py').write_text(test_smoke, encoding="utf-8")
+        (tests_dir / "test_smoke.py").write_text(test_smoke, encoding="utf-8")
 
     def _create_makefile(self) -> None:
         """Create Makefile with common development commands."""
@@ -1313,7 +1314,7 @@ class WorkspaceGenerator:
             \taq doctor
         """)
 
-        (self.path / 'Makefile').write_text(content, encoding="utf-8")
+        (self.path / "Makefile").write_text(content, encoding="utf-8")
 
     def _create_template_files(self) -> None:
         """Create template scaffold files for --template flag.
@@ -1325,7 +1326,7 @@ class WorkspaceGenerator:
         - assets/js/app.js               (basic JS)
         """
         # --- base.html (Jinja2 include layout) ---
-        base_html = textwrap.dedent(f'''\
+        base_html = textwrap.dedent(f"""\
             <!DOCTYPE html>
             <html lang="en">
             <head>
@@ -1358,10 +1359,10 @@ class WorkspaceGenerator:
                 {{% block scripts %}}{{% endblock %}}
             </body>
             </html>
-        ''').strip()
+        """).strip()
 
         # --- index.html (extends base) ---
-        index_html = textwrap.dedent(f'''\
+        index_html = textwrap.dedent(f"""\
             {{% extends "includes/base.html" %}}
 
             {{% block title %}}Home -- {self.name.capitalize()}{{% endblock %}}
@@ -1372,10 +1373,10 @@ class WorkspaceGenerator:
                 <p>Your Aquilia workspace is ready.</p>
             </section>
             {{% endblock %}}
-        ''').strip()
+        """).strip()
 
         # --- style.css ---
-        style_css = textwrap.dedent('''\
+        style_css = textwrap.dedent("""\
             /* Aquilia workspace styles */
             *, *::before, *::after {
                 box-sizing: border-box;
@@ -1432,10 +1433,10 @@ class WorkspaceGenerator:
                 color: #888;
                 font-size: 0.875rem;
             }
-        ''').strip()
+        """).strip()
 
         # --- app.js ---
-        app_js = textwrap.dedent('''\
+        app_js = textwrap.dedent("""\
             /**
              * Aquilia workspace JavaScript.
              *
@@ -1446,22 +1447,22 @@ class WorkspaceGenerator:
             document.addEventListener("DOMContentLoaded", () => {
                 console.log("Aquilia workspace ready.");
             });
-        ''').strip()
+        """).strip()
 
-        templates_dir = self.path / 'templates'
-        includes_dir = templates_dir / 'includes'
-        css_dir = self.path / 'assets' / 'css'
-        js_dir = self.path / 'assets' / 'js'
+        templates_dir = self.path / "templates"
+        includes_dir = templates_dir / "includes"
+        css_dir = self.path / "assets" / "css"
+        js_dir = self.path / "assets" / "js"
 
         templates_dir.mkdir(exist_ok=True)
         includes_dir.mkdir(exist_ok=True)
         css_dir.mkdir(parents=True, exist_ok=True)
         js_dir.mkdir(parents=True, exist_ok=True)
 
-        (includes_dir / 'base.html').write_text(base_html, encoding="utf-8")
-        (templates_dir / 'index.html').write_text(index_html, encoding="utf-8")
-        (css_dir / 'style.css').write_text(style_css, encoding="utf-8")
-        (js_dir / 'app.js').write_text(app_js, encoding="utf-8")
+        (includes_dir / "base.html").write_text(base_html, encoding="utf-8")
+        (templates_dir / "index.html").write_text(index_html, encoding="utf-8")
+        (css_dir / "style.css").write_text(style_css, encoding="utf-8")
+        (js_dir / "app.js").write_text(app_js, encoding="utf-8")
 
     def _create_gitignore(self) -> None:
         """Create .gitignore file."""
@@ -1514,8 +1515,8 @@ class WorkspaceGenerator:
             *.log
         """).strip()
 
-        (self.path / '.gitignore').write_text(content, encoding="utf-8")
-    
+        (self.path / ".gitignore").write_text(content, encoding="utf-8")
+
     def _create_readme(self) -> None:
         """Create README.md file."""
         content = textwrap.dedent(f"""
@@ -1597,14 +1598,15 @@ class WorkspaceGenerator:
             See Aquilia documentation for complete guides.
         """).strip()
 
-        (self.path / 'README.md').write_text(content, encoding="utf-8")
+        (self.path / "README.md").write_text(content, encoding="utf-8")
 
     def _create_license_file(self) -> None:
         """Create a LICENSE file based on the selected license type."""
         import datetime
+
         year = datetime.datetime.now().year
 
-        if self.include_license == 'MIT':
+        if self.include_license == "MIT":
             content = textwrap.dedent(f"""\
                 MIT License
 
@@ -1628,7 +1630,7 @@ class WorkspaceGenerator:
                 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
                 SOFTWARE.
             """)
-        elif self.include_license == 'Apache-2.0':
+        elif self.include_license == "Apache-2.0":
             content = textwrap.dedent(f"""\
                 Copyright {year} {self.name}
 
@@ -1644,7 +1646,7 @@ class WorkspaceGenerator:
                 See the License for the specific language governing permissions and
                 limitations under the License.
             """)
-        elif self.include_license == 'BSD-3':
+        elif self.include_license == "BSD-3":
             content = textwrap.dedent(f"""\
                 BSD 3-Clause License
 
@@ -1679,7 +1681,7 @@ class WorkspaceGenerator:
         else:
             return  # Unknown license -- skip
 
-        (self.path / 'LICENSE').write_text(content, encoding="utf-8")
+        (self.path / "LICENSE").write_text(content, encoding="utf-8")
 
     def _create_deployment_files(self) -> None:
         """Create default Docker and docker-compose files for the workspace.
@@ -1688,9 +1690,9 @@ class WorkspaceGenerator:
         workspaces are immediately deployable.
         """
         from .deployment import (
-            WorkspaceIntrospector,
-            DockerfileGenerator,
             ComposeGenerator,
+            DockerfileGenerator,
+            WorkspaceIntrospector,
         )
 
         try:
@@ -1698,11 +1700,11 @@ class WorkspaceGenerator:
             docker_gen = DockerfileGenerator(wctx)
             compose_gen = ComposeGenerator(wctx)
 
-            (self.path / 'Dockerfile').write_text(docker_gen.generate_dockerfile(), encoding="utf-8")
-            (self.path / '.dockerignore').write_text(docker_gen.generate_dockerignore(), encoding="utf-8")
-            (self.path / 'docker-compose.yml').write_text(
-                compose_gen.generate_compose(include_monitoring=False)
-            , encoding="utf-8")
+            (self.path / "Dockerfile").write_text(docker_gen.generate_dockerfile(), encoding="utf-8")
+            (self.path / ".dockerignore").write_text(docker_gen.generate_dockerignore(), encoding="utf-8")
+            (self.path / "docker-compose.yml").write_text(
+                compose_gen.generate_compose(include_monitoring=False), encoding="utf-8"
+            )
         except Exception:
             # Non-fatal -- the workspace is still usable without these files
             pass
@@ -1716,10 +1718,10 @@ class WorkspaceGenerator:
         """
         import json
 
-        locales_dir = self.path / 'locales' / 'en'
+        locales_dir = self.path / "locales" / "en"
         locales_dir.mkdir(parents=True, exist_ok=True)
 
-        messages_file = locales_dir / 'messages.json'
+        messages_file = locales_dir / "messages.json"
         if messages_file.exists():
             return
 

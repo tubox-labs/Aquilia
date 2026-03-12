@@ -18,18 +18,17 @@ Hardening (v2.1):
 
 from __future__ import annotations
 
-from typing import Dict, Any, Optional, Callable, Awaitable
 import logging
-import sys
 import time
-import platform
+from collections.abc import Callable
+from typing import Any
 
+from .controller.base import _ctx_pool
+from .controller.router import ControllerRouter
+from .engine import get_engine_metrics
+from .middleware import Handler, MiddlewareStack
 from .request import Request
 from .response import Response
-from .middleware import MiddlewareStack, Handler
-from .controller.router import ControllerRouter
-from .controller.base import RequestCtx, _ctx_pool
-from .engine import get_engine_metrics
 
 
 class ASGIAdapter:
@@ -40,10 +39,17 @@ class ASGIAdapter:
     """
 
     __slots__ = (
-        'controller_router', 'controller_engine', 'middleware_stack',
-        'server', 'socket_runtime', 'logger',
-        '_cached_middleware_chain', '_default_container',
-        '_debug', '_has_routes_cache', '_server_runtime',
+        "controller_router",
+        "controller_engine",
+        "middleware_stack",
+        "server",
+        "socket_runtime",
+        "logger",
+        "_cached_middleware_chain",
+        "_default_container",
+        "_debug",
+        "_has_routes_cache",
+        "_server_runtime",
     )
 
     def __init__(
@@ -51,8 +57,8 @@ class ASGIAdapter:
         controller_router: ControllerRouter,
         controller_engine: Any,
         middleware_stack: MiddlewareStack,
-        server: Optional[Any] = None,
-        socket_runtime: Optional[Any] = None,
+        server: Any | None = None,
+        socket_runtime: Any | None = None,
     ):
         self.controller_router = controller_router
         self.controller_engine = controller_engine
@@ -60,10 +66,10 @@ class ASGIAdapter:
         self.server = server
         self.socket_runtime = socket_runtime
         self.logger = logging.getLogger("aquilia.asgi")
-        self._cached_middleware_chain: Optional[Handler] = None
+        self._cached_middleware_chain: Handler | None = None
         self._default_container = None
-        self._debug: Optional[bool] = None
-        self._has_routes_cache: Optional[bool] = None
+        self._debug: bool | None = None
+        self._has_routes_cache: bool | None = None
         self._server_runtime = None  # Cached after startup
 
         if self.socket_runtime and self.server:
@@ -74,13 +80,15 @@ class ASGIAdapter:
         server = self.server
 
         async def container_factory(request=None):
-            if not server or not hasattr(server, 'runtime'):
+            if not server or not hasattr(server, "runtime"):
                 from .di import Container
+
                 return Container(scope="request")
             if server.runtime.di_containers:
                 app_container = next(iter(server.runtime.di_containers.values()))
                 return app_container.create_request_scope()
             from .di import Container
+
             return Container(scope="request")
 
         self.socket_runtime.container_factory = container_factory
@@ -91,7 +99,7 @@ class ASGIAdapter:
 
     def _is_debug(self) -> bool:
         if self._debug is None:
-            if self.server and hasattr(self.server, '_is_debug'):
+            if self.server and hasattr(self.server, "_is_debug"):
                 self._debug = self.server._is_debug()
             else:
                 self._debug = False
@@ -100,20 +108,20 @@ class ASGIAdapter:
     def _get_default_container(self):
         """Get or create the default app container (cached)."""
         if self._default_container is None:
-            if self.server and hasattr(self.server, 'runtime') and self.server.runtime.di_containers:
+            if self.server and hasattr(self.server, "runtime") and self.server.runtime.di_containers:
                 self._default_container = next(iter(self.server.runtime.di_containers.values()))
             else:
                 from .di import Container
+
                 self._default_container = Container(scope="app")
         return self._default_container
 
     def _has_routes(self) -> bool:
         if self._has_routes_cache is None:
             try:
-                if hasattr(self.controller_router, 'routes_by_method'):
+                if hasattr(self.controller_router, "routes_by_method"):
                     self._has_routes_cache = any(
-                        len(routes) > 0
-                        for routes in self.controller_router.routes_by_method.values()
+                        len(routes) > 0 for routes in self.controller_router.routes_by_method.values()
                     )
                 else:
                     self._has_routes_cache = True
@@ -147,6 +155,7 @@ class ASGIAdapter:
             accept = self._get_accept_from_request(request)
             if "text/html" in accept:
                 from .debug.pages import render_http_error_page, render_welcome_page
+
                 version = self._get_version()
                 path = request.path
                 method = request.method
@@ -155,7 +164,7 @@ class ASGIAdapter:
                     system_info = {
                         "debug": True,
                     }
-                    
+
                     html_body = render_welcome_page(aquilia_version=version, system_info=system_info)
                     return Response(
                         content=html_body.encode("utf-8"),
@@ -163,7 +172,8 @@ class ASGIAdapter:
                         headers={"content-type": "text/html; charset=utf-8"},
                     )
                 html_body = render_http_error_page(
-                    404, "Not Found",
+                    404,
+                    "Not Found",
                     f"No route matches {method} {path}",
                     request,
                     aquilia_version=version,
@@ -175,6 +185,7 @@ class ASGIAdapter:
                 )
 
             from .faults.domains import NotFoundFault
+
             raise NotFoundFault(
                 detail=f"No route matches {request.method} {request.path}",
             )
@@ -191,6 +202,7 @@ class ASGIAdapter:
     def _get_version(self) -> str:
         try:
             from aquilia import __version__
+
             return __version__
         except Exception:
             return ""
@@ -246,7 +258,9 @@ class ASGIAdapter:
         # version-filtered matching can discriminate versioned routes.
         _api_version = request.state.get("api_version") if isinstance(request.state, dict) else None
         controller_match = self.controller_router.match_sync(
-            path, method, api_version=_api_version,
+            path,
+            method,
+            api_version=_api_version,
         )
 
         # ── ARCH-01: 405 Method Not Allowed + ARCH-05: HEAD auto-support ──
@@ -255,7 +269,9 @@ class ASGIAdapter:
             if method == "HEAD":
                 # HTTP/1.1 §9.4: HEAD must be supported wherever GET is.
                 controller_match = self.controller_router.match_sync(
-                    path, "GET", api_version=_api_version,
+                    path,
+                    "GET",
+                    api_version=_api_version,
                 )
                 if controller_match is not None:
                     is_head_fallback = True
@@ -272,12 +288,12 @@ class ASGIAdapter:
         # ── Resolve DI container ──
         app_container = None
         runtime = self._server_runtime
-        if runtime is None and self.server and hasattr(self.server, 'runtime'):
+        if runtime is None and self.server and hasattr(self.server, "runtime"):
             runtime = self.server.runtime
             self._server_runtime = runtime
 
         if controller_match and runtime:
-            app_name = getattr(controller_match.route, 'app_name', None)
+            app_name = getattr(controller_match.route, "app_name", None)
             if app_name:
                 app_container = runtime.di_containers.get(app_name)
             if app_container is None and runtime.di_containers:
@@ -288,6 +304,7 @@ class ASGIAdapter:
         di_container = app_container.create_request_scope() if app_container else None
         if di_container is None:
             from .di import Container
+
             di_container = Container(scope="request")
 
         # ── Acquire RequestCtx from pool (zero-alloc hot path) ──
@@ -301,8 +318,8 @@ class ASGIAdapter:
         # Store controller match in request state for the final handler
         if controller_match:
             request.state["_controller_match"] = controller_match
-            request.state["app_name"] = getattr(controller_match.route, 'app_name', None)
-            request.state["route_pattern"] = getattr(controller_match.route, 'full_path', None)
+            request.state["app_name"] = getattr(controller_match.route, "app_name", None)
+            request.state["route_pattern"] = getattr(controller_match.route, "full_path", None)
             request.state["path_params"] = controller_match.params
         else:
             request.state["app_name"] = None
@@ -328,15 +345,21 @@ class ASGIAdapter:
                 try:
                     if self._is_debug():
                         from .debug.pages import render_debug_exception_page
+
                         html_body = render_debug_exception_page(
-                            e, request, aquilia_version=self._get_version(),
+                            e,
+                            request,
+                            aquilia_version=self._get_version(),
                         )
                     else:
                         from .debug.pages import render_http_error_page
+
                         html_body = render_http_error_page(
-                            500, "Internal Server Error",
+                            500,
+                            "Internal Server Error",
                             "An unexpected error occurred processing your request.",
-                            request, aquilia_version=self._get_version(),
+                            request,
+                            aquilia_version=self._get_version(),
                         )
                 except Exception as render_exc:
                     self.logger.error(
@@ -346,11 +369,11 @@ class ASGIAdapter:
                     html_body = (
                         '<!DOCTYPE html><html><head><meta charset="utf-8">'
                         '<title>500</title></head><body style="font-family:'
-                        'system-ui;background:#000;color:#eee;display:flex;'
-                        'justify-content:center;align-items:center;height:'
+                        "system-ui;background:#000;color:#eee;display:flex;"
+                        "justify-content:center;align-items:center;height:"
                         '100vh;margin:0;"><div style="text-align:center;">'
                         '<h1 style="color:#ef4444;">500</h1>'
-                        '<p>Internal Server Error</p></div></body></html>'
+                        "<p>Internal Server Error</p></div></body></html>"
                     )
                 response = Response(
                     content=html_body.encode("utf-8"),
@@ -389,7 +412,7 @@ class ASGIAdapter:
             response = Response(
                 content=b"",
                 status=response.status,
-                headers=dict(response.headers) if hasattr(response, 'headers') else {},
+                headers=dict(response.headers) if hasattr(response, "headers") else {},
             )
 
         await response.send_asgi(send)
@@ -399,7 +422,10 @@ class ASGIAdapter:
     # ------------------------------------------------------------------
 
     async def _send_method_not_allowed(
-        self, send: Callable, allowed: list, scope: dict | None = None,
+        self,
+        send: Callable,
+        allowed: list,
+        scope: dict | None = None,
     ) -> None:
         """Send a ``405 Method Not Allowed`` response with an ``Allow`` header.
 
@@ -420,41 +446,51 @@ class ASGIAdapter:
 
         if "text/html" in accept:
             from .debug.pages import render_http_error_page
+
             html_body = render_http_error_page(
-                405, "Method Not Allowed", detail,
+                405,
+                "Method Not Allowed",
+                detail,
                 aquilia_version=self._get_version(),
             )
             body = html_body.encode("utf-8")
-            await send({
-                "type": "http.response.start",
-                "status": 405,
-                "headers": [
-                    [b"content-type", b"text/html; charset=utf-8"],
-                    [b"allow", allow_value.encode("utf-8")],
-                    [b"content-length", str(len(body)).encode()],
-                ],
-            })
+            await send(
+                {
+                    "type": "http.response.start",
+                    "status": 405,
+                    "headers": [
+                        [b"content-type", b"text/html; charset=utf-8"],
+                        [b"allow", allow_value.encode("utf-8")],
+                        [b"content-length", str(len(body)).encode()],
+                    ],
+                }
+            )
             await send({"type": "http.response.body", "body": body})
         else:
             import json as _json
-            body = _json.dumps({
-                "error": {
-                    "code": "HTTP_405",
-                    "message": "Method Not Allowed",
+
+            body = _json.dumps(
+                {
+                    "error": {
+                        "code": "HTTP_405",
+                        "message": "Method Not Allowed",
+                        "status": 405,
+                        "detail": detail,
+                        "allowed_methods": sorted(allowed),
+                    },
+                }
+            ).encode("utf-8")
+            await send(
+                {
+                    "type": "http.response.start",
                     "status": 405,
-                    "detail": detail,
-                    "allowed_methods": sorted(allowed),
-                },
-            }).encode("utf-8")
-            await send({
-                "type": "http.response.start",
-                "status": 405,
-                "headers": [
-                    [b"content-type", b"application/json"],
-                    [b"allow", allow_value.encode("utf-8")],
-                    [b"content-length", str(len(body)).encode()],
-                ],
-            })
+                    "headers": [
+                        [b"content-type", b"application/json"],
+                        [b"allow", allow_value.encode("utf-8")],
+                        [b"content-length", str(len(body)).encode()],
+                    ],
+                }
+            )
             await send({"type": "http.response.body", "body": body})
 
     # ------------------------------------------------------------------
@@ -476,16 +512,15 @@ class ASGIAdapter:
         import json as _json
 
         metrics = get_engine_metrics()
-        body: Dict[str, Any] = {
+        body: dict[str, Any] = {
             "status": "healthy",
             "metrics": metrics.snapshot(),
         }
 
         # Optionally include subsystem health from HealthRegistry (v2)
         try:
-            from .health import HealthRegistry
             # Access registry from server reference if available
-            registry = getattr(self.server, 'health_registry', None) if self.server else None
+            registry = getattr(self.server, "health_registry", None) if self.server else None
             if registry is not None:
                 health_report = registry.to_dict()
                 body["subsystems"] = health_report.get("subsystems", {})
@@ -507,16 +542,20 @@ class ASGIAdapter:
             [b"x-frame-options", b"DENY"],
         ]
 
-        await send({
-            "type": "http.response.start",
-            "status": 200,
-            "headers": headers,
-        })
-        await send({
-            "type": "http.response.body",
-            # ARCH-05: HEAD support -- send empty body for HEAD requests
-            "body": b"" if head_only else payload,
-        })
+        await send(
+            {
+                "type": "http.response.start",
+                "status": 200,
+                "headers": headers,
+            }
+        )
+        await send(
+            {
+                "type": "http.response.body",
+                # ARCH-05: HEAD support -- send empty body for HEAD requests
+                "body": b"" if head_only else payload,
+            }
+        )
 
     async def handle_websocket(self, scope: dict, receive: Callable, send: Callable):
         """Handle WebSocket connection."""

@@ -5,7 +5,7 @@ MLOpsIntegration — typed MLOps platform configuration.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional
+from typing import Any
 
 
 @dataclass
@@ -36,12 +36,12 @@ class MLOpsIntegration:
     batching_strategy: str = "hybrid"
     sample_rate: float = 0.01
     log_dir: str = "prediction_logs"
-    hmac_secret: Optional[str] = None
-    signing_private_key: Optional[str] = None
-    signing_public_key: Optional[str] = None
-    encryption_key: Optional[Any] = None
+    hmac_secret: str | None = None
+    signing_private_key: str | None = None
+    signing_public_key: str | None = None
+    encryption_key: Any | None = None
     plugin_auto_discover: bool = True
-    scaling_policy: Optional[Dict[str, Any]] = None
+    scaling_policy: dict[str, Any] | None = None
     rollout_default_strategy: str = "canary"
     auto_rollback: bool = True
     metrics_model_name: str = ""
@@ -52,7 +52,7 @@ class MLOpsIntegration:
     artifact_store_dir: str = "artifacts"
     fault_engine_debug: bool = False
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "_integration_type": "mlops",
             "enabled": self.enabled,

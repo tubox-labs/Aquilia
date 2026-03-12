@@ -14,26 +14,25 @@ Performance (v3 — scalability):
 - Path normalisation happens once at registration time, not per request.
 """
 
-from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass
-import asyncio
-import re
+from typing import Any
 
-from .compiler import CompiledRoute, CompiledController
-from ..patterns import PatternMatcher, MatchResult
+from ..patterns import PatternMatcher
+from .compiler import CompiledController, CompiledRoute
 
 
 @dataclass
 class ControllerRouteMatch:
     """Result of a successful controller route match."""
+
     route: CompiledRoute
-    params: Dict[str, Any]
-    query: Dict[str, Any]
+    params: dict[str, Any]
+    query: dict[str, Any]
 
 
 # Empty dicts/results reused to avoid per-request allocations
-_EMPTY_DICT: Dict[str, Any] = {}
-_EMPTY_QUERY: Dict[str, str] = {}
+_EMPTY_DICT: dict[str, Any] = {}
+_EMPTY_QUERY: dict[str, str] = {}
 
 
 class _TrieNode:
@@ -45,18 +44,23 @@ class _TrieNode:
       in ``param_child`` with ``param_name`` and an optional ``param_castor``.
     - **terminal**: ``route`` is set, meaning this node ends a valid URL.
     """
+
     __slots__ = (
-        'children', 'param_child', 'param_name',
-        'param_castor', 'route', 'query_params',
+        "children",
+        "param_child",
+        "param_name",
+        "param_castor",
+        "route",
+        "query_params",
     )
 
     def __init__(self):
-        self.children: Dict[str, '_TrieNode'] = {}  # static segment -> child
-        self.param_child: Optional['_TrieNode'] = None  # single param child
-        self.param_name: Optional[str] = None
-        self.param_castor: Optional[Any] = None  # type-cast function for param
-        self.route: Optional[CompiledRoute] = None
-        self.query_params: Optional[Dict] = None  # query param meta (for terminal nodes)
+        self.children: dict[str, _TrieNode] = {}  # static segment -> child
+        self.param_child: _TrieNode | None = None  # single param child
+        self.param_name: str | None = None
+        self.param_castor: Any | None = None  # type-cast function for param
+        self.route: CompiledRoute | None = None
+        self.query_params: dict | None = None  # query param meta (for terminal nodes)
 
 
 class ControllerRouter:
@@ -69,18 +73,18 @@ class ControllerRouter:
     """
 
     def __init__(self):
-        self.compiled_controllers: List[CompiledController] = []
-        self.routes_by_method: Dict[str, List[CompiledRoute]] = {}
+        self.compiled_controllers: list[CompiledController] = []
+        self.routes_by_method: dict[str, list[CompiledRoute]] = {}
         self.matcher = PatternMatcher()
         self._initialized = False
 
         # ── Fast-path indexes (built during initialize) ──
         # {method: {path: (route, empty_params, empty_query)}}
-        self._static_routes: Dict[str, Dict[str, Tuple[CompiledRoute, Dict, Dict]]] = {}
+        self._static_routes: dict[str, dict[str, tuple[CompiledRoute, dict, dict]]] = {}
         # {method: list[(compiled_re, route, param_names)]}
-        self._dynamic_routes: Dict[str, List[Tuple[Any, CompiledRoute, List[str]]]] = {}
+        self._dynamic_routes: dict[str, list[tuple[Any, CompiledRoute, list[str]]]] = {}
         # {method: _TrieNode}  -- trie for segment-based matching
-        self._tries: Dict[str, _TrieNode] = {}
+        self._tries: dict[str, _TrieNode] = {}
 
     def add_controller(self, compiled_controller: CompiledController):
         """Add a compiled controller to the router."""
@@ -116,8 +120,8 @@ class ControllerRouter:
             # Sort by specificity (descending) so most specific routes win
             routes.sort(key=lambda r: r.specificity, reverse=True)
 
-            static_map: Dict[str, Tuple[CompiledRoute, Dict, Dict]] = {}
-            dynamic_list: List[Tuple[Any, CompiledRoute, List[str]]] = []
+            static_map: dict[str, tuple[CompiledRoute, dict, dict]] = {}
+            dynamic_list: list[tuple[Any, CompiledRoute, list[str]]] = []
             trie_root = _TrieNode()
 
             for route in routes:
@@ -130,7 +134,7 @@ class ControllerRouter:
                 if not has_params and not has_query:
                     # Pure static route -- O(1) lookup
                     # Normalize: strip trailing slash
-                    path = route.full_path.rstrip('/') or '/'
+                    path = route.full_path.rstrip("/") or "/"
                     static_map[path] = (route, _EMPTY_DICT, _EMPTY_DICT)
                 else:
                     # ── Try to insert into segment trie ──
@@ -163,8 +167,8 @@ class ControllerRouter:
         contains complex patterns that the trie cannot represent (e.g.
         regex constraints, wildcards, catch-all segments).
         """
-        raw_path = route.full_path.rstrip('/') or '/'
-        segments = raw_path.strip('/').split('/') if raw_path != '/' else []
+        raw_path = route.full_path.rstrip("/") or "/"
+        segments = raw_path.strip("/").split("/") if raw_path != "/" else []
 
         node = root
         param_meta = cp.params  # {name: ParamMeta}
@@ -172,12 +176,12 @@ class ControllerRouter:
         for seg in segments:
             # Detect param segments: {name}, <name>, <name:type>, :name
             pname = None
-            if seg.startswith('{') and seg.endswith('}'):
+            if seg.startswith("{") and seg.endswith("}"):
                 pname = seg[1:-1]
-            elif seg.startswith('<') and seg.endswith('>'):
+            elif seg.startswith("<") and seg.endswith(">"):
                 inner = seg[1:-1]
-                pname = inner.split(':')[0] if ':' in inner else inner
-            elif seg.startswith(':'):
+                pname = inner.split(":")[0] if ":" in inner else inner
+            elif seg.startswith(":"):
                 pname = seg[1:]
 
             if pname is not None:
@@ -209,9 +213,9 @@ class ControllerRouter:
         self,
         path: str,
         method: str,
-        query_params: Optional[Dict[str, str]] = None,
-        api_version: Optional[Any] = None,
-    ) -> Optional[ControllerRouteMatch]:
+        query_params: dict[str, str] | None = None,
+        api_version: Any | None = None,
+    ) -> ControllerRouteMatch | None:
         """
         Synchronous route matching -- the hot path.
 
@@ -232,26 +236,21 @@ class ControllerRouter:
             self.initialize()
 
         # ── Normalize path once ──
-        if len(path) > 1 and path[-1] == '/':
-            norm_path = path[:-1]
-        else:
-            norm_path = path
+        norm_path = path[:-1] if len(path) > 1 and path[-1] == "/" else path
 
         # ── Tier 1: Static O(1) lookup ──
         static_map = self._static_routes.get(method)
         if static_map:
             hit = static_map.get(norm_path)
-            if hit is not None:
-                if self._version_matches(hit[0], api_version):
-                    return ControllerRouteMatch(route=hit[0], params=hit[1], query=hit[2])
+            if hit is not None and self._version_matches(hit[0], api_version):
+                return ControllerRouteMatch(route=hit[0], params=hit[1], query=hit[2])
 
         # ── Tier 2: Trie O(k) segment walk ──
         trie_root = self._tries.get(method)
         if trie_root is not None:
             trie_result = self._trie_match(trie_root, norm_path, query_params)
-            if trie_result is not None:
-                if self._version_matches(trie_result.route, api_version):
-                    return trie_result
+            if trie_result is not None and self._version_matches(trie_result.route, api_version):
+                return trie_result
 
         # ── Tier 3: Regex O(n) fallback ──
         dynamic_list = self._dynamic_routes.get(method)
@@ -263,7 +262,7 @@ class ControllerRouter:
                     continue
 
                 # Extract and cast params
-                params: Dict[str, Any] = {}
+                params: dict[str, Any] = {}
                 valid = True
                 for name in param_names:
                     value_str = m.group(name)
@@ -285,7 +284,7 @@ class ControllerRouter:
                     continue
 
                 # Query params
-                query: Dict[str, Any] = {}
+                query: dict[str, Any] = {}
                 for qname, qparam in cp.query.items():
                     if qname in qp:
                         try:
@@ -316,7 +315,7 @@ class ControllerRouter:
         return None
 
     @staticmethod
-    def _version_matches(route: CompiledRoute, api_version: Optional[Any]) -> bool:
+    def _version_matches(route: CompiledRoute, api_version: Any | None) -> bool:
         """
         Check whether a route is compatible with the resolved API version.
 
@@ -344,24 +343,25 @@ class ControllerRouter:
         except ImportError:
             return True  # versioning module not available
 
-        vm = getattr(route, 'version_metadata', None)
+        vm = getattr(route, "version_metadata", None)
 
         # ── Route-level check ──
         if vm is not None:
-            if vm.get('neutral'):
+            if vm.get("neutral"):
                 return True
 
             # Explicit version list
-            route_versions = vm.get('versions', [])
+            route_versions = vm.get("versions", [])
             if route_versions:
                 return str(api_version) in [str(v) for v in route_versions]
 
             # Version range
-            min_v = vm.get('min_version')
-            max_v = vm.get('max_version')
+            min_v = vm.get("min_version")
+            max_v = vm.get("max_version")
             if min_v or max_v:
                 try:
                     from aquilia.versioning.parser import SemanticVersionParser
+
                     parser = SemanticVersionParser()
                     if min_v:
                         parsed_min = parser.parse(str(min_v))
@@ -376,7 +376,7 @@ class ControllerRouter:
                     return True
 
         # ── Controller-level fallback ──
-        ctrl_version = getattr(route.controller_metadata, 'version', None)
+        ctrl_version = getattr(route.controller_metadata, "version", None)
         if ctrl_version is None:
             return True  # no version constraint
         if ctrl_version is _VN:
@@ -385,6 +385,7 @@ class ControllerRouter:
         # Compare by parsing both sides to handle "1.0" == ApiVersion(1, 0)
         try:
             from aquilia.versioning.core import ApiVersion as _AV
+
             ctrl_parsed = _AV.parse(str(ctrl_version)) if not isinstance(ctrl_version, _AV) else ctrl_version
             api_parsed = _AV.parse(str(api_version)) if not isinstance(api_version, _AV) else api_version
             return ctrl_parsed == api_parsed
@@ -395,13 +396,13 @@ class ControllerRouter:
     def _trie_match(
         root: _TrieNode,
         path: str,
-        query_params: Optional[Dict[str, str]],
-    ) -> Optional[ControllerRouteMatch]:
+        query_params: dict[str, str] | None,
+    ) -> ControllerRouteMatch | None:
         """Walk the segment trie to match a path in O(k) time."""
-        segments = path.strip('/').split('/') if path != '/' else []
+        segments = path.strip("/").split("/") if path != "/" else []
 
         node = root
-        params: Dict[str, Any] = {}
+        params: dict[str, Any] = {}
 
         for seg in segments:
             # Try static child first (exact match is faster)
@@ -431,7 +432,7 @@ class ControllerRouter:
             return None
 
         # Validate & extract query params if the route requires them
-        query: Dict[str, Any] = {}
+        query: dict[str, Any] = {}
         if node.query_params:
             qp = query_params or _EMPTY_QUERY
             for qname, qparam in node.query_params.items():
@@ -459,7 +460,7 @@ class ControllerRouter:
             query=query,
         )
 
-    def get_allowed_methods(self, path: str) -> List[str]:
+    def get_allowed_methods(self, path: str) -> list[str]:
         """Return the HTTP methods registered for *path* (normalised).
 
         Used by the ASGI adapter to return a proper ``405 Method Not Allowed``
@@ -474,12 +475,9 @@ class ControllerRouter:
             self.initialize()
 
         # Normalise once
-        if len(path) > 1 and path[-1] == '/':
-            norm_path = path[:-1]
-        else:
-            norm_path = path
+        norm_path = path[:-1] if len(path) > 1 and path[-1] == "/" else path
 
-        allowed: List[str] = []
+        allowed: list[str] = []
 
         for method, static_map in self._static_routes.items():
             if norm_path in static_map:
@@ -505,38 +503,40 @@ class ControllerRouter:
         self,
         path: str,
         method: str,
-        query_params: Optional[Dict[str, str]] = None,
-        api_version: Optional[Any] = None,
-    ) -> Optional[ControllerRouteMatch]:
+        query_params: dict[str, str] | None = None,
+        api_version: Any | None = None,
+    ) -> ControllerRouteMatch | None:
         """Async compat wrapper -- delegates to sync hot path."""
         return self.match_sync(path, method, query_params, api_version=api_version)
 
-    def get_routes(self) -> List[Dict[str, Any]]:
+    def get_routes(self) -> list[dict[str, Any]]:
         """Get all registered routes."""
         routes = []
         for controller in self.compiled_controllers:
             for route in controller.routes:
-                routes.append({
-                    "method": route.http_method,
-                    "path": route.full_path,
-                    "controller": route.controller_class.__name__,
-                    "handler": route.route_metadata.handler_name,
-                    "specificity": route.specificity,
-                    "pipeline": [
-                        p.__name__ if hasattr(p, "__name__") else str(p)
-                        for p in (route.route_metadata.pipeline or [])
-                    ],
-                })
+                routes.append(
+                    {
+                        "method": route.http_method,
+                        "path": route.full_path,
+                        "controller": route.controller_class.__name__,
+                        "handler": route.route_metadata.handler_name,
+                        "specificity": route.specificity,
+                        "pipeline": [
+                            p.__name__ if hasattr(p, "__name__") else str(p)
+                            for p in (route.route_metadata.pipeline or [])
+                        ],
+                    }
+                )
         return routes
 
-    def get_routes_full(self) -> List[CompiledRoute]:
+    def get_routes_full(self) -> list[CompiledRoute]:
         """Get all CompiledRoute objects."""
         routes = []
         for controller in self.compiled_controllers:
             routes.extend(controller.routes)
         return routes
 
-    def get_controller(self, name: str) -> Optional[CompiledController]:
+    def get_controller(self, name: str) -> CompiledController | None:
         """Get compiled controller by name."""
         for controller in self.compiled_controllers:
             if controller.controller_class.__name__ == name:
@@ -547,9 +547,9 @@ class ControllerRouter:
         """Check if a route exists."""
         return self.match_sync(path, method) is not None
 
-    def url_for(self, name: str, *, api_version: Optional[str] = None, **params) -> str:
+    def url_for(self, name: str, *, api_version: str | None = None, **params) -> str:
         """Reverse URL generation.
-        
+
         When ``api_version`` is provided and the app uses URL-path versioning,
         the version prefix segment is prepended to the generated path.
         """
@@ -558,7 +558,6 @@ class ControllerRouter:
                 full_name = f"{route.controller_class.__name__}.{route.route_metadata.handler_name}"
                 if full_name == name or route.route_metadata.handler_name == name:
                     path = route.full_path
-                    path_params = set()
                     query_params = {}
 
                     for k, v in params.items():
@@ -572,6 +571,7 @@ class ControllerRouter:
                         if not replaced:
                             # Try <param:type> pattern
                             import re
+
                             typed_re = re.compile(rf"<{re.escape(k)}:[^>]+>")
                             new_path = typed_re.sub(str(v), path)
                             if new_path != path:
@@ -588,4 +588,5 @@ class ControllerRouter:
         if name.startswith("/"):
             return name
         from ..faults.domains import RouteNotFoundFault
+
         raise RouteNotFoundFault(path=name, method="*")

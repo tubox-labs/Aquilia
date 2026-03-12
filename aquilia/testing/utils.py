@@ -8,7 +8,7 @@ receive callables, and Response objects for use in tests.
 from __future__ import annotations
 
 import json as stdlib_json
-from typing import Any, Dict, List, Optional, Sequence, Union
+from typing import Any
 
 from aquilia.request import Request
 from aquilia.response import Response
@@ -18,10 +18,10 @@ def make_test_scope(
     method: str = "GET",
     path: str = "/",
     query_string: str = "",
-    headers: Optional[List[tuple]] = None,
+    headers: list[tuple] | None = None,
     scheme: str = "http",
-    client: Optional[tuple] = None,
-    server: Optional[tuple] = None,
+    client: tuple | None = None,
+    server: tuple | None = None,
     root_path: str = "",
     http_version: str = "1.1",
     scope_type: str = "http",
@@ -47,10 +47,12 @@ def make_test_scope(
     raw_headers: list[tuple[bytes, bytes]] = []
     if headers:
         for name, value in headers:
-            raw_headers.append((
-                name.encode("latin-1", errors="replace") if isinstance(name, str) else name,
-                value.encode("latin-1", errors="replace") if isinstance(value, str) else value,
-            ))
+            raw_headers.append(
+                (
+                    name.encode("latin-1", errors="replace") if isinstance(name, str) else name,
+                    value.encode("latin-1", errors="replace") if isinstance(value, str) else value,
+                )
+            )
 
     return {
         "type": scope_type,
@@ -59,11 +61,7 @@ def make_test_scope(
         "method": method,
         "path": path,
         "raw_path": path.encode("utf-8"),
-        "query_string": (
-            query_string.encode("utf-8")
-            if isinstance(query_string, str)
-            else query_string
-        ),
+        "query_string": (query_string.encode("utf-8") if isinstance(query_string, str) else query_string),
         "headers": raw_headers,
         "scheme": scheme,
         "server": server or ("127.0.0.1", 8000),
@@ -75,7 +73,7 @@ def make_test_scope(
 def make_test_receive(
     body: bytes = b"",
     *,
-    chunks: Optional[List[bytes]] = None,
+    chunks: list[bytes] | None = None,
 ):
     """
     Create an ASGI receive callable.
@@ -90,11 +88,13 @@ def make_test_receive(
     if chunks:
         messages: list[dict] = []
         for i, chunk in enumerate(chunks):
-            messages.append({
-                "type": "http.request",
-                "body": chunk,
-                "more_body": i < len(chunks) - 1,
-            })
+            messages.append(
+                {
+                    "type": "http.request",
+                    "body": chunk,
+                    "more_body": i < len(chunks) - 1,
+                }
+            )
     else:
         messages = [{"type": "http.request", "body": body, "more_body": False}]
 
@@ -115,12 +115,12 @@ def make_test_request(
     method: str = "GET",
     path: str = "/",
     query_string: str = "",
-    headers: Optional[List[tuple]] = None,
+    headers: list[tuple] | None = None,
     body: bytes = b"",
     scheme: str = "http",
-    client: Optional[tuple] = None,
+    client: tuple | None = None,
     json: Any = None,
-    form_data: Optional[Dict[str, str]] = None,
+    form_data: dict[str, str] | None = None,
     **kwargs: Any,
 ) -> Request:
     """
@@ -154,6 +154,7 @@ def make_test_request(
 
     elif form_data is not None:
         from urllib.parse import urlencode
+
         body = urlencode(form_data).encode("utf-8")
         headers.append(("content-type", "application/x-www-form-urlencoded"))
         headers.append(("content-length", str(len(body))))
@@ -171,10 +172,10 @@ def make_test_request(
 
 
 def make_test_response(
-    content: Union[bytes, str, dict, list] = b"",
+    content: bytes | str | dict | list = b"",
     status: int = 200,
-    headers: Optional[Dict[str, str]] = None,
-    media_type: Optional[str] = None,
+    headers: dict[str, str] | None = None,
+    media_type: str | None = None,
 ) -> Response:
     """
     Build a :class:`~aquilia.response.Response` for assertion helpers.
@@ -198,11 +199,11 @@ def make_test_response(
 
 def make_test_ws_scope(
     path: str = "/ws",
-    headers: Optional[List[tuple]] = None,
-    subprotocols: Optional[List[str]] = None,
+    headers: list[tuple] | None = None,
+    subprotocols: list[str] | None = None,
     query_string: str = "",
-    client: Optional[tuple] = None,
-    server: Optional[tuple] = None,
+    client: tuple | None = None,
+    server: tuple | None = None,
 ) -> dict:
     """
     Build an ASGI WebSocket scope for testing.
@@ -221,21 +222,19 @@ def make_test_ws_scope(
     raw_headers: list[tuple[bytes, bytes]] = []
     if headers:
         for name, value in headers:
-            raw_headers.append((
-                name.encode("latin-1", errors="replace") if isinstance(name, str) else name,
-                value.encode("latin-1", errors="replace") if isinstance(value, str) else value,
-            ))
+            raw_headers.append(
+                (
+                    name.encode("latin-1", errors="replace") if isinstance(name, str) else name,
+                    value.encode("latin-1", errors="replace") if isinstance(value, str) else value,
+                )
+            )
 
     return {
         "type": "websocket",
         "asgi": {"version": "3.0"},
         "path": path,
         "raw_path": path.encode("utf-8"),
-        "query_string": (
-            query_string.encode("utf-8")
-            if isinstance(query_string, str)
-            else query_string
-        ),
+        "query_string": (query_string.encode("utf-8") if isinstance(query_string, str) else query_string),
         "headers": raw_headers,
         "scheme": "ws",
         "server": server or ("127.0.0.1", 8000),
@@ -246,7 +245,7 @@ def make_test_ws_scope(
 
 def make_upload_file(
     filename: str,
-    content: Union[bytes, str],
+    content: bytes | str,
     content_type: str = "application/octet-stream",
 ) -> tuple:
     """

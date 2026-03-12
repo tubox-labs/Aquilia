@@ -9,7 +9,6 @@ DI container.
 from __future__ import annotations
 
 import logging
-from typing import Optional
 
 from aquilia.di.decorators import service
 
@@ -55,10 +54,10 @@ class SqliteService:
 
     def __init__(
         self,
-        config: Optional[SqlitePoolConfig] = None,
+        config: SqlitePoolConfig | None = None,
     ) -> None:
         self._config = config or SqlitePoolConfig()
-        self._pool: Optional[ConnectionPool] = None
+        self._pool: ConnectionPool | None = None
         self._metrics = SqliteMetrics()
 
     async def startup(self) -> None:
@@ -95,12 +94,10 @@ class SqliteService:
         """
         if self._pool is None:
             from aquilia.faults.domains import DatabaseConnectionFault
+
             raise DatabaseConnectionFault(
                 backend="sqlite",
-                reason=(
-                    "SqliteService not started. Call startup() first "
-                    "or register with the lifecycle coordinator."
-                ),
+                reason=("SqliteService not started. Call startup() first or register with the lifecycle coordinator."),
             )
         return self._pool
 

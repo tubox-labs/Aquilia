@@ -15,16 +15,14 @@ import hashlib
 import io
 import json
 import logging
-import os
 import tarfile
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 from .._types import (
     BlobRef,
-    Framework,
     ModelpackManifest,
     Provenance,
     TensorSpec,
@@ -38,7 +36,7 @@ from .content_store import ContentStore
 logger = logging.getLogger("aquilia.mlops.pack")
 
 
-def _sha256_file(path: Union[str, Path]) -> str:
+def _sha256_file(path: str | Path) -> str:
     """Compute SHA-256 hex digest for a file."""
     h = hashlib.sha256()
     with open(path, "rb") as f:
@@ -79,12 +77,12 @@ class ModelpackBuilder:
         self.framework = framework
         self.signed_by = signed_by
 
-        self._model_files: List[Dict[str, Any]] = []
-        self._env_lock_path: Optional[str] = None
+        self._model_files: list[dict[str, Any]] = []
+        self._env_lock_path: str | None = None
         self._provenance = Provenance()
-        self._inputs: List[TensorSpec] = []
-        self._outputs: List[TensorSpec] = []
-        self._metadata: Dict[str, Any] = {}
+        self._inputs: list[TensorSpec] = []
+        self._outputs: list[TensorSpec] = []
+        self._metadata: dict[str, Any] = {}
         self._entrypoint: str = ""
 
     # ── Builder API ─────────────────────────────────────────────────────
@@ -93,9 +91,9 @@ class ModelpackBuilder:
         self,
         path: str,
         *,
-        framework: Optional[str] = None,
+        framework: str | None = None,
         entrypoint: bool = True,
-    ) -> "ModelpackBuilder":
+    ) -> ModelpackBuilder:
         """Add a model file to the pack."""
         if framework:
             self.framework = framework
@@ -104,21 +102,21 @@ class ModelpackBuilder:
             self._entrypoint = Path(path).name
         return self
 
-    def add_file(self, path: str) -> "ModelpackBuilder":
+    def add_file(self, path: str) -> ModelpackBuilder:
         """Add an auxiliary file to the pack."""
         self._model_files.append({"path": path, "entrypoint": False})
         return self
 
-    def add_env_lock(self, path: str) -> "ModelpackBuilder":
+    def add_env_lock(self, path: str) -> ModelpackBuilder:
         """Set the environment lock file."""
         self._env_lock_path = path
         return self
 
     def set_signature(
         self,
-        inputs: List[TensorSpec],
-        outputs: List[TensorSpec],
-    ) -> "ModelpackBuilder":
+        inputs: list[TensorSpec],
+        outputs: list[TensorSpec],
+    ) -> ModelpackBuilder:
         """Set the inference signature."""
         self._inputs = inputs
         self._outputs = outputs
@@ -129,7 +127,7 @@ class ModelpackBuilder:
         git_sha: str = "",
         dataset_snapshot: str = "",
         dockerfile: str = "",
-    ) -> "ModelpackBuilder":
+    ) -> ModelpackBuilder:
         """Set provenance metadata."""
         self._provenance = Provenance(
             git_sha=git_sha,
@@ -139,7 +137,7 @@ class ModelpackBuilder:
         )
         return self
 
-    def set_metadata(self, **kwargs: Any) -> "ModelpackBuilder":
+    def set_metadata(self, **kwargs: Any) -> ModelpackBuilder:
         """Set arbitrary metadata key-value pairs."""
         self._metadata.update(kwargs)
         return self
@@ -150,8 +148,8 @@ class ModelpackBuilder:
         self,
         output_dir: str = ".",
         *,
-        content_store: Optional[ContentStore] = None,
-        sign_key: Optional[str] = None,
+        content_store: ContentStore | None = None,
+        sign_key: str | None = None,
     ) -> str:
         """
         Build the ``.aquilia`` archive and return its path.
@@ -170,7 +168,7 @@ class ModelpackBuilder:
         output_path = Path(output_dir)
         output_path.mkdir(parents=True, exist_ok=True)
 
-        blobs: List[BlobRef] = []
+        blobs: list[BlobRef] = []
 
         # Compute digests for all model files
         for entry in self._model_files:
@@ -234,15 +232,11 @@ class ModelpackBuilder:
             pinfo.mtime = int(time.time())
             tar.addfile(pinfo, io.BytesIO(prov_data))
 
-
         # ── Produce a typed ModelArtifact alongside the archive ─────────
         try:
-            from aquilia.artifacts import ModelArtifact, FilesystemArtifactStore
+            from aquilia.artifacts import FilesystemArtifactStore, ModelArtifact
 
-            file_refs = [
-                {"path": b.path, "digest": b.digest, "size": b.size}
-                for b in blobs
-            ]
+            file_refs = [{"path": b.path, "digest": b.digest, "size": b.size} for b in blobs]
             model_artifact = ModelArtifact.build(
                 name=self.name,
                 version=self.version,
@@ -256,7 +250,7 @@ class ModelpackBuilder:
             artifact_dir = output_path / ".aq"
             store = FilesystemArtifactStore(str(artifact_dir))
             store.save(model_artifact)
-        except Exception as exc:
+        except Exception:
             pass
 
         return str(archive_path.resolve())
@@ -300,8 +294,7 @@ class ModelpackBuilder:
                 actual = _sha256_file(blob_path)
                 if actual != blob.digest:
                     raise PackIntegrityFault(
-                        f"Blob integrity check failed for {blob.path}: "
-                        f"expected {blob.digest}, got {actual}",
+                        f"Blob integrity check failed for {blob.path}: expected {blob.digest}, got {actual}",
                         metadata={
                             "blob": blob.path,
                             "expected": blob.digest,

@@ -9,10 +9,8 @@ from __future__ import annotations
 
 import hashlib
 import hmac
-import json
 import logging
 from pathlib import Path
-from typing import Optional
 
 logger = logging.getLogger("aquilia.mlops.pack.signer")
 
@@ -49,8 +47,8 @@ class RSASigner:
 
     def __init__(
         self,
-        private_key_path: Optional[str] = None,
-        public_key_path: Optional[str] = None,
+        private_key_path: str | None = None,
+        public_key_path: str | None = None,
     ):
         self._private_key_path = private_key_path
         self._public_key_path = public_key_path
@@ -76,9 +74,9 @@ class RSASigner:
 
     def verify(self, data: bytes, signature: bytes) -> bool:
         """Verify RSA signature with public key."""
+        from cryptography.exceptions import InvalidSignature
         from cryptography.hazmat.primitives import hashes, serialization
         from cryptography.hazmat.primitives.asymmetric import padding
-        from cryptography.exceptions import InvalidSignature
 
         if not self._public_key_path:
             raise SignatureError("Public key path not configured")
@@ -103,7 +101,7 @@ class RSASigner:
 async def sign_archive(
     archive_path: str,
     signer: HMACSigner | RSASigner,
-    output_sig_path: Optional[str] = None,
+    output_sig_path: str | None = None,
 ) -> str:
     """
     Sign a modelpack archive and write signature file.
@@ -112,10 +110,7 @@ async def sign_archive(
     """
     data = Path(archive_path).read_bytes()
 
-    if isinstance(signer, HMACSigner):
-        sig = signer.sign(data).encode()
-    else:
-        sig = signer.sign(data)
+    sig = signer.sign(data).encode() if isinstance(signer, HMACSigner) else signer.sign(data)
 
     sig_path = output_sig_path or archive_path + ".sig"
     Path(sig_path).write_bytes(sig)

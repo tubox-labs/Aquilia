@@ -12,14 +12,16 @@ Requires oracledb:
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import re
-from typing import Any, Dict, List, Optional, Sequence
+from collections.abc import Sequence
+from typing import Any
 
 from .base import (
-    DatabaseAdapter,
     AdapterCapabilities,
     ColumnInfo,
+    DatabaseAdapter,
 )
 
 logger = logging.getLogger("aquilia.db.backends.oracle")
@@ -29,6 +31,7 @@ __all__ = ["OracleAdapter"]
 # Try importing Oracle driver
 try:
     import oracledb
+
     _HAS_ORACLEDB = True
 except ImportError:
     oracledb = None  # type: ignore
@@ -38,24 +41,118 @@ except ImportError:
 _SP_NAME_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
 
 # Oracle reserved word quoting
-_ORACLE_RESERVED = frozenset({
-    "ACCESS", "ADD", "ALL", "ALTER", "AND", "ANY", "AS", "ASC", "AUDIT",
-    "BETWEEN", "BY", "CHAR", "CHECK", "CLUSTER", "COLUMN", "COMMENT",
-    "COMPRESS", "CONNECT", "CREATE", "CURRENT", "DATE", "DECIMAL",
-    "DEFAULT", "DELETE", "DESC", "DISTINCT", "DROP", "ELSE", "EXCLUSIVE",
-    "EXISTS", "FILE", "FLOAT", "FOR", "FROM", "GRANT", "GROUP", "HAVING",
-    "IDENTIFIED", "IMMEDIATE", "IN", "INCREMENT", "INDEX", "INITIAL",
-    "INSERT", "INTEGER", "INTERSECT", "INTO", "IS", "LEVEL", "LIKE",
-    "LOCK", "LONG", "MAXEXTENTS", "MINUS", "MLSLABEL", "MODE", "MODIFY",
-    "NOAUDIT", "NOCOMPRESS", "NOT", "NOWAIT", "NULL", "NUMBER", "OF",
-    "OFFLINE", "ON", "ONLINE", "OPTION", "OR", "ORDER", "PCTFREE",
-    "PRIOR", "PUBLIC", "RAW", "RENAME", "RESOURCE", "REVOKE", "ROW",
-    "ROWID", "ROWNUM", "ROWS", "SELECT", "SESSION", "SET", "SHARE",
-    "SIZE", "SMALLINT", "START", "SUCCESSFUL", "SYNONYM", "SYSDATE",
-    "TABLE", "THEN", "TO", "TRIGGER", "UID", "UNION", "UNIQUE", "UPDATE",
-    "USER", "VALIDATE", "VALUES", "VARCHAR", "VARCHAR2", "VIEW",
-    "WHENEVER", "WHERE", "WITH",
-})
+_ORACLE_RESERVED = frozenset(
+    {
+        "ACCESS",
+        "ADD",
+        "ALL",
+        "ALTER",
+        "AND",
+        "ANY",
+        "AS",
+        "ASC",
+        "AUDIT",
+        "BETWEEN",
+        "BY",
+        "CHAR",
+        "CHECK",
+        "CLUSTER",
+        "COLUMN",
+        "COMMENT",
+        "COMPRESS",
+        "CONNECT",
+        "CREATE",
+        "CURRENT",
+        "DATE",
+        "DECIMAL",
+        "DEFAULT",
+        "DELETE",
+        "DESC",
+        "DISTINCT",
+        "DROP",
+        "ELSE",
+        "EXCLUSIVE",
+        "EXISTS",
+        "FILE",
+        "FLOAT",
+        "FOR",
+        "FROM",
+        "GRANT",
+        "GROUP",
+        "HAVING",
+        "IDENTIFIED",
+        "IMMEDIATE",
+        "IN",
+        "INCREMENT",
+        "INDEX",
+        "INITIAL",
+        "INSERT",
+        "INTEGER",
+        "INTERSECT",
+        "INTO",
+        "IS",
+        "LEVEL",
+        "LIKE",
+        "LOCK",
+        "LONG",
+        "MAXEXTENTS",
+        "MINUS",
+        "MLSLABEL",
+        "MODE",
+        "MODIFY",
+        "NOAUDIT",
+        "NOCOMPRESS",
+        "NOT",
+        "NOWAIT",
+        "NULL",
+        "NUMBER",
+        "OF",
+        "OFFLINE",
+        "ON",
+        "ONLINE",
+        "OPTION",
+        "OR",
+        "ORDER",
+        "PCTFREE",
+        "PRIOR",
+        "PUBLIC",
+        "RAW",
+        "RENAME",
+        "RESOURCE",
+        "REVOKE",
+        "ROW",
+        "ROWID",
+        "ROWNUM",
+        "ROWS",
+        "SELECT",
+        "SESSION",
+        "SET",
+        "SHARE",
+        "SIZE",
+        "SMALLINT",
+        "START",
+        "SUCCESSFUL",
+        "SYNONYM",
+        "SYSDATE",
+        "TABLE",
+        "THEN",
+        "TO",
+        "TRIGGER",
+        "UID",
+        "UNION",
+        "UNIQUE",
+        "UPDATE",
+        "USER",
+        "VALIDATE",
+        "VALUES",
+        "VARCHAR",
+        "VARCHAR2",
+        "VIEW",
+        "WHENEVER",
+        "WHERE",
+        "WITH",
+    }
+)
 
 
 class OracleAdapter(DatabaseAdapter):
@@ -75,17 +172,17 @@ class OracleAdapter(DatabaseAdapter):
     """
 
     capabilities = AdapterCapabilities(
-        supports_returning=True,    # Oracle supports RETURNING INTO
-        supports_json_type=False,   # JSON support limited; use CLOB
+        supports_returning=True,  # Oracle supports RETURNING INTO
+        supports_json_type=False,  # JSON support limited; use CLOB
         supports_arrays=False,
         supports_hstore=False,
         supports_citext=False,
-        supports_upsert=True,       # MERGE statement
+        supports_upsert=True,  # MERGE statement
         supports_savepoints=True,
         supports_window_functions=True,
-        supports_cte=True,          # Oracle 11g R2+
-        param_style="named",       # :1, :2, ... (positional named)
-        null_ordering=True,         # NULLS FIRST / NULLS LAST
+        supports_cte=True,  # Oracle 11g R2+
+        param_style="named",  # :1, :2, ... (positional named)
+        null_ordering=True,  # NULLS FIRST / NULLS LAST
         name="oracle",
     )
 
@@ -100,10 +197,7 @@ class OracleAdapter(DatabaseAdapter):
             return
 
         if not _HAS_ORACLEDB:
-            raise ImportError(
-                "oracledb is required for Oracle support.\n"
-                "Install: pip install oracledb"
-            )
+            raise ImportError("oracledb is required for Oracle support.\nInstall: pip install oracledb")
 
         conn_kwargs = _parse_oracle_url(url)
         conn_kwargs.update(options)
@@ -130,14 +224,10 @@ class OracleAdapter(DatabaseAdapter):
             return
         # Release transaction connection if held
         if self._txn_conn is not None:
-            try:
+            with contextlib.suppress(Exception):
                 await self._txn_conn.rollback()
-            except Exception:
-                pass
-            try:
+            with contextlib.suppress(Exception):
                 await self._txn_conn.close()
-            except Exception:
-                pass
             self._txn_conn = None
             self._in_transaction = False
         if self._pool:
@@ -182,7 +272,7 @@ class OracleAdapter(DatabaseAdapter):
             return self._txn_conn
         return None
 
-    async def _execute_with_cursor(self, sql: str, params: Optional[Sequence[Any]] = None) -> Any:
+    async def _execute_with_cursor(self, sql: str, params: Sequence[Any] | None = None) -> Any:
         """Execute SQL and return cursor."""
         adapted_sql = self.adapt_sql(sql)
         conn = self._get_conn()
@@ -202,15 +292,17 @@ class OracleAdapter(DatabaseAdapter):
                 if not self._in_transaction:
                     await self._pool.release(conn)
 
-    async def execute(self, sql: str, params: Optional[Sequence[Any]] = None) -> Any:
+    async def execute(self, sql: str, params: Sequence[Any] | None = None) -> Any:
         if not self._connected:
             from aquilia.faults.domains import DatabaseConnectionFault
+
             raise DatabaseConnectionFault(backend="oracle", reason="Not connected to Oracle")
         return await self._execute_with_cursor(sql, params)
 
     async def execute_many(self, sql: str, params_list: Sequence[Sequence[Any]]) -> None:
         if not self._connected:
             from aquilia.faults.domains import DatabaseConnectionFault
+
             raise DatabaseConnectionFault(backend="oracle", reason="Not connected to Oracle")
         adapted_sql = self.adapt_sql(sql)
         conn = self._get_conn()
@@ -226,19 +318,20 @@ class OracleAdapter(DatabaseAdapter):
             finally:
                 await self._pool.release(conn)
 
-    async def fetch_all(self, sql: str, params: Optional[Sequence[Any]] = None) -> List[Dict[str, Any]]:
+    async def fetch_all(self, sql: str, params: Sequence[Any] | None = None) -> list[dict[str, Any]]:
         if not self._connected:
             from aquilia.faults.domains import DatabaseConnectionFault
+
             raise DatabaseConnectionFault(backend="oracle", reason="Not connected to Oracle")
         adapted_sql = self.adapt_sql(sql)
         conn = self._get_conn()
 
-        async def _fetch(c: Any) -> List[Dict[str, Any]]:
+        async def _fetch(c: Any) -> list[dict[str, Any]]:
             cursor = c.cursor()
             await cursor.execute(adapted_sql, params or [])
             columns = [col[0].lower() for col in cursor.description] if cursor.description else []
             rows = await cursor.fetchall()
-            return [dict(zip(columns, row)) for row in rows]
+            return [dict(zip(columns, row, strict=False)) for row in rows]
 
         if conn is not None:
             return await _fetch(conn)
@@ -249,21 +342,22 @@ class OracleAdapter(DatabaseAdapter):
             finally:
                 await self._pool.release(conn)
 
-    async def fetch_one(self, sql: str, params: Optional[Sequence[Any]] = None) -> Optional[Dict[str, Any]]:
+    async def fetch_one(self, sql: str, params: Sequence[Any] | None = None) -> dict[str, Any] | None:
         if not self._connected:
             from aquilia.faults.domains import DatabaseConnectionFault
+
             raise DatabaseConnectionFault(backend="oracle", reason="Not connected to Oracle")
         adapted_sql = self.adapt_sql(sql)
         conn = self._get_conn()
 
-        async def _fetch(c: Any) -> Optional[Dict[str, Any]]:
+        async def _fetch(c: Any) -> dict[str, Any] | None:
             cursor = c.cursor()
             await cursor.execute(adapted_sql, params or [])
             columns = [col[0].lower() for col in cursor.description] if cursor.description else []
             row = await cursor.fetchone()
             if row is None:
                 return None
-            return dict(zip(columns, row))
+            return dict(zip(columns, row, strict=False))
 
         if conn is not None:
             return await _fetch(conn)
@@ -274,9 +368,10 @@ class OracleAdapter(DatabaseAdapter):
             finally:
                 await self._pool.release(conn)
 
-    async def fetch_val(self, sql: str, params: Optional[Sequence[Any]] = None) -> Any:
+    async def fetch_val(self, sql: str, params: Sequence[Any] | None = None) -> Any:
         if not self._connected:
             from aquilia.faults.domains import DatabaseConnectionFault
+
             raise DatabaseConnectionFault(backend="oracle", reason="Not connected to Oracle")
         adapted_sql = self.adapt_sql(sql)
         conn = self._get_conn()
@@ -332,18 +427,21 @@ class OracleAdapter(DatabaseAdapter):
         """Create a savepoint (must be inside a transaction)."""
         if not _SP_NAME_RE.match(name):
             from aquilia.faults.domains import QueryFault
+
             raise QueryFault(message=f"Invalid savepoint name: {name!r}")
         conn = self._get_conn()
         if conn is None:
             from aquilia.faults.domains import QueryFault
+
             raise QueryFault(message="Cannot create savepoint outside a transaction")
         cursor = conn.cursor()
-        await cursor.execute(f'SAVEPOINT {name}')
+        await cursor.execute(f"SAVEPOINT {name}")
 
     async def release_savepoint(self, name: str) -> None:
         """Oracle does not support RELEASE SAVEPOINT -- no-op."""
         if not _SP_NAME_RE.match(name):
             from aquilia.faults.domains import QueryFault
+
             raise QueryFault(message=f"Invalid savepoint name: {name!r}")
         # Oracle does not have RELEASE SAVEPOINT -- this is a no-op
         pass
@@ -351,13 +449,15 @@ class OracleAdapter(DatabaseAdapter):
     async def rollback_to_savepoint(self, name: str) -> None:
         if not _SP_NAME_RE.match(name):
             from aquilia.faults.domains import QueryFault
+
             raise QueryFault(message=f"Invalid savepoint name: {name!r}")
         conn = self._get_conn()
         if conn is None:
             from aquilia.faults.domains import QueryFault
+
             raise QueryFault(message="Cannot rollback savepoint outside a transaction")
         cursor = conn.cursor()
-        await cursor.execute(f'ROLLBACK TO SAVEPOINT {name}')
+        await cursor.execute(f"ROLLBACK TO SAVEPOINT {name}")
 
     # ── Introspection ────────────────────────────────────────────────
 
@@ -368,13 +468,11 @@ class OracleAdapter(DatabaseAdapter):
         )
         return bool(row and row.get("cnt", 0) > 0)
 
-    async def get_tables(self) -> List[str]:
-        rows = await self.fetch_all(
-            "SELECT table_name FROM user_tables ORDER BY table_name"
-        )
+    async def get_tables(self) -> list[str]:
+        rows = await self.fetch_all("SELECT table_name FROM user_tables ORDER BY table_name")
         return [r["table_name"].lower() for r in rows]
 
-    async def get_columns(self, table_name: str) -> List[ColumnInfo]:
+    async def get_columns(self, table_name: str) -> list[ColumnInfo]:
         rows = await self.fetch_all(
             "SELECT column_name, data_type, nullable, data_default, "
             "data_length, data_precision, data_scale "
@@ -399,17 +497,19 @@ class OracleAdapter(DatabaseAdapter):
             data_type = row["data_type"]
             if row.get("data_precision") and "NUMBER" in data_type:
                 data_type = f"NUMBER({row['data_precision']},{row.get('data_scale', 0)})"
-            columns.append(ColumnInfo(
-                name=col_name,
-                data_type=data_type,
-                nullable=row["nullable"] == "Y",
-                default=row.get("data_default"),
-                primary_key=col_name in pk_columns,
-                max_length=row.get("data_length"),
-            ))
+            columns.append(
+                ColumnInfo(
+                    name=col_name,
+                    data_type=data_type,
+                    nullable=row["nullable"] == "Y",
+                    default=row.get("data_default"),
+                    primary_key=col_name in pk_columns,
+                    max_length=row.get("data_length"),
+                )
+            )
         return columns
 
-    async def get_indexes(self, table_name: str) -> List[Dict[str, Any]]:
+    async def get_indexes(self, table_name: str) -> list[dict[str, Any]]:
         """Get index info for an Oracle table."""
         rows = await self.fetch_all(
             "SELECT i.index_name, i.uniqueness, ic.column_name "
@@ -419,7 +519,7 @@ class OracleAdapter(DatabaseAdapter):
             "ORDER BY i.index_name, ic.column_position",
             [table_name.upper()],
         )
-        idx_map: Dict[str, Dict[str, Any]] = {}
+        idx_map: dict[str, dict[str, Any]] = {}
         for row in rows:
             name = row["index_name"].lower()
             if name not in idx_map:
@@ -431,7 +531,7 @@ class OracleAdapter(DatabaseAdapter):
             idx_map[name]["columns"].append(row["column_name"].lower())
         return list(idx_map.values())
 
-    async def get_foreign_keys(self, table_name: str) -> List[Dict[str, Any]]:
+    async def get_foreign_keys(self, table_name: str) -> list[dict[str, Any]]:
         """Get foreign key info for an Oracle table."""
         rows = await self.fetch_all(
             "SELECT a.column_name AS from_column, "
@@ -463,7 +563,7 @@ class OracleAdapter(DatabaseAdapter):
     def dialect(self) -> str:
         return "oracle"
 
-    def last_insert_id(self, cursor: Any) -> Optional[int]:
+    def last_insert_id(self, cursor: Any) -> int | None:
         """
         Oracle does not have lastrowid in the same way.
         Use RETURNING INTO clause or sequences instead.
@@ -475,7 +575,8 @@ class OracleAdapter(DatabaseAdapter):
 
 # ── URL parsing helper ──────────────────────────────────────────────
 
-def _parse_oracle_url(url: str) -> Dict[str, Any]:
+
+def _parse_oracle_url(url: str) -> dict[str, Any]:
     """
     Parse an oracle:// URL into connection kwargs.
 
@@ -498,7 +599,7 @@ def _parse_oracle_url(url: str) -> Dict[str, Any]:
     # Build DSN in Easy Connect format: host:port/service_name
     dsn = f"{host}:{port}/{service}"
 
-    kwargs: Dict[str, Any] = {
+    kwargs: dict[str, Any] = {
         "dsn": dsn,
     }
     if parsed.username:

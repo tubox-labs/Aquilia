@@ -1,9 +1,8 @@
 """Module generator."""
 
-from pathlib import Path
-from typing import List
-import textwrap
 import re
+import textwrap
+from pathlib import Path
 
 
 def _singularize(word: str) -> str:
@@ -40,10 +39,26 @@ def _singularize(word: str) -> str:
 
     # Words that are already singular / uncountable
     _uncountable = {
-        "news", "series", "species", "sheep", "fish", "deer",
-        "moose", "aircraft", "info", "feedback", "status",
-        "analytics", "auth", "config", "cache", "health",
-        "settings", "permissions", "cors", "bus",
+        "news",
+        "series",
+        "species",
+        "sheep",
+        "fish",
+        "deer",
+        "moose",
+        "aircraft",
+        "info",
+        "feedback",
+        "status",
+        "analytics",
+        "auth",
+        "config",
+        "cache",
+        "health",
+        "settings",
+        "permissions",
+        "cors",
+        "bus",
     }
     if lower in _uncountable:
         return word
@@ -70,12 +85,12 @@ def _singularize(word: str) -> str:
 
 class ModuleGenerator:
     """Generate Aquilia module structure."""
-    
+
     def __init__(
         self,
         name: str,
         path: Path,
-        depends_on: List[str],
+        depends_on: list[str],
         fault_domain: str,
         route_prefix: str,
         with_tests: bool = False,
@@ -90,7 +105,7 @@ class ModuleGenerator:
         self.minimal = minimal
         # Singular form of the module name for CRUD method names / docstrings
         self.singular = _singularize(name)
-    
+
     def generate(self) -> None:
         """Generate module structure.
 
@@ -98,7 +113,7 @@ class ModuleGenerator:
           - manifest.py (lean -- no middleware, sessions, features)
           - controllers.py (single GET endpoint)
           - __init__.py
-        
+
         In full mode, generates:
           - manifest.py (full module-level config hub)
           - controllers.py (CRUD endpoints)
@@ -114,7 +129,7 @@ class ModuleGenerator:
             self._create_minimal_controller()
             self._create_init_file()
             return
-        
+
         # Full module structure
         self._create_module_manifest()
         self._create_init_file()
@@ -122,15 +137,15 @@ class ModuleGenerator:
         self._create_services_file()
         self._create_faults_file()
         self._create_models_file()
-        
+
         # Optionally create test routes
         if self.with_tests:
             self._create_test_routes_file()
 
     def _create_minimal_manifest(self) -> None:
         """Create a minimal manifest.py -- just name, controllers, route_prefix."""
-        deps_list = ', '.join(f'"{dep}"' for dep in self.depends_on) if self.depends_on else ''
-        controller_class = f'{self.name.capitalize()}Controller'
+        deps_list = ", ".join(f'"{dep}"' for dep in self.depends_on) if self.depends_on else ""
+        controller_class = f"{self.name.capitalize()}Controller"
 
         content = textwrap.dedent(f'''\
             """
@@ -159,7 +174,7 @@ class ModuleGenerator:
             __all__ = ["manifest"]
         ''').strip()
 
-        (self.path / 'manifest.py').write_text(content, encoding="utf-8")
+        (self.path / "manifest.py").write_text(content, encoding="utf-8")
 
     def _create_minimal_controller(self) -> None:
         """Create a minimal controllers.py -- single GET endpoint."""
@@ -182,33 +197,33 @@ class ModuleGenerator:
                     return Response.json({{"module": "{self.name}", "status": "ok"}})
         ''').strip()
 
-        (self.path / 'controllers.py').write_text(content, encoding="utf-8")
-    
+        (self.path / "controllers.py").write_text(content, encoding="utf-8")
+
     def _create_module_manifest(self) -> None:
         """Create manifest.py as the module-level configuration hub.
-        
+
         Architecture v2: manifest.py is the **single source of truth** for
         everything about this module -- not just component registration but
         also module-level settings for sessions, cache, auth, database,
         templates, and error handling. These settings only affect this module;
         workspace-level settings apply globally.
         """
-        deps_list = ', '.join(f'"{dep}"' for dep in self.depends_on) if self.depends_on else ''
-        controller_class = f'{self.name.capitalize()}Controller'
-        service_class = f'{self.name.capitalize()}Service'
-        model_class = f'{self.name.capitalize().rstrip("s")}' if self.name.endswith('s') else self.name.capitalize()
-        
+        deps_list = ", ".join(f'"{dep}"' for dep in self.depends_on) if self.depends_on else ""
+        controller_class = f"{self.name.capitalize()}Controller"
+        service_class = f"{self.name.capitalize()}Service"
+        model_class = f"{self.name.capitalize().rstrip('s')}" if self.name.endswith("s") else self.name.capitalize()
+
         content = textwrap.dedent(f'''\
             """
             Module Manifest: {self.name}
             Generated by: aq add module {self.name}
-            
+
             This file is the single source of truth for the {self.name} module.
             It controls:
-            
+
             Component Registration:
               - controllers, services, models, middleware, guards, pipes, interceptors
-            
+
             Module-Level Settings (override workspace defaults for this module only):
               - sessions: Module-specific session policies
               - cache: Module-specific cache configuration
@@ -216,12 +231,12 @@ class ModuleGenerator:
               - database: Module-specific database/ORM configuration
               - templates: Module-specific template directories
               - faults: Module-specific error handling and fault domains
-            
+
             Cross-Module Dependencies:
               - imports: Modules this module depends on
               - exports: Services/components visible to other modules
             """
-            
+
             from aquilia import AppManifest
             from aquilia.manifest import (
                 FaultHandlingConfig,
@@ -230,8 +245,8 @@ class ModuleGenerator:
                 DatabaseConfig,
                 TemplateConfig,
             )
-            
-            
+
+
             manifest = AppManifest(
                 # ── Identity ──────────────────────────────────────────────────────
                 name="{self.name}",
@@ -239,7 +254,7 @@ class ModuleGenerator:
                 description="{self.name.capitalize()} module",
                 author="",
                 tags=["{self.name}"],
-                
+
                 # ── Components ────────────────────────────────────────────────────
                 controllers=[
                     "modules.{self.name}.controllers:{controller_class}",
@@ -254,24 +269,24 @@ class ModuleGenerator:
                 guards=[],
                 pipes=[],
                 interceptors=[],
-                
+
                 # ── Routing ───────────────────────────────────────────────────────
                 route_prefix="{self.route_prefix}",
                 base_path="modules.{self.name}",
-                
+
                 # ── Cross-Module Dependencies ─────────────────────
                 imports=[{deps_list}],
                 exports=[
                     # Services/components visible to modules that import this module.
                     # "modules.{self.name}.services:{service_class}",
                 ],
-                
+
                 # ── Error Handling (module-level) ─────────────────────────────────
                 faults=FaultHandlingConfig(
                     default_domain="{self.fault_domain}",
                     strategy="propagate",
                 ),
-                
+
                 # ── Database (module-level override) ──────────────────────────────
                 # Uncomment to use a separate database for this module:
                 # database=DatabaseConfig(
@@ -279,7 +294,7 @@ class ModuleGenerator:
                 #     scan_dirs=["modules/{self.name}/models"],
                 #     auto_create=True,
                 # ),
-                
+
                 # ── Sessions (module-level override) ──────────────────────────────
                 # Uncomment to define module-specific session policies:
                 # sessions=[
@@ -289,24 +304,24 @@ class ModuleGenerator:
                 #         store="memory",
                 #     ),
                 # ],
-                
+
                 # ── Templates (module-level) ──────────────────────────────────────
                 # Uncomment to add module-specific template directories:
                 # templates=TemplateConfig(
                 #     search_paths=["modules/{self.name}/templates"],
                 # ),
-                
+
                 # ── Auto-Discovery ────────────────────────────────────────────────
                 auto_discover=True,
                 discover_patterns=["controllers", "services", "models", "middleware", "guards"],
             )
-            
-            
+
+
             __all__ = ["manifest"]
         ''').strip()
-        
-        (self.path / 'manifest.py').write_text(content, encoding="utf-8")
-    
+
+        (self.path / "manifest.py").write_text(content, encoding="utf-8")
+
     def _create_init_file(self) -> None:
         """Create __init__.py file.
 
@@ -350,63 +365,60 @@ class ModuleGenerator:
             # stripping of the surrounding 16-space indent).
             if test_import:
                 lines = content.split("\n")
-                insert_idx = next(
-                    i for i, l in enumerate(lines)
-                    if l.startswith("from .faults import")
-                )
+                insert_idx = next(i for i, l in enumerate(lines) if l.startswith("from .faults import"))
                 lines.insert(insert_idx + 1, test_import.lstrip("\n"))
                 content = "\n".join(lines)
 
-        (self.path / '__init__.py').write_text(content, encoding="utf-8")
-    
+        (self.path / "__init__.py").write_text(content, encoding="utf-8")
+
     def _create_controllers_file(self) -> None:
         """Create controllers.py file with modern controller architecture."""
         content = textwrap.dedent(f'''
             """
             {self.name.capitalize()} module controllers (request handlers).
-            
+
             This file defines the HTTP endpoints for the {self.name} module
             using the modern Controller architecture with pattern-based routing.
             """
-            
+
             from aquilia import Controller, GET, POST, PUT, DELETE, RequestCtx, Response
             from .faults import {self.name.capitalize()}NotFoundFault
             from .services import {self.name.capitalize()}Service
-            
-            
+
+
             class {self.name.capitalize()}Controller(Controller):
                 """
                 Controller for {self.name} endpoints.
-                
+
                 Provides RESTful CRUD operations for {self.name}.
                 """
                 prefix = "/"
                 tags = ["{self.name}"]
-                
+
                 def __init__(self, service: "{self.name.capitalize()}Service" = None):
                     # Instantiate service directly if not injected
                     self.service = service or {self.name.capitalize()}Service()
-                
+
                 @GET("/")
                 async def list_{self.name}(self, ctx: RequestCtx):
                     """
                     List all {self.name}.
-                    
+
                     Example:
                         GET {self.route_prefix}/ -> {{"items": [...], "total": 0}}
                     """
                     items = await self.service.get_all()
-                    
+
                     return Response.json({{
                         "items": items,
                         "total": len(items)
                     }})
-                
+
                 @POST("/")
                 async def create_{self.singular}(self, ctx: RequestCtx):
                     """
                     Create a new {self.singular}.
-                    
+
                     Example:
                         POST {self.route_prefix}/
                         Body: {{"name": "Example"}}
@@ -415,26 +427,26 @@ class ModuleGenerator:
                     data = await ctx.json()
                     item = await self.service.create(data)
                     return Response.json(item, status=201)
-                
+
                 @GET("/<id:int>")
                 async def get_{self.singular}(self, ctx: RequestCtx, id: int):
                     """
                     Get a {self.singular} by ID.
-                    
+
                     Example:
                         GET {self.route_prefix}/1 -> {{"id": 1, "name": "Example"}}
                     """
                     item = await self.service.get_by_id(id)
                     if not item:
                         raise {self.name.capitalize()}NotFoundFault(item_id=id)
-                    
+
                     return Response.json(item)
-                
+
                 @PUT("/<id:int>")
                 async def update_{self.singular}(self, ctx: RequestCtx, id: int):
                     """
                     Update a {self.singular} by ID.
-                    
+
                     Example:
                         PUT {self.route_prefix}/1
                         Body: {{"name": "Updated"}}
@@ -444,70 +456,70 @@ class ModuleGenerator:
                     item = await self.service.update(id, data)
                     if not item:
                         raise {self.name.capitalize()}NotFoundFault(item_id=id)
-                    
+
                     return Response.json(item)
-                
+
                 @DELETE("/<id:int>")
                 async def delete_{self.singular}(self, ctx: RequestCtx, id: int):
                     """
                     Delete a {self.singular} by ID.
-                    
+
                     Example:
                         DELETE {self.route_prefix}/1 -> 204 No Content
                     """
                     deleted = await self.service.delete(id)
                     if not deleted:
                         raise {self.name.capitalize()}NotFoundFault(item_id=id)
-                    
+
                     return Response(status=204)
         ''').strip()
-        
-        (self.path / 'controllers.py').write_text(content, encoding="utf-8")
-    
+
+        (self.path / "controllers.py").write_text(content, encoding="utf-8")
+
     def _create_services_file(self) -> None:
         """Create services.py file."""
         content = textwrap.dedent(f'''
             """
             {self.name.capitalize()} module services (business logic).
-            
+
             Services contain the core business logic and are auto-wired
             via dependency injection.
             """
-            
+
             from typing import Optional, List
             from aquilia.di import service
-            
-            
+
+
             @service(scope="app")
             class {self.name.capitalize()}Service:
                 """
                 Service for {self.name} business logic.
-                
+
                 This service is automatically registered with the DI container
                 and can be injected into controllers.
-                
+
                 To inject dependencies, add type-annotated parameters to __init__:
-                
+
                     def __init__(self, db: AquiliaDatabase, auth: AuthManager):
                         self.db = db
                         self.auth = auth
                 """
-                
+
                 def __init__(self):
                     self._storage: List[dict] = []
                     self._next_id = 1
-                
+
                 async def get_all(self) -> List[dict]:
                     """Get all items."""
                     return self._storage
-                
+
                 async def get_by_id(self, item_id: int) -> Optional[dict]:
                     """Get item by ID."""
                     for item in self._storage:
                         if item["id"] == item_id:
                             return item
                     return None
-                
+
                 async def create(self, data: dict) -> dict:
                     """Create new item."""
                     item = {{
@@ -517,14 +529,14 @@ class ModuleGenerator:
                     self._storage.append(item)
                     self._next_id += 1
                     return item
-                
+
                 async def update(self, item_id: int, data: dict) -> Optional[dict]:
                     """Update existing item."""
                     item = await self.get_by_id(item_id)
                     if item:
                         item.update(data)
                     return item
-                
+
                 async def delete(self, item_id: int) -> bool:
                     """Delete item."""
                     for i, item in enumerate(self._storage):
@@ -533,43 +545,43 @@ class ModuleGenerator:
                             return True
                     return False
         ''').strip()
-        
-        (self.path / 'services.py').write_text(content, encoding="utf-8")
-    
+
+        (self.path / "services.py").write_text(content, encoding="utf-8")
+
     def _create_faults_file(self) -> None:
         """Create faults.py file."""
         # Create a valid Python variable name from fault domain
         fault_domain_var = self.fault_domain.replace(":", "_").replace("-", "_").upper()
-        
+
         content = textwrap.dedent(f'''
             """
             {self.name.capitalize()} module faults (error handling).
-            
+
             Faults define domain-specific errors and their recovery strategies.
             They are automatically registered with the fault handling system.
             """
-            
+
             from aquilia.faults import Fault, FaultDomain, Severity, RecoveryStrategy
-            
-            
+
+
             # Define fault domain for this module
             {fault_domain_var} = FaultDomain.custom(
                 "{self.fault_domain}",
                 "{self.name.capitalize()} module faults",
             )
-            
-            
+
+
             class {self.name.capitalize()}NotFoundFault(Fault):
                 """
                 Raised when a {self.singular} is not found.
-                
+
                 Recovery: Return 404 response
                 """
-                
+
                 domain = {fault_domain_var}
                 severity = Severity.INFO
                 code = "{self.name.upper()}_NOT_FOUND"
-                
+
                 def __init__(self, item_id: int):
                     super().__init__(
                         code=self.code,
@@ -578,19 +590,19 @@ class ModuleGenerator:
                         metadata={{"item_id": item_id}},
                         retryable=False,
                     )
-            
-            
+
+
             class {self.name.capitalize()}ValidationFault(Fault):
                 """
                 Raised when {self.singular} data validation fails.
-                
+
                 Recovery: Return 400 response with validation errors
                 """
-                
+
                 domain = {fault_domain_var}
                 severity = Severity.INFO
                 code = "{self.name.upper()}_VALIDATION_ERROR"
-                
+
                 def __init__(self, errors: dict):
                     super().__init__(
                         code=self.code,
@@ -599,19 +611,19 @@ class ModuleGenerator:
                         metadata={{"errors": errors}},
                         retryable=False,
                     )
-            
-            
+
+
             class {self.name.capitalize()}OperationFault(Fault):
                 """
                 Raised when a {self.singular} operation fails.
-                
+
                 Recovery: Retry with exponential backoff
                 """
-                
+
                 domain = {fault_domain_var}
                 severity = Severity.WARN
                 code = "{self.name.upper()}_OPERATION_FAILED"
-                
+
                 def __init__(self, operation: str, reason: str):
                     super().__init__(
                         code=self.code,
@@ -621,35 +633,35 @@ class ModuleGenerator:
                         retryable=True,
                     )
         ''').strip()
-        
-        (self.path / 'faults.py').write_text(content, encoding="utf-8")
-    
+
+        (self.path / "faults.py").write_text(content, encoding="utf-8")
+
     def _create_models_file(self) -> None:
         """Create models.py with Aquilia ORM scaffold."""
         # Derive a singular model name from the module name
         model_name = _singularize(self.name).capitalize()
         table_name = self.name.lower()
-        
+
         content = textwrap.dedent(f'''\
             """
             {self.name.capitalize()} module models (Aquilia ORM).
-            
+
             Define your database models here using the Aquilia Model system.
             Models are auto-discovered and registered when ``auto_discover=True``
             in the manifest.
-            
+
             Usage:
                 # Query
                 items = await {model_name}.objects.all()
                 item = await {model_name}.objects.get(id=1)
-                
+
                 # Create
                 item = await {model_name}.objects.create(name="Example")
-                
+
                 # Filter
                 items = await {model_name}.objects.filter(active=True)
             """
-            
+
             from aquilia.models import Model
             from aquilia.models.fields import (
                 AutoField,
@@ -658,48 +670,48 @@ class ModuleGenerator:
                 BooleanField,
                 DateTimeField,
             )
-            
-            
+
+
             class {model_name}(Model):
                 """
                 {model_name} model.
-                
+
                 Table: {table_name}
                 """
                 table = "{table_name}"
-                
+
                 id = AutoField(primary_key=True)
                 name = CharField(max_length=255)
                 description = TextField(blank=True, default="")
                 active = BooleanField(default=True)
                 created_at = DateTimeField(auto_now_add=True)
                 updated_at = DateTimeField(auto_now=True)
-                
+
                 class Meta:
                     ordering = ["-created_at"]
-                
+
                 def __repr__(self):
                     return f"<{model_name} id={{self.id}} name={{self.name!r}}>"
         ''').strip()
-        
-        (self.path / 'models.py').write_text(content, encoding="utf-8")
-    
+
+        (self.path / "models.py").write_text(content, encoding="utf-8")
+
     def _create_test_routes_file(self) -> None:
         """Create test_routes.py file with demo endpoints."""
         content = textwrap.dedent(f'''\
             """
             Test routes for {self.name} module - Additional test endpoints.
             """
-            
+
             from aquilia import Controller, GET, POST, RequestCtx, Response
-            
-            
+
+
             class Test{self.name.capitalize()}Controller(Controller):
                 """Test endpoints for {self.name} module verification."""
-                
+
                 prefix = "/test-{self.name}"
                 tags = ["test", "{self.name}"]
-                
+
                 @GET("/hello")
                 async def hello(self, ctx: RequestCtx):
                     """Simple hello world test endpoint."""
@@ -709,7 +721,7 @@ class ModuleGenerator:
                         "module": "{self.name}",
                         "controller": "Test{self.name.capitalize()}Controller"
                     }})
-                
+
                 @GET("/echo/<message:str>")
                 async def echo(self, ctx: RequestCtx, message: str):
                     """Echo back a message with path parameter."""
@@ -719,7 +731,7 @@ class ModuleGenerator:
                         "type": "path_param",
                         "module": "{self.name}"
                     }})
-                
+
                 @POST("/data")
                 async def post_data(self, ctx: RequestCtx):
                     """Test POST with JSON body."""
@@ -736,7 +748,7 @@ class ModuleGenerator:
                             "error": str(e),
                             "status": "failed"
                         }}, status=400)
-                
+
                 @GET("/health")
                 async def health(self, ctx: RequestCtx):
                     """Health check endpoint for {self.name} module."""
@@ -746,5 +758,5 @@ class ModuleGenerator:
                         "controller": "Test{self.name.capitalize()}Controller"
                     }})
         ''').strip()
-        
-        (self.path / 'test_routes.py').write_text(content, encoding="utf-8")
+
+        (self.path / "test_routes.py").write_text(content, encoding="utf-8")

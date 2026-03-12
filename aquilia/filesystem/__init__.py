@@ -140,59 +140,73 @@ __all__ = [
 # Lazy imports for fast module load
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 def __getattr__(name: str):
     """Lazy import to avoid loading everything at module import time."""
 
     if name in _CONFIG_NAMES:
         from ._config import FileSystemConfig
+
         return FileSystemConfig
 
     if name in _ERROR_NAMES:
         from . import _errors
+
         return getattr(_errors, name)
 
     if name in _SECURITY_NAMES:
         from . import _security
+
         return getattr(_security, name)
 
     if name in _POOL_NAMES:
         from ._pool import FileSystemPool
+
         return FileSystemPool
 
     if name in _METRICS_NAMES:
         from ._metrics import FileSystemMetrics
+
         return FileSystemMetrics
 
     if name in _HANDLE_NAMES:
         from ._handle import AsyncFile
+
         return AsyncFile
 
     if name in _PATH_NAMES:
         from ._path import AsyncPath
+
         return AsyncPath
 
     if name in _OPS_NAMES:
         from . import _ops
+
         return getattr(_ops, name)
 
     if name in _STREAMING_NAMES:
         from . import _streaming
+
         return getattr(_streaming, name)
 
     if name in _DIR_NAMES:
         from . import _directory
+
         return getattr(_directory, name)
 
     if name in _TEMP_NAMES:
         from . import _tempfile
+
         return getattr(_tempfile, name)
 
     if name in _LOCK_NAMES:
         from . import _lock
+
         return getattr(_lock, name)
 
     if name == "FileSystem":
         from ._service import FileSystem
+
         return FileSystem
 
     raise AttributeError(f"module 'aquilia.filesystem' has no attribute {name!r}")
@@ -200,10 +214,18 @@ def __getattr__(name: str):
 
 _CONFIG_NAMES = {"FileSystemConfig"}
 _ERROR_NAMES = {
-    "FileSystemFault", "FileNotFoundFault", "PermissionDeniedFault",
-    "FileExistsFault", "IsDirectoryFault", "NotDirectoryFault",
-    "DiskFullFault", "PathTraversalFault", "PathTooLongFault",
-    "FileSystemIOFault", "FileClosedFault", "wrap_os_error",
+    "FileSystemFault",
+    "FileNotFoundFault",
+    "PermissionDeniedFault",
+    "FileExistsFault",
+    "IsDirectoryFault",
+    "NotDirectoryFault",
+    "DiskFullFault",
+    "PathTraversalFault",
+    "PathTooLongFault",
+    "FileSystemIOFault",
+    "FileClosedFault",
+    "wrap_os_error",
 }
 _SECURITY_NAMES = {"validate_path", "sanitize_filename"}
 _POOL_NAMES = {"FileSystemPool"}
@@ -211,19 +233,37 @@ _METRICS_NAMES = {"FileSystemMetrics"}
 _HANDLE_NAMES = {"AsyncFile"}
 _PATH_NAMES = {"AsyncPath"}
 _OPS_NAMES = {
-    "async_open", "read_file", "write_file", "append_file",
-    "copy_file", "move_file", "delete_file", "file_exists",
-    "file_stat", "FileStat",
+    "async_open",
+    "read_file",
+    "write_file",
+    "append_file",
+    "copy_file",
+    "move_file",
+    "delete_file",
+    "file_exists",
+    "file_stat",
+    "FileStat",
 }
 _STREAMING_NAMES = {
-    "AsyncFileStream", "AsyncWriteStream", "stream_read", "stream_copy",
+    "AsyncFileStream",
+    "AsyncWriteStream",
+    "stream_read",
+    "stream_copy",
 }
 _DIR_NAMES = {
-    "list_dir", "scan_dir", "make_dir", "remove_dir",
-    "remove_tree", "copy_tree", "walk", "DirEntry",
+    "list_dir",
+    "scan_dir",
+    "make_dir",
+    "remove_dir",
+    "remove_tree",
+    "copy_tree",
+    "walk",
+    "DirEntry",
 }
 _TEMP_NAMES = {
-    "AsyncTemporaryFile", "AsyncTemporaryDirectory",
-    "async_tempfile", "async_tempdir",
+    "AsyncTemporaryFile",
+    "AsyncTemporaryDirectory",
+    "async_tempfile",
+    "async_tempdir",
 }
 _LOCK_NAMES = {"AsyncFileLock", "LockAcquisitionError"}

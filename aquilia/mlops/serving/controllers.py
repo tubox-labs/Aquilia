@@ -48,14 +48,12 @@ Endpoints::
 
 from __future__ import annotations
 
-import json
+import contextlib
 import logging
 import time
-import uuid
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-from aquilia.controller import Controller, GET, POST, RequestCtx
-from aquilia.effects import CacheEffect
+from aquilia.controller import GET, POST, Controller, RequestCtx
 
 logger = logging.getLogger("aquilia.mlops.controller")
 
@@ -73,7 +71,7 @@ class MLOpsController(Controller):
     """
 
     prefix = "/mlops"
-    tags: List[str] = ["mlops"]
+    tags: list[str] = ["mlops"]
     instantiation_mode = "singleton"
 
     def __init__(
@@ -110,10 +108,11 @@ class MLOpsController(Controller):
 
     # ── Helpers ────────────────────────────────────────────────────────
 
-    async def _process_fault(self, exc: Exception) -> Dict[str, Any]:
+    async def _process_fault(self, exc: Exception) -> dict[str, Any]:
         """Route an exception through the FaultEngine if available."""
         if self._fault_engine is not None:
             from aquilia.faults import Resolved, Transformed
+
             result = await self._fault_engine.process(exc, app="mlops")
             if isinstance(result, Resolved):
                 return {"error": str(exc), "resolved": True}
@@ -131,26 +130,28 @@ class MLOpsController(Controller):
         return None
 
     async def _cache_set(
-        self, key: str, value: Any, ttl: int = 60, namespace: str = "mlops",
+        self,
+        key: str,
+        value: Any,
+        ttl: int = 60,
+        namespace: str = "mlops",
     ) -> None:
         """Set in cache if CacheService is available."""
         if self._cache is not None:
-            try:
+            with contextlib.suppress(Exception):
                 await self._cache.set(key, value, ttl=ttl, namespace=namespace)
-            except Exception:
-                pass
 
     # ── Health ───────────────────────────────────────────────────────
 
     @GET("/health")
-    async def health(self, ctx: Optional[RequestCtx] = None) -> Dict[str, Any]:
+    async def health(self, ctx: RequestCtx | None = None) -> dict[str, Any]:
         """Platform health check -- ``GET /mlops/health``."""
         # Try cache first
         cached = await self._cache_get("health_status")
         if cached is not None:
             return cached
 
-        result: Dict[str, Any] = {
+        result: dict[str, Any] = {
             "status": "healthy",
             "timestamp": time.time(),
             "components": {},
@@ -194,7 +195,7 @@ class MLOpsController(Controller):
     # ── Predict ──────────────────────────────────────────────────────
 
     @POST("/predict")
-    async def predict(self, body: Dict[str, Any], ctx: Optional[RequestCtx] = None) -> Dict[str, Any]:
+    async def predict(self, body: dict[str, Any], ctx: RequestCtx | None = None) -> dict[str, Any]:
         """
         Single inference -- ``POST /mlops/predict``.
 
@@ -208,7 +209,6 @@ class MLOpsController(Controller):
               "stream": false
             }
         """
-        from .._types import InferenceRequest
 
         if not self._server:
             return {"error": "No serving server configured", "status": 503}
@@ -219,7 +219,8 @@ class MLOpsController(Controller):
         max_tokens = body.get("max_tokens", 0)
 
         result = await self._server.predict(
-            inputs, parameters,
+            inputs,
+            parameters,
             priority=priority,
             max_tokens=max_tokens,
         )
@@ -235,7 +236,7 @@ class MLOpsController(Controller):
         return response
 
     @POST("/stream")
-    async def stream_predict(self, body: Dict[str, Any], ctx: Optional[RequestCtx] = None):
+    async def stream_predict(self, body: dict[str, Any], ctx: RequestCtx | None = None):
         """
         Streaming inference -- ``POST /mlops/stream``.
 
@@ -258,7 +259,9 @@ class MLOpsController(Controller):
         max_tokens = body.get("max_tokens", 0)
 
         async for chunk in self._server.stream_predict(
-            inputs, parameters, max_tokens=max_tokens,
+            inputs,
+            parameters,
+            max_tokens=max_tokens,
         ):
             yield {
                 "request_id": chunk.request_id,
@@ -271,7 +274,7 @@ class MLOpsController(Controller):
             }
 
     @POST("/chat")
-    async def chat(self, body: Dict[str, Any], ctx: Optional[RequestCtx] = None) -> Dict[str, Any]:
+    async def chat(self, body: dict[str, Any], ctx: RequestCtx | None = None) -> dict[str, Any]:
         """
         Chat-style inference -- ``POST /mlops/chat``.
 
@@ -313,28 +316,28 @@ class MLOpsController(Controller):
     # ── Resilience Status ────────────────────────────────────────────
 
     @GET("/circuit-breaker")
-    async def circuit_breaker_status(self, ctx: Optional[RequestCtx] = None) -> Dict[str, Any]:
+    async def circuit_breaker_status(self, ctx: RequestCtx | None = None) -> dict[str, Any]:
         """Circuit breaker status -- ``GET /mlops/circuit-breaker``."""
         if self._server and hasattr(self._server, "circuit_breaker"):
             return self._server.circuit_breaker.stats
         return {"error": "Circuit breaker not configured"}
 
     @GET("/rate-limit")
-    async def rate_limit_status(self, ctx: Optional[RequestCtx] = None) -> Dict[str, Any]:
+    async def rate_limit_status(self, ctx: RequestCtx | None = None) -> dict[str, Any]:
         """Rate limiter status -- ``GET /mlops/rate-limit``."""
         if self._server and hasattr(self._server, "rate_limiter") and self._server.rate_limiter:
             return self._server.rate_limiter.stats
         return {"error": "Rate limiter not configured"}
 
     @GET("/memory")
-    async def memory_status(self, ctx: Optional[RequestCtx] = None) -> Dict[str, Any]:
+    async def memory_status(self, ctx: RequestCtx | None = None) -> dict[str, Any]:
         """Memory tracker status -- ``GET /mlops/memory``."""
         if self._server and hasattr(self._server, "memory_tracker") and self._server.memory_tracker:
             return self._server.memory_tracker.stats
         return {"error": "Memory tracker not configured"}
 
     @GET("/capabilities")
-    async def model_capabilities(self, ctx: Optional[RequestCtx] = None) -> Dict[str, Any]:
+    async def model_capabilities(self, ctx: RequestCtx | None = None) -> dict[str, Any]:
         """Model capabilities -- ``GET /mlops/capabilities``."""
         cached = await self._cache_get("model_capabilities")
         if cached is not None:
@@ -343,7 +346,7 @@ class MLOpsController(Controller):
         if not self._server:
             return {"error": "No serving server configured"}
         manifest = self._server.manifest
-        result: Dict[str, Any] = {
+        result: dict[str, Any] = {
             "name": manifest.name,
             "version": manifest.version,
             "framework": manifest.framework,
@@ -362,7 +365,7 @@ class MLOpsController(Controller):
     # ── Metrics ──────────────────────────────────────────────────────
 
     @GET("/metrics")
-    async def metrics(self, fmt: str = "json", ctx: Optional[RequestCtx] = None) -> Any:
+    async def metrics(self, fmt: str = "json", ctx: RequestCtx | None = None) -> Any:
         """Metrics export -- ``GET /mlops/metrics``."""
         if not self._metrics:
             return {"error": "Metrics collector not configured"}
@@ -375,8 +378,11 @@ class MLOpsController(Controller):
 
     @GET("/models")
     async def list_models(
-        self, limit: int = 100, offset: int = 0, ctx: Optional[RequestCtx] = None,
-    ) -> Dict[str, Any]:
+        self,
+        limit: int = 100,
+        offset: int = 0,
+        ctx: RequestCtx | None = None,
+    ) -> dict[str, Any]:
         """List registered models -- ``GET /mlops/models``."""
         if not self._registry:
             return {"error": "Registry not configured", "models": []}
@@ -395,7 +401,7 @@ class MLOpsController(Controller):
             return await self._process_fault(exc)
 
     @GET("/models/{name}")
-    async def get_model(self, name: str, tag: str = "latest", ctx: Optional[RequestCtx] = None) -> Dict[str, Any]:
+    async def get_model(self, name: str, tag: str = "latest", ctx: RequestCtx | None = None) -> dict[str, Any]:
         """Get model details -- ``GET /mlops/models/{name}``."""
         if not self._registry:
             return {"error": "Registry not configured"}
@@ -417,8 +423,11 @@ class MLOpsController(Controller):
 
     @POST("/models/{name}/load")
     async def load_model(
-        self, name: str, body: Dict[str, Any] = None, ctx: Optional[RequestCtx] = None,
-    ) -> Dict[str, Any]:
+        self,
+        name: str,
+        body: dict[str, Any] = None,
+        ctx: RequestCtx | None = None,
+    ) -> dict[str, Any]:
         """
         Load a model into memory -- ``POST /mlops/models/{name}/load``.
 
@@ -442,15 +451,18 @@ class MLOpsController(Controller):
                 result = await self._orchestrator.reload_model(name, entry.version)
 
             # Invalidate cache
-            await self._cache_set(f"models:list:100:0", None, ttl=0, namespace="mlops.registry")
+            await self._cache_set("models:list:100:0", None, ttl=0, namespace="mlops.registry")
             return {"model": name, **result, "action": "loaded"}
         except Exception as exc:
             return await self._process_fault(exc)
 
     @POST("/models/{name}/unload")
     async def unload_model(
-        self, name: str, body: Dict[str, Any] = None, ctx: Optional[RequestCtx] = None,
-    ) -> Dict[str, Any]:
+        self,
+        name: str,
+        body: dict[str, Any] = None,
+        ctx: RequestCtx | None = None,
+    ) -> dict[str, Any]:
         """
         Unload a model from memory -- ``POST /mlops/models/{name}/unload``.
 
@@ -474,8 +486,11 @@ class MLOpsController(Controller):
 
     @POST("/models/{name}/reload")
     async def reload_model(
-        self, name: str, body: Dict[str, Any] = None, ctx: Optional[RequestCtx] = None,
-    ) -> Dict[str, Any]:
+        self,
+        name: str,
+        body: dict[str, Any] = None,
+        ctx: RequestCtx | None = None,
+    ) -> dict[str, Any]:
         """
         Hot-reload a model to a new version -- ``POST /mlops/models/{name}/reload``.
 
@@ -501,8 +516,10 @@ class MLOpsController(Controller):
 
     @GET("/models/{name}/health")
     async def model_health(
-        self, name: str, ctx: Optional[RequestCtx] = None,
-    ) -> Dict[str, Any]:
+        self,
+        name: str,
+        ctx: RequestCtx | None = None,
+    ) -> dict[str, Any]:
         """
         Health check for a specific model -- ``GET /mlops/models/{name}/health``.
         """
@@ -516,8 +533,10 @@ class MLOpsController(Controller):
 
     @GET("/models/{name}/metrics")
     async def model_metrics(
-        self, name: str, ctx: Optional[RequestCtx] = None,
-    ) -> Dict[str, Any]:
+        self,
+        name: str,
+        ctx: RequestCtx | None = None,
+    ) -> dict[str, Any]:
         """
         Metrics for a specific model -- ``GET /mlops/models/{name}/metrics``.
         """
@@ -532,7 +551,7 @@ class MLOpsController(Controller):
     # ── Rollout ──────────────────────────────────────────────────────
 
     @POST("/models/{name}/rollout")
-    async def start_rollout(self, body: Dict[str, Any], ctx: Optional[RequestCtx] = None) -> Dict[str, Any]:
+    async def start_rollout(self, body: dict[str, Any], ctx: RequestCtx | None = None) -> dict[str, Any]:
         """
         Start a rollout -- ``POST /mlops/models/{name}/rollout``.
 
@@ -566,7 +585,7 @@ class MLOpsController(Controller):
         }
 
     @GET("/rollouts")
-    async def list_rollouts(self, ctx: Optional[RequestCtx] = None) -> Dict[str, Any]:
+    async def list_rollouts(self, ctx: RequestCtx | None = None) -> dict[str, Any]:
         """List rollouts -- ``GET /mlops/rollouts``."""
         if not self._rollout:
             return {"error": "Rollout engine not configured", "rollouts": []}
@@ -588,7 +607,7 @@ class MLOpsController(Controller):
     # ── Drift ────────────────────────────────────────────────────────
 
     @GET("/drift")
-    async def drift_status(self, ctx: Optional[RequestCtx] = None) -> Dict[str, Any]:
+    async def drift_status(self, ctx: RequestCtx | None = None) -> dict[str, Any]:
         """Drift detection status -- ``GET /mlops/drift``."""
         if not self._drift:
             return {"error": "Drift detector not configured"}
@@ -602,7 +621,7 @@ class MLOpsController(Controller):
     # ── Plugins ──────────────────────────────────────────────────────
 
     @GET("/plugins")
-    async def list_plugins(self, ctx: Optional[RequestCtx] = None) -> Dict[str, Any]:
+    async def list_plugins(self, ctx: RequestCtx | None = None) -> dict[str, Any]:
         """List plugins -- ``GET /mlops/plugins``."""
         if not self._plugins:
             return {"plugins": []}
@@ -622,14 +641,14 @@ class MLOpsController(Controller):
     # ── Health Probes ────────────────────────────────────────────────
 
     @GET("/healthz")
-    async def liveness(self, ctx: Optional[RequestCtx] = None) -> Dict[str, Any]:
+    async def liveness(self, ctx: RequestCtx | None = None) -> dict[str, Any]:
         """K8s liveness probe -- ``GET /mlops/healthz``."""
         if self._server and hasattr(self._server, "liveness"):
             return await self._server.liveness()
         return {"status": "alive", "timestamp": time.time()}
 
     @GET("/readyz")
-    async def readiness(self, ctx: Optional[RequestCtx] = None) -> Dict[str, Any]:
+    async def readiness(self, ctx: RequestCtx | None = None) -> dict[str, Any]:
         """K8s readiness probe -- ``GET /mlops/readyz``."""
         if self._server and hasattr(self._server, "readiness"):
             return await self._server.readiness()
@@ -638,7 +657,7 @@ class MLOpsController(Controller):
     # ── Lineage ──────────────────────────────────────────────────────
 
     @GET("/lineage")
-    async def lineage(self, ctx: Optional[RequestCtx] = None) -> Dict[str, Any]:
+    async def lineage(self, ctx: RequestCtx | None = None) -> dict[str, Any]:
         """Model lineage DAG -- ``GET /mlops/lineage``."""
         if self._lineage is None:
             return {"error": "Lineage DAG not configured", "nodes": {}}
@@ -651,7 +670,7 @@ class MLOpsController(Controller):
         }
 
     @GET("/lineage/{model_id}/ancestors")
-    async def lineage_ancestors(self, model_id: str, ctx: Optional[RequestCtx] = None) -> Dict[str, Any]:
+    async def lineage_ancestors(self, model_id: str, ctx: RequestCtx | None = None) -> dict[str, Any]:
         """Ancestors of a model -- ``GET /mlops/lineage/{model_id}/ancestors``."""
         if self._lineage is None:
             return {"error": "Lineage DAG not configured"}
@@ -661,7 +680,7 @@ class MLOpsController(Controller):
         }
 
     @GET("/lineage/{model_id}/descendants")
-    async def lineage_descendants(self, model_id: str, ctx: Optional[RequestCtx] = None) -> Dict[str, Any]:
+    async def lineage_descendants(self, model_id: str, ctx: RequestCtx | None = None) -> dict[str, Any]:
         """Descendants of a model -- ``GET /mlops/lineage/{model_id}/descendants``."""
         if self._lineage is None:
             return {"error": "Lineage DAG not configured"}
@@ -673,22 +692,19 @@ class MLOpsController(Controller):
     # ── Experiments ──────────────────────────────────────────────────
 
     @GET("/experiments")
-    async def list_experiments(self, ctx: Optional[RequestCtx] = None) -> Dict[str, Any]:
+    async def list_experiments(self, ctx: RequestCtx | None = None) -> dict[str, Any]:
         """List experiments -- ``GET /mlops/experiments``."""
         if self._experiments is None:
             return {"experiments": []}
 
         return {
             "total": len(self._experiments),
-            "active": [
-                self._experiments.summary(e.experiment_id)
-                for e in self._experiments.list_active()
-            ],
+            "active": [self._experiments.summary(e.experiment_id) for e in self._experiments.list_active()],
             "all": self._experiments.to_dict(),
         }
 
     @POST("/experiments")
-    async def create_experiment(self, body: Dict[str, Any], ctx: Optional[RequestCtx] = None) -> Dict[str, Any]:
+    async def create_experiment(self, body: dict[str, Any], ctx: RequestCtx | None = None) -> dict[str, Any]:
         """Create experiment -- ``POST /mlops/experiments``."""
         if self._experiments is None:
             return {"error": "Experiment ledger not configured"}
@@ -703,8 +719,11 @@ class MLOpsController(Controller):
 
     @POST("/experiments/{experiment_id}/conclude")
     async def conclude_experiment(
-        self, experiment_id: str, winner: str = "", ctx: Optional[RequestCtx] = None,
-    ) -> Dict[str, Any]:
+        self,
+        experiment_id: str,
+        winner: str = "",
+        ctx: RequestCtx | None = None,
+    ) -> dict[str, Any]:
         """Conclude experiment -- ``POST /mlops/experiments/{id}/conclude``."""
         if self._experiments is None:
             return {"error": "Experiment ledger not configured"}
@@ -714,7 +733,7 @@ class MLOpsController(Controller):
     # ── Hot Models ───────────────────────────────────────────────────
 
     @GET("/hot-models")
-    async def hot_models(self, k: int = 10, ctx: Optional[RequestCtx] = None) -> Dict[str, Any]:
+    async def hot_models(self, k: int = 10, ctx: RequestCtx | None = None) -> dict[str, Any]:
         """Top-K hot models -- ``GET /mlops/hot-models``."""
         if self._metrics and hasattr(self._metrics, "hot_models"):
             return {"hot_models": self._metrics.hot_models(k)}
@@ -727,13 +746,14 @@ class MLOpsController(Controller):
         self,
         kind: str = "",
         store_dir: str = "artifacts",
-        ctx: Optional[RequestCtx] = None,
-    ) -> Dict[str, Any]:
+        ctx: RequestCtx | None = None,
+    ) -> dict[str, Any]:
         """List artifacts -- ``GET /mlops/artifacts``."""
         try:
             store = self._artifact_store
             if store is None:
                 from aquilia.artifacts import FilesystemArtifactStore
+
                 store = FilesystemArtifactStore(store_dir)
 
             artifacts = store.list_artifacts(kind=kind)
@@ -759,8 +779,8 @@ class MLOpsController(Controller):
         name: str,
         version: str = "",
         store_dir: str = "artifacts",
-        ctx: Optional[RequestCtx] = None,
-    ) -> Dict[str, Any]:
+        ctx: RequestCtx | None = None,
+    ) -> dict[str, Any]:
         """Inspect artifact -- ``GET /mlops/artifacts/{name}``."""
         try:
             from aquilia.artifacts import ArtifactReader
@@ -768,6 +788,7 @@ class MLOpsController(Controller):
             store = self._artifact_store
             if store is None:
                 from aquilia.artifacts import FilesystemArtifactStore
+
                 store = FilesystemArtifactStore(store_dir)
 
             reader = ArtifactReader(store)

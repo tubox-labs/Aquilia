@@ -13,22 +13,21 @@ from __future__ import annotations
 import os
 import sys
 from pathlib import Path
-from typing import List, Optional
 
 
 def run_tests(
     *,
-    paths: Optional[List[str]] = None,
-    pattern: Optional[str] = None,
+    paths: list[str] | None = None,
+    pattern: str | None = None,
     verbose: bool = False,
     coverage: bool = False,
     coverage_html: bool = False,
     failfast: bool = False,
-    markers: Optional[str] = None,
+    markers: str | None = None,
     parallel: bool = False,
     last_failed: bool = False,
     no_header: bool = False,
-    extra_args: Optional[List[str]] = None,
+    extra_args: list[str] | None = None,
 ) -> int:
     """
     Execute the test suite via pytest.
@@ -105,17 +104,17 @@ def run_tests(
 
     try:
         import pytest as _pytest
+
         return _pytest.main(args)
     except ImportError:
         print(
-            "pytest is not installed. "
-            "Install it with: pip install pytest pytest-asyncio",
+            "pytest is not installed. Install it with: pip install pytest pytest-asyncio",
             file=sys.stderr,
         )
         return 1
 
 
-def _discover_test_dirs() -> List[str]:
+def _discover_test_dirs() -> list[str]:
     """
     Auto-discover test directories in the workspace.
 

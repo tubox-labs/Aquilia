@@ -16,7 +16,6 @@ import logging
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional, Set, Tuple
 
 from ..manifest import ComponentKind
 
@@ -27,16 +26,18 @@ logger = logging.getLogger("aquilia.discovery")
 # Data structures
 # ============================================================================
 
+
 @dataclass
 class ClassifiedComponent:
     """A component discovered by the AST classifier."""
-    name: str                    # Class name
-    kind: ComponentKind          # Detected component kind
-    file_path: Path              # Absolute file path
-    line: int                    # Line number in file
-    import_path: str = ""        # Computed "module.path:ClassName"
-    bases: List[str] = field(default_factory=list)
-    decorators: List[str] = field(default_factory=list)
+
+    name: str  # Class name
+    kind: ComponentKind  # Detected component kind
+    file_path: Path  # Absolute file path
+    line: int  # Line number in file
+    import_path: str = ""  # Computed "module.path:ClassName"
+    bases: list[str] = field(default_factory=list)
+    decorators: list[str] = field(default_factory=list)
 
     def __repr__(self) -> str:
         return f"<{self.kind.value}:{self.name} @ {self.file_path.name}:{self.line}>"
@@ -45,58 +46,61 @@ class ClassifiedComponent:
 @dataclass
 class DiscoveryResult:
     """Result of scanning a single module."""
+
     module_name: str
-    components: List[ClassifiedComponent] = field(default_factory=list)
-    errors: List[str] = field(default_factory=list)
+    components: list[ClassifiedComponent] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
     files_scanned: int = 0
 
     @property
-    def controllers(self) -> List[ClassifiedComponent]:
+    def controllers(self) -> list[ClassifiedComponent]:
         return [c for c in self.components if c.kind == ComponentKind.CONTROLLER]
 
     @property
-    def services(self) -> List[ClassifiedComponent]:
+    def services(self) -> list[ClassifiedComponent]:
         return [c for c in self.components if c.kind == ComponentKind.SERVICE]
 
     @property
-    def middleware(self) -> List[ClassifiedComponent]:
+    def middleware(self) -> list[ClassifiedComponent]:
         return [c for c in self.components if c.kind == ComponentKind.MIDDLEWARE]
 
     @property
-    def guards(self) -> List[ClassifiedComponent]:
+    def guards(self) -> list[ClassifiedComponent]:
         return [c for c in self.components if c.kind == ComponentKind.GUARD]
 
     @property
-    def models(self) -> List[ClassifiedComponent]:
+    def models(self) -> list[ClassifiedComponent]:
         return [c for c in self.components if c.kind == ComponentKind.MODEL]
 
     @property
-    def pipes(self) -> List[ClassifiedComponent]:
+    def pipes(self) -> list[ClassifiedComponent]:
         return [c for c in self.components if c.kind == ComponentKind.PIPE]
 
     @property
-    def interceptors(self) -> List[ClassifiedComponent]:
+    def interceptors(self) -> list[ClassifiedComponent]:
         return [c for c in self.components if c.kind == ComponentKind.INTERCEPTOR]
 
 
 @dataclass
 class SyncAction:
     """Describes a change to make to a manifest file."""
-    action: str                  # "add" or "remove"
+
+    action: str  # "add" or "remove"
     component: ClassifiedComponent
-    field_name: str              # Manifest field (controllers, services, etc.)
+    field_name: str  # Manifest field (controllers, services, etc.)
 
 
 @dataclass
 class SyncReport:
     """Report from a manifest sync operation."""
+
     module_name: str
     manifest_path: Path
-    actions: List[SyncAction] = field(default_factory=list)
+    actions: list[SyncAction] = field(default_factory=list)
     dry_run: bool = False
 
     @property
-    def added(self) -> List[SyncAction]:
+    def added(self) -> list[SyncAction]:
         return [a for a in self.actions if a.action == "add"]
 
     @property
@@ -108,6 +112,7 @@ class SyncReport:
 # AST Classifier
 # ============================================================================
 
+
 class ASTClassifier:
     """
     Classifies Python classes using AST analysis -- no imports needed.
@@ -117,46 +122,68 @@ class ASTClassifier:
     """
 
     # Base classes that indicate component kind
-    CONTROLLER_BASES: Set[str] = {
-        "Controller", "BaseController", "RestController",
+    CONTROLLER_BASES: set[str] = {
+        "Controller",
+        "BaseController",
+        "RestController",
     }
-    SOCKET_CONTROLLER_BASES: Set[str] = {
-        "WebSocketController", "SocketController",
+    SOCKET_CONTROLLER_BASES: set[str] = {
+        "WebSocketController",
+        "SocketController",
     }
-    SERVICE_BASES: Set[str] = {
-        "Service", "BaseService",
+    SERVICE_BASES: set[str] = {
+        "Service",
+        "BaseService",
     }
-    MIDDLEWARE_BASES: Set[str] = {
-        "Middleware", "BaseMiddleware",
+    MIDDLEWARE_BASES: set[str] = {
+        "Middleware",
+        "BaseMiddleware",
     }
-    GUARD_BASES: Set[str] = {
-        "Guard", "BaseGuard", "AuthGuard",
+    GUARD_BASES: set[str] = {
+        "Guard",
+        "BaseGuard",
+        "AuthGuard",
     }
-    PIPE_BASES: Set[str] = {
-        "Pipe", "BasePipe", "ValidationPipe", "TransformPipe",
+    PIPE_BASES: set[str] = {
+        "Pipe",
+        "BasePipe",
+        "ValidationPipe",
+        "TransformPipe",
     }
-    INTERCEPTOR_BASES: Set[str] = {
-        "Interceptor", "BaseInterceptor", "LoggingInterceptor", "CacheInterceptor",
+    INTERCEPTOR_BASES: set[str] = {
+        "Interceptor",
+        "BaseInterceptor",
+        "LoggingInterceptor",
+        "CacheInterceptor",
     }
-    MODEL_BASES: Set[str] = {
-        "Model", "BaseModel", "AquiliaModel",
+    MODEL_BASES: set[str] = {
+        "Model",
+        "BaseModel",
+        "AquiliaModel",
     }
 
     # Decorators that indicate component kind
-    SERVICE_DECORATORS: Set[str] = {
-        "service", "injectable", "provides", "provider",
+    SERVICE_DECORATORS: set[str] = {
+        "service",
+        "injectable",
+        "provides",
+        "provider",
     }
-    GUARD_DECORATORS: Set[str] = {
-        "guard", "auth_guard",
+    GUARD_DECORATORS: set[str] = {
+        "guard",
+        "auth_guard",
     }
-    PIPE_DECORATORS: Set[str] = {
-        "pipe", "transform", "validate",
+    PIPE_DECORATORS: set[str] = {
+        "pipe",
+        "transform",
+        "validate",
     }
-    INTERCEPTOR_DECORATORS: Set[str] = {
-        "interceptor", "intercept",
+    INTERCEPTOR_DECORATORS: set[str] = {
+        "interceptor",
+        "intercept",
     }
 
-    def classify_file(self, file_path: Path) -> List[ClassifiedComponent]:
+    def classify_file(self, file_path: Path) -> list[ClassifiedComponent]:
         """
         Parse a Python file with AST and classify its classes.
 
@@ -180,18 +207,20 @@ class ASTClassifier:
                 if kind is not None:
                     bases = self._extract_base_names(node)
                     decorators = self._extract_decorator_names(node)
-                    components.append(ClassifiedComponent(
-                        name=node.name,
-                        kind=kind,
-                        file_path=file_path,
-                        line=node.lineno,
-                        bases=bases,
-                        decorators=decorators,
-                    ))
+                    components.append(
+                        ClassifiedComponent(
+                            name=node.name,
+                            kind=kind,
+                            file_path=file_path,
+                            line=node.lineno,
+                            bases=bases,
+                            decorators=decorators,
+                        )
+                    )
 
         return components
 
-    def _classify_class(self, node: ast.ClassDef) -> Optional[ComponentKind]:
+    def _classify_class(self, node: ast.ClassDef) -> ComponentKind | None:
         """Classify a single class definition by its bases and decorators."""
         bases = set(self._extract_base_names(node))
         decorators = set(self._extract_decorator_names(node))
@@ -226,7 +255,7 @@ class ASTClassifier:
 
         return None
 
-    def _extract_base_names(self, node: ast.ClassDef) -> List[str]:
+    def _extract_base_names(self, node: ast.ClassDef) -> list[str]:
         """Extract base class names from a ClassDef node."""
         names = []
         for base in node.bases:
@@ -236,7 +265,7 @@ class ASTClassifier:
                 names.append(base.attr)
         return names
 
-    def _extract_decorator_names(self, node: ast.ClassDef) -> List[str]:
+    def _extract_decorator_names(self, node: ast.ClassDef) -> list[str]:
         """Extract decorator names from a ClassDef node."""
         names = []
         for dec in node.decorator_list:
@@ -257,16 +286,21 @@ class ASTClassifier:
 # File Scanner
 # ============================================================================
 
+
 class FileScanner:
     """Scans module directories for Python files matching discovery patterns."""
 
     # Files to skip during scanning
-    SKIP_FILES: Set[str] = {
-        "__init__.py", "__pycache__", "manifest.py", "conftest.py",
-        "setup.py", "workspace.py",
+    SKIP_FILES: set[str] = {
+        "__init__.py",
+        "__pycache__",
+        "manifest.py",
+        "conftest.py",
+        "setup.py",
+        "workspace.py",
     }
 
-    SKIP_PREFIXES: Tuple[str, ...] = ("test_", "_", ".")
+    SKIP_PREFIXES: tuple[str, ...] = ("test_", "_", ".")
 
     def __init__(self, modules_dir: Path):
         self.modules_dir = modules_dir
@@ -274,8 +308,8 @@ class FileScanner:
     def scan_module(
         self,
         module_name: str,
-        patterns: Optional[List[str]] = None,
-    ) -> List[Path]:
+        patterns: list[str] | None = None,
+    ) -> list[Path]:
         """
         Find all Python files in a module directory.
 
@@ -304,17 +338,14 @@ class FileScanner:
                 continue
 
             # If patterns specified, only include matching filenames
-            if patterns:
-                if stem not in patterns and not any(
-                    stem.startswith(p) for p in patterns
-                ):
-                    continue
+            if patterns and stem not in patterns and not any(stem.startswith(p) for p in patterns):
+                continue
 
             files.append(py_file)
 
         return sorted(files)
 
-    def discover_modules(self) -> List[str]:
+    def discover_modules(self) -> list[str]:
         """Discover all module directories (contain __init__.py or manifest.py)."""
         modules = []
         if not self.modules_dir.is_dir():
@@ -336,6 +367,7 @@ class FileScanner:
 # Manifest Differ
 # ============================================================================
 
+
 class ManifestDiffer:
     """Compares discovered components against declared manifest components."""
 
@@ -353,9 +385,9 @@ class ManifestDiffer:
 
     def diff(
         self,
-        discovered: List[ClassifiedComponent],
-        manifest_refs: Dict[str, List[str]],
-    ) -> List[SyncAction]:
+        discovered: list[ClassifiedComponent],
+        manifest_refs: dict[str, list[str]],
+    ) -> list[SyncAction]:
         """
         Calculate actions needed to sync manifest with discovered components.
 
@@ -376,15 +408,17 @@ class ManifestDiffer:
             existing = manifest_refs.get(field_name, [])
             # Check if the component is already declared
             if not self._is_declared(component, existing):
-                actions.append(SyncAction(
-                    action="add",
-                    component=component,
-                    field_name=field_name,
-                ))
+                actions.append(
+                    SyncAction(
+                        action="add",
+                        component=component,
+                        field_name=field_name,
+                    )
+                )
 
         return actions
 
-    def _is_declared(self, component: ClassifiedComponent, existing: List[str]) -> bool:
+    def _is_declared(self, component: ClassifiedComponent, existing: list[str]) -> bool:
         """Check if a component is already declared in the manifest."""
         class_name = component.name
         import_path = component.import_path
@@ -407,6 +441,7 @@ class ManifestDiffer:
 # Manifest Writer
 # ============================================================================
 
+
 class ManifestWriter:
     """
     Safely updates manifest.py files using text manipulation.
@@ -418,7 +453,7 @@ class ManifestWriter:
     def write_sync_actions(
         self,
         manifest_path: Path,
-        actions: List[SyncAction],
+        actions: list[SyncAction],
         dry_run: bool = False,
     ) -> int:
         """
@@ -440,9 +475,7 @@ class ManifestWriter:
 
         for action in actions:
             if action.action == "add":
-                new_source = self._add_component(
-                    source, action.field_name, action.component.import_path
-                )
+                new_source = self._add_component(source, action.field_name, action.component.import_path)
                 if new_source != source:
                     source = new_source
                     changes += 1
@@ -452,9 +485,7 @@ class ManifestWriter:
 
         return changes
 
-    def _add_component(
-        self, source: str, field_name: str, import_path: str
-    ) -> str:
+    def _add_component(self, source: str, field_name: str, import_path: str) -> str:
         """
         Add a component reference to a field's list in the manifest source.
 
@@ -462,12 +493,10 @@ class ManifestWriter:
         """
         # Pattern: find `field_name=[...]` including multiline
         # We need to insert before the closing `]` of the list
-        pattern = rf'({field_name}\s*=\s*\[)(.*?)(\])'
+        pattern = rf"({field_name}\s*=\s*\[)(.*?)(\])"
         match = re.search(pattern, source, re.DOTALL)
         if not match:
-            logger.warning(
-                f"Could not find '{field_name}' list in manifest source"
-            )
+            logger.warning(f"Could not find '{field_name}' list in manifest source")
             return source
 
         list_content = match.group(2)
@@ -493,6 +522,7 @@ class ManifestWriter:
 # ============================================================================
 # Auto-Discovery Engine (Orchestrator)
 # ============================================================================
+
 
 class AutoDiscoveryEngine:
     """
@@ -520,7 +550,7 @@ class AutoDiscoveryEngine:
     def discover(
         self,
         module_name: str,
-        patterns: Optional[List[str]] = None,
+        patterns: list[str] | None = None,
     ) -> DiscoveryResult:
         """
         Discover all components in a module directory.
@@ -543,9 +573,7 @@ class AutoDiscoveryEngine:
                 components = self.classifier.classify_file(file_path)
                 for comp in components:
                     # Compute import path relative to modules dir
-                    comp.import_path = self._compute_import_path(
-                        file_path, module_dir, module_name, comp.name
-                    )
+                    comp.import_path = self._compute_import_path(file_path, module_dir, module_name, comp.name)
                     result.components.append(comp)
             except Exception as e:
                 error_msg = f"Error scanning {file_path}: {e}"
@@ -554,7 +582,7 @@ class AutoDiscoveryEngine:
 
         return result
 
-    def discover_all(self) -> Dict[str, DiscoveryResult]:
+    def discover_all(self) -> dict[str, DiscoveryResult]:
         """Discover components in all modules."""
         results = {}
         for module_name in self.scanner.discover_modules():
@@ -603,7 +631,7 @@ class AutoDiscoveryEngine:
 
         return report
 
-    def sync_all(self, dry_run: bool = False) -> List[SyncReport]:
+    def sync_all(self, dry_run: bool = False) -> list[SyncReport]:
         """Sync manifests for all discovered modules."""
         reports = []
         for module_name in self.scanner.discover_modules():
@@ -628,13 +656,13 @@ class AutoDiscoveryEngine:
         dotted = ".".join(module_parts)
         return f"{dotted}:{class_name}"
 
-    def _parse_manifest_refs(self, manifest_path: Path) -> Dict[str, List[str]]:
+    def _parse_manifest_refs(self, manifest_path: Path) -> dict[str, list[str]]:
         """
         Parse a manifest.py file to extract existing component references.
 
         Returns dict of field_name → list of import path strings.
         """
-        refs: Dict[str, List[str]] = {}
+        refs: dict[str, list[str]] = {}
         try:
             source = manifest_path.read_text(encoding="utf-8")
             tree = ast.parse(source)
@@ -657,9 +685,7 @@ class AutoDiscoveryEngine:
                     if kw.arg and isinstance(kw.value, ast.List):
                         paths = []
                         for elt in kw.value.elts:
-                            if isinstance(elt, ast.Constant) and isinstance(
-                                elt.value, str
-                            ):
+                            if isinstance(elt, ast.Constant) and isinstance(elt.value, str):
                                 paths.append(elt.value)
                         if paths:
                             refs[kw.arg] = paths

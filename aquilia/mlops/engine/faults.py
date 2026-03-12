@@ -50,13 +50,12 @@ Fault Taxonomy::
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from aquilia.faults.core import (
     Fault,
     FaultDomain,
     Severity,
-    RecoveryStrategy,
 )
 
 # ── Register MLOps fault domain ──────────────────────────────────────────
@@ -77,6 +76,7 @@ FaultDomain.MLOPS_MEMORY = FaultDomain("mlops.memory", "Memory management faults
 
 # ── Base ─────────────────────────────────────────────────────────────────
 
+
 class MLOpsFault(Fault):
     """Base fault for all MLOps operations."""
 
@@ -89,7 +89,7 @@ class MLOpsFault(Fault):
         severity: Severity = Severity.ERROR,
         retryable: bool = False,
         public: bool = True,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ):
         super().__init__(
             code=code,
@@ -103,6 +103,7 @@ class MLOpsFault(Fault):
 
 
 # ── Pack Faults ──────────────────────────────────────────────────────────
+
 
 class PackFault(MLOpsFault):
     """Base fault for model packaging."""
@@ -164,6 +165,7 @@ class PackSignatureFault(PackFault):
 
 # ── Registry Faults ─────────────────────────────────────────────────────
 
+
 class RegistryFault(MLOpsFault):
     """Base fault for registry operations."""
 
@@ -218,6 +220,7 @@ class ImmutabilityViolationFault(RegistryFault):
 
 
 # ── Serving Faults ──────────────────────────────────────────────────────
+
 
 class ServingFault(MLOpsFault):
     """Base fault for model serving."""
@@ -291,6 +294,7 @@ class WarmupFault(ServingFault):
 
 # ── Observe Faults ──────────────────────────────────────────────────────
 
+
 class ObserveFault(MLOpsFault):
     """Base fault for observability."""
 
@@ -328,6 +332,7 @@ class MetricsExportFault(ObserveFault):
 
 # ── Rollout Faults ──────────────────────────────────────────────────────
 
+
 class RolloutFault(MLOpsFault):
     """Base fault for release management."""
 
@@ -362,6 +367,7 @@ class AutoRollbackFault(RolloutFault):
 
 
 # ── Scheduler Faults ────────────────────────────────────────────────────
+
 
 class SchedulerFault(MLOpsFault):
     """Base fault for scheduling."""
@@ -398,6 +404,7 @@ class ScalingFault(SchedulerFault):
 
 
 # ── Security Faults ─────────────────────────────────────────────────────
+
 
 class MLOpsSecurityFault(MLOpsFault):
     """Base fault for MLOps security."""
@@ -448,6 +455,7 @@ class EncryptionFault(MLOpsSecurityFault):
 
 # ── Plugin Faults ───────────────────────────────────────────────────────
 
+
 class PluginFault(MLOpsFault):
     """Base fault for plugin operations."""
 
@@ -483,6 +491,7 @@ class PluginHookFault(PluginFault):
 
 
 # ── Circuit Breaker / Resilience Faults ─────────────────────────────────
+
 
 class CircuitBreakerFault(MLOpsFault):
     """Base fault for circuit breaker events."""
@@ -545,6 +554,7 @@ class RateLimitFault(MLOpsFault):
 
 # ── Streaming Faults ────────────────────────────────────────────────────
 
+
 class StreamingFault(MLOpsFault):
     """Base fault for streaming inference."""
 
@@ -591,6 +601,7 @@ class TokenLimitExceededFault(StreamingFault):
 
 
 # ── Memory Faults ───────────────────────────────────────────────────────
+
 
 class MemoryFault(MLOpsFault):
     """Base fault for memory management."""

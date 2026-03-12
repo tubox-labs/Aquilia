@@ -16,56 +16,57 @@ Auth, and TemplateEngine.
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import os
-from datetime import datetime, timedelta, timezone as _tz
+from datetime import datetime, timedelta
+from datetime import timezone as _tz
 from pathlib import Path
-from typing import Any, Dict, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from aquilia.controller.base import Controller, RequestCtx
 from aquilia.controller.decorators import GET, POST
 from aquilia.response import Response
 
-from .site import AdminSite
+from .audit import AdminAction
+from .faults import AdminAuthorizationFault
 from .permissions import (
     AdminPermission,
     get_admin_role,
     has_admin_permission,
     require_admin_access,
 )
-from .audit import AdminAction
-from .faults import AdminAuthorizationFault, AdminAuthenticationFault, AdminCSRFViolationFault
-from .security import AdminSecurityPolicy
+from .site import AdminSite
 from .templates import (
-    render_login_page,
-    render_dashboard,
-    render_list_view,
-    render_form_view,
-    render_audit_page,
-    render_orm_page,
-    render_build_page,
-    render_migrations_page,
-    render_config_page,
-    render_permissions_page,
-    render_workspace_page,
-    render_monitoring_page,
-    render_containers_page,
-    render_pods_page,
-    render_storage_page,
     render_admin_users_page,
-    render_profile_page,
     render_api_keys_page,
-    render_preferences_page,
-    render_error_page,
+    render_audit_page,
+    render_build_page,
+    render_config_page,
+    render_containers_page,
+    render_dashboard,
     render_disabled_page,
-    render_forbidden_page,
-    render_query_inspector_page,
-    render_tasks_page,
+    render_error_page,
     render_errors_page,
-    render_testing_page,
-    render_mlops_page,
+    render_forbidden_page,
+    render_form_view,
+    render_list_view,
+    render_login_page,
     render_mailer_page,
+    render_migrations_page,
+    render_mlops_page,
+    render_monitoring_page,
+    render_orm_page,
+    render_permissions_page,
+    render_pods_page,
+    render_preferences_page,
+    render_profile_page,
     render_provider_page,
+    render_query_inspector_page,
+    render_storage_page,
+    render_tasks_page,
+    render_testing_page,
+    render_workspace_page,
 )
 
 if TYPE_CHECKING:
@@ -83,18 +84,18 @@ def _extract_request_meta(request) -> dict:
     user_agent = None
     try:
         # Try X-Forwarded-For first, then X-Real-IP, then peer info
-        if hasattr(request, 'headers'):
+        if hasattr(request, "headers"):
             hdrs = request.headers
-            if hasattr(hdrs, 'get'):
-                forwarded = hdrs.get('x-forwarded-for')
+            if hasattr(hdrs, "get"):
+                forwarded = hdrs.get("x-forwarded-for")
                 if forwarded:
                     # Take the first IP (client IP) from comma-separated list
-                    ip_address = forwarded.split(',')[0].strip()
+                    ip_address = forwarded.split(",")[0].strip()
                 else:
-                    ip_address = hdrs.get('x-real-ip')
-                user_agent = hdrs.get('user-agent')
-        if not ip_address and hasattr(request, 'scope'):
-            client = request.scope.get('client')
+                    ip_address = hdrs.get("x-real-ip")
+                user_agent = hdrs.get("user-agent")
+        if not ip_address and hasattr(request, "scope"):
+            client = request.scope.get("client")
             if client and isinstance(client, (list, tuple)) and len(client) >= 1:
                 ip_address = str(client[0])
     except Exception:
@@ -118,7 +119,7 @@ _CSP_NONCE_PLACEHOLDER = "__CSP_NONCE__"
 
 def _secure_html_response(
     html_content: str,
-    site: "AdminSite",
+    site: AdminSite,
     status: int = 200,
     *,
     is_asset: bool = False,
@@ -152,7 +153,7 @@ def _redirect(url: str) -> Response:
     )
 
 
-def _get_identity(ctx: RequestCtx) -> Optional[Identity]:
+def _get_identity(ctx: RequestCtx) -> Identity | None:
     """
     Extract admin identity from session or request context.
 
@@ -165,6 +166,7 @@ def _get_identity(ctx: RequestCtx) -> Optional[Identity]:
         if admin_data:
             try:
                 from aquilia.auth.core import Identity
+
                 return Identity.from_dict(admin_data)
             except Exception:
                 pass
@@ -174,14 +176,14 @@ def _get_identity(ctx: RequestCtx) -> Optional[Identity]:
     return None
 
 
-def _get_identity_name(identity: Optional[Identity]) -> str:
+def _get_identity_name(identity: Identity | None) -> str:
     """Get display name from identity."""
     if identity is None:
         return "Anonymous"
     return identity.get_attribute("name", identity.get_attribute("username", identity.id))
 
 
-def _get_identity_avatar(identity: Optional[Identity]) -> str:
+def _get_identity_avatar(identity: Identity | None) -> str:
     """Get avatar URL from identity (empty string if none set).
 
     Normalises legacy ``avatar_path`` values that were stored before the
@@ -200,6 +202,7 @@ def _get_identity_avatar(identity: Optional[Identity]) -> str:
     if "/profile/avatar/" in raw:
         return raw
     import re as _re
+
     # Legacy: stored as /admin/profile/<filename> (missing /avatar/ segment)
     legacy = _re.match(r"^(/[^/]+)/profile/([^/]+\.[a-zA-Z0-9]+)$", raw)
     if legacy:
@@ -235,7 +238,7 @@ def _require_identity(ctx: RequestCtx) -> tuple:
     return identity, None
 
 
-async def _parse_form(ctx: RequestCtx, *, multi: bool = False) -> Dict[str, Any]:
+async def _parse_form(ctx: RequestCtx, *, multi: bool = False) -> dict[str, Any]:
     """
     Parse form data from request context into a plain dict.
 
@@ -251,7 +254,7 @@ async def _parse_form(ctx: RequestCtx, *, multi: bool = False) -> Dict[str, Any]
     """
     try:
         raw_form = await ctx.form()
-        if hasattr(raw_form, 'fields'):
+        if hasattr(raw_form, "fields"):
             return raw_form.fields.to_dict(multi=multi)
         if isinstance(raw_form, dict):
             return dict(raw_form)
@@ -272,20 +275,20 @@ def _get_avatar_dir() -> Path:
     return avatar_dir
 
 
-_ALLOWED_IMAGE_TYPES: Dict[bytes, tuple] = {
-    b"\xff\xd8\xff":       ("jpg",  "image/jpeg"),
-    b"\x89PNG\r\n\x1a\n": ("png",  "image/png"),
-    b"GIF87a":            ("gif",  "image/gif"),
-    b"GIF89a":            ("gif",  "image/gif"),
-    b"RIFF":              ("webp", "image/webp"),  # RIFF....WEBP
+_ALLOWED_IMAGE_TYPES: dict[bytes, tuple] = {
+    b"\xff\xd8\xff": ("jpg", "image/jpeg"),
+    b"\x89PNG\r\n\x1a\n": ("png", "image/png"),
+    b"GIF87a": ("gif", "image/gif"),
+    b"GIF89a": ("gif", "image/gif"),
+    b"RIFF": ("webp", "image/webp"),  # RIFF....WEBP
 }
 _MAX_AVATAR_BYTES = 4 * 1024 * 1024  # 4 MB
 
 
-def _sniff_image_ext(data: bytes) -> Optional[str]:
+def _sniff_image_ext(data: bytes) -> str | None:
     """Return file extension for known image magic bytes, or None."""
     for magic, (ext, _) in _ALLOWED_IMAGE_TYPES.items():
-        if data[:len(magic)] == magic:
+        if data[: len(magic)] == magic:
             # Extra check for WebP: bytes 8-12 must be b'WEBP'
             if ext == "webp" and data[8:12] != b"WEBP":
                 continue
@@ -317,7 +320,7 @@ class AdminController(Controller):
     prefix = "/admin"
     tags = ["admin"]
 
-    def __init__(self, site: Optional[AdminSite] = None):
+    def __init__(self, site: AdminSite | None = None):
         self.site = site or AdminSite.default()
 
     def _ensure_initialized(self) -> None:
@@ -454,12 +457,15 @@ class AdminController(Controller):
             ),
         }
 
-        hint = _config_hints.get(module, (
-            f"enable_{module.lower().replace(' ', '_')}=True",
-            f"enable_{module.lower().replace(' ', '_')}=True",
-            module.lower(),
-            f"The {module} module.",
-        ))
+        hint = _config_hints.get(
+            module,
+            (
+                f"enable_{module.lower().replace(' ', '_')}=True",
+                f"enable_{module.lower().replace(' ', '_')}=True",
+                module.lower(),
+                f"The {module} module.",
+            ),
+        )
 
         builder_hint, flat_hint, icon_key, description = hint
 
@@ -474,9 +480,7 @@ class AdminController(Controller):
         )
         return _html_response(html, 200)
 
-    def _permission_denied_response(
-        self, module: str, identity, permission: "AdminPermission"
-    ) -> Response:
+    def _permission_denied_response(self, module: str, identity, permission: AdminPermission) -> Response:
         """Return a styled 403 page when a user lacks the required permission."""
         app_list = self.site.get_app_list(identity) if identity else []
         identity_name = _get_identity_name(identity)
@@ -517,9 +521,9 @@ class AdminController(Controller):
         self,
         request,
         ctx: RequestCtx,
-        form_data: Dict[str, Any],
+        form_data: dict[str, Any],
         redirect_url: str,
-    ) -> Optional[Response]:
+    ) -> Response | None:
         """
         Validate CSRF token from form_data; return redirect on failure, None on success.
 
@@ -535,7 +539,9 @@ class AdminController(Controller):
         if not self.site.security.csrf.validate_request(ctx, form_data):
             client_ip = self.site.security.extract_client_ip(request)
             self.site.security.event_tracker.record(
-                "csrf_violation", client_ip, endpoint=redirect_url,
+                "csrf_violation",
+                client_ip,
+                endpoint=redirect_url,
             )
             if ctx.session and hasattr(ctx.session, "data"):
                 ctx.session.data["_admin_flash"] = "Invalid or expired security token. Please try again."
@@ -547,8 +553,8 @@ class AdminController(Controller):
         self,
         request,
         ctx: RequestCtx,
-        form_data: Dict[str, Any],
-    ) -> Optional[Response]:
+        form_data: dict[str, Any],
+    ) -> Response | None:
         """
         Validate CSRF token from form_data; raise AdminCSRFViolationFault on failure.
 
@@ -564,14 +570,19 @@ class AdminController(Controller):
         if not self.site.security.csrf.validate_request(ctx, form_data):
             client_ip = self.site.security.extract_client_ip(request)
             self.site.security.event_tracker.record(
-                "csrf_violation", client_ip, endpoint="json-api",
+                "csrf_violation",
+                client_ip,
+                endpoint="json-api",
             )
             import json as _json
+
             return Response(
-                content=_json.dumps({
-                    "error": "csrf_failed",
-                    "message": "Invalid or expired security token. Please reload the page and try again.",
-                }).encode("utf-8"),
+                content=_json.dumps(
+                    {
+                        "error": "csrf_failed",
+                        "message": "Invalid or expired security token. Please reload the page and try again.",
+                    }
+                ).encode("utf-8"),
                 status=403,
                 headers={"content-type": "application/json"},
             )
@@ -641,10 +652,8 @@ class AdminController(Controller):
         error_stats = {}
         tasks_stats = {}
         mlops_summary = {}
-        try:
+        with contextlib.suppress(Exception):
             error_stats = self.site.get_error_tracker_data()
-        except Exception:
-            pass
         try:
             tasks_data = await self.site.get_tasks_data()
             tasks_stats = tasks_data.get("stats", {})
@@ -667,12 +676,14 @@ class AdminController(Controller):
                     "triggered_alerts_count": len(getattr(self.site, "_mlops_triggered_alerts", [])),
                 }
                 for m in md.get("models", [])[:6]:
-                    mlops_summary["models"].append({
-                        "name": m.get("name", ""),
-                        "version": m.get("version", ""),
-                        "state": m.get("state", "unknown"),
-                        "framework": m.get("framework", ""),
-                    })
+                    mlops_summary["models"].append(
+                        {
+                            "name": m.get("name", ""),
+                            "version": m.get("version", ""),
+                            "state": m.get("state", "unknown"),
+                            "framework": m.get("framework", ""),
+                        }
+                    )
             except Exception:
                 mlops_summary = {"available": False}
 
@@ -748,6 +759,7 @@ class AdminController(Controller):
         is restored.
         """
         from .templates import _render_offline_page
+
         html = _render_offline_page()
         return _secure_html_response(html, self.site)
 
@@ -765,7 +777,8 @@ class AdminController(Controller):
         csrf_token = self.site.security.csrf.get_or_create_token(ctx)
 
         resp = _secure_html_response(
-            render_login_page(csrf_token=csrf_token), self.site,
+            render_login_page(csrf_token=csrf_token),
+            self.site,
         )
         # Attach CSRF cookie for pre-session double-submit pattern
         self.site.security.csrf.apply_cookie(resp, secure=False)
@@ -789,7 +802,9 @@ class AdminController(Controller):
         is_locked, retry_after = self.site.security.rate_limiter.is_login_locked(client_ip)
         if is_locked:
             self.site.security.event_tracker.record(
-                "rate_limited", client_ip, endpoint="login",
+                "rate_limited",
+                client_ip,
+                endpoint="login",
                 retry_after=retry_after,
             )
             csrf_token = self.site.security.csrf.get_or_create_token(ctx)
@@ -807,7 +822,9 @@ class AdminController(Controller):
         # ── CSRF validation ──────────────────────────────────────
         if not self.site.security.csrf.validate_request(ctx, form_data):
             self.site.security.event_tracker.record(
-                "csrf_violation", client_ip, endpoint="login",
+                "csrf_violation",
+                client_ip,
+                endpoint="login",
             )
             csrf_token = self.site.security.csrf.get_or_create_token(ctx)
             resp = _secure_html_response(
@@ -845,8 +862,10 @@ class AdminController(Controller):
             remaining = self.site.security.rate_limiter.get_remaining_login_attempts(client_ip)
 
             self.site.security.event_tracker.record(
-                "login_failed", client_ip,
-                username=username, remaining_attempts=remaining,
+                "login_failed",
+                client_ip,
+                username=username,
+                remaining_attempts=remaining,
             )
 
             # Log failed attempt
@@ -989,11 +1008,25 @@ class AdminController(Controller):
         return _redirect("/admin/login")
 
     # Reserved names -- system pages that must not be treated as model names
-    _SYSTEM_PAGES = frozenset({
-        "login", "logout", "orm", "build", "migrations",
-        "config", "workspace", "permissions", "audit", "monitoring",
-        "admin-users", "profile", "containers", "pods", "storage",
-    })
+    _SYSTEM_PAGES = frozenset(
+        {
+            "login",
+            "logout",
+            "orm",
+            "build",
+            "migrations",
+            "config",
+            "workspace",
+            "permissions",
+            "audit",
+            "monitoring",
+            "admin-users",
+            "profile",
+            "containers",
+            "pods",
+            "storage",
+        }
+    )
 
     # ── List View ────────────────────────────────────────────────────
 
@@ -1095,7 +1128,7 @@ class AdminController(Controller):
                     message=str(e),
                     app_list=app_list,
                     identity_name=_get_identity_name(identity),
-                identity_avatar=_get_identity_avatar(identity),
+                    identity_avatar=_get_identity_avatar(identity),
                 ),
                 404,
             )
@@ -1159,7 +1192,7 @@ class AdminController(Controller):
             data=data,
             app_list=app_list,
             identity_name=_get_identity_name(identity),
-                identity_avatar=_get_identity_avatar(identity),
+            identity_avatar=_get_identity_avatar(identity),
             flash=flash,
             flash_type=flash_type,
         )
@@ -1190,7 +1223,7 @@ class AdminController(Controller):
                     message=str(e),
                     app_list=app_list,
                     identity_name=_get_identity_name(identity),
-                identity_avatar=_get_identity_avatar(identity),
+                    identity_avatar=_get_identity_avatar(identity),
                 ),
                 404,
             )
@@ -1218,7 +1251,7 @@ class AdminController(Controller):
             data=form_data,
             app_list=app_list,
             identity_name=_get_identity_name(identity),
-                identity_avatar=_get_identity_avatar(identity),
+            identity_avatar=_get_identity_avatar(identity),
             is_create=True,
         )
         return _html_response(html)
@@ -1281,7 +1314,7 @@ class AdminController(Controller):
                         message=str(e),
                         app_list=app_list,
                         identity_name=_get_identity_name(identity),
-                identity_avatar=_get_identity_avatar(identity),
+                        identity_avatar=_get_identity_avatar(identity),
                     ),
                     400,
                 )
@@ -1339,7 +1372,7 @@ class AdminController(Controller):
                     message=str(e),
                     app_list=app_list,
                     identity_name=_get_identity_name(identity),
-                identity_avatar=_get_identity_avatar(identity),
+                    identity_avatar=_get_identity_avatar(identity),
                 ),
                 404,
             )
@@ -1363,7 +1396,7 @@ class AdminController(Controller):
             data=data,
             app_list=app_list,
             identity_name=_get_identity_name(identity),
-                identity_avatar=_get_identity_avatar(identity),
+            identity_avatar=_get_identity_avatar(identity),
         )
         return _html_response(html)
 
@@ -1460,7 +1493,7 @@ class AdminController(Controller):
                         message=str(e),
                         app_list=app_list,
                         identity_name=_get_identity_name(identity),
-                identity_avatar=_get_identity_avatar(identity),
+                        identity_avatar=_get_identity_avatar(identity),
                     ),
                     400,
                 )
@@ -1538,7 +1571,11 @@ class AdminController(Controller):
         if csrf_denied:
             return csrf_denied
 
-        action_name = form_data.get("action", "") if isinstance(form_data.get("action"), str) else (form_data.get("action", [""])[0] if isinstance(form_data.get("action"), list) else "")
+        action_name = (
+            form_data.get("action", "")
+            if isinstance(form_data.get("action"), str)
+            else (form_data.get("action", [""])[0] if isinstance(form_data.get("action"), list) else "")
+        )
         selected_raw = form_data.get("selected", [])
         if isinstance(selected_raw, str):
             selected_raw = [selected_raw]
@@ -1549,7 +1586,10 @@ class AdminController(Controller):
 
         try:
             result = await self.site.execute_action(
-                model, action_name, selected_pks, identity=identity,
+                model,
+                action_name,
+                selected_pks,
+                identity=identity,
             )
             # Audit: log bulk action
             if identity and self.site.audit_log:
@@ -1591,7 +1631,10 @@ class AdminController(Controller):
 
         try:
             data = await self.site.list_records(
-                model, page=1, per_page=10000, identity=identity,
+                model,
+                page=1,
+                per_page=10000,
+                identity=identity,
             )
         except Exception as e:
             app_list = self.site.get_app_list(identity)
@@ -1602,7 +1645,7 @@ class AdminController(Controller):
                     message=str(e),
                     app_list=app_list,
                     identity_name=_get_identity_name(identity),
-                identity_avatar=_get_identity_avatar(identity),
+                    identity_avatar=_get_identity_avatar(identity),
                 ),
                 404,
             )
@@ -1624,6 +1667,7 @@ class AdminController(Controller):
 
         # Use the export system
         from aquilia.admin.export import ExportRegistry
+
         raw_headers = {c: c for c in columns}  # Keep field names as-is
         exporter = ExportRegistry.create(fmt, fields=columns, headers=raw_headers)
         if exporter:
@@ -1641,6 +1685,7 @@ class AdminController(Controller):
         # Fallback for unrecognized formats
         if fmt == "json":
             import json
+
             export_rows = []
             for row in rows:
                 export_rows.append({col: row.get(col, "") for col in columns})
@@ -1657,6 +1702,7 @@ class AdminController(Controller):
             # CSV export
             import csv
             import io
+
             buf = io.StringIO()
             writer = csv.writer(buf)
             writer.writerow(columns)
@@ -1689,6 +1735,7 @@ class AdminController(Controller):
 
         # Get audit entries for this specific record
         import json as _json
+
         history_entries = []
         if self.site.audit_log:
             # Use dedicated method that searches both memory and CROUS file
@@ -1696,7 +1743,8 @@ class AdminController(Controller):
                 raw_entries = self.site.audit_log.get_history_for_record(model, str(pk))
             else:
                 raw_entries = [
-                    e for e in self.site.audit_log.get_entries(limit=10_000)
+                    e
+                    for e in self.site.audit_log.get_entries(limit=10_000)
                     if (getattr(e, "model_name", None) or "").lower() == model.lower()
                     and str(getattr(e, "record_pk", "") or "") == str(pk)
                 ]
@@ -1731,32 +1779,32 @@ class AdminController(Controller):
                 if hasattr(ts, "isoformat"):
                     ts = ts.isoformat()
 
-                history_entries.append({
-                    "id": entry_data.get("id", ""),
-                    "timestamp": ts,
-                    "user_id": entry_data.get("user_id", ""),
-                    "username": entry_data.get("username") or "Unknown",
-                    "role": entry_data.get("role", ""),
-                    "action": str(action_val),
-                    "metadata": entry_meta,
-                    "changes": entry_changes or {},
-                    "ip_address": entry_data.get("ip_address") or "",
-                    "user_agent": entry_data.get("user_agent") or "",
-                    "success": entry_data.get("success", True),
-                    "error_message": entry_data.get("error_message") or "",
-                    "fields_changed": len(entry_changes) if entry_changes else 0,
-                })
+                history_entries.append(
+                    {
+                        "id": entry_data.get("id", ""),
+                        "timestamp": ts,
+                        "user_id": entry_data.get("user_id", ""),
+                        "username": entry_data.get("username") or "Unknown",
+                        "role": entry_data.get("role", ""),
+                        "action": str(action_val),
+                        "metadata": entry_meta,
+                        "changes": entry_changes or {},
+                        "ip_address": entry_data.get("ip_address") or "",
+                        "user_agent": entry_data.get("user_agent") or "",
+                        "success": entry_data.get("success", True),
+                        "error_message": entry_data.get("error_message") or "",
+                        "fields_changed": len(entry_changes) if entry_changes else 0,
+                    }
+                )
 
         # Compute summary stats for the history overview
-        _action_counts: Dict[str, int] = {}
+        _action_counts: dict[str, int] = {}
         _users_seen: set = set()
         for _he in history_entries:
             act = _he.get("action", "")
             _action_counts[act] = _action_counts.get(act, 0) + 1
             _users_seen.add(_he.get("username", "Unknown"))
-        total_changes = sum(
-            _he.get("fields_changed", 0) for _he in history_entries
-        )
+        total_changes = sum(_he.get("fields_changed", 0) for _he in history_entries)
         history_stats = {
             "total_entries": len(history_entries),
             "action_counts": _action_counts,
@@ -1779,7 +1827,8 @@ class AdminController(Controller):
 
         # Render using the history template
         try:
-            from .templates import _render_template, _HAS_JINJA2
+            from .templates import _HAS_JINJA2, _render_template
+
             if _HAS_JINJA2:
                 html = _render_template(
                     "history.html",
@@ -1819,8 +1868,9 @@ class AdminController(Controller):
         model = request.state.get("path_params", {}).get("model", "")
         identity, denied = _require_identity(ctx)
         if denied:
-            return Response(content=b'{"error":"unauthorized"}', status=401,
-                            headers={"content-type": "application/json"})
+            return Response(
+                content=b'{"error":"unauthorized"}', status=401, headers={"content-type": "application/json"}
+            )
 
         self._ensure_initialized()
 
@@ -1897,13 +1947,15 @@ class AdminController(Controller):
         model = request.state.get("path_params", {}).get("model", "")
         identity, denied = _require_identity(ctx)
         if denied:
-            return Response(content=b'{"error":"unauthorized"}', status=401,
-                            headers={"content-type": "application/json"})
+            return Response(
+                content=b'{"error":"unauthorized"}', status=401, headers={"content-type": "application/json"}
+            )
 
         self._ensure_initialized()
 
         try:
             from aquilia.admin.filters import resolve_filter
+
             admin_obj = self.site.get_model_admin(model)
             model_cls = self.site.get_model_class(model)
             filter_specs = admin_obj.get_list_filter()
@@ -1933,8 +1985,9 @@ class AdminController(Controller):
         model = request.state.get("path_params", {}).get("model", "")
         identity, denied = _require_identity(ctx)
         if denied:
-            return Response(content=b'{"error":"unauthorized"}', status=401,
-                            headers={"content-type": "application/json"})
+            return Response(
+                content=b'{"error":"unauthorized"}', status=401, headers={"content-type": "application/json"}
+            )
 
         self._ensure_initialized()
 
@@ -2050,7 +2103,7 @@ class AdminController(Controller):
             app_list=app_list,
             model_counts=stats.get("model_counts", {}),
             identity_name=_get_identity_name(identity),
-                identity_avatar=_get_identity_avatar(identity),
+            identity_avatar=_get_identity_avatar(identity),
             model_schema=model_schema,
             orm_metadata=orm_metadata,
         )
@@ -2099,7 +2152,7 @@ class AdminController(Controller):
             build_files=build_data.get("build_files", []),
             app_list=app_list,
             identity_name=_get_identity_name(identity),
-                identity_avatar=_get_identity_avatar(identity),
+            identity_avatar=_get_identity_avatar(identity),
         )
         return _html_response(html)
 
@@ -2142,7 +2195,7 @@ class AdminController(Controller):
             migrations=migrations,
             app_list=app_list,
             identity_name=_get_identity_name(identity),
-                identity_avatar=_get_identity_avatar(identity),
+            identity_avatar=_get_identity_avatar(identity),
         )
         return _html_response(html)
 
@@ -2186,7 +2239,7 @@ class AdminController(Controller):
             workspace_info=config_data.get("workspace", None),
             app_list=app_list,
             identity_name=_get_identity_name(identity),
-                identity_avatar=_get_identity_avatar(identity),
+            identity_avatar=_get_identity_avatar(identity),
         )
         return _html_response(html)
 
@@ -2242,7 +2295,7 @@ class AdminController(Controller):
             workspace=workspace_data,
             app_list=app_list,
             identity_name=_get_identity_name(identity),
-                identity_avatar=_get_identity_avatar(identity),
+            identity_avatar=_get_identity_avatar(identity),
         )
         return _html_response(html)
 
@@ -2294,7 +2347,7 @@ class AdminController(Controller):
             model_permissions=perms_data.get("model_permissions", []),
             app_list=app_list,
             identity_name=_get_identity_name(identity),
-                identity_avatar=_get_identity_avatar(identity),
+            identity_avatar=_get_identity_avatar(identity),
             flash=flash,
             flash_type=flash_type,
         )
@@ -2310,6 +2363,7 @@ class AdminController(Controller):
         # Only superadmins can modify permissions
         role = get_admin_role(identity)
         from .permissions import AdminRole as _AR
+
         if role is None or role != _AR.SUPERADMIN:
             if ctx.session and hasattr(ctx.session, "data"):
                 ctx.session.data["_admin_flash"] = "Only superadmins can modify permissions."
@@ -2325,6 +2379,7 @@ class AdminController(Controller):
             for pair in body.decode("utf-8").split("&"):
                 if "=" in pair:
                     from urllib.parse import unquote_plus
+
                     key, val = pair.split("=", 1)
                     form_data[unquote_plus(key)] = unquote_plus(val)
         except Exception:
@@ -2417,7 +2472,7 @@ class AdminController(Controller):
             entries=[e.to_dict() for e in entries],
             app_list=app_list,
             identity_name=_get_identity_name(identity),
-                identity_avatar=_get_identity_avatar(identity),
+            identity_avatar=_get_identity_avatar(identity),
             total=total,
             page=page,
             per_page=per_page,
@@ -2464,7 +2519,7 @@ class AdminController(Controller):
             monitoring=monitoring_data,
             app_list=app_list,
             identity_name=_get_identity_name(identity),
-                identity_avatar=_get_identity_avatar(identity),
+            identity_avatar=_get_identity_avatar(identity),
         )
         return _html_response(html)
 
@@ -2489,6 +2544,7 @@ class AdminController(Controller):
         self._ensure_initialized()
 
         import json as _json
+
         monitoring_data = self.site.get_monitoring_data()
         return Response(
             content=_json.dumps(monitoring_data, default=str).encode("utf-8"),
@@ -2535,7 +2591,7 @@ class AdminController(Controller):
             containers_data=containers_data,
             app_list=app_list,
             identity_name=_get_identity_name(identity),
-                identity_avatar=_get_identity_avatar(identity),
+            identity_avatar=_get_identity_avatar(identity),
         )
         return _html_response(html)
 
@@ -2560,6 +2616,7 @@ class AdminController(Controller):
         self._ensure_initialized()
 
         import json as _json
+
         containers_data = self.site.get_containers_data()
         return Response(
             content=_json.dumps(containers_data, default=str).encode("utf-8"),
@@ -2574,12 +2631,14 @@ class AdminController(Controller):
 
         identity, denied = _require_identity(ctx)
         if denied:
-            return Response(content=b'{"error":"unauthorized"}', status=401,
-                            headers={"content-type": "application/json"})
+            return Response(
+                content=b'{"error":"unauthorized"}', status=401, headers={"content-type": "application/json"}
+            )
 
         if not self.site.admin_config.is_module_enabled("containers"):
-            return Response(content=b'{"error":"containers disabled"}', status=404,
-                            headers={"content-type": "application/json"})
+            return Response(
+                content=b'{"error":"containers disabled"}', status=404, headers={"content-type": "application/json"}
+            )
 
         self._ensure_initialized()
 
@@ -2597,7 +2656,8 @@ class AdminController(Controller):
         if not container_id or not action:
             return Response(
                 content=_json.dumps({"success": False, "error": "Missing container_id or action"}).encode(),
-                status=400, headers={"content-type": "application/json"},
+                status=400,
+                headers={"content-type": "application/json"},
             )
 
         result = self.site.execute_container_action(container_id, action, run_params=run_params)
@@ -2617,7 +2677,8 @@ class AdminController(Controller):
             pass
         return Response(
             content=_json.dumps(result, default=str).encode("utf-8"),
-            status=200, headers={"content-type": "application/json; charset=utf-8"},
+            status=200,
+            headers={"content-type": "application/json; charset=utf-8"},
         )
 
     @POST("/containers/inspect/")
@@ -2627,12 +2688,14 @@ class AdminController(Controller):
 
         identity, denied = _require_identity(ctx)
         if denied:
-            return Response(content=b'{"error":"unauthorized"}', status=401,
-                            headers={"content-type": "application/json"})
+            return Response(
+                content=b'{"error":"unauthorized"}', status=401, headers={"content-type": "application/json"}
+            )
 
         if not self.site.admin_config.is_module_enabled("containers"):
-            return Response(content=b'{"error":"containers disabled"}', status=404,
-                            headers={"content-type": "application/json"})
+            return Response(
+                content=b'{"error":"containers disabled"}', status=404, headers={"content-type": "application/json"}
+            )
 
         self._ensure_initialized()
         form_data = await _parse_form(ctx)
@@ -2647,13 +2710,15 @@ class AdminController(Controller):
         if not container_id:
             return Response(
                 content=_json.dumps({"success": False, "error": "Missing container_id"}).encode(),
-                status=400, headers={"content-type": "application/json"},
+                status=400,
+                headers={"content-type": "application/json"},
             )
 
         result = self.site.get_container_inspect(container_id)
         return Response(
             content=_json.dumps(result, default=str).encode("utf-8"),
-            status=200, headers={"content-type": "application/json; charset=utf-8"},
+            status=200,
+            headers={"content-type": "application/json; charset=utf-8"},
         )
 
     @POST("/containers/logs/")
@@ -2663,12 +2728,14 @@ class AdminController(Controller):
 
         identity, denied = _require_identity(ctx)
         if denied:
-            return Response(content=b'{"error":"unauthorized"}', status=401,
-                            headers={"content-type": "application/json"})
+            return Response(
+                content=b'{"error":"unauthorized"}', status=401, headers={"content-type": "application/json"}
+            )
 
         if not self.site.admin_config.is_module_enabled("containers"):
-            return Response(content=b'{"error":"containers disabled"}', status=404,
-                            headers={"content-type": "application/json"})
+            return Response(
+                content=b'{"error":"containers disabled"}', status=404, headers={"content-type": "application/json"}
+            )
 
         self._ensure_initialized()
         form_data = await _parse_form(ctx)
@@ -2685,7 +2752,8 @@ class AdminController(Controller):
         if not container_id:
             return Response(
                 content=_json.dumps({"success": False, "error": "Missing container_id"}).encode(),
-                status=400, headers={"content-type": "application/json"},
+                status=400,
+                headers={"content-type": "application/json"},
             )
 
         try:
@@ -2696,7 +2764,8 @@ class AdminController(Controller):
         result = self.site.get_container_logs(container_id, tail=tail, since=since)
         return Response(
             content=_json.dumps(result, default=str).encode("utf-8"),
-            status=200, headers={"content-type": "application/json; charset=utf-8"},
+            status=200,
+            headers={"content-type": "application/json; charset=utf-8"},
         )
 
     @POST("/containers/volume-inspect/")
@@ -2706,8 +2775,9 @@ class AdminController(Controller):
 
         identity, denied = _require_identity(ctx)
         if denied:
-            return Response(content=b'{"error":"unauthorized"}', status=401,
-                            headers={"content-type": "application/json"})
+            return Response(
+                content=b'{"error":"unauthorized"}', status=401, headers={"content-type": "application/json"}
+            )
 
         self._ensure_initialized()
         form_data = await _parse_form(ctx)
@@ -2722,13 +2792,15 @@ class AdminController(Controller):
         if not name:
             return Response(
                 content=_json.dumps({"success": False, "error": "Missing volume name"}).encode(),
-                status=400, headers={"content-type": "application/json"},
+                status=400,
+                headers={"content-type": "application/json"},
             )
 
         result = self.site.get_volume_inspect(name)
         return Response(
             content=_json.dumps(result, default=str).encode("utf-8"),
-            status=200, headers={"content-type": "application/json; charset=utf-8"},
+            status=200,
+            headers={"content-type": "application/json; charset=utf-8"},
         )
 
     @POST("/containers/network-inspect/")
@@ -2738,8 +2810,9 @@ class AdminController(Controller):
 
         identity, denied = _require_identity(ctx)
         if denied:
-            return Response(content=b'{"error":"unauthorized"}', status=401,
-                            headers={"content-type": "application/json"})
+            return Response(
+                content=b'{"error":"unauthorized"}', status=401, headers={"content-type": "application/json"}
+            )
 
         self._ensure_initialized()
         form_data = await _parse_form(ctx)
@@ -2754,13 +2827,15 @@ class AdminController(Controller):
         if not network_id:
             return Response(
                 content=_json.dumps({"success": False, "error": "Missing network_id"}).encode(),
-                status=400, headers={"content-type": "application/json"},
+                status=400,
+                headers={"content-type": "application/json"},
             )
 
         result = self.site.get_network_inspect(network_id)
         return Response(
             content=_json.dumps(result, default=str).encode("utf-8"),
-            status=200, headers={"content-type": "application/json; charset=utf-8"},
+            status=200,
+            headers={"content-type": "application/json; charset=utf-8"},
         )
 
     @POST("/containers/image-inspect/")
@@ -2770,8 +2845,9 @@ class AdminController(Controller):
 
         identity, denied = _require_identity(ctx)
         if denied:
-            return Response(content=b'{"error":"unauthorized"}', status=401,
-                            headers={"content-type": "application/json"})
+            return Response(
+                content=b'{"error":"unauthorized"}', status=401, headers={"content-type": "application/json"}
+            )
 
         self._ensure_initialized()
         form_data = await _parse_form(ctx)
@@ -2786,13 +2862,15 @@ class AdminController(Controller):
         if not image_id:
             return Response(
                 content=_json.dumps({"success": False, "error": "Missing image_id"}).encode(),
-                status=400, headers={"content-type": "application/json"},
+                status=400,
+                headers={"content-type": "application/json"},
             )
 
         result = self.site.get_image_inspect(image_id)
         return Response(
             content=_json.dumps(result, default=str).encode("utf-8"),
-            status=200, headers={"content-type": "application/json; charset=utf-8"},
+            status=200,
+            headers={"content-type": "application/json; charset=utf-8"},
         )
 
     @POST("/containers/image-action/")
@@ -2802,8 +2880,9 @@ class AdminController(Controller):
 
         identity, denied = _require_identity(ctx)
         if denied:
-            return Response(content=b'{"error":"unauthorized"}', status=401,
-                            headers={"content-type": "application/json"})
+            return Response(
+                content=b'{"error":"unauthorized"}', status=401, headers={"content-type": "application/json"}
+            )
 
         self._ensure_initialized()
         form_data = await _parse_form(ctx)
@@ -2819,7 +2898,8 @@ class AdminController(Controller):
         if not image_id or not action:
             return Response(
                 content=_json.dumps({"success": False, "error": "Missing image_id or action"}).encode(),
-                status=400, headers={"content-type": "application/json"},
+                status=400,
+                headers={"content-type": "application/json"},
             )
 
         result = self.site.execute_image_action(image_id, action)
@@ -2839,7 +2919,8 @@ class AdminController(Controller):
             pass
         return Response(
             content=_json.dumps(result, default=str).encode("utf-8"),
-            status=200, headers={"content-type": "application/json; charset=utf-8"},
+            status=200,
+            headers={"content-type": "application/json; charset=utf-8"},
         )
 
     @POST("/containers/compose-action/")
@@ -2849,8 +2930,9 @@ class AdminController(Controller):
 
         identity, denied = _require_identity(ctx)
         if denied:
-            return Response(content=b'{"error":"unauthorized"}', status=401,
-                            headers={"content-type": "application/json"})
+            return Response(
+                content=b'{"error":"unauthorized"}', status=401, headers={"content-type": "application/json"}
+            )
 
         self._ensure_initialized()
         form_data = await _parse_form(ctx)
@@ -2865,7 +2947,8 @@ class AdminController(Controller):
         if not action:
             return Response(
                 content=_json.dumps({"success": False, "error": "Missing action"}).encode(),
-                status=400, headers={"content-type": "application/json"},
+                status=400,
+                headers={"content-type": "application/json"},
             )
 
         result = self.site.execute_compose_action(action)
@@ -2885,7 +2968,8 @@ class AdminController(Controller):
             pass
         return Response(
             content=_json.dumps(result, default=str).encode("utf-8"),
-            status=200, headers={"content-type": "application/json; charset=utf-8"},
+            status=200,
+            headers={"content-type": "application/json; charset=utf-8"},
         )
 
     @POST("/containers/volume-action/")
@@ -2895,8 +2979,9 @@ class AdminController(Controller):
 
         identity, denied = _require_identity(ctx)
         if denied:
-            return Response(content=b'{"error":"unauthorized"}', status=401,
-                            headers={"content-type": "application/json"})
+            return Response(
+                content=b'{"error":"unauthorized"}', status=401, headers={"content-type": "application/json"}
+            )
 
         self._ensure_initialized()
         form_data = await _parse_form(ctx)
@@ -2912,7 +2997,8 @@ class AdminController(Controller):
         if not name or not action:
             return Response(
                 content=_json.dumps({"success": False, "error": "Missing name or action"}).encode(),
-                status=400, headers={"content-type": "application/json"},
+                status=400,
+                headers={"content-type": "application/json"},
             )
 
         result = self.site.execute_volume_action(name, action)
@@ -2932,7 +3018,8 @@ class AdminController(Controller):
             pass
         return Response(
             content=_json.dumps(result, default=str).encode("utf-8"),
-            status=200, headers={"content-type": "application/json; charset=utf-8"},
+            status=200,
+            headers={"content-type": "application/json; charset=utf-8"},
         )
 
     @POST("/containers/network-action/")
@@ -2942,8 +3029,9 @@ class AdminController(Controller):
 
         identity, denied = _require_identity(ctx)
         if denied:
-            return Response(content=b'{"error":"unauthorized"}', status=401,
-                            headers={"content-type": "application/json"})
+            return Response(
+                content=b'{"error":"unauthorized"}', status=401, headers={"content-type": "application/json"}
+            )
 
         self._ensure_initialized()
         form_data = await _parse_form(ctx)
@@ -2959,7 +3047,8 @@ class AdminController(Controller):
         if not network_id or not action:
             return Response(
                 content=_json.dumps({"success": False, "error": "Missing network_id or action"}).encode(),
-                status=400, headers={"content-type": "application/json"},
+                status=400,
+                headers={"content-type": "application/json"},
             )
 
         result = self.site.execute_network_action(network_id, action)
@@ -2979,7 +3068,8 @@ class AdminController(Controller):
             pass
         return Response(
             content=_json.dumps(result, default=str).encode("utf-8"),
-            status=200, headers={"content-type": "application/json; charset=utf-8"},
+            status=200,
+            headers={"content-type": "application/json; charset=utf-8"},
         )
 
     # ── Advanced Docker Endpoints ────────────────────────────────────
@@ -2988,10 +3078,12 @@ class AdminController(Controller):
     async def docker_disk_usage(self, request, ctx: RequestCtx) -> Response:
         """Return docker system df output."""
         import json as _json
+
         identity, denied = _require_identity(ctx)
         if denied:
-            return Response(content=b'{"error":"unauthorized"}', status=401,
-                            headers={"content-type": "application/json"})
+            return Response(
+                content=b'{"error":"unauthorized"}', status=401, headers={"content-type": "application/json"}
+            )
         self._ensure_initialized()
 
         # CSRF validation (JSON API - check headers)
@@ -3002,17 +3094,20 @@ class AdminController(Controller):
         result = self.site.get_docker_disk_usage_summary()
         return Response(
             content=_json.dumps(result, default=str).encode("utf-8"),
-            status=200, headers={"content-type": "application/json; charset=utf-8"},
+            status=200,
+            headers={"content-type": "application/json; charset=utf-8"},
         )
 
     @POST("/containers/prune/")
     async def docker_prune(self, request, ctx: RequestCtx) -> Response:
         """Execute docker prune (system/images/containers/volumes/builder)."""
         import json as _json
+
         identity, denied = _require_identity(ctx)
         if denied:
-            return Response(content=b'{"error":"unauthorized"}', status=401,
-                            headers={"content-type": "application/json"})
+            return Response(
+                content=b'{"error":"unauthorized"}', status=401, headers={"content-type": "application/json"}
+            )
         self._ensure_initialized()
         form_data = await _parse_form(ctx)
 
@@ -3025,7 +3120,8 @@ class AdminController(Controller):
         if not target:
             return Response(
                 content=_json.dumps({"success": False, "error": "Missing target"}).encode(),
-                status=400, headers={"content-type": "application/json"},
+                status=400,
+                headers={"content-type": "application/json"},
             )
         result = self.site.execute_docker_prune(target)
         try:
@@ -3044,17 +3140,20 @@ class AdminController(Controller):
             pass
         return Response(
             content=_json.dumps(result, default=str).encode("utf-8"),
-            status=200, headers={"content-type": "application/json; charset=utf-8"},
+            status=200,
+            headers={"content-type": "application/json; charset=utf-8"},
         )
 
     @POST("/containers/exec/")
     async def container_exec(self, request, ctx: RequestCtx) -> Response:
         """Execute a command inside a running container."""
         import json as _json
+
         identity, denied = _require_identity(ctx)
         if denied:
-            return Response(content=b'{"error":"unauthorized"}', status=401,
-                            headers={"content-type": "application/json"})
+            return Response(
+                content=b'{"error":"unauthorized"}', status=401, headers={"content-type": "application/json"}
+            )
         self._ensure_initialized()
         form_data = await _parse_form(ctx)
 
@@ -3068,7 +3167,8 @@ class AdminController(Controller):
         if not container_id or not command:
             return Response(
                 content=_json.dumps({"success": False, "error": "Missing container_id or command"}).encode(),
-                status=400, headers={"content-type": "application/json"},
+                status=400,
+                headers={"content-type": "application/json"},
             )
         result = self.site.execute_container_exec(container_id, command)
         try:
@@ -3087,17 +3187,20 @@ class AdminController(Controller):
             pass
         return Response(
             content=_json.dumps(result, default=str).encode("utf-8"),
-            status=200, headers={"content-type": "application/json; charset=utf-8"},
+            status=200,
+            headers={"content-type": "application/json; charset=utf-8"},
         )
 
     @POST("/containers/image-history/")
     async def image_history(self, request, ctx: RequestCtx) -> Response:
         """Return docker history for an image."""
         import json as _json
+
         identity, denied = _require_identity(ctx)
         if denied:
-            return Response(content=b'{"error":"unauthorized"}', status=401,
-                            headers={"content-type": "application/json"})
+            return Response(
+                content=b'{"error":"unauthorized"}', status=401, headers={"content-type": "application/json"}
+            )
         self._ensure_initialized()
         form_data = await _parse_form(ctx)
 
@@ -3110,22 +3213,26 @@ class AdminController(Controller):
         if not image_id:
             return Response(
                 content=_json.dumps({"success": False, "error": "Missing image_id"}).encode(),
-                status=400, headers={"content-type": "application/json"},
+                status=400,
+                headers={"content-type": "application/json"},
             )
         result = self.site.get_image_history(image_id)
         return Response(
             content=_json.dumps(result, default=str).encode("utf-8"),
-            status=200, headers={"content-type": "application/json; charset=utf-8"},
+            status=200,
+            headers={"content-type": "application/json; charset=utf-8"},
         )
 
     @POST("/containers/image-tag/")
     async def image_tag(self, request, ctx: RequestCtx) -> Response:
         """Tag an image with a new name."""
         import json as _json
+
         identity, denied = _require_identity(ctx)
         if denied:
-            return Response(content=b'{"error":"unauthorized"}', status=401,
-                            headers={"content-type": "application/json"})
+            return Response(
+                content=b'{"error":"unauthorized"}', status=401, headers={"content-type": "application/json"}
+            )
         self._ensure_initialized()
         form_data = await _parse_form(ctx)
 
@@ -3139,7 +3246,8 @@ class AdminController(Controller):
         if not source or not target:
             return Response(
                 content=_json.dumps({"success": False, "error": "Missing source or target"}).encode(),
-                status=400, headers={"content-type": "application/json"},
+                status=400,
+                headers={"content-type": "application/json"},
             )
         result = self.site.execute_image_tag(source, target)
         try:
@@ -3158,17 +3266,20 @@ class AdminController(Controller):
             pass
         return Response(
             content=_json.dumps(result, default=str).encode("utf-8"),
-            status=200, headers={"content-type": "application/json; charset=utf-8"},
+            status=200,
+            headers={"content-type": "application/json; charset=utf-8"},
         )
 
     @POST("/containers/export/")
     async def container_export(self, request, ctx: RequestCtx) -> Response:
         """Export a container filesystem as tar."""
         import json as _json
+
         identity, denied = _require_identity(ctx)
         if denied:
-            return Response(content=b'{"error":"unauthorized"}', status=401,
-                            headers={"content-type": "application/json"})
+            return Response(
+                content=b'{"error":"unauthorized"}', status=401, headers={"content-type": "application/json"}
+            )
         self._ensure_initialized()
         form_data = await _parse_form(ctx)
 
@@ -3181,7 +3292,8 @@ class AdminController(Controller):
         if not container_id:
             return Response(
                 content=_json.dumps({"success": False, "error": "Missing container_id"}).encode(),
-                status=400, headers={"content-type": "application/json"},
+                status=400,
+                headers={"content-type": "application/json"},
             )
         result = self.site.execute_container_export(container_id)
         try:
@@ -3200,17 +3312,20 @@ class AdminController(Controller):
             pass
         return Response(
             content=_json.dumps(result, default=str).encode("utf-8"),
-            status=200, headers={"content-type": "application/json; charset=utf-8"},
+            status=200,
+            headers={"content-type": "application/json; charset=utf-8"},
         )
 
     @POST("/containers/create-network/")
     async def create_network(self, request, ctx: RequestCtx) -> Response:
         """Create a new Docker network."""
         import json as _json
+
         identity, denied = _require_identity(ctx)
         if denied:
-            return Response(content=b'{"error":"unauthorized"}', status=401,
-                            headers={"content-type": "application/json"})
+            return Response(
+                content=b'{"error":"unauthorized"}', status=401, headers={"content-type": "application/json"}
+            )
         self._ensure_initialized()
         form_data = await _parse_form(ctx)
 
@@ -3227,7 +3342,8 @@ class AdminController(Controller):
         if not name:
             return Response(
                 content=_json.dumps({"success": False, "error": "Missing network name"}).encode(),
-                status=400, headers={"content-type": "application/json"},
+                status=400,
+                headers={"content-type": "application/json"},
             )
         result = self.site.create_docker_network(name, driver, subnet, gateway, internal)
         try:
@@ -3246,17 +3362,20 @@ class AdminController(Controller):
             pass
         return Response(
             content=_json.dumps(result, default=str).encode("utf-8"),
-            status=200, headers={"content-type": "application/json; charset=utf-8"},
+            status=200,
+            headers={"content-type": "application/json; charset=utf-8"},
         )
 
     @POST("/containers/create-volume/")
     async def create_volume(self, request, ctx: RequestCtx) -> Response:
         """Create a new Docker volume."""
         import json as _json
+
         identity, denied = _require_identity(ctx)
         if denied:
-            return Response(content=b'{"error":"unauthorized"}', status=401,
-                            headers={"content-type": "application/json"})
+            return Response(
+                content=b'{"error":"unauthorized"}', status=401, headers={"content-type": "application/json"}
+            )
         self._ensure_initialized()
         form_data = await _parse_form(ctx)
 
@@ -3271,7 +3390,8 @@ class AdminController(Controller):
         if not name:
             return Response(
                 content=_json.dumps({"success": False, "error": "Missing volume name"}).encode(),
-                status=400, headers={"content-type": "application/json"},
+                status=400,
+                headers={"content-type": "application/json"},
             )
         result = self.site.create_docker_volume(name, driver, labels)
         try:
@@ -3290,17 +3410,20 @@ class AdminController(Controller):
             pass
         return Response(
             content=_json.dumps(result, default=str).encode("utf-8"),
-            status=200, headers={"content-type": "application/json; charset=utf-8"},
+            status=200,
+            headers={"content-type": "application/json; charset=utf-8"},
         )
 
     @POST("/containers/events/")
     async def docker_events(self, request, ctx: RequestCtx) -> Response:
         """Return recent docker events."""
         import json as _json
+
         identity, denied = _require_identity(ctx)
         if denied:
-            return Response(content=b'{"error":"unauthorized"}', status=401,
-                            headers={"content-type": "application/json"})
+            return Response(
+                content=b'{"error":"unauthorized"}', status=401, headers={"content-type": "application/json"}
+            )
         self._ensure_initialized()
         form_data = await _parse_form(ctx)
 
@@ -3313,17 +3436,20 @@ class AdminController(Controller):
         result = self.site.get_docker_events(since)
         return Response(
             content=_json.dumps(result, default=str).encode("utf-8"),
-            status=200, headers={"content-type": "application/json; charset=utf-8"},
+            status=200,
+            headers={"content-type": "application/json; charset=utf-8"},
         )
 
     @POST("/containers/build/")
     async def docker_build(self, request, ctx: RequestCtx) -> Response:
         """Execute docker build in the workspace."""
         import json as _json
+
         identity, denied = _require_identity(ctx)
         if denied:
-            return Response(content=b'{"error":"unauthorized"}', status=401,
-                            headers={"content-type": "application/json"})
+            return Response(
+                content=b'{"error":"unauthorized"}', status=401, headers={"content-type": "application/json"}
+            )
         self._ensure_initialized()
         form_data = await _parse_form(ctx)
 
@@ -3337,7 +3463,10 @@ class AdminController(Controller):
         build_args = form_data.get("build_args", "")
         target = form_data.get("target", "")
         result = self.site.execute_docker_build(
-            tag=tag, no_cache=no_cache, build_args=build_args, target=target,
+            tag=tag,
+            no_cache=no_cache,
+            build_args=build_args,
+            target=target,
         )
         try:
             meta = _extract_request_meta(request)
@@ -3355,17 +3484,20 @@ class AdminController(Controller):
             pass
         return Response(
             content=_json.dumps(result, default=str).encode("utf-8"),
-            status=200, headers={"content-type": "application/json; charset=utf-8"},
+            status=200,
+            headers={"content-type": "application/json; charset=utf-8"},
         )
 
     @POST("/containers/top/")
     async def container_top(self, request, ctx: RequestCtx) -> Response:
         """Return processes running inside a container."""
         import json as _json
+
         identity, denied = _require_identity(ctx)
         if denied:
-            return Response(content=b'{"error":"unauthorized"}', status=401,
-                            headers={"content-type": "application/json"})
+            return Response(
+                content=b'{"error":"unauthorized"}', status=401, headers={"content-type": "application/json"}
+            )
         self._ensure_initialized()
         form_data = await _parse_form(ctx)
 
@@ -3378,22 +3510,26 @@ class AdminController(Controller):
         if not container_id:
             return Response(
                 content=_json.dumps({"success": False, "error": "Missing container_id"}).encode(),
-                status=400, headers={"content-type": "application/json"},
+                status=400,
+                headers={"content-type": "application/json"},
             )
         result = self.site.get_container_top(container_id)
         return Response(
             content=_json.dumps(result, default=str).encode("utf-8"),
-            status=200, headers={"content-type": "application/json; charset=utf-8"},
+            status=200,
+            headers={"content-type": "application/json; charset=utf-8"},
         )
 
     @POST("/containers/diff/")
     async def container_diff(self, request, ctx: RequestCtx) -> Response:
         """Return filesystem changes in a container."""
         import json as _json
+
         identity, denied = _require_identity(ctx)
         if denied:
-            return Response(content=b'{"error":"unauthorized"}', status=401,
-                            headers={"content-type": "application/json"})
+            return Response(
+                content=b'{"error":"unauthorized"}', status=401, headers={"content-type": "application/json"}
+            )
         self._ensure_initialized()
         form_data = await _parse_form(ctx)
 
@@ -3406,22 +3542,26 @@ class AdminController(Controller):
         if not container_id:
             return Response(
                 content=_json.dumps({"success": False, "error": "Missing container_id"}).encode(),
-                status=400, headers={"content-type": "application/json"},
+                status=400,
+                headers={"content-type": "application/json"},
             )
         result = self.site.get_container_diff(container_id)
         return Response(
             content=_json.dumps(result, default=str).encode("utf-8"),
-            status=200, headers={"content-type": "application/json; charset=utf-8"},
+            status=200,
+            headers={"content-type": "application/json; charset=utf-8"},
         )
 
     @POST("/containers/container-stats/")
     async def container_stats_single(self, request, ctx: RequestCtx) -> Response:
         """Return single-shot stats for one container."""
         import json as _json
+
         identity, denied = _require_identity(ctx)
         if denied:
-            return Response(content=b'{"error":"unauthorized"}', status=401,
-                            headers={"content-type": "application/json"})
+            return Response(
+                content=b'{"error":"unauthorized"}', status=401, headers={"content-type": "application/json"}
+            )
         self._ensure_initialized()
         form_data = await _parse_form(ctx)
 
@@ -3434,12 +3574,14 @@ class AdminController(Controller):
         if not container_id:
             return Response(
                 content=_json.dumps({"success": False, "error": "Missing container_id"}).encode(),
-                status=400, headers={"content-type": "application/json"},
+                status=400,
+                headers={"content-type": "application/json"},
             )
         result = self.site.get_container_stats_stream(container_id)
         return Response(
             content=_json.dumps(result, default=str).encode("utf-8"),
-            status=200, headers={"content-type": "application/json; charset=utf-8"},
+            status=200,
+            headers={"content-type": "application/json; charset=utf-8"},
         )
 
     # ── Pods Page ────────────────────────────────────────────────────
@@ -3481,7 +3623,7 @@ class AdminController(Controller):
             pods_data=pods_data,
             app_list=app_list,
             identity_name=_get_identity_name(identity),
-                identity_avatar=_get_identity_avatar(identity),
+            identity_avatar=_get_identity_avatar(identity),
         )
         return _html_response(html)
 
@@ -3506,6 +3648,7 @@ class AdminController(Controller):
         self._ensure_initialized()
 
         import json as _json
+
         pods_data = self.site.get_pods_data()
         return Response(
             content=_json.dumps(pods_data, default=str).encode("utf-8"),
@@ -3552,7 +3695,7 @@ class AdminController(Controller):
             storage_data=storage_data,
             app_list=app_list,
             identity_name=_get_identity_name(identity),
-                identity_avatar=_get_identity_avatar(identity),
+            identity_avatar=_get_identity_avatar(identity),
         )
         return _html_response(html)
 
@@ -3577,6 +3720,7 @@ class AdminController(Controller):
         self._ensure_initialized()
 
         import json as _json
+
         storage_data = await self.site.get_storage_data()
 
         # ── Compute derived fields the frontend expects ──
@@ -3623,26 +3767,38 @@ class AdminController(Controller):
         """Download a file from a storage backend."""
         identity, denied = _require_identity(ctx)
         if denied:
-            return Response(content=b'{"error":"unauthorized"}', status=401, headers={"content-type": "application/json"})
+            return Response(
+                content=b'{"error":"unauthorized"}', status=401, headers={"content-type": "application/json"}
+            )
 
         if not self.site.admin_config.is_module_enabled("storage"):
-            return Response(content=b'{"error":"storage disabled"}', status=404, headers={"content-type": "application/json"})
+            return Response(
+                content=b'{"error":"storage disabled"}', status=404, headers={"content-type": "application/json"}
+            )
 
         self._ensure_initialized()
 
         backend_alias = ctx.query_param("backend", "default")
         file_path = ctx.query_param("path", "")
         if not file_path:
-            return Response(content=b'{"error":"path is required"}', status=400, headers={"content-type": "application/json"})
+            return Response(
+                content=b'{"error":"path is required"}', status=400, headers={"content-type": "application/json"}
+            )
 
         try:
             registry = self.site._storage_registry
             if not registry:
-                return Response(content=b'{"error":"storage not available"}', status=503, headers={"content-type": "application/json"})
+                return Response(
+                    content=b'{"error":"storage not available"}',
+                    status=503,
+                    headers={"content-type": "application/json"},
+                )
 
             backend = registry.get(backend_alias)
             if not backend:
-                return Response(content=b'{"error":"backend not found"}', status=404, headers={"content-type": "application/json"})
+                return Response(
+                    content=b'{"error":"backend not found"}', status=404, headers={"content-type": "application/json"}
+                )
             storage_file = await backend.open(file_path)
             # StorageFile.read() returns bytes
             content = await storage_file.read()
@@ -3650,7 +3806,8 @@ class AdminController(Controller):
 
             # Use content-type from metadata if available, else guess
             import mimetypes as _mt
-            ct = (storage_file.meta.content_type if storage_file.meta and storage_file.meta.content_type else None)
+
+            ct = storage_file.meta.content_type if storage_file.meta and storage_file.meta.content_type else None
             if not ct:
                 ct, _ = _mt.guess_type(file_path)
             ct = ct or "application/octet-stream"
@@ -3688,6 +3845,7 @@ class AdminController(Controller):
             )
         except Exception as exc:
             import json as _json
+
             return Response(
                 content=_json.dumps({"error": str(exc)}).encode("utf-8"),
                 status=500,
@@ -3699,10 +3857,14 @@ class AdminController(Controller):
         """Upload a file to a storage backend from the admin panel."""
         identity, denied = _require_identity(ctx)
         if denied:
-            return Response(content=b'{"error":"unauthorized"}', status=401, headers={"content-type": "application/json"})
+            return Response(
+                content=b'{"error":"unauthorized"}', status=401, headers={"content-type": "application/json"}
+            )
 
         if not self.site.admin_config.is_module_enabled("storage"):
-            return Response(content=b'{"error":"storage disabled"}', status=404, headers={"content-type": "application/json"})
+            return Response(
+                content=b'{"error":"storage disabled"}', status=404, headers={"content-type": "application/json"}
+            )
 
         self._ensure_initialized()
 
@@ -3717,19 +3879,37 @@ class AdminController(Controller):
             form = await ctx.multipart()
             file_obj = form.get_file("file")
             if not file_obj:
-                return Response(content=b'{"error":"no file provided"}', status=400, headers={"content-type": "application/json"})
+                return Response(
+                    content=b'{"error":"no file provided"}', status=400, headers={"content-type": "application/json"}
+                )
 
-            backend_alias = form.get_field("backend", "default") if hasattr(form, "get_field") else form.get("backend", "default")
-            file_path = (form.get_field("path", "") if hasattr(form, "get_field") else form.get("path", "")) or getattr(file_obj, "filename", "uploaded_file")
-            file_data = await file_obj.read() if hasattr(file_obj, "read") else file_obj.data if hasattr(file_obj, "data") else bytes(file_obj)
+            backend_alias = (
+                form.get_field("backend", "default") if hasattr(form, "get_field") else form.get("backend", "default")
+            )
+            file_path = (form.get_field("path", "") if hasattr(form, "get_field") else form.get("path", "")) or getattr(
+                file_obj, "filename", "uploaded_file"
+            )
+            file_data = (
+                await file_obj.read()
+                if hasattr(file_obj, "read")
+                else file_obj.data
+                if hasattr(file_obj, "data")
+                else bytes(file_obj)
+            )
 
             registry = self.site._storage_registry
             if not registry:
-                return Response(content=b'{"error":"storage not available"}', status=503, headers={"content-type": "application/json"})
+                return Response(
+                    content=b'{"error":"storage not available"}',
+                    status=503,
+                    headers={"content-type": "application/json"},
+                )
 
             backend = registry.get(backend_alias)
             if not backend:
-                return Response(content=b'{"error":"backend not found"}', status=404, headers={"content-type": "application/json"})
+                return Response(
+                    content=b'{"error":"backend not found"}', status=404, headers={"content-type": "application/json"}
+                )
             await backend.save(file_path, file_data)
 
             try:
@@ -3764,10 +3944,14 @@ class AdminController(Controller):
         """Delete a file from a storage backend."""
         identity, denied = _require_identity(ctx)
         if denied:
-            return Response(content=b'{"error":"unauthorized"}', status=401, headers={"content-type": "application/json"})
+            return Response(
+                content=b'{"error":"unauthorized"}', status=401, headers={"content-type": "application/json"}
+            )
 
         if not self.site.admin_config.is_module_enabled("storage"):
-            return Response(content=b'{"error":"storage disabled"}', status=404, headers={"content-type": "application/json"})
+            return Response(
+                content=b'{"error":"storage disabled"}', status=404, headers={"content-type": "application/json"}
+            )
 
         self._ensure_initialized()
 
@@ -3783,15 +3967,23 @@ class AdminController(Controller):
             backend_alias = body.get("backend", "default")
             file_path = body.get("path", "")
             if not file_path:
-                return Response(content=b'{"error":"path is required"}', status=400, headers={"content-type": "application/json"})
+                return Response(
+                    content=b'{"error":"path is required"}', status=400, headers={"content-type": "application/json"}
+                )
 
             registry = self.site._storage_registry
             if not registry:
-                return Response(content=b'{"error":"storage not available"}', status=503, headers={"content-type": "application/json"})
+                return Response(
+                    content=b'{"error":"storage not available"}',
+                    status=503,
+                    headers={"content-type": "application/json"},
+                )
 
             backend = registry.get(backend_alias)
             if not backend:
-                return Response(content=b'{"error":"backend not found"}', status=404, headers={"content-type": "application/json"})
+                return Response(
+                    content=b'{"error":"backend not found"}', status=404, headers={"content-type": "application/json"}
+                )
             await backend.delete(file_path)
 
             try:
@@ -3856,7 +4048,7 @@ class AdminController(Controller):
         qi_offset = (qi_page - 1) * qi_per_page
         # Show most recent first: reverse, then paginate
         reversed_queries = list(reversed(all_recent))
-        paginated_queries = reversed_queries[qi_offset:qi_offset + qi_per_page]
+        paginated_queries = reversed_queries[qi_offset : qi_offset + qi_per_page]
         query_data["recent_queries"] = paginated_queries
 
         try:
@@ -3906,6 +4098,7 @@ class AdminController(Controller):
         self._ensure_initialized()
 
         import json as _json
+
         query_data = self.site.get_query_inspector_data()
         return Response(
             content=_json.dumps(query_data, default=str).encode("utf-8"),
@@ -3977,6 +4170,7 @@ class AdminController(Controller):
         self._ensure_initialized()
 
         import json as _json
+
         mailer_data = self.site.get_mailer_data()
         return Response(
             content=_json.dumps(mailer_data, default=str).encode("utf-8"),
@@ -4041,6 +4235,7 @@ class AdminController(Controller):
 
         # Validate email format
         import re
+
         email_re = re.compile(r"^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$")
         if not email_re.match(to_email):
             return Response(
@@ -4055,6 +4250,7 @@ class AdminController(Controller):
         # Default body
         if not body_text and not body_html:
             from datetime import datetime, timezone
+
             now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
             body_text = (
                 f"This is a test email sent from Aquilia Admin at {now}.\n\n"
@@ -4069,10 +4265,10 @@ class AdminController(Controller):
                 f'padding:32px;color:white;text-align:center;margin-bottom:24px;">'
                 f'<h1 style="margin:0 0 8px;font-size:24px;">✉️ Aquilia Test Email</h1>'
                 f'<p style="margin:0;opacity:0.9;font-size:14px;">Mail subsystem verification</p>'
-                f'</div>'
+                f"</div>"
                 f'<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:24px;">'
                 f'<p style="margin:0 0 12px;color:#334155;">This is a <strong>test email</strong> '
-                f'sent from the Aquilia Admin panel.</p>'
+                f"sent from the Aquilia Admin panel.</p>"
                 f'<table style="width:100%;font-size:13px;color:#64748b;">'
                 f'<tr><td style="padding:4px 0;font-weight:600;">Sent at:</td>'
                 f'<td style="padding:4px 0;">{now}</td></tr>'
@@ -4080,11 +4276,11 @@ class AdminController(Controller):
                 f'<td style="padding:4px 0;">{_get_identity_name(identity)}</td></tr>'
                 f'<tr><td style="padding:4px 0;font-weight:600;">Priority:</td>'
                 f'<td style="padding:4px 0;">{priority.title()}</td></tr>'
-                f'</table>'
-                f'</div>'
+                f"</table>"
+                f"</div>"
                 f'<p style="text-align:center;color:#94a3b8;font-size:12px;margin-top:16px;">'
-                f'Powered by AquilaMail — Production-ready async mail for Aquilia</p>'
-                f'</div>'
+                f"Powered by AquilaMail — Production-ready async mail for Aquilia</p>"
+                f"</div>"
             )
 
         if not subject:
@@ -4097,7 +4293,7 @@ class AdminController(Controller):
             if svc is None:
                 result["error"] = "MailService not available. Ensure mail integration is enabled."
             else:
-                from aquilia.mail.message import EmailMessage, EmailMultiAlternatives
+                from aquilia.mail.message import EmailMultiAlternatives
 
                 msg = EmailMultiAlternatives(
                     subject=subject,
@@ -4187,11 +4383,14 @@ class AdminController(Controller):
         overall = all(r["healthy"] for r in results.values()) if results else False
 
         return Response(
-            content=_json.dumps({
-                "overall_healthy": overall,
-                "providers": results,
-                "checked_count": len(results),
-            }, default=str).encode("utf-8"),
+            content=_json.dumps(
+                {
+                    "overall_healthy": overall,
+                    "providers": results,
+                    "checked_count": len(results),
+                },
+                default=str,
+            ).encode("utf-8"),
             status=200,
             headers={"content-type": "application/json; charset=utf-8"},
         )
@@ -4260,6 +4459,7 @@ class AdminController(Controller):
         self._ensure_initialized()
 
         import json as _json
+
         provider_data = self.site.get_provider_data()
         # Summary for lightweight polling
         summary = {
@@ -4297,6 +4497,7 @@ class AdminController(Controller):
         self._ensure_initialized()
 
         import json as _json
+
         # Get service_id from query params
         service_id = ""
         if hasattr(request, "query_params"):
@@ -4325,16 +4526,19 @@ class AdminController(Controller):
 
         identity, denied = _require_identity(ctx)
         if denied:
-            return Response(content=b'{"error":"unauthorized"}', status=401,
-                            headers={"content-type": "application/json"})
+            return Response(
+                content=b'{"error":"unauthorized"}', status=401, headers={"content-type": "application/json"}
+            )
 
         if not self.site.admin_config.is_module_enabled("provider"):
-            return Response(content=b'{"error":"provider disabled"}', status=404,
-                            headers={"content-type": "application/json"})
+            return Response(
+                content=b'{"error":"provider disabled"}', status=404, headers={"content-type": "application/json"}
+            )
 
         if not has_admin_permission(identity, AdminPermission.PROVIDER_MANAGE):
-            return Response(content=b'{"error":"permission denied"}', status=403,
-                            headers={"content-type": "application/json"})
+            return Response(
+                content=b'{"error":"permission denied"}', status=403, headers={"content-type": "application/json"}
+            )
 
         self._ensure_initialized()
 
@@ -4361,7 +4565,8 @@ class AdminController(Controller):
         if not action:
             return Response(
                 content=_json.dumps({"success": False, "message": "Missing action"}).encode(),
-                status=400, headers={"content-type": "application/json"},
+                status=400,
+                headers={"content-type": "application/json"},
             )
 
         # Build extra_data for actions that need additional fields (e.g. provider_login)
@@ -4372,7 +4577,10 @@ class AdminController(Controller):
             extra_data["default_region"] = form_data.get("default_region", "oregon")
 
         result = await self.site.execute_provider_action(
-            action, service_id, deploy_id, extra_data=extra_data,
+            action,
+            service_id,
+            deploy_id,
+            extra_data=extra_data,
         )
 
         # Audit log
@@ -4462,6 +4670,7 @@ class AdminController(Controller):
         self._ensure_initialized()
 
         import json as _json
+
         tasks_data = await self.site.get_tasks_data()
         return Response(
             content=_json.dumps(tasks_data, default=str).encode("utf-8"),
@@ -4533,6 +4742,7 @@ class AdminController(Controller):
         self._ensure_initialized()
 
         import json as _json
+
         errors_data = self.site.get_error_tracker_data()
         return Response(
             content=_json.dumps(errors_data, default=str).encode("utf-8"),
@@ -4604,6 +4814,7 @@ class AdminController(Controller):
         self._ensure_initialized()
 
         import json as _json
+
         testing_data = self.site.get_testing_data()
         return Response(
             content=_json.dumps(testing_data, default=str).encode("utf-8"),
@@ -4675,6 +4886,7 @@ class AdminController(Controller):
         self._ensure_initialized()
 
         import json as _json
+
         mlops_data = self.site.get_mlops_data()
         return Response(
             content=_json.dumps(mlops_data, default=str).encode("utf-8"),
@@ -4699,12 +4911,14 @@ class AdminController(Controller):
 
         identity, denied = _require_identity(ctx)
         if denied:
-            return Response(content=b'{"error":"unauthorized"}', status=401,
-                            headers={"content-type": "application/json"})
+            return Response(
+                content=b'{"error":"unauthorized"}', status=401, headers={"content-type": "application/json"}
+            )
 
         if not self.site.admin_config.is_module_enabled("mlops"):
-            return Response(content=b'{"error":"mlops disabled"}', status=404,
-                            headers={"content-type": "application/json"})
+            return Response(
+                content=b'{"error":"mlops disabled"}', status=404, headers={"content-type": "application/json"}
+            )
 
         # CSRF validation (JSON API)
         csrf_denied = self._csrf_reject_json(request, ctx, {})
@@ -4715,16 +4929,18 @@ class AdminController(Controller):
             raw_body = await request.body()
             body = _json.loads(raw_body) if raw_body else {}
         except Exception:
-            return Response(content=b'{"error":"invalid JSON body"}', status=400,
-                            headers={"content-type": "application/json"})
+            return Response(
+                content=b'{"error":"invalid JSON body"}', status=400, headers={"content-type": "application/json"}
+            )
 
         model_name = body.get("model", "")
         model_input = body.get("input", {})
         version = body.get("version", "")
 
         if not model_name:
-            return Response(content=b'{"error":"model name required"}', status=400,
-                            headers={"content-type": "application/json"})
+            return Response(
+                content=b'{"error":"model name required"}', status=400, headers={"content-type": "application/json"}
+            )
 
         result: dict = {"model": model_name, "version": version, "status": "error"}
 
@@ -4753,6 +4969,7 @@ class AdminController(Controller):
                     model_instance = entry.model_class()
                     if hasattr(model_instance, "load"):
                         import asyncio
+
                         coro = model_instance.load("", "cpu")
                         if asyncio.iscoroutine(coro):
                             await coro
@@ -4775,6 +4992,7 @@ class AdminController(Controller):
 
             # Pre-process → Predict → Post-process
             import asyncio
+
             start = _time.perf_counter()
 
             processed_input = model_input
@@ -4811,16 +5029,20 @@ class AdminController(Controller):
                 self.site._mlops_inference_history = []
                 history = self.site._mlops_inference_history
             import datetime
-            history.insert(0, {
-                "model": model_name,
-                "version": version or getattr(entry, "version", "?"),
-                "input": model_input,
-                "output": output,
-                "latency_ms": round(elapsed, 2),
-                "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-                "status": "ok",
-                "user": _get_identity_name(identity),
-            })
+
+            history.insert(
+                0,
+                {
+                    "model": model_name,
+                    "version": version or getattr(entry, "version", "?"),
+                    "input": model_input,
+                    "output": output,
+                    "latency_ms": round(elapsed, 2),
+                    "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                    "status": "ok",
+                    "user": _get_identity_name(identity),
+                },
+            )
             # Keep only last 100 entries
             if len(history) > 100:
                 self.site._mlops_inference_history = history[:100]
@@ -4839,17 +5061,21 @@ class AdminController(Controller):
                 self.site._mlops_inference_history = []
                 history = self.site._mlops_inference_history
             import datetime
-            history.insert(0, {
-                "model": model_name,
-                "version": version,
-                "input": model_input,
-                "output": None,
-                "error": str(e),
-                "latency_ms": 0,
-                "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-                "status": "error",
-                "user": _get_identity_name(identity),
-            })
+
+            history.insert(
+                0,
+                {
+                    "model": model_name,
+                    "version": version,
+                    "input": model_input,
+                    "output": None,
+                    "error": str(e),
+                    "latency_ms": 0,
+                    "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                    "status": "error",
+                    "user": _get_identity_name(identity),
+                },
+            )
             if len(history) > 100:
                 self.site._mlops_inference_history = history[:100]
 
@@ -4889,12 +5115,14 @@ class AdminController(Controller):
 
         identity, denied = _require_identity(ctx)
         if denied:
-            return Response(content=b'{"error":"unauthorized"}', status=401,
-                            headers={"content-type": "application/json"})
+            return Response(
+                content=b'{"error":"unauthorized"}', status=401, headers={"content-type": "application/json"}
+            )
 
         if not self.site.admin_config.is_module_enabled("mlops"):
-            return Response(content=b'{"error":"mlops disabled"}', status=404,
-                            headers={"content-type": "application/json"})
+            return Response(
+                content=b'{"error":"mlops disabled"}', status=404, headers={"content-type": "application/json"}
+            )
 
         # CSRF validation (JSON API)
         csrf_denied = self._csrf_reject_json(request, ctx, {})
@@ -4905,15 +5133,19 @@ class AdminController(Controller):
             raw_body = await request.body()
             body = _json.loads(raw_body) if raw_body else {}
         except Exception:
-            return Response(content=b'{"error":"invalid JSON body"}', status=400,
-                            headers={"content-type": "application/json"})
+            return Response(
+                content=b'{"error":"invalid JSON body"}', status=400, headers={"content-type": "application/json"}
+            )
 
         model_names = body.get("models", [])
         model_input = body.get("input", {})
 
         if not model_names or len(model_names) < 2:
-            return Response(content=b'{"error":"at least 2 model names required"}', status=400,
-                            headers={"content-type": "application/json"})
+            return Response(
+                content=b'{"error":"at least 2 model names required"}',
+                status=400,
+                headers={"content-type": "application/json"},
+            )
 
         registry = getattr(self.site, "_mlops_registry", None)
         results = []
@@ -4936,6 +5168,7 @@ class AdminController(Controller):
                 elif hasattr(entry, "model_class"):
                     try:
                         import asyncio
+
                         model_instance = entry.model_class()
                         if hasattr(model_instance, "load"):
                             coro = model_instance.load("", "cpu")
@@ -4953,6 +5186,7 @@ class AdminController(Controller):
                     continue
 
                 import asyncio
+
                 start = _time.perf_counter()
 
                 processed = model_input
@@ -5022,12 +5256,14 @@ class AdminController(Controller):
 
         identity, denied = _require_identity(ctx)
         if denied:
-            return Response(content=b'{"error":"unauthorized"}', status=401,
-                            headers={"content-type": "application/json"})
+            return Response(
+                content=b'{"error":"unauthorized"}', status=401, headers={"content-type": "application/json"}
+            )
 
         if not self.site.admin_config.is_module_enabled("mlops"):
-            return Response(content=b'{"error":"mlops disabled"}', status=404,
-                            headers={"content-type": "application/json"})
+            return Response(
+                content=b'{"error":"mlops disabled"}', status=404, headers={"content-type": "application/json"}
+            )
 
         # CSRF validation (JSON API)
         csrf_denied = self._csrf_reject_json(request, ctx, {})
@@ -5050,6 +5286,7 @@ class AdminController(Controller):
 
                         if model_instance is not None and hasattr(model_instance, "health"):
                             import asyncio
+
                             start = _time.perf_counter()
                             h = model_instance.health()
                             if asyncio.iscoroutine(h):
@@ -5062,7 +5299,11 @@ class AdminController(Controller):
                             check["status"] = details.get("status", "ok") if isinstance(details, dict) else "ok"
                         else:
                             state = getattr(entry, "state", "unknown")
-                            check["status"] = state if isinstance(state, str) else (state.value if hasattr(state, "value") else str(state))
+                            check["status"] = (
+                                state
+                                if isinstance(state, str)
+                                else (state.value if hasattr(state, "value") else str(state))
+                            )
                             check["details"] = {"state": check["status"]}
                     except Exception as e:
                         check["status"] = "error"
@@ -5109,12 +5350,14 @@ class AdminController(Controller):
 
         identity, denied = _require_identity(ctx)
         if denied:
-            return Response(content=b'{"error":"unauthorized"}', status=401,
-                            headers={"content-type": "application/json"})
+            return Response(
+                content=b'{"error":"unauthorized"}', status=401, headers={"content-type": "application/json"}
+            )
 
         if not self.site.admin_config.is_module_enabled("mlops"):
-            return Response(content=b'{"error":"mlops disabled"}', status=404,
-                            headers={"content-type": "application/json"})
+            return Response(
+                content=b'{"error":"mlops disabled"}', status=404, headers={"content-type": "application/json"}
+            )
 
         # CSRF validation (JSON API)
         csrf_denied = self._csrf_reject_json(request, ctx, {})
@@ -5125,19 +5368,24 @@ class AdminController(Controller):
             raw_body = await request.body()
             body = _json.loads(raw_body) if raw_body else {}
         except Exception:
-            return Response(content=b'{"error":"invalid JSON body"}', status=400,
-                            headers={"content-type": "application/json"})
+            return Response(
+                content=b'{"error":"invalid JSON body"}', status=400, headers={"content-type": "application/json"}
+            )
 
         model_name = body.get("model", "")
         inputs = body.get("inputs", [])
 
         if not model_name:
-            return Response(content=b'{"error":"model name required"}', status=400,
-                            headers={"content-type": "application/json"})
+            return Response(
+                content=b'{"error":"model name required"}', status=400, headers={"content-type": "application/json"}
+            )
 
         if not inputs or not isinstance(inputs, list):
-            return Response(content=b'{"error":"inputs must be a non-empty array"}', status=400,
-                            headers={"content-type": "application/json"})
+            return Response(
+                content=b'{"error":"inputs must be a non-empty array"}',
+                status=400,
+                headers={"content-type": "application/json"},
+            )
 
         # Cap batch size at 50
         inputs = inputs[:50]
@@ -5150,7 +5398,8 @@ class AdminController(Controller):
         if entry is None:
             return Response(
                 content=_json.dumps({"error": f"Model '{model_name}' not found"}).encode("utf-8"),
-                status=404, headers={"content-type": "application/json; charset=utf-8"},
+                status=404,
+                headers={"content-type": "application/json; charset=utf-8"},
             )
 
         model_instance = None
@@ -5159,6 +5408,7 @@ class AdminController(Controller):
         elif hasattr(entry, "model_class"):
             try:
                 import asyncio
+
                 model_instance = entry.model_class()
                 if hasattr(model_instance, "load"):
                     coro = model_instance.load("", "cpu")
@@ -5168,13 +5418,15 @@ class AdminController(Controller):
             except Exception as e:
                 return Response(
                     content=_json.dumps({"error": f"Load failed: {str(e)}"}).encode("utf-8"),
-                    status=500, headers={"content-type": "application/json; charset=utf-8"},
+                    status=500,
+                    headers={"content-type": "application/json; charset=utf-8"},
                 )
 
         if model_instance is None:
             return Response(
                 content=_json.dumps({"error": "Instance not available"}).encode("utf-8"),
-                status=500, headers={"content-type": "application/json; charset=utf-8"},
+                status=500,
+                headers={"content-type": "application/json; charset=utf-8"},
             )
 
         results = []
@@ -5185,6 +5437,7 @@ class AdminController(Controller):
             row: dict = {"input": item, "status": "ok"}
             try:
                 import asyncio
+
                 start = _time.perf_counter()
 
                 processed = item
@@ -5227,7 +5480,12 @@ class AdminController(Controller):
                 role=str(get_admin_role(identity) or "unknown"),
                 action=AdminAction.ML_BATCH_INFERENCE,
                 model_name="MLOps",
-                metadata={"model": model_name, "batch_size": len(inputs), "errors": errors, "total_ms": round(total_elapsed, 2)},
+                metadata={
+                    "model": model_name,
+                    "batch_size": len(inputs),
+                    "errors": errors,
+                    "total_ms": round(total_elapsed, 2),
+                },
                 ip_address=meta.get("ip_address"),
                 user_agent=meta.get("user_agent"),
             )
@@ -5235,14 +5493,17 @@ class AdminController(Controller):
             pass
 
         return Response(
-            content=_json.dumps({
-                "results": results,
-                "total_latency_ms": round(total_elapsed, 2),
-                "count": len(results),
-                "errors": errors,
-                "model": model_name,
-                "avg_latency_ms": round(total_elapsed / len(results), 2) if results else 0,
-            }, default=str).encode("utf-8"),
+            content=_json.dumps(
+                {
+                    "results": results,
+                    "total_latency_ms": round(total_elapsed, 2),
+                    "count": len(results),
+                    "errors": errors,
+                    "model": model_name,
+                    "avg_latency_ms": round(total_elapsed / len(results), 2) if results else 0,
+                },
+                default=str,
+            ).encode("utf-8"),
             status=200,
             headers={"content-type": "application/json; charset=utf-8"},
         )
@@ -5254,8 +5515,9 @@ class AdminController(Controller):
 
         identity, denied = _require_identity(ctx)
         if denied:
-            return Response(content=b'{"error":"unauthorized"}', status=401,
-                            headers={"content-type": "application/json"})
+            return Response(
+                content=b'{"error":"unauthorized"}', status=401, headers={"content-type": "application/json"}
+            )
 
         history = getattr(self.site, "_mlops_inference_history", [])
         return Response(
@@ -5276,8 +5538,9 @@ class AdminController(Controller):
 
         identity, denied = _require_identity(ctx)
         if denied:
-            return Response(content=b'{"error":"unauthorized"}', status=401,
-                            headers={"content-type": "application/json"})
+            return Response(
+                content=b'{"error":"unauthorized"}', status=401, headers={"content-type": "application/json"}
+            )
 
         # CSRF validation (JSON API)
         csrf_denied = self._csrf_reject_json(request, ctx, {})
@@ -5288,8 +5551,9 @@ class AdminController(Controller):
             raw_body = await request.body()
             body = _json.loads(raw_body) if raw_body else {}
         except Exception:
-            return Response(content=b'{"error":"invalid JSON body"}', status=400,
-                            headers={"content-type": "application/json"})
+            return Response(
+                content=b'{"error":"invalid JSON body"}', status=400, headers={"content-type": "application/json"}
+            )
 
         rules = body.get("rules", [])
         self.site._mlops_alert_rules = rules
@@ -5297,7 +5561,7 @@ class AdminController(Controller):
         # Evaluate alerts against current data
         triggered = []
         mlops_data = self.site.get_mlops_data()
-        metrics = mlops_data.get("metrics", {})
+        mlops_data.get("metrics", {})
         latency = mlops_data.get("latency", {})
 
         metric_map = {
@@ -5329,22 +5593,27 @@ class AdminController(Controller):
             op = rule.get("operator", ">")
             threshold = rule.get("threshold", 0)
             fired = False
-            if op == ">" and metric_val > threshold:
-                fired = True
-            elif op == ">=" and metric_val >= threshold:
-                fired = True
-            elif op == "<" and metric_val < threshold:
-                fired = True
-            elif op == "==" and metric_val == threshold:
+            if (
+                op == ">"
+                and metric_val > threshold
+                or op == ">="
+                and metric_val >= threshold
+                or op == "<"
+                and metric_val < threshold
+                or op == "=="
+                and metric_val == threshold
+            ):
                 fired = True
             if fired:
-                triggered.append({
-                    "metric": rule.get("metric"),
-                    "current_value": round(metric_val, 4),
-                    "threshold": threshold,
-                    "operator": op,
-                    "severity": rule.get("severity", "warning"),
-                })
+                triggered.append(
+                    {
+                        "metric": rule.get("metric"),
+                        "current_value": round(metric_val, 4),
+                        "threshold": threshold,
+                        "operator": op,
+                        "severity": rule.get("severity", "warning"),
+                    }
+                )
 
         self.site._mlops_triggered_alerts = triggered
 
@@ -5372,13 +5641,14 @@ class AdminController(Controller):
     @POST("/mlops/api/export-snapshot/")
     async def mlops_export_snapshot(self, request, ctx: RequestCtx) -> Response:
         """Export a full MLOps state snapshot as JSON."""
-        import json as _json
         import datetime
+        import json as _json
 
         identity, denied = _require_identity(ctx)
         if denied:
-            return Response(content=b'{"error":"unauthorized"}', status=401,
-                            headers={"content-type": "application/json"})
+            return Response(
+                content=b'{"error":"unauthorized"}', status=401, headers={"content-type": "application/json"}
+            )
 
         # CSRF validation (JSON API)
         csrf_denied = self._csrf_reject_json(request, ctx, {})
@@ -5441,6 +5711,7 @@ class AdminController(Controller):
         users = []
         try:
             from aquilia.admin.models import AdminUser
+
             all_users = await AdminUser.objects.all()
             users = [
                 {
@@ -5488,7 +5759,7 @@ class AdminController(Controller):
             users=users,
             app_list=app_list,
             identity_name=_get_identity_name(identity),
-                identity_avatar=_get_identity_avatar(identity),
+            identity_avatar=_get_identity_avatar(identity),
             flash=flash,
             flash_type=flash_type,
         )
@@ -5509,9 +5780,7 @@ class AdminController(Controller):
         client_ip = self.site.security.extract_client_ip(request)
 
         # Rate limit sensitive operation
-        allowed, retry_after = self.site.security.rate_limiter.check_sensitive_op(
-            client_ip, "admin_user_create"
-        )
+        allowed, retry_after = self.site.security.rate_limiter.check_sensitive_op(client_ip, "admin_user_create")
         if not allowed:
             if ctx.session and hasattr(ctx.session, "data"):
                 ctx.session.data["_admin_flash"] = f"Rate limited. Try again in {retry_after} seconds."
@@ -5552,7 +5821,6 @@ class AdminController(Controller):
 
             # Three roles: superadmin, staff, viewer
             is_superuser = role == "superadmin"
-            is_staff = role in ("superadmin", "staff")
 
             if is_superuser:
                 user = await AdminUser.create_superuser(
@@ -5605,7 +5873,7 @@ class AdminController(Controller):
             elif "unique constraint" in err_msg and "email" in err_msg:
                 flash_msg = f"Email '{email}' is already registered to another admin."
             elif "unique constraint" in err_msg:
-                flash_msg = f"A user with that username or email already exists."
+                flash_msg = "A user with that username or email already exists."
             else:
                 flash_msg = f"Failed to create admin: {e}"
             if ctx.session and hasattr(ctx.session, "data"):
@@ -5636,6 +5904,7 @@ class AdminController(Controller):
 
         try:
             from aquilia.admin.models import AdminUser
+
             user = await AdminUser.objects.get(pk=user_id)
             user.is_active = not user.is_active
             await user.save()
@@ -5699,6 +5968,7 @@ class AdminController(Controller):
 
         try:
             from aquilia.admin.models import AdminUser
+
             user = await AdminUser.objects.get(pk=user_id)
             user.set_password(new_password)
             await user.save()
@@ -5751,6 +6021,7 @@ class AdminController(Controller):
 
         try:
             from aquilia.admin.models import AdminUser
+
             user = await AdminUser.objects.get(pk=user_id)
 
             if user.is_superuser:
@@ -5809,7 +6080,8 @@ class AdminController(Controller):
         username = identity.get_attribute("username", identity.id)
         keys = []
         try:
-            from aquilia.admin.models import AdminUser, AdminAPIKey
+            from aquilia.admin.models import AdminAPIKey, AdminUser
+
             user = await AdminUser.objects.filter(username=username).first()
             if user:
                 user_keys = await AdminAPIKey.objects.filter(user_id=user.pk).all()
@@ -5867,6 +6139,7 @@ class AdminController(Controller):
 
         self._ensure_initialized()
         import json as _json
+
         form_data = await _parse_form(ctx)
 
         # CSRF validation
@@ -5894,7 +6167,9 @@ class AdminController(Controller):
         expires_raw = form_data.get("expires_at", "")
         if expires_raw:
             try:
-                from datetime import datetime as _dt, timezone as _tz
+                from datetime import datetime as _dt
+                from datetime import timezone as _tz
+
                 expires_at = _dt.fromisoformat(expires_raw)
                 if expires_at.tzinfo is None:
                     expires_at = expires_at.replace(tzinfo=_tz.utc)
@@ -5903,7 +6178,8 @@ class AdminController(Controller):
 
         username = identity.get_attribute("username", identity.id)
         try:
-            from aquilia.admin.models import AdminUser, AdminAPIKey
+            from aquilia.admin.models import AdminAPIKey, AdminUser
+
             user = await AdminUser.objects.filter(username=username).first()
             if not user:
                 return Response(
@@ -5938,12 +6214,14 @@ class AdminController(Controller):
                 pass
 
             return Response(
-                content=_json.dumps({
-                    "success": True,
-                    "raw_key": raw_key,
-                    "key": key_obj.to_safe_dict(),
-                    "message": "API key created. Copy the raw key now — it will not be shown again.",
-                }).encode("utf-8"),
+                content=_json.dumps(
+                    {
+                        "success": True,
+                        "raw_key": raw_key,
+                        "key": key_obj.to_safe_dict(),
+                        "message": "API key created. Copy the raw key now — it will not be shown again.",
+                    }
+                ).encode("utf-8"),
                 status=201,
                 headers={"content-type": "application/json"},
             )
@@ -5967,6 +6245,7 @@ class AdminController(Controller):
 
         self._ensure_initialized()
         import json as _json
+
         form_data = await _parse_form(ctx)
 
         csrf_denied = self._csrf_reject_json(request, ctx, form_data)
@@ -5983,7 +6262,8 @@ class AdminController(Controller):
 
         username = identity.get_attribute("username", identity.id)
         try:
-            from aquilia.admin.models import AdminUser, AdminAPIKey
+            from aquilia.admin.models import AdminAPIKey, AdminUser
+
             user = await AdminUser.objects.filter(username=username).first()
             if not user:
                 return Response(
@@ -6043,6 +6323,7 @@ class AdminController(Controller):
 
         self._ensure_initialized()
         import json as _json
+
         form_data = await _parse_form(ctx)
 
         csrf_denied = self._csrf_reject_json(request, ctx, form_data)
@@ -6059,7 +6340,8 @@ class AdminController(Controller):
 
         username = identity.get_attribute("username", identity.id)
         try:
-            from aquilia.admin.models import AdminUser, AdminAPIKey
+            from aquilia.admin.models import AdminAPIKey, AdminUser
+
             user = await AdminUser.objects.filter(username=username).first()
             if not user:
                 return Response(
@@ -6128,7 +6410,8 @@ class AdminController(Controller):
         username = identity.get_attribute("username", identity.id)
         prefs = []
         try:
-            from aquilia.admin.models import AdminUser, AdminPreference
+            from aquilia.admin.models import AdminPreference, AdminUser
+
             user = await AdminUser.objects.filter(username=username).first()
             if user:
                 user_prefs = await AdminPreference.objects.filter(user_id=user.pk).all()
@@ -6180,7 +6463,8 @@ class AdminController(Controller):
 
         username = identity.get_attribute("username", identity.id)
         try:
-            from aquilia.admin.models import AdminUser, AdminPreference
+            from aquilia.admin.models import AdminPreference, AdminUser
+
             user = await AdminUser.objects.filter(username=username).first()
             if not user:
                 return Response(
@@ -6191,11 +6475,13 @@ class AdminController(Controller):
 
             pref = await AdminPreference.get_or_create(user_id=user.pk, namespace=namespace)
             return Response(
-                content=_json.dumps({
-                    "namespace": namespace,
-                    "data": pref.get_data(),
-                    "updated_at": str(pref.updated_at or ""),
-                }).encode("utf-8"),
+                content=_json.dumps(
+                    {
+                        "namespace": namespace,
+                        "data": pref.get_data(),
+                        "updated_at": str(pref.updated_at or ""),
+                    }
+                ).encode("utf-8"),
                 status=200,
                 headers={"content-type": "application/json"},
             )
@@ -6221,6 +6507,7 @@ class AdminController(Controller):
 
         self._ensure_initialized()
         import json as _json
+
         form_data = await _parse_form(ctx)
 
         csrf_denied = self._csrf_reject_json(request, ctx, form_data)
@@ -6249,7 +6536,8 @@ class AdminController(Controller):
 
         username = identity.get_attribute("username", identity.id)
         try:
-            from aquilia.admin.models import AdminUser, AdminPreference
+            from aquilia.admin.models import AdminPreference, AdminUser
+
             user = await AdminUser.objects.filter(username=username).first()
             if not user:
                 return Response(
@@ -6284,12 +6572,14 @@ class AdminController(Controller):
                 pass
 
             return Response(
-                content=_json.dumps({
-                    "success": True,
-                    "namespace": namespace,
-                    "data": pref.get_data(),
-                    "message": f"Preferences for '{namespace}' updated.",
-                }).encode("utf-8"),
+                content=_json.dumps(
+                    {
+                        "success": True,
+                        "namespace": namespace,
+                        "data": pref.get_data(),
+                        "message": f"Preferences for '{namespace}' updated.",
+                    }
+                ).encode("utf-8"),
                 status=200,
                 headers={"content-type": "application/json"},
             )
@@ -6313,6 +6603,7 @@ class AdminController(Controller):
 
         self._ensure_initialized()
         import json as _json
+
         form_data = await _parse_form(ctx)
 
         csrf_denied = self._csrf_reject_json(request, ctx, form_data)
@@ -6329,7 +6620,8 @@ class AdminController(Controller):
 
         username = identity.get_attribute("username", identity.id)
         try:
-            from aquilia.admin.models import AdminUser, AdminPreference
+            from aquilia.admin.models import AdminPreference, AdminUser
+
             user = await AdminUser.objects.filter(username=username).first()
             if not user:
                 return Response(
@@ -6338,12 +6630,12 @@ class AdminController(Controller):
                     headers={"content-type": "application/json"},
                 )
 
-            pref = await AdminPreference.objects.filter(
-                user_id=user.pk, namespace=namespace
-            ).first()
+            pref = await AdminPreference.objects.filter(user_id=user.pk, namespace=namespace).first()
             if not pref:
                 return Response(
-                    content=_json.dumps({"error": f"No preferences found for namespace '{namespace}'."}).encode("utf-8"),
+                    content=_json.dumps({"error": f"No preferences found for namespace '{namespace}'."}).encode(
+                        "utf-8"
+                    ),
                     status=404,
                     headers={"content-type": "application/json"},
                 )
@@ -6413,25 +6705,26 @@ class AdminController(Controller):
         # Try to get full user from DB
         try:
             from aquilia.admin.models import AdminUser
-            db_user = await AdminUser.objects.filter(
-                username=user["username"]
-            ).first()
+
+            db_user = await AdminUser.objects.filter(username=user["username"]).first()
             if db_user:
-                user.update({
-                    "pk": str(db_user.pk),
-                    "email": getattr(db_user, "email", "") or "",
-                    "first_name": getattr(db_user, "first_name", "") or "",
-                    "last_name": getattr(db_user, "last_name", "") or "",
-                    "is_superuser": getattr(db_user, "is_superuser", False),
-                    "is_staff": getattr(db_user, "is_staff", False),
-                    "last_login": str(getattr(db_user, "last_login", "") or ""),
-                    "date_joined": str(getattr(db_user, "date_joined", "") or ""),
-                    "avatar_path": getattr(db_user, "avatar_path", "") or "",
-                    "bio": getattr(db_user, "bio", "") or "",
-                    "phone": getattr(db_user, "phone", "") or "",
-                    "timezone": getattr(db_user, "timezone", "UTC") or "UTC",
-                    "locale": getattr(db_user, "locale", "en") or "en",
-                })
+                user.update(
+                    {
+                        "pk": str(db_user.pk),
+                        "email": getattr(db_user, "email", "") or "",
+                        "first_name": getattr(db_user, "first_name", "") or "",
+                        "last_name": getattr(db_user, "last_name", "") or "",
+                        "is_superuser": getattr(db_user, "is_superuser", False),
+                        "is_staff": getattr(db_user, "is_staff", False),
+                        "last_login": str(getattr(db_user, "last_login", "") or ""),
+                        "date_joined": str(getattr(db_user, "date_joined", "") or ""),
+                        "avatar_path": getattr(db_user, "avatar_path", "") or "",
+                        "bio": getattr(db_user, "bio", "") or "",
+                        "phone": getattr(db_user, "phone", "") or "",
+                        "timezone": getattr(db_user, "timezone", "UTC") or "UTC",
+                        "locale": getattr(db_user, "locale", "en") or "en",
+                    }
+                )
         except Exception:
             pass
 
@@ -6461,7 +6754,7 @@ class AdminController(Controller):
             user=user,
             app_list=app_list,
             identity_name=_get_identity_name(identity),
-                identity_avatar=_get_identity_avatar(identity),
+            identity_avatar=_get_identity_avatar(identity),
             flash=flash,
             flash_type=flash_type,
         )
@@ -6480,11 +6773,11 @@ class AdminController(Controller):
         are left for their own routes and fall through to a 404.
         """
         import re
+
         # Must look like a filename with an extension; "avatar" itself is not
         # an image filename, so sub-routes are unaffected.
         if not re.fullmatch(r"[A-Za-z0-9_\-]+\.[a-zA-Z0-9]{2,5}", filename):
-            return Response(content=b"Not Found", status=404,
-                            headers={"content-type": "text/plain"})
+            return Response(content=b"Not Found", status=404, headers={"content-type": "text/plain"})
         prefix = self.site.url_prefix if hasattr(self, "site") and self.site else "/admin"
         return Response(
             content=b"",
@@ -6496,26 +6789,28 @@ class AdminController(Controller):
     async def profile_avatar_serve(self, request, ctx: RequestCtx, filename: str) -> Response:
         """Serve a stored profile avatar from .aquilia/admin/profile/."""
         import re
+
         # Sanitise: only alphanumeric, dash, underscore, dot
         if not re.fullmatch(r"[A-Za-z0-9_\-\.]+", filename):
-            return Response(content=b"Not Found", status=404,
-                            headers={"content-type": "text/plain"})
+            return Response(content=b"Not Found", status=404, headers={"content-type": "text/plain"})
         avatar_dir = _get_avatar_dir()
         file_path = avatar_dir / filename
         if not file_path.is_file():
-            return Response(content=b"Not Found", status=404,
-                            headers={"content-type": "text/plain"})
+            return Response(content=b"Not Found", status=404, headers={"content-type": "text/plain"})
         # Determine content-type from extension
         ext = file_path.suffix.lower().lstrip(".")
-        ct_map = {"jpg": "image/jpeg", "jpeg": "image/jpeg",
-                  "png": "image/png", "gif": "image/gif",
-                  "webp": "image/webp"}
+        ct_map = {
+            "jpg": "image/jpeg",
+            "jpeg": "image/jpeg",
+            "png": "image/png",
+            "gif": "image/gif",
+            "webp": "image/webp",
+        }
         ct = ct_map.get(ext, "application/octet-stream")
         try:
             data = file_path.read_bytes()
         except OSError:
-            return Response(content=b"Not Found", status=404,
-                            headers={"content-type": "text/plain"})
+            return Response(content=b"Not Found", status=404, headers={"content-type": "text/plain"})
         return Response(
             content=data,
             status=200,
@@ -6587,8 +6882,10 @@ class AdminController(Controller):
             # Fallback: trust Content-Type only if it maps cleanly
             ct = getattr(upload_file, "content_type", "") or ""
             fallback = {
-                "image/jpeg": "jpg", "image/png": "png",
-                "image/gif": "gif", "image/webp": "webp",
+                "image/jpeg": "jpg",
+                "image/png": "png",
+                "image/gif": "gif",
+                "image/webp": "webp",
             }.get(ct.split(";")[0].strip())
             if fallback is None:
                 return _flash("Unsupported file type. Please upload a JPEG, PNG, GIF or WebP image.")
@@ -6596,6 +6893,7 @@ class AdminController(Controller):
 
         # Derive a stable UUID from the username so each user has one file
         import uuid as _uuid
+
         username = identity.get_attribute("username", identity.id)
         file_uuid = str(_uuid.uuid5(_uuid.NAMESPACE_URL, f"aquilia-admin-avatar:{username}"))
         filename = f"{file_uuid}.{ext}"
@@ -6630,6 +6928,7 @@ class AdminController(Controller):
         # Persist path in AdminUser table
         try:
             from aquilia.admin.models import AdminUser
+
             db_user = await AdminUser.objects.filter(username=username).first()
             if db_user:
                 db_user.avatar_path = avatar_url
@@ -6662,25 +6961,26 @@ class AdminController(Controller):
             return csrf_denied
 
         first_name = (form_data.get("first_name") or "").strip()
-        last_name  = (form_data.get("last_name")  or "").strip()
-        email      = (form_data.get("email")      or "").strip()
-        bio        = (form_data.get("bio")        or "").strip()
-        phone      = (form_data.get("phone")      or "").strip()
-        timezone   = (form_data.get("timezone")   or "UTC").strip()
-        locale     = (form_data.get("locale")     or "en").strip()
+        last_name = (form_data.get("last_name") or "").strip()
+        email = (form_data.get("email") or "").strip()
+        bio = (form_data.get("bio") or "").strip()
+        phone = (form_data.get("phone") or "").strip()
+        timezone = (form_data.get("timezone") or "UTC").strip()
+        locale = (form_data.get("locale") or "en").strip()
 
         try:
             from aquilia.admin.models import AdminUser
+
             username = identity.get_attribute("username", identity.id)
             user = await AdminUser.objects.filter(username=username).first()
             if user:
                 user.first_name = first_name
-                user.last_name  = last_name
-                user.email      = email
-                user.bio        = bio
-                user.phone      = phone
-                user.timezone   = timezone
-                user.locale     = locale
+                user.last_name = last_name
+                user.email = email
+                user.bio = bio
+                user.phone = phone
+                user.timezone = timezone
+                user.locale = locale
                 await user.save()
 
                 # Update session identity so the header reflects changes immediately
@@ -6689,13 +6989,13 @@ class AdminController(Controller):
                     if admin_data and isinstance(admin_data, dict):
                         attrs = admin_data.setdefault("attributes", {})
                         attrs["first_name"] = first_name
-                        attrs["last_name"]  = last_name
-                        attrs["email"]      = email
-                        attrs["bio"]        = bio
-                        attrs["phone"]      = phone
-                        attrs["timezone"]   = timezone
-                        attrs["locale"]     = locale
-                        attrs["name"]       = f"{first_name} {last_name}".strip() or username
+                        attrs["last_name"] = last_name
+                        attrs["email"] = email
+                        attrs["bio"] = bio
+                        attrs["phone"] = phone
+                        attrs["timezone"] = timezone
+                        attrs["locale"] = locale
+                        attrs["name"] = f"{first_name} {last_name}".strip() or username
                         ctx.session.data["_admin_identity"] = admin_data
 
                 try:
@@ -6706,7 +7006,13 @@ class AdminController(Controller):
                         role=str(get_admin_role(identity) or "unknown"),
                         action=AdminAction.PROFILE_UPDATE,
                         model_name="Profile",
-                        changes={"first_name": first_name, "last_name": last_name, "email": email, "timezone": timezone, "locale": locale},
+                        changes={
+                            "first_name": first_name,
+                            "last_name": last_name,
+                            "email": email,
+                            "timezone": timezone,
+                            "locale": locale,
+                        },
                         ip_address=meta.get("ip_address"),
                         user_agent=meta.get("user_agent"),
                     )
@@ -6714,15 +7020,15 @@ class AdminController(Controller):
                     pass
 
                 if ctx.session and hasattr(ctx.session, "data"):
-                    ctx.session.data["_admin_flash"]      = "Profile updated successfully."
+                    ctx.session.data["_admin_flash"] = "Profile updated successfully."
                     ctx.session.data["_admin_flash_type"] = "success"
             else:
                 if ctx.session and hasattr(ctx.session, "data"):
-                    ctx.session.data["_admin_flash"]      = "User not found in database."
+                    ctx.session.data["_admin_flash"] = "User not found in database."
                     ctx.session.data["_admin_flash_type"] = "error"
         except Exception as e:
             if ctx.session and hasattr(ctx.session, "data"):
-                ctx.session.data["_admin_flash"]      = f"Failed: {e}"
+                ctx.session.data["_admin_flash"] = f"Failed: {e}"
                 ctx.session.data["_admin_flash_type"] = "error"
 
         return _redirect("/admin/profile/")
@@ -6770,6 +7076,7 @@ class AdminController(Controller):
 
         try:
             from aquilia.admin.models import AdminUser
+
             username = identity.get_attribute("username", identity.id)
             user = await AdminUser.objects.filter(username=username).first()
             if user:
@@ -6813,23 +7120,25 @@ class AdminController(Controller):
 
     # ── Admin authentication ─────────────────────────────────────────
 
-    async def _authenticate_admin(self, username: str, password: str) -> Optional[Identity]:
+    async def _authenticate_admin(self, username: str, password: str) -> Identity | None:
         """
         Authenticate an admin user.
 
         Tries ORM-based AdminUser first (production), then falls back to
         environment-based superuser (development).
         """
-        from aquilia.auth.core import Identity, IdentityType, IdentityStatus
+        from aquilia.auth.core import Identity, IdentityStatus, IdentityType
 
         # Try ORM-based AdminUser (preferred)
         try:
             from aquilia.admin.models import AdminUser
+
             user = await AdminUser.authenticate(username, password)
             if user is not None:
                 # Log to AdminAuditEntry (ORM-backed audit trail)
                 try:
                     from aquilia.admin.models import AdminAuditEntry
+
                     await AdminAuditEntry.create_entry(
                         action="login",
                         user=user,
@@ -6846,6 +7155,7 @@ class AdminController(Controller):
 
         # Development fallback: AQUILIA_ADMIN_USER / AQUILIA_ADMIN_PASSWORD
         import os
+
         admin_user = os.environ.get("AQUILIA_ADMIN_USER")
         admin_pass = os.environ.get("AQUILIA_ADMIN_PASSWORD")
 

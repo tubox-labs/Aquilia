@@ -15,25 +15,32 @@ Provides:
 from __future__ import annotations
 
 import asyncio
+import contextlib
+import ipaddress
 import json as stdlib_json
 import tempfile
 import uuid
-import ipaddress
+from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
 from http.cookies import SimpleCookie
 from pathlib import Path
-from typing import (
-    Any, AsyncIterator, Awaitable, Callable, Dict, List, 
-    Mapping, Optional, Type, TypeVar, Union
-)
-from urllib.parse import parse_qsl, unquote
+from typing import Any, TypeVar
+from urllib.parse import parse_qsl
 
 from ._datastructures import (
-    Headers, MultiDict, ParsedContentType, Range, URL,
-    parse_authorization_header, parse_date_header
+    URL,
+    Headers,
+    MultiDict,
+    ParsedContentType,
+    Range,
+    parse_authorization_header,
+    parse_date_header,
 )
 from ._uploads import (
-    FormData, UploadFile, UploadStore, LocalUploadStore,
-    create_upload_file_from_bytes, create_upload_file_from_path
+    FormData,
+    UploadFile,
+    UploadStore,
+    create_upload_file_from_bytes,
+    create_upload_file_from_path,
 )
 from .faults import Fault, FaultDomain, Severity
 
@@ -41,6 +48,7 @@ from .faults import Fault, FaultDomain, Severity
 try:
     from python_multipart import MultipartParser
     from python_multipart.multipart import parse_options_header
+
     MULTIPART_AVAILABLE = True
 except ImportError:
     MULTIPART_AVAILABLE = False
@@ -48,6 +56,7 @@ except ImportError:
 # Import Crous binary serializer
 try:
     import crous as _crous_mod
+
     _HAS_CROUS = True
 except ImportError:
     _crous_mod = None  # type: ignore[assignment]
@@ -55,24 +64,28 @@ except ImportError:
 
 # CROUS media type constants
 CROUS_MEDIA_TYPE = "application/x-crous"
-CROUS_MEDIA_TYPES = frozenset({
-    "application/x-crous",
-    "application/crous",
-    "application/vnd.crous",
-})
+CROUS_MEDIA_TYPES = frozenset(
+    {
+        "application/x-crous",
+        "application/crous",
+        "application/vnd.crous",
+    }
+)
 CROUS_MAGIC = b"CROUSv1"
 
 # Type vars
 T = TypeVar("T")
-PathLike = Union[str, Path]
+PathLike = str | Path
 
 
 # ============================================================================
 # Request Faults (Aquilia Fault System Integration)
 # ============================================================================
 
+
 class RequestFault(Fault):
     """Base class for request-related faults."""
+
     domain = FaultDomain.IO
     severity = Severity.ERROR
     public = True
@@ -80,134 +93,106 @@ class RequestFault(Fault):
 
 class BadRequest(RequestFault):
     """Malformed request (400)."""
+
     code = "BAD_REQUEST"
     message = "Bad request"
-    
+
     def __init__(self, message: str = None, **metadata):
-        super().__init__(
-            code=self.code,
-            message=message or self.message,
-            metadata=metadata
-        )
+        super().__init__(code=self.code, message=message or self.message, metadata=metadata)
 
 
 class PayloadTooLarge(RequestFault):
     """Request payload exceeds limits (413)."""
+
     code = "PAYLOAD_TOO_LARGE"
     message = "Payload too large"
-    
+
     def __init__(self, message: str = None, **metadata):
-        super().__init__(
-            code=self.code,
-            message=message or self.message,
-            metadata=metadata
-        )
+        super().__init__(code=self.code, message=message or self.message, metadata=metadata)
 
 
 class UnsupportedMediaType(RequestFault):
     """Unsupported Content-Type (415)."""
+
     code = "UNSUPPORTED_MEDIA_TYPE"
     message = "Unsupported media type"
-    
+
     def __init__(self, message: str = None, **metadata):
-        super().__init__(
-            code=self.code,
-            message=message or self.message,
-            metadata=metadata
-        )
+        super().__init__(code=self.code, message=message or self.message, metadata=metadata)
 
 
 class ClientDisconnect(RequestFault):
     """Client disconnected during request (499)."""
+
     code = "CLIENT_DISCONNECT"
     message = "Client disconnected"
     severity = Severity.WARN
-    
+
     def __init__(self, message: str = None, **metadata):
-        super().__init__(
-            code=self.code,
-            message=message or self.message,
-            severity=self.severity,
-            metadata=metadata
-        )
+        super().__init__(code=self.code, message=message or self.message, severity=self.severity, metadata=metadata)
 
 
 class InvalidJSON(RequestFault):
     """Invalid JSON payload (400)."""
+
     code = "INVALID_JSON"
     message = "Invalid JSON"
-    
+
     def __init__(self, message: str = None, **metadata):
-        super().__init__(
-            code=self.code,
-            message=message or self.message,
-            metadata=metadata
-        )
+        super().__init__(code=self.code, message=message or self.message, metadata=metadata)
 
 
 class InvalidCrous(RequestFault):
     """Invalid CROUS binary payload (400)."""
+
     code = "INVALID_CROUS"
     message = "Invalid CROUS payload"
 
     def __init__(self, message: str = None, **metadata):
-        super().__init__(
-            code=self.code,
-            message=message or self.message,
-            metadata=metadata
-        )
+        super().__init__(code=self.code, message=message or self.message, metadata=metadata)
 
 
 class CrousUnavailable(RequestFault):
     """CROUS library not installed (500-level)."""
+
     code = "CROUS_UNAVAILABLE"
     message = "CROUS serializer not available"
     severity = Severity.ERROR
     public = False
 
     def __init__(self, message: str = None, **metadata):
-        super().__init__(
-            code=self.code,
-            message=message or self.message,
-            severity=self.severity,
-            metadata=metadata
-        )
+        super().__init__(code=self.code, message=message or self.message, severity=self.severity, metadata=metadata)
 
 
 class InvalidHeader(RequestFault):
     """Invalid header format (400)."""
+
     code = "INVALID_HEADER"
     message = "Invalid header"
-    
+
     def __init__(self, message: str = None, **metadata):
-        super().__init__(
-            code=self.code,
-            message=message or self.message,
-            metadata=metadata
-        )
+        super().__init__(code=self.code, message=message or self.message, metadata=metadata)
 
 
 class MultipartParseError(RequestFault):
     """Multipart parsing failed (400)."""
+
     code = "MULTIPART_PARSE_ERROR"
     message = "Multipart parsing failed"
-    
+
     def __init__(self, message: str = None, **metadata):
-        super().__init__(
-            code=self.code,
-            message=message or self.message,
-            metadata=metadata
-        )
+        super().__init__(code=self.code, message=message or self.message, metadata=metadata)
 
 
 # ============================================================================
 # Request Class
 # ============================================================================
 
+
 class Request:
     """
     Production-grade request object for Aquilia.
-    
+
     Features:
     - Streaming-first body access
     - Typed query/header/cookie parsing
@@ -220,14 +205,30 @@ class Request:
     """
 
     __slots__ = (
-        'scope', '_receive', '_send',
-        'max_body_size', 'max_field_count', 'max_file_size',
-        'upload_tempdir', 'trust_proxy', 'chunk_size',
-        'json_max_size', 'json_max_depth', 'form_memory_threshold',
-        'state',
-        '_body', '_body_consumed', '_json', '_crous', '_form_data',
-        '_query_params', '_headers', '_cookies', '_url',
-        '_disconnected', '_temp_files',
+        "scope",
+        "_receive",
+        "_send",
+        "max_body_size",
+        "max_field_count",
+        "max_file_size",
+        "upload_tempdir",
+        "trust_proxy",
+        "chunk_size",
+        "json_max_size",
+        "json_max_depth",
+        "form_memory_threshold",
+        "state",
+        "_body",
+        "_body_consumed",
+        "_json",
+        "_crous",
+        "_form_data",
+        "_query_params",
+        "_headers",
+        "_cookies",
+        "_url",
+        "_disconnected",
+        "_temp_files",
     )
 
     # Class-level defaults -- avoid setting per instance when unchanged
@@ -243,13 +244,13 @@ class Request:
         self,
         scope: Mapping[str, Any],
         receive: Callable[..., Awaitable[dict]],
-        send: Optional[Callable] = None,
+        send: Callable | None = None,
         *,
         max_body_size: int = 10_485_760,
         max_field_count: int = 1000,
         max_file_size: int = 2_147_483_648,
-        upload_tempdir: Optional[PathLike] = None,
-        trust_proxy: Union[bool, List[str]] = False,
+        upload_tempdir: PathLike | None = None,
+        trust_proxy: bool | list[str] = False,
         chunk_size: int = 64 * 1024,
         json_max_size: int = 10_485_760,
         json_max_depth: int = 64,
@@ -271,67 +272,67 @@ class Request:
         self.form_memory_threshold = form_memory_threshold
 
         # State
-        self.state: Dict[str, Any] = {}
+        self.state: dict[str, Any] = {}
 
         # Cached values (None = not yet computed)
-        self._body: Optional[bytes] = None
+        self._body: bytes | None = None
         self._body_consumed = False
-        self._json: Optional[Any] = None
-        self._crous: Optional[Any] = None
-        self._form_data: Optional[FormData] = None
-        self._query_params: Optional[MultiDict] = None
-        self._headers: Optional[Headers] = None
-        self._cookies: Optional[Dict[str, str]] = None
-        self._url: Optional[URL] = None
+        self._json: Any | None = None
+        self._crous: Any | None = None
+        self._form_data: FormData | None = None
+        self._query_params: MultiDict | None = None
+        self._headers: Headers | None = None
+        self._cookies: dict[str, str] | None = None
+        self._url: URL | None = None
         self._disconnected = False
-        self._temp_files: List[Path] = []
-    
-    async def __call__(self) -> "Request":
+        self._temp_files: list[Path] = []
+
+    async def __call__(self) -> Request:
         """
         Async initializer (called by runtime).
-        
+
         Returns self after any async setup.
         """
         return self
-    
+
     # ========================================================================
     # Basic Properties
     # ========================================================================
-    
+
     @property
     def method(self) -> str:
         """HTTP method (GET, POST, etc.)."""
         return self.scope.get("method", "GET")
-    
+
     @property
     def http_version(self) -> str:
         """HTTP version (e.g., '1.1', '2')."""
         return self.scope.get("http_version", "1.1")
-    
+
     @property
     def path(self) -> str:
         """Request path (decoded)."""
         return self.scope.get("path", "/")
-    
+
     @property
     def raw_path(self) -> bytes:
         """Raw request path (as bytes from ASGI)."""
         return self.scope.get("raw_path", b"/")
-    
+
     @property
     def query_string(self) -> str:
         """Raw query string."""
         return self.scope.get("query_string", b"").decode("utf-8")
-    
+
     @property
-    def client(self) -> Optional[tuple]:
+    def client(self) -> tuple | None:
         """Client address (host, port)."""
         return self.scope.get("client")
-    
+
     # ========================================================================
     # Query Parameters
     # ========================================================================
-    
+
     @property
     def query_params(self) -> MultiDict:
         """Get parsed query parameters as MultiDict."""
@@ -344,15 +345,15 @@ class Request:
             else:
                 self._query_params = MultiDict()
         return self._query_params
-    
-    def query_param(self, name: str, default: Optional[str] = None) -> Optional[str]:
+
+    def query_param(self, name: str, default: str | None = None) -> str | None:
         """Get single query parameter."""
         return self.query_params.get(name, default)
-    
+
     # ========================================================================
     # Headers
     # ========================================================================
-    
+
     @property
     def headers(self) -> Headers:
         """Get parsed headers."""
@@ -360,19 +361,19 @@ class Request:
             raw_headers = self.scope.get("headers", [])
             self._headers = Headers(raw=raw_headers)
         return self._headers
-    
-    def header(self, name: str, default: Optional[str] = None) -> Optional[str]:
+
+    def header(self, name: str, default: str | None = None) -> str | None:
         """Get single header (case-insensitive)."""
         return self.headers.get(name, default)
-    
+
     def has_header(self, name: str) -> bool:
         """Check if header exists."""
         return self.headers.has(name)
-    
+
     # ========================================================================
     # Cookies
     # ========================================================================
-    
+
     @property
     def cookies(self) -> Mapping[str, str]:
         """Get parsed cookies."""
@@ -385,15 +386,15 @@ class Request:
             else:
                 self._cookies = {}
         return self._cookies
-    
-    def cookie(self, name: str, default: Optional[str] = None) -> Optional[str]:
+
+    def cookie(self, name: str, default: str | None = None) -> str | None:
         """Get single cookie value."""
         return self.cookies.get(name, default)
-    
+
     # ========================================================================
     # URL Building
     # ========================================================================
-    
+
     def url(self) -> URL:
         """Get full request URL."""
         if self._url is None:
@@ -401,7 +402,7 @@ class Request:
             host = self.header("host", "localhost")
             path = self.path
             query = self.query_string
-            
+
             # Parse port from host if present
             if ":" in host:
                 host_part, port_part = host.rsplit(":", 1)
@@ -413,7 +414,7 @@ class Request:
             else:
                 host_part = host
                 port = None
-            
+
             self._url = URL(
                 scheme=scheme,
                 host=host_part,
@@ -422,23 +423,23 @@ class Request:
                 query=query,
             )
         return self._url
-    
+
     def base_url(self) -> URL:
         """Get base URL (scheme + host + root_path)."""
         url = self.url()
         root_path = self.scope.get("root_path", "")
         return url.replace(path=root_path or "/", query="", fragment="")
-    
+
     def url_for(self, route_name: str, /, **params) -> str:
         """
         Build URL for named route.
-        
+
         This requires a router/URL builder to be injected via state.
-        
+
         Args:
             route_name: Name of the route
             **params: Route parameters
-        
+
         Returns:
             Built URL string
         """
@@ -446,35 +447,35 @@ class Request:
         url_builder = self.state.get("url_builder")
         if url_builder:
             return url_builder(route_name, **params)
-        
+
         # Fallback: return route name as placeholder
         return f"/{route_name}"
-    
+
     # ========================================================================
     # Client IP (with proxy support)
     # ========================================================================
-    
+
     def client_ip(self) -> str:
         """
         Get client IP address.
-        
+
         Respects trust_proxy configuration to parse forwarded headers.
-        
+
         When ``trust_proxy`` is a list of CIDR/IP strings, only the
         **right-most** X-Forwarded-For entry that is **not** in the trusted
         set is returned.  This prevents attackers from injecting a fake IP
         by prepending to the header.
-        
+
         Returns:
             Client IP address as string
         """
         # Direct client from ASGI scope
         direct_client = self.client
         direct_ip = direct_client[0] if direct_client else "0.0.0.0"
-        
+
         if not self.trust_proxy:
             return direct_ip
-        
+
         # Build trusted network set when trust_proxy is a list of CIDRs
         trusted_networks = None
         if isinstance(self.trust_proxy, (list, tuple)):
@@ -484,7 +485,7 @@ class Request:
                     trusted_networks.append(ipaddress.ip_network(entry, strict=False))
                 except ValueError:
                     pass  # skip unparseable entries
-        
+
         def _is_trusted(ip_str: str) -> bool:
             """Check whether an IP falls within the trusted proxy list."""
             if trusted_networks is None:
@@ -495,12 +496,12 @@ class Request:
             except ValueError:
                 return False
             return any(addr in net for net in trusted_networks)
-        
+
         # Parse X-Forwarded-For (preferred)
         forwarded_for = self.header("x-forwarded-for")
         if forwarded_for:
             ips = [ip.strip() for ip in forwarded_for.split(",") if ip.strip()]
-            
+
             if trusted_networks is not None:
                 # Walk the chain **right-to-left**.  The right-most entry is
                 # the one appended by the first proxy (which we trust).  We
@@ -515,31 +516,32 @@ class Request:
                 # trust_proxy=True (blanket) -- legacy behaviour: return leftmost
                 if ips:
                     return ips[0]
-        
+
         # Try Forwarded header (RFC 7239)
         forwarded = self.header("forwarded")
         if forwarded:
             import re
-            match = re.search(r'for=([^;,]+)', forwarded)
+
+            match = re.search(r"for=([^;,]+)", forwarded)
             if match:
                 ip_part = match.group(1).strip('"')
                 # Remove port if present
-                if ":" in ip_part and not "[" in ip_part:
+                if ":" in ip_part and "[" not in ip_part:
                     ip_part = ip_part.rsplit(":", 1)[0]
                 return ip_part.strip("[]")
-        
+
         # Fallback to direct client
         return direct_ip
-    
+
     # ========================================================================
     # Content Helpers
     # ========================================================================
-    
-    def content_type(self) -> Optional[str]:
+
+    def content_type(self) -> str | None:
         """Get Content-Type header."""
         return self.header("content-type")
-    
-    def content_length(self) -> Optional[int]:
+
+    def content_length(self) -> int | None:
         """Get Content-Length header as int."""
         length = self.header("content-length")
         if length:
@@ -548,7 +550,7 @@ class Request:
             except ValueError:
                 return None
         return None
-    
+
     def is_json(self) -> bool:
         """Check if request content type is JSON."""
         ct = self.content_type()
@@ -561,7 +563,7 @@ class Request:
                     "text/json",
                 )
         return False
-    
+
     def is_crous(self) -> bool:
         """Check if request content type is CROUS binary.
 
@@ -581,21 +583,17 @@ class Request:
     def accepts(self, *media_types: str) -> bool:
         """
         Check if client accepts any of the given media types.
-        
+
         Args:
             *media_types: Media types to check
-        
+
         Returns:
             True if any media type is accepted
         """
         accept = self.header("accept", "*/*")
         accept_lower = accept.lower()
-        
-        for media_type in media_types:
-            if media_type.lower() in accept_lower or "*/*" in accept_lower:
-                return True
-        
-        return False
+
+        return any(media_type.lower() in accept_lower or "*/*" in accept_lower for media_type in media_types)
 
     def accepts_crous(self) -> bool:
         """Check if the client accepts CROUS binary responses.
@@ -666,49 +664,49 @@ class Request:
         if _HAS_CROUS and self.prefers_crous():
             return "crous"
         return "json"
-    
+
     # ========================================================================
     # Range & Conditional Headers
     # ========================================================================
-    
-    def range(self) -> Optional[Range]:
+
+    def range(self) -> Range | None:
         """Parse Range header."""
         range_header = self.header("range")
         return Range.parse(range_header)
-    
-    def if_modified_since(self) -> Optional[Any]:
+
+    def if_modified_since(self) -> Any | None:
         """Parse If-Modified-Since header."""
         ims = self.header("if-modified-since")
         return parse_date_header(ims)
-    
-    def if_none_match(self) -> Optional[str]:
+
+    def if_none_match(self) -> str | None:
         """Get If-None-Match header (ETag)."""
         return self.header("if-none-match")
-    
+
     # ========================================================================
     # Authorization Helpers
     # ========================================================================
-    
-    def auth_scheme(self) -> Optional[str]:
+
+    def auth_scheme(self) -> str | None:
         """Get authorization scheme (e.g., 'Bearer', 'Basic')."""
         auth = self.header("authorization")
         parsed = parse_authorization_header(auth)
         return parsed[0] if parsed else None
-    
-    def auth_credentials(self) -> Optional[str]:
+
+    def auth_credentials(self) -> str | None:
         """Get authorization credentials."""
         auth = self.header("authorization")
         parsed = parse_authorization_header(auth)
         return parsed[1] if parsed else None
-    
+
     # ========================================================================
     # Body Reading (Streaming & Single-shot)
     # ========================================================================
-    
+
     async def _receive_message(self) -> dict:
         """
         Receive next ASGI message.
-        
+
         Handles disconnect detection.
         """
         try:
@@ -720,115 +718,111 @@ class Request:
         except asyncio.CancelledError:
             self._disconnected = True
             raise
-    
+
     def is_disconnected(self) -> bool:
         """Check if client has disconnected."""
         return self._disconnected
-    
-    async def iter_bytes(self, chunk_size: Optional[int] = None) -> AsyncIterator[bytes]:
+
+    async def iter_bytes(self, chunk_size: int | None = None) -> AsyncIterator[bytes]:
         """
         Stream request body in chunks.
-        
+
         Args:
             chunk_size: Size of chunks (uses default if not specified)
-        
+
         Yields:
             Body chunks
-        
+
         Raises:
             ClientDisconnect: If client disconnects during streaming
             PayloadTooLarge: If body exceeds max_body_size
         """
         chunk_size = chunk_size or self.chunk_size
-        
+
         # If body already consumed, yield from cache
         if self._body is not None:
             for i in range(0, len(self._body), chunk_size):
-                yield self._body[i:i + chunk_size]
+                yield self._body[i : i + chunk_size]
             return
-        
+
         if self._body_consumed:
             # Already streamed, nothing to yield
             return
-        
+
         # Stream from ASGI
         total_size = 0
-        
+
         while True:
             message = await self._receive_message()
-            
+
             if message["type"] == "http.request":
                 chunk = message.get("body", b"")
-                
+
                 if chunk:
                     total_size += len(chunk)
                     if total_size > self.max_body_size:
                         raise PayloadTooLarge(
-                            f"Request body exceeds maximum size",
+                            "Request body exceeds maximum size",
                             max_allowed=self.max_body_size,
                             actual=total_size,
                         )
                     yield chunk
-                
+
                 if not message.get("more_body", False):
                     break
-        
+
         self._body_consumed = True
-    
-    async def iter_text(
-        self, 
-        encoding: str = "utf-8", 
-        chunk_size: Optional[int] = None
-    ) -> AsyncIterator[str]:
+
+    async def iter_text(self, encoding: str = "utf-8", chunk_size: int | None = None) -> AsyncIterator[str]:
         """
         Stream request body as text chunks.
-        
+
         Args:
             encoding: Text encoding
             chunk_size: Size of chunks
-        
+
         Yields:
             Text chunks
         """
         async for chunk in self.iter_bytes(chunk_size):
             yield chunk.decode(encoding)
-    
+
     async def body(self) -> bytes:
         """
         Read full request body (idempotent).
-        
+
         Returns:
             Complete request body as bytes
-        
+
         Raises:
             ClientDisconnect: If client disconnects
             PayloadTooLarge: If body exceeds max_body_size
         """
         if self._body is not None:
             return self._body
-        
+
         chunks = []
         total_size = 0
-        
+
         async for chunk in self.iter_bytes():
             chunks.append(chunk)
             total_size += len(chunk)
-        
+
         self._body = b"".join(chunks)
         return self._body
-    
-    async def text(self, encoding: Optional[str] = None) -> str:
+
+    async def text(self, encoding: str | None = None) -> str:
         """
         Read request body as text.
-        
+
         Args:
             encoding: Text encoding (auto-detected from Content-Type if None)
-        
+
         Returns:
             Request body as string
         """
         body_bytes = await self.body()
-        
+
         # Auto-detect encoding from Content-Type
         if encoding is None:
             ct = self.content_type()
@@ -837,55 +831,50 @@ class Request:
                 if parsed_ct:
                     encoding = parsed_ct.charset
             encoding = encoding or "utf-8"
-        
+
         return body_bytes.decode(encoding)
-    
+
     async def readexactly(self, n: int) -> bytes:
         """
         Read exactly n bytes from request body.
-        
+
         Args:
             n: Number of bytes to read
-        
+
         Returns:
             Exactly n bytes
-        
+
         Raises:
             EOFError: If fewer than n bytes available
         """
         result = bytearray()
-        
+
         async for chunk in self.iter_bytes():
             result.extend(chunk)
             if len(result) >= n:
                 self._body = bytes(result)  # Cache what we read
                 return bytes(result[:n])
-        
+
         if len(result) < n:
             raise EOFError(f"Expected {n} bytes, got {len(result)}")
-        
+
         return bytes(result)
-    
+
     # ========================================================================
     # JSON Parsing
     # ========================================================================
-    
-    async def json(
-        self, 
-        model: Optional[Type[T]] = None, 
-        *, 
-        strict: bool = True
-    ) -> Union[Any, T]:
+
+    async def json(self, model: type[T] | None = None, *, strict: bool = True) -> Any | T:
         """
         Parse request body as JSON.
-        
+
         Args:
             model: Optional model class for validation (Pydantic, dataclass, etc.)
             strict: Whether to enforce strict parsing
-        
+
         Returns:
             Parsed JSON data or validated model instance
-        
+
         Raises:
             InvalidJSON: If JSON is malformed
             PayloadTooLarge: If JSON exceeds size limits
@@ -896,17 +885,17 @@ class Request:
             if model:
                 return self._validate_json_model(self._json, model)
             return self._json
-        
+
         # Read body with size limit
         body_bytes = await self.body()
-        
+
         if len(body_bytes) > self.json_max_size:
             raise PayloadTooLarge(
-                f"JSON payload exceeds maximum size",
+                "JSON payload exceeds maximum size",
                 max_allowed=self.json_max_size,
                 actual=len(body_bytes),
             )
-        
+
         # Parse JSON
         try:
             text = body_bytes.decode("utf-8")
@@ -915,26 +904,26 @@ class Request:
             raise InvalidJSON(f"Invalid UTF-8 in JSON payload: {e}")
         except stdlib_json.JSONDecodeError as e:
             raise InvalidJSON(f"Invalid JSON: {e}")
-        
+
         # Check depth
         if not self._check_json_depth(self._json, self.json_max_depth):
             raise InvalidJSON(
-                f"JSON nesting exceeds maximum depth",
+                "JSON nesting exceeds maximum depth",
                 max_depth=self.json_max_depth,
             )
-        
+
         # Validate with model if provided
         if model:
             return self._validate_json_model(self._json, model)
-        
+
         return self._json
-    
+
     async def crous(
         self,
-        model: Optional[Type[T]] = None,
+        model: type[T] | None = None,
         *,
         strict: bool = True,
-    ) -> Union[Any, T]:
+    ) -> Any | T:
         """
         Parse request body as CROUS binary format.
 
@@ -968,8 +957,7 @@ class Request:
         """
         if not _HAS_CROUS:
             raise CrousUnavailable(
-                "The 'crous' library is required to parse CROUS payloads. "
-                "Install with: pip install crous"
+                "The 'crous' library is required to parse CROUS payloads. Install with: pip install crous"
             )
 
         if self._crous is not None:
@@ -1012,10 +1000,10 @@ class Request:
 
     async def data(
         self,
-        model: Optional[Type[T]] = None,
+        model: type[T] | None = None,
         *,
         strict: bool = True,
-    ) -> Union[Any, T]:
+    ) -> Any | T:
         """Parse request body as JSON **or** CROUS, auto-detected.
 
         Uses Content-Type to decide:
@@ -1042,7 +1030,7 @@ class Request:
         """Check if JSON nesting depth is within limits."""
         if current_depth > max_depth:
             return False
-        
+
         if isinstance(obj, dict):
             for value in obj.values():
                 if not self._check_json_depth(value, max_depth, current_depth + 1):
@@ -1051,10 +1039,10 @@ class Request:
             for item in obj:
                 if not self._check_json_depth(item, max_depth, current_depth + 1):
                     return False
-        
+
         return True
-    
-    def _validate_json_model(self, data: Any, model: Type[T]) -> T:
+
+    def _validate_json_model(self, data: Any, model: type[T]) -> T:
         """Validate JSON data against model."""
         try:
             # Pydantic v2
@@ -1070,97 +1058,92 @@ class Request:
                 return data
         except Exception as e:
             raise BadRequest(f"JSON validation failed: {e}", model=model.__name__)
-    
+
     # ========================================================================
     # Form & Multipart Parsing
     # ========================================================================
-    
+
     async def form(self) -> FormData:
         """
         Parse application/x-www-form-urlencoded form data.
-        
+
         Returns:
             FormData object with fields
-        
+
         Raises:
             UnsupportedMediaType: If Content-Type is not form-urlencoded
             BadRequest: If form data is malformed
         """
         if self._form_data is not None:
             return self._form_data
-        
+
         ct = self.content_type()
         if not ct:
             raise UnsupportedMediaType("No Content-Type header")
-        
+
         parsed_ct = ParsedContentType.parse(ct)
         if not parsed_ct or parsed_ct.media_type != "application/x-www-form-urlencoded":
-            raise UnsupportedMediaType(
-                f"Expected application/x-www-form-urlencoded, got {ct}"
-            )
-        
+            raise UnsupportedMediaType(f"Expected application/x-www-form-urlencoded, got {ct}")
+
         # Read body
         body_bytes = await self.body()
         body_str = body_bytes.decode(parsed_ct.charset)
-        
+
         # Parse form data
         items = parse_qsl(body_str, keep_blank_values=True)
-        
+
         if len(items) > self.max_field_count:
             raise BadRequest(
-                f"Too many form fields",
+                "Too many form fields",
                 max_allowed=self.max_field_count,
                 actual=len(items),
             )
-        
+
         fields = MultiDict(items)
         self._form_data = FormData(fields=fields, files={})
-        
+
         return self._form_data
-    
+
     async def multipart(self) -> FormData:
         """
         Parse multipart/form-data.
-        
+
         Supports streaming file uploads with disk spilling.
-        
+
         Returns:
             FormData object with fields and files
-        
+
         Raises:
             UnsupportedMediaType: If Content-Type is not multipart/form-data
             MultipartParseError: If multipart parsing fails
         """
         if self._form_data is not None:
             return self._form_data
-        
+
         if not MULTIPART_AVAILABLE:
             raise MultipartParseError(
-                "python-multipart library not available. "
-                "Install with: pip install python-multipart"
+                "python-multipart library not available. Install with: pip install python-multipart"
             )
-        
+
         ct = self.content_type()
         if not ct:
             raise UnsupportedMediaType("No Content-Type header")
-        
+
         parsed_ct = ParsedContentType.parse(ct)
         if not parsed_ct or not parsed_ct.media_type.startswith("multipart/"):
-            raise UnsupportedMediaType(
-                f"Expected multipart/form-data, got {ct}"
-            )
-        
+            raise UnsupportedMediaType(f"Expected multipart/form-data, got {ct}")
+
         boundary = parsed_ct.boundary
         if not boundary:
             raise BadRequest("No boundary in multipart Content-Type")
-        
+
         # Parse multipart
         return await self._parse_multipart_streaming(boundary.encode())
-    
+
     async def _parse_multipart_streaming(self, boundary: bytes) -> FormData:
         """
         Parse multipart form data with streaming support using python-multipart.
-        
+
         Features:
         - RFC 7578 compliant multipart parsing
         - Streaming with incremental processing
@@ -1169,43 +1152,39 @@ class Request:
         - Size limits enforcement
         """
         fields = MultiDict()
-        files: Dict[str, List[UploadFile]] = {}
-        
+        files: dict[str, list[UploadFile]] = {}
+
         # Temp directory for uploads
         temp_dir = self.upload_tempdir or Path(tempfile.gettempdir()) / "aquilia_uploads"
         temp_dir.mkdir(parents=True, exist_ok=True)
-        
+
         # Current part state
         part_count = 0
-        current_field_name: Optional[str] = None
-        current_filename: Optional[str] = None
-        current_content_type: Optional[str] = None
+        current_field_name: str | None = None
+        current_filename: str | None = None
+        current_content_type: str | None = None
         current_data = bytearray()
-        current_temp_file: Optional[Path] = None
+        current_temp_file: Path | None = None
         current_file_handle = None
         current_size = 0
-        
+
         # Header tracking (use list to allow reassignment in nested functions)
-        header_state = {
-            'field': bytearray(),
-            'value': bytearray(),
-            'headers': {}
-        }
-        
+        header_state = {"field": bytearray(), "value": bytearray(), "headers": {}}
+
         def on_part_begin():
             """Called when a new multipart part begins."""
             nonlocal part_count, current_field_name, current_filename
             nonlocal current_content_type, current_data, current_temp_file
             nonlocal current_file_handle, current_size
-            
+
             part_count += 1
             if part_count > self.max_field_count:
                 raise BadRequest(
-                    f"Too many multipart parts",
+                    "Too many multipart parts",
                     max_allowed=self.max_field_count,
                     actual=part_count,
                 )
-            
+
             # Reset state
             current_field_name = None
             current_filename = None
@@ -1214,31 +1193,31 @@ class Request:
             current_temp_file = None
             current_file_handle = None
             current_size = 0
-            header_state['field'] = bytearray()
-            header_state['value'] = bytearray()
-            header_state['headers'] = {}
-        
+            header_state["field"] = bytearray()
+            header_state["value"] = bytearray()
+            header_state["headers"] = {}
+
         def on_part_data(data: bytes, start: int, end: int):
             """Called when part data is received (can be called multiple times)."""
             nonlocal current_data, current_size, current_temp_file, current_file_handle
-            
+
             chunk = data[start:end]
             current_size += len(chunk)
-            
+
             # Enforce file size limits
             if current_filename and current_size > self.max_file_size:
                 # Close file handle if open
                 if current_file_handle:
                     current_file_handle.close()
                     current_file_handle = None
-                
+
                 raise PayloadTooLarge(
-                    f"File upload exceeds maximum size",
+                    "File upload exceeds maximum size",
                     max_allowed=self.max_file_size,
                     actual=current_size,
                     filename=current_filename,
                 )
-            
+
             # Handle file uploads with disk spilling
             if current_filename:
                 # Check if we should spill to disk
@@ -1246,14 +1225,14 @@ class Request:
                     # Create temp file and write buffered data
                     current_temp_file = temp_dir / f"{uuid.uuid4().hex}_{current_filename}"
                     current_file_handle = open(current_temp_file, "wb")
-                    
+
                     # Write buffered data to disk
                     if current_data:
                         current_file_handle.write(current_data)
                         current_data = bytearray()  # Clear buffer
-                    
+
                     self._temp_files.append(current_temp_file)
-                
+
                 # Write to file or buffer
                 if current_temp_file and current_file_handle:
                     current_file_handle.write(chunk)
@@ -1262,20 +1241,20 @@ class Request:
             else:
                 # Regular field - keep in memory
                 current_data.extend(chunk)
-        
+
         def on_part_end():
             """Called when a multipart part ends."""
             nonlocal current_field_name, current_filename, current_data
             nonlocal current_temp_file, current_file_handle
-            
+
             # Close file handle if open
             if current_file_handle:
                 current_file_handle.close()
                 current_file_handle = None
-            
+
             if not current_field_name:
                 return
-            
+
             if current_filename:
                 # File upload
                 if current_temp_file:
@@ -1292,7 +1271,7 @@ class Request:
                         content=bytes(current_data),
                         content_type=current_content_type or "application/octet-stream",
                     )
-                
+
                 # Add to files dict
                 if current_field_name not in files:
                     files[current_field_name] = []
@@ -1303,55 +1282,55 @@ class Request:
                     value = current_data.decode("utf-8")
                 except UnicodeDecodeError:
                     value = current_data.decode("utf-8", errors="replace")
-                
+
                 fields.add(current_field_name, value)
-        
+
         def on_header_field(data: bytes, start: int, end: int):
             """Called when header field name is received."""
-            header_state['field'].extend(data[start:end])
-        
+            header_state["field"].extend(data[start:end])
+
         def on_header_value(data: bytes, start: int, end: int):
             """Called when header value is received."""
-            header_state['value'].extend(data[start:end])
-        
+            header_state["value"].extend(data[start:end])
+
         def on_header_end():
             """Called when a single header line ends."""
-            if header_state['field']:
-                field_name = header_state['field'].decode("utf-8", errors="replace").lower()
-                field_value = header_state['value'].decode("utf-8", errors="replace")
-                header_state['headers'][field_name] = field_value
-            
+            if header_state["field"]:
+                field_name = header_state["field"].decode("utf-8", errors="replace").lower()
+                field_value = header_state["value"].decode("utf-8", errors="replace")
+                header_state["headers"][field_name] = field_value
+
             # Reset for next header
-            header_state['field'] = bytearray()
-            header_state['value'] = bytearray()
-        
+            header_state["field"] = bytearray()
+            header_state["value"] = bytearray()
+
         def on_headers_finished():
             """Called after all headers parsed - extract metadata."""
             nonlocal current_field_name, current_filename, current_content_type
-            
+
             # Extract field name and filename from Content-Disposition
-            content_disposition = header_state['headers'].get("content-disposition", "")
+            content_disposition = header_state["headers"].get("content-disposition", "")
             if content_disposition:
                 # Parse using python-multipart helper
                 _, options = parse_options_header(content_disposition)
-                
+
                 # parse_options_header returns bytes keys/values
                 current_field_name = options.get(b"name")
                 if current_field_name and isinstance(current_field_name, bytes):
                     current_field_name = current_field_name.decode("utf-8")
-                
+
                 filename = options.get(b"filename")
                 if filename:
                     if isinstance(filename, bytes):
                         filename = filename.decode("utf-8")
                     # Sanitize filename
                     current_filename = self._sanitize_filename(filename)
-            
+
             # Extract Content-Type
-            content_type = header_state['headers'].get("content-type")
+            content_type = header_state["headers"].get("content-type")
             if content_type:
                 current_content_type = content_type
-        
+
         # Create parser with callbacks
         callbacks = {
             "on_part_begin": on_part_begin,
@@ -1362,23 +1341,23 @@ class Request:
             "on_header_end": on_header_end,
             "on_headers_finished": on_headers_finished,
         }
-        
+
         parser = MultipartParser(boundary, callbacks)
-        
+
         try:
             # Stream body to parser
             async for chunk in self.iter_bytes():
                 # Feed chunk to parser
                 bytes_parsed = parser.write(chunk)
-                
+
                 if bytes_parsed != len(chunk):
                     raise MultipartParseError(
                         f"Parser did not consume all bytes: expected {len(chunk)}, got {bytes_parsed}"
                     )
-            
+
             # Finalize parsing
             parser.finalize()
-            
+
         except PayloadTooLarge:
             # Re-raise size limit errors
             raise
@@ -1390,91 +1369,81 @@ class Request:
             if current_file_handle:
                 current_file_handle.close()
             await self.cleanup()
-            
+
             # Wrap in MultipartParseError
             if isinstance(e, (RequestFault, Fault)):
                 raise
             raise MultipartParseError(f"Multipart parsing failed: {e}")
-        
+
         self._form_data = FormData(fields=fields, files=files)
         return self._form_data
-    
+
     def _sanitize_filename(self, filename: str) -> str:
         """Sanitize uploaded filename."""
         import os
-        
+
         # Remove path components
         filename = os.path.basename(filename)
-        
+
         # Remove dangerous characters
         filename = filename.replace("\x00", "")
         unsafe = ["<", ">", ":", '"', "/", "\\", "|", "?", "*"]
         for char in unsafe:
             filename = filename.replace(char, "_")
-        
+
         # Limit length
         if len(filename) > 255:
             name, ext = os.path.splitext(filename)
             filename = name[:250] + ext
-        
+
         return filename or "unnamed"
-    
-    async def files(self) -> Mapping[str, List[UploadFile]]:
+
+    async def files(self) -> Mapping[str, list[UploadFile]]:
         """
         Get uploaded files from multipart request.
-        
+
         Returns:
             Dictionary of field names to lists of UploadFile objects
         """
         form_data = await self.multipart()
         return form_data.files
-    
+
     # ========================================================================
     # Upload Helpers
     # ========================================================================
-    
-    async def save_upload(
-        self, 
-        upload: UploadFile, 
-        dest: Union[str, PathLike], 
-        *, 
-        overwrite: bool = False
-    ) -> Path:
+
+    async def save_upload(self, upload: UploadFile, dest: str | PathLike, *, overwrite: bool = False) -> Path:
         """
         Save uploaded file to destination.
-        
+
         Args:
             upload: UploadFile to save
             dest: Destination path
             overwrite: Whether to overwrite existing file
-        
+
         Returns:
             Path to saved file
         """
         return await upload.save(dest, overwrite=overwrite)
-    
-    async def stream_upload_to_store(
-        self, 
-        upload: UploadFile, 
-        store: UploadStore
-    ) -> Path:
+
+    async def stream_upload_to_store(self, upload: UploadFile, store: UploadStore) -> Path:
         """
         Stream upload to custom storage backend.
-        
+
         Args:
             upload: UploadFile to stream
             store: UploadStore implementation
-        
+
         Returns:
             Final storage path/identifier
         """
         upload_id = str(uuid.uuid4())
-        
+
         try:
             # Stream chunks to store
             async for chunk in upload.stream():
                 await store.write_chunk(upload_id, chunk)
-            
+
             # Finalize
             metadata = {
                 "filename": upload.filename,
@@ -1482,43 +1451,43 @@ class Request:
                 "size": upload.size,
             }
             return await store.finalize(upload_id, metadata)
-        
-        except Exception as e:
+
+        except Exception:
             # Abort on error
             await store.abort(upload_id)
             raise
-    
+
     # ========================================================================
     # Identity Integration (Auth System)
     # ========================================================================
-    
+
     @property
-    def identity(self) -> Optional[Any]:  # Returns Identity | None
+    def identity(self) -> Any | None:  # Returns Identity | None
         """
         Get authenticated identity (set by AuthMiddleware).
-        
+
         Returns:
             Identity object if authenticated, None otherwise
         """
         return self.state.get("identity")
-    
+
     @property
     def authenticated(self) -> bool:
         """
         Check if request is authenticated.
-        
+
         Returns:
             True if identity is present, False otherwise
         """
         return self.identity is not None
-    
+
     def require_identity(self) -> Any:  # Returns Identity
         """
         Get identity or raise AUTH_REQUIRED fault.
-        
+
         Returns:
             Identity object
-            
+
         Raises:
             Fault: AUTH_REQUIRED if no identity
         """
@@ -1526,116 +1495,118 @@ class Request:
         if not identity:
             # Import here to avoid circular dependency
             from aquilia.faults import Fault, FaultDomain, Severity
+
             raise Fault(
                 code="AUTH_REQUIRED",
                 message="Authentication required",
                 domain=FaultDomain.SECURITY,
                 severity=Severity.WARN,
-                metadata={"path": self.path, "method": self.method}
+                metadata={"path": self.path, "method": self.method},
             )
         return identity
-    
+
     def has_role(self, role: str) -> bool:
         """
         Check if identity has specific role.
-        
+
         Args:
             role: Role name to check
-            
+
         Returns:
             True if identity has role, False otherwise
         """
         return self.identity and hasattr(self.identity, "has_role") and self.identity.has_role(role)
-    
+
     def has_scope(self, scope: str) -> bool:
         """
         Check if identity has OAuth scope.
-        
+
         Args:
             scope: Scope name to check
-            
+
         Returns:
             True if identity has scope, False otherwise
         """
         return self.identity and hasattr(self.identity, "has_scope") and self.identity.has_scope(scope)
-    
+
     # ========================================================================
     # Session Integration
     # ========================================================================
-    
+
     @property
-    def session(self) -> Optional[Any]:  # Returns Session | None
+    def session(self) -> Any | None:  # Returns Session | None
         """
         Get session (set by SessionMiddleware).
-        
+
         Returns:
             Session object if available, None otherwise
         """
         return self.state.get("session")
-    
+
     @session.setter
     def session(self, value):
         """Set session in request state."""
         self.state["session"] = value
-    
+
     def require_session(self) -> Any:  # Returns Session
         """
         Get session or raise SESSION_REQUIRED fault.
-        
+
         Returns:
             Session object
-            
+
         Raises:
             Fault: SESSION_REQUIRED if no session
         """
         session = self.session
         if not session:
             from aquilia.faults import Fault, FaultDomain, Severity
+
             raise Fault(
                 code="SESSION_REQUIRED",
                 message="Session required",
                 domain=FaultDomain.IO,
                 severity=Severity.WARN,
-                metadata={"path": self.path, "method": self.method}
+                metadata={"path": self.path, "method": self.method},
             )
         return session
-    
+
     @property
-    def session_id(self) -> Optional[str]:
+    def session_id(self) -> str | None:
         """
         Get session ID.
-        
+
         Returns:
             Session ID if session available, None otherwise
         """
         session = self.session
         return session.id if session and hasattr(session, "id") else None
-    
+
     # ========================================================================
     # DI Container Integration
     # ========================================================================
-    
+
     @property
-    def container(self) -> Optional[Any]:  # Returns Container | None
+    def container(self) -> Any | None:  # Returns Container | None
         """
         Get request-scoped DI container.
-        
+
         Returns:
             DI Container if available, None otherwise
         """
         return self.state.get("di_container") or self.state.get("container")
-    
-    async def resolve(self, service_type: Type[T], *, optional: bool = False) -> Optional[T]:
+
+    async def resolve(self, service_type: type[T], *, optional: bool = False) -> T | None:
         """
         Resolve service from DI container.
-        
+
         Args:
             service_type: Type of service to resolve
             optional: If True, return None instead of raising error
-            
+
         Returns:
             Resolved service instance
-            
+
         Raises:
             RuntimeError: If container not available and optional=False
         """
@@ -1644,11 +1615,12 @@ class Request:
             if optional:
                 return None
             from .faults.domains import DIResolutionFault
+
             raise DIResolutionFault(
                 provider=str(service_type),
                 reason="DI container not available in request",
             )
-        
+
         # Support both sync and async resolve
         if hasattr(container, "resolve_async"):
             return await container.resolve_async(service_type, optional=optional)
@@ -1662,21 +1634,22 @@ class Request:
             if optional:
                 return None
             from .faults.domains import DIResolutionFault
+
             raise DIResolutionFault(
                 provider=str(service_type),
                 reason="Container does not support resolution",
             )
-    
-    async def inject(self, **services) -> Dict[str, Any]:
+
+    async def inject(self, **services) -> dict[str, Any]:
         """
         Inject multiple services by name.
-        
+
         Args:
             **services: Mapping of name to service type
-            
+
         Returns:
             Dict mapping names to resolved services
-            
+
         Example:
             services = await request.inject(
                 auth=AuthManager,
@@ -1686,7 +1659,7 @@ class Request:
         container = self.container
         if not container:
             return {}
-        
+
         results = {}
         for name, service_type in services.items():
             try:
@@ -1694,14 +1667,14 @@ class Request:
             except Exception:
                 results[name] = None
         return results
-    
+
     @property
-    def identity(self) -> Optional[Any]:
+    def identity(self) -> Any | None:
         """Get authenticated identity from request state."""
         return self.state.get("identity")
 
     @property
-    def session(self) -> Optional[Any]:
+    def session(self) -> Any | None:
         """Get session from request state."""
         return self.state.get("session")
 
@@ -1713,8 +1686,8 @@ class Request:
     # ========================================================================
     # Template Context Integration
     # ========================================================================
-    
-    def flash_messages(self) -> List[Dict[str, Any]]:
+
+    def flash_messages(self) -> list[dict[str, Any]]:
         """Get and clear flash messages from session."""
         if not self.session:
             return []
@@ -1732,10 +1705,10 @@ class Request:
         return self.authenticated
 
     @property
-    def template_context(self) -> Dict[str, Any]:
+    def template_context(self) -> dict[str, Any]:
         """
         Get template rendering context with auto-injected variables.
-        
+
         Automatically includes:
         - request: This request object
         - identity: Authenticated identity (if any)
@@ -1747,12 +1720,12 @@ class Request:
         - path: Request path
         - flash_messages: Helper to get flash messages
         - has_role: Helper to check user roles
-        
+
         Returns:
             Dict of template context variables
         """
         context = self.state.get("template_context", {}).copy()
-        
+
         # Auto-inject common variables
         context.setdefault("request", self)
         context.setdefault("identity", self.identity)
@@ -1765,31 +1738,31 @@ class Request:
         context.setdefault("query_params", dict(self.query_params))
         context.setdefault("flash_messages", self.flash_messages)
         context.setdefault("has_role", self.has_role)
-        
+
         return context
-    
+
     def add_template_context(self, **kwargs) -> None:
         """
         Add variables to template context.
-        
+
         Args:
             **kwargs: Variables to add to context
-            
+
         Example:
             request.add_template_context(title="Home", user=user)
         """
         if "template_context" not in self.state:
             self.state["template_context"] = {}
         self.state["template_context"].update(kwargs)
-    
+
     # ========================================================================
     # Lifecycle & Effects Integration
     # ========================================================================
-    
+
     async def emit_effect(self, effect_name: str, **data) -> None:
         """
         Emit effect for lifecycle hooks.
-        
+
         Args:
             effect_name: Name of the effect to emit
             **data: Additional data to pass to effect handlers
@@ -1829,12 +1802,10 @@ class Request:
             if flow_ctx is not None and hasattr(flow_ctx, "get_effect"):
                 return flow_ctx.get_effect(name)
             from .faults.domains import EffectFault
+
             raise EffectFault(
                 code="EFFECT_NOT_ACQUIRED",
-                message=(
-                    f"Effect '{name}' not acquired. "
-                    f"Use @requires('{name}') on your handler."
-                ),
+                message=(f"Effect '{name}' not acquired. Use @requires('{name}') on your handler."),
             )
         return effects[name]
 
@@ -1849,7 +1820,7 @@ class Request:
         return False
 
     @property
-    def effects(self) -> Dict[str, Any]:
+    def effects(self) -> dict[str, Any]:
         """
         All currently acquired effect resources.
 
@@ -1877,31 +1848,31 @@ class Request:
     async def before_response(self, callback: Callable[..., Awaitable[None]]) -> None:
         """
         Register callback to run before response is sent.
-        
+
         Args:
             callback: Async callable to execute before response
         """
         callbacks = self.state.setdefault("before_response_callbacks", [])
         callbacks.append(callback)
-    
+
     async def after_response(self, callback: Callable[..., Awaitable[None]]) -> None:
         """
         Register callback to run after response is sent.
-        
+
         Args:
             callback: Async callable to execute after response
         """
         callbacks = self.state.setdefault("after_response_callbacks", [])
         callbacks.append(callback)
-    
+
     # ========================================================================
     # Enhanced Fault Handling
     # ========================================================================
-    
-    def fault_context(self) -> Dict[str, Any]:
+
+    def fault_context(self) -> dict[str, Any]:
         """
         Get context for fault reporting.
-        
+
         Returns:
             Dict with request metadata for fault enrichment
         """
@@ -1917,11 +1888,11 @@ class Request:
             "trace_id": self.trace_id,
             "authenticated": self.authenticated,
         }
-    
+
     async def report_fault(self, fault: Fault) -> None:
         """
         Report fault through FaultEngine with request context.
-        
+
         Args:
             fault: Fault to report
         """
@@ -1931,35 +1902,35 @@ class Request:
             if hasattr(fault, "metadata"):
                 fault.metadata.update(self.fault_context())
             await fault_engine.process(fault)
-    
+
     # ========================================================================
     # Metrics & Tracing Integration
     # ========================================================================
-    
+
     @property
-    def trace_id(self) -> Optional[str]:
+    def trace_id(self) -> str | None:
         """
         Get trace ID for distributed tracing.
-        
+
         Returns:
             Trace ID from state or header
         """
         return self.state.get("trace_id") or self.header("x-trace-id")
-    
+
     @property
-    def request_id(self) -> Optional[str]:
+    def request_id(self) -> str | None:
         """
         Get unique request ID.
-        
+
         Returns:
             Request ID from state
         """
         return self.state.get("request_id")
-    
+
     def record_metric(self, name: str, value: float, **tags) -> None:
         """
         Record metric for this request.
-        
+
         Args:
             name: Metric name
             value: Metric value
@@ -1967,51 +1938,49 @@ class Request:
         """
         metrics = self.state.get("metrics_collector")
         if metrics and hasattr(metrics, "record"):
-            tags.update({
-                "method": self.method,
-                "path": self.path,
-                "authenticated": self.authenticated,
-            })
+            tags.update(
+                {
+                    "method": self.method,
+                    "path": self.path,
+                    "authenticated": self.authenticated,
+                }
+            )
             metrics.record(name, value, **tags)
-    
+
     # ========================================================================
     # Cleanup
     # ========================================================================
-    
+
     async def cleanup(self) -> None:
         """
         Clean up temporary resources.
-        
+
         Removes temporary upload files.
         """
         # Cleanup form data uploads
         if self._form_data:
             await self._form_data.cleanup()
-        
+
         # Cleanup tracked temp files
         for temp_file in self._temp_files:
             if temp_file.exists():
-                try:
+                with contextlib.suppress(OSError):
                     temp_file.unlink()
-                except OSError:
-                    pass
-        
+
         self._temp_files.clear()
-    
+
     def __del__(self):
         """Best-effort cleanup on garbage collection."""
         # Note: __del__ is sync, so this is limited
         for temp_file in self._temp_files:
             if temp_file.exists():
-                try:
+                with contextlib.suppress(OSError):
                     temp_file.unlink()
-                except OSError:
-                    pass
-    
+
     # ========================================================================
     # Legacy Compatibility
     # ========================================================================
-    
-    def path_params(self) -> Dict[str, Any]:
+
+    def path_params(self) -> dict[str, Any]:
         """Get path parameters (set by router via state)."""
         return self.state.get("path_params", {})

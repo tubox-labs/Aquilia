@@ -13,7 +13,7 @@ Admin Roles:
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from aquilia.auth.core import Identity
@@ -27,6 +27,7 @@ class AdminRole(str, Enum):
     - **staff**      – day-to-day CRUD, exports, bulk actions.
     - **viewer**     – read-only dashboard access.
     """
+
     SUPERADMIN = "superadmin"
     STAFF = "staff"
     VIEWER = "viewer"
@@ -43,6 +44,7 @@ class AdminRole(str, Enum):
 
 class AdminPermission(str, Enum):
     """Fine-grained admin permissions."""
+
     # Dashboard
     DASHBOARD_VIEW = "admin.dashboard.view"
 
@@ -195,7 +197,7 @@ ROLE_PERMISSIONS: dict[AdminRole, set[AdminPermission]] = {
 }
 
 
-def get_admin_role(identity: Optional["Identity"]) -> Optional[AdminRole]:
+def get_admin_role(identity: Identity | None) -> AdminRole | None:
     """
     Determine the admin role for an identity.
 
@@ -238,7 +240,7 @@ def get_admin_role(identity: Optional["Identity"]) -> Optional[AdminRole]:
 
 
 def has_admin_permission(
-    identity: Optional["Identity"],
+    identity: Identity | None,
     permission: AdminPermission,
 ) -> bool:
     """
@@ -254,7 +256,7 @@ def has_admin_permission(
 
 
 def has_model_permission(
-    identity: Optional["Identity"],
+    identity: Identity | None,
     model_name: str,
     action: str,
 ) -> bool:
@@ -299,7 +301,7 @@ def has_model_permission(
     return True
 
 
-def require_admin_access(identity: Optional["Identity"]) -> None:
+def require_admin_access(identity: Identity | None) -> None:
     """
     Raise AdminAuthorizationFault if identity has no admin access.
 
@@ -344,6 +346,7 @@ def update_role_permissions(
     if role == AdminRole.SUPERADMIN:
         if not granted:
             from .faults import AdminAuthorizationFault
+
             raise AdminAuthorizationFault(
                 action="revoke permissions",
                 resource="SUPERADMIN role",
@@ -382,7 +385,7 @@ def get_model_permission_overrides() -> dict[str, dict[str, bool]]:
     return dict(_MODEL_PERMISSION_OVERRIDES)
 
 
-def clear_model_permission_overrides(model_name: Optional[str] = None) -> None:
+def clear_model_permission_overrides(model_name: str | None = None) -> None:
     """
     Clear model permission overrides.
 

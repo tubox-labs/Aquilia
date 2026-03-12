@@ -13,25 +13,26 @@ Each WebSocket connection has:
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional, Set, TYPE_CHECKING
-from dataclasses import dataclass, field
+import logging
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import Enum
-import uuid
-import logging
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from aquilia.di import Container
     from aquilia.auth.core import Identity
+    from aquilia.di import Container
     from aquilia.sessions.core import Session
-    from .envelope import MessageEnvelope
+
     from .adapters.base import Adapter
+    from .envelope import MessageEnvelope
 
 logger = logging.getLogger("aquilia.sockets.connection")
 
 
 class ConnectionState(str, Enum):
     """Connection lifecycle state."""
+
     CONNECTING = "connecting"
     CONNECTED = "connected"
     CLOSING = "closing"
@@ -41,17 +42,18 @@ class ConnectionState(str, Enum):
 @dataclass
 class ConnectionScope:
     """Scope metadata for connection."""
+
     namespace: str  # e.g., "/chat/:namespace"
-    path: str       # e.g., "/chat/general"
-    path_params: Dict[str, Any]
-    query_params: Dict[str, Any]
-    headers: Dict[str, str]
+    path: str  # e.g., "/chat/general"
+    path_params: dict[str, Any]
+    query_params: dict[str, Any]
+    headers: dict[str, str]
 
 
 class Connection:
     """
     WebSocket connection with DI scope.
-    
+
     Represents a single WebSocket connection and provides:
     - Message sending (send_event, send_raw)
     - Room management (join, leave)
@@ -59,7 +61,7 @@ class Connection:
     - State management
     - DI container access
     """
-    
+
     def __init__(
         self,
         connection_id: str,
@@ -68,12 +70,12 @@ class Connection:
         container: Container,
         adapter: Adapter,
         send_func: callable,
-        identity: Optional[Identity] = None,
-        session: Optional[Session] = None,
+        identity: Identity | None = None,
+        session: Session | None = None,
     ):
         """
         Initialize connection.
-        
+
         Args:
             connection_id: Unique connection identifier
             namespace: Socket namespace
@@ -92,20 +94,20 @@ class Connection:
         self._send_func = send_func
         self.identity = identity
         self.session = session
-        
+
         # State
-        self.state: Dict[str, Any] = {}
+        self.state: dict[str, Any] = {}
         self._connection_state = ConnectionState.CONNECTING
-        self._rooms: Set[str] = set()
+        self._rooms: set[str] = set()
         self.created_at = datetime.now(timezone.utc)
         self.last_activity = datetime.now(timezone.utc)
-        
+
         # Metrics
         self.messages_sent = 0
         self.messages_received = 0
         self.bytes_sent = 0
         self.bytes_received = 0
-    
+
     @property
     def id(self) -> str:
         """Alias for connection_id for convenience."""
@@ -115,68 +117,68 @@ class Connection:
     def is_connected(self) -> bool:
         """Check if connection is active."""
         return self._connection_state == ConnectionState.CONNECTED
-    
+
     @property
-    def rooms(self) -> Set[str]:
+    def rooms(self) -> set[str]:
         """Get subscribed rooms."""
         return self._rooms.copy()
-    
+
     def mark_connected(self):
         """Mark connection as connected."""
         self._connection_state = ConnectionState.CONNECTED
-    
+
     def mark_closing(self):
         """Mark connection as closing."""
         self._connection_state = ConnectionState.CLOSING
-    
+
     def mark_closed(self):
         """Mark connection as closed."""
         self._connection_state = ConnectionState.CLOSED
-    
+
     async def send_event(
         self,
         event: str,
-        payload: Dict[str, Any],
+        payload: dict[str, Any],
         ack: bool = False,
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Send event message to client.
-        
+
         Args:
             event: Event name
             payload: Event data
             ack: Request acknowledgement
-            
+
         Returns:
             Message ID if ack requested
         """
         from .envelope import MessageEnvelope, MessageType
-        
+
         envelope = MessageEnvelope(
             type=MessageType.EVENT,
             event=event,
             payload=payload,
             ack=ack,
         )
-        
+
         await self.send_envelope(envelope)
-        
+
         return envelope.id if ack else None
-    
+
     async def send_envelope(self, envelope: MessageEnvelope):
         """Send message envelope to client."""
         from .envelope import JSONCodec
-        
+
         codec = JSONCodec()
         data = codec.encode(envelope)
-        
+
         await self._send_func(data)
-        
+
         self.messages_sent += 1
         self.bytes_sent += len(data)
         self.last_activity = datetime.now(timezone.utc)
 
-    async def send_json(self, data: Dict[str, Any]):
+    async def send_json(self, data: dict[str, Any]):
         """
         Send a raw JSON dict to the client.
 
@@ -188,6 +190,7 @@ class Connection:
             data: JSON-serialisable dictionary.
         """
         import json as _json
+
         encoded = _json.dumps(data).encode("utf-8")
         await self._send_func(encoded)
         self.messages_sent += 1
@@ -203,25 +206,25 @@ class Connection:
     async def leave_room(self, room: str) -> bool:
         """Alias for :meth:`leave` – kept for readability in controllers."""
         return await self.leave(room)
-    
+
     async def send_raw(self, data: bytes):
         """Send raw bytes to client."""
         await self._send_func(data)
-        
+
         self.messages_sent += 1
         self.bytes_sent += len(data)
         self.last_activity = datetime.now(timezone.utc)
-    
+
     async def send_ack(
         self,
         message_id: str,
         status: str = "ok",
-        data: Optional[Dict[str, Any]] = None,
-        error: Optional[str] = None,
+        data: dict[str, Any] | None = None,
+        error: str | None = None,
     ):
         """
         Send acknowledgement message.
-        
+
         Args:
             message_id: Original message ID
             status: "ok" or "error"
@@ -229,7 +232,7 @@ class Connection:
             error: Optional error message
         """
         from .envelope import MessageEnvelope, MessageType
-        
+
         ack_envelope = MessageEnvelope(
             id=message_id,
             type=MessageType.ACK,
@@ -240,96 +243,96 @@ class Connection:
                 "error": error,
             },
         )
-        
+
         await self.send_envelope(ack_envelope)
-    
+
     async def join(self, room: str) -> bool:
         """
         Join a room (subscribe).
-        
+
         Args:
             room: Room identifier
-            
+
         Returns:
             True if newly joined, False if already member
         """
         if room in self._rooms:
             return False
-        
+
         self._rooms.add(room)
-        
+
         # Register with adapter
         await self.adapter.join_room(
             namespace=self.namespace,
             room=room,
             connection_id=self.connection_id,
         )
-        
+
         return True
-    
+
     async def leave(self, room: str) -> bool:
         """
         Leave a room (unsubscribe).
-        
+
         Args:
             room: Room identifier
-            
+
         Returns:
             True if was member, False otherwise
         """
         if room not in self._rooms:
             return False
-        
+
         self._rooms.discard(room)
-        
+
         # Unregister from adapter
         await self.adapter.leave_room(
             namespace=self.namespace,
             room=room,
             connection_id=self.connection_id,
         )
-        
+
         return True
-    
+
     async def leave_all(self):
         """Leave all rooms."""
         for room in list(self._rooms):
             await self.leave(room)
-    
-    async def disconnect(self, reason: Optional[str] = None, code: int = 1000):
+
+    async def disconnect(self, reason: str | None = None, code: int = 1000):
         """
         Disconnect the connection.
-        
+
         Args:
             reason: Optional disconnect reason
             code: WebSocket close code
         """
         self.mark_closing()
-        
+
         # Leave all rooms
         await self.leave_all()
-        
+
         # Send close frame (implementation depends on ASGI adapter)
-    
+
     def record_received(self, size: int):
         """Record received message stats."""
         self.messages_received += 1
         self.bytes_received += size
         self.last_activity = datetime.now(timezone.utc)
-    
+
     async def resolve(self, name: str, optional: bool = False) -> Any:
         """
         Resolve dependency from container.
-        
+
         Args:
             name: Dependency name
             optional: Don't raise if not found
-            
+
         Returns:
             Resolved dependency
         """
         return await self.container.resolve_async(name, optional=optional)
-    
+
     def __repr__(self) -> str:
         identity_id = self.identity.id if self.identity else "anonymous"
         return (

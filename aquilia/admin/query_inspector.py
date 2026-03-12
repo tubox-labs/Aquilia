@@ -14,12 +14,11 @@ Hooks into AquiliaDatabase to intercept all queries transparently.
 from __future__ import annotations
 
 import hashlib
-import time
 import traceback
 from collections import defaultdict, deque
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
@@ -34,7 +33,7 @@ class QueryRecord:
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     explain_plan: str = ""
     source: str = ""  # Calling code location (file:line)
-    model: str = ""   # ORM model name if applicable
+    model: str = ""  # ORM model name if applicable
     operation: str = ""  # SELECT, INSERT, UPDATE, DELETE
     is_slow: bool = False
     stack_summary: str = ""  # Abbreviated stack trace
@@ -48,7 +47,7 @@ class QueryRecord:
         data = f"{normalised}:{self.model}"
         return hashlib.sha256(data.encode()).hexdigest()[:12]
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "sql": self.sql,
@@ -79,7 +78,7 @@ class N1Detection:
     source: str = ""
     request_id: str = ""
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "pattern_sql": self.pattern_sql,
             "count": self.count,
@@ -143,7 +142,7 @@ class QueryInspector:
         self._started_at = datetime.now(timezone.utc)
 
         # Per-request tracking for N+1 detection
-        self._request_queries: Dict[str, list[QueryRecord]] = defaultdict(list)
+        self._request_queries: dict[str, list[QueryRecord]] = defaultdict(list)
 
     def record(
         self,
@@ -236,7 +235,7 @@ class QueryInspector:
 
         return record
 
-    def detect_n_plus_one(self, request_id: Optional[str] = None) -> List[N1Detection]:
+    def detect_n_plus_one(self, request_id: str | None = None) -> list[N1Detection]:
         """
         Detect N+1 query patterns.
 
@@ -249,7 +248,7 @@ class QueryInspector:
         Returns:
             List of detected N+1 patterns
         """
-        detections: List[N1Detection] = []
+        detections: list[N1Detection] = []
 
         if request_id:
             request_groups = {request_id: self._request_queries.get(request_id, [])}
@@ -261,38 +260,40 @@ class QueryInspector:
                 continue
 
             # Group by fingerprint
-            by_fingerprint: Dict[str, list[QueryRecord]] = defaultdict(list)
+            by_fingerprint: dict[str, list[QueryRecord]] = defaultdict(list)
             for q in queries:
                 if q.operation == "SELECT":
                     by_fingerprint[q.fingerprint].append(q)
 
-            for fp, group in by_fingerprint.items():
+            for _fp, group in by_fingerprint.items():
                 if len(group) >= self._n1_threshold:
                     total_dur = sum(q.duration_ms for q in group)
-                    detections.append(N1Detection(
-                        pattern_sql=group[0].sql[:200],
-                        count=len(group),
-                        model=group[0].model,
-                        total_duration_ms=total_dur,
-                        first_seen=group[0].timestamp.isoformat(),
-                        source=group[0].source,
-                        request_id=req_id,
-                    ))
+                    detections.append(
+                        N1Detection(
+                            pattern_sql=group[0].sql[:200],
+                            count=len(group),
+                            model=group[0].model,
+                            total_duration_ms=total_dur,
+                            first_seen=group[0].timestamp.isoformat(),
+                            source=group[0].source,
+                            request_id=req_id,
+                        )
+                    )
 
         return detections
 
-    def get_slow_queries(self, limit: int = 50) -> List[QueryRecord]:
+    def get_slow_queries(self, limit: int = 50) -> list[QueryRecord]:
         """Get recent slow queries, sorted by duration descending."""
         slow = [q for q in self._queries if q.is_slow]
         slow.sort(key=lambda q: q.duration_ms, reverse=True)
         return slow[:limit]
 
-    def get_recent_queries(self, limit: int = 100) -> List[QueryRecord]:
+    def get_recent_queries(self, limit: int = 100) -> list[QueryRecord]:
         """Get most recent queries."""
         queries = list(self._queries)
         return queries[-limit:]
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get aggregate query statistics."""
         queries = list(self._queries)
         if not queries:
@@ -311,8 +312,8 @@ class QueryInspector:
             }
 
         # By operation
-        by_op: Dict[str, int] = defaultdict(int)
-        by_model: Dict[str, int] = defaultdict(int)
+        by_op: dict[str, int] = defaultdict(int)
+        by_model: dict[str, int] = defaultdict(int)
         for q in queries:
             by_op[q.operation] += 1
             if q.model:
@@ -349,7 +350,7 @@ class QueryInspector:
 # Global instance
 # ============================================================================
 
-_default_inspector: Optional[QueryInspector] = None
+_default_inspector: QueryInspector | None = None
 
 
 def get_query_inspector() -> QueryInspector:

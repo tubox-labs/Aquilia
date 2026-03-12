@@ -7,10 +7,10 @@ assertion, and :class:`CapturedFault` for structured inspection.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Type
+from dataclasses import dataclass
+from typing import Any
 
-from aquilia.faults.core import Fault, FaultDomain, Severity
+from aquilia.faults.core import Fault, Severity
 
 
 @dataclass
@@ -21,10 +21,11 @@ class CapturedFault:
     Stores the fault object along with contextual metadata
     for richer assertions.
     """
+
     fault: Fault
-    domain: Optional[str] = None
-    app_name: Optional[str] = None
-    handler_name: Optional[str] = None
+    domain: str | None = None
+    app_name: str | None = None
+    handler_name: str | None = None
     timestamp: float = 0.0
 
     @property
@@ -36,14 +37,11 @@ class CapturedFault:
         return str(self.fault)
 
     @property
-    def severity(self) -> Optional[Severity]:
+    def severity(self) -> Severity | None:
         return getattr(self.fault, "severity", None)
 
     def __repr__(self) -> str:
-        return (
-            f"<CapturedFault code={self.code!r} "
-            f"domain={self.domain!r} severity={self.severity}>"
-        )
+        return f"<CapturedFault code={self.code!r} domain={self.domain!r} severity={self.severity}>"
 
 
 class MockFaultEngine:
@@ -62,8 +60,8 @@ class MockFaultEngine:
     """
 
     def __init__(self):
-        self.captured: List[CapturedFault] = []
-        self._handlers: Dict[str, list] = {}
+        self.captured: list[CapturedFault] = []
+        self._handlers: dict[str, list] = {}
 
     # ── Emission ───────────────────────────────────────────────────
 
@@ -71,19 +69,22 @@ class MockFaultEngine:
         self,
         fault: Fault,
         *,
-        app_name: Optional[str] = None,
-        handler_name: Optional[str] = None,
+        app_name: str | None = None,
+        handler_name: str | None = None,
         **context: Any,
     ):
         """Capture a fault emission."""
         import time
-        self.captured.append(CapturedFault(
-            fault=fault,
-            domain=str(getattr(fault, "domain", "")),
-            app_name=app_name,
-            handler_name=handler_name,
-            timestamp=time.monotonic(),
-        ))
+
+        self.captured.append(
+            CapturedFault(
+                fault=fault,
+                domain=str(getattr(fault, "domain", "")),
+                app_name=app_name,
+                handler_name=handler_name,
+                timestamp=time.monotonic(),
+            )
+        )
 
     def raise_fault(self, fault: Fault, **kw):
         """Alias used by some subsystems."""
@@ -107,10 +108,10 @@ class MockFaultEngine:
 
     def get_faults(
         self,
-        code: Optional[str] = None,
-        domain: Optional[str] = None,
-        severity: Optional[Severity] = None,
-    ) -> List[CapturedFault]:
+        code: str | None = None,
+        domain: str | None = None,
+        severity: Severity | None = None,
+    ) -> list[CapturedFault]:
         """Filter captured faults by code, domain, and/or severity."""
         results = self.captured
         if code:
@@ -122,7 +123,7 @@ class MockFaultEngine:
         return results
 
     @property
-    def fault_codes(self) -> List[str]:
+    def fault_codes(self) -> list[str]:
         return [c.code for c in self.captured]
 
     @property
@@ -130,12 +131,12 @@ class MockFaultEngine:
         return len(self.captured)
 
     @property
-    def last_fault(self) -> Optional[CapturedFault]:
+    def last_fault(self) -> CapturedFault | None:
         """Return the most recently captured fault, or ``None``."""
         return self.captured[-1] if self.captured else None
 
     @property
-    def last_fault_code(self) -> Optional[str]:
+    def last_fault_code(self) -> str | None:
         """Return the code of the most recently captured fault."""
         return self.last_fault.code if self.last_fault else None
 

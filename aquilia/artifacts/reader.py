@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from .core import Artifact
 from .store import ArtifactStoreProtocol
@@ -44,7 +44,7 @@ class ArtifactReader:
 
     # ── Load ─────────────────────────────────────────────────────────
 
-    def load(self, name: str, *, version: str = "") -> Optional[Artifact]:
+    def load(self, name: str, *, version: str = "") -> Artifact | None:
         """Load an artifact by name and optional version."""
         return self._store.load(name, version=version)
 
@@ -56,17 +56,17 @@ class ArtifactReader:
             raise FileNotFoundError(f"Artifact not found: {label}")
         return a
 
-    def load_by_digest(self, digest: str) -> Optional[Artifact]:
+    def load_by_digest(self, digest: str) -> Artifact | None:
         """Content-addressed lookup."""
         return self._store.load_by_digest(digest)
 
     # ── Query ────────────────────────────────────────────────────────
 
-    def list_all(self, *, kind: str = "") -> List[Artifact]:
+    def list_all(self, *, kind: str = "") -> list[Artifact]:
         """List all artifacts, optionally filtered by kind."""
         return self._store.list_artifacts(kind=kind)
 
-    def history(self, name: str) -> List[Artifact]:
+    def history(self, name: str) -> list[Artifact]:
         """All versions of a named artifact, oldest first."""
         all_artifacts = self._store.list_artifacts()
         return sorted(
@@ -81,22 +81,24 @@ class ArtifactReader:
         tag_key: str = "",
         tag_value: str = "",
         name_prefix: str = "",
-    ) -> List[Artifact]:
+    ) -> list[Artifact]:
         """
         Search artifacts by kind, tag, or name prefix.
         """
         candidates = self._store.list_artifacts(
-            kind=kind, tag_key=tag_key, tag_value=tag_value,
+            kind=kind,
+            tag_key=tag_key,
+            tag_value=tag_value,
         )
         if name_prefix:
             candidates = [a for a in candidates if a.name.startswith(name_prefix)]
         return candidates
 
-    def names(self) -> List[str]:
+    def names(self) -> list[str]:
         """Unique artifact names in the store (sorted)."""
         return sorted({a.name for a in self._store.list_artifacts()})
 
-    def latest(self, name: str) -> Optional[Artifact]:
+    def latest(self, name: str) -> Artifact | None:
         """Latest version of a named artifact by creation time."""
         versions = self.history(name)
         return versions[-1] if versions else None
@@ -109,7 +111,7 @@ class ArtifactReader:
         """
         return artifact.verify()
 
-    def verify_by_name(self, name: str, *, version: str = "") -> Optional[bool]:
+    def verify_by_name(self, name: str, *, version: str = "") -> bool | None:
         """
         Load + verify an artifact.
 
@@ -121,7 +123,7 @@ class ArtifactReader:
             return None
         return self.verify(a)
 
-    def batch_verify(self) -> Tuple[int, int, List[str]]:
+    def batch_verify(self) -> tuple[int, int, list[str]]:
         """
         Verify every artifact in the store.
 
@@ -130,7 +132,7 @@ class ArtifactReader:
         """
         passed = 0
         failed = 0
-        failed_names: List[str] = []
+        failed_names: list[str] = []
 
         for a in self._store.list_artifacts():
             if a.verify():
@@ -144,7 +146,7 @@ class ArtifactReader:
     # ── Inspect ──────────────────────────────────────────────────────
 
     @staticmethod
-    def inspect(artifact: Artifact) -> Dict[str, Any]:
+    def inspect(artifact: Artifact) -> dict[str, Any]:
         """
         Return a human-readable inspection summary.
         """
@@ -178,13 +180,13 @@ class ArtifactReader:
     # ── Diff ─────────────────────────────────────────────────────────
 
     @staticmethod
-    def diff(a: Artifact, b: Artifact) -> Dict[str, Any]:
+    def diff(a: Artifact, b: Artifact) -> dict[str, Any]:
         """
         Compare two artifacts and return a diff summary.
 
         Works best when payloads are dicts.
         """
-        result: Dict[str, Any] = {
+        result: dict[str, Any] = {
             "name_match": a.name == b.name,
             "kind_match": a.kind == b.kind,
             "version_a": a.version,
@@ -213,7 +215,7 @@ class ArtifactReader:
 
     # ── Stats ────────────────────────────────────────────────────────
 
-    def stats(self) -> Dict[str, Any]:
+    def stats(self) -> dict[str, Any]:
         """
         Aggregate statistics about the store.
 
@@ -221,7 +223,7 @@ class ArtifactReader:
         unique names, and oldest/newest timestamps.
         """
         all_artifacts = self._store.list_artifacts()
-        by_kind: Dict[str, int] = {}
+        by_kind: dict[str, int] = {}
         total_size = 0
         names_set: set = set()
         oldest = ""

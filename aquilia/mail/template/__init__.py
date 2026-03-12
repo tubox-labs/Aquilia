@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from ..faults import MailTemplateFault
 
@@ -33,10 +33,10 @@ _EXPR_RE = re.compile(r"<<\s*(.+?)\s*>>")
 
 # ── Template search paths (set via MailConfig or default) ───────────
 
-_template_dirs: List[Path] = []
+_template_dirs: list[Path] = []
 
 
-def configure(template_dirs: Optional[List[str]] = None) -> None:
+def configure(template_dirs: list[str] | None = None) -> None:
     """Set template search directories (called at MailService startup)."""
     global _template_dirs
     if template_dirs:
@@ -46,7 +46,7 @@ def configure(template_dirs: Optional[List[str]] = None) -> None:
 # ── Rendering helpers ───────────────────────────────────────────────
 
 
-def _resolve_dotted(name: str, context: Dict[str, Any]) -> Any:
+def _resolve_dotted(name: str, context: dict[str, Any]) -> Any:
     """
     Resolve a dotted name against a context dict.
 
@@ -68,7 +68,7 @@ def _resolve_dotted(name: str, context: Dict[str, Any]) -> Any:
     return current
 
 
-def _substitute(match: re.Match, context: Dict[str, Any]) -> str:
+def _substitute(match: re.Match, context: dict[str, Any]) -> str:
     """Replace a single << expr >> match."""
     expr = match.group(1).strip()
 
@@ -85,7 +85,7 @@ def _substitute(match: re.Match, context: Dict[str, Any]) -> str:
 # ── Public API ──────────────────────────────────────────────────────
 
 
-def render_string(template_text: str, context: Dict[str, Any]) -> str:
+def render_string(template_text: str, context: dict[str, Any]) -> str:
     """
     Render an ATS template string with the given context.
 
@@ -104,9 +104,9 @@ def render_string(template_text: str, context: Dict[str, Any]) -> str:
 
 def render_template(
     template_name: str,
-    context: Dict[str, Any],
+    context: dict[str, Any],
     *,
-    template_dirs: Optional[List[str]] = None,
+    template_dirs: list[str] | None = None,
 ) -> str:
     """
     Render a named ATS template file with the given context.
@@ -125,11 +125,7 @@ def render_template(
     Raises:
         MailTemplateFault: If the template file cannot be found.
     """
-    dirs = (
-        [Path(d) for d in template_dirs]
-        if template_dirs
-        else _template_dirs
-    )
+    dirs = [Path(d) for d in template_dirs] if template_dirs else _template_dirs
 
     # Search for the template
     for d in dirs:

@@ -31,12 +31,13 @@ Usage:
 
 from __future__ import annotations
 
+import contextlib
 import logging
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, List, Optional, Type, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from aquilia.models.base import Model
+    pass
 
 logger = logging.getLogger("aquilia.admin.hooks")
 
@@ -93,7 +94,7 @@ class AdminHooksMixin:
 
     # -- Form / Field Hooks --
 
-    def get_form_fields(self, request: Any = None, obj: Any = None) -> List[Dict[str, Any]]:
+    def get_form_fields(self, request: Any = None, obj: Any = None) -> list[dict[str, Any]]:
         """
         Return the field definitions for the add/edit form.
 
@@ -108,10 +109,10 @@ class AdminHooksMixin:
     def clean_form(
         self,
         request: Any,
-        form_data: Dict[str, Any],
+        form_data: dict[str, Any],
         obj: Any = None,
         change: bool = False,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Validate and clean form data before saving.
 
@@ -131,9 +132,7 @@ class AdminHooksMixin:
         """
         return form_data
 
-    def get_readonly_fields_for_request(
-        self, request: Any = None, obj: Any = None
-    ) -> List[str]:
+    def get_readonly_fields_for_request(self, request: Any = None, obj: Any = None) -> list[str]:
         """
         Return readonly fields, possibly varying by request/object.
 
@@ -141,9 +140,7 @@ class AdminHooksMixin:
         """
         return list(getattr(self, "readonly_fields", []))
 
-    def get_fieldsets_for_request(
-        self, request: Any = None, obj: Any = None
-    ) -> Optional[List]:
+    def get_fieldsets_for_request(self, request: Any = None, obj: Any = None) -> list | None:
         """
         Return fieldsets, possibly varying by request/object.
 
@@ -158,7 +155,7 @@ class AdminHooksMixin:
         self,
         request: Any,
         obj: Any,
-        form_data: Dict[str, Any],
+        form_data: dict[str, Any],
         change: bool = False,
     ) -> None:
         """
@@ -172,7 +169,7 @@ class AdminHooksMixin:
         self,
         request: Any,
         obj: Any,
-        form_data: Dict[str, Any],
+        form_data: dict[str, Any],
         change: bool = False,
     ) -> None:
         """
@@ -189,7 +186,7 @@ class AdminHooksMixin:
         self,
         request: Any,
         obj: Any,
-        form_data: Dict[str, Any],
+        form_data: dict[str, Any],
         change: bool = False,
     ) -> None:
         """
@@ -204,7 +201,7 @@ class AdminHooksMixin:
         self,
         request: Any,
         obj: Any,
-        form_data: Dict[str, Any],
+        form_data: dict[str, Any],
         change: bool = False,
     ) -> None:
         """
@@ -247,9 +244,7 @@ class AdminHooksMixin:
 
     # -- Bulk Action Hooks --
 
-    def before_bulk_action(
-        self, request: Any, action_name: str, queryset: Any
-    ) -> Any:
+    def before_bulk_action(self, request: Any, action_name: str, queryset: Any) -> Any:
         """
         Called before executing a bulk action.
 
@@ -258,9 +253,7 @@ class AdminHooksMixin:
         """
         return queryset
 
-    def after_bulk_action(
-        self, request: Any, action_name: str, queryset: Any, result: Any = None
-    ) -> None:
+    def after_bulk_action(self, request: Any, action_name: str, queryset: Any, result: Any = None) -> None:
         """
         Called after a bulk action completes.
 
@@ -281,7 +274,7 @@ class AdminHooksMixin:
 
     # -- View Customization Hooks --
 
-    def get_list_display_for_request(self, request: Any = None) -> Optional[List[str]]:
+    def get_list_display_for_request(self, request: Any = None) -> list[str] | None:
         """
         Return list_display columns, possibly varying by request.
 
@@ -289,13 +282,13 @@ class AdminHooksMixin:
         """
         return getattr(self, "list_display", None)
 
-    def get_search_fields_for_request(self, request: Any = None) -> Optional[List[str]]:
+    def get_search_fields_for_request(self, request: Any = None) -> list[str] | None:
         """
         Return search fields, possibly varying by request.
         """
         return getattr(self, "search_fields", None)
 
-    def get_actions_for_request(self, request: Any = None) -> Optional[List]:
+    def get_actions_for_request(self, request: Any = None) -> list | None:
         """
         Return available actions, possibly varying by request.
 
@@ -304,7 +297,7 @@ class AdminHooksMixin:
         """
         return getattr(self, "actions", None)
 
-    def get_ordering_for_request(self, request: Any = None) -> Optional[List[str]]:
+    def get_ordering_for_request(self, request: Any = None) -> list[str] | None:
         """
         Return ordering, possibly varying by request.
         """
@@ -312,7 +305,7 @@ class AdminHooksMixin:
 
     # -- Response Hooks --
 
-    def response_add(self, request: Any, obj: Any) -> Optional[Any]:
+    def response_add(self, request: Any, obj: Any) -> Any | None:
         """
         Determine the response after a successful add.
 
@@ -321,7 +314,7 @@ class AdminHooksMixin:
         """
         return None
 
-    def response_change(self, request: Any, obj: Any) -> Optional[Any]:
+    def response_change(self, request: Any, obj: Any) -> Any | None:
         """
         Determine the response after a successful edit.
 
@@ -330,7 +323,7 @@ class AdminHooksMixin:
         """
         return None
 
-    def response_delete(self, request: Any, obj: Any) -> Optional[Any]:
+    def response_delete(self, request: Any, obj: Any) -> Any | None:
         """
         Determine the response after a successful delete.
 
@@ -341,7 +334,7 @@ class AdminHooksMixin:
 
     # -- Inline Hooks --
 
-    def get_inlines(self, request: Any = None, obj: Any = None) -> List:
+    def get_inlines(self, request: Any = None, obj: Any = None) -> list:
         """
         Return inline classes, possibly varying by request/object.
 
@@ -349,7 +342,7 @@ class AdminHooksMixin:
         """
         return list(getattr(self, "inlines", []))
 
-    def get_inline_instances(self, request: Any = None, obj: Any = None) -> List:
+    def get_inline_instances(self, request: Any = None, obj: Any = None) -> list:
         """
         Instantiate inline classes.
 
@@ -387,17 +380,15 @@ class SoftDeleteMixin:
     """
 
     soft_delete_field: str = "is_deleted"
-    soft_delete_timestamp_field: Optional[str] = "deleted_at"
+    soft_delete_timestamp_field: str | None = "deleted_at"
     show_deleted: bool = False  # Whether to show deleted records in list view
 
     def get_queryset(self, request: Any = None) -> Any:
         """Filter out soft-deleted records by default."""
         qs = super().get_queryset(request)  # type: ignore
         if qs is not None and not self.show_deleted:
-            try:
+            with contextlib.suppress(Exception):
                 qs = qs.filter(**{self.soft_delete_field: False})
-            except Exception:
-                pass
         return qs
 
     def delete_model(self, request: Any, obj: Any) -> None:
@@ -432,7 +423,7 @@ class VersioningMixin:
         self,
         request: Any,
         obj: Any,
-        form_data: Dict[str, Any],
+        form_data: dict[str, Any],
         change: bool = False,
     ) -> None:
         """Increment version number on save."""
@@ -456,14 +447,13 @@ class TimestampMixin:
         self,
         request: Any,
         obj: Any,
-        form_data: Dict[str, Any],
+        form_data: dict[str, Any],
         change: bool = False,
     ) -> None:
         """Set timestamps automatically."""
         now = datetime.now(timezone.utc)
-        if not change and hasattr(obj, self.created_at_field):
-            if not getattr(obj, self.created_at_field, None):
-                setattr(obj, self.created_at_field, now)
+        if not change and hasattr(obj, self.created_at_field) and not getattr(obj, self.created_at_field, None):
+            setattr(obj, self.created_at_field, now)
         if hasattr(obj, self.updated_at_field):
             setattr(obj, self.updated_at_field, now)
         super().before_save(request, obj, form_data, change)  # type: ignore

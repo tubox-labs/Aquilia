@@ -11,13 +11,11 @@ every layer of the Manifest-First Architecture:
   Phase 6 -- Deployment:    Docker files, compose, Kubernetes manifests
 """
 
+import importlib.util
 import re
 import sys
-import os
-import importlib.util
-from pathlib import Path
-from typing import List, Dict, Optional, Tuple
 from dataclasses import dataclass, field
+from pathlib import Path
 
 
 @dataclass
@@ -34,9 +32,9 @@ class DiagnosticResult:
 class DiagnosticReport:
     """Complete diagnostic report."""
 
-    results: List[DiagnosticResult] = field(default_factory=list)
-    issues: List[str] = field(default_factory=list)
-    warnings: List[str] = field(default_factory=list)
+    results: list[DiagnosticResult] = field(default_factory=list)
+    issues: list[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
 
     @property
     def passed(self) -> bool:
@@ -64,19 +62,18 @@ def _check_python_version(report: DiagnosticReport) -> None:
     if v >= (3, 10):
         report.add("Environment", f"Python {version_str}", True)
     else:
-        report.add("Environment", f"Python {version_str}", False,
-                    "Aquilia requires Python >= 3.10")
+        report.add("Environment", f"Python {version_str}", False, "Aquilia requires Python >= 3.10")
 
 
 def _check_aquilia_installation(report: DiagnosticReport) -> None:
     """Check Aquilia framework is installed and importable."""
     try:
         import aquilia
+
         version = getattr(aquilia, "__version__", "unknown")
         report.add("Environment", f"Aquilia {version} installed", True)
     except ImportError:
-        report.add("Environment", "Aquilia not installed", False,
-                    "Install with: pip install aquilia")
+        report.add("Environment", "Aquilia not installed", False, "Install with: pip install aquilia")
         return
 
     # Check key sub-packages
@@ -104,6 +101,7 @@ def _check_dependencies(report: DiagnosticReport, workspace_root: Path) -> None:
     # Check uvicorn (required for dev server)
     try:
         import uvicorn
+
         report.add("Dependencies", "uvicorn", True, getattr(uvicorn, "__version__", ""))
     except ImportError:
         report.warn("uvicorn not installed (needed for: aq run)")
@@ -117,7 +115,7 @@ def _check_dependencies(report: DiagnosticReport, workspace_root: Path) -> None:
     }
     for pkg, desc in optional_deps.items():
         try:
-            mod = importlib.import_module(pkg)
+            importlib.import_module(pkg)
             report.add("Dependencies", f"{pkg} ({desc})", True)
         except ImportError:
             report.warn(f"{pkg} not installed -- {desc}")
@@ -137,14 +135,13 @@ def _check_workspace_structure(
     report: DiagnosticReport,
     workspace_root: Path,
     verbose: bool,
-) -> Optional[Path]:
+) -> Path | None:
     """Check workspace file presence and directory structure."""
     from ..utils.workspace import get_workspace_file
 
     ws_file = get_workspace_file(workspace_root)
     if not ws_file:
-        report.add("Workspace", "Workspace config file", False,
-                    "Missing workspace.py or aquilia.py")
+        report.add("Workspace", "Workspace config file", False, "Missing workspace.py or aquilia.py")
         return None
 
     report.add("Workspace", f"Workspace file: {ws_file.name}", True)
@@ -184,15 +181,12 @@ def _check_manifests(
     workspace_root: Path,
     ws_file: Path,
     verbose: bool,
-) -> Tuple[List[str], list]:
+) -> tuple[list[str], list]:
     """Load and validate all module manifests."""
     try:
         ws_content = ws_file.read_text(encoding="utf-8")
         # Strip comments to avoid matching commented-out modules
-        clean = "\n".join(
-            line for line in ws_content.splitlines()
-            if not line.strip().startswith("#")
-        )
+        clean = "\n".join(line for line in ws_content.splitlines() if not line.strip().startswith("#"))
         registered_modules = re.findall(r'Module\("([^"]+)"', clean)
         # Deduplicate
         seen: set = set()
@@ -210,8 +204,7 @@ def _check_manifests(
         report.warn("No modules registered in workspace configuration")
         return [], []
 
-    report.add("Manifests", f"{len(registered_modules)} module(s) registered", True,
-               ", ".join(registered_modules))
+    report.add("Manifests", f"{len(registered_modules)} module(s) registered", True, ", ".join(registered_modules))
 
     modules_dir = workspace_root / "modules"
     if not modules_dir.exists():
@@ -232,8 +225,7 @@ def _check_manifests(
 
         # Directory exists?
         if not mod_dir.exists():
-            report.add("Manifests", f"Module '{mod_name}' directory", False,
-                        f"modules/{mod_name}/ not found")
+            report.add("Manifests", f"Module '{mod_name}' directory", False, f"modules/{mod_name}/ not found")
             continue
 
         # manifest.py exists?
@@ -250,7 +242,8 @@ def _check_manifests(
         manifest_obj = None
         try:
             spec = importlib.util.spec_from_file_location(
-                f"_doctor_{mod_name}_manifest", manifest_path,
+                f"_doctor_{mod_name}_manifest",
+                manifest_path,
             )
             if spec and spec.loader:
                 mod = importlib.util.module_from_spec(spec)
@@ -260,22 +253,21 @@ def _check_manifests(
                 manifest_obj = getattr(mod, "manifest", None)
                 if manifest_obj is None:
                     from aquilia.manifest import AppManifest
+
                     for _n, obj in vars(mod).items():
                         if isinstance(obj, AppManifest):
                             manifest_obj = obj
                             break
 
             if manifest_obj is None:
-                report.add("Manifests", f"Module '{mod_name}' manifest", False,
-                           "No AppManifest instance found")
+                report.add("Manifests", f"Module '{mod_name}' manifest", False, "No AppManifest instance found")
                 continue
 
             loaded_manifests.append(manifest_obj)
             report.add("Manifests", f"Module '{mod_name}' manifest loaded", True)
 
         except Exception as e:
-            report.add("Manifests", f"Module '{mod_name}' manifest", False,
-                        f"Import error: {str(e)[:80]}")
+            report.add("Manifests", f"Module '{mod_name}' manifest", False, f"Import error: {str(e)[:80]}")
             continue
 
         # Validate controller references
@@ -357,9 +349,9 @@ def _check_pipeline(
 
     try:
         from aquilia.aquilary.core import RegistryMode
-        from aquilia.aquilary.validator import RegistryValidator
-        from aquilia.aquilary.graph import DependencyGraph
         from aquilia.aquilary.fingerprint import FingerprintGenerator
+        from aquilia.aquilary.graph import DependencyGraph
+        from aquilia.aquilary.validator import RegistryValidator
     except ImportError:
         report.warn("Aquilary not available -- skipping pipeline checks")
         return
@@ -372,6 +364,7 @@ def _check_pipeline(
         _config = None
         try:
             from aquilia.config import ConfigLoader
+
             _config = ConfigLoader.load(paths=["workspace.py"])
             _config._build_apps_namespace()
         except Exception:
@@ -396,8 +389,7 @@ def _check_pipeline(
 
         cycle = graph.find_cycle()
         if cycle:
-            report.add("Pipeline", "Dependency cycle", False,
-                       " → ".join(cycle))
+            report.add("Pipeline", "Dependency cycle", False, " → ".join(cycle))
         else:
             report.add("Pipeline", "No dependency cycles", True)
 
@@ -511,7 +503,7 @@ def _check_deployment(
         report.add("Deployment", ".gitignore present", True)
 
 
-def diagnose_workspace(verbose: bool = False) -> List[str]:
+def diagnose_workspace(verbose: bool = False) -> list[str]:
     """
     Comprehensive workspace diagnostics.
 
@@ -551,7 +543,10 @@ def diagnose_workspace(verbose: bool = False) -> List[str]:
 
     # ── Phase 3: Manifests ──
     registered_modules, loaded_manifests = _check_manifests(
-        report, workspace_root, ws_file, verbose,
+        report,
+        workspace_root,
+        ws_file,
+        verbose,
     )
 
     # ── Phase 4: Aquilary pipeline ──
@@ -575,7 +570,7 @@ def diagnose_workspace(verbose: bool = False) -> List[str]:
             print(f"    {icon} {r.label}{detail}")
 
         if report.warnings:
-            print(f"\n  ── Warnings ──")
+            print("\n  ── Warnings ──")
             for w in report.warnings:
                 print(f"    {w}")
 

@@ -16,25 +16,24 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, List, Optional
+from typing import TYPE_CHECKING
 
-from aquilia.di.decorators import service, factory
 from aquilia.config import Config
+from aquilia.di.decorators import factory, service
 
-from .engine import TemplateEngine
-from .loader import TemplateLoader
 from .bytecode_cache import (
     BytecodeCache,
-    InMemoryBytecodeCache,
     CrousBytecodeCache,
+    InMemoryBytecodeCache,
 )
-from .security import TemplateSandbox, SandboxPolicy
+from .engine import TemplateEngine
+from .loader import TemplateLoader
 from .manager import TemplateManager
+from .security import SandboxPolicy, TemplateSandbox
 
 if TYPE_CHECKING:
-    from aquilia.sessions import SessionEngine
     from aquilia.auth.manager import AuthManager
-    from aquilia.faults import FaultEngine
+    from aquilia.sessions import SessionEngine
 
 
 logger = logging.getLogger(__name__)
@@ -48,16 +47,16 @@ logger = logging.getLogger(__name__)
 @service(scope="app")
 class TemplateLoaderProvider:
     """Provider for TemplateLoader with auto-discovered paths."""
-    
-    def __init__(self, config: Optional[Config] = None):
+
+    def __init__(self, config: Config | None = None):
         self.config = config
-    
+
     def provide(self) -> TemplateLoader:
         """Provide TemplateLoader with configured search paths."""
         search_paths = self._discover_template_paths()
         return TemplateLoader(search_paths=search_paths)
-    
-    def _discover_template_paths(self) -> List[Path]:
+
+    def _discover_template_paths(self) -> list[Path]:
         """
         Discover template directories from:
         1. Config: templates.search_paths
@@ -66,7 +65,7 @@ class TemplateLoaderProvider:
         4. Default: ./templates/
         """
         paths = []
-        
+
         # From config
         if self.config:
             config_paths = self.config.get("templates.search_paths", [])
@@ -74,31 +73,29 @@ class TemplateLoaderProvider:
                 path = Path(path_str)
                 if path.exists():
                     paths.append(path)
-        
+
         # From manifest auto-discovery
         try:
             from .manifest_integration import discover_template_directories
-            manifest_paths = discover_template_directories(
-                root_path=Path.cwd(),
-                scan_manifests=True
-            )
+
+            manifest_paths = discover_template_directories(root_path=Path.cwd(), scan_manifests=True)
             paths.extend(manifest_paths)
         except ImportError:
             pass
-        
+
         # Deduplicate
         unique_paths = list(set(paths))
-        
+
         return unique_paths or [Path.cwd() / "templates"]  # Default fallback
 
 
 @service(scope="app")
 class BytecodeCacheProvider:
     """Provider for bytecode cache with strategy selection."""
-    
-    def __init__(self, config: Optional[Config] = None):
+
+    def __init__(self, config: Config | None = None):
         self.config = config
-    
+
     def provide(self) -> BytecodeCache:
         """
         Provide bytecode cache based on config:
@@ -106,36 +103,34 @@ class BytecodeCacheProvider:
         """
         if not self.config:
             return InMemoryBytecodeCache(max_size=100)
-        
+
         cache_type = self.config.get("templates.cache", "memory")
-        
+
         if cache_type == "memory":
             max_size = self.config.get("templates.cache_size", 100)
             return InMemoryBytecodeCache(max_size=max_size)
-        
+
         elif cache_type == "crous":
             # Crous bytecode cache for persistent compilation
             return CrousBytecodeCache()
-        
+
         elif cache_type == "none":
             # No caching (development mode)
             return None
-        
+
         else:
-            logger.warning(
-                f"Unknown cache type '{cache_type}', using in-memory cache"
-            )
+            logger.warning(f"Unknown cache type '{cache_type}', using in-memory cache")
             return InMemoryBytecodeCache(max_size=100)
 
 
 @service(scope="app")
 class TemplateSandboxProvider:
     """Provider for template sandbox with security policies."""
-    
-    def __init__(self, config: Optional[Config] = None):
+
+    def __init__(self, config: Config | None = None):
         self.config = config
-    
-    def provide(self) -> Optional[TemplateSandbox]:
+
+    def provide(self) -> TemplateSandbox | None:
         """
         Provide sandbox based on config:
         - templates.sandbox: true/false
@@ -144,18 +139,14 @@ class TemplateSandboxProvider:
         if not self.config:
             # Default: strict sandbox in production
             return TemplateSandbox(policy=SandboxPolicy.STRICT)
-        
+
         sandbox_enabled = self.config.get("templates.sandbox", True)
         if not sandbox_enabled:
             return None
-        
+
         policy_name = self.config.get("templates.sandbox_policy", "strict")
-        policy = (
-            SandboxPolicy.STRICT
-            if policy_name == "strict"
-            else SandboxPolicy.PERMISSIVE
-        )
-        
+        policy = SandboxPolicy.STRICT if policy_name == "strict" else SandboxPolicy.PERMISSIVE
+
         return TemplateSandbox(policy=policy)
 
 
@@ -163,7 +154,7 @@ class TemplateSandboxProvider:
 class TemplateEngineProvider:
     """
     Provider for TemplateEngine with full DI integration.
-    
+
     Automatically wires:
     - TemplateLoader (with auto-discovered paths)
     - BytecodeCache (configured strategy)
@@ -171,15 +162,15 @@ class TemplateEngineProvider:
     - SessionEngine integration (for session access in templates)
     - AuthManager integration (for auth helpers in templates)
     """
-    
+
     def __init__(
         self,
         loader: TemplateLoader,
-        bytecode_cache: Optional[BytecodeCache] = None,
-        sandbox: Optional[TemplateSandbox] = None,
-        session_engine: Optional["SessionEngine"] = None,
-        auth_manager: Optional["AuthManager"] = None,
-        config: Optional[Config] = None,
+        bytecode_cache: BytecodeCache | None = None,
+        sandbox: TemplateSandbox | None = None,
+        session_engine: SessionEngine | None = None,
+        auth_manager: AuthManager | None = None,
+        config: Config | None = None,
     ):
         self.loader = loader
         self.bytecode_cache = bytecode_cache
@@ -187,7 +178,7 @@ class TemplateEngineProvider:
         self.session_engine = session_engine
         self.auth_manager = auth_manager
         self.config = config
-    
+
     def provide(self) -> TemplateEngine:
         """Provide fully configured TemplateEngine."""
         # Create engine
@@ -196,33 +187,35 @@ class TemplateEngineProvider:
             bytecode_cache=self.bytecode_cache,
             sandbox=self.sandbox,
         )
-        
+
         # Register session helpers if available
         if self.session_engine:
             self._register_session_helpers(engine)
-        
+
         # Register auth helpers if available
         if self.auth_manager:
             self._register_auth_helpers(engine)
-        
+
         # Register config access
         if self.config:
             engine.register_global("config", self.config)
-        
+
         return engine
-    
+
     def _register_session_helpers(self, engine: TemplateEngine) -> None:
         """Register session access helpers in templates."""
         try:
             from .sessions_integration import enhance_engine_with_sessions
+
             enhance_engine_with_sessions(engine, self.session_engine)
         except ImportError:
             pass
-    
+
     def _register_auth_helpers(self, engine: TemplateEngine) -> None:
         """Register auth/identity helpers in templates."""
         try:
             from .auth_integration import enhance_engine_with_auth
+
             enhance_engine_with_auth(engine, self.auth_manager)
         except ImportError:
             pass
@@ -231,10 +224,10 @@ class TemplateEngineProvider:
 @service(scope="app")
 class TemplateManagerProvider:
     """Provider for TemplateManager (compile/lint/inspect tools)."""
-    
+
     def __init__(self, engine: TemplateEngine):
         self.engine = engine
-    
+
     def provide(self) -> TemplateManager:
         """Provide TemplateManager instance."""
         return TemplateManager(engine=self.engine)
@@ -245,26 +238,27 @@ class TemplateManagerProvider:
 # ============================================================================
 
 
-def register_template_providers(container, engine: Optional[TemplateEngine] = None) -> None:
+def register_template_providers(container, engine: TemplateEngine | None = None) -> None:
     """
     Register all template providers with DI container.
     """
     from aquilia.di.providers import ClassProvider, ValueProvider
-    
+
     # Register provider classes as services
     container.register(ClassProvider(TemplateLoaderProvider, scope="app"))
     container.register(ClassProvider(BytecodeCacheProvider, scope="app"))
     container.register(ClassProvider(TemplateSandboxProvider, scope="app"))
     container.register(ClassProvider(TemplateEngineProvider, scope="app"))
     container.register(ClassProvider(TemplateManagerProvider, scope="app"))
-    
+
     # Register factories for core types that developers actually inject
     from aquilia.di.providers import FactoryProvider
+
+    from .bytecode_cache import BytecodeCache
     from .engine import TemplateEngine
     from .loader import TemplateLoader
-    from .bytecode_cache import BytecodeCache
     from .security import TemplateSandbox
-    
+
     # If engine instance provided (e.g. from server setup), use it directly
     if engine:
         container.register(ValueProvider(value=engine, token=TemplateEngine, scope="app"))
@@ -278,16 +272,16 @@ def register_template_providers(container, engine: Optional[TemplateEngine] = No
 
     async def provide_loader(loader_provider: TemplateLoaderProvider) -> TemplateLoader:
         return loader_provider.provide()
-    
-    async def provide_cache(cache_provider: BytecodeCacheProvider) -> Optional[BytecodeCache]:
+
+    async def provide_cache(cache_provider: BytecodeCacheProvider) -> BytecodeCache | None:
         return cache_provider.provide()
-    
-    async def provide_sandbox(sandbox_provider: TemplateSandboxProvider) -> Optional[TemplateSandbox]:
+
+    async def provide_sandbox(sandbox_provider: TemplateSandboxProvider) -> TemplateSandbox | None:
         return sandbox_provider.provide()
-        
+
     async def provide_engine(engine_provider: TemplateEngineProvider) -> TemplateEngine:
         return engine_provider.provide()
-    
+
     container.register(FactoryProvider(provide_loader, scope="app"))
     container.register(FactoryProvider(provide_cache, scope="app"))
     container.register(FactoryProvider(provide_sandbox, scope="app"))
@@ -302,7 +296,7 @@ def register_template_providers(container, engine: Optional[TemplateEngine] = No
 @factory(scope="app")
 def create_development_engine(
     loader: TemplateLoader,
-    config: Optional[Config] = None,
+    config: Config | None = None,
 ) -> TemplateEngine:
     """
     Factory for development template engine:
@@ -311,13 +305,13 @@ def create_development_engine(
     - Debug mode enabled
     """
     sandbox = TemplateSandbox(policy=SandboxPolicy.PERMISSIVE)
-    
+
     engine = TemplateEngine(
         loader=loader,
         bytecode_cache=None,  # No cache in dev
         sandbox=sandbox,
     )
-    
+
     return engine
 
 
@@ -325,7 +319,7 @@ def create_development_engine(
 def create_production_engine(
     loader: TemplateLoader,
     bytecode_cache: BytecodeCache,
-    config: Optional[Config] = None,
+    config: Config | None = None,
 ) -> TemplateEngine:
     """
     Factory for production template engine:
@@ -334,19 +328,19 @@ def create_production_engine(
     - Optimized for performance
     """
     sandbox = TemplateSandbox(policy=SandboxPolicy.STRICT)
-    
+
     engine = TemplateEngine(
         loader=loader,
         bytecode_cache=bytecode_cache,
         sandbox=sandbox,
     )
-    
+
     return engine
 
 
 @factory(scope="transient")
 def create_testing_engine(
-    search_paths: Optional[List[Path]] = None,
+    search_paths: list[Path] | None = None,
 ) -> TemplateEngine:
     """
     Factory for testing template engine:
@@ -356,14 +350,14 @@ def create_testing_engine(
     """
     if not search_paths:
         search_paths = [Path.cwd() / "tests" / "templates"]
-    
+
     loader = TemplateLoader(search_paths=search_paths)
     cache = InMemoryBytecodeCache(max_size=50)
-    
+
     engine = TemplateEngine(
         loader=loader,
         bytecode_cache=cache,
         sandbox=None,  # No sandbox in tests
     )
-    
+
     return engine

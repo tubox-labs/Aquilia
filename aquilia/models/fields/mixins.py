@@ -13,16 +13,15 @@ Or applied at runtime via ``Field.with_mixin(NullableMixin)``.
 from __future__ import annotations
 
 import base64
-import datetime
 import hashlib
 import os
-import secrets
 import struct
 import warnings
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union, TYPE_CHECKING
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from ..fields_module import Field
+    pass
 
 
 __all__ = [
@@ -152,8 +151,8 @@ class _StdlibAESGCM:
     using the same stdlib.
     """
 
-    _NONCE_LEN = 12   # 96-bit nonce (GCM recommendation)
-    _TAG_LEN   = 16   # 128-bit authentication tag
+    _NONCE_LEN = 12  # 96-bit nonce (GCM recommendation)
+    _TAG_LEN = 16  # 128-bit authentication tag
 
     def __init__(self, raw_key: bytes) -> None:
         # Stretch / normalise key to exactly 32 bytes with SHA-256
@@ -165,17 +164,21 @@ class _StdlibAESGCM:
     def _aes_gcm_available() -> bool:
         try:
             from cryptography.hazmat.primitives.ciphers.aead import AESGCM  # noqa: F401
+
             return True
         except ImportError:
             pass
         # Python 3.11+ ships AES-GCM via ssl / hashlib on most platforms
         try:
             import _ssl  # noqa: F401
+
             # quick smoke-test
             import hashlib as _hl
+
             _hl.new  # always present
             # Try the modern ssl-backed path
             from Crypto.Cipher import AES as _AES  # noqa: F401
+
             return True
         except (ImportError, AttributeError):
             return False
@@ -192,7 +195,7 @@ class _StdlibAESGCM:
         """Decrypt base64-encoded *token* → plaintext bytes."""
         raw = base64.urlsafe_b64decode(_pad_b64(token))
         # Detect format by version byte
-        if raw[0:1] == b'\x80':          # CBC+HMAC format
+        if raw[0:1] == b"\x80":  # CBC+HMAC format
             return self._decrypt_cbc_hmac(raw)
         return self._decrypt_gcm(raw)
 
@@ -201,6 +204,7 @@ class _StdlibAESGCM:
     def _encrypt_gcm(self, plaintext: bytes) -> bytes:
         try:
             from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
             nonce = os.urandom(self._NONCE_LEN)
             ct = AESGCM(self._key).encrypt(nonce, plaintext, None)
             return base64.urlsafe_b64encode(nonce + ct)
@@ -210,10 +214,12 @@ class _StdlibAESGCM:
     def _decrypt_gcm(self, raw: bytes) -> bytes:
         try:
             from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-            nonce, ct = raw[:self._NONCE_LEN], raw[self._NONCE_LEN:]
+
+            nonce, ct = raw[: self._NONCE_LEN], raw[self._NONCE_LEN :]
             return AESGCM(self._key).decrypt(nonce, ct, None)
         except ImportError:
             from aquilia.faults.domains import ConfigMissingFault
+
             raise ConfigMissingFault(
                 key="cryptography",
                 metadata={"hint": "Cannot decrypt GCM token without cryptography package"},
@@ -224,6 +230,7 @@ class _StdlibAESGCM:
 
     def _encrypt_cbc_hmac(self, plaintext: bytes) -> bytes:
         import hmac as _hmac_mod
+
         # PKCS7 padding to 16-byte blocks
         pad_len = 16 - (len(plaintext) % 16)
         padded = plaintext + bytes([pad_len] * pad_len)
@@ -238,23 +245,25 @@ class _StdlibAESGCM:
         # Serious caveat: this is NOT AES — it's a deterministic keystream
         # XOR (CTR-mode using SHA-256 counter-mode).
         ct = _sha256_ctr_encrypt(enc_key, iv, padded)
-        header = b'\x80' + iv + struct.pack(">I", len(ct))
+        header = b"\x80" + iv + struct.pack(">I", len(ct))
         mac = _hmac_mod.new(mac_key, header + ct, "sha256").digest()
         return base64.urlsafe_b64encode(header + ct + mac)
 
     def _decrypt_cbc_hmac(self, raw: bytes) -> bytes:
         import hmac as _hmac_mod
+
         enc_key = hashlib.sha256(self._key + b"enc").digest()
         mac_key = hashlib.sha256(self._key + b"mac").digest()
         # raw = 0x80 | iv(16) | len(4) | ciphertext | hmac(32)
         iv = raw[1:17]
         ct_len = struct.unpack(">I", raw[17:21])[0]
-        ct = raw[21:21 + ct_len]
-        mac_stored = raw[21 + ct_len:]
+        ct = raw[21 : 21 + ct_len]
+        mac_stored = raw[21 + ct_len :]
         header = raw[:21]
         mac_expected = _hmac_mod.new(mac_key, header + ct, "sha256").digest()
         if not _hmac_mod.compare_digest(mac_expected, mac_stored):
             from aquilia.faults.domains import SecurityFault
+
             raise SecurityFault(
                 message="Invalid token — authentication failed",
             )
@@ -268,9 +277,9 @@ def _sha256_ctr_encrypt(key: bytes, iv: bytes, data: bytes) -> bytes:
     out = bytearray()
     counter = 0
     for i in range(0, len(data), 32):
-        block = data[i:i + 32]
+        block = data[i : i + 32]
         keystream = hashlib.sha256(key + iv + struct.pack(">Q", counter)).digest()
-        out.extend(b ^ k for b, k in zip(block, keystream))
+        out.extend(b ^ k for b, k in zip(block, keystream, strict=False))
         counter += 1
     return bytes(out)
 
@@ -317,12 +326,12 @@ class EncryptedMixin:
         secret = SecureTextField()
     """
 
-    _encryption_backend: Optional[Callable] = None
-    _decryption_backend: Optional[Callable] = None
-    _fernet_instance: Optional[Any] = None  # cryptography.fernet.Fernet OR _StdlibAESGCM
+    _encryption_backend: Callable | None = None
+    _decryption_backend: Callable | None = None
+    _fernet_instance: Any | None = None  # cryptography.fernet.Fernet OR _StdlibAESGCM
 
     @classmethod
-    def configure_encryption_key(cls, key: Union[str, bytes]) -> None:
+    def configure_encryption_key(cls, key: str | bytes) -> None:
         """
         Configure symmetric encryption using *key*.
 
@@ -342,6 +351,7 @@ class EncryptedMixin:
 
         try:
             from cryptography.fernet import Fernet
+
             cls._fernet_instance = Fernet(key)
         except ImportError:
             # stdlib AES-256-GCM fallback — uses hashlib + secrets + struct
@@ -371,13 +381,11 @@ class EncryptedMixin:
         if value is None:
             return None
         str_value = str(value)
-        backend = type(self).__dict__.get('_encryption_backend') or type(self)._encryption_backend
+        backend = type(self).__dict__.get("_encryption_backend") or type(self)._encryption_backend
         if backend:
             return backend(str_value)
         if self._fernet_instance is not None:
-            return self._fernet_instance.encrypt(
-                str_value.encode("utf-8")
-            ).decode("ascii")
+            return self._fernet_instance.encrypt(str_value.encode("utf-8")).decode("ascii")
         # Fallback: base64 (NOT secure -- placeholder only)
         warnings.warn(
             "EncryptedMixin is using base64 encoding (NOT encryption). "
@@ -393,14 +401,12 @@ class EncryptedMixin:
         if value is None:
             return None
         if isinstance(value, str):
-            decrypt = type(self).__dict__.get('_decryption_backend') or type(self)._decryption_backend
+            decrypt = type(self).__dict__.get("_decryption_backend") or type(self)._decryption_backend
             if decrypt:
                 return decrypt(value)
             if self._fernet_instance is not None:
                 try:
-                    return self._fernet_instance.decrypt(
-                        value.encode("ascii")
-                    ).decode("utf-8")
+                    return self._fernet_instance.decrypt(value.encode("ascii")).decode("utf-8")
                 except Exception:
                     # Value may not have been encrypted (e.g. legacy data)
                     return value

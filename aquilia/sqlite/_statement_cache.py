@@ -12,9 +12,8 @@ working set within bounds.
 from __future__ import annotations
 
 from collections import OrderedDict
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
-
 
 __all__ = ["StatementCache", "CacheStats"]
 
@@ -74,6 +73,7 @@ class StatementCache:
     def __init__(self, capacity: int = 256) -> None:
         if capacity < 0:
             from aquilia.faults.domains import ConfigInvalidFault
+
             raise ConfigInvalidFault(
                 key="sqlite.statement_cache.capacity",
                 reason=f"capacity must be >= 0, got {capacity}",
@@ -135,8 +135,4 @@ class StatementCache:
         return sql in self._lru
 
     def __repr__(self) -> str:
-        return (
-            f"StatementCache(size={len(self._lru)}, "
-            f"capacity={self._capacity}, "
-            f"hit_rate={self._stats.hit_rate:.2%})"
-        )
+        return f"StatementCache(size={len(self._lru)}, capacity={self._capacity}, hit_rate={self._stats.hit_rate:.2%})"

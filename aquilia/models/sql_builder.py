@@ -24,8 +24,8 @@ Usage:
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
-
+from collections.abc import Sequence
+from typing import Any
 
 __all__ = [
     "SQLBuilder",
@@ -42,19 +42,19 @@ class SQLBuilder:
     """
 
     def __init__(self):
-        self._columns: List[str] = []
+        self._columns: list[str] = []
         self._table: str = ""
-        self._table_alias: Optional[str] = None
-        self._joins: List[Tuple[str, str, str]] = []  # (type, table, on)
-        self._join_params: List[Any] = []
-        self._wheres: List[str] = []
-        self._params: List[Any] = []
-        self._group_by: List[str] = []
-        self._having: List[str] = []
-        self._having_params: List[Any] = []
-        self._order_by: List[str] = []
-        self._limit_val: Optional[int] = None
-        self._offset_val: Optional[int] = None
+        self._table_alias: str | None = None
+        self._joins: list[tuple[str, str, str]] = []  # (type, table, on)
+        self._join_params: list[Any] = []
+        self._wheres: list[str] = []
+        self._params: list[Any] = []
+        self._group_by: list[str] = []
+        self._having: list[str] = []
+        self._having_params: list[Any] = []
+        self._order_by: list[str] = []
+        self._limit_val: int | None = None
+        self._offset_val: int | None = None
         self._distinct: bool = False
 
     def select(self, *columns: str) -> SQLBuilder:
@@ -62,7 +62,7 @@ class SQLBuilder:
         self._columns = list(columns)
         return self
 
-    def from_table(self, table: str, alias: Optional[str] = None) -> SQLBuilder:
+    def from_table(self, table: str, alias: str | None = None) -> SQLBuilder:
         """Set the FROM table."""
         self._table = table
         self._table_alias = alias
@@ -78,7 +78,7 @@ class SQLBuilder:
         table: str,
         on: str,
         join_type: str = "INNER",
-        params: Optional[List[Any]] = None,
+        params: list[Any] | None = None,
     ) -> SQLBuilder:
         """Add a JOIN clause."""
         self._joins.append((join_type, table, on))
@@ -86,10 +86,10 @@ class SQLBuilder:
             self._join_params.extend(params)
         return self
 
-    def left_join(self, table: str, on: str, params: Optional[List[Any]] = None) -> SQLBuilder:
+    def left_join(self, table: str, on: str, params: list[Any] | None = None) -> SQLBuilder:
         return self.join(table, on, "LEFT", params)
 
-    def right_join(self, table: str, on: str, params: Optional[List[Any]] = None) -> SQLBuilder:
+    def right_join(self, table: str, on: str, params: list[Any] | None = None) -> SQLBuilder:
         return self.join(table, on, "RIGHT", params)
 
     def where(self, clause: str, *args: Any) -> SQLBuilder:
@@ -140,25 +140,19 @@ class SQLBuilder:
         self._offset_val = n
         return self
 
-    def build(self) -> Tuple[str, List[Any]]:
+    def build(self) -> tuple[str, list[Any]]:
         """
         Build the final SQL string and parameter list.
 
         Returns:
             Tuple of (sql_string, params_list)
         """
-        parts: List[str] = []
-        params: List[Any] = []
+        parts: list[str] = []
+        params: list[Any] = []
 
         # SELECT
         distinct = "DISTINCT " if self._distinct else ""
-        if self._columns:
-            cols = ", ".join(
-                f'"{c}"' if not _is_raw(c) else c
-                for c in self._columns
-            )
-        else:
-            cols = "*"
+        cols = ", ".join(f'"{c}"' if not _is_raw(c) else c for c in self._columns) if self._columns else "*"
         parts.append(f"SELECT {distinct}{cols}")
 
         # FROM
@@ -199,10 +193,10 @@ class SQLBuilder:
 
         return " ".join(parts), params
 
-    def build_count(self) -> Tuple[str, List[Any]]:
+    def build_count(self) -> tuple[str, list[Any]]:
         """Build a COUNT(*) version of this query."""
-        parts: List[str] = ["SELECT COUNT(*)"]
-        params: List[Any] = []
+        parts: list[str] = ["SELECT COUNT(*)"]
+        params: list[Any] = []
 
         table_ref = f'"{self._table}"'
         if self._table_alias:
@@ -225,9 +219,9 @@ class InsertBuilder:
 
     def __init__(self, table: str):
         self._table = table
-        self._columns: List[str] = []
-        self._values: List[Any] = []
-        self._returning: Optional[str] = None
+        self._columns: list[str] = []
+        self._values: list[Any] = []
+        self._returning: str | None = None
 
     def columns(self, *cols: str) -> InsertBuilder:
         self._columns = list(cols)
@@ -237,7 +231,7 @@ class InsertBuilder:
         self._values = list(vals)
         return self
 
-    def from_dict(self, data: Dict[str, Any]) -> InsertBuilder:
+    def from_dict(self, data: dict[str, Any]) -> InsertBuilder:
         """Set columns and values from a dict."""
         self._columns = list(data.keys())
         self._values = list(data.values())
@@ -248,7 +242,7 @@ class InsertBuilder:
         self._returning = column
         return self
 
-    def build(self) -> Tuple[str, List[Any]]:
+    def build(self) -> tuple[str, list[Any]]:
         col_names = ", ".join(f'"{c}"' for c in self._columns)
         placeholders = ", ".join("?" for _ in self._columns)
         sql = f'INSERT INTO "{self._table}" ({col_names}) VALUES ({placeholders})'
@@ -256,10 +250,11 @@ class InsertBuilder:
             sql += f' RETURNING "{self._returning}"'
         return sql, list(self._values)
 
-    def build_many(self, rows: List[Dict[str, Any]]) -> Tuple[str, List[List[Any]]]:
+    def build_many(self, rows: list[dict[str, Any]]) -> tuple[str, list[list[Any]]]:
         """Build INSERT for executemany."""
         if not rows:
             from aquilia.faults.domains import QueryFault
+
             raise QueryFault(message="No rows to insert")
         cols = list(rows[0].keys())
         col_names = ", ".join(f'"{c}"' for c in cols)
@@ -274,15 +269,15 @@ class UpdateBuilder:
 
     def __init__(self, table: str):
         self._table = table
-        self._sets: Dict[str, Any] = {}
-        self._wheres: List[str] = []
-        self._params: List[Any] = []
+        self._sets: dict[str, Any] = {}
+        self._wheres: list[str] = []
+        self._params: list[Any] = []
 
     def set(self, **kwargs: Any) -> UpdateBuilder:
         self._sets.update(kwargs)
         return self
 
-    def set_dict(self, data: Dict[str, Any]) -> UpdateBuilder:
+    def set_dict(self, data: dict[str, Any]) -> UpdateBuilder:
         self._sets.update(data)
         return self
 
@@ -291,7 +286,7 @@ class UpdateBuilder:
         self._params.extend(args)
         return self
 
-    def build(self) -> Tuple[str, List[Any]]:
+    def build(self) -> tuple[str, list[Any]]:
         set_parts = [f'"{k}" = ?' for k in self._sets]
         set_params = list(self._sets.values())
         sql = f'UPDATE "{self._table}" SET {", ".join(set_parts)}'
@@ -307,15 +302,15 @@ class DeleteBuilder:
 
     def __init__(self, table: str):
         self._table = table
-        self._wheres: List[str] = []
-        self._params: List[Any] = []
+        self._wheres: list[str] = []
+        self._params: list[Any] = []
 
     def where(self, clause: str, *args: Any) -> DeleteBuilder:
         self._wheres.append(clause)
         self._params.extend(args)
         return self
 
-    def build(self) -> Tuple[str, List[Any]]:
+    def build(self) -> tuple[str, list[Any]]:
         sql = f'DELETE FROM "{self._table}"'
         if self._wheres:
             sql += " WHERE " + " AND ".join(f"({w})" for w in self._wheres)
@@ -328,8 +323,8 @@ class CreateTableBuilder:
     def __init__(self, table: str, if_not_exists: bool = True):
         self._table = table
         self._if_not_exists = if_not_exists
-        self._columns: List[str] = []
-        self._constraints: List[str] = []
+        self._columns: list[str] = []
+        self._constraints: list[str] = []
 
     def column(self, definition: str) -> CreateTableBuilder:
         self._columns.append(definition)
@@ -363,7 +358,7 @@ class AlterTableBuilder:
     def __init__(self, table: str, dialect: str = "sqlite"):
         self._table = table
         self._dialect = dialect
-        self._ops: List[str] = []
+        self._ops: list[str] = []
 
     def add_column(self, column_def: str) -> AlterTableBuilder:
         """Add a column."""
@@ -377,9 +372,7 @@ class AlterTableBuilder:
 
     def rename_column(self, old_name: str, new_name: str) -> AlterTableBuilder:
         """Rename a column (SQLite 3.25+, PostgreSQL, MySQL 8+)."""
-        self._ops.append(
-            f'ALTER TABLE "{self._table}" RENAME COLUMN "{old_name}" TO "{new_name}";'
-        )
+        self._ops.append(f'ALTER TABLE "{self._table}" RENAME COLUMN "{old_name}" TO "{new_name}";')
         return self
 
     def rename_to(self, new_name: str) -> AlterTableBuilder:
@@ -399,9 +392,7 @@ class AlterTableBuilder:
     def drop_constraint(self, name: str) -> AlterTableBuilder:
         """Drop a constraint (not supported on SQLite)."""
         if self._dialect == "sqlite":
-            self._ops.append(
-                f'-- SQLite: Cannot drop constraint "{name}" via ALTER TABLE'
-            )
+            self._ops.append(f'-- SQLite: Cannot drop constraint "{name}" via ALTER TABLE')
         else:
             self._ops.append(f'ALTER TABLE "{self._table}" DROP CONSTRAINT "{name}";')
         return self
@@ -409,68 +400,46 @@ class AlterTableBuilder:
     def alter_column_type(self, column: str, new_type: str) -> AlterTableBuilder:
         """Change column type (PostgreSQL only; generates comment for SQLite)."""
         if self._dialect == "sqlite":
-            self._ops.append(
-                f'-- SQLite: Cannot alter column type for "{self._table}"."{column}"'
-            )
+            self._ops.append(f'-- SQLite: Cannot alter column type for "{self._table}"."{column}"')
         elif self._dialect == "postgresql":
-            self._ops.append(
-                f'ALTER TABLE "{self._table}" ALTER COLUMN "{column}" TYPE {new_type};'
-            )
+            self._ops.append(f'ALTER TABLE "{self._table}" ALTER COLUMN "{column}" TYPE {new_type};')
         elif self._dialect == "mysql":
-            self._ops.append(
-                f'ALTER TABLE "{self._table}" MODIFY COLUMN "{column}" {new_type};'
-            )
+            self._ops.append(f'ALTER TABLE "{self._table}" MODIFY COLUMN "{column}" {new_type};')
         return self
 
     def set_not_null(self, column: str) -> AlterTableBuilder:
         """Set NOT NULL on a column."""
         if self._dialect == "postgresql":
-            self._ops.append(
-                f'ALTER TABLE "{self._table}" ALTER COLUMN "{column}" SET NOT NULL;'
-            )
+            self._ops.append(f'ALTER TABLE "{self._table}" ALTER COLUMN "{column}" SET NOT NULL;')
         elif self._dialect == "sqlite":
-            self._ops.append(
-                f'-- SQLite: Cannot alter NOT NULL for "{self._table}"."{column}"'
-            )
+            self._ops.append(f'-- SQLite: Cannot alter NOT NULL for "{self._table}"."{column}"')
         return self
 
     def drop_not_null(self, column: str) -> AlterTableBuilder:
         """Drop NOT NULL from a column."""
         if self._dialect == "postgresql":
-            self._ops.append(
-                f'ALTER TABLE "{self._table}" ALTER COLUMN "{column}" DROP NOT NULL;'
-            )
+            self._ops.append(f'ALTER TABLE "{self._table}" ALTER COLUMN "{column}" DROP NOT NULL;')
         elif self._dialect == "sqlite":
-            self._ops.append(
-                f'-- SQLite: Cannot alter NOT NULL for "{self._table}"."{column}"'
-            )
+            self._ops.append(f'-- SQLite: Cannot alter NOT NULL for "{self._table}"."{column}"')
         return self
 
     def set_default(self, column: str, default_value: str) -> AlterTableBuilder:
         """Set a default value on a column."""
         if self._dialect in ("postgresql", "mysql"):
-            self._ops.append(
-                f'ALTER TABLE "{self._table}" ALTER COLUMN "{column}" SET DEFAULT {default_value};'
-            )
+            self._ops.append(f'ALTER TABLE "{self._table}" ALTER COLUMN "{column}" SET DEFAULT {default_value};')
         elif self._dialect == "sqlite":
-            self._ops.append(
-                f'-- SQLite: Cannot alter default for "{self._table}"."{column}"'
-            )
+            self._ops.append(f'-- SQLite: Cannot alter default for "{self._table}"."{column}"')
         return self
 
     def drop_default(self, column: str) -> AlterTableBuilder:
         """Drop the default value from a column."""
         if self._dialect in ("postgresql", "mysql"):
-            self._ops.append(
-                f'ALTER TABLE "{self._table}" ALTER COLUMN "{column}" DROP DEFAULT;'
-            )
+            self._ops.append(f'ALTER TABLE "{self._table}" ALTER COLUMN "{column}" DROP DEFAULT;')
         elif self._dialect == "sqlite":
-            self._ops.append(
-                f'-- SQLite: Cannot alter default for "{self._table}"."{column}"'
-            )
+            self._ops.append(f'-- SQLite: Cannot alter default for "{self._table}"."{column}"')
         return self
 
-    def build(self) -> List[str]:
+    def build(self) -> list[str]:
         """Return the list of ALTER TABLE DDL statements."""
         return self._ops.copy()
 
@@ -495,10 +464,10 @@ class UpsertBuilder:
     def __init__(self, table: str, dialect: str = "sqlite"):
         self._table = table
         self._dialect = dialect
-        self._columns: List[str] = []
-        self._values: List[Any] = []
-        self._conflict_columns: List[str] = []
-        self._update_columns: List[str] = []
+        self._columns: list[str] = []
+        self._values: list[Any] = []
+        self._conflict_columns: list[str] = []
+        self._update_columns: list[str] = []
 
     def columns(self, *cols: str) -> UpsertBuilder:
         self._columns = list(cols)
@@ -508,7 +477,7 @@ class UpsertBuilder:
         self._values = list(vals)
         return self
 
-    def from_dict(self, data: Dict[str, Any]) -> UpsertBuilder:
+    def from_dict(self, data: dict[str, Any]) -> UpsertBuilder:
         """Set columns and values from a dict."""
         self._columns = list(data.keys())
         self._values = list(data.values())
@@ -524,16 +493,14 @@ class UpsertBuilder:
         self._update_columns = list(columns)
         return self
 
-    def build(self) -> Tuple[str, List[Any]]:
+    def build(self) -> tuple[str, list[Any]]:
         col_names = ", ".join(f'"{c}"' for c in self._columns)
         placeholders = ", ".join("?" for _ in self._columns)
         params = list(self._values)
 
         if self._dialect == "mysql":
             # MySQL: INSERT ... ON DUPLICATE KEY UPDATE ...
-            update_parts = ", ".join(
-                f'"{c}" = VALUES("{c}")' for c in self._update_columns
-            )
+            update_parts = ", ".join(f'"{c}" = VALUES("{c}")' for c in self._update_columns)
             sql = (
                 f'INSERT INTO "{self._table}" ({col_names}) VALUES ({placeholders}) '
                 f"ON DUPLICATE KEY UPDATE {update_parts}"
@@ -541,9 +508,7 @@ class UpsertBuilder:
         else:
             # SQLite / PostgreSQL: INSERT ... ON CONFLICT (...) DO UPDATE SET ...
             conflict_cols = ", ".join(f'"{c}"' for c in self._conflict_columns)
-            update_parts = ", ".join(
-                f'"{c}" = EXCLUDED."{c}"' for c in self._update_columns
-            )
+            update_parts = ", ".join(f'"{c}" = EXCLUDED."{c}"' for c in self._update_columns)
             sql = (
                 f'INSERT INTO "{self._table}" ({col_names}) VALUES ({placeholders}) '
                 f"ON CONFLICT ({conflict_cols}) DO UPDATE SET {update_parts}"

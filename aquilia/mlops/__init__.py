@@ -25,140 +25,150 @@ Quick start (functional)::
         return {"echo": inputs.get("text", "")}
 """
 
-from ._types import (
-    # Enums
-    Framework,
-    RuntimeKind,
-    QuantizePreset,
-    ExportTarget,
-    BatchingStrategy,
-    RolloutStrategy,
-    DriftMethod,
-    ModelType,
-    InferenceMode,
-    DeviceType,
-    CircuitState,
-    # Data classes
-    TensorSpec,
-    BlobRef,
-    Provenance,
-    LLMConfig,
-    ModelpackManifest,
-    InferenceRequest,
-    InferenceResult,
-    StreamChunk,
-    BatchRequest,
-    PlacementScore,
-    RolloutConfig,
-    DriftReport,
-    CircuitBreakerConfig,
-    TokenUsage,
-    # Protocols
-    StorageAdapter,
-    Runtime,
-    StreamingRuntime,
-    PluginHook,
-)
-
 from ._structures import (
-    RingBuffer,
-    LRUCache,
+    AdaptiveBatchQueue,
     AtomicCounter,
-    ExponentialDecay,
-    SlidingWindow,
-    TopKHeap,
     BloomFilter,
+    CircuitBreaker,
     ConsistentHash,
-    ModelLineageDAG,
-    LineageNode,
-    ExperimentLedger,
     Experiment,
     ExperimentArm,
-    CircuitBreaker,
-    TokenBucketRateLimiter,
-    AdaptiveBatchQueue,
+    ExperimentLedger,
+    ExponentialDecay,
+    LineageNode,
+    LRUCache,
     MemoryTracker,
+    ModelLineageDAG,
+    RingBuffer,
+    SlidingWindow,
+    TokenBucketRateLimiter,
+    TopKHeap,
 )
-
-from .pack.builder import ModelpackBuilder
-from .pack.content_store import ContentStore
-from .registry.service import RegistryService
-from .runtime.base import BaseRuntime, BaseStreamingRuntime, ModelState, InvalidStateTransition
-from .runtime.python_runtime import PythonRuntime
-from .runtime.device_manager import DeviceManager, DeviceInfo, DeviceKind
-from .runtime.executor import InferenceExecutor, PoolKind
-from .serving.server import ModelServingServer, WarmupStrategy
-from .serving.batching import DynamicBatcher
-from .observe.metrics import MetricsCollector
-from .observe.drift import DriftDetector
-from .plugins.host import PluginHost
+from ._types import (
+    BatchingStrategy,
+    BatchRequest,
+    BlobRef,
+    CircuitBreakerConfig,
+    CircuitState,
+    DeviceType,
+    DriftMethod,
+    DriftReport,
+    ExportTarget,
+    # Enums
+    Framework,
+    InferenceMode,
+    InferenceRequest,
+    InferenceResult,
+    LLMConfig,
+    ModelpackManifest,
+    ModelType,
+    PlacementScore,
+    PluginHook,
+    Provenance,
+    QuantizePreset,
+    RolloutConfig,
+    RolloutStrategy,
+    Runtime,
+    RuntimeKind,
+    # Protocols
+    StorageAdapter,
+    StreamChunk,
+    StreamingRuntime,
+    # Data classes
+    TensorSpec,
+    TokenUsage,
+)
+from .api import AquiliaModel, model, serve
+from .api.route_generator import RouteDefinition, RouteGenerator
+from .di.providers import MLOpsConfig, register_mlops_providers
 
 # New serving architecture
 from .engine import InferencePipeline
-from .engine.hooks import (
-    before_predict, after_predict, on_error,
-    on_load, on_unload, preprocess, postprocess,
-    HookRegistry, collect_hooks,
-)
-from .orchestrator import (
-    ModelOrchestrator, ModelRegistry, ModelEntry,
-    VersionManager, VersionRouter, ModelLoader,
-)
-from .api import AquiliaModel, model, serve
-from .api.route_generator import RouteGenerator, RouteDefinition
-from .manifest import (
-    MLOpsManifestConfig, ModelManifestEntry, parse_mlops_config,
-    validate_manifest_config,
-)
 
 # Integration modules
 from .engine.faults import (
-    MLOpsFault,
-    PackBuildFault,
-    PackIntegrityFault,
-    PackSignatureFault,
-    RegistryConnectionFault,
-    PackNotFoundFault,
-    ImmutabilityViolationFault,
-    InferenceFault,
-    BatchTimeoutFault,
-    RuntimeLoadFault,
-    WarmupFault,
-    DriftDetectionFault,
-    MetricsExportFault,
-    RolloutAdvanceFault,
     AutoRollbackFault,
-    PlacementFault,
-    ScalingFault,
-    SigningFault,
-    PermissionDeniedFault,
-    EncryptionFault,
-    PluginLoadFault,
-    PluginHookFault,
+    BatchTimeoutFault,
+    CircuitBreakerExhaustedFault,
     # Resilience faults
     CircuitBreakerFault,
     CircuitBreakerOpenFault,
-    CircuitBreakerExhaustedFault,
+    DriftDetectionFault,
+    EncryptionFault,
+    ImmutabilityViolationFault,
+    InferenceFault,
+    # Memory faults
+    MemoryFault,
+    MemoryHardLimitFault,
+    MemorySoftLimitFault,
+    MetricsExportFault,
+    MLOpsFault,
+    PackBuildFault,
+    PackIntegrityFault,
+    PackNotFoundFault,
+    PackSignatureFault,
+    PermissionDeniedFault,
+    PlacementFault,
+    PluginHookFault,
+    PluginLoadFault,
     RateLimitFault,
+    RegistryConnectionFault,
+    RolloutAdvanceFault,
+    RuntimeLoadFault,
+    ScalingFault,
+    SigningFault,
     # Streaming faults
     StreamingFault,
     StreamInterruptedFault,
     TokenLimitExceededFault,
-    # Memory faults
-    MemoryFault,
-    MemorySoftLimitFault,
-    MemoryHardLimitFault,
+    WarmupFault,
 )
-from .di.providers import register_mlops_providers, MLOpsConfig
+from .engine.hooks import (
+    HookRegistry,
+    after_predict,
+    before_predict,
+    collect_hooks,
+    on_error,
+    on_load,
+    on_unload,
+    postprocess,
+    preprocess,
+)
+from .engine.lifecycle import mlops_on_shutdown, mlops_on_startup
+from .manifest import (
+    MLOpsManifestConfig,
+    ModelManifestEntry,
+    parse_mlops_config,
+    validate_manifest_config,
+)
+from .observe.drift import DriftDetector
+from .observe.metrics import MetricsCollector
+from .orchestrator import (
+    ModelEntry,
+    ModelLoader,
+    ModelOrchestrator,
+    ModelRegistry,
+    VersionManager,
+    VersionRouter,
+)
+from .pack.builder import ModelpackBuilder
+from .pack.content_store import ContentStore
+from .plugins.host import PluginHost
+from .registry.service import RegistryService
+from .runtime.base import BaseRuntime, BaseStreamingRuntime, InvalidStateTransition, ModelState
+from .runtime.device_manager import DeviceInfo, DeviceKind, DeviceManager
+from .runtime.executor import InferenceExecutor, PoolKind
+from .runtime.python_runtime import PythonRuntime
+from .serving.batching import DynamicBatcher
 from .serving.controllers import MLOpsController
 from .serving.middleware import (
-    mlops_metrics_middleware,
-    mlops_request_id_middleware,
-    mlops_rate_limit_middleware,
     mlops_circuit_breaker_middleware,
+    mlops_metrics_middleware,
+    mlops_rate_limit_middleware,
+    mlops_request_id_middleware,
     register_mlops_middleware,
 )
-from .engine.lifecycle import mlops_on_startup, mlops_on_shutdown
+from .serving.server import ModelServingServer, WarmupStrategy
 
 __all__ = [
     # Types -- Enums

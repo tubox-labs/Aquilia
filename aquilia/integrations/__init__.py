@@ -42,37 +42,46 @@ working without changes.
 # ── Protocol ──────────────────────────────────────────────────────────
 from aquilia.integrations._protocol import IntegrationConfig
 
+# ── Admin ─────────────────────────────────────────────────────────────
+from aquilia.integrations.admin import (
+    AdminAudit,
+    AdminContainers,
+    AdminIntegration,
+    AdminModules,
+    AdminMonitoring,
+    AdminPods,
+    AdminSecurity,
+    AdminSidebar,
+)
+
 # ── Auth ──────────────────────────────────────────────────────────────
 from aquilia.integrations.auth import AuthIntegration
+
+# ── Cache ─────────────────────────────────────────────────────────────
+from aquilia.integrations.cache import CacheIntegration
 
 # ── Database ──────────────────────────────────────────────────────────
 from aquilia.integrations.database import DatabaseIntegration
 
-# ── Sessions ──────────────────────────────────────────────────────────
-from aquilia.integrations.sessions import SessionIntegration
+# ── I18n ──────────────────────────────────────────────────────────────
+from aquilia.integrations.i18n import I18nIntegration
+
+# ── Logging ───────────────────────────────────────────────────────────
+from aquilia.integrations.logging_cfg import LoggingIntegration
 
 # ── Mail ──────────────────────────────────────────────────────────────
 from aquilia.integrations.mail import (
-    MailIntegration,
-    MailAuth,
-    SmtpProvider,
-    SesProvider,
-    SendGridProvider,
     ConsoleProvider,
     FileProvider,
+    MailAuth,
+    MailIntegration,
+    SendGridProvider,
+    SesProvider,
+    SmtpProvider,
 )
 
-# ── Admin ─────────────────────────────────────────────────────────────
-from aquilia.integrations.admin import (
-    AdminIntegration,
-    AdminModules,
-    AdminAudit,
-    AdminMonitoring,
-    AdminSidebar,
-    AdminContainers,
-    AdminPods,
-    AdminSecurity,
-)
+# ── MLOps ─────────────────────────────────────────────────────────────
+from aquilia.integrations.mlops import MLOpsIntegration
 
 # ── Middleware ────────────────────────────────────────────────────────
 from aquilia.integrations.mw import (
@@ -80,57 +89,47 @@ from aquilia.integrations.mw import (
     MiddlewareEntry,
 )
 
-# ── Cache ─────────────────────────────────────────────────────────────
-from aquilia.integrations.cache import CacheIntegration
+# ── OpenAPI ───────────────────────────────────────────────────────────
+from aquilia.integrations.openapi import OpenAPIIntegration
 
-# ── Tasks ─────────────────────────────────────────────────────────────
-from aquilia.integrations.tasks import TasksIntegration
-
-# ── Storage ───────────────────────────────────────────────────────────
-from aquilia.integrations.storage import StorageIntegration
-
-# ── Templates ─────────────────────────────────────────────────────────
-from aquilia.integrations.templates import TemplatesIntegration
+# ── Render ────────────────────────────────────────────────────────────
+from aquilia.integrations.render import RenderIntegration
 
 # ── Security (CORS / CSP / Rate-Limit / CSRF) ────────────────────────
 from aquilia.integrations.security import (
     CorsIntegration,
     CspIntegration,
-    RateLimitIntegration,
     CsrfIntegration,
+    RateLimitIntegration,
 )
 
-# ── OpenAPI ───────────────────────────────────────────────────────────
-from aquilia.integrations.openapi import OpenAPIIntegration
-
-# ── I18n ──────────────────────────────────────────────────────────────
-from aquilia.integrations.i18n import I18nIntegration
-
-# ── MLOps ─────────────────────────────────────────────────────────────
-from aquilia.integrations.mlops import MLOpsIntegration
-
-# ── Versioning ────────────────────────────────────────────────────────
-from aquilia.integrations.versioning_cfg import VersioningIntegration
-
-# ── Render ────────────────────────────────────────────────────────────
-from aquilia.integrations.render import RenderIntegration
-
-# ── Logging ───────────────────────────────────────────────────────────
-from aquilia.integrations.logging_cfg import LoggingIntegration
-
-# ── Static Files ──────────────────────────────────────────────────────
-from aquilia.integrations.static import StaticFilesIntegration
+# ── Sessions ──────────────────────────────────────────────────────────
+from aquilia.integrations.sessions import SessionIntegration
 
 # ── Misc simple integrations ─────────────────────────────────────────
 from aquilia.integrations.simple import (
     DiIntegration,
-    RoutingIntegration,
     FaultHandlingIntegration,
     PatternsIntegration,
     RegistryIntegration,
+    RoutingIntegration,
     SerializersIntegration,
 )
 
+# ── Static Files ──────────────────────────────────────────────────────
+from aquilia.integrations.static import StaticFilesIntegration
+
+# ── Storage ───────────────────────────────────────────────────────────
+from aquilia.integrations.storage import StorageIntegration
+
+# ── Tasks ─────────────────────────────────────────────────────────────
+from aquilia.integrations.tasks import TasksIntegration
+
+# ── Templates ─────────────────────────────────────────────────────────
+from aquilia.integrations.templates import TemplatesIntegration
+
+# ── Versioning ────────────────────────────────────────────────────────
+from aquilia.integrations.versioning_cfg import VersioningIntegration
 
 __all__ = [
     # Protocol

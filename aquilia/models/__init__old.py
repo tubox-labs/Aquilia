@@ -26,6 +26,18 @@ warnings.warn(
     stacklevel=2,
 )
 
+# Re-export model-specific faults for convenience
+from ..faults.domains import (
+    AMDLParseFault,
+    DatabaseConnectionFault,
+    MigrationConflictFault,
+    MigrationFault,
+    ModelFault,
+    ModelNotFoundFault,
+    ModelRegistrationFault,
+    QueryFault,
+    SchemaFault,
+)
 from .ast_nodes import (
     AMDLFile,
     FieldType,
@@ -38,41 +50,25 @@ from .ast_nodes import (
     NoteNode,
     SlotNode,
 )
-
+from .migrations import (
+    MigrationInfo,
+    MigrationOps,
+    MigrationRunner,
+    generate_migration_file,
+    op,
+)
 from .parser import (
     AMDLParseError,
     parse_amdl,
-    parse_amdl_file,
     parse_amdl_directory,
+    parse_amdl_file,
 )
-
 from .runtime import (
     ModelProxy,
     ModelRegistry,
     Q,
-    generate_create_table_sql,
     generate_create_index_sql,
-)
-
-from .migrations import (
-    MigrationOps,
-    MigrationRunner,
-    MigrationInfo,
-    generate_migration_file,
-    op,
-)
-
-# Re-export model-specific faults for convenience
-from ..faults.domains import (
-    ModelFault,
-    AMDLParseFault,
-    ModelNotFoundFault,
-    ModelRegistrationFault,
-    MigrationFault,
-    MigrationConflictFault,
-    QueryFault,
-    DatabaseConnectionFault,
-    SchemaFault,
+    generate_create_table_sql,
 )
 
 __all__ = [

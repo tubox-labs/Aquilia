@@ -15,20 +15,17 @@ Or use the plugin entry point (automatic via pip install).
 
 from __future__ import annotations
 
-import asyncio
-from typing import Any, AsyncIterator, Dict, Optional
-
 import pytest
 
+from .auth import TestIdentityFactory
+from .cache import MockCacheBackend
 from .client import TestClient, WebSocketTestClient
 from .config import TestConfig, override_settings, set_active_config
-from .server import TestServer
-from .faults import MockFaultEngine
-from .effects import MockEffectRegistry, MockEffectProvider
-from .cache import MockCacheBackend
-from .auth import TestIdentityFactory
-from .mail import clear_outbox, get_outbox
 from .di import TestContainer
+from .effects import MockEffectRegistry
+from .faults import MockFaultEngine
+from .mail import clear_outbox, get_outbox
+from .server import TestServer
 from .utils import make_test_request, make_test_scope
 
 
@@ -54,10 +51,12 @@ def aquilia_fixtures():
 # Fixtures
 # -----------------------------------------------------------------------
 
+
 @pytest.fixture
 def test_config():
     """A blank :class:`TestConfig` for unit tests."""
     from aquilia.config import ConfigLoader
+
     loader = ConfigLoader()
     loader.config_data = {"debug": True, "runtime": {"mode": "test"}}
     cfg = TestConfig(loader)
@@ -144,6 +143,7 @@ def test_scope():
 # -----------------------------------------------------------------------
 # Async fixtures (require pytest-asyncio)
 # -----------------------------------------------------------------------
+
 
 @pytest.fixture
 async def test_server():

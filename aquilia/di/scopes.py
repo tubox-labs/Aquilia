@@ -2,34 +2,33 @@
 Scope definitions and validation.
 """
 
-from enum import Enum
-from typing import Optional
 from dataclasses import dataclass
+from enum import Enum
 
 
 class ServiceScope(str, Enum):
     """Service lifetime scopes."""
-    
+
     SINGLETON = "singleton"  # One instance per app lifecycle
-    APP = "app"             # One instance per app (alias for singleton)
-    REQUEST = "request"      # One instance per request
+    APP = "app"  # One instance per app (alias for singleton)
+    REQUEST = "request"  # One instance per request
     TRANSIENT = "transient"  # New instance every resolve
-    POOLED = "pooled"        # Managed pool of instances
+    POOLED = "pooled"  # Managed pool of instances
     EPHEMERAL = "ephemeral"  # Short-lived, request-scoped
 
 
 @dataclass
 class Scope:
     """Scope metadata and rules."""
-    
+
     name: str
     cacheable: bool
-    parent: Optional[str] = None
-    
+    parent: str | None = None
+
     def can_inject_into(self, other: "Scope") -> bool:
         """
         Check if this scope can be injected into another scope.
-        
+
         Rules:
         - Singleton/app can inject into anything
         - Request cannot inject into singleton/app (scope violation)
@@ -38,11 +37,11 @@ class Scope:
         """
         if self.name in ("singleton", "app", "transient", "pooled"):
             return True
-        
+
         if self.name in ("request", "ephemeral"):
             # Cannot inject into longer-lived scopes
             return other.name not in ("singleton", "app")
-        
+
         return True
 
 
@@ -59,7 +58,7 @@ SCOPES = {
 
 class ScopeValidator:
     """Validates scope rules and relationships."""
-    
+
     @staticmethod
     def validate_injection(
         provider_scope: str,
@@ -67,27 +66,27 @@ class ScopeValidator:
     ) -> bool:
         """
         Validate that provider scope can be injected into consumer scope.
-        
+
         Args:
             provider_scope: Scope of the provider being injected
             consumer_scope: Scope of the consumer
-            
+
         Returns:
             True if valid, False otherwise
         """
         provider = SCOPES.get(provider_scope)
         consumer = SCOPES.get(consumer_scope)
-        
+
         if provider is None or consumer is None:
             return False
-        
+
         return provider.can_inject_into(consumer)
-    
+
     @staticmethod
     def get_scope_hierarchy() -> dict[str, list[str]]:
         """
         Get scope hierarchy for diagnostics.
-        
+
         Returns:
             Dict mapping scope to its children
         """

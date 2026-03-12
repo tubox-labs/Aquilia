@@ -14,9 +14,8 @@ Fault mapping:
 from __future__ import annotations
 
 import sqlite3
-from typing import Any, Optional
 
-from aquilia.faults.core import Fault, FaultDomain, Severity
+from aquilia.faults.core import Fault
 from aquilia.faults.domains import (
     DatabaseConnectionFault,
     QueryFault,
@@ -40,46 +39,54 @@ __all__ = [
 # Exception Hierarchy
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class SqliteError(Exception):
     """Base exception for all aquilia.sqlite errors."""
 
-    def __init__(self, message: str = "", *, original: Optional[Exception] = None) -> None:
+    def __init__(self, message: str = "", *, original: Exception | None = None) -> None:
         self.original = original
         super().__init__(message)
 
 
 class SqliteConnectionError(SqliteError):
     """Connection open / close failed."""
+
     pass
 
 
 class PoolExhaustedError(SqliteError):
     """All connections in the pool are busy and the wait timed out."""
+
     pass
 
 
 class SqliteQueryError(SqliteError):
     """Query execution failed."""
+
     pass
 
 
 class SqliteIntegrityError(SqliteQueryError):
     """Integrity constraint violated (UNIQUE, FK, CHECK, NOT NULL)."""
+
     pass
 
 
 class SqliteSchemaError(SqliteError):
     """Schema-level error (missing table, missing column)."""
+
     pass
 
 
 class SqliteTimeoutError(SqliteError):
     """Query or connection timed out."""
+
     pass
 
 
 class SqliteSecurityError(SqliteError):
     """Security violation (path traversal, sandbox escape)."""
+
     pass
 
 

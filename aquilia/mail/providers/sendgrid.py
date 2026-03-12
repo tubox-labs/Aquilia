@@ -32,10 +32,11 @@ from __future__ import annotations
 
 import base64
 import logging
-from typing import Any, Dict, List, Optional, Sequence
+from collections.abc import Sequence
+from typing import Any
 
 from ..envelope import MailEnvelope
-from ..providers import IMailProvider, ProviderResult, ProviderResultStatus
+from ..providers import ProviderResult, ProviderResultStatus
 
 logger = logging.getLogger("aquilia.mail.providers.sendgrid")
 
@@ -66,12 +67,12 @@ class SendGridProvider:
         click_tracking: bool = True,
         open_tracking: bool = True,
         # Categories & metadata
-        categories: Optional[List[str]] = None,
-        asm_group_id: Optional[int] = None,
+        categories: list[str] | None = None,
+        asm_group_id: int | None = None,
         # IP pool
-        ip_pool_name: Optional[str] = None,
+        ip_pool_name: str | None = None,
         # SendGrid dynamic template
-        template_id: Optional[str] = None,
+        template_id: str | None = None,
         # Connection
         api_base_url: str = _SENDGRID_API_BASE,
         timeout: float = 30.0,
@@ -105,19 +106,13 @@ class SendGridProvider:
         if self._initialized:
             return
 
-
         try:
             import httpx
         except ImportError:
-            raise ImportError(
-                "httpx is required for the SendGrid provider. "
-                "Install it with: pip install httpx"
-            )
+            raise ImportError("httpx is required for the SendGrid provider. Install it with: pip install httpx")
 
         if not self.api_key:
-            logger.warning(
-                f"SendGrid provider '{self.name}' has no API key configured"
-            )
+            logger.warning(f"SendGrid provider '{self.name}' has no API key configured")
 
         self._client = httpx.AsyncClient(
             base_url=self.api_base_url,
@@ -195,9 +190,7 @@ class SendGridProvider:
         if envelope.attachments:
             attachments: list[dict[str, Any]] = []
             for att in envelope.attachments:
-                blob_data = envelope.metadata.get(
-                    f"blob:{att.digest}", b""
-                )
+                blob_data = envelope.metadata.get(f"blob:{att.digest}", b"")
                 att_payload: dict[str, Any] = {
                     "content": base64.b64encode(blob_data).decode("ascii"),
                     "type": att.content_type,
@@ -271,9 +264,7 @@ class SendGridProvider:
             # SendGrid returns 202 Accepted on success
             if response.status_code in (200, 201, 202):
                 # Message ID is in the X-Message-Id header
-                message_id = response.headers.get(
-                    "X-Message-Id", f"sg-{envelope.id}"
-                )
+                message_id = response.headers.get("X-Message-Id", f"sg-{envelope.id}")
                 self._total_sent += 1
                 return ProviderResult(
                     status=ProviderResultStatus.SUCCESS,
@@ -289,10 +280,7 @@ class SendGridProvider:
         except Exception as e:
             self._total_errors += 1
             status, retry_after = self._classify_exception(e)
-            logger.warning(
-                f"SendGrid send error via {self.name}: {e} "
-                f"(status={status.value})"
-            )
+            logger.warning(f"SendGrid send error via {self.name}: {e} (status={status.value})")
             return ProviderResult(
                 status=status,
                 error_message=str(e),
@@ -300,7 +288,9 @@ class SendGridProvider:
             )
 
     def _handle_error_response(
-        self, response: Any, envelope: MailEnvelope,
+        self,
+        response: Any,
+        envelope: MailEnvelope,
     ) -> ProviderResult:
         """Handle a non-2xx SendGrid response."""
         self._total_errors += 1
@@ -312,13 +302,9 @@ class SendGridProvider:
             body = {"errors": [{"message": response.text}]}
 
         errors = body.get("errors", [])
-        error_msg = "; ".join(
-            e.get("message", str(e)) for e in errors
-        ) if errors else f"HTTP {status_code}"
+        error_msg = "; ".join(e.get("message", str(e)) for e in errors) if errors else f"HTTP {status_code}"
 
-        logger.warning(
-            f"SendGrid error via {self.name}: HTTP {status_code} -- {error_msg}"
-        )
+        logger.warning(f"SendGrid error via {self.name}: HTTP {status_code} -- {error_msg}")
 
         # Classify by HTTP status
         if status_code == 429:
@@ -367,8 +353,9 @@ class SendGridProvider:
             )
 
     async def send_batch(
-        self, envelopes: Sequence[MailEnvelope],
-    ) -> List[ProviderResult]:
+        self,
+        envelopes: Sequence[MailEnvelope],
+    ) -> list[ProviderResult]:
         """
         Send batch of envelopes.
 
@@ -387,7 +374,7 @@ class SendGridProvider:
         try:
             response = await self._client.get(_SCOPES_ENDPOINT)
             return response.status_code == 200
-        except Exception as e:
+        except Exception:
             return False
 
     # ── Error Classification ────────────────────────────────────────
@@ -406,7 +393,4 @@ class SendGridProvider:
         return ProviderResultStatus.TRANSIENT_FAILURE, 30.0
 
     def __repr__(self) -> str:
-        return (
-            f"SendGridProvider(name={self.name!r}, "
-            f"sandbox={self.sandbox_mode})"
-        )
+        return f"SendGridProvider(name={self.name!r}, sandbox={self.sandbox_mode})"

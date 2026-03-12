@@ -14,17 +14,15 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import re
-from dataclasses import dataclass, field
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any
 
-from .envelope import Attachment, MailEnvelope, EnvelopeStatus, Priority
+from .envelope import Attachment, MailEnvelope, Priority
 from .faults import MailValidationFault
 
 # Basic email regex for fast validation (not RFC-complete but practical)
-_EMAIL_RE = re.compile(
-    r"^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$"
-)
+_EMAIL_RE = re.compile(r"^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$")
 
 
 def _validate_email(addr: str, field_name: str = "email") -> str:
@@ -39,15 +37,11 @@ def _validate_email(addr: str, field_name: str = "email") -> str:
     else:
         raw = addr
     if not _EMAIL_RE.match(raw):
-        raise MailValidationFault(
-            f"Invalid {field_name} address: {addr!r}", field=field_name
-        )
+        raise MailValidationFault(f"Invalid {field_name} address: {addr!r}", field=field_name)
     return addr
 
 
-def _validate_list(
-    addrs: Optional[Sequence[str]], field_name: str
-) -> List[str]:
+def _validate_list(addrs: Sequence[str] | None, field_name: str) -> list[str]:
     """Validate a list of email addresses."""
     if not addrs:
         return []
@@ -78,17 +72,17 @@ class EmailMessage:
         self,
         subject: str = "",
         body: str = "",
-        from_email: Optional[str] = None,
-        to: Optional[Sequence[str]] = None,
-        cc: Optional[Sequence[str]] = None,
-        bcc: Optional[Sequence[str]] = None,
-        reply_to: Optional[str] = None,
-        headers: Optional[Dict[str, str]] = None,
-        attachments: Optional[List[Tuple[str, bytes, str]]] = None,
+        from_email: str | None = None,
+        to: Sequence[str] | None = None,
+        cc: Sequence[str] | None = None,
+        bcc: Sequence[str] | None = None,
+        reply_to: str | None = None,
+        headers: dict[str, str] | None = None,
+        attachments: list[tuple[str, bytes, str]] | None = None,
         priority: int = Priority.NORMAL.value,
-        idempotency_key: Optional[str] = None,
-        tenant_id: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        idempotency_key: str | None = None,
+        tenant_id: str | None = None,
+        metadata: dict[str, Any] | None = None,
     ):
         self.subject = subject
         self.body = body
@@ -104,8 +98,8 @@ class EmailMessage:
         self.metadata = metadata or {}
 
         # Attachment buffer: list of (filename, content_bytes, content_type)
-        self._attachments: List[Tuple[str, bytes, str]] = list(attachments or [])
-        self._alternatives: List[Tuple[str, str]] = []  # (content, mimetype)
+        self._attachments: list[tuple[str, bytes, str]] = list(attachments or [])
+        self._alternatives: list[tuple[str, str]] = []  # (content, mimetype)
 
     # ── Attachment API ──────────────────────────────────────────────
 
@@ -114,22 +108,23 @@ class EmailMessage:
         filename: str,
         content: bytes,
         content_type: str = "application/octet-stream",
-    ) -> "EmailMessage":
+    ) -> EmailMessage:
         """Attach raw bytes."""
         self._attachments.append((filename, content, content_type))
         return self
 
     def attach_file(
         self,
-        path: Union[str, Path],
-        content_type: Optional[str] = None,
-    ) -> "EmailMessage":
+        path: str | Path,
+        content_type: str | None = None,
+    ) -> EmailMessage:
         """Attach a file from disk."""
         p = Path(path)
         if not p.exists():
             raise FileNotFoundError(f"Attachment not found: {p}")
         if content_type is None:
             import mimetypes
+
             content_type, _ = mimetypes.guess_type(str(p))
             content_type = content_type or "application/octet-stream"
         self._attachments.append((p.name, p.read_bytes(), content_type))
@@ -137,7 +132,7 @@ class EmailMessage:
 
     # ── Envelope builder ────────────────────────────────────────────
 
-    def _build_attachment_records(self) -> Tuple[List[Attachment], Dict[str, bytes]]:
+    def _build_attachment_records(self) -> tuple[list[Attachment], dict[str, bytes]]:
         """
         Build Attachment records and a digest→bytes map for blob storage.
 
@@ -162,7 +157,7 @@ class EmailMessage:
     def build_envelope(
         self,
         default_from: str = "noreply@localhost",
-    ) -> Tuple[MailEnvelope, Dict[str, bytes]]:
+    ) -> tuple[MailEnvelope, dict[str, bytes]]:
         """
         Build a MailEnvelope + blob map ready for storage and dispatch.
 
@@ -180,7 +175,7 @@ class EmailMessage:
 
         att_records, blobs = self._build_attachment_records()
 
-        body_html: Optional[str] = None
+        body_html: str | None = None
         if self._alternatives:
             for content, mimetype in self._alternatives:
                 if mimetype == "text/html":
@@ -208,7 +203,7 @@ class EmailMessage:
 
     # ── Send API ────────────────────────────────────────────────────
 
-    def send(self, fail_silently: bool = False) -> Optional[str]:
+    def send(self, fail_silently: bool = False) -> str | None:
         """
         Send synchronously.
 
@@ -219,15 +214,13 @@ class EmailMessage:
 
         svc = _get_mail_service()
         try:
-            return asyncio.get_event_loop().run_until_complete(
-                svc.send_message(self)
-            )
+            return asyncio.get_event_loop().run_until_complete(svc.send_message(self))
         except Exception:
             if fail_silently:
                 return None
             raise
 
-    async def asend(self, fail_silently: bool = False) -> Optional[str]:
+    async def asend(self, fail_silently: bool = False) -> str | None:
         """
         Send asynchronously.
 
@@ -245,10 +238,7 @@ class EmailMessage:
             raise
 
     def __repr__(self) -> str:
-        return (
-            f"EmailMessage(subject={self.subject!r}, "
-            f"to={self.to!r})"
-        )
+        return f"EmailMessage(subject={self.subject!r}, to={self.to!r})"
 
 
 class EmailMultiAlternatives(EmailMessage):
@@ -265,9 +255,7 @@ class EmailMultiAlternatives(EmailMessage):
         await msg.asend()
     """
 
-    def attach_alternative(
-        self, content: str, mimetype: str = "text/html"
-    ) -> "EmailMultiAlternatives":
+    def attach_alternative(self, content: str, mimetype: str = "text/html") -> EmailMultiAlternatives:
         """Add an alternative content representation."""
         self._alternatives.append((content, mimetype))
         return self
@@ -293,20 +281,20 @@ class TemplateMessage(EmailMessage):
     def __init__(
         self,
         template: str,
-        context: Optional[Dict[str, Any]] = None,
+        context: dict[str, Any] | None = None,
         *,
         subject: str = "",
-        from_email: Optional[str] = None,
-        to: Optional[Sequence[str]] = None,
-        cc: Optional[Sequence[str]] = None,
-        bcc: Optional[Sequence[str]] = None,
-        reply_to: Optional[str] = None,
-        headers: Optional[Dict[str, str]] = None,
-        attachments: Optional[List[Tuple[str, bytes, str]]] = None,
+        from_email: str | None = None,
+        to: Sequence[str] | None = None,
+        cc: Sequence[str] | None = None,
+        bcc: Sequence[str] | None = None,
+        reply_to: str | None = None,
+        headers: dict[str, str] | None = None,
+        attachments: list[tuple[str, bytes, str]] | None = None,
         priority: int = Priority.NORMAL.value,
-        idempotency_key: Optional[str] = None,
-        tenant_id: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        idempotency_key: str | None = None,
+        tenant_id: str | None = None,
+        metadata: dict[str, Any] | None = None,
     ):
         super().__init__(
             subject=subject,
@@ -326,16 +314,12 @@ class TemplateMessage(EmailMessage):
         self.template_name = template
         self.template_context = context or {}
 
-    def build_envelope(
-        self, default_from: str = "noreply@localhost"
-    ) -> Tuple[MailEnvelope, Dict[str, bytes]]:
+    def build_envelope(self, default_from: str = "noreply@localhost") -> tuple[MailEnvelope, dict[str, bytes]]:
         """Build envelope, rendering the template first."""
         from .template import render_template
 
         # Render the ATS template
-        rendered_html = render_template(
-            self.template_name, self.template_context
-        )
+        rendered_html = render_template(self.template_name, self.template_context)
 
         # Auto-generate plain text from HTML (basic strip)
         rendered_text = _html_to_text(rendered_html)
@@ -343,6 +327,7 @@ class TemplateMessage(EmailMessage):
         # Subject may contain ATS expressions -- render inline
         if "<<" in self.subject:
             from .template import render_string
+
             self.subject = render_string(self.subject, self.template_context)
 
         self.body = rendered_text
@@ -354,10 +339,7 @@ class TemplateMessage(EmailMessage):
         return envelope, blobs
 
     def __repr__(self) -> str:
-        return (
-            f"TemplateMessage(template={self.template_name!r}, "
-            f"to={self.to!r})"
-        )
+        return f"TemplateMessage(template={self.template_name!r}, to={self.to!r})"
 
 
 # ── Helpers ─────────────────────────────────────────────────────────

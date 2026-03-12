@@ -6,7 +6,7 @@ and serialization. Aquilia fields use a unique descriptive API:
 
     class User(Model):
         table = "users"
-        
+
         name = Char(max_length=150)
         email = Email(max_length=255, unique=True)
         age = Integer(null=True)
@@ -23,22 +23,12 @@ import datetime
 import decimal
 import ipaddress
 import json
-import os
 import re
 import uuid
-from enum import Enum
-from pathlib import Path
+from collections.abc import Callable, Sequence
 from typing import (
-    Any,
-    Callable,
-    Dict,
-    List,
-    Optional,
-    Sequence,
-    Tuple,
-    Type,
-    Union,
     TYPE_CHECKING,
+    Any,
 )
 
 if TYPE_CHECKING:
@@ -96,8 +86,10 @@ class FieldValidationError(_FieldValidationFault, ValueError):
 
 # ── Sentinel ─────────────────────────────────────────────────────────────────
 
+
 class _Unset:
     """Sentinel for distinguishing 'not set' from None."""
+
     _instance = None
 
     def __new__(cls):
@@ -110,6 +102,7 @@ class _Unset:
 
     def __bool__(self):
         return False
+
 
 UNSET = _Unset()
 
@@ -152,12 +145,12 @@ class Field:
         unique: bool = False,
         primary_key: bool = False,
         db_index: bool = False,
-        db_column: Optional[str] = None,
-        choices: Optional[Sequence[Tuple[Any, str]]] = None,
-        validators: Optional[List[Callable]] = None,
+        db_column: str | None = None,
+        choices: Sequence[tuple[Any, str]] | None = None,
+        validators: list[Callable] | None = None,
         help_text: str = "",
         editable: bool = True,
-        verbose_name: Optional[str] = None,
+        verbose_name: str | None = None,
     ):
         self.null = null
         self.blank = blank
@@ -175,7 +168,7 @@ class Field:
         # Set by metaclass
         self.name: str = ""
         self.attr_name: str = ""
-        self.model: Optional[Type[Model]] = None
+        self.model: type[Model] | None = None
 
         # Ordering
         self._order = Field._creation_counter
@@ -248,9 +241,7 @@ class Field:
 
     def sql_type(self, dialect: str = "sqlite") -> str:
         """Return SQL type string for this field."""
-        raise NotImplementedError(
-            f"{self.__class__.__name__} must implement sql_type()"
-        )
+        raise NotImplementedError(f"{self.__class__.__name__} must implement sql_type()")
 
     def sql_column_def(self, dialect: str = "sqlite") -> str:
         """Generate full SQL column definition."""
@@ -284,7 +275,7 @@ class Field:
 
         return " ".join(parts)
 
-    def _sql_default(self, dialect: str = "sqlite") -> Optional[str]:
+    def _sql_default(self, dialect: str = "sqlite") -> str | None:
         """Get SQL DEFAULT clause value.
 
         MySQL does not allow DEFAULT on TEXT, BLOB, JSON, or GEOMETRY
@@ -300,9 +291,16 @@ class Field:
         if dialect == "mysql":
             sql_type = self.sql_type(dialect).upper()
             _NO_DEFAULT_TYPES = {
-                "TEXT", "TINYTEXT", "MEDIUMTEXT", "LONGTEXT",
-                "BLOB", "TINYBLOB", "MEDIUMBLOB", "LONGBLOB",
-                "JSON", "GEOMETRY",
+                "TEXT",
+                "TINYTEXT",
+                "MEDIUMTEXT",
+                "LONGTEXT",
+                "BLOB",
+                "TINYBLOB",
+                "MEDIUMBLOB",
+                "LONGBLOB",
+                "JSON",
+                "GEOMETRY",
             }
             if sql_type in _NO_DEFAULT_TYPES:
                 return None
@@ -319,9 +317,9 @@ class Field:
             return f"'{self.default}'"
         return None
 
-    def deconstruct(self) -> Dict[str, Any]:
+    def deconstruct(self) -> dict[str, Any]:
         """Serialize field definition for migrations."""
-        data: Dict[str, Any] = {
+        data: dict[str, Any] = {
             "type": self.__class__.__name__,
             "null": self.null,
             "unique": self.unique,
@@ -350,19 +348,22 @@ class AutoField(Field):
     _field_type = "AUTO"
     _python_type = int
 
-    def __init__(self, *,
+    def __init__(
+        self,
+        *,
         null: bool = False,
         blank: bool = False,
         default: Any = UNSET,
         unique: bool = False,
         primary_key: bool = True,
         db_index: bool = False,
-        db_column: Optional[str] = None,
-        choices: Optional[Sequence[Tuple[Any, str]]] = None,
-        validators: Optional[List[Callable]] = None,
+        db_column: str | None = None,
+        choices: Sequence[tuple[Any, str]] | None = None,
+        validators: list[Callable] | None = None,
         help_text: str = "",
         editable: bool = True,
-        verbose_name: Optional[str] = None):
+        verbose_name: str | None = None,
+    ):
         super().__init__(
             null=null,
             blank=blank,
@@ -402,19 +403,22 @@ class BigAutoField(Field):
     _field_type = "BIGAUTO"
     _python_type = int
 
-    def __init__(self, *,
+    def __init__(
+        self,
+        *,
         null: bool = False,
         blank: bool = False,
         default: Any = UNSET,
         unique: bool = False,
         primary_key: bool = True,
         db_index: bool = False,
-        db_column: Optional[str] = None,
-        choices: Optional[Sequence[Tuple[Any, str]]] = None,
-        validators: Optional[List[Callable]] = None,
+        db_column: str | None = None,
+        choices: Sequence[tuple[Any, str]] | None = None,
+        validators: list[Callable] | None = None,
         help_text: str = "",
         editable: bool = True,
-        verbose_name: Optional[str] = None):
+        verbose_name: str | None = None,
+    ):
         super().__init__(
             null=null,
             blank=blank,
@@ -472,7 +476,6 @@ class SmallAutoField(AutoField):
         if dialect == "oracle":
             return "NUMBER(5)"
         return "INTEGER"
-
 
 
 class IntegerField(Field):
@@ -668,32 +671,37 @@ class DecimalField(Field):
     _field_type = "DECIMAL"
     _python_type = decimal.Decimal
 
-    def __init__(self, *, max_digits: int = 10, decimal_places: int = 2, 
+    def __init__(
+        self,
+        *,
+        max_digits: int = 10,
+        decimal_places: int = 2,
         null: bool = False,
         blank: bool = False,
         default: Any = UNSET,
         unique: bool = False,
         primary_key: bool = False,
         db_index: bool = False,
-        db_column: Optional[str] = None,
-        choices: Optional[Sequence[Tuple[Any, str]]] = None,
-        validators: Optional[List[Callable]] = None,
+        db_column: str | None = None,
+        choices: Sequence[tuple[Any, str]] | None = None,
+        validators: list[Callable] | None = None,
         help_text: str = "",
         editable: bool = True,
-        verbose_name: Optional[str] = None):
+        verbose_name: str | None = None,
+    ):
         kwargs = {
-            'null': null,
-            'blank': blank,
-            'default': default,
-            'unique': unique,
-            'primary_key': primary_key,
-            'db_index': db_index,
-            'db_column': db_column,
-            'choices': choices,
-            'validators': validators,
-            'help_text': help_text,
-            'editable': editable,
-            'verbose_name': verbose_name,
+            "null": null,
+            "blank": blank,
+            "default": default,
+            "unique": unique,
+            "primary_key": primary_key,
+            "db_index": db_index,
+            "db_column": db_column,
+            "choices": choices,
+            "validators": validators,
+            "help_text": help_text,
+            "editable": editable,
+            "verbose_name": verbose_name,
         }
         self.max_digits = max_digits
         self.decimal_places = decimal_places
@@ -730,14 +738,12 @@ class DecimalField(Field):
         if dec_digits > self.decimal_places:
             raise FieldValidationError(
                 self.name,
-                f"Ensure that there are no more than "
-                f"{self.decimal_places} decimal places ({dec_digits} found)",
+                f"Ensure that there are no more than {self.decimal_places} decimal places ({dec_digits} found)",
             )
         if len(digits) > self.max_digits:
             raise FieldValidationError(
                 self.name,
-                f"Ensure that there are no more than "
-                f"{self.max_digits} digits in total ({len(digits)} found)",
+                f"Ensure that there are no more than {self.max_digits} digits in total ({len(digits)} found)",
             )
         return value
 
@@ -756,7 +762,7 @@ class DecimalField(Field):
             return f"NUMBER({self.max_digits},{self.decimal_places})"
         return f"DECIMAL({self.max_digits},{self.decimal_places})"
 
-    def deconstruct(self) -> Dict[str, Any]:
+    def deconstruct(self) -> dict[str, Any]:
         d = super().deconstruct()
         d["max_digits"] = self.max_digits
         d["decimal_places"] = self.decimal_places
@@ -774,32 +780,36 @@ class CharField(Field):
     _field_type = "CHAR"
     _python_type = str
 
-    def __init__(self, *, max_length: int = 255, 
+    def __init__(
+        self,
+        *,
+        max_length: int = 255,
         null: bool = False,
         blank: bool = False,
         default: Any = UNSET,
         unique: bool = False,
         primary_key: bool = False,
         db_index: bool = False,
-        db_column: Optional[str] = None,
-        choices: Optional[Sequence[Tuple[Any, str]]] = None,
-        validators: Optional[List[Callable]] = None,
+        db_column: str | None = None,
+        choices: Sequence[tuple[Any, str]] | None = None,
+        validators: list[Callable] | None = None,
         help_text: str = "",
         editable: bool = True,
-        verbose_name: Optional[str] = None):
+        verbose_name: str | None = None,
+    ):
         kwargs = {
-            'null': null,
-            'blank': blank,
-            'default': default,
-            'unique': unique,
-            'primary_key': primary_key,
-            'db_index': db_index,
-            'db_column': db_column,
-            'choices': choices,
-            'validators': validators,
-            'help_text': help_text,
-            'editable': editable,
-            'verbose_name': verbose_name,
+            "null": null,
+            "blank": blank,
+            "default": default,
+            "unique": unique,
+            "primary_key": primary_key,
+            "db_index": db_index,
+            "db_column": db_column,
+            "choices": choices,
+            "validators": validators,
+            "help_text": help_text,
+            "editable": editable,
+            "verbose_name": verbose_name,
         }
         self.max_length = max_length
         super().__init__(**kwargs)
@@ -815,10 +825,7 @@ class CharField(Field):
         if not value.strip() and not self.blank:
             raise FieldValidationError(self.name, "Cannot be blank")
         if len(value) > self.max_length:
-            raise FieldValidationError(
-                self.name,
-                f"Max length is {self.max_length}, got {len(value)} characters"
-            )
+            raise FieldValidationError(self.name, f"Max length is {self.max_length}, got {len(value)} characters")
         return value
 
     def sql_type(self, dialect: str = "sqlite") -> str:
@@ -826,7 +833,7 @@ class CharField(Field):
             return f"VARCHAR2({self.max_length})"
         return f"VARCHAR({self.max_length})"
 
-    def deconstruct(self) -> Dict[str, Any]:
+    def deconstruct(self) -> dict[str, Any]:
         d = super().deconstruct()
         d["max_length"] = self.max_length
         return d
@@ -834,9 +841,8 @@ class CharField(Field):
 
 class VarcharField(CharField):
     """Explicit alias for CharField, representing a variable-length string."""
+
     _field_type = "VARCHAR"
-
-
 
 
 class TextField(Field):
@@ -865,34 +871,38 @@ class SlugField(CharField):
     """URL-friendly slug field."""
 
     _field_type = "SLUG"
-    _SLUG_RE = re.compile(r'^[-a-zA-Z0-9_]+$')
+    _SLUG_RE = re.compile(r"^[-a-zA-Z0-9_]+$")
 
-    def __init__(self, *, max_length: int = 50, 
+    def __init__(
+        self,
+        *,
+        max_length: int = 50,
         null: bool = False,
         blank: bool = False,
         default: Any = UNSET,
         unique: bool = False,
         primary_key: bool = False,
         db_index: bool = False,
-        db_column: Optional[str] = None,
-        choices: Optional[Sequence[Tuple[Any, str]]] = None,
-        validators: Optional[List[Callable]] = None,
+        db_column: str | None = None,
+        choices: Sequence[tuple[Any, str]] | None = None,
+        validators: list[Callable] | None = None,
         help_text: str = "",
         editable: bool = True,
-        verbose_name: Optional[str] = None):
+        verbose_name: str | None = None,
+    ):
         kwargs = {
-            'null': null,
-            'blank': blank,
-            'default': default,
-            'unique': unique,
-            'primary_key': primary_key,
-            'db_index': db_index,
-            'db_column': db_column,
-            'choices': choices,
-            'validators': validators,
-            'help_text': help_text,
-            'editable': editable,
-            'verbose_name': verbose_name,
+            "null": null,
+            "blank": blank,
+            "default": default,
+            "unique": unique,
+            "primary_key": primary_key,
+            "db_index": db_index,
+            "db_column": db_column,
+            "choices": choices,
+            "validators": validators,
+            "help_text": help_text,
+            "editable": editable,
+            "verbose_name": verbose_name,
         }
         super().__init__(max_length=max_length, **kwargs)
 
@@ -902,8 +912,7 @@ class SlugField(CharField):
             return None
         if not self._SLUG_RE.match(value):
             raise FieldValidationError(
-                self.name,
-                f"Invalid slug '{value}'. Only letters, numbers, hyphens, and underscores allowed."
+                self.name, f"Invalid slug '{value}'. Only letters, numbers, hyphens, and underscores allowed."
             )
         return value
 
@@ -913,37 +922,41 @@ class EmailField(CharField):
 
     _field_type = "EMAIL"
     _EMAIL_RE = re.compile(
-        r'^[a-zA-Z0-9.!#$%&\'*+/=?^_`{|}~-]+@'
-        r'[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?'
-        r'(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$'
+        r"^[a-zA-Z0-9.!#$%&\'*+/=?^_`{|}~-]+@"
+        r"[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?"
+        r"(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$"
     )
 
-    def __init__(self, *, max_length: int = 254, 
+    def __init__(
+        self,
+        *,
+        max_length: int = 254,
         null: bool = False,
         blank: bool = False,
         default: Any = UNSET,
         unique: bool = False,
         primary_key: bool = False,
         db_index: bool = False,
-        db_column: Optional[str] = None,
-        choices: Optional[Sequence[Tuple[Any, str]]] = None,
-        validators: Optional[List[Callable]] = None,
+        db_column: str | None = None,
+        choices: Sequence[tuple[Any, str]] | None = None,
+        validators: list[Callable] | None = None,
         help_text: str = "",
         editable: bool = True,
-        verbose_name: Optional[str] = None):
+        verbose_name: str | None = None,
+    ):
         kwargs = {
-            'null': null,
-            'blank': blank,
-            'default': default,
-            'unique': unique,
-            'primary_key': primary_key,
-            'db_index': db_index,
-            'db_column': db_column,
-            'choices': choices,
-            'validators': validators,
-            'help_text': help_text,
-            'editable': editable,
-            'verbose_name': verbose_name,
+            "null": null,
+            "blank": blank,
+            "default": default,
+            "unique": unique,
+            "primary_key": primary_key,
+            "db_index": db_index,
+            "db_column": db_column,
+            "choices": choices,
+            "validators": validators,
+            "help_text": help_text,
+            "editable": editable,
+            "verbose_name": verbose_name,
         }
         super().__init__(max_length=max_length, **kwargs)
 
@@ -961,39 +974,43 @@ class URLField(CharField):
 
     _field_type = "URL"
     _URL_RE = re.compile(
-        r'^https?://'
-        r'(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)*'
-        r'[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?'
-        r'(?::\d+)?'
-        r'(?:/[^\s]*)?$'
+        r"^https?://"
+        r"(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)*"
+        r"[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?"
+        r"(?::\d+)?"
+        r"(?:/[^\s]*)?$"
     )
 
-    def __init__(self, *, max_length: int = 200, 
+    def __init__(
+        self,
+        *,
+        max_length: int = 200,
         null: bool = False,
         blank: bool = False,
         default: Any = UNSET,
         unique: bool = False,
         primary_key: bool = False,
         db_index: bool = False,
-        db_column: Optional[str] = None,
-        choices: Optional[Sequence[Tuple[Any, str]]] = None,
-        validators: Optional[List[Callable]] = None,
+        db_column: str | None = None,
+        choices: Sequence[tuple[Any, str]] | None = None,
+        validators: list[Callable] | None = None,
         help_text: str = "",
         editable: bool = True,
-        verbose_name: Optional[str] = None):
+        verbose_name: str | None = None,
+    ):
         kwargs = {
-            'null': null,
-            'blank': blank,
-            'default': default,
-            'unique': unique,
-            'primary_key': primary_key,
-            'db_index': db_index,
-            'db_column': db_column,
-            'choices': choices,
-            'validators': validators,
-            'help_text': help_text,
-            'editable': editable,
-            'verbose_name': verbose_name,
+            "null": null,
+            "blank": blank,
+            "default": default,
+            "unique": unique,
+            "primary_key": primary_key,
+            "db_index": db_index,
+            "db_column": db_column,
+            "choices": choices,
+            "validators": validators,
+            "help_text": help_text,
+            "editable": editable,
+            "verbose_name": verbose_name,
         }
         super().__init__(max_length=max_length, **kwargs)
 
@@ -1012,32 +1029,36 @@ class UUIDField(Field):
     _field_type = "UUID"
     _python_type = uuid.UUID
 
-    def __init__(self, *, auto: bool = False, 
+    def __init__(
+        self,
+        *,
+        auto: bool = False,
         null: bool = False,
         blank: bool = False,
         default: Any = UNSET,
         unique: bool = False,
         primary_key: bool = False,
         db_index: bool = False,
-        db_column: Optional[str] = None,
-        choices: Optional[Sequence[Tuple[Any, str]]] = None,
-        validators: Optional[List[Callable]] = None,
+        db_column: str | None = None,
+        choices: Sequence[tuple[Any, str]] | None = None,
+        validators: list[Callable] | None = None,
         help_text: str = "",
         editable: bool = True,
-        verbose_name: Optional[str] = None):
+        verbose_name: str | None = None,
+    ):
         kwargs = {
-            'null': null,
-            'blank': blank,
-            'default': default,
-            'unique': unique,
-            'primary_key': primary_key,
-            'db_index': db_index,
-            'db_column': db_column,
-            'choices': choices,
-            'validators': validators,
-            'help_text': help_text,
-            'editable': editable,
-            'verbose_name': verbose_name,
+            "null": null,
+            "blank": blank,
+            "default": default,
+            "unique": unique,
+            "primary_key": primary_key,
+            "db_index": db_index,
+            "db_column": db_column,
+            "choices": choices,
+            "validators": validators,
+            "help_text": help_text,
+            "editable": editable,
+            "verbose_name": verbose_name,
         }
         self.auto = auto
         if auto:
@@ -1086,7 +1107,7 @@ class FilePathField(CharField):
         self,
         *,
         path: str = "",
-        match: Optional[str] = None,
+        match: str | None = None,
         recursive: bool = False,
         allow_files: bool = True,
         allow_folders: bool = False,
@@ -1112,32 +1133,37 @@ class DateField(Field):
     _field_type = "DATE"
     _python_type = datetime.date
 
-    def __init__(self, *, auto_now: bool = False, auto_now_add: bool = False, 
+    def __init__(
+        self,
+        *,
+        auto_now: bool = False,
+        auto_now_add: bool = False,
         null: bool = False,
         blank: bool = False,
         default: Any = UNSET,
         unique: bool = False,
         primary_key: bool = False,
         db_index: bool = False,
-        db_column: Optional[str] = None,
-        choices: Optional[Sequence[Tuple[Any, str]]] = None,
-        validators: Optional[List[Callable]] = None,
+        db_column: str | None = None,
+        choices: Sequence[tuple[Any, str]] | None = None,
+        validators: list[Callable] | None = None,
         help_text: str = "",
         editable: bool = True,
-        verbose_name: Optional[str] = None):
+        verbose_name: str | None = None,
+    ):
         kwargs = {
-            'null': null,
-            'blank': blank,
-            'default': default,
-            'unique': unique,
-            'primary_key': primary_key,
-            'db_index': db_index,
-            'db_column': db_column,
-            'choices': choices,
-            'validators': validators,
-            'help_text': help_text,
-            'editable': editable,
-            'verbose_name': verbose_name,
+            "null": null,
+            "blank": blank,
+            "default": default,
+            "unique": unique,
+            "primary_key": primary_key,
+            "db_index": db_index,
+            "db_column": db_column,
+            "choices": choices,
+            "validators": validators,
+            "help_text": help_text,
+            "editable": editable,
+            "verbose_name": verbose_name,
         }
         self.auto_now = auto_now
         self.auto_now_add = auto_now_add
@@ -1201,32 +1227,37 @@ class TimeField(Field):
     _field_type = "TIME"
     _python_type = datetime.time
 
-    def __init__(self, *, auto_now: bool = False, auto_now_add: bool = False, 
+    def __init__(
+        self,
+        *,
+        auto_now: bool = False,
+        auto_now_add: bool = False,
         null: bool = False,
         blank: bool = False,
         default: Any = UNSET,
         unique: bool = False,
         primary_key: bool = False,
         db_index: bool = False,
-        db_column: Optional[str] = None,
-        choices: Optional[Sequence[Tuple[Any, str]]] = None,
-        validators: Optional[List[Callable]] = None,
+        db_column: str | None = None,
+        choices: Sequence[tuple[Any, str]] | None = None,
+        validators: list[Callable] | None = None,
         help_text: str = "",
         editable: bool = True,
-        verbose_name: Optional[str] = None):
+        verbose_name: str | None = None,
+    ):
         kwargs = {
-            'null': null,
-            'blank': blank,
-            'default': default,
-            'unique': unique,
-            'primary_key': primary_key,
-            'db_index': db_index,
-            'db_column': db_column,
-            'choices': choices,
-            'validators': validators,
-            'help_text': help_text,
-            'editable': editable,
-            'verbose_name': verbose_name,
+            "null": null,
+            "blank": blank,
+            "default": default,
+            "unique": unique,
+            "primary_key": primary_key,
+            "db_index": db_index,
+            "db_column": db_column,
+            "choices": choices,
+            "validators": validators,
+            "help_text": help_text,
+            "editable": editable,
+            "verbose_name": verbose_name,
         }
         self.auto_now = auto_now
         self.auto_now_add = auto_now_add
@@ -1286,32 +1317,37 @@ class DateTimeField(Field):
     _field_type = "DATETIME"
     _python_type = datetime.datetime
 
-    def __init__(self, *, auto_now: bool = False, auto_now_add: bool = False, 
+    def __init__(
+        self,
+        *,
+        auto_now: bool = False,
+        auto_now_add: bool = False,
         null: bool = False,
         blank: bool = False,
         default: Any = UNSET,
         unique: bool = False,
         primary_key: bool = False,
         db_index: bool = False,
-        db_column: Optional[str] = None,
-        choices: Optional[Sequence[Tuple[Any, str]]] = None,
-        validators: Optional[List[Callable]] = None,
+        db_column: str | None = None,
+        choices: Sequence[tuple[Any, str]] | None = None,
+        validators: list[Callable] | None = None,
         help_text: str = "",
         editable: bool = True,
-        verbose_name: Optional[str] = None):
+        verbose_name: str | None = None,
+    ):
         kwargs = {
-            'null': null,
-            'blank': blank,
-            'default': default,
-            'unique': unique,
-            'primary_key': primary_key,
-            'db_index': db_index,
-            'db_column': db_column,
-            'choices': choices,
-            'validators': validators,
-            'help_text': help_text,
-            'editable': editable,
-            'verbose_name': verbose_name,
+            "null": null,
+            "blank": blank,
+            "default": default,
+            "unique": unique,
+            "primary_key": primary_key,
+            "db_index": db_index,
+            "db_column": db_column,
+            "choices": choices,
+            "validators": validators,
+            "help_text": help_text,
+            "editable": editable,
+            "verbose_name": verbose_name,
         }
         self.auto_now = auto_now
         self.auto_now_add = auto_now_add
@@ -1476,32 +1512,36 @@ class BinaryField(Field):
     _field_type = "BINARY"
     _python_type = bytes
 
-    def __init__(self, *, max_length: Optional[int] = None, 
+    def __init__(
+        self,
+        *,
+        max_length: int | None = None,
         null: bool = False,
         blank: bool = False,
         default: Any = UNSET,
         unique: bool = False,
         primary_key: bool = False,
         db_index: bool = False,
-        db_column: Optional[str] = None,
-        choices: Optional[Sequence[Tuple[Any, str]]] = None,
-        validators: Optional[List[Callable]] = None,
+        db_column: str | None = None,
+        choices: Sequence[tuple[Any, str]] | None = None,
+        validators: list[Callable] | None = None,
         help_text: str = "",
         editable: bool = True,
-        verbose_name: Optional[str] = None):
+        verbose_name: str | None = None,
+    ):
         kwargs = {
-            'null': null,
-            'blank': blank,
-            'default': default,
-            'unique': unique,
-            'primary_key': primary_key,
-            'db_index': db_index,
-            'db_column': db_column,
-            'choices': choices,
-            'validators': validators,
-            'help_text': help_text,
-            'editable': editable,
-            'verbose_name': verbose_name,
+            "null": null,
+            "blank": blank,
+            "default": default,
+            "unique": unique,
+            "primary_key": primary_key,
+            "db_index": db_index,
+            "db_column": db_column,
+            "choices": choices,
+            "validators": validators,
+            "help_text": help_text,
+            "editable": editable,
+            "verbose_name": verbose_name,
         }
         self.max_length = max_length
         super().__init__(**kwargs)
@@ -1537,32 +1577,37 @@ class JSONField(Field):
     _field_type = "JSON"
     _python_type = dict
 
-    def __init__(self, *, encoder: Optional[type] = None, decoder: Optional[Callable] = None, 
+    def __init__(
+        self,
+        *,
+        encoder: type | None = None,
+        decoder: Callable | None = None,
         null: bool = False,
         blank: bool = False,
         default: Any = UNSET,
         unique: bool = False,
         primary_key: bool = False,
         db_index: bool = False,
-        db_column: Optional[str] = None,
-        choices: Optional[Sequence[Tuple[Any, str]]] = None,
-        validators: Optional[List[Callable]] = None,
+        db_column: str | None = None,
+        choices: Sequence[tuple[Any, str]] | None = None,
+        validators: list[Callable] | None = None,
         help_text: str = "",
         editable: bool = True,
-        verbose_name: Optional[str] = None):
+        verbose_name: str | None = None,
+    ):
         kwargs = {
-            'null': null,
-            'blank': blank,
-            'default': default,
-            'unique': unique,
-            'primary_key': primary_key,
-            'db_index': db_index,
-            'db_column': db_column,
-            'choices': choices,
-            'validators': validators,
-            'help_text': help_text,
-            'editable': editable,
-            'verbose_name': verbose_name,
+            "null": null,
+            "blank": blank,
+            "default": default,
+            "unique": unique,
+            "primary_key": primary_key,
+            "db_index": db_index,
+            "db_column": db_column,
+            "choices": choices,
+            "validators": validators,
+            "help_text": help_text,
+            "editable": editable,
+            "verbose_name": verbose_name,
         }
         self.encoder = encoder
         self.decoder = decoder
@@ -1612,39 +1657,43 @@ class JSONField(Field):
 class RelationField(Field):
     """Base class for relationship fields."""
 
-    def __init__(self, to: Union[str, Type[Model]], *, 
+    def __init__(
+        self,
+        to: str | type[Model],
+        *,
         null: bool = False,
         blank: bool = False,
         default: Any = UNSET,
         unique: bool = False,
         primary_key: bool = False,
         db_index: bool = False,
-        db_column: Optional[str] = None,
-        choices: Optional[Sequence[Tuple[Any, str]]] = None,
-        validators: Optional[List[Callable]] = None,
+        db_column: str | None = None,
+        choices: Sequence[tuple[Any, str]] | None = None,
+        validators: list[Callable] | None = None,
         help_text: str = "",
         editable: bool = True,
-        verbose_name: Optional[str] = None):
+        verbose_name: str | None = None,
+    ):
         kwargs = {
-            'null': null,
-            'blank': blank,
-            'default': default,
-            'unique': unique,
-            'primary_key': primary_key,
-            'db_index': db_index,
-            'db_column': db_column,
-            'choices': choices,
-            'validators': validators,
-            'help_text': help_text,
-            'editable': editable,
-            'verbose_name': verbose_name,
+            "null": null,
+            "blank": blank,
+            "default": default,
+            "unique": unique,
+            "primary_key": primary_key,
+            "db_index": db_index,
+            "db_column": db_column,
+            "choices": choices,
+            "validators": validators,
+            "help_text": help_text,
+            "editable": editable,
+            "verbose_name": verbose_name,
         }
         self.to = to
-        self._related_model: Optional[Type[Model]] = None
+        self._related_model: type[Model] | None = None
         super().__init__(**kwargs)
 
     @property
-    def related_model(self) -> Optional[Type[Model]]:
+    def related_model(self) -> type[Model] | None:
         """Resolve the related model (handles forward references)."""
         if self._related_model is not None:
             return self._related_model
@@ -1652,7 +1701,7 @@ class RelationField(Field):
             self._related_model = self.to
         return self._related_model
 
-    def resolve_model(self, registry: Dict[str, Type[Model]]) -> None:
+    def resolve_model(self, registry: dict[str, type[Model]]) -> None:
         """Resolve string-based model reference."""
         if isinstance(self.to, str):
             self._related_model = registry.get(self.to)
@@ -1672,9 +1721,9 @@ class ForeignKey(RelationField):
 
     def __init__(
         self,
-        to: Union[str, Type[Model]],
+        to: str | type[Model],
         *,
-        related_name: Optional[str] = None,
+        related_name: str | None = None,
         on_delete: str = "CASCADE",
         on_update: str = "CASCADE",
         db_constraint: bool = True,
@@ -1713,14 +1762,14 @@ class ForeignKey(RelationField):
     def sql_column_def(self, dialect: str = "sqlite") -> str:
         base = super().sql_column_def(dialect)
         if self.db_constraint and self.related_model:
-            table = getattr(self.related_model, '_table_name', self.related_model.__name__.lower())
-            pk = getattr(self.related_model, '_pk_name', 'id')
+            table = getattr(self.related_model, "_table_name", self.related_model.__name__.lower())
+            pk = getattr(self.related_model, "_pk_name", "id")
             base += f' REFERENCES "{table}"("{pk}")'
             base += f" ON DELETE {_normalize_fk_action(self.on_delete)}"
             base += f" ON UPDATE {_normalize_fk_action(self.on_update)}"
         return base
 
-    def deconstruct(self) -> Dict[str, Any]:
+    def deconstruct(self) -> dict[str, Any]:
         d = super().deconstruct()
         d["to"] = self.to if isinstance(self.to, str) else self.to.__name__
         d["on_delete"] = self.on_delete
@@ -1739,32 +1788,36 @@ class OneToOneField(ForeignKey):
 
     _field_type = "O2O"
 
-    def __init__(self, to: Union[str, Type[Model]], *, 
+    def __init__(
+        self,
+        to: str | type[Model],
+        *,
         null: bool = False,
         blank: bool = False,
         default: Any = UNSET,
         unique: bool = False,
         primary_key: bool = False,
         db_index: bool = False,
-        db_column: Optional[str] = None,
-        choices: Optional[Sequence[Tuple[Any, str]]] = None,
-        validators: Optional[List[Callable]] = None,
+        db_column: str | None = None,
+        choices: Sequence[tuple[Any, str]] | None = None,
+        validators: list[Callable] | None = None,
         help_text: str = "",
         editable: bool = True,
-        verbose_name: Optional[str] = None):
+        verbose_name: str | None = None,
+    ):
         kwargs = {
-            'null': null,
-            'blank': blank,
-            'default': default,
-            'unique': unique,
-            'primary_key': primary_key,
-            'db_index': db_index,
-            'db_column': db_column,
-            'choices': choices,
-            'validators': validators,
-            'help_text': help_text,
-            'editable': editable,
-            'verbose_name': verbose_name,
+            "null": null,
+            "blank": blank,
+            "default": default,
+            "unique": unique,
+            "primary_key": primary_key,
+            "db_index": db_index,
+            "db_column": db_column,
+            "choices": choices,
+            "validators": validators,
+            "help_text": help_text,
+            "editable": editable,
+            "verbose_name": verbose_name,
         }
         kwargs.setdefault("unique", True)
         super().__init__(to=to, **kwargs)
@@ -1785,12 +1838,12 @@ class ManyToManyField(RelationField):
 
     def __init__(
         self,
-        to: Union[str, Type[Model]],
+        to: str | type[Model],
         *,
-        related_name: Optional[str] = None,
-        through: Optional[Union[str, Type[Model]]] = None,
-        through_fields: Optional[Tuple[str, str]] = None,
-        db_table: Optional[str] = None,
+        related_name: str | None = None,
+        through: str | type[Model] | None = None,
+        through_fields: tuple[str, str] | None = None,
+        db_table: str | None = None,
         **kwargs,
     ):
         self.related_name = related_name
@@ -1803,16 +1856,16 @@ class ManyToManyField(RelationField):
         kwargs.pop("db_index", None)
         super().__init__(to=to, **kwargs)
 
-    def junction_table_name(self, source_model: Type[Model]) -> str:
+    def junction_table_name(self, source_model: type[Model]) -> str:
         """Generate junction table name."""
         if self.db_table:
             return self.db_table
-        source = getattr(source_model, '_table_name', source_model.__name__.lower())
+        source = getattr(source_model, "_table_name", source_model.__name__.lower())
         target = self.to if isinstance(self.to, str) else self.to.__name__
         target = target.lower()
         return f"{source}_{self.attr_name}"
 
-    def junction_columns(self, source_model: Type[Model]) -> Tuple[str, str]:
+    def junction_columns(self, source_model: type[Model]) -> tuple[str, str]:
         """Return (source_fk_col, target_fk_col) for junction table."""
         if self.through_fields:
             return self.through_fields
@@ -1827,7 +1880,7 @@ class ManyToManyField(RelationField):
     def sql_column_def(self, dialect: str = "sqlite") -> str:
         return ""  # Not a real column
 
-    def deconstruct(self) -> Dict[str, Any]:
+    def deconstruct(self) -> dict[str, Any]:
         d = super().deconstruct()
         d["to"] = self.to if isinstance(self.to, str) else self.to.__name__
         d["related_name"] = self.related_name
@@ -1847,32 +1900,37 @@ class GenericIPAddressField(Field):
     _field_type = "IP"
     _python_type = str
 
-    def __init__(self, *, protocol: str = "both", unpack_ipv4: bool = False, 
+    def __init__(
+        self,
+        *,
+        protocol: str = "both",
+        unpack_ipv4: bool = False,
         null: bool = False,
         blank: bool = False,
         default: Any = UNSET,
         unique: bool = False,
         primary_key: bool = False,
         db_index: bool = False,
-        db_column: Optional[str] = None,
-        choices: Optional[Sequence[Tuple[Any, str]]] = None,
-        validators: Optional[List[Callable]] = None,
+        db_column: str | None = None,
+        choices: Sequence[tuple[Any, str]] | None = None,
+        validators: list[Callable] | None = None,
         help_text: str = "",
         editable: bool = True,
-        verbose_name: Optional[str] = None):
+        verbose_name: str | None = None,
+    ):
         kwargs = {
-            'null': null,
-            'blank': blank,
-            'default': default,
-            'unique': unique,
-            'primary_key': primary_key,
-            'db_index': db_index,
-            'db_column': db_column,
-            'choices': choices,
-            'validators': validators,
-            'help_text': help_text,
-            'editable': editable,
-            'verbose_name': verbose_name,
+            "null": null,
+            "blank": blank,
+            "default": default,
+            "unique": unique,
+            "primary_key": primary_key,
+            "db_index": db_index,
+            "db_column": db_column,
+            "choices": choices,
+            "validators": validators,
+            "help_text": help_text,
+            "editable": editable,
+            "verbose_name": verbose_name,
         }
         self.protocol = protocol.lower()
         self.unpack_ipv4 = unpack_ipv4
@@ -1915,7 +1973,7 @@ class FileField(CharField):
     def __init__(
         self,
         *,
-        upload_to: Union[str, Callable] = "",
+        upload_to: str | Callable = "",
         max_length: int = 100,
         **kwargs,
     ):
@@ -1931,8 +1989,8 @@ class ImageField(FileField):
     def __init__(
         self,
         *,
-        width_field: Optional[str] = None,
-        height_field: Optional[str] = None,
+        width_field: str | None = None,
+        height_field: str | None = None,
         **kwargs,
     ):
         self.width_field = width_field
@@ -1950,7 +2008,7 @@ class ArrayField(Field):
 
     _field_type = "ARRAY"
 
-    def __init__(self, base_field: Field, *, size: Optional[int] = None, **kwargs):
+    def __init__(self, base_field: Field, *, size: int | None = None, **kwargs):
         self.base_field = base_field
         self.size = size
         super().__init__(**kwargs)
@@ -2093,8 +2151,10 @@ class DateTimeRangeField(RangeField):
 
 # Case-insensitive text fields (PostgreSQL CITEXT)
 
+
 class CICharField(CharField):
     """Case-insensitive CharField (PostgreSQL CITEXT)."""
+
     _field_type = "CICHAR"
 
     def validate(self, value: Any) -> Any:
@@ -2111,6 +2171,7 @@ class CICharField(CharField):
 
 class CIEmailField(EmailField):
     """Case-insensitive EmailField (PostgreSQL CITEXT)."""
+
     _field_type = "CIEMAIL"
 
     def sql_type(self, dialect: str = "sqlite") -> str:
@@ -2121,6 +2182,7 @@ class CIEmailField(EmailField):
 
 class CITextField(TextField):
     """Case-insensitive TextField (PostgreSQL CITEXT)."""
+
     _field_type = "CITEXT"
 
     def validate(self, value: Any) -> Any:
@@ -2137,6 +2199,7 @@ class CITextField(TextField):
 
 class InetAddressField(GenericIPAddressField):
     """PostgreSQL INET field -- stores IP address with optional netmask."""
+
     _field_type = "INET"
 
 
@@ -2159,7 +2222,7 @@ class GeneratedField(Field):
         self,
         *,
         expression: str,
-        output_field: Optional[Field] = None,
+        output_field: Field | None = None,
         db_persist: bool = True,
         **kwargs,
     ):
@@ -2185,32 +2248,35 @@ class OrderWrt(IntegerField):
 
     _field_type = "ORDERWRT"
 
-    def __init__(self, *,
+    def __init__(
+        self,
+        *,
         null: bool = False,
         blank: bool = False,
         default: Any = UNSET,
         unique: bool = False,
         primary_key: bool = False,
         db_index: bool = False,
-        db_column: Optional[str] = None,
-        choices: Optional[Sequence[Tuple[Any, str]]] = None,
-        validators: Optional[List[Callable]] = None,
+        db_column: str | None = None,
+        choices: Sequence[tuple[Any, str]] | None = None,
+        validators: list[Callable] | None = None,
         help_text: str = "",
         editable: bool = True,
-        verbose_name: Optional[str] = None):
+        verbose_name: str | None = None,
+    ):
         kwargs = {
-            'null': null,
-            'blank': blank,
-            'default': default,
-            'unique': unique,
-            'primary_key': primary_key,
-            'db_index': db_index,
-            'db_column': db_column,
-            'choices': choices,
-            'validators': validators,
-            'help_text': help_text,
-            'editable': editable,
-            'verbose_name': verbose_name,
+            "null": null,
+            "blank": blank,
+            "default": default,
+            "unique": unique,
+            "primary_key": primary_key,
+            "db_index": db_index,
+            "db_column": db_column,
+            "choices": choices,
+            "validators": validators,
+            "help_text": help_text,
+            "editable": editable,
+            "verbose_name": verbose_name,
         }
         kwargs.setdefault("default", 0)
         kwargs.setdefault("db_index", True)
@@ -2237,8 +2303,8 @@ class Index:
     def __init__(
         self,
         *,
-        fields: List[str],
-        name: Optional[str] = None,
+        fields: list[str],
+        name: str | None = None,
         unique: bool = False,
     ):
         self.fields = fields
@@ -2264,6 +2330,6 @@ class UniqueConstraint:
             ]
     """
 
-    def __init__(self, *, fields: List[str], name: Optional[str] = None):
+    def __init__(self, *, fields: list[str], name: str | None = None):
         self.fields = fields
         self.name = name

@@ -17,8 +17,8 @@ from __future__ import annotations
 import asyncio
 import json
 from collections import defaultdict
-from datetime import datetime, timedelta, timezone
-from typing import Any, Protocol
+from datetime import datetime, timezone
+from typing import Any
 
 from aquilia.faults.domains import ConflictFault, NotFoundFault
 
@@ -31,7 +31,6 @@ from .core import (
     PasswordCredential,
 )
 
-
 # ============================================================================
 # Memory Stores (for development and testing)
 # ============================================================================
@@ -42,9 +41,7 @@ class MemoryIdentityStore:
 
     def __init__(self):
         self._identities: dict[str, Identity] = {}
-        self._by_attribute: dict[str, dict[str, set[str]]] = defaultdict(
-            lambda: defaultdict(set)
-        )
+        self._by_attribute: dict[str, dict[str, set[str]]] = defaultdict(lambda: defaultdict(set))
         self._lock = asyncio.Lock()
 
     async def create(self, identity: Identity) -> Identity:
@@ -66,9 +63,7 @@ class MemoryIdentityStore:
         """Get identity by ID."""
         return self._identities.get(identity_id)
 
-    async def get_by_attribute(
-        self, attribute: str, value: Any
-    ) -> Identity | None:
+    async def get_by_attribute(self, attribute: str, value: Any) -> Identity | None:
         """Get identity by attribute value."""
         identity_ids = self._by_attribute[attribute].get(str(value), set())
         if identity_ids:
@@ -116,14 +111,10 @@ class MemoryIdentityStore:
             self._identities[identity_id] = deleted_identity
             return True
 
-    async def list_by_tenant(
-        self, tenant_id: str, limit: int = 100, offset: int = 0
-    ) -> list[Identity]:
+    async def list_by_tenant(self, tenant_id: str, limit: int = 100, offset: int = 0) -> list[Identity]:
         """List identities by tenant."""
         identities = [
-            i
-            for i in self._identities.values()
-            if i.tenant_id == tenant_id and i.status != IdentityStatus.DELETED
+            i for i in self._identities.values() if i.tenant_id == tenant_id and i.status != IdentityStatus.DELETED
         ]
         return identities[offset : offset + limit]
 
@@ -143,9 +134,7 @@ class MemoryCredentialStore:
         async with self._lock:
             self._passwords[credential.identity_id] = credential
 
-    async def get_password(
-        self, identity_id: str
-    ) -> PasswordCredential | None:
+    async def get_password(self, identity_id: str) -> PasswordCredential | None:
         """Get password credential."""
         return self._passwords.get(identity_id)
 
@@ -167,9 +156,7 @@ class MemoryCredentialStore:
         """Get API key credential."""
         return self._api_keys.get(key_id)
 
-    async def get_api_key_by_prefix(
-        self, prefix: str
-    ) -> ApiKeyCredential | None:
+    async def get_api_key_by_prefix(self, prefix: str) -> ApiKeyCredential | None:
         """Get API key by prefix (first 8 chars)."""
         for credential in self._api_keys.values():
             if credential.prefix == prefix:
@@ -178,11 +165,7 @@ class MemoryCredentialStore:
 
     async def list_api_keys(self, identity_id: str) -> list[ApiKeyCredential]:
         """List all API keys for identity."""
-        return [
-            c
-            for c in self._api_keys.values()
-            if c.identity_id == identity_id
-        ]
+        return [c for c in self._api_keys.values() if c.identity_id == identity_id]
 
     async def delete_api_key(self, key_id: str) -> bool:
         """Delete API key credential."""
@@ -198,23 +181,17 @@ class MemoryCredentialStore:
         async with self._lock:
             credentials = self._mfa[credential.identity_id]
             # Remove existing credential of same type
-            self._mfa[credential.identity_id] = [
-                c for c in credentials if c.mfa_type != credential.mfa_type
-            ]
+            self._mfa[credential.identity_id] = [c for c in credentials if c.mfa_type != credential.mfa_type]
             self._mfa[credential.identity_id].append(credential)
 
-    async def get_mfa(
-        self, identity_id: str, mfa_type: str | None = None
-    ) -> list[MFACredential]:
+    async def get_mfa(self, identity_id: str, mfa_type: str | None = None) -> list[MFACredential]:
         """Get MFA credentials for identity."""
         credentials = self._mfa.get(identity_id, [])
         if mfa_type:
             return [c for c in credentials if c.mfa_type == mfa_type]
         return credentials
 
-    async def delete_mfa(
-        self, identity_id: str, mfa_type: str | None = None
-    ) -> bool:
+    async def delete_mfa(self, identity_id: str, mfa_type: str | None = None) -> bool:
         """Delete MFA credentials."""
         async with self._lock:
             if identity_id not in self._mfa:
@@ -222,11 +199,7 @@ class MemoryCredentialStore:
 
             if mfa_type:
                 original_len = len(self._mfa[identity_id])
-                self._mfa[identity_id] = [
-                    c
-                    for c in self._mfa[identity_id]
-                    if c.mfa_type != mfa_type
-                ]
+                self._mfa[identity_id] = [c for c in self._mfa[identity_id] if c.mfa_type != mfa_type]
                 return len(self._mfa[identity_id]) < original_len
             else:
                 del self._mfa[identity_id]
@@ -268,16 +241,11 @@ class MemoryOAuthClientStore:
                 return True
             return False
 
-    async def list(
-        self, owner_id: str | None = None, limit: int = 100, offset: int = 0
-    ) -> list[OAuthClient]:
+    async def list(self, owner_id: str | None = None, limit: int = 100, offset: int = 0) -> list[OAuthClient]:
         """List OAuth clients, optionally filtered by owner (from metadata)."""
         clients = list(self._clients.values())
         if owner_id:
-            clients = [
-                c for c in clients
-                if c.metadata.get("owner_id") == owner_id
-            ]
+            clients = [c for c in clients if c.metadata.get("owner_id") == owner_id]
         return clients[offset : offset + limit]
 
 
@@ -423,9 +391,7 @@ class RedisTokenStore:
         await self.redis.expire(self._key("token", token_id), ttl)
 
         # Track by identity
-        await self.redis.sadd(
-            self._key("identity", identity_id, "tokens"), token_id
-        )
+        await self.redis.sadd(self._key("identity", identity_id, "tokens"), token_id)
         await self.redis.expire(
             self._key("identity", identity_id, "tokens"),
             ttl + 86400,  # Extra day for cleanup
@@ -433,9 +399,7 @@ class RedisTokenStore:
 
         # Track by session
         if session_id:
-            await self.redis.sadd(
-                self._key("session", session_id, "tokens"), token_id
-            )
+            await self.redis.sadd(self._key("session", session_id, "tokens"), token_id)
             await self.redis.expire(
                 self._key("session", session_id, "tokens"),
                 ttl + 86400,
@@ -465,26 +429,18 @@ class RedisTokenStore:
 
     async def revoke_tokens_by_identity(self, identity_id: str) -> None:
         """Revoke all tokens for identity."""
-        token_ids = await self.redis.smembers(
-            self._key("identity", identity_id, "tokens")
-        )
+        token_ids = await self.redis.smembers(self._key("identity", identity_id, "tokens"))
 
         if token_ids:
             # Add all to revoked set
-            await self.redis.sadd(
-                self._key("revoked"), *[t.decode() for t in token_ids]
-            )
+            await self.redis.sadd(self._key("revoked"), *[t.decode() for t in token_ids])
 
     async def revoke_tokens_by_session(self, session_id: str) -> None:
         """Revoke all tokens for session."""
-        token_ids = await self.redis.smembers(
-            self._key("session", session_id, "tokens")
-        )
+        token_ids = await self.redis.smembers(self._key("session", session_id, "tokens"))
 
         if token_ids:
-            await self.redis.sadd(
-                self._key("revoked"), *[t.decode() for t in token_ids]
-            )
+            await self.redis.sadd(self._key("revoked"), *[t.decode() for t in token_ids])
 
     async def is_token_revoked(self, token_id: str) -> bool:
         """Check if token is revoked (fast check using Redis set)."""
@@ -593,9 +549,7 @@ class MemoryDeviceCodeStore:
             }
             self._user_codes[user_code] = device_code
 
-    async def get_by_device_code(
-        self, device_code: str
-    ) -> dict[str, Any] | None:
+    async def get_by_device_code(self, device_code: str) -> dict[str, Any] | None:
         """Get device code data."""
         return self._codes.get(device_code)
 
@@ -606,9 +560,7 @@ class MemoryDeviceCodeStore:
             return self._codes.get(device_code)
         return None
 
-    async def authorize_device_code(
-        self, user_code: str, identity_id: str
-    ) -> bool:
+    async def authorize_device_code(self, user_code: str, identity_id: str) -> bool:
         """Authorize device code (user approved)."""
         async with self._lock:
             device_code = self._user_codes.get(user_code)

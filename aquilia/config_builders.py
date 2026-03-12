@@ -26,9 +26,8 @@ Example:
     ... )
 """
 
-from typing import Optional, List, Any, Dict, Union
 from dataclasses import dataclass, field
-from datetime import timedelta
+from typing import Any, Optional
 
 # Typed integration protocol (lazy import to avoid circular deps)
 try:
@@ -40,6 +39,7 @@ except ImportError:  # pragma: no cover
 @dataclass
 class RuntimeConfig:
     """Runtime configuration."""
+
     mode: str = "dev"
     host: str = "127.0.0.1"
     port: int = 8000
@@ -51,12 +51,12 @@ class RuntimeConfig:
 class ModuleConfig:
     """
     Module configuration -- workspace-level orchestration metadata.
-    
+
     The Module in workspace.py is a **pointer** to the per-module manifest.
     Component declarations (controllers, services, middleware, models,
     serializers, socket_controllers) live exclusively in each module's
     ``manifest.py`` via ``AppManifest``.
-    
+
     This dataclass holds only the orchestration concerns that the
     workspace needs to know about:
     - Identity (name, version)
@@ -66,29 +66,30 @@ class ModuleConfig:
     - Lifecycle hooks (on_startup, on_shutdown)
     - Per-module database override
     """
+
     name: str
     version: str = "0.1.0"
     description: str = ""
-    fault_domain: Optional[str] = None
-    route_prefix: Optional[str] = None
-    depends_on: List[str] = field(default_factory=list)
-    tags: List[str] = field(default_factory=list)
-    
+    fault_domain: str | None = None
+    route_prefix: str | None = None
+    depends_on: list[str] = field(default_factory=list)
+    tags: list[str] = field(default_factory=list)
+
     # v2: Module encapsulation
-    imports: List[str] = field(default_factory=list)   # modules this module depends on
-    exports: List[str] = field(default_factory=list)   # services/components exposed to importers
-    
+    imports: list[str] = field(default_factory=list)  # modules this module depends on
+    exports: list[str] = field(default_factory=list)  # services/components exposed to importers
+
     # Lifecycle hooks
-    on_startup: Optional[str] = None
-    on_shutdown: Optional[str] = None
-    
+    on_startup: str | None = None
+    on_shutdown: str | None = None
+
     # Database configuration (per-module override)
-    database: Optional[Dict[str, Any]] = None
-    
+    database: dict[str, Any] | None = None
+
     # Discovery configuration
     auto_discover: bool = True  # Default to True for convenience
-    
-    def to_dict(self) -> Dict[str, Any]:
+
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary format."""
         result = {
             "name": self.name,
@@ -112,18 +113,18 @@ class ModuleConfig:
 class Module:
     """
     Fluent module builder -- workspace-level orchestration only.
-    
+
     The Module builder configures **how** a module fits into the workspace
     (routing, dependencies, tags, lifecycle). All component declarations
     (controllers, services, middleware, models, serializers) belong in the
     module's own ``manifest.py`` via ``AppManifest``.
-    
+
     This separation follows the Manifest-First Architecture:
     - ``workspace.py`` → orchestration & integration config
     - ``modules/*/manifest.py`` → module internals (source of truth)
-    
+
     Example::
-    
+
         # workspace.py -- pointer only
         workspace = (
             Workspace("myapp")
@@ -138,7 +139,7 @@ class Module:
                 .route_prefix("/auth")
             )
         )
-        
+
         # modules/users/manifest.py -- source of truth
         manifest = AppManifest(
             name="users",
@@ -148,7 +149,7 @@ class Module:
             ...
         )
     """
-    
+
     def __init__(self, name: str, version: str = "0.1.0", description: str = ""):
         self._config = ModuleConfig(
             name=name,
@@ -156,43 +157,43 @@ class Module:
             description=description,
             auto_discover=True,
         )
-    
+
     def auto_discover(self, enabled: bool = True) -> "Module":
         """
         Configure auto-discovery behavior.
-        
+
         If enabled (default), the runtime will automatically scan:
         - .controllers for Controller subclasses
         - .services for Service classes
-        
+
         Args:
             enabled: Whether to enable auto-discovery
         """
         self._config.auto_discover = enabled
         return self
-    
+
     def fault_domain(self, domain: str) -> "Module":
         """Set fault domain."""
         self._config.fault_domain = domain
         return self
-    
+
     def route_prefix(self, prefix: str) -> "Module":
         """Set route prefix."""
         self._config.route_prefix = prefix
         return self
-    
+
     def depends_on(self, *modules: str) -> "Module":
         """Set module dependencies (legacy -- prefer imports())."""
         self._config.depends_on = list(modules)
         return self
-    
+
     def imports(self, *modules: str) -> "Module":
         """
         Declare module imports (v2 encapsulation).
-        
+
         Modules listed here expose their ``exports`` to this module.
         Supersedes ``depends_on()`` for dependency declaration.
-        
+
         Args:
             *modules: Names of modules to import from.
         """
@@ -200,20 +201,20 @@ class Module:
         # Keep depends_on in sync for backward compatibility
         self._config.depends_on = list(modules)
         return self
-    
+
     def exports(self, *components: str) -> "Module":
         """
         Declare exported components (v2 encapsulation).
-        
+
         Only exported services/components are visible to importing modules.
         Non-exported components are module-private.
-        
+
         Args:
             *components: Import paths of components to export.
         """
         self._config.exports = list(components)
         return self
-    
+
     def tags(self, *module_tags: str) -> "Module":
         """Set module tags for organization and filtering."""
         self._config.tags = list(module_tags)
@@ -231,6 +232,7 @@ class Module:
     def register_controllers(self, *controllers: str) -> "Module":
         """DEPRECATED -- declare controllers in modules/*/manifest.py instead."""
         import warnings
+
         warnings.warn(
             "Module.register_controllers() is deprecated. "
             "Declare controllers in modules/<name>/manifest.py → AppManifest(controllers=[...]).",
@@ -242,6 +244,7 @@ class Module:
     def register_services(self, *services: str) -> "Module":
         """DEPRECATED -- declare services in modules/*/manifest.py instead."""
         import warnings
+
         warnings.warn(
             "Module.register_services() is deprecated. "
             "Declare services in modules/<name>/manifest.py → AppManifest(services=[...]).",
@@ -249,24 +252,24 @@ class Module:
             stacklevel=2,
         )
         return self
-        
-    def register_providers(self, *providers: Dict[str, Any]) -> "Module":
+
+    def register_providers(self, *providers: dict[str, Any]) -> "Module":
         """DEPRECATED -- declare providers in modules/*/manifest.py instead."""
         import warnings
+
         warnings.warn(
-            "Module.register_providers() is deprecated. "
-            "Declare providers in modules/<name>/manifest.py.",
+            "Module.register_providers() is deprecated. Declare providers in modules/<name>/manifest.py.",
             DeprecationWarning,
             stacklevel=2,
         )
         return self
-        
-    def register_routes(self, *routes: Dict[str, Any]) -> "Module":
+
+    def register_routes(self, *routes: dict[str, Any]) -> "Module":
         """DEPRECATED -- declare routes via controllers in modules/*/manifest.py instead."""
         import warnings
+
         warnings.warn(
-            "Module.register_routes() is deprecated. "
-            "Use controller decorators (@GET, @POST, etc.) instead.",
+            "Module.register_routes() is deprecated. Use controller decorators (@GET, @POST, etc.) instead.",
             DeprecationWarning,
             stacklevel=2,
         )
@@ -275,6 +278,7 @@ class Module:
     def register_sockets(self, *sockets: str) -> "Module":
         """DEPRECATED -- declare socket controllers in modules/*/manifest.py instead."""
         import warnings
+
         warnings.warn(
             "Module.register_sockets() is deprecated. "
             "Declare socket_controllers in modules/<name>/manifest.py → AppManifest(socket_controllers=[...]).",
@@ -286,6 +290,7 @@ class Module:
     def register_middlewares(self, *middlewares: str) -> "Module":
         """DEPRECATED -- declare middleware in modules/*/manifest.py instead."""
         import warnings
+
         warnings.warn(
             "Module.register_middlewares() is deprecated. "
             "Declare middleware in modules/<name>/manifest.py → AppManifest(middleware=[...]).",
@@ -293,10 +298,11 @@ class Module:
             stacklevel=2,
         )
         return self
-    
+
     def register_models(self, *models: str) -> "Module":
         """DEPRECATED -- declare models in modules/*/manifest.py instead."""
         import warnings
+
         warnings.warn(
             "Module.register_models() is deprecated. "
             "Declare models in modules/<name>/manifest.py → AppManifest(models=[...]).",
@@ -304,10 +310,11 @@ class Module:
             stacklevel=2,
         )
         return self
-    
+
     def register_serializers(self, *serializers: str) -> "Module":
         """DEPRECATED -- declare serializers in modules/*/manifest.py instead."""
         import warnings
+
         warnings.warn(
             "Module.register_serializers() is deprecated. "
             "Declare serializers in modules/<name>/manifest.py → AppManifest(serializers=[...]).",
@@ -315,32 +322,32 @@ class Module:
             stacklevel=2,
         )
         return self
-    
+
     def on_startup(self, hook: str) -> "Module":
         """
         Register a startup hook for this module.
-        
+
         Args:
             hook: Import path to a callable in "module:func" format.
         """
         self._config.on_startup = hook
         return self
-        
+
     def on_shutdown(self, hook: str) -> "Module":
         """
         Register a shutdown hook for this module.
-        
+
         Args:
             hook: Import path to a callable in "module:func" format.
         """
         self._config.on_shutdown = hook
         return self
-    
+
     def database(
         self,
-        url: Optional[str] = None,
+        url: str | None = None,
         *,
-        config: Optional[Any] = None,
+        config: Any | None = None,
         auto_connect: bool = True,
         auto_create: bool = True,
         auto_migrate: bool = False,
@@ -349,9 +356,9 @@ class Module:
     ) -> "Module":
         """
         Configure database for this module.
-        
+
         Accepts either a URL string or a typed DatabaseConfig object.
-        
+
         Args:
             url: Database URL (backward compatible)
             config: Typed DatabaseConfig (SqliteConfig, PostgresConfig,
@@ -365,12 +372,14 @@ class Module:
         if config is not None:
             # Use typed config object
             db_dict = config.to_dict()
-            db_dict.update({
-                "auto_connect": auto_connect,
-                "auto_create": auto_create,
-                "auto_migrate": auto_migrate,
-                "migrations_dir": migrations_dir,
-            })
+            db_dict.update(
+                {
+                    "auto_connect": auto_connect,
+                    "auto_create": auto_create,
+                    "auto_migrate": auto_migrate,
+                    "migrations_dir": migrations_dir,
+                }
+            )
             db_dict.update(kwargs)
             self._config.database = db_dict
         else:
@@ -383,7 +392,7 @@ class Module:
                 **kwargs,
             }
         return self
-    
+
     def build(self) -> ModuleConfig:
         """Build module configuration."""
         return self._config
@@ -392,17 +401,18 @@ class Module:
 @dataclass
 class AuthConfig:
     """Authentication configuration."""
+
     enabled: bool = True
     store_type: str = "memory"
-    secret_key: Optional[str] = None  # MUST be set explicitly; no insecure default
+    secret_key: str | None = None  # MUST be set explicitly; no insecure default
     algorithm: str = "HS256"
     issuer: str = "aquilia"
     audience: str = "aquilia-app"
     access_token_ttl_minutes: int = 60
     refresh_token_ttl_days: int = 30
     require_auth_by_default: bool = False
-    
-    def to_dict(self) -> Dict[str, Any]:
+
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary format."""
         return {
             "enabled": self.enabled,
@@ -419,7 +429,7 @@ class AuthConfig:
             },
             "security": {
                 "require_auth_by_default": self.require_auth_by_default,
-            }
+            },
         }
 
 
@@ -469,60 +479,60 @@ class Integration:
             )
         """
 
-        METHOD_PLAIN   = "plain"
-        METHOD_OAUTH2  = "oauth2"
+        METHOD_PLAIN = "plain"
+        METHOD_OAUTH2 = "oauth2"
         METHOD_API_KEY = "api_key"
         METHOD_AWS_SES = "aws_ses"
-        METHOD_NTLM    = "ntlm"
-        METHOD_NONE    = "none"
+        METHOD_NTLM = "ntlm"
+        METHOD_NONE = "none"
 
         def __init__(
             self,
             method: str = "plain",
             # ── plain / NTLM ──────────────────────────────────────────────
-            username: Optional[str] = None,
-            password: Optional[str] = None,
-            password_env: Optional[str] = None,
-            domain: Optional[str] = None,           # NTLM domain
+            username: str | None = None,
+            password: str | None = None,
+            password_env: str | None = None,
+            domain: str | None = None,  # NTLM domain
             # ── API key (SendGrid, Mailgun, Postmark …) ──────────────────
-            api_key: Optional[str] = None,
-            api_key_env: Optional[str] = None,
+            api_key: str | None = None,
+            api_key_env: str | None = None,
             # ── AWS SES ──────────────────────────────────────────────────
-            aws_access_key_id: Optional[str] = None,
-            aws_access_key_id_env: Optional[str] = None,
-            aws_secret_access_key: Optional[str] = None,
-            aws_secret_access_key_env: Optional[str] = None,
-            aws_region: Optional[str] = None,
-            aws_session_token: Optional[str] = None,
+            aws_access_key_id: str | None = None,
+            aws_access_key_id_env: str | None = None,
+            aws_secret_access_key: str | None = None,
+            aws_secret_access_key_env: str | None = None,
+            aws_region: str | None = None,
+            aws_session_token: str | None = None,
             # ── OAuth2 ───────────────────────────────────────────────────
-            access_token: Optional[str] = None,
-            refresh_token: Optional[str] = None,
-            token_url: Optional[str] = None,
-            client_id: Optional[str] = None,
-            client_secret: Optional[str] = None,
-            client_secret_env: Optional[str] = None,
-            scope: Optional[str] = None,
+            access_token: str | None = None,
+            refresh_token: str | None = None,
+            token_url: str | None = None,
+            client_id: str | None = None,
+            client_secret: str | None = None,
+            client_secret_env: str | None = None,
+            scope: str | None = None,
         ) -> None:
-            self._method                   = method
-            self._username                 = username
-            self._password                 = password
-            self._password_env             = password_env
-            self._domain                   = domain
-            self._api_key                  = api_key
-            self._api_key_env              = api_key_env
-            self._aws_access_key_id        = aws_access_key_id
-            self._aws_access_key_id_env    = aws_access_key_id_env
-            self._aws_secret_access_key    = aws_secret_access_key
+            self._method = method
+            self._username = username
+            self._password = password
+            self._password_env = password_env
+            self._domain = domain
+            self._api_key = api_key
+            self._api_key_env = api_key_env
+            self._aws_access_key_id = aws_access_key_id
+            self._aws_access_key_id_env = aws_access_key_id_env
+            self._aws_secret_access_key = aws_secret_access_key
             self._aws_secret_access_key_env = aws_secret_access_key_env
-            self._aws_region               = aws_region
-            self._aws_session_token        = aws_session_token
-            self._access_token             = access_token
-            self._refresh_token            = refresh_token
-            self._token_url                = token_url
-            self._client_id                = client_id
-            self._client_secret            = client_secret
-            self._client_secret_env        = client_secret_env
-            self._scope                    = scope
+            self._aws_region = aws_region
+            self._aws_session_token = aws_session_token
+            self._access_token = access_token
+            self._refresh_token = refresh_token
+            self._token_url = token_url
+            self._client_id = client_id
+            self._client_secret = client_secret
+            self._client_secret_env = client_secret_env
+            self._scope = scope
 
         # ── Convenience constructors ──────────────────────────────────────
 
@@ -530,9 +540,9 @@ class Integration:
         def plain(
             cls,
             username: str,
-            password: Optional[str] = None,
+            password: str | None = None,
             *,
-            password_env: Optional[str] = None,
+            password_env: str | None = None,
         ) -> "Integration.MailAuth":
             """SMTP AUTH PLAIN / LOGIN."""
             return cls(
@@ -545,9 +555,9 @@ class Integration:
         @classmethod
         def api_key(
             cls,
-            key: Optional[str] = None,
+            key: str | None = None,
             *,
-            env: Optional[str] = None,
+            env: str | None = None,
         ) -> "Integration.MailAuth":
             """API-key auth for SendGrid, Mailgun, Postmark, etc."""
             return cls(method="api_key", api_key=key, api_key_env=env)
@@ -555,13 +565,13 @@ class Integration:
         @classmethod
         def aws_ses(
             cls,
-            access_key_id: Optional[str] = None,
-            secret_access_key: Optional[str] = None,
+            access_key_id: str | None = None,
+            secret_access_key: str | None = None,
             region: str = "us-east-1",
-            session_token: Optional[str] = None,
+            session_token: str | None = None,
             *,
-            access_key_id_env: Optional[str] = None,
-            secret_access_key_env: Optional[str] = None,
+            access_key_id_env: str | None = None,
+            secret_access_key_env: str | None = None,
         ) -> "Integration.MailAuth":
             """AWS SES credentials."""
             return cls(
@@ -578,13 +588,13 @@ class Integration:
         def oauth2(
             cls,
             client_id: str,
-            client_secret: Optional[str] = None,
+            client_secret: str | None = None,
             *,
-            client_secret_env: Optional[str] = None,
+            client_secret_env: str | None = None,
             token_url: str,
-            scope: Optional[str] = None,
-            access_token: Optional[str] = None,
-            refresh_token: Optional[str] = None,
+            scope: str | None = None,
+            access_token: str | None = None,
+            refresh_token: str | None = None,
         ) -> "Integration.MailAuth":
             """OAuth2 bearer-token auth (Gmail, Microsoft 365, etc.)."""
             return cls(
@@ -602,10 +612,10 @@ class Integration:
         def ntlm(
             cls,
             username: str,
-            password: Optional[str] = None,
-            domain: Optional[str] = None,
+            password: str | None = None,
+            domain: str | None = None,
             *,
-            password_env: Optional[str] = None,
+            password_env: str | None = None,
         ) -> "Integration.MailAuth":
             """Windows NTLM authentication."""
             return cls(
@@ -623,32 +633,51 @@ class Integration:
 
         # ── Serialisation ─────────────────────────────────────────────────
 
-        def to_dict(self) -> Dict[str, Any]:
+        def to_dict(self) -> dict[str, Any]:
             """Serialise to the dict format consumed by MailConfig / providers."""
-            d: Dict[str, Any] = {"method": self._method}
+            d: dict[str, Any] = {"method": self._method}
             # Plain / NTLM
-            if self._username              is not None: d["username"]                  = self._username
-            if self._password              is not None: d["password"]                  = self._password
-            if self._password_env          is not None: d["password_env"]              = self._password_env
-            if self._domain                is not None: d["domain"]                    = self._domain
+            if self._username is not None:
+                d["username"] = self._username
+            if self._password is not None:
+                d["password"] = self._password
+            if self._password_env is not None:
+                d["password_env"] = self._password_env
+            if self._domain is not None:
+                d["domain"] = self._domain
             # API key
-            if self._api_key               is not None: d["api_key"]                   = self._api_key
-            if self._api_key_env           is not None: d["api_key_env"]               = self._api_key_env
+            if self._api_key is not None:
+                d["api_key"] = self._api_key
+            if self._api_key_env is not None:
+                d["api_key_env"] = self._api_key_env
             # AWS SES
-            if self._aws_access_key_id     is not None: d["aws_access_key_id"]         = self._aws_access_key_id
-            if self._aws_access_key_id_env is not None: d["aws_access_key_id_env"]     = self._aws_access_key_id_env
-            if self._aws_secret_access_key is not None: d["aws_secret_access_key"]     = self._aws_secret_access_key
-            if self._aws_secret_access_key_env is not None: d["aws_secret_access_key_env"] = self._aws_secret_access_key_env
-            if self._aws_region            is not None: d["aws_region"]                = self._aws_region
-            if self._aws_session_token     is not None: d["aws_session_token"]         = self._aws_session_token
+            if self._aws_access_key_id is not None:
+                d["aws_access_key_id"] = self._aws_access_key_id
+            if self._aws_access_key_id_env is not None:
+                d["aws_access_key_id_env"] = self._aws_access_key_id_env
+            if self._aws_secret_access_key is not None:
+                d["aws_secret_access_key"] = self._aws_secret_access_key
+            if self._aws_secret_access_key_env is not None:
+                d["aws_secret_access_key_env"] = self._aws_secret_access_key_env
+            if self._aws_region is not None:
+                d["aws_region"] = self._aws_region
+            if self._aws_session_token is not None:
+                d["aws_session_token"] = self._aws_session_token
             # OAuth2
-            if self._access_token          is not None: d["access_token"]              = self._access_token
-            if self._refresh_token         is not None: d["refresh_token"]             = self._refresh_token
-            if self._token_url             is not None: d["token_url"]                 = self._token_url
-            if self._client_id             is not None: d["client_id"]                 = self._client_id
-            if self._client_secret         is not None: d["client_secret"]             = self._client_secret
-            if self._client_secret_env     is not None: d["client_secret_env"]         = self._client_secret_env
-            if self._scope                 is not None: d["scope"]                     = self._scope
+            if self._access_token is not None:
+                d["access_token"] = self._access_token
+            if self._refresh_token is not None:
+                d["refresh_token"] = self._refresh_token
+            if self._token_url is not None:
+                d["token_url"] = self._token_url
+            if self._client_id is not None:
+                d["client_id"] = self._client_id
+            if self._client_secret is not None:
+                d["client_secret"] = self._client_secret
+            if self._client_secret_env is not None:
+                d["client_secret_env"] = self._client_secret_env
+            if self._scope is not None:
+                d["scope"] = self._scope
             return d
 
         def __repr__(self) -> str:  # pragma: no cover
@@ -701,33 +730,29 @@ class Integration:
                 priority: int = 10,
                 enabled: bool = True,
                 rate_limit_per_min: int = 600,
-                auth: Optional[Any] = None,
+                auth: Any | None = None,
             ) -> None:
-                self._name              = name
-                self._priority          = priority
-                self._enabled           = enabled
-                self._rate_limit        = rate_limit_per_min
-                self._auth              = auth
-                self._extra: Dict[str, Any] = {}
+                self._name = name
+                self._priority = priority
+                self._enabled = enabled
+                self._rate_limit = rate_limit_per_min
+                self._auth = auth
+                self._extra: dict[str, Any] = {}
 
-            def _base_dict(self) -> Dict[str, Any]:
-                d: Dict[str, Any] = {
-                    "name":               self._name,
-                    "type":               self._provider_type,
-                    "priority":           self._priority,
-                    "enabled":            self._enabled,
+            def _base_dict(self) -> dict[str, Any]:
+                d: dict[str, Any] = {
+                    "name": self._name,
+                    "type": self._provider_type,
+                    "priority": self._priority,
+                    "enabled": self._enabled,
                     "rate_limit_per_min": self._rate_limit,
                 }
                 if self._auth is not None:
-                    d["auth"] = (
-                        self._auth.to_dict()
-                        if hasattr(self._auth, "to_dict")
-                        else self._auth
-                    )
+                    d["auth"] = self._auth.to_dict() if hasattr(self._auth, "to_dict") else self._auth
                 d.update(self._extra)
                 return d
 
-            def to_dict(self) -> Dict[str, Any]:  # pragma: no cover
+            def to_dict(self) -> dict[str, Any]:  # pragma: no cover
                 return self._base_dict()
 
             def __repr__(self) -> str:  # pragma: no cover
@@ -774,15 +799,15 @@ class Integration:
                 pool_recycle: float = 300.0,
                 # TLS / cert options
                 validate_certs: bool = True,
-                client_cert: Optional[str] = None,
-                client_key: Optional[str] = None,
-                source_address: Optional[str] = None,
-                local_hostname: Optional[str] = None,
+                client_cert: str | None = None,
+                client_key: str | None = None,
+                source_address: str | None = None,
+                local_hostname: str | None = None,
                 # Shared
                 priority: int = 10,
                 enabled: bool = True,
                 rate_limit_per_min: int = 600,
-                auth: Optional[Any] = None,
+                auth: Any | None = None,
             ) -> None:
                 super().__init__(
                     name,
@@ -791,35 +816,41 @@ class Integration:
                     rate_limit_per_min=rate_limit_per_min,
                     auth=auth,
                 )
-                self._host           = host
-                self._port           = port
-                self._use_tls        = use_tls
-                self._use_ssl        = use_ssl
-                self._timeout        = timeout
-                self._pool_size      = pool_size
-                self._pool_recycle   = pool_recycle
+                self._host = host
+                self._port = port
+                self._use_tls = use_tls
+                self._use_ssl = use_ssl
+                self._timeout = timeout
+                self._pool_size = pool_size
+                self._pool_recycle = pool_recycle
                 self._validate_certs = validate_certs
-                self._client_cert    = client_cert
-                self._client_key     = client_key
+                self._client_cert = client_cert
+                self._client_key = client_key
                 self._source_address = source_address
                 self._local_hostname = local_hostname
 
-            def to_dict(self) -> Dict[str, Any]:
+            def to_dict(self) -> dict[str, Any]:
                 d = self._base_dict()
-                d.update({
-                    "host":           self._host,
-                    "port":           self._port,
-                    "use_tls":        self._use_tls,
-                    "use_ssl":        self._use_ssl,
-                    "timeout":        self._timeout,
-                    "pool_size":      self._pool_size,
-                    "pool_recycle":   self._pool_recycle,
-                    "validate_certs": self._validate_certs,
-                })
-                if self._client_cert    is not None: d["client_cert"]    = self._client_cert
-                if self._client_key     is not None: d["client_key"]     = self._client_key
-                if self._source_address is not None: d["source_address"] = self._source_address
-                if self._local_hostname is not None: d["local_hostname"] = self._local_hostname
+                d.update(
+                    {
+                        "host": self._host,
+                        "port": self._port,
+                        "use_tls": self._use_tls,
+                        "use_ssl": self._use_ssl,
+                        "timeout": self._timeout,
+                        "pool_size": self._pool_size,
+                        "pool_recycle": self._pool_recycle,
+                        "validate_certs": self._validate_certs,
+                    }
+                )
+                if self._client_cert is not None:
+                    d["client_cert"] = self._client_cert
+                if self._client_key is not None:
+                    d["client_key"] = self._client_key
+                if self._source_address is not None:
+                    d["source_address"] = self._source_address
+                if self._local_hostname is not None:
+                    d["local_hostname"] = self._local_hostname
                 return d
 
         # ── SES ──────────────────────────────────────────────────────────
@@ -851,17 +882,17 @@ class Integration:
                 name: str = "ses",
                 region: str = "us-east-1",
                 *,
-                configuration_set: Optional[str] = None,
-                source_arn: Optional[str] = None,
-                return_path: Optional[str] = None,
-                tags: Optional[Dict[str, str]] = None,
+                configuration_set: str | None = None,
+                source_arn: str | None = None,
+                return_path: str | None = None,
+                tags: dict[str, str] | None = None,
                 use_raw: bool = True,
-                endpoint_url: Optional[str] = None,
+                endpoint_url: str | None = None,
                 # Shared
                 priority: int = 10,
                 enabled: bool = True,
                 rate_limit_per_min: int = 600,
-                auth: Optional[Any] = None,
+                auth: Any | None = None,
             ) -> None:
                 super().__init__(
                     name,
@@ -870,23 +901,28 @@ class Integration:
                     rate_limit_per_min=rate_limit_per_min,
                     auth=auth,
                 )
-                self._region            = region
+                self._region = region
                 self._configuration_set = configuration_set
-                self._source_arn        = source_arn
-                self._return_path       = return_path
-                self._tags              = tags or {}
-                self._use_raw           = use_raw
-                self._endpoint_url      = endpoint_url
+                self._source_arn = source_arn
+                self._return_path = return_path
+                self._tags = tags or {}
+                self._use_raw = use_raw
+                self._endpoint_url = endpoint_url
 
-            def to_dict(self) -> Dict[str, Any]:
+            def to_dict(self) -> dict[str, Any]:
                 d = self._base_dict()
-                d["region"]  = self._region
+                d["region"] = self._region
                 d["use_raw"] = self._use_raw
-                if self._configuration_set is not None: d["configuration_set"] = self._configuration_set
-                if self._source_arn        is not None: d["source_arn"]        = self._source_arn
-                if self._return_path       is not None: d["return_path"]       = self._return_path
-                if self._tags:                          d["tags"]              = self._tags
-                if self._endpoint_url      is not None: d["endpoint_url"]      = self._endpoint_url
+                if self._configuration_set is not None:
+                    d["configuration_set"] = self._configuration_set
+                if self._source_arn is not None:
+                    d["source_arn"] = self._source_arn
+                if self._return_path is not None:
+                    d["return_path"] = self._return_path
+                if self._tags:
+                    d["tags"] = self._tags
+                if self._endpoint_url is not None:
+                    d["endpoint_url"] = self._endpoint_url
                 return d
 
         # ── SendGrid ─────────────────────────────────────────────────────
@@ -914,17 +950,17 @@ class Integration:
                 sandbox_mode: bool = False,
                 click_tracking: bool = True,
                 open_tracking: bool = True,
-                categories: Optional[List[str]] = None,
-                asm_group_id: Optional[int] = None,
-                ip_pool_name: Optional[str] = None,
-                template_id: Optional[str] = None,
+                categories: list[str] | None = None,
+                asm_group_id: int | None = None,
+                ip_pool_name: str | None = None,
+                template_id: str | None = None,
                 api_base_url: str = "https://api.sendgrid.com",
                 timeout: float = 30.0,
                 # Shared
                 priority: int = 10,
                 enabled: bool = True,
                 rate_limit_per_min: int = 600,
-                auth: Optional[Any] = None,
+                auth: Any | None = None,
             ) -> None:
                 super().__init__(
                     name,
@@ -933,29 +969,35 @@ class Integration:
                     rate_limit_per_min=rate_limit_per_min,
                     auth=auth,
                 )
-                self._sandbox_mode   = sandbox_mode
+                self._sandbox_mode = sandbox_mode
                 self._click_tracking = click_tracking
-                self._open_tracking  = open_tracking
-                self._categories     = categories or []
-                self._asm_group_id   = asm_group_id
-                self._ip_pool_name   = ip_pool_name
-                self._template_id    = template_id
-                self._api_base_url   = api_base_url
-                self._timeout        = timeout
+                self._open_tracking = open_tracking
+                self._categories = categories or []
+                self._asm_group_id = asm_group_id
+                self._ip_pool_name = ip_pool_name
+                self._template_id = template_id
+                self._api_base_url = api_base_url
+                self._timeout = timeout
 
-            def to_dict(self) -> Dict[str, Any]:
+            def to_dict(self) -> dict[str, Any]:
                 d = self._base_dict()
-                d.update({
-                    "sandbox_mode":   self._sandbox_mode,
-                    "click_tracking": self._click_tracking,
-                    "open_tracking":  self._open_tracking,
-                    "api_base_url":   self._api_base_url,
-                    "timeout":        self._timeout,
-                })
-                if self._categories:                    d["categories"]   = self._categories
-                if self._asm_group_id  is not None:     d["asm_group_id"] = self._asm_group_id
-                if self._ip_pool_name  is not None:     d["ip_pool_name"] = self._ip_pool_name
-                if self._template_id   is not None:     d["template_id"]  = self._template_id
+                d.update(
+                    {
+                        "sandbox_mode": self._sandbox_mode,
+                        "click_tracking": self._click_tracking,
+                        "open_tracking": self._open_tracking,
+                        "api_base_url": self._api_base_url,
+                        "timeout": self._timeout,
+                    }
+                )
+                if self._categories:
+                    d["categories"] = self._categories
+                if self._asm_group_id is not None:
+                    d["asm_group_id"] = self._asm_group_id
+                if self._ip_pool_name is not None:
+                    d["ip_pool_name"] = self._ip_pool_name
+                if self._template_id is not None:
+                    d["template_id"] = self._template_id
                 return d
 
         # ── Console ──────────────────────────────────────────────────────
@@ -981,7 +1023,7 @@ class Integration:
                 priority: int = 100,
                 enabled: bool = True,
                 rate_limit_per_min: int = 10000,
-                auth: Optional[Any] = None,
+                auth: Any | None = None,
             ) -> None:
                 super().__init__(
                     name,
@@ -991,7 +1033,7 @@ class Integration:
                     auth=auth,
                 )
 
-            def to_dict(self) -> Dict[str, Any]:
+            def to_dict(self) -> dict[str, Any]:
                 return self._base_dict()
 
         # ── File ─────────────────────────────────────────────────────────
@@ -1026,7 +1068,7 @@ class Integration:
                 priority: int = 90,
                 enabled: bool = True,
                 rate_limit_per_min: int = 10000,
-                auth: Optional[Any] = None,
+                auth: Any | None = None,
             ) -> None:
                 super().__init__(
                     name,
@@ -1035,41 +1077,43 @@ class Integration:
                     rate_limit_per_min=rate_limit_per_min,
                     auth=auth,
                 )
-                self._output_dir        = output_dir
-                self._max_files         = max_files
-                self._write_index       = write_index
-                self._include_metadata  = include_metadata
-                self._file_extension    = file_extension
+                self._output_dir = output_dir
+                self._max_files = max_files
+                self._write_index = write_index
+                self._include_metadata = include_metadata
+                self._file_extension = file_extension
 
-            def to_dict(self) -> Dict[str, Any]:
+            def to_dict(self) -> dict[str, Any]:
                 d = self._base_dict()
-                d.update({
-                    "output_dir":        self._output_dir,
-                    "max_files":         self._max_files,
-                    "write_index":       self._write_index,
-                    "include_metadata":  self._include_metadata,
-                    "file_extension":    self._file_extension,
-                })
+                d.update(
+                    {
+                        "output_dir": self._output_dir,
+                        "max_files": self._max_files,
+                        "write_index": self._write_index,
+                        "include_metadata": self._include_metadata,
+                        "file_extension": self._file_extension,
+                    }
+                )
                 return d
 
     @staticmethod
     def auth(
-        config: Optional[AuthConfig] = None,
+        config: AuthConfig | None = None,
         enabled: bool = True,
         store_type: str = "memory",
-        secret_key: Optional[str] = None,
-        **kwargs
-    ) -> Dict[str, Any]:
+        secret_key: str | None = None,
+        **kwargs,
+    ) -> dict[str, Any]:
         """
         Configure authentication.
-        
+
         Args:
             config: AuthConfig object (optional)
             enabled: Enable authentication
             store_type: Store type (memory, etc.)
             secret_key: Secret key for tokens
             **kwargs: Overrides
-            
+
         Returns:
             Auth configuration dictionary
         """
@@ -1094,40 +1138,36 @@ class Integration:
                 },
                 "security": {
                     "require_auth_by_default": defaults.require_auth_by_default,
-                }
+                },
             }
-            
+
         # Apply kwargs overrides (deep merge logic simplified for common top-level overrides)
         # Note: A real deep merge might be better but for now we trust the structure
         conf_dict.update(kwargs)
-        
+
         return conf_dict
 
-    
     @staticmethod
     def sessions(
-        policy: Optional[Any] = None,
-        store: Optional[Any] = None,
-        transport: Optional[Any] = None,
-        **kwargs
-    ) -> Dict[str, Any]:
+        policy: Any | None = None, store: Any | None = None, transport: Any | None = None, **kwargs
+    ) -> dict[str, Any]:
         """
         Configure session integration with Aquilia's unique fluent syntax.
-        
+
         Unique Features:
         - Chained policy builders: SessionPolicy.for_users().lasting(days=7).rotating_on_auth()
         - Smart defaults: Auto-configures based on environment
         - Policy templates: .web_users(), .api_tokens(), .mobile_apps()
-        
+
         Args:
             policy: SessionPolicy instance or policy builder
             store: Store instance or store config
             transport: Transport instance or transport config
             **kwargs: Additional session configuration
-            
+
         Returns:
             Session configuration dictionary
-            
+
         Examples:
             # Unique Aquilia syntax:
             .integrate(Integration.sessions(
@@ -1139,68 +1179,64 @@ class Integration:
                 store=MemoryStore.with_capacity(50000),
                 transport=CookieTransport.secure_defaults()
             ))
-            
+
             # Template syntax:
             .integrate(Integration.sessions.web_app())
             .integrate(Integration.sessions.api_service())
             .integrate(Integration.sessions.mobile_app())
         """
-        from aquilia.sessions import SessionPolicy, MemoryStore, CookieTransport, TransportPolicy
-        
+        from aquilia.sessions import CookieTransport, MemoryStore, SessionPolicy
+
         # Smart policy creation with Aquilia's unique builders
         if policy is None:
             policy = SessionPolicy.for_web_users().with_smart_defaults()
-        
+
         # Smart store selection
         if store is None:
             store = MemoryStore.optimized_for_development()
-        
+
         # Smart transport with security defaults
         if transport is None:
-            if hasattr(policy, 'transport') and policy.transport:
+            if hasattr(policy, "transport") and policy.transport:
                 transport = CookieTransport.from_policy(policy.transport)
             else:
                 transport = CookieTransport.with_aquilia_defaults()
-        
+
         return {
             "enabled": True,
             "policy": policy,
             "store": store,
             "transport": transport,
             "aquilia_syntax_version": "2.0",  # Mark as enhanced syntax
-            **kwargs
+            **kwargs,
         }
-    
+
     @staticmethod
-    def di(auto_wire: bool = True, **kwargs) -> Dict[str, Any]:
+    def di(auto_wire: bool = True, **kwargs) -> dict[str, Any]:
         """Configure dependency injection."""
-        return {
-            "enabled": True,
-            "auto_wire": auto_wire,
-            **kwargs
-        }
-    
+        return {"enabled": True, "auto_wire": auto_wire, **kwargs}
+
     @staticmethod
     def database(
-        url: Optional[str] = None,
+        url: str | None = None,
         *,
-        config: Optional[Any] = None,
+        config: Any | None = None,
         auto_connect: bool = True,
         auto_create: bool = True,
         auto_migrate: bool = False,
         migrations_dir: str = "migrations",
         pool_size: int = 5,
         echo: bool = False,
-        model_paths: Optional[List[str]] = None,
-        scan_dirs: Optional[List[str]] = None,
+        model_paths: list[str] | None = None,
+        scan_dirs: list[str] | None = None,
         **kwargs,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Configure database and AMDL model integration.
-        
+
         Accepts either a URL string or a typed DatabaseConfig object for
         developer-friendly, IDE-assisted configuration.
-        
+
         Args:
             url: Database URL (sqlite:///path, postgresql://..., etc.)
                  Ignored if config is provided.
@@ -1219,17 +1255,17 @@ class Integration:
             model_paths: Explicit .amdl file paths
             scan_dirs: Directories to scan for .amdl files
             **kwargs: Additional database options
-        
+
         Returns:
             Database configuration dictionary
-            
+
         Examples:
             # URL-based (backward compatible):
             .integrate(Integration.database(
                 url="sqlite:///app.db",
                 auto_create=True,
             ))
-            
+
             # Config-based (recommended):
             from aquilia.db.configs import PostgresConfig
             .integrate(Integration.database(
@@ -1244,7 +1280,7 @@ class Integration:
                 auto_create=True,
                 scan_dirs=["models", "modules/*/models"],
             ))
-            
+
             # Oracle:
             from aquilia.db.configs import OracleConfig
             .integrate(Integration.database(
@@ -1259,19 +1295,21 @@ class Integration:
         if config is not None:
             # Merge typed config with overrides
             result = config.to_dict()
-            result.update({
-                "auto_connect": auto_connect,
-                "auto_create": auto_create,
-                "auto_migrate": auto_migrate,
-                "migrations_dir": migrations_dir,
-                "pool_size": pool_size,
-                "echo": echo,
-                "model_paths": model_paths or [],
-                "scan_dirs": scan_dirs or ["models"],
-            })
+            result.update(
+                {
+                    "auto_connect": auto_connect,
+                    "auto_create": auto_create,
+                    "auto_migrate": auto_migrate,
+                    "migrations_dir": migrations_dir,
+                    "pool_size": pool_size,
+                    "echo": echo,
+                    "model_paths": model_paths or [],
+                    "scan_dirs": scan_dirs or ["models"],
+                }
+            )
             result.update(kwargs)
             return result
-        
+
         return {
             "enabled": True,
             "url": url or "sqlite:///db.sqlite3",
@@ -1285,74 +1323,74 @@ class Integration:
             "scan_dirs": scan_dirs or ["models"],
             **kwargs,
         }
-    
+
     # ========================================================================
     # Unique Aquilia Session Templates
     # ========================================================================
-    
+
     class sessions:
         """Unique Aquilia session configuration templates."""
-        
+
         @staticmethod
-        def web_app(**overrides) -> Dict[str, Any]:
+        def web_app(**overrides) -> dict[str, Any]:
             """Optimized for web applications with users."""
-            from aquilia.sessions import SessionPolicy, MemoryStore, CookieTransport
-            
+            from aquilia.sessions import CookieTransport, MemoryStore, SessionPolicy
+
             policy = SessionPolicy.for_web_users().lasting(days=7).idle_timeout(hours=2).web_defaults().build()
             store = MemoryStore.web_optimized()
             transport = CookieTransport.for_web_browsers()
-            
+
             return {
                 "enabled": True,
                 "policy": policy,
                 "store": store,
                 "transport": transport,
                 "aquilia_syntax_version": "2.0",
-                **overrides
+                **overrides,
             }
-        
+
         @staticmethod
-        def api_service(**overrides) -> Dict[str, Any]:
+        def api_service(**overrides) -> dict[str, Any]:
             """Optimized for API services with token-based auth."""
-            from aquilia.sessions import SessionPolicy, MemoryStore, HeaderTransport
-            
+            from aquilia.sessions import HeaderTransport, MemoryStore, SessionPolicy
+
             policy = SessionPolicy.for_api_tokens().lasting(hours=1).no_idle_timeout().api_defaults().build()
             store = MemoryStore.api_optimized()
             transport = HeaderTransport.for_rest_apis()
-            
+
             return {
                 "enabled": True,
                 "policy": policy,
                 "store": store,
                 "transport": transport,
                 "aquilia_syntax_version": "2.0",
-                **overrides
+                **overrides,
             }
-        
-        @staticmethod  
-        def mobile_app(**overrides) -> Dict[str, Any]:
+
+        @staticmethod
+        def mobile_app(**overrides) -> dict[str, Any]:
             """Optimized for mobile applications with long-lived sessions."""
-            from aquilia.sessions import SessionPolicy, MemoryStore, CookieTransport
-            
+            from aquilia.sessions import CookieTransport, MemoryStore, SessionPolicy
+
             policy = SessionPolicy.for_mobile_users().lasting(days=90).idle_timeout(days=30).mobile_defaults().build()
             store = MemoryStore.mobile_optimized()
             transport = CookieTransport.for_mobile_webviews()
-            
+
             return {
                 "enabled": True,
                 "policy": policy,
                 "store": store,
                 "transport": transport,
                 "aquilia_syntax_version": "2.0",
-                **overrides
+                **overrides,
             }
-    
+
     @staticmethod
     def storage(
         default: str = "default",
-        backends: Optional[Dict[str, Any]] = None,
+        backends: dict[str, Any] | None = None,
         **kwargs,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Configure file storage backends.
 
@@ -1407,51 +1445,43 @@ class Integration:
         }
 
     @staticmethod
-    def registry(**kwargs) -> Dict[str, Any]:
+    def registry(**kwargs) -> dict[str, Any]:
         """Configure registry."""
-        return {
-            "enabled": True,
-            **kwargs
-        }
-    
+        return {"enabled": True, **kwargs}
+
     @staticmethod
-    def routing(strict_matching: bool = True, **kwargs) -> Dict[str, Any]:
+    def routing(strict_matching: bool = True, **kwargs) -> dict[str, Any]:
         """Configure routing."""
-        return {
-            "enabled": True,
-            "strict_matching": strict_matching,
-            **kwargs
-        }
-    
+        return {"enabled": True, "strict_matching": strict_matching, **kwargs}
+
     @staticmethod
-    def fault_handling(default_strategy: str = "propagate", **kwargs) -> Dict[str, Any]:
+    def fault_handling(default_strategy: str = "propagate", **kwargs) -> dict[str, Any]:
         """Configure fault handling."""
-        return {
-            "enabled": True,
-            "default_strategy": default_strategy,
-            **kwargs
-        }
-    
+        return {"enabled": True, "default_strategy": default_strategy, **kwargs}
+
     class templates:
         """
         Fluent template configuration builder.
-        
+
         Unique Syntax:
             Integration.templates.source("...").secure().cached()
         """
-        
+
         class Builder(dict):
             """Fluent builder inheriting from dict for compatibility."""
-            
-            def __init__(self, defaults: Optional[Dict] = None):
-                super().__init__(defaults or {
-                    "enabled": True,
-                    "search_paths": ["templates"],
-                    "cache": "memory",
-                    "sandbox": True,
-                    "precompile": False,
-                })
-                
+
+            def __init__(self, defaults: dict | None = None):
+                super().__init__(
+                    defaults
+                    or {
+                        "enabled": True,
+                        "search_paths": ["templates"],
+                        "cache": "memory",
+                        "sandbox": True,
+                        "precompile": False,
+                    }
+                )
+
             def source(self, *paths: str) -> "Integration.templates.Builder":
                 """Add template search paths."""
                 current = self.get("search_paths", [])
@@ -1459,39 +1489,39 @@ class Integration:
                     current = []
                 self["search_paths"] = current + list(paths)
                 return self
-                
+
             def scan_modules(self) -> "Integration.templates.Builder":
                 """Enable module auto-discovery."""
                 # This is implicit in server logic but good for intent
                 return self
-                
+
             def cached(self, strategy: str = "memory") -> "Integration.templates.Builder":
                 """Enable bytecode caching."""
                 self["cache"] = strategy
                 return self
-                
+
             def secure(self, strict: bool = True) -> "Integration.templates.Builder":
                 """Enable sandbox with security policy."""
                 self["sandbox"] = True
                 self["sandbox_policy"] = "strict" if strict else "permissive"
                 return self
-                
+
             def unsafe_dev_mode(self) -> "Integration.templates.Builder":
                 """Disable sandbox/caching for development."""
                 self["sandbox"] = False
                 self["cache"] = "none"
                 return self
-                
+
             def precompile(self) -> "Integration.templates.Builder":
                 """Enable startup precompilation."""
                 self["precompile"] = True
                 return self
-        
+
         @classmethod
         def source(cls, *paths: str) -> "Integration.templates.Builder":
             """Start builder with source paths."""
             return cls.Builder().source(*paths)
-            
+
         @classmethod
         def defaults(cls) -> "Integration.templates.Builder":
             """Start with default configuration."""
@@ -1514,7 +1544,7 @@ class Integration:
         middleware_enabled: bool = False,
         middleware_default_ttl: int = 60,
         **kwargs,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Configure the caching subsystem.
 
@@ -1599,7 +1629,7 @@ class Integration:
         dead_letter_max: int = 1000,
         scheduler_tick: float = 15.0,
         **kwargs,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Configure the background task subsystem.
 
@@ -1725,13 +1755,31 @@ class Integration:
             )
         """
 
-        __slots__ = ("_dashboard", "_orm", "_build", "_migrations",
-                     "_config", "_workspace", "_permissions",
-                     "_monitoring", "_admin_users", "_profile", "_audit",
-                     "_containers", "_pods",
-                     "_query_inspector", "_tasks", "_errors",
-                     "_testing", "_mlops", "_storage", "_mailer",
-                     "_api_keys", "_preferences", "_provider")
+        __slots__ = (
+            "_dashboard",
+            "_orm",
+            "_build",
+            "_migrations",
+            "_config",
+            "_workspace",
+            "_permissions",
+            "_monitoring",
+            "_admin_users",
+            "_profile",
+            "_audit",
+            "_containers",
+            "_pods",
+            "_query_inspector",
+            "_tasks",
+            "_errors",
+            "_testing",
+            "_mlops",
+            "_storage",
+            "_mailer",
+            "_api_keys",
+            "_preferences",
+            "_provider",
+        )
 
         def __init__(self) -> None:
             self._dashboard: bool = True
@@ -1741,22 +1789,22 @@ class Integration:
             self._config: bool = True
             self._workspace: bool = True
             self._permissions: bool = True
-            self._monitoring: bool = False   # disabled by default
+            self._monitoring: bool = False  # disabled by default
             self._admin_users: bool = True
             self._profile: bool = True
-            self._audit: bool = False         # disabled by default
-            self._containers: bool = False    # disabled by default
-            self._pods: bool = False           # disabled by default
+            self._audit: bool = False  # disabled by default
+            self._containers: bool = False  # disabled by default
+            self._pods: bool = False  # disabled by default
             self._query_inspector: bool = False  # disabled by default
-            self._tasks: bool = False             # disabled by default
-            self._errors: bool = False            # disabled by default
-            self._testing: bool = False           # disabled by default
-            self._mlops: bool = False             # disabled by default
-            self._storage: bool = False           # disabled by default
-            self._mailer: bool = False            # disabled by default
+            self._tasks: bool = False  # disabled by default
+            self._errors: bool = False  # disabled by default
+            self._testing: bool = False  # disabled by default
+            self._mlops: bool = False  # disabled by default
+            self._storage: bool = False  # disabled by default
+            self._mailer: bool = False  # disabled by default
             self._api_keys: bool = True
             self._preferences: bool = True
-            self._provider: bool = False             # disabled by default
+            self._provider: bool = False  # disabled by default
 
         # ── Dashboard ──
         def enable_dashboard(self) -> "Integration.AdminModules":
@@ -2024,7 +2072,7 @@ class Integration:
                 setattr(self, attr, False)
             return self
 
-        def to_dict(self) -> Dict[str, bool]:
+        def to_dict(self) -> dict[str, bool]:
             """Serialize to a dict consumed by AdminConfig."""
             return {
                 "dashboard": self._dashboard,
@@ -2078,16 +2126,15 @@ class Integration:
             )
         """
 
-        __slots__ = ("_enabled", "_max_entries", "_log_logins",
-                     "_log_views", "_log_searches", "_excluded_actions")
+        __slots__ = ("_enabled", "_max_entries", "_log_logins", "_log_views", "_log_searches", "_excluded_actions")
 
         def __init__(self) -> None:
-            self._enabled: bool = False      # disabled by default
+            self._enabled: bool = False  # disabled by default
             self._max_entries: int = 10_000
             self._log_logins: bool = True
             self._log_views: bool = True
             self._log_searches: bool = True
-            self._excluded_actions: List[str] = []
+            self._excluded_actions: list[str] = []
 
         def enable(self) -> "Integration.AdminAudit":
             """Enable audit logging."""
@@ -2146,7 +2193,7 @@ class Integration:
             self._excluded_actions = list(actions)
             return self
 
-        def to_dict(self) -> Dict[str, Any]:
+        def to_dict(self) -> dict[str, Any]:
             """Serialize to a dict consumed by AdminConfig."""
             return {
                 "enabled": self._enabled,
@@ -2181,15 +2228,21 @@ class Integration:
         """
 
         _ALL_METRICS = [
-            "cpu", "memory", "disk", "network",
-            "process", "python", "system", "health_checks",
+            "cpu",
+            "memory",
+            "disk",
+            "network",
+            "process",
+            "python",
+            "system",
+            "health_checks",
         ]
 
         __slots__ = ("_enabled", "_metrics", "_refresh_interval")
 
         def __init__(self) -> None:
-            self._enabled: bool = False      # disabled by default
-            self._metrics: List[str] = list(self._ALL_METRICS)
+            self._enabled: bool = False  # disabled by default
+            self._metrics: list[str] = list(self._ALL_METRICS)
             self._refresh_interval: int = 30
 
         def enable(self) -> "Integration.AdminMonitoring":
@@ -2225,7 +2278,7 @@ class Integration:
             self._refresh_interval = max(5, int(seconds))
             return self
 
-        def to_dict(self) -> Dict[str, Any]:
+        def to_dict(self) -> dict[str, Any]:
             """Serialize to a dict consumed by AdminConfig."""
             return {
                 "enabled": self._enabled,
@@ -2347,7 +2400,7 @@ class Integration:
                 setattr(self, attr, False)
             return self
 
-        def to_dict(self) -> Dict[str, bool]:
+        def to_dict(self) -> dict[str, bool]:
             """Serialize to a dict consumed by AdminConfig."""
             return {
                 "overview": self._overview,
@@ -2386,29 +2439,47 @@ class Integration:
         """
 
         __slots__ = (
-            "_docker_host", "_allowed_actions", "_denied_actions",
-            "_log_tail", "_log_since", "_refresh_interval",
-            "_compose_files", "_compose_project_dir",
-            "_show_system_containers", "_enable_exec",
-            "_enable_prune", "_enable_build", "_enable_export",
-            "_enable_image_actions", "_enable_volume_actions",
+            "_docker_host",
+            "_allowed_actions",
+            "_denied_actions",
+            "_log_tail",
+            "_log_since",
+            "_refresh_interval",
+            "_compose_files",
+            "_compose_project_dir",
+            "_show_system_containers",
+            "_enable_exec",
+            "_enable_prune",
+            "_enable_build",
+            "_enable_export",
+            "_enable_image_actions",
+            "_enable_volume_actions",
             "_enable_network_actions",
         )
 
         _ALL_ACTIONS = [
-            "start", "stop", "restart", "pause", "unpause",
-            "kill", "rm", "logs", "inspect", "exec", "export",
+            "start",
+            "stop",
+            "restart",
+            "pause",
+            "unpause",
+            "kill",
+            "rm",
+            "logs",
+            "inspect",
+            "exec",
+            "export",
         ]
 
         def __init__(self) -> None:
-            self._docker_host: Optional[str] = None   # None = auto-detect
-            self._allowed_actions: List[str] = list(self._ALL_ACTIONS)
-            self._denied_actions: List[str] = []
+            self._docker_host: str | None = None  # None = auto-detect
+            self._allowed_actions: list[str] = list(self._ALL_ACTIONS)
+            self._denied_actions: list[str] = []
             self._log_tail: int = 200
             self._log_since: str = ""
             self._refresh_interval: int = 15
-            self._compose_files: List[str] = []
-            self._compose_project_dir: Optional[str] = None
+            self._compose_files: list[str] = []
+            self._compose_project_dir: str | None = None
             self._show_system_containers: bool = False
             self._enable_exec: bool = True
             self._enable_prune: bool = True
@@ -2550,12 +2621,9 @@ class Integration:
             self._enable_network_actions = False
             return self
 
-        def to_dict(self) -> Dict[str, Any]:
+        def to_dict(self) -> dict[str, Any]:
             """Serialize to a dict consumed by AdminConfig."""
-            effective_actions = [
-                a for a in self._allowed_actions
-                if a not in self._denied_actions
-            ]
+            effective_actions = [a for a in self._allowed_actions if a not in self._denied_actions]
             return {
                 "docker_host": self._docker_host,
                 "allowed_actions": effective_actions,
@@ -2603,27 +2671,46 @@ class Integration:
         """
 
         _ALL_RESOURCES = [
-            "pods", "deployments", "services", "ingresses",
-            "configmaps", "secrets", "namespaces", "events",
-            "daemonsets", "statefulsets", "jobs", "cronjobs",
-            "persistentvolumeclaims", "nodes",
+            "pods",
+            "deployments",
+            "services",
+            "ingresses",
+            "configmaps",
+            "secrets",
+            "namespaces",
+            "events",
+            "daemonsets",
+            "statefulsets",
+            "jobs",
+            "cronjobs",
+            "persistentvolumeclaims",
+            "nodes",
         ]
 
         __slots__ = (
-            "_kubeconfig", "_namespace", "_contexts",
-            "_resources", "_manifest_dirs", "_manifest_patterns",
-            "_refresh_interval", "_enable_logs", "_enable_exec",
-            "_enable_delete", "_enable_scale", "_enable_restart",
-            "_enable_apply", "_log_tail",
+            "_kubeconfig",
+            "_namespace",
+            "_contexts",
+            "_resources",
+            "_manifest_dirs",
+            "_manifest_patterns",
+            "_refresh_interval",
+            "_enable_logs",
+            "_enable_exec",
+            "_enable_delete",
+            "_enable_scale",
+            "_enable_restart",
+            "_enable_apply",
+            "_log_tail",
         )
 
         def __init__(self) -> None:
-            self._kubeconfig: Optional[str] = None   # None = auto-detect
+            self._kubeconfig: str | None = None  # None = auto-detect
             self._namespace: str = "default"
-            self._contexts: List[str] = []
-            self._resources: List[str] = list(self._ALL_RESOURCES)
-            self._manifest_dirs: List[str] = ["k8s"]
-            self._manifest_patterns: List[str] = ["*.yaml", "*.yml"]
+            self._contexts: list[str] = []
+            self._resources: list[str] = list(self._ALL_RESOURCES)
+            self._manifest_dirs: list[str] = ["k8s"]
+            self._manifest_patterns: list[str] = ["*.yaml", "*.yml"]
             self._refresh_interval: int = 15
             self._enable_logs: bool = True
             self._enable_exec: bool = True
@@ -2747,7 +2834,7 @@ class Integration:
             self._enable_apply = False
             return self
 
-        def to_dict(self) -> Dict[str, Any]:
+        def to_dict(self) -> dict[str, Any]:
             """Serialize to a dict consumed by AdminConfig."""
             return {
                 "kubeconfig": self._kubeconfig,
@@ -2797,15 +2884,26 @@ class Integration:
         """
 
         __slots__ = (
-            "_csrf_enabled", "_csrf_max_age", "_csrf_token_length",
-            "_rate_limit_enabled", "_rate_limit_max_attempts", "_rate_limit_window",
-            "_sensitive_op_limit", "_sensitive_op_window",
-            "_progressive_lockout", "_lockout_tiers",
-            "_password_min_length", "_password_max_length",
-            "_password_require_upper", "_password_require_lower",
-            "_password_require_digit", "_password_require_special",
-            "_security_headers_enabled", "_csp_template",
-            "_frame_options", "_permissions_policy",
+            "_csrf_enabled",
+            "_csrf_max_age",
+            "_csrf_token_length",
+            "_rate_limit_enabled",
+            "_rate_limit_max_attempts",
+            "_rate_limit_window",
+            "_sensitive_op_limit",
+            "_sensitive_op_window",
+            "_progressive_lockout",
+            "_lockout_tiers",
+            "_password_min_length",
+            "_password_max_length",
+            "_password_require_upper",
+            "_password_require_lower",
+            "_password_require_digit",
+            "_password_require_special",
+            "_security_headers_enabled",
+            "_csp_template",
+            "_frame_options",
+            "_permissions_policy",
             "_session_fixation_protection",
             "_event_tracker_max_events",
         )
@@ -2813,17 +2911,17 @@ class Integration:
         def __init__(self) -> None:
             # CSRF defaults
             self._csrf_enabled: bool = True
-            self._csrf_max_age: int = 7200           # 2 hours
+            self._csrf_max_age: int = 7200  # 2 hours
             self._csrf_token_length: int = 32
             # Rate limiting defaults
             self._rate_limit_enabled: bool = True
             self._rate_limit_max_attempts: int = 5
-            self._rate_limit_window: int = 900       # 15 minutes
+            self._rate_limit_window: int = 900  # 15 minutes
             self._sensitive_op_limit: int = 30
-            self._sensitive_op_window: int = 300     # 5 minutes
+            self._sensitive_op_window: int = 300  # 5 minutes
             # Progressive lockout
             self._progressive_lockout: bool = True
-            self._lockout_tiers: Optional[List[List[int]]] = None  # [[threshold, duration], ...]
+            self._lockout_tiers: list[list[int]] | None = None  # [[threshold, duration], ...]
             # Password policy defaults
             self._password_min_length: int = 10
             self._password_max_length: int = 128
@@ -2833,9 +2931,9 @@ class Integration:
             self._password_require_special: bool = True
             # Security headers defaults
             self._security_headers_enabled: bool = True
-            self._csp_template: Optional[str] = None
+            self._csp_template: str | None = None
             self._frame_options: str = "DENY"
-            self._permissions_policy: Optional[str] = None
+            self._permissions_policy: str | None = None
             # Session
             self._session_fixation_protection: bool = True
             # Event tracking
@@ -2902,7 +3000,7 @@ class Integration:
             self._progressive_lockout = enabled
             return self
 
-        def lockout_tiers(self, tiers: List[List[int]]) -> "Integration.AdminSecurity":
+        def lockout_tiers(self, tiers: list[list[int]]) -> "Integration.AdminSecurity":
             """
             Set custom lockout tiers.
 
@@ -3016,9 +3114,9 @@ class Integration:
 
         # ── Serialization ─────────────────────────────────────────────
 
-        def to_dict(self) -> Dict[str, Any]:
+        def to_dict(self) -> dict[str, Any]:
             """Serialize to a dict consumed by AdminConfig / AdminSecurityPolicy."""
-            result: Dict[str, Any] = {
+            result: dict[str, Any] = {
                 "csrf": {
                     "enabled": self._csrf_enabled,
                     "max_age": self._csrf_max_age,
@@ -3071,7 +3169,7 @@ class Integration:
         site_title: str = "Aquilia Admin",
         site_header: str = "Aquilia Administration",
         auto_discover: bool = True,
-        login_url: Optional[str] = None,
+        login_url: str | None = None,
         list_per_page: int = 25,
         theme: str = "auto",
         # ── Nested builder objects (IDE-friendly) ─────────────────
@@ -3083,31 +3181,31 @@ class Integration:
         pods: Optional["Integration.AdminPods"] = None,
         security: Optional["Integration.AdminSecurity"] = None,
         # ── Legacy flat params (backward compat) ─────────────────
-        enable_audit: Optional[bool] = None,
+        enable_audit: bool | None = None,
         audit_max_entries: int = 10_000,
-        enable_dashboard: Optional[bool] = None,
-        enable_orm: Optional[bool] = None,
-        enable_build: Optional[bool] = None,
-        enable_migrations: Optional[bool] = None,
-        enable_config: Optional[bool] = None,
-        enable_workspace: Optional[bool] = None,
-        enable_permissions: Optional[bool] = None,
-        enable_monitoring: Optional[bool] = None,
-        enable_admin_users: Optional[bool] = None,
-        enable_containers: Optional[bool] = None,
-        enable_pods: Optional[bool] = None,
-        enable_profile: Optional[bool] = None,
-        audit_log_logins: Optional[bool] = None,
-        audit_log_views: Optional[bool] = None,
-        audit_log_searches: Optional[bool] = None,
-        enable_api_keys: Optional[bool] = None,
-        enable_preferences: Optional[bool] = None,
-        audit_excluded_actions: Optional[List[str]] = None,
-        monitoring_metrics: Optional[List[str]] = None,
-        monitoring_refresh_interval: Optional[int] = None,
-        sidebar_sections: Optional[Dict[str, bool]] = None,
+        enable_dashboard: bool | None = None,
+        enable_orm: bool | None = None,
+        enable_build: bool | None = None,
+        enable_migrations: bool | None = None,
+        enable_config: bool | None = None,
+        enable_workspace: bool | None = None,
+        enable_permissions: bool | None = None,
+        enable_monitoring: bool | None = None,
+        enable_admin_users: bool | None = None,
+        enable_containers: bool | None = None,
+        enable_pods: bool | None = None,
+        enable_profile: bool | None = None,
+        audit_log_logins: bool | None = None,
+        audit_log_views: bool | None = None,
+        audit_log_searches: bool | None = None,
+        enable_api_keys: bool | None = None,
+        enable_preferences: bool | None = None,
+        audit_excluded_actions: list[str] | None = None,
+        monitoring_metrics: list[str] | None = None,
+        monitoring_refresh_interval: int | None = None,
+        sidebar_sections: dict[str, bool] | None = None,
         **kwargs,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Configure the admin dashboard integration.
 
@@ -3172,8 +3270,14 @@ class Integration:
             ))
         """
         _all_metrics = [
-            "cpu", "memory", "disk", "network",
-            "process", "python", "system", "health_checks",
+            "cpu",
+            "memory",
+            "disk",
+            "network",
+            "process",
+            "python",
+            "system",
+            "health_checks",
         ]
 
         # ── Resolve modules ──────────────────────────────────────────
@@ -3224,9 +3328,7 @@ class Integration:
         # Keep module audit flag in sync with audit_config.enabled
         # Only override if the audit builder was explicitly provided,
         # or if legacy flat enable_audit was given AND no modules builder.
-        if audit is not None:
-            mod_dict["audit"] = bool(audit_dict.get("enabled", mod_dict.get("audit", False)))
-        elif modules is None and enable_audit is not None:
+        if audit is not None or modules is None and enable_audit is not None:
             mod_dict["audit"] = bool(audit_dict.get("enabled", mod_dict.get("audit", False)))
 
         # ── Resolve monitoring ───────────────────────────────────────
@@ -3237,15 +3339,15 @@ class Integration:
             mon_dict = {
                 "enabled": _mon_enabled,
                 "metrics": list(monitoring_metrics) if monitoring_metrics else list(_all_metrics),
-                "refresh_interval": max(5, int(monitoring_refresh_interval)) if monitoring_refresh_interval is not None else 30,
+                "refresh_interval": max(5, int(monitoring_refresh_interval))
+                if monitoring_refresh_interval is not None
+                else 30,
             }
 
         # Keep module monitoring flag in sync
         # Only override if the monitoring builder was explicitly provided,
         # or if legacy flat enable_monitoring was given AND no modules builder.
-        if monitoring is not None:
-            mod_dict["monitoring"] = bool(mon_dict.get("enabled", mod_dict.get("monitoring", False)))
-        elif modules is None and enable_monitoring is not None:
+        if monitoring is not None or modules is None and enable_monitoring is not None:
             mod_dict["monitoring"] = bool(mon_dict.get("enabled", mod_dict.get("monitoring", False)))
 
         # ── Resolve sidebar ──────────────────────────────────────────
@@ -3253,8 +3355,12 @@ class Integration:
             sidebar_dict = sidebar.to_dict()
         else:
             _default_sidebar = {
-                "overview": True, "data": True, "system": True,
-                "infrastructure": True, "security": True, "models": True,
+                "overview": True,
+                "data": True,
+                "system": True,
+                "infrastructure": True,
+                "security": True,
+                "models": True,
                 "devtools": True,
             }
             sidebar_dict = {**_default_sidebar}
@@ -3270,8 +3376,17 @@ class Integration:
             containers_dict = {
                 "docker_host": None,
                 "allowed_actions": [
-                    "start", "stop", "restart", "pause", "unpause",
-                    "kill", "rm", "logs", "inspect", "exec", "export",
+                    "start",
+                    "stop",
+                    "restart",
+                    "pause",
+                    "unpause",
+                    "kill",
+                    "rm",
+                    "logs",
+                    "inspect",
+                    "exec",
+                    "export",
                 ],
                 "log_tail": 200,
                 "log_since": "",
@@ -3280,9 +3395,13 @@ class Integration:
                 "compose_project_dir": None,
                 "show_system_containers": False,
                 "capabilities": {
-                    "exec": True, "prune": True, "build": True,
-                    "export": True, "image_actions": True,
-                    "volume_actions": True, "network_actions": True,
+                    "exec": True,
+                    "prune": True,
+                    "build": True,
+                    "export": True,
+                    "image_actions": True,
+                    "volume_actions": True,
+                    "network_actions": True,
                 },
             }
 
@@ -3295,18 +3414,32 @@ class Integration:
                 "namespace": "default",
                 "contexts": [],
                 "resources": [
-                    "pods", "deployments", "services", "ingresses",
-                    "configmaps", "secrets", "namespaces", "events",
-                    "daemonsets", "statefulsets", "jobs", "cronjobs",
-                    "persistentvolumeclaims", "nodes",
+                    "pods",
+                    "deployments",
+                    "services",
+                    "ingresses",
+                    "configmaps",
+                    "secrets",
+                    "namespaces",
+                    "events",
+                    "daemonsets",
+                    "statefulsets",
+                    "jobs",
+                    "cronjobs",
+                    "persistentvolumeclaims",
+                    "nodes",
                 ],
                 "manifest_dirs": ["k8s"],
                 "manifest_patterns": ["*.yaml", "*.yml"],
                 "refresh_interval": 15,
                 "log_tail": 200,
                 "capabilities": {
-                    "logs": True, "exec": True, "delete": True,
-                    "scale": True, "restart": True, "apply": True,
+                    "logs": True,
+                    "exec": True,
+                    "delete": True,
+                    "scale": True,
+                    "restart": True,
+                    "apply": True,
                 },
             }
 
@@ -3402,13 +3535,14 @@ class Integration:
         @dataclass
         class Entry:
             """A single middleware entry in the chain."""
+
             path: str
             priority: int = 50
             scope: str = "global"
-            name: Optional[str] = None
-            kwargs: Dict[str, Any] = field(default_factory=dict)
+            name: str | None = None
+            kwargs: dict[str, Any] = field(default_factory=dict)
 
-            def to_dict(self) -> Dict[str, Any]:
+            def to_dict(self) -> dict[str, Any]:
                 return {
                     "path": self.path,
                     "priority": self.priority,
@@ -3441,7 +3575,7 @@ class Integration:
                 *,
                 priority: int = 50,
                 scope: str = "global",
-                name: Optional[str] = None,
+                name: str | None = None,
                 **kwargs,
             ) -> "Integration.middleware.Chain":
                 """
@@ -3476,7 +3610,7 @@ class Integration:
                 self.append(entry)
                 return self
 
-            def to_list(self) -> List[Dict[str, Any]]:
+            def to_list(self) -> list[dict[str, Any]]:
                 """Serialize the chain to a config-compatible list."""
                 return [e.to_dict() for e in self]
 
@@ -3513,10 +3647,10 @@ class Integration:
             """
             return (
                 cls.chain()
-                .use("aquilia.middleware.ExceptionMiddleware",   priority=1, debug=False)
-                .use("aquilia.middleware.RequestIdMiddleware",   priority=10)
+                .use("aquilia.middleware.ExceptionMiddleware", priority=1, debug=False)
+                .use("aquilia.middleware.RequestIdMiddleware", priority=10)
                 .use("aquilia.middleware.CompressionMiddleware", priority=15, minimum_size=500)
-                .use("aquilia.middleware.TimeoutMiddleware",     priority=18, timeout_seconds=30.0)
+                .use("aquilia.middleware.TimeoutMiddleware", priority=18, timeout_seconds=30.0)
             )
 
         @classmethod
@@ -3535,16 +3669,13 @@ class Integration:
             )
 
     @staticmethod
-    def patterns(**kwargs) -> Dict[str, Any]:
+    def patterns(**kwargs) -> dict[str, Any]:
         """Configure patterns."""
-        return {
-            "enabled": True,
-            **kwargs
-        }
+        return {"enabled": True, **kwargs}
 
     @staticmethod
     def static_files(
-        directories: Optional[Dict[str, str]] = None,
+        directories: dict[str, str] | None = None,
         cache_max_age: int = 86400,
         immutable: bool = False,
         etag: bool = True,
@@ -3553,7 +3684,7 @@ class Integration:
         memory_cache: bool = True,
         html5_history: bool = False,
         **kwargs,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Configure static file serving middleware.
 
@@ -3595,15 +3726,15 @@ class Integration:
 
     @staticmethod
     def cors(
-        allow_origins: Optional[List[str]] = None,
-        allow_methods: Optional[List[str]] = None,
-        allow_headers: Optional[List[str]] = None,
-        expose_headers: Optional[List[str]] = None,
+        allow_origins: list[str] | None = None,
+        allow_methods: list[str] | None = None,
+        allow_headers: list[str] | None = None,
+        expose_headers: list[str] | None = None,
         allow_credentials: bool = False,
         max_age: int = 600,
-        allow_origin_regex: Optional[str] = None,
+        allow_origin_regex: str | None = None,
         **kwargs,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Configure CORS middleware.
 
@@ -3632,7 +3763,8 @@ class Integration:
             "enabled": True,
             "allow_origins": allow_origins or ["*"],
             "allow_methods": allow_methods or ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"],
-            "allow_headers": allow_headers or ["accept", "accept-language", "content-language", "content-type", "authorization", "x-requested-with"],
+            "allow_headers": allow_headers
+            or ["accept", "accept-language", "content-language", "content-type", "authorization", "x-requested-with"],
             "expose_headers": expose_headers or [],
             "allow_credentials": allow_credentials,
             "max_age": max_age,
@@ -3642,12 +3774,12 @@ class Integration:
 
     @staticmethod
     def csp(
-        policy: Optional[Dict[str, List[str]]] = None,
+        policy: dict[str, list[str]] | None = None,
         report_only: bool = False,
         nonce: bool = True,
         preset: str = "strict",
         **kwargs,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Configure Content-Security-Policy middleware.
 
@@ -3687,10 +3819,10 @@ class Integration:
         window: int = 60,
         algorithm: str = "sliding_window",
         per_user: bool = False,
-        burst: Optional[int] = None,
-        exempt_paths: Optional[List[str]] = None,
+        burst: int | None = None,
+        exempt_paths: list[str] | None = None,
         **kwargs,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Configure rate limiting middleware.
 
@@ -3737,7 +3869,7 @@ class Integration:
         contact_url: str = "",
         license_name: str = "",
         license_url: str = "",
-        servers: Optional[List[Dict[str, str]]] = None,
+        servers: list[dict[str, str]] | None = None,
         docs_path: str = "/docs",
         openapi_json_path: str = "/openapi.json",
         redoc_path: str = "/redoc",
@@ -3749,10 +3881,10 @@ class Integration:
         external_docs_url: str = "",
         external_docs_description: str = "",
         swagger_ui_theme: str = "",
-        swagger_ui_config: Optional[Dict[str, Any]] = None,
+        swagger_ui_config: dict[str, Any] | None = None,
         enabled: bool = True,
         **kwargs,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Configure OpenAPI specification generation and interactive documentation.
 
@@ -3839,20 +3971,20 @@ class Integration:
         field_name: str = "_csrf_token",
         cookie_name: str = "_csrf_cookie",
         cookie_path: str = "/",
-        cookie_domain: Optional[str] = None,
+        cookie_domain: str | None = None,
         cookie_secure: bool = True,
         cookie_samesite: str = "Lax",
         cookie_httponly: bool = False,
         cookie_max_age: int = 3600,
-        safe_methods: Optional[List[str]] = None,
-        exempt_paths: Optional[List[str]] = None,
-        exempt_content_types: Optional[List[str]] = None,
+        safe_methods: list[str] | None = None,
+        exempt_paths: list[str] | None = None,
+        exempt_content_types: list[str] | None = None,
         trust_ajax: bool = True,
         rotate_token: bool = False,
         failure_status: int = 403,
         enabled: bool = True,
         **kwargs,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Configure CSRF (Cross-Site Request Forgery) protection integration.
 
@@ -3922,7 +4054,7 @@ class Integration:
         format: str = "%(method)s %(path)s %(status)s %(duration_ms).1fms",
         level: str = "INFO",
         slow_threshold_ms: float = 1000.0,
-        skip_paths: Optional[List[str]] = None,
+        skip_paths: list[str] | None = None,
         include_headers: bool = False,
         include_query: bool = True,
         include_user_agent: bool = False,
@@ -3931,7 +4063,7 @@ class Integration:
         colorize: bool = True,
         enabled: bool = True,
         **kwargs,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Configure request/response logging integration.
 
@@ -3984,19 +4116,19 @@ class Integration:
     @staticmethod
     def mail(
         default_from: str = "noreply@localhost",
-        default_reply_to: Optional[str] = None,
+        default_reply_to: str | None = None,
         subject_prefix: str = "",
-        providers: Optional[List[Dict[str, Any]]] = None,
-        auth: Optional[Any] = None,
+        providers: list[dict[str, Any]] | None = None,
+        auth: Any | None = None,
         console_backend: bool = False,
         preview_mode: bool = False,
-        template_dirs: Optional[List[str]] = None,
+        template_dirs: list[str] | None = None,
         retry_max_attempts: int = 5,
         retry_base_delay: float = 1.0,
         rate_limit_global: int = 1000,
         rate_limit_per_domain: int = 100,
         dkim_enabled: bool = False,
-        dkim_domain: Optional[str] = None,
+        dkim_domain: str | None = None,
         dkim_selector: str = "aquilia",
         require_tls: bool = True,
         pii_redaction: bool = False,
@@ -4004,7 +4136,7 @@ class Integration:
         tracing_enabled: bool = False,
         enabled: bool = True,
         **kwargs,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Configure AquilaMail -- the production-ready async mail subsystem.
 
@@ -4095,7 +4227,7 @@ class Integration:
             ))
         """
         # Normalise auth → plain dict so it is JSON-serialisable downstream
-        auth_dict: Optional[Dict[str, Any]] = None
+        auth_dict: dict[str, Any] | None = None
         if auth is not None:
             if hasattr(auth, "to_dict"):
                 auth_dict = auth.to_dict()
@@ -4107,8 +4239,8 @@ class Integration:
         # or a single provider object instead of a list.
         if providers is not None and hasattr(providers, "to_dict") and not isinstance(providers, (list, tuple)):
             providers = [providers]
-        normalised_providers: List[Dict[str, Any]] = []
-        for p in (providers or []):
+        normalised_providers: list[dict[str, Any]] = []
+        for p in providers or []:
             if hasattr(p, "to_dict"):
                 # Integration.MailProvider.SMTP / SES / SendGrid / Console / File
                 p = p.to_dict()
@@ -4164,12 +4296,12 @@ class Integration:
         batching_strategy: str = "hybrid",
         sample_rate: float = 0.01,
         log_dir: str = "prediction_logs",
-        hmac_secret: Optional[str] = None,
-        signing_private_key: Optional[str] = None,
-        signing_public_key: Optional[str] = None,
-        encryption_key: Optional[Any] = None,
+        hmac_secret: str | None = None,
+        signing_private_key: str | None = None,
+        signing_public_key: str | None = None,
+        encryption_key: Any | None = None,
         plugin_auto_discover: bool = True,
-        scaling_policy: Optional[Dict[str, Any]] = None,
+        scaling_policy: dict[str, Any] | None = None,
         rollout_default_strategy: str = "canary",
         auto_rollback: bool = True,
         metrics_model_name: str = "",
@@ -4181,7 +4313,7 @@ class Integration:
         artifact_store_dir: str = "artifacts",
         fault_engine_debug: bool = False,
         **kwargs,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Configure MLOps platform integration.
 
@@ -4295,9 +4427,9 @@ class Integration:
     def i18n(
         *,
         default_locale: str = "en",
-        available_locales: Optional[List[str]] = None,
+        available_locales: list[str] | None = None,
         fallback_locale: str = "en",
-        catalog_dirs: Optional[List[str]] = None,
+        catalog_dirs: list[str] | None = None,
         catalog_format: str = "json",
         missing_key_strategy: str = "log_and_key",
         auto_reload: bool = False,
@@ -4305,10 +4437,10 @@ class Integration:
         cookie_name: str = "aq_locale",
         query_param: str = "lang",
         path_prefix: bool = False,
-        resolver_order: Optional[List[str]] = None,
+        resolver_order: list[str] | None = None,
         enabled: bool = True,
         **kwargs,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Configure the i18n (internationalization) subsystem.
 
@@ -4386,7 +4518,7 @@ class Integration:
         compact_json: bool = True,
         enabled: bool = True,
         **kwargs,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Configure global serializer settings.
 
@@ -4443,15 +4575,15 @@ class Integration:
 
     @staticmethod
     def render(
-        service_name: Optional[str] = None,
+        service_name: str | None = None,
         region: str = "oregon",
         plan: str = "starter",
         num_instances: int = 1,
-        image: Optional[str] = None,
+        image: str | None = None,
         health_path: str = "/_health",
         auto_deploy: str = "no",
         **kwargs,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Configure Render PaaS deployment.
 
@@ -4495,7 +4627,7 @@ class Integration:
                 num_instances=4,
             ))
         """
-        config: Dict[str, Any] = {
+        config: dict[str, Any] = {
             "_integration_type": "render",
             "enabled": True,
             "region": region,
@@ -4514,8 +4646,8 @@ class Integration:
     @staticmethod
     def versioning(
         strategy: str = "header",
-        versions: Optional[List[str]] = None,
-        default_version: Optional[str] = None,
+        versions: list[str] | None = None,
+        default_version: str | None = None,
         require_version: bool = False,
         header_name: str = "X-API-Version",
         query_param: str = "api_version",
@@ -4523,19 +4655,19 @@ class Integration:
         url_segment_index: int = 0,
         strip_version_from_path: bool = True,
         media_type_param: str = "version",
-        channels: Optional[Dict[str, str]] = None,
+        channels: dict[str, str] | None = None,
         channel_header: str = "X-API-Channel",
         channel_query_param: str = "api_channel",
         negotiation_mode: str = "exact",
-        sunset_policy: Optional[Any] = None,
-        sunset_schedules: Optional[Dict[str, Dict[str, Any]]] = None,
+        sunset_policy: Any | None = None,
+        sunset_schedules: dict[str, dict[str, Any]] | None = None,
         include_version_header: bool = True,
         response_header_name: str = "X-API-Version",
         include_supported_versions_header: bool = True,
-        neutral_paths: Optional[List[str]] = None,
+        neutral_paths: list[str] | None = None,
         enabled: bool = True,
         **kwargs,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Configure API versioning integration.
 
@@ -4601,7 +4733,7 @@ class Integration:
                 ))
             )
         """
-        config: Dict[str, Any] = {
+        config: dict[str, Any] = {
             "_integration_type": "versioning",
             "enabled": enabled,
             "strategy": strategy,
@@ -4621,8 +4753,12 @@ class Integration:
             "include_version_header": include_version_header,
             "response_header_name": response_header_name,
             "include_supported_versions_header": include_supported_versions_header,
-            "neutral_paths": neutral_paths or [
-                "/_health", "/openapi.json", "/docs", "/redoc",
+            "neutral_paths": neutral_paths
+            or [
+                "/_health",
+                "/openapi.json",
+                "/docs",
+                "/redoc",
             ],
             **kwargs,
         }
@@ -4635,45 +4771,45 @@ class Integration:
 
 class Workspace:
     """Fluent workspace builder."""
-    
+
     def __init__(self, name: str, version: str = "0.1.0", description: str = ""):
         self._name = name
         self._version = version
         self._description = description
         self._runtime = RuntimeConfig()
-        self._modules: List[ModuleConfig] = []
-        self._integrations: Dict[str, Dict[str, Any]] = {}
-        self._sessions_config: Optional[Dict[str, Any]] = None
-        self._security_config: Optional[Dict[str, Any]] = None
-        self._telemetry_config: Optional[Dict[str, Any]] = None
-        self._database_config: Optional[Dict[str, Any]] = None
-        self._mail_config: Optional[Dict[str, Any]] = None
-        self._mlops_config: Optional[Dict[str, Any]] = None
-        self._cache_config: Optional[Dict[str, Any]] = None
-        self._i18n_config: Optional[Dict[str, Any]] = None
-        self._tasks_config: Optional[Dict[str, Any]] = None
-        self._storage_config: Optional[Dict[str, Any]] = None
-        self._render_config: Optional[Dict[str, Any]] = None
-        self._starter: Optional[str] = None
-        self._middleware_chain: Optional[List[Dict[str, Any]]] = None
-        self._on_startup: Optional[str] = None
-        self._on_shutdown: Optional[str] = None
-        self._env_config: Optional["AquilaConfig"] = None  # pyconfig bridge
-    
+        self._modules: list[ModuleConfig] = []
+        self._integrations: dict[str, dict[str, Any]] = {}
+        self._sessions_config: dict[str, Any] | None = None
+        self._security_config: dict[str, Any] | None = None
+        self._telemetry_config: dict[str, Any] | None = None
+        self._database_config: dict[str, Any] | None = None
+        self._mail_config: dict[str, Any] | None = None
+        self._mlops_config: dict[str, Any] | None = None
+        self._cache_config: dict[str, Any] | None = None
+        self._i18n_config: dict[str, Any] | None = None
+        self._tasks_config: dict[str, Any] | None = None
+        self._storage_config: dict[str, Any] | None = None
+        self._render_config: dict[str, Any] | None = None
+        self._starter: str | None = None
+        self._middleware_chain: list[dict[str, Any]] | None = None
+        self._on_startup: str | None = None
+        self._on_shutdown: str | None = None
+        self._env_config: AquilaConfig | None = None  # pyconfig bridge
+
     def on_startup(self, hook: str) -> "Workspace":
         """
         Register a workspace-level startup hook.
-        
+
         Args:
             hook: Import path to a callable in "module:func" format.
         """
         self._on_startup = hook
         return self
-        
+
     def on_shutdown(self, hook: str) -> "Workspace":
         """
         Register a workspace-level shutdown hook.
-        
+
         Args:
             hook: Import path to a callable in "module:func" format.
         """
@@ -4721,26 +4857,26 @@ class Workspace:
         """
         self._env_config = config_cls
         return self
-    
+
     def starter(self, module_name: str) -> "Workspace":
         """
         Register the starter controller module.
-        
+
         The starter controller provides the welcome page at ``/``
         for new workspaces. When registered via ``.starter()``, the
         server loads it from the workspace root instead of relying
         on hard-coded debug-mode logic.
-        
+
         Delete the starter file and this line once your own modules
         provide a ``GET /`` route.
-        
+
         Args:
             module_name: Python module name (e.g. ``"starter"``).
                          Resolved relative to the workspace root.
         """
         self._starter = module_name
         return self
-    
+
     def middleware(self, chain: "Integration.middleware.Chain") -> "Workspace":
         """
         Configure the middleware chain for this workspace.
@@ -4772,7 +4908,7 @@ class Workspace:
         """
         self._middleware_chain = chain.to_list()
         return self
-    
+
     def runtime(
         self,
         mode: str = "dev",
@@ -4790,13 +4926,13 @@ class Workspace:
             workers=workers,
         )
         return self
-    
+
     def module(self, module: Module) -> "Workspace":
         """Add a module to the workspace."""
         self._modules.append(module.build())
         return self
-    
-    def integrate(self, integration: "Dict[str, Any] | Any") -> "Workspace":
+
+    def integrate(self, integration: "dict[str, Any] | Any") -> "Workspace":
         """
         Add an integration.
 
@@ -4888,31 +5024,27 @@ class Workspace:
             self._database_config = integration
         else:
             # Generic integration
-            for key, value in integration.items():
+            for key, _value in integration.items():
                 if key != "enabled":
                     self._integrations[key] = integration
                     break
         return self
-    
-    def sessions(self, policies: Optional[List[Any]] = None, **kwargs) -> "Workspace":
+
+    def sessions(self, policies: list[Any] | None = None, **kwargs) -> "Workspace":
         """
         Configure session management.
-        
+
         Args:
             policies: List of SessionPolicy instances
             **kwargs: Additional session configuration
         """
-        self._sessions_config = {
-            "enabled": True,
-            "policies": policies or [],
-            **kwargs
-        }
+        self._sessions_config = {"enabled": True, "policies": policies or [], **kwargs}
         return self
-    
+
     def i18n(
         self,
         default_locale: str = "en",
-        available_locales: Optional[List[str]] = None,
+        available_locales: list[str] | None = None,
         **kwargs,
     ) -> "Workspace":
         """
@@ -4981,7 +5113,7 @@ class Workspace:
     def storage(
         self,
         default: str = "default",
-        backends: Optional[Dict[str, Any]] = None,
+        backends: dict[str, Any] | None = None,
         **kwargs,
     ) -> "Workspace":
         """
@@ -5030,17 +5162,17 @@ class Workspace:
         https_redirect: bool = False,
         hsts: bool = True,
         proxy_fix: bool = False,
-        **kwargs
+        **kwargs,
     ) -> "Workspace":
         """
         Configure security features.
-        
+
         These flags control which security middleware are automatically
         added to the middleware stack during server startup.
 
         For fine-grained control, use Integration.cors(), Integration.csp(),
         Integration.rate_limit() instead (or in addition).
-        
+
         Args:
             cors_enabled: Enable CORS middleware (default origins: *)
             csrf_protection: Enable CSRF protection
@@ -5060,20 +5192,16 @@ class Workspace:
             "https_redirect": https_redirect,
             "hsts": hsts,
             "proxy_fix": proxy_fix,
-            **kwargs
+            **kwargs,
         }
         return self
-    
+
     def telemetry(
-        self,
-        tracing_enabled: bool = False,
-        metrics_enabled: bool = True,
-        logging_enabled: bool = True,
-        **kwargs
+        self, tracing_enabled: bool = False, metrics_enabled: bool = True, logging_enabled: bool = True, **kwargs
     ) -> "Workspace":
         """
         Configure telemetry and observability.
-        
+
         Args:
             tracing_enabled: Enable distributed tracing
             metrics_enabled: Enable metrics collection
@@ -5085,15 +5213,15 @@ class Workspace:
             "tracing_enabled": tracing_enabled,
             "metrics_enabled": metrics_enabled,
             "logging_enabled": logging_enabled,
-            **kwargs
+            **kwargs,
         }
         return self
-    
+
     def database(
         self,
-        url: Optional[str] = None,
+        url: str | None = None,
         *,
-        config: Optional[Any] = None,
+        config: Any | None = None,
         auto_connect: bool = True,
         auto_create: bool = True,
         auto_migrate: bool = False,
@@ -5102,12 +5230,12 @@ class Workspace:
     ) -> "Workspace":
         """
         Configure global database for the workspace.
-        
+
         This sets the default database for all modules.
         Individual modules can override with Module.database().
-        
+
         Accepts either a URL string or a typed DatabaseConfig object.
-        
+
         Args:
             url: Database URL (backward compatible)
             config: Typed DatabaseConfig (SqliteConfig, PostgresConfig,
@@ -5117,11 +5245,11 @@ class Workspace:
             auto_migrate: Run pending migrations on startup
             migrations_dir: Migration files directory
             **kwargs: Additional database options
-            
+
         Example:
             ```python
             from aquilia.db.configs import PostgresConfig
-            
+
             workspace = (
                 Workspace("myapp")
                 .database(config=PostgresConfig(
@@ -5132,7 +5260,7 @@ class Workspace:
                 ))
                 .module(Module("blog").register_models("models/blog.amdl"))
             )
-            
+
             # Or with URL (backward compatible):
             workspace = (
                 Workspace("myapp")
@@ -5142,12 +5270,14 @@ class Workspace:
         """
         if config is not None:
             self._database_config = config.to_dict()
-            self._database_config.update({
-                "auto_connect": auto_connect,
-                "auto_create": auto_create,
-                "auto_migrate": auto_migrate,
-                "migrations_dir": migrations_dir,
-            })
+            self._database_config.update(
+                {
+                    "auto_connect": auto_connect,
+                    "auto_create": auto_create,
+                    "auto_migrate": auto_migrate,
+                    "migrations_dir": migrations_dir,
+                }
+            )
             self._database_config.update(kwargs)
         else:
             self._database_config = {
@@ -5160,7 +5290,7 @@ class Workspace:
                 **kwargs,
             }
         return self
-    
+
     def mlops(
         self,
         enabled: bool = True,
@@ -5213,20 +5343,20 @@ class Workspace:
         )
         self._mlops_config = config
         self._integrations["mlops"] = config
-        
+
         if enabled:
             # Auto-register MLOps lifecycle hooks if not already set
             if not self._on_startup:
                 self.on_startup("aquilia.mlops.engine.lifecycle:mlops_on_startup")
             if not self._on_shutdown:
                 self.on_shutdown("aquilia.mlops.engine.lifecycle:mlops_on_shutdown")
-                
+
         return self
-    
-    def to_dict(self) -> Dict[str, Any]:
+
+    def to_dict(self) -> dict[str, Any]:
         """
         Convert workspace to dictionary format compatible with ConfigLoader.
-        
+
         Returns:
             Configuration dictionary
         """
@@ -5250,10 +5380,11 @@ class Workspace:
             "on_startup": self._on_startup,
             "on_shutdown": self._on_shutdown,
         }
-        
+
         # Merge env_config (pyconfig bridge) if provided
         if self._env_config is not None:
             import os
+
             env_cfg = self._env_config
             # If it's a class (not instance), resolve for current environment
             if isinstance(env_cfg, type):
@@ -5312,9 +5443,9 @@ class Workspace:
         if self._storage_config:
             config["storage"] = self._storage_config
             config["integrations"]["storage"] = self._storage_config
-        
+
         return config
-    
+
     def __repr__(self) -> str:
         return f"Workspace(name='{self._name}', version='{self._version}', modules={len(self._modules)})"
 
@@ -5330,67 +5461,176 @@ __all__ = [
 
 # Re-export typed integration types for convenience in workspace.py
 try:
+    from aquilia.integrations import (
+        AdminAudit as AdminAudit,
+    )
+    from aquilia.integrations import (
+        AdminContainers as AdminContainers,
+    )
+    from aquilia.integrations import (
+        AdminIntegration as AdminIntegration,
+    )
+    from aquilia.integrations import (
+        AdminModules as AdminModules,
+    )
+    from aquilia.integrations import (
+        AdminMonitoring as AdminMonitoring,
+    )
+    from aquilia.integrations import (
+        AdminPods as AdminPods,
+    )
+    from aquilia.integrations import (
+        AdminSecurity as AdminSecurity,
+    )
+    from aquilia.integrations import (
+        AdminSidebar as AdminSidebar,
+    )
+    from aquilia.integrations import (
+        AuthIntegration as AuthIntegration,
+    )
+    from aquilia.integrations import (
+        CacheIntegration as CacheIntegration,
+    )
+    from aquilia.integrations import (
+        ConsoleProvider as ConsoleProvider,
+    )
+    from aquilia.integrations import (
+        CorsIntegration as CorsIntegration,
+    )
+    from aquilia.integrations import (
+        CspIntegration as CspIntegration,
+    )
+    from aquilia.integrations import (
+        CsrfIntegration as CsrfIntegration,
+    )
+    from aquilia.integrations import (
+        DatabaseIntegration as DatabaseIntegration,
+    )
+    from aquilia.integrations import (
+        DiIntegration as DiIntegration,
+    )
+    from aquilia.integrations import (
+        FaultHandlingIntegration as FaultHandlingIntegration,
+    )
+    from aquilia.integrations import (
+        FileProvider as FileProvider,
+    )
+    from aquilia.integrations import (
+        I18nIntegration as I18nIntegration,
+    )
     from aquilia.integrations import (  # noqa: E402
         IntegrationConfig as IntegrationConfig,
-        AuthIntegration as AuthIntegration,
-        DatabaseIntegration as DatabaseIntegration,
-        SessionIntegration as SessionIntegration,
-        MailIntegration as MailIntegration,
-        MailAuth as MailAuth,
-        SmtpProvider as SmtpProvider,
-        SesProvider as SesProvider,
-        SendGridProvider as SendGridProvider,
-        ConsoleProvider as ConsoleProvider,
-        FileProvider as FileProvider,
-        AdminIntegration as AdminIntegration,
-        AdminModules as AdminModules,
-        AdminAudit as AdminAudit,
-        AdminMonitoring as AdminMonitoring,
-        AdminSidebar as AdminSidebar,
-        AdminContainers as AdminContainers,
-        AdminPods as AdminPods,
-        AdminSecurity as AdminSecurity,
-        MiddlewareChain as MiddlewareChain,
-        MiddlewareEntry as MiddlewareEntry,
-        CacheIntegration as CacheIntegration,
-        TasksIntegration as TasksIntegration,
-        StorageIntegration as StorageIntegration,
-        TemplatesIntegration as TemplatesIntegration,
-        CorsIntegration as CorsIntegration,
-        CspIntegration as CspIntegration,
-        RateLimitIntegration as RateLimitIntegration,
-        CsrfIntegration as CsrfIntegration,
-        OpenAPIIntegration as OpenAPIIntegration,
-        I18nIntegration as I18nIntegration,
-        MLOpsIntegration as MLOpsIntegration,
-        VersioningIntegration as VersioningIntegration,
-        RenderIntegration as RenderIntegration,
+    )
+    from aquilia.integrations import (
         LoggingIntegration as LoggingIntegration,
-        StaticFilesIntegration as StaticFilesIntegration,
-        DiIntegration as DiIntegration,
-        RoutingIntegration as RoutingIntegration,
-        FaultHandlingIntegration as FaultHandlingIntegration,
+    )
+    from aquilia.integrations import (
+        MailAuth as MailAuth,
+    )
+    from aquilia.integrations import (
+        MailIntegration as MailIntegration,
+    )
+    from aquilia.integrations import (
+        MiddlewareChain as MiddlewareChain,
+    )
+    from aquilia.integrations import (
+        MiddlewareEntry as MiddlewareEntry,
+    )
+    from aquilia.integrations import (
+        MLOpsIntegration as MLOpsIntegration,
+    )
+    from aquilia.integrations import (
+        OpenAPIIntegration as OpenAPIIntegration,
+    )
+    from aquilia.integrations import (
         PatternsIntegration as PatternsIntegration,
+    )
+    from aquilia.integrations import (
+        RateLimitIntegration as RateLimitIntegration,
+    )
+    from aquilia.integrations import (
         RegistryIntegration as RegistryIntegration,
+    )
+    from aquilia.integrations import (
+        RenderIntegration as RenderIntegration,
+    )
+    from aquilia.integrations import (
+        RoutingIntegration as RoutingIntegration,
+    )
+    from aquilia.integrations import (
+        SendGridProvider as SendGridProvider,
+    )
+    from aquilia.integrations import (
         SerializersIntegration as SerializersIntegration,
     )
+    from aquilia.integrations import (
+        SesProvider as SesProvider,
+    )
+    from aquilia.integrations import (
+        SessionIntegration as SessionIntegration,
+    )
+    from aquilia.integrations import (
+        SmtpProvider as SmtpProvider,
+    )
+    from aquilia.integrations import (
+        StaticFilesIntegration as StaticFilesIntegration,
+    )
+    from aquilia.integrations import (
+        StorageIntegration as StorageIntegration,
+    )
+    from aquilia.integrations import (
+        TasksIntegration as TasksIntegration,
+    )
+    from aquilia.integrations import (
+        TemplatesIntegration as TemplatesIntegration,
+    )
+    from aquilia.integrations import (
+        VersioningIntegration as VersioningIntegration,
+    )
+
     __all__ += [
         "IntegrationConfig",
-        "AuthIntegration", "DatabaseIntegration", "SessionIntegration",
-        "MailIntegration", "MailAuth", "SmtpProvider", "SesProvider",
-        "SendGridProvider", "ConsoleProvider", "FileProvider",
-        "AdminIntegration", "AdminModules", "AdminAudit", "AdminMonitoring",
-        "AdminSidebar", "AdminContainers", "AdminPods", "AdminSecurity",
-        "MiddlewareChain", "MiddlewareEntry",
-        "CacheIntegration", "TasksIntegration", "StorageIntegration",
+        "AuthIntegration",
+        "DatabaseIntegration",
+        "SessionIntegration",
+        "MailIntegration",
+        "MailAuth",
+        "SmtpProvider",
+        "SesProvider",
+        "SendGridProvider",
+        "ConsoleProvider",
+        "FileProvider",
+        "AdminIntegration",
+        "AdminModules",
+        "AdminAudit",
+        "AdminMonitoring",
+        "AdminSidebar",
+        "AdminContainers",
+        "AdminPods",
+        "AdminSecurity",
+        "MiddlewareChain",
+        "MiddlewareEntry",
+        "CacheIntegration",
+        "TasksIntegration",
+        "StorageIntegration",
         "TemplatesIntegration",
-        "CorsIntegration", "CspIntegration", "RateLimitIntegration",
+        "CorsIntegration",
+        "CspIntegration",
+        "RateLimitIntegration",
         "CsrfIntegration",
-        "OpenAPIIntegration", "I18nIntegration", "MLOpsIntegration",
-        "VersioningIntegration", "RenderIntegration", "LoggingIntegration",
+        "OpenAPIIntegration",
+        "I18nIntegration",
+        "MLOpsIntegration",
+        "VersioningIntegration",
+        "RenderIntegration",
+        "LoggingIntegration",
         "StaticFilesIntegration",
-        "DiIntegration", "RoutingIntegration", "FaultHandlingIntegration",
-        "PatternsIntegration", "RegistryIntegration", "SerializersIntegration",
+        "DiIntegration",
+        "RoutingIntegration",
+        "FaultHandlingIntegration",
+        "PatternsIntegration",
+        "RegistryIntegration",
+        "SerializersIntegration",
     ]
 except ImportError:
     pass
@@ -5399,10 +5639,11 @@ except ImportError:
 try:
     from aquilia.pyconfig import (
         AquilaConfig,
-        Secret,
         Env,
+        Secret,
         section,
     )
+
     __all__ += ["AquilaConfig", "Secret", "Env", "section"]
 except ImportError:
     pass
@@ -5411,11 +5652,12 @@ except ImportError:
 try:
     from aquilia.db.configs import (
         DatabaseConfig,
-        SqliteConfig,
-        PostgresConfig,
         MysqlConfig,
         OracleConfig,
+        PostgresConfig,
+        SqliteConfig,
     )
+
     __all__ += [
         "DatabaseConfig",
         "SqliteConfig",

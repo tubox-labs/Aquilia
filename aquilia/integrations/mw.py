@@ -5,7 +5,7 @@ Middleware chain integration — typed middleware configuration.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
@@ -15,10 +15,10 @@ class MiddlewareEntry:
     path: str
     priority: int = 50
     scope: str = "global"
-    name: Optional[str] = None
-    kwargs: Dict[str, Any] = field(default_factory=dict)
+    name: str | None = None
+    kwargs: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "path": self.path,
             "priority": self.priority,
@@ -47,7 +47,7 @@ class MiddlewareChain(list):
         *,
         priority: int = 50,
         scope: str = "global",
-        name: Optional[str] = None,
+        name: str | None = None,
         **kwargs: Any,
     ) -> MiddlewareChain:
         entry = MiddlewareEntry(
@@ -60,7 +60,7 @@ class MiddlewareChain(list):
         self.append(entry)
         return self
 
-    def to_list(self) -> List[Dict[str, Any]]:
+    def to_list(self) -> list[dict[str, Any]]:
         return [e.to_dict() for e in self]
 
     # ── Presets ───────────────────────────────────────────────────────

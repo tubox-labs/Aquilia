@@ -21,21 +21,18 @@ import logging
 import re
 import sqlite3
 import time
+from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any
 
 from ._config import SqlitePoolConfig
 from ._errors import (
-    SqliteConnectionError,
-    SqliteError,
-    SqliteQueryError,
     map_sqlite_error,
 )
 from ._metrics import SqliteMetrics
-from ._pragma import apply_pragmas, build_pragmas
-from ._rows import Row, row_factory
+from ._rows import Row
 from ._statement_cache import CacheStats, StatementCache
-from ._transaction import TransactionContext, SavepointContext
+from ._transaction import SavepointContext, TransactionContext
 
 logger = logging.getLogger("aquilia.sqlite.connection")
 
@@ -107,8 +104,8 @@ class AsyncConnection:
     async def execute(
         self,
         sql: str,
-        params: Optional[Sequence[Any]] = None,
-    ) -> "AsyncCursor":
+        params: Sequence[Any] | None = None,
+    ) -> AsyncCursor:
         """
         Execute a single SQL statement.
 
@@ -196,7 +193,7 @@ class AsyncConnection:
     async def fetch_all(
         self,
         sql: str,
-        params: Optional[Sequence[Any]] = None,
+        params: Sequence[Any] | None = None,
     ) -> list[Row]:
         """
         Execute and return all rows.
@@ -231,7 +228,7 @@ class AsyncConnection:
     async def fetch_one(
         self,
         sql: str,
-        params: Optional[Sequence[Any]] = None,
+        params: Sequence[Any] | None = None,
     ) -> Row | None:
         """
         Execute and return the first row, or None.
@@ -266,7 +263,7 @@ class AsyncConnection:
     async def fetch_val(
         self,
         sql: str,
-        params: Optional[Sequence[Any]] = None,
+        params: Sequence[Any] | None = None,
         *,
         column: int = 0,
     ) -> Any:
@@ -298,6 +295,7 @@ class AsyncConnection:
         mode = mode.upper()
         if mode not in ("DEFERRED", "IMMEDIATE", "EXCLUSIVE"):
             from aquilia.faults.domains import ConfigInvalidFault
+
             raise ConfigInvalidFault(
                 key="sqlite.transaction_mode",
                 reason=f"Invalid transaction mode: {mode!r}",
@@ -334,6 +332,7 @@ class AsyncConnection:
         """
         if not _SP_NAME_RE.match(name):
             from aquilia.faults.domains import QueryFault
+
             raise QueryFault(message=f"Invalid savepoint name: {name!r}")
         try:
             await self._run(self._raw.execute, f'SAVEPOINT "{name}"')
@@ -344,6 +343,7 @@ class AsyncConnection:
         """Release (commit) a savepoint."""
         if not _SP_NAME_RE.match(name):
             from aquilia.faults.domains import QueryFault
+
             raise QueryFault(message=f"Invalid savepoint name: {name!r}")
         try:
             await self._run(self._raw.execute, f'RELEASE SAVEPOINT "{name}"')
@@ -354,6 +354,7 @@ class AsyncConnection:
         """Rollback to a savepoint."""
         if not _SP_NAME_RE.match(name):
             from aquilia.faults.domains import QueryFault
+
             raise QueryFault(message=f"Invalid savepoint name: {name!r}")
         try:
             await self._run(self._raw.execute, f'ROLLBACK TO SAVEPOINT "{name}"')
@@ -397,8 +398,7 @@ class AsyncConnection:
     async def get_tables(self) -> list[str]:
         """List all user table names."""
         rows = await self.fetch_all(
-            "SELECT name FROM sqlite_master WHERE type='table' "
-            "AND name NOT LIKE 'sqlite_%' ORDER BY name"
+            "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name"
         )
         return [row[0] for row in rows]
 
@@ -407,13 +407,15 @@ class AsyncConnection:
         rows = await self.fetch_all(f'PRAGMA table_info("{table_name}")')
         columns = []
         for row in rows:
-            columns.append({
-                "name": row["name"],
-                "type": row["type"],
-                "nullable": not row["notnull"],
-                "default": row["dflt_value"],
-                "primary_key": bool(row["pk"]),
-            })
+            columns.append(
+                {
+                    "name": row["name"],
+                    "type": row["type"],
+                    "nullable": not row["notnull"],
+                    "default": row["dflt_value"],
+                    "primary_key": bool(row["pk"]),
+                }
+            )
         return columns
 
     async def get_indexes(self, table_name: str) -> list[dict[str, Any]]:
@@ -424,11 +426,13 @@ class AsyncConnection:
             idx_name = row["name"]
             idx_info = await self.fetch_all(f'PRAGMA index_info("{idx_name}")')
             columns = [i["name"] for i in idx_info]
-            indexes.append({
-                "name": idx_name,
-                "unique": bool(row["unique"]),
-                "columns": columns,
-            })
+            indexes.append(
+                {
+                    "name": idx_name,
+                    "unique": bool(row["unique"]),
+                    "columns": columns,
+                }
+            )
         return indexes
 
     async def get_foreign_keys(self, table_name: str) -> list[dict[str, Any]]:
@@ -436,11 +440,13 @@ class AsyncConnection:
         rows = await self.fetch_all(f'PRAGMA foreign_key_list("{table_name}")')
         fks = []
         for row in rows:
-            fks.append({
-                "from_column": row["from"],
-                "to_table": row["table"],
-                "to_column": row["to"],
-            })
+            fks.append(
+                {
+                    "from_column": row["from"],
+                    "to_table": row["table"],
+                    "to_column": row["to"],
+                }
+            )
         return fks
 
     # ── Backup ───────────────────────────────────────────────────────
@@ -460,10 +466,7 @@ class AsyncConnection:
             target: File path or another ``AsyncConnection``.
             pages: Pages per step (-1 = all at once).
         """
-        if isinstance(target, AsyncConnection):
-            target_raw = target._raw
-        else:
-            target_raw = sqlite3.connect(target)
+        target_raw = target._raw if isinstance(target, AsyncConnection) else sqlite3.connect(target)
 
         try:
             await self._run(self._raw.backup, target_raw, pages=pages)

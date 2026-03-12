@@ -14,8 +14,8 @@ from __future__ import annotations
 
 import warnings
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
 from enum import Enum
+from typing import Any
 
 warnings.warn(
     "The AMDL AST nodes module (aquilia.models.ast_nodes) is deprecated. "
@@ -28,6 +28,7 @@ warnings.warn(
 
 class FieldType(str, Enum):
     """Built-in AMDL field types."""
+
     AUTO = "Auto"
     INT = "Int"
     BIGINT = "BigInt"
@@ -48,6 +49,7 @@ class FieldType(str, Enum):
 
 class LinkKind(str, Enum):
     """Relationship cardinality."""
+
     ONE = "ONE"
     MANY = "MANY"
     MANY_THROUGH = "MANY_THROUGH"
@@ -61,16 +63,17 @@ class SlotNode:
     Example AMDL:
         slot username :: Str [max=150, unique]
     """
+
     name: str
     field_type: FieldType
-    type_params: Optional[Tuple[Any, ...]] = None  # e.g., Decimal(10,2) -> (10, 2)
-    modifiers: Dict[str, Any] = field(default_factory=dict)
+    type_params: tuple[Any, ...] | None = None  # e.g., Decimal(10,2) -> (10, 2)
+    modifiers: dict[str, Any] = field(default_factory=dict)
     is_pk: bool = False
     is_unique: bool = False
     is_nullable: bool = False
-    max_length: Optional[int] = None
-    default_expr: Optional[str] = None  # e.g., "now_utc()"
-    note: Optional[str] = None
+    max_length: int | None = None
+    default_expr: str | None = None  # e.g., "now_utc()"
+    note: str | None = None
     line_number: int = 0
     source_file: str = ""
 
@@ -83,13 +86,14 @@ class LinkNode:
     Example AMDL:
         link profile -> ONE Profile [fk=user_id, back=user]
     """
+
     name: str
     kind: LinkKind
     target_model: str
-    fk_field: Optional[str] = None
-    back_name: Optional[str] = None
-    through_model: Optional[str] = None
-    modifiers: Dict[str, Any] = field(default_factory=dict)
+    fk_field: str | None = None
+    back_name: str | None = None
+    through_model: str | None = None
+    modifiers: dict[str, Any] = field(default_factory=dict)
     line_number: int = 0
     source_file: str = ""
 
@@ -102,9 +106,10 @@ class IndexNode:
     Example AMDL:
         index [username, email] unique
     """
-    fields: List[str] = field(default_factory=list)
+
+    fields: list[str] = field(default_factory=list)
     is_unique: bool = False
-    name: Optional[str] = None
+    name: str | None = None
     line_number: int = 0
     source_file: str = ""
 
@@ -117,6 +122,7 @@ class HookNode:
     Example AMDL:
         hook before_save -> hash_password
     """
+
     event: str  # e.g., "before_save", "after_delete", "validate"
     handler_name: str
     line_number: int = 0
@@ -131,6 +137,7 @@ class MetaNode:
     Example AMDL:
         meta table = "aq_user"
     """
+
     key: str
     value: str
     line_number: int = 0
@@ -145,6 +152,7 @@ class NoteNode:
     Example AMDL:
         note "This model stores user accounts"
     """
+
     text: str
     line_number: int = 0
     source_file: str = ""
@@ -157,13 +165,14 @@ class ModelNode:
 
     Contains all slots, links, indexes, hooks, meta, and notes.
     """
+
     name: str
-    slots: List[SlotNode] = field(default_factory=list)
-    links: List[LinkNode] = field(default_factory=list)
-    indexes: List[IndexNode] = field(default_factory=list)
-    hooks: List[HookNode] = field(default_factory=list)
-    meta: Dict[str, str] = field(default_factory=dict)
-    notes: List[str] = field(default_factory=list)
+    slots: list[SlotNode] = field(default_factory=list)
+    links: list[LinkNode] = field(default_factory=list)
+    indexes: list[IndexNode] = field(default_factory=list)
+    hooks: list[HookNode] = field(default_factory=list)
+    meta: dict[str, str] = field(default_factory=dict)
+    notes: list[str] = field(default_factory=list)
     source_file: str = ""
     start_line: int = 0
     end_line: int = 0
@@ -174,14 +183,14 @@ class ModelNode:
         return self.meta.get("table", self.name.lower())
 
     @property
-    def pk_slot(self) -> Optional[SlotNode]:
+    def pk_slot(self) -> SlotNode | None:
         """Get primary key slot, if any."""
         for s in self.slots:
             if s.is_pk:
                 return s
         return None
 
-    def get_slot(self, name: str) -> Optional[SlotNode]:
+    def get_slot(self, name: str) -> SlotNode | None:
         """Find slot by name."""
         for s in self.slots:
             if s.name == name:
@@ -208,10 +217,7 @@ class ModelNode:
                 }
                 for s in self.slots
             ],
-            "indexes": [
-                {"fields": idx.fields, "unique": idx.is_unique}
-                for idx in self.indexes
-            ],
+            "indexes": [{"fields": idx.fields, "unique": idx.is_unique} for idx in self.indexes],
         }
         raw = json.dumps(data, sort_keys=True)
         return hashlib.sha256(raw.encode()).hexdigest()[:16]
@@ -222,6 +228,7 @@ class AMDLFile:
     """
     Represents a parsed `.amdl` file containing one or more models.
     """
+
     path: str
-    models: List[ModelNode] = field(default_factory=list)
-    errors: List[str] = field(default_factory=list)
+    models: list[ModelNode] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)

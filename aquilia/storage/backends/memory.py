@@ -15,17 +15,10 @@ Usage::
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from datetime import datetime, timezone
 from typing import (
-    Any,
-    AsyncIterator,
     BinaryIO,
-    Dict,
-    List,
-    Optional,
-    Set,
-    Tuple,
-    Union,
 )
 
 from ..base import (
@@ -48,10 +41,10 @@ class MemoryStorage(StorageBackend):
 
     __slots__ = ("_config", "_store", "_meta")
 
-    def __init__(self, config: Optional[MemoryConfig] = None) -> None:
+    def __init__(self, config: MemoryConfig | None = None) -> None:
         self._config = config or MemoryConfig()
-        self._store: Dict[str, bytes] = {}
-        self._meta: Dict[str, StorageMetadata] = {}
+        self._store: dict[str, bytes] = {}
+        self._meta: dict[str, StorageMetadata] = {}
 
     @property
     def backend_name(self) -> str:
@@ -74,10 +67,10 @@ class MemoryStorage(StorageBackend):
     async def save(
         self,
         name: str,
-        content: Union[bytes, BinaryIO, AsyncIterator[bytes], StorageFile],
+        content: bytes | BinaryIO | AsyncIterator[bytes] | StorageFile,
         *,
-        content_type: Optional[str] = None,
-        metadata: Optional[Dict[str, str]] = None,
+        content_type: str | None = None,
+        metadata: dict[str, str] | None = None,
         overwrite: bool = False,
     ) -> str:
         name = self._normalize_path(name)
@@ -112,9 +105,7 @@ class MemoryStorage(StorageBackend):
     async def open(self, name: str, mode: str = "rb") -> StorageFile:
         name = self._normalize_path(name)
         if name not in self._store:
-            raise FileNotFoundError(
-                f"File not found: {name}", backend="memory", path=name
-            )
+            raise FileNotFoundError(f"File not found: {name}", backend="memory", path=name)
         return StorageFile(
             name=name,
             mode=mode,
@@ -133,20 +124,18 @@ class MemoryStorage(StorageBackend):
     async def stat(self, name: str) -> StorageMetadata:
         name = self._normalize_path(name)
         if name not in self._meta:
-            raise FileNotFoundError(
-                f"File not found: {name}", backend="memory", path=name
-            )
+            raise FileNotFoundError(f"File not found: {name}", backend="memory", path=name)
         return self._meta[name]
 
-    async def listdir(self, path: str = "") -> Tuple[List[str], List[str]]:
+    async def listdir(self, path: str = "") -> tuple[list[str], list[str]]:
         prefix = (path.rstrip("/") + "/") if path else ""
-        dirs: Set[str] = set()
-        files: List[str] = []
+        dirs: set[str] = set()
+        files: list[str] = []
 
         for key in self._store:
             if not key.startswith(prefix):
                 continue
-            relative = key[len(prefix):]
+            relative = key[len(prefix) :]
             if "/" in relative:
                 dirs.add(relative.split("/")[0])
             else:
@@ -157,12 +146,10 @@ class MemoryStorage(StorageBackend):
     async def size(self, name: str) -> int:
         name = self._normalize_path(name)
         if name not in self._store:
-            raise FileNotFoundError(
-                f"File not found: {name}", backend="memory", path=name
-            )
+            raise FileNotFoundError(f"File not found: {name}", backend="memory", path=name)
         return len(self._store[name])
 
-    async def url(self, name: str, expire: Optional[int] = None) -> str:
+    async def url(self, name: str, expire: int | None = None) -> str:
         name = self._normalize_path(name)
         return f"memory:///{name}"
 

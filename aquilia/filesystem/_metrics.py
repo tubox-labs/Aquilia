@@ -15,8 +15,7 @@ Design notes:
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass, field
-from typing import Dict
+from dataclasses import dataclass
 
 
 @dataclass
@@ -99,7 +98,7 @@ class FileSystemMetrics:
         """Record a failed operation."""
         self.errors += 1
 
-    def to_dict(self) -> Dict[str, int]:
+    def to_dict(self) -> dict[str, int]:
         """Export metrics as a dictionary."""
         return {
             "reads": self.reads,
@@ -116,16 +115,8 @@ class FileSystemMetrics:
             "write_latency_ns": self.write_latency_ns,
             "pool_submissions": self.pool_submissions,
             "pool_peak_active": self.pool_peak_active,
-            "avg_read_latency_us": (
-                self.read_latency_ns // (self.reads * 1000)
-                if self.reads > 0
-                else 0
-            ),
-            "avg_write_latency_us": (
-                self.write_latency_ns // (self.writes * 1000)
-                if self.writes > 0
-                else 0
-            ),
+            "avg_read_latency_us": (self.read_latency_ns // (self.reads * 1000) if self.reads > 0 else 0),
+            "avg_write_latency_us": (self.write_latency_ns // (self.writes * 1000) if self.writes > 0 else 0),
         }
 
     def reset(self) -> None:
@@ -164,7 +155,7 @@ class _Timer:
         self._start: int = 0
         self.elapsed_ns: int = 0
 
-    def __enter__(self) -> "_Timer":
+    def __enter__(self) -> _Timer:
         self._start = time.monotonic_ns()
         return self
 

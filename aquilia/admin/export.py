@@ -29,10 +29,11 @@ import csv
 import io
 import json
 import logging
+from collections.abc import Callable, Sequence
 from datetime import date, datetime, time
 from decimal import Decimal
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Type, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 if TYPE_CHECKING:
@@ -43,6 +44,7 @@ logger = logging.getLogger("aquilia.admin.export")
 
 class ExportFormat(Enum):
     """Supported export formats."""
+
     CSV = "csv"
     JSON = "json"
     XLSX = "xlsx"
@@ -108,12 +110,12 @@ class Exporter:
 
     def __init__(
         self,
-        model: Optional[Type[Model]] = None,
-        fields: Optional[List[str]] = None,
-        exclude: Optional[List[str]] = None,
-        headers: Optional[Dict[str, str]] = None,
-        formatters: Optional[Dict[str, Callable]] = None,
-        filename: Optional[str] = None,
+        model: type[Model] | None = None,
+        fields: list[str] | None = None,
+        exclude: list[str] | None = None,
+        headers: dict[str, str] | None = None,
+        formatters: dict[str, Callable] | None = None,
+        filename: str | None = None,
     ):
         self.model = model
         self.fields = fields or []
@@ -122,7 +124,7 @@ class Exporter:
         self.formatters = formatters or {}
         self.filename = filename
 
-    def get_fields(self, sample_row: Optional[Dict[str, Any]] = None) -> List[str]:
+    def get_fields(self, sample_row: dict[str, Any] | None = None) -> list[str]:
         """
         Determine which fields to export.
 
@@ -139,7 +141,7 @@ class Exporter:
             return [f for f in model_fields if f not in self.exclude]
 
         if sample_row:
-            return [k for k in sample_row.keys() if k not in self.exclude]
+            return [k for k in sample_row if k not in self.exclude]
 
         return []
 
@@ -332,20 +334,20 @@ class ExportRegistry:
     exporter instances from format names.
     """
 
-    _exporters: Dict[str, Type[Exporter]] = {}
+    _exporters: dict[str, type[Exporter]] = {}
 
     @classmethod
-    def register(cls, format_name: str, exporter_cls: Type[Exporter]) -> None:
+    def register(cls, format_name: str, exporter_cls: type[Exporter]) -> None:
         """Register an exporter class for a format."""
         cls._exporters[format_name.lower()] = exporter_cls
 
     @classmethod
-    def get(cls, format_name: str) -> Optional[Type[Exporter]]:
+    def get(cls, format_name: str) -> type[Exporter] | None:
         """Get an exporter class by format name."""
         return cls._exporters.get(format_name.lower())
 
     @classmethod
-    def create(cls, format_name: str, **kwargs) -> Optional[Exporter]:
+    def create(cls, format_name: str, **kwargs) -> Exporter | None:
         """Create an exporter instance by format name."""
         exporter_cls = cls.get(format_name)
         if exporter_cls:
@@ -353,7 +355,7 @@ class ExportRegistry:
         return None
 
     @classmethod
-    def available_formats(cls) -> List[str]:
+    def available_formats(cls) -> list[str]:
         """List all registered export format names."""
         return sorted(cls._exporters.keys())
 

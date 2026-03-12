@@ -9,23 +9,18 @@ Integrates fault handling with Aquilary Registry system:
 This module patches the RuntimeRegistry to use AquilaFaults.
 """
 
-from typing import List, Dict, Any
 from aquilia.faults import (
-    FaultEngine,
-    Fault,
     FaultDomain,
     Severity,
 )
 from aquilia.faults.domains import (
     RegistryFault,
-    DependencyCycleFault,
-    ManifestInvalidFault,
 )
 
 
 class ManifestLoadFault(RegistryFault):
     """Manifest loading failed."""
-    
+
     def __init__(self, path: str, reason: str):
         super().__init__(
             code="MANIFEST_LOAD_FAILED",
@@ -36,7 +31,7 @@ class ManifestLoadFault(RegistryFault):
 
 class AppContextInvalidFault(RegistryFault):
     """App context validation failed."""
-    
+
     def __init__(self, app_name: str, reason: str):
         super().__init__(
             code="APP_CONTEXT_INVALID",
@@ -47,8 +42,8 @@ class AppContextInvalidFault(RegistryFault):
 
 class RouteCompilationFault(RegistryFault):
     """Route compilation failed."""
-    
-    def __init__(self, errors: List[str]):
+
+    def __init__(self, errors: list[str]):
         super().__init__(
             code="ROUTE_COMPILATION_FAILED",
             message=f"Route compilation failed with {len(errors)} error(s)",
@@ -59,8 +54,8 @@ class RouteCompilationFault(RegistryFault):
 
 class DependencyResolutionFault(RegistryFault):
     """Dependency resolution failed."""
-    
-    def __init__(self, errors: List[str]):
+
+    def __init__(self, errors: list[str]):
         super().__init__(
             code="DEPENDENCY_RESOLUTION_FAILED",
             message=f"Dependency resolution failed with {len(errors)} error(s)",
@@ -72,7 +67,7 @@ class DependencyResolutionFault(RegistryFault):
 def patch_runtime_registry():
     """
     Patch RuntimeRegistry to emit structured faults.
-    
+
     Replaces bare exceptions with AquilaFaults:
     - ValueError → AppContextInvalidFault
     - RuntimeError (routes) → RouteCompilationFault
@@ -80,11 +75,11 @@ def patch_runtime_registry():
     - DependencyCycleError → DependencyCycleFault (already exists)
     """
     from aquilia.aquilary.core import RuntimeRegistry
-    
+
     # Store original methods
     original_compile_routes = RuntimeRegistry.compile_routes
     original_validate_dependencies = RuntimeRegistry.validate_dependencies
-    
+
     def patched_compile_routes(self):
         """Patched compile_routes with fault handling."""
         try:
@@ -96,7 +91,7 @@ def patch_runtime_registry():
                 errors = msg.split("\n")[1:]  # Skip first line
                 raise RouteCompilationFault(errors) from e
             raise
-    
+
     def patched_validate_dependencies(self):
         """Patched validate_dependencies with fault handling."""
         try:
@@ -112,7 +107,7 @@ def patch_runtime_registry():
                 errors = msg.split("\n")[1:]  # Skip first line
                 raise DependencyResolutionFault(errors) from e
             raise
-    
+
     # Apply patches
     RuntimeRegistry.compile_routes = patched_compile_routes
     RuntimeRegistry.validate_dependencies = patched_validate_dependencies
@@ -121,21 +116,21 @@ def patch_runtime_registry():
 def create_registry_fault_handler():
     """
     Create fault handler for registry operations.
-    
+
     Returns a handler that converts registry faults to structured responses.
     """
-    from aquilia.faults import FaultHandler, FaultContext, FaultResult, Resolved
-    
+    from aquilia.faults import FaultContext, FaultHandler, FaultResult, Resolved
+
     class RegistryFaultHandler(FaultHandler):
         """Handle registry-specific faults."""
-        
+
         def can_handle(self, ctx: FaultContext) -> bool:
             return ctx.fault.domain == FaultDomain.REGISTRY
-        
+
         async def handle(self, ctx: FaultContext) -> FaultResult:
             """Log registry fault and resolve with diagnostic info."""
             fault = ctx.fault
-            
+
             response = {
                 "error": "registry_fault",
                 "code": fault.code,
@@ -143,9 +138,9 @@ def create_registry_fault_handler():
                 "metadata": fault.metadata,
                 "trace_id": ctx.trace_id,
             }
-            
+
             return Resolved(response)
-    
+
     return RegistryFaultHandler()
 
 

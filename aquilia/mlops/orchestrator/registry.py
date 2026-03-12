@@ -21,7 +21,7 @@ import asyncio
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Type
+from typing import Any
 
 from ..runtime.base import ModelState
 
@@ -31,6 +31,7 @@ logger = logging.getLogger("aquilia.mlops.orchestrator.registry")
 @dataclass
 class ModelConfig:
     """Per-model configuration (from manifest or decorator)."""
+
     device: str = "auto"
     batch_size: int = 16
     max_batch_latency_ms: float = 50.0
@@ -38,10 +39,10 @@ class ModelConfig:
     workers: int = 4
     timeout_ms: float = 30000.0
     artifacts_dir: str = ""
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def from_dict(cls, d: Dict[str, Any]) -> "ModelConfig":
+    def from_dict(cls, d: dict[str, Any]) -> ModelConfig:
         return cls(
             device=d.get("device", "auto"),
             batch_size=d.get("batch_size", 16),
@@ -62,21 +63,22 @@ class ModelEntry:
     Tracks metadata, config, and lifecycle state without holding any
     loaded model reference (that's the loader's job).
     """
+
     name: str
     version: str
-    model_class: Any                          # The model class (AquiliaModel subclass or callable)
+    model_class: Any  # The model class (AquiliaModel subclass or callable)
     config: ModelConfig = field(default_factory=ModelConfig)
     state: ModelState = ModelState.UNLOADED
     registered_at: float = field(default_factory=time.time)
     supports_streaming: bool = False
-    tags: List[str] = field(default_factory=list)
+    tags: list[str] = field(default_factory=list)
 
     @property
     def key(self) -> str:
         """Unique key for this model version."""
         return f"{self.name}:{self.version}"
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize for API responses."""
         return {
             "name": self.name,
@@ -105,8 +107,8 @@ class ModelRegistry:
     """
 
     def __init__(self) -> None:
-        self._entries: Dict[str, ModelEntry] = {}   # key = "name:version"
-        self._active: Dict[str, str] = {}           # model_name → active version
+        self._entries: dict[str, ModelEntry] = {}  # key = "name:version"
+        self._active: dict[str, str] = {}  # model_name → active version
         self._lock = asyncio.Lock()
 
     # ── Registration ─────────────────────────────────────────────────
@@ -116,9 +118,9 @@ class ModelRegistry:
         name: str,
         model_class: Any,
         version: str = "v1",
-        config: Optional[Dict[str, Any]] = None,
+        config: dict[str, Any] | None = None,
         supports_streaming: bool = False,
-        tags: Optional[List[str]] = None,
+        tags: list[str] | None = None,
         set_active: bool = True,
     ) -> ModelEntry:
         """
@@ -157,9 +159,9 @@ class ModelRegistry:
         name: str,
         model_class: Any,
         version: str = "v1",
-        config: Optional[Dict[str, Any]] = None,
+        config: dict[str, Any] | None = None,
         supports_streaming: bool = False,
-        tags: Optional[List[str]] = None,
+        tags: list[str] | None = None,
         set_active: bool = True,
     ) -> ModelEntry:
         """Synchronous registration (for use at import time via decorators)."""
@@ -178,7 +180,7 @@ class ModelRegistry:
 
     # ── Lookup ───────────────────────────────────────────────────────
 
-    def get(self, name: str, version: Optional[str] = None) -> Optional[ModelEntry]:
+    def get(self, name: str, version: str | None = None) -> ModelEntry | None:
         """
         Get a model entry by name and optional version.
 
@@ -190,27 +192,23 @@ class ModelRegistry:
                 return None
         return self._entries.get(f"{name}:{version}")
 
-    def get_active_version(self, name: str) -> Optional[str]:
+    def get_active_version(self, name: str) -> str | None:
         """Get the active version for a model."""
         return self._active.get(name)
 
-    def list_models(self) -> List[str]:
+    def list_models(self) -> list[str]:
         """List all unique model names."""
         return list(self._active.keys())
 
-    def list_versions(self, name: str) -> List[str]:
+    def list_versions(self, name: str) -> list[str]:
         """List all versions of a model."""
-        return [
-            entry.version
-            for entry in self._entries.values()
-            if entry.name == name
-        ]
+        return [entry.version for entry in self._entries.values() if entry.name == name]
 
-    def list_entries(self) -> List[ModelEntry]:
+    def list_entries(self) -> list[ModelEntry]:
         """List all model entries."""
         return list(self._entries.values())
 
-    def has(self, name: str, version: Optional[str] = None) -> bool:
+    def has(self, name: str, version: str | None = None) -> bool:
         """Check if a model (and optionally a specific version) is registered."""
         if version:
             return f"{name}:{version}" in self._entries
@@ -251,7 +249,7 @@ class ModelRegistry:
                     del self._active[name]
         return True
 
-    def summary(self) -> Dict[str, Any]:
+    def summary(self) -> dict[str, Any]:
         """Summary for health/debug endpoints."""
         return {
             "total_models": len(self._active),

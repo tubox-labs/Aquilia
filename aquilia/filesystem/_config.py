@@ -19,7 +19,6 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
-from typing import Optional
 
 
 @dataclass(frozen=True, slots=True)
@@ -60,7 +59,7 @@ class FileSystemConfig:
     """Whether to follow symbolic links.  Default ``False`` prevents
     symlink attacks.  SEC-FS-05."""
 
-    sandbox_root: Optional[str] = None
+    sandbox_root: str | None = None
     """If set, all file operations are restricted to this directory tree.
     Paths outside the sandbox are rejected with ``FS_PATH_TRAVERSAL``.
     SEC-FS-03."""
@@ -82,7 +81,7 @@ class FileSystemConfig:
 
     # ── Temp Files ───────────────────────────────────────────────────────
 
-    temp_dir: Optional[str] = None
+    temp_dir: str | None = None
     """Directory for temporary files.  If ``None``, the system temp
     directory (``tempfile.gettempdir()``) is used."""
 
@@ -105,7 +104,7 @@ class FileSystemConfig:
         return min(8, (os.cpu_count() or 2) + 4)
 
     @classmethod
-    def from_dict(cls, data: dict) -> "FileSystemConfig":
+    def from_dict(cls, data: dict) -> FileSystemConfig:
         """Create config from a dictionary (e.g. from workspace config).
 
         Unknown keys are silently ignored for forward-compatibility.

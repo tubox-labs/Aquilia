@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, FrozenSet, List, Optional, Set, Tuple
+from typing import Any
 
 from .core import ApiVersion, VersionChannel, VersionStatus
 
@@ -33,14 +33,14 @@ class VersionNode:
     """
 
     version: ApiVersion
-    successor: Optional[ApiVersion] = None
-    predecessor: Optional[ApiVersion] = None
-    channels: Set[VersionChannel] = field(default_factory=set)
-    routes: Set[str] = field(default_factory=set)  # set of "METHOD /path" strings
-    controllers: Set[str] = field(default_factory=set)  # controller class names
-    deprecated_at: Optional[datetime] = None
-    sunset_at: Optional[datetime] = None
-    migration_url: Optional[str] = None
+    successor: ApiVersion | None = None
+    predecessor: ApiVersion | None = None
+    channels: set[VersionChannel] = field(default_factory=set)
+    routes: set[str] = field(default_factory=set)  # set of "METHOD /path" strings
+    controllers: set[str] = field(default_factory=set)  # controller class names
+    deprecated_at: datetime | None = None
+    sunset_at: datetime | None = None
+    migration_url: str | None = None
 
     @property
     def status(self) -> VersionStatus:
@@ -50,7 +50,7 @@ class VersionNode:
     def is_usable(self) -> bool:
         return self.version.is_usable
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize for admin dashboard / API."""
         return {
             "version": str(self.version),
@@ -80,11 +80,11 @@ class VersionGraph:
     """
 
     def __init__(self) -> None:
-        self._nodes: Dict[ApiVersion, VersionNode] = {}
-        self._by_string: Dict[str, ApiVersion] = {}
-        self._by_channel: Dict[VersionChannel, ApiVersion] = {}
-        self._latest: Optional[ApiVersion] = None
-        self._sorted_versions: List[ApiVersion] = []
+        self._nodes: dict[ApiVersion, VersionNode] = {}
+        self._by_string: dict[str, ApiVersion] = {}
+        self._by_channel: dict[VersionChannel, ApiVersion] = {}
+        self._latest: ApiVersion | None = None
+        self._sorted_versions: list[ApiVersion] = []
         self._frozen = False
 
     # ── Registration ──────────────────────────────────────────────────
@@ -93,12 +93,12 @@ class VersionGraph:
         self,
         version: ApiVersion,
         *,
-        successor: Optional[ApiVersion] = None,
-        predecessor: Optional[ApiVersion] = None,
-        channels: Optional[Set[VersionChannel]] = None,
-        deprecated_at: Optional[datetime] = None,
-        sunset_at: Optional[datetime] = None,
-        migration_url: Optional[str] = None,
+        successor: ApiVersion | None = None,
+        predecessor: ApiVersion | None = None,
+        channels: set[VersionChannel] | None = None,
+        deprecated_at: datetime | None = None,
+        sunset_at: datetime | None = None,
+        migration_url: str | None = None,
     ) -> VersionNode:
         """Register a version in the graph."""
         if self._frozen:
@@ -178,10 +178,7 @@ class VersionGraph:
                 node.successor = self._sorted_versions[i + 1]
 
         # Set latest to highest active version
-        active = [
-            v for v in self._sorted_versions
-            if v.status in (VersionStatus.ACTIVE, VersionStatus.PREVIEW)
-        ]
+        active = [v for v in self._sorted_versions if v.status in (VersionStatus.ACTIVE, VersionStatus.PREVIEW)]
         if active:
             self._latest = active[-1]
         elif self._sorted_versions:
@@ -191,35 +188,35 @@ class VersionGraph:
 
     # ── Lookups (all O(1)) ────────────────────────────────────────────
 
-    def get(self, version: ApiVersion) -> Optional[VersionNode]:
+    def get(self, version: ApiVersion) -> VersionNode | None:
         """Get node by ApiVersion."""
         return self._nodes.get(version)
 
-    def get_by_string(self, version_str: str) -> Optional[ApiVersion]:
+    def get_by_string(self, version_str: str) -> ApiVersion | None:
         """Get ApiVersion by string representation."""
         return self._by_string.get(version_str)
 
-    def get_by_channel(self, channel: VersionChannel) -> Optional[ApiVersion]:
+    def get_by_channel(self, channel: VersionChannel) -> ApiVersion | None:
         """Get version for a named channel."""
         return self._by_channel.get(channel)
 
     @property
-    def latest(self) -> Optional[ApiVersion]:
+    def latest(self) -> ApiVersion | None:
         """The latest active version."""
         return self._latest
 
     @property
-    def versions(self) -> List[ApiVersion]:
+    def versions(self) -> list[ApiVersion]:
         """All registered versions (sorted ascending)."""
         return list(self._sorted_versions)
 
     @property
-    def active_versions(self) -> List[ApiVersion]:
+    def active_versions(self) -> list[ApiVersion]:
         """Only active/preview versions."""
         return [v for v in self._sorted_versions if v.is_usable]
 
     @property
-    def channels(self) -> Dict[VersionChannel, ApiVersion]:
+    def channels(self) -> dict[VersionChannel, ApiVersion]:
         """Channel → version mapping."""
         return dict(self._by_channel)
 
@@ -232,27 +229,23 @@ class VersionGraph:
         node = self._nodes.get(version)
         return node is not None and node.is_usable
 
-    def get_successor(self, version: ApiVersion) -> Optional[ApiVersion]:
+    def get_successor(self, version: ApiVersion) -> ApiVersion | None:
         """Get the successor version (for migration hints)."""
         node = self._nodes.get(version)
         return node.successor if node else None
 
-    def get_migration_url(self, version: ApiVersion) -> Optional[str]:
+    def get_migration_url(self, version: ApiVersion) -> str | None:
         """Get migration guide URL for a version."""
         node = self._nodes.get(version)
         return node.migration_url if node else None
 
     # ── Serialization ─────────────────────────────────────────────────
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize entire graph for admin dashboard."""
         return {
-            "versions": [
-                self._nodes[v].to_dict() for v in self._sorted_versions
-            ],
-            "channels": {
-                c.value: str(v) for c, v in self._by_channel.items()
-            },
+            "versions": [self._nodes[v].to_dict() for v in self._sorted_versions],
+            "channels": {c.value: str(v) for c, v in self._by_channel.items()},
             "latest": str(self._latest) if self._latest else None,
             "total": len(self._nodes),
             "active": len(self.active_versions),

@@ -37,50 +37,50 @@ Architecture:
 
 from __future__ import annotations
 
-# ── Core pool API ────────────────────────────────────────────────────
-from ._pool import ConnectionPool, create_pool
+# ── Backup ───────────────────────────────────────────────────────────
+from ._backup import backup_database
+
+# ── Configuration ────────────────────────────────────────────────────
+from ._config import SqlitePoolConfig
 
 # ── Connection & cursor ──────────────────────────────────────────────
 from ._connection import AsyncConnection
 from ._cursor import AsyncCursor
 
-# ── Rows ─────────────────────────────────────────────────────────────
-from ._rows import Row, row_factory
-
-# ── Transaction ──────────────────────────────────────────────────────
-from ._transaction import TransactionContext, SavepointContext
-
-# ── Configuration ────────────────────────────────────────────────────
-from ._config import SqlitePoolConfig
-
-# ── Statement cache ──────────────────────────────────────────────────
-from ._statement_cache import StatementCache, CacheStats
-
-# ── Metrics ──────────────────────────────────────────────────────────
-from ._metrics import SqliteMetrics
-
 # ── Errors ───────────────────────────────────────────────────────────
 from ._errors import (
-    SqliteError,
-    SqliteConnectionError,
     PoolExhaustedError,
-    SqliteQueryError,
+    SqliteConnectionError,
+    SqliteError,
     SqliteIntegrityError,
+    SqliteQueryError,
     SqliteSchemaError,
-    SqliteTimeoutError,
     SqliteSecurityError,
+    SqliteTimeoutError,
     map_sqlite_error,
     to_aquilia_fault,
 )
 
-# ── PRAGMA builder ───────────────────────────────────────────────────
-from ._pragma import build_pragmas, apply_pragmas
+# ── Metrics ──────────────────────────────────────────────────────────
+from ._metrics import SqliteMetrics
 
-# ── Backup ───────────────────────────────────────────────────────────
-from ._backup import backup_database
+# ── Core pool API ────────────────────────────────────────────────────
+from ._pool import ConnectionPool, create_pool
+
+# ── PRAGMA builder ───────────────────────────────────────────────────
+from ._pragma import apply_pragmas, build_pragmas
+
+# ── Rows ─────────────────────────────────────────────────────────────
+from ._rows import Row, row_factory
 
 # ── DI service ───────────────────────────────────────────────────────
 from ._service import SqliteService
+
+# ── Statement cache ──────────────────────────────────────────────────
+from ._statement_cache import CacheStats, StatementCache
+
+# ── Transaction ──────────────────────────────────────────────────────
+from ._transaction import SavepointContext, TransactionContext
 
 __all__ = [
     # Pool

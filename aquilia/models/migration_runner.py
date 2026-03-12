@@ -15,20 +15,18 @@ Features:
 
 from __future__ import annotations
 
-import datetime
 import hashlib
 import importlib.util
 import inspect
-import json
 import logging
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
+from typing import Any
 
 from ..db.engine import AquiliaDatabase
-from ..faults.domains import MigrationFault, MigrationConflictFault, SchemaFault
-from .migration_dsl import Migration, Operation, RunPython, RunSQL
+from ..faults.domains import MigrationFault
+from .migration_dsl import Migration
 
 logger = logging.getLogger("aquilia.models.migration_runner")
 
@@ -38,10 +36,11 @@ MIGRATION_TABLE = "aquilia_migrations"
 @dataclass
 class MigrationRecord:
     """A record in the aquilia_migrations tracking table."""
+
     revision: str
     slug: str
     checksum: str
-    applied_at: Optional[str] = None
+    applied_at: str | None = None
 
 
 class MigrationRunner:
@@ -92,18 +91,16 @@ class MigrationRunner:
         """
         await self.db.execute(sql)
 
-    async def get_applied(self) -> List[str]:
+    async def get_applied(self) -> list[str]:
         """Get list of applied revision IDs, ordered by application time."""
         await self.ensure_tracking_table()
-        rows = await self.db.fetch_all(
-            f'SELECT "revision" FROM "{MIGRATION_TABLE}" ORDER BY "id"'
-        )
+        rows = await self.db.fetch_all(f'SELECT "revision" FROM "{MIGRATION_TABLE}" ORDER BY "id"')
         return [r["revision"] for r in rows]
 
-    async def get_pending(self) -> List[Path]:
+    async def get_pending(self) -> list[Path]:
         """Get migration files that haven't been applied yet."""
         applied = set(await self.get_applied())
-        pending: List[Path] = []
+        pending: list[Path] = []
 
         if not self.migrations_dir.exists():
             return pending
@@ -117,7 +114,7 @@ class MigrationRunner:
 
         return pending
 
-    async def status(self) -> Dict[str, Any]:
+    async def status(self) -> dict[str, Any]:
         """Get migration status -- applied, pending, totals."""
         applied = await self.get_applied()
         pending = await self.get_pending()
@@ -147,13 +144,13 @@ class MigrationRunner:
                 lines.append(f"    - {name}")
         return "\n".join(lines)
 
-    async def plan(self, target: Optional[str] = None) -> List[str]:
+    async def plan(self, target: str | None = None) -> list[str]:
         """
         Preview migrations without executing (--plan / dry-run).
 
         Returns list of SQL statements that would be executed.
         """
-        statements: List[str] = []
+        statements: list[str] = []
         pending = await self.get_pending()
 
         for path in pending:
@@ -171,7 +168,7 @@ class MigrationRunner:
 
         return statements
 
-    async def sqlmigrate(self, revision: str) -> List[str]:
+    async def sqlmigrate(self, revision: str) -> list[str]:
         """
         Get the SQL for a specific migration (aq db sqlmigrate).
         """
@@ -194,10 +191,10 @@ class MigrationRunner:
     async def migrate(
         self,
         *,
-        target: Optional[str] = None,
+        target: str | None = None,
         fake: bool = False,
-        database: Optional[str] = None,
-    ) -> List[str]:
+        database: str | None = None,
+    ) -> list[str]:
         """
         Apply all pending migrations.
 
@@ -209,7 +206,7 @@ class MigrationRunner:
         Returns:
             List of applied revision IDs
         """
-        from .signals import pre_migrate, post_migrate
+        from .signals import post_migrate, pre_migrate
 
         await self.ensure_tracking_table()
 
@@ -217,7 +214,7 @@ class MigrationRunner:
             return await self._rollback_to(target, fake=fake)
 
         pending = await self.get_pending()
-        applied: List[str] = []
+        applied: list[str] = []
 
         # Signal: pre_migrate
         await pre_migrate.send(sender=self.__class__, db=self.db)
@@ -268,7 +265,6 @@ class MigrationRunner:
             f'INSERT INTO "{MIGRATION_TABLE}" ("revision", "slug", "checksum") VALUES (?, ?, ?)',
             [rev, slug, checksum],
         )
-        action = "Faked" if fake else "Applied"
 
     async def _execute_dsl_migration(self, migration: Migration) -> None:
         """Execute a DSL migration transactionally."""
@@ -287,10 +283,7 @@ class MigrationRunner:
                         # exists (e.g. tables were created by ``create_tables``
                         # before the migration was recorded).  Skip silently.
                         cause = getattr(idx_exc, "__cause__", idx_exc)
-                        if (
-                            self.dialect == "mysql"
-                            and getattr(cause, "args", (None,))[0] == 1061
-                        ):
+                        if self.dialect == "mysql" and getattr(cause, "args", (None,))[0] == 1061:
                             continue
                         raise
 
@@ -308,7 +301,7 @@ class MigrationRunner:
                 reason=f"DSL migration failed: {exc}",
             ) from exc
 
-    async def _rollback_to(self, target: str, *, fake: bool = False) -> List[str]:
+    async def _rollback_to(self, target: str, *, fake: bool = False) -> list[str]:
         """Rollback to a specific revision."""
         applied = await self.get_applied()
         if target not in applied:
@@ -318,9 +311,9 @@ class MigrationRunner:
             )
 
         target_idx = applied.index(target)
-        to_rollback = list(reversed(applied[target_idx + 1:]))
+        to_rollback = list(reversed(applied[target_idx + 1 :]))
 
-        rolled_back: List[str] = []
+        rolled_back: list[str] = []
         for rev in to_rollback:
             path = self._find_migration_file(rev)
 
@@ -358,27 +351,25 @@ class MigrationRunner:
 
             # Remove from tracking
             await self.db.execute(
-                f'DELETE FROM "{MIGRATION_TABLE}" WHERE "revision" = ?', [rev],
+                f'DELETE FROM "{MIGRATION_TABLE}" WHERE "revision" = ?',
+                [rev],
             )
             rolled_back.append(rev)
-            action = "Faked rollback" if fake else "Rolled back"
 
         return rolled_back
 
-    def _find_migration_file(self, revision: str) -> Optional[Path]:
+    def _find_migration_file(self, revision: str) -> Path | None:
         """Find migration file by revision prefix."""
         if not self.migrations_dir.exists():
             return None
         candidates = list(self.migrations_dir.glob(f"{revision}*.py"))
         return candidates[0] if candidates else None
 
-    async def verify_checksums(self) -> List[Dict[str, str]]:
+    async def verify_checksums(self) -> list[dict[str, str]]:
         """Verify that applied migration files haven't been tampered with."""
         await self.ensure_tracking_table()
-        rows = await self.db.fetch_all(
-            f'SELECT "revision", "checksum" FROM "{MIGRATION_TABLE}" ORDER BY "id"'
-        )
-        mismatches: List[Dict[str, str]] = []
+        rows = await self.db.fetch_all(f'SELECT "revision", "checksum" FROM "{MIGRATION_TABLE}" ORDER BY "id"')
+        mismatches: list[dict[str, str]] = []
         for row in rows:
             rev = row["revision"]
             stored = row.get("checksum")
@@ -425,7 +416,6 @@ def check_migrations_applied(db_url: str, migrations_dir: str | Path = "migratio
 
     Returns True if all migrations are applied (or no migrations exist).
     """
-    import asyncio
 
     if not check_db_exists(db_url):
         return False
@@ -451,22 +441,21 @@ def check_migrations_applied(db_url: str, migrations_dir: str | Path = "migratio
     # Read-only probe using sqlite3 (synchronous, not via pool) to avoid WAL
     try:
         import sqlite3
+
         # Use mode=ro to prevent WAL/SHM creation
         ro_uri = f"file:{path}?mode=ro"
         conn = sqlite3.connect(ro_uri, uri=True)
         conn.row_factory = sqlite3.Row
         try:
             cursor = conn.execute(
-                f"SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+                "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
                 [MIGRATION_TABLE],
             )
             if not cursor.fetchone():
                 conn.close()
                 return False  # No migration table → not migrated
 
-            cursor = conn.execute(
-                f'SELECT "revision" FROM "{MIGRATION_TABLE}" ORDER BY "id"'
-            )
+            cursor = conn.execute(f'SELECT "revision" FROM "{MIGRATION_TABLE}" ORDER BY "id"')
             applied = {row["revision"] for row in cursor.fetchall()}
 
             for path in migration_files:
@@ -487,14 +476,14 @@ def _extract_sqlite_path(url: str) -> str:
     """Extract the file path from a sqlite:/// URL."""
     for prefix in ("sqlite:///", "sqlite://"):
         if url.startswith(prefix):
-            return url[len(prefix):] or ":memory:"
+            return url[len(prefix) :] or ":memory:"
     return url.replace("sqlite:", "").lstrip("/") or ":memory:"
 
 
 # ── Helper functions ─────────────────────────────────────────────────────────
 
 
-def _extract_revision(path: Path) -> Optional[str]:
+def _extract_revision(path: Path) -> str | None:
     """Extract revision ID from filename: YYYYMMDD_HHMMSS_slug.py"""
     parts = path.stem.split("_", 2)
     if len(parts) >= 2:
@@ -553,11 +542,12 @@ def _build_migration_from_module(module: Any) -> Migration:
     )
 
 
-def _extract_sql_from_source(path: Path) -> List[str]:
+def _extract_sql_from_source(path: Path) -> list[str]:
     """Extract SQL from a legacy migration file's source code."""
     import re
+
     source = path.read_text(encoding="utf-8")
-    stmts: List[str] = []
+    stmts: list[str] = []
 
     # Triple-quoted SQL
     for match in re.findall(r'execute\s*\(\s*"""(.*?)"""\s*\)', source, re.DOTALL):

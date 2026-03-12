@@ -10,12 +10,11 @@ This replaces legacy regex-only validation with the real
 Aquilary compilation pipeline for accurate, production-grade checks.
 """
 
-from pathlib import Path
-from typing import Optional, List
-from dataclasses import dataclass, field
 import importlib.util
-import sys
 import re
+import sys
+from dataclasses import dataclass, field
+from pathlib import Path
 
 
 @dataclass
@@ -28,13 +27,14 @@ class ValidationResult:
     provider_count: int
     faults: list[str]
     warnings: list[str] = field(default_factory=list)
-    fingerprint: Optional[str] = None
+    fingerprint: str | None = None
 
 
 def _load_manifest_object(module_name: str, manifest_path: Path):
     """Safely load an AppManifest instance from a manifest.py file."""
     spec = importlib.util.spec_from_file_location(
-        f"_validate_{module_name}_manifest", manifest_path,
+        f"_validate_{module_name}_manifest",
+        manifest_path,
     )
     if not spec or not spec.loader:
         raise ImportError(f"Could not create spec for {manifest_path}")
@@ -51,11 +51,7 @@ def _load_manifest_object(module_name: str, manifest_path: Path):
             if isinstance(obj, AppManifest):
                 manifest_obj = obj
                 break
-            if (
-                isinstance(obj, type)
-                and issubclass(obj, AppManifest)
-                and obj is not AppManifest
-            ):
+            if isinstance(obj, type) and issubclass(obj, AppManifest) and obj is not AppManifest:
                 manifest_obj = obj()
                 break
 
@@ -64,7 +60,7 @@ def _load_manifest_object(module_name: str, manifest_path: Path):
 
 def validate_workspace(
     strict: bool = False,
-    module_filter: Optional[str] = None,
+    module_filter: str | None = None,
     verbose: bool = False,
 ) -> ValidationResult:
     """
@@ -88,10 +84,11 @@ def validate_workspace(
 
     if not workspace_config.exists():
         from aquilia.faults.domains import ConfigMissingFault
+
         raise ConfigMissingFault(key="workspace.py")
 
-    faults: List[str] = []
-    warnings: List[str] = []
+    faults: list[str] = []
+    warnings: list[str] = []
     module_count = 0
     route_count = 0
     provider_count = 0
@@ -106,10 +103,7 @@ def validate_workspace(
     try:
         workspace_content = workspace_config.read_text(encoding="utf-8")
         # Strip comment lines to avoid matching commented-out modules
-        clean_content = "\n".join(
-            line for line in workspace_content.splitlines()
-            if not line.strip().startswith("#")
-        )
+        clean_content = "\n".join(line for line in workspace_content.splitlines() if not line.strip().startswith("#"))
         modules = re.findall(r'Module\("([^"]+)"', clean_content)
         # Deduplicate preserving order
         seen: set = set()
@@ -122,8 +116,12 @@ def validate_workspace(
     except Exception as e:
         faults.append(f"Invalid workspace configuration: {e}")
         return ValidationResult(
-            is_valid=False, module_count=0, route_count=0,
-            provider_count=0, faults=faults, warnings=warnings,
+            is_valid=False,
+            module_count=0,
+            route_count=0,
+            provider_count=0,
+            faults=faults,
+            warnings=warnings,
         )
 
     if not modules:
@@ -158,9 +156,7 @@ def validate_workspace(
         try:
             manifest_obj = _load_manifest_object(module_name, manifest_path)
             if manifest_obj is None:
-                faults.append(
-                    f"Module '{module_name}' manifest.py has no AppManifest instance"
-                )
+                faults.append(f"Module '{module_name}' manifest.py has no AppManifest instance")
                 continue
 
             loaded_manifests.append(manifest_obj)
@@ -184,9 +180,7 @@ def validate_workspace(
             depends_on = getattr(manifest_obj, "depends_on", []) or []
             for dep in depends_on:
                 if dep not in modules:
-                    faults.append(
-                        f"Module '{module_name}' depends on '{dep}' which is not registered"
-                    )
+                    faults.append(f"Module '{module_name}' depends on '{dep}' which is not registered")
 
             # Controller/service import path validation
             for ctrl_ref in controllers:
@@ -232,23 +226,17 @@ def validate_workspace(
                 required_files = ["controllers.py", "services.py", "faults.py"]
                 for fname in required_files:
                     if not (module_path / fname).exists():
-                        warnings.append(
-                            f"Module '{module_name}' missing recommended file '{fname}'"
-                        )
+                        warnings.append(f"Module '{module_name}' missing recommended file '{fname}'")
 
                 # Route prefix check
                 route_prefix = getattr(manifest_obj, "route_prefix", None)
                 if not route_prefix:
-                    warnings.append(
-                        f"Module '{module_name}' has no route_prefix set"
-                    )
+                    warnings.append(f"Module '{module_name}' has no route_prefix set")
 
                 # Fault domain check
                 fault_config = getattr(manifest_obj, "faults", None)
                 if fault_config is None:
-                    warnings.append(
-                        f"Module '{module_name}' has no fault handling configured"
-                    )
+                    warnings.append(f"Module '{module_name}' has no fault handling configured")
 
         except Exception as e:
             faults.append(f"Invalid manifest in module '{module_name}': {e}")
@@ -257,8 +245,8 @@ def validate_workspace(
     if loaded_manifests and not faults:
         try:
             from aquilia.aquilary.core import RegistryMode
-            from aquilia.aquilary.validator import RegistryValidator
             from aquilia.aquilary.graph import DependencyGraph
+            from aquilia.aquilary.validator import RegistryValidator
 
             mode = RegistryMode.PROD if strict else RegistryMode.DEV
             validator = RegistryValidator(mode=mode)
@@ -267,6 +255,7 @@ def validate_workspace(
             _config = None
             try:
                 from aquilia.config import ConfigLoader
+
                 _config = ConfigLoader.load(paths=["workspace.py"])
                 _config._build_apps_namespace()
             except Exception:
@@ -301,9 +290,7 @@ def validate_workspace(
                 print(f"  Load order: {' → '.join(order)}")
 
         except ImportError:
-            warnings.append(
-                "Aquilary pipeline not available -- skipping deep validation"
-            )
+            warnings.append("Aquilary pipeline not available -- skipping deep validation")
         except Exception as e:
             warnings.append(f"Aquilary pipeline validation error: {e}")
 

@@ -33,8 +33,9 @@ import concurrent.futures
 import logging
 import threading
 import time
+from collections.abc import Callable
 from enum import Enum
-from typing import Any, Callable, Optional, TypeVar
+from typing import Any, TypeVar
 
 logger = logging.getLogger("aquilia.mlops.runtime.executor")
 
@@ -43,6 +44,7 @@ T = TypeVar("T")
 
 class PoolKind(str, Enum):
     """Executor pool types."""
+
     THREAD = "thread"
     PROCESS = "process"
 
@@ -77,7 +79,7 @@ class InferenceExecutor:
     ) -> None:
         self._pool_kind = pool_kind
         self._max_workers = max(1, max_workers)
-        self._pool: Optional[concurrent.futures.Executor] = None
+        self._pool: concurrent.futures.Executor | None = None
         self._active: int = 0
         self._total_submitted: int = 0
         self._total_completed: int = 0
@@ -130,7 +132,8 @@ class InferenceExecutor:
 
         if cancel:
             logger.warning(
-                "InferenceExecutor force-shutdown with %d active tasks", self._active,
+                "InferenceExecutor force-shutdown with %d active tasks",
+                self._active,
             )
         else:
             pass
@@ -150,6 +153,7 @@ class InferenceExecutor:
         """
         if not self._started or self._pool is None:
             from aquilia.faults.domains import ConfigMissingFault
+
             raise ConfigMissingFault(
                 key="mlops.executor",
                 metadata={"hint": "InferenceExecutor not started; call start() first"},
@@ -157,6 +161,7 @@ class InferenceExecutor:
 
         if self._shutdown_event.is_set():
             from aquilia.faults.domains import ResourceExhaustedFault
+
             raise ResourceExhaustedFault(
                 resource="inference_executor",
                 message="InferenceExecutor is shutting down",
@@ -197,7 +202,7 @@ class InferenceExecutor:
 
     # ── Context Manager ──────────────────────────────────────────────
 
-    async def __aenter__(self) -> "InferenceExecutor":
+    async def __aenter__(self) -> InferenceExecutor:
         await self.start()
         return self
 
@@ -220,10 +225,7 @@ class InferenceExecutor:
 
     def metrics(self) -> dict:
         """Return executor metrics for health/monitoring endpoints."""
-        avg_ms = (
-            self._total_time_ms / self._total_completed
-            if self._total_completed > 0 else 0.0
-        )
+        avg_ms = self._total_time_ms / self._total_completed if self._total_completed > 0 else 0.0
         return {
             "pool_kind": self._pool_kind.value,
             "max_workers": self._max_workers,

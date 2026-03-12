@@ -10,10 +10,9 @@ Domains:
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 from aquilia.faults.core import Fault, FaultDomain, Severity
-
 
 # ============================================================================
 # Domain
@@ -26,6 +25,7 @@ TEMPLATE_DOMAIN = FaultDomain.custom("template", "Template engine faults")
 # Base
 # ============================================================================
 
+
 class TemplateFault(Fault):
     """Base fault for the template subsystem."""
 
@@ -37,7 +37,7 @@ class TemplateFault(Fault):
         severity: Severity = Severity.ERROR,
         retryable: bool = False,
         public: bool = False,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ):
         super().__init__(
             code=code,
@@ -53,6 +53,7 @@ class TemplateFault(Fault):
 # ============================================================================
 # Concrete Faults
 # ============================================================================
+
 
 class TemplateEngineUnavailableFault(TemplateFault):
     """

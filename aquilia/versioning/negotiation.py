@@ -15,9 +15,9 @@ Negotiation strategies (unique to Aquilia):
 from __future__ import annotations
 
 from enum import Enum
-from typing import List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
-from .core import ApiVersion, VersionStatus, VERSION_NEUTRAL
+from .core import ApiVersion
 from .errors import VersionNegotiationError
 
 if TYPE_CHECKING:
@@ -26,6 +26,7 @@ if TYPE_CHECKING:
 
 class NegotiationMode(str, Enum):
     """Version negotiation mode."""
+
     EXACT = "exact"
     COMPATIBLE = "compatible"
     LATEST = "latest"
@@ -43,7 +44,7 @@ class VersionNegotiator:
 
     def __init__(
         self,
-        graph: "VersionGraph",
+        graph: VersionGraph,
         mode: NegotiationMode = NegotiationMode.EXACT,
     ) -> None:
         self._graph = graph
@@ -57,7 +58,7 @@ class VersionNegotiator:
         self,
         requested: ApiVersion,
         *,
-        fallback: Optional[ApiVersion] = None,
+        fallback: ApiVersion | None = None,
     ) -> ApiVersion:
         """
         Negotiate the best version for a request.
@@ -90,7 +91,7 @@ class VersionNegotiator:
     def _negotiate_exact(
         self,
         requested: ApiVersion,
-        fallback: Optional[ApiVersion],
+        fallback: ApiVersion | None,
     ) -> ApiVersion:
         """Exact match only."""
         if self._graph.is_supported(requested):
@@ -105,7 +106,7 @@ class VersionNegotiator:
     def _negotiate_compatible(
         self,
         requested: ApiVersion,
-        fallback: Optional[ApiVersion],
+        fallback: ApiVersion | None,
     ) -> ApiVersion:
         """Match any backward-compatible version (same major, >= minor)."""
         # Try exact first
@@ -114,8 +115,7 @@ class VersionNegotiator:
 
         # Find highest compatible version
         compatible = [
-            v for v in self._graph.active_versions
-            if v.major == requested.major and v.minor >= requested.minor
+            v for v in self._graph.active_versions if v.major == requested.major and v.minor >= requested.minor
         ]
         if compatible:
             return compatible[-1]  # Highest compatible
@@ -130,7 +130,7 @@ class VersionNegotiator:
 
     def _negotiate_latest(
         self,
-        fallback: Optional[ApiVersion],
+        fallback: ApiVersion | None,
     ) -> ApiVersion:
         """Always return the latest active version."""
         latest = self._graph.latest
@@ -146,7 +146,7 @@ class VersionNegotiator:
     def _negotiate_best_match(
         self,
         requested: ApiVersion,
-        fallback: Optional[ApiVersion],
+        fallback: ApiVersion | None,
     ) -> ApiVersion:
         """
         Find the best matching version.
@@ -161,10 +161,7 @@ class VersionNegotiator:
             return requested
 
         # 2. Same major
-        same_major = [
-            v for v in self._graph.active_versions
-            if v.major == requested.major
-        ]
+        same_major = [v for v in self._graph.active_versions if v.major == requested.major]
         if same_major:
             # Prefer >= requested.minor, else take highest available
             gte = [v for v in same_major if v.minor >= requested.minor]
@@ -178,7 +175,7 @@ class VersionNegotiator:
     def _negotiate_nearest(
         self,
         requested: ApiVersion,
-        fallback: Optional[ApiVersion],
+        fallback: ApiVersion | None,
     ) -> ApiVersion:
         """Find the nearest registered version by distance."""
         active = self._graph.active_versions

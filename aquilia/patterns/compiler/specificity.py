@@ -12,17 +12,15 @@ Formula:
 - Segment count tiebreaker: + (segment_count * 2)
 """
 
-from typing import List
 from .ast_nodes import (
+    BaseSegment,
+    ConstraintKind,
+    OptionalGroup,
     PatternAST,
+    SplatSegment,
     StaticSegment,
     TokenSegment,
-    OptionalGroup,
-    SplatSegment,
-    ConstraintKind,
-    BaseSegment,
 )
-
 
 STRONG_TYPES = {"int", "float", "uuid", "bool", "json"}
 
@@ -32,7 +30,7 @@ def calculate_specificity(ast: PatternAST) -> int:
     score = 0
     segment_count = 0
 
-    def score_segments(segments: List[BaseSegment], in_optional: bool = False):
+    def score_segments(segments: list[BaseSegment], in_optional: bool = False):
         nonlocal score, segment_count
 
         for segment in segments:
@@ -42,9 +40,8 @@ def calculate_specificity(ast: PatternAST) -> int:
                 score += 200
             elif isinstance(segment, TokenSegment):
                 # Check type and constraints
-                has_strong_constraint = (
-                    segment.param_type in STRONG_TYPES
-                    or any(c.kind in (ConstraintKind.REGEX, ConstraintKind.ENUM) for c in segment.constraints)
+                has_strong_constraint = segment.param_type in STRONG_TYPES or any(
+                    c.kind in (ConstraintKind.REGEX, ConstraintKind.ENUM) for c in segment.constraints
                 )
 
                 if has_strong_constraint:

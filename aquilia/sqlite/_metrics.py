@@ -7,10 +7,7 @@ lock-free counters mutated only from the async event loop thread.
 
 from __future__ import annotations
 
-import time
 from dataclasses import dataclass
-from typing import Any
-
 
 __all__ = ["SqliteMetrics"]
 

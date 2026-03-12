@@ -12,7 +12,6 @@ from typing import Any
 
 from ..core import Identity
 
-
 # ============================================================================
 # Auth Session
 # ============================================================================
@@ -135,23 +134,13 @@ class MemorySessionStore:
             return True
         return False
 
-    async def list_sessions(
-        self, identity_id: str
-    ) -> list[AuthSession]:
+    async def list_sessions(self, identity_id: str) -> list[AuthSession]:
         """List all active sessions for identity."""
-        return [
-            s
-            for s in self._sessions.values()
-            if s.identity_id == identity_id and not s.is_expired()
-        ]
+        return [s for s in self._sessions.values() if s.identity_id == identity_id and not s.is_expired()]
 
     async def delete_all_sessions(self, identity_id: str) -> int:
         """Delete all sessions for identity."""
-        sessions_to_delete = [
-            sid
-            for sid, s in self._sessions.items()
-            if s.identity_id == identity_id
-        ]
+        sessions_to_delete = [sid for sid, s in self._sessions.items() if s.identity_id == identity_id]
 
         for sid in sessions_to_delete:
             del self._sessions[sid]
@@ -228,9 +217,7 @@ class SessionManager:
 
         return session
 
-    async def extend_session(
-        self, session_id: str, additional_seconds: int = 3600
-    ) -> bool:
+    async def extend_session(self, session_id: str, additional_seconds: int = 3600) -> bool:
         """
         Extend session expiration.
 
@@ -249,9 +236,7 @@ class SessionManager:
         await self.session_store.update_session(session)
         return True
 
-    async def rotate_session(
-        self, old_session_id: str
-    ) -> AuthSession | None:
+    async def rotate_session(self, old_session_id: str) -> AuthSession | None:
         """
         Rotate session ID (privilege escalation).
 
@@ -270,9 +255,7 @@ class SessionManager:
         # Create new session with same data
         new_session = await self.session_store.create_session(
             identity_id=old_session.identity_id,
-            ttl_seconds=int(
-                (old_session.expires_at - datetime.now(timezone.utc)).total_seconds()
-            ),
+            ttl_seconds=int((old_session.expires_at - datetime.now(timezone.utc)).total_seconds()),
             metadata=old_session.metadata,
         )
 

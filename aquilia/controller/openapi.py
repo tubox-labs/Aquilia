@@ -19,21 +19,15 @@ import re
 from dataclasses import dataclass, field
 from typing import (
     Any,
-    Dict,
-    List,
-    Optional,
-    Set,
-    Tuple,
-    Type,
     Union,
     get_args,
     get_origin,
     get_type_hints,
 )
 
-from .router import ControllerRouter
+from ..patterns.openapi import generate_openapi_params, generate_openapi_path
 from .compiler import CompiledRoute
-from ..patterns.openapi import generate_openapi_path, generate_openapi_params
+from .router import ControllerRouter
 
 # Try Annotated for Python 3.9+
 try:
@@ -44,7 +38,7 @@ except ImportError:
 
 # ─── Type → JSON Schema mapping ──────────────────────────────────────────────
 
-_PYTHON_TYPE_MAP: Dict[type, Dict[str, str]] = {
+_PYTHON_TYPE_MAP: dict[type, dict[str, str]] = {
     str: {"type": "string"},
     int: {"type": "integer"},
     float: {"type": "number", "format": "double"},
@@ -54,7 +48,7 @@ _PYTHON_TYPE_MAP: Dict[type, Dict[str, str]] = {
 }
 
 
-def _python_type_to_schema(tp: Any) -> Dict[str, Any]:
+def _python_type_to_schema(tp: Any) -> dict[str, Any]:
     """Convert a Python type annotation to a JSON Schema fragment."""
     if tp is inspect.Parameter.empty or tp is Any:
         return {}
@@ -77,17 +71,17 @@ def _python_type_to_schema(tp: Any) -> Dict[str, Any]:
         return {"anyOf": [_python_type_to_schema(a) for a in non_none]}
 
     # list[X]
-    if origin is list or origin is List:
+    if origin is list or origin is list:
         item_schema = _python_type_to_schema(args[0]) if args else {}
         return {"type": "array", "items": item_schema}
 
     # dict[str, X]
-    if origin is dict or origin is Dict:
+    if origin is dict or origin is dict:
         val_schema = _python_type_to_schema(args[1]) if len(args) > 1 else {}
         return {"type": "object", "additionalProperties": val_schema}
 
     # tuple → array with prefixItems
-    if origin is tuple or origin is Tuple:
+    if origin is tuple or origin is tuple:
         if args:
             return {
                 "type": "array",
@@ -98,7 +92,7 @@ def _python_type_to_schema(tp: Any) -> Dict[str, Any]:
         return {"type": "array"}
 
     # set → array with uniqueItems
-    if origin is set or origin is Set:
+    if origin is set or origin is set:
         item_schema = _python_type_to_schema(args[0]) if args else {}
         return {"type": "array", "items": item_schema, "uniqueItems": True}
 
@@ -113,13 +107,13 @@ def _python_type_to_schema(tp: Any) -> Dict[str, Any]:
     return {"type": "object"}
 
 
-def _dataclass_to_schema(cls: type) -> Dict[str, Any]:
+def _dataclass_to_schema(cls: type) -> dict[str, Any]:
     """Convert a dataclass or annotated class to a JSON Schema object."""
     if not hasattr(cls, "__annotations__"):
         return {"type": "object"}
 
-    properties: Dict[str, Any] = {}
-    required: List[str] = []
+    properties: dict[str, Any] = {}
+    required: list[str] = []
 
     hints = get_type_hints(cls, include_extras=True) if hasattr(cls, "__annotations__") else {}
 
@@ -133,7 +127,7 @@ def _dataclass_to_schema(cls: type) -> Dict[str, Any]:
         if default is inspect.Parameter.empty:
             required.append(field_name)
 
-    schema: Dict[str, Any] = {
+    schema: dict[str, Any] = {
         "type": "object",
         "properties": properties,
     }
@@ -149,15 +143,17 @@ def _dataclass_to_schema(cls: type) -> Dict[str, Any]:
 
 # ─── Docstring Parsing ────────────────────────────────────────────────────────
 
+
 @dataclass
 class ParsedDocstring:
     """Parsed handler docstring with structured sections."""
+
     summary: str = ""
     description: str = ""
-    params: Dict[str, str] = field(default_factory=dict)
+    params: dict[str, str] = field(default_factory=dict)
     returns: str = ""
-    raises: List[Dict[str, str]] = field(default_factory=list)
-    request_body: Optional[str] = None
+    raises: list[dict[str, str]] = field(default_factory=list)
+    request_body: str | None = None
 
 
 def _parse_docstring(docstring: str) -> ParsedDocstring:
@@ -178,10 +174,10 @@ def _parse_docstring(docstring: str) -> ParsedDocstring:
     # Everything after the first blank line (after summary) is description
     in_description = False
     description_lines: list[str] = []
-    current_section: Optional[str] = None
-    current_key: Optional[str] = None
+    current_section: str | None = None
+    current_key: str | None = None
 
-    for i, line in enumerate(lines):
+    for _i, line in enumerate(lines):
         stripped = line.strip()
 
         # Skip the summary line
@@ -220,11 +216,13 @@ def _parse_docstring(docstring: str) -> ParsedDocstring:
         elif current_section == "raises":
             raise_match = re.match(r"^\s*(\w+)\s*(?:\((\d+)\))?\s*:\s*(.*)", stripped)
             if raise_match:
-                result.raises.append({
-                    "exception": raise_match.group(1),
-                    "status": raise_match.group(2),
-                    "description": raise_match.group(3).strip(),
-                })
+                result.raises.append(
+                    {
+                        "exception": raise_match.group(1),
+                        "status": raise_match.group(2),
+                        "description": raise_match.group(3).strip(),
+                    }
+                )
         elif current_section is None and not stripped:
             if result.summary:
                 in_description = True
@@ -237,16 +235,17 @@ def _parse_docstring(docstring: str) -> ParsedDocstring:
 
 # ─── Security Scheme Detection ────────────────────────────────────────────────
 
+
 def _detect_security_schemes(
-    routes: List[CompiledRoute],
-) -> Dict[str, Any]:
+    routes: list[CompiledRoute],
+) -> dict[str, Any]:
     """
     Detect security schemes from pipeline guards on all routes.
 
     Returns:
         Dict of security scheme definitions for components/securitySchemes.
     """
-    schemes: Dict[str, Any] = {}
+    schemes: dict[str, Any] = {}
 
     for route in routes:
         pipeline = getattr(route.route_metadata, "pipeline", []) or []
@@ -310,7 +309,7 @@ def _infer_request_body(
     route: CompiledRoute,
     handler: Any,
     parsed_doc: ParsedDocstring,
-) -> Optional[Dict[str, Any]]:
+) -> dict[str, Any] | None:
     """
     Infer request body schema from handler signature, type hints, and source analysis.
     """
@@ -318,8 +317,8 @@ def _infer_request_body(
         return None
 
     # Strategy 1: Check ParameterMetadata for source='body'
-    body_props: Dict[str, Any] = {}
-    body_required: List[str] = []
+    body_props: dict[str, Any] = {}
+    body_required: list[str] = []
     for param_meta in route.route_metadata.parameters:
         if param_meta.source == "body":
             schema = _python_type_to_schema(param_meta.type)
@@ -328,7 +327,7 @@ def _infer_request_body(
                 body_required.append(param_meta.name)
 
     if body_props:
-        body_schema: Dict[str, Any] = {
+        body_schema: dict[str, Any] = {
             "type": "object",
             "properties": body_props,
         }
@@ -336,9 +335,7 @@ def _infer_request_body(
             body_schema["required"] = body_required
         return {
             "required": True,
-            "content": {
-                "application/json": {"schema": body_schema}
-            },
+            "content": {"application/json": {"schema": body_schema}},
         }
 
     # Strategy 2: look for Body annotation in handler params
@@ -380,7 +377,7 @@ def _infer_request_body(
         body_text = body_match.group(1)
         fields = _BODY_FIELD_PATTERN.findall(body_text)
         if fields:
-            properties: Dict[str, Any] = {}
+            properties: dict[str, Any] = {}
             for field_name, field_example in fields:
                 schema = _infer_type_from_example(field_example.strip())
                 schema["example"] = field_example.strip().strip('"')
@@ -425,7 +422,7 @@ def _infer_request_body(
     return None
 
 
-def _infer_type_from_example(example: str) -> Dict[str, Any]:
+def _infer_type_from_example(example: str) -> dict[str, Any]:
     """Infer JSON Schema type from a docstring example value."""
     example = example.strip().strip('"').strip("'")
 
@@ -450,7 +447,7 @@ def _infer_type_from_example(example: str) -> Dict[str, Any]:
 
 # ─── Response Inference ───────────────────────────────────────────────────────
 
-_STATUS_DESCRIPTIONS: Dict[int, str] = {
+_STATUS_DESCRIPTIONS: dict[int, str] = {
     200: "Successful response",
     201: "Resource created",
     202: "Accepted for processing",
@@ -474,15 +471,15 @@ def _build_responses(
     route: CompiledRoute,
     handler: Any,
     parsed_doc: ParsedDocstring,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Build comprehensive response definitions for an operation."""
-    responses: Dict[str, Any] = {}
+    responses: dict[str, Any] = {}
 
     # Primary success response
     status_code = str(getattr(route.route_metadata, "status_code", 200))
     response_model = getattr(route.route_metadata, "response_model", None)
 
-    success_response: Dict[str, Any] = {
+    success_response: dict[str, Any] = {
         "description": _STATUS_DESCRIPTIONS.get(int(status_code), "Successful response"),
     }
 
@@ -500,21 +497,13 @@ def _build_responses(
             source = ""
 
         if "Response.json(" in source:
-            success_response["content"] = {
-                "application/json": {"schema": {"type": "object"}}
-            }
+            success_response["content"] = {"application/json": {"schema": {"type": "object"}}}
         elif "Response.html(" in source or "render_to_response" in source or "self.render(" in source:
-            success_response["content"] = {
-                "text/html": {"schema": {"type": "string"}}
-            }
+            success_response["content"] = {"text/html": {"schema": {"type": "string"}}}
         elif "Response.text(" in source:
-            success_response["content"] = {
-                "text/plain": {"schema": {"type": "string"}}
-            }
+            success_response["content"] = {"text/plain": {"schema": {"type": "string"}}}
         else:
-            success_response["content"] = {
-                "application/json": {"schema": {"type": "object"}}
-            }
+            success_response["content"] = {"application/json": {"schema": {"type": "object"}}}
 
     responses[status_code] = success_response
 
@@ -524,11 +513,7 @@ def _build_responses(
         if status:
             responses[status] = {
                 "description": raise_info.get("description", raise_info["exception"]),
-                "content": {
-                    "application/json": {
-                        "schema": {"$ref": "#/components/schemas/ErrorResponse"}
-                    }
-                },
+                "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ErrorResponse"}}},
             }
 
     # Infer common error responses from handler source
@@ -537,16 +522,11 @@ def _build_responses(
             source = inspect.getsource(handler)
             for status_match in re.finditer(r"status[=_](\d{3})", source):
                 code = status_match.group(1)
-                if code.startswith("4") or code.startswith("5"):
-                    if code not in responses:
-                        responses[code] = {
-                            "description": _STATUS_DESCRIPTIONS.get(int(code), f"Error {code}"),
-                            "content": {
-                                "application/json": {
-                                    "schema": {"$ref": "#/components/schemas/ErrorResponse"}
-                                }
-                            },
-                        }
+                if (code.startswith("4") or code.startswith("5")) and code not in responses:
+                    responses[code] = {
+                        "description": _STATUS_DESCRIPTIONS.get(int(code), f"Error {code}"),
+                        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ErrorResponse"}}},
+                    }
         except (OSError, TypeError):
             pass
 
@@ -555,14 +535,15 @@ def _build_responses(
 
 # ─── Operation-Level Security ─────────────────────────────────────────────────
 
-def _build_operation_security(route: CompiledRoute) -> Optional[List[Dict[str, List[str]]]]:
+
+def _build_operation_security(route: CompiledRoute) -> list[dict[str, list[str]]] | None:
     """Build security requirements for a specific operation."""
     pipeline = getattr(route.route_metadata, "pipeline", []) or []
     class_pipeline = []
     if route.controller_metadata:
         class_pipeline = getattr(route.controller_metadata, "pipeline", []) or []
 
-    security: List[Dict[str, List[str]]] = []
+    security: list[dict[str, list[str]]] = []
 
     for node in class_pipeline + pipeline:
         cls_name = type(node).__name__ if not isinstance(node, type) else node.__name__
@@ -592,6 +573,7 @@ def _build_operation_security(route: CompiledRoute) -> Optional[List[Dict[str, L
 
 # ─── OpenAPI Configuration ────────────────────────────────────────────────────
 
+
 @dataclass
 class OpenAPIConfig:
     """
@@ -600,6 +582,7 @@ class OpenAPIConfig:
     Set via ``Integration.openapi(...)`` in the workspace or
     passed directly to ``OpenAPIGenerator``.
     """
+
     # Info
     title: str = "Aquilia API"
     version: str = "1.0.0"
@@ -612,7 +595,7 @@ class OpenAPIConfig:
     license_url: str = ""
 
     # Servers
-    servers: List[Dict[str, str]] = field(default_factory=list)
+    servers: list[dict[str, str]] = field(default_factory=list)
 
     # Paths
     docs_path: str = "/docs"
@@ -621,7 +604,7 @@ class OpenAPIConfig:
 
     # Features
     include_internal: bool = False  # include /_internal routes
-    group_by_module: bool = True    # group tags by module
+    group_by_module: bool = True  # group tags by module
     infer_request_body: bool = True
     infer_responses: bool = True
     detect_security: bool = True
@@ -632,13 +615,13 @@ class OpenAPIConfig:
 
     # Swagger UI
     swagger_ui_theme: str = ""  # "dark", "monokai", etc.
-    swagger_ui_config: Dict[str, Any] = field(default_factory=dict)
+    swagger_ui_config: dict[str, Any] = field(default_factory=dict)
 
     # Enabled flag
     enabled: bool = True
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "OpenAPIConfig":
+    def from_dict(cls, data: dict[str, Any]) -> OpenAPIConfig:
         """Create config from dict (e.g., from workspace config)."""
         config = cls()
         for key, value in data.items():
@@ -650,6 +633,7 @@ class OpenAPIConfig:
 
 
 # ─── Main Generator ──────────────────────────────────────────────────────────
+
 
 class OpenAPIGenerator:
     """
@@ -683,20 +667,20 @@ class OpenAPIGenerator:
         self,
         title: str = "Aquilia API",
         version: str = "1.0.0",
-        config: Optional[OpenAPIConfig] = None,
+        config: OpenAPIConfig | None = None,
     ):
         if config:
             self.config = config
         else:
             self.config = OpenAPIConfig(title=title, version=version)
 
-        self.paths: Dict[str, Dict[str, Any]] = {}
-        self.schemas: Dict[str, Any] = {}
-        self.tags: List[Dict[str, Any]] = []
-        self._seen_tags: Set[str] = set()
-        self._security_schemes: Dict[str, Any] = {}
+        self.paths: dict[str, dict[str, Any]] = {}
+        self.schemas: dict[str, Any] = {}
+        self.tags: list[dict[str, Any]] = []
+        self._seen_tags: set[str] = set()
+        self._security_schemes: dict[str, Any] = {}
 
-    def generate(self, router: ControllerRouter) -> Dict[str, Any]:
+    def generate(self, router: ControllerRouter) -> dict[str, Any]:
         """Generate the full OpenAPI 3.1.0 specification."""
         routes = router.get_routes_full()
 
@@ -723,7 +707,7 @@ class OpenAPIGenerator:
                     self.schemas[model.__name__] = _dataclass_to_schema(model)
 
         # Build spec
-        spec: Dict[str, Any] = {
+        spec: dict[str, Any] = {
             "openapi": "3.1.0",
             "info": self._build_info(),
             "paths": self.paths,
@@ -739,7 +723,7 @@ class OpenAPIGenerator:
             spec["tags"] = sorted(self.tags, key=lambda t: t["name"])
 
         # Components
-        components: Dict[str, Any] = {}
+        components: dict[str, Any] = {}
         if self.schemas:
             components["schemas"] = dict(self.schemas)
         if self._security_schemes:
@@ -773,9 +757,9 @@ class OpenAPIGenerator:
 
     # ── Info ──────────────────────────────────────────────────────────────
 
-    def _build_info(self) -> Dict[str, Any]:
+    def _build_info(self) -> dict[str, Any]:
         """Build the info object."""
-        info: Dict[str, Any] = {
+        info: dict[str, Any] = {
             "title": self.config.title,
             "version": self.config.version,
         }
@@ -785,7 +769,7 @@ class OpenAPIGenerator:
             info["termsOfService"] = self.config.terms_of_service
 
         # Contact
-        contact: Dict[str, str] = {}
+        contact: dict[str, str] = {}
         if self.config.contact_name:
             contact["name"] = self.config.contact_name
         if self.config.contact_email:
@@ -796,7 +780,7 @@ class OpenAPIGenerator:
             info["contact"] = contact
 
         # License
-        license_info: Dict[str, str] = {}
+        license_info: dict[str, str] = {}
         if self.config.license_name:
             license_info["name"] = self.config.license_name
         if self.config.license_url:
@@ -806,7 +790,7 @@ class OpenAPIGenerator:
 
         return info
 
-    def _default_servers(self) -> List[Dict[str, str]]:
+    def _default_servers(self) -> list[dict[str, str]]:
         """Generate default server entries."""
         return [
             {"url": "/", "description": "Current server"},
@@ -850,7 +834,7 @@ class OpenAPIGenerator:
         route: CompiledRoute,
         handler: Any,
         parsed_doc: ParsedDocstring,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Build a complete OpenAPI operation object."""
         route_meta = route.route_metadata
 
@@ -862,7 +846,7 @@ class OpenAPIGenerator:
         summary = route_meta.summary or parsed_doc.summary or route_meta.handler_name.replace("_", " ").title()
         description = route_meta.description or parsed_doc.description or ""
 
-        operation: Dict[str, Any] = {
+        operation: dict[str, Any] = {
             "operationId": operation_id,
             "summary": summary,
         }
@@ -884,7 +868,7 @@ class OpenAPIGenerator:
         for tag in tags:
             if tag not in self._seen_tags:
                 self._seen_tags.add(tag)
-                tag_info: Dict[str, Any] = {"name": tag}
+                tag_info: dict[str, Any] = {"name": tag}
                 # Add description from controller docstring
                 if tag == route.controller_class.__name__.replace("Controller", ""):
                     ctrl_doc = inspect.getdoc(route.controller_class)
@@ -939,7 +923,7 @@ class OpenAPIGenerator:
     def _add_query_params_from_metadata(
         self,
         handler: Any,
-        parameters: List[Dict[str, Any]],
+        parameters: list[dict[str, Any]],
         route: CompiledRoute,
         parsed_doc: ParsedDocstring,
     ):
@@ -949,7 +933,7 @@ class OpenAPIGenerator:
         for param_meta in route.route_metadata.parameters:
             if param_meta.source == "query" and param_meta.name not in existing_names:
                 schema = _python_type_to_schema(param_meta.type)
-                param: Dict[str, Any] = {
+                param: dict[str, Any] = {
                     "name": param_meta.name,
                     "in": "query",
                     "required": param_meta.required,

@@ -21,12 +21,11 @@ Tasks can be dispatched in two ways:
 
 from __future__ import annotations
 
-import asyncio
 import functools
-from typing import Any, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-from .job import Priority
 from .faults import TaskNotBoundFault
+from .job import Priority
 
 if TYPE_CHECKING:
     from .schedule import Schedule
@@ -45,7 +44,7 @@ class _TaskDescriptor:
         self,
         fn,
         *,
-        name: Optional[str] = None,
+        name: str | None = None,
         queue: str = "default",
         priority: Priority = Priority.NORMAL,
         max_retries: int = 3,
@@ -53,8 +52,8 @@ class _TaskDescriptor:
         retry_backoff: float = 2.0,
         retry_max_delay: float = 300.0,
         timeout: float = 300.0,
-        tags: Optional[list[str]] = None,
-        schedule: Optional["Schedule"] = None,
+        tags: list[str] | None = None,
+        schedule: Schedule | None = None,
     ):
         self._fn = fn
         self.task_name = name or f"{fn.__module__}:{fn.__qualname__}"
@@ -132,7 +131,7 @@ _task_registry: dict[str, _TaskDescriptor] = {}
 def task(
     fn=None,
     *,
-    name: Optional[str] = None,
+    name: str | None = None,
     queue: str = "default",
     priority: Priority = Priority.NORMAL,
     max_retries: int = 3,
@@ -140,8 +139,8 @@ def task(
     retry_backoff: float = 2.0,
     retry_max_delay: float = 300.0,
     timeout: float = 300.0,
-    tags: Optional[list[str]] = None,
-    schedule: Optional["Schedule"] = None,
+    tags: list[str] | None = None,
+    schedule: Schedule | None = None,
 ):
     """
     Decorator to register an async function as a background task.
@@ -180,6 +179,7 @@ def task(
             If set, the scheduler loop auto-enqueues this task at the
             specified interval.  If ``None``, the task is on-demand only.
     """
+
     def decorator(fn_inner):
         descriptor = _TaskDescriptor(
             fn_inner,
@@ -208,15 +208,11 @@ def get_registered_tasks() -> dict[str, _TaskDescriptor]:
     return dict(_task_registry)
 
 
-def get_task(name: str) -> Optional[_TaskDescriptor]:
+def get_task(name: str) -> _TaskDescriptor | None:
     """Look up a registered task by name."""
     return _task_registry.get(name)
 
 
 def get_periodic_tasks() -> dict[str, _TaskDescriptor]:
     """Return only tasks that have a periodic schedule."""
-    return {
-        name: desc
-        for name, desc in _task_registry.items()
-        if desc.is_periodic
-    }
+    return {name: desc for name, desc in _task_registry.items() if desc.is_periodic}

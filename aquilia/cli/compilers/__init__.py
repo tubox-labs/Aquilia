@@ -3,5 +3,5 @@
 from .workspace import WorkspaceCompiler
 
 __all__ = [
-    'WorkspaceCompiler',
+    "WorkspaceCompiler",
 ]

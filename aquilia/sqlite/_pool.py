@@ -22,19 +22,17 @@ import asyncio
 import logging
 import os
 import sqlite3
-import time
 from collections import deque
+from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, AsyncIterator, Optional, Sequence
+from typing import Any
 
 from ._config import SqlitePoolConfig
 from ._connection import AsyncConnection
 from ._errors import (
     PoolExhaustedError,
     SqliteConnectionError,
-    SqliteError,
     SqliteSecurityError,
-    map_sqlite_error,
 )
 from ._metrics import SqliteMetrics
 from ._pragma import apply_pragmas, build_pragmas
@@ -223,9 +221,7 @@ class ConnectionPool:
                     timeout=self._config.pool_timeout,
                 )
             except asyncio.TimeoutError:
-                raise PoolExhaustedError(
-                    "Timed out waiting for writer connection"
-                )
+                raise PoolExhaustedError("Timed out waiting for writer connection")
             finally:
                 self._metrics.pool_waiting -= 1
 
@@ -241,9 +237,7 @@ class ConnectionPool:
                 timeout=self._config.pool_timeout,
             )
         except asyncio.TimeoutError:
-            raise PoolExhaustedError(
-                "Timed out waiting for reader connection"
-            )
+            raise PoolExhaustedError("Timed out waiting for reader connection")
         finally:
             self._metrics.pool_waiting -= 1
 
@@ -275,7 +269,7 @@ class ConnectionPool:
     async def execute(
         self,
         sql: str,
-        params: Optional[Sequence[Any]] = None,
+        params: Sequence[Any] | None = None,
     ) -> Any:
         """Execute a write statement (acquires writer automatically)."""
         async with self.acquire(readonly=False) as conn:
@@ -293,7 +287,7 @@ class ConnectionPool:
     async def fetch_all(
         self,
         sql: str,
-        params: Optional[Sequence[Any]] = None,
+        params: Sequence[Any] | None = None,
     ) -> list[Row]:
         """Fetch all rows (acquires reader)."""
         async with self.acquire(readonly=True) as conn:
@@ -302,7 +296,7 @@ class ConnectionPool:
     async def fetch_one(
         self,
         sql: str,
-        params: Optional[Sequence[Any]] = None,
+        params: Sequence[Any] | None = None,
     ) -> Row | None:
         """Fetch one row (acquires reader)."""
         async with self.acquire(readonly=True) as conn:
@@ -311,7 +305,7 @@ class ConnectionPool:
     async def fetch_val(
         self,
         sql: str,
-        params: Optional[Sequence[Any]] = None,
+        params: Sequence[Any] | None = None,
         *,
         column: int = 0,
     ) -> Any:
@@ -355,6 +349,7 @@ class ConnectionPool:
         mode = mode.upper()
         if mode not in ("PASSIVE", "FULL", "RESTART", "TRUNCATE"):
             from aquilia.faults.domains import ConfigInvalidFault
+
             raise ConfigInvalidFault(
                 key="sqlite.checkpoint_mode",
                 reason=f"Invalid checkpoint mode: {mode!r}",
@@ -464,9 +459,7 @@ class ConnectionPool:
         if self._config.sandbox_root:
             sandbox = os.path.abspath(self._config.sandbox_root)
             if not path.startswith(sandbox + os.sep) and path != sandbox:
-                raise SqliteSecurityError(
-                    f"Database path {path!r} is outside sandbox {sandbox!r}"
-                )
+                raise SqliteSecurityError(f"Database path {path!r} is outside sandbox {sandbox!r}")
 
         # Ensure parent directory exists for file-based DBs
         parent = os.path.dirname(path)
@@ -477,6 +470,7 @@ class ConnectionPool:
 # ═══════════════════════════════════════════════════════════════════════════
 # Module-level factory
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 async def create_pool(
     url_or_config: str | SqlitePoolConfig | None = None,

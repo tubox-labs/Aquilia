@@ -36,15 +36,9 @@ from __future__ import annotations
 
 import html
 import json
+from collections.abc import Sequence
 from typing import (
     Any,
-    Dict,
-    List,
-    Optional,
-    Sequence,
-    Tuple,
-    Type,
-    Union,
 )
 
 __all__ = [
@@ -64,7 +58,8 @@ __all__ = [
 #  Accept header parser
 # ═══════════════════════════════════════════════════════════════════════════
 
-def _parse_accept(header: str) -> List[Tuple[str, float]]:
+
+def _parse_accept(header: str) -> list[tuple[str, float]]:
     """
     Parse an ``Accept`` header into a list of ``(media_type, quality)``
     sorted by quality descending.
@@ -80,7 +75,7 @@ def _parse_accept(header: str) -> List[Tuple[str, float]]:
     if not header or not header.strip():
         return [("*/*", 1.0)]
 
-    entries: List[Tuple[str, float]] = []
+    entries: list[tuple[str, float]] = []
     for part in header.split(","):
         part = part.strip()
         if not part:
@@ -120,6 +115,7 @@ def _media_matches(accept_type: str, renderer_type: str) -> bool:
 #  Base Renderer
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class BaseRenderer:
     """
     Abstract renderer.
@@ -129,8 +125,8 @@ class BaseRenderer:
     """
 
     media_type: str = "application/octet-stream"
-    format_suffix: str = ""          # e.g., "json", "xml"
-    charset: Optional[str] = "utf-8"
+    format_suffix: str = ""  # e.g., "json", "xml"
+    charset: str | None = "utf-8"
 
     def render(
         self,
@@ -138,8 +134,8 @@ class BaseRenderer:
         *,
         request: Any = None,
         response_status: int = 200,
-        response_headers: Optional[Dict[str, str]] = None,
-    ) -> Union[str, bytes]:
+        response_headers: dict[str, str] | None = None,
+    ) -> str | bytes:
         """
         Render data to the target format.
 
@@ -152,13 +148,14 @@ class BaseRenderer:
 #  JSON Renderer
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class JSONRenderer(BaseRenderer):
     """Render data as JSON. Default renderer."""
 
     media_type = "application/json"
     format_suffix = "json"
 
-    def __init__(self, *, indent: Optional[int] = None, ensure_ascii: bool = False):
+    def __init__(self, *, indent: int | None = None, ensure_ascii: bool = False):
         self.indent = indent
         self.ensure_ascii = ensure_ascii
 
@@ -186,6 +183,7 @@ class JSONRenderer(BaseRenderer):
 #  XML Renderer
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class XMLRenderer(BaseRenderer):
     """
     Render data as XML.
@@ -208,7 +206,7 @@ class XMLRenderer(BaseRenderer):
         lines.append(f"</{self.root_tag}>")
         return "\n".join(lines)
 
-    def _render_value(self, value: Any, lines: List[str], indent: int = 0):
+    def _render_value(self, value: Any, lines: list[str], indent: int = 0):
         prefix = " " * indent
         if isinstance(value, dict):
             for k, v in value.items():
@@ -233,6 +231,7 @@ class XMLRenderer(BaseRenderer):
 def _sanitize_xml_tag(tag: str) -> str:
     """Ensure a string is a valid XML tag name."""
     import re
+
     tag = re.sub(r"[^a-zA-Z0-9_.-]", "_", tag)
     if not tag or tag[0].isdigit():
         tag = "_" + tag
@@ -242,6 +241,7 @@ def _sanitize_xml_tag(tag: str) -> str:
 # ═══════════════════════════════════════════════════════════════════════════
 #  YAML Renderer
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class YAMLRenderer(BaseRenderer):
     """
@@ -256,6 +256,7 @@ class YAMLRenderer(BaseRenderer):
     def render(self, data: Any, **kwargs) -> str:
         try:
             import yaml  # type: ignore[import-untyped]
+
             return yaml.dump(
                 data,
                 default_flow_style=False,
@@ -268,7 +269,7 @@ class YAMLRenderer(BaseRenderer):
     def _simple_yaml(self, data: Any, indent: int = 0) -> str:
         """Minimal YAML formatter (no PyYAML dependency)."""
         prefix = "  " * indent
-        lines: List[str] = []
+        lines: list[str] = []
         if isinstance(data, dict):
             for k, v in data.items():
                 if isinstance(v, (dict, list)):
@@ -292,6 +293,7 @@ class YAMLRenderer(BaseRenderer):
 #  Plain Text Renderer
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class PlainTextRenderer(BaseRenderer):
     """Render data as plain text (str() conversion)."""
 
@@ -309,6 +311,7 @@ class PlainTextRenderer(BaseRenderer):
 # ═══════════════════════════════════════════════════════════════════════════
 #  HTML Renderer
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class HTMLRenderer(BaseRenderer):
     """Render pre-built HTML strings (passthrough)."""
@@ -332,6 +335,7 @@ class HTMLRenderer(BaseRenderer):
 #  MessagePack Renderer
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class MessagePackRenderer(BaseRenderer):
     """
     Render data as MessagePack binary (requires ``msgpack``).
@@ -344,9 +348,11 @@ class MessagePackRenderer(BaseRenderer):
     def render(self, data: Any, **kwargs) -> bytes:
         try:
             import msgpack  # type: ignore[import-untyped]
+
             return msgpack.packb(data, use_bin_type=True, default=str)
         except ImportError:
             from ..faults.domains import ConfigMissingFault
+
             raise ConfigMissingFault(
                 key="msgpack",
                 metadata={"install": "pip install msgpack"},
@@ -356,6 +362,7 @@ class MessagePackRenderer(BaseRenderer):
 # ═══════════════════════════════════════════════════════════════════════════
 #  Content Negotiator
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class ContentNegotiator:
     """
@@ -368,13 +375,13 @@ class ContentNegotiator:
     3. First renderer (default)
     """
 
-    def __init__(self, renderers: Optional[Sequence[BaseRenderer]] = None):
-        self.renderers: List[BaseRenderer] = list(renderers or [JSONRenderer()])
+    def __init__(self, renderers: Sequence[BaseRenderer] | None = None):
+        self.renderers: list[BaseRenderer] = list(renderers or [JSONRenderer()])
 
     def select_renderer(
         self,
         request: Any,
-    ) -> Tuple[BaseRenderer, str]:
+    ) -> tuple[BaseRenderer, str]:
         """
         Return ``(renderer_instance, media_type)`` for the request.
         """
@@ -382,9 +389,7 @@ class ContentNegotiator:
         format_override = None
         if hasattr(request, "query_params"):
             qp = request.query_params
-            format_override = (
-                qp.get("format") if hasattr(qp, "get") else None
-            )
+            format_override = qp.get("format") if hasattr(qp, "get") else None
 
         if format_override:
             for renderer in self.renderers:
@@ -397,16 +402,13 @@ class ContentNegotiator:
             accept_header = request.header("accept") or request.header("Accept") or "*/*"
         elif hasattr(request, "headers"):
             hdrs = request.headers
-            if hasattr(hdrs, "get"):
-                accept_header = hdrs.get("accept") or hdrs.get("Accept") or "*/*"
-            else:
-                accept_header = "*/*"
+            accept_header = hdrs.get("accept") or hdrs.get("Accept") or "*/*" if hasattr(hdrs, "get") else "*/*"
         else:
             accept_header = "*/*"
 
         parsed_accepts = _parse_accept(accept_header)
 
-        for accept_type, quality in parsed_accepts:
+        for accept_type, _quality in parsed_accepts:
             for renderer in self.renderers:
                 if _media_matches(accept_type, renderer.media_type):
                     return renderer, renderer.media_type
@@ -420,14 +422,15 @@ class ContentNegotiator:
 #  Convenience function
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 def negotiate(
     data: Any,
     request: Any,
     *,
-    renderers: Optional[Sequence[BaseRenderer]] = None,
+    renderers: Sequence[BaseRenderer] | None = None,
     status: int = 200,
-    headers: Optional[Dict[str, str]] = None,
-) -> Tuple[Union[str, bytes], str, int]:
+    headers: dict[str, str] | None = None,
+) -> tuple[str | bytes, str, int]:
     """
     One-shot content negotiation.
 

@@ -34,8 +34,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import os
-import time
+from collections.abc import Sequence
 from datetime import datetime, timezone
 from email import encoders
 from email.mime.base import MIMEBase
@@ -43,10 +42,9 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import formatdate, make_msgid
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence
 
 from ..envelope import MailEnvelope
-from ..providers import IMailProvider, ProviderResult, ProviderResultStatus
+from ..providers import ProviderResult, ProviderResultStatus
 
 logger = logging.getLogger("aquilia.mail.providers.file")
 
@@ -97,7 +95,6 @@ class FileProvider:
         if self._initialized:
             return
 
-
         try:
             self.output_dir.mkdir(parents=True, exist_ok=True)
         except OSError as e:
@@ -125,9 +122,7 @@ class FileProvider:
             msg["Bcc"] = ", ".join(envelope.bcc)
         msg["Subject"] = envelope.subject
         msg["Date"] = formatdate(localtime=True)
-        msg["Message-ID"] = make_msgid(
-            domain=self._extract_domain(envelope.from_email)
-        )
+        msg["Message-ID"] = make_msgid(domain=self._extract_domain(envelope.from_email))
 
         if envelope.reply_to:
             msg["Reply-To"] = envelope.reply_to
@@ -160,21 +155,21 @@ class FileProvider:
         for attachment in envelope.attachments:
             maintype, subtype = attachment.content_type.split("/", 1)
             part = MIMEBase(maintype, subtype)
-            blob_data = envelope.metadata.get(
-                f"blob:{attachment.digest}", b""
-            )
+            blob_data = envelope.metadata.get(f"blob:{attachment.digest}", b"")
             part.set_payload(blob_data)
             encoders.encode_base64(part)
 
             if attachment.inline and attachment.content_id:
                 part.add_header(
-                    "Content-Disposition", "inline",
+                    "Content-Disposition",
+                    "inline",
                     filename=attachment.filename,
                 )
                 part.add_header("Content-ID", f"<{attachment.content_id}>")
             else:
                 part.add_header(
-                    "Content-Disposition", "attachment",
+                    "Content-Disposition",
+                    "attachment",
                     filename=attachment.filename,
                 )
             msg.attach(part)
@@ -199,13 +194,13 @@ class FileProvider:
     async def _write_file(self, path: Path, content: str | bytes) -> None:
         """Write content to a file asynchronously."""
         loop = asyncio.get_running_loop()
-        mode = "wb" if isinstance(content, bytes) else "w"
-        encoding = None if isinstance(content, bytes) else "utf-8"
+        "wb" if isinstance(content, bytes) else "w"
+        None if isinstance(content, bytes) else "utf-8"
         await loop.run_in_executor(
             None,
-            lambda: path.write_text(content, encoding="utf-8")
-            if isinstance(content, str)
-            else path.write_bytes(content),
+            lambda: (
+                path.write_text(content, encoding="utf-8") if isinstance(content, str) else path.write_bytes(content)
+            ),
         )
 
     async def _write_index_entry(self, envelope: MailEnvelope, filename: str) -> None:
@@ -228,10 +223,7 @@ class FileProvider:
         }
         if self.include_metadata and envelope.metadata:
             # Exclude blob data from index
-            entry["metadata"] = {
-                k: v for k, v in envelope.metadata.items()
-                if not k.startswith("blob:")
-            }
+            entry["metadata"] = {k: v for k, v in envelope.metadata.items() if not k.startswith("blob:")}
         if envelope.tenant_id:
             entry["tenant_id"] = envelope.tenant_id
         if envelope.trace_id:
@@ -262,7 +254,7 @@ class FileProvider:
                         f.unlink(missing_ok=True)
 
             await loop.run_in_executor(None, _count_and_rotate)
-        except Exception as e:
+        except Exception:
             pass
 
     # ── Send ────────────────────────────────────────────────────────
@@ -303,8 +295,9 @@ class FileProvider:
             )
 
     async def send_batch(
-        self, envelopes: Sequence[MailEnvelope],
-    ) -> List[ProviderResult]:
+        self,
+        envelopes: Sequence[MailEnvelope],
+    ) -> list[ProviderResult]:
         """Write a batch of envelopes to disk."""
         results: list[ProviderResult] = []
         for envelope in envelopes:
@@ -322,12 +315,12 @@ class FileProvider:
             test_file.write_text("ok", encoding="utf-8")
             test_file.unlink()
             return True
-        except Exception as e:
+        except Exception:
             return False
 
     # ── Utility ─────────────────────────────────────────────────────
 
-    def list_files(self) -> List[Path]:
+    def list_files(self) -> list[Path]:
         """List all .eml files in the output directory (sorted by time)."""
         if not self.output_dir.exists():
             return []
@@ -336,7 +329,7 @@ class FileProvider:
             key=lambda f: f.stat().st_mtime,
         )
 
-    def read_last(self) -> Optional[str]:
+    def read_last(self) -> str | None:
         """Read the most recent .eml file (useful for testing)."""
         files = self.list_files()
         if not files:
@@ -355,7 +348,4 @@ class FileProvider:
         return count
 
     def __repr__(self) -> str:
-        return (
-            f"FileProvider(name={self.name!r}, dir={self.output_dir!r}, "
-            f"files={self._total_sent})"
-        )
+        return f"FileProvider(name={self.name!r}, dir={self.output_dir!r}, files={self._total_sent})"

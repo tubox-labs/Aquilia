@@ -9,9 +9,9 @@ connections).
 
 from __future__ import annotations
 
-import asyncio
 import logging
-from typing import Any, Dict, List, Optional, Sequence, Type
+from collections.abc import Sequence
+from typing import Any
 
 from aquilia.aquilary.core import RegistryMode
 from aquilia.config import ConfigLoader
@@ -49,9 +49,9 @@ class TestServer:
 
     def __init__(
         self,
-        manifests: Optional[Sequence[AppManifest]] = None,
-        config: Optional[ConfigLoader] = None,
-        config_overrides: Optional[Dict[str, Any]] = None,
+        manifests: Sequence[AppManifest] | None = None,
+        config: ConfigLoader | None = None,
+        config_overrides: dict[str, Any] | None = None,
         mode: RegistryMode = RegistryMode.TEST,
         *,
         debug: bool = True,
@@ -92,14 +92,14 @@ class TestServer:
             loader.config_data = overrides
             self._config = TestConfig(loader, **overrides)
 
-        self._server: Optional[AquiliaServer] = None
+        self._server: AquiliaServer | None = None
         self._started = False
 
     # ------------------------------------------------------------------
     # Lifecycle
     # ------------------------------------------------------------------
 
-    async def start(self) -> "TestServer":
+    async def start(self) -> TestServer:
         """Boot the server (idempotent)."""
         if self._started:
             return self
@@ -130,7 +130,7 @@ class TestServer:
 
     # -- Async context manager -------------------------------------------
 
-    async def __aenter__(self) -> "TestServer":
+    async def __aenter__(self) -> TestServer:
         await self.start()
         return self
 
@@ -203,7 +203,7 @@ class TestServer:
     # Dynamic helpers
     # ------------------------------------------------------------------
 
-    async def reload(self) -> "TestServer":
+    async def reload(self) -> TestServer:
         """Restart the server (stop + start)."""
         await self.stop()
         self._server = None
@@ -214,6 +214,7 @@ class TestServer:
         router = self.controller_router
         if router is None:
             from aquilia.faults.domains import ConfigMissingFault
+
             raise ConfigMissingFault(
                 key="test_server.controller_router",
                 metadata={"hint": "No controller router available"},
@@ -225,9 +226,10 @@ class TestServer:
 # Convenience factory
 # -----------------------------------------------------------------------
 
+
 def create_test_server(
     *manifests: AppManifest,
-    config_overrides: Optional[Dict[str, Any]] = None,
+    config_overrides: dict[str, Any] | None = None,
     **kwargs: Any,
 ) -> TestServer:
     """
@@ -244,6 +246,7 @@ def create_test_server(
 # -----------------------------------------------------------------------
 # Helpers
 # -----------------------------------------------------------------------
+
 
 def _empty_manifest() -> AppManifest:
     """Create a bare-minimum manifest for testing."""

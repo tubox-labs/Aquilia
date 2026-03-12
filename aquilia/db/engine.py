@@ -17,17 +17,18 @@ import asyncio
 import logging
 import re
 import time
+from collections.abc import AsyncIterator, Sequence
 from contextlib import asynccontextmanager
-from typing import Any, AsyncIterator, Dict, List, Optional, Sequence, Tuple, Type, Union
+from typing import Any
 
+from ..di.decorators import service
 from ..faults.domains import (
     DatabaseConnectionFault,
     QueryFault,
     SchemaFault,
 )
-from ..di.decorators import service
-from .backends.base import DatabaseAdapter, AdapterCapabilities, ColumnInfo, TableInfo
-from .configs import DatabaseConfig, SqliteConfig, PostgresConfig, MysqlConfig, OracleConfig
+from .backends.base import AdapterCapabilities, ColumnInfo, DatabaseAdapter
+from .configs import DatabaseConfig
 
 logger = logging.getLogger("aquilia.db")
 
@@ -54,15 +55,19 @@ def _create_adapter(driver: str) -> DatabaseAdapter:
     """Factory -- instantiate the correct backend adapter."""
     if driver == "sqlite":
         from .backends.sqlite import SQLiteAdapter
+
         return SQLiteAdapter()
     elif driver == "postgresql":
         from .backends.postgres import PostgresAdapter
+
         return PostgresAdapter()
     elif driver == "mysql":
         from .backends.mysql import MySQLAdapter
+
         return MySQLAdapter()
     elif driver == "oracle":
         from .backends.oracle import OracleAdapter
+
         return OracleAdapter()
     else:
         raise DatabaseConnectionFault(
@@ -120,9 +125,9 @@ class AquiliaDatabase:
 
     def __init__(
         self,
-        url: Optional[str] = None,
+        url: str | None = None,
         *,
-        config: Optional[DatabaseConfig] = None,
+        config: DatabaseConfig | None = None,
         **options: Any,
     ):
         """
@@ -144,7 +149,7 @@ class AquiliaDatabase:
                 connect_retries (int): Number of connection retries (default 3).
                 connect_retry_delay (float): Seconds between retries (default 0.5).
         """
-        self._config: Optional[DatabaseConfig] = config
+        self._config: DatabaseConfig | None = config
 
         if config is not None:
             self._url = config.to_url()
@@ -203,7 +208,7 @@ class AquiliaDatabase:
             if self._connected:
                 return
 
-            last_exc: Optional[Exception] = None
+            last_exc: Exception | None = None
             for attempt in range(1, self._connect_retries + 1):
                 try:
                     await self._adapter.connect(self._url, **self._options)
@@ -216,8 +221,7 @@ class AquiliaDatabase:
                     last_exc = exc
                     if attempt < self._connect_retries:
                         logger.warning(
-                            f"Connection attempt {attempt} failed: {exc}, "
-                            f"retrying in {self._connect_retry_delay}s..."
+                            f"Connection attempt {attempt} failed: {exc}, retrying in {self._connect_retry_delay}s..."
                         )
                         await asyncio.sleep(self._connect_retry_delay)
 
@@ -306,6 +310,7 @@ class AquiliaDatabase:
         """Record a query in the admin QueryInspector (if available)."""
         try:
             from aquilia.admin.query_inspector import get_query_inspector
+
             inspector = get_query_inspector()
             inspector.record(
                 sql=sql,
@@ -318,7 +323,7 @@ class AquiliaDatabase:
 
     # ── Query execution ──────────────────────────────────────────────
 
-    async def execute(self, sql: str, params: Optional[Sequence[Any]] = None) -> Any:
+    async def execute(self, sql: str, params: Sequence[Any] | None = None) -> Any:
         """
         Execute a SQL statement.
 
@@ -342,7 +347,9 @@ class AquiliaDatabase:
             result = await self._adapter.execute(sql, params)
             _dur = (time.perf_counter() - _t0) * 1000
             self._notify_inspector(
-                sql, params, _dur,
+                sql,
+                params,
+                _dur,
                 rows_affected=getattr(result, "rowcount", 0),
             )
             return result
@@ -372,9 +379,7 @@ class AquiliaDatabase:
                 metadata={"sql": sql[:200]},
             ) from exc
 
-    async def fetch_all(
-        self, sql: str, params: Optional[Sequence[Any]] = None
-    ) -> List[Dict[str, Any]]:
+    async def fetch_all(self, sql: str, params: Sequence[Any] | None = None) -> list[dict[str, Any]]:
         """
         Execute query and return all rows as dicts.
 
@@ -409,9 +414,7 @@ class AquiliaDatabase:
                 metadata={"sql": sql[:200]},
             ) from exc
 
-    async def fetch_one(
-        self, sql: str, params: Optional[Sequence[Any]] = None
-    ) -> Optional[Dict[str, Any]]:
+    async def fetch_one(self, sql: str, params: Sequence[Any] | None = None) -> dict[str, Any] | None:
         """
         Execute query and return first row as dict, or None.
 
@@ -439,9 +442,7 @@ class AquiliaDatabase:
                 metadata={"sql": sql[:200]},
             ) from exc
 
-    async def fetch_val(
-        self, sql: str, params: Optional[Sequence[Any]] = None
-    ) -> Any:
+    async def fetch_val(self, sql: str, params: Sequence[Any] | None = None) -> Any:
         """
         Execute query and return scalar value from first row, first column.
 
@@ -476,12 +477,12 @@ class AquiliaDatabase:
         await self.ensure_connected()
         return await self._adapter.table_exists(table_name)
 
-    async def get_tables(self) -> List[str]:
+    async def get_tables(self) -> list[str]:
         """List all table names in the database."""
         await self.ensure_connected()
         return await self._adapter.get_tables()
 
-    async def get_columns(self, table_name: str) -> List[ColumnInfo]:
+    async def get_columns(self, table_name: str) -> list[ColumnInfo]:
         """Get column metadata for a table."""
         await self.ensure_connected()
         return await self._adapter.get_columns(table_name)
@@ -522,11 +523,11 @@ class AquiliaDatabase:
 
 # ── Module-level singleton accessor ─────────────────────────────────────────
 
-_default_database: Optional[AquiliaDatabase] = None
-_database_registry: Dict[str, AquiliaDatabase] = {}
+_default_database: AquiliaDatabase | None = None
+_database_registry: dict[str, AquiliaDatabase] = {}
 
 
-def get_database(alias: Optional[str] = None) -> AquiliaDatabase:
+def get_database(alias: str | None = None) -> AquiliaDatabase:
     """
     Get a database instance by alias, or the default.
 
@@ -542,8 +543,7 @@ def get_database(alias: Optional[str] = None) -> AquiliaDatabase:
         if db is None:
             raise DatabaseConnectionFault(
                 url=f"<alias:{alias}>",
-                reason=f"No database configured with alias '{alias}'. "
-                       f"Available: {list(_database_registry.keys())}",
+                reason=f"No database configured with alias '{alias}'. Available: {list(_database_registry.keys())}",
             )
         return db
 
@@ -551,18 +551,15 @@ def get_database(alias: Optional[str] = None) -> AquiliaDatabase:
     if _default_database is None:
         raise DatabaseConnectionFault(
             url="<not configured>",
-            reason=(
-                "No database configured. Call configure_database() first "
-                "or set database URL in aquilia config."
-            ),
+            reason=("No database configured. Call configure_database() first or set database URL in aquilia config."),
         )
     return _default_database
 
 
 def configure_database(
-    url: Optional[str] = None,
+    url: str | None = None,
     *,
-    config: Optional[DatabaseConfig] = None,
+    config: DatabaseConfig | None = None,
     alias: str = "default",
     **options: Any,
 ) -> AquiliaDatabase:
@@ -619,6 +616,6 @@ def set_database(db: AquiliaDatabase, *, alias: str = "default") -> None:
         _default_database = db
 
 
-def get_all_databases() -> Dict[str, AquiliaDatabase]:
+def get_all_databases() -> dict[str, AquiliaDatabase]:
     """Return all configured database instances."""
     return dict(_database_registry)

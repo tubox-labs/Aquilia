@@ -5,12 +5,13 @@ These nodes represent the parsed structure of a URL pattern.
 """
 
 from dataclasses import dataclass, field
-from typing import Any, Optional, List, Dict, Union
 from enum import Enum
+from typing import Any
 
 
 class SegmentKind(str, Enum):
     """Kind of path segment."""
+
     STATIC = "static"
     TOKEN = "token"
     OPTIONAL = "optional"
@@ -19,6 +20,7 @@ class SegmentKind(str, Enum):
 
 class ConstraintKind(str, Enum):
     """Kind of constraint."""
+
     MIN = "min"
     MAX = "max"
     REGEX = "regex"
@@ -29,6 +31,7 @@ class ConstraintKind(str, Enum):
 @dataclass
 class Span:
     """Source code span for diagnostics."""
+
     start: int
     end: int
     line: int = 1
@@ -41,11 +44,12 @@ class Span:
 @dataclass
 class Constraint:
     """Constraint on a parameter."""
+
     kind: ConstraintKind
     value: Any
-    span: Optional[Span] = None
+    span: Span | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "kind": self.kind.value,
             "value": self.value,
@@ -55,11 +59,12 @@ class Constraint:
 @dataclass
 class Transform:
     """Transform function applied to parameter."""
-    name: str
-    args: List[Any] = field(default_factory=list)
-    span: Optional[Span] = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    name: str
+    args: list[Any] = field(default_factory=list)
+    span: Span | None = None
+
+    def to_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "args": self.args,
@@ -69,22 +74,24 @@ class Transform:
 @dataclass
 class BaseSegment:
     """Base class for all segments."""
-    kind: SegmentKind = field(default=SegmentKind.STATIC, init=False)
-    span: Optional[Span] = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    kind: SegmentKind = field(default=SegmentKind.STATIC, init=False)
+    span: Span | None = None
+
+    def to_dict(self) -> dict[str, Any]:
         return {"kind": self.kind.value}
 
 
 @dataclass
 class StaticSegment(BaseSegment):
     """Static text segment."""
+
     value: str = ""
 
     def __post_init__(self):
         self.kind = SegmentKind.STATIC
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             **super().to_dict(),
             "value": self.value,
@@ -94,16 +101,17 @@ class StaticSegment(BaseSegment):
 @dataclass
 class TokenSegment(BaseSegment):
     """Named parameter segment with type and constraints."""
+
     name: str = ""
     param_type: str = "str"
-    constraints: List[Constraint] = field(default_factory=list)
-    default: Optional[Any] = None
-    transform: Optional[Transform] = None
+    constraints: list[Constraint] = field(default_factory=list)
+    default: Any | None = None
+    transform: Transform | None = None
 
     def __post_init__(self):
         self.kind = SegmentKind.TOKEN
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             **super().to_dict(),
             "name": self.name,
@@ -117,13 +125,14 @@ class TokenSegment(BaseSegment):
 @dataclass
 class SplatSegment(BaseSegment):
     """Multi-segment capture (*path)."""
+
     name: str = ""
     param_type: str = "path"
 
     def __post_init__(self):
         self.kind = SegmentKind.SPLAT
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             **super().to_dict(),
             "name": self.name,
@@ -134,12 +143,13 @@ class SplatSegment(BaseSegment):
 @dataclass
 class OptionalGroup(BaseSegment):
     """Optional segment group [...]."""
-    segments: List[BaseSegment] = field(default_factory=list)
+
+    segments: list[BaseSegment] = field(default_factory=list)
 
     def __post_init__(self):
         self.kind = SegmentKind.OPTIONAL
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             **super().to_dict(),
             "segments": [s.to_dict() for s in self.segments],
@@ -149,13 +159,14 @@ class OptionalGroup(BaseSegment):
 @dataclass
 class QueryParam:
     """Query parameter definition."""
+
     name: str
     param_type: str = "str"
-    constraints: List[Constraint] = field(default_factory=list)
-    default: Optional[Any] = None
-    span: Optional[Span] = None
+    constraints: list[Constraint] = field(default_factory=list)
+    default: Any | None = None
+    span: Span | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "type": self.param_type,
@@ -167,13 +178,14 @@ class QueryParam:
 @dataclass
 class PatternAST:
     """Complete AST for a URL pattern."""
-    raw: str
-    segments: List[BaseSegment] = field(default_factory=list)
-    query_params: List[QueryParam] = field(default_factory=list)
-    file: Optional[str] = None
-    span: Optional[Span] = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    raw: str
+    segments: list[BaseSegment] = field(default_factory=list)
+    query_params: list[QueryParam] = field(default_factory=list)
+    file: str | None = None
+    span: Span | None = None
+
+    def to_dict(self) -> dict[str, Any]:
         """Convert to JSON-serializable dict."""
         return {
             "raw": self.raw,
@@ -195,15 +207,13 @@ class PatternAST:
         # print(f"DEBUG: get_static_prefix for {self.raw} -> {prefix} (parts: {prefix_parts})")
         return prefix
 
-    def get_param_names(self) -> List[str]:
+    def get_param_names(self) -> list[str]:
         """Get all parameter names (including nested optionals)."""
         names = []
 
-        def collect(segments: List[BaseSegment]):
+        def collect(segments: list[BaseSegment]):
             for seg in segments:
-                if isinstance(seg, TokenSegment):
-                    names.append(seg.name)
-                elif isinstance(seg, SplatSegment):
+                if isinstance(seg, (TokenSegment, SplatSegment)):
                     names.append(seg.name)
                 elif isinstance(seg, OptionalGroup):
                     collect(seg.segments)

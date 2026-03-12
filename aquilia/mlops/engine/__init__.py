@@ -6,17 +6,17 @@ preprocessing → batching → inference → postprocessing,
 with metrics and tracing at each stage.
 """
 
-from .pipeline import InferencePipeline
 from .hooks import (
-    before_predict,
     after_predict,
+    before_predict,
+    collect_hooks,
     on_error,
     on_load,
     on_unload,
-    preprocess,
     postprocess,
-    collect_hooks,
+    preprocess,
 )
+from .pipeline import InferencePipeline
 
 __all__ = [
     "InferencePipeline",

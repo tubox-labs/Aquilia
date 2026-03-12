@@ -12,20 +12,21 @@ Performance notes (v1.0.0):
 """
 
 from dataclasses import dataclass
-from typing import Dict, Any, Optional, List
+from typing import Any
 
+from .compiler.ast_nodes import OptionalGroup, SplatSegment, StaticSegment, TokenSegment
 from .compiler.compiler import CompiledPattern
-from .compiler.ast_nodes import StaticSegment, TokenSegment, SplatSegment, OptionalGroup
 
 
 @dataclass
 class MatchResult:
     """Result of pattern matching."""
-    pattern: CompiledPattern
-    params: Dict[str, Any]
-    query: Dict[str, Any]
 
-    def to_dict(self) -> Dict[str, Any]:
+    pattern: CompiledPattern
+    params: dict[str, Any]
+    query: dict[str, Any]
+
+    def to_dict(self) -> dict[str, Any]:
         return {
             "pattern": self.pattern.raw,
             "params": self.params,
@@ -37,7 +38,7 @@ class PatternMatcher:
     """Matches request paths against compiled patterns."""
 
     def __init__(self):
-        self.patterns: List[CompiledPattern] = []
+        self.patterns: list[CompiledPattern] = []
 
     def add_pattern(self, pattern: CompiledPattern):
         """Add a compiled pattern to the matcher."""
@@ -48,8 +49,8 @@ class PatternMatcher:
     async def match(
         self,
         path: str,
-        query_params: Optional[Dict[str, str]] = None,
-    ) -> Optional[MatchResult]:
+        query_params: dict[str, str] | None = None,
+    ) -> MatchResult | None:
         """
         Match a path against patterns.
 
@@ -74,8 +75,8 @@ class PatternMatcher:
         self,
         pattern: CompiledPattern,
         path: str,
-        query_params: Dict[str, str],
-    ) -> Optional[MatchResult]:
+        query_params: dict[str, str],
+    ) -> MatchResult | None:
         """Try to match a single pattern."""
         # Quick prefix check
         if pattern.static_prefix and not path.startswith(pattern.static_prefix):
@@ -136,13 +137,13 @@ class PatternMatcher:
         self,
         pattern: CompiledPattern,
         path: str,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Match path segments without regex (fully synchronous)."""
         path_segments = path.split("/")
         # Filter empty segments from leading/trailing slashes
         path_segments = [s for s in path_segments if s]
         pattern_segments = pattern.ast.segments
-        params: Dict[str, Any] = {}
+        params: dict[str, Any] = {}
         path_idx = 0
         pattern_idx = 0
         num_path = len(path_segments)
@@ -197,12 +198,12 @@ class PatternMatcher:
     def _match_optional_sync(
         self,
         group: OptionalGroup,
-        path_segments: List[str],
+        path_segments: list[str],
         start_idx: int,
         pattern: CompiledPattern,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Try to match an optional group (fully synchronous)."""
-        params: Dict[str, Any] = {}
+        params: dict[str, Any] = {}
         idx = start_idx
         num_path = len(path_segments)
 

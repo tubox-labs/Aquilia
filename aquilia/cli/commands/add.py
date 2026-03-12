@@ -1,11 +1,10 @@
 """Add module to workspace command."""
 
 from pathlib import Path
-from typing import Optional, List
 
-from ..utils.colors import info, dim, success, _CHECK
 from ..generators import ModuleGenerator
 from ..generators.workspace import WorkspaceGenerator
+from ..utils.colors import _CHECK, dim, info
 
 
 def _ensure_docker_files(workspace_root: Path, verbose: bool = False) -> None:
@@ -17,9 +16,9 @@ def _ensure_docker_files(workspace_root: Path, verbose: bool = False) -> None:
     that do not already exist -- existing files are never overwritten.
     """
     from ..generators.deployment import (
-        WorkspaceIntrospector,
-        DockerfileGenerator,
         ComposeGenerator,
+        DockerfileGenerator,
+        WorkspaceIntrospector,
     )
 
     wctx = WorkspaceIntrospector(workspace_root).introspect()
@@ -27,7 +26,7 @@ def _ensure_docker_files(workspace_root: Path, verbose: bool = False) -> None:
     docker_gen = DockerfileGenerator(wctx)
     compose_gen = ComposeGenerator(wctx)
 
-    generated: List[str] = []
+    generated: list[str] = []
 
     dockerfile = workspace_root / "Dockerfile"
     if not dockerfile.exists():
@@ -50,9 +49,9 @@ def _ensure_docker_files(workspace_root: Path, verbose: bool = False) -> None:
 
 def add_module(
     name: str,
-    depends_on: List[str],
-    fault_domain: Optional[str] = None,
-    route_prefix: Optional[str] = None,
+    depends_on: list[str],
+    fault_domain: str | None = None,
+    route_prefix: str | None = None,
     with_tests: bool = False,
     minimal: bool = False,
     no_docker: bool = False,
@@ -80,10 +79,11 @@ def add_module(
         Path to created module
     """
     workspace_root = Path.cwd()
-    workspace_file = workspace_root / 'workspace.py'
+    workspace_file = workspace_root / "workspace.py"
 
     if not workspace_file.exists():
         from aquilia.faults.domains import ConfigMissingFault
+
         raise ConfigMissingFault(key="workspace.py")
 
     if verbose:
@@ -95,12 +95,12 @@ def add_module(
         if route_prefix:
             info(f"  Route prefix: {route_prefix}")
         if with_tests:
-            info(f"  With test routes: Yes")
+            info("  With test routes: Yes")
         if minimal:
-            info(f"  Minimal mode: enabled")
+            info("  Minimal mode: enabled")
 
     # Check if modules directory exists
-    modules_dir = workspace_root / 'modules'
+    modules_dir = workspace_root / "modules"
     if not modules_dir.exists():
         modules_dir.mkdir(parents=True, exist_ok=True)
 
@@ -108,6 +108,7 @@ def add_module(
     module_path = modules_dir / name
     if module_path.exists():
         from aquilia.faults.domains import ConfigInvalidFault
+
         raise ConfigInvalidFault(
             key="module.name",
             reason=f"Module '{name}' already exists",
@@ -119,6 +120,7 @@ def add_module(
 
     # Simple regex to find .module() calls -- match Module("name"...)
     import re
+
     module_pattern = r'Module\("([^"]+)"'
     existing_modules = re.findall(module_pattern, workspace_content)
 
@@ -126,6 +128,7 @@ def add_module(
     for dep in depends_on:
         if dep not in existing_modules:
             from aquilia.faults.domains import ConfigInvalidFault
+
             raise ConfigInvalidFault(
                 key="module.depends_on",
                 reason=f"Dependency '{dep}' not found in workspace",
@@ -146,38 +149,34 @@ def add_module(
 
     # Update workspace with the new module (don't regenerate everything)
     try:
-        workspace_generator = WorkspaceGenerator(
-            name=workspace_root.name,
-            path=workspace_root
-        )
+        workspace_generator = WorkspaceGenerator(name=workspace_root.name, path=workspace_root)
 
         # Discover the new module
         discovered = workspace_generator._discover_modules()
 
         # Update workspace.py with discovered modules (preserves existing config)
-        workspace_path = workspace_root / 'workspace.py'
+        workspace_path = workspace_root / "workspace.py"
         workspace_generator.update_workspace_config(workspace_path, discovered)
 
         if verbose:
             info(f"{_CHECK} Updated workspace.py with auto-discovery")
     except Exception as e:
         if verbose:
-            warning = __import__('aquilia.cli.utils.colors', fromlist=['warning']).warning
+            warning = __import__("aquilia.cli.utils.colors", fromlist=["warning"]).warning
             warning(f"  Could not regenerate workspace.py: {e}")
-            info(f"  Module was created, but workspace.py may need manual update")
-
+            info("  Module was created, but workspace.py may need manual update")
 
     if verbose:
         dim("\nGenerated structure:")
         dim(f"  modules/{name}/")
-        dim(f"    manifest.py")
-        dim(f"    controllers.py")
+        dim("    manifest.py")
+        dim("    controllers.py")
         if not minimal:
-            dim(f"    services.py")
-            dim(f"    faults.py")
+            dim("    services.py")
+            dim("    faults.py")
         if with_tests:
-            dim(f"    test_routes.py")
-        dim(f"    __init__.py")
+            dim("    test_routes.py")
+        dim("    __init__.py")
 
     # Auto-generate Docker/Compose files if they don't exist yet
     if not no_docker:
@@ -188,4 +187,3 @@ def add_module(
             pass
 
     return module_path
-

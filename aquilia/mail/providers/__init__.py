@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional, Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 
 class ProviderResultStatus(str, Enum):
@@ -33,10 +33,10 @@ class ProviderResult:
     """Result returned by IMailProvider.send()."""
 
     status: ProviderResultStatus
-    provider_message_id: Optional[str] = None
-    error_message: Optional[str] = None
-    raw_response: Optional[Dict[str, Any]] = None
-    retry_after: Optional[float] = None  # seconds (for RATE_LIMITED)
+    provider_message_id: str | None = None
+    error_message: str | None = None
+    raw_response: dict[str, Any] | None = None
+    retry_after: float | None = None  # seconds (for RATE_LIMITED)
 
     @property
     def is_success(self) -> bool:
@@ -50,10 +50,7 @@ class ProviderResult:
         )
 
     def __repr__(self) -> str:
-        return (
-            f"ProviderResult(status={self.status.value}, "
-            f"message_id={self.provider_message_id!r})"
-        )
+        return f"ProviderResult(status={self.status.value}, message_id={self.provider_message_id!r})"
 
 
 @runtime_checkable
@@ -81,7 +78,7 @@ class IMailProvider(Protocol):
         """
         ...
 
-    async def send_batch(self, envelopes: List[Any]) -> List[ProviderResult]:
+    async def send_batch(self, envelopes: list[Any]) -> list[ProviderResult]:
         """
         Send a batch of envelopes (optional; default falls back to sequential).
 

@@ -8,7 +8,7 @@ knobs that the native module exposes.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional
+from typing import Any
 
 from aquilia.db.configs import SqliteConfig
 
@@ -44,35 +44,35 @@ class SqlitePoolConfig:
     # ── PRAGMAs ──────────────────────────────────────────────────────
     journal_mode: str = "WAL"
     foreign_keys: bool = True
-    busy_timeout: int = 5000          # milliseconds
-    synchronous: str = "NORMAL"       # NORMAL is safe under WAL
-    cache_size: int = -8000           # negative = KiB (8 MiB)
-    mmap_size: int = 268435456        # bytes (256 MiB)
+    busy_timeout: int = 5000  # milliseconds
+    synchronous: str = "NORMAL"  # NORMAL is safe under WAL
+    cache_size: int = -8000  # negative = KiB (8 MiB)
+    mmap_size: int = 268435456  # bytes (256 MiB)
     temp_store: str = "MEMORY"
-    wal_autocheckpoint: int = 1000    # pages
+    wal_autocheckpoint: int = 1000  # pages
 
     # ── Pool ─────────────────────────────────────────────────────────
-    pool_size: int = 5                # reader connections
-    pool_min_size: int = 2            # pre-opened readers
-    pool_max_idle_time: float = 300.0 # seconds before idle eviction
-    pool_timeout: float = 30.0        # seconds to wait for a connection
+    pool_size: int = 5  # reader connections
+    pool_min_size: int = 2  # pre-opened readers
+    pool_max_idle_time: float = 300.0  # seconds before idle eviction
+    pool_timeout: float = 30.0  # seconds to wait for a connection
 
     # ── Statement cache ──────────────────────────────────────────────
-    statement_cache_size: int = 256   # per connection
+    statement_cache_size: int = 256  # per connection
 
     # ── Query timeout ────────────────────────────────────────────────
-    query_timeout: float = 30.0       # seconds, 0 = no timeout
+    query_timeout: float = 30.0  # seconds, 0 = no timeout
 
     # ── Behaviour ────────────────────────────────────────────────────
-    echo: bool = False                # log all SQL when True
-    auto_commit: bool = True          # auto-commit outside transactions
+    echo: bool = False  # log all SQL when True
+    auto_commit: bool = True  # auto-commit outside transactions
 
     # ── Security ─────────────────────────────────────────────────────
     enforce_path_security: bool = True
-    sandbox_root: Optional[str] = None
+    sandbox_root: str | None = None
 
     # ── Extra driver options ─────────────────────────────────────────
-    options: Dict[str, Any] = field(default_factory=dict)
+    options: dict[str, Any] = field(default_factory=dict)
 
     # ── Retry ────────────────────────────────────────────────────────
     connect_retries: int = 3
@@ -90,8 +90,7 @@ class SqlitePoolConfig:
             raise ConfigInvalidFault(
                 key="sqlite.journal_mode",
                 reason=(
-                    f"Invalid journal_mode {self.journal_mode!r}. "
-                    f"Must be one of: {', '.join(sorted(JOURNAL_MODES))}"
+                    f"Invalid journal_mode {self.journal_mode!r}. Must be one of: {', '.join(sorted(JOURNAL_MODES))}"
                 ),
             )
         self.journal_mode = jm
@@ -100,10 +99,7 @@ class SqlitePoolConfig:
         if sm not in SYNC_MODES:
             raise ConfigInvalidFault(
                 key="sqlite.synchronous",
-                reason=(
-                    f"Invalid synchronous {self.synchronous!r}. "
-                    f"Must be one of: {', '.join(sorted(SYNC_MODES))}"
-                ),
+                reason=(f"Invalid synchronous {self.synchronous!r}. Must be one of: {', '.join(sorted(SYNC_MODES))}"),
             )
         self.synchronous = sm
 
@@ -112,8 +108,7 @@ class SqlitePoolConfig:
             raise ConfigInvalidFault(
                 key="sqlite.temp_store",
                 reason=(
-                    f"Invalid temp_store {self.temp_store!r}. "
-                    f"Must be one of: {', '.join(sorted(TEMP_STORE_MODES))}"
+                    f"Invalid temp_store {self.temp_store!r}. Must be one of: {', '.join(sorted(TEMP_STORE_MODES))}"
                 ),
             )
         self.temp_store = ts
@@ -139,10 +134,7 @@ class SqlitePoolConfig:
         if self.pool_min_size > self.pool_size:
             raise ConfigInvalidFault(
                 key="sqlite.pool_min_size",
-                reason=(
-                    f"pool_min_size ({self.pool_min_size}) must be <= "
-                    f"pool_size ({self.pool_size})"
-                ),
+                reason=(f"pool_min_size ({self.pool_min_size}) must be <= pool_size ({self.pool_size})"),
             )
 
         if self.statement_cache_size < 0:
@@ -165,7 +157,7 @@ class SqlitePoolConfig:
         Returns:
             A new ``SqlitePoolConfig`` with fields populated from *cfg*.
         """
-        kwargs: Dict[str, Any] = {
+        kwargs: dict[str, Any] = {
             "path": cfg.path,
             "journal_mode": cfg.journal_mode,
             "foreign_keys": cfg.foreign_keys,
@@ -196,7 +188,7 @@ class SqlitePoolConfig:
         path = url
         for prefix in ("sqlite:///", "sqlite://"):
             if url.startswith(prefix):
-                path = url[len(prefix):]
+                path = url[len(prefix) :]
                 break
         if not path:
             path = ":memory:"

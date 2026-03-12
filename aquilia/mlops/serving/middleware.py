@@ -32,9 +32,11 @@ Or via DI integration (auto-registered during lifecycle startup).
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import time
-from typing import Any, Callable, Dict, Optional
+from collections.abc import Callable
+from typing import Any
 
 from aquilia.middleware import MiddlewareStack
 
@@ -195,11 +197,13 @@ def mlops_rate_limit_middleware(
 
         if not rate_limiter.acquire():
             from aquilia.response import Response
+
             wait_time = rate_limiter.acquire_wait_time()
 
             if fault_engine is not None:
                 try:
                     from ..engine.faults import RateLimitFault
+
                     await fault_engine.process(
                         RateLimitFault(limit_rps=rate_limiter.rate, retry_after=wait_time),
                         app="mlops",
@@ -253,10 +257,12 @@ def mlops_circuit_breaker_middleware(
             if fault_engine is not None:
                 try:
                     from ..engine.faults import CircuitBreakerOpenFault
+
                     await fault_engine.process(
                         CircuitBreakerOpenFault(
                             failure_count=circuit_breaker.failure_count
-                            if hasattr(circuit_breaker, "failure_count") else 0,
+                            if hasattr(circuit_breaker, "failure_count")
+                            else 0,
                         ),
                         app="mlops",
                     )
@@ -283,10 +289,8 @@ def mlops_circuit_breaker_middleware(
             circuit_breaker.record_failure()
             # Route serving failures through FaultEngine
             if fault_engine is not None:
-                try:
+                with contextlib.suppress(Exception):
                     await fault_engine.process(exc, app="mlops")
-                except Exception:
-                    pass
             raise
 
     return middleware

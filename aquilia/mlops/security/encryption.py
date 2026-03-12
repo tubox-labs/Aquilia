@@ -5,7 +5,6 @@ Encryption at rest for registry blobs.
 from __future__ import annotations
 
 import logging
-from typing import Optional
 
 logger = logging.getLogger("aquilia.mlops.security.encryption")
 
@@ -17,7 +16,7 @@ class BlobEncryptor:
     The ``cryptography`` library is already an Aquilia dependency.
     """
 
-    def __init__(self, key: Optional[bytes] = None):
+    def __init__(self, key: bytes | None = None):
         from cryptography.fernet import Fernet
 
         self._key = key or Fernet.generate_key()
@@ -34,5 +33,5 @@ class BlobEncryptor:
         return self._key
 
     @classmethod
-    def from_key(cls, key: bytes) -> "BlobEncryptor":
+    def from_key(cls, key: bytes) -> BlobEncryptor:
         return cls(key=key)

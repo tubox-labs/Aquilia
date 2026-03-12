@@ -16,77 +16,67 @@ Key Features:
 
 from aquilia._version import __version__  # noqa: F401 — re-exported
 
+# Legacy compatibility
+from .compat import RequestCtx
 from .core import (
+    Container,
     Provider,
     ProviderMeta,
-    Container,
     Registry,
     ResolveCtx,
 )
-
-from .providers import (
-    ClassProvider,
-    FactoryProvider,
-    ValueProvider,
-    PoolProvider,
-    AliasProvider,
-    LazyProxyProvider,
-    ScopedProvider,
-    BlueprintProvider,
-)
-
-from .scopes import (
-    Scope,
-    ServiceScope,
-    ScopeValidator,
-)
-
 from .decorators import (
-    service,
+    Inject,
+    auto_inject,
     factory,
     inject,
-    Inject,
     provides,
-    auto_inject,
+    service,
 )
-
-from .lifecycle import (
-    Lifecycle,
-    LifecycleHook,
-    DisposalStrategy,
-    LifecycleContext,
-)
-
-from .graph import (
-    DependencyGraph,
-)
-
-from .errors import (
-    DIError,
-    ProviderNotFoundError,
-    DependencyCycleError,
-    ScopeViolationError,
-    AmbiguousProviderError,
-)
-
-from .testing import (
-    TestRegistry,
-    MockProvider,
-)
-
 from .dep import (
+    Body,
     Dep,
     Header,
     Query,
-    Body,
 )
-
+from .errors import (
+    AmbiguousProviderError,
+    DependencyCycleError,
+    DIError,
+    ProviderNotFoundError,
+    ScopeViolationError,
+)
+from .graph import (
+    DependencyGraph,
+)
+from .lifecycle import (
+    DisposalStrategy,
+    Lifecycle,
+    LifecycleContext,
+    LifecycleHook,
+)
+from .providers import (
+    AliasProvider,
+    BlueprintProvider,
+    ClassProvider,
+    FactoryProvider,
+    LazyProxyProvider,
+    PoolProvider,
+    ScopedProvider,
+    ValueProvider,
+)
 from .request_dag import (
     RequestDAG,
 )
-
-# Legacy compatibility
-from .compat import RequestCtx
+from .scopes import (
+    Scope,
+    ScopeValidator,
+    ServiceScope,
+)
+from .testing import (
+    MockProvider,
+    TestRegistry,
+)
 
 __all__ = [
     # Core types
@@ -95,7 +85,6 @@ __all__ = [
     "Container",
     "Registry",
     "ResolveCtx",
-    
     # Providers
     "ClassProvider",
     "FactoryProvider",
@@ -105,12 +94,10 @@ __all__ = [
     "LazyProxyProvider",
     "ScopedProvider",
     "BlueprintProvider",
-    
     # Scopes
     "Scope",
     "ServiceScope",
     "ScopeValidator",
-    
     # Decorators
     "service",
     "factory",
@@ -118,34 +105,28 @@ __all__ = [
     "Inject",
     "provides",
     "auto_inject",
-    
     # Lifecycle
     "Lifecycle",
     "LifecycleHook",
     "DisposalStrategy",
     "LifecycleContext",
-    
     # Graph
     "DependencyGraph",
-    
     # Errors
     "DIError",
     "ProviderNotFoundError",
     "DependencyCycleError",
     "ScopeViolationError",
     "AmbiguousProviderError",
-    
     # Testing
     "TestRegistry",
     "MockProvider",
-    
     # Dep (annotation-driven DI)
     "Dep",
     "Header",
     "Query",
     "Body",
     "RequestDAG",
-    
     # Legacy
     "RequestCtx",
 ]

@@ -2,10 +2,10 @@
 AquilaCache Backends -- Storage implementations.
 """
 
-from .memory import MemoryBackend
-from .redis import RedisBackend
 from .composite import CompositeBackend
+from .memory import MemoryBackend
 from .null import NullBackend
+from .redis import RedisBackend
 
 __all__ = [
     "MemoryBackend",

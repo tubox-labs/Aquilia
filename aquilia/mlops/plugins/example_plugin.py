@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any, Dict
+from typing import Any
 
 logger = logging.getLogger("aquilia.mlops.plugins.example")
 
@@ -38,7 +38,7 @@ class HealthCheckPlugin:
 
     # ── lifecycle ────────────────────────────────────────────────────────
 
-    def activate(self, ctx: Dict[str, Any]) -> None:
+    def activate(self, ctx: dict[str, Any]) -> None:
         self._start_time = time.monotonic()
 
         # If a PluginHost reference is in the context, subscribe to events
@@ -47,7 +47,7 @@ class HealthCheckPlugin:
             host.on("post_inference", self._on_inference)
 
     def deactivate(self) -> None:
-        uptime = time.monotonic() - self._start_time
+        time.monotonic() - self._start_time
 
     # ── hooks ────────────────────────────────────────────────────────────
 
@@ -57,12 +57,8 @@ class HealthCheckPlugin:
 
     # ── utility ──────────────────────────────────────────────────────────
 
-    def stats(self) -> Dict[str, Any]:
-        avg = (
-            self._total_latency / self._inference_count
-            if self._inference_count > 0
-            else 0.0
-        )
+    def stats(self) -> dict[str, Any]:
+        avg = self._total_latency / self._inference_count if self._inference_count > 0 else 0.0
         return {
             "inference_count": self._inference_count,
             "avg_latency_ms": round(avg, 2),

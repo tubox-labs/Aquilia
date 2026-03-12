@@ -15,8 +15,7 @@ Usage:
 
 from __future__ import annotations
 
-from typing import Any, ClassVar, Dict, List, Optional, Tuple, Type
-
+from typing import Any, ClassVar
 
 __all__ = [
     "Lookup",
@@ -64,7 +63,7 @@ class Lookup:
         self.field_name = field_name
         self.value = value
 
-    def as_sql(self, dialect: str = "sqlite") -> Tuple[str, List[Any]]:
+    def as_sql(self, dialect: str = "sqlite") -> tuple[str, list[Any]]:
         """Return (sql_clause, params) for this lookup."""
         lhs = f'"{self.field_name}"'
         return f"{lhs} {self.sql_operator} ?", [self.value]
@@ -84,19 +83,15 @@ def _escape_like(value: str) -> str:
     Replaces ``\\``, ``%``, and ``_`` with their escaped equivalents
     so that user-supplied text is treated as literal characters.
     """
-    return (
-        value
-        .replace("\\", "\\\\")
-        .replace("%", "\\%")
-        .replace("_", "\\_")
-    )
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
 class IExact(Lookup):
     """Case-insensitive exact match."""
+
     lookup_name = "iexact"
 
-    def as_sql(self, dialect: str = "sqlite") -> Tuple[str, List[Any]]:
+    def as_sql(self, dialect: str = "sqlite") -> tuple[str, list[Any]]:
         return f'LOWER("{self.field_name}") = LOWER(?)', [self.value]
 
 
@@ -104,58 +99,61 @@ class Contains(Lookup):
     lookup_name = "contains"
     sql_operator = "LIKE"
 
-    def as_sql(self, dialect: str = "sqlite") -> Tuple[str, List[Any]]:
+    def as_sql(self, dialect: str = "sqlite") -> tuple[str, list[Any]]:
         escaped = _escape_like(self.value)
-        return f'"{self.field_name}" LIKE ? ESCAPE \'\\\'', [f"%{escaped}%"]
+        return f"\"{self.field_name}\" LIKE ? ESCAPE '\\'", [f"%{escaped}%"]
 
 
 class IContains(Lookup):
     """Case-insensitive contains."""
+
     lookup_name = "icontains"
 
-    def as_sql(self, dialect: str = "sqlite") -> Tuple[str, List[Any]]:
+    def as_sql(self, dialect: str = "sqlite") -> tuple[str, list[Any]]:
         escaped = _escape_like(self.value)
-        return f'LOWER("{self.field_name}") LIKE LOWER(?) ESCAPE \'\\\'', [f"%{escaped}%"]
+        return f"LOWER(\"{self.field_name}\") LIKE LOWER(?) ESCAPE '\\'", [f"%{escaped}%"]
 
 
 class StartsWith(Lookup):
     lookup_name = "startswith"
 
-    def as_sql(self, dialect: str = "sqlite") -> Tuple[str, List[Any]]:
+    def as_sql(self, dialect: str = "sqlite") -> tuple[str, list[Any]]:
         escaped = _escape_like(self.value)
-        return f'"{self.field_name}" LIKE ? ESCAPE \'\\\'', [f"{escaped}%"]
+        return f"\"{self.field_name}\" LIKE ? ESCAPE '\\'", [f"{escaped}%"]
 
 
 class IStartsWith(Lookup):
     """Case-insensitive startswith."""
+
     lookup_name = "istartswith"
 
-    def as_sql(self, dialect: str = "sqlite") -> Tuple[str, List[Any]]:
+    def as_sql(self, dialect: str = "sqlite") -> tuple[str, list[Any]]:
         escaped = _escape_like(self.value)
-        return f'LOWER("{self.field_name}") LIKE LOWER(?) ESCAPE \'\\\'', [f"{escaped}%"]
+        return f"LOWER(\"{self.field_name}\") LIKE LOWER(?) ESCAPE '\\'", [f"{escaped}%"]
 
 
 class EndsWith(Lookup):
     lookup_name = "endswith"
 
-    def as_sql(self, dialect: str = "sqlite") -> Tuple[str, List[Any]]:
+    def as_sql(self, dialect: str = "sqlite") -> tuple[str, list[Any]]:
         escaped = _escape_like(self.value)
-        return f'"{self.field_name}" LIKE ? ESCAPE \'\\\'', [f"%{escaped}"]
+        return f"\"{self.field_name}\" LIKE ? ESCAPE '\\'", [f"%{escaped}"]
 
 
 class IEndsWith(Lookup):
     """Case-insensitive endswith."""
+
     lookup_name = "iendswith"
 
-    def as_sql(self, dialect: str = "sqlite") -> Tuple[str, List[Any]]:
+    def as_sql(self, dialect: str = "sqlite") -> tuple[str, list[Any]]:
         escaped = _escape_like(self.value)
-        return f'LOWER("{self.field_name}") LIKE LOWER(?) ESCAPE \'\\\'', [f"%{escaped}"]
+        return f"LOWER(\"{self.field_name}\") LIKE LOWER(?) ESCAPE '\\'", [f"%{escaped}"]
 
 
 class In(Lookup):
     lookup_name = "in"
 
-    def as_sql(self, dialect: str = "sqlite") -> Tuple[str, List[Any]]:
+    def as_sql(self, dialect: str = "sqlite") -> tuple[str, list[Any]]:
         if not self.value:
             return "1 = 0", []  # Always false
         placeholders = ", ".join("?" for _ in self.value)
@@ -185,7 +183,7 @@ class Lte(Lookup):
 class IsNull(Lookup):
     lookup_name = "isnull"
 
-    def as_sql(self, dialect: str = "sqlite") -> Tuple[str, List[Any]]:
+    def as_sql(self, dialect: str = "sqlite") -> tuple[str, list[Any]]:
         if self.value:
             return f'"{self.field_name}" IS NULL', []
         return f'"{self.field_name}" IS NOT NULL', []
@@ -193,18 +191,20 @@ class IsNull(Lookup):
 
 class Range(Lookup):
     """Filter within a range: field__range=(lo, hi)."""
+
     lookup_name = "range"
 
-    def as_sql(self, dialect: str = "sqlite") -> Tuple[str, List[Any]]:
+    def as_sql(self, dialect: str = "sqlite") -> tuple[str, list[Any]]:
         lo, hi = self.value
         return f'"{self.field_name}" BETWEEN ? AND ?', [lo, hi]
 
 
 class Regex(Lookup):
     """Filter by regex (PostgreSQL: ~, SQLite: REGEXP if loaded)."""
+
     lookup_name = "regex"
 
-    def as_sql(self, dialect: str = "sqlite") -> Tuple[str, List[Any]]:
+    def as_sql(self, dialect: str = "sqlite") -> tuple[str, list[Any]]:
         if dialect == "postgresql":
             return f'"{self.field_name}" ~ ?', [self.value]
         # SQLite: requires REGEXP function to be loaded
@@ -213,9 +213,10 @@ class Regex(Lookup):
 
 class IRegex(Lookup):
     """Case-insensitive regex."""
+
     lookup_name = "iregex"
 
-    def as_sql(self, dialect: str = "sqlite") -> Tuple[str, List[Any]]:
+    def as_sql(self, dialect: str = "sqlite") -> tuple[str, list[Any]]:
         if dialect == "postgresql":
             return f'"{self.field_name}" ~* ?', [self.value]
         return f'LOWER("{self.field_name}") REGEXP LOWER(?)', [self.value]
@@ -223,9 +224,10 @@ class IRegex(Lookup):
 
 class Date(Lookup):
     """Extract date from datetime and compare."""
+
     lookup_name = "date"
 
-    def as_sql(self, dialect: str = "sqlite") -> Tuple[str, List[Any]]:
+    def as_sql(self, dialect: str = "sqlite") -> tuple[str, list[Any]]:
         if dialect == "postgresql":
             return f'("{self.field_name}")::date = ?', [self.value]
         return f'DATE("{self.field_name}") = ?', [str(self.value)]
@@ -233,9 +235,10 @@ class Date(Lookup):
 
 class Year(Lookup):
     """Extract year and compare."""
+
     lookup_name = "year"
 
-    def as_sql(self, dialect: str = "sqlite") -> Tuple[str, List[Any]]:
+    def as_sql(self, dialect: str = "sqlite") -> tuple[str, list[Any]]:
         if dialect == "postgresql":
             return f'EXTRACT(YEAR FROM "{self.field_name}") = ?', [self.value]
         return f'CAST(STRFTIME("%Y", "{self.field_name}") AS INTEGER) = ?', [self.value]
@@ -243,9 +246,10 @@ class Year(Lookup):
 
 class Month(Lookup):
     """Extract month and compare."""
+
     lookup_name = "month"
 
-    def as_sql(self, dialect: str = "sqlite") -> Tuple[str, List[Any]]:
+    def as_sql(self, dialect: str = "sqlite") -> tuple[str, list[Any]]:
         if dialect == "postgresql":
             return f'EXTRACT(MONTH FROM "{self.field_name}") = ?', [self.value]
         return f'CAST(STRFTIME("%m", "{self.field_name}") AS INTEGER) = ?', [self.value]
@@ -253,9 +257,10 @@ class Month(Lookup):
 
 class Day(Lookup):
     """Extract day and compare."""
+
     lookup_name = "day"
 
-    def as_sql(self, dialect: str = "sqlite") -> Tuple[str, List[Any]]:
+    def as_sql(self, dialect: str = "sqlite") -> tuple[str, list[Any]]:
         if dialect == "postgresql":
             return f'EXTRACT(DAY FROM "{self.field_name}") = ?', [self.value]
         return f'CAST(STRFTIME("%d", "{self.field_name}") AS INTEGER) = ?', [self.value]
@@ -263,15 +268,33 @@ class Day(Lookup):
 
 # ── Lookup Registry ──────────────────────────────────────────────────────────
 
-_REGISTRY: Dict[str, Type[Lookup]] = {}
+_REGISTRY: dict[str, type[Lookup]] = {}
 
 
 def _register_builtins() -> None:
     """Register all built-in lookups."""
     for cls in [
-        Exact, IExact, Contains, IContains, StartsWith, IStartsWith,
-        EndsWith, IEndsWith, In, Gt, Gte, Lt, Lte, IsNull, Range,
-        Regex, IRegex, Date, Year, Month, Day,
+        Exact,
+        IExact,
+        Contains,
+        IContains,
+        StartsWith,
+        IStartsWith,
+        EndsWith,
+        IEndsWith,
+        In,
+        Gt,
+        Gte,
+        Lt,
+        Lte,
+        IsNull,
+        Range,
+        Regex,
+        IRegex,
+        Date,
+        Year,
+        Month,
+        Day,
     ]:
         _REGISTRY[cls.lookup_name] = cls
 
@@ -279,12 +302,12 @@ def _register_builtins() -> None:
 _register_builtins()
 
 
-def lookup_registry() -> Dict[str, Type[Lookup]]:
+def lookup_registry() -> dict[str, type[Lookup]]:
     """Return a copy of the lookup registry."""
     return dict(_REGISTRY)
 
 
-def register_lookup(name: str, cls: Type[Lookup]) -> None:
+def register_lookup(name: str, cls: type[Lookup]) -> None:
     """Register a custom lookup type."""
     _REGISTRY[name] = cls
 
@@ -307,6 +330,7 @@ def resolve_lookup(field_name: str, lookup_name: str, value: Any) -> Lookup:
     cls = _REGISTRY.get(lookup_name)
     if cls is None:
         from aquilia.faults.domains import RegistryFault
+
         raise RegistryFault(
             name=lookup_name,
             message=f"Unknown lookup '{lookup_name}'. Available: {sorted(_REGISTRY.keys())}",

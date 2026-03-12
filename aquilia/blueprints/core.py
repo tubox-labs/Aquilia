@@ -10,45 +10,35 @@ This is NOT a serializer. It is a *first-class framework primitive*.
 
 from __future__ import annotations
 
-import copy
-import inspect
+import contextlib
 import warnings
 from typing import (
-    Any,
-    Dict,
-    FrozenSet,
-    List,
-    Optional,
-    Sequence,
-    Set,
-    Type,
     TYPE_CHECKING,
+    Any,
 )
 
 from ..utils.data import DataObject
-
-from .facets import Facet, UNSET, derive_facet, Computed, Constant, ReadOnly, Inject
+from .annotations import Field, _ComputedMarker, introspect_annotations
+from .exceptions import (
+    CastFault,
+    ImprintFault,
+    SealFault,
+)
+from .facets import UNSET, Computed, Constant, Facet, Inject, derive_facet
 from .lenses import Lens, _ProjectedRef
 from .projections import ProjectionRegistry
-from .annotations import introspect_annotations, Field, _ComputedMarker
-from .exceptions import (
-    BlueprintFault,
-    CastFault,
-    SealFault,
-    ImprintFault,
-    ProjectionFault,
-)
 
 if TYPE_CHECKING:
-    from ..models.base import Model
+    pass
 
 
 __all__ = ["Blueprint", "BlueprintMeta", "_blueprint_registry"]
 
 # Global registry for resolving forward/lazy Blueprint references by string name
-_blueprint_registry: Dict[str, Type["Blueprint"]] = {}
+_blueprint_registry: dict[str, type[Blueprint]] = {}
 
 # ── Spec Descriptor ──────────────────────────────────────────────────────
+
 
 class _SpecData:
     """
@@ -105,6 +95,7 @@ class _SpecData:
 
 # ── Metaclass ────────────────────────────────────────────────────────────
 
+
 class BlueprintMeta(type):
     """
     Metaclass for Blueprint classes.
@@ -126,7 +117,7 @@ class BlueprintMeta(type):
         **kwargs,
     ) -> BlueprintMeta:
         # Collect declared facets from namespace
-        declared_facets: Dict[str, Facet] = {}
+        declared_facets: dict[str, Facet] = {}
         for key, value in list(namespace.items()):
             if isinstance(value, Facet):
                 declared_facets[key] = value
@@ -135,7 +126,7 @@ class BlueprintMeta(type):
         # so they don't pollute the class dict.
         # Collect Field descriptors separately so we can pass them
         # to annotation introspection later.
-        field_descriptors: Dict[str, Field] = {}
+        field_descriptors: dict[str, Field] = {}
         for key, value in list(namespace.items()):
             if isinstance(value, Field):
                 field_descriptors[key] = value
@@ -147,7 +138,7 @@ class BlueprintMeta(type):
                 namespace[key] = facet
 
         # Inherit facets from parent Blueprints
-        parent_facets: Dict[str, Facet] = {}
+        parent_facets: dict[str, Facet] = {}
         for base in bases:
             if hasattr(base, "_declared_facets"):
                 for fname, facet in base._declared_facets.items():
@@ -166,11 +157,11 @@ class BlueprintMeta(type):
         if spec_cls is None:
             for base in bases:
                 if hasattr(base, "_spec") and base._spec is not None:
-                    spec_cls = type("Spec", (), {
-                        attr: getattr(base._spec, attr)
-                        for attr in _SpecData.__slots__
-                        if hasattr(base._spec, attr)
-                    })
+                    spec_cls = type(
+                        "Spec",
+                        (),
+                        {attr: getattr(base._spec, attr) for attr in _SpecData.__slots__ if hasattr(base._spec, attr)},
+                    )
                     break
 
         spec = _SpecData(spec_cls)
@@ -180,21 +171,19 @@ class BlueprintMeta(type):
         cls._spec = spec
         cls._declared_facets = declared_facets
         cls._parent_facets = parent_facets
-        cls._all_facets: Dict[str, Facet] = {}
+        cls._all_facets: dict[str, Facet] = {}
 
         # ── Type-annotation introspection ────────────────────────────
         # Now that the class is created, we can read cls.__annotations__
         # which is properly populated even with PEP 649 (Python 3.14).
-        annotated_facets: Dict[str, Facet] = {}
+        annotated_facets: dict[str, Facet] = {}
         try:
             # Build a namespace dict with annotations and field descriptors
-            ann_namespace: Dict[str, Any] = {}
+            ann_namespace: dict[str, Any] = {}
             # Get resolved annotations from the class
             cls_annotations = {}
-            try:
+            with contextlib.suppress(Exception):
                 cls_annotations = cls.__annotations__
-            except Exception:
-                pass
             ann_namespace["__annotations__"] = cls_annotations
             # Re-inject field descriptors for introspection
             ann_namespace.update(field_descriptors)
@@ -222,7 +211,7 @@ class BlueprintMeta(type):
             return cls
 
         # Auto-derive facets from model
-        model_facets: Dict[str, Facet] = {}
+        model_facets: dict[str, Facet] = {}
         if spec.model is not None:
             model_facets = mcs._derive_model_facets(spec)
 
@@ -247,15 +236,11 @@ class BlueprintMeta(type):
                 all_facets[fname].write_only = True
 
         # Sort by creation order
-        cls._all_facets = dict(
-            sorted(all_facets.items(), key=lambda item: item[1]._order)
-        )
+        cls._all_facets = dict(sorted(all_facets.items(), key=lambda item: item[1]._order))
 
         # Build projection registry
         cls._projections = ProjectionRegistry()
-        write_only_names = {
-            fname for fname, f in cls._all_facets.items() if f.write_only
-        }
+        write_only_names = {fname for fname, f in cls._all_facets.items() if f.write_only}
         cls._projections.configure(
             projections=spec.projections,
             default=spec.default_projection,
@@ -264,8 +249,8 @@ class BlueprintMeta(type):
         )
 
         # Discover seal methods
-        cls._seal_methods: List[str] = []
-        cls._async_seal_methods: List[str] = []
+        cls._seal_methods: list[str] = []
+        cls._async_seal_methods: list[str] = []
         for attr_name in dir(cls):
             if attr_name.startswith("seal_") and not attr_name.startswith("__"):
                 method = getattr(cls, attr_name, None)
@@ -284,10 +269,10 @@ class BlueprintMeta(type):
         return cls
 
     @staticmethod
-    def _derive_model_facets(spec: _SpecData) -> Dict[str, Facet]:
+    def _derive_model_facets(spec: _SpecData) -> dict[str, Facet]:
         """Derive Facets from Model._fields."""
         model = spec.model
-        facets: Dict[str, Facet] = {}
+        facets: dict[str, Facet] = {}
 
         # Get model fields
         model_fields = getattr(model, "_fields", {})
@@ -295,6 +280,7 @@ class BlueprintMeta(type):
             # Fallback: scan class for Field instances
             try:
                 from ..models.fields_module import Field
+
                 for attr_name in dir(model):
                     val = getattr(model, attr_name, None)
                     if isinstance(val, Field):
@@ -349,12 +335,12 @@ def _derive_relation_facet(model_field: Any, name: str, spec: _SpecData) -> Face
     - ForeignKey → IntFacet (PK reference) by default
     - If the FK field name matches a declared Lens, that takes precedence
     """
-    from ..models.fields_module import ManyToManyField, ForeignKey, OneToOneField
+    from ..models.fields_module import ForeignKey, ManyToManyField, OneToOneField
 
     is_many = isinstance(model_field, ManyToManyField)
 
     # Default: expose as PK reference (IntFacet for FK ID)
-    kwargs: Dict[str, Any] = {}
+    kwargs: dict[str, Any] = {}
     if getattr(model_field, "null", False):
         kwargs["allow_null"] = True
     if is_many:
@@ -369,6 +355,7 @@ def _derive_relation_facet(model_field: Any, name: str, spec: _SpecData) -> Face
 
 
 # ── Blueprint Base Class ─────────────────────────────────────────────────
+
 
 class Blueprint(metaclass=BlueprintMeta):
     """
@@ -409,10 +396,10 @@ class Blueprint(metaclass=BlueprintMeta):
     """
 
     _spec: _SpecData
-    _all_facets: Dict[str, Facet]
+    _all_facets: dict[str, Facet]
     _projections: ProjectionRegistry
-    _seal_methods: List[str]
-    _async_seal_methods: List[str]
+    _seal_methods: list[str]
+    _async_seal_methods: list[str]
 
     def __init__(
         self,
@@ -422,22 +409,22 @@ class Blueprint(metaclass=BlueprintMeta):
         many: bool = False,
         partial: bool = False,
         projection: str | None = None,
-        context: Dict[str, Any] | None = None,
+        context: dict[str, Any] | None = None,
     ):
         self.instance = instance
         self._input_data = data
         self.many = many
         self.partial = partial
         self._projection_name = projection
-        self.context: Dict[str, Any] = context or {}
+        self.context: dict[str, Any] = context or {}
 
         # State
-        self._validated_data: Dict[str, Any] | None = None
-        self._errors: Dict[str, List[str]] = {}
+        self._validated_data: dict[str, Any] | None = None
+        self._errors: dict[str, list[str]] = {}
         self._is_sealed: bool | None = None  # None = not yet validated
 
         # Bind facets to this instance
-        self._bound_facets: Dict[str, Facet] = {}
+        self._bound_facets: dict[str, Facet] = {}
         for fname, facet in self._all_facets.items():
             bound = facet.clone()
             bound.bind(fname, self)
@@ -447,9 +434,8 @@ class Blueprint(metaclass=BlueprintMeta):
         """Proxy attribute access to validated_data."""
         if name.startswith("_"):
             raise AttributeError(name)
-        if self._validated_data is not None:
-            if name in self._validated_data:
-                return self._validated_data[name]
+        if self._validated_data is not None and name in self._validated_data:
+            return self._validated_data[name]
         raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'")
 
     def __getitem__(self, key: str) -> Any:
@@ -459,7 +445,7 @@ class Blueprint(metaclass=BlueprintMeta):
     # ── Outbound: Mold ───────────────────────────────────────────────
 
     @property
-    def data(self) -> Dict[str, Any] | List[Dict[str, Any]]:
+    def data(self) -> dict[str, Any] | list[dict[str, Any]]:
         """
         The output representation -- molded from the instance.
 
@@ -479,7 +465,7 @@ class Blueprint(metaclass=BlueprintMeta):
         *,
         _depth: int = 0,
         _seen: set | None = None,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Mold a model instance into a dict, respecting projections.
 
@@ -495,7 +481,7 @@ class Blueprint(metaclass=BlueprintMeta):
         # Resolve projection
         projection_fields = self._projections.resolve(self._projection_name)
 
-        result: Dict[str, Any] = {}
+        result: dict[str, Any] = {}
         for fname, facet in self._bound_facets.items():
             # Skip write-only facets in output
             if facet.write_only:
@@ -527,12 +513,9 @@ class Blueprint(metaclass=BlueprintMeta):
         *,
         _depth: int = 0,
         _seen: set | None = None,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Mold multiple instances."""
-        return [
-            self.to_dict(instance=obj, _depth=_depth, _seen=_seen)
-            for obj in instances
-        ]
+        return [self.to_dict(instance=obj, _depth=_depth, _seen=_seen) for obj in instances]
 
     # ── Inbound: Cast + Seal ─────────────────────────────────────────
 
@@ -571,7 +554,7 @@ class Blueprint(metaclass=BlueprintMeta):
             return self._seal_many(raise_fault=raise_fault)
 
         self._errors = {}
-        validated: Dict[str, Any] = {}
+        validated: dict[str, Any] = {}
 
         data = self._input_data if isinstance(self._input_data, dict) else {}
 
@@ -580,15 +563,13 @@ class Blueprint(metaclass=BlueprintMeta):
         # Also check context for runtime override
         if self.context.get("extra_fields"):
             extra_fields_mode = self.context["extra_fields"]
-        
+
         if extra_fields_mode == "reject" and isinstance(data, dict):
             known_fields = set(self._bound_facets.keys())
             unknown = set(data.keys()) - known_fields
             if unknown:
                 for field_name in sorted(unknown):
-                    self._errors.setdefault(field_name, []).append(
-                        f"Unknown field '{field_name}' is not allowed"
-                    )
+                    self._errors.setdefault(field_name, []).append(f"Unknown field '{field_name}' is not allowed")
                 self._is_sealed = False
                 if raise_fault:
                     raise SealFault(
@@ -759,10 +740,7 @@ class Blueprint(metaclass=BlueprintMeta):
 
         if len(self._input_data) > max_items:
             self._errors = {
-                "__all__": [
-                    f"List contains {len(self._input_data)} items, "
-                    f"exceeding the maximum of {max_items}"
-                ]
+                "__all__": [f"List contains {len(self._input_data)} items, exceeding the maximum of {max_items}"]
             }
             self._is_sealed = False
             if raise_fault:
@@ -797,7 +775,7 @@ class Blueprint(metaclass=BlueprintMeta):
         self._is_sealed = True
         return True
 
-    def validate(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    def validate(self, data: dict[str, Any]) -> dict[str, Any]:
         """
         Object-level validation hook.
 
@@ -821,14 +799,14 @@ class Blueprint(metaclass=BlueprintMeta):
         raise CastFault(field, message)
 
     @property
-    def validated_data(self) -> Dict[str, Any] | List[Dict[str, Any]] | None:
+    def validated_data(self) -> dict[str, Any] | list[dict[str, Any]] | None:
         """The validated data -- only available after successful sealing."""
         if self._is_sealed is None:
             self.is_sealed()
         return self._validated_data
 
     @property
-    def errors(self) -> Dict[str, List[str]]:
+    def errors(self) -> dict[str, list[str]]:
         """Validation errors -- available after sealing attempt."""
         if self._is_sealed is None:
             self.is_sealed()
@@ -856,8 +834,7 @@ class Blueprint(metaclass=BlueprintMeta):
         """
         if self._validated_data is None:
             raise ImprintFault(
-                message="Cannot imprint -- data has not been sealed. "
-                        "Call is_sealed() first.",
+                message="Cannot imprint -- data has not been sealed. Call is_sealed() first.",
             )
 
         is_partial = partial if partial is not None else self.partial
@@ -909,7 +886,7 @@ class Blueprint(metaclass=BlueprintMeta):
                 metadata={"model": model_name, "error": str(exc)},
             ) from exc
 
-    async def _imprint_many(self, instances: Any = None) -> List[Any]:
+    async def _imprint_many(self, instances: Any = None) -> list[Any]:
         """Create or update multiple instances."""
         results = []
         for i, item_data in enumerate(self._validated_data):
@@ -925,7 +902,7 @@ class Blueprint(metaclass=BlueprintMeta):
             results.append(result)
         return results
 
-    def _filter_imprint_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    def _filter_imprint_data(self, data: dict[str, Any]) -> dict[str, Any]:
         """
         Filter validated data to only include model-writable attributes.
 
@@ -966,7 +943,7 @@ class Blueprint(metaclass=BlueprintMeta):
         *,
         projection: str | None = None,
         mode: str = "output",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Generate JSON Schema for this Blueprint.
 
@@ -979,8 +956,8 @@ class Blueprint(metaclass=BlueprintMeta):
         """
         projection_fields = cls._projections.resolve(projection)
 
-        properties: Dict[str, Any] = {}
-        required: List[str] = []
+        properties: dict[str, Any] = {}
+        required: list[str] = []
 
         for fname, facet in cls._all_facets.items():
             # Filter by mode
@@ -998,7 +975,7 @@ class Blueprint(metaclass=BlueprintMeta):
             if mode == "input" and facet.required and not facet.read_only:
                 required.append(fname)
 
-        schema: Dict[str, Any] = {
+        schema: dict[str, Any] = {
             "type": "object",
             "properties": properties,
         }
@@ -1015,7 +992,7 @@ class Blueprint(metaclass=BlueprintMeta):
     # ── Utilities ────────────────────────────────────────────────────
 
     @classmethod
-    def facet_names(cls, *, projection: str | None = None) -> List[str]:
+    def facet_names(cls, *, projection: str | None = None) -> list[str]:
         """List facet names, optionally filtered by projection."""
         if projection:
             return sorted(cls._projections.resolve(projection))

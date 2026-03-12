@@ -25,7 +25,6 @@ import os
 import shutil
 import tempfile
 from pathlib import Path
-from typing import Optional, Union
 
 from ._config import FileSystemConfig
 from ._errors import wrap_os_error
@@ -64,9 +63,9 @@ class AsyncTemporaryFile:
         *,
         suffix: str = "",
         prefix: str = "aquilia-tmp-",
-        dir: Optional[Union[str, Path]] = None,
-        pool: Optional[FileSystemPool] = None,
-        config: Optional[FileSystemConfig] = None,
+        dir: str | Path | None = None,
+        pool: FileSystemPool | None = None,
+        config: FileSystemConfig | None = None,
         delete: bool = True,
     ) -> None:
         self._suffix = suffix
@@ -74,8 +73,8 @@ class AsyncTemporaryFile:
         self._dir = str(dir) if dir else None
         self._pool = pool or _get_default_pool()
         self._config = config or FileSystemConfig()
-        self._handle: Optional[AsyncFile] = None
-        self._path: Optional[str] = None
+        self._handle: AsyncFile | None = None
+        self._path: str | None = None
         self._delete = delete
 
         # Use configured temp dir if not explicitly provided
@@ -89,6 +88,7 @@ class AsyncTemporaryFile:
 
     async def __aenter__(self) -> AsyncFile:
         """Create and open the temporary file."""
+
         def _create():
             fd, path = tempfile.mkstemp(
                 suffix=self._suffix,
@@ -149,16 +149,16 @@ class AsyncTemporaryDirectory:
         *,
         suffix: str = "",
         prefix: str = "aquilia-tmpdir-",
-        dir: Optional[Union[str, Path]] = None,
-        pool: Optional[FileSystemPool] = None,
-        config: Optional[FileSystemConfig] = None,
+        dir: str | Path | None = None,
+        pool: FileSystemPool | None = None,
+        config: FileSystemConfig | None = None,
     ) -> None:
         self._suffix = suffix
         self._prefix = prefix
         self._dir = str(dir) if dir else None
         self._pool = pool or _get_default_pool()
         self._config = config or FileSystemConfig()
-        self._path: Optional[str] = None
+        self._path: str | None = None
 
         if self._dir is None and self._config.temp_dir:
             self._dir = self._config.temp_dir
@@ -206,4 +206,5 @@ async_tempdir = AsyncTemporaryDirectory
 def _get_default_pool() -> FileSystemPool:
     """Get the default filesystem pool (lazy singleton)."""
     from ._path import _get_default_pool as _get
+
     return _get()

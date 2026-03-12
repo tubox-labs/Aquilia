@@ -1,9 +1,9 @@
 """Manifest parsers."""
 
-from .workspace import WorkspaceManifest
 from .module import ModuleManifest
+from .workspace import WorkspaceManifest
 
 __all__ = [
-    'WorkspaceManifest',
-    'ModuleManifest',
+    "WorkspaceManifest",
+    "ModuleManifest",
 ]

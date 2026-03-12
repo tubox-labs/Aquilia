@@ -30,13 +30,10 @@ Usage::
 from __future__ import annotations
 
 import os
-import stat as stat_module
-from pathlib import Path, PurePosixPath
+from collections.abc import AsyncIterator
+from pathlib import Path
 from typing import (
     Any,
-    AsyncIterator,
-    Optional,
-    Union,
 )
 
 from ._config import FileSystemConfig
@@ -57,9 +54,9 @@ class AsyncPath:
 
     def __init__(
         self,
-        *args: Union[str, Path, "AsyncPath"],
-        pool: Optional[FileSystemPool] = None,
-        config: Optional[FileSystemConfig] = None,
+        *args: str | Path | AsyncPath,
+        pool: FileSystemPool | None = None,
+        config: FileSystemConfig | None = None,
     ) -> None:
         parts = []
         for a in args:
@@ -96,17 +93,14 @@ class AsyncPath:
         return self._path.suffixes
 
     @property
-    def parent(self) -> "AsyncPath":
+    def parent(self) -> AsyncPath:
         """The parent directory."""
         return AsyncPath(self._path.parent, pool=self._pool, config=self._config)
 
     @property
-    def parents(self) -> tuple["AsyncPath", ...]:
+    def parents(self) -> tuple[AsyncPath, ...]:
         """All ancestor directories."""
-        return tuple(
-            AsyncPath(p, pool=self._pool, config=self._config)
-            for p in self._path.parents
-        )
+        return tuple(AsyncPath(p, pool=self._pool, config=self._config) for p in self._path.parents)
 
     @property
     def parts(self) -> tuple[str, ...]:
@@ -132,7 +126,7 @@ class AsyncPath:
         """Whether the path is absolute."""
         return self._path.is_absolute()
 
-    def is_relative_to(self, other: Union[str, Path, "AsyncPath"]) -> bool:
+    def is_relative_to(self, other: str | Path | AsyncPath) -> bool:
         """Whether this path is relative to another."""
         other_path = _to_path(other)
         return self._path.is_relative_to(other_path)
@@ -144,7 +138,7 @@ class AsyncPath:
 
     # ── Path Arithmetic (no I/O) ─────────────────────────────────────────
 
-    def __truediv__(self, other: Union[str, Path, "AsyncPath"]) -> "AsyncPath":
+    def __truediv__(self, other: str | Path | AsyncPath) -> AsyncPath:
         """Join paths with ``/`` operator."""
         other_str = str(_to_path(other)) if not isinstance(other, str) else other
         return AsyncPath(
@@ -153,26 +147,26 @@ class AsyncPath:
             config=self._config,
         )
 
-    def __rtruediv__(self, other: Union[str, Path]) -> "AsyncPath":
+    def __rtruediv__(self, other: str | Path) -> AsyncPath:
         return AsyncPath(
             Path(str(other)) / self._path,
             pool=self._pool,
             config=self._config,
         )
 
-    def with_name(self, name: str) -> "AsyncPath":
+    def with_name(self, name: str) -> AsyncPath:
         """Return a new path with the filename changed."""
         return AsyncPath(self._path.with_name(name), pool=self._pool, config=self._config)
 
-    def with_stem(self, stem: str) -> "AsyncPath":
+    def with_stem(self, stem: str) -> AsyncPath:
         """Return a new path with the stem changed."""
         return AsyncPath(self._path.with_stem(stem), pool=self._pool, config=self._config)
 
-    def with_suffix(self, suffix: str) -> "AsyncPath":
+    def with_suffix(self, suffix: str) -> AsyncPath:
         """Return a new path with the suffix changed."""
         return AsyncPath(self._path.with_suffix(suffix), pool=self._pool, config=self._config)
 
-    def relative_to(self, other: Union[str, Path, "AsyncPath"]) -> "AsyncPath":
+    def relative_to(self, other: str | Path | AsyncPath) -> AsyncPath:
         """Return a relative version of this path."""
         other_path = _to_path(other)
         return AsyncPath(
@@ -181,7 +175,7 @@ class AsyncPath:
             config=self._config,
         )
 
-    def resolve(self) -> "AsyncPath":
+    def resolve(self) -> AsyncPath:
         """
         Resolve the path to an absolute canonical path.
 
@@ -194,7 +188,7 @@ class AsyncPath:
             config=self._config,
         )
 
-    def joinpath(self, *others: Union[str, Path, "AsyncPath"]) -> "AsyncPath":
+    def joinpath(self, *others: str | Path | AsyncPath) -> AsyncPath:
         """Join one or more path components."""
         parts = [str(_to_path(o)) if not isinstance(o, str) else o for o in others]
         return AsyncPath(
@@ -258,8 +252,10 @@ class AsyncPath:
 
     async def read_text(self, encoding: str = "utf-8", errors: str = "strict") -> str:
         """Read the entire file as text."""
+
         def _read() -> str:
             return self._path.read_text(encoding=encoding, errors=errors)
+
         try:
             return await self._pool.run(_read)
         except Exception as exc:
@@ -269,9 +265,9 @@ class AsyncPath:
         self,
         mode: str = "r",
         buffering: int = -1,
-        encoding: Optional[str] = None,
-        errors: Optional[str] = None,
-        newline: Optional[str] = None,
+        encoding: str | None = None,
+        errors: str | None = None,
+        newline: str | None = None,
     ) -> AsyncFile:
         """
         Open the file and return an ``AsyncFile`` handle.
@@ -320,14 +316,19 @@ class AsyncPath:
         self,
         data: str,
         encoding: str = "utf-8",
-        errors: Optional[str] = None,
-        newline: Optional[str] = None,
+        errors: str | None = None,
+        newline: str | None = None,
     ) -> int:
         """Write text to the file (creates or overwrites)."""
+
         def _write() -> int:
             return self._path.write_text(
-                data, encoding=encoding, errors=errors, newline=newline,
+                data,
+                encoding=encoding,
+                errors=errors,
+                newline=newline,
             )
+
         try:
             return await self._pool.run(_write)
         except Exception as exc:
@@ -342,8 +343,10 @@ class AsyncPath:
         exist_ok: bool = False,
     ) -> None:
         """Create a directory."""
+
         def _mkdir() -> None:
             self._path.mkdir(mode=mode, parents=parents, exist_ok=exist_ok)
+
         try:
             await self._pool.run(_mkdir)
         except Exception as exc:
@@ -358,29 +361,35 @@ class AsyncPath:
 
     async def unlink(self, missing_ok: bool = False) -> None:
         """Remove a file or symbolic link."""
+
         def _unlink() -> None:
             self._path.unlink(missing_ok=missing_ok)
+
         try:
             await self._pool.run(_unlink)
         except Exception as exc:
             raise wrap_os_error(exc, "unlink", str(self._path)) from exc
 
-    async def rename(self, target: Union[str, Path, "AsyncPath"]) -> "AsyncPath":
+    async def rename(self, target: str | Path | AsyncPath) -> AsyncPath:
         """Rename/move the file or directory."""
         target_path = _to_path(target)
+
         def _rename() -> Path:
             return self._path.rename(target_path)
+
         try:
             result = await self._pool.run(_rename)
             return AsyncPath(result, pool=self._pool, config=self._config)
         except Exception as exc:
             raise wrap_os_error(exc, "rename", str(self._path)) from exc
 
-    async def replace(self, target: Union[str, Path, "AsyncPath"]) -> "AsyncPath":
+    async def replace(self, target: str | Path | AsyncPath) -> AsyncPath:
         """Atomically rename, replacing the target if it exists."""
         target_path = _to_path(target)
+
         def _replace() -> Path:
             return self._path.replace(target_path)
+
         try:
             result = await self._pool.run(_replace)
             return AsyncPath(result, pool=self._pool, config=self._config)
@@ -389,8 +398,10 @@ class AsyncPath:
 
     async def touch(self, mode: int = 0o666, exist_ok: bool = True) -> None:
         """Create the file (or update its access/modification times)."""
+
         def _touch() -> None:
             self._path.touch(mode=mode, exist_ok=exist_ok)
+
         try:
             await self._pool.run(_touch)
         except Exception as exc:
@@ -405,14 +416,16 @@ class AsyncPath:
 
     # ── Async Iteration (I/O) ────────────────────────────────────────────
 
-    async def iterdir(self) -> AsyncIterator["AsyncPath"]:
+    async def iterdir(self) -> AsyncIterator[AsyncPath]:
         """
         Iterate over directory contents.
 
         Yields ``AsyncPath`` objects for each entry.
         """
+
         def _iterdir() -> list[Path]:
             return list(self._path.iterdir())
+
         try:
             entries = await self._pool.run(_iterdir)
         except Exception as exc:
@@ -421,7 +434,7 @@ class AsyncPath:
         for entry in entries:
             yield AsyncPath(entry, pool=self._pool, config=self._config)
 
-    async def glob(self, pattern: str) -> AsyncIterator["AsyncPath"]:
+    async def glob(self, pattern: str) -> AsyncIterator[AsyncPath]:
         """
         Glob for matching paths.
 
@@ -431,8 +444,10 @@ class AsyncPath:
         Yields:
             Matching ``AsyncPath`` objects.
         """
+
         def _glob() -> list[Path]:
             return list(self._path.glob(pattern))
+
         try:
             matches = await self._pool.run(_glob)
         except Exception as exc:
@@ -441,14 +456,16 @@ class AsyncPath:
         for match in matches:
             yield AsyncPath(match, pool=self._pool, config=self._config)
 
-    async def rglob(self, pattern: str) -> AsyncIterator["AsyncPath"]:
+    async def rglob(self, pattern: str) -> AsyncIterator[AsyncPath]:
         """
         Recursive glob for matching paths.
 
         Equivalent to ``glob("**/" + pattern)``.
         """
+
         def _rglob() -> list[Path]:
             return list(self._path.rglob(pattern))
+
         try:
             matches = await self._pool.run(_rglob)
         except Exception as exc:
@@ -486,7 +503,8 @@ class AsyncPath:
 # Helpers
 # ═══════════════════════════════════════════════════════════════════════════
 
-def _to_path(obj: Union[str, Path, "AsyncPath"]) -> Path:
+
+def _to_path(obj: str | Path | AsyncPath) -> Path:
     """Convert various path-like types to ``pathlib.Path``."""
     if isinstance(obj, AsyncPath):
         return obj._path
@@ -504,4 +522,4 @@ def _get_default_pool() -> FileSystemPool:
     return _default_pool
 
 
-_default_pool: Optional[FileSystemPool] = None
+_default_pool: FileSystemPool | None = None

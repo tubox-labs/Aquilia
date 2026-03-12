@@ -40,6 +40,46 @@ Quick Start:
 
 from aquilia._version import __version__  # noqa: F401 — re-exported
 
+from .config import (
+    MailConfig,
+    # Config wrapper objects (backward-compatible attribute access)
+    ProviderConfig,
+    # Config blueprints (Aquilia Blueprint-based validation)
+    ProviderConfigBlueprint,
+    QueueConfig,
+    QueueConfigBlueprint,
+    RateLimitConfig,
+    RateLimitConfigBlueprint,
+    RetryConfig,
+    RetryConfigBlueprint,
+    SecurityConfig,
+    SecurityConfigBlueprint,
+    TemplateConfig,
+    TemplateConfigBlueprint,
+)
+
+# ── DI providers ───────────────────────────────────────────────────
+from .di_providers import (
+    MailConfigProvider,
+    MailProviderRegistry,
+    MailServiceProvider,
+    register_mail_providers,
+)
+
+# ── Envelope & config ──────────────────────────────────────────────
+from .envelope import EnvelopeStatus, MailEnvelope, Priority
+
+# ── Faults ──────────────────────────────────────────────────────────
+from .faults import (
+    MailConfigFault,
+    MailFault,
+    MailRateLimitFault,
+    MailSendFault,
+    MailSuppressedFault,
+    MailTemplateFault,
+    MailValidationFault,
+)
+
 # ── Core message types ──────────────────────────────────────────────
 from .message import (
     EmailMessage,
@@ -47,59 +87,20 @@ from .message import (
     TemplateMessage,
 )
 
-# ── Convenience API ─────────────────────────────────────────────────
-from .service import send_mail, asend_mail
-
-# ── Envelope & config ──────────────────────────────────────────────
-from .envelope import MailEnvelope, EnvelopeStatus, Priority
-from .config import (
-    MailConfig,
-    # Config blueprints (Aquilia Blueprint-based validation)
-    ProviderConfigBlueprint,
-    RetryConfigBlueprint,
-    RateLimitConfigBlueprint,
-    SecurityConfigBlueprint,
-    TemplateConfigBlueprint,
-    QueueConfigBlueprint,
-    # Config wrapper objects (backward-compatible attribute access)
-    ProviderConfig,
-    RetryConfig,
-    RateLimitConfig,
-    SecurityConfig,
-    TemplateConfig,
-    QueueConfig,
-)
-
 # ── Provider interface & implementations ─────────────────────────────
 from .providers import (
+    ConsoleProvider,
+    FileProvider,
     IMailProvider,
     ProviderResult,
     ProviderResultStatus,
-    ConsoleProvider,
-    FileProvider,
     SendGridProvider,
     SESProvider,
     SMTPProvider,
 )
 
-# ── DI providers ───────────────────────────────────────────────────
-from .di_providers import (
-    MailConfigProvider,
-    MailServiceProvider,
-    MailProviderRegistry,
-    register_mail_providers,
-)
-
-# ── Faults ──────────────────────────────────────────────────────────
-from .faults import (
-    MailFault,
-    MailSendFault,
-    MailTemplateFault,
-    MailConfigFault,
-    MailSuppressedFault,
-    MailRateLimitFault,
-    MailValidationFault,
-)
+# ── Convenience API ─────────────────────────────────────────────────
+from .service import asend_mail, send_mail
 
 __all__ = [
     # Message types

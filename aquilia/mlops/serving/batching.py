@@ -30,18 +30,19 @@ For continuous batching::
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import heapq
 import logging
 import time
 import uuid
-from typing import Any, AsyncIterator, Callable, Dict, List, Optional
+from collections.abc import Callable
+from typing import Any
 
 from .._types import (
-    BatchRequest,
     BatchingStrategy,
+    BatchRequest,
     InferenceRequest,
     InferenceResult,
-    StreamChunk,
 )
 
 logger = logging.getLogger("aquilia.mlops.serving.batching")
@@ -70,7 +71,7 @@ class _PendingRequest:
                 return max(1, len(text) // 4)
         return 1
 
-    def __lt__(self, other: "_PendingRequest") -> bool:
+    def __lt__(self, other: _PendingRequest) -> bool:
         """Higher priority (lower number) sorts first; ties broken by arrival."""
         if self.priority != other.priority:
             return self.priority < other.priority
@@ -118,12 +119,12 @@ class DynamicBatcher:
 
         self._queue: asyncio.Queue[_PendingRequest] = asyncio.Queue()
         # Priority heap for continuous batching
-        self._priority_heap: List[_PendingRequest] = []
-        self._task: Optional[asyncio.Task] = None
+        self._priority_heap: list[_PendingRequest] = []
+        self._task: asyncio.Task | None = None
         self._running = False
 
         # Adaptive sizing: track recent batch latencies for feedback
-        self._recent_latencies: List[float] = []
+        self._recent_latencies: list[float] = []
         self._adaptive_max: int = max_batch_size
 
         # Metrics
@@ -142,20 +143,16 @@ class DynamicBatcher:
         self._running = True
         if self._continuous:
             self._task = asyncio.create_task(self._continuous_batch_loop())
-            mode = "continuous"
         else:
             self._task = asyncio.create_task(self._batch_loop())
-            mode = self.strategy.value
 
     async def stop(self) -> None:
         """Stop the batcher and drain remaining requests."""
         self._running = False
         if self._task:
             self._task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._task
-            except asyncio.CancelledError:
-                pass
             self._task = None
         # Fail remaining queued requests
         while not self._queue.empty():
@@ -185,6 +182,7 @@ class DynamicBatcher:
             if current_depth >= self._max_queue_depth:
                 self._backpressure_rejections += 1
                 from aquilia.faults.domains import ResourceExhaustedFault
+
                 raise ResourceExhaustedFault(
                     resource="inference_queue",
                     message=f"Queue depth limit exceeded ({current_depth}/{self._max_queue_depth})",
@@ -198,30 +196,21 @@ class DynamicBatcher:
         if timeout_ms > 0:
             try:
                 return await asyncio.wait_for(
-                    pending.future, timeout=timeout_ms / 1000.0,
+                    pending.future,
+                    timeout=timeout_ms / 1000.0,
                 )
             except asyncio.TimeoutError:
                 self._timeout_count += 1
                 if not pending.future.done():
                     pending.future.cancel()
-                raise asyncio.TimeoutError(
-                    f"Request {request.request_id} timed out after {timeout_ms}ms"
-                )
+                raise asyncio.TimeoutError(f"Request {request.request_id} timed out after {timeout_ms}ms")
 
         return await pending.future
 
-    def metrics(self) -> Dict[str, float]:
+    def metrics(self) -> dict[str, float]:
         """Return batcher metrics."""
-        avg_batch = (
-            self._total_batch_size / self._batches_processed
-            if self._batches_processed > 0
-            else 0.0
-        )
-        avg_wait = (
-            self._total_wait_ms / self._batches_processed
-            if self._batches_processed > 0
-            else 0.0
-        )
+        avg_batch = self._total_batch_size / self._batches_processed if self._batches_processed > 0 else 0.0
+        avg_wait = self._total_wait_ms / self._batches_processed if self._batches_processed > 0 else 0.0
         return {
             "batches_processed": float(self._batches_processed),
             "avg_batch_size": avg_batch,
@@ -242,7 +231,7 @@ class DynamicBatcher:
     async def _batch_loop(self) -> None:
         """Main batching loop (standard mode)."""
         while self._running:
-            batch: List[_PendingRequest] = []
+            batch: list[_PendingRequest] = []
             deadline = time.monotonic() + (self.max_latency_ms / 1000.0)
 
             try:
@@ -300,9 +289,9 @@ class DynamicBatcher:
                     continue
 
             # Build batch from heap respecting token budget
-            batch: List[_PendingRequest] = []
+            batch: list[_PendingRequest] = []
             tokens_in_batch = 0
-            remaining_heap: List[_PendingRequest] = []
+            remaining_heap: list[_PendingRequest] = []
 
             while self._priority_heap and len(batch) < self._adaptive_max:
                 candidate = heapq.heappop(self._priority_heap)
@@ -336,7 +325,7 @@ class DynamicBatcher:
 
     # ── Internal: Dispatch ───────────────────────────────────────────
 
-    async def _dispatch(self, pending: List[_PendingRequest]) -> None:
+    async def _dispatch(self, pending: list[_PendingRequest]) -> None:
         """Dispatch a batch of requests to the runtime."""
         batch_id = str(uuid.uuid4())[:8]
         requests = [p.request for p in pending]
@@ -355,9 +344,7 @@ class DynamicBatcher:
                 if result and not p.future.done():
                     p.future.set_result(result)
                 elif not p.future.done():
-                    p.future.set_exception(
-                        RuntimeError(f"No result for request {p.request.request_id}")
-                    )
+                    p.future.set_exception(RuntimeError(f"No result for request {p.request.request_id}"))
 
             self._batches_processed += 1
             self._total_batch_size += len(pending)

@@ -2,25 +2,25 @@
 Safe manifest loader with no import-time side effects.
 """
 
-from typing import List, Type, Any, Union
-from pathlib import Path
-from dataclasses import dataclass
 import importlib.util
 import sys
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
 
 
 @dataclass
 class ManifestSource:
     """
     Manifest source descriptor.
-    
+
     Can be Python class, file path, or DSL (YAML/JSON).
     """
-    
+
     type: str  # "class", "file", "dsl"
     value: Any
     origin: str  # Source location for debugging
-    
+
     def __repr__(self) -> str:
         return f"ManifestSource({self.type}, {self.origin})"
 
@@ -28,53 +28,51 @@ class ManifestSource:
 class ManifestLoader:
     """
     Safe manifest loader that NEVER triggers import-time side effects.
-    
+
     Loads manifests from:
     - Python classes (already imported)
     - File paths (lazy import with isolated namespace)
     - DSL files (YAML/JSON parsing only)
     - Filesystem discovery (controlled)
     """
-    
+
     def __init__(self):
-        self._loaded_manifests: List[Any] = []
+        self._loaded_manifests: list[Any] = []
         self._seen_names: set[str] = set()
-    
+
     def load_manifests(
         self,
-        sources: List[Union[Type, str]],
+        sources: list[type | str],
         *,
         allow_fs_autodiscovery: bool = False,
-    ) -> List[Any]:
+    ) -> list[Any]:
         """
         Load manifests from sources.
-        
+
         Args:
             sources: List of manifest classes or file paths
             allow_fs_autodiscovery: If True, scan apps/ directory
-            
+
         Returns:
             List of loaded manifest objects
-            
+
         Raises:
             ManifestValidationError: If manifest is invalid
             DuplicateAppError: If duplicate app names found
         """
         manifest_sources = self._resolve_sources(sources, allow_fs_autodiscovery)
-        
+
         for source in manifest_sources:
             manifest = self._load_from_source(source)
             self._validate_manifest(manifest, source)
-            
+
             # Check for duplicates
             if manifest.name in self._seen_names:
                 from .errors import DuplicateAppError, ErrorSpan
-                
+
                 # Find existing manifest with same name
-                existing = next(
-                    m for m in self._loaded_manifests if m.name == manifest.name
-                )
-                
+                existing = next(m for m in self._loaded_manifests if m.name == manifest.name)
+
                 raise DuplicateAppError(
                     app_name=manifest.name,
                     sources=[
@@ -83,35 +81,34 @@ class ManifestLoader:
                     ],
                     span=ErrorSpan(file=source.origin),
                 )
-            
+
             self._seen_names.add(manifest.name)
-            
+
             # Attach source metadata
             manifest.__source__ = source.origin
-            
+
             self._loaded_manifests.append(manifest)
-        
+
         return self._loaded_manifests
-    
+
     def _resolve_sources(
         self,
-        sources: List[Union[Type, str]],
+        sources: list[type | str],
         allow_fs_autodiscovery: bool,
-    ) -> List[ManifestSource]:
+    ) -> list[ManifestSource]:
         """
         Resolve source specifications into ManifestSource objects.
-        
+
         Args:
             sources: List of manifest classes or paths
             allow_fs_autodiscovery: If True, scan filesystem
-            
+
         Returns:
             List of ManifestSource objects
         """
-        resolved: List[ManifestSource] = []
-        
-        for source in sources:
+        resolved: list[ManifestSource] = []
 
+        for source in sources:
             if isinstance(source, type):
                 # Already imported class
                 resolved.append(
@@ -123,7 +120,7 @@ class ManifestLoader:
                 )
             elif isinstance(source, str):
                 path = Path(source)
-                
+
                 if path.suffix in (".yaml", ".yml", ".json", ".crous"):
                     # DSL file
                     resolved.append(
@@ -147,6 +144,7 @@ class ManifestLoader:
                     resolved.extend(self._discover_in_directory(path))
                 else:
                     from aquilia.faults.domains import ConfigInvalidFault
+
                     raise ConfigInvalidFault(
                         key="manifest_source",
                         reason=f"Unknown manifest source type: {source}",
@@ -173,24 +171,25 @@ class ManifestLoader:
                     )
                 else:
                     from aquilia.faults.domains import ConfigInvalidFault
+
                     raise ConfigInvalidFault(
                         key="manifest_source",
                         reason=f"Unknown manifest source type: {source}",
                     )
-        
+
         # Filesystem autodiscovery
         if allow_fs_autodiscovery:
             resolved.extend(self._autodiscover_manifests())
-        
+
         return resolved
-    
+
     def _load_from_source(self, source: ManifestSource) -> Any:
         """
         Load manifest from source.
-        
+
         Args:
             source: ManifestSource to load
-            
+
         Returns:
             Manifest object
         """
@@ -216,44 +215,45 @@ class ManifestLoader:
             return source.value
         else:
             from aquilia.faults.domains import ConfigInvalidFault
+
             raise ConfigInvalidFault(
                 key="manifest_source.type",
                 reason=f"Unknown source type: {source.type}",
             )
-    
+
     def _load_from_python_file(self, path: Path) -> Any:
         """
         Load manifest from Python file without executing module-level code.
-        
+
         Uses isolated namespace to prevent side effects.
-        
+
         Args:
             path: Path to Python file
-            
+
         Returns:
             Manifest class
         """
         # Create isolated module namespace
         module_name = f"_aquilary_manifest_{path.stem}"
-        
+
         spec = importlib.util.spec_from_file_location(module_name, path)
         if spec is None or spec.loader is None:
             raise ImportError(f"Cannot load manifest from {path}")
-        
+
         module = importlib.util.module_from_spec(spec)
-        
+
         # DO NOT add to sys.modules to prevent side effects
         # spec.loader.exec_module(module)
-        
+
         # Instead, parse AST and extract manifest class statically
         # (For now, we'll do import but with controlled environment)
-        
+
         # Save current sys.modules state
         saved_modules = sys.modules.copy()
-        
+
         try:
             spec.loader.exec_module(module)
-            
+
             # Find manifest class
             manifest_cls = None
             for name, obj in vars(module).items():
@@ -265,32 +265,33 @@ class ManifestLoader:
                 ):
                     manifest_cls = obj
                     break
-            
+
             if manifest_cls is None:
                 from aquilia.faults.domains import RegistryFault
+
                 raise RegistryFault(
                     name=str(path),
                     message=f"No manifest class found in {path}",
                 )
-            
+
             return manifest_cls
         finally:
             # Restore sys.modules to prevent pollution
             sys.modules.clear()
             sys.modules.update(saved_modules)
-    
+
     def _load_from_dsl_file(self, path: Path) -> Any:
         """
         Load manifest from DSL file (YAML/JSON/Crous).
-        
+
         Args:
             path: Path to DSL file
-            
+
         Returns:
             Manifest object (converted from dict)
         """
         import json
-        
+
         if path.suffix == ".crous":
             try:
                 try:
@@ -299,42 +300,39 @@ class ManifestLoader:
                     import crous as crous_backend
                 data = crous_backend.decode(path.read_bytes())
             except ImportError:
-                raise ImportError(
-                    "Crous package required for .crous manifests. "
-                    "Install with: pip install crous"
-                )
+                raise ImportError("Crous package required for .crous manifests. Install with: pip install crous")
         elif path.suffix == ".json":
             data = json.loads(path.read_text(encoding="utf-8"))
         elif path.suffix in (".yaml", ".yml"):
             try:
                 import yaml
+
                 data = yaml.safe_load(path.read_text(encoding="utf-8"))
             except ImportError:
-                raise ImportError(
-                    "PyYAML required for YAML manifests. "
-                    "Install with: pip install pyyaml"
-                )
+                raise ImportError("PyYAML required for YAML manifests. Install with: pip install pyyaml")
         else:
             from aquilia.faults.domains import ConfigInvalidFault
+
             raise ConfigInvalidFault(
                 key="dsl_format",
                 reason=f"Unsupported DSL format: {path.suffix}",
             )
-        
+
         # Convert dict to manifest class
         return self._dict_to_manifest(data, str(path))
-    
+
     def _dict_to_manifest(self, data: dict, origin: str) -> Any:
         """
         Convert dict to manifest class.
-        
+
         Args:
             data: Manifest data dict
             origin: Source origin string
-            
+
         Returns:
             Manifest class instance
         """
+
         # Create dynamic manifest class
         class DynamicManifest:
             name = data.get("name")
@@ -344,50 +342,54 @@ class ManifestLoader:
             socket_controllers = data.get("socket_controllers", [])
             middlewares = data.get("middlewares", [])
             depends_on = data.get("depends_on", [])
-            
+
             # Additional config sections
             database = None
             if "database" in data:
-                from aquilia.manifest import DatabaseConfig
                 from dataclasses import fields
+
+                from aquilia.manifest import DatabaseConfig
+
                 db_data = data["database"]
+
                 def get_valid_data(db_data, db_config):
                     from dataclasses import fields
+
                     valid_keys = {f.name for f in fields(db_config)}
                     return {k: v for k, v in db_data.items() if k in valid_keys}
-                
+
                 database = DatabaseConfig(**get_valid_data(db_data, DatabaseConfig))
-            
+
             @staticmethod
             def on_startup():
                 pass
-            
+
             @staticmethod
             def on_shutdown():
                 pass
-        
+
         DynamicManifest.__name__ = f"{data.get('name', 'Unknown')}Manifest"
         DynamicManifest.__module__ = origin
-        
+
         return DynamicManifest
-    
-    def _discover_in_directory(self, directory: Path) -> List[ManifestSource]:
+
+    def _discover_in_directory(self, directory: Path) -> list[ManifestSource]:
         """
         Discover manifests in directory.
-        
+
         Looks for:
         - manifest.py
         - *_manifest.py
         - manifest.yaml/yml/json
-        
+
         Args:
             directory: Directory to scan
-            
+
         Returns:
             List of ManifestSource objects
         """
-        sources: List[ManifestSource] = []
-        
+        sources: list[ManifestSource] = []
+
         # Python manifests
         for pattern in ["manifest.py", "*_manifest.py"]:
             for path in directory.glob(pattern):
@@ -398,7 +400,7 @@ class ManifestLoader:
                         origin=str(path),
                     )
                 )
-        
+
         # DSL manifests
         for pattern in ["manifest.yaml", "manifest.yml", "manifest.json", "manifest.crous"]:
             for path in directory.glob(pattern):
@@ -409,58 +411,58 @@ class ManifestLoader:
                         origin=str(path),
                     )
                 )
-        
+
         return sources
-    
-    def _autodiscover_manifests(self) -> List[ManifestSource]:
+
+    def _autodiscover_manifests(self) -> list[ManifestSource]:
         """
         Auto-discover manifests in apps/ and modules/ directories.
-        
+
         v2: Scans both legacy apps/ and new modules/ directories.
-        
+
         Returns:
             List of ManifestSource objects
         """
-        sources: List[ManifestSource] = []
-        
+        sources: list[ManifestSource] = []
+
         # v2: Scan modules/ directory first (preferred convention)
         modules_dir = Path("modules")
         if modules_dir.exists():
             for module_dir in modules_dir.iterdir():
                 if module_dir.is_dir() and not module_dir.name.startswith("_"):
                     sources.extend(self._discover_in_directory(module_dir))
-        
+
         # Legacy: also scan apps/ directory for backwards compatibility
         apps_dir = Path("apps")
         if apps_dir.exists():
             for app_dir in apps_dir.iterdir():
                 if app_dir.is_dir() and not app_dir.name.startswith("_"):
                     sources.extend(self._discover_in_directory(app_dir))
-        
+
         return sources
-    
+
     def _validate_manifest(self, manifest: Any, source: ManifestSource) -> None:
         """
         Validate manifest structure.
-        
+
         Args:
             manifest: Manifest object to validate
             source: Source descriptor
-            
+
         Raises:
             ManifestValidationError: If validation fails
         """
-        from .errors import ManifestValidationError, ErrorSpan
-        
-        errors: List[str] = []
-        
+        from .errors import ErrorSpan, ManifestValidationError
+
+        errors: list[str] = []
+
         # Required fields
         if not hasattr(manifest, "name") or not manifest.name:
             errors.append("Missing required field: name")
-        
+
         if not hasattr(manifest, "version") or not manifest.version:
             errors.append("Missing required field: version")
-        
+
         # Type validation -- v2: accept str, ComponentRef, or type
         if hasattr(manifest, "controllers"):
             if not isinstance(manifest.controllers, list):
@@ -468,14 +470,11 @@ class ManifestLoader:
             else:
                 for i, ctrl in enumerate(manifest.controllers):
                     if not isinstance(ctrl, (str, type)) and not hasattr(ctrl, "class_path"):
-                        errors.append(
-                            f"controllers[{i}] must be string import path or ComponentRef"
-                        )
-        
-        if hasattr(manifest, "services"):
-            if not isinstance(manifest.services, list):
-                errors.append("Field 'services' must be a list")
-        
+                        errors.append(f"controllers[{i}] must be string import path or ComponentRef")
+
+        if hasattr(manifest, "services") and not isinstance(manifest.services, list):
+            errors.append("Field 'services' must be a list")
+
         if hasattr(manifest, "depends_on"):
             if not isinstance(manifest.depends_on, list):
                 errors.append("Field 'depends_on' must be a list")
@@ -483,7 +482,7 @@ class ManifestLoader:
                 for i, dep in enumerate(manifest.depends_on):
                     if not isinstance(dep, str):
                         errors.append(f"depends_on[{i}] must be string app name")
-        
+
         # Raise if errors
         if errors:
             raise ManifestValidationError(

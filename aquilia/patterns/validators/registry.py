@@ -2,14 +2,14 @@
 Constraint validator registry.
 """
 
-from typing import Callable, Dict, Any
+from collections.abc import Callable
 
 
 class ConstraintRegistry:
     """Registry of constraint validators."""
 
     def __init__(self):
-        self.validators: Dict[str, Callable] = {}
+        self.validators: dict[str, Callable] = {}
 
     @classmethod
     def default(cls) -> "ConstraintRegistry":
@@ -26,6 +26,7 @@ class ConstraintRegistry:
         """Get validator by name."""
         if name not in self.validators:
             from aquilia.faults.domains import RegistryFault
+
             raise RegistryFault(
                 name=name,
                 message=f"Unknown constraint: {name}",
@@ -35,7 +36,9 @@ class ConstraintRegistry:
 
 def register_constraint(name: str):
     """Decorator to register a custom constraint."""
+
     def decorator(func: Callable) -> Callable:
         ConstraintRegistry.default().register(name, func)
         return func
+
     return decorator

@@ -15,19 +15,20 @@ Backends:
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import time
 import traceback as tb_mod
 from abc import ABC, abstractmethod
 from collections import defaultdict, deque
+from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 from heapq import heappop, heappush
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any
 
-from .job import Job, JobResult, JobState, Priority
 from .decorators import _TaskDescriptor, get_task
 from .faults import TaskEnqueueFault, TaskResolutionFault
-
+from .job import Job, JobResult, JobState, Priority
 
 logger = logging.getLogger("aquilia.tasks")
 
@@ -35,6 +36,7 @@ logger = logging.getLogger("aquilia.tasks")
 # ============================================================================
 # Backend ABC
 # ============================================================================
+
 
 class TaskBackend(ABC):
     """Abstract backend for job storage and retrieval."""
@@ -44,11 +46,11 @@ class TaskBackend(ABC):
         """Add job to the queue."""
 
     @abstractmethod
-    async def pop(self, queue: str = "default") -> Optional[Job]:
+    async def pop(self, queue: str = "default") -> Job | None:
         """Retrieve highest-priority runnable job from queue."""
 
     @abstractmethod
-    async def get(self, job_id: str) -> Optional[Job]:
+    async def get(self, job_id: str) -> Job | None:
         """Get job by ID."""
 
     @abstractmethod
@@ -59,19 +61,19 @@ class TaskBackend(ABC):
     async def list_jobs(
         self,
         *,
-        queue: Optional[str] = None,
-        state: Optional[JobState] = None,
+        queue: str | None = None,
+        state: JobState | None = None,
         limit: int = 100,
         offset: int = 0,
-    ) -> List[Job]:
+    ) -> list[Job]:
         """List jobs with optional filters."""
 
     @abstractmethod
-    async def get_stats(self) -> Dict[str, Any]:
+    async def get_stats(self) -> dict[str, Any]:
         """Aggregate statistics across all queues."""
 
     @abstractmethod
-    async def get_queue_stats(self) -> Dict[str, Dict[str, int]]:
+    async def get_queue_stats(self) -> dict[str, dict[str, int]]:
         """Per-queue breakdown of job counts by state."""
 
     @abstractmethod
@@ -87,13 +89,14 @@ class TaskBackend(ABC):
         """Manually retry a failed/dead job. Returns True if re-queued."""
 
     @abstractmethod
-    async def flush(self, queue: Optional[str] = None) -> int:
+    async def flush(self, queue: str | None = None) -> int:
         """Remove all jobs (optionally in a specific queue). Returns count removed."""
 
 
 # ============================================================================
 # In-Memory Backend
 # ============================================================================
+
 
 class MemoryBackend(TaskBackend):
     """
@@ -107,8 +110,8 @@ class MemoryBackend(TaskBackend):
     """
 
     def __init__(self):
-        self._jobs: Dict[str, Job] = {}
-        self._queues: Dict[str, list] = defaultdict(list)  # heap per queue
+        self._jobs: dict[str, Job] = {}
+        self._queues: dict[str, list] = defaultdict(list)  # heap per queue
         self._counter = 0  # Tie-breaker for heap stability
         self._lock = asyncio.Lock()
         self._dead_letter: deque[Job] = deque(maxlen=1000)
@@ -122,7 +125,7 @@ class MemoryBackend(TaskBackend):
                 (job.priority.value, self._counter, job.id),
             )
 
-    async def pop(self, queue: str = "default") -> Optional[Job]:
+    async def pop(self, queue: str = "default") -> Job | None:
         async with self._lock:
             heap = self._queues.get(queue, [])
             now = datetime.now(timezone.utc)
@@ -142,7 +145,7 @@ class MemoryBackend(TaskBackend):
                     return job
             return None
 
-    async def get(self, job_id: str) -> Optional[Job]:
+    async def get(self, job_id: str) -> Job | None:
         return self._jobs.get(job_id)
 
     async def update(self, job: Job) -> None:
@@ -154,11 +157,11 @@ class MemoryBackend(TaskBackend):
     async def list_jobs(
         self,
         *,
-        queue: Optional[str] = None,
-        state: Optional[JobState] = None,
+        queue: str | None = None,
+        state: JobState | None = None,
         limit: int = 100,
         offset: int = 0,
-    ) -> List[Job]:
+    ) -> list[Job]:
         jobs = list(self._jobs.values())
         if queue:
             jobs = [j for j in jobs if j.queue == queue]
@@ -166,26 +169,22 @@ class MemoryBackend(TaskBackend):
             jobs = [j for j in jobs if j.state == state]
         # Sort by created_at descending (newest first)
         jobs.sort(key=lambda j: j.created_at, reverse=True)
-        return jobs[offset: offset + limit]
+        return jobs[offset : offset + limit]
 
-    async def get_stats(self) -> Dict[str, Any]:
+    async def get_stats(self) -> dict[str, Any]:
         all_jobs = list(self._jobs.values())
-        by_state: Dict[str, int] = defaultdict(int)
+        by_state: dict[str, int] = defaultdict(int)
         for j in all_jobs:
             by_state[j.state.value] += 1
 
         completed = [j for j in all_jobs if j.state == JobState.COMPLETED and j.duration_ms is not None]
         failed = [j for j in all_jobs if j.state in (JobState.FAILED, JobState.DEAD)]
-        avg_duration = (
-            sum(j.duration_ms for j in completed) / len(completed)
-            if completed else 0.0
-        )
+        avg_duration = sum(j.duration_ms for j in completed) / len(completed) if completed else 0.0
 
         # ── Duration distribution (histogram buckets in ms) ─────────
         duration_buckets = [0, 10, 50, 100, 250, 500, 1000, 5000, float("inf")]
         duration_histogram = [0] * (len(duration_buckets) - 1)
-        duration_labels = ["<10ms", "10-50ms", "50-100ms", "100-250ms",
-                           "250-500ms", "0.5-1s", "1-5s", ">5s"]
+        duration_labels = ["<10ms", "10-50ms", "50-100ms", "100-250ms", "250-500ms", "0.5-1s", "1-5s", ">5s"]
         for j in completed:
             for i in range(len(duration_buckets) - 1):
                 if duration_buckets[i] <= j.duration_ms < duration_buckets[i + 1]:
@@ -204,13 +203,9 @@ class MemoryBackend(TaskBackend):
             throughput_labels.append(label)
             # Count completed jobs in this hour
             c_count = sum(
-                1 for j in completed
-                if j.completed_at and j.completed_at.strftime("%Y-%m-%d %H:00") == hour_str
+                1 for j in completed if j.completed_at and j.completed_at.strftime("%Y-%m-%d %H:00") == hour_str
             )
-            f_count = sum(
-                1 for j in failed
-                if j.completed_at and j.completed_at.strftime("%Y-%m-%d %H:00") == hour_str
-            )
+            f_count = sum(1 for j in failed if j.completed_at and j.completed_at.strftime("%Y-%m-%d %H:00") == hour_str)
             completed_hourly.append(c_count)
             failed_hourly.append(f_count)
 
@@ -281,8 +276,8 @@ class MemoryBackend(TaskBackend):
             },
         }
 
-    async def get_queue_stats(self) -> Dict[str, Dict[str, int]]:
-        result: Dict[str, Dict[str, int]] = {}
+    async def get_queue_stats(self) -> dict[str, dict[str, int]]:
+        result: dict[str, dict[str, int]] = {}
         for job in self._jobs.values():
             if job.queue not in result:
                 result[job.queue] = defaultdict(int)
@@ -292,8 +287,7 @@ class MemoryBackend(TaskBackend):
     async def cleanup(self, max_age_seconds: float = 3600) -> int:
         cutoff = datetime.now(timezone.utc) - timedelta(seconds=max_age_seconds)
         to_remove = [
-            jid for jid, j in self._jobs.items()
-            if j.is_terminal and j.completed_at and j.completed_at < cutoff
+            jid for jid, j in self._jobs.items() if j.is_terminal and j.completed_at and j.completed_at < cutoff
         ]
         for jid in to_remove:
             del self._jobs[jid]
@@ -323,7 +317,7 @@ class MemoryBackend(TaskBackend):
         )
         return True
 
-    async def flush(self, queue: Optional[str] = None) -> int:
+    async def flush(self, queue: str | None = None) -> int:
         if queue:
             to_remove = [jid for jid, j in self._jobs.items() if j.queue == queue]
             for jid in to_remove:
@@ -339,6 +333,7 @@ class MemoryBackend(TaskBackend):
 # ============================================================================
 # Task Manager
 # ============================================================================
+
 
 class TaskManager:
     """
@@ -366,7 +361,7 @@ class TaskManager:
     def __init__(
         self,
         *,
-        backend: Optional[TaskBackend] = None,
+        backend: TaskBackend | None = None,
         num_workers: int = 4,
         default_queue: str = "default",
         cleanup_interval: float = 300.0,  # 5 minutes
@@ -381,13 +376,13 @@ class TaskManager:
         self.scheduler_tick = scheduler_tick
 
         self._workers: list[asyncio.Task] = []
-        self._cleanup_task: Optional[asyncio.Task] = None
-        self._scheduler_task: Optional[asyncio.Task] = None
+        self._cleanup_task: asyncio.Task | None = None
+        self._scheduler_task: asyncio.Task | None = None
         self._running = False
         self._queues: set[str] = {default_queue}
 
         # Periodic schedule tracking: task_name → last_enqueued_at
-        self._schedule_last_run: Dict[str, datetime] = {}
+        self._schedule_last_run: dict[str, datetime] = {}
 
         # Event listeners
         self._on_complete: list[Callable] = []
@@ -398,7 +393,7 @@ class TaskManager:
         self._total_enqueued = 0
         self._total_completed = 0
         self._total_failed = 0
-        self._started_at: Optional[datetime] = None
+        self._started_at: datetime | None = None
 
     # ========================================================================
     # Lifecycle
@@ -469,13 +464,13 @@ class TaskManager:
         self,
         func,
         *args,
-        queue: Optional[str] = None,
-        priority: Optional[Priority] = None,
-        delay: Optional[float] = None,
-        max_retries: Optional[int] = None,
-        timeout: Optional[float] = None,
-        tags: Optional[list[str]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        queue: str | None = None,
+        priority: Priority | None = None,
+        delay: float | None = None,
+        max_retries: int | None = None,
+        timeout: float | None = None,
+        tags: list[str] | None = None,
+        metadata: dict[str, Any] | None = None,
         **kwargs,
     ) -> str:
         """
@@ -546,18 +541,18 @@ class TaskManager:
     # Job Query API
     # ========================================================================
 
-    async def get_job(self, job_id: str) -> Optional[Job]:
+    async def get_job(self, job_id: str) -> Job | None:
         """Get job by ID."""
         return await self.backend.get(job_id)
 
     async def list_jobs(
         self,
         *,
-        queue: Optional[str] = None,
-        state: Optional[JobState] = None,
+        queue: str | None = None,
+        state: JobState | None = None,
         limit: int = 100,
         offset: int = 0,
-    ) -> List[Job]:
+    ) -> list[Job]:
         """List jobs with optional filters."""
         return await self.backend.list_jobs(queue=queue, state=state, limit=limit, offset=offset)
 
@@ -571,7 +566,7 @@ class TaskManager:
         result = await self.backend.retry(job_id)
         return result
 
-    async def flush(self, queue: Optional[str] = None) -> int:
+    async def flush(self, queue: str | None = None) -> int:
         """Remove all jobs from a queue (or all queues)."""
         return await self.backend.flush(queue)
 
@@ -579,7 +574,7 @@ class TaskManager:
     # Monitoring API
     # ========================================================================
 
-    async def get_stats(self) -> Dict[str, Any]:
+    async def get_stats(self) -> dict[str, Any]:
         """Get comprehensive task manager statistics."""
         backend_stats = await self.backend.get_stats()
         return {
@@ -591,15 +586,14 @@ class TaskManager:
                 "total_completed": self._total_completed,
                 "total_failed": self._total_failed,
                 "uptime_seconds": (
-                    (datetime.now(timezone.utc) - self._started_at).total_seconds()
-                    if self._started_at else 0
+                    (datetime.now(timezone.utc) - self._started_at).total_seconds() if self._started_at else 0
                 ),
                 "queues": sorted(self._queues),
                 "backend": self.backend.__class__.__name__,
             },
         }
 
-    async def get_queue_stats(self) -> Dict[str, Dict[str, int]]:
+    async def get_queue_stats(self) -> dict[str, dict[str, int]]:
         """Per-queue breakdown."""
         return await self.backend.get_queue_stats()
 
@@ -684,15 +678,14 @@ class TaskManager:
 
             # Notify listeners
             for cb in self._on_complete:
-                try:
+                with contextlib.suppress(Exception):
                     cb(job)
-                except Exception:
-                    pass
 
         except asyncio.TimeoutError:
             elapsed = (time.monotonic() - start_time) * 1000
             await self._handle_failure(
-                job, worker_name,
+                job,
+                worker_name,
                 error=f"Task timed out after {job.timeout}s",
                 error_type="TimeoutError",
                 traceback_str="",
@@ -702,7 +695,8 @@ class TaskManager:
         except Exception as e:
             elapsed = (time.monotonic() - start_time) * 1000
             await self._handle_failure(
-                job, worker_name,
+                job,
+                worker_name,
                 error=str(e),
                 error_type=type(e).__name__,
                 traceback_str=tb_mod.format_exc(),
@@ -744,10 +738,8 @@ class TaskManager:
             )
 
             for cb in self._on_failure:
-                try:
+                with contextlib.suppress(Exception):
                     cb(job)
-                except Exception:
-                    pass
         else:
             # Exhausted retries → dead letter
             job.state = JobState.DEAD
@@ -762,15 +754,11 @@ class TaskManager:
             await self.backend.update(job)
             self._total_failed += 1
 
-            logger.error(
-                f"{worker_name} job {job.id} permanently failed after {job.retry_count} retries: {error}"
-            )
+            logger.error(f"{worker_name} job {job.id} permanently failed after {job.retry_count} retries: {error}")
 
             for cb in self._on_dead_letter:
-                try:
+                with contextlib.suppress(Exception):
                     cb(job)
-                except Exception:
-                    pass
 
     async def _cleanup_loop(self) -> None:
         """Periodic cleanup of old terminal jobs."""
@@ -797,12 +785,12 @@ class TaskManager:
 
         Also logs periodic tasks that will be managed by the scheduler.
         """
-        from .decorators import get_registered_tasks, get_periodic_tasks
+        from .decorators import get_periodic_tasks, get_registered_tasks
 
-        for name, descriptor in get_registered_tasks().items():
+        for _name, descriptor in get_registered_tasks().items():
             descriptor.bind(self)
 
-        periodic = get_periodic_tasks()
+        get_periodic_tasks()
 
     async def _scheduler_loop(self) -> None:
         """
@@ -842,9 +830,7 @@ class TaskManager:
                             await self.enqueue(descriptor)
                             self._schedule_last_run[name] = now
                         except Exception as e:
-                            logger.warning(
-                                "Scheduler failed to enqueue %s: %s", name, e
-                            )
+                            logger.warning("Scheduler failed to enqueue %s: %s", name, e)
 
                 await asyncio.sleep(self.scheduler_tick)
 

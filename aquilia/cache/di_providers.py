@@ -7,15 +7,16 @@ for seamless injection into controllers and services.
 
 from __future__ import annotations
 
+import contextlib
 import logging
-from typing import Any, Dict, Optional
+from typing import Any
 
 from aquilia.faults.domains import ConfigInvalidFault
 
-from .core import CacheBackend, CacheConfig
-from .service import CacheService
 from .backends.memory import MemoryBackend
 from .backends.null import NullBackend
+from .core import CacheBackend, CacheConfig
+from .service import CacheService
 
 logger = logging.getLogger("aquilia.cache.di")
 
@@ -23,26 +24,26 @@ logger = logging.getLogger("aquilia.cache.di")
 def create_cache_backend(config: CacheConfig) -> CacheBackend:
     """
     Factory: create cache backend from configuration.
-    
+
     Args:
         config: CacheConfig instance
-        
+
     Returns:
         Configured CacheBackend
     """
     backend_type = config.backend.lower()
-    
+
     if backend_type == "memory":
         return MemoryBackend(
             max_size=config.max_size,
             eviction_policy=config.eviction_policy,
             capacity_warning_threshold=config.capacity_warning_threshold,
         )
-    
+
     elif backend_type == "redis":
         from .backends.redis import RedisBackend
         from .serializers import get_serializer
-        
+
         serializer = get_serializer(config.serializer)
         return RedisBackend(
             url=config.redis_url,
@@ -53,19 +54,20 @@ def create_cache_backend(config: CacheConfig) -> CacheBackend:
             key_prefix=config.key_prefix,
             serializer=serializer,
         )
-    
+
     elif backend_type == "composite":
         from .backends.composite import CompositeBackend
         from .serializers import get_serializer
-        
+
         l1 = MemoryBackend(
             max_size=config.l1_max_size,
             eviction_policy=config.eviction_policy,
             capacity_warning_threshold=config.capacity_warning_threshold,
         )
-        
+
         if config.l2_backend == "redis":
             from .backends.redis import RedisBackend
+
             serializer = get_serializer(config.serializer)
             l2 = RedisBackend(
                 url=config.redis_url,
@@ -75,15 +77,16 @@ def create_cache_backend(config: CacheConfig) -> CacheBackend:
             )
         else:
             l2 = MemoryBackend(max_size=config.max_size)
-        
+
         return CompositeBackend(
-            l1=l1, l2=l2,
+            l1=l1,
+            l2=l2,
             async_l2_write=config.l2_async_write,
         )
-    
+
     elif backend_type == "null":
         return NullBackend()
-    
+
     else:
         raise ConfigInvalidFault(
             key="cache.backend",
@@ -94,10 +97,10 @@ def create_cache_backend(config: CacheConfig) -> CacheBackend:
 def create_cache_service(config: CacheConfig) -> CacheService:
     """
     Factory: create CacheService from configuration.
-    
+
     Args:
         config: CacheConfig instance
-        
+
     Returns:
         Configured CacheService
     """
@@ -105,13 +108,13 @@ def create_cache_service(config: CacheConfig) -> CacheService:
     return CacheService(backend=backend, config=config)
 
 
-def build_cache_config(config_dict: Dict[str, Any]) -> CacheConfig:
+def build_cache_config(config_dict: dict[str, Any]) -> CacheConfig:
     """
     Build CacheConfig from dictionary (e.g., from ConfigLoader).
-    
+
     Args:
         config_dict: Raw configuration dictionary
-        
+
     Returns:
         CacheConfig instance
     """
@@ -155,42 +158,44 @@ def build_cache_config(config_dict: Dict[str, Any]) -> CacheConfig:
 def register_cache_providers(container: Any, cache_service: CacheService) -> None:
     """
     Register cache providers in a DI container.
-    
+
     Args:
         container: Aquilia DI Container
         cache_service: Configured CacheService instance
     """
     from aquilia.di.providers import ValueProvider
-    
+
     # Register the CacheService singleton
     try:
-        container.register(ValueProvider(
-            value=cache_service,
-            token=CacheService,
-            scope="app",
-            name="cache_service",
-        ))
+        container.register(
+            ValueProvider(
+                value=cache_service,
+                token=CacheService,
+                scope="app",
+                name="cache_service",
+            )
+        )
     except ValueError:
         pass  # Already registered
-    
+
     # Register the backend for direct access
-    try:
-        container.register(ValueProvider(
-            value=cache_service.backend,
-            token=CacheBackend,
-            scope="app",
-            name="cache_backend",
-        ))
-    except ValueError:
-        pass
-    
+    with contextlib.suppress(ValueError):
+        container.register(
+            ValueProvider(
+                value=cache_service.backend,
+                token=CacheBackend,
+                scope="app",
+                name="cache_backend",
+            )
+        )
+
     # Register by string token for compatibility
-    try:
-        container.register(ValueProvider(
-            value=cache_service,
-            token="aquilia.cache.CacheService",
-            scope="app",
-            name="cache_service_str",
-        ))
-    except ValueError:
-        pass
+    with contextlib.suppress(ValueError):
+        container.register(
+            ValueProvider(
+                value=cache_service,
+                token="aquilia.cache.CacheService",
+                scope="app",
+                name="cache_service_str",
+            )
+        )

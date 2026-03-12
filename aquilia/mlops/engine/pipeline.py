@@ -32,15 +32,16 @@ import inspect
 import logging
 import time
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any
 
 from .._types import (
     BatchRequest,
     InferenceRequest,
     InferenceResult,
 )
-from ..runtime.base import BaseRuntime, ModelState
+from ..runtime.base import BaseRuntime
 from .hooks import HookRegistry
 
 logger = logging.getLogger("aquilia.mlops.engine.pipeline")
@@ -49,13 +50,14 @@ logger = logging.getLogger("aquilia.mlops.engine.pipeline")
 @dataclass
 class PipelineContext:
     """Per-request context flowing through the pipeline."""
+
     request_id: str
     model_name: str = ""
     model_version: str = ""
     trace_id: str = ""
     start_time: float = field(default_factory=time.monotonic)
-    stage_timings: Dict[str, float] = field(default_factory=dict)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    stage_timings: dict[str, float] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 class InferencePipeline:
@@ -69,7 +71,7 @@ class InferencePipeline:
     def __init__(
         self,
         runtime: BaseRuntime,
-        hooks: Optional[HookRegistry] = None,
+        hooks: HookRegistry | None = None,
         metrics_collector: Any = None,
         executor: Any = None,  # InferenceExecutor
     ) -> None:
@@ -148,8 +150,10 @@ class InferencePipeline:
     # ── Pipeline Stages ──────────────────────────────────────────────
 
     async def _run_preprocess(
-        self, inputs: Dict[str, Any], ctx: PipelineContext,
-    ) -> Dict[str, Any]:
+        self,
+        inputs: dict[str, Any],
+        ctx: PipelineContext,
+    ) -> dict[str, Any]:
         """Run preprocess hooks, then runtime.preprocess()."""
         start = time.monotonic()
 
@@ -164,7 +168,9 @@ class InferencePipeline:
         return inputs
 
     async def _run_inference(
-        self, request: InferenceRequest, ctx: PipelineContext,
+        self,
+        request: InferenceRequest,
+        ctx: PipelineContext,
     ) -> InferenceResult:
         """Run inference through the executor or directly."""
         start = time.monotonic()
@@ -174,7 +180,8 @@ class InferencePipeline:
         if self._executor and self._executor.is_running:
             # Offload blocking inference to thread pool
             results = await self._executor.submit(
-                self._sync_infer_wrapper, batch,
+                self._sync_infer_wrapper,
+                batch,
             )
         else:
             results = await self._runtime.infer(batch)
@@ -191,7 +198,7 @@ class InferencePipeline:
             metadata={"error": "No results from runtime"},
         )
 
-    def _sync_infer_wrapper(self, batch: BatchRequest) -> List[InferenceResult]:
+    def _sync_infer_wrapper(self, batch: BatchRequest) -> list[InferenceResult]:
         """Wrapper to run async infer in a sync context for the executor."""
         loop = asyncio.new_event_loop()
         try:
@@ -200,8 +207,10 @@ class InferencePipeline:
             loop.close()
 
     async def _run_postprocess(
-        self, outputs: Dict[str, Any], ctx: PipelineContext,
-    ) -> Dict[str, Any]:
+        self,
+        outputs: dict[str, Any],
+        ctx: PipelineContext,
+    ) -> dict[str, Any]:
         """Run runtime.postprocess(), then postprocess hooks."""
         start = time.monotonic()
 
@@ -256,11 +265,13 @@ class InferencePipeline:
         total_ms = (time.monotonic() - ctx.start_time) * 1000
 
         logger.error(
-            "Pipeline error for request %s: %s", request.request_id, exc,
+            "Pipeline error for request %s: %s",
+            request.request_id,
+            exc,
         )
 
         # Call on_error hooks
-        error_result: Optional[Dict[str, Any]] = None
+        error_result: dict[str, Any] | None = None
         for hook in self._hooks.on_error:
             try:
                 result = await self._call_hook(hook, exc, request)
@@ -293,13 +304,10 @@ class InferencePipeline:
 
     async def execute_batch(
         self,
-        requests: List[InferenceRequest],
+        requests: list[InferenceRequest],
         model_name: str = "",
         model_version: str = "",
-    ) -> List[InferenceResult]:
+    ) -> list[InferenceResult]:
         """Execute the pipeline for multiple requests concurrently."""
-        tasks = [
-            self.execute(req, model_name, model_version)
-            for req in requests
-        ]
+        tasks = [self.execute(req, model_name, model_version) for req in requests]
         return await asyncio.gather(*tasks)

@@ -12,16 +12,21 @@ Arrow-key navigation is handled via raw terminal mode:
 
 from __future__ import annotations
 
+import contextlib
 import os
-import sys
-from typing import Callable, List, Optional, Sequence, Tuple
-
 import platform
+import sys
+from collections.abc import Callable, Sequence
 
 import click
 
 from .colors import (
-    _CHECK, _CROSS, _ARROW, _L_H, _G, _DIAMOND,
+    _ARROW,
+    _CHECK,
+    _CROSS,
+    _DIAMOND,
+    _G,
+    _L_H,
 )
 
 _IS_WINDOWS: bool = platform.system() == "Windows"
@@ -30,9 +35,9 @@ _IS_WINDOWS: bool = platform.system() == "Windows"
 # Glyphs & colour helpers
 # ═══════════════════════════════════════════════════════════════════════════
 
-_RADIO_ON  = _G("\u25cf", "(*)")
+_RADIO_ON = _G("\u25cf", "(*)")
 _RADIO_OFF = _G("\u25cb", "( )")
-_CHECK_ON  = _G("\u25fc", "[x]")
+_CHECK_ON = _G("\u25fc", "[x]")
 _CHECK_OFF = _G("\u25fb", "[ ]")
 
 
@@ -46,7 +51,7 @@ def _write(text: str) -> None:
 
 
 # ANSI helpers
-_CLEAR_LINE  = "\033[2K"
+_CLEAR_LINE = "\033[2K"
 _HIDE_CURSOR = "\033[?25l"
 _SHOW_CURSOR = "\033[?25h"
 
@@ -54,12 +59,13 @@ _SHOW_CURSOR = "\033[?25h"
 def _erase_lines(n: int) -> None:
     """Erase n lines above current cursor position."""
     for _ in range(n):
-        _write(f"\033[1A\033[2K")
+        _write("\033[1A\033[2K")
 
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Raw-mode key reading
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 def _is_tty() -> bool:
     return sys.stdin.isatty() and sys.stdout.isatty()
@@ -87,6 +93,7 @@ def _drain_stdin() -> None:
     """
     if _IS_WINDOWS:
         import msvcrt
+
         try:
             while msvcrt.kbhit():
                 msvcrt.getwch()
@@ -94,10 +101,9 @@ def _drain_stdin() -> None:
             pass
     else:
         import termios
-        try:
+
+        with contextlib.suppress(Exception):
             termios.tcflush(_stdin_fd(), termios.TCIFLUSH)
-        except Exception:
-            pass
 
 
 def _read_key() -> str:
@@ -127,19 +133,19 @@ def _read_key_windows() -> str:
         return "space"
     if ch == "\t":
         return "tab"
-    if ch == "\x03":                            # Ctrl-C
+    if ch == "\x03":  # Ctrl-C
         raise KeyboardInterrupt
-    if ch == "\x04":                            # Ctrl-D
+    if ch == "\x04":  # Ctrl-D
         raise EOFError
-    if ch == "\x1b":                            # ESC (standalone)
+    if ch == "\x1b":  # ESC (standalone)
         return "esc"
-    if ch in ("\x00", "\xe0"):                  # Special / extended key prefix
+    if ch in ("\x00", "\xe0"):  # Special / extended key prefix
         ch2 = msvcrt.getwch()
-        if ch2 == "H":                          # Up arrow
+        if ch2 == "H":  # Up arrow
             return "up"
-        if ch2 == "P":                          # Down arrow
+        if ch2 == "P":  # Down arrow
             return "down"
-        if ch2 == "\x0f":                       # Shift+Tab (Back-Tab)
+        if ch2 == "\x0f":  # Shift+Tab (Back-Tab)
             return "shift_tab"
         return "esc"
     return ch
@@ -150,14 +156,15 @@ def _read_key_unix() -> str:
     import termios
     import tty
 
-    fd  = _stdin_fd()
+    fd = _stdin_fd()
     old = termios.tcgetattr(fd)
     try:
         tty.setraw(fd)
         ch = os.read(fd, 1)
-        if ch == b"\x1b":                       # ESC / arrow sequence
+        if ch == b"\x1b":  # ESC / arrow sequence
             # Set a short read timeout so we don't hang if ESC is pressed alone
             import select as _sel
+
             ready, _, _ = _sel.select([fd], [], [], 0.1)
             if not ready:
                 return "esc"
@@ -187,9 +194,9 @@ def _read_key_unix() -> str:
             return "space"
         if ch == b"\t":
             return "tab"
-        if ch == b"\x03":                       # Ctrl-C
+        if ch == b"\x03":  # Ctrl-C
             raise KeyboardInterrupt
-        if ch == b"\x04":                       # Ctrl-D
+        if ch == b"\x04":  # Ctrl-D
             raise EOFError
         return ch.decode("utf-8", errors="replace")
     finally:
@@ -222,25 +229,25 @@ def _read_line_fd_windows() -> str:
     while True:
         ch = msvcrt.getwch()
         if ch in ("\r", "\n"):
-            msvcrt.putch(b"\n")             # echo newline
+            msvcrt.putch(b"\n")  # echo newline
             break
-        if ch == "\x03":                    # Ctrl-C
+        if ch == "\x03":  # Ctrl-C
             raise KeyboardInterrupt
-        if ch == "\x04":                    # Ctrl-D
+        if ch == "\x04":  # Ctrl-D
             if not buf:
                 raise EOFError
             break
-        if ch in ("\x08", "\x7f"):          # Backspace / DEL
+        if ch in ("\x08", "\x7f"):  # Backspace / DEL
             if buf:
                 buf = buf[:-1]
-                msvcrt.putch(b"\x08")       # move cursor back
-                msvcrt.putch(b" ")          # overwrite with space
-                msvcrt.putch(b"\x08")       # move cursor back again
+                msvcrt.putch(b"\x08")  # move cursor back
+                msvcrt.putch(b" ")  # overwrite with space
+                msvcrt.putch(b"\x08")  # move cursor back again
             continue
-        if ch in ("\x00", "\xe0"):          # Extended key prefix — skip next byte
+        if ch in ("\x00", "\xe0"):  # Extended key prefix — skip next byte
             msvcrt.getwch()
             continue
-        msvcrt.putwch(ch)                   # echo the character
+        msvcrt.putwch(ch)  # echo the character
         buf += ch
     return buf
 
@@ -249,11 +256,11 @@ def _read_line_fd_unix() -> str:
     """Unix line reader via OS fd in canonical (cooked) mode."""
     import termios
 
-    fd  = _stdin_fd()
+    fd = _stdin_fd()
     old = termios.tcgetattr(fd)
     # Ensure canonical mode + echo are ON (reset any lingering raw state)
     new = termios.tcgetattr(fd)
-    new[3] |= termios.ICANON | termios.ECHO   # lflags
+    new[3] |= termios.ICANON | termios.ECHO  # lflags
     termios.tcsetattr(fd, termios.TCSANOW, new)
     try:
         buf = b""
@@ -290,6 +297,7 @@ def _read_line() -> str:
 # Flow banners
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 def flow_header(title: str, subtitle: str = "", *, fg: str = "cyan") -> None:
     """Print a minimal flow header."""
     click.echo()
@@ -309,33 +317,36 @@ def flow_done(message: str = "Done.", *, fg: str = "green") -> None:
 # Render helpers shared by select / multi_select
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 def _render_select_rows(
-    choices: Sequence[Tuple[str, str]],
+    choices: Sequence[tuple[str, str]],
     current: int,
 ) -> None:
     for i, (value, desc) in enumerate(choices):
-        active  = i == current
+        active = i == current
         pointer = _c(_G("\u25b6", ">"), fg="cyan") if active else " "
-        marker  = _c(_RADIO_ON, fg="cyan") if active else _c(_RADIO_OFF, dim_=True)
-        val     = _c(value, fg="cyan", bold=True) if active else _c(value, fg="white")
-        d       = f"  {_c('-', dim_=True)} {_c(desc, dim_=True)}" if desc else ""
+        marker = _c(_RADIO_ON, fg="cyan") if active else _c(_RADIO_OFF, dim_=True)
+        val = _c(value, fg="cyan", bold=True) if active else _c(value, fg="white")
+        d = f"  {_c('-', dim_=True)} {_c(desc, dim_=True)}" if desc else ""
         _write(f"  {pointer} {marker} {val}{d}\n")
 
 
 def _render_multi_rows(
-    choices: Sequence[Tuple[str, str, bool]],
+    choices: Sequence[tuple[str, str, bool]],
     current: int,
-    selected: List[bool],
+    selected: list[bool],
 ) -> None:
     for i, (value, desc, _) in enumerate(choices):
-        active  = i == current
-        on      = selected[i]
+        active = i == current
+        on = selected[i]
         pointer = _c(_G("\u25b6", ">"), fg="cyan") if active else " "
-        marker  = _c(_CHECK_ON, fg="green") if on else _c(_CHECK_OFF, dim_=True)
-        val     = (
-            _c(value, fg="cyan",  bold=True) if active else
-            _c(value, fg="white", bold=True) if on     else
-            _c(value, fg="white")
+        marker = _c(_CHECK_ON, fg="green") if on else _c(_CHECK_OFF, dim_=True)
+        val = (
+            _c(value, fg="cyan", bold=True)
+            if active
+            else _c(value, fg="white", bold=True)
+            if on
+            else _c(value, fg="white")
         )
         d = f"  {_c('-', dim_=True)} {_c(desc, dim_=True)}" if desc else ""
         _write(f"  {pointer} {marker} {val}{d}\n")
@@ -345,21 +356,21 @@ def _render_multi_rows(
 # Text input
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 def ask(
     label: str,
     *,
     default: str = "",
     required: bool = False,
-    validator: Optional[Callable[[str], Optional[str]]] = None,
+    validator: Callable[[str], str | None] | None = None,
     hint: str = "",
 ) -> str:
     """Styled text input prompt with optional validation."""
     while True:
-        suffix   = f" ({_c(default, fg='white', dim_=True)})" if default else ""
+        suffix = f" ({_c(default, fg='white', dim_=True)})" if default else ""
         hint_str = f"  {_c(hint, dim_=True)}" if hint else ""
         _write(
-            f"  {_c(_DIAMOND, fg='cyan')} {_c(label, fg='white', bold=True)}"
-            f"{suffix}{hint_str} {_c('...', dim_=True)} "
+            f"  {_c(_DIAMOND, fg='cyan')} {_c(label, fg='white', bold=True)}{suffix}{hint_str} {_c('...', dim_=True)} "
         )
 
         value = _read_line()
@@ -388,39 +399,22 @@ def ask_password(
 ) -> str:
     """Styled hidden password input with optional confirmation."""
     while True:
-        prompt_text = (
-            f"  {_c(_DIAMOND, fg='cyan')} {_c(label, fg='white', bold=True)} "
-            f"{_c('...', dim_=True)} "
-        )
-        value = click.prompt(
-            "", prompt_suffix="", hide_input=True, default="", show_default=False
-        )
+        prompt_text = f"  {_c(_DIAMOND, fg='cyan')} {_c(label, fg='white', bold=True)} {_c('...', dim_=True)} "
+        value = click.prompt("", prompt_suffix="", hide_input=True, default="", show_default=False)
         _write(f"\033[1A\033[2K{prompt_text}{_c('*' * len(value), dim_=True)}\n")
 
         if len(value) < min_length:
-            _write(
-                f"    {_c(_CROSS, fg='red')} "
-                f"{_c(f'Must be at least {min_length} characters', fg='red')}\n"
-            )
+            _write(f"    {_c(_CROSS, fg='red')} {_c(f'Must be at least {min_length} characters', fg='red')}\n")
             continue
 
         if confirm:
             confirm_text = (
-                f"  {_c(_DIAMOND, fg='cyan')} {_c('Confirm password', fg='white', bold=True)} "
-                f"{_c('...', dim_=True)} "
+                f"  {_c(_DIAMOND, fg='cyan')} {_c('Confirm password', fg='white', bold=True)} {_c('...', dim_=True)} "
             )
-            confirm_val = click.prompt(
-                "", prompt_suffix="", hide_input=True, default="", show_default=False
-            )
-            _write(
-                f"\033[1A\033[2K{confirm_text}"
-                f"{_c('*' * len(confirm_val), dim_=True)}\n"
-            )
+            confirm_val = click.prompt("", prompt_suffix="", hide_input=True, default="", show_default=False)
+            _write(f"\033[1A\033[2K{confirm_text}{_c('*' * len(confirm_val), dim_=True)}\n")
             if value != confirm_val:
-                _write(
-                    f"    {_c(_CROSS, fg='red')} "
-                    f"{_c('Passwords do not match', fg='red')}\n"
-                )
+                _write(f"    {_c(_CROSS, fg='red')} {_c('Passwords do not match', fg='red')}\n")
                 continue
 
         return value
@@ -430,9 +424,10 @@ def ask_password(
 # Select -- single-choice, ↑↓ navigation
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 def select(
     label: str,
-    choices: Sequence[Tuple[str, str]],
+    choices: Sequence[tuple[str, str]],
     *,
     default: int = 0,
 ) -> str:
@@ -449,7 +444,7 @@ def select(
     Returns:
         Selected value string
     """
-    n       = len(choices)
+    n = len(choices)
     current = max(0, min(default, n - 1))
 
     # ── Non-TTY fallback ────────────────────────────────────────────
@@ -457,8 +452,8 @@ def select(
         _write(f"  {_c(_DIAMOND, fg='cyan')} {_c(label, fg='white', bold=True)}\n")
         for i, (value, desc) in enumerate(choices):
             mark = _c(f"{i + 1}.", dim_=True)
-            v    = _c(value, fg="cyan" if i == default else "white")
-            d    = f"  {_c('-', dim_=True)} {_c(desc, dim_=True)}" if desc else ""
+            v = _c(value, fg="cyan" if i == default else "white")
+            d = f"  {_c('-', dim_=True)} {_c(desc, dim_=True)}" if desc else ""
             _write(f"    {mark} {v}{d}\n")
         while True:
             _write(f"  {_c(_ARROW, fg='cyan')} ")
@@ -476,10 +471,10 @@ def select(
             _write(f"    {_c(_CROSS, fg='red')} {_c(f'Enter 1-{n}', fg='red')}\n")
 
     # ── Interactive TTY mode ────────────────────────────────────────
-    hint   = _c("up/down navigate  Enter confirm", dim_=True)
+    hint = _c("up/down navigate  Enter confirm", dim_=True)
     header = f"  {_c(_DIAMOND, fg='cyan')} {_c(label, fg='white', bold=True)}  {hint}\n"
 
-    _drain_stdin()   # flush buffered bytes from any preceding cooked prompt
+    _drain_stdin()  # flush buffered bytes from any preceding cooked prompt
     _write(_HIDE_CURSOR)
     try:
         _write(header)
@@ -516,10 +511,11 @@ def select(
 # Multi-select -- toggle, ↑↓ + Space
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 def multi_select(
     label: str,
-    choices: Sequence[Tuple[str, str, bool]],
-) -> List[str]:
+    choices: Sequence[tuple[str, str, bool]],
+) -> list[str]:
     """
     Multi-choice toggle menu with ↑↓ navigation and Space to toggle.
 
@@ -532,9 +528,9 @@ def multi_select(
     Returns:
         List of selected value strings
     """
-    n        = len(choices)
+    n = len(choices)
     selected = [on for _, _, on in choices]
-    current  = 0
+    current = 0
 
     # ── Non-TTY fallback ────────────────────────────────────────────
     if not _is_tty():
@@ -543,17 +539,16 @@ def multi_select(
             f"  {_c('(comma-separated numbers, Enter for defaults)', dim_=True)}\n"
         )
         for i, (value, desc, on) in enumerate(choices):
-            mark = _c(_CHECK_ON if on else _CHECK_OFF,
-                      fg="green" if on else "white", dim_=not on)
-            num  = _c(f"{i + 1}.", dim_=True)
-            v    = _c(value, fg="white", bold=on)
-            d    = f"  {_c('-', dim_=True)} {_c(desc, dim_=True)}" if desc else ""
+            mark = _c(_CHECK_ON if on else _CHECK_OFF, fg="green" if on else "white", dim_=not on)
+            num = _c(f"{i + 1}.", dim_=True)
+            v = _c(value, fg="white", bold=on)
+            d = f"  {_c('-', dim_=True)} {_c(desc, dim_=True)}" if desc else ""
             _write(f"    {mark} {num} {v}{d}\n")
         _write(f"  {_c(_ARROW, fg='cyan')} ")
         raw = _read_line().strip()
         if not raw:
             return [v for v, _, on in choices if on]
-        result: List[str] = []
+        result: list[str] = []
         for part in raw.replace(" ", "").split(","):
             try:
                 idx = int(part) - 1
@@ -566,10 +561,10 @@ def multi_select(
         return result
 
     # ── Interactive TTY mode ────────────────────────────────────────
-    hint   = _c("up/down navigate  Space toggle  Enter confirm", dim_=True)
+    hint = _c("up/down navigate  Space toggle  Enter confirm", dim_=True)
     header = f"  {_c(_DIAMOND, fg='cyan')} {_c(label, fg='white', bold=True)}  {hint}\n"
 
-    _drain_stdin()   # flush buffered bytes from any preceding cooked prompt
+    _drain_stdin()  # flush buffered bytes from any preceding cooked prompt
     _write(_HIDE_CURSOR)
     try:
         _write(header)
@@ -580,15 +575,9 @@ def multi_select(
 
             if key == "enter":
                 result_vals = [choices[i][0] for i in range(n) if selected[i]]
-                summary = (
-                    ", ".join(result_vals) if result_vals
-                    else _c("none", dim_=True)
-                )
+                summary = ", ".join(result_vals) if result_vals else _c("none", dim_=True)
                 _erase_lines(n)
-                _write(
-                    f"  {_c(_DIAMOND, fg='cyan')} {_c(label, fg='white', bold=True)}"
-                    f"  {_c(summary, fg='cyan')}\n"
-                )
+                _write(f"  {_c(_DIAMOND, fg='cyan')} {_c(label, fg='white', bold=True)}  {_c(summary, fg='cyan')}\n")
                 return result_vals
             elif key in ("up", "shift_tab"):
                 current = (current - 1) % n
@@ -613,6 +602,7 @@ def multi_select(
 # Confirm (yes/no)
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 def confirm(
     label: str,
     *,
@@ -634,17 +624,14 @@ def confirm(
 # Summary / recap table
 # ═══════════════════════════════════════════════════════════════════════════
 
-def recap(items: Sequence[Tuple[str, str]], *, title: str = "Summary") -> None:
+
+def recap(items: Sequence[tuple[str, str]], *, title: str = "Summary") -> None:
     """Print a labelled summary of selected options."""
     click.echo()
-    click.echo(
-        f"  {_c(_L_H * 2, dim_=True)} "
-        f"{_c(title, fg='cyan', bold=True)} "
-        f"{_c(_L_H * 36, dim_=True)}"
-    )
+    click.echo(f"  {_c(_L_H * 2, dim_=True)} {_c(title, fg='cyan', bold=True)} {_c(_L_H * 36, dim_=True)}")
     for key, value in items:
-        k       = _c(f"  {key}:", fg="white")
-        v       = _c(value, fg="cyan")
+        k = _c(f"  {key}:", fg="white")
+        v = _c(value, fg="cyan")
         padding = " " * max(1, 20 - len(key))
         click.echo(f"  {k}{padding}{v}")
     click.echo()

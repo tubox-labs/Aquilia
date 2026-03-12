@@ -13,7 +13,6 @@ import asyncio
 import json
 import sys
 from pathlib import Path
-from typing import Optional
 
 import click
 
@@ -78,7 +77,7 @@ def cmd_mail_check(verbose: bool = False) -> None:
     # Security
     security = config.get("security", {})
     if isinstance(security, dict):
-        click.echo(f"\n  Security:")
+        click.echo("\n  Security:")
         click.echo(f"    DKIM:           {security.get('dkim_enabled', False)}")
         click.echo(f"    Require TLS:    {security.get('require_tls', True)}")
         click.echo(f"    PII Redaction:  {security.get('pii_redaction_enabled', False)}")
@@ -99,8 +98,8 @@ def cmd_mail_check(verbose: bool = False) -> None:
 
 def cmd_mail_send_test(
     to: str,
-    subject: Optional[str] = None,
-    body: Optional[str] = None,
+    subject: str | None = None,
+    body: str | None = None,
     verbose: bool = False,
 ) -> None:
     """Send a test email."""

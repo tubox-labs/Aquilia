@@ -5,7 +5,7 @@ Simple integrations — small typed configs for DI, routing, faults, etc.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict
+from typing import Any
 
 
 @dataclass
@@ -17,7 +17,7 @@ class DiIntegration:
     auto_wire: bool = True
     enabled: bool = True
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "_integration_type": "dependency_injection",
             "enabled": self.enabled,
@@ -34,7 +34,7 @@ class RoutingIntegration:
     strict_matching: bool = True
     enabled: bool = True
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "_integration_type": "routing",
             "enabled": self.enabled,
@@ -51,7 +51,7 @@ class FaultHandlingIntegration:
     default_strategy: str = "propagate"
     enabled: bool = True
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "_integration_type": "fault_handling",
             "enabled": self.enabled,
@@ -67,7 +67,7 @@ class PatternsIntegration:
 
     enabled: bool = True
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {"_integration_type": "patterns", "enabled": self.enabled}
 
 
@@ -79,7 +79,7 @@ class RegistryIntegration:
 
     enabled: bool = True
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {"_integration_type": "registry", "enabled": self.enabled}
 
 
@@ -98,7 +98,7 @@ class SerializersIntegration:
     compact_json: bool = True
     enabled: bool = True
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "_integration_type": "serializers",
             "enabled": self.enabled,

@@ -15,10 +15,9 @@ Usage:
 
 from __future__ import annotations
 
-from typing import Any, List, Optional, Tuple
+from typing import Any
 
 from .expression import Expression, F
-
 
 __all__ = [
     "Aggregate",
@@ -52,8 +51,8 @@ class Aggregate(Expression):
         expression: str | Expression,
         *,
         distinct: bool = False,
-        alias: Optional[str] = None,
-        filter_clause: Optional[str] = None,
+        alias: str | None = None,
+        filter_clause: str | None = None,
     ):
         if isinstance(expression, str):
             expression = F(expression)
@@ -62,7 +61,7 @@ class Aggregate(Expression):
         self.alias = alias
         self.filter_clause = filter_clause
 
-    def as_sql(self, dialect: str = "sqlite") -> Tuple[str, List[Any]]:
+    def as_sql(self, dialect: str = "sqlite") -> tuple[str, list[Any]]:
         expr_sql, expr_params = self.expression.as_sql(dialect)
         distinct_str = "DISTINCT " if self.distinct else ""
         sql = f"{self.function}({distinct_str}{expr_sql})"
@@ -76,16 +75,19 @@ class Aggregate(Expression):
 
 class Sum(Aggregate):
     """SQL SUM() aggregate."""
+
     function = "SUM"
 
 
 class Avg(Aggregate):
     """SQL AVG() aggregate."""
+
     function = "AVG"
 
 
 class Count(Aggregate):
     """SQL COUNT() aggregate."""
+
     function = "COUNT"
 
     def __init__(self, expression: str | Expression = "*", **kwargs):
@@ -95,7 +97,7 @@ class Count(Aggregate):
         else:
             super().__init__(expression=expression, **kwargs)
 
-    def as_sql(self, dialect: str = "sqlite") -> Tuple[str, List[Any]]:
+    def as_sql(self, dialect: str = "sqlite") -> tuple[str, list[Any]]:
         if isinstance(self.expression, F) and self.expression.name == "*":
             distinct_str = "DISTINCT " if self.distinct else ""
             return f"COUNT({distinct_str}*)", []
@@ -104,19 +106,22 @@ class Count(Aggregate):
 
 class Max(Aggregate):
     """SQL MAX() aggregate."""
+
     function = "MAX"
 
 
 class Min(Aggregate):
     """SQL MIN() aggregate."""
+
     function = "MIN"
 
 
 class StdDev(Aggregate):
     """SQL STDDEV() aggregate (PostgreSQL) / stdev (SQLite extension)."""
+
     function = "STDDEV"
 
-    def as_sql(self, dialect: str = "sqlite") -> Tuple[str, List[Any]]:
+    def as_sql(self, dialect: str = "sqlite") -> tuple[str, list[Any]]:
         if dialect == "sqlite":
             # SQLite doesn't have STDDEV natively; use a workaround
             expr_sql, expr_params = self.expression.as_sql(dialect)
@@ -126,9 +131,10 @@ class StdDev(Aggregate):
 
 class Variance(Aggregate):
     """SQL VARIANCE() aggregate."""
+
     function = "VARIANCE"
 
-    def as_sql(self, dialect: str = "sqlite") -> Tuple[str, List[Any]]:
+    def as_sql(self, dialect: str = "sqlite") -> tuple[str, list[Any]]:
         if dialect == "sqlite":
             expr_sql, expr_params = self.expression.as_sql(dialect)
             return f"VARIANCE({expr_sql})", expr_params
@@ -147,6 +153,7 @@ class ArrayAgg(Aggregate):
     Usage:
         result = await User.query().aggregate(names=ArrayAgg("name"))
     """
+
     function = "ARRAY_AGG"
 
     def __init__(
@@ -154,13 +161,13 @@ class ArrayAgg(Aggregate):
         expression: str | Expression,
         *,
         distinct: bool = False,
-        ordering: Optional[str] = None,
+        ordering: str | None = None,
         **kwargs,
     ):
         super().__init__(expression, distinct=distinct, **kwargs)
         self.ordering = ordering
 
-    def as_sql(self, dialect: str = "sqlite") -> Tuple[str, List[Any]]:
+    def as_sql(self, dialect: str = "sqlite") -> tuple[str, list[Any]]:
         expr_sql, expr_params = self.expression.as_sql(dialect)
         distinct_str = "DISTINCT " if self.distinct else ""
 
@@ -194,6 +201,7 @@ class StringAgg(Aggregate):
     Usage:
         result = await Tag.query().aggregate(all_tags=StringAgg("name", delimiter=", "))
     """
+
     function = "STRING_AGG"
 
     def __init__(
@@ -202,14 +210,14 @@ class StringAgg(Aggregate):
         *,
         delimiter: str = ",",
         distinct: bool = False,
-        ordering: Optional[str] = None,
+        ordering: str | None = None,
         **kwargs,
     ):
         super().__init__(expression, distinct=distinct, **kwargs)
         self.delimiter = delimiter
         self.ordering = ordering
 
-    def as_sql(self, dialect: str = "sqlite") -> Tuple[str, List[Any]]:
+    def as_sql(self, dialect: str = "sqlite") -> tuple[str, list[Any]]:
         expr_sql, expr_params = self.expression.as_sql(dialect)
         distinct_str = "DISTINCT " if self.distinct else ""
 
@@ -236,6 +244,7 @@ class GroupConcat(Aggregate):
     Usage:
         result = await Tag.query().aggregate(tags=GroupConcat("name", separator=", "))
     """
+
     function = "GROUP_CONCAT"
 
     def __init__(
@@ -249,7 +258,7 @@ class GroupConcat(Aggregate):
         super().__init__(expression, distinct=distinct, **kwargs)
         self.separator = separator
 
-    def as_sql(self, dialect: str = "sqlite") -> Tuple[str, List[Any]]:
+    def as_sql(self, dialect: str = "sqlite") -> tuple[str, list[Any]]:
         expr_sql, expr_params = self.expression.as_sql(dialect)
         distinct_str = "DISTINCT " if self.distinct else ""
 
@@ -270,9 +279,10 @@ class BoolAnd(Aggregate):
     Usage:
         result = await User.query().aggregate(all_active=BoolAnd("active"))
     """
+
     function = "BOOL_AND"
 
-    def as_sql(self, dialect: str = "sqlite") -> Tuple[str, List[Any]]:
+    def as_sql(self, dialect: str = "sqlite") -> tuple[str, list[Any]]:
         expr_sql, expr_params = self.expression.as_sql(dialect)
         if dialect == "sqlite":
             return f"MIN({expr_sql})", expr_params
@@ -288,9 +298,10 @@ class BoolOr(Aggregate):
     Usage:
         result = await User.query().aggregate(any_active=BoolOr("active"))
     """
+
     function = "BOOL_OR"
 
-    def as_sql(self, dialect: str = "sqlite") -> Tuple[str, List[Any]]:
+    def as_sql(self, dialect: str = "sqlite") -> tuple[str, list[Any]]:
         expr_sql, expr_params = self.expression.as_sql(dialect)
         if dialect == "sqlite":
             return f"MAX({expr_sql})", expr_params

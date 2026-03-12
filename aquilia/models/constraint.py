@@ -7,7 +7,8 @@ additional constraint types for advanced database constraints.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from collections.abc import Sequence
+from typing import Any
 
 __all__ = [
     "CheckConstraint",
@@ -18,6 +19,7 @@ __all__ = [
 
 class Deferrable:
     """Constraint deferral modes for PostgreSQL."""
+
     DEFERRED = "DEFERRABLE INITIALLY DEFERRED"
     IMMEDIATE = "DEFERRABLE INITIALLY IMMEDIATE"
 
@@ -45,7 +47,7 @@ class CheckConstraint:
         *,
         check: str,
         name: str,
-        violation_error_message: Optional[str] = None,
+        violation_error_message: str | None = None,
     ):
         self.check = check
         self.name = name
@@ -57,10 +59,7 @@ class CheckConstraint:
 
     def sql_alter_add(self, table_name: str, dialect: str = "sqlite") -> str:
         """Generate ALTER TABLE ADD CONSTRAINT SQL."""
-        return (
-            f'ALTER TABLE "{table_name}" '
-            f'ADD CONSTRAINT "{self.name}" CHECK ({self.check});'
-        )
+        return f'ALTER TABLE "{table_name}" ADD CONSTRAINT "{self.name}" CHECK ({self.check});'
 
     def sql_alter_drop(self, table_name: str, dialect: str = "sqlite") -> str:
         """Generate ALTER TABLE DROP CONSTRAINT SQL."""
@@ -69,7 +68,7 @@ class CheckConstraint:
             return f"-- SQLite: Cannot drop CHECK constraint '{self.name}' via ALTER TABLE"
         return f'ALTER TABLE "{table_name}" DROP CONSTRAINT "{self.name}";'
 
-    def deconstruct(self) -> Dict[str, Any]:
+    def deconstruct(self) -> dict[str, Any]:
         return {
             "type": "CheckConstraint",
             "check": self.check,
@@ -112,29 +111,25 @@ class ExclusionConstraint:
         self,
         *,
         name: str,
-        expressions: Sequence[Tuple[str, str]],
+        expressions: Sequence[tuple[str, str]],
         index_type: str = "GIST",
-        condition: Optional[str] = None,
-        deferrable: Optional[str] = None,
-        violation_error_message: Optional[str] = None,
+        condition: str | None = None,
+        deferrable: str | None = None,
+        violation_error_message: str | None = None,
     ):
         self.name = name
         self.expressions = list(expressions)
         self.index_type = index_type
         self.condition = condition
         self.deferrable = deferrable
-        self.violation_error_message = (
-            violation_error_message or f"Exclusion constraint {name!r} violated"
-        )
+        self.violation_error_message = violation_error_message or f"Exclusion constraint {name!r} violated"
 
     def sql(self, table_name: str, dialect: str = "sqlite") -> str:
         """Generate constraint SQL (PostgreSQL only)."""
         if dialect == "sqlite":
             return f"-- EXCLUDE constraints not supported on SQLite ({self.name})"
 
-        expr_parts = ", ".join(
-            f'"{col}" WITH {op}' for col, op in self.expressions
-        )
+        expr_parts = ", ".join(f'"{col}" WITH {op}' for col, op in self.expressions)
         sql = f'CONSTRAINT "{self.name}" EXCLUDE USING {self.index_type} ({expr_parts})'
         if self.condition:
             sql += f" WHERE ({self.condition})"
@@ -153,7 +148,7 @@ class ExclusionConstraint:
             return f"-- Cannot drop EXCLUDE constraint on SQLite ({self.name})"
         return f'ALTER TABLE "{table_name}" DROP CONSTRAINT "{self.name}";'
 
-    def deconstruct(self) -> Dict[str, Any]:
+    def deconstruct(self) -> dict[str, Any]:
         return {
             "type": "ExclusionConstraint",
             "name": self.name,

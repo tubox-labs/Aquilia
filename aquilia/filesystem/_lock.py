@@ -20,11 +20,11 @@ from the same task.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import os
 import sys
 import time
 from pathlib import Path
-from typing import Optional, Union
 
 from ._config import FileSystemConfig
 from ._errors import FileSystemFault, wrap_os_error
@@ -33,9 +33,11 @@ from ._pool import FileSystemPool
 # Platform-specific imports
 if sys.platform == "win32":
     import msvcrt  # type: ignore[import-not-found]
+
     _HAS_FCNTL = False
 else:
     import fcntl
+
     _HAS_FCNTL = True
 
 
@@ -111,13 +113,13 @@ class AsyncFileLock:
 
     def __init__(
         self,
-        path: Union[str, Path],
+        path: str | Path,
         *,
         timeout: float = -1,
         poll_interval: float = 0.05,
         shared: bool = False,
-        pool: Optional[FileSystemPool] = None,
-        config: Optional[FileSystemConfig] = None,
+        pool: FileSystemPool | None = None,
+        config: FileSystemConfig | None = None,
     ) -> None:
         self._path = str(path)
         self._timeout = timeout
@@ -125,9 +127,9 @@ class AsyncFileLock:
         self._shared = shared
         self._pool = pool or _get_default_pool()
         self._config = config or FileSystemConfig()
-        self._fd: Optional[int] = None
+        self._fd: int | None = None
         self._lock_count = 0
-        self._owner_task: Optional[asyncio.Task] = None
+        self._owner_task: asyncio.Task | None = None
 
     @property
     def path(self) -> str:
@@ -156,10 +158,7 @@ class AsyncFileLock:
             self._lock_count += 1
             return
 
-        deadline = (
-            None if self._timeout < 0
-            else time.monotonic() + self._timeout
-        )
+        deadline = None if self._timeout < 0 else time.monotonic() + self._timeout
 
         while True:
             try:
@@ -204,13 +203,12 @@ class AsyncFileLock:
             await self._pool.run(_release)
         except Exception:
             # Best effort — if we can't unlock, at least close the FD
-            try:
+            with contextlib.suppress(OSError):
                 os.close(fd)
-            except OSError:
-                pass
 
     async def _try_acquire(self) -> None:
         """Attempt a non-blocking lock acquisition."""
+
         def _lock():
             fd = os.open(self._path, os.O_RDWR | os.O_CREAT, 0o644)
             try:
@@ -221,9 +219,7 @@ class AsyncFileLock:
                     msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
             except (BlockingIOError, OSError) as exc:
                 os.close(fd)
-                if isinstance(exc, BlockingIOError) or (
-                    hasattr(exc, "errno") and exc.errno in (11, 35, 36)
-                ):
+                if isinstance(exc, BlockingIOError) or (hasattr(exc, "errno") and exc.errno in (11, 35, 36)):
                     raise _WouldBlock() from None
                 raise
             return fd
@@ -235,7 +231,7 @@ class AsyncFileLock:
         except Exception as exc:
             raise wrap_os_error(exc, "lock", self._path) from exc
 
-    async def __aenter__(self) -> "AsyncFileLock":
+    async def __aenter__(self) -> AsyncFileLock:
         await self.acquire()
         return self
 
@@ -245,10 +241,12 @@ class AsyncFileLock:
 
 class _WouldBlock(Exception):
     """Internal signal: lock attempt would block."""
+
     __slots__ = ()
 
 
 def _get_default_pool() -> FileSystemPool:
     """Get the default filesystem pool (lazy singleton)."""
     from ._path import _get_default_pool as _get
+
     return _get()

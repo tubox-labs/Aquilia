@@ -9,8 +9,8 @@ directly for custom worker pools.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
-from typing import Optional
 
 from .engine import TaskManager
 
@@ -36,7 +36,7 @@ class Worker:
         self.name = name
         self.poll_interval = poll_interval
 
-        self._task: Optional[asyncio.Task] = None
+        self._task: asyncio.Task | None = None
         self._running = False
         self._jobs_processed = 0
         self._jobs_failed = 0
@@ -56,10 +56,8 @@ class Worker:
         self._running = False
         if self._task:
             self._task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._task
-            except asyncio.CancelledError:
-                pass
             self._task = None
 
     @property

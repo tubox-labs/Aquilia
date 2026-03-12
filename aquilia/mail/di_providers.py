@@ -19,10 +19,11 @@ Usage:
 
 from __future__ import annotations
 
+import contextlib
 import logging
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any
 
-from ..di.decorators import service, factory
+from ..di.decorators import factory, service
 
 if TYPE_CHECKING:
     from ..di import Container
@@ -44,7 +45,7 @@ class MailConfigProvider:
     all sub-configs run through their Serializers.
     """
 
-    def __init__(self, config_data: Optional[Dict[str, Any]] = None):
+    def __init__(self, config_data: dict[str, Any] | None = None):
         self._config_data = config_data or {}
 
     def provide(self) -> Any:
@@ -70,7 +71,7 @@ class MailServiceProvider:
     and produces a configured MailService singleton.
     """
 
-    def __init__(self, config: Optional[Any] = None):
+    def __init__(self, config: Any | None = None):
         self._config = config
 
     def provide(self) -> Any:
@@ -107,15 +108,15 @@ class MailProviderRegistry:
     """
 
     def __init__(self) -> None:
-        self._discovered: Dict[str, type] = {}
-        self._scan_packages: List[str] = ["aquilia.mail.providers"]
+        self._discovered: dict[str, type] = {}
+        self._scan_packages: list[str] = ["aquilia.mail.providers"]
 
     def add_scan_package(self, package: str) -> None:
         """Add a package to scan for IMailProvider implementations."""
         if package not in self._scan_packages:
             self._scan_packages.append(package)
 
-    def discover(self) -> Dict[str, type]:
+    def discover(self) -> dict[str, type]:
         """
         Scan configured packages for IMailProvider implementations.
 
@@ -150,7 +151,7 @@ class MailProviderRegistry:
                         if ptype is None:
                             ptype = cls.__name__.lower().replace("provider", "")
                         self._discovered[ptype] = cls
-                except Exception as e:
+                except Exception:
                     pass
 
         except ImportError:
@@ -158,13 +159,13 @@ class MailProviderRegistry:
 
         return self._discovered
 
-    def get_provider_class(self, provider_type: str) -> Optional[type]:
+    def get_provider_class(self, provider_type: str) -> type | None:
         """Get a discovered provider class by type name."""
         if not self._discovered:
             self.discover()
         return self._discovered.get(provider_type)
 
-    def list_types(self) -> List[str]:
+    def list_types(self) -> list[str]:
         """List all discovered provider type names."""
         if not self._discovered:
             self.discover()
@@ -177,7 +178,7 @@ class MailProviderRegistry:
 
 
 @factory(scope="app")
-def create_mail_config(config_data: Optional[Dict[str, Any]] = None) -> Any:
+def create_mail_config(config_data: dict[str, Any] | None = None) -> Any:
     """
     Factory that creates a validated MailConfig.
 
@@ -196,7 +197,7 @@ def create_mail_config(config_data: Optional[Dict[str, Any]] = None) -> Any:
 
 
 @factory(scope="app")
-def create_mail_service(config: Optional[Any] = None) -> Any:
+def create_mail_service(config: Any | None = None) -> Any:
     """
     Factory that creates a MailService from config.
 
@@ -223,10 +224,10 @@ def create_mail_service(config: Optional[Any] = None) -> Any:
 
 
 def register_mail_providers(
-    container: "Container",
-    config_data: Optional[Dict[str, Any]] = None,
+    container: Container,
+    config_data: dict[str, Any] | None = None,
     discover_providers: bool = True,
-    extra_scan_packages: Optional[List[str]] = None,
+    extra_scan_packages: list[str] | None = None,
 ) -> Any:
     """
     Register all mail DI providers into a container.
@@ -255,21 +256,25 @@ def register_mail_providers(
 
     # 3. Register config in DI
     try:
-        container.register(ValueProvider(
-            value=config_obj,
-            token=MailConfig,
-            scope="app",
-        ))
+        container.register(
+            ValueProvider(
+                value=config_obj,
+                token=MailConfig,
+                scope="app",
+            )
+        )
     except (ValueError, Exception):
         pass  # Already registered
 
     # 4. Register service in DI
     try:
-        container.register(ValueProvider(
-            value=svc,
-            token=MailService,
-            scope="app",
-        ))
+        container.register(
+            ValueProvider(
+                value=svc,
+                token=MailService,
+                scope="app",
+            )
+        )
     except (ValueError, Exception):
         pass  # Already registered
 
@@ -281,13 +286,13 @@ def register_mail_providers(
                 registry.add_scan_package(pkg)
         registry.discover()
 
-        try:
-            container.register(ValueProvider(
-                value=registry,
-                token=MailProviderRegistry,
-                scope="app",
-            ))
-        except (ValueError, Exception):
-            pass
+        with contextlib.suppress(ValueError, Exception):
+            container.register(
+                ValueProvider(
+                    value=registry,
+                    token=MailProviderRegistry,
+                    scope="app",
+                )
+            )
 
     return svc

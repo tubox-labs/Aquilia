@@ -9,18 +9,15 @@ from __future__ import annotations
 
 import json
 import logging
-import time
-from datetime import datetime, timezone
-from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
+from .._structures import LRUCache
 from .._types import ModelpackManifest, StorageAdapter
 from ..engine.faults import (
-    RegistryConnectionFault,
-    PackNotFoundFault,
     ImmutabilityViolationFault,
+    PackNotFoundFault,
+    RegistryConnectionFault,
 )
-from .._structures import LRUCache
 from ..pack.content_store import ContentStore
 from ..pack.manifest_schema import validate_manifest
 from .models import RegistryDB
@@ -67,7 +64,7 @@ class RegistryService:
         self,
         db_path: str = "registry.db",
         blob_root: str = ".aquilia-store",
-        storage_adapter: Optional[StorageAdapter] = None,
+        storage_adapter: StorageAdapter | None = None,
         cache_capacity: int = 256,
     ):
         self._db = RegistryDB(db_path)
@@ -97,7 +94,7 @@ class RegistryService:
     async def publish(
         self,
         manifest: ModelpackManifest,
-        blobs: Optional[Dict[str, bytes]] = None,
+        blobs: dict[str, bytes] | None = None,
         *,
         force: bool = False,
     ) -> str:
@@ -137,8 +134,9 @@ class RegistryService:
 
         # Store blobs
         if blobs:
-            for blob_path, data in blobs.items():
+            for _blob_path, data in blobs.items():
                 import hashlib
+
                 blob_digest = "sha256:" + hashlib.sha256(data).hexdigest()
                 if self._storage_adapter:
                     await self._storage_adapter.put_blob(blob_digest, data)
@@ -158,7 +156,6 @@ class RegistryService:
         await self._db.upsert_tag(manifest.name, manifest.version, digest)
         # Also update "latest" tag
         await self._db.upsert_tag(manifest.name, "latest", digest)
-
 
         # Populate cache
         self._cache.put(f"{manifest.name}:{manifest.version}", manifest)
@@ -222,18 +219,16 @@ class RegistryService:
     # ── List & Query ─────────────────────────────────────────────────
 
     @property
-    def cache_stats(self) -> Dict[str, Any]:
+    def cache_stats(self) -> dict[str, Any]:
         """Return LRU cache hit/miss statistics."""
         return self._cache.stats
 
-    async def list_versions(self, name: str) -> List[Dict[str, Any]]:
+    async def list_versions(self, name: str) -> list[dict[str, Any]]:
         """List all versions of a modelpack."""
         self._ensure_init()
         return await self._db.list_versions(name)
 
-    async def list_packs(
-        self, limit: int = 100, offset: int = 0
-    ) -> List[Dict[str, Any]]:
+    async def list_packs(self, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:
         """List all modelpacks."""
         self._ensure_init()
         return await self._db.list_packs(limit, offset)
@@ -276,7 +271,7 @@ class RegistryService:
 
     # ── Verify ───────────────────────────────────────────────────────
 
-    async def verify(self, name: str, tag: str) -> Dict[str, Any]:
+    async def verify(self, name: str, tag: str) -> dict[str, Any]:
         """
         Verify integrity of a modelpack.
 

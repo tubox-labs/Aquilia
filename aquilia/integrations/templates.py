@@ -5,7 +5,7 @@ TemplatesIntegration — typed template configuration.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
+from typing import Any
 
 
 @dataclass
@@ -25,13 +25,13 @@ class TemplatesIntegration:
     _integration_type: str = field(default="templates", init=False, repr=False)
 
     enabled: bool = True
-    search_paths: List[str] = field(default_factory=lambda: ["templates"])
+    search_paths: list[str] = field(default_factory=lambda: ["templates"])
     cache: str = "memory"
     sandbox: bool = True
     sandbox_policy: str = "strict"
     precompile: bool = False
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "_integration_type": "templates",
             "enabled": self.enabled,
@@ -48,13 +48,15 @@ class TemplatesIntegration:
         """Fluent builder inheriting from dict for compatibility."""
 
         def __init__(self) -> None:
-            super().__init__({
-                "enabled": True,
-                "search_paths": ["templates"],
-                "cache": "memory",
-                "sandbox": True,
-                "precompile": False,
-            })
+            super().__init__(
+                {
+                    "enabled": True,
+                    "search_paths": ["templates"],
+                    "cache": "memory",
+                    "sandbox": True,
+                    "precompile": False,
+                }
+            )
 
         def source(self, *paths: str) -> TemplatesIntegration._Builder:
             current = self.get("search_paths", [])

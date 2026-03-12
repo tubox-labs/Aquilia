@@ -11,10 +11,9 @@ Domains:
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 from aquilia.faults.core import Fault, FaultDomain, Severity
-
 
 # ============================================================================
 # Domain
@@ -27,6 +26,7 @@ TASKS_DOMAIN = FaultDomain.custom("tasks", "Background task faults")
 # Base
 # ============================================================================
 
+
 class TaskFault(Fault):
     """Base fault for the background task subsystem."""
 
@@ -38,7 +38,7 @@ class TaskFault(Fault):
         severity: Severity = Severity.ERROR,
         retryable: bool = False,
         public: bool = False,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ):
         super().__init__(
             code=code,
@@ -54,6 +54,7 @@ class TaskFault(Fault):
 # ============================================================================
 # Concrete Faults
 # ============================================================================
+
 
 class TaskScheduleFault(TaskFault):
     """
@@ -85,8 +86,7 @@ class TaskNotBoundFault(TaskFault):
         super().__init__(
             code="TASK_NOT_BOUND",
             message=(
-                f"Task {task_name!r} has no bound TaskManager. "
-                f"Ensure the server is started before calling .delay()."
+                f"Task {task_name!r} has no bound TaskManager. Ensure the server is started before calling .delay()."
             ),
             severity=Severity.ERROR,
             retryable=False,

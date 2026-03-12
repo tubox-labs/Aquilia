@@ -7,16 +7,16 @@ recoverable, and observable through the standard fault pipeline.
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 from ..faults.core import Fault, FaultDomain, Severity
-
 
 # ── Mail Fault Domain ───────────────────────────────────────────────
 FaultDomain.MAIL = FaultDomain("mail", "Email sending, templating, and delivery faults")
 
 
 # ── Base ────────────────────────────────────────────────────────────
+
 
 class MailFault(Fault):
     """Base class for all mail-subsystem faults."""
@@ -30,9 +30,9 @@ class MailFault(Fault):
         *,
         code: str = "MAIL_ERROR",
         severity: Severity = Severity.ERROR,
-        details: Optional[dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
         recoverable: bool = False,
-        envelope_id: Optional[str] = None,
+        envelope_id: str | None = None,
     ):
         self.envelope_id = envelope_id
         self.recoverable = recoverable
@@ -49,6 +49,7 @@ class MailFault(Fault):
 
 # ── Specific fault types ───────────────────────────────────────────
 
+
 class MailSendFault(MailFault):
     """Provider-level send failure (transient or permanent)."""
 
@@ -58,8 +59,8 @@ class MailSendFault(MailFault):
         *,
         provider: str = "unknown",
         transient: bool = True,
-        envelope_id: Optional[str] = None,
-        details: Optional[dict[str, Any]] = None,
+        envelope_id: str | None = None,
+        details: dict[str, Any] | None = None,
     ):
         self.provider = provider
         self.transient = transient
@@ -80,10 +81,10 @@ class MailTemplateFault(MailFault):
         self,
         message: str,
         *,
-        template_name: Optional[str] = None,
-        line: Optional[int] = None,
-        column: Optional[int] = None,
-        details: Optional[dict[str, Any]] = None,
+        template_name: str | None = None,
+        line: int | None = None,
+        column: int | None = None,
+        details: dict[str, Any] | None = None,
     ):
         self.template_name = template_name
         super().__init__(
@@ -107,8 +108,8 @@ class MailConfigFault(MailFault):
         self,
         message: str,
         *,
-        config_key: Optional[str] = None,
-        details: Optional[dict[str, Any]] = None,
+        config_key: str | None = None,
+        details: dict[str, Any] | None = None,
     ):
         super().__init__(
             message=message,
@@ -127,7 +128,7 @@ class MailSuppressedFault(MailFault):
         email: str,
         *,
         reason: str = "suppressed",
-        details: Optional[dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
     ):
         self.email = email
         super().__init__(
@@ -147,8 +148,8 @@ class MailRateLimitFault(MailFault):
         message: str,
         *,
         scope: str = "global",
-        retry_after: Optional[float] = None,
-        details: Optional[dict[str, Any]] = None,
+        retry_after: float | None = None,
+        details: dict[str, Any] | None = None,
     ):
         super().__init__(
             message=message,
@@ -166,8 +167,8 @@ class MailValidationFault(MailFault):
         self,
         message: str,
         *,
-        field: Optional[str] = None,
-        details: Optional[dict[str, Any]] = None,
+        field: str | None = None,
+        details: dict[str, Any] | None = None,
     ):
         super().__init__(
             message=message,

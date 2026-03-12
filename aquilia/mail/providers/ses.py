@@ -32,35 +32,41 @@ Usage::
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
+from collections.abc import Sequence
 from email import encoders
 from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import formatdate, make_msgid
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any
 
 from ..envelope import MailEnvelope
-from ..providers import IMailProvider, ProviderResult, ProviderResultStatus
+from ..providers import ProviderResult, ProviderResultStatus
 
 logger = logging.getLogger("aquilia.mail.providers.ses")
 
 # ── SES Error classification ───────────────────────────────────────
-_THROTTLE_CODES = frozenset({
-    "Throttling",
-    "ThrottlingException",
-    "TooManyRequestsException",
-    "LimitExceededException",
-    "MaxSendingRateExceeded",
-})
+_THROTTLE_CODES = frozenset(
+    {
+        "Throttling",
+        "ThrottlingException",
+        "TooManyRequestsException",
+        "LimitExceededException",
+        "MaxSendingRateExceeded",
+    }
+)
 
-_PERMANENT_CODES = frozenset({
-    "MessageRejected",
-    "MailFromDomainNotVerifiedException",
-    "AccountSendingPausedException",
-    "ConfigurationSetDoesNotExistException",
-    "InvalidParameterValue",
-})
+_PERMANENT_CODES = frozenset(
+    {
+        "MessageRejected",
+        "MailFromDomainNotVerifiedException",
+        "AccountSendingPausedException",
+        "ConfigurationSetDoesNotExistException",
+        "InvalidParameterValue",
+    }
+)
 
 
 class SESProvider:
@@ -82,18 +88,18 @@ class SESProvider:
         region: str = "us-east-1",
         *,
         # AWS credentials (None = use environment / IAM role)
-        aws_access_key_id: Optional[str] = None,
-        aws_secret_access_key: Optional[str] = None,
-        aws_session_token: Optional[str] = None,
+        aws_access_key_id: str | None = None,
+        aws_secret_access_key: str | None = None,
+        aws_session_token: str | None = None,
         # SES options
-        configuration_set: Optional[str] = None,
-        source_arn: Optional[str] = None,
-        return_path: Optional[str] = None,
-        tags: Optional[Dict[str, str]] = None,
+        configuration_set: str | None = None,
+        source_arn: str | None = None,
+        return_path: str | None = None,
+        tags: dict[str, str] | None = None,
         # Sending mode
         use_raw: bool = True,
         # Connection
-        endpoint_url: Optional[str] = None,
+        endpoint_url: str | None = None,
         priority: int = 10,
     ):
         self.name = name
@@ -126,7 +132,6 @@ class SESProvider:
         """Initialize the SES client (aiobotocore or boto3 fallback)."""
         if self._initialized:
             return
-
 
         # Try aiobotocore first (fully async)
         try:
@@ -180,10 +185,8 @@ class SESProvider:
     async def shutdown(self) -> None:
         """Close the SES client."""
         if self._use_aiobotocore and self._client_ctx is not None:
-            try:
+            with contextlib.suppress(Exception):
                 await self._client_ctx.__aexit__(None, None, None)
-            except Exception as e:
-                pass
         self._client = None
         self._client_ctx = None
         self._initialized = False
@@ -200,9 +203,7 @@ class SESProvider:
             msg["Cc"] = ", ".join(envelope.cc)
         msg["Subject"] = envelope.subject
         msg["Date"] = formatdate(localtime=True)
-        msg["Message-ID"] = make_msgid(
-            domain=self._extract_domain(envelope.from_email)
-        )
+        msg["Message-ID"] = make_msgid(domain=self._extract_domain(envelope.from_email))
         if envelope.reply_to:
             msg["Reply-To"] = envelope.reply_to
 
@@ -228,20 +229,20 @@ class SESProvider:
         for attachment in envelope.attachments:
             maintype, subtype = attachment.content_type.split("/", 1)
             part = MIMEBase(maintype, subtype)
-            blob_data = envelope.metadata.get(
-                f"blob:{attachment.digest}", b""
-            )
+            blob_data = envelope.metadata.get(f"blob:{attachment.digest}", b"")
             part.set_payload(blob_data)
             encoders.encode_base64(part)
             if attachment.inline and attachment.content_id:
                 part.add_header(
-                    "Content-Disposition", "inline",
+                    "Content-Disposition",
+                    "inline",
                     filename=attachment.filename,
                 )
                 part.add_header("Content-ID", f"<{attachment.content_id}>")
             else:
                 part.add_header(
-                    "Content-Disposition", "attachment",
+                    "Content-Disposition",
+                    "attachment",
                     filename=attachment.filename,
                 )
             msg.attach(part)
@@ -286,9 +287,7 @@ class SESProvider:
         except Exception as e:
             self._total_errors += 1
             status, retry_after = self._classify_error(e)
-            logger.warning(
-                f"SES send error via {self.name}: {e} (status={status.value})"
-            )
+            logger.warning(f"SES send error via {self.name}: {e} (status={status.value})")
             return ProviderResult(
                 status=status,
                 error_message=str(e),
@@ -389,8 +388,9 @@ class SESProvider:
         )
 
     async def send_batch(
-        self, envelopes: Sequence[MailEnvelope],
-    ) -> List[ProviderResult]:
+        self,
+        envelopes: Sequence[MailEnvelope],
+    ) -> list[ProviderResult]:
         """Send batch via SES (falls back to sequential for raw mode)."""
         results: list[ProviderResult] = []
         for envelope in envelopes:
@@ -405,7 +405,7 @@ class SESProvider:
             # Check if sending is enabled
             send_quota = response.get("SendQuota", {})
             return send_quota.get("Max24HourSend", 0) > 0
-        except Exception as e:
+        except Exception:
             return False
 
     # ── Error Classification ────────────────────────────────────────
@@ -413,12 +413,7 @@ class SESProvider:
     def _classify_error(self, error: Exception) -> tuple:
         """Classify an SES/AWS error into ProviderResultStatus."""
         error_code = getattr(error, "response", {})
-        if isinstance(error_code, dict):
-            error_code = (
-                error_code.get("Error", {}).get("Code", "")
-            )
-        else:
-            error_code = ""
+        error_code = error_code.get("Error", {}).get("Code", "") if isinstance(error_code, dict) else ""
 
         # Also check the exception class name
         exc_name = type(error).__name__
@@ -442,7 +437,4 @@ class SESProvider:
         return ProviderResultStatus.TRANSIENT_FAILURE, 30.0
 
     def __repr__(self) -> str:
-        return (
-            f"SESProvider(name={self.name!r}, region={self.region!r}, "
-            f"config_set={self.configuration_set!r})"
-        )
+        return f"SESProvider(name={self.name!r}, region={self.region!r}, config_set={self.configuration_set!r})"

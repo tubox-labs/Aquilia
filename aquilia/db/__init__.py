@@ -10,38 +10,37 @@ Provides:
 - Structured faults via AquilaFaults (DatabaseConnectionFault, QueryFault, SchemaFault)
 """
 
-from .engine import (
-    AquiliaDatabase,
-    DatabaseError,
-    get_database,
-    configure_database,
-    set_database,
-)
-
-# Backend adapters
-from .backends import (
-    DatabaseAdapter,
-    AdapterCapabilities,
-    SQLiteAdapter,
-    PostgresAdapter,
-    MySQLAdapter,
-    OracleAdapter,
-)
-
-# Typed config classes
-from .configs import (
-    DatabaseConfig,
-    SqliteConfig,
-    PostgresConfig,
-    MysqlConfig,
-    OracleConfig,
-)
-
 # Re-export fault types for convenience
 from ..faults.domains import (
     DatabaseConnectionFault,
     QueryFault,
     SchemaFault,
+)
+
+# Backend adapters
+from .backends import (
+    AdapterCapabilities,
+    DatabaseAdapter,
+    MySQLAdapter,
+    OracleAdapter,
+    PostgresAdapter,
+    SQLiteAdapter,
+)
+
+# Typed config classes
+from .configs import (
+    DatabaseConfig,
+    MysqlConfig,
+    OracleConfig,
+    PostgresConfig,
+    SqliteConfig,
+)
+from .engine import (
+    AquiliaDatabase,
+    DatabaseError,
+    configure_database,
+    get_database,
+    set_database,
 )
 
 __all__ = [

@@ -26,20 +26,21 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
+
+from aquilia.faults.domains import (
+    ProviderAPIFault,
+    ProviderAuthFault,
+    ProviderConnectionFault,
+    ProviderRateLimitFault,
+    ProviderTokenFault,
+)
 
 from .types import (
     RenderDeploy,
     RenderOwner,
     RenderService,
     RenderServiceType,
-)
-from aquilia.faults.domains import (
-    ProviderAPIFault,
-    ProviderAuthFault,
-    ProviderRateLimitFault,
-    ProviderTokenFault,
-    ProviderConnectionFault,
 )
 
 __all__ = [
@@ -72,8 +73,9 @@ def _build_ssl_context() -> ssl.SSLContext:
        ``Install Certificates.command`` path.
     """
     ctx = ssl.create_default_context()
-    try:                                       # 1. certifi
+    try:  # 1. certifi
         import certifi
+
         ctx.load_verify_locations(certifi.where())
         return ctx
     except (ImportError, OSError):
@@ -84,9 +86,9 @@ def _build_ssl_context() -> ssl.SSLContext:
         ctx.check_hostname = True
         ctx.verify_mode = ssl.CERT_REQUIRED
         return ctx
-    except Exception:                          # pragma: no cover
+    except Exception:  # pragma: no cover
         pass
-    return ssl.create_default_context()        # pragma: no cover
+    return ssl.create_default_context()  # pragma: no cover
 
 
 # Module-level context — reused across all requests for performance.
@@ -112,7 +114,7 @@ RenderAuthError = ProviderAuthFault
 class _RequestResult:
     status: int
     body: bytes
-    headers: Dict[str, str]
+    headers: dict[str, str]
 
 
 class RenderClient:
@@ -146,7 +148,7 @@ class RenderClient:
         base_url: str = _BASE_URL,
         timeout: int = _DEFAULT_TIMEOUT,
         max_retries: int = _MAX_RETRIES,
-        ssl_context: Optional[ssl.SSLContext] = None,
+        ssl_context: ssl.SSLContext | None = None,
     ):
         if not token or not isinstance(token, str):
             raise ProviderTokenFault("Render API token is required")
@@ -162,7 +164,7 @@ class RenderClient:
 
     # ─── Low-level HTTP ──────────────────────────────────────────────
 
-    def _headers(self) -> Dict[str, str]:
+    def _headers(self) -> dict[str, str]:
         return {
             "Authorization": f"Bearer {self._token}",
             "Content-Type": "application/json",
@@ -175,8 +177,8 @@ class RenderClient:
         method: str,
         path: str,
         *,
-        body: Optional[Dict[str, Any]] = None,
-        params: Optional[Dict[str, str]] = None,
+        body: dict[str, Any] | None = None,
+        params: dict[str, str] | None = None,
     ) -> _RequestResult:
         """Execute an HTTP request with retry and rate-limit handling."""
         url = f"{self._base_url}{path}"
@@ -185,7 +187,7 @@ class RenderClient:
 
         data = json.dumps(body).encode("utf-8") if body else None
 
-        last_error: Optional[Exception] = None
+        last_error: Exception | None = None
 
         for attempt in range(self._max_retries + 1):
             try:
@@ -197,9 +199,7 @@ class RenderClient:
                 )
                 with urllib.request.urlopen(req, timeout=self._timeout, context=self._ssl_ctx) as resp:
                     resp_body = resp.read()
-                    resp_headers = {
-                        k.lower(): v for k, v in resp.getheaders()
-                    }
+                    resp_headers = {k.lower(): v for k, v in resp.getheaders()}
                     return _RequestResult(
                         status=resp.status,
                         body=resp_body,
@@ -208,20 +208,18 @@ class RenderClient:
 
             except urllib.error.HTTPError as e:
                 resp_body = e.read()
-                resp_headers = {
-                    k.lower(): v for k, v in e.headers.items()
-                }
+                resp_headers = {k.lower(): v for k, v in e.headers.items()}
                 status = e.code
 
                 # Rate limited — respect Retry-After header
                 if status == 429:
-                    retry_after = float(
-                        resp_headers.get("retry-after", str(2 ** attempt))
-                    )
+                    retry_after = float(resp_headers.get("retry-after", str(2**attempt)))
                     if attempt < self._max_retries:
                         _logger.warning(
                             "Rate limited. Waiting %.1fs (attempt %d/%d)",
-                            retry_after, attempt + 1, self._max_retries,
+                            retry_after,
+                            attempt + 1,
+                            self._max_retries,
                         )
                         time.sleep(retry_after)
                         continue
@@ -231,16 +229,20 @@ class RenderClient:
                 if status in (401, 403):
                     msg = self._parse_error_message(resp_body)
                     raise ProviderAuthFault(
-                        status, msg or "Authentication failed",
+                        status,
+                        msg or "Authentication failed",
                         request_id=resp_headers.get("x-request-id"),
                     )
 
                 # Server errors — retry with backoff
                 if status >= 500 and attempt < self._max_retries:
-                    wait = _RETRY_BACKOFF ** attempt
+                    wait = _RETRY_BACKOFF**attempt
                     _logger.warning(
                         "Server error %d. Retrying in %.1fs (attempt %d/%d)",
-                        status, wait, attempt + 1, self._max_retries,
+                        status,
+                        wait,
+                        attempt + 1,
+                        self._max_retries,
                     )
                     time.sleep(wait)
                     last_error = e
@@ -249,16 +251,18 @@ class RenderClient:
                 # Client errors or exhausted retries
                 msg = self._parse_error_message(resp_body)
                 raise ProviderAPIFault(
-                    status, msg or f"HTTP {status}",
+                    status,
+                    msg or f"HTTP {status}",
                     request_id=resp_headers.get("x-request-id"),
                 )
 
             except urllib.error.URLError as e:
                 if attempt < self._max_retries:
-                    wait = _RETRY_BACKOFF ** attempt
+                    wait = _RETRY_BACKOFF**attempt
                     _logger.warning(
                         "Connection error: %s. Retrying in %.1fs",
-                        e.reason, wait,
+                        e.reason,
+                        wait,
                     )
                     time.sleep(wait)
                     last_error = e
@@ -267,7 +271,7 @@ class RenderClient:
 
         raise ProviderAPIFault(0, f"Max retries exhausted: {last_error}")
 
-    def _parse_error_message(self, body: bytes) -> Optional[str]:
+    def _parse_error_message(self, body: bytes) -> str | None:
         """Extract error message from API response body."""
         try:
             data = json.loads(body)
@@ -286,20 +290,20 @@ class RenderClient:
     def list_services(
         self,
         *,
-        name: Optional[str] = None,
-        type: Optional[str] = None,
-        region: Optional[str] = None,
-        suspended: Optional[str] = None,
-        owner_id: Optional[str] = None,
-        cursor: Optional[str] = None,
+        name: str | None = None,
+        type: str | None = None,
+        region: str | None = None,
+        suspended: str | None = None,
+        owner_id: str | None = None,
+        cursor: str | None = None,
         limit: int = 20,
-    ) -> List[RenderService]:
+    ) -> list[RenderService]:
         """List all services, optionally filtered.
 
         Render uses cursor-based pagination.  The ``cursor`` parameter
         accepts a service ID; results start after that service.
         """
-        params: Dict[str, str] = {"limit": str(limit)}
+        params: dict[str, str] = {"limit": str(limit)}
         if name:
             params["name"] = name
         if type:
@@ -329,9 +333,7 @@ class RenderClient:
         data = self._json(result)
         return self._parse_service(data)
 
-    def get_service_by_name(
-        self, name: str, owner_id: Optional[str] = None
-    ) -> Optional[RenderService]:
+    def get_service_by_name(self, name: str, owner_id: str | None = None) -> RenderService | None:
         """Find a service by name. Returns None if not found."""
         services = self.list_services(name=name, owner_id=owner_id)
         for svc in services:
@@ -339,7 +341,7 @@ class RenderClient:
                 return svc
         return None
 
-    def create_service(self, payload: Dict[str, Any]) -> RenderService:
+    def create_service(self, payload: dict[str, Any]) -> RenderService:
         """Create a new service.
 
         The ``payload`` should be produced by
@@ -349,9 +351,7 @@ class RenderClient:
         data = self._json(result)
         return self._parse_service(data.get("service", data))
 
-    def update_service(
-        self, service_id: str, payload: Dict[str, Any]
-    ) -> RenderService:
+    def update_service(self, service_id: str, payload: dict[str, Any]) -> RenderService:
         """Update an existing service (PATCH)."""
         result = self._request("PATCH", f"/services/{service_id}", body=payload)
         data = self._json(result)
@@ -375,17 +375,15 @@ class RenderClient:
         self,
         service_id: str,
         *,
-        cursor: Optional[str] = None,
+        cursor: str | None = None,
         limit: int = 10,
-    ) -> List[RenderDeploy]:
+    ) -> list[RenderDeploy]:
         """List deploys for a service."""
-        params: Dict[str, str] = {"limit": str(limit)}
+        params: dict[str, str] = {"limit": str(limit)}
         if cursor:
             params["cursor"] = cursor
 
-        result = self._request(
-            "GET", f"/services/{service_id}/deploys", params=params
-        )
+        result = self._request("GET", f"/services/{service_id}/deploys", params=params)
         data = self._json(result)
 
         # Render returns [{deploy: {...}, cursor: "..."}]
@@ -395,9 +393,7 @@ class RenderClient:
 
     def get_deploy(self, service_id: str, deploy_id: str) -> RenderDeploy:
         """Get a specific deploy."""
-        result = self._request(
-            "GET", f"/services/{service_id}/deploys/{deploy_id}"
-        )
+        result = self._request("GET", f"/services/{service_id}/deploys/{deploy_id}")
         data = self._json(result)
         return self._parse_deploy(data)
 
@@ -406,15 +402,13 @@ class RenderClient:
 
         This re-deploys the service using its current configuration.
         """
-        result = self._request(
-            "POST", f"/services/{service_id}/deploys"
-        )
+        result = self._request("POST", f"/services/{service_id}/deploys")
         data = self._json(result)
         return self._parse_deploy(data)
 
     # ─── Environment Variables ───────────────────────────────────────
 
-    def list_env_vars(self, service_id: str) -> List[Dict[str, Any]]:
+    def list_env_vars(self, service_id: str) -> list[dict[str, Any]]:
         """List all environment variables for a service."""
         result = self._request("GET", f"/services/{service_id}/env-vars")
         data = self._json(result)
@@ -422,28 +416,22 @@ class RenderClient:
             return [item.get("envVar", item) for item in data]
         return []
 
-    def update_env_vars(
-        self, service_id: str, env_vars: List[Dict[str, Any]]
-    ) -> List[Dict[str, Any]]:
+    def update_env_vars(self, service_id: str, env_vars: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Bulk update environment variables for a service.
 
         The ``env_vars`` list should contain objects with ``key``
         and ``value`` (or ``generateValue``) fields.
         """
-        result = self._request(
-            "PUT", f"/services/{service_id}/env-vars", body=env_vars
-        )
+        result = self._request("PUT", f"/services/{service_id}/env-vars", body=env_vars)
         data = self._json(result)
         if isinstance(data, list):
             return [item.get("envVar", item) for item in data]
         return []
 
-    def get_env_var(self, service_id: str, key: str) -> Optional[Dict[str, Any]]:
+    def get_env_var(self, service_id: str, key: str) -> dict[str, Any] | None:
         """Get a specific environment variable."""
         try:
-            result = self._request(
-                "GET", f"/services/{service_id}/env-vars/{key}"
-            )
+            result = self._request("GET", f"/services/{service_id}/env-vars/{key}")
             return self._json(result)
         except ProviderAPIFault:
             return None
@@ -454,19 +442,15 @@ class RenderClient:
 
     # ─── Custom Domains ──────────────────────────────────────────────
 
-    def list_custom_domains(self, service_id: str) -> List[Dict[str, Any]]:
+    def list_custom_domains(self, service_id: str) -> list[dict[str, Any]]:
         """List custom domains for a service."""
-        result = self._request(
-            "GET", f"/services/{service_id}/custom-domains"
-        )
+        result = self._request("GET", f"/services/{service_id}/custom-domains")
         data = self._json(result)
         if isinstance(data, list):
             return [item.get("customDomain", item) for item in data]
         return []
 
-    def add_custom_domain(
-        self, service_id: str, domain_name: str
-    ) -> Dict[str, Any]:
+    def add_custom_domain(self, service_id: str, domain_name: str) -> dict[str, Any]:
         """Add a custom domain to a service."""
         result = self._request(
             "POST",
@@ -475,23 +459,15 @@ class RenderClient:
         )
         return self._json(result)
 
-    def delete_custom_domain(
-        self, service_id: str, domain_name: str
-    ) -> None:
+    def delete_custom_domain(self, service_id: str, domain_name: str) -> None:
         """Remove a custom domain from a service."""
-        self._request(
-            "DELETE", f"/services/{service_id}/custom-domains/{domain_name}"
-        )
+        self._request("DELETE", f"/services/{service_id}/custom-domains/{domain_name}")
 
     # ─── Autoscaling ─────────────────────────────────────────────────
 
-    def set_autoscaling(
-        self, service_id: str, config: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    def set_autoscaling(self, service_id: str, config: dict[str, Any]) -> dict[str, Any]:
         """Configure autoscaling for a service."""
-        result = self._request(
-            "PUT", f"/services/{service_id}/autoscaling", body=config
-        )
+        result = self._request("PUT", f"/services/{service_id}/autoscaling", body=config)
         return self._json(result)
 
     def remove_autoscaling(self, service_id: str) -> None:
@@ -510,7 +486,7 @@ class RenderClient:
 
     # ─── Account / Owners ────────────────────────────────────────────
 
-    def get_user(self) -> Dict[str, Any]:
+    def get_user(self) -> dict[str, Any]:
         """Get the authenticated user's details.
 
         This is the primary token-validation endpoint on Render:
@@ -524,20 +500,22 @@ class RenderClient:
             return data[0].get("owner", data[0])
         return {}
 
-    def list_owners(self) -> List[RenderOwner]:
+    def list_owners(self) -> list[RenderOwner]:
         """List owners (workspaces) for the authenticated user."""
         result = self._request("GET", "/owners")
         data = self._json(result)
-        owners: List[RenderOwner] = []
+        owners: list[RenderOwner] = []
         if isinstance(data, list):
             for item in data:
                 raw = item.get("owner", item)
-                owners.append(RenderOwner(
-                    id=raw.get("id"),
-                    name=raw.get("name", ""),
-                    email=raw.get("email"),
-                    type=raw.get("type"),
-                ))
+                owners.append(
+                    RenderOwner(
+                        id=raw.get("id"),
+                        name=raw.get("name", ""),
+                        email=raw.get("email"),
+                        type=raw.get("type"),
+                    )
+                )
         return owners
 
     def validate_token(self) -> bool:
@@ -556,7 +534,7 @@ class RenderClient:
     # ─── Parsers ─────────────────────────────────────────────────────
 
     @staticmethod
-    def _parse_service(data: Dict[str, Any]) -> RenderService:
+    def _parse_service(data: dict[str, Any]) -> RenderService:
         svc_type = data.get("type", "web_service")
         try:
             service_type = RenderServiceType(svc_type)
@@ -580,7 +558,7 @@ class RenderClient:
         )
 
     @staticmethod
-    def _parse_deploy(data: Dict[str, Any]) -> RenderDeploy:
+    def _parse_deploy(data: dict[str, Any]) -> RenderDeploy:
         return RenderDeploy(
             id=data.get("id"),
             service_id=data.get("serviceId"),

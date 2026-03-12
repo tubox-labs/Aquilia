@@ -11,9 +11,10 @@ import importlib
 import importlib.metadata
 import inspect
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Protocol, Type
+from typing import Any, Protocol
 
 logger = logging.getLogger("aquilia.mlops.plugins")
 
@@ -21,6 +22,7 @@ ENTRYPOINT_GROUP = "aquilia_mlops_plugin"
 
 
 # ── Plugin descriptor ───────────────────────────────────────────────────
+
 
 class PluginState(str, Enum):
     DISCOVERED = "discovered"
@@ -37,11 +39,12 @@ class PluginDescriptor:
     module: str
     state: PluginState = PluginState.DISCOVERED
     instance: Any = None
-    error: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    error: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 # ── Hook protocol (mirrors _types.PluginHook) ───────────────────────────
+
 
 class PluginHookProtocol(Protocol):
     """Minimal interface a plugin must satisfy."""
@@ -49,11 +52,12 @@ class PluginHookProtocol(Protocol):
     name: str
     version: str
 
-    def activate(self, ctx: Dict[str, Any]) -> None: ...
+    def activate(self, ctx: dict[str, Any]) -> None: ...
     def deactivate(self) -> None: ...
 
 
 # ── Plugin host ──────────────────────────────────────────────────────────
+
 
 class PluginHost:
     """
@@ -70,14 +74,14 @@ class PluginHost:
     """
 
     def __init__(self) -> None:
-        self._plugins: Dict[str, PluginDescriptor] = {}
-        self._hooks: Dict[str, List[Callable]] = {}
+        self._plugins: dict[str, PluginDescriptor] = {}
+        self._hooks: dict[str, list[Callable]] = {}
 
     # ── discovery ────────────────────────────────────────────────────────
 
-    def discover_entrypoints(self) -> List[PluginDescriptor]:
+    def discover_entrypoints(self) -> list[PluginDescriptor]:
         """Scan installed packages for plugins."""
-        found: List[PluginDescriptor] = []
+        found: list[PluginDescriptor] = []
         try:
             eps = importlib.metadata.entry_points()
             group = (
@@ -102,10 +106,7 @@ class PluginHost:
 
     def register(self, plugin: Any) -> PluginDescriptor:
         """Manually register a plugin class or instance."""
-        if inspect.isclass(plugin):
-            instance = plugin()
-        else:
-            instance = plugin
+        instance = plugin() if inspect.isclass(plugin) else plugin
 
         name = getattr(instance, "name", type(instance).__name__)
         version = getattr(instance, "version", "0.0.0")
@@ -127,6 +128,7 @@ class PluginHost:
         desc = self._plugins.get(name)
         if desc is None:
             from aquilia.faults.domains import RegistryFault
+
             raise RegistryFault(name=name, message=f"Plugin '{name}' not found")
 
         if desc.state not in (PluginState.DISCOVERED, PluginState.DEACTIVATED):
@@ -149,11 +151,12 @@ class PluginHost:
 
         return desc
 
-    def activate(self, name: str, ctx: Optional[Dict[str, Any]] = None) -> None:
+    def activate(self, name: str, ctx: dict[str, Any] | None = None) -> None:
         """Activate a loaded plugin."""
         desc = self._plugins.get(name)
         if desc is None:
             from aquilia.faults.domains import RegistryFault
+
             raise RegistryFault(name=name, message=f"Plugin '{name}' not found")
 
         if desc.state == PluginState.ACTIVATED:
@@ -190,7 +193,7 @@ class PluginHost:
             desc.error = str(exc)
             logger.error("Failed to deactivate plugin '%s': %s", name, exc)
 
-    def activate_all(self, ctx: Optional[Dict[str, Any]] = None) -> None:
+    def activate_all(self, ctx: dict[str, Any] | None = None) -> None:
         for name in list(self._plugins):
             self.activate(name, ctx)
 
@@ -204,9 +207,9 @@ class PluginHost:
         """Register a hook callback for *event*."""
         self._hooks.setdefault(event, []).append(callback)
 
-    def emit(self, event: str, **kwargs: Any) -> List[Any]:
+    def emit(self, event: str, **kwargs: Any) -> list[Any]:
         """Fire all callbacks for *event* and collect results."""
-        results: List[Any] = []
+        results: list[Any] = []
         for cb in self._hooks.get(event, []):
             try:
                 results.append(cb(**kwargs))
@@ -216,12 +219,12 @@ class PluginHost:
 
     # ── queries ──────────────────────────────────────────────────────────
 
-    def list_plugins(self) -> List[PluginDescriptor]:
+    def list_plugins(self) -> list[PluginDescriptor]:
         return list(self._plugins.values())
 
-    def get(self, name: str) -> Optional[PluginDescriptor]:
+    def get(self, name: str) -> PluginDescriptor | None:
         return self._plugins.get(name)
 
     @property
-    def active_plugins(self) -> List[PluginDescriptor]:
+    def active_plugins(self) -> list[PluginDescriptor]:
         return [p for p in self._plugins.values() if p.state == PluginState.ACTIVATED]

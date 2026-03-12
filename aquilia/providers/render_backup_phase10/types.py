@@ -16,8 +16,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional
-
+from typing import Any
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Enums
@@ -26,6 +25,7 @@ from typing import Any, Dict, List, Optional
 
 class RenderServiceType(str, Enum):
     """Render service type."""
+
     WEB_SERVICE = "web_service"
     PRIVATE_SERVICE = "private_service"
     BACKGROUND_WORKER = "background_worker"
@@ -39,6 +39,7 @@ class RenderPlan(str, Enum):
     Maps to Render's plan catalog.  Only commonly-used plans are
     enumerated here; the API accepts any valid plan slug.
     """
+
     FREE = "free"
     STARTER = "starter"
     STANDARD = "standard"
@@ -50,6 +51,7 @@ class RenderPlan(str, Enum):
 
 class RenderDeployStatus(str, Enum):
     """Deploy lifecycle states returned by the Render API."""
+
     CREATED = "created"
     BUILD_IN_PROGRESS = "build_in_progress"
     UPDATE_IN_PROGRESS = "update_in_progress"
@@ -64,6 +66,7 @@ class RenderDeployStatus(str, Enum):
 
 class RenderRegion(str, Enum):
     """Common Render deployment regions."""
+
     OREGON = "oregon"
     FRANKFURT = "frankfurt"
     OHIO = "ohio"
@@ -84,12 +87,13 @@ class RenderEnvVar:
     Set ``generate_value`` to ``"yes"`` to let Render auto-generate
     a secure random value for the key.
     """
-    key: str
-    value: Optional[str] = None
-    generate_value: Optional[str] = None  # "yes" for auto-generated secrets
 
-    def to_dict(self) -> Dict[str, Any]:
-        d: Dict[str, Any] = {"key": self.key}
+    key: str
+    value: str | None = None
+    generate_value: str | None = None  # "yes" for auto-generated secrets
+
+    def to_dict(self) -> dict[str, Any]:
+        d: dict[str, Any] = {"key": self.key}
         if self.generate_value == "yes":
             d["generateValue"] = "yes"
         else:
@@ -100,11 +104,12 @@ class RenderEnvVar:
 @dataclass
 class RenderDisk:
     """Persistent disk attached to a Render service."""
+
     name: str = "data"
     mount_path: str = "/data"
     size_gb: int = 1
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "mountPath": self.mount_path,
@@ -115,13 +120,14 @@ class RenderDisk:
 @dataclass
 class RenderAutoscaling:
     """Autoscaling configuration for a Render service."""
+
     enabled: bool = False
     min: int = 1
     max: int = 3
-    criteria: Optional[Dict[str, Any]] = None  # CPU/memory targets
+    criteria: dict[str, Any] | None = None  # CPU/memory targets
 
-    def to_dict(self) -> Dict[str, Any]:
-        d: Dict[str, Any] = {
+    def to_dict(self) -> dict[str, Any]:
+        d: dict[str, Any] = {
             "enabled": self.enabled,
             "min": self.min,
             "max": self.max,
@@ -131,7 +137,7 @@ class RenderAutoscaling:
         return d
 
     @classmethod
-    def disabled(cls) -> "RenderAutoscaling":
+    def disabled(cls) -> RenderAutoscaling:
         """No autoscaling (fixed instance count)."""
         return cls(enabled=False, min=1, max=1)
 
@@ -141,10 +147,10 @@ class RenderAutoscaling:
         min_instances: int = 1,
         max_instances: int = 3,
         cpu_percent: int = 80,
-        memory_percent: Optional[int] = None,
-    ) -> "RenderAutoscaling":
+        memory_percent: int | None = None,
+    ) -> RenderAutoscaling:
         """CPU/memory-based autoscaling."""
-        criteria: Dict[str, Any] = {
+        criteria: dict[str, Any] = {
             "cpu": {"enabled": True, "percentage": cpu_percent},
         }
         if memory_percent:
@@ -160,41 +166,44 @@ class RenderAutoscaling:
 @dataclass
 class RenderDeploy:
     """A single deploy for a Render service."""
-    id: Optional[str] = None
-    service_id: Optional[str] = None
-    status: Optional[str] = None
-    commit: Optional[Dict[str, Any]] = None
-    image: Optional[Dict[str, Any]] = None
-    created_at: Optional[str] = None
-    updated_at: Optional[str] = None
-    finished_at: Optional[str] = None
+
+    id: str | None = None
+    service_id: str | None = None
+    status: str | None = None
+    commit: dict[str, Any] | None = None
+    image: dict[str, Any] | None = None
+    created_at: str | None = None
+    updated_at: str | None = None
+    finished_at: str | None = None
 
 
 @dataclass
 class RenderService:
     """A Render service (top-level resource, no App grouping)."""
-    id: Optional[str] = None
+
+    id: str | None = None
     name: str = ""
-    owner_id: Optional[str] = None
-    slug: Optional[str] = None
+    owner_id: str | None = None
+    slug: str | None = None
     type: RenderServiceType = RenderServiceType.WEB_SERVICE
-    plan: Optional[str] = None
-    region: Optional[str] = None
-    status: Optional[str] = None
-    suspended: Optional[str] = None          # "suspended" or "not_suspended"
-    auto_deploy: Optional[str] = None        # "yes" or "no"
-    service_details: Optional[Dict[str, Any]] = None
-    created_at: Optional[str] = None
-    updated_at: Optional[str] = None
+    plan: str | None = None
+    region: str | None = None
+    status: str | None = None
+    suspended: str | None = None  # "suspended" or "not_suspended"
+    auto_deploy: str | None = None  # "yes" or "no"
+    service_details: dict[str, Any] | None = None
+    created_at: str | None = None
+    updated_at: str | None = None
 
 
 @dataclass
 class RenderOwner:
     """A Render workspace/owner (user or team)."""
-    id: Optional[str] = None
+
+    id: str | None = None
     name: str = ""
-    email: Optional[str] = None
-    type: Optional[str] = None  # "user" or "team"
+    email: str | None = None
+    type: str | None = None  # "user" or "team"
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -228,10 +237,11 @@ class RenderDeployConfig:
             health_check_path="/_health",
         )
     """
+
     # Service identity
     service_name: str = ""
     service_type: RenderServiceType = RenderServiceType.WEB_SERVICE
-    owner_id: Optional[str] = None  # Resolved at deploy time
+    owner_id: str | None = None  # Resolved at deploy time
 
     # Docker image source
     image: str = ""
@@ -242,29 +252,27 @@ class RenderDeployConfig:
 
     # Scaling
     num_instances: int = 1
-    autoscaling: RenderAutoscaling = field(
-        default_factory=RenderAutoscaling.disabled
-    )
+    autoscaling: RenderAutoscaling = field(default_factory=RenderAutoscaling.disabled)
 
     # Networking
     port: int = 8000
     health_check_path: str = "/_health"
 
     # Environment
-    env_vars: List[RenderEnvVar] = field(default_factory=list)
+    env_vars: list[RenderEnvVar] = field(default_factory=list)
 
     # Persistent disk (optional)
-    disk: Optional[RenderDisk] = None
+    disk: RenderDisk | None = None
 
     # Docker command override (default: use Dockerfile CMD)
-    docker_command: Optional[str] = None
+    docker_command: str | None = None
 
     # Auto-deploy on image push
     auto_deploy: str = "no"
 
-    def to_service_payload(self) -> Dict[str, Any]:
+    def to_service_payload(self) -> dict[str, Any]:
         """Serialize to Render ``POST /v1/services`` API payload."""
-        service_details: Dict[str, Any] = {
+        service_details: dict[str, Any] = {
             "envVars": [e.to_dict() for e in self.env_vars],
             "plan": self.plan.value,
             "region": self.region,
@@ -281,7 +289,7 @@ class RenderDeployConfig:
         if self.disk:
             service_details["disk"] = self.disk.to_dict()
 
-        payload: Dict[str, Any] = {
+        payload: dict[str, Any] = {
             "name": self.service_name,
             "type": self.service_type.value,
             "autoDeploy": self.auto_deploy,
@@ -293,9 +301,9 @@ class RenderDeployConfig:
 
         return payload
 
-    def to_update_payload(self) -> Dict[str, Any]:
+    def to_update_payload(self) -> dict[str, Any]:
         """Serialize to Render ``PATCH /v1/services/{id}`` API payload."""
-        service_details: Dict[str, Any] = {
+        service_details: dict[str, Any] = {
             "plan": self.plan.value,
             "numInstances": self.num_instances,
             "healthCheckPath": self.health_check_path,
@@ -316,14 +324,14 @@ class RenderDeployConfig:
     @classmethod
     def from_workspace_context(
         cls,
-        wctx: Dict[str, Any],
+        wctx: dict[str, Any],
         *,
         image: str,
-        region: Optional[str] = None,
-        plan: Optional[RenderPlan] = None,
+        region: str | None = None,
+        plan: RenderPlan | None = None,
         num_instances: int = 1,
-        autoscaling: Optional[RenderAutoscaling] = None,
-    ) -> "RenderDeployConfig":
+        autoscaling: RenderAutoscaling | None = None,
+    ) -> RenderDeployConfig:
         """Build config from Aquilia workspace introspection context.
 
         Automatically maps workspace features (DB, cache, auth, etc.)

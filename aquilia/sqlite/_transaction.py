@@ -11,10 +11,9 @@ cooperative cancellation (rollback on ``CancelledError``).
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import time
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from ._connection import AsyncConnection
@@ -135,7 +134,8 @@ class SavepointContext:
                 await self._conn.rollback_to_savepoint(self._name)
             except Exception:
                 logger.warning(
-                    "Rollback to savepoint %r failed", self._name,
+                    "Rollback to savepoint %r failed",
+                    self._name,
                     exc_info=True,
                 )
             return  # Re-raise original

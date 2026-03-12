@@ -11,7 +11,7 @@ import asyncio
 import logging
 import sqlite3
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger("aquilia.sqlite.backup")
 
@@ -24,7 +24,7 @@ async def backup_database(
     *,
     pages: int = -1,
     progress: Any = None,
-    executor: Optional[ThreadPoolExecutor] = None,
+    executor: ThreadPoolExecutor | None = None,
 ) -> None:
     """
     Perform an online backup of a SQLite database.

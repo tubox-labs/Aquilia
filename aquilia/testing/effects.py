@@ -11,8 +11,9 @@ nodes and handlers that use effects.
 from __future__ import annotations
 
 import time as _time
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Sequence
+from collections.abc import Sequence
+from dataclasses import dataclass
+from typing import Any
 
 from aquilia.effects import EffectProvider, EffectRegistry
 
@@ -20,10 +21,11 @@ from aquilia.effects import EffectProvider, EffectRegistry
 @dataclass
 class EffectCall:
     """Record of an acquire or release call on a MockEffectProvider."""
+
     action: str  # "acquire" or "release"
-    mode: Optional[str] = None
+    mode: str | None = None
     resource: Any = None
-    success: Optional[bool] = None
+    success: bool | None = None
     timestamp: float = 0.0
 
 
@@ -53,8 +55,8 @@ class MockEffectProvider(EffectProvider):
         self,
         return_value: Any = None,
         *,
-        return_sequence: Optional[Sequence[Any]] = None,
-        acquire_side_effect: Optional[Exception] = None,
+        return_sequence: Sequence[Any] | None = None,
+        acquire_side_effect: Exception | None = None,
     ):
         self.return_value = return_value
         self._return_sequence = list(return_sequence) if return_sequence else None
@@ -62,21 +64,25 @@ class MockEffectProvider(EffectProvider):
         self.acquire_side_effect = acquire_side_effect
         self.acquire_count = 0
         self.release_count = 0
-        self.acquired_modes: List[Optional[str]] = []
-        self.released_resources: List[Any] = []
+        self.acquired_modes: list[str | None] = []
+        self.released_resources: list[Any] = []
         self._initialized = False
         self._finalized = False
-        self.call_history: List[EffectCall] = []
+        self.call_history: list[EffectCall] = []
 
     async def initialize(self):
         self._initialized = True
 
-    async def acquire(self, mode: Optional[str] = None) -> Any:
+    async def acquire(self, mode: str | None = None) -> Any:
         self.acquire_count += 1
         self.acquired_modes.append(mode)
-        self.call_history.append(EffectCall(
-            action="acquire", mode=mode, timestamp=_time.monotonic(),
-        ))
+        self.call_history.append(
+            EffectCall(
+                action="acquire",
+                mode=mode,
+                timestamp=_time.monotonic(),
+            )
+        )
         if self.acquire_side_effect:
             raise self.acquire_side_effect
 
@@ -90,16 +96,20 @@ class MockEffectProvider(EffectProvider):
     async def release(self, resource: Any, success: bool = True):
         self.release_count += 1
         self.released_resources.append((resource, success))
-        self.call_history.append(EffectCall(
-            action="release", resource=resource, success=success,
-            timestamp=_time.monotonic(),
-        ))
+        self.call_history.append(
+            EffectCall(
+                action="release",
+                resource=resource,
+                success=success,
+                timestamp=_time.monotonic(),
+            )
+        )
 
     async def finalize(self):
         self._finalized = True
 
     @property
-    def last_acquired_mode(self) -> Optional[str]:
+    def last_acquired_mode(self) -> str | None:
         """Return the mode from the last acquire call."""
         return self.acquired_modes[-1] if self.acquired_modes else None
 
@@ -131,7 +141,7 @@ class MockEffectRegistry(EffectRegistry):
 
     def __init__(self):
         super().__init__()
-        self._mocks: Dict[str, MockEffectProvider] = {}
+        self._mocks: dict[str, MockEffectProvider] = {}
 
     def register_mock(
         self,
@@ -153,7 +163,7 @@ class MockEffectRegistry(EffectRegistry):
             return self.register_mock(effect_name)
         return super().get_provider(effect_name)
 
-    def get_mock(self, effect_name: str) -> Optional[MockEffectProvider]:
+    def get_mock(self, effect_name: str) -> MockEffectProvider | None:
         """Retrieve the underlying mock (or ``None``)."""
         return self._mocks.get(effect_name)
 
@@ -187,8 +197,8 @@ class MockFlowContext:
         container: Any = None,
         identity: Any = None,
         session: Any = None,
-        state: Optional[Dict[str, Any]] = None,
-    ) -> "Any":
+        state: dict[str, Any] | None = None,
+    ) -> Any:
         """
         Create a FlowContext with pre-acquired mock effects.
 
@@ -215,13 +225,13 @@ class MockFlowContext:
     @staticmethod
     def create(
         *,
-        effects: Optional[Dict[str, Any]] = None,
+        effects: dict[str, Any] | None = None,
         request: Any = None,
         container: Any = None,
         identity: Any = None,
         session: Any = None,
-        state: Optional[Dict[str, Any]] = None,
-    ) -> "Any":
+        state: dict[str, Any] | None = None,
+    ) -> Any:
         """
         Create a FlowContext with manually specified effect values.
 

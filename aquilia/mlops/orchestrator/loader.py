@@ -23,13 +23,13 @@ import asyncio
 import inspect
 import logging
 import time
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any
 
-from ..runtime.base import BaseRuntime, ModelState
 from ..engine.hooks import HookRegistry, collect_hooks
 from ..engine.pipeline import InferencePipeline
-from .registry import ModelEntry, ModelRegistry
+from ..runtime.base import BaseRuntime, ModelState
 from .persistence import ModelPersistenceManager
+from .registry import ModelEntry, ModelRegistry
 
 logger = logging.getLogger("aquilia.mlops.orchestrator.loader")
 
@@ -43,8 +43,12 @@ class LoadedModel:
     """
 
     __slots__ = (
-        "entry", "instance", "hooks", "pipeline",
-        "load_time_ms", "loaded_at",
+        "entry",
+        "instance",
+        "hooks",
+        "pipeline",
+        "load_time_ms",
+        "loaded_at",
     )
 
     def __init__(
@@ -75,7 +79,7 @@ class ModelLoader:
     def __init__(
         self,
         registry: ModelRegistry,
-        persistence_manager: Optional[ModelPersistenceManager] = None,
+        persistence_manager: ModelPersistenceManager | None = None,
         device_manager: Any = None,
         executor: Any = None,
         metrics_collector: Any = None,
@@ -87,9 +91,9 @@ class ModelLoader:
         self._executor = executor
         self._metrics = metrics_collector
         self._memory_tracker = memory_tracker
-        self._loaded: Dict[str, LoadedModel] = {}   # "name:version" → LoadedModel
-        self._locks: Dict[str, asyncio.Lock] = {}
-        self._last_used: Dict[str, float] = {}      # "name:version" → timestamp
+        self._loaded: dict[str, LoadedModel] = {}  # "name:version" → LoadedModel
+        self._locks: dict[str, asyncio.Lock] = {}
+        self._last_used: dict[str, float] = {}  # "name:version" → timestamp
 
     def _get_lock(self, key: str) -> asyncio.Lock:
         """Get or create a per-model lock."""
@@ -131,6 +135,7 @@ class ModelLoader:
             entry = self._registry.get(name, version)
             if entry is None:
                 from aquilia.faults.domains import ModelNotFoundFault
+
                 raise ModelNotFoundFault(
                     model=f"{name}:{version}",
                     reason=f"Model '{name}:{version}' not found in registry",
@@ -175,18 +180,23 @@ class ModelLoader:
 
         logger.warning(
             "Memory pressure: evicting LRU model %s (last used %.1fs ago)",
-            lru_key, time.time() - self._last_used.get(lru_key, 0),
+            lru_key,
+            time.time() - self._last_used.get(lru_key, 0),
         )
 
         self._loaded.pop(lru_key, None)
         self._last_used.pop(lru_key, None)
         await self._unload_instance(lru_loaded)
         self._registry.update_state(
-            lru_loaded.entry.name, lru_loaded.entry.version, ModelState.UNLOADED,
+            lru_loaded.entry.name,
+            lru_loaded.entry.version,
+            ModelState.UNLOADED,
         )
 
     async def _run_warmup(
-        self, loaded: LoadedModel, n: int,
+        self,
+        loaded: LoadedModel,
+        n: int,
     ) -> None:
         """Run *n* synthetic warmup requests through the loaded pipeline."""
         from .._types import InferenceRequest
@@ -202,7 +212,7 @@ class ModelLoader:
                     model_name=loaded.entry.name,
                     model_version=loaded.entry.version,
                 )
-            except Exception as exc:
+            except Exception:
                 pass
 
     async def _load_model(self, entry: ModelEntry) -> LoadedModel:
@@ -227,9 +237,7 @@ class ModelLoader:
             if hasattr(instance, "load") and callable(instance.load):
                 # Try to load from persistence first
                 try:
-                    loaded_weights = await self._persistence.load_model(
-                        entry.name, entry.version, device=device
-                    )
+                    loaded_weights = await self._persistence.load_model(entry.name, entry.version, device=device)
                     # If the load() method expects weights, pass them
                     # Otherwise, it might be a custom reload logic
                     load_fn = instance.load
@@ -237,7 +245,7 @@ class ModelLoader:
                         await load_fn(loaded_weights, entry.config.artifacts_dir, device)
                     else:
                         load_fn(loaded_weights, entry.config.artifacts_dir, device)
-                except Exception as e:
+                except Exception:
                     load_fn = instance.load
                     if inspect.iscoroutinefunction(load_fn):
                         await load_fn(entry.config.artifacts_dir, device)
@@ -327,10 +335,7 @@ class ModelLoader:
         new_loaded = await self.ensure_loaded(name, new_version)
 
         # Find and unload old versions
-        old_keys = [
-            k for k in self._loaded
-            if k.startswith(f"{name}:") and k != f"{name}:{new_version}"
-        ]
+        old_keys = [k for k in self._loaded if k.startswith(f"{name}:") and k != f"{name}:{new_version}"]
         for old_key in old_keys:
             old = self._loaded.pop(old_key, None)
             if old:
@@ -363,7 +368,9 @@ class ModelLoader:
             if loaded:
                 await self._unload_instance(loaded)
                 self._registry.update_state(
-                    loaded.entry.name, loaded.entry.version, ModelState.UNLOADED,
+                    loaded.entry.name,
+                    loaded.entry.version,
+                    ModelState.UNLOADED,
                 )
 
     async def _unload_instance(self, loaded: LoadedModel) -> None:
@@ -383,7 +390,6 @@ class ModelLoader:
                 else:
                     loaded.instance.unload()
 
-
         except Exception as exc:
             logger.error("Error unloading model %s: %s", loaded.entry.key, exc)
 
@@ -395,15 +401,15 @@ class ModelLoader:
         loaded = self._loaded.get(key)
         return loaded is not None and loaded.entry.state == ModelState.LOADED
 
-    def get_loaded(self, name: str, version: str) -> Optional[LoadedModel]:
+    def get_loaded(self, name: str, version: str) -> LoadedModel | None:
         """Get a loaded model instance if available."""
         return self._loaded.get(f"{name}:{version}")
 
-    def loaded_models(self) -> List[str]:
+    def loaded_models(self) -> list[str]:
         """List all currently loaded model keys."""
         return list(self._loaded.keys())
 
-    def summary(self) -> Dict[str, Any]:
+    def summary(self) -> dict[str, Any]:
         """Summary for health endpoints."""
         return {
             "loaded_count": len(self._loaded),
@@ -419,6 +425,7 @@ class ModelLoader:
 
 
 # ── Instance Runtime Adapter ─────────────────────────────────────────────
+
 
 class _InstanceRuntimeAdapter(BaseRuntime):
     """
@@ -444,7 +451,7 @@ class _InstanceRuntimeAdapter(BaseRuntime):
         """No-op -- adapter instances are already loaded."""
         pass
 
-    async def preprocess(self, raw_input: Dict[str, Any]) -> Dict[str, Any]:
+    async def preprocess(self, raw_input: dict[str, Any]) -> dict[str, Any]:
         if hasattr(self._instance, "preprocess") and callable(self._instance.preprocess):
             fn = self._instance.preprocess
             if inspect.iscoroutinefunction(fn):
@@ -452,7 +459,7 @@ class _InstanceRuntimeAdapter(BaseRuntime):
             return fn(raw_input)
         return raw_input
 
-    async def postprocess(self, raw_output: Dict[str, Any]) -> Dict[str, Any]:
+    async def postprocess(self, raw_output: dict[str, Any]) -> dict[str, Any]:
         if hasattr(self._instance, "postprocess") and callable(self._instance.postprocess):
             fn = self._instance.postprocess
             if inspect.iscoroutinefunction(fn):
@@ -472,9 +479,12 @@ class _InstanceRuntimeAdapter(BaseRuntime):
                     predict_fn = getattr(self._instance, "__call__", None)
                 if predict_fn is None:
                     from aquilia.faults.domains import ConfigMissingFault
+
                     raise ConfigMissingFault(
                         key="mlops.model.predict_method",
-                        metadata={"hint": f"Model {type(self._instance).__name__} has no predict() or __call__() method"},
+                        metadata={
+                            "hint": f"Model {type(self._instance).__name__} has no predict() or __call__() method"
+                        },
                     )
 
                 if inspect.iscoroutinefunction(predict_fn):
@@ -486,21 +496,25 @@ class _InstanceRuntimeAdapter(BaseRuntime):
                     outputs = {"prediction": outputs}
 
                 latency = (time.monotonic() - start) * 1000
-                results.append(InferenceResult(
-                    request_id=req.request_id,
-                    outputs=outputs,
-                    latency_ms=latency,
-                    finish_reason="stop",
-                ))
+                results.append(
+                    InferenceResult(
+                        request_id=req.request_id,
+                        outputs=outputs,
+                        latency_ms=latency,
+                        finish_reason="stop",
+                    )
+                )
 
             except Exception as exc:
                 latency = (time.monotonic() - start) * 1000
-                results.append(InferenceResult(
-                    request_id=req.request_id,
-                    outputs={"error": str(exc)},
-                    latency_ms=latency,
-                    finish_reason="error",
-                    metadata={"error_type": type(exc).__name__},
-                ))
+                results.append(
+                    InferenceResult(
+                        request_id=req.request_id,
+                        outputs={"error": str(exc)},
+                        latency_ms=latency,
+                        finish_reason="error",
+                        metadata={"error_type": type(exc).__name__},
+                    )
+                )
 
         return results

@@ -65,6 +65,7 @@ class BaseVersionResolver(ABC):
 #  URL Path Resolver
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class URLPathResolver(BaseVersionResolver):
     """
     Extract version from URL path segment.
@@ -138,6 +139,7 @@ class URLPathResolver(BaseVersionResolver):
 #  Header Resolver
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class HeaderResolver(BaseVersionResolver):
     """
     Extract version from a custom HTTP header.
@@ -182,6 +184,7 @@ class HeaderResolver(BaseVersionResolver):
 # ═══════════════════════════════════════════════════════════════════════════
 #  Query Parameter Resolver
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class QueryParamResolver(BaseVersionResolver):
     """
@@ -230,6 +233,7 @@ class QueryParamResolver(BaseVersionResolver):
 #  Media Type Resolver
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class MediaTypeResolver(BaseVersionResolver):
     """
     Extract version from Accept header media type parameter.
@@ -260,11 +264,7 @@ class MediaTypeResolver(BaseVersionResolver):
         vendor_pattern: str | None = None,
     ) -> None:
         self._param_name = param_name
-        self._vendor_re = (
-            re.compile(vendor_pattern, re.IGNORECASE)
-            if vendor_pattern
-            else self._DEFAULT_VENDOR_RE
-        )
+        self._vendor_re = re.compile(vendor_pattern, re.IGNORECASE) if vendor_pattern else self._DEFAULT_VENDOR_RE
 
     @property
     def name(self) -> str:
@@ -305,6 +305,7 @@ class MediaTypeResolver(BaseVersionResolver):
 # ═══════════════════════════════════════════════════════════════════════════
 #  Channel Resolver
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class ChannelResolver(BaseVersionResolver):
     """
@@ -387,6 +388,7 @@ class ChannelResolver(BaseVersionResolver):
 #  Composite Resolver
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class CompositeResolver(BaseVersionResolver):
     """
     Combine multiple resolvers with priority fallback.
@@ -448,6 +450,7 @@ class CompositeResolver(BaseVersionResolver):
 # ═══════════════════════════════════════════════════════════════════════════
 #  Custom Resolver (user-defined extraction logic)
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class CustomResolver(BaseVersionResolver):
     """

@@ -24,7 +24,7 @@ Fault Hierarchy:
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 from aquilia.faults import Fault
 from aquilia.faults.core import FaultDomain
@@ -37,8 +37,10 @@ ADMIN_DOMAIN = FaultDomain.custom("ADMIN", "Admin dashboard faults")
 #  Base Admin Fault
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class AdminFault(Fault):
     """Base fault for all admin operations."""
+
     domain = ADMIN_DOMAIN
 
 
@@ -46,8 +48,10 @@ class AdminFault(Fault):
 #  Authentication / Authorization Faults
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class AdminAuthenticationFault(AdminFault):
     """Admin authentication failed."""
+
     code = "ADMIN_AUTH_FAILED"
     status = 401
 
@@ -62,6 +66,7 @@ class AdminAuthenticationFault(AdminFault):
 
 class AdminAuthorizationFault(AdminFault):
     """Admin authorization failed -- insufficient permissions."""
+
     code = "ADMIN_AUTHZ_DENIED"
     status = 403
 
@@ -84,8 +89,10 @@ class AdminAuthorizationFault(AdminFault):
 #  Security Faults (CSRF, Rate Limit, Generic Security)
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class AdminSecurityFault(AdminFault):
     """Base fault for admin security violations."""
+
     code = "ADMIN_SECURITY_ERROR"
     status = 403
 
@@ -96,7 +103,7 @@ class AdminSecurityFault(AdminFault):
             status=self.status,
         )
         self.reason = reason
-        self.metadata: Dict[str, Any] = metadata
+        self.metadata: dict[str, Any] = metadata
 
 
 class AdminCSRFViolationFault(AdminSecurityFault):
@@ -106,6 +113,7 @@ class AdminCSRFViolationFault(AdminSecurityFault):
     Raised when a POST/PUT/DELETE request to an admin endpoint
     has a missing, expired, or invalid CSRF token.
     """
+
     code = "ADMIN_CSRF_VIOLATION"
     status = 403
 
@@ -120,6 +128,7 @@ class AdminRateLimitFault(AdminSecurityFault):
     Raised when login attempts or sensitive operations exceed
     the configured rate limit thresholds.
     """
+
     code = "ADMIN_RATE_LIMIT"
     status = 429
 
@@ -145,8 +154,10 @@ class AdminRateLimitFault(AdminSecurityFault):
 #  Model / Record Faults
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class AdminModelNotFoundFault(AdminFault):
     """Requested model is not registered with admin."""
+
     code = "ADMIN_MODEL_NOT_FOUND"
     status = 404
 
@@ -161,6 +172,7 @@ class AdminModelNotFoundFault(AdminFault):
 
 class AdminRecordNotFoundFault(AdminFault):
     """Record not found in database."""
+
     code = "ADMIN_RECORD_NOT_FOUND"
     status = 404
 
@@ -181,12 +193,14 @@ class AdminRecordNotFoundFault(AdminFault):
 #  Validation Faults
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class AdminValidationFault(AdminFault):
     """Validation error when creating/updating records."""
+
     code = "ADMIN_VALIDATION_ERROR"
     status = 422
 
-    def __init__(self, errors: Union[dict, list, str] = "Validation failed"):
+    def __init__(self, errors: dict | list | str = "Validation failed"):
         if isinstance(errors, dict):
             msg = "; ".join(f"{k}: {v}" for k, v in errors.items())
         elif isinstance(errors, list):
@@ -205,8 +219,10 @@ class AdminValidationFault(AdminFault):
 #  Action Faults
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class AdminActionFault(AdminFault):
     """Bulk action execution failed."""
+
     code = "ADMIN_ACTION_FAILED"
     status = 400
 
@@ -227,6 +243,7 @@ class AdminActionFault(AdminFault):
 #  Configuration Faults
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class AdminConfigurationFault(AdminFault):
     """
     Admin system misconfiguration or missing dependency.
@@ -234,6 +251,7 @@ class AdminConfigurationFault(AdminFault):
     Raised when a required dependency (Jinja2, ORM, etc.) is not
     available or when configuration is invalid.
     """
+
     code = "ADMIN_CONFIG_ERROR"
     status = 500
 
@@ -254,6 +272,7 @@ class AdminConfigurationFault(AdminFault):
 #  Registration Faults
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class AdminRegistrationFault(AdminFault):
     """
     Model registration error.
@@ -261,6 +280,7 @@ class AdminRegistrationFault(AdminFault):
     Raised when a ModelAdmin is missing a model class, or when
     an invalid argument is passed to ``@register``.
     """
+
     code = "ADMIN_REGISTRATION_ERROR"
     status = 500
 
@@ -281,6 +301,7 @@ class AdminRegistrationFault(AdminFault):
 #  Inline Faults
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class AdminInlineFault(AdminFault):
     """
     Inline model configuration error.
@@ -288,6 +309,7 @@ class AdminInlineFault(AdminFault):
     Raised when FK resolution for an InlineModelAdmin fails --
     either no ForeignKey to the parent, or ambiguous multiple FKs.
     """
+
     code = "ADMIN_INLINE_ERROR"
     status = 400
 
@@ -315,6 +337,7 @@ class AdminInlineFault(AdminFault):
 #  Template Faults
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class AdminTemplateFault(AdminFault):
     """
     Template rendering error.
@@ -322,6 +345,7 @@ class AdminTemplateFault(AdminFault):
     Raised when an admin template fails to render or when
     the template engine (Jinja2) is unavailable.
     """
+
     code = "ADMIN_TEMPLATE_ERROR"
     status = 500
 
@@ -342,6 +366,7 @@ class AdminTemplateFault(AdminFault):
 #  Export Faults
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class AdminExportFault(AdminFault):
     """
     Export generation error.
@@ -349,6 +374,7 @@ class AdminExportFault(AdminFault):
     Raised when data export (CSV, JSON, XML) fails during
     rendering or serialisation.
     """
+
     code = "ADMIN_EXPORT_ERROR"
     status = 500
 

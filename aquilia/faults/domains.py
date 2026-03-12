@@ -3,7 +3,7 @@ AquilaFaults - Domain-specific fault types.
 
 Provides concrete fault classes for each domain:
 - CONFIG faults
-- REGISTRY faults  
+- REGISTRY faults
 - DI faults
 - ROUTING faults
 - FLOW faults
@@ -13,24 +13,25 @@ Provides concrete fault classes for each domain:
 - SYSTEM faults
 """
 
-from typing import Any, Optional
-from .core import Fault, FaultDomain, Severity
+from typing import Any
 
+from .core import Fault, FaultDomain, Severity
 
 # ============================================================================
 # CONFIG Faults
 # ============================================================================
 
+
 class ConfigFault(Fault):
     """Base class for configuration faults."""
-    
+
     def __init__(
         self,
         code: str,
         message: str,
         *,
         severity: Severity = Severity.FATAL,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ):
         super().__init__(
             code=code,
@@ -45,7 +46,7 @@ class ConfigFault(Fault):
 
 class ConfigMissingFault(ConfigFault):
     """Required configuration is missing."""
-    
+
     def __init__(self, key: str, **kwargs):
         super().__init__(
             code="CONFIG_MISSING",
@@ -56,7 +57,7 @@ class ConfigMissingFault(ConfigFault):
 
 class ConfigInvalidFault(ConfigFault):
     """Configuration value is invalid."""
-    
+
     def __init__(self, key: str, reason: str, **kwargs):
         super().__init__(
             code="CONFIG_INVALID",
@@ -69,16 +70,17 @@ class ConfigInvalidFault(ConfigFault):
 # REGISTRY Faults
 # ============================================================================
 
+
 class RegistryFault(Fault):
     """Base class for Aquilary registry faults."""
-    
+
     def __init__(
         self,
         code: str,
         message: str,
         *,
         severity: Severity = Severity.FATAL,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ):
         super().__init__(
             code=code,
@@ -93,7 +95,7 @@ class RegistryFault(Fault):
 
 class DependencyCycleFault(RegistryFault):
     """Circular dependency detected in app graph."""
-    
+
     def __init__(self, cycle: list[str], **kwargs):
         cycle_str = " → ".join(cycle)
         super().__init__(
@@ -105,7 +107,7 @@ class DependencyCycleFault(RegistryFault):
 
 class ManifestInvalidFault(RegistryFault):
     """Manifest validation failed."""
-    
+
     def __init__(self, manifest_name: str, errors: list[str], **kwargs):
         super().__init__(
             code="MANIFEST_INVALID",
@@ -118,16 +120,17 @@ class ManifestInvalidFault(RegistryFault):
 # DI Faults
 # ============================================================================
 
+
 class DIFault(Fault):
     """Base class for dependency injection faults."""
-    
+
     def __init__(
         self,
         code: str,
         message: str,
         *,
         severity: Severity = Severity.ERROR,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ):
         super().__init__(
             code=code,
@@ -142,8 +145,8 @@ class DIFault(Fault):
 
 class ProviderNotFoundFault(DIFault):
     """DI provider not found."""
-    
-    def __init__(self, provider_name: str, app: Optional[str] = None, **kwargs):
+
+    def __init__(self, provider_name: str, app: str | None = None, **kwargs):
         super().__init__(
             code="PROVIDER_NOT_FOUND",
             message=f"DI provider '{provider_name}' not found" + (f" in app '{app}'" if app else ""),
@@ -153,7 +156,7 @@ class ProviderNotFoundFault(DIFault):
 
 class ScopeViolationFault(DIFault):
     """DI scope violation."""
-    
+
     def __init__(self, provider: str, expected_scope: str, actual_scope: str, **kwargs):
         super().__init__(
             code="SCOPE_VIOLATION",
@@ -169,7 +172,7 @@ class ScopeViolationFault(DIFault):
 
 class DIResolutionFault(DIFault):
     """DI resolution failed."""
-    
+
     def __init__(self, provider: str, reason: str, **kwargs):
         super().__init__(
             code="DI_RESOLUTION_FAILED",
@@ -182,9 +185,10 @@ class DIResolutionFault(DIFault):
 # ROUTING Faults
 # ============================================================================
 
+
 class RoutingFault(Fault):
     """Base class for routing faults."""
-    
+
     def __init__(
         self,
         code: str,
@@ -192,7 +196,7 @@ class RoutingFault(Fault):
         *,
         severity: Severity = Severity.ERROR,
         public: bool = True,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ):
         super().__init__(
             code=code,
@@ -207,7 +211,7 @@ class RoutingFault(Fault):
 
 class RouteNotFoundFault(RoutingFault):
     """Route not found."""
-    
+
     def __init__(self, path: str, method: str, **kwargs):
         super().__init__(
             code="ROUTE_NOT_FOUND",
@@ -218,7 +222,7 @@ class RouteNotFoundFault(RoutingFault):
 
 class RouteAmbiguousFault(RoutingFault):
     """Multiple routes match the pattern."""
-    
+
     def __init__(self, path: str, matches: list[str], **kwargs):
         super().__init__(
             code="ROUTE_AMBIGUOUS",
@@ -231,7 +235,7 @@ class RouteAmbiguousFault(RoutingFault):
 
 class PatternInvalidFault(RoutingFault):
     """Route pattern is invalid."""
-    
+
     def __init__(self, pattern: str, reason: str, **kwargs):
         super().__init__(
             code="PATTERN_INVALID",
@@ -246,9 +250,10 @@ class PatternInvalidFault(RoutingFault):
 # FLOW Faults
 # ============================================================================
 
+
 class FlowFault(Fault):
     """Base class for flow execution faults."""
-    
+
     def __init__(
         self,
         code: str,
@@ -257,7 +262,7 @@ class FlowFault(Fault):
         severity: Severity = Severity.ERROR,
         retryable: bool = False,
         public: bool = False,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ):
         super().__init__(
             code=code,
@@ -272,7 +277,7 @@ class FlowFault(Fault):
 
 class HandlerFault(FlowFault):
     """Handler execution failed."""
-    
+
     def __init__(self, handler_name: str, reason: str, **kwargs):
         super().__init__(
             code="HANDLER_FAILED",
@@ -283,7 +288,7 @@ class HandlerFault(FlowFault):
 
 class MiddlewareFault(FlowFault):
     """Middleware execution failed."""
-    
+
     def __init__(self, middleware_name: str, reason: str, **kwargs):
         super().__init__(
             code="MIDDLEWARE_FAILED",
@@ -294,7 +299,7 @@ class MiddlewareFault(FlowFault):
 
 class FlowCancelledFault(FlowFault):
     """Flow was cancelled (timeout or client disconnect)."""
-    
+
     def __init__(self, reason: str = "timeout", **kwargs):
         super().__init__(
             code="FLOW_CANCELLED",
@@ -310,9 +315,10 @@ class FlowCancelledFault(FlowFault):
 # EFFECT Faults
 # ============================================================================
 
+
 class EffectFault(Fault):
     """Base class for effect (side-effect) faults."""
-    
+
     def __init__(
         self,
         code: str,
@@ -320,7 +326,7 @@ class EffectFault(Fault):
         *,
         severity: Severity = Severity.ERROR,
         retryable: bool = True,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ):
         super().__init__(
             code=code,
@@ -335,7 +341,7 @@ class EffectFault(Fault):
 
 class DatabaseFault(EffectFault):
     """Database operation failed."""
-    
+
     def __init__(self, operation: str, reason: str, **kwargs):
         super().__init__(
             code="DATABASE_FAULT",
@@ -346,7 +352,7 @@ class DatabaseFault(EffectFault):
 
 class CacheFault(EffectFault):
     """Cache operation failed."""
-    
+
     def __init__(self, operation: str, key: str, reason: str, **kwargs):
         super().__init__(
             code="CACHE_FAULT",
@@ -360,9 +366,10 @@ class CacheFault(EffectFault):
 # IO Faults
 # ============================================================================
 
+
 class IOFault(Fault):
     """Base class for I/O faults."""
-    
+
     def __init__(
         self,
         code: str,
@@ -370,7 +377,7 @@ class IOFault(Fault):
         *,
         severity: Severity = Severity.WARN,
         retryable: bool = True,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ):
         super().__init__(
             code=code,
@@ -385,7 +392,7 @@ class IOFault(Fault):
 
 class NetworkFault(IOFault):
     """Network operation failed."""
-    
+
     def __init__(self, operation: str, reason: str, **kwargs):
         super().__init__(
             code="NETWORK_FAULT",
@@ -396,7 +403,7 @@ class NetworkFault(IOFault):
 
 class FilesystemFault(IOFault):
     """Filesystem operation failed."""
-    
+
     def __init__(self, operation: str, path: str, reason: str, **kwargs):
         super().__init__(
             code="FILESYSTEM_FAULT",
@@ -409,9 +416,10 @@ class FilesystemFault(IOFault):
 # SECURITY Faults
 # ============================================================================
 
+
 class SecurityFault(Fault):
     """Base class for security faults."""
-    
+
     def __init__(
         self,
         code: str,
@@ -419,7 +427,7 @@ class SecurityFault(Fault):
         *,
         severity: Severity = Severity.ERROR,
         public: bool = True,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ):
         super().__init__(
             code=code,
@@ -434,7 +442,7 @@ class SecurityFault(Fault):
 
 class AuthenticationFault(SecurityFault):
     """Authentication failed."""
-    
+
     def __init__(self, reason: str = "Invalid credentials", **kwargs):
         super().__init__(
             code="AUTHENTICATION_FAILED",
@@ -445,7 +453,7 @@ class AuthenticationFault(SecurityFault):
 
 class AuthorizationFault(SecurityFault):
     """Authorization failed."""
-    
+
     def __init__(self, resource: str, action: str, **kwargs):
         super().__init__(
             code="AUTHORIZATION_FAILED",
@@ -456,7 +464,7 @@ class AuthorizationFault(SecurityFault):
 
 class CSRFViolationFault(SecurityFault):
     """CSRF token validation failed."""
-    
+
     def __init__(self, reason: str = "CSRF validation failed", **kwargs):
         self.reason = reason
         super().__init__(
@@ -470,7 +478,7 @@ class CSRFViolationFault(SecurityFault):
 
 class CORSViolationFault(SecurityFault):
     """CORS origin not allowed."""
-    
+
     def __init__(self, origin: str, **kwargs):
         super().__init__(
             code="CORS_VIOLATION",
@@ -483,7 +491,7 @@ class CORSViolationFault(SecurityFault):
 
 class RateLimitExceededFault(SecurityFault):
     """Rate limit exceeded for client."""
-    
+
     def __init__(self, limit: int, window: float, retry_after: float, **kwargs):
         super().__init__(
             code="RATE_LIMIT_EXCEEDED",
@@ -501,7 +509,7 @@ class RateLimitExceededFault(SecurityFault):
 
 class CSPViolationFault(SecurityFault):
     """Content Security Policy violation reported."""
-    
+
     def __init__(self, directive: str, blocked_uri: str = "", **kwargs):
         super().__init__(
             code="CSP_VIOLATION",
@@ -518,6 +526,7 @@ class CSPViolationFault(SecurityFault):
 
 # ── Signing Faults ──────────────────────────────────────────────────────
 
+
 class SigningFault(SecurityFault):
     """Base class for all signing/verification faults."""
 
@@ -527,7 +536,7 @@ class SigningFault(SecurityFault):
         message: str = "Signing operation failed",
         *,
         severity: Severity = Severity.ERROR,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ):
         super().__init__(
             code=code,
@@ -551,7 +560,7 @@ class BadSignatureFault(SigningFault):
         message: str = "Signature is invalid",
         *,
         original: str | None = None,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ):
         #: The raw signed value that failed verification (for logging).
         self.original = original
@@ -578,7 +587,7 @@ class SignatureExpiredFault(BadSignatureFault):
         date_signed: Any = None,
         age_seconds: float | None = None,
         max_age_seconds: float | None = None,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ):
         #: When the token was originally signed (UTC).
         self.date_signed = date_signed
@@ -624,8 +633,7 @@ class UnsupportedAlgorithmFault(SigningFault):
     def __init__(self, algorithm: str, reason: str = "", **kwargs):
         super().__init__(
             code="SIGNING_UNSUPPORTED_ALGORITHM",
-            message=f"Unsupported signing algorithm '{algorithm}'"
-            + (f": {reason}" if reason else ""),
+            message=f"Unsupported signing algorithm '{algorithm}'" + (f": {reason}" if reason else ""),
             severity=Severity.FATAL,
             metadata={"algorithm": algorithm, "reason": reason, **(kwargs.get("metadata") or {})},
         )
@@ -635,16 +643,17 @@ class UnsupportedAlgorithmFault(SigningFault):
 # SYSTEM Faults
 # ============================================================================
 
+
 class SystemFault(Fault):
     """Base class for fatal system faults."""
-    
+
     def __init__(
         self,
         code: str,
         message: str,
         *,
         severity: Severity = Severity.FATAL,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ):
         super().__init__(
             code=code,
@@ -659,7 +668,7 @@ class SystemFault(Fault):
 
 class UnrecoverableFault(SystemFault):
     """Unrecoverable system fault."""
-    
+
     def __init__(self, reason: str, **kwargs):
         super().__init__(
             code="UNRECOVERABLE",
@@ -670,7 +679,7 @@ class UnrecoverableFault(SystemFault):
 
 class ResourceExhaustedFault(SystemFault):
     """System resources exhausted."""
-    
+
     def __init__(self, resource: str, *, message: str = "", **kwargs):
         super().__init__(
             code="RESOURCE_EXHAUSTED",
@@ -684,9 +693,10 @@ class ResourceExhaustedFault(SystemFault):
 # MODEL Faults (ORM / Database)
 # ============================================================================
 
+
 class ModelFault(Fault):
     """Base class for model and database faults."""
-    
+
     def __init__(
         self,
         code: str,
@@ -695,7 +705,7 @@ class ModelFault(Fault):
         severity: Severity = Severity.ERROR,
         retryable: bool = False,
         public: bool = False,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ):
         super().__init__(
             code=code,
@@ -710,7 +720,7 @@ class ModelFault(Fault):
 
 class AMDLParseFault(ModelFault):
     """AMDL file parsing failed."""
-    
+
     def __init__(self, file: str, line: int, reason: str, **kwargs):
         super().__init__(
             code="AMDL_PARSE_ERROR",
@@ -722,7 +732,7 @@ class AMDLParseFault(ModelFault):
 
 class ModelNotFoundFault(ModelFault):
     """Model not found in registry."""
-    
+
     def __init__(self, model_name: str, **kwargs):
         super().__init__(
             code="MODEL_NOT_FOUND",
@@ -733,7 +743,7 @@ class ModelNotFoundFault(ModelFault):
 
 class ModelRegistrationFault(ModelFault):
     """Model registration failed."""
-    
+
     def __init__(self, model_name: str, reason: str, **kwargs):
         super().__init__(
             code="MODEL_REGISTRATION_FAILED",
@@ -744,7 +754,7 @@ class ModelRegistrationFault(ModelFault):
 
 class MigrationFault(ModelFault):
     """Database migration failed."""
-    
+
     def __init__(self, migration: str, reason: str, **kwargs):
         super().__init__(
             code="MIGRATION_FAILED",
@@ -755,7 +765,7 @@ class MigrationFault(ModelFault):
 
 class MigrationConflictFault(ModelFault):
     """Migration conflict detected (e.g. divergent migration branches)."""
-    
+
     def __init__(self, conflicting: list[str], **kwargs):
         super().__init__(
             code="MIGRATION_CONFLICT",
@@ -767,8 +777,10 @@ class MigrationConflictFault(ModelFault):
 
 class QueryFault(ModelFault):
     """Query execution failed."""
-    
-    def __init__(self, model: str = "unknown", operation: str = "query", reason: str = "", *, message: str = "", **kwargs):
+
+    def __init__(
+        self, model: str = "unknown", operation: str = "query", reason: str = "", *, message: str = "", **kwargs
+    ):
         if message and not reason:
             reason = message
         super().__init__(
@@ -781,7 +793,7 @@ class QueryFault(ModelFault):
 
 class DatabaseConnectionFault(ModelFault):
     """Database connection failed."""
-    
+
     def __init__(self, url: str = "", reason: str = "", *, backend: str = "", **kwargs):
         display = backend or url
         super().__init__(
@@ -795,7 +807,7 @@ class DatabaseConnectionFault(ModelFault):
 
 class SchemaFault(ModelFault):
     """Schema creation or validation failed."""
-    
+
     def __init__(self, table: str, reason: str, **kwargs):
         super().__init__(
             code="SCHEMA_FAULT",
@@ -947,9 +959,7 @@ class HTTPFault(Fault):
         metadata: dict[str, Any] | None = None,
     ):
         if not isinstance(status, int) or not (400 <= status <= 599):
-            raise ValueError(
-                f"HTTPFault status must be an integer in 400..599, got {status!r}"
-            )
+            raise ValueError(f"HTTPFault status must be an integer in 400..599, got {status!r}")
         self.status = status
         self.detail = detail
         reason = http_reason(status)
@@ -974,10 +984,7 @@ class HTTPFault(Fault):
 
     def __repr__(self) -> str:
         try:
-            return (
-                f"{type(self).__name__}(status={self.status}, "
-                f"code={self.code!r}, detail={self.detail!r})"
-            )
+            return f"{type(self).__name__}(status={self.status}, code={self.code!r}, detail={self.detail!r})"
         except AttributeError:
             # __init__ may have raised before setting all attributes
             return f"{type(self).__name__}(<incomplete>)"
@@ -985,14 +992,17 @@ class HTTPFault(Fault):
 
 # ── 4xx Client Errors ────────────────────────────────────────────────
 
+
 class BadRequestFault(HTTPFault):
     """400 Bad Request."""
+
     def __init__(self, detail: str = "", **kw: Any):
         super().__init__(400, detail=detail, **kw)
 
 
 class UnauthorizedFault(HTTPFault):
     """401 Unauthorized."""
+
     def __init__(self, detail: str = "", *, scheme: str = "Bearer", **kw: Any):
         headers = kw.pop("headers", None) or {}
         if "WWW-Authenticate" not in headers:
@@ -1002,18 +1012,21 @@ class UnauthorizedFault(HTTPFault):
 
 class PaymentRequiredFault(HTTPFault):
     """402 Payment Required."""
+
     def __init__(self, detail: str = "", **kw: Any):
         super().__init__(402, detail=detail, **kw)
 
 
 class ForbiddenFault(HTTPFault):
     """403 Forbidden."""
+
     def __init__(self, detail: str = "", **kw: Any):
         super().__init__(403, detail=detail, **kw)
 
 
 class NotFoundFault(HTTPFault):
     """404 Not Found."""
+
     def __init__(self, detail: str = "", **kw: Any):
         super().__init__(404, detail=detail, **kw)
 
@@ -1025,6 +1038,7 @@ class MethodNotAllowedFault(HTTPFault):
     The ``Allow`` header is stored in ``metadata["headers"]`` and
     applied automatically by the transport layer.
     """
+
     def __init__(self, allowed: list[str] | None = None, *, detail: str = "", **kw: Any):
         allowed = allowed or []
         headers = kw.pop("headers", None) or {}
@@ -1032,73 +1046,87 @@ class MethodNotAllowedFault(HTTPFault):
         _meta = kw.pop("metadata", None) or {}
         _meta["allowed_methods"] = sorted(allowed)
         super().__init__(
-            405, detail=detail or f"Allowed methods: {', '.join(sorted(allowed))}",
-            headers=headers, metadata=_meta, **kw,
+            405,
+            detail=detail or f"Allowed methods: {', '.join(sorted(allowed))}",
+            headers=headers,
+            metadata=_meta,
+            **kw,
         )
 
 
 class NotAcceptableFault(HTTPFault):
     """406 Not Acceptable."""
+
     def __init__(self, detail: str = "", **kw: Any):
         super().__init__(406, detail=detail, **kw)
 
 
 class RequestTimeoutFault(HTTPFault):
     """408 Request Timeout."""
+
     def __init__(self, detail: str = "", **kw: Any):
         super().__init__(408, detail=detail, **kw)
 
 
 class ConflictFault(HTTPFault):
     """409 Conflict."""
+
     def __init__(self, detail: str = "", **kw: Any):
         super().__init__(409, detail=detail, **kw)
 
 
 class GoneFault(HTTPFault):
     """410 Gone."""
+
     def __init__(self, detail: str = "", **kw: Any):
         super().__init__(410, detail=detail, **kw)
 
 
 class PayloadTooLargeFault(HTTPFault):
     """413 Content Too Large."""
+
     def __init__(self, detail: str = "", **kw: Any):
         super().__init__(413, detail=detail, **kw)
 
 
 class URITooLongFault(HTTPFault):
     """414 URI Too Long."""
+
     def __init__(self, detail: str = "", **kw: Any):
         super().__init__(414, detail=detail, **kw)
 
 
 class UnsupportedMediaTypeFault(HTTPFault):
     """415 Unsupported Media Type."""
+
     def __init__(self, detail: str = "", **kw: Any):
         super().__init__(415, detail=detail, **kw)
 
 
 class UnprocessableEntityFault(HTTPFault):
     """422 Unprocessable Content."""
+
     def __init__(self, detail: str = "", **kw: Any):
         super().__init__(422, detail=detail, **kw)
 
 
 class LockedFault(HTTPFault):
     """423 Locked."""
+
     def __init__(self, detail: str = "", **kw: Any):
         super().__init__(423, detail=detail, **kw)
 
 
 class TooEarlyFault(HTTPFault):
     """425 Too Early."""
+
     def __init__(self, detail: str = "", **kw: Any):
         super().__init__(425, detail=detail, **kw)
 
 
 class PreconditionRequiredFault(HTTPFault):
     """428 Precondition Required."""
+
     def __init__(self, detail: str = "", **kw: Any):
         super().__init__(428, detail=detail, **kw)
 
@@ -1108,6 +1136,7 @@ class TooManyRequestsFault(HTTPFault):
 
     Includes ``Retry-After`` header when *retry_after* is provided.
     """
+
     def __init__(self, detail: str = "", *, retry_after: int | None = None, **kw: Any):
         headers = kw.pop("headers", None) or {}
         if retry_after is not None:
@@ -1118,38 +1147,46 @@ class TooManyRequestsFault(HTTPFault):
         super().__init__(
             429,
             detail=detail or (f"Retry after {retry_after}s" if retry_after else ""),
-            headers=headers, metadata=_meta, **kw,
+            headers=headers,
+            metadata=_meta,
+            **kw,
         )
 
 
 class RequestHeaderFieldsTooLargeFault(HTTPFault):
     """431 Request Header Fields Too Large."""
+
     def __init__(self, detail: str = "", **kw: Any):
         super().__init__(431, detail=detail, **kw)
 
 
 class UnavailableForLegalReasonsFault(HTTPFault):
     """451 Unavailable For Legal Reasons."""
+
     def __init__(self, detail: str = "", **kw: Any):
         super().__init__(451, detail=detail, **kw)
 
 
 # ── 5xx Server Errors ────────────────────────────────────────────────
 
+
 class InternalServerErrorFault(HTTPFault):
     """500 Internal Server Error."""
+
     def __init__(self, detail: str = "", **kw: Any):
         super().__init__(500, detail=detail, severity=Severity.ERROR, **kw)
 
 
 class NotImplementedFault(HTTPFault):
     """501 Not Implemented."""
+
     def __init__(self, detail: str = "", **kw: Any):
         super().__init__(501, detail=detail, severity=Severity.ERROR, **kw)
 
 
 class BadGatewayFault(HTTPFault):
     """502 Bad Gateway."""
+
     def __init__(self, detail: str = "", **kw: Any):
         super().__init__(502, detail=detail, severity=Severity.ERROR, **kw)
 
@@ -1159,6 +1196,7 @@ class ServiceUnavailableFault(HTTPFault):
 
     Includes ``Retry-After`` header when *retry_after* is provided.
     """
+
     def __init__(self, detail: str = "", *, retry_after: int | None = None, **kw: Any):
         headers = kw.pop("headers", None) or {}
         if retry_after is not None:
@@ -1167,13 +1205,18 @@ class ServiceUnavailableFault(HTTPFault):
         if retry_after is not None:
             _meta["retry_after"] = retry_after
         super().__init__(
-            503, detail=detail, severity=Severity.ERROR,
-            headers=headers, metadata=_meta, **kw,
+            503,
+            detail=detail,
+            severity=Severity.ERROR,
+            headers=headers,
+            metadata=_meta,
+            **kw,
         )
 
 
 class GatewayTimeoutFault(HTTPFault):
     """504 Gateway Timeout."""
+
     def __init__(self, detail: str = "", **kw: Any):
         super().__init__(504, detail=detail, severity=Severity.ERROR, **kw)
 
@@ -1181,6 +1224,7 @@ class GatewayTimeoutFault(HTTPFault):
 # ============================================================================
 # PROVIDER Faults
 # ============================================================================
+
 
 class ProviderFault(Fault):
     """Base class for cloud provider integration faults."""
@@ -1192,7 +1236,7 @@ class ProviderFault(Fault):
         *,
         severity: Severity = Severity.ERROR,
         retryable: bool = True,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ):
         super().__init__(
             code=code,
@@ -1213,8 +1257,8 @@ class ProviderAPIFault(ProviderFault):
         status_code: int,
         message: str,
         *,
-        detail: Optional[str] = None,
-        request_id: Optional[str] = None,
+        detail: str | None = None,
+        request_id: str | None = None,
         provider: str = "render",
         **kwargs,
     ):
@@ -1245,7 +1289,7 @@ class ProviderAuthFault(ProviderFault):
         status_code: int = 401,
         message: str = "Authentication failed",
         *,
-        request_id: Optional[str] = None,
+        request_id: str | None = None,
         provider: str = "render",
         **kwargs,
     ):
@@ -1319,7 +1363,7 @@ class ProviderCredentialFault(ProviderFault):
         reason: str,
         *,
         provider: str = "render",
-        path: Optional[str] = None,
+        path: str | None = None,
         **kwargs,
     ):
         super().__init__(
@@ -1363,6 +1407,7 @@ class ProviderConnectionFault(ProviderFault):
 # DEPLOY Faults
 # ============================================================================
 
+
 class DeployFault(Fault):
     """Base class for deployment orchestration faults."""
 
@@ -1373,7 +1418,7 @@ class DeployFault(Fault):
         *,
         severity: Severity = Severity.ERROR,
         retryable: bool = False,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ):
         super().__init__(
             code=code,
@@ -1419,8 +1464,8 @@ class DeployHealthFault(DeployFault):
         self,
         last_status: str,
         *,
-        timeout: Optional[int] = None,
-        messages: Optional[list[str]] = None,
+        timeout: int | None = None,
+        messages: list[str] | None = None,
         **kwargs,
     ):
         super().__init__(

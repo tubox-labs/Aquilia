@@ -7,12 +7,11 @@ and provides a base class with common lifecycle patterns.
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 from ..health import HealthRegistry, HealthStatus, SubsystemStatus
 from ..manifest import AppManifest
@@ -24,6 +23,7 @@ logger = logging.getLogger("aquilia.subsystems")
 # Boot Context
 # ============================================================================
 
+
 @dataclass
 class BootContext:
     """
@@ -33,12 +33,13 @@ class BootContext:
     configuration, manifests, the runtime registry, middleware stack,
     health registry, and a shared state dict for cross-subsystem data.
     """
-    config: Dict[str, Any]                    # Merged workspace configuration
-    manifests: List[AppManifest]              # All loaded app manifests
-    registry: Any = None                      # RuntimeRegistry (set during boot)
-    middleware_stack: Any = None               # MiddlewareStack (set during boot)
+
+    config: dict[str, Any]  # Merged workspace configuration
+    manifests: list[AppManifest]  # All loaded app manifests
+    registry: Any = None  # RuntimeRegistry (set during boot)
+    middleware_stack: Any = None  # MiddlewareStack (set during boot)
     health: HealthRegistry = field(default_factory=HealthRegistry)
-    shared_state: Dict[str, Any] = field(default_factory=dict)
+    shared_state: dict[str, Any] = field(default_factory=dict)
 
     def get_config(self, key: str, default: Any = None) -> Any:
         """Get a configuration value by dotted key path."""
@@ -51,7 +52,7 @@ class BootContext:
                 return default
         return value
 
-    def get_manifest(self, module_name: str) -> Optional[AppManifest]:
+    def get_manifest(self, module_name: str) -> AppManifest | None:
         """Get a manifest by module name."""
         for m in self.manifests:
             if m.name == module_name:
@@ -62,6 +63,7 @@ class BootContext:
 # ============================================================================
 # Protocol
 # ============================================================================
+
 
 @runtime_checkable
 class SubsystemInitializer(Protocol):
@@ -119,6 +121,7 @@ class SubsystemInitializer(Protocol):
 # Base Implementation
 # ============================================================================
 
+
 class BaseSubsystem(ABC):
     """
     Base class for subsystem initializers with common lifecycle patterns.
@@ -171,9 +174,7 @@ class BaseSubsystem(ABC):
             )
         except Exception as e:
             elapsed = (time.monotonic() - start) * 1000
-            self._logger.error(
-                f"{self._name} failed ({elapsed:.1f}ms): {e}"
-            )
+            self._logger.error(f"{self._name} failed ({elapsed:.1f}ms): {e}")
             return HealthStatus(
                 name=self._name,
                 status=SubsystemStatus.UNHEALTHY,

@@ -1,29 +1,29 @@
 """Aquilia CLI -- UI utilities (re-exports from colors module)."""
 
 from .colors import (  # noqa: F401
-    # Basic output
-    success,
-    error,
-    warning,
-    info,
-    dim,
-    bold,
     accent,
+    badge,
     # Structural
     banner,
-    section,
-    rule,
-    kv,
-    badge,
-    tree_item,
+    bold,
     bullet,
-    step,
-    indent_echo,
-    table,
-    panel,
+    dim,
+    error,
+    file_dry,
+    file_skipped,
     # File-operation helpers
     file_written,
-    file_skipped,
-    file_dry,
+    indent_echo,
+    info,
+    kv,
     next_steps,
+    panel,
+    rule,
+    section,
+    step,
+    # Basic output
+    success,
+    table,
+    tree_item,
+    warning,
 )

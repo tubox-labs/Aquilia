@@ -32,14 +32,15 @@ Or auto-registered via ``Integration.mlops()`` in the server setup.
 
 from __future__ import annotations
 
+import contextlib
 import logging
-from typing import Any, Dict, Optional
+from typing import Any
 
 logger = logging.getLogger("aquilia.mlops.lifecycle")
 
 
 async def mlops_on_startup(
-    config: Optional[Dict[str, Any]] = None,
+    config: dict[str, Any] | None = None,
     di_container: Any = None,
 ) -> None:
     """
@@ -96,35 +97,34 @@ async def mlops_on_startup(
             cache = await di_container.resolve_async(CacheService, optional=True)
             if cache and hasattr(cache, "initialize"):
                 await cache.initialize()
-    except Exception as exc:
+    except Exception:
         pass
 
     # 5. Ensure artifact store directory exists
     try:
         import os
 
-        artifact_dir = cfg.get("artifact_store_dir",
-                               cfg.get("registry", {}).get("blob_root", "artifacts"))
+        artifact_dir = cfg.get("artifact_store_dir", cfg.get("registry", {}).get("blob_root", "artifacts"))
         os.makedirs(artifact_dir, exist_ok=True)
-    except Exception as exc:
+    except Exception:
         pass
 
     # 6. Register MLOps fault event listener for metrics observability
     try:
         if di_container is not None and hasattr(di_container, "resolve_async"):
             from aquilia.faults import FaultEngine
+
             from ..observe.metrics import MetricsCollector
 
             fault_engine = await di_container.resolve_async(FaultEngine, optional=True)
             metrics = await di_container.resolve_async(MetricsCollector, optional=True)
             if fault_engine and metrics:
+
                 def _fault_metrics_listener(ctx):
                     """Record fault events in MLOps metrics."""
                     if hasattr(ctx, "fault") and hasattr(ctx.fault, "domain"):
                         domain_name = (
-                            ctx.fault.domain.name
-                            if hasattr(ctx.fault.domain, "name")
-                            else str(ctx.fault.domain)
+                            ctx.fault.domain.name if hasattr(ctx.fault.domain, "name") else str(ctx.fault.domain)
                         )
                         if domain_name.startswith("mlops"):
                             metrics.record_inference(
@@ -134,18 +134,16 @@ async def mlops_on_startup(
                             )
 
                 fault_engine.on_fault(_fault_metrics_listener)
-    except Exception as exc:
+    except Exception:
         pass
 
     # 7. Detect GPU/device capabilities
-    try:
-        device_info = _detect_device_capabilities()
-    except Exception as exc:
-        pass
+    with contextlib.suppress(Exception):
+        _detect_device_capabilities()
 
 
 async def mlops_on_shutdown(
-    config: Optional[Dict[str, Any]] = None,
+    config: dict[str, Any] | None = None,
     di_container: Any = None,
 ) -> None:
     """
@@ -162,7 +160,7 @@ async def mlops_on_shutdown(
             cb = di_container.resolve(CircuitBreaker)
             if cb:
                 cb.force_open()
-    except Exception as exc:
+    except Exception:
         pass
 
     try:
@@ -172,7 +170,7 @@ async def mlops_on_shutdown(
             metrics = di_container.resolve(MetricsCollector)
             if metrics:
                 pass  # metrics flushed on GC
-    except Exception as exc:
+    except Exception:
         pass
 
     # 3. Gracefully unload models / release GPU memory
@@ -194,7 +192,7 @@ async def mlops_on_shutdown(
                 torch.cuda.synchronize()
         except ImportError:
             pass
-    except Exception as exc:
+    except Exception:
         pass
 
     try:
@@ -204,7 +202,7 @@ async def mlops_on_shutdown(
             host = di_container.resolve(PluginHost)
             if host:
                 host.deactivate_all()
-    except Exception as exc:
+    except Exception:
         pass
 
     # 5. Shutdown CacheService
@@ -215,7 +213,7 @@ async def mlops_on_shutdown(
             cache = di_container.resolve(CacheService)
             if cache and hasattr(cache, "shutdown"):
                 await cache.shutdown()
-    except Exception as exc:
+    except Exception:
         pass
 
     try:
@@ -225,13 +223,13 @@ async def mlops_on_shutdown(
             registry = di_container.resolve(RegistryService)
             if registry:
                 await registry.close()
-    except Exception as exc:
+    except Exception:
         pass
 
 
-def _flatten_mlops_config(cfg: Dict[str, Any]) -> Dict[str, Any]:
+def _flatten_mlops_config(cfg: dict[str, Any]) -> dict[str, Any]:
     """Flatten nested MLOps config into a flat dict for DI registration."""
-    flat: Dict[str, Any] = {}
+    flat: dict[str, Any] = {}
     flat["enabled"] = cfg.get("enabled", True)
 
     # Registry
@@ -320,9 +318,9 @@ def _flatten_mlops_config(cfg: Dict[str, Any]) -> Dict[str, Any]:
     return flat
 
 
-def _detect_device_capabilities() -> Dict[str, Any]:
+def _detect_device_capabilities() -> dict[str, Any]:
     """Detect available compute devices (CPU, CUDA, MPS, etc.)."""
-    info: Dict[str, Any] = {"device": "cpu", "gpu_count": 0, "gpu_memory": "N/A"}
+    info: dict[str, Any] = {"device": "cpu", "gpu_count": 0, "gpu_memory": "N/A"}
 
     try:
         import torch
@@ -337,13 +335,15 @@ def _detect_device_capabilities() -> Dict[str, Any]:
                 props = torch.cuda.get_device_properties(i)
                 mem_gb = round(props.total_mem / (1024**3), 2)
                 total_mem += mem_gb
-                info["gpus"].append({
-                    "index": i,
-                    "name": props.name,
-                    "memory_gb": mem_gb,
-                    "major": props.major,
-                    "minor": props.minor,
-                })
+                info["gpus"].append(
+                    {
+                        "index": i,
+                        "name": props.name,
+                        "memory_gb": mem_gb,
+                        "major": props.major,
+                        "minor": props.minor,
+                    }
+                )
             info["gpu_memory"] = f"{total_mem:.1f} GB"
         elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
             info["device"] = "mps"

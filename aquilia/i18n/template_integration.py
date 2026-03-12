@@ -21,19 +21,19 @@ into the template engine at startup.
 from __future__ import annotations
 
 import logging
-from datetime import date, datetime, time
-from typing import Any, Dict, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from jinja2 import Environment
+
     from .service import I18nService
 
 logger = logging.getLogger("aquilia.i18n.templates")
 
 
 def register_i18n_template_globals(
-    env: "Environment",
-    service: "I18nService",
+    env: Environment,
+    service: I18nService,
 ) -> None:
     """
     Register i18n globals and filters on a Jinja2 Environment.
@@ -111,23 +111,23 @@ def register_i18n_template_globals(
         locale = kwargs.pop("locale", None) or _get_ctx_locale(env)
         return service.t(value, locale=locale, **kwargs)
 
-    def filter_format_number(value: Any, locale: Optional[str] = None, **kwargs) -> str:
+    def filter_format_number(value: Any, locale: str | None = None, **kwargs) -> str:
         loc = locale or _get_ctx_locale(env)
         return format_number(value, loc, **kwargs)
 
-    def filter_format_currency(value: Any, currency: str = "USD", locale: Optional[str] = None, **kwargs) -> str:
+    def filter_format_currency(value: Any, currency: str = "USD", locale: str | None = None, **kwargs) -> str:
         loc = locale or _get_ctx_locale(env)
         return format_currency(value, currency, loc, **kwargs)
 
-    def filter_format_date(value: Any, locale: Optional[str] = None, **kwargs) -> str:
+    def filter_format_date(value: Any, locale: str | None = None, **kwargs) -> str:
         loc = locale or _get_ctx_locale(env)
         return format_date(value, loc, **kwargs)
 
-    def filter_format_time(value: Any, locale: Optional[str] = None, **kwargs) -> str:
+    def filter_format_time(value: Any, locale: str | None = None, **kwargs) -> str:
         loc = locale or _get_ctx_locale(env)
         return format_time(value, loc, **kwargs)
 
-    def filter_format_percent(value: Any, locale: Optional[str] = None, **kwargs) -> str:
+    def filter_format_percent(value: Any, locale: str | None = None, **kwargs) -> str:
         loc = locale or _get_ctx_locale(env)
         return format_percent(value, loc, **kwargs)
 
@@ -138,7 +138,6 @@ def register_i18n_template_globals(
     env.filters["format_date"] = filter_format_date
     env.filters["format_time"] = filter_format_time
     env.filters["format_percent"] = filter_format_percent
-
 
 
 class I18nTemplateExtension:
@@ -160,10 +159,10 @@ class I18nTemplateExtension:
     ``register_i18n_template_globals()``.
     """
 
-    def __init__(self, service: "I18nService"):
+    def __init__(self, service: I18nService):
         self.service = service
 
-    def apply(self, env: "Environment") -> None:
+    def apply(self, env: Environment) -> None:
         """Apply the i18n extension to the Jinja2 environment."""
         register_i18n_template_globals(env, self.service)
 
@@ -175,7 +174,8 @@ class I18nTemplateExtension:
 # Internal Helpers
 # ═══════════════════════════════════════════════════════════════════════════
 
-def _get_ctx_locale(env: "Environment") -> str:
+
+def _get_ctx_locale(env: Environment) -> str:
     """
     Get the current locale from template rendering context.
 

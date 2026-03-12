@@ -52,10 +52,11 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Dict, List, Optional, Sequence, TYPE_CHECKING
+from collections.abc import Callable, Sequence
+from typing import TYPE_CHECKING, Any
 
+from .lazy import clear_lazy_context, set_lazy_context
 from .locale import negotiate_locale, normalize_locale, parse_locale
-from .lazy import set_lazy_context, clear_lazy_context
 
 if TYPE_CHECKING:
     from .service import I18nService
@@ -67,6 +68,7 @@ logger = logging.getLogger("aquilia.i18n.middleware")
 # Locale Resolvers
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class LocaleResolver(ABC):
     """
     Abstract locale resolver.
@@ -76,7 +78,7 @@ class LocaleResolver(ABC):
     """
 
     @abstractmethod
-    def resolve(self, request: Any) -> Optional[str]:
+    def resolve(self, request: Any) -> str | None:
         """
         Attempt to resolve locale from the request.
 
@@ -101,7 +103,7 @@ class HeaderLocaleResolver(LocaleResolver):
         self.available_locales = list(available_locales)
         self.default_locale = default_locale
 
-    def resolve(self, request: Any) -> Optional[str]:
+    def resolve(self, request: Any) -> str | None:
         accept = _get_header(request, "accept-language")
         if not accept:
             return None
@@ -119,11 +121,11 @@ class CookieLocaleResolver(LocaleResolver):
     Cookie name defaults to ``aq_locale`` (configurable via I18nConfig).
     """
 
-    def __init__(self, cookie_name: str = "aq_locale", available_locales: Optional[Sequence[str]] = None):
+    def __init__(self, cookie_name: str = "aq_locale", available_locales: Sequence[str] | None = None):
         self.cookie_name = cookie_name
         self.available_locales = set(available_locales) if available_locales else None
 
-    def resolve(self, request: Any) -> Optional[str]:
+    def resolve(self, request: Any) -> str | None:
         cookies = _get_cookies(request)
         value = cookies.get(self.cookie_name)
         if not value:
@@ -147,11 +149,11 @@ class QueryLocaleResolver(LocaleResolver):
     Parameter name defaults to ``lang`` (configurable via I18nConfig).
     """
 
-    def __init__(self, param_name: str = "lang", available_locales: Optional[Sequence[str]] = None):
+    def __init__(self, param_name: str = "lang", available_locales: Sequence[str] | None = None):
         self.param_name = param_name
         self.available_locales = set(available_locales) if available_locales else None
 
-    def resolve(self, request: Any) -> Optional[str]:
+    def resolve(self, request: Any) -> str | None:
         params = _get_query_params(request)
         value = params.get(self.param_name)
         if not value:
@@ -174,10 +176,10 @@ class PathLocaleResolver(LocaleResolver):
     Matches paths like ``/en/about``, ``/fr-CA/help``.
     """
 
-    def __init__(self, available_locales: Optional[Sequence[str]] = None):
+    def __init__(self, available_locales: Sequence[str] | None = None):
         self.available_locales = set(available_locales) if available_locales else None
 
-    def resolve(self, request: Any) -> Optional[str]:
+    def resolve(self, request: Any) -> str | None:
         path = _get_path(request)
         if not path or path == "/":
             return None
@@ -205,20 +207,18 @@ class SessionLocaleResolver(LocaleResolver):
     Reads ``request.state["session"]["locale"]`` if sessions are available.
     """
 
-    def __init__(self, session_key: str = "locale", available_locales: Optional[Sequence[str]] = None):
+    def __init__(self, session_key: str = "locale", available_locales: Sequence[str] | None = None):
         self.session_key = session_key
         self.available_locales = set(available_locales) if available_locales else None
 
-    def resolve(self, request: Any) -> Optional[str]:
+    def resolve(self, request: Any) -> str | None:
         state = _get_state(request)
         session = state.get("session")
         if not session:
             return None
 
         value = None
-        if isinstance(session, dict):
-            value = session.get(self.session_key)
-        elif hasattr(session, "get"):
+        if isinstance(session, dict) or hasattr(session, "get"):
             value = session.get(self.session_key)
 
         if not value:
@@ -248,13 +248,13 @@ class ChainLocaleResolver(LocaleResolver):
     def __init__(self, resolvers: Sequence[LocaleResolver]):
         self.resolvers = list(resolvers)
 
-    def resolve(self, request: Any) -> Optional[str]:
+    def resolve(self, request: Any) -> str | None:
         for resolver in self.resolvers:
             try:
                 result = resolver.resolve(request)
                 if result is not None:
                     return result
-            except Exception as e:
+            except Exception:
                 continue
         return None
 
@@ -262,6 +262,7 @@ class ChainLocaleResolver(LocaleResolver):
 # ═══════════════════════════════════════════════════════════════════════════
 # I18n Middleware
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class I18nMiddleware:
     """
@@ -282,8 +283,8 @@ class I18nMiddleware:
 
     def __init__(
         self,
-        service: "I18nService",
-        resolver: Optional[LocaleResolver] = None,
+        service: I18nService,
+        resolver: LocaleResolver | None = None,
     ):
         self.service = service
         self.resolver = resolver
@@ -327,6 +328,7 @@ class I18nMiddleware:
 # Factory
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 def build_resolver(config: Any) -> ChainLocaleResolver:
     """
     Build a ``ChainLocaleResolver`` from an ``I18nConfig``.
@@ -362,7 +364,8 @@ def build_resolver(config: Any) -> ChainLocaleResolver:
 # Request Helpers (Aquilia-compatible request interface)
 # ═══════════════════════════════════════════════════════════════════════════
 
-def _get_header(request: Any, name: str) -> Optional[str]:
+
+def _get_header(request: Any, name: str) -> str | None:
     """Get a header value from the request."""
     if hasattr(request, "headers"):
         headers = request.headers
@@ -373,7 +376,7 @@ def _get_header(request: Any, name: str) -> Optional[str]:
     return None
 
 
-def _get_cookies(request: Any) -> Dict[str, str]:
+def _get_cookies(request: Any) -> dict[str, str]:
     """Get cookies from the request."""
     if hasattr(request, "cookies"):
         cookies = request.cookies
@@ -384,7 +387,7 @@ def _get_cookies(request: Any) -> Dict[str, str]:
     return {}
 
 
-def _get_query_params(request: Any) -> Dict[str, str]:
+def _get_query_params(request: Any) -> dict[str, str]:
     """Get query parameters from the request."""
     if hasattr(request, "query_params"):
         qp = request.query_params
@@ -408,7 +411,7 @@ def _get_path(request: Any) -> str:
     return "/"
 
 
-def _get_state(request: Any) -> Dict[str, Any]:
+def _get_state(request: Any) -> dict[str, Any]:
     """Get the request state dict."""
     if hasattr(request, "state"):
         state = request.state

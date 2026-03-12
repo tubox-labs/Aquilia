@@ -7,11 +7,9 @@ Used both by the local modelpack builder and the registry backend.
 
 from __future__ import annotations
 
-import hashlib
 import logging
 import os
 from pathlib import Path
-from typing import List, Optional
 
 logger = logging.getLogger("aquilia.mlops.pack.content_store")
 
@@ -70,9 +68,9 @@ class ContentStore:
         if path.exists():
             path.unlink()
 
-    async def list_digests(self) -> List[str]:
+    async def list_digests(self) -> list[str]:
         """List all stored blob digests."""
-        digests: List[str] = []
+        digests: list[str] = []
         for algo_dir in self.root.iterdir():
             if not algo_dir.is_dir():
                 continue

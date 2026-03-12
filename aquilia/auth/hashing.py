@@ -19,11 +19,11 @@ OWASP 2024 recommended minimums are used as defaults.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Any, Dict
 import base64
 import hashlib
 import secrets
+from dataclasses import dataclass
+from typing import Any
 
 from aquilia.faults.domains import ConfigInvalidFault
 
@@ -31,13 +31,16 @@ from aquilia.faults.domains import ConfigInvalidFault
 
 try:
     from argon2 import PasswordHasher as Argon2PasswordHasher
-    from argon2.exceptions import VerifyMismatchError, InvalidHashError as InvalidHash
+    from argon2.exceptions import InvalidHashError as InvalidHash
+    from argon2.exceptions import VerifyMismatchError
+
     HAS_ARGON2 = True
 except ImportError:
     HAS_ARGON2 = False
 
 try:
     import bcrypt as _bcrypt_mod
+
     HAS_BCRYPT = True
 except ImportError:
     HAS_BCRYPT = False
@@ -74,7 +77,7 @@ class HasherConfig:
 
     # Argon2
     time_cost: int = 2
-    memory_cost: int = 65536       # 64 MiB (KiB units)
+    memory_cost: int = 65536  # 64 MiB (KiB units)
     parallelism: int = 4
     hash_len: int = 32
     salt_len: int = 16
@@ -94,20 +97,22 @@ class HasherConfig:
     pbkdf2_dklen: int = 32
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "HasherConfig":
+    def from_dict(cls, data: dict[str, Any]) -> HasherConfig:
         """Build from a plain dict (e.g. serialised from ``pyconfig``)."""
         known = {f.name for f in cls.__dataclass_fields__.values()}
         filtered = {k: v for k, v in data.items() if k in known}
         return cls(**filtered)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         from dataclasses import asdict
+
         return asdict(self)
 
 
 # ============================================================================
 # PasswordHasher — multi-algorithm password hashing engine
 # ============================================================================
+
 
 class PasswordHasher:
     """
@@ -153,16 +158,12 @@ class PasswordHasher:
     ):
         # Auto-detect best available algorithm
         if algorithm is None:
-            if HAS_ARGON2:
-                algorithm = "argon2id"
-            else:
-                algorithm = "pbkdf2_sha256"
+            algorithm = "argon2id" if HAS_ARGON2 else "pbkdf2_sha256"
 
         if algorithm not in SUPPORTED_ALGORITHMS:
             raise ConfigInvalidFault(
                 key="auth.hashing.algorithm",
-                reason=f"Unsupported algorithm {algorithm!r}. "
-                f"Choose from: {', '.join(SUPPORTED_ALGORITHMS)}",
+                reason=f"Unsupported algorithm {algorithm!r}. Choose from: {', '.join(SUPPORTED_ALGORITHMS)}",
             )
 
         self.algorithm = algorithm
@@ -176,9 +177,7 @@ class PasswordHasher:
 
         if algorithm == "argon2id":
             if not HAS_ARGON2:
-                raise ImportError(
-                    "argon2-cffi not installed. Install with: pip install argon2-cffi"
-                )
+                raise ImportError("argon2-cffi not installed. Install with: pip install argon2-cffi")
             self._argon2 = Argon2PasswordHasher(
                 time_cost=time_cost,
                 memory_cost=memory_cost,
@@ -196,9 +195,7 @@ class PasswordHasher:
         # ── bcrypt ──────────────────────────────────────────────────
         self.bcrypt_rounds = bcrypt_rounds
         if algorithm == "bcrypt" and not HAS_BCRYPT:
-            raise ImportError(
-                "bcrypt not installed. Install with: pip install bcrypt"
-            )
+            raise ImportError("bcrypt not installed. Install with: pip install bcrypt")
 
         # ── PBKDF2 ─────────────────────────────────────────────────
         self.pbkdf2_iterations = iterations or pbkdf2_iterations
@@ -206,7 +203,7 @@ class PasswordHasher:
         self.pbkdf2_dklen = pbkdf2_dklen
 
     @classmethod
-    def from_config(cls, config: HasherConfig) -> "PasswordHasher":
+    def from_config(cls, config: HasherConfig) -> PasswordHasher:
         """Build a PasswordHasher from a :class:`HasherConfig`."""
         return cls(
             algorithm=config.algorithm,
@@ -268,11 +265,13 @@ class PasswordHasher:
     async def hash_async(self, password: str) -> str:
         """Hash password without blocking the event loop."""
         import asyncio
+
         return await asyncio.to_thread(self.hash, password)
 
     async def verify_async(self, password_hash: str, password: str) -> bool:
         """Verify password without blocking the event loop."""
         import asyncio
+
         return await asyncio.to_thread(self.verify, password_hash, password)
 
     # ════════════════════════════════════════════════════════════════
@@ -354,8 +353,11 @@ class PasswordHasher:
     def _hash_scrypt(self, password: str) -> str:
         salt = secrets.token_bytes(self.salt_len)
         dk = hashlib.scrypt(
-            password.encode(), salt=salt,
-            n=self.scrypt_n, r=self.scrypt_r, p=self.scrypt_p,
+            password.encode(),
+            salt=salt,
+            n=self.scrypt_n,
+            r=self.scrypt_r,
+            p=self.scrypt_p,
             dklen=self.scrypt_dklen,
         )
         salt_b64 = base64.b64encode(salt).decode()
@@ -373,7 +375,12 @@ class PasswordHasher:
             salt = base64.b64decode(parts[3])
             stored = base64.b64decode(parts[4])
             computed = hashlib.scrypt(
-                password.encode(), salt=salt, n=n, r=r, p=p, dklen=len(stored),
+                password.encode(),
+                salt=salt,
+                n=n,
+                r=r,
+                p=p,
+                dklen=len(stored),
             )
             return secrets.compare_digest(computed, stored)
         except (IndexError, ValueError, KeyError):
@@ -398,7 +405,11 @@ class PasswordHasher:
     def _hash_pbkdf2(self, password: str, digest: str, iterations: int) -> str:
         salt = secrets.token_bytes(self.salt_len)
         dk = hashlib.pbkdf2_hmac(
-            digest, password.encode(), salt, iterations, dklen=self.pbkdf2_dklen,
+            digest,
+            password.encode(),
+            salt,
+            iterations,
+            dklen=self.pbkdf2_dklen,
         )
         salt_b64 = base64.b64encode(salt).decode()
         dk_b64 = base64.b64encode(dk).decode()
@@ -415,7 +426,11 @@ class PasswordHasher:
             salt = base64.b64decode(parts[3])
             stored = base64.b64decode(parts[4])
             computed = hashlib.pbkdf2_hmac(
-                digest, password.encode(), salt, iterations, dklen=len(stored),
+                digest,
+                password.encode(),
+                salt,
+                iterations,
+                dklen=len(stored),
             )
             return secrets.compare_digest(computed, stored)
         except (IndexError, ValueError):
@@ -425,6 +440,7 @@ class PasswordHasher:
 # ============================================================================
 # Password Validation
 # ============================================================================
+
 
 class PasswordPolicy:
     """
@@ -454,10 +470,26 @@ class PasswordPolicy:
         self.check_breached = check_breached
 
         self.blacklist = {
-            "password", "password123", "12345678", "qwerty", "abc123",
-            "monkey", "1234567", "letmein", "trustno1", "dragon",
-            "baseball", "iloveyou", "master", "sunshine", "ashley",
-            "bailey", "passw0rd", "shadow", "123123", "654321",
+            "password",
+            "password123",
+            "12345678",
+            "qwerty",
+            "abc123",
+            "monkey",
+            "1234567",
+            "letmein",
+            "trustno1",
+            "dragon",
+            "baseball",
+            "iloveyou",
+            "master",
+            "sunshine",
+            "ashley",
+            "bailey",
+            "passw0rd",
+            "shadow",
+            "123123",
+            "654321",
         }
 
     def validate(self, password: str) -> tuple[bool, list[str]]:
@@ -511,6 +543,7 @@ class PasswordPolicy:
 
     async def _is_breached_async(self, password: str) -> bool:
         import asyncio
+
         return await asyncio.to_thread(self._is_breached, password)
 
     async def validate_async(self, password: str) -> tuple[bool, list[str]]:
@@ -523,9 +556,8 @@ class PasswordPolicy:
         finally:
             self.check_breached = original_check_breached
         errors.extend(sync_errors)
-        if original_check_breached:
-            if await self._is_breached_async(password):
-                errors.append("Password has been found in data breaches")
+        if original_check_breached and await self._is_breached_async(password):
+            errors.append("Password has been found in data breaches")
         return (len(errors) == 0, errors)
 
 

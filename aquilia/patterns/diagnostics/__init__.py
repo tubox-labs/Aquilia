@@ -2,8 +2,8 @@
 
 from .errors import (
     PatternDiagnostic,
-    PatternSyntaxError,
     PatternSemanticError,
+    PatternSyntaxError,
     RouteAmbiguityError,
 )
 

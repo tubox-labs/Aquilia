@@ -10,16 +10,16 @@ Performance (v3 — scalability):
 
 from __future__ import annotations
 
-from typing import Callable, Awaitable, Optional, Dict, Any, List, TYPE_CHECKING
-from dataclasses import dataclass
-import time
-import traceback
 import logging
+import time
+from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
-from .request import Request
-from .response import Response, InternalError
 from .faults import Fault, FaultDomain
 from .faults.domains import HTTPFault
+from .request import Request
+from .response import Response
 
 if TYPE_CHECKING:
     from .controller.base import RequestCtx
@@ -36,20 +36,21 @@ _FAST_SKIP_NAMES = frozenset({"LoggingMiddleware", "TimeoutMiddleware"})
 # Must be a plain string with zero dependencies.
 _FALLBACK_500_HTML = (
     '<!DOCTYPE html><html><head><meta charset="utf-8">'
-    '<title>500 Internal Server Error</title>'
-    '<style>body{font-family:system-ui,sans-serif;background:#000;color:#ededed;'
-    'display:flex;justify-content:center;align-items:center;height:100vh;margin:0;}'
-    '.c{text-align:center;}.s{font-size:72px;font-weight:700;color:#ef4444;}'
-    'p{color:#888;}</style></head>'
+    "<title>500 Internal Server Error</title>"
+    "<style>body{font-family:system-ui,sans-serif;background:#000;color:#ededed;"
+    "display:flex;justify-content:center;align-items:center;height:100vh;margin:0;}"
+    ".c{text-align:center;}.s{font-size:72px;font-weight:700;color:#ef4444;}"
+    "p{color:#888;}</style></head>"
     '<body><div class="c"><div class="s">500</div>'
-    '<h1>Internal Server Error</h1>'
-    '<p>An unexpected error occurred.</p></div></body></html>'
+    "<h1>Internal Server Error</h1>"
+    "<p>An unexpected error occurred.</p></div></body></html>"
 )
 
 
 @dataclass
 class MiddlewareDescriptor:
     """Descriptor for middleware registration."""
+
     middleware: Middleware
     scope: str  # "global", "app:name", "controller:name", "route:pattern"
     priority: int
@@ -61,56 +62,56 @@ class MiddlewareStack:
     Manages middleware stack with deterministic ordering.
     Order: Global < App < Controller < Route, then by priority.
     """
-    
+
     def __init__(self):
-        self.middlewares: List[MiddlewareDescriptor] = []
+        self.middlewares: list[MiddlewareDescriptor] = []
         self._sorted = True  # Track if sorting is needed
-    
+
     def add(
         self,
         middleware: Middleware,
         scope: str = "global",
         priority: int = 50,
-        name: Optional[str] = None,
+        name: str | None = None,
     ):
         """Add middleware to stack."""
         if name is None:
             name = middleware.__name__ if hasattr(middleware, "__name__") else "middleware"
-        
+
         descriptor = MiddlewareDescriptor(
             middleware=middleware,
             scope=scope,
             priority=priority,
             name=name,
         )
-        
+
         self.middlewares.append(descriptor)
         self._sorted = False  # Defer sorting until build_handler()
-    
+
     def _sort_middlewares(self):
         """Sort middlewares by scope and priority."""
         scope_order = {"global": 0, "app": 1, "controller": 2, "route": 3}
-        
+
         def sort_key(desc: MiddlewareDescriptor):
             scope_type = desc.scope.split(":")[0]
             scope_rank = scope_order.get(scope_type, 99)
             return (scope_rank, desc.priority)
-        
+
         self.middlewares.sort(key=sort_key)
-    
+
     def build_handler(self, final_handler: Handler) -> Handler:
         """Build middleware chain wrapping the final handler."""
         # Sort only if needed (deferred from add())
         if not self._sorted:
             self._sort_middlewares()
             self._sorted = True
-        
+
         handler = final_handler
-        
+
         # Wrap in reverse order so first middleware is outermost
         for desc in reversed(self.middlewares):
             handler = self._wrap_middleware(desc.middleware, handler)
-        
+
         return handler
 
     def build_fast_handler(self, final_handler: Handler) -> Handler:
@@ -138,16 +139,18 @@ class MiddlewareStack:
             handler = self._wrap_middleware(mw, handler)
 
         return handler
-    
+
     def _wrap_middleware(self, middleware: Middleware, next_handler: Handler) -> Handler:
         """Wrap a handler with middleware."""
+
         async def wrapped(request: Request, ctx: RequestCtx) -> Response:
             return await middleware(request, ctx, next_handler)
-        
+
         return wrapped
 
 
 # Default middleware implementations
+
 
 class RequestIdMiddleware:
     """Adds unique request ID to each request.
@@ -160,6 +163,7 @@ class RequestIdMiddleware:
         self.header_name = header_name
         self._header_name_bytes = header_name.lower().encode("latin-1")
         import os
+
         self._urandom = os.urandom
 
     async def __call__(self, request: Request, ctx: RequestCtx, next: Handler) -> Response:
@@ -170,7 +174,7 @@ class RequestIdMiddleware:
             if name == target:
                 request_id = value.decode("latin-1")
                 break
-        
+
         if not request_id:
             request_id = self._urandom(16).hex()
 
@@ -190,11 +194,11 @@ class ExceptionMiddleware:
     MongoDB Atlas color palette with dark/light mode support.
     Otherwise, returns structured JSON error responses.
     """
-    
+
     def __init__(self, debug: bool = False):
         self.debug = debug
         self.logger = logging.getLogger("aquilia.exceptions")
-    
+
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
@@ -203,9 +207,9 @@ class ExceptionMiddleware:
         """Check if the client prefers an HTML response."""
         try:
             accept = ""
-            if hasattr(request, 'headers'):
+            if hasattr(request, "headers"):
                 h = request.headers
-                if hasattr(h, 'get'):
+                if hasattr(h, "get"):
                     accept = h.get("accept", "")
                 elif isinstance(h, dict):
                     accept = h.get("accept", "") or h.get("Accept", "")
@@ -225,6 +229,7 @@ class ExceptionMiddleware:
         """Get Aquilia version string."""
         try:
             from aquilia import __version__
+
             return __version__
         except Exception:
             return ""
@@ -232,18 +237,29 @@ class ExceptionMiddleware:
     def _render_debug_exception(self, exc: BaseException, request: Request) -> Response:
         """Render a full debug exception page."""
         from .debug.pages import render_debug_exception_page
+
         html_body = render_debug_exception_page(
-            exc, request, aquilia_version=self._get_version(),
+            exc,
+            request,
+            aquilia_version=self._get_version(),
         )
         return self._html_response(html_body, 500)
 
     def _render_debug_http_error(
-        self, status: int, message: str, detail: str, request: Request,
+        self,
+        status: int,
+        message: str,
+        detail: str,
+        request: Request,
     ) -> Response:
         """Render a styled HTTP error page."""
         from .debug.pages import render_http_error_page
+
         html_body = render_http_error_page(
-            status, message, detail, request,
+            status,
+            message,
+            detail,
+            request,
             aquilia_version=self._get_version(),
         )
         return self._html_response(html_body, status)
@@ -255,7 +271,7 @@ class ExceptionMiddleware:
     async def __call__(self, request: Request, ctx: RequestCtx, next: Handler) -> Response:
         try:
             return await next(request, ctx)
-        
+
         except PermissionError as e:
             # Forbidden -- 403
             self.logger.warning(f"PermissionError: {e}")
@@ -314,21 +330,21 @@ class ExceptionMiddleware:
             # Authentication faults (unauthenticated) → 401
             # Authorization faults (authenticated but forbidden) → 403
             _UNAUTHENTICATED_CODES = {
-                "AUTH_010",           # AUTH_REQUIRED
+                "AUTH_010",  # AUTH_REQUIRED
                 "AUTHENTICATION_REQUIRED",  # AuthenticationRequiredFault / session decorators
-                "SESSION_REQUIRED",   # SessionRequiredFault
-                "INVALID_CREDENTIALS", # Auth module login failure
+                "SESSION_REQUIRED",  # SessionRequiredFault
+                "INVALID_CREDENTIALS",  # Auth module login failure
             }
             _CONFLICT_CODES = {
                 "USER_ALREADY_EXISTS",  # Auth module registration failure
             }
-            
+
             status_map = {
                 FaultDomain.ROUTING: 404,
                 FaultDomain.SECURITY: 403,
                 FaultDomain.IO: 502,
                 FaultDomain.EFFECT: 503,
-                FaultDomain.MODEL: 404,        # DB Not Found usually
+                FaultDomain.MODEL: 404,  # DB Not Found usually
                 FaultDomain.CACHE: 502,
                 FaultDomain.CONFIG: 500,
                 FaultDomain.REGISTRY: 500,
@@ -338,9 +354,9 @@ class ExceptionMiddleware:
                 FaultDomain.STORAGE: 502,
                 FaultDomain.TASKS: 503,
                 FaultDomain.TEMPLATE: 500,
-                FaultDomain.HTTP: 500,          # Fallback (HTTPFault caught above)
+                FaultDomain.HTTP: 500,  # Fallback (HTTPFault caught above)
             }
-            
+
             code = getattr(e, "code", None)
             if code in _UNAUTHENTICATED_CODES:
                 status = 401
@@ -354,9 +370,9 @@ class ExceptionMiddleware:
                 status = 401
             else:
                 status = status_map.get(e.domain, 500)
-            
+
             message = e.message if (e.public or self.debug) else "Internal server error"
-            
+
             if status >= 500:
                 self.logger.error(f"Fault {e.code}: {e.message}")
             else:
@@ -374,7 +390,7 @@ class ExceptionMiddleware:
                 except Exception as render_exc:
                     self.logger.error(f"Error page renderer crashed: {render_exc}", exc_info=True)
                     return self._html_response(_FALLBACK_500_HTML, status)
-                
+
             return Response.json(
                 {
                     "error": {
@@ -385,7 +401,7 @@ class ExceptionMiddleware:
                 },
                 status=status,
             )
-        
+
         except Exception as e:
             # Internal error -- 500
             self.logger.error(f"Unhandled exception: {e}", exc_info=True)
@@ -398,7 +414,8 @@ class ExceptionMiddleware:
                     else:
                         # Styled error page in production (no traceback leak)
                         return self._render_debug_http_error(
-                            500, "Internal Server Error",
+                            500,
+                            "Internal Server Error",
                             "An unexpected error occurred processing your request.",
                             request,
                         )
@@ -409,9 +426,10 @@ class ExceptionMiddleware:
                         exc_info=True,
                     )
                     return self._html_response(
-                        _FALLBACK_500_HTML, 500,
+                        _FALLBACK_500_HTML,
+                        500,
                     )
-            
+
             # ARCH-04: Never leak tracebacks or exception messages in JSON
             # responses, even in debug mode.  Detailed stack traces are only
             # rendered in the HTML debug pages where they are useful for local
@@ -440,11 +458,12 @@ class LoggingMiddleware:
         response = await next(request, ctx)
         elapsed_ms = (time.monotonic() - start) * 1000.0
 
-
         if elapsed_ms > 1000:
             self.logger.warning(
                 "Slow request: %s %s took %.1fms",
-                request.method, request.path, elapsed_ms,
+                request.method,
+                request.path,
+                elapsed_ms,
             )
 
         return response
@@ -457,20 +476,18 @@ class TimeoutMiddleware:
     through the fault system and ExceptionMiddleware can render a
     proper HTML or JSON response via content negotiation.
     """
-    
+
     def __init__(self, timeout_seconds: float = 30.0):
         self.timeout = timeout_seconds
-    
+
     async def __call__(self, request: Request, ctx: RequestCtx, next: Handler) -> Response:
         import asyncio
-        
+
         try:
-            return await asyncio.wait_for(
-                next(request, ctx),
-                timeout=self.timeout
-            )
+            return await asyncio.wait_for(next(request, ctx), timeout=self.timeout)
         except asyncio.TimeoutError:
             from .faults.domains import RequestTimeoutFault
+
             raise RequestTimeoutFault(
                 detail=f"Request exceeded {self.timeout}s timeout",
             ) from None
@@ -478,12 +495,12 @@ class TimeoutMiddleware:
 
 class CORSMiddleware:
     """Handles CORS headers."""
-    
+
     def __init__(
         self,
-        allow_origins: List[str] = None,
-        allow_methods: List[str] = None,
-        allow_headers: List[str] = None,
+        allow_origins: list[str] = None,
+        allow_methods: list[str] = None,
+        allow_headers: list[str] = None,
         allow_credentials: bool = False,
         max_age: int = 3600,
     ):
@@ -492,31 +509,31 @@ class CORSMiddleware:
         self.allow_headers = allow_headers or ["*"]
         self.allow_credentials = allow_credentials
         self.max_age = max_age
-    
+
     async def __call__(self, request: Request, ctx: RequestCtx, next: Handler) -> Response:
         # Handle preflight
         if request.method == "OPTIONS":
             return self._preflight_response(request)
-        
+
         # Process request
         response = await next(request, ctx)
-        
+
         # Add CORS headers
         origin = request.header("origin")
         if origin and self._is_allowed_origin(origin):
             response.headers["access-control-allow-origin"] = origin
         elif "*" in self.allow_origins:
             response.headers["access-control-allow-origin"] = "*"
-        
+
         if self.allow_credentials:
             response.headers["access-control-allow-credentials"] = "true"
-        
+
         return response
-    
+
     def _is_allowed_origin(self, origin: str) -> bool:
         """Check if origin is allowed."""
         return "*" in self.allow_origins or origin in self.allow_origins
-    
+
     def _preflight_response(self, request: Request) -> Response:
         """Handle OPTIONS preflight request.
 
@@ -533,16 +550,16 @@ class CORSMiddleware:
             "access-control-allow-headers": ", ".join(self.allow_headers),
             "access-control-max-age": str(self.max_age),
         }
-        
+
         origin = request.header("origin")
         if origin and self._is_allowed_origin(origin):
             headers["access-control-allow-origin"] = origin
         elif "*" in self.allow_origins:
             headers["access-control-allow-origin"] = "*"
-        
+
         if self.allow_credentials:
             headers["access-control-allow-credentials"] = "true"
-        
+
         return Response(b"", status=204, headers=headers)
 
 
@@ -554,36 +571,37 @@ class CompressionMiddleware:
       ``asyncio.to_thread()`` so the event loop is never blocked.
     - Pre-bound ``gzip.compress`` avoids repeated module-level lookup.
     """
-    
+
     def __init__(self, minimum_size: int = 500):
         self.minimum_size = minimum_size
         import gzip as _gzip
+
         self._compress = _gzip.compress  # pre-bind for speed
-    
+
     async def __call__(self, request: Request, ctx: RequestCtx, next: Handler) -> Response:
         import asyncio as _aio
 
         response = await next(request, ctx)
-        
+
         # Check if client accepts gzip
         accept_encoding = request.header("accept-encoding", "")
         if "gzip" not in accept_encoding.lower():
             return response
-        
+
         # Don't compress streaming responses
         if hasattr(response._content, "__aiter__"):
             return response
-        
+
         # Get body
         body = response._encode_body(response._content)
-        
+
         # Only compress if large enough
         if len(body) < self.minimum_size:
             return response
-        
+
         # Compress in a thread pool to avoid blocking the event loop
         compressed = await _aio.to_thread(self._compress, body)
-        
+
         # Update response
         response._content = compressed
         response.headers["content-encoding"] = "gzip"
@@ -591,5 +609,5 @@ class CompressionMiddleware:
         # ARCH-13: Vary header prevents caches from serving gzipped content
         # to clients that don't support it (and vice versa).
         response.headers["vary"] = "Accept-Encoding"
-        
+
         return response

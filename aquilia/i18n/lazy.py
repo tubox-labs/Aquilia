@@ -22,18 +22,18 @@ Thread-safety: ``LazyString`` is immutable and safe for concurrent reads.
 
 from __future__ import annotations
 
-from typing import Any, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from .service import I18nService
 
 
 # Global reference set by I18nMiddleware or DI
-_service_ref: Optional["I18nService"] = None
-_locale_ref: Optional[str] = None
+_service_ref: I18nService | None = None
+_locale_ref: str | None = None
 
 
-def set_lazy_context(service: "I18nService", locale: Optional[str] = None) -> None:
+def set_lazy_context(service: I18nService, locale: str | None = None) -> None:
     """
     Set the global i18n context for lazy string resolution.
 
@@ -76,9 +76,9 @@ class LazyString:
         self,
         key: str,
         *,
-        default: Optional[str] = None,
-        locale: Optional[str] = None,
-        service: Optional["I18nService"] = None,
+        default: str | None = None,
+        locale: str | None = None,
+        service: I18nService | None = None,
         **kwargs: Any,
     ):
         self._key = key
@@ -163,10 +163,10 @@ class LazyString:
     def lower(self) -> str:
         return str(self).lower()
 
-    def strip(self, chars: Optional[str] = None) -> str:
+    def strip(self, chars: str | None = None) -> str:
         return str(self).strip(chars)
 
-    def split(self, sep: Optional[str] = None, maxsplit: int = -1) -> list[str]:
+    def split(self, sep: str | None = None, maxsplit: int = -1) -> list[str]:
         return str(self).split(sep, maxsplit)
 
     def replace(self, old: str, new: str, count: int = -1) -> str:
@@ -213,9 +213,9 @@ class LazyPluralString(LazyString):
         key: str,
         count: int | float,
         *,
-        default: Optional[str] = None,
-        locale: Optional[str] = None,
-        service: Optional["I18nService"] = None,
+        default: str | None = None,
+        locale: str | None = None,
+        service: I18nService | None = None,
         **kwargs: Any,
     ):
         super().__init__(key, default=default, locale=locale, service=service, **kwargs)
@@ -236,9 +236,9 @@ class LazyPluralString(LazyString):
 def lazy_t(
     key: str,
     *,
-    default: Optional[str] = None,
-    locale: Optional[str] = None,
-    service: Optional["I18nService"] = None,
+    default: str | None = None,
+    locale: str | None = None,
+    service: I18nService | None = None,
     **kwargs: Any,
 ) -> LazyString:
     """
@@ -268,9 +268,9 @@ def lazy_tn(
     key: str,
     count: int | float,
     *,
-    default: Optional[str] = None,
-    locale: Optional[str] = None,
-    service: Optional["I18nService"] = None,
+    default: str | None = None,
+    locale: str | None = None,
+    service: I18nService | None = None,
     **kwargs: Any,
 ) -> LazyPluralString:
     """

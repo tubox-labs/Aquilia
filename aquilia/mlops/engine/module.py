@@ -25,7 +25,7 @@ Usage::
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 class MLOpsManifest:
@@ -40,14 +40,14 @@ class MLOpsManifest:
     name = "mlops"
     version = "1.0.0"
     description = "Aquilia MLOps Platform -- model packaging, registry, serving & observability"
-    depends_on: List[str] = []
+    depends_on: list[str] = []
 
-    controllers: List[str] = [
+    controllers: list[str] = [
         "aquilia.mlops.serving.controllers.MLOpsController",
     ]
 
     # Service import paths (wired into DI)
-    services: List[str] = [
+    services: list[str] = [
         "aquilia.mlops.registry.service.RegistryService",
         "aquilia.mlops.observe.metrics.MetricsCollector",
         "aquilia.mlops.observe.drift.DriftDetector",
@@ -68,13 +68,13 @@ class MLOpsManifest:
     ]
 
     # Effects declared by this module
-    effects: List[str] = [
+    effects: list[str] = [
         "CacheEffect:mlops",
         "CacheEffect:mlops.registry",
     ]
 
     # Fault domains registered by this module
-    fault_domains: List[str] = [
+    fault_domains: list[str] = [
         "mlops",
         "mlops.pack",
         "mlops.registry",
@@ -90,7 +90,7 @@ class MLOpsManifest:
     ]
 
     # Middleware (registered in order via MiddlewareDescriptor)
-    middleware: List[tuple[str, dict]] = [
+    middleware: list[tuple[str, dict]] = [
         ("aquilia.mlops.serving.middleware.mlops_request_id_middleware", {"scope": "app:mlops", "priority": 5}),
         ("aquilia.mlops.serving.middleware.mlops_rate_limit_middleware", {"scope": "app:mlops", "priority": 10}),
         ("aquilia.mlops.serving.middleware.mlops_circuit_breaker_middleware", {"scope": "app:mlops", "priority": 20}),
@@ -99,11 +99,13 @@ class MLOpsManifest:
 
     # Lifecycle hooks
     @staticmethod
-    async def on_startup(config: Optional[Dict[str, Any]] = None, **kwargs: Any) -> None:
+    async def on_startup(config: dict[str, Any] | None = None, **kwargs: Any) -> None:
         from .lifecycle import mlops_on_startup
+
         await mlops_on_startup(config=config, **kwargs)
 
     @staticmethod
     async def on_shutdown(**kwargs: Any) -> None:
         from .lifecycle import mlops_on_shutdown
+
         await mlops_on_shutdown(**kwargs)

@@ -60,6 +60,7 @@ Crous v2 Binary Format
 
 from __future__ import annotations
 
+import contextlib
 import ctypes
 import datetime
 import hashlib
@@ -73,7 +74,7 @@ import struct
 import sys
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from aquilia.faults.domains import ProviderCredentialFault
 
@@ -119,6 +120,7 @@ def _resolve_workspace_store_dir() -> Path:
     # 1. Canonical Aquilia workspace resolution (preferred)
     try:
         from aquilia.cli.utils.workspace import find_workspace_root
+
         ws_root = find_workspace_root()
         if ws_root is not None and ws_root.is_dir():
             return ws_root / _suffix
@@ -147,6 +149,7 @@ def _resolve_workspace_store_dir() -> Path:
 # Secure Memory Wiping
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 def _secure_zero(buffer: bytearray) -> None:
     """Overwrite a mutable buffer with zeros using ctypes."""
     if not buffer:
@@ -163,6 +166,7 @@ def _secure_zero(buffer: bytearray) -> None:
 # ═══════════════════════════════════════════════════════════════════════════
 # Key Derivation
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 def _derive_key(salt: bytes, context: str = "", iterations: int = _KEY_ITERATIONS) -> bytes:
     """Derive a 256-bit key from machine identity + salt.
@@ -202,20 +206,23 @@ def _derive_key_legacy(salt: bytes, context: str = "") -> bytes:
 # Cipher Suite
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 def _detect_cipher_suite() -> int:
     """Detect the best available cipher suite."""
     try:
         from cryptography.hazmat.primitives.ciphers.aead import AESGCM  # noqa: F401
+
         return _CIPHER_AES_GCM
     except ImportError:
         pass
     return _CIPHER_XOR_HMAC
 
 
-def _encrypt(key: bytes, nonce: bytes, plaintext: bytes, cipher_suite: int) -> Tuple[bytes, bytes]:
+def _encrypt(key: bytes, nonce: bytes, plaintext: bytes, cipher_suite: int) -> tuple[bytes, bytes]:
     """Encrypt plaintext. Returns (ciphertext, auth_tag)."""
     if cipher_suite == _CIPHER_AES_GCM:
         from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
         aes = AESGCM(key)
         ct = aes.encrypt(nonce, plaintext, None)
         return ct[:-_TAG_SIZE], ct[-_TAG_SIZE:]
@@ -226,20 +233,19 @@ def _decrypt(key: bytes, nonce: bytes, ciphertext: bytes, tag: bytes, cipher_sui
     """Decrypt ciphertext. Raises ProviderCredentialFault on failure."""
     if cipher_suite == _CIPHER_AES_GCM:
         from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
         aes = AESGCM(key)
         try:
             return aes.decrypt(nonce, ciphertext + tag, None)
         except Exception as e:
-            raise ProviderCredentialFault(
-                "AES-GCM decryption failed — credentials may be tampered"
-            ) from e
+            raise ProviderCredentialFault("AES-GCM decryption failed — credentials may be tampered") from e
     return _xor_decrypt_with_tag(key, nonce, ciphertext, tag)
 
 
-def _xor_encrypt_with_tag(key: bytes, nonce: bytes, plaintext: bytes) -> Tuple[bytes, bytes]:
+def _xor_encrypt_with_tag(key: bytes, nonce: bytes, plaintext: bytes) -> tuple[bytes, bytes]:
     """XOR stream cipher with HMAC-SHA256 authentication tag."""
     keystream = _generate_keystream(key, nonce, len(plaintext))
-    ciphertext = bytes(p ^ k for p, k in zip(plaintext, keystream))
+    ciphertext = bytes(p ^ k for p, k in zip(plaintext, keystream, strict=False))
     tag = _hmac.new(key, nonce + ciphertext, hashlib.sha256).digest()[:_TAG_SIZE]
     return ciphertext, tag
 
@@ -248,11 +254,9 @@ def _xor_decrypt_with_tag(key: bytes, nonce: bytes, ciphertext: bytes, tag: byte
     """XOR stream cipher decryption with HMAC verification."""
     expected_tag = _hmac.new(key, nonce + ciphertext, hashlib.sha256).digest()[:_TAG_SIZE]
     if not _hmac.compare_digest(tag, expected_tag):
-        raise ProviderCredentialFault(
-            "XOR-HMAC authentication failed — credentials may be tampered"
-        )
+        raise ProviderCredentialFault("XOR-HMAC authentication failed — credentials may be tampered")
     keystream = _generate_keystream(key, nonce, len(ciphertext))
-    return bytes(c ^ k for c, k in zip(ciphertext, keystream))
+    return bytes(c ^ k for c, k in zip(ciphertext, keystream, strict=False))
 
 
 def _generate_keystream(key: bytes, nonce: bytes, length: int) -> bytes:
@@ -261,7 +265,9 @@ def _generate_keystream(key: bytes, nonce: bytes, length: int) -> bytes:
     counter = 0
     while len(stream) < length:
         block = _hmac.new(
-            key, nonce + struct.pack(">Q", counter), hashlib.sha512,
+            key,
+            nonce + struct.pack(">Q", counter),
+            hashlib.sha512,
         ).digest()
         stream.extend(block)
         counter += 1
@@ -284,13 +290,14 @@ def _compute_hmac(key: bytes, data: bytes) -> bytes:
 # Audit Logger
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class _AuditLogger:
     """Append-only audit log for credential operations."""
 
     def __init__(self, log_path: Path):
         self._path = log_path
 
-    def log(self, action: str, *, details: Optional[str] = None) -> None:
+    def log(self, action: str, *, details: str | None = None) -> None:
         """Record an audit event."""
         try:
             self._path.parent.mkdir(parents=True, exist_ok=True)
@@ -305,10 +312,8 @@ class _AuditLogger:
                 entry["details"] = details
             with self._path.open("a", encoding="utf-8") as f:
                 f.write(json.dumps(entry) + "\n")
-            try:
+            with contextlib.suppress(OSError):
                 os.chmod(self._path, 0o600)
-            except OSError:
-                pass
         except OSError:
             pass
 
@@ -329,7 +334,7 @@ class RenderCredentialStore:
         ttl: Token time-to-live in seconds (0 = no expiry).
     """
 
-    def __init__(self, store_dir: Optional[Path] = None, *, ttl: int = _DEFAULT_TTL):
+    def __init__(self, store_dir: Path | None = None, *, ttl: int = _DEFAULT_TTL):
         self._dir = store_dir or _resolve_workspace_store_dir()
         self._creds_file = self._dir / "credentials.crous"
         self._config_file = self._dir / "config.json"
@@ -353,9 +358,9 @@ class RenderCredentialStore:
         self,
         token: str,
         *,
-        owner_name: Optional[str] = None,
+        owner_name: str | None = None,
         default_region: str = "oregon",
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> None:
         """Encrypt and store the API token with military-grade security."""
         if not token or not isinstance(token, str):
@@ -380,9 +385,7 @@ class RenderCredentialStore:
         finally:
             _secure_zero(token_bytes)
 
-        canary_plain = _CANARY_PLAINTEXT + secrets.token_bytes(
-            _CANARY_SIZE - len(_CANARY_PLAINTEXT)
-        )
+        canary_plain = _CANARY_PLAINTEXT + secrets.token_bytes(_CANARY_SIZE - len(_CANARY_PLAINTEXT))
         canary_nonce = secrets.token_bytes(_NONCE_SIZE)
         canary_ct, canary_tag = _encrypt(canary_key, canary_nonce, canary_plain, cipher_suite)
 
@@ -407,12 +410,10 @@ class RenderCredentialStore:
         payload.extend(signature)
 
         self._creds_file.write_bytes(bytes(payload))
-        try:
+        with contextlib.suppress(OSError):
             os.chmod(self._creds_file, 0o600)
-        except OSError:
-            pass
 
-        config: Dict[str, Any] = {
+        config: dict[str, Any] = {
             "owner_name": owner_name,
             "default_region": default_region,
             "stored_at": timestamp,
@@ -423,10 +424,8 @@ class RenderCredentialStore:
         if metadata:
             config["metadata"] = metadata
         self._config_file.write_text(json.dumps(config, indent=2), encoding="utf-8")
-        try:
+        with contextlib.suppress(OSError):
             os.chmod(self._config_file, 0o600)
-        except OSError:
-            pass
 
         _secure_zero(payload)
         del enc_key, sign_key, canary_key
@@ -435,7 +434,7 @@ class RenderCredentialStore:
 
     # ─── Load ────────────────────────────────────────────────────────
 
-    def load(self) -> Optional[str]:
+    def load(self) -> str | None:
         """Load and decrypt the stored API token.
 
         Automatically detects Crous v1 (legacy) and v2 formats.
@@ -451,13 +450,15 @@ class RenderCredentialStore:
         except (OSError, PermissionError) as e:
             self._audit.log("load_error", details=f"read_failed: {e}")
             raise ProviderCredentialFault(
-                f"Cannot read credentials: {e}", path=str(self._creds_file),
+                f"Cannot read credentials: {e}",
+                path=str(self._creds_file),
             ) from e
 
         if len(blob) < 5 or blob[:4] != _CROUS_MAGIC:
             self._audit.log("load_error", details="bad_magic")
             raise ProviderCredentialFault(
-                "Invalid credentials file (bad magic bytes)", path=str(self._creds_file),
+                "Invalid credentials file (bad magic bytes)",
+                path=str(self._creds_file),
             )
 
         version = blob[4]
@@ -472,20 +473,25 @@ class RenderCredentialStore:
 
         self._audit.log("load_error", details=f"unsupported_version:{version}")
         raise ProviderCredentialFault(
-            f"Unsupported credentials version: {version}", path=str(self._creds_file),
+            f"Unsupported credentials version: {version}",
+            path=str(self._creds_file),
         )
 
     def _load_v2(self, blob: bytes) -> str:
         """Load Crous v2 format (AES-256-GCM + HMAC-SHA512)."""
         if len(blob) < 178:
             raise ProviderCredentialFault(
-                "Credentials file is too small — possibly corrupted", path=str(self._creds_file),
+                "Credentials file is too small — possibly corrupted",
+                path=str(self._creds_file),
             )
 
         offset = 5
-        cipher_suite = blob[offset]; offset += 1
-        timestamp = struct.unpack_from(">d", blob, offset)[0]; offset += 8
-        ttl = struct.unpack_from(">I", blob, offset)[0]; offset += 4
+        cipher_suite = blob[offset]
+        offset += 1
+        timestamp = struct.unpack_from(">d", blob, offset)[0]
+        offset += 8
+        ttl = struct.unpack_from(">I", blob, offset)[0]
+        offset += 4
 
         if ttl > 0:
             age = time.time() - timestamp
@@ -497,28 +503,39 @@ class RenderCredentialStore:
                     path=str(self._creds_file),
                 )
 
-        salt = blob[offset:offset + _SALT_SIZE]; offset += _SALT_SIZE
-        nonce = blob[offset:offset + _NONCE_SIZE]; offset += _NONCE_SIZE
-        token_len = struct.unpack_from(">I", blob, offset)[0]; offset += 4
+        salt = blob[offset : offset + _SALT_SIZE]
+        offset += _SALT_SIZE
+        nonce = blob[offset : offset + _NONCE_SIZE]
+        offset += _NONCE_SIZE
+        token_len = struct.unpack_from(">I", blob, offset)[0]
+        offset += 4
 
         if token_len > _MAX_TOKEN_SIZE:
             raise ProviderCredentialFault(
-                "Encrypted token size exceeds maximum", path=str(self._creds_file),
+                "Encrypted token size exceeds maximum",
+                path=str(self._creds_file),
             )
 
-        ciphertext = blob[offset:offset + token_len]; offset += token_len
-        tag = blob[offset:offset + _TAG_SIZE]; offset += _TAG_SIZE
-        canary_nonce = blob[offset:offset + _NONCE_SIZE]; offset += _NONCE_SIZE
-        canary_len = struct.unpack_from(">I", blob, offset)[0]; offset += 4
-        canary_ct = blob[offset:offset + canary_len]; offset += canary_len
-        canary_tag = blob[offset:offset + _TAG_SIZE]; offset += _TAG_SIZE
+        ciphertext = blob[offset : offset + token_len]
+        offset += token_len
+        tag = blob[offset : offset + _TAG_SIZE]
+        offset += _TAG_SIZE
+        canary_nonce = blob[offset : offset + _NONCE_SIZE]
+        offset += _NONCE_SIZE
+        canary_len = struct.unpack_from(">I", blob, offset)[0]
+        offset += 4
+        canary_ct = blob[offset : offset + canary_len]
+        offset += canary_len
+        canary_tag = blob[offset : offset + _TAG_SIZE]
+        offset += _TAG_SIZE
 
         if offset + 64 > len(blob):
             raise ProviderCredentialFault(
-                "Credentials file truncated", path=str(self._creds_file),
+                "Credentials file truncated",
+                path=str(self._creds_file),
             )
 
-        stored_signature = blob[offset:offset + 64]
+        stored_signature = blob[offset : offset + 64]
         payload_to_verify = blob[:offset]
 
         sign_key = _derive_key(salt, context="hmac-signing-v2")
@@ -543,7 +560,8 @@ class RenderCredentialStore:
         except Exception as e:
             self._audit.log("load_error", details=f"canary_failed: {e}")
             raise ProviderCredentialFault(
-                "Canary validation failed", path=str(self._creds_file),
+                "Canary validation failed",
+                path=str(self._creds_file),
             ) from e
 
         enc_key = _derive_key(salt, context="token-encryption-v2")
@@ -552,7 +570,8 @@ class RenderCredentialStore:
             token = token_bytes.decode("utf-8")
         except UnicodeDecodeError:
             raise ProviderCredentialFault(
-                "Decrypted token is not valid UTF-8", path=str(self._creds_file),
+                "Decrypted token is not valid UTF-8",
+                path=str(self._creds_file),
             )
         del enc_key, sign_key, canary_key
         return token
@@ -566,17 +585,22 @@ class RenderCredentialStore:
             )
 
         offset = 5
-        timestamp = struct.unpack_from(">d", blob, offset)[0]; offset += 8
-        salt = blob[offset:offset + _SALT_SIZE]; offset += _SALT_SIZE
-        token_len = struct.unpack_from(">I", blob, offset)[0]; offset += 4
+        struct.unpack_from(">d", blob, offset)[0]
+        offset += 8
+        salt = blob[offset : offset + _SALT_SIZE]
+        offset += _SALT_SIZE
+        token_len = struct.unpack_from(">I", blob, offset)[0]
+        offset += 4
 
         if offset + token_len + 32 > len(blob):
             raise ProviderCredentialFault(
-                "Credentials file truncated", path=str(self._creds_file),
+                "Credentials file truncated",
+                path=str(self._creds_file),
             )
 
-        encrypted = blob[offset:offset + token_len]; offset += token_len
-        stored_signature = blob[offset:offset + 32]
+        encrypted = blob[offset : offset + token_len]
+        offset += token_len
+        stored_signature = blob[offset : offset + 32]
         payload_to_verify = blob[:offset]
 
         hmac_key = _derive_key_legacy(salt, context="hmac-signing")
@@ -593,7 +617,8 @@ class RenderCredentialStore:
             token = token_bytes.decode("utf-8")
         except UnicodeDecodeError:
             raise ProviderCredentialFault(
-                "Decrypted token is not valid UTF-8", path=str(self._creds_file),
+                "Decrypted token is not valid UTF-8",
+                path=str(self._creds_file),
             )
 
         self._audit.log("auto_migrate", details="v1->v2")
@@ -611,7 +636,7 @@ class RenderCredentialStore:
 
     # ─── Config ──────────────────────────────────────────────────────
 
-    def load_config(self) -> Dict[str, Any]:
+    def load_config(self) -> dict[str, Any]:
         """Load non-sensitive provider configuration."""
         if not self._config_file.exists():
             return {}
@@ -623,10 +648,10 @@ class RenderCredentialStore:
     def get_default_region(self) -> str:
         return self.load_config().get("default_region", "oregon")
 
-    def get_owner_name(self) -> Optional[str]:
+    def get_owner_name(self) -> str | None:
         return self.load_config().get("owner_name")
 
-    def get_token_age(self) -> Optional[float]:
+    def get_token_age(self) -> float | None:
         """Get the age of the stored token in seconds."""
         config = self.load_config()
         stored_at = config.get("stored_at")
@@ -665,16 +690,14 @@ class RenderCredentialStore:
             except OSError as e:
                 _logger.warning("Could not delete credentials: %s", e)
         if self._config_file.exists():
-            try:
+            with contextlib.suppress(OSError):
                 self._config_file.unlink()
-            except OSError:
-                pass
         self._audit.log("clear_complete")
         _logger.info("Render credentials cleared")
 
     # ─── Rotate ──────────────────────────────────────────────────────
 
-    def rotate(self, new_token: Optional[str] = None) -> None:
+    def rotate(self, new_token: str | None = None) -> None:
         """Rotate credentials — re-encrypt with new key material."""
         self._audit.log("rotate_start")
         token = new_token
@@ -693,7 +716,7 @@ class RenderCredentialStore:
 
     # ─── Audit ───────────────────────────────────────────────────────
 
-    def get_audit_log(self, limit: int = 50) -> List[Dict[str, Any]]:
+    def get_audit_log(self, limit: int = 50) -> list[dict[str, Any]]:
         """Read the most recent audit log entries."""
         audit_path = self._dir / "audit.log"
         if not audit_path.exists():
@@ -712,11 +735,11 @@ class RenderCredentialStore:
 
     # ─── Utility ─────────────────────────────────────────────────────
 
-    def status(self) -> Dict[str, Any]:
+    def status(self) -> dict[str, Any]:
         """Return credential store status (for CLI display)."""
         config = self.load_config()
         token_age = self.get_token_age()
-        result: Dict[str, Any] = {
+        result: dict[str, Any] = {
             "configured": self.is_configured(),
             "credentials_path": str(self._creds_file),
             "config_path": str(self._config_file),

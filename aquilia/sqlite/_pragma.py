@@ -7,11 +7,11 @@ injection.  User-supplied strings are checked against allowlists.
 
 from __future__ import annotations
 
-import sqlite3
 import logging
-from typing import Sequence
+import sqlite3
+from collections.abc import Sequence
 
-from ._config import SqlitePoolConfig, JOURNAL_MODES, SYNC_MODES, TEMP_STORE_MODES
+from ._config import JOURNAL_MODES, SYNC_MODES, TEMP_STORE_MODES, SqlitePoolConfig
 
 logger = logging.getLogger("aquilia.sqlite.pragma")
 

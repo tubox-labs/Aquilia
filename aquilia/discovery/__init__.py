@@ -16,7 +16,7 @@ Usage:
     # Runtime discovery (original)
     scanner = PackageScanner()
     classes = scanner.scan_package("myapp.modules.users.controllers")
-    
+
     # Static discovery with auto-sync (v2)
     engine = AutoDiscoveryEngine(Path("myapp/modules"))
     result = engine.discover("users")
@@ -24,14 +24,15 @@ Usage:
 """
 
 from aquilia.utils.scanner import PackageScanner
+
 from .engine import (
-    AutoDiscoveryEngine,
     ASTClassifier,
+    AutoDiscoveryEngine,
+    ClassifiedComponent,
+    DiscoveryResult,
     FileScanner,
     ManifestDiffer,
     ManifestWriter,
-    ClassifiedComponent,
-    DiscoveryResult,
     SyncAction,
     SyncReport,
 )
@@ -48,4 +49,3 @@ __all__ = [
     "SyncAction",
     "SyncReport",
 ]
-

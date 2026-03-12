@@ -17,10 +17,9 @@ Fault hierarchy::
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 from aquilia.faults.core import Fault, FaultDomain, Severity
-
 
 # ── Register I18N domain ────────────────────────────────────────────────
 FaultDomain.I18N = FaultDomain("i18n", "Internationalization and localization faults")
@@ -42,7 +41,7 @@ class I18nFault(Fault):
         severity: Severity = Severity.ERROR,
         retryable: bool = False,
         public: bool = False,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ):
         super().__init__(
             code=code,
@@ -70,7 +69,7 @@ class MissingTranslationFault(I18nFault):
         key: str,
         locale: str,
         *,
-        fallback_chain: Optional[list[str]] = None,
+        fallback_chain: list[str] | None = None,
         **kwargs,
     ):
         super().__init__(
@@ -135,7 +134,7 @@ class CatalogLoadFault(I18nFault):
         path: str,
         reason: str = "Failed to load catalog file",
         *,
-        original_error: Optional[Exception] = None,
+        original_error: Exception | None = None,
         **kwargs,
     ):
         super().__init__(

@@ -17,14 +17,13 @@ Priority: 45 (after database=30, before controllers=60)
 from __future__ import annotations
 
 import logging
-import time
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from .base import BaseSubsystem, BootContext
 
 if TYPE_CHECKING:
-    from ..effects import EffectRegistry, EffectProvider
-    from ..flow import Layer, LayerComposition
+    from ..effects import EffectRegistry
+    from ..flow import Layer
 
 logger = logging.getLogger("aquilia.subsystems.effects")
 
@@ -67,8 +66,8 @@ class EffectSubsystem(BaseSubsystem):
 
     def __init__(self):
         super().__init__()
-        self._registry: Optional["EffectRegistry"] = None
-        self._layers: List[Any] = []
+        self._registry: EffectRegistry | None = None
+        self._layers: list[Any] = []
         self._middleware_registered = False
 
     async def _do_initialize(self, ctx: BootContext) -> None:
@@ -83,7 +82,6 @@ class EffectSubsystem(BaseSubsystem):
         5. Register middleware
         6. Register with DI
         """
-        from ..effects import EffectRegistry
 
         # Step 1: Get or create registry
         self._registry = self._get_or_create_registry(ctx)
@@ -103,7 +101,7 @@ class EffectSubsystem(BaseSubsystem):
         # Step 6: Register with DI
         self._register_with_di(ctx)
 
-    def _get_or_create_registry(self, ctx: BootContext) -> "EffectRegistry":
+    def _get_or_create_registry(self, ctx: BootContext) -> EffectRegistry:
         """Get existing registry from DI or create a new one."""
         from ..effects import EffectRegistry
 
@@ -119,23 +117,13 @@ class EffectSubsystem(BaseSubsystem):
 
     async def _discover_providers(self, ctx: BootContext) -> None:
         """Discover and register effect providers from configuration."""
-        from ..effects import (
-            EffectProvider,
-            DBTxProvider,
-            CacheProvider,
-            QueueProvider,
-            HTTPProvider,
-            StorageProvider,
-        )
         import importlib
 
         config = ctx.config
         effects_config = None
 
         # Try to get effects config
-        if hasattr(config, "get"):
-            effects_config = config.get("effects", {})
-        elif isinstance(config, dict):
+        if hasattr(config, "get") or isinstance(config, dict):
             effects_config = config.get("effects", {})
 
         if not effects_config:
@@ -165,17 +153,15 @@ class EffectSubsystem(BaseSubsystem):
                 provider_cls = getattr(module, cls_name)
 
                 # Instantiate
-                if isinstance(args, dict):
-                    provider = provider_cls(**args)
-                else:
-                    provider = provider_cls()
+                provider = provider_cls(**args) if isinstance(args, dict) else provider_cls()
 
                 self._registry.register(effect_name, provider)
 
             except Exception as exc:
                 self._logger.warning(
                     "Failed to register effect '%s' from config: %s",
-                    effect_name, exc,
+                    effect_name,
+                    exc,
                 )
 
     async def _build_layers(self, ctx: BootContext) -> None:
@@ -185,9 +171,7 @@ class EffectSubsystem(BaseSubsystem):
         config = ctx.config
         effects_config = None
 
-        if hasattr(config, "get"):
-            effects_config = config.get("effects", {})
-        elif isinstance(config, dict):
+        if hasattr(config, "get") or isinstance(config, dict):
             effects_config = config.get("effects", {})
 
         if not effects_config:
@@ -198,7 +182,7 @@ class EffectSubsystem(BaseSubsystem):
             return
 
         # Build layers from config
-        layers: List[Layer] = []
+        layers: list[Layer] = []
         for layer_cfg in layers_config:
             if not isinstance(layer_cfg, dict):
                 continue
@@ -213,7 +197,8 @@ class EffectSubsystem(BaseSubsystem):
             except Exception as exc:
                 self._logger.warning(
                     "Failed to build layer '%s': %s",
-                    layer_cfg.get("name", "?"), exc,
+                    layer_cfg.get("name", "?"),
+                    exc,
                 )
 
         if layers:
@@ -231,9 +216,7 @@ class EffectSubsystem(BaseSubsystem):
         config = ctx.config
         effects_config = {}
 
-        if hasattr(config, "get"):
-            effects_config = config.get("effects", {})
-        elif isinstance(config, dict):
+        if hasattr(config, "get") or isinstance(config, dict):
             effects_config = config.get("effects", {})
 
         mw_config = effects_config.get("middleware", {})
@@ -276,8 +259,10 @@ class EffectSubsystem(BaseSubsystem):
     def _import_factory(self, factory_path: str):
         """Import a factory function from a dotted path."""
         import importlib
+
         if not factory_path:
             from ..faults.domains import ConfigInvalidFault
+
             raise ConfigInvalidFault(
                 key="effect_factory_path",
                 reason="Factory path must not be empty",
@@ -302,10 +287,7 @@ class EffectSubsystem(BaseSubsystem):
 
         try:
             health = await self._registry.health_check()
-            status = (
-                SubsystemStatus.HEALTHY if health.get("healthy", False)
-                else SubsystemStatus.DEGRADED
-            )
+            status = SubsystemStatus.HEALTHY if health.get("healthy", False) else SubsystemStatus.DEGRADED
             return HealthStatus(
                 name=self._name,
                 status=status,
@@ -326,6 +308,6 @@ class EffectSubsystem(BaseSubsystem):
             await self._registry.finalize_all()
 
     @property
-    def registry(self) -> Optional["EffectRegistry"]:
+    def registry(self) -> EffectRegistry | None:
         """Access the EffectRegistry."""
         return self._registry

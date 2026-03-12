@@ -12,19 +12,21 @@ from __future__ import annotations
 
 import datetime
 import hashlib
-import json
 import logging
-import os
 import re
-from dataclasses import dataclass, field
+from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
+from typing import Any
 
 from ..db.engine import AquiliaDatabase
-from ..faults.domains import MigrationFault, MigrationConflictFault, SchemaFault
-from .ast_nodes import FieldType, ModelNode
-from .runtime import generate_create_table_sql, generate_create_index_sql, SQLITE_TYPE_MAP, POSTGRES_TYPE_MAP, MYSQL_TYPE_MAP, _get_type_map
-from .signals import pre_migrate, post_migrate
+from ..faults.domains import MigrationFault
+from .ast_nodes import ModelNode
+from .runtime import (
+    generate_create_index_sql,
+    generate_create_table_sql,
+)
+from .signals import post_migrate, pre_migrate
 
 logger = logging.getLogger("aquilia.models.migrations")
 
@@ -58,7 +60,7 @@ class MigrationOps:
     """
 
     def __init__(self, dialect: str = "sqlite") -> None:
-        self._statements: List[str] = []
+        self._statements: list[str] = []
         self._dialect = dialect
 
     @property
@@ -71,7 +73,7 @@ class MigrationOps:
 
     # ── Table operations ─────────────────────────────────────────────
 
-    def create_table(self, name: str, columns: List[str]) -> None:
+    def create_table(self, name: str, columns: list[str]) -> None:
         """Generate CREATE TABLE statement."""
         body = ",\n  ".join(columns)
         self._statements.append(f'CREATE TABLE IF NOT EXISTS "{name}" (\n  {body}\n);')
@@ -86,14 +88,10 @@ class MigrationOps:
     def rename_table(self, old_name: str, new_name: str) -> None:
         """Generate RENAME TABLE statement (dialect-aware)."""
         if self._dialect == "mysql":
-            self._statements.append(
-                f'RENAME TABLE "{old_name}" TO "{new_name}";'
-            )
+            self._statements.append(f'RENAME TABLE "{old_name}" TO "{new_name}";')
         else:
             # SQLite & PostgreSQL both support ALTER TABLE ... RENAME TO
-            self._statements.append(
-                f'ALTER TABLE "{old_name}" RENAME TO "{new_name}";'
-            )
+            self._statements.append(f'ALTER TABLE "{old_name}" RENAME TO "{new_name}";')
 
     # ── Column operations ────────────────────────────────────────────
 
@@ -110,14 +108,10 @@ class MigrationOps:
         SQLite 3.35.0+ (2021-03) supports ALTER TABLE DROP COLUMN.
         """
         if self._dialect == "mysql":
-            self._statements.append(
-                f'ALTER TABLE "{table}" DROP COLUMN "{column}";'
-            )
+            self._statements.append(f'ALTER TABLE "{table}" DROP COLUMN "{column}";')
         else:
             # PostgreSQL & SQLite 3.35+
-            self._statements.append(
-                f'ALTER TABLE "{table}" DROP COLUMN "{column}";'
-            )
+            self._statements.append(f'ALTER TABLE "{table}" DROP COLUMN "{column}";')
 
     def rename_column(self, table: str, old_name: str, new_name: str) -> None:
         """
@@ -127,22 +121,18 @@ class MigrationOps:
         """
         if self._dialect == "mysql":
             # MySQL uses CHANGE for older versions, RENAME COLUMN for 8.0+
-            self._statements.append(
-                f'ALTER TABLE "{table}" RENAME COLUMN "{old_name}" TO "{new_name}";'
-            )
+            self._statements.append(f'ALTER TABLE "{table}" RENAME COLUMN "{old_name}" TO "{new_name}";')
         else:
-            self._statements.append(
-                f'ALTER TABLE "{table}" RENAME COLUMN "{old_name}" TO "{new_name}";'
-            )
+            self._statements.append(f'ALTER TABLE "{table}" RENAME COLUMN "{old_name}" TO "{new_name}";')
 
     def alter_column(
         self,
         table: str,
         column: str,
         *,
-        type: Optional[str] = None,
-        nullable: Optional[bool] = None,
-        default: Optional[Any] = None,
+        type: str | None = None,
+        nullable: bool | None = None,
+        default: Any | None = None,
         drop_default: bool = False,
     ) -> None:
         """
@@ -163,38 +153,22 @@ class MigrationOps:
         if self._dialect == "sqlite":
             # SQLite does not support ALTER COLUMN -- document limitation
             self._statements.append(
-                f'-- SQLite: ALTER COLUMN not supported for "{table}"."{column}". '
-                f"Requires table rebuild."
+                f'-- SQLite: ALTER COLUMN not supported for "{table}"."{column}". Requires table rebuild.'
             )
             return
 
         if self._dialect == "postgresql":
             if type is not None:
-                self._statements.append(
-                    f'ALTER TABLE "{table}" ALTER COLUMN "{column}" '
-                    f"TYPE {type};"
-                )
+                self._statements.append(f'ALTER TABLE "{table}" ALTER COLUMN "{column}" TYPE {type};')
             if nullable is True:
-                self._statements.append(
-                    f'ALTER TABLE "{table}" ALTER COLUMN "{column}" '
-                    f"DROP NOT NULL;"
-                )
+                self._statements.append(f'ALTER TABLE "{table}" ALTER COLUMN "{column}" DROP NOT NULL;')
             elif nullable is False:
-                self._statements.append(
-                    f'ALTER TABLE "{table}" ALTER COLUMN "{column}" '
-                    f"SET NOT NULL;"
-                )
+                self._statements.append(f'ALTER TABLE "{table}" ALTER COLUMN "{column}" SET NOT NULL;')
             if drop_default:
-                self._statements.append(
-                    f'ALTER TABLE "{table}" ALTER COLUMN "{column}" '
-                    f"DROP DEFAULT;"
-                )
+                self._statements.append(f'ALTER TABLE "{table}" ALTER COLUMN "{column}" DROP DEFAULT;')
             elif default is not None:
                 default_sql = _format_default(default, self._dialect)
-                self._statements.append(
-                    f'ALTER TABLE "{table}" ALTER COLUMN "{column}" '
-                    f"SET DEFAULT {default_sql};"
-                )
+                self._statements.append(f'ALTER TABLE "{table}" ALTER COLUMN "{column}" SET DEFAULT {default_sql};')
         elif self._dialect == "mysql":
             # MySQL MODIFY requires full column redefinition
             parts = [f'ALTER TABLE "{table}" MODIFY COLUMN "{column}"']
@@ -216,9 +190,9 @@ class MigrationOps:
         self,
         name: str,
         table: str,
-        columns: List[str],
+        columns: list[str],
         unique: bool = False,
-        condition: Optional[str] = None,
+        condition: str | None = None,
     ) -> None:
         """Generate CREATE INDEX (with optional partial index condition)."""
         u = "UNIQUE " if unique else ""
@@ -228,7 +202,7 @@ class MigrationOps:
             sql += f" WHERE ({condition})"
         self._statements.append(sql + ";")
 
-    def drop_index(self, name: str, table: Optional[str] = None) -> None:
+    def drop_index(self, name: str, table: str | None = None) -> None:
         """Generate DROP INDEX (dialect-aware)."""
         if self._dialect == "mysql" and table:
             self._statements.append(f'DROP INDEX "{name}" ON "{table}";')
@@ -239,20 +213,14 @@ class MigrationOps:
 
     def add_constraint(self, table: str, constraint_sql: str) -> None:
         """Generate ALTER TABLE ADD CONSTRAINT."""
-        self._statements.append(
-            f'ALTER TABLE "{table}" ADD {constraint_sql};'
-        )
+        self._statements.append(f'ALTER TABLE "{table}" ADD {constraint_sql};')
 
     def drop_constraint(self, table: str, name: str) -> None:
         """Generate ALTER TABLE DROP CONSTRAINT (not supported on SQLite)."""
         if self._dialect == "sqlite":
-            self._statements.append(
-                f'-- SQLite: Cannot drop constraint "{name}" via ALTER TABLE'
-            )
+            self._statements.append(f'-- SQLite: Cannot drop constraint "{name}" via ALTER TABLE')
         else:
-            self._statements.append(
-                f'ALTER TABLE "{table}" DROP CONSTRAINT "{name}";'
-            )
+            self._statements.append(f'ALTER TABLE "{table}" DROP CONSTRAINT "{name}";')
 
     # ── Raw SQL / data migration ─────────────────────────────────────
 
@@ -354,12 +322,9 @@ class MigrationOps:
         return " ".join(parts)
 
     @staticmethod
-    def boolean(name: str, nullable: bool = False, default: Optional[bool] = None, *, dialect: str = "sqlite") -> str:
+    def boolean(name: str, nullable: bool = False, default: bool | None = None, *, dialect: str = "sqlite") -> str:
         """Boolean column (dialect-aware)."""
-        if dialect == "postgresql":
-            sql_type = "BOOLEAN"
-        else:
-            sql_type = "INTEGER"
+        sql_type = "BOOLEAN" if dialect == "postgresql" else "INTEGER"
         parts = [f'"{name}"', sql_type]
         if not nullable:
             parts.append("NOT NULL")
@@ -371,7 +336,7 @@ class MigrationOps:
         return " ".join(parts)
 
     @staticmethod
-    def timestamp(name: str, nullable: bool = False, default: Optional[str] = None, *, dialect: str = "sqlite") -> str:
+    def timestamp(name: str, nullable: bool = False, default: str | None = None, *, dialect: str = "sqlite") -> str:
         """Timestamp column (dialect-aware)."""
         if dialect == "postgresql":
             sql_type = "TIMESTAMP WITH TIME ZONE"
@@ -396,10 +361,7 @@ class MigrationOps:
         dialect: str = "sqlite",
     ) -> str:
         """Decimal / numeric column."""
-        if dialect == "sqlite":
-            sql_type = "REAL"
-        else:
-            sql_type = f"NUMERIC({max_digits}, {decimal_places})"
+        sql_type = "REAL" if dialect == "sqlite" else f"NUMERIC({max_digits}, {decimal_places})"
         parts = [f'"{name}"', sql_type]
         if not nullable:
             parts.append("NOT NULL")
@@ -422,10 +384,7 @@ class MigrationOps:
     @staticmethod
     def uuid(name: str, nullable: bool = False, *, dialect: str = "sqlite") -> str:
         """UUID column (dialect-aware)."""
-        if dialect == "postgresql":
-            sql_type = "UUID"
-        else:
-            sql_type = "VARCHAR(36)"
+        sql_type = "UUID" if dialect == "postgresql" else "VARCHAR(36)"
         parts = [f'"{name}"', sql_type]
         if not nullable:
             parts.append("NOT NULL")
@@ -456,7 +415,7 @@ class MigrationOps:
 
     # ── Statement management ─────────────────────────────────────────
 
-    def get_statements(self) -> List[Any]:
+    def get_statements(self) -> list[Any]:
         """Return accumulated SQL statements (strings and callables)."""
         return self._statements.copy()
 
@@ -491,10 +450,11 @@ op = MigrationOps()
 @dataclass
 class MigrationInfo:
     """Metadata for a single migration file."""
+
     revision: str  # timestamp-based ID
     slug: str  # human-readable slug
-    models: List[str]  # model names affected
-    path: Optional[Path] = None
+    models: list[str]  # model names affected
+    path: Path | None = None
     applied: bool = False
 
 
@@ -510,9 +470,9 @@ def _slugify(name: str) -> str:
 
 
 def generate_migration_file(
-    models: List[ModelNode],
+    models: list[ModelNode],
     migrations_dir: str | Path,
-    slug: Optional[str] = None,
+    slug: str | None = None,
     dialect: str = "sqlite",
 ) -> Path:
     """
@@ -541,8 +501,8 @@ def generate_migration_file(
     mdir.mkdir(parents=True, exist_ok=True)
 
     # Build upgrade SQL
-    upgrade_lines: List[str] = []
-    downgrade_lines: List[str] = []
+    upgrade_lines: list[str] = []
+    downgrade_lines: list[str] = []
 
     for model in models:
         # Create table
@@ -554,7 +514,7 @@ def generate_migration_file(
             upgrade_lines.append(f'    await conn.execute("""{idx_sql}""")')
 
         # Drop table (downgrade)
-        downgrade_lines.append(f'    await conn.execute(\'DROP TABLE IF EXISTS "{model.table_name}"\')')
+        downgrade_lines.append(f"    await conn.execute('DROP TABLE IF EXISTS \"{model.table_name}\"')")
 
     upgrade_body = "\n".join(upgrade_lines) if upgrade_lines else "    pass"
     downgrade_body = "\n".join(downgrade_lines) if downgrade_lines else "    pass"
@@ -588,7 +548,7 @@ async def downgrade(conn):
 def generate_migration_from_models(
     model_classes: list,
     migrations_dir: str | Path,
-    slug: Optional[str] = None,
+    slug: str | None = None,
     dialect: str = "sqlite",
 ) -> Path:
     """
@@ -618,8 +578,8 @@ def generate_migration_from_models(
     mdir.mkdir(parents=True, exist_ok=True)
 
     # Build upgrade SQL
-    upgrade_lines: List[str] = []
-    downgrade_lines: List[str] = []
+    upgrade_lines: list[str] = []
+    downgrade_lines: list[str] = []
 
     for model_cls in model_classes:
         # Create table
@@ -636,7 +596,7 @@ def generate_migration_from_models(
 
         # Drop table (downgrade)
         table_name = model_cls._meta.table_name
-        downgrade_lines.append(f'    await conn.execute(\'DROP TABLE IF EXISTS "{table_name}"\')')
+        downgrade_lines.append(f"    await conn.execute('DROP TABLE IF EXISTS \"{table_name}\"')")
 
     upgrade_body = "\n".join(upgrade_lines) if upgrade_lines else "    pass"
     downgrade_body = "\n".join(downgrade_lines) if downgrade_lines else "    pass"
@@ -717,18 +677,16 @@ class MigrationRunner:
         """
         await self.db.execute(sql)
 
-    async def get_applied(self) -> List[str]:
+    async def get_applied(self) -> list[str]:
         """Get list of applied revision IDs."""
         await self.ensure_tracking_table()
-        rows = await self.db.fetch_all(
-            f'SELECT "revision" FROM "{MIGRATION_TABLE}" ORDER BY "id"'
-        )
+        rows = await self.db.fetch_all(f'SELECT "revision" FROM "{MIGRATION_TABLE}" ORDER BY "id"')
         return [r["revision"] for r in rows]
 
-    async def get_pending(self) -> List[Path]:
+    async def get_pending(self) -> list[Path]:
         """Get migration files that haven't been applied yet."""
         applied = set(await self.get_applied())
-        pending: List[Path] = []
+        pending: list[Path] = []
 
         if not self.migrations_dir.exists():
             return pending
@@ -742,7 +700,7 @@ class MigrationRunner:
 
         return pending
 
-    async def status(self) -> Dict[str, Any]:
+    async def status(self) -> dict[str, Any]:
         """
         Get migration status -- applied, pending, and total counts.
 
@@ -783,7 +741,7 @@ class MigrationRunner:
                 lines.append(f"    - {name}")
         return "\n".join(lines)
 
-    async def dry_run(self, target: Optional[str] = None) -> List[str]:
+    async def dry_run(self, target: str | None = None) -> list[str]:
         """
         Preview migrations without executing. Returns list of SQL strings.
 
@@ -796,10 +754,8 @@ class MigrationRunner:
         Returns:
             List of SQL statement strings that would be executed.
         """
-        import importlib.util
-        import inspect
 
-        statements: List[str] = []
+        statements: list[str] = []
 
         if target is not None:
             # Dry-run rollback
@@ -810,7 +766,7 @@ class MigrationRunner:
                     reason=f"Target revision '{target}' not in applied migrations",
                 )
             target_idx = applied.index(target)
-            to_rollback = list(reversed(applied[target_idx + 1:]))
+            to_rollback = list(reversed(applied[target_idx + 1 :]))
             for rev in to_rollback:
                 migration_files = list(self.migrations_dir.glob(f"{rev}*.py"))
                 if not migration_files:
@@ -820,7 +776,7 @@ class MigrationRunner:
                 module = _load_migration_module(path, rev)
                 if hasattr(module, "downgrade"):
                     # Use a dry-run op to capture statements
-                    dry_op = MigrationOps()
+                    MigrationOps()
                     statements.append(f"-- Rollback: {rev}")
                     # We can't easily capture what downgrade generates since
                     # it calls conn.execute directly; document limitation
@@ -852,6 +808,7 @@ class MigrationRunner:
         if hasattr(module, "upgrade"):
             upgrade_fn = module.upgrade
             import inspect
+
             try:
                 if inspect.iscoroutinefunction(upgrade_fn):
                     await upgrade_fn(self.db)
@@ -871,7 +828,7 @@ class MigrationRunner:
             [rev, slug, checksum],
         )
 
-    async def migrate(self, target: Optional[str] = None) -> List[str]:
+    async def migrate(self, target: str | None = None) -> list[str]:
         """
         Apply all pending migrations.
 
@@ -887,7 +844,7 @@ class MigrationRunner:
             return await self._rollback_to(target)
 
         pending = await self.get_pending()
-        applied: List[str] = []
+        applied: list[str] = []
 
         # Signal: pre_migrate
         await pre_migrate.send(sender=self.__class__, db=self.db)
@@ -902,7 +859,7 @@ class MigrationRunner:
 
         return applied
 
-    async def _rollback_to(self, target: str) -> List[str]:
+    async def _rollback_to(self, target: str) -> list[str]:
         """Rollback to a specific revision."""
         applied = await self.get_applied()
         if target not in applied:
@@ -913,9 +870,9 @@ class MigrationRunner:
 
         # Find migrations to rollback (everything after target)
         target_idx = applied.index(target)
-        to_rollback = list(reversed(applied[target_idx + 1:]))
+        to_rollback = list(reversed(applied[target_idx + 1 :]))
 
-        rolled_back: List[str] = []
+        rolled_back: list[str] = []
         for rev in to_rollback:
             # Find migration file
             migration_files = list(self.migrations_dir.glob(f"{rev}*.py"))
@@ -936,6 +893,7 @@ class MigrationRunner:
             if hasattr(module, "downgrade"):
                 downgrade_fn = module.downgrade
                 import inspect
+
                 try:
                     if inspect.iscoroutinefunction(downgrade_fn):
                         await downgrade_fn(self.db)
@@ -958,17 +916,15 @@ class MigrationRunner:
 
         return rolled_back
 
-    async def verify_checksums(self) -> List[Dict[str, str]]:
+    async def verify_checksums(self) -> list[dict[str, str]]:
         """
         Verify that applied migration files haven't been tampered with.
 
         Returns list of dicts with 'revision' and 'reason' for any mismatches.
         """
         await self.ensure_tracking_table()
-        rows = await self.db.fetch_all(
-            f'SELECT "revision", "checksum" FROM "{MIGRATION_TABLE}" ORDER BY "id"'
-        )
-        mismatches: List[Dict[str, str]] = []
+        rows = await self.db.fetch_all(f'SELECT "revision", "checksum" FROM "{MIGRATION_TABLE}" ORDER BY "id"')
+        mismatches: list[dict[str, str]] = []
         for row in rows:
             rev = row["revision"]
             stored_checksum = row.get("checksum")
@@ -976,24 +932,28 @@ class MigrationRunner:
                 continue  # Old migration without checksum tracking
             migration_files = list(self.migrations_dir.glob(f"{rev}*.py"))
             if not migration_files:
-                mismatches.append({
-                    "revision": rev,
-                    "reason": "Migration file not found on disk",
-                })
+                mismatches.append(
+                    {
+                        "revision": rev,
+                        "reason": "Migration file not found on disk",
+                    }
+                )
                 continue
             current_checksum = _file_checksum(migration_files[0])
             if current_checksum != stored_checksum:
-                mismatches.append({
-                    "revision": rev,
-                    "reason": "File has been modified since it was applied",
-                })
+                mismatches.append(
+                    {
+                        "revision": rev,
+                        "reason": "File has been modified since it was applied",
+                    }
+                )
         return mismatches
 
 
 # ── Helper functions ─────────────────────────────────────────────────────────
 
 
-def _extract_revision(path: Path) -> Optional[str]:
+def _extract_revision(path: Path) -> str | None:
     """Extract revision ID from migration filename: YYYYMMDD_HHMMSS_slug.py"""
     parts = path.stem.split("_", 2)
     if len(parts) >= 2:

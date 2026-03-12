@@ -20,16 +20,11 @@ Usage::
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone, timedelta
+import contextlib
+from collections.abc import AsyncIterator
 from typing import (
     Any,
-    AsyncIterator,
     BinaryIO,
-    Dict,
-    List,
-    Optional,
-    Tuple,
-    Union,
 )
 
 from ..base import (
@@ -68,8 +63,7 @@ class AzureBlobStorage(StorageBackend):
             from azure.storage.blob import BlobServiceClient
         except ImportError:
             raise BackendUnavailableError(
-                "Azure backend requires 'azure-storage-blob'. "
-                "Install: pip install azure-storage-blob",
+                "Azure backend requires 'azure-storage-blob'. Install: pip install azure-storage-blob",
                 backend="azure",
             )
 
@@ -77,13 +71,12 @@ class AzureBlobStorage(StorageBackend):
 
         def _connect() -> Any:
             if self._config.connection_string:
-                client = BlobServiceClient.from_connection_string(
-                    self._config.connection_string
-                )
+                client = BlobServiceClient.from_connection_string(self._config.connection_string)
             elif self._config.account_name:
                 account_url = f"https://{self._config.account_name}.blob.core.windows.net"
                 if self._config.account_key:
                     from azure.storage.blob import BlobServiceClient as BSC
+
                     client = BSC(
                         account_url=account_url,
                         credential=self._config.account_key,
@@ -97,11 +90,11 @@ class AzureBlobStorage(StorageBackend):
                     # Attempt DefaultAzureCredential
                     try:
                         from azure.identity import DefaultAzureCredential
+
                         credential = DefaultAzureCredential()
                     except ImportError:
                         raise BackendUnavailableError(
-                            "Azure identity requires 'azure-identity'. "
-                            "Install: pip install azure-identity",
+                            "Azure identity requires 'azure-identity'. Install: pip install azure-identity",
                             backend="azure",
                         )
                     client = BlobServiceClient(
@@ -116,9 +109,7 @@ class AzureBlobStorage(StorageBackend):
             return client
 
         self._service_client = await loop.run_in_executor(None, _connect)
-        self._container_client = self._service_client.get_container_client(
-            self._config.container
-        )
+        self._container_client = self._service_client.get_container_client(self._config.container)
 
     async def shutdown(self) -> None:
         if self._service_client:
@@ -135,9 +126,7 @@ class AzureBlobStorage(StorageBackend):
             return False
         try:
             loop = asyncio.get_event_loop()
-            await loop.run_in_executor(
-                None, self._container_client.get_container_properties
-            )
+            await loop.run_in_executor(None, self._container_client.get_container_properties)
             return True
         except Exception:
             return False
@@ -154,16 +143,16 @@ class AzureBlobStorage(StorageBackend):
         if self._config.prefix:
             prefix = self._config.prefix.strip("/") + "/"
             if blob_name.startswith(prefix):
-                return blob_name[len(prefix):]
+                return blob_name[len(prefix) :]
         return blob_name
 
     async def save(
         self,
         name: str,
-        content: Union[bytes, BinaryIO, AsyncIterator[bytes], StorageFile],
+        content: bytes | BinaryIO | AsyncIterator[bytes] | StorageFile,
         *,
-        content_type: Optional[str] = None,
-        metadata: Optional[Dict[str, str]] = None,
+        content_type: str | None = None,
+        metadata: dict[str, str] | None = None,
         overwrite: bool = False,
     ) -> str:
         self._ensure_container()
@@ -180,6 +169,7 @@ class AzureBlobStorage(StorageBackend):
 
         def _upload() -> None:
             from azure.storage.blob import ContentSettings
+
             blob_client = self._container_client.get_blob_client(blob_name)
             blob_client.upload_blob(
                 data,
@@ -205,9 +195,7 @@ class AzureBlobStorage(StorageBackend):
                 return data, props
             except Exception as e:
                 if "BlobNotFound" in str(e) or "404" in str(e):
-                    raise FileNotFoundError(
-                        f"File not found: {name}", backend="azure", path=name
-                    )
+                    raise FileNotFoundError(f"File not found: {name}", backend="azure", path=name)
                 raise
 
         try:
@@ -221,9 +209,7 @@ class AzureBlobStorage(StorageBackend):
             name=self._normalize_path(name),
             size=props.size,
             content_type=(
-                props.content_settings.content_type
-                if props.content_settings
-                else "application/octet-stream"
+                props.content_settings.content_type if props.content_settings else "application/octet-stream"
             ),
             etag=props.etag or "",
             last_modified=props.last_modified,
@@ -239,10 +225,8 @@ class AzureBlobStorage(StorageBackend):
 
         def _delete() -> None:
             blob_client = self._container_client.get_blob_client(blob_name)
-            try:
+            with contextlib.suppress(Exception):
                 blob_client.delete_blob()
-            except Exception:
-                pass
 
         await loop.run_in_executor(None, _delete)
 
@@ -271,16 +255,12 @@ class AzureBlobStorage(StorageBackend):
             try:
                 props = blob_client.get_blob_properties()
             except Exception:
-                raise FileNotFoundError(
-                    f"File not found: {name}", backend="azure", path=name
-                )
+                raise FileNotFoundError(f"File not found: {name}", backend="azure", path=name)
             return StorageMetadata(
                 name=self._normalize_path(name),
                 size=props.size,
                 content_type=(
-                    props.content_settings.content_type
-                    if props.content_settings
-                    else "application/octet-stream"
+                    props.content_settings.content_type if props.content_settings else "application/octet-stream"
                 ),
                 etag=props.etag or "",
                 last_modified=props.last_modified,
@@ -290,7 +270,7 @@ class AzureBlobStorage(StorageBackend):
 
         return await loop.run_in_executor(None, _stat)
 
-    async def listdir(self, path: str = "") -> Tuple[List[str], List[str]]:
+    async def listdir(self, path: str = "") -> tuple[list[str], list[str]]:
         self._ensure_container()
         prefix = self._blob_name(path)
         if prefix and not prefix.endswith("/"):
@@ -298,13 +278,11 @@ class AzureBlobStorage(StorageBackend):
 
         loop = asyncio.get_event_loop()
 
-        def _list() -> Tuple[List[str], List[str]]:
+        def _list() -> tuple[list[str], list[str]]:
             dirs: set = set()
-            files: List[str] = []
+            files: list[str] = []
 
-            blobs = self._container_client.walk_blobs(
-                name_starts_with=prefix, delimiter="/"
-            )
+            blobs = self._container_client.walk_blobs(name_starts_with=prefix, delimiter="/")
             for item in blobs:
                 if hasattr(item, "prefix"):
                     # Virtual directory
@@ -321,7 +299,7 @@ class AzureBlobStorage(StorageBackend):
         meta = await self.stat(name)
         return meta.size
 
-    async def url(self, name: str, expire: Optional[int] = None) -> str:
+    async def url(self, name: str, expire: int | None = None) -> str:
         self._ensure_container()
         blob_name = self._blob_name(name)
 

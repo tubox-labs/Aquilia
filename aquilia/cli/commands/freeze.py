@@ -9,13 +9,12 @@ Production-grade artifact freeze using the Aquilia Build Pipeline.
 
 import hashlib
 from pathlib import Path
-from typing import Optional
 
 from ..utils.workspace import get_workspace_file
 
 
 def freeze_artifacts(
-    output_dir: Optional[str] = None,
+    output_dir: str | None = None,
     sign: bool = False,
     verbose: bool = False,
 ) -> str:
@@ -38,9 +37,10 @@ def freeze_artifacts(
 
     if not ws_file:
         from aquilia.faults.domains import ConfigMissingFault
+
         raise ConfigMissingFault(key="workspace.py")
 
-    output = output_dir or str(workspace_root / 'build')
+    output = output_dir or str(workspace_root / "build")
     artifacts_dir = Path(output)
     artifacts_dir.mkdir(parents=True, exist_ok=True)
 
@@ -73,33 +73,34 @@ def freeze_artifacts(
             print("  Build pipeline not available, falling back to legacy compiler")
 
         from .compile import compile_workspace
+
         artifacts = compile_workspace(output_dir=output, verbose=verbose)
 
         if verbose:
             print(f"  Compiled {len(artifacts)} artifact(s)")
 
         hasher = hashlib.sha256()
-        for artifact_path in sorted(artifacts_dir.glob('*.crous')):
+        for artifact_path in sorted(artifacts_dir.glob("*.crous")):
             data = artifact_path.read_bytes()
             hasher.update(data)
         fingerprint = hasher.hexdigest()
 
     # Step 2 -- Write frozen manifest
     frozen_meta = {
-        'fingerprint': fingerprint,
-        'artifacts': [
+        "fingerprint": fingerprint,
+        "artifacts": [
             {
-                'file': str(a.name),
-                'size_bytes': a.stat().st_size,
-                'digest': hashlib.sha256(a.read_bytes()).hexdigest(),
+                "file": str(a.name),
+                "size_bytes": a.stat().st_size,
+                "digest": hashlib.sha256(a.read_bytes()).hexdigest(),
             }
-            for a in sorted(artifacts_dir.glob('*.crous'))
+            for a in sorted(artifacts_dir.glob("*.crous"))
         ],
-        'signed': sign,
-        'format': 'crous-binary',
+        "signed": sign,
+        "format": "crous-binary",
     }
 
-    frozen_path = artifacts_dir / 'frozen.crous'
+    frozen_path = artifacts_dir / "frozen.crous"
     try:
         import _crous_native as _cb
     except ImportError:

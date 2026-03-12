@@ -37,67 +37,67 @@ Quick Start::
         return await Product.objects.all()
 """
 
+from .annotations import Field, NestedBlueprintFacet, computed
 from .core import Blueprint, BlueprintMeta
+from .exceptions import (
+    BLUEPRINT,
+    BlueprintFault,
+    CastFault,
+    ImprintFault,
+    LensCycleFault,
+    LensDepthFault,
+    ProjectionFault,
+    SealFault,
+)
 from .facets import (
-    # Base
-    Facet,
+    MODEL_FIELD_TO_FACET,
     UNSET,
-    # Text
-    TextFacet,
-    EmailFacet,
-    URLFacet,
-    SlugFacet,
-    IPFacet,
-    # Numeric
-    IntFacet,
-    FloatFacet,
-    DecimalFacet,
     # Boolean
     BoolFacet,
-    # Date/Time
-    DateFacet,
-    TimeFacet,
-    DateTimeFacet,
-    DurationFacet,
-    UUIDFacet,
-    # Structured
-    ListFacet,
-    DictFacet,
-    JSONFacet,
-    FileFacet,
     ChoiceFacet,
     # Special
     Computed,
     Constant,
-    WriteOnly,
-    ReadOnly,
+    # Date/Time
+    DateFacet,
+    DateTimeFacet,
+    DecimalFacet,
+    DictFacet,
+    DurationFacet,
+    EmailFacet,
+    # Base
+    Facet,
+    FileFacet,
+    FloatFacet,
     Hidden,
     Inject,
+    # Numeric
+    IntFacet,
+    IPFacet,
+    JSONFacet,
+    # Structured
+    ListFacet,
+    ReadOnly,
+    SlugFacet,
+    # Text
+    TextFacet,
+    TimeFacet,
+    URLFacet,
+    UUIDFacet,
+    WriteOnly,
     # Utilities
     derive_facet,
-    MODEL_FIELD_TO_FACET,
+)
+from .integration import (
+    bind_blueprint_to_request,
+    is_blueprint_class,
+    is_projected_blueprint,
+    render_blueprint_response,
+    resolve_blueprint_from_annotation,
 )
 from .lenses import Lens
 from .projections import ProjectionRegistry
-from .annotations import Field, computed, NestedBlueprintFacet
-from .exceptions import (
-    BlueprintFault,
-    CastFault,
-    SealFault,
-    ImprintFault,
-    ProjectionFault,
-    LensDepthFault,
-    LensCycleFault,
-    BLUEPRINT,
-)
-from .schema import generate_schema, generate_component_schemas
-from .integration import (
-    is_blueprint_class,
-    is_projected_blueprint,
-    resolve_blueprint_from_annotation,
-    bind_blueprint_to_request,
-    render_blueprint_response,
-)
+from .schema import generate_component_schemas, generate_schema
 
 __all__ = [
     # Core

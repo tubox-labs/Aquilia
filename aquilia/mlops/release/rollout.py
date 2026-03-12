@@ -7,14 +7,14 @@ and automatic rollback.
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any
 
-from .._types import RolloutConfig, RolloutStrategy
+from .._types import RolloutConfig
 from ..serving.router import TrafficRouter
 
 logger = logging.getLogger("aquilia.mlops.release.rollout")
@@ -32,6 +32,7 @@ class RolloutPhase(str, Enum):
 @dataclass
 class RolloutState:
     """Current state of a rollout."""
+
     id: str
     config: RolloutConfig
     phase: RolloutPhase = RolloutPhase.PENDING
@@ -39,7 +40,7 @@ class RolloutState:
     steps_completed: int = 0
     started_at: float = 0.0
     completed_at: float = 0.0
-    metrics_history: List[Dict[str, Any]] = field(default_factory=list)
+    metrics_history: list[dict[str, Any]] = field(default_factory=list)
     error: str = ""
 
 
@@ -60,12 +61,12 @@ class RolloutEngine:
 
     def __init__(
         self,
-        router: Optional[TrafficRouter] = None,
-        metrics_fn: Optional[Callable[[], Dict[str, float]]] = None,
+        router: TrafficRouter | None = None,
+        metrics_fn: Callable[[], dict[str, float]] | None = None,
     ):
         self._router = router or TrafficRouter()
         self._metrics_fn = metrics_fn
-        self._rollouts: Dict[str, RolloutState] = {}
+        self._rollouts: dict[str, RolloutState] = {}
         self._counter = 0
 
     async def start(self, config: RolloutConfig) -> RolloutState:
@@ -91,16 +92,18 @@ class RolloutEngine:
     async def advance(
         self,
         rollout_id: str,
-        percentage: Optional[int] = None,
+        percentage: int | None = None,
     ) -> RolloutState:
         """Advance a rollout to a higher canary percentage."""
         state = self._rollouts.get(rollout_id)
         if not state:
             from aquilia.faults.domains import RegistryFault
+
             raise RegistryFault(name=rollout_id, message=f"Rollout not found: {rollout_id}")
 
         if state.phase != RolloutPhase.IN_PROGRESS:
             from aquilia.faults.domains import ConfigInvalidFault
+
             raise ConfigInvalidFault(
                 key="mlops.rollout.phase",
                 reason=f"Cannot advance rollout in phase: {state.phase.value}",
@@ -117,12 +120,14 @@ class RolloutEngine:
         # Capture metrics
         if self._metrics_fn:
             metrics = self._metrics_fn()
-            state.metrics_history.append({
-                "step": state.steps_completed,
-                "percentage": new_pct,
-                "timestamp": time.time(),
-                "metrics": metrics,
-            })
+            state.metrics_history.append(
+                {
+                    "step": state.steps_completed,
+                    "percentage": new_pct,
+                    "timestamp": time.time(),
+                    "metrics": metrics,
+                }
+            )
 
         # Update router weights
         self._router.set_canary_percentage(state.config.to_version, new_pct)
@@ -137,6 +142,7 @@ class RolloutEngine:
         state = self._rollouts.get(rollout_id)
         if not state:
             from aquilia.faults.domains import RegistryFault
+
             raise RegistryFault(name=rollout_id, message=f"Rollout not found: {rollout_id}")
 
         state.phase = RolloutPhase.COMPLETED
@@ -157,6 +163,7 @@ class RolloutEngine:
         state = self._rollouts.get(rollout_id)
         if not state:
             from aquilia.faults.domains import RegistryFault
+
             raise RegistryFault(name=rollout_id, message=f"Rollout not found: {rollout_id}")
 
         state.phase = RolloutPhase.ROLLED_BACK
@@ -171,8 +178,8 @@ class RolloutEngine:
         logger.warning("Rolled back %s: %s", rollout_id, reason)
         return state
 
-    def get_rollout(self, rollout_id: str) -> Optional[RolloutState]:
+    def get_rollout(self, rollout_id: str) -> RolloutState | None:
         return self._rollouts.get(rollout_id)
 
-    def list_rollouts(self) -> List[RolloutState]:
+    def list_rollouts(self) -> list[RolloutState]:
         return list(self._rollouts.values())

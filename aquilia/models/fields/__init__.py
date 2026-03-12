@@ -24,127 +24,125 @@ New sub-modules:
 # works whether X lives in the old fields.py or new sub-modules.
 
 from ..fields_module import (
-    # Base
-    Field,
-    FieldValidationError,
-    Index,
-    UniqueConstraint,
     UNSET,
-    _Unset,
+    # PostgreSQL
+    ArrayField,
     # Numeric
     AutoField,
     BigAutoField,
-    SmallAutoField,
-    IntegerField,
     BigIntegerField,
-    SmallIntegerField,
-    PositiveIntegerField,
-    PositiveSmallIntegerField,
-    FloatField,
-    DecimalField,
-    # Text
-    CharField,
-    VarcharField,
-    TextField,
-    SlugField,
-    EmailField,
-    URLField,
-    UUIDField,
-    FilePathField,
-    # Date/Time
-    DateField,
-    TimeField,
-    DateTimeField,
-    DurationField,
-    # Boolean
-    BooleanField,
+    BigIntegerRangeField,
     # Binary/Special
     BinaryField,
-    JSONField,
-    # Relationships
-    RelationField,
-    ForeignKey,
-    OneToOneField,
-    ManyToManyField,
-    # IP/Network
-    GenericIPAddressField,
-    InetAddressField,
-    # File/Media
-    FileField,
-    ImageField,
-    # PostgreSQL
-    ArrayField,
-    HStoreField,
-    RangeField,
-    IntegerRangeField,
-    BigIntegerRangeField,
-    DecimalRangeField,
-    DateRangeField,
-    DateTimeRangeField,
+    # Boolean
+    BooleanField,
+    # Text
+    CharField,
     CICharField,
     CIEmailField,
     CITextField,
+    # Date/Time
+    DateField,
+    DateRangeField,
+    DateTimeField,
+    DateTimeRangeField,
+    DecimalField,
+    DecimalRangeField,
+    DurationField,
+    EmailField,
+    # Base
+    Field,
+    FieldValidationError,
+    # File/Media
+    FileField,
+    FilePathField,
+    FloatField,
+    ForeignKey,
     # Meta/Special
     GeneratedField,
+    # IP/Network
+    GenericIPAddressField,
+    HStoreField,
+    ImageField,
+    Index,
+    InetAddressField,
+    IntegerField,
+    IntegerRangeField,
+    JSONField,
+    ManyToManyField,
+    OneToOneField,
     OrderWrt,
+    PositiveIntegerField,
+    PositiveSmallIntegerField,
+    RangeField,
+    # Relationships
+    RelationField,
+    SlugField,
+    SmallAutoField,
+    SmallIntegerField,
+    TextField,
+    TimeField,
+    UniqueConstraint,
+    URLField,
+    UUIDField,
+    VarcharField,
+    _Unset,
+)
+from .composite import (
+    CompositeAttribute,
+    CompositeField,
+    CompositePrimaryKey,
+)
+from .enum_field import EnumField
+from .lookups import (
+    Contains,
+    EndsWith,
+    Exact,
+    Gt,
+    Gte,
+    IContains,
+    IEndsWith,
+    IExact,
+    In,
+    IRegex,
+    IsNull,
+    IStartsWith,
+    Lookup,
+    Lt,
+    Lte,
+    Range,
+    Regex,
+    StartsWith,
+    lookup_registry,
+    register_lookup,
+    resolve_lookup,
 )
 
 # ── New sub-module exports ───────────────────────────────────────────────────
 from .mixins import (
-    NullableMixin,
-    UniqueMixin,
-    IndexedMixin,
     AutoNowMixin,
     ChoiceMixin,
     EncryptedMixin,
+    IndexedMixin,
+    NullableMixin,
+    UniqueMixin,
 )
-from .composite import (
-    CompositeField,
-    CompositePrimaryKey,
-    CompositeAttribute,
-)
-from .enum_field import EnumField
-
 from .validators import (
     BaseValidator,
-    ValidationError,
-    MinValueValidator,
+    DecimalValidator,
+    EmailValidator,
+    FileExtensionValidator,
+    MaxLengthValidator,
     MaxValueValidator,
     MinLengthValidator,
-    MaxLengthValidator,
-    RegexValidator,
-    EmailValidator,
-    URLValidator,
-    SlugValidator,
+    MinValueValidator,
     ProhibitNullCharactersValidator,
-    DecimalValidator,
-    FileExtensionValidator,
-    StepValueValidator,
     RangeValidator,
-)
-
-from .lookups import (
-    Lookup,
-    Exact,
-    IExact,
-    Contains,
-    IContains,
-    StartsWith,
-    IStartsWith,
-    EndsWith,
-    IEndsWith,
-    In,
-    Gt,
-    Gte,
-    Lt,
-    Lte,
-    IsNull,
-    Range,
-    Regex,
-    IRegex,
-    register_lookup,
-    resolve_lookup,
-    lookup_registry,
+    RegexValidator,
+    SlugValidator,
+    StepValueValidator,
+    URLValidator,
+    ValidationError,
 )
 
 __all__ = [

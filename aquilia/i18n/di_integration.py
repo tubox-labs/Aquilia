@@ -30,10 +30,9 @@ at startup when i18n is enabled.
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from aquilia.di import Container, Registry
     from .service import I18nConfig, I18nService
 
 logger = logging.getLogger("aquilia.i18n.di")
@@ -41,8 +40,8 @@ logger = logging.getLogger("aquilia.i18n.di")
 
 def register_i18n_providers(
     container: Any,
-    service: "I18nService",
-    config: Optional["I18nConfig"] = None,
+    service: I18nService,
+    config: I18nConfig | None = None,
 ) -> None:
     """
     Register i18n providers in a DI container.
@@ -90,7 +89,7 @@ def register_i18n_providers(
 def register_i18n_request_providers(
     container: Any,
     locale: str,
-    service: "I18nService",
+    service: I18nService,
 ) -> None:
     """
     Register request-scoped i18n providers.

@@ -16,8 +16,8 @@ work with ``Locale`` instances.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field
-from typing import List, Optional, Sequence, Tuple
+from collections.abc import Sequence
+from dataclasses import dataclass
 
 # ═══════════════════════════════════════════════════════════════════════════
 # BCP 47 Regex  (RFC 5646 §2.1)
@@ -26,10 +26,10 @@ from typing import List, Optional, Sequence, Tuple
 # Matches: language[-script][-region][-variant][-extension][-privateuse]
 # Simplified for practical use — covers 99.9% of real-world tags
 LOCALE_PATTERN = re.compile(
-    r"^(?P<language>[a-zA-Z]{2,3})"          # 2-3 letter primary language
-    r"(?:-(?P<script>[a-zA-Z]{4}))?"          # 4-letter script (optional)
-    r"(?:-(?P<region>[a-zA-Z]{2}|\d{3}))?"    # 2-letter region or 3-digit (optional)
-    r"(?:-(?P<variant>[a-zA-Z0-9]{5,8}))?"    # 5-8 char variant (optional)
+    r"^(?P<language>[a-zA-Z]{2,3})"  # 2-3 letter primary language
+    r"(?:-(?P<script>[a-zA-Z]{4}))?"  # 4-letter script (optional)
+    r"(?:-(?P<region>[a-zA-Z]{2}|\d{3}))?"  # 2-letter region or 3-digit (optional)
+    r"(?:-(?P<variant>[a-zA-Z0-9]{5,8}))?"  # 5-8 char variant (optional)
     r"$",
     re.IGNORECASE,
 )
@@ -45,6 +45,7 @@ _ACCEPT_LANG_RE = re.compile(
 # ═══════════════════════════════════════════════════════════════════════════
 # Locale Dataclass
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 @dataclass(frozen=True, slots=True)
 class Locale:
@@ -70,9 +71,9 @@ class Locale:
     """
 
     language: str
-    script: Optional[str] = None
-    region: Optional[str] = None
-    variant: Optional[str] = None
+    script: str | None = None
+    region: str | None = None
+    variant: str | None = None
 
     def __post_init__(self):
         # Normalize casing per BCP 47 conventions
@@ -102,7 +103,7 @@ class Locale:
         return self.language
 
     @property
-    def fallback_chain(self) -> List["Locale"]:
+    def fallback_chain(self) -> list[Locale]:
         """
         Generate fallback chain from most specific to least.
 
@@ -122,7 +123,7 @@ class Locale:
             chain.append(Locale(self.language))
         return chain
 
-    def matches(self, other: "Locale") -> bool:
+    def matches(self, other: Locale) -> bool:
         """
         Check if this locale matches another using prefix matching.
 
@@ -133,9 +134,7 @@ class Locale:
             return False
         if self.script and other.script and self.script != other.script:
             return False
-        if self.region and other.region and self.region != other.region:
-            return False
-        return True
+        return not (self.region and other.region and self.region != other.region)
 
     def __str__(self) -> str:
         return self.tag
@@ -154,6 +153,7 @@ class Locale:
 # ═══════════════════════════════════════════════════════════════════════════
 # Parsing & Normalization
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 def parse_locale(tag: str) -> Locale:
     """
@@ -179,6 +179,7 @@ def parse_locale(tag: str) -> Locale:
     """
     if not tag or not isinstance(tag, str):
         from aquilia.faults.domains import ConfigInvalidFault
+
         raise ConfigInvalidFault(
             key="i18n.locale",
             reason=f"Invalid locale tag: {tag!r}",
@@ -193,6 +194,7 @@ def parse_locale(tag: str) -> Locale:
         if re.match(r"^[a-zA-Z]{2,3}$", tag):
             return Locale(language=tag)
         from aquilia.faults.domains import ConfigInvalidFault
+
         raise ConfigInvalidFault(
             key="i18n.locale",
             reason=f"Cannot parse locale tag: {tag!r}",
@@ -206,7 +208,7 @@ def parse_locale(tag: str) -> Locale:
     )
 
 
-def normalize_locale(tag: str) -> Optional[str]:
+def normalize_locale(tag: str) -> str | None:
     """
     Normalize a locale tag to canonical BCP 47 form.
 
@@ -230,7 +232,7 @@ def normalize_locale(tag: str) -> Optional[str]:
 def match_locale(
     requested: Locale,
     available: Sequence[Locale],
-) -> Optional[Locale]:
+) -> Locale | None:
     """
     Find the best matching locale from available options.
 
@@ -272,7 +274,8 @@ def match_locale(
 # Accept-Language Parsing (RFC 4647)
 # ═══════════════════════════════════════════════════════════════════════════
 
-def parse_accept_language(header: str) -> List[Tuple[str, float]]:
+
+def parse_accept_language(header: str) -> list[tuple[str, float]]:
     """
     Parse an ``Accept-Language`` header into a list of (tag, quality) tuples.
 

@@ -8,11 +8,11 @@ Provides a common adapter interface and implementations for:
 - Oracle (via python-oracledb)
 """
 
-from .base import DatabaseAdapter, AdapterCapabilities, ColumnInfo, TableInfo, IntrospectionResult
-from .sqlite import SQLiteAdapter
-from .postgres import PostgresAdapter
+from .base import AdapterCapabilities, ColumnInfo, DatabaseAdapter, IntrospectionResult, TableInfo
 from .mysql import MySQLAdapter
 from .oracle import OracleAdapter
+from .postgres import PostgresAdapter
+from .sqlite import SQLiteAdapter
 
 __all__ = [
     "DatabaseAdapter",

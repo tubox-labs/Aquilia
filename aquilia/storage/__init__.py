@@ -69,48 +69,53 @@ Quick Start::
 
 from aquilia._version import __version__  # noqa: F401 — re-exported
 
-# ── Core abstractions ────────────────────────────────────────────────────
-from .base import (
-    StorageBackend,
-    StorageFile,
-    StorageMetadata,
-    StorageError,
-    FileNotFoundError as StorageFileNotFoundError,
-    PermissionError as StoragePermissionError,
-    StorageFullError,
-    BackendUnavailableError,
-    StorageIOFault,
-    StorageConfigFault,
-    STORAGE_DOMAIN,
-)
+from .backends.azure import AzureBlobStorage
+from .backends.composite import CompositeStorage
+from .backends.gcs import GCSStorage
 
 # ── Backend implementations ──────────────────────────────────────────────
 from .backends.local import LocalStorage
 from .backends.memory import MemoryStorage
 from .backends.s3 import S3Storage
-from .backends.gcs import GCSStorage
-from .backends.azure import AzureBlobStorage
 from .backends.sftp import SFTPStorage
-from .backends.composite import CompositeStorage
+
+# ── Core abstractions ────────────────────────────────────────────────────
+from .base import (
+    STORAGE_DOMAIN,
+    BackendUnavailableError,
+    StorageBackend,
+    StorageConfigFault,
+    StorageError,
+    StorageFile,
+    StorageFullError,
+    StorageIOFault,
+    StorageMetadata,
+)
+from .base import (
+    FileNotFoundError as StorageFileNotFoundError,
+)
+from .base import (
+    PermissionError as StoragePermissionError,
+)
 
 # ── Configuration dataclasses ────────────────────────────────────────────
 from .configs import (
-    StorageConfig,
+    AzureBlobConfig,
+    CompositeConfig,
+    GCSConfig,
     LocalConfig,
     MemoryConfig,
     S3Config,
-    GCSConfig,
-    AzureBlobConfig,
     SFTPConfig,
-    CompositeConfig,
+    StorageConfig,
 )
+from .effects import StorageEffectProvider
 
 # ── Registry & wiring ───────────────────────────────────────────────────
 from .registry import StorageRegistry
 
 # ── Subsystem & effects ─────────────────────────────────────────────────
 from .subsystem import StorageSubsystem
-from .effects import StorageEffectProvider
 
 __all__ = [
     # Core

@@ -5,7 +5,7 @@ StaticFilesIntegration — typed static file serving configuration.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional
+from typing import Any
 
 
 @dataclass
@@ -23,7 +23,7 @@ class StaticFilesIntegration:
 
     _integration_type: str = field(default="static_files", init=False, repr=False)
 
-    directories: Dict[str, str] = field(default_factory=lambda: {"/static": "static"})
+    directories: dict[str, str] = field(default_factory=lambda: {"/static": "static"})
     cache_max_age: int = 86400
     immutable: bool = False
     etag: bool = True
@@ -33,7 +33,7 @@ class StaticFilesIntegration:
     html5_history: bool = False
     enabled: bool = True
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "_integration_type": "static_files",
             "enabled": self.enabled,

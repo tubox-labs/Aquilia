@@ -19,15 +19,13 @@ payload and freezes the artifact.
 
 from __future__ import annotations
 
-import hashlib
 import json
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from .core import (
     Artifact,
     ArtifactEnvelope,
     ArtifactIntegrity,
-    ArtifactKind,
     ArtifactProvenance,
 )
 
@@ -62,18 +60,18 @@ class ArtifactBuilder:
         self._kind = kind
         self._version = version
         self._payload: Any = None
-        self._metadata: Dict[str, Any] = {}
-        self._tags: Dict[str, str] = {}
-        self._provenance: Optional[ArtifactProvenance] = None
-        self._files: List[Dict[str, Any]] = []
+        self._metadata: dict[str, Any] = {}
+        self._tags: dict[str, str] = {}
+        self._provenance: ArtifactProvenance | None = None
+        self._files: list[dict[str, Any]] = []
 
     @classmethod
     def from_artifact(
         cls,
-        artifact: "Artifact",
+        artifact: Artifact,
         *,
         version: str = "",
-    ) -> "ArtifactBuilder":
+    ) -> ArtifactBuilder:
         """
         Pre-populate builder from an existing artifact.
 
@@ -100,12 +98,12 @@ class ArtifactBuilder:
 
     # ── Payload ──────────────────────────────────────────────────────
 
-    def set_payload(self, payload: Any) -> "ArtifactBuilder":
+    def set_payload(self, payload: Any) -> ArtifactBuilder:
         """Set the artifact payload (dict, list, string, bytes, …)."""
         self._payload = payload
         return self
 
-    def merge_payload(self, extra: Dict[str, Any]) -> "ArtifactBuilder":
+    def merge_payload(self, extra: dict[str, Any]) -> ArtifactBuilder:
         """Merge additional keys into an existing dict payload."""
         if self._payload is None:
             self._payload = {}
@@ -115,17 +113,17 @@ class ArtifactBuilder:
 
     # ── Metadata ─────────────────────────────────────────────────────
 
-    def set_metadata(self, **kwargs: Any) -> "ArtifactBuilder":
+    def set_metadata(self, **kwargs: Any) -> ArtifactBuilder:
         """Set metadata key-value pairs."""
         self._metadata.update(kwargs)
         return self
 
-    def tag(self, key: str, value: str) -> "ArtifactBuilder":
+    def tag(self, key: str, value: str) -> ArtifactBuilder:
         """Add a tag (string→string)."""
         self._tags[key] = value
         return self
 
-    def tags(self, **kwargs: str) -> "ArtifactBuilder":
+    def tags(self, **kwargs: str) -> ArtifactBuilder:
         """Add multiple tags at once."""
         self._tags.update(kwargs)
         return self
@@ -139,7 +137,7 @@ class ArtifactBuilder:
         source_path: str = "",
         created_by: str = "",
         hostname: str = "",
-    ) -> "ArtifactBuilder":
+    ) -> ArtifactBuilder:
         """Set provenance explicitly."""
         self._provenance = ArtifactProvenance(
             created_at="",  # will be filled at build time
@@ -150,7 +148,7 @@ class ArtifactBuilder:
         )
         return self
 
-    def auto_provenance(self, source_path: str = "") -> "ArtifactBuilder":
+    def auto_provenance(self, source_path: str = "") -> ArtifactBuilder:
         """Auto-detect provenance from the environment."""
         self._provenance = ArtifactProvenance.auto(source_path)
         return self
@@ -164,16 +162,14 @@ class ArtifactBuilder:
         role: str = "data",
         digest: str = "",
         size: int = 0,
-    ) -> "ArtifactBuilder":
+    ) -> ArtifactBuilder:
         """Register a file reference inside the artifact."""
-        self._files.append(
-            {"path": path, "role": role, "digest": digest, "size": size}
-        )
+        self._files.append({"path": path, "role": role, "digest": digest, "size": size})
         return self
 
     # ── Version ──────────────────────────────────────────────────────
 
-    def set_version(self, version: str) -> "ArtifactBuilder":
+    def set_version(self, version: str) -> ArtifactBuilder:
         self._version = version
         return self
 
@@ -191,16 +187,14 @@ class ArtifactBuilder:
         """
         if not self._name or not self._name.strip():
             from aquilia.faults.domains import ConfigInvalidFault
+
             raise ConfigInvalidFault(
                 key="artifact.name",
                 reason="Artifact name must not be empty",
             )
 
         # Provenance -- auto-fill only once
-        if self._provenance is not None:
-            prov = self._provenance
-        else:
-            prov = ArtifactProvenance.auto()
+        prov = self._provenance if self._provenance is not None else ArtifactProvenance.auto()
 
         # Ensure created_at is populated
         if not prov.created_at:
@@ -225,7 +219,10 @@ class ArtifactBuilder:
 
         # Compute integrity over the payload
         payload_bytes = json.dumps(
-            payload, sort_keys=True, separators=(",", ":"), default=str,
+            payload,
+            sort_keys=True,
+            separators=(",", ":"),
+            default=str,
         ).encode("utf-8")
         integrity = ArtifactIntegrity.compute(payload_bytes)
 

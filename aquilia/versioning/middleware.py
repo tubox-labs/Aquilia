@@ -14,9 +14,8 @@ This middleware integrates with the ``VersionStrategy`` to:
 from __future__ import annotations
 
 import logging
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-from .core import ApiVersion, VERSION_NEUTRAL
 from .errors import (
     InvalidVersionError,
     MissingVersionError,
@@ -26,9 +25,9 @@ from .errors import (
 from .strategy import VersionStrategy
 
 if TYPE_CHECKING:
+    from ..controller.base import RequestCtx
     from ..request import Request
     from ..response import Response
-    from ..controller.base import RequestCtx
 
 logger = logging.getLogger("aquilia.versioning")
 
@@ -57,10 +56,10 @@ class VersionMiddleware:
 
     async def __call__(
         self,
-        request: "Request",
-        ctx: "RequestCtx",
+        request: Request,
+        ctx: RequestCtx,
         next_handler: Any,
-    ) -> "Response":
+    ) -> Response:
         """
         Middleware handler.
 

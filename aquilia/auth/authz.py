@@ -7,9 +7,10 @@ Supports AquilaPolicy DSL for declarative access control.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable
+from typing import Any
 
 from .core import Identity
 from .faults import (
@@ -19,7 +20,6 @@ from .faults import (
     AUTHZ_RESOURCE_FORBIDDEN,
     AUTHZ_TENANT_MISMATCH,
 )
-
 
 # ============================================================================
 # Authorization Types
@@ -75,9 +75,7 @@ class RBACEngine:
         self._roles: dict[str, set[str]] = {}  # role -> permissions
         self._role_hierarchy: dict[str, set[str]] = {}  # role -> parent roles
 
-    def define_role(
-        self, role: str, permissions: list[str], inherits: list[str] | None = None
-    ) -> None:
+    def define_role(self, role: str, permissions: list[str], inherits: list[str] | None = None) -> None:
         """
         Define role with permissions and inheritance.
 
@@ -117,9 +115,7 @@ class RBACEngine:
 
         return permissions
 
-    def check_permission(
-        self, roles: list[str], permission: str
-    ) -> bool:
+    def check_permission(self, roles: list[str], permission: str) -> bool:
         """
         Check if any role has permission.
 
@@ -130,11 +126,7 @@ class RBACEngine:
         Returns:
             True if any role has permission
         """
-        for role in roles:
-            if permission in self.get_permissions(role):
-                return True
-
-        return False
+        return any(permission in self.get_permissions(role) for role in roles)
 
     def check(self, context: AuthzContext, permission: str) -> AuthzResult:
         """
@@ -221,9 +213,7 @@ class ScopeChecker:
     """
 
     @staticmethod
-    def check_scopes(
-        available_scopes: list[str], required_scopes: list[str]
-    ) -> bool:
+    def check_scopes(available_scopes: list[str], required_scopes: list[str]) -> bool:
         """
         Check if available scopes satisfy requirements.
 
@@ -237,9 +227,7 @@ class ScopeChecker:
         return set(required_scopes).issubset(set(available_scopes))
 
     @staticmethod
-    def check(
-        context: AuthzContext, required_scopes: list[str]
-    ) -> AuthzResult:
+    def check(context: AuthzContext, required_scopes: list[str]) -> AuthzResult:
         """
         Check scope-based authorization.
 
@@ -287,9 +275,7 @@ class AuthzEngine:
         """Set evaluation order for policies."""
         self._policies = policy_ids
 
-    def check_scope(
-        self, context: AuthzContext, required_scopes: list[str]
-    ) -> None:
+    def check_scope(self, context: AuthzContext, required_scopes: list[str]) -> None:
         """
         Check scope requirements (raises if failed).
 
@@ -307,9 +293,7 @@ class AuthzEngine:
                 available_scopes=context.scopes,
             )
 
-    def check_role(
-        self, context: AuthzContext, required_roles: list[str]
-    ) -> None:
+    def check_role(self, context: AuthzContext, required_roles: list[str]) -> None:
         """
         Check role requirements (raises if failed).
 
@@ -327,9 +311,7 @@ class AuthzEngine:
                 available_roles=context.roles,
             )
 
-    def check_permission(
-        self, context: AuthzContext, permission: str
-    ) -> None:
+    def check_permission(self, context: AuthzContext, permission: str) -> None:
         """
         Check RBAC permission (raises if failed).
 
@@ -348,9 +330,7 @@ class AuthzEngine:
                 reason=result.reason,
             )
 
-    def check_tenant(
-        self, context: AuthzContext, resource_tenant_id: str
-    ) -> None:
+    def check_tenant(self, context: AuthzContext, resource_tenant_id: str) -> None:
         """
         Check tenant isolation (multi-tenancy).
 
@@ -496,9 +476,7 @@ class PolicyBuilder:
         return policy
 
     @staticmethod
-    def admin_or_owner(
-        admin_role: str = "admin", attribute: str = "owner_id"
-    ) -> Callable[[AuthzContext], AuthzResult]:
+    def admin_or_owner(admin_role: str = "admin", attribute: str = "owner_id") -> Callable[[AuthzContext], AuthzResult]:
         """
         Policy: Admin or resource owner can access.
 
@@ -534,9 +512,7 @@ class PolicyBuilder:
         return policy
 
     @staticmethod
-    def time_based(
-        allowed_hours: tuple[int, int] = (9, 17)
-    ) -> Callable[[AuthzContext], AuthzResult]:
+    def time_based(allowed_hours: tuple[int, int] = (9, 17)) -> Callable[[AuthzContext], AuthzResult]:
         """
         Policy: Allow access only during specific hours (UTC).
 

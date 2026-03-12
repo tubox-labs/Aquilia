@@ -17,17 +17,13 @@ Usage::
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
-from datetime import datetime, timezone, timedelta
+from collections.abc import AsyncIterator
+from datetime import timedelta
 from typing import (
     Any,
-    AsyncIterator,
     BinaryIO,
-    Dict,
-    List,
-    Optional,
-    Tuple,
-    Union,
 )
 
 from ..base import (
@@ -67,24 +63,22 @@ class GCSStorage(StorageBackend):
             from google.cloud import storage as gcs_lib
         except ImportError:
             raise BackendUnavailableError(
-                "GCS backend requires 'google-cloud-storage'. "
-                "Install: pip install google-cloud-storage",
+                "GCS backend requires 'google-cloud-storage'. Install: pip install google-cloud-storage",
                 backend="gcs",
             )
 
         loop = asyncio.get_event_loop()
 
         def _connect() -> Any:
-            kwargs: Dict[str, Any] = {}
+            kwargs: dict[str, Any] = {}
             if self._config.project:
                 kwargs["project"] = self._config.project
             if self._config.credentials_path:
-                client = gcs_lib.Client.from_service_account_json(
-                    self._config.credentials_path, **kwargs
-                )
+                client = gcs_lib.Client.from_service_account_json(self._config.credentials_path, **kwargs)
             elif self._config.credentials_json:
                 info = json.loads(self._config.credentials_json)
                 from google.oauth2 import service_account
+
                 creds = service_account.Credentials.from_service_account_info(info)
                 client = gcs_lib.Client(credentials=creds, **kwargs)
             else:
@@ -123,16 +117,16 @@ class GCSStorage(StorageBackend):
         if self._config.prefix:
             prefix = self._config.prefix.strip("/") + "/"
             if blob_name.startswith(prefix):
-                return blob_name[len(prefix):]
+                return blob_name[len(prefix) :]
         return blob_name
 
     async def save(
         self,
         name: str,
-        content: Union[bytes, BinaryIO, AsyncIterator[bytes], StorageFile],
+        content: bytes | BinaryIO | AsyncIterator[bytes] | StorageFile,
         *,
-        content_type: Optional[str] = None,
-        metadata: Optional[Dict[str, str]] = None,
+        content_type: str | None = None,
+        metadata: dict[str, str] | None = None,
         overwrite: bool = False,
     ) -> str:
         self._ensure_bucket()
@@ -164,9 +158,7 @@ class GCSStorage(StorageBackend):
         def _download() -> tuple:
             blob = self._bucket.blob(blob_name)
             if not blob.exists():
-                raise FileNotFoundError(
-                    f"File not found: {name}", backend="gcs", path=name
-                )
+                raise FileNotFoundError(f"File not found: {name}", backend="gcs", path=name)
             blob.reload()
             data = blob.download_as_bytes()
             return data, blob
@@ -199,10 +191,8 @@ class GCSStorage(StorageBackend):
             if blob.exists():
                 blob.delete()
 
-        try:
+        with contextlib.suppress(Exception):
             await loop.run_in_executor(None, _delete)
-        except Exception:
-            pass
 
     async def exists(self, name: str) -> bool:
         self._ensure_bucket()
@@ -222,9 +212,7 @@ class GCSStorage(StorageBackend):
         def _stat() -> StorageMetadata:
             blob = self._bucket.blob(blob_name)
             if not blob.exists():
-                raise FileNotFoundError(
-                    f"File not found: {name}", backend="gcs", path=name
-                )
+                raise FileNotFoundError(f"File not found: {name}", backend="gcs", path=name)
             blob.reload()
             return StorageMetadata(
                 name=self._normalize_path(name),
@@ -239,7 +227,7 @@ class GCSStorage(StorageBackend):
 
         return await loop.run_in_executor(None, _stat)
 
-    async def listdir(self, path: str = "") -> Tuple[List[str], List[str]]:
+    async def listdir(self, path: str = "") -> tuple[list[str], list[str]]:
         self._ensure_bucket()
         prefix = self._blob_name(path)
         if prefix and not prefix.endswith("/"):
@@ -247,20 +235,15 @@ class GCSStorage(StorageBackend):
 
         loop = asyncio.get_event_loop()
 
-        def _list() -> Tuple[List[str], List[str]]:
-            blobs = self._client.list_blobs(
-                self._config.bucket, prefix=prefix, delimiter="/"
-            )
-            files: List[str] = []
+        def _list() -> tuple[list[str], list[str]]:
+            blobs = self._client.list_blobs(self._config.bucket, prefix=prefix, delimiter="/")
+            files: list[str] = []
             for blob in blobs:
                 name = blob.name
                 if name == prefix:
                     continue
                 files.append(name.rsplit("/", 1)[-1])
-            dirs: List[str] = [
-                p.rstrip("/").rsplit("/", 1)[-1]
-                for p in blobs.prefixes
-            ]
+            dirs: list[str] = [p.rstrip("/").rsplit("/", 1)[-1] for p in blobs.prefixes]
             return dirs, files
 
         return await loop.run_in_executor(None, _list)
@@ -269,7 +252,7 @@ class GCSStorage(StorageBackend):
         meta = await self.stat(name)
         return meta.size
 
-    async def url(self, name: str, expire: Optional[int] = None) -> str:
+    async def url(self, name: str, expire: int | None = None) -> str:
         self._ensure_bucket()
         blob_name = self._blob_name(name)
         expiry = expire or self._config.presigned_expiry

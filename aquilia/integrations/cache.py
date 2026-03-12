@@ -5,7 +5,7 @@ CacheIntegration — typed cache configuration.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict
+from typing import Any
 
 
 @dataclass
@@ -39,18 +39,12 @@ class CacheIntegration:
     def __post_init__(self) -> None:
         valid_backends = ("memory", "redis", "composite", "null")
         if self.backend not in valid_backends:
-            raise ValueError(
-                f"Invalid cache backend {self.backend!r}. "
-                f"Must be one of {valid_backends}"
-            )
+            raise ValueError(f"Invalid cache backend {self.backend!r}. Must be one of {valid_backends}")
         valid_policies = ("lru", "lfu", "fifo", "ttl", "random")
         if self.eviction_policy not in valid_policies:
-            raise ValueError(
-                f"Invalid eviction policy {self.eviction_policy!r}. "
-                f"Must be one of {valid_policies}"
-            )
+            raise ValueError(f"Invalid eviction policy {self.eviction_policy!r}. Must be one of {valid_policies}")
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "_integration_type": "cache",
             "enabled": self.enabled,

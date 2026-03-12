@@ -16,32 +16,22 @@ Design principles (async-first, fsspec-aligned):
 
 from __future__ import annotations
 
-import os
-import hashlib
 import mimetypes
+import os
 import uuid
 from abc import ABC, abstractmethod
+from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import PurePosixPath
 from typing import (
     Any,
-    AsyncIterator,
     BinaryIO,
-    Dict,
-    List,
-    Optional,
-    Protocol,
-    Tuple,
-    Union,
-    runtime_checkable,
 )
-
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Errors — Fault-based storage error hierarchy
 # ═══════════════════════════════════════════════════════════════════════════
-
 from aquilia.faults.core import Fault, FaultDomain, Severity
 
 STORAGE_DOMAIN = FaultDomain.custom("storage", "File storage faults")
@@ -159,6 +149,7 @@ class StorageConfigFault(StorageError):
 # Metadata
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 @dataclass(frozen=True, slots=True)
 class StorageMetadata:
     """
@@ -166,16 +157,17 @@ class StorageMetadata:
 
     Returned by ``StorageBackend.stat()`` and attached to ``StorageFile``.
     """
-    name: str                                           # Relative path/key
-    size: int = 0                                       # Bytes
-    content_type: str = "application/octet-stream"      # MIME type
-    etag: str = ""                                      # Content hash / ETag
-    last_modified: Optional[datetime] = None
-    created_at: Optional[datetime] = None
-    metadata: Dict[str, str] = field(default_factory=dict)  # Custom headers/tags
-    storage_class: str = ""                             # e.g. STANDARD, GLACIER
 
-    def to_dict(self) -> Dict[str, Any]:
+    name: str  # Relative path/key
+    size: int = 0  # Bytes
+    content_type: str = "application/octet-stream"  # MIME type
+    etag: str = ""  # Content hash / ETag
+    last_modified: datetime | None = None
+    created_at: datetime | None = None
+    metadata: dict[str, str] = field(default_factory=dict)  # Custom headers/tags
+    storage_class: str = ""  # e.g. STANDARD, GLACIER
+
+    def to_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "size": self.size,
@@ -191,6 +183,7 @@ class StorageMetadata:
 # ═══════════════════════════════════════════════════════════════════════════
 # StorageFile -- async file wrapper
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class StorageFile:
     """
@@ -210,9 +203,9 @@ class StorageFile:
         self,
         name: str,
         mode: str = "rb",
-        content: Optional[bytes] = None,
-        meta: Optional[StorageMetadata] = None,
-        chunks: Optional[AsyncIterator[bytes]] = None,
+        content: bytes | None = None,
+        meta: StorageMetadata | None = None,
+        chunks: AsyncIterator[bytes] | None = None,
     ):
         self.name = name
         self.mode = mode
@@ -239,11 +232,11 @@ class StorageFile:
             return b""
 
         if size == -1:
-            data = self._content[self._pos:]
+            data = self._content[self._pos :]
             self._pos = len(self._content)
             return data
 
-        data = self._content[self._pos:self._pos + size]
+        data = self._content[self._pos : self._pos + size]
         self._pos += len(data)
         return data
 
@@ -271,7 +264,7 @@ class StorageFile:
         return self._pos
 
     @property
-    def content(self) -> Optional[bytes]:
+    def content(self) -> bytes | None:
         """Return raw content bytes (or None if not materialised)."""
         return self._content
 
@@ -291,7 +284,7 @@ class StorageFile:
             return self.meta.size
         return 0
 
-    async def __aenter__(self) -> "StorageFile":
+    async def __aenter__(self) -> StorageFile:
         return self
 
     async def __aexit__(self, *exc: Any) -> None:
@@ -309,12 +302,13 @@ class StorageFile:
 
         if self._content is not None:
             for i in range(0, len(self._content), chunk_size):
-                yield self._content[i:i + chunk_size]
+                yield self._content[i : i + chunk_size]
 
 
 # ═══════════════════════════════════════════════════════════════════════════
 # StorageBackend -- abstract base class
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class StorageBackend(ABC):
     """
@@ -367,10 +361,10 @@ class StorageBackend(ABC):
     async def save(
         self,
         name: str,
-        content: Union[bytes, BinaryIO, AsyncIterator[bytes], "StorageFile"],
+        content: bytes | BinaryIO | AsyncIterator[bytes] | StorageFile,
         *,
-        content_type: Optional[str] = None,
-        metadata: Optional[Dict[str, str]] = None,
+        content_type: str | None = None,
+        metadata: dict[str, str] | None = None,
         overwrite: bool = False,
     ) -> str:
         """
@@ -452,7 +446,7 @@ class StorageBackend(ABC):
         ...
 
     @abstractmethod
-    async def listdir(self, path: str = "") -> Tuple[List[str], List[str]]:
+    async def listdir(self, path: str = "") -> tuple[list[str], list[str]]:
         """
         List contents of a directory/prefix.
 
@@ -467,7 +461,7 @@ class StorageBackend(ABC):
         ...
 
     @abstractmethod
-    async def url(self, name: str, expire: Optional[int] = None) -> str:
+    async def url(self, name: str, expire: int | None = None) -> str:
         """
         Return a URL for accessing the file.
 
@@ -565,7 +559,7 @@ class StorageBackend(ABC):
 
     @staticmethod
     async def _read_content(
-        content: Union[bytes, BinaryIO, AsyncIterator[bytes], "StorageFile"],
+        content: bytes | BinaryIO | AsyncIterator[bytes] | StorageFile,
     ) -> bytes:
         """Normalise any content type to raw bytes.
 
@@ -578,6 +572,7 @@ class StorageBackend(ABC):
             return await content.read()
         if hasattr(content, "read"):
             import asyncio
+
             loop = asyncio.get_event_loop()
             return await loop.run_in_executor(None, content.read)  # type: ignore
         # AsyncIterator[bytes]

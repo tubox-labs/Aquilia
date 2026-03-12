@@ -18,18 +18,14 @@ Follows the Aquilia async middleware signature:
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import time
+from collections.abc import Awaitable, Callable
 from datetime import datetime, timezone
 from typing import (
-    Any,
-    Awaitable,
-    Callable,
-    Dict,
-    List,
-    Optional,
-    Set,
     TYPE_CHECKING,
+    Any,
 )
 
 from aquilia.request import Request
@@ -83,6 +79,7 @@ def _method_color(method: str) -> str:
 
 # ─── Log Format Builders ─────────────────────────────────────────────────────
 
+
 class _LogFormatter:
     """Pluggable formatter for access log lines."""
 
@@ -98,7 +95,7 @@ class _LogFormatter:
         user_agent: str,
         referer: str,
         request_id: str,
-        extras: Dict[str, Any],
+        extras: dict[str, Any],
     ) -> str:
         raise NotImplementedError
 
@@ -109,11 +106,11 @@ class CombinedLogFormatter(_LogFormatter):
     def format_request(self, **kwargs: Any) -> str:
         now = datetime.now(timezone.utc).strftime("%d/%b/%Y:%H:%M:%S %z")
         return (
-            f'{kwargs["client_ip"]} - - [{now}] '
+            f"{kwargs['client_ip']} - - [{now}] "
             f'"{kwargs["method"]} {kwargs["path"]} HTTP/1.1" '
-            f'{kwargs["status"]} {kwargs["content_length"]} '
+            f"{kwargs['status']} {kwargs['content_length']} "
             f'"{kwargs["referer"]}" "{kwargs["user_agent"]}" '
-            f'{kwargs["duration_ms"]:.1f}ms'
+            f"{kwargs['duration_ms']:.1f}ms"
         )
 
 
@@ -154,19 +151,17 @@ class DevLogFormatter(_LogFormatter):
 
         duration = kwargs["duration_ms"]
         if duration > 1000:
-            dur_str = f'{_COLORS["red"]}{duration:.0f}ms{r}'
+            dur_str = f"{_COLORS['red']}{duration:.0f}ms{r}"
         elif duration > 200:
-            dur_str = f'{_COLORS["yellow"]}{duration:.0f}ms{r}'
+            dur_str = f"{_COLORS['yellow']}{duration:.0f}ms{r}"
         else:
-            dur_str = f'{d}{duration:.0f}ms{r}'
+            dur_str = f"{d}{duration:.0f}ms{r}"
 
-        return (
-            f'{mc}{m:7}{r} {kwargs["path"]:40} '
-            f'{sc}{s}{r} {dur_str}'
-        )
+        return f"{mc}{m:7}{r} {kwargs['path']:40} {sc}{s}{r} {dur_str}"
 
 
 # ─── Enhanced Logging Middleware ──────────────────────────────────────────────
+
 
 class LoggingMiddleware:
     """
@@ -190,9 +185,9 @@ class LoggingMiddleware:
         level: int = logging.INFO,
         error_level: int = logging.ERROR,
         slow_threshold_ms: float = 1000.0,
-        skip_paths: Optional[Set[str]] = None,
+        skip_paths: set[str] | None = None,
         log_request_body: bool = False,
-        include_headers: Optional[List[str]] = None,
+        include_headers: list[str] | None = None,
     ):
         self.logger = logging.getLogger(logger_name)
         self._level = level
@@ -215,7 +210,7 @@ class LoggingMiddleware:
     async def __call__(
         self,
         request: Request,
-        ctx: "RequestCtx",
+        ctx: RequestCtx,
         next_handler: Handler,
     ) -> Response:
         # Skip filtered paths
@@ -245,7 +240,7 @@ class LoggingMiddleware:
             if client:
                 client_ip = str(client[0])
 
-        extras: Dict[str, Any] = {}
+        extras: dict[str, Any] = {}
         for header in self._include_headers:
             val = request.header(header)
             if val:
@@ -253,10 +248,8 @@ class LoggingMiddleware:
 
         content_length = 0
         cl_header = response.headers.get("content-length", "0")
-        try:
+        with contextlib.suppress(ValueError, TypeError):
             content_length = int(cl_header)
-        except (ValueError, TypeError):
-            pass
 
         log_line = self._formatter.format_request(
             method=request.method,

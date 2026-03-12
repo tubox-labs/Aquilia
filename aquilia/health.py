@@ -8,16 +8,18 @@ enabling graceful degradation and /health endpoint support.
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Callable, Dict, List, Literal, Optional
+from typing import Any
 
 logger = logging.getLogger("aquilia.health")
 
 
 class SubsystemStatus(str, Enum):
     """Status of a subsystem."""
+
     HEALTHY = "healthy"
     DEGRADED = "degraded"
     UNHEALTHY = "unhealthy"
@@ -29,14 +31,13 @@ class SubsystemStatus(str, Enum):
 @dataclass
 class HealthStatus:
     """Health status for a single subsystem."""
+
     name: str
     status: SubsystemStatus = SubsystemStatus.UNKNOWN
     latency_ms: float = 0.0
     message: str = ""
-    details: Dict[str, Any] = field(default_factory=dict)
-    checked_at: datetime = field(
-        default_factory=lambda: datetime.now(timezone.utc)
-    )
+    details: dict[str, Any] = field(default_factory=dict)
+    checked_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     def to_dict(self) -> dict:
         """Serialize for JSON response."""
@@ -59,8 +60,8 @@ class HealthRegistry:
     """
 
     def __init__(self):
-        self._statuses: Dict[str, HealthStatus] = {}
-        self._checks: Dict[str, Callable[[], HealthStatus]] = {}
+        self._statuses: dict[str, HealthStatus] = {}
+        self._checks: dict[str, Callable[[], HealthStatus]] = {}
 
     def register(self, name: str, status: HealthStatus) -> None:
         """Register or update a subsystem's health status."""
@@ -77,16 +78,14 @@ class HealthRegistry:
             self._statuses[name].message = message
             self._statuses[name].checked_at = datetime.now(timezone.utc)
         else:
-            self._statuses[name] = HealthStatus(
-                name=name, status=status, message=message
-            )
+            self._statuses[name] = HealthStatus(name=name, status=status, message=message)
 
-    def get(self, name: str) -> Optional[HealthStatus]:
+    def get(self, name: str) -> HealthStatus | None:
         """Get a specific subsystem's health status."""
         return self._statuses.get(name)
 
     @property
-    def all_statuses(self) -> Dict[str, HealthStatus]:
+    def all_statuses(self) -> dict[str, HealthStatus]:
         """Get all registered health statuses."""
         return dict(self._statuses)
 
@@ -133,15 +132,11 @@ class HealthRegistry:
             "status": overall.status.value,
             "message": overall.message,
             "checked_at": overall.checked_at.isoformat(),
-            "subsystems": {
-                name: s.to_dict()
-                for name, s in sorted(self._statuses.items())
-            },
+            "subsystems": {name: s.to_dict() for name, s in sorted(self._statuses.items())},
         }
 
-    async def run_checks(self) -> Dict[str, HealthStatus]:
+    async def run_checks(self) -> dict[str, HealthStatus]:
         """Run all registered health checks and update statuses."""
-        import asyncio
         import inspect
         import time
 

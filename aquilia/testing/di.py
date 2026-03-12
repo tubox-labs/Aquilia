@@ -8,11 +8,11 @@ DI mocking in tests.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from contextlib import asynccontextmanager
-from typing import Any, Callable, Dict, Optional, Type, TypeVar
+from typing import Any, TypeVar
 
 from aquilia.di.core import Container, Provider, ProviderMeta
-from aquilia.di.providers import ValueProvider
 
 T = TypeVar("T")
 
@@ -25,7 +25,7 @@ class _MockProvider:
     def __init__(
         self,
         value: Any,
-        token: Type | str,
+        token: type | str,
         scope: str = "singleton",
     ):
         self._value = value
@@ -35,11 +35,7 @@ class _MockProvider:
 
     @property
     def meta(self) -> ProviderMeta:
-        token_str = (
-            self._token.__name__
-            if isinstance(self._token, type)
-            else str(self._token)
-        )
+        token_str = self._token.__name__ if isinstance(self._token, type) else str(self._token)
         return ProviderMeta(
             name=f"mock:{token_str}",
             token=token_str,
@@ -60,7 +56,7 @@ class _FactoryProvider:
     def __init__(
         self,
         factory: Callable[..., Any],
-        token: Type | str,
+        token: type | str,
         scope: str = "transient",
     ):
         self._factory = factory
@@ -70,11 +66,7 @@ class _FactoryProvider:
 
     @property
     def meta(self) -> ProviderMeta:
-        token_str = (
-            self._token.__name__
-            if isinstance(self._token, type)
-            else str(self._token)
-        )
+        token_str = self._token.__name__ if isinstance(self._token, type) else str(self._token)
         return ProviderMeta(
             name=f"factory:{token_str}",
             token=token_str,
@@ -118,7 +110,7 @@ class _SpyProvider:
 
 
 def mock_provider(
-    token: Type[T] | str,
+    token: type[T] | str,
     value: T,
     scope: str = "singleton",
 ) -> _MockProvider:
@@ -133,7 +125,7 @@ def mock_provider(
 
 
 def factory_provider(
-    token: Type[T] | str,
+    token: type[T] | str,
     factory: Callable[..., T],
     scope: str = "transient",
 ) -> _FactoryProvider:
@@ -150,10 +142,10 @@ def factory_provider(
 @asynccontextmanager
 async def override_provider(
     container: Container,
-    token: Type[T] | str,
+    token: type[T] | str,
     mock_value: T,
     *,
-    tag: Optional[str] = None,
+    tag: str | None = None,
 ):
     """
     Temporarily override a provider in a container.
@@ -196,9 +188,9 @@ async def override_provider(
 @asynccontextmanager
 async def spy_provider(
     container: Container,
-    token: Type[T] | str,
+    token: type[T] | str,
     *,
-    tag: Optional[str] = None,
+    tag: str | None = None,
 ):
     """
     Wrap an existing provider with a spy that tracks calls.
@@ -217,6 +209,7 @@ async def spy_provider(
     original_provider = container._providers.get(cache_key)
     if original_provider is None:
         from aquilia.faults.domains import ProviderNotFoundFault
+
         raise ProviderNotFoundFault(
             token=repr(token),
             message=f"No provider registered for {token!r}",
@@ -254,7 +247,7 @@ class TestContainer(Container):
         super().__init__(scope=scope, **kw)
         self.resolution_log: list[str] = []
 
-    def register(self, provider: Provider, tag: Optional[str] = None):
+    def register(self, provider: Provider, tag: str | None = None):
         """Register, silently overwriting duplicates."""
         meta = provider.meta
         token = meta.token
@@ -264,10 +257,10 @@ class TestContainer(Container):
 
     def register_value(
         self,
-        token: Type | str,
+        token: type | str,
         value: Any,
         scope: str = "singleton",
-        tag: Optional[str] = None,
+        tag: str | None = None,
     ) -> _MockProvider:
         """Shortcut: register a fixed value provider."""
         provider = _MockProvider(value=value, token=token, scope=scope)
@@ -276,10 +269,10 @@ class TestContainer(Container):
 
     def register_factory(
         self,
-        token: Type | str,
+        token: type | str,
         factory: Callable[..., Any],
         scope: str = "transient",
-        tag: Optional[str] = None,
+        tag: str | None = None,
     ) -> _FactoryProvider:
         """Shortcut: register a factory provider."""
         provider = _FactoryProvider(factory=factory, token=token, scope=scope)
