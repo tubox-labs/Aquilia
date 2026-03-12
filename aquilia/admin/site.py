@@ -4401,7 +4401,7 @@ class AdminSite:
             try:
                 proc = subprocess.run(
                     ["docker", *args],
-                    capture_output=True, text=True, timeout=timeout,
+                    capture_output=True, text=True, encoding="utf-8", timeout=timeout,
                 )
                 return proc.returncode == 0, proc.stdout.strip(), proc.stderr.strip()
             except FileNotFoundError:
@@ -4758,7 +4758,7 @@ class AdminSite:
 
             try:
                 proc = subprocess.run(
-                    args, capture_output=True, text=True, timeout=120,
+                    args, capture_output=True, text=True, encoding="utf-8", timeout=120,
                 )
                 if proc.returncode == 0:
                     cid = proc.stdout.strip()[:12] or "started"
@@ -4786,7 +4786,7 @@ class AdminSite:
                 args.append("-f")
             args.append(cid)
             proc = subprocess.run(
-                args, capture_output=True, text=True, timeout=30,
+                args, capture_output=True, text=True, encoding="utf-8", timeout=30,
             )
             if proc.returncode == 0:
                 return {"success": True, "message": f"Container {action} successful"}
@@ -4804,7 +4804,7 @@ class AdminSite:
         try:
             proc = subprocess.run(
                 ["docker", "inspect", container_id.strip()],
-                capture_output=True, text=True, timeout=10,
+                capture_output=True, text=True, encoding="utf-8", timeout=10,
             )
             if proc.returncode == 0:
                 data = _json.loads(proc.stdout)
@@ -4828,7 +4828,7 @@ class AdminSite:
 
         try:
             proc = subprocess.run(
-                args, capture_output=True, text=True, timeout=15,
+                args, capture_output=True, text=True, encoding="utf-8", timeout=15,
             )
             # docker logs outputs to both stdout and stderr
             output = proc.stdout + proc.stderr
@@ -4846,7 +4846,7 @@ class AdminSite:
         try:
             proc = subprocess.run(
                 ["docker", "volume", "inspect", volume_name.strip()],
-                capture_output=True, text=True, timeout=10,
+                capture_output=True, text=True, encoding="utf-8", timeout=10,
             )
             if proc.returncode == 0:
                 data = _json.loads(proc.stdout)
@@ -4865,7 +4865,7 @@ class AdminSite:
         try:
             proc = subprocess.run(
                 ["docker", "network", "inspect", network_id.strip()],
-                capture_output=True, text=True, timeout=10,
+                capture_output=True, text=True, encoding="utf-8", timeout=10,
             )
             if proc.returncode == 0:
                 data = _json.loads(proc.stdout)
@@ -4884,7 +4884,7 @@ class AdminSite:
         try:
             proc = subprocess.run(
                 ["docker", "image", "inspect", image_id.strip()],
-                capture_output=True, text=True, timeout=10,
+                capture_output=True, text=True, encoding="utf-8", timeout=10,
             )
             if proc.returncode == 0:
                 data = _json.loads(proc.stdout)
@@ -4913,12 +4913,12 @@ class AdminSite:
             if action == "rm":
                 proc = subprocess.run(
                     ["docker", "rmi", "-f", image_id.strip()],
-                    capture_output=True, text=True, timeout=30,
+                    capture_output=True, text=True, encoding="utf-8", timeout=30,
                 )
             else:  # pull
                 proc = subprocess.run(
                     ["docker", "pull", image_id.strip()],
-                    capture_output=True, text=True, timeout=120,
+                    capture_output=True, text=True, encoding="utf-8", timeout=120,
                 )
 
             if proc.returncode == 0:
@@ -4967,7 +4967,7 @@ class AdminSite:
                 args.append(action)
 
             proc = subprocess.run(
-                args, capture_output=True, text=True, timeout=120,
+                args, capture_output=True, text=True, encoding="utf-8", timeout=120,
                 cwd=str(compose_dir),
             )
             output = proc.stdout + proc.stderr
@@ -4991,7 +4991,7 @@ class AdminSite:
         try:
             proc = subprocess.run(
                 ["docker", "volume", "rm", "-f", volume_name.strip()],
-                capture_output=True, text=True, timeout=15,
+                capture_output=True, text=True, encoding="utf-8", timeout=15,
             )
             if proc.returncode == 0:
                 return {"success": True, "message": "Volume removed"}
@@ -5011,7 +5011,7 @@ class AdminSite:
         try:
             proc = subprocess.run(
                 ["docker", "network", "rm", network_id.strip()],
-                capture_output=True, text=True, timeout=15,
+                capture_output=True, text=True, encoding="utf-8", timeout=15,
             )
             if proc.returncode == 0:
                 return {"success": True, "message": "Network removed"}
@@ -5032,7 +5032,7 @@ class AdminSite:
         try:
             proc = subprocess.run(
                 ["docker", "system", "df", "-v", "--format", "{{json .}}"],
-                capture_output=True, text=True, timeout=15,
+                capture_output=True, text=True, encoding="utf-8", timeout=15,
             )
             if proc.returncode != 0:
                 return {"success": False, "error": proc.stderr.strip()}
@@ -5057,7 +5057,7 @@ class AdminSite:
         try:
             proc = subprocess.run(
                 ["docker", "system", "df"],
-                capture_output=True, text=True, timeout=10,
+                capture_output=True, text=True, encoding="utf-8", timeout=10,
             )
             if proc.returncode == 0:
                 return {"success": True, "output": proc.stdout.strip()}
@@ -5086,7 +5086,7 @@ class AdminSite:
         try:
             proc = subprocess.run(
                 ALLOWED[target],
-                capture_output=True, text=True, timeout=120,
+                capture_output=True, text=True, encoding="utf-8", timeout=120,
             )
             output = (proc.stdout + proc.stderr).strip()
             if proc.returncode == 0:
@@ -5113,7 +5113,7 @@ class AdminSite:
         try:
             args = ["docker", "exec", cid] + shlex.split(command)
             proc = subprocess.run(
-                args, capture_output=True, text=True, timeout=30,
+                args, capture_output=True, text=True, encoding="utf-8", timeout=30,
             )
             output = proc.stdout + proc.stderr
             return {
@@ -5135,7 +5135,7 @@ class AdminSite:
             proc = subprocess.run(
                 ["docker", "history", image_id.strip(), "--no-trunc",
                  "--format", "{{json .}}"],
-                capture_output=True, text=True, timeout=10,
+                capture_output=True, text=True, encoding="utf-8", timeout=10,
             )
             if proc.returncode != 0:
                 return {"success": False, "error": proc.stderr.strip()}
@@ -5174,7 +5174,7 @@ class AdminSite:
         try:
             proc = subprocess.run(
                 ["docker", "tag", src, tgt],
-                capture_output=True, text=True, timeout=10,
+                capture_output=True, text=True, encoding="utf-8", timeout=10,
             )
             if proc.returncode == 0:
                 return {"success": True, "message": f"Tagged {src} as {tgt}"}
@@ -5193,11 +5193,11 @@ class AdminSite:
         if not cid:
             return {"success": False, "error": "Empty container ID"}
 
-        outpath = f"/tmp/docker-export-{cid[:12]}.tar"
+        outpath = os.path.join(tempfile.gettempdir(), f"docker-export-{cid[:12]}.tar")
         try:
             proc = subprocess.run(
                 ["docker", "export", "-o", outpath, cid],
-                capture_output=True, text=True, timeout=120,
+                capture_output=True, text=True, encoding="utf-8", timeout=120,
             )
             if proc.returncode == 0:
                 import os
@@ -5239,7 +5239,7 @@ class AdminSite:
 
         try:
             proc = subprocess.run(
-                args, capture_output=True, text=True, timeout=15,
+                args, capture_output=True, text=True, encoding="utf-8", timeout=15,
             )
             if proc.returncode == 0:
                 nid = proc.stdout.strip()[:12]
@@ -5270,7 +5270,7 @@ class AdminSite:
 
         try:
             proc = subprocess.run(
-                args, capture_output=True, text=True, timeout=15,
+                args, capture_output=True, text=True, encoding="utf-8", timeout=15,
             )
             if proc.returncode == 0:
                 return {"success": True, "message": f"Volume '{name}' created"}
@@ -5290,7 +5290,7 @@ class AdminSite:
             proc = subprocess.run(
                 ["docker", "events", "--since", since, "--until", "0s",
                  "--format", "{{json .}}"],
-                capture_output=True, text=True, timeout=10,
+                capture_output=True, text=True, encoding="utf-8", timeout=10,
             )
             events = []
             for line in proc.stdout.strip().splitlines():
@@ -5349,7 +5349,7 @@ class AdminSite:
 
         try:
             proc = subprocess.run(
-                args, capture_output=True, text=True, timeout=600,
+                args, capture_output=True, text=True, encoding="utf-8", timeout=600,
                 cwd=str(build_dir),
             )
             output = proc.stdout + proc.stderr
@@ -5372,12 +5372,18 @@ class AdminSite:
     def get_container_top(self, container_id: str) -> Dict[str, Any]:
         """Return ``docker top`` output — processes running inside a container."""
         import json as _json
+        import platform
         import subprocess
 
         try:
+            # Windows Docker doesn't support the Unix -eo ps format
+            if platform.system() == "Windows":
+                cmd = ["docker", "top", container_id.strip()]
+            else:
+                cmd = ["docker", "top", container_id.strip(),
+                       "-eo", "pid,user,%cpu,%mem,vsz,rss,tty,stat,start,time,command"]
             proc = subprocess.run(
-                ["docker", "top", container_id.strip(), "-eo", "pid,user,%cpu,%mem,vsz,rss,tty,stat,start,time,command"],
-                capture_output=True, text=True, timeout=10,
+                cmd, capture_output=True, text=True, encoding="utf-8", timeout=10,
             )
             if proc.returncode != 0:
                 return {"success": False, "error": proc.stderr.strip()}
@@ -5400,7 +5406,7 @@ class AdminSite:
         try:
             proc = subprocess.run(
                 ["docker", "diff", container_id.strip()],
-                capture_output=True, text=True, timeout=10,
+                capture_output=True, text=True, encoding="utf-8", timeout=10,
             )
             if proc.returncode != 0:
                 return {"success": False, "error": proc.stderr.strip()}
@@ -5425,7 +5431,7 @@ class AdminSite:
             proc = subprocess.run(
                 ["docker", "stats", "--no-stream", "--format", "{{json .}}",
                  container_id.strip()],
-                capture_output=True, text=True, timeout=10,
+                capture_output=True, text=True, encoding="utf-8", timeout=10,
             )
             if proc.returncode != 0:
                 return {"success": False, "error": proc.stderr.strip()}
@@ -5497,7 +5503,7 @@ class AdminSite:
             try:
                 proc = subprocess.run(
                     ["kubectl", *args],
-                    capture_output=True, text=True, timeout=timeout,
+                    capture_output=True, text=True, encoding="utf-8", timeout=timeout,
                 )
                 return proc.returncode == 0, proc.stdout.strip(), proc.stderr.strip()
             except FileNotFoundError:
