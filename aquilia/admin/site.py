@@ -4017,12 +4017,30 @@ class AdminSite:
             import psutil
 
             # CPU
-            cpu_percent = psutil.cpu_percent(interval=0.1)
-            per_core = psutil.cpu_percent(interval=0, percpu=True)
+            # On Windows (and all platforms) the *first* call to
+            # cpu_percent() with interval=None/0 returns a meaningless
+            # 0.0.  Using interval>0 makes the call blocking but
+            # guarantees a real reading.  We use interval=0.5 to get
+            # a meaningful result even on a cold start, then the
+            # subsequent per-core call uses interval=0.1 (also blocking)
+            # so each core gets a real reading too.
+            cpu_percent = psutil.cpu_percent(interval=0.5)
+            per_core = psutil.cpu_percent(interval=0.1, percpu=True)
             cpu_freq = psutil.cpu_freq()
             cpu_times = psutil.cpu_times()
+
+            # On Windows os.getloadavg() does not exist.  psutil
+            # provides getloadavg() but it returns (0,0,0) for the
+            # first ~5 s because it spawns a background thread.
+            # Fall back to using cpu_percent as a rough proxy.
             try:
-                load_avg = os.getloadavg()
+                load_avg = psutil.getloadavg()
+                # If load avg is still (0,0,0) on Windows (first 5 s),
+                # approximate it from cpu_percent so the dashboard
+                # is not blank.
+                if platform.system() == "Windows" and load_avg == (0.0, 0.0, 0.0):
+                    _approx = cpu_percent / 100.0 * (psutil.cpu_count() or 1)
+                    load_avg = (_approx, _approx, _approx)
             except (AttributeError, OSError):
                 load_avg = (0.0, 0.0, 0.0)
 
@@ -4231,29 +4249,134 @@ class AdminSite:
                 result["process"]["io_write_bytes_human"] = "--"
 
         except ImportError:
-            # psutil not available -- provide minimal data
+            # psutil not available -- try to provide data via stdlib
+            # and platform-specific fallbacks
+            import logging
+            logging.getLogger("aquilia.admin").warning(
+                "psutil is not installed — monitoring data will be limited. "
+                "Install it with: pip install psutil"
+            )
+            result["_psutil_missing"] = True
+
+            # ── CPU fallback (stdlib + platform-specific) ──
+            _cpu_pct = 0.0
+            _per_core: list = []
+            _cores_logical = os.cpu_count() or 0
+            if platform.system() == "Windows":
+                # Use WMI via subprocess to get CPU usage
+                try:
+                    import subprocess
+                    wmi_out = subprocess.run(
+                        ["powershell", "-NoProfile", "-Command",
+                         "Get-CimInstance Win32_Processor | "
+                         "Select-Object -ExpandProperty LoadPercentage"],
+                        capture_output=True, text=True, timeout=5,
+                        encoding="utf-8",
+                    )
+                    if wmi_out.returncode == 0 and wmi_out.stdout.strip():
+                        _cpu_pct = float(wmi_out.stdout.strip().splitlines()[0])
+                except Exception:
+                    pass
+                # Per-core via typeperf (quick one-shot)
+                try:
+                    import subprocess
+                    tp_out = subprocess.run(
+                        ["typeperf", r"\Processor(*)\% Processor Time",
+                         "-sc", "1"],
+                        capture_output=True, text=True, timeout=10,
+                        encoding="utf-8",
+                    )
+                    if tp_out.returncode == 0:
+                        lines = tp_out.stdout.strip().splitlines()
+                        if len(lines) >= 2:
+                            # Second line has the data values, skip timestamp
+                            vals = lines[1].split(",")[1:]  # skip first field (timestamp)
+                            # Last value is _Total, skip it
+                            core_vals = vals[:-1] if len(vals) > 1 else vals
+                            _per_core = []
+                            for v in core_vals:
+                                v = v.strip().strip('"')
+                                try:
+                                    _per_core.append(round(float(v), 1))
+                                except (ValueError, TypeError):
+                                    pass
+                except Exception:
+                    pass
+
             result["cpu"] = {
-                "percent": 0, "per_core": [], "cores_physical": 0,
-                "cores_logical": os.cpu_count() or 0,
+                "percent": _cpu_pct, "per_core": _per_core,
+                "cores_physical": 0,
+                "cores_logical": _cores_logical,
                 "freq_current": 0, "freq_max": 0,
                 "load_avg_1": 0, "load_avg_5": 0, "load_avg_15": 0,
                 "times_user": 0, "times_system": 0, "times_idle": 0,
             }
+
+            # ── Memory fallback ──
+            _mem_total = 0
+            _mem_avail = 0
+            _mem_used = 0
+            _mem_pct = 0.0
+            if platform.system() == "Windows":
+                try:
+                    import ctypes
+                    class MEMORYSTATUSEX(ctypes.Structure):
+                        _fields_ = [
+                            ("dwLength", ctypes.c_ulong),
+                            ("dwMemoryLoad", ctypes.c_ulong),
+                            ("ullTotalPhys", ctypes.c_ulonglong),
+                            ("ullAvailPhys", ctypes.c_ulonglong),
+                            ("ullTotalPageFile", ctypes.c_ulonglong),
+                            ("ullAvailPageFile", ctypes.c_ulonglong),
+                            ("ullTotalVirtual", ctypes.c_ulonglong),
+                            ("ullAvailVirtual", ctypes.c_ulonglong),
+                            ("ullAvailExtendedVirtual", ctypes.c_ulonglong),
+                        ]
+                    stat = MEMORYSTATUSEX()
+                    stat.dwLength = ctypes.sizeof(stat)
+                    ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(stat))
+                    _mem_total = stat.ullTotalPhys
+                    _mem_avail = stat.ullAvailPhys
+                    _mem_used = _mem_total - _mem_avail
+                    _mem_pct = round(stat.dwMemoryLoad, 1)
+                except Exception:
+                    pass
             result["memory"] = {
-                "total": 0, "total_human": "--",
-                "available": 0, "available_human": "--",
-                "used": 0, "used_human": "--", "percent": 0,
+                "total": _mem_total, "total_human": self._fmt_bytes(_mem_total),
+                "available": _mem_avail, "available_human": self._fmt_bytes(_mem_avail),
+                "used": _mem_used, "used_human": self._fmt_bytes(_mem_used),
+                "percent": _mem_pct,
                 "swap_total": 0, "swap_total_human": "--",
                 "swap_used": 0, "swap_used_human": "--",
                 "swap_free": 0, "swap_free_human": "--",
                 "swap_percent": 0,
             }
+
+            # ── Disk fallback ──
+            _dk_total = 0
+            _dk_used = 0
+            _dk_free = 0
+            _dk_pct = 0.0
+            try:
+                import shutil
+                if platform.system() == "Windows":
+                    _dk_root = os.environ.get("SystemDrive", "C:") + "\\"
+                else:
+                    _dk_root = "/"
+                du = shutil.disk_usage(_dk_root)
+                _dk_total = du.total
+                _dk_used = du.used
+                _dk_free = du.free
+                _dk_pct = round(du.used / du.total * 100, 1) if du.total else 0
+            except Exception:
+                pass
             result["disk"] = {
-                "total": 0, "total_human": "--",
-                "used": 0, "used_human": "--",
-                "free": 0, "free_human": "--",
-                "percent": 0, "partitions": [],
+                "total": _dk_total, "total_human": self._fmt_bytes(_dk_total),
+                "used": _dk_used, "used_human": self._fmt_bytes(_dk_used),
+                "free": _dk_free, "free_human": self._fmt_bytes(_dk_free),
+                "percent": _dk_pct, "partitions": [],
             }
+
             result["network"] = {
                 "bytes_sent": 0, "bytes_sent_human": "--",
                 "bytes_recv": 0, "bytes_recv_human": "--",
@@ -4261,18 +4384,173 @@ class AdminSite:
                 "errin": 0, "errout": 0, "dropin": 0, "dropout": 0,
                 "connections_by_status": {},
             }
+
+            # ── Process fallback ──
+            _p_rss = 0
+            _p_vms = 0
+            if platform.system() == "Windows":
+                try:
+                    import ctypes
+                    from ctypes import wintypes
+                    # GetProcessMemoryInfo via kernel32/psapi
+                    class PROCESS_MEMORY_COUNTERS(ctypes.Structure):
+                        _fields_ = [
+                            ("cb", wintypes.DWORD),
+                            ("PageFaultCount", wintypes.DWORD),
+                            ("PeakWorkingSetSize", ctypes.c_size_t),
+                            ("WorkingSetSize", ctypes.c_size_t),
+                            ("QuotaPeakPagedPoolUsage", ctypes.c_size_t),
+                            ("QuotaPagedPoolUsage", ctypes.c_size_t),
+                            ("QuotaPeakNonPagedPoolUsage", ctypes.c_size_t),
+                            ("QuotaNonPagedPoolUsage", ctypes.c_size_t),
+                            ("PagefileUsage", ctypes.c_size_t),
+                            ("PeakPagefileUsage", ctypes.c_size_t),
+                        ]
+                    pmc = PROCESS_MEMORY_COUNTERS()
+                    pmc.cb = ctypes.sizeof(pmc)
+                    handle = ctypes.windll.kernel32.GetCurrentProcess()
+                    if ctypes.windll.psapi.GetProcessMemoryInfo(
+                        handle, ctypes.byref(pmc), pmc.cb
+                    ):
+                        _p_rss = pmc.WorkingSetSize
+                        _p_vms = pmc.PagefileUsage
+                except Exception:
+                    pass
+
+            import threading as _thr
             result["process"] = {
                 "pid": os.getpid(), "name": "python", "status": "running",
                 "create_time": "--", "uptime_human": "--",
-                "threads": 0, "open_files": 0,
-                "rss": 0, "rss_human": "--", "vms": 0, "vms_human": "--",
-                "shared": 0, "private": 0,
-                "mem_percent": 0, "ctx_switches": 0,
+                "threads": _thr.active_count(), "open_files": 0,
+                "rss": _p_rss, "rss_human": self._fmt_bytes(_p_rss),
+                "vms": _p_vms, "vms_human": self._fmt_bytes(_p_vms),
+                "shared": 0, "private": _p_rss,
+                "mem_percent": round(_p_rss / _mem_total * 100, 2) if _mem_total else 0,
+                "ctx_switches": 0,
                 "ctx_switches_voluntary": 0, "ctx_switches_involuntary": 0,
                 "env_snapshot": self._safe_env_snapshot(),
                 "io_read_count": "--", "io_write_count": "--",
                 "io_read_bytes_human": "--", "io_write_bytes_human": "--",
             }
+
+        except Exception as _psutil_err:
+            # psutil is installed but raised an unexpected error.
+            # Log it so the user can diagnose, and still return
+            # partial data from stdlib fallbacks.
+            import logging
+            logging.getLogger("aquilia.admin").error(
+                "Monitoring: psutil raised %s: %s",
+                type(_psutil_err).__name__, _psutil_err,
+            )
+            result["_psutil_error"] = f"{type(_psutil_err).__name__}: {_psutil_err}"
+
+            # Provide minimal data via stdlib so the dashboard is not
+            # completely empty.
+            _cpu_fallback = 0.0
+            _cores = os.cpu_count() or 0
+            if platform.system() == "Windows":
+                try:
+                    import subprocess
+                    wmi_out = subprocess.run(
+                        ["powershell", "-NoProfile", "-Command",
+                         "Get-CimInstance Win32_Processor | "
+                         "Select-Object -ExpandProperty LoadPercentage"],
+                        capture_output=True, text=True, timeout=5,
+                        encoding="utf-8",
+                    )
+                    if wmi_out.returncode == 0 and wmi_out.stdout.strip():
+                        _cpu_fallback = float(wmi_out.stdout.strip().splitlines()[0])
+                except Exception:
+                    pass
+
+            if not result.get("cpu") or not result["cpu"].get("percent"):
+                result["cpu"] = {
+                    "percent": _cpu_fallback, "per_core": [],
+                    "cores_physical": 0,
+                    "cores_logical": _cores,
+                    "freq_current": 0, "freq_max": 0,
+                    "load_avg_1": 0, "load_avg_5": 0, "load_avg_15": 0,
+                    "times_user": 0, "times_system": 0, "times_idle": 0,
+                }
+            if not result.get("memory") or not result["memory"].get("total"):
+                _mt = 0
+                _ma = 0
+                _mu = 0
+                _mp = 0.0
+                if platform.system() == "Windows":
+                    try:
+                        import ctypes
+                        class _MSEX(ctypes.Structure):
+                            _fields_ = [
+                                ("dwLength", ctypes.c_ulong),
+                                ("dwMemoryLoad", ctypes.c_ulong),
+                                ("ullTotalPhys", ctypes.c_ulonglong),
+                                ("ullAvailPhys", ctypes.c_ulonglong),
+                                ("ullTotalPageFile", ctypes.c_ulonglong),
+                                ("ullAvailPageFile", ctypes.c_ulonglong),
+                                ("ullTotalVirtual", ctypes.c_ulonglong),
+                                ("ullAvailVirtual", ctypes.c_ulonglong),
+                                ("ullAvailExtendedVirtual", ctypes.c_ulonglong),
+                            ]
+                        _s = _MSEX()
+                        _s.dwLength = ctypes.sizeof(_s)
+                        ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(_s))
+                        _mt = _s.ullTotalPhys
+                        _ma = _s.ullAvailPhys
+                        _mu = _mt - _ma
+                        _mp = round(_s.dwMemoryLoad, 1)
+                    except Exception:
+                        pass
+                result["memory"] = {
+                    "total": _mt, "total_human": self._fmt_bytes(_mt),
+                    "available": _ma, "available_human": self._fmt_bytes(_ma),
+                    "used": _mu, "used_human": self._fmt_bytes(_mu),
+                    "percent": _mp,
+                    "swap_total": 0, "swap_total_human": "--",
+                    "swap_used": 0, "swap_used_human": "--",
+                    "swap_free": 0, "swap_free_human": "--",
+                    "swap_percent": 0,
+                }
+            if not result.get("disk") or not result["disk"].get("total"):
+                try:
+                    import shutil
+                    _r = (os.environ.get("SystemDrive", "C:") + "\\") if platform.system() == "Windows" else "/"
+                    _du = shutil.disk_usage(_r)
+                    result["disk"] = {
+                        "total": _du.total, "total_human": self._fmt_bytes(_du.total),
+                        "used": _du.used, "used_human": self._fmt_bytes(_du.used),
+                        "free": _du.free, "free_human": self._fmt_bytes(_du.free),
+                        "percent": round(_du.used / _du.total * 100, 1) if _du.total else 0,
+                        "partitions": [],
+                    }
+                except Exception:
+                    result["disk"] = {
+                        "total": 0, "total_human": "--",
+                        "used": 0, "used_human": "--",
+                        "free": 0, "free_human": "--",
+                        "percent": 0, "partitions": [],
+                    }
+            if not result.get("network") or not result["network"].get("bytes_sent"):
+                result["network"] = {
+                    "bytes_sent": 0, "bytes_sent_human": "--",
+                    "bytes_recv": 0, "bytes_recv_human": "--",
+                    "packets_sent": 0, "packets_recv": 0,
+                    "errin": 0, "errout": 0, "dropin": 0, "dropout": 0,
+                    "connections_by_status": {},
+                }
+            if not result.get("process") or not result["process"].get("pid"):
+                result["process"] = {
+                    "pid": os.getpid(), "name": "python", "status": "running",
+                    "create_time": "--", "uptime_human": "--",
+                    "threads": 0, "open_files": 0,
+                    "rss": 0, "rss_human": "--", "vms": 0, "vms_human": "--",
+                    "shared": 0, "private": 0,
+                    "mem_percent": 0, "ctx_switches": 0,
+                    "ctx_switches_voluntary": 0, "ctx_switches_involuntary": 0,
+                    "env_snapshot": self._safe_env_snapshot(),
+                    "io_read_count": "--", "io_write_count": "--",
+                    "io_read_bytes_human": "--", "io_write_bytes_human": "--",
+                }
 
         # ── Health checks ──
         try:
