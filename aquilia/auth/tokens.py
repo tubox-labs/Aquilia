@@ -357,13 +357,13 @@ class KeyRing:
     @classmethod
     def from_file(cls, path: Path) -> KeyRing:
         """Load from JSON file."""
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             data = json.load(f)
         return cls.from_dict(data)
     
     def to_file(self, path: Path) -> None:
         """Save to JSON file."""
-        with open(path, "w") as f:
+        with open(path, "w", encoding="utf-8") as f:
             json.dump(self.to_dict(), f, indent=2)
 
 

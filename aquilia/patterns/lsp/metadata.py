@@ -8,8 +8,8 @@ import json
 from typing import Dict, Any, List
 from pathlib import Path
 
-from .compiler.compiler import CompiledPattern
-from .grammar import TOKEN_TYPES, KEYWORDS, CONSTRAINT_OPS, DEFAULT_TYPES
+from ..compiler.compiler import CompiledPattern
+from ..grammar import TOKEN_TYPES, KEYWORDS, CONSTRAINT_OPS, DEFAULT_TYPES
 
 
 def generate_lsp_metadata(
@@ -49,7 +49,7 @@ def generate_lsp_metadata(
         ],
     }
 
-    output_path.write_text(json.dumps(metadata, indent=2))
+    output_path.write_text(json.dumps(metadata, indent=2), encoding="utf-8")
 
 
 def generate_hover_docs() -> Dict[str, str]:
@@ -179,7 +179,7 @@ def generate_vscode_extension(output_dir: Path):
     }
 
     # Write package.json
-    (output_dir / "package.json").write_text(json.dumps(package_json, indent=2))
+    (output_dir / "package.json").write_text(json.dumps(package_json, indent=2), encoding="utf-8")
 
     # Snippets
     snippets = {
@@ -202,7 +202,7 @@ def generate_vscode_extension(output_dir: Path):
 
     snippets_dir = output_dir / "snippets"
     snippets_dir.mkdir(exist_ok=True)
-    (snippets_dir / "patterns.json").write_text(json.dumps(snippets, indent=2))
+    (snippets_dir / "patterns.json").write_text(json.dumps(snippets, indent=2), encoding="utf-8")
 
 
 def generate_diagnostic_codes() -> Dict[str, str]:

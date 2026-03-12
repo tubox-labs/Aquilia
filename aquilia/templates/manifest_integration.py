@@ -49,7 +49,7 @@ class TemplateManifestConfig:
     def from_file(cls, manifest_path: Path) -> "TemplateManifestConfig":
         """Load from module.aq file."""
         try:
-            with open(manifest_path, 'r') as f:
+            with open(manifest_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
             return cls(data)
         except Exception as e:
@@ -298,7 +298,7 @@ def generate_template_manifest(
     
     # Write manifest
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(output_path, 'w') as f:
+    with open(output_path, 'w', encoding='utf-8') as f:
         json.dump(manifest, f, indent=2)
     
 

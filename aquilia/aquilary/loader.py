@@ -304,11 +304,11 @@ class ManifestLoader:
                     "Install with: pip install crous"
                 )
         elif path.suffix == ".json":
-            data = json.loads(path.read_text())
+            data = json.loads(path.read_text(encoding="utf-8"))
         elif path.suffix in (".yaml", ".yml"):
             try:
                 import yaml
-                data = yaml.safe_load(path.read_text())
+                data = yaml.safe_load(path.read_text(encoding="utf-8"))
             except ImportError:
                 raise ImportError(
                     "PyYAML required for YAML manifests. "

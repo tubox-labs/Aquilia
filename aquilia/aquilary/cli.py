@@ -150,7 +150,7 @@ def cmd_inspect(args: argparse.Namespace) -> None:
     if args.json:
         # Export as JSON
         output_path = args.json
-        Path(output_path).write_text(json.dumps(diagnostics, indent=2))
+        Path(output_path).write_text(json.dumps(diagnostics, indent=2), encoding="utf-8")
         print(f"\nDiagnostics exported to: {output_path}")
 
 
@@ -229,7 +229,7 @@ def cmd_graph(args: argparse.Namespace) -> None:
     
     if args.output:
         output_path = Path(args.output)
-        output_path.write_text(dot)
+        output_path.write_text(dot, encoding="utf-8")
         print(f"\nGraph exported to: {output_path}")
         print(f"\nVisualize with:")
         print(f"   dot -Tpng {output_path} -o {output_path.stem}.png")

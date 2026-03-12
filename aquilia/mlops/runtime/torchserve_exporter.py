@@ -85,6 +85,6 @@ class AquiliaHandler(BaseHandler):
 '''
 
         handler_path = out / "handler.py"
-        handler_path.write_text(handler_code)
+        handler_path.write_text(handler_code, encoding="utf-8")
 
         return str(mar_path)

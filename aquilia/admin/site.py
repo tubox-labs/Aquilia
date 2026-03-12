@@ -3142,7 +3142,7 @@ class AdminSite:
                 nonlocal total_test_count, total_test_classes_count
                 nonlocal total_lines, total_assert_stmts
                 try:
-                    with open(fpath, "r") as f:
+                    with open(fpath, "r", encoding="utf-8") as f:
                         source = f.read()
                     lines = source.count("\n") + 1
                     # Count test functions, classes, assert statements
@@ -4933,7 +4933,7 @@ class AdminSite:
         env_file = compose_dir / ".env"
         if not env_file.exists():
             try:
-                env_file.write_text("# Auto-created by Aquilia admin\n")
+                env_file.write_text("# Auto-created by Aquilia admin\n", encoding="utf-8")
             except OSError:
                 pass  # non-fatal: compose may still work
 

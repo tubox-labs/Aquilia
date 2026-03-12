@@ -69,5 +69,5 @@ def predict(input_data):
     return {{"prediction": input_data}}
 '''
         service_path = out / "service.py"
-        service_path.write_text(service_code)
+        service_path.write_text(service_code, encoding="utf-8")
         return str(service_path)

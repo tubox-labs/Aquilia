@@ -253,7 +253,7 @@ class ConfigLoader:
     
     def _load_json_file(self, path: Path):
         """Load config from JSON file."""
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             data = json.load(f)
             self._merge_dict(self.config_data, data)
 
@@ -280,7 +280,7 @@ class ConfigLoader:
         if not env_path.exists():
             return
         
-        with open(env_path) as f:
+        with open(env_path, encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
                 if not line or line.startswith("#"):

@@ -319,7 +319,7 @@ class FileProvider:
                 return False
             # Try writing a temp file
             test_file = self.output_dir / ".health_check"
-            test_file.write_text("ok")
+            test_file.write_text("ok", encoding="utf-8")
             test_file.unlink()
             return True
         except Exception as e:

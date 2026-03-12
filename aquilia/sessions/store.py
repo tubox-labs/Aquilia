@@ -230,7 +230,7 @@ class FileStore:
         
         try:
             async with self._lock:
-                data = path.read_text()
+                data = path.read_text(encoding="utf-8")
                 session_dict = json.loads(data)
                 return Session.from_dict(session_dict)
         except json.JSONDecodeError as e:
@@ -250,7 +250,7 @@ class FileStore:
                 session_dict = session.to_dict()
                 data = json.dumps(session_dict, indent=2)
                 temp_path = path.with_suffix(".tmp")
-                temp_path.write_text(data)
+                temp_path.write_text(data, encoding="utf-8")
                 temp_path.rename(path)
                 session.mark_clean()
         except Exception as e:
@@ -272,7 +272,7 @@ class FileStore:
         async with self._lock:
             for path in self.directory.glob("sess_*.json"):
                 try:
-                    data = path.read_text()
+                    data = path.read_text(encoding="utf-8")
                     session_dict = json.loads(data)
                     if session_dict.get("principal") and session_dict["principal"]["id"] == principal_id:
                         sessions.append(Session.from_dict(session_dict))
@@ -289,7 +289,7 @@ class FileStore:
         async with self._lock:
             for path in self.directory.glob("sess_*.json"):
                 try:
-                    data = path.read_text()
+                    data = path.read_text(encoding="utf-8")
                     session_dict = json.loads(data)
                     session = Session.from_dict(session_dict)
                     if session.is_expired(now):
