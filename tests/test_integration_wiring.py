@@ -26,7 +26,7 @@ class TestCSRFMiddlewarePriority:
         from pathlib import Path
 
         server_path = Path(__file__).parent.parent / "aquilia" / "server.py"
-        source = server_path.read_text()
+        source = server_path.read_text(encoding="utf-8")
 
         # Find the CSRF middleware registration line
         lines = source.split("\n")
@@ -75,7 +75,7 @@ class TestDIContainerShutdownDelegation:
         from pathlib import Path
 
         asgi_path = Path(__file__).parent.parent / "aquilia" / "asgi.py"
-        source = asgi_path.read_text()
+        source = asgi_path.read_text(encoding="utf-8")
 
         # The old code had: await di_container.shutdown()
         # After fix, this should be replaced with a comment
@@ -89,7 +89,7 @@ class TestDIContainerShutdownDelegation:
         from pathlib import Path
 
         server_path = Path(__file__).parent.parent / "aquilia" / "server.py"
-        source = server_path.read_text()
+        source = server_path.read_text(encoding="utf-8")
 
         # Find the request_scope_mw function
         assert "await ctx.container.shutdown()" in source, (

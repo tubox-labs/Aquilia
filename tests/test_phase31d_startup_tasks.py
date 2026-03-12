@@ -434,7 +434,7 @@ class TestServerNoAutoEnqueue:
     def test_server_source_no_run_on_startup(self):
         """server.py should not reference run_on_startup."""
         filepath = os.path.join(REPO_ROOT, "aquilia", "server.py")
-        with open(filepath, "r") as f:
+        with open(filepath, "r", encoding="utf-8") as f:
             content = f.read()
         assert "run_on_startup" not in content
         assert "_enqueue_startup_tasks" not in content
@@ -450,7 +450,7 @@ class TestSEOFiles:
 
     def _read_file(self, relpath):
         filepath = os.path.join(REPO_ROOT, relpath)
-        with open(filepath, "r") as f:
+        with open(filepath, "r", encoding="utf-8") as f:
             return f.read()
 
     # ── index.html ───────────────────────────────────────────────────

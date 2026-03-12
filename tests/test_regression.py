@@ -1136,7 +1136,7 @@ class TestProjectConfig:
     def test_pyproject_core_dependencies(self):
         """Core deps should only include click, PyYAML, uvicorn."""
         pyproject = Path(__file__).parent.parent / "pyproject.toml"
-        content = pyproject.read_text()
+        content = pyproject.read_text(encoding="utf-8")
         assert "click>=8.1.0" in content, "pyproject.toml missing click core dep"
         assert "PyYAML>=6.0.0" in content, "pyproject.toml missing PyYAML core dep"
         assert "uvicorn>=0.30.0" in content, "pyproject.toml missing uvicorn core dep"
@@ -1144,7 +1144,7 @@ class TestProjectConfig:
     def test_pyproject_no_phantom_deps(self):
         """Removed deps that are never imported in the codebase."""
         pyproject = Path(__file__).parent.parent / "pyproject.toml"
-        content = pyproject.read_text()
+        content = pyproject.read_text(encoding="utf-8")
         # These are not imported anywhere in the aquilia package
         assert "passlib" not in content, "passlib should be removed (unused)"
         assert "python-dotenv" not in content, "python-dotenv should be removed (unused)"
@@ -1154,12 +1154,12 @@ class TestProjectConfig:
     def test_pyproject_has_server_extras(self):
         """pyproject.toml should have [server] optional dependency group."""
         pyproject = Path(__file__).parent.parent / "pyproject.toml"
-        content = pyproject.read_text()
+        content = pyproject.read_text(encoding="utf-8")
         assert "gunicorn" in content, "pyproject.toml missing gunicorn in server extras"
 
     def test_pyproject_server_group_exists(self):
         pyproject = Path(__file__).parent.parent / "pyproject.toml"
-        content = pyproject.read_text()
+        content = pyproject.read_text(encoding="utf-8")
         assert "server" in content, "pyproject.toml missing [server] optional group"
 
 
@@ -1992,7 +1992,7 @@ class TestWriteFile:
             result = _write_file(target, "FROM python:3.12", label="Dockerfile", verbose=False)
 
         assert result is True
-        assert target.read_text() == "FROM python:3.12"
+        assert target.read_text(encoding="utf-8") == "FROM python:3.12"
 
     def test_skips_existing_without_force(self, tmp_path):
         """Existing file without --force → skipped."""
@@ -2005,7 +2005,7 @@ class TestWriteFile:
             result = _write_file(target, "NEW CONTENT", label="Dockerfile", verbose=False)
 
         assert result is False
-        assert target.read_text() == "OLD CONTENT"
+        assert target.read_text(encoding="utf-8") == "OLD CONTENT"
         mock_skipped.assert_called_once()
 
     def test_overwrites_existing_with_force(self, tmp_path):
@@ -2019,7 +2019,7 @@ class TestWriteFile:
             result = _write_file(target, "NEW CONTENT", label="Dockerfile", verbose=False, force=True)
 
         assert result is True
-        assert target.read_text() == "NEW CONTENT"
+        assert target.read_text(encoding="utf-8") == "NEW CONTENT"
 
     def test_dry_run_does_not_write(self, tmp_path):
         """Dry run → returns True but doesn't create the file."""
@@ -2043,7 +2043,7 @@ class TestWriteFile:
 
         assert result is True
         assert target.exists()
-        assert target.read_text() == "cert content"
+        assert target.read_text(encoding="utf-8") == "cert content"
 
 
 class TestBuildManifest:

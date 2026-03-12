@@ -852,7 +852,7 @@ class TestSidebarTestingLink:
             os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
             "aquilia", "admin", "templates", "partials", "sidebar_v2.html",
         )
-        with open(sidebar_path) as f:
+        with open(sidebar_path, encoding="utf-8") as f:
             content = f.read()
         assert "/testing/" in content
 
@@ -861,7 +861,7 @@ class TestSidebarTestingLink:
             os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
             "aquilia", "admin", "templates", "partials", "sidebar_v2.html",
         )
-        with open(sidebar_path) as f:
+        with open(sidebar_path, encoding="utf-8") as f:
             content = f.read()
         assert "Testing" in content
 
@@ -870,7 +870,7 @@ class TestSidebarTestingLink:
             os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
             "aquilia", "admin", "templates", "partials", "sidebar_v2.html",
         )
-        with open(sidebar_path) as f:
+        with open(sidebar_path, encoding="utf-8") as f:
             content = f.read()
         assert "icon-check-circle" in content
 
@@ -879,7 +879,7 @@ class TestSidebarTestingLink:
             os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
             "aquilia", "admin", "templates", "partials", "sidebar_v2.html",
         )
-        with open(sidebar_path) as f:
+        with open(sidebar_path, encoding="utf-8") as f:
             content = f.read()
         assert "active_page == 'testing'" in content
 
@@ -888,7 +888,7 @@ class TestSidebarTestingLink:
             os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
             "aquilia", "admin", "templates", "partials", "sidebar_v2.html",
         )
-        with open(sidebar_path) as f:
+        with open(sidebar_path, encoding="utf-8") as f:
             content = f.read()
         # Should have searchable data-sidebar-label
         assert "data-sidebar-label" in content
@@ -916,29 +916,29 @@ class TestTestingTemplateFile:
         assert os.path.isfile(self._template_path())
 
     def test_template_extends_base(self):
-        with open(self._template_path()) as f:
+        with open(self._template_path(), encoding="utf-8") as f:
             content = f.read()
         assert '{% extends "base.html" %}' in content
 
     def test_template_has_title_block(self):
-        with open(self._template_path()) as f:
+        with open(self._template_path(), encoding="utf-8") as f:
             content = f.read()
         assert "{% block title %}" in content
         assert "Testing Framework" in content
 
     def test_template_has_content_block(self):
-        with open(self._template_path()) as f:
+        with open(self._template_path(), encoding="utf-8") as f:
             content = f.read()
         assert "{% block content %}" in content
 
     def test_template_includes_chart_js_cdn(self):
-        with open(self._template_path()) as f:
+        with open(self._template_path(), encoding="utf-8") as f:
             content = f.read()
         assert "chart.js" in content.lower()
         assert "cdn.jsdelivr.net" in content
 
     def test_template_has_chart_canvas_elements(self):
-        with open(self._template_path()) as f:
+        with open(self._template_path(), encoding="utf-8") as f:
             content = f.read()
         assert "chartTestDistribution" in content
         assert "chartCoverage" in content
@@ -947,47 +947,47 @@ class TestTestingTemplateFile:
         assert "chartLOC" in content
 
     def test_template_has_status_bar(self):
-        with open(self._template_path()) as f:
+        with open(self._template_path(), encoding="utf-8") as f:
             content = f.read()
         assert "Available" in content
 
     def test_template_has_icon(self):
-        with open(self._template_path()) as f:
+        with open(self._template_path(), encoding="utf-8") as f:
             content = f.read()
         assert "icon-check-circle" in content
 
     def test_template_uses_framework_version(self):
-        with open(self._template_path()) as f:
+        with open(self._template_path(), encoding="utf-8") as f:
             content = f.read()
         assert "framework_version" in content
 
     def test_template_iterates_test_classes(self):
-        with open(self._template_path()) as f:
+        with open(self._template_path(), encoding="utf-8") as f:
             content = f.read()
         assert "test_classes" in content
 
     def test_template_iterates_mock_infra(self):
-        with open(self._template_path()) as f:
+        with open(self._template_path(), encoding="utf-8") as f:
             content = f.read()
         assert "mock_infra" in content
 
     def test_template_iterates_fixtures(self):
-        with open(self._template_path()) as f:
+        with open(self._template_path(), encoding="utf-8") as f:
             content = f.read()
         assert "fixtures" in content
 
     def test_template_iterates_test_files(self):
-        with open(self._template_path()) as f:
+        with open(self._template_path(), encoding="utf-8") as f:
             content = f.read()
         assert "test_files" in content
 
     def test_template_has_javascript_section(self):
-        with open(self._template_path()) as f:
+        with open(self._template_path(), encoding="utf-8") as f:
             content = f.read()
         assert "<script" in content or "{% block extra_js %}" in content
 
     def test_template_creates_chart_instances(self):
-        with open(self._template_path()) as f:
+        with open(self._template_path(), encoding="utf-8") as f:
             content = f.read()
         assert "new Chart(" in content
 
@@ -1672,7 +1672,7 @@ class TestPhase31fTemplateEnhancements:
         )
 
     def _read_template(self):
-        with open(self._template_path()) as f:
+        with open(self._template_path(), encoding="utf-8") as f:
             return f.read()
 
     def test_template_has_categories_chart_canvas(self):

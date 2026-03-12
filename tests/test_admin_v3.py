@@ -2509,7 +2509,7 @@ class TestTemplatePartialsV3:
 
     def test_sidebar_v2_nav_links(self):
         from pathlib import Path
-        content = (Path(__file__).parent.parent / "aquilia/admin/templates/partials/sidebar_v2.html").read_text()
+        content = (Path(__file__).parent.parent / "aquilia/admin/templates/partials/sidebar_v2.html").read_text(encoding="utf-8")
         for page in ("orm", "build", "migrations", "config", "permissions", "audit", "monitoring"):
             assert page in content.lower(), f"/{page}/ link missing from sidebar"
 
@@ -2520,24 +2520,24 @@ class TestTemplatePartialsV3:
 
     def test_css_sarvam_tokens(self):
         from pathlib import Path
-        content = (Path(__file__).parent.parent / "aquilia/admin/templates/partials/css.html").read_text()
+        content = (Path(__file__).parent.parent / "aquilia/admin/templates/partials/css.html").read_text(encoding="utf-8")
         assert "22c55e" in content, "Missing Aquilia green accent"
         assert "Inter" in content, "Missing Inter font (admin theme)"
         assert "Geist Mono" in content, "Missing Geist Mono font (admin theme)"
 
     def test_base_includes_sidebar(self):
         from pathlib import Path
-        content = (Path(__file__).parent.parent / "aquilia/admin/templates/base.html").read_text()
+        content = (Path(__file__).parent.parent / "aquilia/admin/templates/base.html").read_text(encoding="utf-8")
         assert "sidebar_v2" in content
 
     def test_base_includes_css(self):
         from pathlib import Path
-        content = (Path(__file__).parent.parent / "aquilia/admin/templates/base.html").read_text()
+        content = (Path(__file__).parent.parent / "aquilia/admin/templates/base.html").read_text(encoding="utf-8")
         assert "css.html" in content
 
     def test_base_includes_aqdocx_fonts(self):
         from pathlib import Path
-        content = (Path(__file__).parent.parent / "aquilia/admin/templates/base.html").read_text()
+        content = (Path(__file__).parent.parent / "aquilia/admin/templates/base.html").read_text(encoding="utf-8")
         assert "Inter" in content, "Missing Inter font CDN"
         assert "Geist+Mono" in content, "Missing Geist Mono font CDN"
 
@@ -2560,7 +2560,7 @@ class TestNewTemplatesOnDisk:
     ])
     def test_extends_base(self, name):
         from pathlib import Path
-        content = (Path(__file__).parent.parent / "aquilia/admin/templates" / name).read_text()
+        content = (Path(__file__).parent.parent / "aquilia/admin/templates" / name).read_text(encoding="utf-8")
         assert "base.html" in content
 
 
@@ -4961,7 +4961,7 @@ class TestMonitoringSidebar:
 
     def test_sidebar_has_monitoring_link(self):
         from pathlib import Path
-        content = (Path(__file__).parent.parent / "aquilia/admin/templates/partials/sidebar_v2.html").read_text()
+        content = (Path(__file__).parent.parent / "aquilia/admin/templates/partials/sidebar_v2.html").read_text(encoding="utf-8")
         assert "monitoring" in content.lower()
         assert "/monitoring/" in content
 
@@ -4993,20 +4993,20 @@ class TestMonitoringSidebar:
 
     def test_monitoring_template_has_tabs(self):
         from pathlib import Path
-        content = (Path(__file__).parent.parent / "aquilia/admin/templates/monitoring.html").read_text()
+        content = (Path(__file__).parent.parent / "aquilia/admin/templates/monitoring.html").read_text(encoding="utf-8")
         for tab in ("overview", "cpu", "memory", "network", "process", "health"):
             assert tab in content.lower(), f"Tab '{tab}' missing from monitoring template"
 
     def test_monitoring_template_has_gauges(self):
         from pathlib import Path
-        content = (Path(__file__).parent.parent / "aquilia/admin/templates/monitoring.html").read_text()
+        content = (Path(__file__).parent.parent / "aquilia/admin/templates/monitoring.html").read_text(encoding="utf-8")
         assert "gaugeCpu" in content
         assert "gaugeMem" in content
         assert "gaugeDisk" in content
 
     def test_monitoring_template_has_live_polling(self):
         from pathlib import Path
-        content = (Path(__file__).parent.parent / "aquilia/admin/templates/monitoring.html").read_text()
+        content = (Path(__file__).parent.parent / "aquilia/admin/templates/monitoring.html").read_text(encoding="utf-8")
         assert "/monitoring/api/" in content
         assert "setInterval" in content
 
@@ -5073,7 +5073,7 @@ class TestAqdocxThemeAlignment:
 
     def test_base_has_ambient_blobs(self):
         from pathlib import Path
-        html = (Path(__file__).parent.parent / "aquilia/admin/templates/base.html").read_text()
+        html = (Path(__file__).parent.parent / "aquilia/admin/templates/base.html").read_text(encoding="utf-8")
         assert "ambient-blob-green" in html
         assert "ambient-blob-blue" in html
         assert "ambient-blob-purple" in html
@@ -5794,12 +5794,12 @@ class TestDisabledPageRendering:
 
     def test_disabled_template_extends_base(self):
         from pathlib import Path
-        content = (Path(__file__).resolve().parent.parent / "aquilia" / "admin" / "templates" / "disabled.html").read_text()
+        content = (Path(__file__).resolve().parent.parent / "aquilia" / "admin" / "templates" / "disabled.html").read_text(encoding="utf-8")
         assert "base.html" in content
 
     def test_disabled_template_has_blur_effect(self):
         from pathlib import Path
-        content = (Path(__file__).resolve().parent.parent / "aquilia" / "admin" / "templates" / "disabled.html").read_text()
+        content = (Path(__file__).resolve().parent.parent / "aquilia" / "admin" / "templates" / "disabled.html").read_text(encoding="utf-8")
         assert "blur" in content
         assert "disabled-overlay" in content
 
@@ -6229,7 +6229,7 @@ class TestAdminConfigServerWiring:
     def test_server_imports_admin_config(self):
         """server.py must import AdminConfig from admin.site."""
         from pathlib import Path
-        source = (Path(__file__).resolve().parent.parent / "aquilia" / "server.py").read_text()
+        source = (Path(__file__).resolve().parent.parent / "aquilia" / "server.py").read_text(encoding="utf-8")
         assert "AdminConfig" in source
 
     def test_parsed_config_from_dict(self):

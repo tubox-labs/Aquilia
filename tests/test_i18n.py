@@ -2031,7 +2031,7 @@ class TestCLIInit:
 
         cmd_i18n_init(locales="en", directory=str(tmp_path / "locales"), format="json")
 
-        data = json.loads((tmp_path / "locales" / "en" / "messages.json").read_text())
+        data = json.loads((tmp_path / "locales" / "en" / "messages.json").read_text(encoding="utf-8"))
         assert "welcome" in data
         assert "greeting" in data
 
@@ -2066,7 +2066,7 @@ class TestCLIInit:
         monkeypatch.chdir(tmp_path)
 
         cmd_i18n_init(locales="xx", directory=str(tmp_path / "locales"), format="json")
-        data = json.loads((tmp_path / "locales" / "xx" / "messages.json").read_text())
+        data = json.loads((tmp_path / "locales" / "xx" / "messages.json").read_text(encoding="utf-8"))
         assert "welcome" in data
 
 

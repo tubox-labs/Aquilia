@@ -1024,7 +1024,7 @@ class TestSidebarMailerLink:
         sidebar_path = os.path.join(
             REPO_ROOT, "aquilia", "admin", "templates", "partials", "sidebar_v2.html"
         )
-        with open(sidebar_path) as f:
+        with open(sidebar_path, encoding="utf-8") as f:
             content = f.read()
         assert "mailer" in content.lower()
 
@@ -1032,7 +1032,7 @@ class TestSidebarMailerLink:
         sidebar_path = os.path.join(
             REPO_ROOT, "aquilia", "admin", "templates", "partials", "sidebar_v2.html"
         )
-        with open(sidebar_path) as f:
+        with open(sidebar_path, encoding="utf-8") as f:
             content = f.read()
         assert "icon-mail" in content
 
@@ -1040,7 +1040,7 @@ class TestSidebarMailerLink:
         sidebar_path = os.path.join(
             REPO_ROOT, "aquilia", "admin", "templates", "partials", "sidebar_v2.html"
         )
-        with open(sidebar_path) as f:
+        with open(sidebar_path, encoding="utf-8") as f:
             content = f.read()
         assert "mailer/" in content
 
@@ -1048,7 +1048,7 @@ class TestSidebarMailerLink:
         sidebar_path = os.path.join(
             REPO_ROOT, "aquilia", "admin", "templates", "partials", "sidebar_v2.html"
         )
-        with open(sidebar_path) as f:
+        with open(sidebar_path, encoding="utf-8") as f:
             content = f.read()
         assert "Mailer" in content
 
@@ -1067,26 +1067,26 @@ class TestMailerTemplateFile:
 
     def test_template_extends_base(self):
         path = os.path.join(REPO_ROOT, "aquilia", "admin", "templates", "mailer.html")
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             content = f.read()
         assert '{% extends "base.html" %}' in content
 
     def test_template_has_block_content(self):
         path = os.path.join(REPO_ROOT, "aquilia", "admin", "templates", "mailer.html")
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             content = f.read()
         assert "{% block content %}" in content
 
     def test_template_has_block_extra_js(self):
         path = os.path.join(REPO_ROOT, "aquilia", "admin", "templates", "mailer.html")
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             content = f.read()
         assert "{% block extra_js %}" in content
 
     def test_template_no_script_tags_in_extra_js(self):
         """base.html wraps extra_js in <script> — no <script> in child."""
         path = os.path.join(REPO_ROOT, "aquilia", "admin", "templates", "mailer.html")
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             content = f.read()
         # Find the extra_js block content
         start = content.find("{% block extra_js %}")
@@ -1097,91 +1097,91 @@ class TestMailerTemplateFile:
 
     def test_template_has_sendTestEmail_function(self):
         path = os.path.join(REPO_ROOT, "aquilia", "admin", "templates", "mailer.html")
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             content = f.read()
         assert "sendTestEmail" in content
 
     def test_template_has_runHealthCheck_function(self):
         path = os.path.join(REPO_ROOT, "aquilia", "admin", "templates", "mailer.html")
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             content = f.read()
         assert "runHealthCheck" in content
 
     def test_template_has_switchTab_function(self):
         path = os.path.join(REPO_ROOT, "aquilia", "admin", "templates", "mailer.html")
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             content = f.read()
         assert "switchTab" in content
 
     def test_template_has_overview_tab(self):
         path = os.path.join(REPO_ROOT, "aquilia", "admin", "templates", "mailer.html")
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             content = f.read()
         assert "tab-overview" in content
 
     def test_template_has_providers_tab(self):
         path = os.path.join(REPO_ROOT, "aquilia", "admin", "templates", "mailer.html")
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             content = f.read()
         assert "tab-providers" in content
 
     def test_template_has_config_tab(self):
         path = os.path.join(REPO_ROOT, "aquilia", "admin", "templates", "mailer.html")
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             content = f.read()
         assert "tab-config" in content
 
     def test_template_has_security_tab(self):
         path = os.path.join(REPO_ROOT, "aquilia", "admin", "templates", "mailer.html")
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             content = f.read()
         assert "tab-security" in content
 
     def test_template_has_templates_tab(self):
         path = os.path.join(REPO_ROOT, "aquilia", "admin", "templates", "mailer.html")
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             content = f.read()
         assert "tab-templates" in content
 
     def test_template_has_send_test_tab(self):
         path = os.path.join(REPO_ROOT, "aquilia", "admin", "templates", "mailer.html")
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             content = f.read()
         assert "tab-send-test" in content
 
     def test_template_has_health_tab(self):
         path = os.path.join(REPO_ROOT, "aquilia", "admin", "templates", "mailer.html")
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             content = f.read()
         assert "tab-health" in content
 
     def test_template_has_toast_notification(self):
         path = os.path.join(REPO_ROOT, "aquilia", "admin", "templates", "mailer.html")
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             content = f.read()
         assert "mailerToast" in content
 
     def test_template_has_test_history_table(self):
         path = os.path.join(REPO_ROOT, "aquilia", "admin", "templates", "mailer.html")
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             content = f.read()
         assert "testHistoryTable" in content or "testHistoryBody" in content
 
     def test_template_has_not_configured_state(self):
         path = os.path.join(REPO_ROOT, "aquilia", "admin", "templates", "mailer.html")
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             content = f.read()
         assert "Not Configured" in content or "not_configured" in content.lower()
 
     def test_template_references_dark_theme(self):
         path = os.path.join(REPO_ROOT, "aquilia", "admin", "templates", "mailer.html")
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             content = f.read()
         assert "var(--bg-card)" in content or "var(--text-primary)" in content
 
     def test_template_has_send_test_form_fields(self):
         path = os.path.join(REPO_ROOT, "aquilia", "admin", "templates", "mailer.html")
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             content = f.read()
         assert "testTo" in content
         assert "testSubject" in content
@@ -1189,7 +1189,7 @@ class TestMailerTemplateFile:
 
     def test_template_has_provider_type_icons(self):
         path = os.path.join(REPO_ROOT, "aquilia", "admin", "templates", "mailer.html")
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             content = f.read()
         assert "icon-server" in content  # SMTP
         assert "icon-cloud" in content   # SES

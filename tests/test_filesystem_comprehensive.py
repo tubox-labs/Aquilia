@@ -484,13 +484,13 @@ class TestAsyncPathSyncProperties:
 
     def test_parent(self):
         p = AsyncPath("/foo/bar/baz.txt")
-        assert str(p.parent) == "/foo/bar"
+        assert p.parent == AsyncPath("/foo/bar")
 
     def test_parents(self):
         p = AsyncPath("/foo/bar/baz.txt")
         parents = p.parents
         assert len(parents) >= 2
-        assert str(parents[0]) == "/foo/bar"
+        assert parents[0] == AsyncPath("/foo/bar")
 
     def test_parts(self):
         p = AsyncPath("/foo/bar/baz.txt")
@@ -500,16 +500,19 @@ class TestAsyncPathSyncProperties:
 
     def test_anchor_and_root(self):
         p = AsyncPath("/foo/bar")
-        assert p.anchor == "/"
-        assert p.root == "/"
+        assert p.anchor == str(Path("/foo/bar").anchor)
+        assert p.root == str(Path("/foo/bar").root)
 
     def test_is_absolute(self):
-        assert AsyncPath("/foo").is_absolute()
+        if platform.system() == "Windows":
+            assert AsyncPath("C:/foo").is_absolute()
+        else:
+            assert AsyncPath("/foo").is_absolute()
         assert not AsyncPath("foo").is_absolute()
 
     def test_truediv_operator(self):
         p = AsyncPath("/foo") / "bar" / "baz.txt"
-        assert str(p) == "/foo/bar/baz.txt"
+        assert p == AsyncPath("/foo/bar/baz.txt")
 
     def test_with_name(self):
         p = AsyncPath("/foo/bar.txt").with_name("baz.txt")
@@ -526,7 +529,7 @@ class TestAsyncPathSyncProperties:
     def test_relative_to(self):
         p = AsyncPath("/foo/bar/baz.txt")
         rel = p.relative_to("/foo")
-        assert str(rel) == "bar/baz.txt"
+        assert rel == AsyncPath("bar/baz.txt")
 
     def test_is_relative_to(self):
         p = AsyncPath("/foo/bar/baz.txt")
@@ -535,7 +538,7 @@ class TestAsyncPathSyncProperties:
 
     def test_joinpath(self):
         p = AsyncPath("/foo").joinpath("bar", "baz.txt")
-        assert str(p) == "/foo/bar/baz.txt"
+        assert p == AsyncPath("/foo/bar/baz.txt")
 
     def test_resolve(self):
         p = AsyncPath(".").resolve()
@@ -553,9 +556,9 @@ class TestAsyncPathSyncProperties:
 
     def test_str_repr_fspath(self):
         p = AsyncPath("/foo/bar.txt")
-        assert str(p) == "/foo/bar.txt"
+        assert str(p) == str(Path("/foo/bar.txt"))
         assert "AsyncPath" in repr(p)
-        assert os.fspath(p) == "/foo/bar.txt"
+        assert os.fspath(p) == str(Path("/foo/bar.txt"))
 
     def test_bool_always_true(self):
         assert bool(AsyncPath(""))
@@ -1278,7 +1281,10 @@ class TestAsyncFileLock:
         lock2 = AsyncFileLock(lock_path, timeout=0.1)  # Short timeout
         await lock1.acquire()
         try:
-            with pytest.raises(LockAcquisitionError):
+            # On Unix, LockAcquisitionError is raised; on Windows, the
+            # underlying msvcrt.locking raises PermissionError which gets
+            # wrapped as PermissionDeniedFault by wrap_os_error.
+            with pytest.raises((LockAcquisitionError, PermissionDeniedFault)):
                 await lock2.acquire()
         finally:
             await lock1.release()

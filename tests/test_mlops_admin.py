@@ -770,29 +770,29 @@ class TestMlopsTemplateFile:
         assert os.path.isfile(self._template_path())
 
     def test_template_extends_base(self):
-        with open(self._template_path()) as f:
+        with open(self._template_path(), encoding="utf-8") as f:
             content = f.read()
         assert '{% extends "base.html" %}' in content
 
     def test_template_has_title_block(self):
-        with open(self._template_path()) as f:
+        with open(self._template_path(), encoding="utf-8") as f:
             content = f.read()
         assert "{% block title %}" in content
         assert "MLOps" in content
 
     def test_template_has_content_block(self):
-        with open(self._template_path()) as f:
+        with open(self._template_path(), encoding="utf-8") as f:
             content = f.read()
         assert "{% block content %}" in content
 
     def test_template_includes_chart_js_cdn(self):
-        with open(self._template_path()) as f:
+        with open(self._template_path(), encoding="utf-8") as f:
             content = f.read()
         assert "chart.js" in content.lower()
         assert "cdn.jsdelivr.net" in content
 
     def test_template_has_chart_canvas_elements(self):
-        with open(self._template_path()) as f:
+        with open(self._template_path(), encoding="utf-8") as f:
             content = f.read()
         assert "chart-model-states" in content
         assert "chart-frameworks" in content
@@ -800,49 +800,49 @@ class TestMlopsTemplateFile:
         assert "chart-rollout-phases" in content
 
     def test_template_has_status_bar(self):
-        with open(self._template_path()) as f:
+        with open(self._template_path(), encoding="utf-8") as f:
             content = f.read()
         assert "Available" in content
 
     def test_template_has_icon(self):
-        with open(self._template_path()) as f:
+        with open(self._template_path(), encoding="utf-8") as f:
             content = f.read()
         assert "icon-cpu" in content
 
     def test_template_iterates_models(self):
-        with open(self._template_path()) as f:
+        with open(self._template_path(), encoding="utf-8") as f:
             content = f.read()
         assert "models" in content
         assert "model.name" in content or "model" in content
 
     def test_template_iterates_plugins(self):
-        with open(self._template_path()) as f:
+        with open(self._template_path(), encoding="utf-8") as f:
             content = f.read()
         assert "plugins" in content
         assert "plugin.name" in content or "plugin" in content
 
     def test_template_iterates_rollouts(self):
-        with open(self._template_path()) as f:
+        with open(self._template_path(), encoding="utf-8") as f:
             content = f.read()
         assert "rollouts" in content
 
     def test_template_iterates_experiments(self):
-        with open(self._template_path()) as f:
+        with open(self._template_path(), encoding="utf-8") as f:
             content = f.read()
         assert "experiments" in content
 
     def test_template_has_javascript_section(self):
-        with open(self._template_path()) as f:
+        with open(self._template_path(), encoding="utf-8") as f:
             content = f.read()
         assert "{% block extra_js %}" in content
 
     def test_template_creates_chart_instances(self):
-        with open(self._template_path()) as f:
+        with open(self._template_path(), encoding="utf-8") as f:
             content = f.read()
         assert "new Chart(" in content
 
     def test_template_has_slide_out_drawer(self):
-        with open(self._template_path()) as f:
+        with open(self._template_path(), encoding="utf-8") as f:
             content = f.read()
         assert "aq-drawer-overlay" in content
         assert "aq-drawer" in content
@@ -850,46 +850,46 @@ class TestMlopsTemplateFile:
         assert "closeDrawer" in content
 
     def test_template_drawer_has_escape_key(self):
-        with open(self._template_path()) as f:
+        with open(self._template_path(), encoding="utf-8") as f:
             content = f.read()
         assert "Escape" in content
 
     def test_template_has_model_drawer_handler(self):
-        with open(self._template_path()) as f:
+        with open(self._template_path(), encoding="utf-8") as f:
             content = f.read()
         assert "openModelDrawer" in content
 
     def test_template_has_rollout_drawer_handler(self):
-        with open(self._template_path()) as f:
+        with open(self._template_path(), encoding="utf-8") as f:
             content = f.read()
         assert "openRolloutDrawer" in content
 
     def test_template_has_snippet_panel(self):
-        with open(self._template_path()) as f:
+        with open(self._template_path(), encoding="utf-8") as f:
             content = f.read()
         assert "snippet-panel" in content
         assert "snippet-tab" in content
         assert "snippet-content" in content
 
     def test_template_has_code_block_containers(self):
-        with open(self._template_path()) as f:
+        with open(self._template_path(), encoding="utf-8") as f:
             content = f.read()
         assert "code-block-container" in content
         assert "code-block-header" in content
         assert "code-block-body" in content
 
     def test_template_has_python_highlighter(self):
-        with open(self._template_path()) as f:
+        with open(self._template_path(), encoding="utf-8") as f:
             content = f.read()
         assert 'data-aq-highlight="python"' in content
 
     def test_template_has_copy_snippet_function(self):
-        with open(self._template_path()) as f:
+        with open(self._template_path(), encoding="utf-8") as f:
             content = f.read()
         assert "copySnippet" in content
 
     def test_template_has_capabilities_tabs(self):
-        with open(self._template_path()) as f:
+        with open(self._template_path(), encoding="utf-8") as f:
             content = f.read()
         assert "cap-tab" in content
         assert "cap-panel" in content
@@ -897,73 +897,73 @@ class TestMlopsTemplateFile:
         assert "cap-devices" in content
 
     def test_template_has_circuit_breaker_panel(self):
-        with open(self._template_path()) as f:
+        with open(self._template_path(), encoding="utf-8") as f:
             content = f.read()
         assert "Circuit Breaker" in content
         assert "cb-closed" in content or "cb-indicator" in content
 
     def test_template_has_rate_limiter_panel(self):
-        with open(self._template_path()) as f:
+        with open(self._template_path(), encoding="utf-8") as f:
             content = f.read()
         assert "Rate Limiter" in content
 
     def test_template_has_memory_tracker_panel(self):
-        with open(self._template_path()) as f:
+        with open(self._template_path(), encoding="utf-8") as f:
             content = f.read()
         assert "Memory Tracker" in content
 
     def test_template_has_drift_detection_section(self):
-        with open(self._template_path()) as f:
+        with open(self._template_path(), encoding="utf-8") as f:
             content = f.read()
         assert "Drift" in content
 
     def test_template_has_hot_models_section(self):
-        with open(self._template_path()) as f:
+        with open(self._template_path(), encoding="utf-8") as f:
             content = f.read()
         assert "Hot Models" in content or "Most Requested" in content
 
     def test_template_has_model_lineage_section(self):
-        with open(self._template_path()) as f:
+        with open(self._template_path(), encoding="utf-8") as f:
             content = f.read()
         assert "Lineage" in content
 
     def test_template_has_auto_refresh_polling(self):
-        with open(self._template_path()) as f:
+        with open(self._template_path(), encoding="utf-8") as f:
             content = f.read()
         assert "POLL_INTERVAL" in content or "setInterval" in content
 
     def test_template_snippet_tabs_model(self):
-        with open(self._template_path()) as f:
+        with open(self._template_path(), encoding="utf-8") as f:
             content = f.read()
         assert "snip-model" in content
 
     def test_template_snippet_tabs_serve(self):
-        with open(self._template_path()) as f:
+        with open(self._template_path(), encoding="utf-8") as f:
             content = f.read()
         assert "snip-serve" in content
 
     def test_template_snippet_tabs_pipeline(self):
-        with open(self._template_path()) as f:
+        with open(self._template_path(), encoding="utf-8") as f:
             content = f.read()
         assert "snip-pipeline" in content
 
     def test_template_snippet_tabs_rollout(self):
-        with open(self._template_path()) as f:
+        with open(self._template_path(), encoding="utf-8") as f:
             content = f.read()
         assert "snip-rollout" in content
 
     def test_template_snippet_tabs_config(self):
-        with open(self._template_path()) as f:
+        with open(self._template_path(), encoding="utf-8") as f:
             content = f.read()
         assert "snip-config" in content
 
     def test_template_model_search_input(self):
-        with open(self._template_path()) as f:
+        with open(self._template_path(), encoding="utf-8") as f:
             content = f.read()
         assert "modelSearch" in content
 
     def test_template_count_up_animation(self):
-        with open(self._template_path()) as f:
+        with open(self._template_path(), encoding="utf-8") as f:
             content = f.read()
         assert "data-count" in content
         assert "requestAnimationFrame" in content
@@ -1638,7 +1638,7 @@ class TestMlopsTemplateV2Sections:
         )
 
     def _read_template(self):
-        with open(self._template_path()) as f:
+        with open(self._template_path(), encoding="utf-8") as f:
             return f.read()
 
     def test_template_has_autoscaler_section(self):
@@ -1915,22 +1915,22 @@ class TestMlopsSidebarEntry:
         )
 
     def test_sidebar_has_mlops_link(self):
-        with open(self._sidebar_path()) as f:
+        with open(self._sidebar_path(), encoding="utf-8") as f:
             content = f.read()
         assert "/admin/mlops/" in content or "mlops" in content
 
     def test_sidebar_has_ai_ml_section(self):
-        with open(self._sidebar_path()) as f:
+        with open(self._sidebar_path(), encoding="utf-8") as f:
             content = f.read()
         assert "AI / ML" in content
 
     def test_sidebar_mlops_icon(self):
-        with open(self._sidebar_path()) as f:
+        with open(self._sidebar_path(), encoding="utf-8") as f:
             content = f.read()
         assert "icon-cpu" in content
 
     def test_sidebar_mlops_active_page_check(self):
-        with open(self._sidebar_path()) as f:
+        with open(self._sidebar_path(), encoding="utf-8") as f:
             content = f.read()
         assert "mlops" in content
         assert "active_page" in content

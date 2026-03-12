@@ -1178,6 +1178,7 @@ class TestCredentialStore:
         store.save("rnd_token")
         assert store_dir.exists()
 
+    @pytest.mark.skipif(platform.system() == "Windows", reason="Unix file permissions not applicable on Windows")
     def test_save_sets_file_permissions(self, store):
         store.save("rnd_token")
         mode = store.credentials_path.stat().st_mode & 0o777
@@ -1186,13 +1187,13 @@ class TestCredentialStore:
     def test_config_file_created(self, store):
         store.save("rnd_t", owner_name="user1", default_region="ohio")
         assert store.config_path.exists()
-        config = json.loads(store.config_path.read_text())
+        config = json.loads(store.config_path.read_text(encoding="utf-8"))
         assert config["owner_name"] == "user1"
         assert config["default_region"] == "ohio"
 
     def test_config_metadata(self, store):
         store.save("rnd_t", metadata={"extra": "info"})
-        config = json.loads(store.config_path.read_text())
+        config = json.loads(store.config_path.read_text(encoding="utf-8"))
         assert config["metadata"]["extra"] == "info"
 
     def test_get_default_region(self, store):
@@ -3208,7 +3209,7 @@ class TestAuditLogger:
     def test_audit_log_json_format(self, tmp_path):
         logger = _AuditLogger(tmp_path / "audit.log")
         logger.log("save_start")
-        content = (tmp_path / "audit.log").read_text()
+        content = (tmp_path / "audit.log").read_text(encoding="utf-8")
         entry = json.loads(content.strip())
         assert entry["action"] == "save_start"
         assert "ts" in entry
@@ -3219,17 +3220,17 @@ class TestAuditLogger:
         logger.log("action1")
         logger.log("action2")
         logger.log("action3")
-        lines = (tmp_path / "audit.log").read_text().strip().split("\n")
+        lines = (tmp_path / "audit.log").read_text(encoding="utf-8").strip().split("\n")
         assert len(lines) == 3
 
     def test_audit_log_with_details(self, tmp_path):
         logger = _AuditLogger(tmp_path / "audit.log")
         logger.log("save", details="owner=team1")
-        entry = json.loads((tmp_path / "audit.log").read_text().strip())
+        entry = json.loads((tmp_path / "audit.log").read_text(encoding="utf-8").strip())
         assert entry["details"] == "owner=team1"
 
     def test_audit_log_no_details(self, tmp_path):
         logger = _AuditLogger(tmp_path / "audit.log")
         logger.log("clear")
-        entry = json.loads((tmp_path / "audit.log").read_text().strip())
+        entry = json.loads((tmp_path / "audit.log").read_text(encoding="utf-8").strip())
         assert "details" not in entry

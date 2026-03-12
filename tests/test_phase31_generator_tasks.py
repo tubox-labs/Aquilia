@@ -60,7 +60,7 @@ class TestModuleGeneratorInitFile:
         """Full mode, no test routes — no line should start with spaces."""
         gen = self._make_generator(with_tests=False)
         gen._create_init_file()
-        content = (gen.path / "__init__.py").read_text()
+        content = (gen.path / "__init__.py").read_text(encoding="utf-8")
         for i, line in enumerate(content.split("\n"), 1):
             if line.strip() == "":
                 continue
@@ -72,7 +72,7 @@ class TestModuleGeneratorInitFile:
         """Full mode WITH test routes — the fix target. No 16-space indent."""
         gen = self._make_generator(with_tests=True)
         gen._create_init_file()
-        content = (gen.path / "__init__.py").read_text()
+        content = (gen.path / "__init__.py").read_text(encoding="utf-8")
         for i, line in enumerate(content.split("\n"), 1):
             if line.strip() == "":
                 continue
@@ -84,7 +84,7 @@ class TestModuleGeneratorInitFile:
         """Minimal mode — must also be clean."""
         gen = self._make_generator(minimal=True)
         gen._create_init_file()
-        content = (gen.path / "__init__.py").read_text()
+        content = (gen.path / "__init__.py").read_text(encoding="utf-8")
         for i, line in enumerate(content.split("\n"), 1):
             if line.strip() == "":
                 continue
@@ -98,42 +98,42 @@ class TestModuleGeneratorInitFile:
         """When with_tests=True, the file must contain the test_routes import."""
         gen = self._make_generator(with_tests=True)
         gen._create_init_file()
-        content = (gen.path / "__init__.py").read_text()
+        content = (gen.path / "__init__.py").read_text(encoding="utf-8")
         assert "from .test_routes import *" in content
 
     def test_init_file_without_tests_no_test_routes_import(self):
         """When with_tests=False, no test_routes import."""
         gen = self._make_generator(with_tests=False)
         gen._create_init_file()
-        content = (gen.path / "__init__.py").read_text()
+        content = (gen.path / "__init__.py").read_text(encoding="utf-8")
         assert "from .test_routes import *" not in content
 
     def test_init_file_contains_module_name(self):
         """__module_name__ must match the generator name."""
         gen = self._make_generator(name="orders")
         gen._create_init_file()
-        content = (gen.path / "__init__.py").read_text()
+        content = (gen.path / "__init__.py").read_text(encoding="utf-8")
         assert '__module_name__ = "orders"' in content
 
     def test_init_file_contains_docstring(self):
         """Generated file must start with a docstring."""
         gen = self._make_generator(name="products", with_tests=True)
         gen._create_init_file()
-        content = (gen.path / "__init__.py").read_text()
+        content = (gen.path / "__init__.py").read_text(encoding="utf-8")
         assert content.startswith('"""')
 
     def test_init_file_contains_version(self):
         """Generated file must contain __version__."""
         gen = self._make_generator(with_tests=True)
         gen._create_init_file()
-        content = (gen.path / "__init__.py").read_text()
+        content = (gen.path / "__init__.py").read_text(encoding="utf-8")
         assert '__version__ = "0.1.0"' in content
 
     def test_init_file_has_standard_imports(self):
         """Full mode must import controllers, services, faults."""
         gen = self._make_generator(with_tests=True)
         gen._create_init_file()
-        content = (gen.path / "__init__.py").read_text()
+        content = (gen.path / "__init__.py").read_text(encoding="utf-8")
         assert "from .controllers import *" in content
         assert "from .services import *" in content
         assert "from .faults import *" in content
@@ -142,7 +142,7 @@ class TestModuleGeneratorInitFile:
         """Minimal mode only imports controllers."""
         gen = self._make_generator(minimal=True)
         gen._create_init_file()
-        content = (gen.path / "__init__.py").read_text()
+        content = (gen.path / "__init__.py").read_text(encoding="utf-8")
         assert "from .controllers import *" in content
         assert "from .services import *" not in content
         assert "from .faults import *" not in content
@@ -151,7 +151,7 @@ class TestModuleGeneratorInitFile:
         """test_routes import must come after faults import."""
         gen = self._make_generator(with_tests=True)
         gen._create_init_file()
-        content = (gen.path / "__init__.py").read_text()
+        content = (gen.path / "__init__.py").read_text(encoding="utf-8")
         faults_pos = content.index("from .faults import *")
         test_pos = content.index("from .test_routes import *")
         assert test_pos > faults_pos, "test_routes import must follow faults import"
@@ -163,7 +163,7 @@ class TestModuleGeneratorInitFile:
         """No indentation issues regardless of module name."""
         gen = self._make_generator(name=name, with_tests=True)
         gen._create_init_file()
-        content = (gen.path / "__init__.py").read_text()
+        content = (gen.path / "__init__.py").read_text(encoding="utf-8")
         for i, line in enumerate(content.split("\n"), 1):
             if line.strip() == "":
                 continue
@@ -177,28 +177,28 @@ class TestModuleGeneratorInitFile:
         """Docstring should have the module name capitalized."""
         gen = self._make_generator(name="payments", with_tests=True)
         gen._create_init_file()
-        content = (gen.path / "__init__.py").read_text()
+        content = (gen.path / "__init__.py").read_text(encoding="utf-8")
         assert "Payments Module." in content
 
     def test_init_file_generated_by_comment(self):
         """Docstring should mention 'Generated by: aq add module <name>'."""
         gen = self._make_generator(name="users", with_tests=True)
         gen._create_init_file()
-        content = (gen.path / "__init__.py").read_text()
+        content = (gen.path / "__init__.py").read_text(encoding="utf-8")
         assert "Generated by: aq add module users" in content
 
     def test_init_file_minimal_generated_by_minimal_flag(self):
         """Minimal docstring includes --minimal flag."""
         gen = self._make_generator(name="api", minimal=True)
         gen._create_init_file()
-        content = (gen.path / "__init__.py").read_text()
+        content = (gen.path / "__init__.py").read_text(encoding="utf-8")
         assert "Generated by: aq add module api --minimal" in content
 
     def test_init_file_is_valid_python(self):
         """Generated init file must be valid Python syntax."""
         gen = self._make_generator(with_tests=True)
         gen._create_init_file()
-        content = (gen.path / "__init__.py").read_text()
+        content = (gen.path / "__init__.py").read_text(encoding="utf-8")
         compile(content, "<init>", "exec")  # Raises SyntaxError if invalid
 
 
@@ -686,7 +686,7 @@ class TestTasksTemplateRegisteredSection:
         template_path = os.path.join(
             REPO_ROOT, "aquilia", "admin", "templates", "tasks.html"
         )
-        with open(template_path) as f:
+        with open(template_path, encoding="utf-8") as f:
             content = f.read()
         assert "Registered Tasks" in content
 
@@ -695,7 +695,7 @@ class TestTasksTemplateRegisteredSection:
         template_path = os.path.join(
             REPO_ROOT, "aquilia", "admin", "templates", "tasks.html"
         )
-        with open(template_path) as f:
+        with open(template_path, encoding="utf-8") as f:
             content = f.read()
         assert "registered_tasks" in content
         assert "for t in registered_tasks" in content
@@ -705,7 +705,7 @@ class TestTasksTemplateRegisteredSection:
         template_path = os.path.join(
             REPO_ROOT, "aquilia", "admin", "templates", "tasks.html"
         )
-        with open(template_path) as f:
+        with open(template_path, encoding="utf-8") as f:
             content = f.read()
         assert "t.name" in content
 
@@ -714,7 +714,7 @@ class TestTasksTemplateRegisteredSection:
         template_path = os.path.join(
             REPO_ROOT, "aquilia", "admin", "templates", "tasks.html"
         )
-        with open(template_path) as f:
+        with open(template_path, encoding="utf-8") as f:
             content = f.read()
         assert "t.queue" in content
 
@@ -723,7 +723,7 @@ class TestTasksTemplateRegisteredSection:
         template_path = os.path.join(
             REPO_ROOT, "aquilia", "admin", "templates", "tasks.html"
         )
-        with open(template_path) as f:
+        with open(template_path, encoding="utf-8") as f:
             content = f.read()
         assert "t.priority" in content
 
@@ -732,7 +732,7 @@ class TestTasksTemplateRegisteredSection:
         template_path = os.path.join(
             REPO_ROOT, "aquilia", "admin", "templates", "tasks.html"
         )
-        with open(template_path) as f:
+        with open(template_path, encoding="utf-8") as f:
             content = f.read()
         assert "t.tags" in content
 
@@ -741,7 +741,7 @@ class TestTasksTemplateRegisteredSection:
         template_path = os.path.join(
             REPO_ROOT, "aquilia", "admin", "templates", "tasks.html"
         )
-        with open(template_path) as f:
+        with open(template_path, encoding="utf-8") as f:
             content = f.read()
         assert "discovered" in content
 
@@ -750,7 +750,7 @@ class TestTasksTemplateRegisteredSection:
         template_path = os.path.join(
             REPO_ROOT, "aquilia", "admin", "templates", "tasks.html"
         )
-        with open(template_path) as f:
+        with open(template_path, encoding="utf-8") as f:
             content = f.read()
         assert "manager.enqueue()" in content
 
@@ -759,7 +759,7 @@ class TestTasksTemplateRegisteredSection:
         template_path = os.path.join(
             REPO_ROOT, "aquilia", "admin", "templates", "tasks.html"
         )
-        with open(template_path) as f:
+        with open(template_path, encoding="utf-8") as f:
             content = f.read()
         assert "registered" in content
 
