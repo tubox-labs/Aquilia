@@ -61,7 +61,7 @@ class PluginMarketplace:
             "http"
         ):
             path = self._index_url.removeprefix("file://")
-            with open(path) as f:
+            with open(path, encoding="utf-8") as f:
                 raw = f.read()
         else:
             # simple stdlib fetch -- no aiohttp dependency needed

@@ -211,7 +211,7 @@ class AquilaryRegistry:
             out = out.with_suffix(".crous") if not out.suffix == ".crous" else out
             out.write_bytes(crous_backend.encode(frozen))
         except ImportError:
-            out.write_text(json.dumps(frozen, indent=2, sort_keys=True))
+            out.write_text(json.dumps(frozen, indent=2, sort_keys=True), encoding="utf-8")
 
 
 class Aquilary:
@@ -364,10 +364,10 @@ class Aquilary:
                 data = crous_backend.decode(crous_path.read_bytes())
             except (ImportError, Exception):
                 import json
-                data = json.loads(manifest_path.read_text())
+                data = json.loads(manifest_path.read_text(encoding="utf-8"))
         else:
             import json
-            data = json.loads(manifest_path.read_text())
+            data = json.loads(manifest_path.read_text(encoding="utf-8"))
         
         # Reconstruct app contexts from frozen data
         app_contexts = []

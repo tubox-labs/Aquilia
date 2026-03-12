@@ -95,7 +95,7 @@ class PredictionLogger:
         """Write event as JSONL to log directory."""
         date_str = time.strftime("%Y-%m-%d")
         log_path = Path(self.log_dir) / f"predictions_{date_str}.jsonl"
-        with open(log_path, "a") as f:
+        with open(log_path, "a", encoding="utf-8") as f:
             f.write(json.dumps(event, default=str) + "\n")
 
 

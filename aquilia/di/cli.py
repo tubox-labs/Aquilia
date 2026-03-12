@@ -162,7 +162,7 @@ def cmd_di_tree(args):
         
         # Save to file if requested
         if args.out:
-            Path(args.out).write_text(tree)
+            Path(args.out).write_text(tree, encoding="utf-8")
             print(f"\nSaved to {args.out}")
         
         return 0
@@ -202,7 +202,7 @@ def cmd_di_graph(args):
         
         # Save to file
         out_path = Path(args.out)
-        out_path.write_text(dot)
+        out_path.write_text(dot, encoding="utf-8")
         
         print(f"Graph exported to {args.out}")
         print(f"\nVisualize with: dot -Tpng {args.out} -o graph.png")
@@ -333,7 +333,7 @@ def cmd_di_manifest(args):
         
         # Save to file
         out_path = Path(args.out)
-        out_path.write_text(json.dumps(manifest_data, indent=2))
+        out_path.write_text(json.dumps(manifest_data, indent=2), encoding="utf-8")
         
         print(f"Manifest exported to {args.out}")
         print(f"   {len(manifest_data['providers'])} providers")

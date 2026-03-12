@@ -140,7 +140,7 @@ def generate_ci_workflow(output_dir: str = ".github/workflows") -> str:
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
     path = out / "aquilia-ci.yml"
-    path.write_text(GITHUB_ACTIONS_WORKFLOW)
+    path.write_text(GITHUB_ACTIONS_WORKFLOW, encoding="utf-8")
     return str(path)
 
 
@@ -148,5 +148,5 @@ def generate_dockerfile(output_dir: str = ".") -> str:
     """Generate Dockerfile for model serving."""
     from pathlib import Path
     path = Path(output_dir) / "Dockerfile.aquilia"
-    path.write_text(DOCKERFILE_TEMPLATE)
+    path.write_text(DOCKERFILE_TEMPLATE, encoding="utf-8")
     return str(path)

@@ -105,7 +105,7 @@ class ModelPersistenceManager:
         model_dir.mkdir(parents=True, exist_ok=True)
         
         # 1. Save metadata
-        with open(model_dir / "metadata.json", "w") as f:
+        with open(model_dir / "metadata.json", "w", encoding="utf-8") as f:
             json.dump({
                 "name": bundle.name,
                 "version": bundle.version,
@@ -129,7 +129,7 @@ class ModelPersistenceManager:
         if not metadata_path.exists():
             raise FileNotFoundError(f"Model {name}:{version} not found in persistence")
             
-        with open(metadata_path) as f:
+        with open(metadata_path, encoding="utf-8") as f:
             metadata = json.load(f)
             
         framework = metadata["framework"]
