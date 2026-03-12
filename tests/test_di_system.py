@@ -1502,7 +1502,7 @@ class TestDiagnostics:
         diag.add_listener(Listener())
 
         async with diag.measure(DIEventType.RESOLUTION_START, token="Y"):
-            await asyncio.sleep(0.01)
+            await asyncio.sleep(0.05)  # Use longer sleep for Windows timer resolution
 
         assert len(events) == 1
         assert events[0].type == DIEventType.RESOLUTION_SUCCESS
