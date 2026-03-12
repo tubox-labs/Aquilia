@@ -94,7 +94,14 @@ jobs:
       - name: "Verify tag ↔ version consistency"
         run: |
           TAG_VERSION="${GITHUB_REF_NAME#v}"
-          PKG_VERSION=$(python -c "from aquilia._version import __version__; print(__version__)")
+          PKG_VERSION=$(python - <<'PY'
+          from pathlib import Path
+
+          namespace = {}
+          exec(Path("aquilia/_version.py").read_text(encoding="utf-8"), namespace)
+          print(namespace["__version__"])
+          PY
+          )
           echo "Tag version:     $TAG_VERSION"
           echo "Package version: $PKG_VERSION"
           if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
@@ -185,7 +192,14 @@ jobs:
 
       - name: Verify package version in artifact
         run: |
-          PKG_VERSION=$(python -c "from aquilia._version import __version__; print(__version__)")
+          PKG_VERSION=$(python - <<'PY'
+          from pathlib import Path
+
+          namespace = {}
+          exec(Path("aquilia/_version.py").read_text(encoding="utf-8"), namespace)
+          print(namespace["__version__"])
+          PY
+          )
           echo "Expected version: $PKG_VERSION"
           # Ensure the version appears in the wheel/sdist filename
           ls dist/ | grep "$PKG_VERSION" || {
