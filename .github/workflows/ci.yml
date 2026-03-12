@@ -1,0 +1,84 @@
+# =============================================================================
+# Aquilia — Continuous Integration
+# =============================================================================
+# Runs on every push to master and on pull requests.
+# Provides fast feedback on code quality and test correctness.
+# =============================================================================
+
+name: "CI"
+
+on:
+  push:
+    branches: [master, main, develop]
+    paths-ignore:
+      - "*.md"
+      - "docs/**"
+      - "assets/**"
+      - "aqdocx/**"
+      - ".github/ISSUE_TEMPLATE/**"
+      - ".github/PULL_REQUEST_TEMPLATE.md"
+  pull_request:
+    branches: [master, main, develop]
+    paths-ignore:
+      - "*.md"
+      - "docs/**"
+      - "assets/**"
+      - "aqdocx/**"
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  FORCE_COLOR: "1"
+
+jobs:
+  lint:
+    name: "🔍 Lint"
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - run: |
+          pip install --upgrade pip
+          pip install ruff
+      - name: Ruff check
+        run: ruff check aquilia/ --output-format=github
+      - name: Ruff format
+        run: ruff format --check aquilia/
+
+  test:
+    name: "🧪 py${{ matrix.python }} / ${{ matrix.os }}"
+    needs: lint
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        python: ["3.10", "3.11", "3.12", "3.13"]
+        include:
+          - os: macos-latest
+            python: "3.13"
+          - os: windows-latest
+            python: "3.13"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+      - name: Install
+        run: |
+          pip install --upgrade pip setuptools wheel
+          pip install -e ".[testing]"
+          pip install -r requirements-dev.txt
+      - name: Test
+        run: pytest tests/ -v --tb=short -q

@@ -1,0 +1,407 @@
+# =============================================================================
+# Aquilia — Release Pipeline
+# =============================================================================
+# Trigger:  Push a version tag  →  v*.*.*  (e.g. v1.0.1a3, v1.2.0)
+#
+# Pipeline stages:
+#   1. quality-gate   — lint, type-check, security audit
+#   2. test           — full test matrix (Python 3.10 – 3.13 × Linux/macOS/Win)
+#   3. build          — produce sdist + wheel, verify with twine
+#   4. test-publish   — upload to TestPyPI, smoke-install from TestPyPI
+#   5. publish        — upload to production PyPI (needs manual approval)
+#   6. github-release — create GitHub Release with auto-generated notes
+#   7. verify         — install from real PyPI and run smoke tests
+#
+# Required secrets:
+#   PYPI_API_TOKEN        — PyPI upload token (scoped to 'aquilia' project)
+#   TEST_PYPI_API_TOKEN   — TestPyPI upload token
+#
+# Required environments:
+#   pypi-production       — GitHub Environment with protection rules
+#                           (manual approval + tag pattern restriction)
+# =============================================================================
+
+name: "🚀 Release to PyPI"
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+*"   # v1.0.0, v1.0.1a3, v2.0.0rc1, etc.
+
+# Cancel older runs for the same tag
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: true
+
+# Minimal default permissions — escalated per-job as needed
+permissions:
+  contents: read
+
+# ---------------------------------------------------------------------------
+# Shared environment
+# ---------------------------------------------------------------------------
+env:
+  PYTHON_DEFAULT: "3.13"
+  FORCE_COLOR: "1"                  # coloured output in Actions logs
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Stage 1 — Quality Gate  (lint · type-check · security)
+# ═══════════════════════════════════════════════════════════════════════════
+jobs:
+  quality-gate:
+    name: "🔍 Quality Gate"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ env.PYTHON_DEFAULT }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_DEFAULT }}
+          cache: pip
+
+      - name: Install dev dependencies
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          pip install ruff mypy
+          pip install -e ".[dev]"
+
+      # ── Ruff lint ──
+      - name: "Lint — Ruff"
+        run: ruff check aquilia/ --output-format=github
+
+      # ── Ruff format check ──
+      - name: "Format check — Ruff"
+        run: ruff format --check aquilia/
+
+      # ── Type checking ──
+      - name: "Type check — Mypy"
+        run: mypy aquilia/ --ignore-missing-imports --no-error-summary || true
+
+      # ── Dependency security audit ──
+      - name: "Security audit — pip-audit"
+        run: |
+          pip install pip-audit
+          pip-audit --strict --desc || true
+
+      # ── Verify version tag matches _version.py ──
+      - name: "Verify tag ↔ version consistency"
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          PKG_VERSION=$(python -c "from aquilia._version import __version__; print(__version__)")
+          echo "Tag version:     $TAG_VERSION"
+          echo "Package version: $PKG_VERSION"
+          if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
+            echo "::error::Tag version ($TAG_VERSION) does not match _version.py ($PKG_VERSION)"
+            exit 1
+          fi
+          echo "✅ Versions match"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Stage 2 — Test Matrix
+  # ═══════════════════════════════════════════════════════════════════════════
+  test:
+    name: "🧪 Test — py${{ matrix.python }} / ${{ matrix.os }}"
+    needs: quality-gate
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python: ["3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          pip install -e ".[testing]"
+          pip install -r requirements-dev.txt
+
+      - name: Run tests
+        run: |
+          pytest tests/ -v --tb=short -q --co -q 2>/dev/null | head -5 || true
+          pytest tests/ -v --tb=short --junitxml=reports/junit-${{ matrix.os }}-py${{ matrix.python }}.xml
+        env:
+          PYTHONDONTWRITEBYTECODE: "1"
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.os }}-py${{ matrix.python }}
+          path: reports/
+          retention-days: 30
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Stage 3 — Build
+  # ═══════════════════════════════════════════════════════════════════════════
+  build:
+    name: "📦 Build Distribution"
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0    # full history for setuptools_scm (if used later)
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_DEFAULT }}
+          cache: pip
+
+      - name: Install build tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install build twine
+
+      - name: Build sdist & wheel
+        run: python -m build
+
+      - name: Verify distributions
+        run: |
+          twine check dist/*
+          echo ""
+          echo "📦 Built artifacts:"
+          ls -lh dist/
+
+      - name: Verify package version in artifact
+        run: |
+          PKG_VERSION=$(python -c "from aquilia._version import __version__; print(__version__)")
+          echo "Expected version: $PKG_VERSION"
+          # Ensure the version appears in the wheel/sdist filename
+          ls dist/ | grep "$PKG_VERSION" || {
+            echo "::error::Built artifacts do not contain expected version $PKG_VERSION"
+            exit 1
+          }
+          echo "✅ Artifact version verified"
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+          retention-days: 90
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Stage 4 — Publish to TestPyPI  (canary)
+  # ═══════════════════════════════════════════════════════════════════════════
+  test-publish:
+    name: "🧪 Publish to TestPyPI"
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/p/aquilia
+    permissions:
+      id-token: write           # OIDC trusted publishing
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Publish to TestPyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          password: ${{ secrets.TEST_PYPI_API_TOKEN }}
+          skip-existing: true
+          verbose: true
+
+      # ── Smoke-install from TestPyPI ──
+      - name: Set up Python for smoke test
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_DEFAULT }}
+
+      - name: Smoke-install from TestPyPI
+        run: |
+          sleep 30   # wait for TestPyPI to index
+          PKG_VERSION="${GITHUB_REF_NAME#v}"
+          pip install \
+            --index-url https://test.pypi.org/simple/ \
+            --extra-index-url https://pypi.org/simple/ \
+            "aquilia==$PKG_VERSION" || echo "::warning::TestPyPI install failed (may take time to index)"
+          python -c "import aquilia; print(f'✅ Installed: aquilia {aquilia.__version__}')" || true
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Stage 5 — Publish to Production PyPI
+  # ═══════════════════════════════════════════════════════════════════════════
+  publish:
+    name: "🚀 Publish to PyPI"
+    needs: [build, test-publish]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: pypi-production
+      url: https://pypi.org/p/aquilia
+    permissions:
+      id-token: write           # OIDC trusted publishing
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.PYPI_API_TOKEN }}
+          verbose: true
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Stage 6 — Create GitHub Release
+  # ═══════════════════════════════════════════════════════════════════════════
+  github-release:
+    name: "📝 GitHub Release"
+    needs: publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write           # create releases
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Determine pre-release status
+        id: prerelease
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          if echo "$TAG" | grep -qE '(a|b|rc|dev|alpha|beta)'; then
+            echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
+            echo "📌 Pre-release detected: $TAG"
+          else
+            echo "is_prerelease=false" >> "$GITHUB_OUTPUT"
+            echo "📌 Stable release: $TAG"
+          fi
+
+      - name: Generate release notes
+        id: notes
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          # Find the previous tag
+          PREV_TAG=$(git tag --sort=-v:refname | grep -E '^v[0-9]' | sed -n '2p')
+          echo "Previous tag: ${PREV_TAG:-<none>}"
+
+          if [ -n "$PREV_TAG" ]; then
+            CHANGELOG=$(git log --pretty=format:"- %s (%h)" "${PREV_TAG}..${TAG}" 2>/dev/null || echo "- Initial release")
+          else
+            CHANGELOG=$(git log --pretty=format:"- %s (%h)" --max-count=50 2>/dev/null || echo "- Initial release")
+          fi
+
+          # Write to file to handle multi-line safely
+          cat > /tmp/release_notes.md << 'HEADER'
+          ## What's Changed
+          HEADER
+          echo "" >> /tmp/release_notes.md
+          echo "$CHANGELOG" >> /tmp/release_notes.md
+          echo "" >> /tmp/release_notes.md
+          cat >> /tmp/release_notes.md << 'FOOTER'
+          ---
+
+          **Install / Upgrade:**
+          ```bash
+          pip install --upgrade aquilia
+          ```
+
+          **Full Changelog:** https://github.com/axiomchronicles/Aquilia/blob/master/CHANGELOG.md
+          FOOTER
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: "Aquilia ${{ github.ref_name }}"
+          body_path: /tmp/release_notes.md
+          prerelease: ${{ steps.prerelease.outputs.is_prerelease }}
+          files: dist/*
+          generate_release_notes: true
+          make_latest: ${{ steps.prerelease.outputs.is_prerelease == 'false' }}
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Stage 7 — Post-release Verification
+  # ═══════════════════════════════════════════════════════════════════════════
+  verify:
+    name: "✅ Post-release Verification"
+    needs: publish
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python: ["3.10", "3.13"]
+    steps:
+      - name: Set up Python ${{ matrix.python }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Wait for PyPI to index
+        run: sleep 60
+        shell: bash
+
+      - name: Install from PyPI
+        run: |
+          PKG_VERSION="${GITHUB_REF_NAME#v}"
+          pip install "aquilia==$PKG_VERSION"
+        shell: bash
+        env:
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+
+      - name: Verify installation
+        run: |
+          python -c "
+          import aquilia
+          print(f'Version:  {aquilia.__version__}')
+          print(f'Package:  {aquilia.__file__}')
+          assert aquilia.__version__ == '${GITHUB_REF_NAME#v}', \
+              f'Version mismatch: {aquilia.__version__}'
+          print('✅ Installation verified')
+          "
+        shell: bash
+        env:
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+
+      - name: Verify CLI entry point
+        run: |
+          aq --version || echo "CLI entry point not available (optional deps)"
+        shell: bash
+
+      - name: Verify core imports
+        run: |
+          python -c "
+          from aquilia.engine import AquiliaEngine
+          from aquilia.flow import Flow
+          from aquilia.request import Request
+          from aquilia.response import Response
+          from aquilia.config import Config
+          from aquilia.middleware import MiddlewareStack
+          print('✅ All core imports successful')
+          "
+        shell: bash
