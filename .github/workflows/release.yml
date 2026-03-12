@@ -413,8 +413,7 @@ jobs:
       - name: Verify core imports
         run: |
           python -c "
-          from aquilia.engine import AquiliaEngine
-          from aquilia.flow import Flow
+          from aquilia.engine import RequestCtx
           from aquilia.request import Request
           from aquilia.response import Response
           from aquilia.config import Config
