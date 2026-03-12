@@ -12,13 +12,17 @@
 #   6. github-release — create GitHub Release with auto-generated notes
 #   7. verify         — install from real PyPI and run smoke tests
 #
-# Required secrets:
-#   PYPI_API_TOKEN        — PyPI upload token (scoped to 'aquilia' project)
-#   TEST_PYPI_API_TOKEN   — TestPyPI upload token
+# Authentication: PyPI Trusted Publishers (OIDC)
+#   No API tokens needed. PyPI verifies the GitHub Actions identity
+#   directly via OpenID Connect. Configure trusted publishers at:
+#     - https://pypi.org/manage/project/aquilia/settings/publishing/
+#     - https://test.pypi.org/manage/project/aquilia/settings/publishing/
 #
-# Required environments:
-#   pypi-production       — GitHub Environment with protection rules
-#                           (manual approval + tag pattern restriction)
+# Required GitHub Environments:
+#   testpypi              — linked to TestPyPI trusted publisher
+#   pypi-production       — linked to PyPI trusted publisher
+#                           (add protection rules: manual approval +
+#                            tag pattern restriction recommended)
 # =============================================================================
 
 name: "🚀 Release to PyPI"
@@ -221,7 +225,6 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           repository-url: https://test.pypi.org/legacy/
-          password: ${{ secrets.TEST_PYPI_API_TOKEN }}
           skip-existing: true
           verbose: true
 
@@ -264,7 +267,6 @@ jobs:
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          password: ${{ secrets.PYPI_API_TOKEN }}
           verbose: true
 
   # ═══════════════════════════════════════════════════════════════════════════
