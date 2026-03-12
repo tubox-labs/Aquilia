@@ -1,7 +1,7 @@
 # =============================================================================
 # Aquilia — Release Pipeline
 # =============================================================================
-# Trigger:  Push a version tag  →  v*.*.*  (e.g. v1.0.1a3, v1.2.0)
+# Trigger:  Push a version tag  →  v*.*.*  (e.g. v1.0.1a4, v1.2.0)
 #
 # Pipeline stages:
 #   1. quality-gate   — lint, type-check, security audit
@@ -30,7 +30,7 @@ name: "🚀 Release to PyPI"
 on:
   push:
     tags:
-      - "v[0-9]+.[0-9]+.[0-9]+*"   # v1.0.0, v1.0.1a3, v2.0.0rc1, etc.
+      - "v[0-9]+.[0-9]+.[0-9]+*"   # v1.0.0, v1.0.1a4, v2.0.0rc1, etc.
 
 # Cancel older runs for the same tag
 concurrency:
