@@ -21,12 +21,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from .core import ApiVersion, VersionStatus
 
 if TYPE_CHECKING:
-    from ..response import Response
+    from ..response import Response  # noqa: F401
 
 
 @dataclass
@@ -57,13 +57,13 @@ class SunsetPolicy:
 
     # Default migration guide URL template
     # {version} is replaced with the sunset version string
-    migration_url_template: Optional[str] = None
+    migration_url_template: str | None = None
 
     # Gradual sunset: percentage of requests to reject (0-100)
     # 0 = no rejection (warn only), 100 = full rejection
     gradual_rejection_percent: int = 0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "warn_header": self.warn_header,
             "grace_period_days": self.grace_period.days,
@@ -80,11 +80,11 @@ class SunsetEntry:
     """
 
     version: ApiVersion
-    deprecated_at: Optional[datetime] = None
-    sunset_at: Optional[datetime] = None
-    retired_at: Optional[datetime] = None
-    successor: Optional[ApiVersion] = None
-    migration_url: Optional[str] = None
+    deprecated_at: datetime | None = None
+    sunset_at: datetime | None = None
+    retired_at: datetime | None = None
+    successor: ApiVersion | None = None
+    migration_url: str | None = None
     notes: str = ""
 
     @property
@@ -116,7 +116,7 @@ class SunsetEntry:
             return VersionStatus.DEPRECATED
         return self.version.status
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "version": str(self.version),
             "deprecated_at": self.deprecated_at.isoformat() if self.deprecated_at else None,
@@ -138,17 +138,17 @@ class SunsetRegistry:
     """
 
     def __init__(self) -> None:
-        self._entries: Dict[ApiVersion, SunsetEntry] = {}
+        self._entries: dict[ApiVersion, SunsetEntry] = {}
 
     def register(
         self,
         version: ApiVersion,
         *,
-        deprecated_at: Optional[datetime] = None,
-        sunset_at: Optional[datetime] = None,
-        retired_at: Optional[datetime] = None,
-        successor: Optional[ApiVersion] = None,
-        migration_url: Optional[str] = None,
+        deprecated_at: datetime | None = None,
+        sunset_at: datetime | None = None,
+        retired_at: datetime | None = None,
+        successor: ApiVersion | None = None,
+        migration_url: str | None = None,
         notes: str = "",
     ) -> SunsetEntry:
         """Register a sunset schedule for a version."""
@@ -164,27 +164,27 @@ class SunsetRegistry:
         self._entries[version] = entry
         return entry
 
-    def get(self, version: ApiVersion) -> Optional[SunsetEntry]:
+    def get(self, version: ApiVersion) -> SunsetEntry | None:
         """Get sunset entry for a version."""
         return self._entries.get(version)
 
-    def get_deprecated(self) -> List[SunsetEntry]:
+    def get_deprecated(self) -> list[SunsetEntry]:
         """Get all currently deprecated versions."""
         return [e for e in self._entries.values() if e.is_deprecated and not e.is_sunset]
 
-    def get_sunset(self) -> List[SunsetEntry]:
+    def get_sunset(self) -> list[SunsetEntry]:
         """Get all currently sunset versions."""
         return [e for e in self._entries.values() if e.is_sunset and not e.is_retired]
 
-    def get_retired(self) -> List[SunsetEntry]:
+    def get_retired(self) -> list[SunsetEntry]:
         """Get all retired versions."""
         return [e for e in self._entries.values() if e.is_retired]
 
     @property
-    def entries(self) -> List[SunsetEntry]:
+    def entries(self) -> list[SunsetEntry]:
         return list(self._entries.values())
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "schedules": [e.to_dict() for e in self._entries.values()],
             "deprecated_count": len(self.get_deprecated()),
@@ -210,7 +210,7 @@ class SunsetEnforcer:
         self._registry = registry
         self._rejection_counter = 0  # For gradual sunset
 
-    def check(self, version: ApiVersion) -> Optional[Dict[str, Any]]:
+    def check(self, version: ApiVersion) -> dict[str, Any] | None:
         """
         Check if a version is sunset/retired and should be rejected.
 
@@ -252,7 +252,7 @@ class SunsetEnforcer:
 
         return None
 
-    def get_headers(self, version: ApiVersion) -> Dict[str, str]:
+    def get_headers(self, version: ApiVersion) -> dict[str, str]:
         """
         Get deprecation/sunset response headers for a version.
 
@@ -268,7 +268,7 @@ class SunsetEnforcer:
         if entry is None:
             return {}
 
-        headers: Dict[str, str] = {}
+        headers: dict[str, str] = {}
         status = entry.effective_status
 
         if status in (VersionStatus.DEPRECATED, VersionStatus.SUNSET):

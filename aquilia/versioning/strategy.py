@@ -11,14 +11,13 @@ the controller engine at request time.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Set, TYPE_CHECKING, Union
+from datetime import datetime
+from typing import TYPE_CHECKING, Any
 
-from .core import ApiVersion, VersionChannel, VersionStatus, VERSION_NEUTRAL
+from .core import ApiVersion, VersionChannel
 from .errors import (
     InvalidVersionError,
     MissingVersionError,
-    UnsupportedVersionError,
     VersionSunsetError,
 )
 from .graph import VersionGraph
@@ -64,10 +63,10 @@ class VersionConfig:
     strategy: str = "header"
 
     # Registered versions (strings, parsed at init)
-    versions: List[str] = field(default_factory=list)
+    versions: list[str] = field(default_factory=list)
 
     # Default version when client doesn't specify one
-    default_version: Optional[str] = None
+    default_version: str | None = None
 
     # Whether version is required (if False, uses default)
     require_version: bool = False
@@ -87,7 +86,7 @@ class VersionConfig:
     media_type_param: str = "version"
 
     # Channel configuration
-    channels: Dict[str, str] = field(default_factory=dict)
+    channels: dict[str, str] = field(default_factory=dict)
     channel_header: str = "X-API-Channel"
     channel_query_param: str = "api_channel"
 
@@ -95,10 +94,10 @@ class VersionConfig:
     negotiation_mode: str = "exact"
 
     # Sunset policy
-    sunset_policy: Optional[SunsetPolicy] = None
+    sunset_policy: SunsetPolicy | None = None
 
     # Sunset schedules: {version_str: {deprecated_at, sunset_at, ...}}
-    sunset_schedules: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    sunset_schedules: dict[str, dict[str, Any]] = field(default_factory=dict)
 
     # Response header: include API-Version in response
     include_version_header: bool = True
@@ -109,14 +108,14 @@ class VersionConfig:
     supported_versions_header: str = "X-API-Supported-Versions"
 
     # Version-neutral paths (always served regardless of version)
-    neutral_paths: List[str] = field(default_factory=lambda: [
+    neutral_paths: list[str] = field(default_factory=lambda: [
         "/_health",
         "/openapi.json",
         "/docs",
         "/redoc",
     ])
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "strategy": self.strategy,
             "versions": self.versions,
@@ -154,7 +153,7 @@ class VersionStrategy:
         self._graph = VersionGraph()
 
         # 4. Parse and register versions
-        self._default_version: Optional[ApiVersion] = None
+        self._default_version: ApiVersion | None = None
         self._register_versions(config)
 
         # 5. Build negotiator
@@ -230,11 +229,11 @@ class VersionStrategy:
             try:
                 version = self._parser.parse(v_str)
                 self._graph.register(version)
-            except InvalidVersionError:
+            except InvalidVersionError as exc:
                 raise InvalidVersionError(
                     v_str,
                     reason=f"Cannot parse configured version '{v_str}'.",
-                )
+                ) from exc
 
         # Register default version
         if config.default_version:
@@ -256,10 +255,10 @@ class VersionStrategy:
         for version_str, schedule in config.sunset_schedules.items():
             version = self._parser.parse(version_str)
 
-            deprecated_at = None
-            sunset_at = None
-            retired_at = None
-            successor = None
+            deprecated_at: datetime | None = None
+            sunset_at: datetime | None = None
+            retired_at: datetime | None = None
+            successor: ApiVersion | None = None
 
             if "deprecated_at" in schedule:
                 deprecated_at = self._parse_datetime(schedule["deprecated_at"])
@@ -281,7 +280,7 @@ class VersionStrategy:
             )
 
     @staticmethod
-    def _parse_datetime(value: Any) -> Optional[datetime]:
+    def _parse_datetime(value: Any) -> datetime | None:
         """Parse datetime from string or datetime object."""
         if isinstance(value, datetime):
             return value
@@ -294,7 +293,7 @@ class VersionStrategy:
 
     # ── Request resolution (hot path) ─────────────────────────────────
 
-    def resolve(self, request: "Request") -> ApiVersion:
+    def resolve(self, request: Request) -> ApiVersion:
         """
         Resolve API version from request.
 
@@ -370,7 +369,7 @@ class VersionStrategy:
 
         return version
 
-    def get_response_headers(self, version: ApiVersion) -> Dict[str, str]:
+    def get_response_headers(self, version: ApiVersion) -> dict[str, str]:
         """
         Get response headers to add for this version.
 
@@ -379,7 +378,7 @@ class VersionStrategy:
         - X-API-Supported-Versions (all active versions)
         - Deprecation / Sunset (if applicable, RFC 8594/9745)
         """
-        headers: Dict[str, str] = {}
+        headers: dict[str, str] = {}
 
         # Version header
         if self._config.include_version_header:
@@ -399,7 +398,7 @@ class VersionStrategy:
 
         return headers
 
-    def strip_version_from_path(self, request: "Request") -> Optional[str]:
+    def strip_version_from_path(self, request: Request) -> str | None:
         """
         If using URL path versioning, strip the version segment from
         the path so the router sees the version-less path.
@@ -470,14 +469,14 @@ class VersionStrategy:
         return self._sunset_policy
 
     @property
-    def default_version(self) -> Optional[ApiVersion]:
+    def default_version(self) -> ApiVersion | None:
         return self._default_version
 
     def is_neutral_path(self, path: str) -> bool:
         """Check if a path is version-neutral."""
         return path in self._neutral_paths
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize for admin dashboard."""
         return {
             "config": self._config.to_dict(),
