@@ -732,6 +732,7 @@ class TestSecurityEventTracker:
     def test_get_events_filter_by_since(self):
         before = time.time() - 10
         self.tracker.record("old_event", "1.1.1.1")
+        time.sleep(0.05)  # Ensure time difference on Windows
         after = time.time()
         self.tracker.record("new_event", "2.2.2.2")
         events = self.tracker.get_events(since=after)
@@ -771,6 +772,7 @@ class TestSecurityEventTracker:
 
     def test_count_events_by_since(self):
         self.tracker.record("login_failed", "1.1.1.1")
+        time.sleep(0.05)  # Ensure time difference on Windows
         after = time.time()
         self.tracker.record("login_failed", "1.1.1.1")
         count = self.tracker.count_events("login_failed", since=after)

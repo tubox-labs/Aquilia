@@ -1156,7 +1156,7 @@ class TestFlowContext:
     def test_elapsed_ms(self):
         from aquilia.flow import FlowContext
         ctx = FlowContext()
-        time.sleep(0.01)
+        time.sleep(0.05)  # Use longer sleep for Windows timer resolution
         assert ctx.elapsed_ms > 0
 
     @pytest.mark.asyncio
