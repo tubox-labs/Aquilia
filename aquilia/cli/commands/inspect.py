@@ -34,7 +34,7 @@ def _get_workspace_modules(workspace_root: Path) -> List[str]:
     ws_file = get_workspace_file(workspace_root)
     if not ws_file:
         return []
-    lines = ws_file.read_text().splitlines()
+    lines = ws_file.read_text(encoding="utf-8").splitlines()
     active_lines = [ln for ln in lines if not ln.lstrip().startswith('#')]
     content = '\n'.join(active_lines)
     return re.findall(r'Module\("([^"]+)"', content)
@@ -390,7 +390,7 @@ def inspect_config(verbose: bool = False) -> None:
                 for cf in config_files:
                     print(f"\n  ── {cf.name} ──")
                     try:
-                        content = cf.read_text()
+                        content = cf.read_text(encoding="utf-8")
                         for line in content.strip().splitlines():
                             print(f"    {line}")
                     except Exception as e:

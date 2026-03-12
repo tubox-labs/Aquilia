@@ -175,7 +175,7 @@ class WorkspaceGenerator:
         if not workspace_path.exists():
             return
         
-        content = workspace_path.read_text()
+        content = workspace_path.read_text(encoding="utf-8")
         
         # Generate new module configuration
         new_config = self.generate_workspace_module_config(discovered_modules)
@@ -301,7 +301,7 @@ class WorkspaceGenerator:
         for mod_dir in module_dirs:
             mod_name = mod_dir.name
             try:
-                manifest_content = (mod_dir / 'manifest.py').read_text()
+                manifest_content = (mod_dir / 'manifest.py').read_text(encoding="utf-8")
                 
                 # Extract all module metadata
                 version = self._extract_field(manifest_content, r'version="([^"]+)"', "0.1.0")

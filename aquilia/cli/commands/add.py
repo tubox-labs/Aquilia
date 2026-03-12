@@ -114,7 +114,7 @@ def add_module(
         )
 
     # Parse existing workspace.py to find existing modules
-    workspace_content = workspace_file.read_text()
+    workspace_content = workspace_file.read_text(encoding="utf-8")
     existing_modules = []
 
     # Simple regex to find .module() calls -- match Module("name"...)

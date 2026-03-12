@@ -104,7 +104,7 @@ def validate_workspace(
 
     # ── Phase 1: Parse workspace.py for registered modules ──
     try:
-        workspace_content = workspace_config.read_text()
+        workspace_content = workspace_config.read_text(encoding="utf-8")
         # Strip comment lines to avoid matching commented-out modules
         clean_content = "\n".join(
             line for line in workspace_content.splitlines()

@@ -99,7 +99,7 @@ class WorkspaceCompiler:
              from aquilia.faults.domains import ConfigMissingFault
              raise ConfigMissingFault(key="workspace.py")
              
-        workspace_content = workspace_file.read_text()
+        workspace_content = workspace_file.read_text(encoding="utf-8")
         import re
         
         # Extract workspace info
@@ -354,5 +354,5 @@ class WorkspaceCompiler:
                 f.write(crous_bytes)
         except Exception:
             # Fallback to JSON if Crous encoding fails
-            with open(path, 'w') as f:
+            with open(path, 'w', encoding="utf-8") as f:
                 json.dump(data, f, indent=2)

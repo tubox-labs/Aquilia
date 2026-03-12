@@ -128,7 +128,7 @@ def _validate_workspace_config(workspace_root: Path, verbose: bool = False) -> L
         
         # Read workspace.py to find registered modules
         try:
-            workspace_content = workspace_py.read_text()
+            workspace_content = workspace_py.read_text(encoding="utf-8")
         except Exception as e:
             errors.append(f"Cannot read workspace.py: {str(e)[:60]}")
             return errors
@@ -176,7 +176,7 @@ def _validate_workspace_config(workspace_root: Path, verbose: bool = False) -> L
             
             # Read manifest and validate imports
             try:
-                manifest_content = manifest_path.read_text()
+                manifest_content = manifest_path.read_text(encoding="utf-8")
             except Exception as e:
                 errors.append(f"Cannot read manifest for {module_name}: {str(e)[:50]}")
                 continue
@@ -356,7 +356,7 @@ def _discover_and_update_manifests(workspace_root: Path, verbose: bool = False) 
             
             # Read manifest content
             try:
-                manifest_content = manifest_path.read_text()
+                manifest_content = manifest_path.read_text(encoding="utf-8")
             except (OSError, IOError) as e:
                 if verbose:
                     print(f"    !  Cannot read manifest: {str(e)[:60]}")
@@ -542,7 +542,7 @@ def _discover_and_display_routes(workspace_root: Path, verbose: bool = False) ->
                 discovered_sockets = []
             
             # Extract metadata from manifest
-            manifest_content = manifest_path.read_text()
+            manifest_content = manifest_path.read_text(encoding="utf-8")
             import re
             version = re.search(r'version="([^"]+)"', manifest_content)
             description = re.search(r'description="([^"]+)"', manifest_content)
@@ -1013,7 +1013,7 @@ def _generate_workspace_app_code(workspace_root: Path, mode: str, verbose: bool 
 
     # ── Introspect workspace.py ──────────────────────────────────────
     workspace_file = workspace_root / "workspace.py"
-    workspace_content = workspace_file.read_text()
+    workspace_content = workspace_file.read_text(encoding="utf-8")
 
     # Workspace name
     name_match = re.search(r'Workspace\(\s*(?:name\s*=\s*)?["\']([^"\']+)["\']', workspace_content)
@@ -1242,7 +1242,7 @@ def _find_app_module(workspace_root: Path, verbose: bool = False) -> Optional[st
         file_path = workspace_root / filename
         if file_path.exists():
             # Try to detect which variable is defined
-            content = file_path.read_text()
+            content = file_path.read_text(encoding="utf-8")
             
             for var_name in var_names:
                 # Look for variable assignments

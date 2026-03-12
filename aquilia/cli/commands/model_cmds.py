@@ -33,7 +33,7 @@ def _has_admin_integration() -> bool:
     if not workspace_file.exists():
         return False
     try:
-        text = workspace_file.read_text()
+        text = workspace_file.read_text(encoding="utf-8")
         # Match Integration.admin( that is NOT commented out
         for line in text.splitlines():
             stripped = line.strip()

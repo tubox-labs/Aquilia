@@ -253,7 +253,7 @@ def update_manifest(module_name: str, workspace_root: Path, check: bool = False,
     )))
     
     # 2. Parse Existing Manifest -- AST-based for both formats
-    content = manifest_path.read_text()
+    content = manifest_path.read_text(encoding="utf-8")
     
     try:
         parser = _ManifestParser(content)

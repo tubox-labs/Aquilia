@@ -121,12 +121,12 @@ class WorkspaceIntrospector:
         pyproject_file = self.root / "pyproject.toml"
         if pyproject_file.exists():
             result["has_pyproject"] = True
-            result.update(self._parse_pyproject(pyproject_file.read_text()))
+            result.update(self._parse_pyproject(pyproject_file.read_text(encoding="utf-8")))
 
         # ── Parse workspace.py (includes inline AquilaConfig) ──
         workspace_file = self.root / "workspace.py"
         if workspace_file.exists():
-            content = workspace_file.read_text()
+            content = workspace_file.read_text(encoding="utf-8")
             result.update(self._parse_workspace(content))
             # Also extract server settings from AquilaConfig inline
             result.update(self._parse_pyconfig_file(workspace_file))
@@ -144,13 +144,13 @@ class WorkspaceIntrospector:
                     ctrl_file = d / "controllers.py"
                     svc_file = d / "services.py"
                     if ctrl_file.exists():
-                        ctrl_content = ctrl_file.read_text()
+                        ctrl_content = ctrl_file.read_text(encoding="utf-8")
                         total_controllers += len(re.findall(
                             r'^class\s+\w+(?:Controller|Resource|View)\b',
                             ctrl_content, re.MULTILINE,
                         ))
                     if svc_file.exists():
-                        svc_content = svc_file.read_text()
+                        svc_content = svc_file.read_text(encoding="utf-8")
                         total_services += len(re.findall(
                             r'^class\s+\w+(?:Service|Repository|Provider)\b',
                             svc_content, re.MULTILINE,

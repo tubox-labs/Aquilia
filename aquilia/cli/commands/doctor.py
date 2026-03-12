@@ -187,7 +187,7 @@ def _check_manifests(
 ) -> Tuple[List[str], list]:
     """Load and validate all module manifests."""
     try:
-        ws_content = ws_file.read_text()
+        ws_content = ws_file.read_text(encoding="utf-8")
         # Strip comments to avoid matching commented-out modules
         clean = "\n".join(
             line for line in ws_content.splitlines()
@@ -425,7 +425,7 @@ def _check_integrations(
     if not ws_file.exists():
         return
 
-    content = ws_file.read_text()
+    content = ws_file.read_text(encoding="utf-8")
 
     # Database
     if ".database(" in content:
