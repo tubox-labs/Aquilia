@@ -524,6 +524,24 @@ def _extract_ref_name(cls: Any) -> str:
     return str(cls)
 
 
+def _make_forward_ref(annotation_str: str) -> Any:
+    """Create a ForwardRef, falling back to a string wrapper on SyntaxError.
+
+    Python 3.10's ``ForwardRef.__init__`` calls ``compile()`` on the string
+    and raises ``SyntaxError`` for anything that isn't valid Python expression
+    syntax.  Python 3.12+ removed that restriction.  We catch the error so
+    the caller always gets a usable sentinel back.
+    """
+    try:
+        return ForwardRef(annotation_str)
+    except SyntaxError:
+        # Craft a ForwardRef with a sanitised placeholder so downstream
+        # code that reads ``__forward_arg__`` still sees the original text.
+        ref = ForwardRef("_")
+        ref.__forward_arg__ = annotation_str
+        return ref
+
+
 def _safe_resolve_annotation(annotation_str: str, namespace: dict) -> Any:
     """
     Safely resolve a string annotation to a type without using eval().
@@ -545,7 +563,7 @@ def _safe_resolve_annotation(annotation_str: str, namespace: dict) -> Any:
         result = namespace.get(annotation_str)
         if result is not None:
             return result
-        return ForwardRef(annotation_str)
+        return _make_forward_ref(annotation_str)
 
     # Handle PEP 604 union syntax: "X | Y | None"
     if "|" in annotation_str:
@@ -569,7 +587,7 @@ def _safe_resolve_annotation(annotation_str: str, namespace: dict) -> Any:
 
         origin = namespace.get(origin_str)
         if origin is None:
-            return ForwardRef(annotation_str)
+            return _make_forward_ref(annotation_str)
 
         # Parse args (handle nested brackets)
         args = _split_type_args(args_str)
@@ -583,9 +601,9 @@ def _safe_resolve_annotation(annotation_str: str, namespace: dict) -> Any:
         try:
             return origin[resolved_args] if len(resolved_args) > 1 else origin[resolved_args[0]]
         except (TypeError, KeyError):
-            return ForwardRef(annotation_str)
+            return _make_forward_ref(annotation_str)
 
-    return ForwardRef(annotation_str)
+    return _make_forward_ref(annotation_str)
 
 
 def _split_type_args(args_str: str) -> list[str]:

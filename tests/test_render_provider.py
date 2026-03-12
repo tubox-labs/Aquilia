@@ -1792,8 +1792,9 @@ class TestDeployerHealthPolling:
         svc = RenderService(id="srv-1", name="app")
         building = RenderDeploy(id="dpl-1", status="build_in_progress")
         client.list_deploys.return_value = [building]
-        # Make time.time() simulate timeout immediately
-        with patch("time.time", side_effect=[0, 0, 999]):
+        # Provide enough time.time() values for: deadline calc, while-check,
+        # logging inside _step/_error, and any internal LogRecord timestamps.
+        with patch("time.time", side_effect=[0, 0, 0, 0, 0, 0, 0, 999, 999, 999, 999, 999]):
             with patch("time.sleep"):
                 result = deployer._wait_for_live(svc, timeout=10, poll_interval=1)
                 assert result is None
@@ -1803,7 +1804,7 @@ class TestDeployerHealthPolling:
         deployer, client = self._make_deployer()
         svc = RenderService(id="srv-1", name="app")
         client.list_deploys.return_value = []
-        with patch("time.time", side_effect=[0, 0, 999]):
+        with patch("time.time", side_effect=[0, 0, 0, 0, 0, 0, 0, 999, 999, 999, 999, 999]):
             with patch("time.sleep"):
                 result = deployer._wait_for_live(svc, timeout=10, poll_interval=1)
                 assert result is None

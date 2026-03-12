@@ -37,11 +37,10 @@ import time
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
-from .checker import StaticChecker, CheckResult, CheckError, CheckSeverity
-from .bundler import CrousBundler, BundleManifest
-from .resolver import BuildResolver, ResolvedBuild
+from .bundler import BundleManifest, CrousBundler
+from .checker import CheckSeverity, StaticChecker
 
 logger = logging.getLogger("aquilia.build.pipeline")
 
@@ -53,6 +52,7 @@ logger = logging.getLogger("aquilia.build.pipeline")
 
 class BuildPhase(str, Enum):
     """Build pipeline phases."""
+
     DISCOVERY = "discovery"
     VALIDATION = "validation"
     STATIC_CHECK = "static_check"
@@ -75,23 +75,24 @@ class BuildManifest:
     ``BuildManifest.to_deploy_context()`` to convert into the dict
     format expected by deployment generators.
     """
+
     schema_version: str = "2.0"
     workspace_name: str = ""
     workspace_version: str = "0.1.0"
     build_mode: str = "dev"
     build_fingerprint: str = ""
     build_timestamp: str = ""
-    modules: List[Dict[str, Any]] = field(default_factory=list)
-    features: Dict[str, bool] = field(default_factory=dict)
-    dependency_graph: Dict[str, List[str]] = field(default_factory=dict)
-    artifacts: List[Dict[str, Any]] = field(default_factory=list)
+    modules: list[dict[str, Any]] = field(default_factory=list)
+    features: dict[str, bool] = field(default_factory=dict)
+    dependency_graph: dict[str, list[str]] = field(default_factory=dict)
+    artifacts: list[dict[str, Any]] = field(default_factory=list)
     bundle_path: str = "bundle.crous"
     warnings_count: int = 0
 
     # ── Factory ──────────────────────────────────────────────────────
 
     @classmethod
-    def load(cls, build_dir: Path) -> "BuildManifest":
+    def load(cls, build_dir: Path) -> BuildManifest:
         """
         Load a ``BuildManifest`` from ``build/manifest.json``.
 
@@ -108,12 +109,10 @@ class BuildManifest:
         fmt = data.get("__format__", "")
         if fmt != "aquilia-build-manifest":
             from aquilia.faults.domains import ConfigInvalidFault
+
             raise ConfigInvalidFault(
                 key="build.manifest.format",
-                reason=(
-                    f"Invalid build manifest format: {fmt!r} "
-                    f"(expected 'aquilia-build-manifest')"
-                ),
+                reason=(f"Invalid build manifest format: {fmt!r} (expected 'aquilia-build-manifest')"),
             )
 
         return cls(
@@ -133,7 +132,7 @@ class BuildManifest:
 
     # ── Deploy context conversion ────────────────────────────────────
 
-    def to_deploy_context(self, workspace_root: Path) -> Dict[str, Any]:
+    def to_deploy_context(self, workspace_root: Path) -> dict[str, Any]:
         """
         Convert the build manifest into the ``wctx`` dict used by
         ``WorkspaceIntrospector.introspect()`` and all deployment
@@ -149,7 +148,7 @@ class BuildManifest:
         # Count controllers + services from module metadata
         total_controllers = 0
         total_services = 0
-        module_names: List[str] = []
+        module_names: list[str] = []
         for mod in self.modules:
             module_names.append(mod.get("name", ""))
             total_controllers += len(mod.get("controllers", []))
@@ -162,6 +161,7 @@ class BuildManifest:
             if cfg_path.exists():
                 try:
                     import re as _re
+
                     cfg_text = cfg_path.read_text(encoding="utf-8")
                     m = _re.search(r'(?:url|path|host)\s*[=:]\s*["\']?([^"\'\'\s,)]+)', cfg_text)
                     if m:
@@ -180,6 +180,7 @@ class BuildManifest:
         if pyproject.exists():
             try:
                 import re as _re
+
                 txt = pyproject.read_text(encoding="utf-8")
                 m = _re.search(r'requires-python\s*=\s*">=(\d+\.\d+)"', txt)
                 if m:
@@ -250,18 +251,19 @@ class BuildManifest:
 @dataclass
 class BuildConfig:
     """Configuration for a build run."""
-    mode: str = "dev"                       # "dev" or "prod"
-    workspace_root: str = "."               # Workspace root path
-    output_dir: str = "build"               # Output directory
-    compression: str = "none"               # "none", "lz4", "zstd"
-    verbose: bool = False                   # Verbose output
-    check_only: bool = False                # Only run checks, don't emit artifacts
-    skip_checks: bool = False               # Skip static checks (for speed in dev)
-    strict: bool = False                    # Treat warnings as errors
-    force: bool = False                     # Bypass incremental build cache
+
+    mode: str = "dev"  # "dev" or "prod"
+    workspace_root: str = "."  # Workspace root path
+    output_dir: str = "build"  # Output directory
+    compression: str = "none"  # "none", "lz4", "zstd"
+    verbose: bool = False  # Verbose output
+    check_only: bool = False  # Only run checks, don't emit artifacts
+    skip_checks: bool = False  # Skip static checks (for speed in dev)
+    strict: bool = False  # Treat warnings as errors
+    force: bool = False  # Bypass incremental build cache
 
     @classmethod
-    def dev(cls, workspace_root: str = ".", verbose: bool = False) -> "BuildConfig":
+    def dev(cls, workspace_root: str = ".", verbose: bool = False) -> BuildConfig:
         """Dev build config -- fast, no compression."""
         return cls(
             mode="dev",
@@ -272,7 +274,7 @@ class BuildConfig:
         )
 
     @classmethod
-    def prod(cls, workspace_root: str = ".", verbose: bool = False) -> "BuildConfig":
+    def prod(cls, workspace_root: str = ".", verbose: bool = False) -> BuildConfig:
         """Prod build config -- compressed, strict."""
         return cls(
             mode="prod",
@@ -292,6 +294,7 @@ class BuildConfig:
 @dataclass
 class BuildError:
     """An error that occurred during a build phase."""
+
     phase: BuildPhase
     message: str
     file: str = ""
@@ -328,24 +331,25 @@ class BuildResult:
     - phases: Timing info for each phase
     - fingerprint: Content-addressed fingerprint of the build
     """
+
     success: bool = False
-    errors: List[BuildError] = field(default_factory=list)
-    warnings: List[BuildError] = field(default_factory=list)
-    bundle: Optional[BundleManifest] = None
-    phases: Dict[str, float] = field(default_factory=dict)  # phase → ms
+    errors: list[BuildError] = field(default_factory=list)
+    warnings: list[BuildError] = field(default_factory=list)
+    bundle: BundleManifest | None = None
+    phases: dict[str, float] = field(default_factory=dict)  # phase → ms
     fingerprint: str = ""
     total_ms: float = 0.0
     files_checked: int = 0
     artifacts_count: int = 0
-    config: Optional[BuildConfig] = None
-    log_lines: List[str] = field(default_factory=list)  # Build log entries
+    config: BuildConfig | None = None
+    log_lines: list[str] = field(default_factory=list)  # Build log entries
 
     # Internal: these are populated by the pipeline for the server
     _workspace_name: str = ""
     _workspace_version: str = ""
-    _modules: List[str] = field(default_factory=list)
-    _module_manifests: Dict[str, Any] = field(default_factory=dict)
-    _workspace_root: Optional[Path] = None
+    _modules: list[str] = field(default_factory=list)
+    _module_manifests: dict[str, Any] = field(default_factory=dict)
+    _workspace_root: Path | None = None
 
     def summary(self) -> str:
         """Human-readable build summary."""
@@ -375,13 +379,13 @@ class BuildResult:
         """
         if not self.success:
             from aquilia.faults.domains import SystemFault
+
             raise SystemFault(message="Cannot create registry from failed build")
 
         from aquilia.aquilary.core import (
-            AquilaryRegistry,
             AppContext,
+            AquilaryRegistry,
             RegistryMode,
-            RegistryFingerprint,
         )
         from aquilia.config import ConfigLoader
 
@@ -436,7 +440,7 @@ class BuildResult:
 
         # Create config
         config = ConfigLoader()
-        config.config_data["debug"] = (mode == RegistryMode.DEV)
+        config.config_data["debug"] = mode == RegistryMode.DEV
         config.config_data["mode"] = mode.value
         config.config_data["apps"] = {m: {} for m in self._modules}
         config._build_apps_namespace()
@@ -533,6 +537,7 @@ class AquiliaBuildPipeline:
         def _log(level: str, msg: str) -> None:
             """Append a timestamped log line to the result."""
             import datetime as _dt
+
             ts = _dt.datetime.now().strftime("%H:%M:%S.%f")[:-3]
             result.log_lines.append(f"[{ts}] [{level.upper():>5}] {msg}")
 
@@ -568,9 +573,7 @@ class AquiliaBuildPipeline:
             result.total_ms = (time.monotonic() - total_start) * 1000
             # Load fingerprint from existing manifest
             try:
-                manifest_data = json.loads(
-                    (self.output_dir / "manifest.json").read_text(encoding="utf-8")
-                )
+                manifest_data = json.loads((self.output_dir / "manifest.json").read_text(encoding="utf-8"))
                 result.fingerprint = manifest_data.get("build_fingerprint", "")
                 result.artifacts_count = len(manifest_data.get("artifacts", []))
             except Exception:
@@ -627,7 +630,10 @@ class AquiliaBuildPipeline:
                 phase_start = time.monotonic()
                 self._phase_static_check(result)
                 result.phases["static_check"] = (time.monotonic() - phase_start) * 1000
-                _log("info", f"Static check complete -- {result.files_checked} files ({result.phases['static_check']:.0f}ms)")
+                _log(
+                    "info",
+                    f"Static check complete -- {result.files_checked} files ({result.phases['static_check']:.0f}ms)",
+                )
 
                 if result.errors:
                     for e in result.errors:
@@ -654,10 +660,16 @@ class AquiliaBuildPipeline:
         _log("info", "Phase 4/5: Compilation -- compiling modules to artifacts")
         phase_start = time.monotonic()
         compiled_artifacts = self._phase_compilation(
-            result, workspace_meta, module_names, module_manifests,
+            result,
+            workspace_meta,
+            module_names,
+            module_manifests,
         )
         result.phases["compilation"] = (time.monotonic() - phase_start) * 1000
-        _log("info", f"Compilation complete -- {len(compiled_artifacts)} artifact(s) ({result.phases['compilation']:.0f}ms)")
+        _log(
+            "info",
+            f"Compilation complete -- {len(compiled_artifacts)} artifact(s) ({result.phases['compilation']:.0f}ms)",
+        )
 
         if result.errors:
             for e in result.errors:
@@ -699,13 +711,18 @@ class AquiliaBuildPipeline:
             _log("info", "Build manifest written to build/manifest.json")
         except Exception as e:
             _log("warn", f"Could not write build manifest: {e}")
-            result.warnings.append(BuildError(
-                phase=BuildPhase.BUNDLING,
-                message=f"Could not write build/manifest.json: {e}",
-                fatal=False,
-            ))
+            result.warnings.append(
+                BuildError(
+                    phase=BuildPhase.BUNDLING,
+                    message=f"Could not write build/manifest.json: {e}",
+                    fatal=False,
+                )
+            )
 
-        _log("info", f"Build succeeded in {result.total_ms:.0f}ms -- {result.artifacts_count} artifacts, fingerprint:{result.fingerprint[:12]}…")
+        _log(
+            "info",
+            f"Build succeeded in {result.total_ms:.0f}ms -- {result.artifacts_count} artifacts, fingerprint:{result.fingerprint[:12]}…",
+        )
         if result.warnings:
             for w in result.warnings:
                 _log("warn", str(w))
@@ -820,8 +837,9 @@ class AquiliaBuildPipeline:
     # ── Phase 1: Discovery ───────────────────────────────────────────
 
     def _phase_discovery(
-        self, result: BuildResult,
-    ) -> Tuple[Dict[str, Any], List[str], Dict[str, Any]]:
+        self,
+        result: BuildResult,
+    ) -> tuple[dict[str, Any], list[str], dict[str, Any]]:
         """
         Discover workspace structure and load manifests.
 
@@ -832,30 +850,34 @@ class AquiliaBuildPipeline:
         Returns:
             (workspace_meta, module_names, module_manifests)
         """
-        workspace_meta: Dict[str, Any] = {}
-        module_names: List[str] = []
-        module_manifests: Dict[str, Any] = {}
+        workspace_meta: dict[str, Any] = {}
+        module_names: list[str] = []
+        module_manifests: dict[str, Any] = {}
 
         # Read workspace.py
         ws_file = self.workspace_root / "workspace.py"
         if not ws_file.exists():
-            result.errors.append(BuildError(
-                phase=BuildPhase.DISCOVERY,
-                message="workspace.py not found",
-                hint="Run 'aq init workspace <name>' to create one",
-                fatal=True,
-            ))
+            result.errors.append(
+                BuildError(
+                    phase=BuildPhase.DISCOVERY,
+                    message="workspace.py not found",
+                    hint="Run 'aq init workspace <name>' to create one",
+                    fatal=True,
+                )
+            )
             return workspace_meta, module_names, module_manifests
 
         try:
             content = ws_file.read_text(encoding="utf-8")
         except Exception as e:
-            result.errors.append(BuildError(
-                phase=BuildPhase.DISCOVERY,
-                message=f"Cannot read workspace.py: {e}",
-                file="workspace.py",
-                fatal=True,
-            ))
+            result.errors.append(
+                BuildError(
+                    phase=BuildPhase.DISCOVERY,
+                    message=f"Cannot read workspace.py: {e}",
+                    file="workspace.py",
+                    fatal=True,
+                )
+            )
             return workspace_meta, module_names, module_manifests
 
         # ── AST-based discovery (preferred) ──────────────────────────
@@ -865,11 +887,13 @@ class AquiliaBuildPipeline:
             ast_ok = True
         except Exception as e:
             # AST failed — fall back to regex
-            result.warnings.append(BuildError(
-                phase=BuildPhase.DISCOVERY,
-                message=f"AST discovery failed, using regex fallback: {e}",
-                fatal=False,
-            ))
+            result.warnings.append(
+                BuildError(
+                    phase=BuildPhase.DISCOVERY,
+                    message=f"AST discovery failed, using regex fallback: {e}",
+                    fatal=False,
+                )
+            )
 
         # ── Regex fallback ───────────────────────────────────────────
         if not ast_ok:
@@ -882,13 +906,15 @@ class AquiliaBuildPipeline:
             manifest_path = self.modules_dir / mod_name / "manifest.py"
 
             if not manifest_path.exists():
-                result.errors.append(BuildError(
-                    phase=BuildPhase.DISCOVERY,
-                    message=f"Module manifest not found: modules/{mod_name}/manifest.py",
-                    file=f"modules/{mod_name}/",
-                    hint=f"Run 'aq add module {mod_name}' to create it",
-                    fatal=True,
-                ))
+                result.errors.append(
+                    BuildError(
+                        phase=BuildPhase.DISCOVERY,
+                        message=f"Module manifest not found: modules/{mod_name}/manifest.py",
+                        file=f"modules/{mod_name}/",
+                        hint=f"Run 'aq add module {mod_name}' to create it",
+                        fatal=True,
+                    )
+                )
                 continue
 
             # Safe-load the manifest (isolated namespace, no side effects)
@@ -902,20 +928,23 @@ class AquiliaBuildPipeline:
                     s = len(getattr(manifest_obj, "services", []) or [])
 
             except Exception as e:
-                result.errors.append(BuildError(
-                    phase=BuildPhase.DISCOVERY,
-                    message=f"Failed to load manifest for '{mod_name}': {e}",
-                    file=f"modules/{mod_name}/manifest.py",
-                    fatal=True,
-                ))
+                result.errors.append(
+                    BuildError(
+                        phase=BuildPhase.DISCOVERY,
+                        message=f"Failed to load manifest for '{mod_name}': {e}",
+                        file=f"modules/{mod_name}/manifest.py",
+                        fatal=True,
+                    )
+                )
 
         return workspace_meta, module_names, module_manifests
 
     # ── AST Discovery ────────────────────────────────────────────────
 
     def _discover_workspace_ast(
-        self, content: str,
-    ) -> Tuple[Dict[str, Any], List[str]]:
+        self,
+        content: str,
+    ) -> tuple[dict[str, Any], list[str]]:
         """
         AST-based workspace discovery.
 
@@ -937,7 +966,7 @@ class AquiliaBuildPipeline:
         workspace_name = "aquilia-workspace"
         workspace_version = "0.1.0"
         workspace_description = ""
-        module_names: List[str] = []
+        module_names: list[str] = []
 
         for node in ast.walk(tree):
             if not isinstance(node, ast.Call):
@@ -1009,8 +1038,9 @@ class AquiliaBuildPipeline:
     # ── Regex fallback ───────────────────────────────────────────────
 
     def _discover_workspace_regex(
-        self, content: str,
-    ) -> Tuple[Dict[str, Any], List[str]]:
+        self,
+        content: str,
+    ) -> tuple[dict[str, Any], list[str]]:
         """
         Regex-based workspace discovery (legacy fallback).
 
@@ -1022,10 +1052,7 @@ class AquiliaBuildPipeline:
             (workspace_meta, module_names)
         """
         # Strip comments
-        clean = "\n".join(
-            line for line in content.splitlines()
-            if not line.strip().startswith("#")
-        )
+        clean = "\n".join(line for line in content.splitlines() if not line.strip().startswith("#"))
 
         name_match = re.search(r'Workspace\("([^"]+)"', content)
         version_match = re.search(r'version="([^"]+)"', content)
@@ -1047,8 +1074,8 @@ class AquiliaBuildPipeline:
     def _write_build_manifest(
         self,
         result: BuildResult,
-        workspace_meta: Dict[str, Any],
-        module_manifests: Dict[str, Any],
+        workspace_meta: dict[str, Any],
+        module_manifests: dict[str, Any],
     ) -> None:
         """
         Write build/manifest.json — the build → deploy contract.
@@ -1064,28 +1091,30 @@ class AquiliaBuildPipeline:
             if not manifest:
                 continue
             controllers = []
-            for c in (getattr(manifest, "controllers", []) or []):
+            for c in getattr(manifest, "controllers", []) or []:
                 controllers.append(c if isinstance(c, str) else str(c))
             services = []
-            for s in (getattr(manifest, "services", []) or []):
+            for s in getattr(manifest, "services", []) or []:
                 if isinstance(s, str):
                     services.append(s)
                 elif hasattr(s, "class_path"):
                     services.append(s.class_path)
                 else:
                     services.append(str(s))
-            modules_list.append({
-                "name": getattr(manifest, "name", mod_name),
-                "version": getattr(manifest, "version", "0.1.0"),
-                "description": getattr(manifest, "description", ""),
-                "route_prefix": getattr(manifest, "route_prefix", f"/{mod_name}"),
-                "depends_on": getattr(manifest, "depends_on", []) or [],
-                "controllers": controllers,
-                "services": services,
-            })
+            modules_list.append(
+                {
+                    "name": getattr(manifest, "name", mod_name),
+                    "version": getattr(manifest, "version", "0.1.0"),
+                    "description": getattr(manifest, "description", ""),
+                    "route_prefix": getattr(manifest, "route_prefix", f"/{mod_name}"),
+                    "depends_on": getattr(manifest, "depends_on", []) or [],
+                    "controllers": controllers,
+                    "services": services,
+                }
+            )
 
         # Detect workspace features by scanning manifest attributes
-        features: Dict[str, bool] = {}
+        features: dict[str, bool] = {}
         ws_content = ""
         ws_file = self.workspace_root / "workspace.py"
         if ws_file.exists():
@@ -1099,13 +1128,15 @@ class AquiliaBuildPipeline:
         artifacts_list = []
         if result.bundle:
             for a in result.bundle.artifacts:
-                artifacts_list.append({
-                    "name": a.name,
-                    "kind": a.kind,
-                    "version": a.version,
-                    "size_bytes": a.size_bytes,
-                    "digest": a.digest,
-                })
+                artifacts_list.append(
+                    {
+                        "name": a.name,
+                        "kind": a.kind,
+                        "version": a.version,
+                        "size_bytes": a.size_bytes,
+                        "digest": a.digest,
+                    }
+                )
 
         build_manifest = {
             "__format__": "aquilia-build-manifest",
@@ -1117,9 +1148,7 @@ class AquiliaBuildPipeline:
             "build_timestamp": _dt.datetime.now(_dt.timezone.utc).isoformat(),
             "modules": modules_list,
             "features": features,
-            "dependency_graph": {
-                mod["name"]: mod["depends_on"] for mod in modules_list
-            },
+            "dependency_graph": {mod["name"]: mod["depends_on"] for mod in modules_list},
             "artifacts": artifacts_list,
             "bundle_path": "bundle.crous",
             "warnings_count": len(result.warnings),
@@ -1131,7 +1160,7 @@ class AquiliaBuildPipeline:
             encoding="utf-8",
         )
 
-    def _detect_workspace_features(self, ws_content: str) -> Dict[str, bool]:
+    def _detect_workspace_features(self, ws_content: str) -> dict[str, bool]:
         """
         Detect workspace ecosystem features via AST, with regex fallback.
 
@@ -1141,7 +1170,7 @@ class AquiliaBuildPipeline:
         Returns:
             Dict of feature_name → bool
         """
-        features: Dict[str, bool] = {
+        features: dict[str, bool] = {
             "db": False,
             "cache": False,
             "sessions": False,
@@ -1190,16 +1219,20 @@ class AquiliaBuildPipeline:
 
             # Map Integration method names → features
             _integration_to_feature = {
-                "database": "db", "db": "db",
+                "database": "db",
+                "db": "db",
                 "cache": "cache",
                 "sessions": "sessions",
-                "websockets": "websockets", "sockets": "websockets",
+                "websockets": "websockets",
+                "sockets": "websockets",
                 "mlops": "mlops",
                 "mail": "mail",
                 "auth": "auth",
                 "templates": "templates",
-                "static_files": "static", "static": "static",
-                "fault_handling": "faults", "faults": "faults",
+                "static_files": "static",
+                "static": "static",
+                "fault_handling": "faults",
+                "faults": "faults",
                 "effects": "effects",
                 "cors": "cors",
                 "csrf": "csrf",
@@ -1240,10 +1273,7 @@ class AquiliaBuildPipeline:
 
         # ── Regex fallback ───────────────────────────────────────────
         # Strip comment lines
-        active_lines = [
-            line for line in ws_content.splitlines()
-            if not line.strip().startswith("#")
-        ]
+        active_lines = [line for line in ws_content.splitlines() if not line.strip().startswith("#")]
         active = "\n".join(active_lines)
 
         _regex_patterns = {
@@ -1303,12 +1333,14 @@ class AquiliaBuildPipeline:
 
         # Fallback: find any AppManifest instance
         from aquilia.manifest import AppManifest
+
         for attr_name in dir(module):
             obj = getattr(module, attr_name)
             if isinstance(obj, AppManifest):
                 return obj
 
         from aquilia.faults.domains import ConfigMissingFault
+
         raise ConfigMissingFault(
             key="manifest",
             metadata={
@@ -1322,12 +1354,14 @@ class AquiliaBuildPipeline:
     # ── Phase 2: Validation ──────────────────────────────────────────
 
     def _phase_validation(
-        self, result: BuildResult, module_manifests: Dict[str, Any],
+        self,
+        result: BuildResult,
+        module_manifests: dict[str, Any],
     ) -> None:
         """Validate manifests using the Aquilary validator."""
         try:
-            from aquilia.aquilary.validator import RegistryValidator
             from aquilia.aquilary.core import RegistryMode
+            from aquilia.aquilary.validator import RegistryValidator
 
             mode = RegistryMode(self.config.mode) if self.config.mode in ("dev", "prod", "test") else RegistryMode.DEV
             validator = RegistryValidator(mode=mode)
@@ -1339,6 +1373,7 @@ class AquiliaBuildPipeline:
             # Create a minimal config for validation, seeded with app
             # namespaces so _validate_config_namespace doesn't false-positive.
             from aquilia.config import ConfigLoader
+
             config = ConfigLoader()
             config.config_data["apps"] = {m: {} for m in module_manifests}
             config._build_apps_namespace()
@@ -1347,14 +1382,18 @@ class AquiliaBuildPipeline:
 
             # Convert validation errors to build errors
             for err in report.errors:
-                msg = str(err) if not hasattr(err, "validation_errors") else "; ".join(
-                    getattr(err, "validation_errors", [str(err)])
+                msg = (
+                    str(err)
+                    if not hasattr(err, "validation_errors")
+                    else "; ".join(getattr(err, "validation_errors", [str(err)]))
                 )
-                result.errors.append(BuildError(
-                    phase=BuildPhase.VALIDATION,
-                    message=msg,
-                    fatal=True,
-                ))
+                result.errors.append(
+                    BuildError(
+                        phase=BuildPhase.VALIDATION,
+                        message=msg,
+                        fatal=True,
+                    )
+                )
 
             for warn in report.warnings:
                 be = BuildError(
@@ -1369,11 +1408,13 @@ class AquiliaBuildPipeline:
 
         except Exception as e:
             # Validation infrastructure failure -- warn but don't block
-            result.warnings.append(BuildError(
-                phase=BuildPhase.VALIDATION,
-                message=f"Validation could not run: {e}",
-                fatal=False,
-            ))
+            result.warnings.append(
+                BuildError(
+                    phase=BuildPhase.VALIDATION,
+                    message=f"Validation could not run: {e}",
+                    fatal=False,
+                )
+            )
 
     # ── Phase 3: Static Check ────────────────────────────────────────
 
@@ -1393,9 +1434,7 @@ class AquiliaBuildPipeline:
                 hint=err.hint,
                 fatal=(err.severity == CheckSeverity.ERROR),
             )
-            if be.fatal:
-                result.errors.append(be)
-            elif self.config.strict and err.severity == CheckSeverity.WARNING:
+            if be.fatal or self.config.strict and err.severity == CheckSeverity.WARNING:
                 result.errors.append(be)
             else:
                 result.warnings.append(be)
@@ -1405,17 +1444,17 @@ class AquiliaBuildPipeline:
     def _phase_compilation(
         self,
         result: BuildResult,
-        workspace_meta: Dict[str, Any],
-        module_names: List[str],
-        module_manifests: Dict[str, Any],
-    ) -> Dict[str, Dict[str, Any]]:
+        workspace_meta: dict[str, Any],
+        module_names: list[str],
+        module_manifests: dict[str, Any],
+    ) -> dict[str, dict[str, Any]]:
         """
         Compile manifests into artifact payload dicts.
 
         Returns:
             Dict of artifact_name → {kind, version, payload}
         """
-        compiled: Dict[str, Dict[str, Any]] = {}
+        compiled: dict[str, dict[str, Any]] = {}
 
         # 1. Workspace metadata artifact
         compiled[workspace_meta["name"]] = {
@@ -1443,14 +1482,16 @@ class AquiliaBuildPipeline:
                 if faults_cfg:
                     default_domain = getattr(faults_cfg, "default_domain", "GENERIC")
 
-                registry_modules.append({
-                    "name": getattr(manifest, "name", mod_name),
-                    "version": getattr(manifest, "version", "0.1.0"),
-                    "description": getattr(manifest, "description", ""),
-                    "fault_domain": default_domain,
-                    "depends_on": getattr(manifest, "depends_on", []) or [],
-                    "route_prefix": getattr(manifest, "route_prefix", f"/{mod_name}"),
-                })
+                registry_modules.append(
+                    {
+                        "name": getattr(manifest, "name", mod_name),
+                        "version": getattr(manifest, "version", "0.1.0"),
+                        "description": getattr(manifest, "description", ""),
+                        "fault_domain": default_domain,
+                        "depends_on": getattr(manifest, "depends_on", []) or [],
+                        "route_prefix": getattr(manifest, "route_prefix", f"/{mod_name}"),
+                    }
+                )
 
         compiled["registry"] = {
             "kind": "registry",
@@ -1470,11 +1511,11 @@ class AquiliaBuildPipeline:
                 continue
 
             controllers = []
-            for c in (getattr(manifest, "controllers", []) or []):
+            for c in getattr(manifest, "controllers", []) or []:
                 controllers.append(c if isinstance(c, str) else str(c))
 
             services = []
-            for s in (getattr(manifest, "services", []) or []):
+            for s in getattr(manifest, "services", []) or []:
                 if isinstance(s, str):
                     services.append(s)
                 elif hasattr(s, "to_dict"):
@@ -1513,15 +1554,17 @@ class AquiliaBuildPipeline:
                 continue
 
             prefix = getattr(manifest, "route_prefix", f"/{mod_name}")
-            for ctrl in (getattr(manifest, "controllers", []) or []):
+            for ctrl in getattr(manifest, "controllers", []) or []:
                 ctrl_str = ctrl if isinstance(ctrl, str) else str(ctrl)
                 cls_name = ctrl_str.rsplit(":", 1)[1] if ":" in ctrl_str else ctrl_str
-                routes.append({
-                    "module": mod_name,
-                    "controller": cls_name,
-                    "controller_path": ctrl_str,
-                    "prefix": prefix,
-                })
+                routes.append(
+                    {
+                        "module": mod_name,
+                        "controller": cls_name,
+                        "controller_path": ctrl_str,
+                        "prefix": prefix,
+                    }
+                )
 
         compiled["routes"] = {
             "kind": "route",
@@ -1541,7 +1584,7 @@ class AquiliaBuildPipeline:
             if not manifest:
                 continue
 
-            for svc in (getattr(manifest, "services", []) or []):
+            for svc in getattr(manifest, "services", []) or []:
                 svc_path = ""
                 scope = "app"
                 if isinstance(svc, str):
@@ -1553,12 +1596,14 @@ class AquiliaBuildPipeline:
 
                 if svc_path:
                     svc_name = svc_path.rsplit(":", 1)[-1] if ":" in svc_path else svc_path
-                    providers.append({
-                        "module": mod_name,
-                        "class": svc_name,
-                        "class_path": svc_path,
-                        "scope": scope,
-                    })
+                    providers.append(
+                        {
+                            "module": mod_name,
+                            "class": svc_name,
+                            "class_path": svc_path,
+                            "scope": scope,
+                        }
+                    )
 
         compiled["di"] = {
             "kind": "di_graph",
@@ -1578,9 +1623,9 @@ class AquiliaBuildPipeline:
     def _phase_bundling(
         self,
         result: BuildResult,
-        compiled: Dict[str, Dict[str, Any]],
-        workspace_meta: Dict[str, Any],
-    ) -> Optional[BundleManifest]:
+        compiled: dict[str, dict[str, Any]],
+        workspace_meta: dict[str, Any],
+    ) -> BundleManifest | None:
         """Serialize compiled artifacts to Crous binary."""
         try:
             bundler = CrousBundler(
@@ -1605,20 +1650,24 @@ class AquiliaBuildPipeline:
 
             # Propagate per-artifact errors from bundler
             for err_msg in bundler.bundle_errors:
-                result.errors.append(BuildError(
-                    phase=BuildPhase.BUNDLING,
-                    message=err_msg,
-                    fatal=True,
-                ))
+                result.errors.append(
+                    BuildError(
+                        phase=BuildPhase.BUNDLING,
+                        message=err_msg,
+                        fatal=True,
+                    )
+                )
 
             bundle.build_time_ms = sum(result.phases.values())
 
             return bundle
 
         except Exception as e:
-            result.errors.append(BuildError(
-                phase=BuildPhase.BUNDLING,
-                message=f"Bundling failed: {e}",
-                fatal=True,
-            ))
+            result.errors.append(
+                BuildError(
+                    phase=BuildPhase.BUNDLING,
+                    message=f"Bundling failed: {e}",
+                    fatal=True,
+                )
+            )
             return None

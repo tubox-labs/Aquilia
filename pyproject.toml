@@ -205,6 +205,7 @@ aq = "aquilia.cli.__main__:main"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["aquilia*"]
+exclude = ["tests*", "benchmark*", "docs*", "myapp*"]
 
 [tool.setuptools.package-data]
 "aquilia" = ["py.typed"]
@@ -243,6 +244,21 @@ exclude_lines = [
 [tool.ruff]
 target-version = "py310"
 line-length = 120
+# Override ruff's default exclude list (which skips directories named "build/")
+# so that aquilia/build/ is always linted and formatted.
+exclude = [
+    ".git",
+    ".venv",
+    "env",
+    "venv",
+    "__pycache__",
+    "*.egg-info",
+    "dist",
+    "node_modules",
+    "aqdocx",
+    "myapp",
+    "benchmark",
+]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "N", "UP", "B", "SIM"]
