@@ -4036,9 +4036,9 @@ class AdminSite:
                 "load_avg_1": round(load_avg[0], 2),
                 "load_avg_5": round(load_avg[1], 2),
                 "load_avg_15": round(load_avg[2], 2),
-                "times_user": round(cpu_times.user, 1),
-                "times_system": round(cpu_times.system, 1),
-                "times_idle": round(cpu_times.idle, 1),
+                "times_user": round(getattr(cpu_times, "user", 0), 1),
+                "times_system": round(getattr(cpu_times, "system", 0), 1),
+                "times_idle": round(getattr(cpu_times, "idle", 0), 1),
             }
 
             # Memory
@@ -4063,7 +4063,12 @@ class AdminSite:
 
             # Disk
             try:
-                disk = psutil.disk_usage("/")
+                # Use platform-appropriate root path
+                if platform.system() == "Windows":
+                    _root = os.environ.get("SystemDrive", "C:") + "\\"
+                else:
+                    _root = "/"
+                disk = psutil.disk_usage(_root)
                 result["disk"] = {
                     "total": disk.total,
                     "total_human": self._fmt_bytes(disk.total),
@@ -4134,7 +4139,8 @@ class AdminSite:
                     s = c.status if c.status else "NONE"
                     status_counts[s] = status_counts.get(s, 0) + 1
                 result["network"]["connections_by_status"] = status_counts
-            except (psutil.AccessDenied, OSError):
+            except (psutil.AccessDenied, PermissionError, OSError):
+                # On Windows, net_connections() requires admin privileges
                 pass
 
             # Process
@@ -4157,7 +4163,7 @@ class AdminSite:
 
             try:
                 open_files_count = len(proc.open_files())
-            except (psutil.AccessDenied, OSError):
+            except (psutil.AccessDenied, PermissionError, OSError):
                 open_files_count = 0
 
             try:
@@ -4317,11 +4323,25 @@ class AdminSite:
     def _safe_env_snapshot() -> Dict[str, str]:
         """Capture a safe subset of environment variables (no secrets)."""
         import os
+        import platform as _plat
+
+        # Cross-platform env var list
         safe_keys = [
-            "VIRTUAL_ENV", "PYTHONPATH", "PATH", "HOME", "USER",
-            "SHELL", "TERM", "LANG", "LC_ALL", "TZ",
+            "VIRTUAL_ENV", "PYTHONPATH", "PATH",
             "AQUILIA_ENV", "AQUILIA_DEBUG",
         ]
+        if _plat.system() == "Windows":
+            safe_keys.extend([
+                "USERPROFILE", "USERNAME", "COMSPEC",
+                "SYSTEMROOT", "COMPUTERNAME", "APPDATA",
+                "TEMP", "TMP",
+            ])
+        else:
+            safe_keys.extend([
+                "HOME", "USER", "SHELL", "TERM",
+                "LANG", "LC_ALL", "TZ",
+            ])
+
         result: Dict[str, str] = {}
         for key in safe_keys:
             val = os.environ.get(key)
