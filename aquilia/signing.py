@@ -579,7 +579,13 @@ class Signer:
             )
         # Split on the LAST occurrence so the value itself may contain the sep char
         value, sig_b64 = signed_value.rsplit(self._sep, 1)
-        sig = b64_decode(sig_b64)
+        try:
+            sig = b64_decode(sig_b64)
+        except SignatureMalformed as exc:
+            raise BadSignature(
+                f"Signature {sig_b64!r} is not valid for value {value!r}.",
+                original=signed_value,
+            ) from exc
         if not self._backend.verify(value.encode("utf-8"), sig):
             raise BadSignature(
                 f"Signature {sig_b64!r} is not valid for value {value!r}.",
@@ -623,7 +629,10 @@ class Signer:
             raise SignatureMalformed("Separator not found in signed bytes.")
         data = signed_data[:idx]
         sig_b64 = signed_data[idx + len(sep_b) :]
-        sig = b64_decode(sig_b64)
+        try:
+            sig = b64_decode(sig_b64)
+        except SignatureMalformed as exc:
+            raise BadSignature("Byte signature verification failed.") from exc
         if not self._backend.verify(data, sig):
             raise BadSignature("Byte signature verification failed.")
         return data
