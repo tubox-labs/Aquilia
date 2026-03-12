@@ -47,6 +47,8 @@ permissions:
 env:
   PYTHON_DEFAULT: "3.13"
   FORCE_COLOR: "1"                  # coloured output in Actions logs
+  PYTHONIOENCODING: "utf-8"
+  PYTHONUTF8: "1"
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Stage 1 — Quality Gate  (lint · type-check · security)
@@ -108,7 +110,7 @@ jobs:
             echo "::error::Tag version ($TAG_VERSION) does not match _version.py ($PKG_VERSION)"
             exit 1
           fi
-          echo "✅ Versions match"
+          echo "OK: Versions match"
 
   # ═══════════════════════════════════════════════════════════════════════════
   # Stage 2 — Test Matrix
@@ -187,7 +189,7 @@ jobs:
         run: |
           twine check dist/*
           echo ""
-          echo "📦 Built artifacts:"
+          echo "Built artifacts:"
           ls -lh dist/
 
       - name: Verify package version in artifact
@@ -206,7 +208,7 @@ jobs:
             echo "::error::Built artifacts do not contain expected version $PKG_VERSION"
             exit 1
           }
-          echo "✅ Artifact version verified"
+          echo "OK: Artifact version verified"
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
@@ -257,7 +259,7 @@ jobs:
             --index-url https://test.pypi.org/simple/ \
             --extra-index-url https://pypi.org/simple/ \
             "aquilia==$PKG_VERSION" || echo "::warning::TestPyPI install failed (may take time to index)"
-          python -c "import aquilia; print(f'✅ Installed: aquilia {aquilia.__version__}')" || true
+          python -c "import aquilia; print(f'Installed: aquilia {aquilia.__version__}')" || true
 
   # ═══════════════════════════════════════════════════════════════════════════
   # Stage 5 — Publish to Production PyPI
@@ -313,10 +315,10 @@ jobs:
           TAG="${GITHUB_REF_NAME}"
           if echo "$TAG" | grep -qE '(a|b|rc|dev|alpha|beta)'; then
             echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
-            echo "📌 Pre-release detected: $TAG"
+            echo "Pre-release detected: $TAG"
           else
             echo "is_prerelease=false" >> "$GITHUB_OUTPUT"
-            echo "📌 Stable release: $TAG"
+            echo "Stable release: $TAG"
           fi
 
       - name: Generate release notes
@@ -400,7 +402,7 @@ jobs:
           print(f'Package:  {aquilia.__file__}')
           assert aquilia.__version__ == '${GITHUB_REF_NAME#v}', \
               f'Version mismatch: {aquilia.__version__}'
-          print('✅ Installation verified')
+          print('Installation verified')
           "
         shell: bash
         env:
@@ -419,6 +421,6 @@ jobs:
           from aquilia.response import Response
           from aquilia.config import Config
           from aquilia.middleware import MiddlewareStack
-          print('✅ All core imports successful')
+          print('All core imports successful')
           "
         shell: bash
