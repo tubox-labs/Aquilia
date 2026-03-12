@@ -684,7 +684,10 @@ class TestEngineLifecycleSecurity:
         store = MemoryStore()
         engine = _make_engine(policy=policy, store=store)
 
-        s1 = _make_session()
+        # Create s1 with explicit older timestamp
+        s1 = _make_session(
+            last_accessed_at=datetime.now(timezone.utc) - timedelta(seconds=10)
+        )
         s1.principal = SessionPrincipal(kind="user", id="user-1")
         await store.save(s1)
 

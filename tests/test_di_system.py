@@ -1484,7 +1484,7 @@ class TestDiagnostics:
         diag.add_listener(Listener())
 
         with diag.measure(DIEventType.RESOLUTION_START, token="X"):
-            time.sleep(0.01)
+            time.sleep(0.05)  # Use longer sleep for Windows timer resolution
 
         assert len(events) == 1
         assert events[0].type == DIEventType.RESOLUTION_SUCCESS
