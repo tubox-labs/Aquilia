@@ -200,16 +200,30 @@ def b64_decode(data: str | bytes) -> bytes:
     Raises:
         SignatureMalformed: If the input is not valid Base64.
     """
+    original: str
     if isinstance(data, str):
+        original = data
         data = data.encode("ascii")
+    else:
+        try:
+            original = data.decode("ascii")
+        except UnicodeDecodeError as exc:
+            raise SignatureMalformed(f"Invalid Base64 encoding: {exc}") from exc
     # Re-add padding
     pad = 4 - (len(data) % 4)
     if pad != 4:
         data += b"=" * pad
     try:
-        return base64.urlsafe_b64decode(data)
+        decoded = base64.urlsafe_b64decode(data)
     except Exception as exc:
         raise SignatureMalformed(f"Invalid Base64 encoding: {exc}") from exc
+
+    canonical = b64_encode(decoded)
+    if canonical != original.rstrip("="):
+        raise SignatureMalformed(
+            "Invalid Base64 encoding: non-canonical or tampered input.",
+        )
+    return decoded
 
 
 def constant_time_compare(a: bytes | str, b: bytes | str) -> bool:

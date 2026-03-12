@@ -231,6 +231,13 @@ class TestB64Decode:
         assert b64_decode(with_padding) == data
         assert b64_decode(without_padding) == data
 
+    def test_non_canonical_base64_raises_malformed(self):
+        """Non-canonical encodings must be rejected to catch token tampering."""
+        encoded = b64_encode(b"a")
+        tampered = encoded[:-1] + ("Z" if encoded[-1] != "Z" else "Y")
+        with pytest.raises(SignatureMalformed):
+            b64_decode(tampered)
+
 
 class TestConstantTimeCompare:
     """constant_time_compare: wraps hmac.compare_digest."""
