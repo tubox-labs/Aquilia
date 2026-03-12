@@ -23,7 +23,7 @@ Usage:
 
 from __future__ import annotations
 
-from enum import Enum, EnumType
+from enum import Enum
 from typing import Any
 
 __all__ = [
@@ -33,7 +33,7 @@ __all__ = [
 ]
 
 
-class _ChoicesMeta(EnumType):
+class _ChoicesMeta(type(Enum)):
     """Metaclass that adds .choices / .values / .labels properties to Enum classes."""
 
     @property
