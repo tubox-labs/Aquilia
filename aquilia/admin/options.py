@@ -28,6 +28,8 @@ if TYPE_CHECKING:
     from aquilia.models.base import Model
     from aquilia.auth.core import Identity
 
+from aquilia.admin.permissions import has_admin_permission, AdminPermission
+
 logger = logging.getLogger("aquilia.admin.options")
 
 
@@ -474,19 +476,19 @@ class ModelAdmin:
         """Check if user can add records."""
         if identity is None:
             return False
-        return identity.has_role("admin") or identity.has_role("staff")
+        return has_admin_permission(identity, AdminPermission.MODEL_ADD)
 
     def has_change_permission(self, identity: Optional[Identity] = None) -> bool:
         """Check if user can change records."""
         if identity is None:
             return False
-        return identity.has_role("admin") or identity.has_role("staff")
+        return has_admin_permission(identity, AdminPermission.MODEL_CHANGE)
 
     def has_delete_permission(self, identity: Optional[Identity] = None) -> bool:
         """Check if user can delete records."""
         if identity is None:
             return False
-        return identity.has_role("admin")
+        return has_admin_permission(identity, AdminPermission.MODEL_DELETE)
 
     def has_module_permission(self, identity: Optional[Identity] = None) -> bool:
         """Check if user can access this model's admin section."""
