@@ -11,15 +11,14 @@ Defines the fundamental value objects for the versioning system:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
 from enum import Enum
 from functools import total_ordering
-from typing import Any, Dict, FrozenSet, List, Optional, Tuple, Union
-
+from typing import Any
 
 # ═══════════════════════════════════════════════════════════════════════════
 #  Sentinels
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class _VersionSentinel:
     """Sentinel marker for special version semantics."""
@@ -59,6 +58,7 @@ VERSION_ANY = _VersionSentinel("VERSION_ANY")
 #  VersionStatus — lifecycle state machine
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class VersionStatus(str, Enum):
     """Version lifecycle status.
 
@@ -68,6 +68,7 @@ class VersionStatus(str, Enum):
                     ↑                       │
                     └── ACTIVE (re-promote) ─┘ (only before RETIRED)
     """
+
     PREVIEW = "preview"
     ACTIVE = "active"
     DEPRECATED = "deprecated"
@@ -94,6 +95,7 @@ class VersionStatus(str, Enum):
 #  VersionChannel — named release channel
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class VersionChannel(str, Enum):
     """Named release channels.
 
@@ -104,6 +106,7 @@ class VersionChannel(str, Enum):
     ``VersionConfig`` and can change over time (deployment-time, not
     request-time).
     """
+
     STABLE = "stable"
     PREVIEW = "preview"
     LEGACY = "legacy"
@@ -111,7 +114,7 @@ class VersionChannel(str, Enum):
     CANARY = "canary"
 
     @classmethod
-    def from_string(cls, value: str) -> "VersionChannel":
+    def from_string(cls, value: str) -> VersionChannel:
         """Parse channel from string (case-insensitive)."""
         try:
             return cls(value.lower().strip())
@@ -123,6 +126,7 @@ class VersionChannel(str, Enum):
 # ═══════════════════════════════════════════════════════════════════════════
 #  ApiVersion — immutable, comparable version value object
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 @total_ordering
 @dataclass(frozen=True, slots=True)
@@ -151,11 +155,11 @@ class ApiVersion:
     patch: int = 0
     label: str = ""
     status: VersionStatus = VersionStatus.ACTIVE
-    channel: Optional[VersionChannel] = None
-    metadata: Dict[str, Any] = field(default_factory=dict, hash=False, compare=False)
+    channel: VersionChannel | None = None
+    metadata: dict[str, Any] = field(default_factory=dict, hash=False, compare=False)
 
     # ── Comparison ────────────────────────────────────────────────────
-    def _compare_key(self) -> Tuple[int, int, int]:
+    def _compare_key(self) -> tuple[int, int, int]:
         return (self.major, self.minor, self.patch)
 
     def __eq__(self, other: object) -> bool:
@@ -219,20 +223,18 @@ class ApiVersion:
             return f"v{self.major}.{self.minor}"
         return f"v{self.major}"
 
-    def matches(self, other: "ApiVersion") -> bool:
+    def matches(self, other: ApiVersion) -> bool:
         """Check if this version matches another (major.minor match only)."""
         return self.major == other.major and self.minor == other.minor
 
-    def is_compatible_with(self, other: "ApiVersion") -> bool:
+    def is_compatible_with(self, other: ApiVersion) -> bool:
         """Check if this version is backward-compatible with another.
 
         Compatible = same major, >= minor.
         """
-        return self.major == other.major and (
-            self.minor >= other.minor
-        )
+        return self.major == other.major and (self.minor >= other.minor)
 
-    def with_status(self, status: VersionStatus) -> "ApiVersion":
+    def with_status(self, status: VersionStatus) -> ApiVersion:
         """Return a copy with updated status."""
         return ApiVersion(
             major=self.major,
@@ -244,7 +246,7 @@ class ApiVersion:
             metadata=self.metadata,
         )
 
-    def with_channel(self, channel: VersionChannel) -> "ApiVersion":
+    def with_channel(self, channel: VersionChannel) -> ApiVersion:
         """Return a copy with updated channel."""
         return ApiVersion(
             major=self.major,
@@ -258,7 +260,7 @@ class ApiVersion:
 
     # ── Parsing ───────────────────────────────────────────────────────
     @classmethod
-    def parse(cls, raw: str) -> "ApiVersion":
+    def parse(cls, raw: str) -> ApiVersion:
         """
         Parse version from string.
 
@@ -272,9 +274,10 @@ class ApiVersion:
         - ``"2025-01"`` → (2025, 1, 0) with label="2025-01"
         """
         from .parser import SemanticVersionParser
+
         return SemanticVersionParser().parse(raw)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "major": self.major,

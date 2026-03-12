@@ -38,8 +38,9 @@ import logging
 import re
 import uuid
 import weakref
+from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
-from typing import Any, AsyncIterator, Callable, List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ..db.engine import AquiliaDatabase
@@ -47,7 +48,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger("aquilia.models.transactions")
 
 # Regex for validating savepoint identifiers (alphanumeric + underscores only)
-_SP_NAME_RE = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*$')
+_SP_NAME_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
 
 __all__ = [
     "atomic",
@@ -63,6 +64,7 @@ _task_depths: weakref.WeakValueDictionary = weakref.WeakValueDictionary()
 
 class _DepthHolder:
     """Weak-referenceable holder for an integer depth counter."""
+
     __slots__ = ("value",)
 
     def __init__(self, value: int = 0):
@@ -111,11 +113,11 @@ class Atomic:
 
     def __init__(
         self,
-        db: Optional[AquiliaDatabase] = None,
+        db: AquiliaDatabase | None = None,
         *,
         savepoint: bool = True,
         durable: bool = False,
-        isolation: Optional[str] = None,
+        isolation: str | None = None,
     ):
         """
         Args:
@@ -129,16 +131,17 @@ class Atomic:
         self._use_savepoint = savepoint
         self._durable = durable
         self._isolation = isolation
-        self._savepoint_id: Optional[str] = None
+        self._savepoint_id: str | None = None
         self._is_outermost = False
-        self._depth_holder: Optional[_DepthHolder] = None
-        self._commit_hooks: List[Callable] = []
-        self._rollback_hooks: List[Callable] = []
+        self._depth_holder: _DepthHolder | None = None
+        self._commit_hooks: list[Callable] = []
+        self._rollback_hooks: list[Callable] = []
 
     def _get_db(self) -> AquiliaDatabase:
         if self._db is not None:
             return self._db
         from ..db.engine import get_database
+
         return get_database()
 
     def on_commit(self, fn: Callable) -> None:
@@ -167,7 +170,7 @@ class Atomic:
         """
         self._rollback_hooks.append(fn)
 
-    async def _fire_hooks(self, hooks: List[Callable]) -> None:
+    async def _fire_hooks(self, hooks: list[Callable]) -> None:
         """Execute a list of hooks, catching exceptions."""
         for hook in hooks:
             try:
@@ -201,11 +204,12 @@ class Atomic:
                 _normalized = self._isolation.upper().strip()
                 if _normalized not in _ALLOWED_ISOLATION_LEVELS:
                     from ..faults.domains import QueryFault
+
                     raise QueryFault(
                         model="(transaction)",
                         operation="atomic",
                         reason=f"Invalid isolation level: {self._isolation!r}. "
-                               f"Allowed: {sorted(_ALLOWED_ISOLATION_LEVELS)}",
+                        f"Allowed: {sorted(_ALLOWED_ISOLATION_LEVELS)}",
                     )
                 await db.execute(f"SET TRANSACTION ISOLATION LEVEL {_normalized}")
 
@@ -214,6 +218,7 @@ class Atomic:
         else:
             if self._durable:
                 from ..faults.domains import QueryFault
+
                 raise QueryFault(
                     model="(transaction)",
                     operation="atomic",
@@ -268,9 +273,9 @@ class Atomic:
         """Roll back to a specific savepoint."""
         if not _SP_NAME_RE.match(savepoint_id):
             from aquilia.faults.domains import QueryFault
+
             raise QueryFault(
-                message=f"Invalid savepoint name: {savepoint_id!r}. "
-                f"Must be alphanumeric/underscores only.",
+                message=f"Invalid savepoint name: {savepoint_id!r}. Must be alphanumeric/underscores only.",
             )
         db = self._get_db()
         await db.execute(f"ROLLBACK TO SAVEPOINT {savepoint_id}")
@@ -279,20 +284,20 @@ class Atomic:
         """Release (commit) a savepoint."""
         if not _SP_NAME_RE.match(savepoint_id):
             from aquilia.faults.domains import QueryFault
+
             raise QueryFault(
-                message=f"Invalid savepoint name: {savepoint_id!r}. "
-                f"Must be alphanumeric/underscores only.",
+                message=f"Invalid savepoint name: {savepoint_id!r}. Must be alphanumeric/underscores only.",
             )
         db = self._get_db()
         await db.execute(f"RELEASE SAVEPOINT {savepoint_id}")
 
 
 def atomic(
-    db: Optional[AquiliaDatabase] = None,
+    db: AquiliaDatabase | None = None,
     *,
     savepoint: bool = True,
     durable: bool = False,
-    isolation: Optional[str] = None,
+    isolation: str | None = None,
 ) -> Atomic:
     """
     Create an atomic transaction context manager.
@@ -326,10 +331,10 @@ class TransactionManager:
     are tied to the outermost transaction and only fire on full success.
     """
 
-    def __init__(self, db: Optional[AquiliaDatabase] = None):
+    def __init__(self, db: AquiliaDatabase | None = None):
         self._db = db
-        self._on_commit_hooks: List[Callable] = []
-        self._on_rollback_hooks: List[Callable] = []
+        self._on_commit_hooks: list[Callable] = []
+        self._on_rollback_hooks: list[Callable] = []
 
     def on_commit(self, func: Callable) -> None:
         """Register a function to be called after successful commit."""

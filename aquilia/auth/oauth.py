@@ -13,9 +13,10 @@ from __future__ import annotations
 import base64
 import hashlib
 import secrets
-import string
 from datetime import datetime, timedelta, timezone
 from typing import Any
+
+from aquilia.faults.domains import ConfigInvalidFault
 
 from .core import OAuthClient
 from .faults import (
@@ -26,16 +27,13 @@ from .faults import (
     AUTH_PKCE_INVALID,
     AUTH_REDIRECT_URI_MISMATCH,
     AUTH_SCOPE_INVALID,
-    AUTH_SLOW_DOWN,
 )
-from aquilia.faults.domains import ConfigInvalidFault
 from .stores import (
     MemoryAuthorizationCodeStore,
     MemoryDeviceCodeStore,
     MemoryOAuthClientStore,
 )
 from .tokens import TokenManager
-
 
 # ============================================================================
 # PKCE Utilities
@@ -61,17 +59,11 @@ class PKCEVerifier:
 
         # Generate random bytes and encode as URL-safe base64
         random_bytes = secrets.token_bytes(length)
-        verifier = (
-            base64.urlsafe_b64encode(random_bytes)
-            .decode("utf-8")
-            .rstrip("=")[:length]
-        )
+        verifier = base64.urlsafe_b64encode(random_bytes).decode("utf-8").rstrip("=")[:length]
         return verifier
 
     @staticmethod
-    def generate_code_challenge(
-        verifier: str, method: str = "S256"
-    ) -> str:
+    def generate_code_challenge(verifier: str, method: str = "S256") -> str:
         """
         Generate code challenge from verifier.
 
@@ -85,9 +77,7 @@ class PKCEVerifier:
         if method == "S256":
             # SHA256 hash of verifier
             digest = hashlib.sha256(verifier.encode("utf-8")).digest()
-            challenge = (
-                base64.urlsafe_b64encode(digest).decode("utf-8").rstrip("=")
-            )
+            challenge = base64.urlsafe_b64encode(digest).decode("utf-8").rstrip("=")
             return challenge
         elif method == "plain":
             return verifier
@@ -98,9 +88,7 @@ class PKCEVerifier:
             )
 
     @staticmethod
-    def verify_code_challenge(
-        verifier: str, challenge: str, method: str = "S256"
-    ) -> bool:
+    def verify_code_challenge(verifier: str, challenge: str, method: str = "S256") -> bool:
         """
         Verify code verifier against challenge.
 
@@ -146,9 +134,7 @@ class OAuth2Manager:
         self.token_manager = token_manager
         self.issuer = issuer
 
-    async def validate_client(
-        self, client_id: str, client_secret: str | None = None
-    ) -> OAuthClient:
+    async def validate_client(self, client_id: str, client_secret: str | None = None) -> OAuthClient:
         """
         Validate OAuth client credentials.
 
@@ -227,9 +213,7 @@ class OAuth2Manager:
 
         # Check PKCE requirement
         if client.require_pkce and not code_challenge:
-            raise AUTH_PKCE_INVALID(
-                reason="PKCE required but no code_challenge provided"
-            )
+            raise AUTH_PKCE_INVALID(reason="PKCE required but no code_challenge provided")
 
         # Return authorization request (requires user consent UI)
         return {
@@ -312,7 +296,7 @@ class OAuth2Manager:
             AUTH_PKCE_INVALID: PKCE verification failed
         """
         # Validate client
-        client = await self.validate_client(client_id, client_secret)
+        await self.validate_client(client_id, client_secret)
 
         # Get authorization code
         code_data = await self.code_store.get_code(code)
@@ -322,15 +306,11 @@ class OAuth2Manager:
         # Check expiration
         expires_at = datetime.fromisoformat(code_data["expires_at"])
         if datetime.now(timezone.utc) > expires_at:
-            raise AUTH_GRANT_INVALID(
-                grant_type="authorization_code", reason="Code expired"
-            )
+            raise AUTH_GRANT_INVALID(grant_type="authorization_code", reason="Code expired")
 
         # Verify one-time use
         if not await self.code_store.consume_code(code):
-            raise AUTH_GRANT_INVALID(
-                grant_type="authorization_code", reason="Code already used"
-            )
+            raise AUTH_GRANT_INVALID(grant_type="authorization_code", reason="Code already used")
 
         # Verify redirect URI
         if redirect_uri != code_data["redirect_uri"]:
@@ -342,9 +322,7 @@ class OAuth2Manager:
         # Verify PKCE if present
         if code_data["code_challenge"]:
             if not code_verifier:
-                raise AUTH_PKCE_INVALID(
-                    reason="Code verifier required but not provided"
-                )
+                raise AUTH_PKCE_INVALID(reason="Code verifier required but not provided")
 
             if not PKCEVerifier.verify_code_challenge(
                 code_verifier,
@@ -425,9 +403,7 @@ class OAuth2Manager:
             "scope": " ".join(requested_scopes),
         }
 
-    async def device_authorization(
-        self, client_id: str, scope: str | None = None
-    ) -> dict[str, Any]:
+    async def device_authorization(self, client_id: str, scope: str | None = None) -> dict[str, Any]:
         """
         Device Authorization - initiate device flow.
 
@@ -478,9 +454,7 @@ class OAuth2Manager:
             "interval": 5,  # Poll every 5 seconds
         }
 
-    async def device_token(
-        self, device_code: str, client_id: str
-    ) -> dict[str, Any]:
+    async def device_token(self, device_code: str, client_id: str) -> dict[str, Any]:
         """
         Device Token - poll for authorization.
 
@@ -515,9 +489,7 @@ class OAuth2Manager:
             raise AUTH_DEVICE_CODE_PENDING()
 
         if code_data["status"] == "denied":
-            raise AUTH_GRANT_INVALID(
-                grant_type="device_code", reason="User denied authorization"
-            )
+            raise AUTH_GRANT_INVALID(grant_type="device_code", reason="User denied authorization")
 
         # Authorized - issue tokens
         identity_id = code_data["identity_id"]

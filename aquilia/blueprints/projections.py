@@ -12,12 +12,12 @@ Naming:
 
 from __future__ import annotations
 
-from typing import Any, Dict, FrozenSet, List, Sequence, Set, Type, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 from .exceptions import ProjectionFault
 
 if TYPE_CHECKING:
-    from .core import Blueprint
+    pass
 
 
 __all__ = ["ProjectionRegistry"]
@@ -50,17 +50,17 @@ class ProjectionRegistry:
     """
 
     def __init__(self):
-        self._projections: Dict[str, FrozenSet[str]] = {}
-        self._exclusion_projections: Dict[str, FrozenSet[str]] = {}
+        self._projections: dict[str, frozenset[str]] = {}
+        self._exclusion_projections: dict[str, frozenset[str]] = {}
         self._default: str | None = None
-        self._all_facets: FrozenSet[str] = frozenset()
+        self._all_facets: frozenset[str] = frozenset()
 
     def configure(
         self,
-        projections: Dict[str, str | List[str]] | None,
+        projections: dict[str, str | list[str]] | None,
         default: str | None,
-        all_facet_names: Set[str],
-        write_only_names: Set[str],
+        all_facet_names: set[str],
+        write_only_names: set[str],
     ) -> None:
         """
         Configure projections from Spec definitions.
@@ -97,9 +97,7 @@ class ProjectionRegistry:
 
                 if excludes and not includes:
                     # Exclusion-only: all facets minus excluded
-                    self._projections[name] = frozenset(
-                        self._all_facets - frozenset(excludes)
-                    )
+                    self._projections[name] = frozenset(self._all_facets - frozenset(excludes))
                 elif includes:
                     self._projections[name] = frozenset(includes)
                 else:
@@ -110,7 +108,7 @@ class ProjectionRegistry:
 
         self._default = default or next(iter(self._projections), None)
 
-    def resolve(self, name: str | None = None) -> FrozenSet[str]:
+    def resolve(self, name: str | None = None) -> frozenset[str]:
         """
         Resolve a projection name to a set of facet names.
 
@@ -138,7 +136,7 @@ class ProjectionRegistry:
         return self._default
 
     @property
-    def available(self) -> List[str]:
+    def available(self) -> list[str]:
         return list(self._projections.keys())
 
     def __contains__(self, name: str) -> bool:

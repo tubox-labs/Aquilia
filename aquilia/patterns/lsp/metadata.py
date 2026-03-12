@@ -5,15 +5,14 @@ Generates metadata files and provides hover/autocomplete data.
 """
 
 import json
-from typing import Dict, Any, List
 from pathlib import Path
+from typing import Any
 
 from ..compiler.compiler import CompiledPattern
-from ..grammar import TOKEN_TYPES, KEYWORDS, CONSTRAINT_OPS, DEFAULT_TYPES
 
 
 def generate_lsp_metadata(
-    patterns: List[CompiledPattern],
+    patterns: list[CompiledPattern],
     output_path: Path,
 ):
     """
@@ -52,7 +51,7 @@ def generate_lsp_metadata(
     output_path.write_text(json.dumps(metadata, indent=2), encoding="utf-8")
 
 
-def generate_hover_docs() -> Dict[str, str]:
+def generate_hover_docs() -> dict[str, str]:
     """Generate hover documentation for pattern syntax."""
     return {
         "<>": "Token parameter: <name:type|constraints=default@transform>",
@@ -70,7 +69,7 @@ def generate_hover_docs() -> Dict[str, str]:
     }
 
 
-def generate_autocomplete_snippets() -> List[Dict[str, Any]]:
+def generate_autocomplete_snippets() -> list[dict[str, Any]]:
     """Generate autocomplete snippets for VS Code."""
     snippets = [
         {
@@ -131,7 +130,7 @@ def generate_autocomplete_snippets() -> List[Dict[str, Any]]:
         },
         {
             "label": "constraint-regex",
-            "insertText": "|re=\"${1:pattern}\"",
+            "insertText": '|re="${1:pattern}"',
             "description": "Regex constraint",
         },
         {
@@ -205,7 +204,7 @@ def generate_vscode_extension(output_dir: Path):
     (snippets_dir / "patterns.json").write_text(json.dumps(snippets, indent=2), encoding="utf-8")
 
 
-def generate_diagnostic_codes() -> Dict[str, str]:
+def generate_diagnostic_codes() -> dict[str, str]:
     """Generate diagnostic code descriptions for LSP."""
     return {
         "AP001": "Syntax error: Unterminated token",

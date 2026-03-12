@@ -19,26 +19,20 @@ Usage::
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import os
 import stat as stat_module
+from collections.abc import AsyncIterator
 from datetime import datetime, timezone
 from typing import (
     Any,
-    AsyncIterator,
     BinaryIO,
-    Dict,
-    List,
-    Optional,
-    Tuple,
-    Union,
 )
 
 from ..base import (
     BackendUnavailableError,
     FileNotFoundError,
-    PermissionError,
     StorageBackend,
-    StorageError,
     StorageFile,
     StorageMetadata,
 )
@@ -82,9 +76,7 @@ class SFTPStorage(StorageBackend):
 
             if self._config.key_path:
                 key_path = os.path.expanduser(self._config.key_path)
-                pkey = paramiko.RSAKey.from_private_key_file(
-                    key_path, password=self._config.key_passphrase
-                )
+                pkey = paramiko.RSAKey.from_private_key_file(key_path, password=self._config.key_passphrase)
                 transport.connect(username=self._config.username, pkey=pkey)
             elif self._config.password:
                 transport.connect(
@@ -107,15 +99,11 @@ class SFTPStorage(StorageBackend):
 
         def _close() -> None:
             if self._sftp:
-                try:
+                with contextlib.suppress(Exception):
                     self._sftp.close()
-                except Exception:
-                    pass
             if self._transport:
-                try:
+                with contextlib.suppress(Exception):
                     self._transport.close()
-                except Exception:
-                    pass
 
         await loop.run_in_executor(None, _close)
         self._sftp = None
@@ -136,10 +124,10 @@ class SFTPStorage(StorageBackend):
     async def save(
         self,
         name: str,
-        content: Union[bytes, BinaryIO, AsyncIterator[bytes], StorageFile],
+        content: bytes | BinaryIO | AsyncIterator[bytes] | StorageFile,
         *,
-        content_type: Optional[str] = None,
-        metadata: Optional[Dict[str, str]] = None,
+        content_type: str | None = None,
+        metadata: dict[str, str] | None = None,
         overwrite: bool = False,
     ) -> str:
         self._ensure_sftp()
@@ -159,6 +147,7 @@ class SFTPStorage(StorageBackend):
             self._mkdir_p(parent)
 
             import io
+
             buf = io.BytesIO(data)
             self._sftp.putfo(buf, remote)
 
@@ -172,13 +161,12 @@ class SFTPStorage(StorageBackend):
 
         def _download() -> bytes:
             import io
+
             buf = io.BytesIO()
             try:
                 self._sftp.getfo(remote, buf)
-            except IOError:
-                raise FileNotFoundError(
-                    f"File not found: {name}", backend="sftp", path=name
-                )
+            except OSError:
+                raise FileNotFoundError(f"File not found: {name}", backend="sftp", path=name)
             return buf.getvalue()
 
         data = await loop.run_in_executor(None, _download)
@@ -191,10 +179,8 @@ class SFTPStorage(StorageBackend):
         loop = asyncio.get_event_loop()
 
         def _delete() -> None:
-            try:
+            with contextlib.suppress(OSError):
                 self._sftp.remove(remote)
-            except IOError:
-                pass
 
         await loop.run_in_executor(None, _delete)
 
@@ -207,7 +193,7 @@ class SFTPStorage(StorageBackend):
             try:
                 self._sftp.stat(remote)
                 return True
-            except IOError:
+            except OSError:
                 return False
 
         return await loop.run_in_executor(None, _exists)
@@ -220,39 +206,29 @@ class SFTPStorage(StorageBackend):
         def _stat() -> StorageMetadata:
             try:
                 attrs = self._sftp.stat(remote)
-            except IOError:
-                raise FileNotFoundError(
-                    f"File not found: {name}", backend="sftp", path=name
-                )
+            except OSError:
+                raise FileNotFoundError(f"File not found: {name}", backend="sftp", path=name)
             return StorageMetadata(
                 name=self._normalize_path(name),
                 size=attrs.st_size or 0,
                 content_type=self.guess_content_type(name),
-                last_modified=(
-                    datetime.fromtimestamp(attrs.st_mtime, tz=timezone.utc)
-                    if attrs.st_mtime
-                    else None
-                ),
-                created_at=(
-                    datetime.fromtimestamp(attrs.st_atime, tz=timezone.utc)
-                    if attrs.st_atime
-                    else None
-                ),
+                last_modified=(datetime.fromtimestamp(attrs.st_mtime, tz=timezone.utc) if attrs.st_mtime else None),
+                created_at=(datetime.fromtimestamp(attrs.st_atime, tz=timezone.utc) if attrs.st_atime else None),
             )
 
         return await loop.run_in_executor(None, _stat)
 
-    async def listdir(self, path: str = "") -> Tuple[List[str], List[str]]:
+    async def listdir(self, path: str = "") -> tuple[list[str], list[str]]:
         self._ensure_sftp()
         remote = self._remote_path(path) if path else self._config.root
         loop = asyncio.get_event_loop()
 
-        def _list() -> Tuple[List[str], List[str]]:
-            dirs: List[str] = []
-            files: List[str] = []
+        def _list() -> tuple[list[str], list[str]]:
+            dirs: list[str] = []
+            files: list[str] = []
             try:
                 entries = self._sftp.listdir_attr(remote)
-            except IOError:
+            except OSError:
                 return dirs, files
             for entry in entries:
                 if stat_module.S_ISDIR(entry.st_mode or 0):
@@ -267,7 +243,7 @@ class SFTPStorage(StorageBackend):
         meta = await self.stat(name)
         return meta.size
 
-    async def url(self, name: str, expire: Optional[int] = None) -> str:
+    async def url(self, name: str, expire: int | None = None) -> str:
         name = self._normalize_path(name)
         if self._config.base_url:
             base = self._config.base_url.rstrip("/")
@@ -294,10 +270,8 @@ class SFTPStorage(StorageBackend):
             current = f"{current}/{part}" if current != "/" else f"/{part}"
             try:
                 self._sftp.stat(current)
-            except IOError:
-                try:
+            except OSError:
+                with contextlib.suppress(OSError):
                     self._sftp.mkdir(current)
-                except IOError:
-                    pass
 
     # _read_content inherited from StorageBackend

@@ -6,20 +6,21 @@ Structured error types for auth failures integrated with AquilaFaults.
 
 from aquilia.faults import Fault, FaultDomain, Severity
 
-
 # ============================================================================
 # Authentication Faults
 # ============================================================================
 
+
 class AUTH_INVALID_CREDENTIALS(Fault):
     """Invalid username or password."""
+
     domain = FaultDomain.SECURITY
     code = "AUTH_001"
     severity = Severity.WARN
     message = "Invalid credentials"
     public_message = "Invalid username or password"
     retryable = False
-    
+
     def __init__(self, username: str | None = None, **metadata):
         super().__init__(**metadata)
         if username:
@@ -28,6 +29,7 @@ class AUTH_INVALID_CREDENTIALS(Fault):
 
 class AUTH_TOKEN_INVALID(Fault):
     """Invalid or malformed token."""
+
     domain = FaultDomain.SECURITY
     code = "AUTH_002"
     severity = Severity.WARN
@@ -38,6 +40,7 @@ class AUTH_TOKEN_INVALID(Fault):
 
 class AUTH_TOKEN_EXPIRED(Fault):
     """Access token has expired."""
+
     domain = FaultDomain.SECURITY
     code = "AUTH_003"
     severity = Severity.WARN
@@ -48,6 +51,7 @@ class AUTH_TOKEN_EXPIRED(Fault):
 
 class AUTH_TOKEN_REVOKED(Fault):
     """Token has been revoked."""
+
     domain = FaultDomain.SECURITY
     code = "AUTH_004"
     severity = Severity.WARN
@@ -58,6 +62,7 @@ class AUTH_TOKEN_REVOKED(Fault):
 
 class AUTH_MFA_REQUIRED(Fault):
     """Multi-factor authentication required."""
+
     domain = FaultDomain.SECURITY
     code = "AUTH_005"
     severity = Severity.WARN
@@ -68,6 +73,7 @@ class AUTH_MFA_REQUIRED(Fault):
 
 class AUTH_MFA_INVALID(Fault):
     """Invalid MFA code."""
+
     domain = FaultDomain.SECURITY
     code = "AUTH_006"
     severity = Severity.WARN
@@ -78,6 +84,7 @@ class AUTH_MFA_INVALID(Fault):
 
 class AUTH_ACCOUNT_SUSPENDED(Fault):
     """Account is suspended."""
+
     domain = FaultDomain.SECURITY
     code = "AUTH_007"
     severity = Severity.ERROR
@@ -88,6 +95,7 @@ class AUTH_ACCOUNT_SUSPENDED(Fault):
 
 class AUTH_ACCOUNT_LOCKED(Fault):
     """Account is locked due to failed login attempts."""
+
     domain = FaultDomain.SECURITY
     code = "AUTH_008"
     severity = Severity.WARN
@@ -99,6 +107,7 @@ class AUTH_ACCOUNT_LOCKED(Fault):
 
 class AUTH_RATE_LIMITED(Fault):
     """Too many authentication attempts."""
+
     domain = FaultDomain.SECURITY
     code = "AUTH_009"
     severity = Severity.WARN
@@ -110,6 +119,7 @@ class AUTH_RATE_LIMITED(Fault):
 
 class AUTH_REQUIRED(Fault):
     """Authentication required but not provided."""
+
     domain = FaultDomain.SECURITY
     code = "AUTH_010"
     severity = Severity.WARN
@@ -120,6 +130,7 @@ class AUTH_REQUIRED(Fault):
 
 class AUTH_CLIENT_INVALID(Fault):
     """Invalid OAuth client credentials."""
+
     domain = FaultDomain.SECURITY
     code = "AUTH_011"
     severity = Severity.WARN
@@ -130,6 +141,7 @@ class AUTH_CLIENT_INVALID(Fault):
 
 class AUTH_GRANT_INVALID(Fault):
     """Invalid OAuth grant (code, refresh token, etc.)."""
+
     domain = FaultDomain.SECURITY
     code = "AUTH_012"
     severity = Severity.WARN
@@ -140,6 +152,7 @@ class AUTH_GRANT_INVALID(Fault):
 
 class AUTH_REDIRECT_URI_MISMATCH(Fault):
     """OAuth redirect URI doesn't match registered URI."""
+
     domain = FaultDomain.SECURITY
     code = "AUTH_013"
     severity = Severity.WARN
@@ -150,6 +163,7 @@ class AUTH_REDIRECT_URI_MISMATCH(Fault):
 
 class AUTH_SCOPE_INVALID(Fault):
     """Requested scope is invalid or not allowed."""
+
     domain = FaultDomain.SECURITY
     code = "AUTH_014"
     severity = Severity.WARN
@@ -160,6 +174,7 @@ class AUTH_SCOPE_INVALID(Fault):
 
 class AUTH_PKCE_INVALID(Fault):
     """PKCE code verifier doesn't match challenge."""
+
     domain = FaultDomain.SECURITY
     code = "AUTH_015"
     severity = Severity.ERROR
@@ -172,15 +187,17 @@ class AUTH_PKCE_INVALID(Fault):
 # Authorization Faults
 # ============================================================================
 
+
 class AUTHZ_POLICY_DENIED(Fault):
     """Authorization policy denied access."""
+
     domain = FaultDomain.SECURITY
     code = "AUTHZ_001"
     severity = Severity.WARN
     message = "Access denied by policy"
     public_message = "You do not have permission to perform this action"
     retryable = False
-    
+
     def __init__(self, policy_id: str | None = None, reason: str | None = None, **metadata):
         super().__init__(**metadata)
         if policy_id:
@@ -191,13 +208,14 @@ class AUTHZ_POLICY_DENIED(Fault):
 
 class AUTHZ_INSUFFICIENT_SCOPE(Fault):
     """Token missing required scopes."""
+
     domain = FaultDomain.SECURITY
     code = "AUTHZ_002"
     severity = Severity.WARN
     message = "Insufficient scope"
     public_message = "Insufficient permissions"
     retryable = False
-    
+
     def __init__(self, required_scopes: list[str] | None = None, **metadata):
         super().__init__(**metadata)
         if required_scopes:
@@ -206,13 +224,14 @@ class AUTHZ_INSUFFICIENT_SCOPE(Fault):
 
 class AUTHZ_INSUFFICIENT_ROLE(Fault):
     """Identity missing required role."""
+
     domain = FaultDomain.SECURITY
     code = "AUTHZ_003"
     severity = Severity.WARN
     message = "Insufficient role"
     public_message = "Insufficient permissions"
     retryable = False
-    
+
     def __init__(self, required_roles: list[str] | None = None, **metadata):
         super().__init__(**metadata)
         if required_roles:
@@ -221,6 +240,7 @@ class AUTHZ_INSUFFICIENT_ROLE(Fault):
 
 class AUTHZ_RESOURCE_FORBIDDEN(Fault):
     """Access to resource is forbidden."""
+
     domain = FaultDomain.SECURITY
     code = "AUTHZ_004"
     severity = Severity.WARN
@@ -231,6 +251,7 @@ class AUTHZ_RESOURCE_FORBIDDEN(Fault):
 
 class AUTHZ_TENANT_MISMATCH(Fault):
     """Identity tenant doesn't match resource tenant."""
+
     domain = FaultDomain.SECURITY
     code = "AUTHZ_005"
     severity = Severity.ERROR
@@ -243,15 +264,17 @@ class AUTHZ_TENANT_MISMATCH(Fault):
 # Credential Management Faults
 # ============================================================================
 
+
 class AUTH_PASSWORD_WEAK(Fault):
     """Password doesn't meet policy requirements."""
+
     domain = FaultDomain.SECURITY
     code = "AUTH_101"
     severity = Severity.WARN
     message = "Weak password"
     public_message = "Password doesn't meet security requirements"
     retryable = True
-    
+
     def __init__(self, errors: list[str] | None = None, **metadata):
         super().__init__(**metadata)
         if errors:
@@ -260,6 +283,7 @@ class AUTH_PASSWORD_WEAK(Fault):
 
 class AUTH_PASSWORD_BREACHED(Fault):
     """Password found in breach database."""
+
     domain = FaultDomain.SECURITY
     code = "AUTH_102"
     severity = Severity.WARN
@@ -270,6 +294,7 @@ class AUTH_PASSWORD_BREACHED(Fault):
 
 class AUTH_PASSWORD_REUSED(Fault):
     """Password was recently used."""
+
     domain = FaultDomain.SECURITY
     code = "AUTH_103"
     severity = Severity.WARN
@@ -280,6 +305,7 @@ class AUTH_PASSWORD_REUSED(Fault):
 
 class AUTH_KEY_EXPIRED(Fault):
     """API key has expired."""
+
     domain = FaultDomain.SECURITY
     code = "AUTH_104"
     severity = Severity.WARN
@@ -290,6 +316,7 @@ class AUTH_KEY_EXPIRED(Fault):
 
 class AUTH_KEY_REVOKED(Fault):
     """API key has been revoked."""
+
     domain = FaultDomain.SECURITY
     code = "AUTH_105"
     severity = Severity.WARN
@@ -302,8 +329,10 @@ class AUTH_KEY_REVOKED(Fault):
 # Session Integration Faults
 # ============================================================================
 
+
 class AUTH_SESSION_REQUIRED(Fault):
     """Session required but not found."""
+
     domain = FaultDomain.SECURITY
     code = "AUTH_201"
     severity = Severity.WARN
@@ -314,6 +343,7 @@ class AUTH_SESSION_REQUIRED(Fault):
 
 class AUTH_SESSION_INVALID(Fault):
     """Session is invalid or corrupted."""
+
     domain = FaultDomain.SECURITY
     code = "AUTH_202"
     severity = Severity.WARN
@@ -324,6 +354,7 @@ class AUTH_SESSION_INVALID(Fault):
 
 class AUTH_SESSION_HIJACK_DETECTED(Fault):
     """Potential session hijacking detected."""
+
     domain = FaultDomain.SECURITY
     code = "AUTH_203"
     severity = Severity.ERROR
@@ -336,8 +367,10 @@ class AUTH_SESSION_HIJACK_DETECTED(Fault):
 # OAuth/OIDC Specific Faults
 # ============================================================================
 
+
 class AUTH_CONSENT_REQUIRED(Fault):
     """User consent required for OAuth flow."""
+
     domain = FaultDomain.SECURITY
     code = "AUTH_301"
     severity = Severity.INFO
@@ -348,6 +381,7 @@ class AUTH_CONSENT_REQUIRED(Fault):
 
 class AUTH_DEVICE_CODE_PENDING(Fault):
     """Device code authorization pending."""
+
     domain = FaultDomain.SECURITY
     code = "AUTH_302"
     severity = Severity.INFO
@@ -358,6 +392,7 @@ class AUTH_DEVICE_CODE_PENDING(Fault):
 
 class AUTH_DEVICE_CODE_EXPIRED(Fault):
     """Device code has expired."""
+
     domain = FaultDomain.SECURITY
     code = "AUTH_303"
     severity = Severity.WARN
@@ -368,6 +403,7 @@ class AUTH_DEVICE_CODE_EXPIRED(Fault):
 
 class AUTH_SLOW_DOWN(Fault):
     """Device flow polling too fast."""
+
     domain = FaultDomain.SECURITY
     code = "AUTH_304"
     severity = Severity.WARN
@@ -381,8 +417,10 @@ class AUTH_SLOW_DOWN(Fault):
 # MFA Faults
 # ============================================================================
 
+
 class AUTH_MFA_NOT_ENROLLED(Fault):
     """MFA not enrolled for user."""
+
     domain = FaultDomain.SECURITY
     code = "AUTH_401"
     severity = Severity.WARN
@@ -393,6 +431,7 @@ class AUTH_MFA_NOT_ENROLLED(Fault):
 
 class AUTH_MFA_ALREADY_ENROLLED(Fault):
     """MFA already enrolled."""
+
     domain = FaultDomain.SECURITY
     code = "AUTH_402"
     severity = Severity.WARN
@@ -403,6 +442,7 @@ class AUTH_MFA_ALREADY_ENROLLED(Fault):
 
 class AUTH_WEBAUTHN_INVALID(Fault):
     """WebAuthn credential invalid."""
+
     domain = FaultDomain.SECURITY
     code = "AUTH_403"
     severity = Severity.WARN
@@ -413,6 +453,7 @@ class AUTH_WEBAUTHN_INVALID(Fault):
 
 class AUTH_BACKUP_CODE_INVALID(Fault):
     """Invalid backup code."""
+
     domain = FaultDomain.SECURITY
     code = "AUTH_404"
     severity = Severity.WARN
@@ -423,6 +464,7 @@ class AUTH_BACKUP_CODE_INVALID(Fault):
 
 class AUTH_BACKUP_CODE_EXHAUSTED(Fault):
     """All backup codes used."""
+
     domain = FaultDomain.SECURITY
     code = "AUTH_405"
     severity = Severity.WARN
@@ -435,10 +477,11 @@ class AUTH_BACKUP_CODE_EXHAUSTED(Fault):
 # Utility Functions
 # ============================================================================
 
+
 def raise_auth_fault(fault_class: type[Fault], **kwargs):
     """
     Raise an auth fault with context.
-    
+
     Example:
         raise_auth_fault(AUTH_INVALID_CREDENTIALS, username="user@example.com")
     """

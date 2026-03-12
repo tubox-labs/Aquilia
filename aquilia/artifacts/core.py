@@ -23,17 +23,15 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 import subprocess
-import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Type
+from typing import Any
 
 # Forward-declared registry: kind-string → Artifact subclass.
 # Populated by ``register_artifact_kind()`` in kinds.py.
-_KIND_REGISTRY: Dict[str, Type["Artifact"]] = {}
+_KIND_REGISTRY: dict[str, type[Artifact]] = {}
 
 
 # ── Enums ───────────────────────────────────────────────────────────────
@@ -66,15 +64,15 @@ class ArtifactIntegrity:
     algorithm: str = "sha256"
     digest: str = ""
 
-    def to_dict(self) -> Dict[str, str]:
+    def to_dict(self) -> dict[str, str]:
         return {"algorithm": self.algorithm, "digest": self.digest}
 
     @classmethod
-    def from_dict(cls, d: Dict[str, Any]) -> "ArtifactIntegrity":
+    def from_dict(cls, d: dict[str, Any]) -> ArtifactIntegrity:
         return cls(algorithm=d.get("algorithm", "sha256"), digest=d.get("digest", ""))
 
     @classmethod
-    def compute(cls, data: bytes, algorithm: str = "sha256") -> "ArtifactIntegrity":
+    def compute(cls, data: bytes, algorithm: str = "sha256") -> ArtifactIntegrity:
         """Compute integrity from raw bytes."""
         h = hashlib.new(algorithm)
         h.update(data)
@@ -97,7 +95,7 @@ class ArtifactProvenance:
     hostname: str = ""
     build_tool: str = "aquilia"
 
-    def to_dict(self) -> Dict[str, str]:
+    def to_dict(self) -> dict[str, str]:
         return {
             "created_at": self.created_at,
             "created_by": self.created_by,
@@ -108,7 +106,7 @@ class ArtifactProvenance:
         }
 
     @classmethod
-    def from_dict(cls, d: Dict[str, Any]) -> "ArtifactProvenance":
+    def from_dict(cls, d: dict[str, Any]) -> ArtifactProvenance:
         return cls(
             created_at=d.get("created_at", ""),
             created_by=d.get("created_by", ""),
@@ -119,7 +117,7 @@ class ArtifactProvenance:
         )
 
     @classmethod
-    def auto(cls, source_path: str = "") -> "ArtifactProvenance":
+    def auto(cls, source_path: str = "") -> ArtifactProvenance:
         """Auto-populate with current env info."""
         import getpass
         import socket
@@ -128,7 +126,9 @@ class ArtifactProvenance:
         try:
             result = subprocess.run(
                 ["git", "rev-parse", "--short", "HEAD"],
-                capture_output=True, text=True, timeout=5,
+                capture_output=True,
+                text=True,
+                timeout=5,
             )
             if result.returncode == 0:
                 git_sha = result.stdout.strip()
@@ -162,11 +162,11 @@ class ArtifactEnvelope:
     version: str = ""
     integrity: ArtifactIntegrity = field(default_factory=ArtifactIntegrity)
     provenance: ArtifactProvenance = field(default_factory=ArtifactProvenance)
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    tags: Dict[str, str] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
+    tags: dict[str, str] = field(default_factory=dict)
     payload: Any = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "__format__": self.format,
             "schema_version": self.schema_version,
@@ -190,7 +190,7 @@ class ArtifactEnvelope:
             return False
 
     @classmethod
-    def from_dict(cls, d: Dict[str, Any]) -> "ArtifactEnvelope":
+    def from_dict(cls, d: dict[str, Any]) -> ArtifactEnvelope:
         return cls(
             format=d.get("__format__", "aquilia-artifact"),
             schema_version=d.get("schema_version", "1.0"),
@@ -290,11 +290,11 @@ class Artifact:
     # ── Metadata ─────────────────────────────────────────────────────
 
     @property
-    def metadata(self) -> Dict[str, Any]:
+    def metadata(self) -> dict[str, Any]:
         return self._envelope.metadata
 
     @property
-    def tags(self) -> Dict[str, str]:
+    def tags(self) -> dict[str, str]:
         return self._envelope.tags
 
     # ── Payload ──────────────────────────────────────────────────────
@@ -319,7 +319,7 @@ class Artifact:
 
     # ── Evolve ───────────────────────────────────────────────────────
 
-    def evolve(self, *, version: str = "", **payload_overrides: Any) -> "Artifact":
+    def evolve(self, *, version: str = "", **payload_overrides: Any) -> Artifact:
         """
         Create a **new** artifact derived from this one.
 
@@ -347,17 +347,14 @@ class Artifact:
         builder.set_metadata(**self.metadata)
 
         # Build payload
-        if isinstance(self.payload, dict):
-            new_payload = {**self.payload, **payload_overrides}
-        else:
-            new_payload = self.payload
+        new_payload = {**self.payload, **payload_overrides} if isinstance(self.payload, dict) else self.payload
         builder.set_payload(new_payload)
 
         return builder.build()
 
     # ── Serialisation ────────────────────────────────────────────────
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return self._envelope.to_dict()
 
     def to_json(self, indent: int = 2) -> str:
@@ -367,7 +364,7 @@ class Artifact:
         return self.to_json().encode("utf-8")
 
     @classmethod
-    def from_dict(cls, d: Dict[str, Any]) -> "Artifact":
+    def from_dict(cls, d: dict[str, Any]) -> Artifact:
         """Deserialise and return the correct typed subclass when possible."""
         envelope = ArtifactEnvelope.from_dict(d)
         # If called on Artifact base *and* a subclass is registered, use it
@@ -378,11 +375,11 @@ class Artifact:
         return cls(envelope)
 
     @classmethod
-    def from_json(cls, raw: str) -> "Artifact":
+    def from_json(cls, raw: str) -> Artifact:
         return cls.from_dict(json.loads(raw))
 
     @classmethod
-    def from_bytes(cls, data: bytes) -> "Artifact":
+    def from_bytes(cls, data: bytes) -> Artifact:
         return cls.from_json(data.decode("utf-8"))
 
     # ── Dunder ───────────────────────────────────────────────────────
@@ -414,6 +411,6 @@ class Artifact:
 # ── Kind Registration ───────────────────────────────────────────────────
 
 
-def register_artifact_kind(kind: str, cls: Type[Artifact]) -> None:
+def register_artifact_kind(kind: str, cls: type[Artifact]) -> None:
     """Register a typed subclass so ``Artifact.from_dict`` auto-resolves."""
     _KIND_REGISTRY[kind] = cls

@@ -43,28 +43,54 @@ Flags:
 
 from __future__ import annotations
 
-import os
 import shutil
 import subprocess
 import sys
 from pathlib import Path
-from typing import Optional, List
 
 import click
 
 from ..utils.colors import (
-    success, error, info, warning, dim, bold,
-    section, kv, rule, panel, next_steps, table,
-    file_written, file_skipped, file_dry,
-    banner, _CHECK, _CROSS, _ARROW,
-    status_line, progress_bar, detail_card, phase_header,
-    _ROCKET, _LOCK, _GLOBE, _PKG, _GEAR, _BOLT,
-    _SHIELD, _CLOUD, _CLOCK, _SPARK, _WARN, _KEY, _EYE,
+    _ARROW,
+    _BOLT,
+    _CHECK,
+    _CLOUD,
+    _CROSS,
+    _EYE,
+    _GEAR,
+    _GLOBE,
+    _KEY,
+    _PKG,
+    _ROCKET,
+    _SPARK,
+    _WARN,
+    banner,
+    detail_card,
+    dim,
+    error,
+    file_dry,
+    file_skipped,
+    file_written,
+    info,
+    kv,
+    next_steps,
+    panel,
+    phase_header,
+    rule,
+    section,
+    status_line,
+    success,
+    table,
+    warning,
 )
 from ..utils.prompts import (
-    flow_header, flow_done, ask, select, multi_select, confirm, recap,
+    ask,
+    confirm,
+    flow_done,
+    multi_select,
+    recap,
+    select,
 )
-
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Build-first deploy gate
@@ -87,10 +113,7 @@ from ..utils.prompts import (
 def _has_production_build(workspace_root: Path) -> bool:
     """Return True if a valid production build exists."""
     build_dir = workspace_root / "build"
-    return (
-        (build_dir / "manifest.json").exists()
-        and (build_dir / "bundle.crous").exists()
-    )
+    return (build_dir / "manifest.json").exists() and (build_dir / "bundle.crous").exists()
 
 
 def _is_build_stale(workspace_root: Path) -> bool:
@@ -219,7 +242,7 @@ def _ensure_production_build(
         if not should_build:
             if not has_build:
                 error(f"  {_CROSS} Cannot deploy without a production build.")
-                info(f"  Run: aq build --mode=prod")
+                info("  Run: aq build --mode=prod")
                 return False
             else:
                 warning("  Continuing with stale build -- deploy files may be outdated.")
@@ -246,12 +269,14 @@ def _get_ctx(workspace_root: Path, *, skip_build_check: bool = False) -> dict:
     build_dir = workspace_root / "build"
     try:
         from aquilia.build.pipeline import BuildManifest
+
         manifest = BuildManifest.load(build_dir)
         return manifest.to_deploy_context(workspace_root)
     except (FileNotFoundError, ValueError, Exception):
         pass
 
     from ..generators.deployment import WorkspaceIntrospector
+
     return WorkspaceIntrospector(workspace_root).introspect()
 
 
@@ -303,11 +328,13 @@ def _write_file(
 def deploy_options(f):
     """Decorator to add shared --force and --dry-run options to subcommands."""
     import functools
+
     @click.option("--force", "-f", is_flag=True, help="Overwrite existing files")
     @click.option("--dry-run", is_flag=True, help="Preview without writing files")
     @functools.wraps(f)
     def wrapper(*args, **kwargs):
         return f(*args, **kwargs)
+
     return wrapper
 
 
@@ -315,12 +342,13 @@ def deploy_options(f):
 # Execution helpers -- run containers, compose, k8s, monitoring
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 def _has_command(name: str) -> bool:
     """Check whether a CLI tool is available on PATH."""
     return shutil.which(name) is not None
 
 
-def _run(cmd: List[str], *, label: str, cwd: Path, dry_run: bool = False) -> bool:
+def _run(cmd: list[str], *, label: str, cwd: Path, dry_run: bool = False) -> bool:
     """Run a shell command with styled output.
 
     Returns True on success, False on failure.
@@ -358,7 +386,7 @@ def _exec_docker_build(workspace_root: Path, wctx: dict, *, dry_run: bool = Fals
     tag = f"{name}:latest"
     dockerfile = workspace_root / "Dockerfile"
     if not dockerfile.exists() and not dry_run:
-        warning(f"  Dockerfile not found -- skipping build")
+        warning("  Dockerfile not found -- skipping build")
         return False
     return _run(
         ["docker", "build", "-t", tag, "."],
@@ -368,12 +396,13 @@ def _exec_docker_build(workspace_root: Path, wctx: dict, *, dry_run: bool = Fals
     )
 
 
-def _exec_compose_up(workspace_root: Path, *, detach: bool = True,
-                      monitoring: bool = False, dry_run: bool = False) -> bool:
+def _exec_compose_up(
+    workspace_root: Path, *, detach: bool = True, monitoring: bool = False, dry_run: bool = False
+) -> bool:
     """Bring up docker compose stack."""
     compose_file = workspace_root / "docker-compose.yml"
     if not compose_file.exists() and not dry_run:
-        warning(f"  docker-compose.yml not found -- skipping")
+        warning("  docker-compose.yml not found -- skipping")
         return False
     cmd = ["docker", "compose"]
     if monitoring:
@@ -406,8 +435,7 @@ def _k8s_cluster_reachable() -> bool:
         return False
 
 
-def _exec_k8s_apply(workspace_root: Path, *, namespace: str = "",
-                     dry_run: bool = False):
+def _exec_k8s_apply(workspace_root: Path, *, namespace: str = "", dry_run: bool = False):
     """Apply Kubernetes manifests via kustomize.
 
     Returns:
@@ -435,7 +463,7 @@ def _exec_k8s_apply(workspace_root: Path, *, namespace: str = "",
         dim("    kubectl apply -k k8s/")
         if namespace:
             dim(f"    kubectl apply -k k8s/ -n {namespace}")
-        return None          # not a hard error -- manifests were generated fine
+        return None  # not a hard error -- manifests were generated fine
 
     cmd = ["kubectl", "apply", "-k", "k8s/", "--validate=false"]
     if namespace:
@@ -479,6 +507,7 @@ def _exec_monitoring_up(workspace_root: Path, *, dry_run: bool = False) -> bool:
 # Click group
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 @click.group("deploy", invoke_without_command=True)
 @click.option("--force", "-f", is_flag=True, help="Overwrite existing files")
 @click.option("--dry-run", is_flag=True, help="Preview without writing files")
@@ -518,13 +547,13 @@ def deploy_gen_group(ctx, force: bool, dry_run: bool, yes: bool, skip_build_chec
         return
 
     # ── Interactive deploy wizard ────────────────────────────────────
-    _interactive_deploy(ctx, force=force, dry_run=dry_run, yes=yes,
-                        skip_build_check=skip_build_check)
+    _interactive_deploy(ctx, force=force, dry_run=dry_run, yes=yes, skip_build_check=skip_build_check)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Interactive deploy wizard
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 def _interactive_deploy(
     ctx: click.Context,
@@ -546,15 +575,15 @@ def _interactive_deploy(
       6. Optionally execute deployment
     """
     from ..generators.deployment import (
-        DockerfileGenerator,
-        ComposeGenerator,
-        KubernetesGenerator,
-        NginxGenerator,
         CIGenerator,
-        PrometheusGenerator,
-        GrafanaGenerator,
+        ComposeGenerator,
+        DockerfileGenerator,
         EnvGenerator,
+        GrafanaGenerator,
+        KubernetesGenerator,
         MakefileGenerator,
+        NginxGenerator,
+        PrometheusGenerator,
     )
 
     workspace_root = Path.cwd()
@@ -599,7 +628,10 @@ def _interactive_deploy(
             [
                 ("Name", name),
                 ("Source", "build manifest" if from_build else "live introspection"),
-                ("Build", (wctx["build_fingerprint"][:16] + "...") if from_build and wctx.get("build_fingerprint") else "—"),
+                (
+                    "Build",
+                    (wctx["build_fingerprint"][:16] + "...") if from_build and wctx.get("build_fingerprint") else "—",
+                ),
                 ("Modules", str(wctx.get("module_count", 0))),
                 ("DB driver", wctx.get("db_driver", "none")),
                 ("Python", wctx.get("python_version", "3.12")),
@@ -613,16 +645,19 @@ def _interactive_deploy(
 
         # ── 2. Select artefacts ──────────────────────────────────────
         phase_header(2, "Select artefacts", icon=_PKG)
-        artefacts = multi_select("Artefacts to generate", [
-            ("dockerfile",  "Dockerfile (prod + dev + mlops)",     True),
-            ("compose",     "docker-compose.yml (full stack)",     True),
-            ("kubernetes",  "Kubernetes manifests (k8s/)",         False),
-            ("nginx",       "Nginx reverse-proxy config",          False),
-            ("ci",          "CI/CD pipeline (GitHub/GitLab)",      True),
-            ("monitoring",  "Prometheus + Grafana provisioning",   True),
-            ("env",         ".env.example template",               True),
-            ("makefile",    "Makefile (dev/build/deploy targets)", True),
-        ])
+        artefacts = multi_select(
+            "Artefacts to generate",
+            [
+                ("dockerfile", "Dockerfile (prod + dev + mlops)", True),
+                ("compose", "docker-compose.yml (full stack)", True),
+                ("kubernetes", "Kubernetes manifests (k8s/)", False),
+                ("nginx", "Nginx reverse-proxy config", False),
+                ("ci", "CI/CD pipeline (GitHub/GitLab)", True),
+                ("monitoring", "Prometheus + Grafana provisioning", True),
+                ("env", ".env.example template", True),
+                ("makefile", "Makefile (dev/build/deploy targets)", True),
+            ],
+        )
 
         if not artefacts:
             info("  No artefacts selected -- nothing to do.")
@@ -634,11 +669,15 @@ def _interactive_deploy(
         # CI provider (only if ci selected)
         ci_provider = "github"
         if "ci" in artefacts:
-            ci_provider = select("CI/CD provider", [
-                ("github", "GitHub Actions"),
-                ("gitlab", "GitLab CI/CD"),
-                ("both",   "Both providers"),
-            ], default=0)
+            ci_provider = select(
+                "CI/CD provider",
+                [
+                    ("github", "GitHub Actions"),
+                    ("gitlab", "GitLab CI/CD"),
+                    ("both", "Both providers"),
+                ],
+                default=0,
+            )
 
         # Dev mode dockerfiles
         include_dev = False
@@ -648,9 +687,7 @@ def _interactive_deploy(
         # Monitoring in compose
         include_monitoring = "monitoring" in artefacts
         if "compose" in artefacts and not include_monitoring:
-            include_monitoring = confirm(
-                "Include monitoring services in Compose?", default=False
-            )
+            include_monitoring = confirm("Include monitoring services in Compose?", default=False)
 
         # Output directory
         output_dir = ask(
@@ -662,27 +699,33 @@ def _interactive_deploy(
         # ── 4. Execution options ─────────────────────────────────────
         phase_header(4, "Execution options", icon=_BOLT)
 
-        exec_actions = multi_select("After generating, execute", [
-            ("docker-build",   "Build Docker image",                     "dockerfile" in artefacts),
-            ("compose-up",     "Start Docker Compose stack",             "compose" in artefacts),
-            ("k8s-apply",      "Apply Kubernetes manifests (kubectl)",   "kubernetes" in artefacts),
-            ("monitoring-up",  "Start monitoring (Prometheus+Grafana)",  include_monitoring),
-            ("compose-audit",  "Audit running services (docker ps)",     "compose" in artefacts),
-        ])
+        exec_actions = multi_select(
+            "After generating, execute",
+            [
+                ("docker-build", "Build Docker image", "dockerfile" in artefacts),
+                ("compose-up", "Start Docker Compose stack", "compose" in artefacts),
+                ("k8s-apply", "Apply Kubernetes manifests (kubectl)", "kubernetes" in artefacts),
+                ("monitoring-up", "Start monitoring (Prometheus+Grafana)", include_monitoring),
+                ("compose-audit", "Audit running services (docker ps)", "compose" in artefacts),
+            ],
+        )
 
         # ── 5. Review & confirm ─────────────────────────────────────
         phase_header(5, "Review & confirm", icon=_EYE)
-        recap([
-            ("Workspace",    name),
-            ("Artefacts",    ", ".join(artefacts)),
-            ("CI provider",  ci_provider if "ci" in artefacts else "—"),
-            ("Dev Dockerfile", "yes" if include_dev else "no"),
-            ("Monitoring",   "yes" if include_monitoring else "no"),
-            ("Output",       output_dir),
-            ("Execute",      ", ".join(exec_actions) if exec_actions else "none"),
-            ("Force",        "yes" if force else "no"),
-            ("Dry run",      "yes" if dry_run else "no"),
-        ], title="Deploy configuration")
+        recap(
+            [
+                ("Workspace", name),
+                ("Artefacts", ", ".join(artefacts)),
+                ("CI provider", ci_provider if "ci" in artefacts else "—"),
+                ("Dev Dockerfile", "yes" if include_dev else "no"),
+                ("Monitoring", "yes" if include_monitoring else "no"),
+                ("Output", output_dir),
+                ("Execute", ", ".join(exec_actions) if exec_actions else "none"),
+                ("Force", "yes" if force else "no"),
+                ("Dry run", "yes" if dry_run else "no"),
+            ],
+            title="Deploy configuration",
+        )
 
         if not confirm("Proceed with deployment?", default=True):
             click.echo()
@@ -692,8 +735,14 @@ def _interactive_deploy(
     else:
         # ── Non-interactive defaults ─────────────────────────────────
         artefacts = [
-            "dockerfile", "compose", "kubernetes", "nginx",
-            "ci", "monitoring", "env", "makefile",
+            "dockerfile",
+            "compose",
+            "kubernetes",
+            "nginx",
+            "ci",
+            "monitoring",
+            "env",
+            "makefile",
         ]
         ci_provider = "github"
         include_dev = True
@@ -712,41 +761,66 @@ def _interactive_deploy(
     if "dockerfile" in artefacts:
         section("Docker")
         docker_gen = DockerfileGenerator(wctx)
-        if _write_file(out / "Dockerfile", docker_gen.generate_dockerfile(),
-                       label="Dockerfile (production)", verbose=verbose,
-                       force=force, dry_run=dry_run):
+        if _write_file(
+            out / "Dockerfile",
+            docker_gen.generate_dockerfile(),
+            label="Dockerfile (production)",
+            verbose=verbose,
+            force=force,
+            dry_run=dry_run,
+        ):
             written += 1
-        if _write_file(out / ".dockerignore", docker_gen.generate_dockerignore(),
-                       label=".dockerignore", verbose=verbose,
-                       force=force, dry_run=dry_run):
+        if _write_file(
+            out / ".dockerignore",
+            docker_gen.generate_dockerignore(),
+            label=".dockerignore",
+            verbose=verbose,
+            force=force,
+            dry_run=dry_run,
+        ):
             written += 1
-        if include_dev:
-            if _write_file(out / "Dockerfile.dev", docker_gen.generate_dockerfile_dev(),
-                           label="Dockerfile.dev (development)", verbose=verbose,
-                           force=force, dry_run=dry_run):
-                written += 1
-        if wctx.get("has_mlops"):
-            if _write_file(out / "Dockerfile.mlops", docker_gen.generate_dockerfile_mlops(),
-                           label="Dockerfile.mlops (model-serving)", verbose=verbose,
-                           force=force, dry_run=dry_run):
-                written += 1
+        if include_dev and _write_file(
+            out / "Dockerfile.dev",
+            docker_gen.generate_dockerfile_dev(),
+            label="Dockerfile.dev (development)",
+            verbose=verbose,
+            force=force,
+            dry_run=dry_run,
+        ):
+            written += 1
+        if wctx.get("has_mlops") and _write_file(
+            out / "Dockerfile.mlops",
+            docker_gen.generate_dockerfile_mlops(),
+            label="Dockerfile.mlops (model-serving)",
+            verbose=verbose,
+            force=force,
+            dry_run=dry_run,
+        ):
+            written += 1
         click.echo()
 
     # -- Compose --
     if "compose" in artefacts:
         section("Docker Compose")
         compose_gen = ComposeGenerator(wctx)
-        if _write_file(out / "docker-compose.yml",
-                       compose_gen.generate_compose(include_monitoring=include_monitoring),
-                       label="docker-compose.yml", verbose=verbose,
-                       force=force, dry_run=dry_run):
+        if _write_file(
+            out / "docker-compose.yml",
+            compose_gen.generate_compose(include_monitoring=include_monitoring),
+            label="docker-compose.yml",
+            verbose=verbose,
+            force=force,
+            dry_run=dry_run,
+        ):
             written += 1
-        if include_dev:
-            if _write_file(out / "docker-compose.dev.yml",
-                           compose_gen.generate_compose_dev(),
-                           label="docker-compose.dev.yml (dev override)", verbose=verbose,
-                           force=force, dry_run=dry_run):
-                written += 1
+        if include_dev and _write_file(
+            out / "docker-compose.dev.yml",
+            compose_gen.generate_compose_dev(),
+            label="docker-compose.dev.yml (dev override)",
+            verbose=verbose,
+            force=force,
+            dry_run=dry_run,
+        ):
+            written += 1
         click.echo()
 
     # -- Kubernetes --
@@ -755,9 +829,9 @@ def _interactive_deploy(
         k8s_gen = KubernetesGenerator(wctx)
         manifests = k8s_gen.generate_all()
         for filename, content in manifests.items():
-            if _write_file(out / "k8s" / filename, content,
-                           label=f"k8s/{filename}", verbose=verbose,
-                           force=force, dry_run=dry_run):
+            if _write_file(
+                out / "k8s" / filename, content, label=f"k8s/{filename}", verbose=verbose, force=force, dry_run=dry_run
+            ):
                 written += 1
 
         kustomize_resources = "\n".join(f"  - {f}" for f in sorted(manifests.keys()))
@@ -771,10 +845,14 @@ def _interactive_deploy(
             f"      app.kubernetes.io/managed-by: aquilia-cli\n\n"
             f"resources:\n{kustomize_resources}\n"
         )
-        if _write_file(out / "k8s" / "kustomization.yaml",
-                       kustomize_content,
-                       label="k8s/kustomization.yaml", verbose=verbose,
-                       force=force, dry_run=dry_run):
+        if _write_file(
+            out / "k8s" / "kustomization.yaml",
+            kustomize_content,
+            label="k8s/kustomization.yaml",
+            verbose=verbose,
+            force=force,
+            dry_run=dry_run,
+        ):
             written += 1
         click.echo()
 
@@ -782,16 +860,25 @@ def _interactive_deploy(
     if "nginx" in artefacts:
         section("Nginx")
         nginx_gen = NginxGenerator(wctx)
-        if _write_file(out / "deploy" / "nginx" / "nginx.conf",
-                       nginx_gen.generate_nginx_conf(),
-                       label="deploy/nginx/nginx.conf", verbose=verbose,
-                       force=force, dry_run=dry_run):
+        if _write_file(
+            out / "deploy" / "nginx" / "nginx.conf",
+            nginx_gen.generate_nginx_conf(),
+            label="deploy/nginx/nginx.conf",
+            verbose=verbose,
+            force=force,
+            dry_run=dry_run,
+        ):
             written += 1
         if not dry_run:
             (out / "deploy" / "nginx" / "ssl").mkdir(parents=True, exist_ok=True)
-        if _write_file(out / "deploy" / "nginx" / "ssl" / ".gitkeep", "",
-                       label="deploy/nginx/ssl/.gitkeep", verbose=verbose,
-                       force=force, dry_run=dry_run):
+        if _write_file(
+            out / "deploy" / "nginx" / "ssl" / ".gitkeep",
+            "",
+            label="deploy/nginx/ssl/.gitkeep",
+            verbose=verbose,
+            force=force,
+            dry_run=dry_run,
+        ):
             written += 1
         click.echo()
 
@@ -799,39 +886,57 @@ def _interactive_deploy(
     if "ci" in artefacts:
         section("CI/CD")
         ci_gen = CIGenerator(wctx)
-        if ci_provider in ("github", "both"):
-            if _write_file(out / ".github" / "workflows" / "ci.yml",
-                           ci_gen.generate_github_actions(),
-                           label=".github/workflows/ci.yml", verbose=verbose,
-                           force=force, dry_run=dry_run):
-                written += 1
-        if ci_provider in ("gitlab", "both"):
-            if _write_file(out / ".gitlab-ci.yml",
-                           ci_gen.generate_gitlab_ci(),
-                           label=".gitlab-ci.yml", verbose=verbose,
-                           force=force, dry_run=dry_run):
-                written += 1
+        if ci_provider in ("github", "both") and _write_file(
+            out / ".github" / "workflows" / "ci.yml",
+            ci_gen.generate_github_actions(),
+            label=".github/workflows/ci.yml",
+            verbose=verbose,
+            force=force,
+            dry_run=dry_run,
+        ):
+            written += 1
+        if ci_provider in ("gitlab", "both") and _write_file(
+            out / ".gitlab-ci.yml",
+            ci_gen.generate_gitlab_ci(),
+            label=".gitlab-ci.yml",
+            verbose=verbose,
+            force=force,
+            dry_run=dry_run,
+        ):
+            written += 1
         click.echo()
 
     # -- Monitoring --
     if "monitoring" in artefacts:
         section("Monitoring")
         prom_gen = PrometheusGenerator(wctx)
-        if _write_file(out / "deploy" / "prometheus" / "prometheus.yml",
-                       prom_gen.generate_prometheus_yml(),
-                       label="deploy/prometheus/prometheus.yml", verbose=verbose,
-                       force=force, dry_run=dry_run):
+        if _write_file(
+            out / "deploy" / "prometheus" / "prometheus.yml",
+            prom_gen.generate_prometheus_yml(),
+            label="deploy/prometheus/prometheus.yml",
+            verbose=verbose,
+            force=force,
+            dry_run=dry_run,
+        ):
             written += 1
         graf_gen = GrafanaGenerator(wctx)
-        if _write_file(out / "deploy" / "grafana" / "provisioning" / "datasources" / "datasource.yml",
-                       graf_gen.generate_datasource(),
-                       label="deploy/grafana/.../datasource.yml", verbose=verbose,
-                       force=force, dry_run=dry_run):
+        if _write_file(
+            out / "deploy" / "grafana" / "provisioning" / "datasources" / "datasource.yml",
+            graf_gen.generate_datasource(),
+            label="deploy/grafana/.../datasource.yml",
+            verbose=verbose,
+            force=force,
+            dry_run=dry_run,
+        ):
             written += 1
-        if _write_file(out / "deploy" / "grafana" / "provisioning" / "dashboards" / "dashboards.yml",
-                       graf_gen.generate_dashboard_provisioning(),
-                       label="deploy/grafana/.../dashboards.yml", verbose=verbose,
-                       force=force, dry_run=dry_run):
+        if _write_file(
+            out / "deploy" / "grafana" / "provisioning" / "dashboards" / "dashboards.yml",
+            graf_gen.generate_dashboard_provisioning(),
+            label="deploy/grafana/.../dashboards.yml",
+            verbose=verbose,
+            force=force,
+            dry_run=dry_run,
+        ):
             written += 1
         click.echo()
 
@@ -839,9 +944,14 @@ def _interactive_deploy(
     if "env" in artefacts:
         section("Environment")
         env_gen = EnvGenerator(wctx)
-        if _write_file(out / ".env.example", env_gen.generate_env_example(),
-                       label=".env.example", verbose=verbose,
-                       force=force, dry_run=dry_run):
+        if _write_file(
+            out / ".env.example",
+            env_gen.generate_env_example(),
+            label=".env.example",
+            verbose=verbose,
+            force=force,
+            dry_run=dry_run,
+        ):
             written += 1
         click.echo()
 
@@ -849,9 +959,14 @@ def _interactive_deploy(
     if "makefile" in artefacts:
         section("Makefile")
         mk_gen = MakefileGenerator(wctx)
-        if _write_file(out / "Makefile", mk_gen.generate_makefile(),
-                       label="Makefile", verbose=verbose,
-                       force=force, dry_run=dry_run):
+        if _write_file(
+            out / "Makefile",
+            mk_gen.generate_makefile(),
+            label="Makefile",
+            verbose=verbose,
+            force=force,
+            dry_run=dry_run,
+        ):
             written += 1
         click.echo()
 
@@ -906,7 +1021,7 @@ def _interactive_deploy(
             if k8s_result is True:
                 exec_ok += 1
             elif k8s_result is None:
-                exec_skip += 1   # no cluster -- not a failure
+                exec_skip += 1  # no cluster -- not a failure
             else:
                 exec_fail += 1
             click.echo()
@@ -980,6 +1095,7 @@ def _interactive_deploy(
 # aq deploy dockerfile
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 @deploy_gen_group.command("dockerfile")
 @click.option("--dev", "dev_mode", is_flag=True, help="Generate development Dockerfile (with hot-reload)")
 @click.option("--mlops", "mlops_mode", is_flag=True, help="Generate MLOps model-serving Dockerfile")
@@ -1018,39 +1134,66 @@ def deploy_dockerfile(ctx, dev_mode: bool, mlops_mode: bool, output: str, force:
         action = "DRY RUN" if dry_run else "Generating"
         section(f"{action}: Dockerfiles for '{wctx['name']}'")
 
-        kv("Modules", str(wctx.get('module_count', 0)))
-        kv("DB driver", wctx.get('db_driver', 'none'))
-        kv("Python", wctx.get('python_version', '3.12'))
+        kv("Modules", str(wctx.get("module_count", 0)))
+        kv("DB driver", wctx.get("db_driver", "none"))
+        kv("Python", wctx.get("python_version", "3.12"))
         click.echo()
 
         # Always generate production Dockerfile + .dockerignore
         if not dev_mode or mlops_mode:
-            _write_file(out / "Dockerfile", gen.generate_dockerfile(),
-                        label="Dockerfile (production)", verbose=verbose,
-                        force=force, dry_run=dry_run)
-            _write_file(out / ".dockerignore", gen.generate_dockerignore(),
-                        label=".dockerignore", verbose=verbose,
-                        force=force, dry_run=dry_run)
+            _write_file(
+                out / "Dockerfile",
+                gen.generate_dockerfile(),
+                label="Dockerfile (production)",
+                verbose=verbose,
+                force=force,
+                dry_run=dry_run,
+            )
+            _write_file(
+                out / ".dockerignore",
+                gen.generate_dockerignore(),
+                label=".dockerignore",
+                verbose=verbose,
+                force=force,
+                dry_run=dry_run,
+            )
 
         if dev_mode:
-            _write_file(out / "Dockerfile.dev", gen.generate_dockerfile_dev(),
-                        label="Dockerfile.dev (development)", verbose=verbose,
-                        force=force, dry_run=dry_run)
+            _write_file(
+                out / "Dockerfile.dev",
+                gen.generate_dockerfile_dev(),
+                label="Dockerfile.dev (development)",
+                verbose=verbose,
+                force=force,
+                dry_run=dry_run,
+            )
             if not mlops_mode:
-                _write_file(out / ".dockerignore", gen.generate_dockerignore(),
-                            label=".dockerignore", verbose=verbose,
-                            force=force, dry_run=dry_run)
+                _write_file(
+                    out / ".dockerignore",
+                    gen.generate_dockerignore(),
+                    label=".dockerignore",
+                    verbose=verbose,
+                    force=force,
+                    dry_run=dry_run,
+                )
 
         if mlops_mode or wctx.get("has_mlops"):
-            _write_file(out / "Dockerfile.mlops", gen.generate_dockerfile_mlops(),
-                        label="Dockerfile.mlops (model-serving)", verbose=verbose,
-                        force=force, dry_run=dry_run)
+            _write_file(
+                out / "Dockerfile.mlops",
+                gen.generate_dockerfile_mlops(),
+                label="Dockerfile.mlops (model-serving)",
+                verbose=verbose,
+                force=force,
+                dry_run=dry_run,
+            )
 
         click.echo()
-        next_steps([
-            "docker build -t myapp .",
-            "docker run -p 8000:8000 myapp",
-        ])
+        next_steps(
+            [
+                "docker build -t myapp .",
+                "docker run -p 8000:8000 myapp",
+            ]
+        )
 
     except Exception as e:
         error(f"  {_CROSS} Dockerfile generation failed: {e}")
@@ -1060,6 +1203,7 @@ def deploy_dockerfile(ctx, dev_mode: bool, mlops_mode: bool, output: str, force:
 # ═══════════════════════════════════════════════════════════════════════════
 # aq deploy compose
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 @deploy_gen_group.command("compose")
 @click.option("--dev", "dev_mode", is_flag=True, help="Also generate docker-compose.dev.yml")
@@ -1098,24 +1242,34 @@ def deploy_compose(ctx, dev_mode: bool, monitoring: bool, output: str, force: bo
         action = "DRY RUN" if dry_run else "Generating"
         section(f"{action}: Docker Compose for '{wctx['name']}'")
 
-        _write_file(out / "docker-compose.yml",
-                     gen.generate_compose(include_monitoring=monitoring),
-                     label="docker-compose.yml", verbose=verbose,
-                     force=force, dry_run=dry_run)
+        _write_file(
+            out / "docker-compose.yml",
+            gen.generate_compose(include_monitoring=monitoring),
+            label="docker-compose.yml",
+            verbose=verbose,
+            force=force,
+            dry_run=dry_run,
+        )
 
         if dev_mode:
-            _write_file(out / "docker-compose.dev.yml",
-                         gen.generate_compose_dev(),
-                         label="docker-compose.dev.yml", verbose=verbose,
-                         force=force, dry_run=dry_run)
+            _write_file(
+                out / "docker-compose.dev.yml",
+                gen.generate_compose_dev(),
+                label="docker-compose.dev.yml",
+                verbose=verbose,
+                force=force,
+                dry_run=dry_run,
+            )
 
         click.echo()
-        next_steps([
-            "docker compose up -d",
-            "docker compose --profile proxy up -d        # Include Nginx",
-            "docker compose --profile monitoring up -d   # Include Prometheus + Grafana",
-            "docker compose logs -f app",
-        ])
+        next_steps(
+            [
+                "docker compose up -d",
+                "docker compose --profile proxy up -d        # Include Nginx",
+                "docker compose --profile monitoring up -d   # Include Prometheus + Grafana",
+                "docker compose logs -f app",
+            ]
+        )
 
     except Exception as e:
         error(f"  {_CROSS} Compose generation failed: {e}")
@@ -1125,6 +1279,7 @@ def deploy_compose(ctx, dev_mode: bool, monitoring: bool, output: str, force: bo
 # ═══════════════════════════════════════════════════════════════════════════
 # aq deploy kubernetes
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 @deploy_gen_group.command("kubernetes")
 @click.option("--output", "-o", type=click.Path(), default="k8s", help="Output directory")
@@ -1167,9 +1322,7 @@ def deploy_kubernetes(ctx, output: str, mlops: bool, force: bool, dry_run: bool)
 
         manifests = gen.generate_all()
         for filename, content in manifests.items():
-            _write_file(out / filename, content,
-                         label=filename, verbose=verbose,
-                         force=force, dry_run=dry_run)
+            _write_file(out / filename, content, label=filename, verbose=verbose, force=force, dry_run=dry_run)
 
         # Generate kustomization.yaml
         kustomize_resources = "\n".join(f"  - {f}" for f in sorted(manifests.keys()))
@@ -1185,17 +1338,24 @@ def deploy_kubernetes(ctx, output: str, mlops: bool, force: bool, dry_run: bool)
             f"      app.kubernetes.io/managed-by: aquilia-cli\n\n"
             f"resources:\n{kustomize_resources}\n"
         )
-        _write_file(out / "kustomization.yaml", kustomize_content,
-                     label="kustomization.yaml", verbose=verbose,
-                     force=force, dry_run=dry_run)
+        _write_file(
+            out / "kustomization.yaml",
+            kustomize_content,
+            label="kustomization.yaml",
+            verbose=verbose,
+            force=force,
+            dry_run=dry_run,
+        )
 
         click.echo()
         kv("Manifests", str(len(manifests)))
         click.echo()
-        next_steps([
-            f"kubectl apply -k {output}/",
-            f"kustomize build {output}/ | kubectl apply -f -",
-        ])
+        next_steps(
+            [
+                f"kubectl apply -k {output}/",
+                f"kustomize build {output}/ | kubectl apply -f -",
+            ]
+        )
 
     except Exception as e:
         error(f"  {_CROSS} Kubernetes generation failed: {e}")
@@ -1205,6 +1365,7 @@ def deploy_kubernetes(ctx, output: str, mlops: bool, force: bool, dry_run: bool)
 # ═══════════════════════════════════════════════════════════════════════════
 # aq deploy nginx
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 @deploy_gen_group.command("nginx")
 @click.option("--output", "-o", type=click.Path(), default="deploy/nginx", help="Output directory")
@@ -1239,23 +1400,35 @@ def deploy_nginx(ctx, output: str, force: bool, dry_run: bool):
         action = "DRY RUN" if dry_run else "Generating"
         section(f"{action}: Nginx config for '{wctx['name']}'")
 
-        _write_file(out / "nginx.conf", gen.generate_nginx_conf(),
-                     label="nginx.conf", verbose=verbose,
-                     force=force, dry_run=dry_run)
+        _write_file(
+            out / "nginx.conf",
+            gen.generate_nginx_conf(),
+            label="nginx.conf",
+            verbose=verbose,
+            force=force,
+            dry_run=dry_run,
+        )
 
         # Create ssl directory placeholder
         if not dry_run:
             ssl_dir = out / "ssl"
             ssl_dir.mkdir(parents=True, exist_ok=True)
-            _write_file(ssl_dir / ".gitkeep", "",
-                         label="ssl/.gitkeep (placeholder)", verbose=verbose,
-                         force=force, dry_run=dry_run)
+            _write_file(
+                ssl_dir / ".gitkeep",
+                "",
+                label="ssl/.gitkeep (placeholder)",
+                verbose=verbose,
+                force=force,
+                dry_run=dry_run,
+            )
 
         click.echo()
-        next_steps([
-            "Place TLS certificates in deploy/nginx/ssl/",
-            "Uncomment HTTPS block in nginx.conf",
-        ])
+        next_steps(
+            [
+                "Place TLS certificates in deploy/nginx/ssl/",
+                "Uncomment HTTPS block in nginx.conf",
+            ]
+        )
 
     except Exception as e:
         error(f"  {_CROSS} Nginx generation failed: {e}")
@@ -1266,13 +1439,13 @@ def deploy_nginx(ctx, output: str, force: bool, dry_run: bool):
 # aq deploy ci
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 @deploy_gen_group.command("ci")
-@click.option("--provider", type=click.Choice(["github", "gitlab"]), default="github",
-              help="CI provider")
+@click.option("--provider", type=click.Choice(["github", "gitlab"]), default="github", help="CI provider")
 @click.option("--output", "-o", type=click.Path(), default=None, help="Output directory")
 @deploy_options
 @click.pass_context
-def deploy_ci(ctx, provider: str, output: Optional[str], force: bool, dry_run: bool):
+def deploy_ci(ctx, provider: str, output: str | None, force: bool, dry_run: bool):
     """
     Generate CI/CD pipeline configuration.
 
@@ -1307,21 +1480,33 @@ def deploy_ci(ctx, provider: str, output: Optional[str], force: bool, dry_run: b
 
         if provider == "github":
             out_dir = Path(output) if output else workspace_root / ".github" / "workflows"
-            _write_file(out_dir / "ci.yml", gen.generate_github_actions(),
-                         label=".github/workflows/ci.yml", verbose=verbose,
-                         force=force, dry_run=dry_run)
+            _write_file(
+                out_dir / "ci.yml",
+                gen.generate_github_actions(),
+                label=".github/workflows/ci.yml",
+                verbose=verbose,
+                force=force,
+                dry_run=dry_run,
+            )
         elif provider == "gitlab":
             out_dir = Path(output) if output else workspace_root
-            _write_file(out_dir / ".gitlab-ci.yml", gen.generate_gitlab_ci(),
-                         label=".gitlab-ci.yml", verbose=verbose,
-                         force=force, dry_run=dry_run)
+            _write_file(
+                out_dir / ".gitlab-ci.yml",
+                gen.generate_gitlab_ci(),
+                label=".gitlab-ci.yml",
+                verbose=verbose,
+                force=force,
+                dry_run=dry_run,
+            )
 
         click.echo()
-        next_steps([
-            "Review the generated workflow",
-            "Configure secrets in repository settings",
-            "Push to trigger CI",
-        ])
+        next_steps(
+            [
+                "Review the generated workflow",
+                "Configure secrets in repository settings",
+                "Push to trigger CI",
+            ]
+        )
 
     except Exception as e:
         error(f"  {_CROSS} CI generation failed: {e}")
@@ -1331,6 +1516,7 @@ def deploy_ci(ctx, provider: str, output: Optional[str], force: bool, dry_run: b
 # ═══════════════════════════════════════════════════════════════════════════
 # aq deploy monitoring
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 @deploy_gen_group.command("monitoring")
 @click.option("--output", "-o", type=click.Path(), default="deploy", help="Output base directory")
@@ -1351,7 +1537,7 @@ def deploy_monitoring(ctx, output: str, force: bool, dry_run: bool):
       aq deploy monitoring -o infra/
       aq deploy monitoring --force
     """
-    from ..generators.deployment import PrometheusGenerator, GrafanaGenerator
+    from ..generators.deployment import GrafanaGenerator, PrometheusGenerator
 
     workspace_root = Path.cwd()
     out = Path(output)
@@ -1368,27 +1554,41 @@ def deploy_monitoring(ctx, output: str, force: bool, dry_run: bool):
         section(f"{action}: Monitoring for '{wctx['name']}'")
 
         prom_gen = PrometheusGenerator(wctx)
-        _write_file(out / "prometheus" / "prometheus.yml",
-                     prom_gen.generate_prometheus_yml(),
-                     label="prometheus/prometheus.yml", verbose=verbose,
-                     force=force, dry_run=dry_run)
+        _write_file(
+            out / "prometheus" / "prometheus.yml",
+            prom_gen.generate_prometheus_yml(),
+            label="prometheus/prometheus.yml",
+            verbose=verbose,
+            force=force,
+            dry_run=dry_run,
+        )
 
         graf_gen = GrafanaGenerator(wctx)
-        _write_file(out / "grafana" / "provisioning" / "datasources" / "datasource.yml",
-                     graf_gen.generate_datasource(),
-                     label="grafana/provisioning/datasources/datasource.yml", verbose=verbose,
-                     force=force, dry_run=dry_run)
-        _write_file(out / "grafana" / "provisioning" / "dashboards" / "dashboards.yml",
-                     graf_gen.generate_dashboard_provisioning(),
-                     label="grafana/provisioning/dashboards/dashboards.yml", verbose=verbose,
-                     force=force, dry_run=dry_run)
+        _write_file(
+            out / "grafana" / "provisioning" / "datasources" / "datasource.yml",
+            graf_gen.generate_datasource(),
+            label="grafana/provisioning/datasources/datasource.yml",
+            verbose=verbose,
+            force=force,
+            dry_run=dry_run,
+        )
+        _write_file(
+            out / "grafana" / "provisioning" / "dashboards" / "dashboards.yml",
+            graf_gen.generate_dashboard_provisioning(),
+            label="grafana/provisioning/dashboards/dashboards.yml",
+            verbose=verbose,
+            force=force,
+            dry_run=dry_run,
+        )
 
         click.echo()
-        next_steps([
-            "aq deploy compose --monitoring",
-            "docker compose up -d prometheus grafana",
-            "Open Grafana at http://localhost:3000 (admin/admin)",
-        ])
+        next_steps(
+            [
+                "aq deploy compose --monitoring",
+                "docker compose up -d prometheus grafana",
+                "Open Grafana at http://localhost:3000 (admin/admin)",
+            ]
+        )
 
     except Exception as e:
         error(f"  {_CROSS} Monitoring generation failed: {e}")
@@ -1398,6 +1598,7 @@ def deploy_monitoring(ctx, output: str, force: bool, dry_run: bool):
 # ═══════════════════════════════════════════════════════════════════════════
 # aq deploy env
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 @deploy_gen_group.command("env")
 @click.option("--output", "-o", type=click.Path(), default=".", help="Output directory")
@@ -1433,17 +1634,24 @@ def deploy_env(ctx, output: str, force: bool, dry_run: bool):
         action = "DRY RUN" if dry_run else "Generating"
         section(f"{action}: .env.example for '{wctx['name']}'")
 
-        _write_file(out / ".env.example", gen.generate_env_example(),
-                     label=".env.example", verbose=verbose,
-                     force=force, dry_run=dry_run)
+        _write_file(
+            out / ".env.example",
+            gen.generate_env_example(),
+            label=".env.example",
+            verbose=verbose,
+            force=force,
+            dry_run=dry_run,
+        )
 
         click.echo()
-        kv("DB driver", wctx.get('db_driver', 'sqlite'))
+        kv("DB driver", wctx.get("db_driver", "sqlite"))
         click.echo()
-        next_steps([
-            "cp .env.example .env",
-            "Fill in real secrets -- never commit .env",
-        ])
+        next_steps(
+            [
+                "cp .env.example .env",
+                "Fill in real secrets -- never commit .env",
+            ]
+        )
 
     except Exception as e:
         error(f"  {_CROSS} Env generation failed: {e}")
@@ -1454,11 +1662,11 @@ def deploy_env(ctx, output: str, force: bool, dry_run: bool):
 # aq deploy all
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 @deploy_gen_group.command("all")
 @click.option("--output", "-o", type=click.Path(), default=".", help="Output base directory")
 @click.option("--monitoring", is_flag=True, default=True, help="Include monitoring (default: yes)")
-@click.option("--ci-provider", type=click.Choice(["github", "gitlab", "both"]),
-              default="github", help="CI/CD provider")
+@click.option("--ci-provider", type=click.Choice(["github", "gitlab", "both"]), default="github", help="CI/CD provider")
 @deploy_options
 @click.pass_context
 def deploy_all(ctx, output: str, monitoring: bool, ci_provider: str, force: bool, dry_run: bool):
@@ -1475,15 +1683,15 @@ def deploy_all(ctx, output: str, monitoring: bool, ci_provider: str, force: bool
       aq deploy all --ci-provider=both --force
     """
     from ..generators.deployment import (
-        DockerfileGenerator,
-        ComposeGenerator,
-        KubernetesGenerator,
-        NginxGenerator,
         CIGenerator,
-        PrometheusGenerator,
-        GrafanaGenerator,
+        ComposeGenerator,
+        DockerfileGenerator,
         EnvGenerator,
+        GrafanaGenerator,
+        KubernetesGenerator,
         MakefileGenerator,
+        NginxGenerator,
+        PrometheusGenerator,
     )
 
     workspace_root = Path.cwd()
@@ -1506,37 +1714,64 @@ def deploy_all(ctx, output: str, monitoring: bool, ci_provider: str, force: bool
         # -- Dockerfiles --
         section("Docker")
         docker_gen = DockerfileGenerator(wctx)
-        if _write_file(out / "Dockerfile", docker_gen.generate_dockerfile(),
-                       label="Dockerfile", verbose=verbose,
-                       force=force, dry_run=dry_run):
+        if _write_file(
+            out / "Dockerfile",
+            docker_gen.generate_dockerfile(),
+            label="Dockerfile",
+            verbose=verbose,
+            force=force,
+            dry_run=dry_run,
+        ):
             written += 1
-        if _write_file(out / "Dockerfile.dev", docker_gen.generate_dockerfile_dev(),
-                       label="Dockerfile.dev", verbose=verbose,
-                       force=force, dry_run=dry_run):
+        if _write_file(
+            out / "Dockerfile.dev",
+            docker_gen.generate_dockerfile_dev(),
+            label="Dockerfile.dev",
+            verbose=verbose,
+            force=force,
+            dry_run=dry_run,
+        ):
             written += 1
-        if _write_file(out / ".dockerignore", docker_gen.generate_dockerignore(),
-                       label=".dockerignore", verbose=verbose,
-                       force=force, dry_run=dry_run):
+        if _write_file(
+            out / ".dockerignore",
+            docker_gen.generate_dockerignore(),
+            label=".dockerignore",
+            verbose=verbose,
+            force=force,
+            dry_run=dry_run,
+        ):
             written += 1
-        if wctx.get("has_mlops"):
-            if _write_file(out / "Dockerfile.mlops", docker_gen.generate_dockerfile_mlops(),
-                           label="Dockerfile.mlops", verbose=verbose,
-                           force=force, dry_run=dry_run):
-                written += 1
+        if wctx.get("has_mlops") and _write_file(
+            out / "Dockerfile.mlops",
+            docker_gen.generate_dockerfile_mlops(),
+            label="Dockerfile.mlops",
+            verbose=verbose,
+            force=force,
+            dry_run=dry_run,
+        ):
+            written += 1
 
         # -- Compose --
         click.echo()
         section("Docker Compose")
         compose_gen = ComposeGenerator(wctx)
-        if _write_file(out / "docker-compose.yml",
-                       compose_gen.generate_compose(include_monitoring=monitoring),
-                       label="docker-compose.yml", verbose=verbose,
-                       force=force, dry_run=dry_run):
+        if _write_file(
+            out / "docker-compose.yml",
+            compose_gen.generate_compose(include_monitoring=monitoring),
+            label="docker-compose.yml",
+            verbose=verbose,
+            force=force,
+            dry_run=dry_run,
+        ):
             written += 1
-        if _write_file(out / "docker-compose.dev.yml",
-                       compose_gen.generate_compose_dev(),
-                       label="docker-compose.dev.yml", verbose=verbose,
-                       force=force, dry_run=dry_run):
+        if _write_file(
+            out / "docker-compose.dev.yml",
+            compose_gen.generate_compose_dev(),
+            label="docker-compose.dev.yml",
+            verbose=verbose,
+            force=force,
+            dry_run=dry_run,
+        ):
             written += 1
 
         # -- Kubernetes --
@@ -1545,9 +1780,9 @@ def deploy_all(ctx, output: str, monitoring: bool, ci_provider: str, force: bool
         k8s_gen = KubernetesGenerator(wctx)
         manifests = k8s_gen.generate_all()
         for filename, content in manifests.items():
-            if _write_file(out / "k8s" / filename, content,
-                           label=f"k8s/{filename}", verbose=verbose,
-                           force=force, dry_run=dry_run):
+            if _write_file(
+                out / "k8s" / filename, content, label=f"k8s/{filename}", verbose=verbose, force=force, dry_run=dry_run
+            ):
                 written += 1
 
         kustomize_resources = "\n".join(f"  - {f}" for f in sorted(manifests.keys()))
@@ -1561,83 +1796,124 @@ def deploy_all(ctx, output: str, monitoring: bool, ci_provider: str, force: bool
             f"      app.kubernetes.io/managed-by: aquilia-cli\n\n"
             f"resources:\n{kustomize_resources}\n"
         )
-        if _write_file(out / "k8s" / "kustomization.yaml",
-                       kustomize_content,
-                       label="k8s/kustomization.yaml", verbose=verbose,
-                       force=force, dry_run=dry_run):
+        if _write_file(
+            out / "k8s" / "kustomization.yaml",
+            kustomize_content,
+            label="k8s/kustomization.yaml",
+            verbose=verbose,
+            force=force,
+            dry_run=dry_run,
+        ):
             written += 1
 
         # -- Nginx --
         click.echo()
         section("Nginx")
         nginx_gen = NginxGenerator(wctx)
-        if _write_file(out / "deploy" / "nginx" / "nginx.conf",
-                       nginx_gen.generate_nginx_conf(),
-                       label="deploy/nginx/nginx.conf", verbose=verbose,
-                       force=force, dry_run=dry_run):
+        if _write_file(
+            out / "deploy" / "nginx" / "nginx.conf",
+            nginx_gen.generate_nginx_conf(),
+            label="deploy/nginx/nginx.conf",
+            verbose=verbose,
+            force=force,
+            dry_run=dry_run,
+        ):
             written += 1
         if not dry_run:
             (out / "deploy" / "nginx" / "ssl").mkdir(parents=True, exist_ok=True)
-        if _write_file(out / "deploy" / "nginx" / "ssl" / ".gitkeep", "",
-                       label="deploy/nginx/ssl/.gitkeep", verbose=verbose,
-                       force=force, dry_run=dry_run):
+        if _write_file(
+            out / "deploy" / "nginx" / "ssl" / ".gitkeep",
+            "",
+            label="deploy/nginx/ssl/.gitkeep",
+            verbose=verbose,
+            force=force,
+            dry_run=dry_run,
+        ):
             written += 1
 
         # -- CI/CD --
         click.echo()
         section("CI/CD")
         ci_gen = CIGenerator(wctx)
-        if ci_provider in ("github", "both"):
-            if _write_file(out / ".github" / "workflows" / "ci.yml",
-                           ci_gen.generate_github_actions(),
-                           label=".github/workflows/ci.yml", verbose=verbose,
-                           force=force, dry_run=dry_run):
-                written += 1
-        if ci_provider in ("gitlab", "both"):
-            if _write_file(out / ".gitlab-ci.yml",
-                           ci_gen.generate_gitlab_ci(),
-                           label=".gitlab-ci.yml", verbose=verbose,
-                           force=force, dry_run=dry_run):
-                written += 1
+        if ci_provider in ("github", "both") and _write_file(
+            out / ".github" / "workflows" / "ci.yml",
+            ci_gen.generate_github_actions(),
+            label=".github/workflows/ci.yml",
+            verbose=verbose,
+            force=force,
+            dry_run=dry_run,
+        ):
+            written += 1
+        if ci_provider in ("gitlab", "both") and _write_file(
+            out / ".gitlab-ci.yml",
+            ci_gen.generate_gitlab_ci(),
+            label=".gitlab-ci.yml",
+            verbose=verbose,
+            force=force,
+            dry_run=dry_run,
+        ):
+            written += 1
 
         # -- Monitoring --
         if monitoring:
             click.echo()
             section("Monitoring")
             prom_gen = PrometheusGenerator(wctx)
-            if _write_file(out / "deploy" / "prometheus" / "prometheus.yml",
-                           prom_gen.generate_prometheus_yml(),
-                           label="deploy/prometheus/prometheus.yml", verbose=verbose,
-                           force=force, dry_run=dry_run):
+            if _write_file(
+                out / "deploy" / "prometheus" / "prometheus.yml",
+                prom_gen.generate_prometheus_yml(),
+                label="deploy/prometheus/prometheus.yml",
+                verbose=verbose,
+                force=force,
+                dry_run=dry_run,
+            ):
                 written += 1
             graf_gen = GrafanaGenerator(wctx)
-            if _write_file(out / "deploy" / "grafana" / "provisioning" / "datasources" / "datasource.yml",
-                           graf_gen.generate_datasource(),
-                           label="deploy/grafana/provisioning/datasources/datasource.yml",
-                           verbose=verbose, force=force, dry_run=dry_run):
+            if _write_file(
+                out / "deploy" / "grafana" / "provisioning" / "datasources" / "datasource.yml",
+                graf_gen.generate_datasource(),
+                label="deploy/grafana/provisioning/datasources/datasource.yml",
+                verbose=verbose,
+                force=force,
+                dry_run=dry_run,
+            ):
                 written += 1
-            if _write_file(out / "deploy" / "grafana" / "provisioning" / "dashboards" / "dashboards.yml",
-                           graf_gen.generate_dashboard_provisioning(),
-                           label="deploy/grafana/provisioning/dashboards/dashboards.yml",
-                           verbose=verbose, force=force, dry_run=dry_run):
+            if _write_file(
+                out / "deploy" / "grafana" / "provisioning" / "dashboards" / "dashboards.yml",
+                graf_gen.generate_dashboard_provisioning(),
+                label="deploy/grafana/provisioning/dashboards/dashboards.yml",
+                verbose=verbose,
+                force=force,
+                dry_run=dry_run,
+            ):
                 written += 1
 
         # -- Env --
         click.echo()
         section("Environment")
         env_gen = EnvGenerator(wctx)
-        if _write_file(out / ".env.example", env_gen.generate_env_example(),
-                       label=".env.example", verbose=verbose,
-                       force=force, dry_run=dry_run):
+        if _write_file(
+            out / ".env.example",
+            env_gen.generate_env_example(),
+            label=".env.example",
+            verbose=verbose,
+            force=force,
+            dry_run=dry_run,
+        ):
             written += 1
 
         # -- Makefile --
         click.echo()
         section("Makefile")
         mk_gen = MakefileGenerator(wctx)
-        if _write_file(out / "Makefile", mk_gen.generate_makefile(),
-                       label="Makefile", verbose=verbose,
-                       force=force, dry_run=dry_run):
+        if _write_file(
+            out / "Makefile",
+            mk_gen.generate_makefile(),
+            label="Makefile",
+            verbose=verbose,
+            force=force,
+            dry_run=dry_run,
+        ):
             written += 1
 
         # -- Summary --
@@ -1650,40 +1926,42 @@ def deploy_all(ctx, output: str, monitoring: bool, ci_provider: str, force: bool
             success(f"  {_CHECK} {written} file(s) generated for '{name}'")
         click.echo()
 
-        next_steps([
-            "cp .env.example .env && edit .env",
-            "make docker-up                (Docker Compose)",
-            "make k8s-apply                (Kubernetes)",
-            "make help                     (see all targets)",
-        ])
+        next_steps(
+            [
+                "cp .env.example .env && edit .env",
+                "make docker-up                (Docker Compose)",
+                "make k8s-apply                (Kubernetes)",
+                "make help                     (see all targets)",
+            ]
+        )
 
         click.echo()
         section("Generated structure")
 
         # Build structure listing
         structure = [
-            ("Dockerfile",             "Production (multi-stage, BuildKit)"),
-            ("Dockerfile.dev",         "Development (hot-reload)"),
-            (".dockerignore",          "Build context exclusions"),
+            ("Dockerfile", "Production (multi-stage, BuildKit)"),
+            ("Dockerfile.dev", "Development (hot-reload)"),
+            (".dockerignore", "Build context exclusions"),
         ]
         if wctx.get("has_mlops"):
             structure.append(("Dockerfile.mlops", "MLOps model server"))
         structure += [
-            ("docker-compose.yml",     "Full service stack (profiles)"),
+            ("docker-compose.yml", "Full service stack (profiles)"),
             ("docker-compose.dev.yml", "Dev override"),
-            (f"k8s/",                  f"Kubernetes manifests ({len(manifests)} files)"),
-            ("deploy/nginx/",          "Nginx reverse-proxy (TLS-ready)"),
+            ("k8s/", f"Kubernetes manifests ({len(manifests)} files)"),
+            ("deploy/nginx/", "Nginx reverse-proxy (TLS-ready)"),
         ]
         if monitoring:
             structure.append(("deploy/prometheus/", "Prometheus config"))
-            structure.append(("deploy/grafana/",    "Grafana provisioning"))
+            structure.append(("deploy/grafana/", "Grafana provisioning"))
         if ci_provider in ("github", "both"):
             structure.append((".github/workflows/", "GitHub Actions pipeline"))
         if ci_provider in ("gitlab", "both"):
-            structure.append((".gitlab-ci.yml",     "GitLab CI/CD pipeline"))
+            structure.append((".gitlab-ci.yml", "GitLab CI/CD pipeline"))
         structure += [
-            (".env.example",           "Environment template"),
-            ("Makefile",               "Dev/deploy task runner"),
+            (".env.example", "Environment template"),
+            ("Makefile", "Dev/deploy task runner"),
         ]
 
         table(
@@ -1700,6 +1978,7 @@ def deploy_all(ctx, output: str, monitoring: bool, ci_provider: str, force: bool
 # ═══════════════════════════════════════════════════════════════════════════
 # aq deploy makefile
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 @deploy_gen_group.command("makefile")
 @click.option("--output", "-o", type=click.Path(), default=".", help="Output directory")
@@ -1733,16 +2012,18 @@ def deploy_makefile(ctx, output: str, force: bool, dry_run: bool):
         section(f"{action}: Makefile for '{wctx['name']}'")
 
         gen = MakefileGenerator(wctx)
-        _write_file(out / "Makefile", gen.generate_makefile(),
-                     label="Makefile", verbose=verbose,
-                     force=force, dry_run=dry_run)
+        _write_file(
+            out / "Makefile", gen.generate_makefile(), label="Makefile", verbose=verbose, force=force, dry_run=dry_run
+        )
 
         click.echo()
-        next_steps([
-            "make help          # see all available targets",
-            "make dev           # start dev server",
-            "make docker-up     # bring up compose stack",
-        ])
+        next_steps(
+            [
+                "make help          # see all available targets",
+                "make dev           # start dev server",
+                "make docker-up     # bring up compose stack",
+            ]
+        )
 
     except Exception as e:
         error(f"  {_CROSS} Makefile generation failed: {e}")
@@ -1753,30 +2034,41 @@ def deploy_makefile(ctx, output: str, force: bool, dry_run: bool):
 # aq deploy render — One-command PaaS deployment
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 @deploy_gen_group.command("render")
-@click.option("--image", "-i", type=str, default=None,
-              help="Docker image to deploy (e.g. registry/myapp:latest)")
-@click.option("--region", "-r", type=str, default=None,
-              help="Deployment region (oregon, frankfurt, ohio, virginia, singapore)")
-@click.option("--plan", type=click.Choice([
-    "free", "starter", "standard", "pro", "pro_plus", "pro_max", "pro_ultra",
-]), default=None, help="Render plan")
-@click.option("--num-instances", type=int, default=None,
-              help="Number of instances")
-@click.option("--service-name", type=str, default=None,
-              help="Render service name (default: workspace name)")
+@click.option("--image", "-i", type=str, default=None, help="Docker image to deploy (e.g. registry/myapp:latest)")
+@click.option(
+    "--region", "-r", type=str, default=None, help="Deployment region (oregon, frankfurt, ohio, virginia, singapore)"
+)
+@click.option(
+    "--plan",
+    type=click.Choice(
+        [
+            "free",
+            "starter",
+            "standard",
+            "pro",
+            "pro_plus",
+            "pro_max",
+            "pro_ultra",
+        ]
+    ),
+    default=None,
+    help="Render plan",
+)
+@click.option("--num-instances", type=int, default=None, help="Number of instances")
+@click.option("--service-name", type=str, default=None, help="Render service name (default: workspace name)")
 @click.option("--destroy", is_flag=True, help="Destroy the deployed service")
-@click.option("--status", "show_status", is_flag=True,
-              help="Show deployment status")
+@click.option("--status", "show_status", is_flag=True, help="Show deployment status")
 @deploy_options
 @click.pass_context
 def deploy_render(
     ctx,
-    image: Optional[str],
-    region: Optional[str],
-    plan: Optional[str],
-    num_instances: Optional[int],
-    service_name: Optional[str],
+    image: str | None,
+    region: str | None,
+    plan: str | None,
+    num_instances: int | None,
+    service_name: str | None,
     destroy: bool,
     show_status: bool,
     force: bool,
@@ -1800,13 +2092,12 @@ def deploy_render(
       aq deploy render --destroy                       # Tear down service
       aq deploy render --dry-run                       # Preview without deploying
     """
-    from aquilia.providers.render.store import RenderCredentialStore
-    from aquilia.providers.render.client import RenderClient, RenderAPIError
+    from aquilia.providers.render.client import RenderClient
     from aquilia.providers.render.deployer import RenderDeployer
+    from aquilia.providers.render.store import RenderCredentialStore
     from aquilia.providers.render.types import (
         RenderDeployConfig,
         RenderPlan,
-        RenderAutoscaling,
     )
 
     workspace_root = Path.cwd()
@@ -1876,14 +2167,19 @@ def deploy_render(
     if not region:
         stored_region = store.get_default_region()
         if interactive:
-            region = select("Deployment region", [
-                ("oregon", "Oregon (US West)"),
-                ("frankfurt", "Frankfurt (EU)"),
-                ("ohio", "Ohio (US East)"),
-                ("virginia", "Virginia (US East)"),
-                ("singapore", "Singapore (Asia)"),
-            ], default=["oregon", "frankfurt", "ohio", "virginia", "singapore"].index(stored_region)
-               if stored_region in ["oregon", "frankfurt", "ohio", "virginia", "singapore"] else 0)
+            region = select(
+                "Deployment region",
+                [
+                    ("oregon", "Oregon (US West)"),
+                    ("frankfurt", "Frankfurt (EU)"),
+                    ("ohio", "Ohio (US East)"),
+                    ("virginia", "Virginia (US East)"),
+                    ("singapore", "Singapore (Asia)"),
+                ],
+                default=["oregon", "frankfurt", "ohio", "virginia", "singapore"].index(stored_region)
+                if stored_region in ["oregon", "frankfurt", "ohio", "virginia", "singapore"]
+                else 0,
+            )
         else:
             region = stored_region
 
@@ -1895,13 +2191,17 @@ def deploy_render(
         except ValueError:
             render_plan = RenderPlan.STARTER
     elif interactive:
-        plan_choice = select("Render plan", [
-            ("free",     "Free (shared CPU, 512MB RAM)"),
-            ("starter",  "Starter (0.5 CPU, 512MB RAM)"),
-            ("standard", "Standard (1 CPU, 2GB RAM)"),
-            ("pro",      "Pro (2 CPU, 4GB RAM)"),
-            ("pro_plus", "Pro Plus (4 CPU, 8GB RAM)"),
-        ], default=1)
+        plan_choice = select(
+            "Render plan",
+            [
+                ("free", "Free (shared CPU, 512MB RAM)"),
+                ("starter", "Starter (0.5 CPU, 512MB RAM)"),
+                ("standard", "Standard (1 CPU, 2GB RAM)"),
+                ("pro", "Pro (2 CPU, 4GB RAM)"),
+                ("pro_plus", "Pro Plus (4 CPU, 8GB RAM)"),
+            ],
+            default=1,
+        )
         try:
             render_plan = RenderPlan(plan_choice)
         except ValueError:
@@ -1948,15 +2248,19 @@ def deploy_render(
             status_line(_KEY, gv.key, "auto-generated", value_fg="yellow")
         click.echo()
 
-    if interactive and not force:
-        if not confirm("Deploy to Render?", default=True):
-            info("  Cancelled.")
-            return
+    if interactive and not force and not confirm("Deploy to Render?", default=True):
+        info("  Cancelled.")
+        return
 
     # ── Execute deployment ───────────────────────────────────────────
     click.echo()
     rule()
-    banner(f"Deploying: {ws_name}", subtitle="DRY RUN" if dry_run else "Executing deployment pipeline", icon=_BOLT, fg="cyan")
+    banner(
+        f"Deploying: {ws_name}",
+        subtitle="DRY RUN" if dry_run else "Executing deployment pipeline",
+        icon=_BOLT,
+        fg="cyan",
+    )
     click.echo()
 
     def on_step(phase: str, message: str):
@@ -1992,11 +2296,13 @@ def deploy_render(
                 fg="green",
             )
         click.echo()
-        next_steps([
-            f"aq deploy render --status            # Check deployment status",
-            f"aq provider render env set ... -s {ws_name}  # Add env vars",
-            f"aq deploy render --destroy           # Tear down",
-        ])
+        next_steps(
+            [
+                "aq deploy render --status            # Check deployment status",
+                f"aq provider render env set ... -s {ws_name}  # Add env vars",
+                "aq deploy render --destroy           # Tear down",
+            ]
+        )
     else:
         error(f"  {_CROSS} Deployment failed.")
         if result.errors:
@@ -2004,11 +2310,13 @@ def deploy_render(
             for err in result.errors:
                 error(f"    {_CROSS} {err}")
         click.echo()
-        next_steps([
-            "Check the error messages above",
-            "Verify your Dockerfile builds successfully: docker build .",
-            "Check Render dashboard: https://dashboard.render.com",
-        ])
+        next_steps(
+            [
+                "Check the error messages above",
+                "Verify your Dockerfile builds successfully: docker build .",
+                "Check Render dashboard: https://dashboard.render.com",
+            ]
+        )
         if not dry_run:
             sys.exit(1)
 
@@ -2120,4 +2428,3 @@ def _render_destroy(client, service_name: str) -> None:
         click.echo()
         error(f"  {_CROSS} Failed to destroy service.")
         sys.exit(1)
-

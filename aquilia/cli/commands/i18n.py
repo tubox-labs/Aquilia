@@ -11,12 +11,10 @@ Commands:
 
 from __future__ import annotations
 
-import ast
+import contextlib
 import json
 import re
-import sys
 from pathlib import Path
-from typing import Dict, List, Optional, Set
 
 import click
 
@@ -36,12 +34,13 @@ def _load_i18n_config() -> dict:
                 return ws_dict.get("i18n", ws_dict.get("integrations", {}).get("i18n", {}))
 
     from aquilia.config import ConfigLoader
+
     config = ConfigLoader()
     return config.get_i18n_config()
 
 
 def cmd_i18n_init(
-    locales: Optional[str] = None,
+    locales: str | None = None,
     directory: str = "locales",
     format: str = "json",
     verbose: bool = False,
@@ -61,7 +60,8 @@ def cmd_i18n_init(
     actual_format = format
     if format == "crous":
         try:
-            import crous
+            import crous  # noqa: F401
+
             actual_format = "crous"
         except ImportError:
             click.echo(click.style("  ⚠  crous library not installed — falling back to JSON", fg="yellow"))
@@ -74,7 +74,7 @@ def cmd_i18n_init(
     click.echo()
 
     # Starter translations
-    starter_messages: Dict[str, Dict[str, str]] = {
+    starter_messages: dict[str, dict[str, str]] = {
         "en": {
             "welcome": "Welcome to {app_name}!",
             "goodbye": "Goodbye!",
@@ -162,11 +162,14 @@ def cmd_i18n_init(
             continue
 
         # Use starter translations if available, otherwise minimal
-        content = starter_messages.get(locale, {
-            "welcome": f"Welcome [{locale}]",
-            "goodbye": f"Goodbye [{locale}]",
-            "greeting": f"Hello, {{name}}! [{locale}]",
-        })
+        content = starter_messages.get(
+            locale,
+            {
+                "welcome": f"Welcome [{locale}]",
+                "goodbye": f"Goodbye [{locale}]",
+                "greeting": f"Hello, {{name}}! [{locale}]",
+            },
+        )
 
         if actual_format == "json":
             messages_file.write_text(
@@ -174,9 +177,12 @@ def cmd_i18n_init(
                 encoding="utf-8",
             )
         elif actual_format == "crous":
-            import crous as _crous
             import hashlib as _hashlib
-            from datetime import datetime as _dt, timezone as _tz
+            from datetime import datetime as _dt
+            from datetime import timezone as _tz
+
+            import crous as _crous
+
             # Write with CROUS envelope
             canonical = json.dumps(content, sort_keys=True, separators=(",", ":"))
             fingerprint = f"sha256:{_hashlib.sha256(canonical.encode()).hexdigest()}"
@@ -194,6 +200,7 @@ def cmd_i18n_init(
         elif actual_format == "yaml":
             try:
                 import yaml
+
                 messages_file.write_text(
                     yaml.dump(content, allow_unicode=True, default_flow_style=False),
                     encoding="utf-8",
@@ -220,10 +227,10 @@ def cmd_i18n_init(
     click.echo(click.style("Next steps:", fg="cyan"))
     click.echo("  1. Add i18n to your workspace.py:")
     click.echo()
-    click.echo(click.style('     .integrate(Integration.i18n(', fg="white"))
+    click.echo(click.style("     .integrate(Integration.i18n(", fg="white"))
     click.echo(click.style(f'         default_locale="{locale_list[0]}",', fg="white"))
-    click.echo(click.style(f'         available_locales={locale_list},', fg="white"))
-    click.echo(click.style('     ))', fg="white"))
+    click.echo(click.style(f"         available_locales={locale_list},", fg="white"))
+    click.echo(click.style("     ))", fg="white"))
     click.echo()
     click.echo("  2. Use translations in controllers:")
     click.echo(click.style('     msg = ctx.request.state["i18n"].t("messages.welcome")', fg="white"))
@@ -289,7 +296,7 @@ def cmd_i18n_inspect() -> None:
 
 
 def cmd_i18n_extract(
-    source_dirs: Optional[str] = None,
+    source_dirs: str | None = None,
     output: str = "locales/en/messages.json",
     merge: bool = True,
     verbose: bool = False,
@@ -306,14 +313,14 @@ def cmd_i18n_extract(
     dirs = [Path(d.strip()) for d in (source_dirs or "modules,controllers").split(",")]
     click.echo(click.style("Extracting translation keys...", fg="cyan", bold=True))
 
-    keys: Set[str] = set()
+    keys: set[str] = set()
 
     # Patterns to match
     py_patterns = [
-        re.compile(r'''(?:_|gettext|i18n\.t|i18n\.tn|i18n\.tp|lazy_t|lazy_tn)\(\s*["']([^"']+)["']'''),
+        re.compile(r"""(?:_|gettext|i18n\.t|i18n\.tn|i18n\.tp|lazy_t|lazy_tn)\(\s*["']([^"']+)["']"""),
     ]
     template_patterns = [
-        re.compile(r'''\{\{[^}]*(?:_|_n|_p|gettext|ngettext)\(\s*["']([^"']+)["']'''),
+        re.compile(r"""\{\{[^}]*(?:_|_n|_p|gettext|ngettext)\(\s*["']([^"']+)["']"""),
     ]
 
     # Scan source directories
@@ -358,10 +365,8 @@ def cmd_i18n_extract(
     # Load existing if merging
     existing: dict = {}
     if merge and output_path.exists():
-        try:
+        with contextlib.suppress(Exception):
             existing = json.loads(output_path.read_text(encoding="utf-8"))
-        except Exception:
-            pass
 
     # Build nested dict from dotted keys
     result = existing.copy()
@@ -369,7 +374,7 @@ def cmd_i18n_extract(
     for key in sorted(keys):
         parts = key.split(".")
         target = result
-        for i, part in enumerate(parts[:-1]):
+        for _i, part in enumerate(parts[:-1]):
             if part not in target or not isinstance(target[part], dict):
                 target[part] = {}
             target = target[part]
@@ -409,7 +414,7 @@ def cmd_i18n_coverage(verbose: bool = False) -> None:
     click.echo("─" * 50)
 
     # Collect all keys from default locale
-    default_keys: Set[str] = set()
+    default_keys: set[str] = set()
     for d in catalog_dirs:
         default_dir = Path(d) / default_locale
         if default_dir.exists():
@@ -430,7 +435,7 @@ def cmd_i18n_coverage(verbose: bool = False) -> None:
 
     # Check coverage for each locale
     for locale in available_locales:
-        locale_keys: Set[str] = set()
+        locale_keys: set[str] = set()
         for d in catalog_dirs:
             locale_dir = Path(d) / locale
             if locale_dir.exists():
@@ -450,16 +455,12 @@ def cmd_i18n_coverage(verbose: bool = False) -> None:
 
         # Color code
         if pct >= 100:
-            color = "green"
             icon = "✅"
         elif pct >= 80:
-            color = "yellow"
             icon = "🔶"
         elif pct > 0:
-            color = "red"
             icon = "⚠ "
         else:
-            color = "red"
             icon = "❌"
 
         click.echo(f"  {icon} {locale:10s} {pct:6.1f}%  ({len(locale_keys)}/{len(default_keys)} keys)")
@@ -472,7 +473,7 @@ def cmd_i18n_coverage(verbose: bool = False) -> None:
                 click.echo(f"       ... and {len(missing) - 10} more")
 
 
-def _collect_keys(data: dict, prefix: str, keys: Set[str], _depth: int = 0) -> None:
+def _collect_keys(data: dict, prefix: str, keys: set[str], _depth: int = 0) -> None:
     """Recursively collect dotted keys from a nested dict."""
     if _depth > 20:
         return
@@ -491,7 +492,7 @@ def _collect_keys(data: dict, prefix: str, keys: Set[str], _depth: int = 0) -> N
 
 def cmd_i18n_compile(
     directory: str = "locales",
-    output: Optional[str] = None,
+    output: str | None = None,
     verbose: bool = False,
 ) -> None:
     """
@@ -507,7 +508,7 @@ def cmd_i18n_compile(
         verbose: Show detailed output
     """
     try:
-        import crous
+        import crous  # noqa: F401
     except ImportError:
         click.echo(click.style("❌ crous library is not installed.", fg="red"))
         click.echo("  Install with: pip install crous")

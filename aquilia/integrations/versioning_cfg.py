@@ -5,7 +5,7 @@ VersioningIntegration — typed API versioning configuration.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
@@ -26,8 +26,8 @@ class VersioningIntegration:
     _integration_type: str = field(default="versioning", init=False, repr=False)
 
     strategy: str = "header"
-    versions: List[str] = field(default_factory=list)
-    default_version: Optional[str] = None
+    versions: list[str] = field(default_factory=list)
+    default_version: str | None = None
     require_version: bool = False
     header_name: str = "X-API-Version"
     query_param: str = "api_version"
@@ -35,36 +35,28 @@ class VersioningIntegration:
     url_segment_index: int = 0
     strip_version_from_path: bool = True
     media_type_param: str = "version"
-    channels: Dict[str, str] = field(default_factory=dict)
+    channels: dict[str, str] = field(default_factory=dict)
     channel_header: str = "X-API-Channel"
     channel_query_param: str = "api_channel"
     negotiation_mode: str = "exact"
-    sunset_policy: Optional[Any] = None
-    sunset_schedules: Optional[Dict[str, Dict[str, Any]]] = None
+    sunset_policy: Any | None = None
+    sunset_schedules: dict[str, dict[str, Any]] | None = None
     include_version_header: bool = True
     response_header_name: str = "X-API-Version"
     include_supported_versions_header: bool = True
-    neutral_paths: List[str] = field(
-        default_factory=lambda: ["/_health", "/openapi.json", "/docs", "/redoc"]
-    )
+    neutral_paths: list[str] = field(default_factory=lambda: ["/_health", "/openapi.json", "/docs", "/redoc"])
     enabled: bool = True
 
     def __post_init__(self) -> None:
         valid_strategies = ("url", "header", "query", "media_type", "channel", "composite")
         if self.strategy not in valid_strategies:
-            raise ValueError(
-                f"Invalid versioning strategy {self.strategy!r}. "
-                f"Must be one of {valid_strategies}"
-            )
+            raise ValueError(f"Invalid versioning strategy {self.strategy!r}. Must be one of {valid_strategies}")
         valid_negotiation = ("exact", "compatible", "best_match", "nearest", "latest")
         if self.negotiation_mode not in valid_negotiation:
-            raise ValueError(
-                f"Invalid negotiation mode {self.negotiation_mode!r}. "
-                f"Must be one of {valid_negotiation}"
-            )
+            raise ValueError(f"Invalid negotiation mode {self.negotiation_mode!r}. Must be one of {valid_negotiation}")
 
-    def to_dict(self) -> Dict[str, Any]:
-        config: Dict[str, Any] = {
+    def to_dict(self) -> dict[str, Any]:
+        config: dict[str, Any] = {
             "_integration_type": "versioning",
             "enabled": self.enabled,
             "strategy": self.strategy,

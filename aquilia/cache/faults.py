@@ -8,10 +8,9 @@ and observability.
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 from aquilia.faults.core import Fault, FaultDomain, Severity
-
 
 # Register cache fault domain
 FaultDomain.CACHE = FaultDomain("cache", "Cache subsystem faults")
@@ -19,7 +18,7 @@ FaultDomain.CACHE = FaultDomain("cache", "Cache subsystem faults")
 
 class CacheFault(Fault):
     """Base class for all cache faults."""
-    
+
     def __init__(
         self,
         code: str,
@@ -27,7 +26,7 @@ class CacheFault(Fault):
         *,
         severity: Severity = Severity.WARN,
         retryable: bool = True,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ):
         super().__init__(
             code=code,
@@ -42,7 +41,7 @@ class CacheFault(Fault):
 
 class CacheMissFault(CacheFault):
     """Cache key not found (informational, non-error)."""
-    
+
     def __init__(self, key: str, namespace: str = "default", **kwargs):
         super().__init__(
             code="CACHE_MISS",
@@ -55,7 +54,7 @@ class CacheMissFault(CacheFault):
 
 class CacheConnectionFault(CacheFault):
     """Failed to connect to cache backend."""
-    
+
     def __init__(self, backend: str, reason: str, **kwargs):
         super().__init__(
             code="CACHE_CONNECTION_FAILED",
@@ -68,7 +67,7 @@ class CacheConnectionFault(CacheFault):
 
 class CacheSerializationFault(CacheFault):
     """Failed to serialize/deserialize cache value."""
-    
+
     def __init__(self, key: str, operation: str, reason: str, **kwargs):
         super().__init__(
             code="CACHE_SERIALIZATION_FAILED",
@@ -81,7 +80,7 @@ class CacheSerializationFault(CacheFault):
 
 class CacheCapacityFault(CacheFault):
     """Cache has reached maximum capacity."""
-    
+
     def __init__(self, current_size: int, max_size: int, **kwargs):
         super().__init__(
             code="CACHE_CAPACITY_EXCEEDED",
@@ -94,7 +93,7 @@ class CacheCapacityFault(CacheFault):
 
 class CacheBackendFault(CacheFault):
     """Generic cache backend error."""
-    
+
     def __init__(self, backend: str, operation: str, reason: str, **kwargs):
         super().__init__(
             code="CACHE_BACKEND_ERROR",
@@ -107,7 +106,7 @@ class CacheBackendFault(CacheFault):
 
 class CacheConfigFault(CacheFault):
     """Cache configuration error."""
-    
+
     def __init__(self, reason: str, **kwargs):
         super().__init__(
             code="CACHE_CONFIG_INVALID",
@@ -120,7 +119,7 @@ class CacheConfigFault(CacheFault):
 
 class CacheStampedeFault(CacheFault):
     """Cache stampede detected -- multiple concurrent loads for same key."""
-    
+
     def __init__(self, key: str, waiters: int = 0, **kwargs):
         super().__init__(
             code="CACHE_STAMPEDE_DETECTED",
@@ -133,7 +132,7 @@ class CacheStampedeFault(CacheFault):
 
 class CacheHealthFault(CacheFault):
     """Cache health check failure."""
-    
+
     def __init__(self, backend: str, reason: str = "Health check failed", **kwargs):
         super().__init__(
             code="CACHE_HEALTH_FAILED",

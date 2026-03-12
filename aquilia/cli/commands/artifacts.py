@@ -10,10 +10,8 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
-from typing import Optional
 
 import click
-
 
 # ═══════════════════════════════════════════════════════════════════════════
 # aq artifact -- top-level group
@@ -101,7 +99,7 @@ def artifact_inspect(name: str, version: str, store_dir: str, json_output: bool)
       aq artifact inspect my-model --version v1.0.0
       aq artifact inspect my-model -j
     """
-    from aquilia.artifacts import FilesystemArtifactStore, ArtifactReader
+    from aquilia.artifacts import ArtifactReader, FilesystemArtifactStore
 
     store = FilesystemArtifactStore(store_dir)
     reader = ArtifactReader(store)
@@ -156,7 +154,7 @@ def artifact_verify(name: str, version: str, store_dir: str):
       aq artifact verify my-config
       aq artifact verify my-model --version v1.0.0
     """
-    from aquilia.artifacts import FilesystemArtifactStore, ArtifactReader
+    from aquilia.artifacts import ArtifactReader, FilesystemArtifactStore
 
     store = FilesystemArtifactStore(store_dir)
     reader = ArtifactReader(store)
@@ -187,7 +185,7 @@ def artifact_verify_all(store_dir: str, json_output: bool):
       aq artifact verify-all
       aq artifact verify-all -j
     """
-    from aquilia.artifacts import FilesystemArtifactStore, ArtifactReader
+    from aquilia.artifacts import ArtifactReader, FilesystemArtifactStore
 
     store = FilesystemArtifactStore(store_dir)
     reader = ArtifactReader(store)
@@ -299,7 +297,7 @@ def artifact_diff(name: str, version_a: str, version_b: str, store_dir: str):
     Examples:
       aq artifact diff my-config 1.0.0 1.1.0
     """
-    from aquilia.artifacts import FilesystemArtifactStore, ArtifactReader
+    from aquilia.artifacts import ArtifactReader, FilesystemArtifactStore
 
     store = FilesystemArtifactStore(store_dir)
     reader = ArtifactReader(store)
@@ -338,7 +336,7 @@ def artifact_history(name: str, store_dir: str):
     Examples:
       aq artifact history my-config
     """
-    from aquilia.artifacts import FilesystemArtifactStore, ArtifactReader
+    from aquilia.artifacts import ArtifactReader, FilesystemArtifactStore
 
     store = FilesystemArtifactStore(store_dir)
     reader = ArtifactReader(store)
@@ -423,7 +421,7 @@ def artifact_stats(store_dir: str, json_output: bool):
       aq artifact stats
       aq artifact stats -j
     """
-    from aquilia.artifacts import FilesystemArtifactStore, ArtifactReader
+    from aquilia.artifacts import ArtifactReader, FilesystemArtifactStore
 
     store = FilesystemArtifactStore(store_dir)
     reader = ArtifactReader(store)

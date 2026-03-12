@@ -10,27 +10,28 @@ Provides:
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional, Protocol, Type
-from dataclasses import dataclass, field, asdict
-from datetime import datetime, timezone
-from enum import Enum
 import json
 import uuid
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from enum import Enum
+from typing import Any, Protocol
 
 
 class MessageType(str, Enum):
     """Message type discriminator."""
-    EVENT = "event"           # Regular event message
-    ACK = "ack"               # Acknowledgement response
-    SYSTEM = "system"         # System control message
-    CONTROL = "control"       # Connection control (ping, pong)
+
+    EVENT = "event"  # Regular event message
+    ACK = "ack"  # Acknowledgement response
+    SYSTEM = "system"  # System control message
+    CONTROL = "control"  # Connection control (ping, pong)
 
 
 @dataclass
 class MessageEnvelope:
     """
     Standard message envelope for WebSocket communication.
-    
+
     Format:
     {
         "id": "uuid-v4",          // optional - for ack/trace
@@ -44,23 +45,23 @@ class MessageEnvelope:
         "ack": true|false         // request ack
     }
     """
-    
+
     type: MessageType
     event: str
-    payload: Dict[str, Any]
-    id: Optional[str] = None
+    payload: dict[str, Any]
+    id: str | None = None
     ack: bool = False
-    meta: Dict[str, Any] = field(default_factory=dict)
-    
+    meta: dict[str, Any] = field(default_factory=dict)
+
     def __post_init__(self):
         """Ensure meta has timestamp."""
         if "ts" not in self.meta:
             self.meta["ts"] = int(datetime.now(timezone.utc).timestamp())
-        
+
         if self.ack and not self.id:
             self.id = str(uuid.uuid4())
-    
-    def to_dict(self) -> Dict[str, Any]:
+
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "id": self.id,
@@ -70,11 +71,11 @@ class MessageEnvelope:
             "meta": self.meta,
             "ack": self.ack,
         }
-    
+
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> MessageEnvelope:
+    def from_dict(cls, data: dict[str, Any]) -> MessageEnvelope:
         """Deserialize from dictionary.
-        
+
         Accepts both protocol format (``payload``) and simplified
         client format (``data``) so that browser clients sending
         ``{"event": "...", "data": {...}}`` are handled correctly.
@@ -89,12 +90,12 @@ class MessageEnvelope:
             meta=data.get("meta", {}),
             ack=data.get("ack", False),
         )
-    
+
     def create_ack(
         self,
         status: str = "ok",
-        data: Optional[Dict[str, Any]] = None,
-        error: Optional[str] = None,
+        data: dict[str, Any] | None = None,
+        error: str | None = None,
     ) -> MessageEnvelope:
         """Create acknowledgement response."""
         return MessageEnvelope(
@@ -118,12 +119,13 @@ class MessageEnvelope:
 @dataclass
 class AckEnvelope:
     """Acknowledgement message."""
+
     id: str
     status: str  # "ok" | "error"
-    data: Optional[Dict[str, Any]] = None
-    error: Optional[str] = None
-    original_id: Optional[str] = None
-    
+    data: dict[str, Any] | None = None
+    error: str | None = None
+    original_id: str | None = None
+
     def to_envelope(self, event: str = "ack") -> MessageEnvelope:
         """Convert to message envelope."""
         return MessageEnvelope(
@@ -141,10 +143,11 @@ class AckEnvelope:
 
 # Schema validation
 
+
 class Schema:
     """
     Simple schema validator for message payloads.
-    
+
     Example:
         schema = Schema({
             "room": str,
@@ -152,22 +155,22 @@ class Schema:
             "priority": (int, {"min": 0, "max": 10}),
         })
     """
-    
-    def __init__(self, spec: Dict[str, Any]):
+
+    def __init__(self, spec: dict[str, Any]):
         """
         Initialize schema.
-        
+
         Args:
             spec: Schema specification
                 - key: field name
                 - value: type or (type, constraints)
         """
         self.spec = spec
-    
-    def validate(self, data: Dict[str, Any]) -> tuple[bool, Optional[str]]:
+
+    def validate(self, data: dict[str, Any]) -> tuple[bool, str | None]:
         """
         Validate data against schema.
-        
+
         Returns:
             (is_valid, error_message)
         """
@@ -175,53 +178,54 @@ class Schema:
             # Required field check
             if field not in data:
                 return False, f"Missing required field: {field}"
-            
+
             value = data[field]
-            
+
             # Type check
             if isinstance(field_spec, type):
                 expected_type = field_spec
                 if not isinstance(value, expected_type):
                     return False, f"Field {field}: expected {expected_type.__name__}, got {type(value).__name__}"
-            
+
             # Type with constraints
             elif isinstance(field_spec, tuple):
                 expected_type, constraints = field_spec
-                
+
                 if not isinstance(value, expected_type):
                     return False, f"Field {field}: expected {expected_type.__name__}, got {type(value).__name__}"
-                
+
                 # Callable constraint
                 if callable(constraints):
                     if not constraints(value):
                         return False, f"Field {field}: validation failed"
-                
+
                 # Dict constraints
                 elif isinstance(constraints, dict):
-                    if expected_type == int or expected_type == float:
+                    if expected_type in (int, float):
                         if "min" in constraints and value < constraints["min"]:
                             return False, f"Field {field}: must be >= {constraints['min']}"
                         if "max" in constraints and value > constraints["max"]:
                             return False, f"Field {field}: must be <= {constraints['max']}"
-                    
+
                     if expected_type == str:
                         if "min_length" in constraints and len(value) < constraints["min_length"]:
                             return False, f"Field {field}: must be >= {constraints['min_length']} chars"
                         if "max_length" in constraints and len(value) > constraints["max_length"]:
                             return False, f"Field {field}: must be <= {constraints['max_length']} chars"
-        
+
         return True, None
 
 
 # Message codecs
 
+
 class MessageCodec(Protocol):
     """Protocol for message encoding/decoding."""
-    
+
     def encode(self, envelope: MessageEnvelope) -> bytes:
         """Encode envelope to bytes."""
         ...
-    
+
     def decode(self, data: bytes) -> MessageEnvelope:
         """Decode bytes to envelope."""
         ...
@@ -229,11 +233,11 @@ class MessageCodec(Protocol):
 
 class JSONCodec:
     """JSON message codec."""
-    
+
     def encode(self, envelope: MessageEnvelope) -> bytes:
         """Encode envelope to JSON bytes."""
         return json.dumps(envelope.to_dict()).encode("utf-8")
-    
+
     def decode(self, data: bytes) -> MessageEnvelope:
         """Decode JSON bytes to envelope."""
         obj = json.loads(data.decode("utf-8"))
@@ -242,18 +246,19 @@ class JSONCodec:
 
 class MsgPackCodec:
     """MessagePack codec for efficient binary encoding."""
-    
+
     def __init__(self):
         try:
             import msgpack
+
             self.msgpack = msgpack
         except ImportError:
             raise ImportError("msgpack-python is required for MsgPackCodec")
-    
+
     def encode(self, envelope: MessageEnvelope) -> bytes:
         """Encode envelope to MessagePack bytes."""
         return self.msgpack.packb(envelope.to_dict())
-    
+
     def decode(self, data: bytes) -> MessageEnvelope:
         """Decode MessagePack bytes to envelope."""
         obj = self.msgpack.unpackb(data, raw=False)

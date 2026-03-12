@@ -19,24 +19,24 @@ Usage::
 
 from __future__ import annotations
 
+import contextlib
 import os
 import shutil
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional, Union
 
 from ._config import FileSystemConfig
-from ._errors import FileNotFoundFault, wrap_os_error
+from ._errors import wrap_os_error
 from ._handle import AsyncFile
 from ._metrics import FileSystemMetrics
 from ._pool import FileSystemPool
 from ._security import validate_path
 
-
 # ═══════════════════════════════════════════════════════════════════════════
 # async_open — Drop-in replacement for aiofiles.open()
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class _AsyncOpenContext:
     """
@@ -57,23 +57,31 @@ class _AsyncOpenContext:
     """
 
     __slots__ = (
-        "_path", "_mode", "_buffering", "_encoding", "_errors_param",
-        "_newline", "_pool", "_config", "_metrics", "_sandbox",
+        "_path",
+        "_mode",
+        "_buffering",
+        "_encoding",
+        "_errors_param",
+        "_newline",
+        "_pool",
+        "_config",
+        "_metrics",
+        "_sandbox",
         "_handle",
     )
 
     def __init__(
         self,
-        path: Union[str, Path],
+        path: str | Path,
         mode: str = "r",
         buffering: int = -1,
-        encoding: Optional[str] = None,
-        errors: Optional[str] = None,
-        newline: Optional[str] = None,
-        pool: Optional[FileSystemPool] = None,
-        config: Optional[FileSystemConfig] = None,
-        metrics: Optional[FileSystemMetrics] = None,
-        sandbox: Optional[Union[str, Path]] = None,
+        encoding: str | None = None,
+        errors: str | None = None,
+        newline: str | None = None,
+        pool: FileSystemPool | None = None,
+        config: FileSystemConfig | None = None,
+        metrics: FileSystemMetrics | None = None,
+        sandbox: str | Path | None = None,
     ) -> None:
         self._path = path
         self._mode = mode
@@ -85,7 +93,7 @@ class _AsyncOpenContext:
         self._config = config or FileSystemConfig()
         self._metrics = metrics
         self._sandbox = sandbox or self._config.sandbox_root
-        self._handle: Optional[AsyncFile] = None
+        self._handle: AsyncFile | None = None
 
     def __await__(self):
         return self._open().__await__()
@@ -132,17 +140,17 @@ class _AsyncOpenContext:
 
 
 def async_open(
-    path: Union[str, Path],
+    path: str | Path,
     mode: str = "r",
     buffering: int = -1,
-    encoding: Optional[str] = None,
-    errors: Optional[str] = None,
-    newline: Optional[str] = None,
+    encoding: str | None = None,
+    errors: str | None = None,
+    newline: str | None = None,
     *,
-    pool: Optional[FileSystemPool] = None,
-    config: Optional[FileSystemConfig] = None,
-    metrics: Optional[FileSystemMetrics] = None,
-    sandbox: Optional[Union[str, Path]] = None,
+    pool: FileSystemPool | None = None,
+    config: FileSystemConfig | None = None,
+    metrics: FileSystemMetrics | None = None,
+    sandbox: str | Path | None = None,
 ) -> _AsyncOpenContext:
     """
     Open a file asynchronously.
@@ -186,8 +194,16 @@ def async_open(
             content = await f.read()
     """
     return _AsyncOpenContext(
-        path, mode, buffering, encoding, errors, newline,
-        pool=pool, config=config, metrics=metrics, sandbox=sandbox,
+        path,
+        mode,
+        buffering,
+        encoding,
+        errors,
+        newline,
+        pool=pool,
+        config=config,
+        metrics=metrics,
+        sandbox=sandbox,
     )
 
 
@@ -195,15 +211,16 @@ def async_open(
 # read_file / write_file — Whole-file operations
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 async def read_file(
-    path: Union[str, Path],
+    path: str | Path,
     *,
-    encoding: Optional[str] = None,
-    pool: Optional[FileSystemPool] = None,
-    config: Optional[FileSystemConfig] = None,
-    metrics: Optional[FileSystemMetrics] = None,
-    sandbox: Optional[Union[str, Path]] = None,
-) -> Union[str, bytes]:
+    encoding: str | None = None,
+    pool: FileSystemPool | None = None,
+    config: FileSystemConfig | None = None,
+    metrics: FileSystemMetrics | None = None,
+    sandbox: str | Path | None = None,
+) -> str | bytes:
     """
     Read the entire contents of a file.
 
@@ -236,16 +253,16 @@ async def read_file(
 
 
 async def write_file(
-    path: Union[str, Path],
-    data: Union[str, bytes],
+    path: str | Path,
+    data: str | bytes,
     *,
     encoding: str = "utf-8",
-    atomic: Optional[bool] = None,
+    atomic: bool | None = None,
     mkdir: bool = False,
-    pool: Optional[FileSystemPool] = None,
-    config: Optional[FileSystemConfig] = None,
-    metrics: Optional[FileSystemMetrics] = None,
-    sandbox: Optional[Union[str, Path]] = None,
+    pool: FileSystemPool | None = None,
+    config: FileSystemConfig | None = None,
+    metrics: FileSystemMetrics | None = None,
+    sandbox: str | Path | None = None,
 ) -> int:
     """
     Write data to a file.
@@ -285,6 +302,7 @@ async def write_file(
 
         if use_atomic:
             import tempfile as _tf
+
             fd, tmp = _tf.mkstemp(dir=str(safe.parent), prefix=".aquilia-tmp-")
             try:
                 os.write(fd, raw)
@@ -294,10 +312,8 @@ async def write_file(
                 os.replace(tmp, str_path)
             except BaseException:
                 os.close(fd) if not _is_fd_closed(fd) else None
-                try:
+                with contextlib.suppress(OSError):
                     os.unlink(tmp)
-                except OSError:
-                    pass
                 raise
         else:
             with open(str_path, "wb") as f:
@@ -321,14 +337,14 @@ async def write_file(
 
 
 async def append_file(
-    path: Union[str, Path],
-    data: Union[str, bytes],
+    path: str | Path,
+    data: str | bytes,
     *,
     encoding: str = "utf-8",
-    pool: Optional[FileSystemPool] = None,
-    config: Optional[FileSystemConfig] = None,
-    metrics: Optional[FileSystemMetrics] = None,
-    sandbox: Optional[Union[str, Path]] = None,
+    pool: FileSystemPool | None = None,
+    config: FileSystemConfig | None = None,
+    metrics: FileSystemMetrics | None = None,
+    sandbox: str | Path | None = None,
 ) -> int:
     """Append data to a file.  Creates the file if it doesn't exist."""
     _pool = pool or _get_default_pool()
@@ -363,13 +379,14 @@ async def append_file(
 # File management operations
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 async def copy_file(
-    src: Union[str, Path],
-    dst: Union[str, Path],
+    src: str | Path,
+    dst: str | Path,
     *,
-    pool: Optional[FileSystemPool] = None,
-    config: Optional[FileSystemConfig] = None,
-    sandbox: Optional[Union[str, Path]] = None,
+    pool: FileSystemPool | None = None,
+    config: FileSystemConfig | None = None,
+    sandbox: str | Path | None = None,
 ) -> str:
     """
     Copy a file from *src* to *dst*.
@@ -392,12 +409,12 @@ async def copy_file(
 
 
 async def move_file(
-    src: Union[str, Path],
-    dst: Union[str, Path],
+    src: str | Path,
+    dst: str | Path,
     *,
-    pool: Optional[FileSystemPool] = None,
-    config: Optional[FileSystemConfig] = None,
-    sandbox: Optional[Union[str, Path]] = None,
+    pool: FileSystemPool | None = None,
+    config: FileSystemConfig | None = None,
+    sandbox: str | Path | None = None,
 ) -> str:
     """
     Move (rename) a file from *src* to *dst*.
@@ -425,12 +442,12 @@ async def move_file(
 
 
 async def delete_file(
-    path: Union[str, Path],
+    path: str | Path,
     *,
     missing_ok: bool = False,
-    pool: Optional[FileSystemPool] = None,
-    config: Optional[FileSystemConfig] = None,
-    sandbox: Optional[Union[str, Path]] = None,
+    pool: FileSystemPool | None = None,
+    config: FileSystemConfig | None = None,
+    sandbox: str | Path | None = None,
 ) -> bool:
     """
     Delete a file.
@@ -458,11 +475,11 @@ async def delete_file(
 
 
 async def file_exists(
-    path: Union[str, Path],
+    path: str | Path,
     *,
-    pool: Optional[FileSystemPool] = None,
-    config: Optional[FileSystemConfig] = None,
-    sandbox: Optional[Union[str, Path]] = None,
+    pool: FileSystemPool | None = None,
+    config: FileSystemConfig | None = None,
+    sandbox: str | Path | None = None,
 ) -> bool:
     """Check if a file exists."""
     _pool = pool or _get_default_pool()
@@ -474,6 +491,7 @@ async def file_exists(
 @dataclass(frozen=True, slots=True)
 class FileStat:
     """File status information."""
+
     size: int
     mode: int
     uid: int
@@ -499,12 +517,12 @@ class FileStat:
 
 
 async def file_stat(
-    path: Union[str, Path],
+    path: str | Path,
     *,
-    follow_symlinks: Optional[bool] = None,
-    pool: Optional[FileSystemPool] = None,
-    config: Optional[FileSystemConfig] = None,
-    sandbox: Optional[Union[str, Path]] = None,
+    follow_symlinks: bool | None = None,
+    pool: FileSystemPool | None = None,
+    config: FileSystemConfig | None = None,
+    sandbox: str | Path | None = None,
 ) -> FileStat:
     """Get file status (stat) information."""
     _pool = pool or _get_default_pool()
@@ -513,10 +531,7 @@ async def file_stat(
     safe = validate_path(path, config=_config, sandbox=sandbox or _config.sandbox_root, operation="stat")
 
     def _stat():
-        if _follow:
-            st = os.stat(str(safe))
-        else:
-            st = os.lstat(str(safe))
+        st = os.stat(str(safe)) if _follow else os.lstat(str(safe))
         p = Path(str(safe))
         return FileStat(
             size=st.st_size,
@@ -541,6 +556,7 @@ async def file_stat(
 # Internal helpers
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 def _is_fd_closed(fd: int) -> bool:
     """Check if a file descriptor is already closed."""
     try:
@@ -553,4 +569,5 @@ def _is_fd_closed(fd: int) -> bool:
 def _get_default_pool() -> FileSystemPool:
     """Get the default filesystem pool (lazy singleton)."""
     from ._path import _get_default_pool as _get
+
     return _get()

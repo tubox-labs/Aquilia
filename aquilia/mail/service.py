@@ -11,24 +11,23 @@ the active MailService instance.
 
 from __future__ import annotations
 
-import asyncio
 import logging
-from typing import Any, Dict, List, Optional, Sequence
+from collections.abc import Sequence
+from typing import Any
 
 from ..di.decorators import service
-
 from .config import MailConfig
-from .envelope import MailEnvelope, EnvelopeStatus
+from .envelope import EnvelopeStatus, MailEnvelope
 from .faults import MailConfigFault
 
 logger = logging.getLogger("aquilia.mail")
 
 # ── Module-level singleton reference ────────────────────────────────
 
-_mail_service: Optional["MailService"] = None
+_mail_service: MailService | None = None
 
 
-def _get_mail_service() -> "MailService":
+def _get_mail_service() -> MailService:
     """Return the active MailService (set during server startup)."""
     if _mail_service is None:
         raise MailConfigFault(
@@ -39,7 +38,7 @@ def _get_mail_service() -> "MailService":
     return _mail_service
 
 
-def set_mail_service(svc: Optional["MailService"]) -> None:
+def set_mail_service(svc: MailService | None) -> None:
     """Install a MailService as the module-level singleton (or None to reset)."""
     global _mail_service
     _mail_service = svc
@@ -51,17 +50,17 @@ def set_mail_service(svc: Optional["MailService"]) -> None:
 def send_mail(
     subject: str,
     body: str,
-    from_email: Optional[str] = None,
-    to: Optional[Sequence[str]] = None,
-    cc: Optional[Sequence[str]] = None,
-    bcc: Optional[Sequence[str]] = None,
-    reply_to: Optional[str] = None,
-    headers: Optional[Dict[str, str]] = None,
-    attachments: Optional[list] = None,
+    from_email: str | None = None,
+    to: Sequence[str] | None = None,
+    cc: Sequence[str] | None = None,
+    bcc: Sequence[str] | None = None,
+    reply_to: str | None = None,
+    headers: dict[str, str] | None = None,
+    attachments: list | None = None,
     priority: int = 50,
     fail_silently: bool = False,
     **kwargs: Any,
-) -> Optional[str]:
+) -> str | None:
     """
     Send an email synchronously.
 
@@ -88,17 +87,17 @@ def send_mail(
 async def asend_mail(
     subject: str,
     body: str,
-    from_email: Optional[str] = None,
-    to: Optional[Sequence[str]] = None,
-    cc: Optional[Sequence[str]] = None,
-    bcc: Optional[Sequence[str]] = None,
-    reply_to: Optional[str] = None,
-    headers: Optional[Dict[str, str]] = None,
-    attachments: Optional[list] = None,
+    from_email: str | None = None,
+    to: Sequence[str] | None = None,
+    cc: Sequence[str] | None = None,
+    bcc: Sequence[str] | None = None,
+    reply_to: str | None = None,
+    headers: dict[str, str] | None = None,
+    attachments: list | None = None,
     priority: int = 50,
     fail_silently: bool = False,
     **kwargs: Any,
-) -> Optional[str]:
+) -> str | None:
     """
     Send an email asynchronously (Aquilia-native API).
 
@@ -142,9 +141,9 @@ class MailService:
         - Expose metrics and trace spans
     """
 
-    def __init__(self, config: Optional[MailConfig] = None):
+    def __init__(self, config: MailConfig | None = None):
         self.config = config or MailConfig()
-        self._providers: Dict[str, Any] = {}  # name → IMailProvider
+        self._providers: dict[str, Any] = {}  # name → IMailProvider
         self._started = False
         self.logger = logger
 
@@ -176,6 +175,7 @@ class MailService:
         # Console fallback for development
         if self.config.console_backend and "console" not in self._providers:
             from .providers.console import ConsoleProvider
+
             cp = ConsoleProvider()
             await cp.initialize()
             self._providers["console"] = cp
@@ -232,10 +232,10 @@ class MailService:
         Uses hard-coded mappings for built-in types, then falls back
         to the MailProviderRegistry (discovery system) for custom types.
         """
-        from .config import ProviderConfig
 
         if pc.type == "smtp":
             from .providers.smtp import SMTPProvider
+
             return SMTPProvider(
                 name=pc.name,
                 host=pc.host or pc.config.get("host", "localhost"),
@@ -248,6 +248,7 @@ class MailService:
             )
         elif pc.type == "ses":
             from .providers.ses import SESProvider
+
             return SESProvider(
                 name=pc.name,
                 region=pc.config.get("region", "us-east-1"),
@@ -255,15 +256,18 @@ class MailService:
             )
         elif pc.type == "sendgrid":
             from .providers.sendgrid import SendGridProvider
+
             return SendGridProvider(
                 name=pc.name,
                 api_key=pc.config.get("api_key", ""),
             )
         elif pc.type == "console":
             from .providers.console import ConsoleProvider
+
             return ConsoleProvider(name=pc.name)
         elif pc.type == "file":
             from .providers.file import FileProvider
+
             return FileProvider(
                 name=pc.name,
                 output_dir=pc.config.get("output_dir", "/tmp/aquilia_mail"),
@@ -287,6 +291,7 @@ class MailService:
         """
         try:
             from .di_providers import MailProviderRegistry
+
             registry = MailProviderRegistry()
             return registry.get_provider_class(provider_type)
         except Exception:
@@ -303,7 +308,6 @@ class MailService:
         Returns:
             envelope_id
         """
-        from .message import EmailMessage
 
         envelope, blobs = message.build_envelope(
             default_from=self.config.default_from,
@@ -319,7 +323,7 @@ class MailService:
             return envelope.id
 
         # Direct dispatch (synchronous send for now; PR5 adds queue + dispatcher)
-        result = await self._dispatch_direct(envelope)
+        await self._dispatch_direct(envelope)
         return envelope.id
 
     async def _dispatch_direct(self, envelope: MailEnvelope) -> None:
@@ -332,6 +336,7 @@ class MailService:
             if self.config.console_backend:
                 # Auto-create console provider
                 from .providers.console import ConsoleProvider
+
                 cp = ConsoleProvider()
                 await cp.initialize()
                 self._providers["console"] = cp
@@ -347,7 +352,7 @@ class MailService:
             key=lambda p: getattr(p, "priority", 50),
         )
 
-        last_error: Optional[Exception] = None
+        last_error: Exception | None = None
         for provider in sorted_providers:
             try:
                 envelope.status = EnvelopeStatus.SENDING
@@ -359,10 +364,7 @@ class MailService:
                     envelope.provider_message_id = result.provider_message_id
                     return
                 elif result.should_retry:
-                    self.logger.warning(
-                        f"Transient failure from {provider.name}: "
-                        f"{result.error_message}"
-                    )
+                    self.logger.warning(f"Transient failure from {provider.name}: {result.error_message}")
                     last_error = Exception(result.error_message)
                     continue
                 else:
@@ -370,24 +372,23 @@ class MailService:
                     envelope.status = EnvelopeStatus.FAILED
                     envelope.error_message = result.error_message
                     from .faults import MailSendFault
+
                     raise MailSendFault(
-                        f"Permanent send failure via {provider.name}: "
-                        f"{result.error_message}",
+                        f"Permanent send failure via {provider.name}: {result.error_message}",
                         provider=provider.name,
                         transient=False,
                         envelope_id=envelope.id,
                     )
             except Exception as e:
                 last_error = e
-                self.logger.warning(
-                    f"Provider {provider.name} error: {e}"
-                )
+                self.logger.warning(f"Provider {provider.name} error: {e}")
                 continue
 
         # All providers failed
         envelope.status = EnvelopeStatus.FAILED
         envelope.error_message = str(last_error)
         from .faults import MailSendFault
+
         raise MailSendFault(
             f"All providers failed for envelope {envelope.id}: {last_error}",
             provider="all",
@@ -397,7 +398,7 @@ class MailService:
 
     # ── Introspection ───────────────────────────────────────────────
 
-    def get_provider_names(self) -> List[str]:
+    def get_provider_names(self) -> list[str]:
         """Return names of registered providers."""
         return list(self._providers.keys())
 

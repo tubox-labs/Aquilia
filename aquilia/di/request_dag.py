@@ -14,20 +14,18 @@ Performance:
 
 from __future__ import annotations
 
-from typing import Any, AsyncGenerator, Generator, Optional, Type, get_args, get_origin
 import asyncio
+import contextlib
 import inspect
 import logging
+from collections.abc import AsyncGenerator, Generator
+from typing import Any, get_args, get_origin
 
 from .dep import (
     Body,
     Dep,
     Header,
     Query,
-    _extract_body,
-    _extract_dep_from_annotation,
-    _extract_header,
-    _extract_query,
     _unpack_annotation,
 )
 
@@ -100,6 +98,7 @@ class RequestDAG:
             cached = self._cache[cache_key]
             if cached is _RESOLVING:
                 from ..faults.domains import DIResolutionFault
+
                 raise DIResolutionFault(
                     provider=str(dep.call.__qualname__ if dep.call else param_type),
                     reason="Circular dependency detected in request DAG",
@@ -138,15 +137,11 @@ class RequestDAG:
         for gen in reversed(self._teardowns):
             try:
                 if inspect.isasyncgen(gen):
-                    try:
+                    with contextlib.suppress(StopAsyncIteration):
                         await gen.__anext__()
-                    except StopAsyncIteration:
-                        pass
                 elif inspect.isgenerator(gen):
-                    try:
+                    with contextlib.suppress(StopIteration):
                         next(gen)
-                    except StopIteration:
-                        pass
             except Exception as exc:
                 logger.warning(f"Error during Dep teardown: {exc}")
                 errors.append(exc)
@@ -181,9 +176,7 @@ class RequestDAG:
                 return await result
             return result
 
-    async def _resolve_sub_deps(
-        self, sub_deps: dict[str, tuple[type, Any]]
-    ) -> dict[str, Any]:
+    async def _resolve_sub_deps(self, sub_deps: dict[str, tuple[type, Any]]) -> dict[str, Any]:
         """Resolve sub-dependencies, parallelising independent branches."""
         if not sub_deps:
             return {}
@@ -203,11 +196,9 @@ class RequestDAG:
         keys = list(tasks.keys())
         coros = [tasks[k] for k in keys]
         results = await asyncio.gather(*coros)
-        return dict(zip(keys, results))
+        return dict(zip(keys, results, strict=False))
 
-    async def _resolve_single_sub_dep(
-        self, pname: str, ptype: type, sub_dep: Any
-    ) -> Any:
+    async def _resolve_single_sub_dep(self, pname: str, ptype: type, sub_dep: Any) -> Any:
         """Resolve a single sub-dependency parameter."""
         # Check for Header/Query/Body extractors first
         if self._request is not None:
@@ -226,6 +217,7 @@ class RequestDAG:
         base_type = _get_base_type(ptype)
         if _is_blueprint_type(base_type):
             from aquilia.blueprints.integration import bind_blueprint_to_request
+
             bp = await bind_blueprint_to_request(base_type, self._request)
             bp.is_sealed(raise_fault=True)
             return bp
@@ -247,6 +239,7 @@ class RequestDAG:
             return value
         else:
             from ..faults.domains import DIResolutionFault
+
             raise DIResolutionFault(
                 provider=repr(dep.call),
                 reason="Dependency call is not a generator function",
@@ -273,6 +266,7 @@ class RequestDAG:
         if self._request is None:
             if header.required:
                 from ..faults.domains import BadRequestFault
+
                 raise BadRequestFault(
                     message=f"No request available for Header('{header.name}')",
                     detail=f"No request available for Header('{header.name}')",
@@ -283,14 +277,13 @@ class RequestDAG:
         value = None
         if hasattr(self._request, "headers"):
             headers = self._request.headers
-            if isinstance(headers, dict):
-                value = headers.get(header.header_key)
-            elif hasattr(headers, "get"):
+            if isinstance(headers, dict) or hasattr(headers, "get"):
                 value = headers.get(header.header_key)
 
         if value is None:
             if header.required:
                 from ..faults.domains import BadRequestFault
+
                 raise BadRequestFault(
                     message=f"Missing required header: {header.name}",
                     detail=f"Missing required header: {header.name}",
@@ -315,6 +308,7 @@ class RequestDAG:
         if value is None:
             if query.required:
                 from ..faults.domains import BadRequestFault
+
                 raise BadRequestFault(
                     message=f"Missing required query parameter: {query.name}",
                     detail=f"Missing required query parameter: {query.name}",
@@ -332,6 +326,7 @@ class RequestDAG:
                 return value.lower() in ("true", "1", "yes")
         except (ValueError, TypeError, AttributeError) as exc:
             from ..faults.domains import BadRequestFault
+
             raise BadRequestFault(
                 message=(
                     f"Invalid value for query parameter '{query.name}': "
@@ -360,6 +355,7 @@ class RequestDAG:
 
 # ── Module-level helpers ─────────────────────────────────────────────
 
+
 def _extract_header_from_type(annotation: Any) -> Header | None:
     """Check if annotation is Annotated[T, Header(...)]."""
     origin = get_origin(annotation)
@@ -367,6 +363,7 @@ def _extract_header_from_type(annotation: Any) -> Header | None:
         return None
     try:
         from typing import Annotated
+
         if origin is Annotated:
             for meta in get_args(annotation)[1:]:
                 if isinstance(meta, Header):
@@ -383,6 +380,7 @@ def _extract_query_from_type(annotation: Any) -> Query | None:
         return None
     try:
         from typing import Annotated
+
         if origin is Annotated:
             for meta in get_args(annotation)[1:]:
                 if isinstance(meta, Query):
@@ -399,6 +397,7 @@ def _extract_body_from_type(annotation: Any) -> Body | None:
         return None
     try:
         from typing import Annotated
+
         if origin is Annotated:
             for meta in get_args(annotation)[1:]:
                 if isinstance(meta, Body):
@@ -414,6 +413,7 @@ def _get_base_type(annotation: Any) -> type:
     if origin is not None:
         try:
             from typing import Annotated
+
             if origin is Annotated:
                 return get_args(annotation)[0]
         except ImportError:
@@ -425,10 +425,7 @@ def _is_blueprint_type(annotation: Any) -> bool:
     """Check if type is a Blueprint subclass."""
     try:
         from aquilia.blueprints.core import Blueprint
-        return (
-            isinstance(annotation, type)
-            and issubclass(annotation, Blueprint)
-            and annotation is not Blueprint
-        )
+
+        return isinstance(annotation, type) and issubclass(annotation, Blueprint) and annotation is not Blueprint
     except ImportError:
         return False

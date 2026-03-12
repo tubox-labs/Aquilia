@@ -7,7 +7,6 @@ Requires ``boto3`` (optional dependency).
 from __future__ import annotations
 
 import logging
-from typing import List, Optional
 
 from .base import BaseStorageAdapter
 
@@ -32,9 +31,9 @@ class S3StorageAdapter(BaseStorageAdapter):
         self,
         bucket: str,
         prefix: str = "blobs/",
-        endpoint_url: Optional[str] = None,
-        aws_access_key_id: Optional[str] = None,
-        aws_secret_access_key: Optional[str] = None,
+        endpoint_url: str | None = None,
+        aws_access_key_id: str | None = None,
+        aws_secret_access_key: str | None = None,
         region_name: str = "us-east-1",
     ):
         self.bucket = bucket
@@ -50,9 +49,7 @@ class S3StorageAdapter(BaseStorageAdapter):
             try:
                 import boto3
             except ImportError:
-                raise ImportError(
-                    "S3StorageAdapter requires boto3. Install with: pip install boto3"
-                )
+                raise ImportError("S3StorageAdapter requires boto3. Install with: pip install boto3")
             kwargs = {"region_name": self._region_name}
             if self._endpoint_url:
                 kwargs["endpoint_url"] = self._endpoint_url
@@ -90,9 +87,9 @@ class S3StorageAdapter(BaseStorageAdapter):
         key = self._key(digest)
         self._get_client().delete_object(Bucket=self.bucket, Key=key)
 
-    async def list_blobs(self) -> List[str]:
+    async def list_blobs(self) -> list[str]:
         paginator = self._get_client().get_paginator("list_objects_v2")
-        digests: List[str] = []
+        digests: list[str] = []
         for page in paginator.paginate(Bucket=self.bucket, Prefix=self.prefix):
             for obj in page.get("Contents", []):
                 key = obj["Key"]

@@ -7,10 +7,10 @@ table_name, ordering, indexes, constraints, abstract, etc.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from .fields_module import Index, UniqueConstraint
+    pass
 
 
 __all__ = ["Options"]
@@ -69,48 +69,45 @@ class Options:
     def __init__(
         self,
         model_name: str,
-        meta: Optional[type] = None,
-        table_attr: Optional[str] = None,
+        meta: type | None = None,
+        table_attr: str | None = None,
     ):
-        self.table_name = table_attr or (
-            getattr(meta, "table", None)
-            or getattr(meta, "table_name", None)
-            or getattr(meta, "__tablename__", None)
-            if meta else None
-        ) or model_name.lower()
-        self.ordering: List[str] = getattr(meta, "ordering", []) if meta else []
+        self.table_name = (
+            table_attr
+            or (
+                getattr(meta, "table", None)
+                or getattr(meta, "table_name", None)
+                or getattr(meta, "__tablename__", None)
+                if meta
+                else None
+            )
+            or model_name.lower()
+        )
+        self.ordering: list[str] = getattr(meta, "ordering", []) if meta else []
         self.indexes: list = getattr(meta, "indexes", []) if meta else []
         self.constraints: list = getattr(meta, "constraints", []) if meta else []
         self.abstract: bool = getattr(meta, "abstract", False) if meta else False
         self.verbose_name: str = getattr(meta, "verbose_name", model_name) if meta else model_name
-        self.verbose_name_plural: str = getattr(
-            meta, "verbose_name_plural", f"{self.verbose_name}s"
-        ) if meta else f"{model_name}s"
-        self.app_label: str = getattr(meta, "app_label", "") if meta else ""
-        self.unique_together: List[Tuple[str, ...]] = (
-            getattr(meta, "unique_together", []) if meta else []
+        self.verbose_name_plural: str = (
+            getattr(meta, "verbose_name_plural", f"{self.verbose_name}s") if meta else f"{model_name}s"
         )
+        self.app_label: str = getattr(meta, "app_label", "") if meta else ""
+        self.unique_together: list[tuple[str, ...]] = getattr(meta, "unique_together", []) if meta else []
         # Enhanced options
         self.select_on_save: bool = getattr(meta, "select_on_save", False) if meta else False
         self.managed: bool = getattr(meta, "managed", True) if meta else True
-        self.default_permissions: Tuple[str, ...] = getattr(
-            meta, "default_permissions", ("add", "change", "delete", "view")
-        ) if meta else ("add", "change", "delete", "view")
-        self.permissions: List[Tuple[str, str]] = getattr(meta, "permissions", []) if meta else []
+        self.default_permissions: tuple[str, ...] = (
+            getattr(meta, "default_permissions", ("add", "change", "delete", "view"))
+            if meta
+            else ("add", "change", "delete", "view")
+        )
+        self.permissions: list[tuple[str, str]] = getattr(meta, "permissions", []) if meta else []
         self.db_tablespace: str = getattr(meta, "db_tablespace", "") if meta else ""
-        self.get_latest_by: Optional[str] = getattr(meta, "get_latest_by", None) if meta else None
-        self.order_with_respect_to: Optional[str] = (
-            getattr(meta, "order_with_respect_to", None) if meta else None
-        )
-        self.default_related_name: Optional[str] = (
-            getattr(meta, "default_related_name", None) if meta else None
-        )
-        self.required_db_features: List[str] = (
-            getattr(meta, "required_db_features", []) if meta else []
-        )
-        self.required_db_vendor: Optional[str] = (
-            getattr(meta, "required_db_vendor", None) if meta else None
-        )
+        self.get_latest_by: str | None = getattr(meta, "get_latest_by", None) if meta else None
+        self.order_with_respect_to: str | None = getattr(meta, "order_with_respect_to", None) if meta else None
+        self.default_related_name: str | None = getattr(meta, "default_related_name", None) if meta else None
+        self.required_db_features: list[str] = getattr(meta, "required_db_features", []) if meta else []
+        self.required_db_vendor: str | None = getattr(meta, "required_db_vendor", None) if meta else None
         self.proxy: bool = getattr(meta, "proxy", False) if meta else False
         self._model_cls = None
 

@@ -20,20 +20,19 @@ Usage::
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
-
 try:
     from aquilia.blueprints.core import Blueprint
+
     _HAS_BLUEPRINTS = True
 except ImportError:
     _HAS_BLUEPRINTS = False
 
 from .models import (
-    AdminUser,
-    AdminAuditEntry,
-    AdminAPIKey,
-    AdminPreference,
     _HAS_ORM,
+    AdminAPIKey,
+    AdminAuditEntry,
+    AdminPreference,
+    AdminUser,
 )
 
 if _HAS_BLUEPRINTS and _HAS_ORM:
@@ -47,10 +46,18 @@ if _HAS_BLUEPRINTS and _HAS_ORM:
         class Spec:
             model = AdminUser
             fields = [
-                "id", "username", "email", "display_name",
-                "role", "is_active",
-                "login_count", "last_login_at", "last_active_at",
-                "created_at", "updated_at", "avatar_url",
+                "id",
+                "username",
+                "email",
+                "display_name",
+                "role",
+                "is_active",
+                "login_count",
+                "last_login_at",
+                "last_active_at",
+                "created_at",
+                "updated_at",
+                "avatar_url",
             ]
             read_only_fields = ["id", "login_count", "last_login_at", "last_active_at", "created_at"]
 
@@ -60,7 +67,11 @@ if _HAS_BLUEPRINTS and _HAS_ORM:
         class Spec:
             model = AdminUser
             fields = [
-                "username", "email", "display_name", "role", "is_active",
+                "username",
+                "email",
+                "display_name",
+                "role",
+                "is_active",
             ]
 
     class AdminAuditEntryBlueprint(Blueprint):
@@ -69,14 +80,34 @@ if _HAS_BLUEPRINTS and _HAS_ORM:
         class Spec:
             model = AdminAuditEntry
             fields = [
-                "id", "user_id", "username", "ip_address",
-                "action", "resource_type", "resource_id", "summary",
-                "detail", "diff", "timestamp", "severity", "category",
+                "id",
+                "user_id",
+                "username",
+                "ip_address",
+                "action",
+                "resource_type",
+                "resource_id",
+                "summary",
+                "detail",
+                "diff",
+                "timestamp",
+                "severity",
+                "category",
             ]
             read_only_fields = [
-                "id", "user_id", "username", "ip_address",
-                "action", "resource_type", "resource_id", "summary",
-                "detail", "diff", "timestamp", "severity", "category",
+                "id",
+                "user_id",
+                "username",
+                "ip_address",
+                "action",
+                "resource_type",
+                "resource_id",
+                "summary",
+                "detail",
+                "diff",
+                "timestamp",
+                "severity",
+                "category",
             ]
 
     class AdminAPIKeyBlueprint(Blueprint):
@@ -88,8 +119,15 @@ if _HAS_BLUEPRINTS and _HAS_ORM:
         class Spec:
             model = AdminAPIKey
             fields = [
-                "id", "user_id", "name", "prefix", "scopes",
-                "is_active", "last_used_at", "expires_at", "created_at",
+                "id",
+                "user_id",
+                "name",
+                "prefix",
+                "scopes",
+                "is_active",
+                "last_used_at",
+                "expires_at",
+                "created_at",
             ]
             read_only_fields = ["id", "prefix", "last_used_at", "created_at"]
 

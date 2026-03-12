@@ -27,10 +27,10 @@ Configuration (via Workspace.storage() or config file)::
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-from ..subsystems.base import BaseSubsystem, BootContext
 from ..health import HealthStatus, SubsystemStatus
+from ..subsystems.base import BaseSubsystem, BootContext
 
 logger = logging.getLogger("aquilia.subsystems.storage")
 
@@ -44,13 +44,13 @@ class StorageSubsystem(BaseSubsystem):
     """
 
     _name = "storage"
-    _priority = 25       # Before DB (30), effects (45), controllers (60)
-    _required = False    # Degraded startup if storage fails
+    _priority = 25  # Before DB (30), effects (45), controllers (60)
+    _required = False  # Degraded startup if storage fails
     _timeout = 30.0
 
     def __init__(self) -> None:
         super().__init__()
-        self._registry: Optional[Any] = None
+        self._registry: Any | None = None
 
     async def _do_initialize(self, ctx: BootContext) -> None:
         """
@@ -64,7 +64,6 @@ class StorageSubsystem(BaseSubsystem):
         5. Register health checks
         """
         from ..storage.registry import StorageRegistry
-        from ..storage.configs import config_from_dict
 
         # Step 1: Read config
         storage_config = ctx.get_config("storage", {})
@@ -102,8 +101,8 @@ class StorageSubsystem(BaseSubsystem):
     def _register_di(self, ctx: BootContext) -> None:
         """Register StorageRegistry in the DI container."""
         try:
-            from ..storage.registry import StorageRegistry
             from ..di import ValueProvider
+            from ..storage.registry import StorageRegistry
 
             registry_obj = ctx.shared_state.get("_di_registry")
             if registry_obj and hasattr(registry_obj, "register"):

@@ -6,12 +6,11 @@ Useful for local development and testing.  Does not actually send emails.
 
 from __future__ import annotations
 
-import json
 import logging
-from typing import Any, Dict, List, Optional, Sequence
+from collections.abc import Sequence
 
 from ..envelope import MailEnvelope
-from ..providers import IMailProvider, ProviderResult, ProviderResultStatus
+from ..providers import ProviderResult, ProviderResultStatus
 
 logger = logging.getLogger("aquilia.mail.providers.console")
 
@@ -54,11 +53,7 @@ class ConsoleProvider:
             output += f"  BCC:     {', '.join(envelope.bcc)}\n"
         if envelope.reply_to:
             output += f"  Reply:   {envelope.reply_to}\n"
-        output += (
-            f"  Subject: {envelope.subject}\n"
-            f"  Priority: {envelope.priority}\n"
-            f"  Date:    {envelope.created_at}\n"
-        )
+        output += f"  Subject: {envelope.subject}\n  Priority: {envelope.priority}\n  Date:    {envelope.created_at}\n"
         if envelope.headers:
             output += f"  Headers: {envelope.headers}\n"
         if envelope.attachments:
@@ -79,9 +74,7 @@ class ConsoleProvider:
             provider_message_id=f"console-{envelope.id}",
         )
 
-    async def send_batch(
-        self, envelopes: Sequence[MailEnvelope]
-    ) -> List[ProviderResult]:
+    async def send_batch(self, envelopes: Sequence[MailEnvelope]) -> list[ProviderResult]:
         """Send a batch of envelopes (sequentially via console)."""
         results = []
         for env in envelopes:

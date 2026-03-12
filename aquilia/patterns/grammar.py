@@ -79,33 +79,44 @@ default        = string_literal | number
 
 # Token types for the lexer
 TOKEN_TYPES = [
-    "SLASH",           # /
-    "LANGLE",          # <
-    "RANGLE",          # >
-    "LBRACKET",        # [
-    "RBRACKET",        # ]
-    "LPAREN",          # (
-    "RPAREN",          # )
-    "STAR",            # *
-    "COLON",           # :
-    "PIPE",            # |
-    "EQUALS",          # =
-    "AT",              # @
-    "COMMA",           # ,
-    "AMP",             # &
-    "QUESTION",        # ?
-    "IDENT",           # identifier
-    "NUMBER",          # numeric literal
-    "STRING",          # string literal
-    "REGEX",           # regex literal
-    "STATIC",          # static text
-    "EOF",             # end of input
+    "SLASH",  # /
+    "LANGLE",  # <
+    "RANGLE",  # >
+    "LBRACKET",  # [
+    "RBRACKET",  # ]
+    "LPAREN",  # (
+    "RPAREN",  # )
+    "STAR",  # *
+    "COLON",  # :
+    "PIPE",  # |
+    "EQUALS",  # =
+    "AT",  # @
+    "COMMA",  # ,
+    "AMP",  # &
+    "QUESTION",  # ?
+    "IDENT",  # identifier
+    "NUMBER",  # numeric literal
+    "STRING",  # string literal
+    "REGEX",  # regex literal
+    "STATIC",  # static text
+    "EOF",  # end of input
 ]
 
 # Reserved keywords
 KEYWORDS = {
-    "min", "max", "re", "in",
-    "str", "int", "float", "uuid", "slug", "path", "bool", "json", "any",
+    "min",
+    "max",
+    "re",
+    "in",
+    "str",
+    "int",
+    "float",
+    "uuid",
+    "slug",
+    "path",
+    "bool",
+    "json",
+    "any",
 }
 
 # Constraint operators

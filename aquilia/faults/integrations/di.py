@@ -9,25 +9,20 @@ Integrates fault handling with Dependency Injection system:
 This module patches the DI Container to use AquilaFaults.
 """
 
-from typing import Optional, List, Any
 from aquilia.faults import (
-    FaultEngine,
-    Fault,
     FaultDomain,
     Severity,
 )
 from aquilia.faults.domains import (
     DIFault,
     ProviderNotFoundFault,
-    ScopeViolationFault,
-    DIResolutionFault,
 )
 
 
 class CircularDependencyFault(DIFault):
     """Circular dependency detected."""
-    
-    def __init__(self, cycle: List[str]):
+
+    def __init__(self, cycle: list[str]):
         cycle_str = " → ".join(cycle)
         super().__init__(
             code="CIRCULAR_DEPENDENCY",
@@ -39,7 +34,7 @@ class CircularDependencyFault(DIFault):
 
 class ProviderRegistrationFault(DIFault):
     """Provider registration failed."""
-    
+
     def __init__(self, token: str, reason: str):
         super().__init__(
             code="PROVIDER_REGISTRATION_FAILED",
@@ -50,7 +45,7 @@ class ProviderRegistrationFault(DIFault):
 
 class AsyncResolutionFault(DIFault):
     """Async resolution in sync context."""
-    
+
     def __init__(self, token: str):
         super().__init__(
             code="ASYNC_RESOLUTION_IN_SYNC_CONTEXT",
@@ -63,7 +58,7 @@ class AsyncResolutionFault(DIFault):
 def patch_di_container():
     """
     Patch DI Container to emit structured faults.
-    
+
     Replaces bare exceptions with AquilaFaults:
     - ProviderNotFoundError → ProviderNotFoundFault (already exists)
     - RuntimeError (async) → AsyncResolutionFault
@@ -71,12 +66,12 @@ def patch_di_container():
     """
     from aquilia.di.core import Container
     from aquilia.di.errors import ProviderNotFoundError as OldProviderNotFoundError
-    
+
     # Store original methods
     original_resolve = Container.resolve
     original_resolve_async = Container.resolve_async
     original_register = Container.register
-    
+
     def patched_resolve(self, token, *, tag=None, optional=False):
         """Patched resolve with fault handling."""
         try:
@@ -87,7 +82,7 @@ def patch_di_container():
                 provider_name=str(token),
                 metadata={
                     "tag": tag,
-                    "candidates": e.candidates if hasattr(e, 'candidates') else [],
+                    "candidates": e.candidates if hasattr(e, "candidates") else [],
                 },
             ) from e
         except RuntimeError as e:
@@ -95,7 +90,7 @@ def patch_di_container():
             if "resolve() called from async context" in msg:
                 raise AsyncResolutionFault(token=str(token)) from e
             raise
-    
+
     async def patched_resolve_async(self, token, *, tag=None, optional=False):
         """Patched resolve_async with fault handling."""
         try:
@@ -106,10 +101,10 @@ def patch_di_container():
                 provider_name=str(token),
                 metadata={
                     "tag": tag,
-                    "candidates": e.candidates if hasattr(e, 'candidates') else [],
+                    "candidates": e.candidates if hasattr(e, "candidates") else [],
                 },
             ) from e
-    
+
     def patched_register(self, provider, tag=None):
         """Patched register with fault handling."""
         try:
@@ -121,12 +116,13 @@ def patch_di_container():
             if "already registered" in msg:
                 # Try to extract token
                 import re
+
                 match = re.search(r"'([^']+)' already registered", msg)
                 if match:
                     token = match.group(1)
-            
+
             raise ProviderRegistrationFault(token=token, reason=msg) from e
-    
+
     # Apply patches
     Container.resolve = patched_resolve
     Container.resolve_async = patched_resolve_async
@@ -136,21 +132,21 @@ def patch_di_container():
 def create_di_fault_handler():
     """
     Create fault handler for DI operations.
-    
+
     Returns a handler that converts DI faults to structured responses.
     """
-    from aquilia.faults import FaultHandler, FaultContext, FaultResult, Resolved
-    
+    from aquilia.faults import FaultContext, FaultHandler, FaultResult, Resolved
+
     class DIFaultHandler(FaultHandler):
         """Handle DI-specific faults."""
-        
+
         def can_handle(self, ctx: FaultContext) -> bool:
             return ctx.fault.domain == FaultDomain.DI
-        
+
         async def handle(self, ctx: FaultContext) -> FaultResult:
             """Log DI fault and resolve with diagnostic info."""
             fault = ctx.fault
-            
+
             # Build helpful response
             response = {
                 "error": "dependency_injection_fault",
@@ -159,7 +155,7 @@ def create_di_fault_handler():
                 "metadata": fault.metadata,
                 "trace_id": ctx.trace_id,
             }
-            
+
             # Add suggestions for common issues
             if fault.code == "PROVIDER_NOT_FOUND":
                 response["suggestions"] = [
@@ -179,9 +175,9 @@ def create_di_fault_handler():
                     "Convert singleton to request-scoped",
                     "Use a provider pattern for scope bridging",
                 ]
-            
+
             return Resolved(response)
-    
+
     return DIFaultHandler()
 
 

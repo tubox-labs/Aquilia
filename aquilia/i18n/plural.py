@@ -28,14 +28,15 @@ Usage::
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from enum import Enum
-from typing import Callable, Dict, Optional, Union
 
-Number = Union[int, float]
+Number = int | float
 
 
 class PluralCategory(str, Enum):
     """CLDR plural categories."""
+
     ZERO = "zero"
     ONE = "one"
     TWO = "two"
@@ -62,6 +63,7 @@ PluralRule = Callable[[Number], str]
 #   t = visible fraction digits (without trailing zeros) as integer
 #
 # For simplicity, we work with i (integer value) and check modular forms.
+
 
 def _operands(n: Number) -> tuple:
     """Extract CLDR operands from a number.
@@ -237,8 +239,8 @@ def _plural_german(n: Number) -> str:
 # other: everything else
 def _plural_latvian(n: Number) -> str:
     n_abs, i, v, _, f, t = _operands(n)
-    mod10 = i % 10 if v == 0 else f % 10
-    mod100 = i % 100 if v == 0 else f % 100
+    i % 10 if v == 0 else f % 10
+    i % 100 if v == 0 else f % 100
 
     if v == 0:
         if i % 10 == 0 or (11 <= i % 100 <= 19):
@@ -370,108 +372,93 @@ def _plural_hebrew(n: Number) -> str:
 # Language → Rule Mapping
 # ═══════════════════════════════════════════════════════════════════════════
 
-CLDR_PLURAL_RULES: Dict[str, PluralRule] = {
+CLDR_PLURAL_RULES: dict[str, PluralRule] = {
     # ── No plural distinction ──
-    "zh": _plural_no_plural,    # Chinese
-    "ja": _plural_no_plural,    # Japanese
-    "ko": _plural_no_plural,    # Korean
-    "vi": _plural_no_plural,    # Vietnamese
-    "th": _plural_no_plural,    # Thai
-    "tr": _plural_no_plural,    # Turkish
-    "ms": _plural_no_plural,    # Malay
-    "id": _plural_no_plural,    # Indonesian
-    "ka": _plural_no_plural,    # Georgian
-    "km": _plural_no_plural,    # Khmer
-    "lo": _plural_no_plural,    # Lao
-    "my": _plural_no_plural,    # Burmese
-    "hu": _plural_no_plural,    # Hungarian (one form for counting)
-    "fa": _plural_no_plural,    # Persian
-
+    "zh": _plural_no_plural,  # Chinese
+    "ja": _plural_no_plural,  # Japanese
+    "ko": _plural_no_plural,  # Korean
+    "vi": _plural_no_plural,  # Vietnamese
+    "th": _plural_no_plural,  # Thai
+    "tr": _plural_no_plural,  # Turkish
+    "ms": _plural_no_plural,  # Malay
+    "id": _plural_no_plural,  # Indonesian
+    "ka": _plural_no_plural,  # Georgian
+    "km": _plural_no_plural,  # Khmer
+    "lo": _plural_no_plural,  # Lao
+    "my": _plural_no_plural,  # Burmese
+    "hu": _plural_no_plural,  # Hungarian (one form for counting)
+    "fa": _plural_no_plural,  # Persian
     # ── English family (one / other) ──
     "en": _plural_english,
-    "bn": _plural_english,      # Bengali
-    "sw": _plural_english,      # Swahili
-    "ur": _plural_english,      # Urdu
-    "ml": _plural_english,      # Malayalam
-    "te": _plural_english,      # Telugu
-    "kn": _plural_english,      # Kannada
-    "mr": _plural_english,      # Marathi
-    "gu": _plural_english,      # Gujarati
-    "ta": _plural_english,      # Tamil
-    "pa": _plural_english,      # Punjabi
-    "or": _plural_english,      # Odia
-    "as": _plural_english,      # Assamese
-    "fil": _plural_english,     # Filipino
-    "af": _plural_english,      # Afrikaans
-    "bg": _plural_english,      # Bulgarian
-    "et": _plural_english,      # Estonian
-    "fi": _plural_english,      # Finnish
-    "el": _plural_english,      # Greek
-    "is": _plural_english,      # Icelandic
-    "nb": _plural_english,      # Norwegian Bokmål
-    "nn": _plural_english,      # Norwegian Nynorsk
-    "sv": _plural_english,      # Swedish
-    "da": _plural_english,      # Danish
-    "eu": _plural_english,      # Basque
-    "gl": _plural_english,      # Galician
-    "ast": _plural_english,     # Asturian
-
+    "bn": _plural_english,  # Bengali
+    "sw": _plural_english,  # Swahili
+    "ur": _plural_english,  # Urdu
+    "ml": _plural_english,  # Malayalam
+    "te": _plural_english,  # Telugu
+    "kn": _plural_english,  # Kannada
+    "mr": _plural_english,  # Marathi
+    "gu": _plural_english,  # Gujarati
+    "ta": _plural_english,  # Tamil
+    "pa": _plural_english,  # Punjabi
+    "or": _plural_english,  # Odia
+    "as": _plural_english,  # Assamese
+    "fil": _plural_english,  # Filipino
+    "af": _plural_english,  # Afrikaans
+    "bg": _plural_english,  # Bulgarian
+    "et": _plural_english,  # Estonian
+    "fi": _plural_english,  # Finnish
+    "el": _plural_english,  # Greek
+    "is": _plural_english,  # Icelandic
+    "nb": _plural_english,  # Norwegian Bokmål
+    "nn": _plural_english,  # Norwegian Nynorsk
+    "sv": _plural_english,  # Swedish
+    "da": _plural_english,  # Danish
+    "eu": _plural_english,  # Basque
+    "gl": _plural_english,  # Galician
+    "ast": _plural_english,  # Asturian
     # ── German family (one / other, strict i=1 v=0) ──
     "de": _plural_german,
     "nl": _plural_german,
     "it": _plural_german,
     "es": _plural_german,
-    "pt": _plural_german,       # Portuguese (European)
-    "ca": _plural_german,       # Catalan
-    "no": _plural_german,       # Norwegian
-
+    "pt": _plural_german,  # Portuguese (European)
+    "ca": _plural_german,  # Catalan
+    "no": _plural_german,  # Norwegian
     # ── French family (0 and 1 are "one") ──
     "fr": _plural_french,
-    "hi": _plural_french,       # Hindi
-    "pt-BR": _plural_french,    # Brazilian Portuguese
-
+    "hi": _plural_french,  # Hindi
+    "pt-BR": _plural_french,  # Brazilian Portuguese
     # ── Russian / Slavic family ──
     "ru": _plural_russian,
-    "uk": _plural_russian,      # Ukrainian
-    "be": _plural_russian,      # Belarusian
-    "sr": _plural_russian,      # Serbian
-    "hr": _plural_russian,      # Croatian
-    "bs": _plural_russian,      # Bosnian
-
+    "uk": _plural_russian,  # Ukrainian
+    "be": _plural_russian,  # Belarusian
+    "sr": _plural_russian,  # Serbian
+    "hr": _plural_russian,  # Croatian
+    "bs": _plural_russian,  # Bosnian
     # ── Polish ──
     "pl": _plural_polish,
-
     # ── Czech / Slovak ──
     "cs": _plural_czech,
     "sk": _plural_czech,
-
     # ── Romanian ──
     "ro": _plural_romanian,
-
     # ── Arabic ──
     "ar": _plural_arabic,
-
     # ── Latvian ──
     "lv": _plural_latvian,
-
     # ── Lithuanian ──
     "lt": _plural_lithuanian,
-
     # ── Welsh ──
     "cy": _plural_welsh,
-
     # ── Irish ──
     "ga": _plural_irish,
-
     # ── Slovenian ──
     "sl": _plural_slovenian,
-
     # ── Maltese ──
     "mt": _plural_maltese,
-
     # ── Hebrew ──
     "he": _plural_hebrew,
-    "iw": _plural_hebrew,      # Old ISO code
+    "iw": _plural_hebrew,  # Old ISO code
 }
 
 

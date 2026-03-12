@@ -10,7 +10,6 @@ import logging
 import subprocess
 import sys
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger("aquilia.mlops.plugins.marketplace")
 
@@ -26,7 +25,7 @@ class MarketplaceEntry:
     author: str
     pypi_name: str  # pip-installable package name
     homepage: str = ""
-    tags: List[str] = field(default_factory=list)
+    tags: list[str] = field(default_factory=list)
     downloads: int = 0
     verified: bool = False
 
@@ -43,11 +42,11 @@ class PluginMarketplace:
 
     def __init__(self, index_url: str = DEFAULT_INDEX_URL) -> None:
         self._index_url = index_url
-        self._cache: Optional[List[MarketplaceEntry]] = None
+        self._cache: list[MarketplaceEntry] | None = None
 
     # ── index operations ─────────────────────────────────────────────────
 
-    async def fetch_index(self) -> List[MarketplaceEntry]:
+    async def fetch_index(self) -> list[MarketplaceEntry]:
         """
         Download the plugin index.
 
@@ -57,9 +56,7 @@ class PluginMarketplace:
         import urllib.request
 
         raw: str
-        if self._index_url.startswith("file://") or not self._index_url.startswith(
-            "http"
-        ):
+        if self._index_url.startswith("file://") or not self._index_url.startswith("http"):
             path = self._index_url.removeprefix("file://")
             with open(path, encoding="utf-8") as f:
                 raw = f.read()
@@ -68,10 +65,7 @@ class PluginMarketplace:
             with urllib.request.urlopen(self._index_url, timeout=10) as resp:
                 raw = resp.read().decode()
 
-        entries = [
-            MarketplaceEntry(**item)
-            for item in json.loads(raw)
-        ]
+        entries = [MarketplaceEntry(**item) for item in json.loads(raw)]
         self._cache = entries
         return entries
 
@@ -79,9 +73,9 @@ class PluginMarketplace:
         self,
         query: str,
         *,
-        tags: Optional[List[str]] = None,
+        tags: list[str] | None = None,
         verified_only: bool = False,
-    ) -> List[MarketplaceEntry]:
+    ) -> list[MarketplaceEntry]:
         """
         Search the cached index.
 
@@ -89,21 +83,18 @@ class PluginMarketplace:
         """
         if self._cache is None:
             from aquilia.faults.domains import ConfigMissingFault
+
             raise ConfigMissingFault(key="mlops.marketplace.index")
 
         q = query.lower()
-        results: List[MarketplaceEntry] = []
+        results: list[MarketplaceEntry] = []
 
         for entry in self._cache:
             if verified_only and not entry.verified:
                 continue
             if tags and not set(tags) & set(entry.tags):
                 continue
-            if (
-                q in entry.name.lower()
-                or q in entry.description.lower()
-                or q in entry.author.lower()
-            ):
+            if q in entry.name.lower() or q in entry.description.lower() or q in entry.author.lower():
                 results.append(entry)
 
         return sorted(results, key=lambda e: e.downloads, reverse=True)
@@ -116,10 +107,7 @@ class PluginMarketplace:
 
         Accepts either a :class:`MarketplaceEntry` or a PyPI package name.
         """
-        if isinstance(entry_or_name, MarketplaceEntry):
-            pkg = entry_or_name.pypi_name
-        else:
-            pkg = entry_or_name
+        pkg = entry_or_name.pypi_name if isinstance(entry_or_name, MarketplaceEntry) else entry_or_name
 
         try:
             subprocess.check_call(

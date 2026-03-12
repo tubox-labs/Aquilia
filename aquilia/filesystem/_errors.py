@@ -18,10 +18,9 @@ from __future__ import annotations
 
 import builtins
 import errno
-from typing import Any, Optional
+from typing import Any
 
 from aquilia.faults.core import Fault, FaultDomain, Severity
-
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Filesystem Fault Domain
@@ -33,6 +32,7 @@ FS_DOMAIN = FaultDomain.IO  # Reuse the standard I/O domain
 # ═══════════════════════════════════════════════════════════════════════════
 # Base Filesystem Fault
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class FileSystemFault(Fault):
     """Base class for all filesystem faults."""
@@ -49,7 +49,7 @@ class FileSystemFault(Fault):
         reason: str = "",
         severity: Severity = Severity.ERROR,
         retryable: bool = False,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> None:
         self.operation = operation
         self.path = path
@@ -75,6 +75,7 @@ class FileSystemFault(Fault):
 # ═══════════════════════════════════════════════════════════════════════════
 # Concrete Fault Types
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class FileNotFoundFault(FileSystemFault):
     """Raised when a file or directory does not exist."""
@@ -188,9 +189,7 @@ class PathTraversalFault(FileSystemFault):
 class PathTooLongFault(FileSystemFault):
     """Raised when a path exceeds the configured maximum length."""
 
-    def __init__(
-        self, operation: str = "", path: str = "", length: int = 0, max_length: int = 0, **kw: Any
-    ) -> None:
+    def __init__(self, operation: str = "", path: str = "", length: int = 0, max_length: int = 0, **kw: Any) -> None:
         super().__init__(
             code="FS_PATH_TOO_LONG",
             message=f"Path too long ({length} chars, max {max_length})",
@@ -206,9 +205,7 @@ class PathTooLongFault(FileSystemFault):
 class FileSystemIOFault(FileSystemFault):
     """Generic I/O error for unclassified OS errors."""
 
-    def __init__(
-        self, operation: str = "", path: str = "", reason: str = "", **kw: Any
-    ) -> None:
+    def __init__(self, operation: str = "", path: str = "", reason: str = "", **kw: Any) -> None:
         super().__init__(
             code="FS_IO_ERROR",
             message=f"I/O error during {operation}: {reason}" if reason else f"I/O error during {operation}",
@@ -239,6 +236,7 @@ class FileClosedFault(FileSystemFault):
 # ═══════════════════════════════════════════════════════════════════════════
 # OS Error → Fault Mapper
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 def wrap_os_error(exc: BaseException, operation: str = "", path: str = "") -> FileSystemFault:
     """

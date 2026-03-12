@@ -47,20 +47,15 @@ Usage::
 
 from __future__ import annotations
 
+import inspect
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import (
     Any,
-    AsyncGenerator,
-    Callable,
-    Generator,
-    Optional,
-    Type,
     get_args,
     get_origin,
     get_type_hints,
 )
-import asyncio
-import inspect
 
 
 @dataclass(frozen=True, slots=True)
@@ -81,10 +76,10 @@ class Dep:
                    before calling the factory. True by default.
     """
 
-    call: Optional[Callable[..., Any]] = None
+    call: Callable[..., Any] | None = None
     cached: bool = True
-    scope: Optional[str] = None
-    tag: Optional[str] = None
+    scope: str | None = None
+    tag: str | None = None
     use_cache: bool = True
 
     # ── Internal introspection helpers ───────────────────────────────
@@ -99,20 +94,14 @@ class Dep:
         """True when the callable is an (async) generator → needs teardown."""
         if self.call is None:
             return False
-        return (
-            inspect.isasyncgenfunction(self.call)
-            or inspect.isgeneratorfunction(self.call)
-        )
+        return inspect.isasyncgenfunction(self.call) or inspect.isgeneratorfunction(self.call)
 
     @property
     def is_async(self) -> bool:
         """True when the callable is async (coroutine or async generator)."""
         if self.call is None:
             return False
-        return (
-            inspect.iscoroutinefunction(self.call)
-            or inspect.isasyncgenfunction(self.call)
-        )
+        return inspect.iscoroutinefunction(self.call) or inspect.isasyncgenfunction(self.call)
 
     @property
     def cache_key(self) -> str:
@@ -126,7 +115,7 @@ class Dep:
             return f"dep:{mod}.{qual}"
         return f"container:{self.tag or ''}"
 
-    def get_sub_dependencies(self) -> dict[str, tuple[type, "Any"]]:
+    def get_sub_dependencies(self) -> dict[str, tuple[type, Any]]:
         """Inspect the callable's signature and extract sub-Dep annotations.
 
         Returns:
@@ -159,6 +148,7 @@ class Dep:
 
 # ── Annotation Helpers ───────────────────────────────────────────────
 
+
 @dataclass(frozen=True, slots=True)
 class Header:
     """Extract a header value from the current request.
@@ -170,7 +160,7 @@ class Header:
     """
 
     name: str
-    alias: Optional[str] = None
+    alias: str | None = None
     required: bool = True
     default: Any = None
     _di_requires_coercion: bool = field(default=True, init=False, repr=False)
@@ -185,6 +175,7 @@ class Header:
         if request is None:
             if self.required:
                 from ..faults.domains import BadRequestFault
+
                 raise BadRequestFault(
                     message=f"No request available for Header('{self.name}')",
                     detail=f"No request available for Header('{self.name}')",
@@ -194,14 +185,13 @@ class Header:
         value = None
         if hasattr(request, "headers"):
             headers = request.headers
-            if isinstance(headers, dict):
-                value = headers.get(self.header_key)
-            elif hasattr(headers, "get"):
+            if isinstance(headers, dict) or hasattr(headers, "get"):
                 value = headers.get(self.header_key)
 
         if value is None:
             if self.required:
                 from ..faults.domains import BadRequestFault
+
                 raise BadRequestFault(
                     message=f"Missing required header: {self.name}",
                     detail=f"Missing required header: {self.name}",
@@ -242,6 +232,7 @@ class Query:
         if value is None:
             if self.required:
                 from ..faults.domains import BadRequestFault
+
                 raise BadRequestFault(
                     message=f"Missing required query parameter: {self.name}",
                     detail=f"Missing required query parameter: {self.name}",
@@ -286,41 +277,42 @@ class Body:
 
 # ── Internal Utilities ───────────────────────────────────────────────
 
+
 def _unpack_annotation(annotation: Any) -> tuple[type, Any]:
-        """Unpack Annotated[T, Dep(...)] → (T, metadata).
+    """Unpack Annotated[T, Dep(...)] → (T, metadata).
 
-        If no Dep/Header/Query metadata is found, returns (annotation, None).
-        Also recognises Inject for backwards compatibility.
-        """
-        origin = get_origin(annotation)
-        if origin is None:
-            return (annotation, None)
-
-        try:
-            from typing import Annotated
-
-            if origin is Annotated:
-                args = get_args(annotation)
-                base_type = args[0]
-                for meta in args[1:]:
-                    if isinstance(meta, Dep):
-                        return (base_type, meta)
-                    # Backwards compat: treat Inject as Dep()
-                    if isinstance(meta, _get_inject_class()):
-                        return (
-                            base_type,
-                            Dep(
-                                tag=getattr(meta, "tag", None),
-                            ),
-                        )
-                    # Header/Query/Body are handled by RequestDAG
-                    if isinstance(meta, (Header, Query, Body)):
-                        return (base_type, meta)
-                return (base_type, None)
-        except ImportError:
-            pass
-
+    If no Dep/Header/Query metadata is found, returns (annotation, None).
+    Also recognises Inject for backwards compatibility.
+    """
+    origin = get_origin(annotation)
+    if origin is None:
         return (annotation, None)
+
+    try:
+        from typing import Annotated
+
+        if origin is Annotated:
+            args = get_args(annotation)
+            base_type = args[0]
+            for meta in args[1:]:
+                if isinstance(meta, Dep):
+                    return (base_type, meta)
+                # Backwards compat: treat Inject as Dep()
+                if isinstance(meta, _get_inject_class()):
+                    return (
+                        base_type,
+                        Dep(
+                            tag=getattr(meta, "tag", None),
+                        ),
+                    )
+                # Header/Query/Body are handled by RequestDAG
+                if isinstance(meta, (Header, Query, Body)):
+                    return (base_type, meta)
+            return (base_type, None)
+    except ImportError:
+        pass
+
+    return (annotation, None)
 
 
 def _get_inject_class():
@@ -333,7 +325,7 @@ def _get_inject_class():
         return type(None)
 
 
-def _extract_dep_from_annotation(annotation: Any) -> Optional["Dep"]:
+def _extract_dep_from_annotation(annotation: Any) -> Dep | None:
     """Extract a Dep instance from an Annotated type, if present."""
     origin = get_origin(annotation)
     if origin is None:
@@ -355,13 +347,14 @@ def _extract_dep_from_annotation(annotation: Any) -> Optional["Dep"]:
     return None
 
 
-def _extract_header(annotation: Any) -> Optional[Header]:
+def _extract_header(annotation: Any) -> Header | None:
     """Extract a Header from an Annotated type."""
     origin = get_origin(annotation)
     if origin is None:
         return None
     try:
         from typing import Annotated
+
         if origin is Annotated:
             for meta in get_args(annotation)[1:]:
                 if isinstance(meta, Header):
@@ -371,13 +364,14 @@ def _extract_header(annotation: Any) -> Optional[Header]:
     return None
 
 
-def _extract_query(annotation: Any) -> Optional[Query]:
+def _extract_query(annotation: Any) -> Query | None:
     """Extract a Query from an Annotated type."""
     origin = get_origin(annotation)
     if origin is None:
         return None
     try:
         from typing import Annotated
+
         if origin is Annotated:
             for meta in get_args(annotation)[1:]:
                 if isinstance(meta, Query):
@@ -387,13 +381,14 @@ def _extract_query(annotation: Any) -> Optional[Query]:
     return None
 
 
-def _extract_body(annotation: Any) -> Optional[Body]:
+def _extract_body(annotation: Any) -> Body | None:
     """Extract a Body from an Annotated type."""
     origin = get_origin(annotation)
     if origin is None:
         return None
     try:
         from typing import Annotated
+
         if origin is Annotated:
             for meta in get_args(annotation)[1:]:
                 if isinstance(meta, Body):

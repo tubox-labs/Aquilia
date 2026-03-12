@@ -8,9 +8,9 @@ with a fluent builder API.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-from aquilia.auth.core import Identity, IdentityType, IdentityStatus
+from aquilia.auth.core import Identity, IdentityStatus, IdentityType
 
 
 class TestIdentityFactory:
@@ -38,13 +38,13 @@ class TestIdentityFactory:
     @classmethod
     def user(
         cls,
-        id: Optional[str] = None,
-        email: Optional[str] = None,
-        name: Optional[str] = None,
-        roles: Optional[List[str]] = None,
-        scopes: Optional[List[str]] = None,
+        id: str | None = None,
+        email: str | None = None,
+        name: str | None = None,
+        roles: list[str] | None = None,
+        scopes: list[str] | None = None,
         status: IdentityStatus = IdentityStatus.ACTIVE,
-        tenant_id: Optional[str] = None,
+        tenant_id: str | None = None,
         **extra_attrs: Any,
     ) -> Identity:
         """Create a regular user identity."""
@@ -65,7 +65,7 @@ class TestIdentityFactory:
         )
 
     @classmethod
-    def admin(cls, id: Optional[str] = None, **kw) -> Identity:
+    def admin(cls, id: str | None = None, **kw) -> Identity:
         """Create an admin identity."""
         kw.setdefault("roles", ["admin", "user"])
         kw.setdefault("scopes", ["*"])
@@ -74,8 +74,8 @@ class TestIdentityFactory:
     @classmethod
     def service(
         cls,
-        id: Optional[str] = None,
-        scopes: Optional[List[str]] = None,
+        id: str | None = None,
+        scopes: list[str] | None = None,
         **kw,
     ) -> Identity:
         """Create a service/API-key identity."""
@@ -103,12 +103,12 @@ class TestIdentityFactory:
         )
 
     @classmethod
-    def suspended(cls, id: Optional[str] = None, **kw) -> Identity:
+    def suspended(cls, id: str | None = None, **kw) -> Identity:
         """Create a suspended user identity."""
         return cls.user(id=id, status=IdentityStatus.SUSPENDED, **kw)
 
     @classmethod
-    def build(cls, id: Optional[str] = None) -> "IdentityBuilder":
+    def build(cls, id: str | None = None) -> IdentityBuilder:
         """Start building an identity with the fluent API."""
         return IdentityBuilder(id or cls._next_id())
 
@@ -133,50 +133,50 @@ class IdentityBuilder:
         self._id = id
         self._type = IdentityType.USER
         self._status = IdentityStatus.ACTIVE
-        self._roles: List[str] = ["user"]
-        self._scopes: List[str] = []
-        self._email: Optional[str] = None
-        self._name: Optional[str] = None
-        self._tenant_id: Optional[str] = None
-        self._extra: Dict[str, Any] = {}
+        self._roles: list[str] = ["user"]
+        self._scopes: list[str] = []
+        self._email: str | None = None
+        self._name: str | None = None
+        self._tenant_id: str | None = None
+        self._extra: dict[str, Any] = {}
 
-    def with_roles(self, *roles: str) -> "IdentityBuilder":
+    def with_roles(self, *roles: str) -> IdentityBuilder:
         self._roles = list(roles)
         return self
 
-    def with_scopes(self, *scopes: str) -> "IdentityBuilder":
+    def with_scopes(self, *scopes: str) -> IdentityBuilder:
         self._scopes = list(scopes)
         return self
 
-    def with_email(self, email: str) -> "IdentityBuilder":
+    def with_email(self, email: str) -> IdentityBuilder:
         self._email = email
         return self
 
-    def with_name(self, name: str) -> "IdentityBuilder":
+    def with_name(self, name: str) -> IdentityBuilder:
         self._name = name
         return self
 
-    def with_tenant(self, tenant_id: str) -> "IdentityBuilder":
+    def with_tenant(self, tenant_id: str) -> IdentityBuilder:
         self._tenant_id = tenant_id
         return self
 
-    def with_status(self, status: IdentityStatus) -> "IdentityBuilder":
+    def with_status(self, status: IdentityStatus) -> IdentityBuilder:
         self._status = status
         return self
 
-    def with_type(self, type: IdentityType) -> "IdentityBuilder":
+    def with_type(self, type: IdentityType) -> IdentityBuilder:
         self._type = type
         return self
 
-    def with_attr(self, key: str, value: Any) -> "IdentityBuilder":
+    def with_attr(self, key: str, value: Any) -> IdentityBuilder:
         self._extra[key] = value
         return self
 
-    def as_service(self) -> "IdentityBuilder":
+    def as_service(self) -> IdentityBuilder:
         self._type = IdentityType.SERVICE
         return self
 
-    def as_suspended(self) -> "IdentityBuilder":
+    def as_suspended(self) -> IdentityBuilder:
         self._status = IdentityStatus.SUSPENDED
         return self
 
@@ -216,7 +216,7 @@ class AuthTestMixin:
                 self.assert_status(resp, 200)
     """
 
-    _forced_identities: Dict[str, Identity]
+    _forced_identities: dict[str, Identity]
 
     def force_login(self, identity: Identity) -> None:
         """
@@ -243,7 +243,7 @@ class AuthTestMixin:
             self._forced_identities.clear()
 
     @property
-    def current_identity(self) -> Optional[Identity]:
+    def current_identity(self) -> Identity | None:
         """Return the currently forced identity (or None)."""
         if not hasattr(self, "_forced_identities") or not self._forced_identities:
             return None
@@ -277,13 +277,13 @@ class AuthTestMixin:
             if hasattr(store, "_identities"):
                 store._identities[identity.id] = identity
 
-    def login_as_admin(self, id: Optional[str] = None, **kw) -> Identity:
+    def login_as_admin(self, id: str | None = None, **kw) -> Identity:
         """Convenience: create admin identity and force login."""
         identity = TestIdentityFactory.admin(id=id, **kw)
         self.force_login(identity)
         return identity
 
-    def login_as_user(self, id: Optional[str] = None, **kw) -> Identity:
+    def login_as_user(self, id: str | None = None, **kw) -> Identity:
         """Convenience: create user identity and force login."""
         identity = TestIdentityFactory.user(id=id, **kw)
         self.force_login(identity)

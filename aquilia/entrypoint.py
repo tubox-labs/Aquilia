@@ -71,14 +71,14 @@ import os
 import re
 import sys
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 __all__ = ["app", "server", "create_app"]
 
 _logger = logging.getLogger("aquilia.entrypoint")
 
 
-def _sanitise_env(key: str, default: str, *, allowed: Optional[set] = None) -> str:
+def _sanitise_env(key: str, default: str, *, allowed: set | None = None) -> str:
     """Read and sanitise an environment variable.
 
     - Strips whitespace
@@ -90,9 +90,7 @@ def _sanitise_env(key: str, default: str, *, allowed: Optional[set] = None) -> s
         _logger.warning("Null byte in env var %s — using default", key)
         return default
     if allowed and value not in allowed:
-        _logger.warning(
-            "Invalid value for %s: %r — using default %r", key, value, default
-        )
+        _logger.warning("Invalid value for %s: %r — using default %r", key, value, default)
         return default
     return value
 
@@ -113,8 +111,14 @@ def _setup_logging(mode: str) -> None:
 
     # Silence noisy loggers
     for name in (
-        "aquilia.sqlite", "asyncio", "urllib3", "httpcore", "httpx",
-        "watchfiles", "uvicorn.error", "python_multipart",
+        "aquilia.sqlite",
+        "asyncio",
+        "urllib3",
+        "httpcore",
+        "httpx",
+        "watchfiles",
+        "uvicorn.error",
+        "python_multipart",
         "python_multipart.multipart",
     ):
         logging.getLogger(name).setLevel(logging.WARNING)
@@ -122,23 +126,16 @@ def _setup_logging(mode: str) -> None:
 
 def _discover_workspace_name(content: str) -> str:
     """Extract workspace name from workspace.py content."""
-    match = re.search(
-        r'Workspace\(\s*(?:name\s*=\s*)?["\']([^"\']+)["\']', content
-    )
+    match = re.search(r'Workspace\(\s*(?:name\s*=\s*)?["\']([^"\']+)["\']', content)
     return match.group(1) if match else "aquilia-app"
 
 
 def _discover_module_names(content: str) -> list[str]:
     """Extract module names from workspace.py, ignoring comments."""
-    clean_lines = [
-        line for line in content.splitlines()
-        if not line.strip().startswith("#")
-    ]
+    clean_lines = [line for line in content.splitlines() if not line.strip().startswith("#")]
     clean = "\n".join(clean_lines)
 
-    modules = re.findall(
-        r'\.module\(\s*Module\(\s*["\']([^"\']+)["\']', clean
-    )
+    modules = re.findall(r'\.module\(\s*Module\(\s*["\']([^"\']+)["\']', clean)
     # Deduplicate preserving order, exclude the starter pseudo-module
     seen: set[str] = set()
     result: list[str] = []
@@ -150,8 +147,8 @@ def _discover_module_names(content: str) -> list[str]:
 
 
 def create_app(
-    workspace_root: Optional[Path] = None,
-    mode: Optional[str] = None,
+    workspace_root: Path | None = None,
+    mode: str | None = None,
 ) -> Any:
     """Create the ASGI application from workspace configuration.
 
@@ -175,9 +172,7 @@ def create_app(
         workspace_root = Path(ws_path).resolve()
 
     if mode is None:
-        mode = _sanitise_env(
-            "AQUILIA_ENV", "prod", allowed={"dev", "test", "prod", "production"}
-        )
+        mode = _sanitise_env("AQUILIA_ENV", "prod", allowed={"dev", "test", "prod", "production"})
         # Normalise "production" → "prod"
         if mode == "production":
             mode = "prod"
@@ -195,8 +190,7 @@ def create_app(
     workspace_file = workspace_root / "workspace.py"
     if not workspace_file.exists():
         raise FileNotFoundError(
-            f"workspace.py not found at {workspace_root}. "
-            f"Set AQUILIA_WORKSPACE to the correct path."
+            f"workspace.py not found at {workspace_root}. Set AQUILIA_WORKSPACE to the correct path."
         )
 
     from aquilia.config import ConfigLoader
@@ -216,7 +210,9 @@ def create_app(
 
     _logger.info(
         "Entrypoint: workspace=%s mode=%s modules=%d",
-        workspace_name, mode, len(module_names),
+        workspace_name,
+        mode,
+        len(module_names),
     )
 
     # Ensure apps namespace
@@ -258,9 +254,7 @@ def create_app(
                         config.config_data["apps"].setdefault(pkg.name, {})
                         _logger.info("Dynamically discovered module: %s", pkg.name)
                 except Exception as exc:
-                    _logger.warning(
-                        "Could not import manifest for %s: %s", pkg.name, exc
-                    )
+                    _logger.warning("Could not import manifest for %s: %s", pkg.name, exc)
 
     config._build_apps_namespace()
 
@@ -279,7 +273,9 @@ def create_app(
 
     _logger.info(
         "Aquilia %s ready — %s mode, %d module(s)",
-        workspace_name, mode, len(manifests),
+        workspace_name,
+        mode,
+        len(manifests),
     )
 
     return _server
@@ -289,7 +285,7 @@ def create_app(
 # Import this module and the ASGI app is ready.
 # Guarded so import errors produce clear messages.
 
-_server_instance: Optional[Any] = None
+_server_instance: Any | None = None
 
 try:
     _server_instance = create_app()
@@ -297,40 +293,52 @@ try:
     app = _server_instance.app
 except FileNotFoundError as _e:
     _logger.error("Aquilia entrypoint: %s", _e)
+
     # Provide a stub that returns 503 so the container doesn't crash silently
     async def app(scope, receive, send):  # type: ignore[misc]
         if scope["type"] == "http":
-            await send({
-                "type": "http.response.start",
-                "status": 503,
-                "headers": [[b"content-type", b"application/json"]],
-            })
-            await send({
-                "type": "http.response.body",
-                "body": b'{"error":"workspace.py not found","hint":"Set AQUILIA_WORKSPACE"}',
-            })
+            await send(
+                {
+                    "type": "http.response.start",
+                    "status": 503,
+                    "headers": [[b"content-type", b"application/json"]],
+                }
+            )
+            await send(
+                {
+                    "type": "http.response.body",
+                    "body": b'{"error":"workspace.py not found","hint":"Set AQUILIA_WORKSPACE"}',
+                }
+            )
         elif scope["type"] == "lifespan":
-            msg = await receive()
+            await receive()
             await send({"type": "lifespan.startup.complete"})
-            msg = await receive()
+            await receive()
             await send({"type": "lifespan.shutdown.complete"})
+
     server = None  # type: ignore[assignment]
 except Exception as _e:
     _logger.error("Aquilia entrypoint failed: %s", _e, exc_info=True)
+
     async def app(scope, receive, send):  # type: ignore[misc]
         if scope["type"] == "http":
-            await send({
-                "type": "http.response.start",
-                "status": 500,
-                "headers": [[b"content-type", b"application/json"]],
-            })
-            await send({
-                "type": "http.response.body",
-                "body": b'{"error":"Application startup failed","hint":"Check logs"}',
-            })
+            await send(
+                {
+                    "type": "http.response.start",
+                    "status": 500,
+                    "headers": [[b"content-type", b"application/json"]],
+                }
+            )
+            await send(
+                {
+                    "type": "http.response.body",
+                    "body": b'{"error":"Application startup failed","hint":"Check logs"}',
+                }
+            )
         elif scope["type"] == "lifespan":
-            msg = await receive()
+            await receive()
             await send({"type": "lifespan.startup.complete"})
-            msg = await receive()
+            await receive()
             await send({"type": "lifespan.shutdown.complete"})
+
     server = None  # type: ignore[assignment]

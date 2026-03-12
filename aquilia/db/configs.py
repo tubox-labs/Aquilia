@@ -35,11 +35,9 @@ Usage:
 
 from __future__ import annotations
 
-import os
-from dataclasses import dataclass, field, asdict
-from typing import Any, Dict, Optional, Union
-from urllib.parse import urlparse, quote_plus
-
+from dataclasses import dataclass, field
+from typing import Any
+from urllib.parse import quote_plus, urlparse
 
 __all__ = [
     "DatabaseConfig",
@@ -82,7 +80,7 @@ class DatabaseConfig:
     conn_health_checks: bool = False
 
     # Additional driver-specific options
-    options: Dict[str, Any] = field(default_factory=dict)
+    options: dict[str, Any] = field(default_factory=dict)
 
     def to_url(self) -> str:
         """
@@ -90,14 +88,12 @@ class DatabaseConfig:
 
         Override in subclasses for backend-specific URL formats.
         """
-        raise NotImplementedError(
-            f"{self.__class__.__name__} must implement to_url()"
-        )
+        raise NotImplementedError(f"{self.__class__.__name__} must implement to_url()")
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """
         Serialize to a flat dictionary for integration with ConfigLoader.
-        
+
         Returns:
             Configuration dictionary with 'url' key and all settings.
         """
@@ -122,7 +118,7 @@ class DatabaseConfig:
             d["options"] = self.options
         return d
 
-    def get_engine_options(self) -> Dict[str, Any]:
+    def get_engine_options(self) -> dict[str, Any]:
         """
         Get kwargs to pass to AquiliaDatabase / adapter.
 
@@ -137,7 +133,7 @@ class DatabaseConfig:
         return opts
 
     @classmethod
-    def from_url(cls, url: str, **overrides) -> "DatabaseConfig":
+    def from_url(cls, url: str, **overrides) -> DatabaseConfig:
         """
         Create a config from a URL string.
 
@@ -161,6 +157,7 @@ class DatabaseConfig:
             return OracleConfig.from_url(url, **overrides)
         else:
             from ..faults.domains import ConfigInvalidFault
+
             raise ConfigInvalidFault(
                 key="database.url",
                 reason=f"Unsupported database URL scheme: {url}",
@@ -211,12 +208,12 @@ class SqliteConfig(DatabaseConfig):
         return f"sqlite:///{self.path}"
 
     @classmethod
-    def from_url(cls, url: str, **overrides) -> "SqliteConfig":
+    def from_url(cls, url: str, **overrides) -> SqliteConfig:
         """Parse a sqlite:// URL into a SqliteConfig."""
         path = url
         for prefix in ("sqlite:///", "sqlite://"):
             if url.startswith(prefix):
-                path = url[len(prefix):]
+                path = url[len(prefix) :]
                 break
         if not path:
             path = ":memory:"
@@ -299,7 +296,7 @@ class PostgresConfig(DatabaseConfig):
         port_part = f":{self.port}" if self.port != 5432 else ":5432"
         return f"postgresql://{auth}{self.host}{port_part}/{self.name}"
 
-    def get_engine_options(self) -> Dict[str, Any]:
+    def get_engine_options(self) -> dict[str, Any]:
         opts = super().get_engine_options()
         opts["pool_min_size"] = self.pool_min_size
         opts["pool_max_size"] = self.pool_max_size
@@ -308,7 +305,7 @@ class PostgresConfig(DatabaseConfig):
         return opts
 
     @classmethod
-    def from_url(cls, url: str, **overrides) -> "PostgresConfig":
+    def from_url(cls, url: str, **overrides) -> PostgresConfig:
         """Parse a postgresql:// URL into a PostgresConfig."""
         parsed = urlparse(url)
         return cls(
@@ -321,10 +318,7 @@ class PostgresConfig(DatabaseConfig):
         )
 
     def __repr__(self) -> str:
-        return (
-            f"PostgresConfig(host={self.host!r}, port={self.port}, "
-            f"database={self.name!r}, user={self.user!r})"
-        )
+        return f"PostgresConfig(host={self.host!r}, port={self.port}, database={self.name!r}, user={self.user!r})"
 
 
 @dataclass
@@ -395,13 +389,13 @@ class MysqlConfig(DatabaseConfig):
             auth += "@"
         return f"mysql://{auth}{self.host}:{self.port}/{self.name}"
 
-    def get_engine_options(self) -> Dict[str, Any]:
+    def get_engine_options(self) -> dict[str, Any]:
         opts = super().get_engine_options()
         opts["charset"] = self.charset
         return opts
 
     @classmethod
-    def from_url(cls, url: str, **overrides) -> "MysqlConfig":
+    def from_url(cls, url: str, **overrides) -> MysqlConfig:
         """Parse a mysql:// URL into a MysqlConfig."""
         parsed = urlparse(url)
         return cls(
@@ -414,10 +408,7 @@ class MysqlConfig(DatabaseConfig):
         )
 
     def __repr__(self) -> str:
-        return (
-            f"MysqlConfig(host={self.host!r}, port={self.port}, "
-            f"database={self.name!r}, user={self.user!r})"
-        )
+        return f"MysqlConfig(host={self.host!r}, port={self.port}, database={self.name!r}, user={self.user!r})"
 
 
 @dataclass
@@ -505,14 +496,14 @@ class OracleConfig(DatabaseConfig):
         db_name = self.service_name or self.sid or "ORCL"
         return f"{self.host}:{self.port}/{db_name}"
 
-    def get_engine_options(self) -> Dict[str, Any]:
+    def get_engine_options(self) -> dict[str, Any]:
         opts = super().get_engine_options()
         opts["pool_min_size"] = self.pool_min_size
         opts["pool_max_size"] = self.pool_max_size
         return opts
 
     @classmethod
-    def from_url(cls, url: str, **overrides) -> "OracleConfig":
+    def from_url(cls, url: str, **overrides) -> OracleConfig:
         """Parse an oracle:// URL into an OracleConfig."""
         parsed = urlparse(url)
         return cls(
@@ -525,7 +516,4 @@ class OracleConfig(DatabaseConfig):
         )
 
     def __repr__(self) -> str:
-        return (
-            f"OracleConfig(host={self.host!r}, port={self.port}, "
-            f"database={self.service_name!r}, user={self.user!r})"
-        )
+        return f"OracleConfig(host={self.host!r}, port={self.port}, database={self.service_name!r}, user={self.user!r})"

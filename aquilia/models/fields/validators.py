@@ -20,9 +20,9 @@ Usage:
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from decimal import Decimal
-from typing import Any, Callable, Optional, Sequence, Union
-
+from typing import Any
 
 __all__ = [
     "BaseValidator",
@@ -46,7 +46,7 @@ __all__ = [
 class ValidationError(ValueError):
     """Raised by validators when a value fails validation."""
 
-    def __init__(self, message: str, code: str = "invalid", params: Optional[dict] = None):
+    def __init__(self, message: str, code: str = "invalid", params: dict | None = None):
         self.message = message
         self.code = code
         self.params = params or {}
@@ -61,9 +61,7 @@ class BaseValidator:
 
     def __call__(self, value: Any) -> None:
         if not self.is_valid(value):
-            raise ValidationError(
-                self.get_message(value), code=self.code
-            )
+            raise ValidationError(self.get_message(value), code=self.code)
 
     def is_valid(self, value: Any) -> bool:
         """Override in subclasses. Return True if value is valid."""
@@ -73,10 +71,7 @@ class BaseValidator:
         return self.message
 
     def __eq__(self, other: Any) -> bool:
-        return (
-            isinstance(other, self.__class__) and
-            self.__dict__ == other.__dict__
-        )
+        return isinstance(other, self.__class__) and self.__dict__ == other.__dict__
 
     def __repr__(self) -> str:
         return f"<{self.__class__.__name__}>"
@@ -87,7 +82,7 @@ class MinValueValidator(BaseValidator):
 
     code = "min_value"
 
-    def __init__(self, limit_value: Union[int, float, Decimal], message: Optional[str] = None):
+    def __init__(self, limit_value: int | float | Decimal, message: str | None = None):
         self.limit_value = limit_value
         if message:
             self.message = message
@@ -98,8 +93,10 @@ class MinValueValidator(BaseValidator):
         return value >= self.limit_value
 
     def get_message(self, value: Any) -> str:
-        return self.message if hasattr(self, 'message') and self.message != "Invalid value." else (
-            f"Ensure this value is greater than or equal to {self.limit_value}."
+        return (
+            self.message
+            if hasattr(self, "message") and self.message != "Invalid value."
+            else (f"Ensure this value is greater than or equal to {self.limit_value}.")
         )
 
     def __repr__(self) -> str:
@@ -111,7 +108,7 @@ class MaxValueValidator(BaseValidator):
 
     code = "max_value"
 
-    def __init__(self, limit_value: Union[int, float, Decimal], message: Optional[str] = None):
+    def __init__(self, limit_value: int | float | Decimal, message: str | None = None):
         self.limit_value = limit_value
         if message:
             self.message = message
@@ -122,8 +119,10 @@ class MaxValueValidator(BaseValidator):
         return value <= self.limit_value
 
     def get_message(self, value: Any) -> str:
-        return self.message if hasattr(self, 'message') and self.message != "Invalid value." else (
-            f"Ensure this value is less than or equal to {self.limit_value}."
+        return (
+            self.message
+            if hasattr(self, "message") and self.message != "Invalid value."
+            else (f"Ensure this value is less than or equal to {self.limit_value}.")
         )
 
     def __repr__(self) -> str:
@@ -135,7 +134,7 @@ class MinLengthValidator(BaseValidator):
 
     code = "min_length"
 
-    def __init__(self, limit_value: int, message: Optional[str] = None):
+    def __init__(self, limit_value: int, message: str | None = None):
         self.limit_value = limit_value
         if message:
             self.message = message
@@ -146,9 +145,12 @@ class MinLengthValidator(BaseValidator):
         return len(value) >= self.limit_value
 
     def get_message(self, value: Any) -> str:
-        return self.message if hasattr(self, 'message') and self.message != "Invalid value." else (
-            f"Ensure this value has at least {self.limit_value} character(s) "
-            f"(it has {len(value) if value else 0})."
+        return (
+            self.message
+            if hasattr(self, "message") and self.message != "Invalid value."
+            else (
+                f"Ensure this value has at least {self.limit_value} character(s) (it has {len(value) if value else 0})."
+            )
         )
 
     def __repr__(self) -> str:
@@ -160,7 +162,7 @@ class MaxLengthValidator(BaseValidator):
 
     code = "max_length"
 
-    def __init__(self, limit_value: int, message: Optional[str] = None):
+    def __init__(self, limit_value: int, message: str | None = None):
         self.limit_value = limit_value
         if message:
             self.message = message
@@ -171,9 +173,12 @@ class MaxLengthValidator(BaseValidator):
         return len(value) <= self.limit_value
 
     def get_message(self, value: Any) -> str:
-        return self.message if hasattr(self, 'message') and self.message != "Invalid value." else (
-            f"Ensure this value has at most {self.limit_value} character(s) "
-            f"(it has {len(value) if value else 0})."
+        return (
+            self.message
+            if hasattr(self, "message") and self.message != "Invalid value."
+            else (
+                f"Ensure this value has at most {self.limit_value} character(s) (it has {len(value) if value else 0})."
+            )
         )
 
 
@@ -185,8 +190,8 @@ class RegexValidator(BaseValidator):
     def __init__(
         self,
         regex: str,
-        message: Optional[str] = None,
-        code: Optional[str] = None,
+        message: str | None = None,
+        code: str | None = None,
         inverse_match: bool = False,
         flags: int = 0,
     ):
@@ -206,8 +211,8 @@ class RegexValidator(BaseValidator):
         return not matched if self.inverse_match else matched
 
     def get_message(self, value: Any) -> str:
-        return self.message if hasattr(self, 'message') and self.message != "Invalid value." else (
-            f"Enter a valid value."
+        return (
+            self.message if hasattr(self, "message") and self.message != "Invalid value." else ("Enter a valid value.")
         )
 
     def __repr__(self) -> str:
@@ -218,12 +223,12 @@ class EmailValidator(RegexValidator):
     """Validate email address format."""
 
     _EMAIL_RE = (
-        r'^[a-zA-Z0-9.!#$%&\'*+/=?^_`{|}~-]+@'
-        r'[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?'
-        r'(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$'
+        r"^[a-zA-Z0-9.!#$%&\'*+/=?^_`{|}~-]+@"
+        r"[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?"
+        r"(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$"
     )
 
-    def __init__(self, message: Optional[str] = None):
+    def __init__(self, message: str | None = None):
         super().__init__(
             self._EMAIL_RE,
             message=message or "Enter a valid email address.",
@@ -235,14 +240,14 @@ class URLValidator(RegexValidator):
     """Validate URL format."""
 
     _URL_RE = (
-        r'^https?://'
-        r'(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)*'
-        r'[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?'
-        r'(?::\d+)?'
-        r'(?:/[^\s]*)?$'
+        r"^https?://"
+        r"(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)*"
+        r"[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?"
+        r"(?::\d+)?"
+        r"(?:/[^\s]*)?$"
     )
 
-    def __init__(self, message: Optional[str] = None, schemes: Optional[Sequence[str]] = None):
+    def __init__(self, message: str | None = None, schemes: Sequence[str] | None = None):
         self.schemes = schemes or ["http", "https"]
         super().__init__(
             self._URL_RE,
@@ -254,9 +259,9 @@ class URLValidator(RegexValidator):
 class SlugValidator(RegexValidator):
     """Validate slug format (letters, numbers, hyphens, underscores)."""
 
-    def __init__(self, message: Optional[str] = None):
+    def __init__(self, message: str | None = None):
         super().__init__(
-            r'^[-a-zA-Z0-9_]+$',
+            r"^[-a-zA-Z0-9_]+$",
             message=message or "Enter a valid slug (letters, numbers, hyphens, underscores).",
             code="invalid_slug",
         )
@@ -279,7 +284,7 @@ class DecimalValidator(BaseValidator):
 
     code = "invalid_decimal"
 
-    def __init__(self, max_digits: int, decimal_places: int, message: Optional[str] = None):
+    def __init__(self, max_digits: int, decimal_places: int, message: str | None = None):
         self.max_digits = max_digits
         self.decimal_places = decimal_places
         if message:
@@ -296,15 +301,16 @@ class DecimalValidator(BaseValidator):
         num_digits = len(digits)
         decimals = -exponent if exponent < 0 else 0
         whole_digits = num_digits - decimals
-        return (
-            whole_digits <= (self.max_digits - self.decimal_places)
-            and decimals <= self.decimal_places
-        )
+        return whole_digits <= (self.max_digits - self.decimal_places) and decimals <= self.decimal_places
 
     def get_message(self, value: Any) -> str:
-        return self.message if hasattr(self, 'message') and self.message != "Invalid value." else (
-            f"Ensure there are no more than {self.max_digits} digits total "
-            f"and {self.decimal_places} decimal places."
+        return (
+            self.message
+            if hasattr(self, "message") and self.message != "Invalid value."
+            else (
+                f"Ensure there are no more than {self.max_digits} digits total "
+                f"and {self.decimal_places} decimal places."
+            )
         )
 
 
@@ -316,7 +322,7 @@ class FileExtensionValidator(BaseValidator):
     def __init__(
         self,
         allowed_extensions: Sequence[str],
-        message: Optional[str] = None,
+        message: str | None = None,
     ):
         self.allowed_extensions = [ext.lower().lstrip(".") for ext in allowed_extensions]
         if message:
@@ -329,8 +335,10 @@ class FileExtensionValidator(BaseValidator):
         return ext in self.allowed_extensions
 
     def get_message(self, value: Any) -> str:
-        return self.message if hasattr(self, 'message') and self.message != "Invalid value." else (
-            f"File extension not allowed. Allowed: {', '.join(self.allowed_extensions)}."
+        return (
+            self.message
+            if hasattr(self, "message") and self.message != "Invalid value."
+            else (f"File extension not allowed. Allowed: {', '.join(self.allowed_extensions)}.")
         )
 
 
@@ -341,9 +349,9 @@ class StepValueValidator(BaseValidator):
 
     def __init__(
         self,
-        step: Union[int, float, Decimal],
-        offset: Union[int, float, Decimal] = 0,
-        message: Optional[str] = None,
+        step: int | float | Decimal,
+        offset: int | float | Decimal = 0,
+        message: str | None = None,
     ):
         self.step = step
         self.offset = offset
@@ -356,8 +364,10 @@ class StepValueValidator(BaseValidator):
         return (Decimal(str(value)) - Decimal(str(self.offset))) % Decimal(str(self.step)) == 0
 
     def get_message(self, value: Any) -> str:
-        return self.message if hasattr(self, 'message') and self.message != "Invalid value." else (
-            f"Ensure this value is a multiple of {self.step}."
+        return (
+            self.message
+            if hasattr(self, "message") and self.message != "Invalid value."
+            else (f"Ensure this value is a multiple of {self.step}.")
         )
 
 
@@ -368,9 +378,9 @@ class RangeValidator(BaseValidator):
 
     def __init__(
         self,
-        min_val: Optional[Union[int, float, Decimal]] = None,
-        max_val: Optional[Union[int, float, Decimal]] = None,
-        message: Optional[str] = None,
+        min_val: int | float | Decimal | None = None,
+        max_val: int | float | Decimal | None = None,
+        message: str | None = None,
     ):
         self.min_val = min_val
         self.max_val = max_val
@@ -382,13 +392,13 @@ class RangeValidator(BaseValidator):
             return True
         if self.min_val is not None and value < self.min_val:
             return False
-        if self.max_val is not None and value > self.max_val:
-            return False
-        return True
+        return not (self.max_val is not None and value > self.max_val)
 
     def get_message(self, value: Any) -> str:
-        return self.message if hasattr(self, 'message') and self.message != "Invalid value." else (
-            f"Ensure this value is between {self.min_val} and {self.max_val}."
+        return (
+            self.message
+            if hasattr(self, "message") and self.message != "Invalid value."
+            else (f"Ensure this value is between {self.min_val} and {self.max_val}.")
         )
 
 
@@ -401,7 +411,7 @@ class UniqueForDateValidator(BaseValidator):
 
     code = "unique_for_date"
 
-    def __init__(self, date_field: str, message: Optional[str] = None):
+    def __init__(self, date_field: str, message: str | None = None):
         self.date_field = date_field
         if message:
             self.message = message

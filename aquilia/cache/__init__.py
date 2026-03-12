@@ -40,46 +40,39 @@ Usage::
 
 from aquilia._version import __version__  # noqa: F401 — re-exported
 
+from .backends.composite import CompositeBackend
+from .backends.memory import MemoryBackend
+from .backends.null import NullBackend
+from .backends.redis import RedisBackend
 from .core import (
     CacheBackend,
-    CacheEntry,
-    CacheStats,
     CacheConfig,
-    CacheSerializer,
+    CacheEntry,
     CacheKeyBuilder,
+    CacheSerializer,
+    CacheStats,
     EvictionPolicy,
 )
-
-from .backends.memory import MemoryBackend
-from .backends.redis import RedisBackend
-from .backends.composite import CompositeBackend
-from .backends.null import NullBackend
-
-from .service import CacheService
-
-from .decorators import cached, cache_aside, invalidate, set_default_cache_service, get_default_cache_service
-
+from .decorators import cache_aside, cached, get_default_cache_service, invalidate, set_default_cache_service
+from .faults import (
+    CacheBackendFault,
+    CacheCapacityFault,
+    CacheConfigFault,
+    CacheConnectionFault,
+    CacheFault,
+    CacheHealthFault,
+    CacheMissFault,
+    CacheSerializationFault,
+    CacheStampedeFault,
+)
+from .key_builder import DefaultKeyBuilder, HashKeyBuilder
+from .middleware import CacheMiddleware
 from .serializers import (
     JsonCacheSerializer,
-    PickleCacheSerializer,
     MsgpackCacheSerializer,
+    PickleCacheSerializer,
 )
-
-from .faults import (
-    CacheFault,
-    CacheMissFault,
-    CacheConnectionFault,
-    CacheSerializationFault,
-    CacheCapacityFault,
-    CacheBackendFault,
-    CacheConfigFault,
-    CacheStampedeFault,
-    CacheHealthFault,
-)
-
-from .middleware import CacheMiddleware
-
-from .key_builder import DefaultKeyBuilder, HashKeyBuilder
+from .service import CacheService
 
 __all__ = [
     # Core

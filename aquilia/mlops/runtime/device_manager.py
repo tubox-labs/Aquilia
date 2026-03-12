@@ -28,13 +28,14 @@ import logging
 import os
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger("aquilia.mlops.runtime.device_manager")
 
 
 class DeviceKind(str, Enum):
     """Hardware device categories."""
+
     CPU = "cpu"
     CUDA = "cuda"
     MPS = "mps"
@@ -45,13 +46,14 @@ class DeviceKind(str, Enum):
 @dataclass
 class DeviceInfo:
     """Snapshot of a single compute device."""
-    name: str                              # e.g. "cuda:0", "cpu", "mps"
+
+    name: str  # e.g. "cuda:0", "cpu", "mps"
     kind: DeviceKind
-    index: int = 0                         # GPU index (0 for non-GPU)
+    index: int = 0  # GPU index (0 for non-GPU)
     total_memory_mb: float = 0.0
     available_memory_mb: float = 0.0
     is_available: bool = True
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def utilization(self) -> float:
         """Memory utilization ratio (0.0–1.0)."""
@@ -59,7 +61,7 @@ class DeviceInfo:
             return 0.0
         return 1.0 - (self.available_memory_mb / self.total_memory_mb)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "kind": self.kind.value,
@@ -81,8 +83,8 @@ class DeviceManager:
     """
 
     def __init__(self) -> None:
-        self._devices: Dict[str, DeviceInfo] = {}
-        self._locks: Dict[str, asyncio.Lock] = {}
+        self._devices: dict[str, DeviceInfo] = {}
+        self._locks: dict[str, asyncio.Lock] = {}
         self._initialized: bool = False
         self._default_device: str = "cpu"
 
@@ -146,17 +148,19 @@ class DeviceManager:
                 if memory_required_mb <= 0 or dev.available_memory_mb >= memory_required_mb:
                     return dev.name
                 logger.warning(
-                    "Device %s has insufficient memory (%.0f MB available, "
-                    "%.0f MB required); falling back",
-                    preference, dev.available_memory_mb, memory_required_mb,
+                    "Device %s has insufficient memory (%.0f MB available, %.0f MB required); falling back",
+                    preference,
+                    dev.available_memory_mb,
+                    memory_required_mb,
                 )
             else:
                 logger.warning(
-                    "Requested device %s not available; falling back", preference,
+                    "Requested device %s not available; falling back",
+                    preference,
                 )
 
         # Auto-select: prefer GPU with most available memory
-        best: Optional[DeviceInfo] = None
+        best: DeviceInfo | None = None
         for dev in self._devices.values():
             if not dev.is_available or dev.kind == DeviceKind.CPU:
                 continue
@@ -187,7 +191,7 @@ class DeviceManager:
         async def __aexit__(self, *exc: Any) -> None:
             self._lock.release()
 
-    def acquire(self, device_name: str) -> "_DeviceGuard":
+    def acquire(self, device_name: str) -> _DeviceGuard:
         """
         Acquire an exclusive lock on a device.
 
@@ -204,10 +208,11 @@ class DeviceManager:
 
     # ── Monitoring ───────────────────────────────────────────────────
 
-    async def refresh(self, device_name: Optional[str] = None) -> None:
+    async def refresh(self, device_name: str | None = None) -> None:
         """Refresh memory stats for one or all devices."""
         targets = (
-            [self._devices[device_name]] if device_name and device_name in self._devices
+            [self._devices[device_name]]
+            if device_name and device_name in self._devices
             else list(self._devices.values())
         )
         for dev in targets:
@@ -216,11 +221,11 @@ class DeviceManager:
             elif dev.kind == DeviceKind.CPU:
                 self._refresh_cpu(dev)
 
-    def get_device(self, name: str) -> Optional[DeviceInfo]:
+    def get_device(self, name: str) -> DeviceInfo | None:
         """Get info for a specific device."""
         return self._devices.get(name)
 
-    def list_devices(self) -> List[DeviceInfo]:
+    def list_devices(self) -> list[DeviceInfo]:
         """Return all known devices."""
         return list(self._devices.values())
 
@@ -228,7 +233,7 @@ class DeviceManager:
     def default_device(self) -> str:
         return self._default_device
 
-    def summary(self) -> Dict[str, Any]:
+    def summary(self) -> dict[str, Any]:
         """Return a summary dict suitable for health check responses."""
         return {
             "default_device": self._default_device,
@@ -243,6 +248,7 @@ class DeviceManager:
         avail_mb = 0.0
         try:
             import psutil
+
             vm = psutil.virtual_memory()
             total_mb = vm.total / (1024 * 1024)
             avail_mb = vm.available / (1024 * 1024)
@@ -264,10 +270,11 @@ class DeviceManager:
         )
 
     @staticmethod
-    def _detect_cuda() -> List[DeviceInfo]:
-        devices: List[DeviceInfo] = []
+    def _detect_cuda() -> list[DeviceInfo]:
+        devices: list[DeviceInfo] = []
         try:
             import torch
+
             if not torch.cuda.is_available():
                 return devices
             for i in range(torch.cuda.device_count()):
@@ -275,23 +282,26 @@ class DeviceManager:
                 total = props.total_mem / (1024 * 1024)
                 # Use memory_reserved as a proxy for allocated
                 allocated = torch.cuda.memory_allocated(i) / (1024 * 1024)
-                devices.append(DeviceInfo(
-                    name=f"cuda:{i}",
-                    kind=DeviceKind.CUDA,
-                    index=i,
-                    total_memory_mb=total,
-                    available_memory_mb=total - allocated,
-                    is_available=True,
-                    metadata={"gpu_name": props.name},
-                ))
+                devices.append(
+                    DeviceInfo(
+                        name=f"cuda:{i}",
+                        kind=DeviceKind.CUDA,
+                        index=i,
+                        total_memory_mb=total,
+                        available_memory_mb=total - allocated,
+                        is_available=True,
+                        metadata={"gpu_name": props.name},
+                    )
+                )
         except ImportError:
             pass
         return devices
 
     @staticmethod
-    def _detect_mps() -> Optional[DeviceInfo]:
+    def _detect_mps() -> DeviceInfo | None:
         try:
             import torch
+
             if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
                 return DeviceInfo(
                     name="mps",
@@ -307,6 +317,7 @@ class DeviceManager:
     def _refresh_cuda(dev: DeviceInfo) -> None:
         try:
             import torch
+
             if torch.cuda.is_available():
                 allocated = torch.cuda.memory_allocated(dev.index) / (1024 * 1024)
                 dev.available_memory_mb = dev.total_memory_mb - allocated
@@ -317,6 +328,7 @@ class DeviceManager:
     def _refresh_cpu(dev: DeviceInfo) -> None:
         try:
             import psutil
+
             vm = psutil.virtual_memory()
             dev.available_memory_mb = vm.available / (1024 * 1024)
         except ImportError:

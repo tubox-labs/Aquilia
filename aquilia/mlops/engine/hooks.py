@@ -35,8 +35,8 @@ Usage::
 
 from __future__ import annotations
 
-import inspect
-from typing import Any, Callable, Dict, List, Optional, TypeVar
+from collections.abc import Callable
+from typing import Any, TypeVar
 
 F = TypeVar("F", bound=Callable[..., Any])
 
@@ -47,15 +47,18 @@ _HOOK_ATTR = "__mlops_hook__"
 
 def _mark_hook(kind: str) -> Callable[[F], F]:
     """Create a decorator that marks a method as a specific hook type."""
+
     def decorator(fn: F) -> F:
-        hooks: List[str] = getattr(fn, _HOOK_ATTR, [])
+        hooks: list[str] = getattr(fn, _HOOK_ATTR, [])
         hooks.append(kind)
         setattr(fn, _HOOK_ATTR, hooks)
         return fn
+
     return decorator
 
 
 # ── Public Decorators ────────────────────────────────────────────────────
+
 
 def on_load(fn: F) -> F:
     """Mark method as a post-load lifecycle hook."""
@@ -94,6 +97,7 @@ def on_error(fn: F) -> F:
 
 # ── Hook Collection ──────────────────────────────────────────────────────
 
+
 class HookRegistry:
     """
     Collected hooks from a model class.
@@ -112,15 +116,15 @@ class HookRegistry:
     )
 
     def __init__(self) -> None:
-        self.on_load: List[Callable] = []
-        self.on_unload: List[Callable] = []
-        self.preprocess: List[Callable] = []
-        self.postprocess: List[Callable] = []
-        self.before_predict: List[Callable] = []
-        self.after_predict: List[Callable] = []
-        self.on_error: List[Callable] = []
+        self.on_load: list[Callable] = []
+        self.on_unload: list[Callable] = []
+        self.preprocess: list[Callable] = []
+        self.postprocess: list[Callable] = []
+        self.before_predict: list[Callable] = []
+        self.after_predict: list[Callable] = []
+        self.on_error: list[Callable] = []
 
-    def get(self, kind: str) -> List[Callable]:
+    def get(self, kind: str) -> list[Callable]:
         """Get hooks by kind name."""
         return getattr(self, kind, [])
 
@@ -128,13 +132,18 @@ class HookRegistry:
         """Check if any hooks of this kind are registered."""
         return bool(self.get(kind))
 
-    def summary(self) -> Dict[str, int]:
+    def summary(self) -> dict[str, int]:
         """Return counts of registered hooks per kind."""
         return {
             kind: len(self.get(kind))
             for kind in (
-                "on_load", "on_unload", "preprocess", "postprocess",
-                "before_predict", "after_predict", "on_error",
+                "on_load",
+                "on_unload",
+                "preprocess",
+                "postprocess",
+                "before_predict",
+                "after_predict",
+                "on_error",
             )
         }
 
@@ -159,7 +168,7 @@ def collect_hooks(instance: Any) -> HookRegistry:
         if not callable(method):
             continue
 
-        hooks: List[str] = getattr(method, _HOOK_ATTR, [])
+        hooks: list[str] = getattr(method, _HOOK_ATTR, [])
         for kind in hooks:
             hook_list = registry.get(kind)
             if hook_list is not None:

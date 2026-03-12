@@ -14,8 +14,7 @@ import struct
 import time
 from typing import Any
 
-from .faults import AUTH_MFA_INVALID, AUTH_MFA_NOT_ENROLLED
-
+from .faults import AUTH_MFA_INVALID
 
 # ============================================================================
 # TOTP Provider (Time-based One-Time Password)
@@ -129,9 +128,7 @@ class TOTPProvider:
 
         return False
 
-    def generate_provisioning_uri(
-        self, secret: str, account_name: str
-    ) -> str:
+    def generate_provisioning_uri(self, secret: str, account_name: str) -> str:
         """
         Generate provisioning URI for QR code.
 
@@ -275,9 +272,7 @@ class WebAuthnProvider:
                     "name": self.rp_name,
                 },
                 "user": {
-                    "id": base64.urlsafe_b64encode(
-                        user_id.encode()
-                    ).decode(),
+                    "id": base64.urlsafe_b64encode(user_id.encode()).decode(),
                     "name": user_name,
                     "displayName": user_display_name,
                 },
@@ -323,8 +318,7 @@ class WebAuthnProvider:
 
         if credential_ids:
             options["publicKey"]["allowCredentials"] = [
-                {"type": "public-key", "id": cred_id}
-                for cred_id in credential_ids
+                {"type": "public-key", "id": cred_id} for cred_id in credential_ids
             ]
 
         return options
@@ -396,9 +390,7 @@ class WebAuthnProvider:
         # 5. Sign count has incremented (prevents cloning)
 
         credential_id = response.get("id")
-        sign_count = response.get("response", {}).get("authenticatorData", {}).get(
-            "signCount", 0
-        )
+        sign_count = response.get("response", {}).get("authenticatorData", {}).get("signCount", 0)
 
         # Basic checks
         if credential_id != stored_credential["credential_id"]:
@@ -413,6 +405,7 @@ class WebAuthnProvider:
 
         return True
 
+
 # ============================================================================
 # MFA Manager
 # ============================================================================
@@ -423,11 +416,7 @@ class MFAManager:
     Central MFA manager coordinating all MFA providers.
     """
 
-    def __init__(
-        self,
-        totp_provider: TOTPProvider | None = None,
-        webauthn_provider: WebAuthnProvider | None = None
-    ):
+    def __init__(self, totp_provider: TOTPProvider | None = None, webauthn_provider: WebAuthnProvider | None = None):
         self.totp = totp_provider or TOTPProvider()
         self.webauthn = webauthn_provider
 
@@ -443,9 +432,7 @@ class MFAManager:
         backup_codes = self.totp.generate_backup_codes()
 
         # Hash backup codes for storage
-        backup_code_hashes = [
-            self.totp.hash_backup_code(code) for code in backup_codes
-        ]
+        backup_code_hashes = [self.totp.hash_backup_code(code) for code in backup_codes]
 
         return {
             "secret": secret,
@@ -458,9 +445,7 @@ class MFAManager:
         """Verify TOTP code."""
         return self.totp.verify_code(secret, code)
 
-    async def verify_backup_code(
-        self, code: str, backup_code_hashes: list[str]
-    ) -> tuple[bool, list[str]]:
+    async def verify_backup_code(self, code: str, backup_code_hashes: list[str]) -> tuple[bool, list[str]]:
         """
         Verify backup code and remove it.
 

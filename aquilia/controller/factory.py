@@ -5,17 +5,18 @@ Handles controller instantiation with DI support.
 Supports both per-request and singleton instantiation modes.
 """
 
-from typing import Any, Dict, Optional, Type, get_origin, get_args
-from enum import Enum
 import asyncio
 import inspect
 import logging
+from enum import Enum
+from typing import Any, get_args, get_origin
 
 logger = logging.getLogger("aquilia.controller.factory")
 
 
 class InstantiationMode(str, Enum):
     """Controller instantiation modes."""
+
     PER_REQUEST = "per_request"
     SINGLETON = "singleton"
 
@@ -23,7 +24,7 @@ class InstantiationMode(str, Enum):
 class ControllerFactory:
     """
     Factory for creating controller instances.
-    
+
     Handles:
     - DI resolution for constructor parameters
     - Per-request vs singleton instantiation
@@ -32,32 +33,32 @@ class ControllerFactory:
     """
 
     # Class-level caches for constructor analysis
-    _ctor_info_cache: Dict[Type, Any] = {}  # class -> (sig, type_hints, param_specs)
-    
-    def __init__(self, app_container: Optional[Any] = None):
+    _ctor_info_cache: dict[type, Any] = {}  # class -> (sig, type_hints, param_specs)
+
+    def __init__(self, app_container: Any | None = None):
         self.app_container = app_container
-        self._singletons: Dict[Type, Any] = {}
+        self._singletons: dict[type, Any] = {}
         self._startup_called: set = set()
-    
+
     async def create(
         self,
-        controller_class: Type,
+        controller_class: type,
         mode: InstantiationMode = InstantiationMode.PER_REQUEST,
-        request_container: Optional[Any] = None,
-        ctx: Optional[Any] = None,
+        request_container: Any | None = None,
+        ctx: Any | None = None,
     ) -> Any:
         """
         Create controller instance.
-        
+
         Args:
             controller_class: Controller class to instantiate
             mode: Instantiation mode
             request_container: Request-scoped DI container
             ctx: Request context
-        
+
         Returns:
             Controller instance
-        
+
         Raises:
             ScopeViolationError: If injecting request-scoped into singleton
         """
@@ -69,42 +70,42 @@ class ControllerFactory:
                 request_container,
                 ctx,
             )
-    
+
     async def _create_singleton(
         self,
-        controller_class: Type,
-        ctx: Optional[Any] = None,
+        controller_class: type,
+        ctx: Any | None = None,
     ) -> Any:
         """Create or return singleton instance."""
         if controller_class in self._singletons:
             return self._singletons[controller_class]
-            
+
         # Validate scope safety before instantiation
         self.validate_scope(controller_class, InstantiationMode.SINGLETON)
-        
+
         # Resolve constructor dependencies from app container
         instance = await self._resolve_and_instantiate(
             controller_class,
             self.app_container,
         )
-        
+
         # Call on_startup hook once
         if controller_class not in self._startup_called:
-            if hasattr(instance, 'on_startup'):
+            if hasattr(instance, "on_startup"):
                 if inspect.iscoroutinefunction(instance.on_startup):
                     await instance.on_startup(ctx)
                 else:
                     instance.on_startup(ctx)
             self._startup_called.add(controller_class)
-        
+
         self._singletons[controller_class] = instance
         return instance
 
     async def _create_per_request(
         self,
-        controller_class: Type,
-        request_container: Optional[Any],
-        ctx: Optional[Any] = None,
+        controller_class: type,
+        request_container: Any | None,
+        ctx: Any | None = None,
     ) -> Any:
         """
         Create new instance for each request.
@@ -113,46 +114,46 @@ class ControllerFactory:
         hooks to avoid double invocation.
         """
         container = request_container or self.app_container
-        
+
         instance = await self._resolve_and_instantiate(
             controller_class,
             container,
         )
-        
+
         return instance
-    
+
     async def _resolve_and_instantiate(
         self,
-        controller_class: Type,
-        container: Optional[Any],
+        controller_class: type,
+        container: Any | None,
     ) -> Any:
         """
         Resolve constructor dependencies and instantiate.
-        
+
         Args:
             controller_class: Controller class
             container: DI container
-        
+
         Returns:
             Controller instance
         """
         if container is None:
             # No DI - simple instantiation
             return controller_class()
-        
+
         # Get cached constructor info (inspect.signature + get_type_hints are expensive)
         ctor_info = ControllerFactory._ctor_info_cache.get(controller_class)
         if ctor_info is None:
             ctor_info = self._analyze_constructor(controller_class)
             ControllerFactory._ctor_info_cache[controller_class] = ctor_info
-        
+
         if not ctor_info:
             # No injectable params -- simple instantiation
             return controller_class()
 
         params = {}
         _EMPTY = inspect.Parameter.empty
-        
+
         for param_name, param_type, has_default, default_val in ctor_info:
             try:
                 if param_type is not _EMPTY:
@@ -168,51 +169,52 @@ class ControllerFactory:
                     params[param_name] = default_val
                 else:
                     raise
-        
+
         return controller_class(**params)
-    
+
     @staticmethod
-    def _analyze_constructor(controller_class: Type):
+    def _analyze_constructor(controller_class: type):
         """Analyze constructor once and return a list of (name, type, has_default, default) tuples."""
         try:
             sig = inspect.signature(controller_class.__init__)
-            
+
             from typing import get_type_hints
+
             try:
                 type_hints = get_type_hints(controller_class.__init__, include_extras=True)
             except Exception:
                 type_hints = {}
-            
+
             _EMPTY = inspect.Parameter.empty
             result = []
-            
+
             for param_name, param in sig.parameters.items():
-                if param_name == 'self':
+                if param_name == "self":
                     continue
-                
+
                 param_type = type_hints.get(param_name, param.annotation)
-                
+
                 # Intelligent inference: default is a class → inject it
                 if param_type is _EMPTY and param.default is not _EMPTY:
                     if isinstance(param.default, type):
                         param_type = param.default
-                
+
                 has_default = param.default is not _EMPTY
                 default_val = param.default if has_default else None
                 result.append((param_name, param_type, has_default, default_val))
-            
+
             return result
         except Exception:
             return None
-    
+
     async def _resolve_parameter(
         self,
-        param_type: Type,
+        param_type: type,
         container: Any,
     ) -> Any:
         """
         Resolve a single parameter from DI container.
-        
+
         Handles Annotated[T, Inject(...)] and Annotated[T, Dep(...)] syntax.
         """
         try:
@@ -220,6 +222,7 @@ class ControllerFactory:
             if origin is not None:
                 try:
                     from typing import Annotated
+
                     if origin is Annotated:
                         args = get_args(param_type)
                         if args:
@@ -228,13 +231,13 @@ class ControllerFactory:
                                 # Check for Dep descriptor
                                 try:
                                     from aquilia.di.dep import Dep as DepCls
+
                                     if isinstance(arg, DepCls):
                                         if arg.is_container_lookup:
-                                            return await self._simple_resolve(
-                                                actual_type, container, tag=arg.tag
-                                            )
+                                            return await self._simple_resolve(actual_type, container, tag=arg.tag)
                                         # Dep with callable → mini resolve
                                         from aquilia.di.request_dag import RequestDAG
+
                                         dag = RequestDAG(container)
                                         try:
                                             return await dag.resolve(arg, actual_type)
@@ -246,61 +249,56 @@ class ControllerFactory:
                                 # Check for Inject marker (explicit isinstance)
                                 try:
                                     from aquilia.di.decorators import Inject
+
                                     if isinstance(arg, Inject):
                                         tag = arg.tag
                                         token = arg.token if arg.token else actual_type
-                                        return await self._simple_resolve(
-                                            token, container, tag=tag
-                                        )
+                                        return await self._simple_resolve(token, container, tag=tag)
                                 except ImportError:
                                     pass
 
                                 # Fallback: duck-typing for backwards compat
-                                if hasattr(arg, '_inject_tag') or hasattr(arg, '_inject_token'):
-                                    tag = getattr(arg, 'tag', None)
-                                    token = getattr(arg, 'token', None)
+                                if hasattr(arg, "_inject_tag") or hasattr(arg, "_inject_token"):
+                                    tag = getattr(arg, "tag", None)
+                                    token = getattr(arg, "token", None)
                                     resolve_key = token if token else actual_type
-                                    return await self._simple_resolve(
-                                        resolve_key, container, tag=tag
-                                    )
+                                    return await self._simple_resolve(resolve_key, container, tag=tag)
                 except ImportError:
                     pass
-            
+
             # Simple type resolution
             return await self._simple_resolve(param_type, container)
-        
+
         except Exception:
             # If anything fails, try simple resolution
             return await self._simple_resolve(param_type, container)
-    
-    async def _simple_resolve(self, param_type: Type, container: Any, tag: str = None) -> Any:
+
+    async def _simple_resolve(self, param_type: type, container: Any, tag: str = None) -> Any:
         """Simple resolution from container."""
-        if hasattr(container, 'resolve_async'):
+        if hasattr(container, "resolve_async"):
             # Prefer async resolution
             return await container.resolve_async(param_type, tag=tag)
-        elif hasattr(container, 'resolve'):
+        elif hasattr(container, "resolve"):
             result = container.resolve(param_type, tag=tag)
             if asyncio.iscoroutine(result):
                 return await result
             return result
-        elif hasattr(container, 'get'):
+        elif hasattr(container, "get"):
             return container.get(param_type)
         else:
             # SEC-CTRL-02: Do NOT fall back to param_type() instantiation.
             # Arbitrary class instantiation is a security risk.
             from ..faults.domains import DIResolutionFault
+
             raise DIResolutionFault(
                 provider=repr(param_type),
-                reason=(
-                    "No container provider found. Register a provider for "
-                    "this type in your DI container."
-                ),
+                reason=("No container provider found. Register a provider for this type in your DI container."),
             )
-    
+
     async def shutdown(self):
         """Shutdown all singleton controllers."""
         for controller_class, instance in self._singletons.items():
-            if hasattr(instance, 'on_shutdown'):
+            if hasattr(instance, "on_shutdown"):
                 try:
                     if inspect.iscoroutinefunction(instance.on_shutdown):
                         await instance.on_shutdown(None)
@@ -311,64 +309,64 @@ class ControllerFactory:
                         f"Error in {controller_class.__name__}.on_shutdown: {e}",
                         exc_info=True,
                     )
-    
+
     def validate_scope(
         self,
-        controller_class: Type,
+        controller_class: type,
         mode: InstantiationMode,
     ) -> None:
         """
         Validate that controller doesn't violate scope rules.
-        
+
         Raises:
             ScopeViolationError: If singleton controller tries to inject
                                  request-scoped dependency
         """
         if mode != InstantiationMode.SINGLETON:
             return
-        
+
         if self.app_container is None:
             return
-        
+
         # Validate scopes of all dependencies
         try:
             sig = inspect.signature(controller_class.__init__)
             type_hints = self._get_type_hints(controller_class)
-            
+
             for param_name, param in sig.parameters.items():
-                if param_name == 'self':
+                if param_name == "self":
                     continue
-                
+
                 # Get param type
                 param_type = type_hints.get(param_name, param.annotation)
-                
+
                 # If inferred from default value
                 if param_type == inspect.Parameter.empty and isinstance(param.default, type):
                     param_type = param.default
-                
+
                 if param_type == inspect.Parameter.empty:
                     continue
-                
+
                 # Check provider scope -- use public API where available
                 provider = None
-                if hasattr(self.app_container, 'get_provider'):
+                if hasattr(self.app_container, "get_provider"):
                     provider = self.app_container.get_provider(param_type)
-                elif hasattr(self.app_container, '_lookup_provider'):
+                elif hasattr(self.app_container, "_lookup_provider"):
                     try:
                         key = (
                             self.app_container._token_to_key(param_type)
-                            if hasattr(self.app_container, '_token_to_key')
+                            if hasattr(self.app_container, "_token_to_key")
                             else param_type
                         )
                         provider = self.app_container._lookup_provider(key, None)
                     except Exception:
                         pass
-                
-                if provider and hasattr(provider, 'meta') and hasattr(provider.meta, 'scope'):
+
+                if provider and hasattr(provider, "meta") and hasattr(provider.meta, "scope"):
                     # Singleton/App controllers CANNOT depend on Request/Ephemeral scopes
                     if provider.meta.scope in ("request", "ephemeral", "transient"):
                         raise ScopeViolationError(controller_class, param_type)
-                        
+
         except ScopeViolationError:
             raise
         except Exception:
@@ -378,6 +376,7 @@ class ControllerFactory:
     def _get_type_hints(self, cls):
         try:
             from typing import get_type_hints
+
             return get_type_hints(cls.__init__)
         except Exception:
             return {}
@@ -394,8 +393,8 @@ class ControllerFactory:
 
 class ScopeViolationError(Exception):
     """Raised when a scope rule is violated."""
-    
-    def __init__(self, controller_class: Type, provider: Type):
+
+    def __init__(self, controller_class: type, provider: type):
         self.controller_class = controller_class
         self.provider = provider
         super().__init__(

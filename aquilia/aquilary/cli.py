@@ -3,45 +3,45 @@ Aquilary CLI commands for manifest validation, inspection, and deployment.
 """
 
 import argparse
-import sys
-import json
-from pathlib import Path
-from typing import List, Optional, Any
 import importlib.util
+import json
+import sys
+from pathlib import Path
+from typing import Any
 
 
-def load_config(config_path: Optional[str]) -> Any:
+def load_config(config_path: str | None) -> Any:
     """
     Load config from Python file.
-    
+
     Args:
         config_path: Path to config file
-        
+
     Returns:
         Config object
     """
     if not config_path:
         return None
-    
+
     path = Path(config_path)
     if not path.exists():
         print(f"Config file not found: {config_path}")
         sys.exit(1)
-    
+
     # Import config module
     spec = importlib.util.spec_from_file_location("config", path)
     if spec is None or spec.loader is None:
         print(f"Cannot load config from {config_path}")
         sys.exit(1)
-    
+
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    
+
     # Find Config class
     for name, obj in vars(module).items():
         if isinstance(obj, type) and name == "Config":
             return obj()
-    
+
     print(f"No Config class found in {config_path}")
     sys.exit(1)
 
@@ -49,18 +49,18 @@ def load_config(config_path: Optional[str]) -> Any:
 def cmd_validate(args: argparse.Namespace) -> None:
     """
     Validate manifests.
-    
+
     Usage:
         aquilary validate apps/*/manifest.py --config config.py --mode prod
     """
     from aquilia.aquilary import Aquilary, ManifestValidationError
-    
+
     print(f"Validating manifests in mode: {args.mode}")
     print(f"   Manifests: {', '.join(args.manifests)}")
-    
+
     # Load config
     config = load_config(args.config)
-    
+
     try:
         # Build registry (validation happens automatically)
         registry = Aquilary.from_manifests(
@@ -69,32 +69,33 @@ def cmd_validate(args: argparse.Namespace) -> None:
             mode=args.mode,
             allow_fs_autodiscovery=args.autodiscover,
         )
-        
-        print(f"\nValidation passed!")
+
+        print("\nValidation passed!")
         print(f"   Apps: {len(registry.app_contexts)}")
         print(f"   Fingerprint: {registry.fingerprint[:16]}...")
-        
+
         # Show load order
-        print(f"\nLoad Order:")
+        print("\nLoad Order:")
         for ctx in registry.app_contexts:
             deps = f" (→ {', '.join(ctx.depends_on)})" if ctx.depends_on else ""
             print(f"   {ctx.load_order + 1}. {ctx.name} v{ctx.version}{deps}")
-        
+
         # Show warnings if any
-        if registry._validation_report.get('warning_count', 0) > 0:
-            print(f"\n Warnings:")
-            for warning in registry._validation_report.get('warnings', []):
+        if registry._validation_report.get("warning_count", 0) > 0:
+            print("\n Warnings:")
+            for warning in registry._validation_report.get("warnings", []):
                 print(f"   - {warning}")
-        
+
         sys.exit(0)
-        
+
     except ManifestValidationError as e:
-        print(f"\nValidation failed!")
+        print("\nValidation failed!")
         print(f"\n{e}")
         sys.exit(1)
     except Exception as e:
         print(f"\nUnexpected error: {e}")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)
 
@@ -102,17 +103,17 @@ def cmd_validate(args: argparse.Namespace) -> None:
 def cmd_inspect(args: argparse.Namespace) -> None:
     """
     Inspect registry and show diagnostics.
-    
+
     Usage:
         aquilary inspect --manifests apps/*/manifest.py --config config.py
     """
     from aquilia.aquilary import Aquilary
-    
-    print(f"Inspecting registry...")
-    
+
+    print("Inspecting registry...")
+
     # Load config
     config = load_config(args.config)
-    
+
     # Build registry
     registry = Aquilary.from_manifests(
         manifests=args.manifests,
@@ -120,33 +121,33 @@ def cmd_inspect(args: argparse.Namespace) -> None:
         mode=args.mode,
         allow_fs_autodiscovery=args.autodiscover,
     )
-    
+
     # Get diagnostics
     diagnostics = registry.inspect()
-    
+
     # Display
-    print(f"\n{'='*70}")
-    print(f"Registry Diagnostics")
-    print(f"{'='*70}")
-    
-    print(f"\nSummary:")
+    print(f"\n{'=' * 70}")
+    print("Registry Diagnostics")
+    print(f"{'=' * 70}")
+
+    print("\nSummary:")
     print(f"   Fingerprint: {diagnostics['fingerprint']}")
     print(f"   Mode: {diagnostics['mode']}")
     print(f"   App Count: {diagnostics['app_count']}")
-    
-    print(f"\nApplications:")
-    for app in diagnostics['apps']:
+
+    print("\nApplications:")
+    for app in diagnostics["apps"]:
         print(f"\n   {app['name']} v{app['version']}")
         print(f"      Load Order: {app['load_order']}")
         print(f"      Controllers: {app['controllers']}")
         print(f"      Services: {app['services']}")
         print(f"      Dependencies: {', '.join(app['depends_on']) if app['depends_on'] else 'none'}")
-    
-    print(f"\nDependency Graph:")
-    for app_name, deps in diagnostics['dependency_graph'].items():
-        deps_str = ', '.join(deps) if deps else 'none'
+
+    print("\nDependency Graph:")
+    for app_name, deps in diagnostics["dependency_graph"].items():
+        deps_str = ", ".join(deps) if deps else "none"
         print(f"   {app_name}: {deps_str}")
-    
+
     if args.json:
         # Export as JSON
         output_path = args.json
@@ -157,17 +158,17 @@ def cmd_inspect(args: argparse.Namespace) -> None:
 def cmd_freeze(args: argparse.Namespace) -> None:
     """
     Freeze manifest for reproducible deploys.
-    
+
     Usage:
         aquilary freeze --manifests apps/*/manifest.py --config config.py --output frozen.json
     """
     from aquilia.aquilary import Aquilary
-    
-    print(f"Freezing manifest...")
-    
+
+    print("Freezing manifest...")
+
     # Load config
     config = load_config(args.config)
-    
+
     # Build registry
     registry = Aquilary.from_manifests(
         manifests=args.manifests,
@@ -175,21 +176,21 @@ def cmd_freeze(args: argparse.Namespace) -> None:
         mode="prod",  # Always freeze in prod mode
         allow_fs_autodiscovery=args.autodiscover,
     )
-    
+
     # Export frozen manifest
     output_path = args.output or "frozen_manifest.json"
     registry.export_manifest(output_path)
-    
-    print(f"\nFrozen manifest exported!")
+
+    print("\nFrozen manifest exported!")
     print(f"   Path: {output_path}")
     print(f"   Fingerprint: {registry.fingerprint}")
     print(f"   Apps: {len(registry.app_contexts)}")
-    
-    print(f"\nApps included:")
+
+    print("\nApps included:")
     for ctx in registry.app_contexts:
         print(f"   - {ctx.name} v{ctx.version}")
-    
-    print(f"\nUsage in production:")
+
+    print("\nUsage in production:")
     print(f"   1. Commit {output_path} to version control")
     print(f"   2. Deploy with: aquilary run --frozen {output_path}")
     print(f"   3. Verify fingerprint matches: {registry.fingerprint}")
@@ -198,17 +199,17 @@ def cmd_freeze(args: argparse.Namespace) -> None:
 def cmd_graph(args: argparse.Namespace) -> None:
     """
     Visualize dependency graph.
-    
+
     Usage:
         aquilary graph --manifests apps/*/manifest.py --output graph.dot
     """
     from aquilia.aquilary import Aquilary
-    
-    print(f"Generating dependency graph...")
-    
+
+    print("Generating dependency graph...")
+
     # Load config
     config = load_config(args.config)
-    
+
     # Build registry
     registry = Aquilary.from_manifests(
         manifests=args.manifests,
@@ -216,30 +217,30 @@ def cmd_graph(args: argparse.Namespace) -> None:
         mode=args.mode,
         allow_fs_autodiscovery=args.autodiscover,
     )
-    
+
     # Build dependency graph
     from aquilia.aquilary import DependencyGraph
-    
+
     graph = DependencyGraph()
     for ctx in registry.app_contexts:
         graph.add_node(ctx.name, ctx.depends_on)
-    
+
     # Export as DOT
     dot = graph.to_dot()
-    
+
     if args.output:
         output_path = Path(args.output)
         output_path.write_text(dot, encoding="utf-8")
         print(f"\nGraph exported to: {output_path}")
-        print(f"\nVisualize with:")
+        print("\nVisualize with:")
         print(f"   dot -Tpng {output_path} -o {output_path.stem}.png")
-        print(f"   Or view at: https://dreampuf.github.io/GraphvizOnline/")
+        print("   Or view at: https://dreampuf.github.io/GraphvizOnline/")
     else:
         print(f"\n{dot}")
-    
+
     # Show layers
     layers = graph.get_layers()
-    print(f"\nParallel Loading Layers:")
+    print("\nParallel Loading Layers:")
     for i, layer in enumerate(layers, 1):
         print(f"   Layer {i}: {', '.join(layer)}")
 
@@ -247,17 +248,17 @@ def cmd_graph(args: argparse.Namespace) -> None:
 def cmd_run(args: argparse.Namespace) -> None:
     """
     Run application with registry.
-    
+
     Usage:
         aquilary run --frozen frozen.json --config config.py
     """
     from aquilia.aquilary import Aquilary
-    
-    print(f"Starting application...")
-    
+
+    print("Starting application...")
+
     # Load config
     config = load_config(args.config)
-    
+
     # Build registry
     if args.frozen:
         print(f"   Loading from frozen manifest: {args.frozen}")
@@ -268,32 +269,32 @@ def cmd_run(args: argparse.Namespace) -> None:
             freeze_manifest_path=args.frozen,
         )
     else:
-        print(f"   Loading from manifests...")
+        print("   Loading from manifests...")
         registry = Aquilary.from_manifests(
             manifests=args.manifests,
             config=config,
             mode=args.mode,
             allow_fs_autodiscovery=args.autodiscover,
         )
-    
-    print(f"\nRegistry loaded:")
+
+    print("\nRegistry loaded:")
     print(f"   Fingerprint: {registry.fingerprint}")
     print(f"   Apps: {len(registry.app_contexts)}")
-    
+
     # Build runtime
-    print(f"\nBuilding runtime...")
+    print("\nBuilding runtime...")
     runtime = registry.build_runtime()
-    
+
     # Compile routes
-    print(f"   Compiling routes...")
+    print("   Compiling routes...")
     runtime.compile_routes()
-    
-    print(f"\nRuntime ready!")
-    print(f"\nNext: Start server with runtime instance")
-    
+
+    print("\nRuntime ready!")
+    print("\nNext: Start server with runtime instance")
+
     # In real implementation, this would start the server
     # For now, just show what would happen
-    print(f"\nStartup sequence:")
+    print("\nStartup sequence:")
     for ctx in registry.app_contexts:
         print(f"   {ctx.load_order + 1}. Starting {ctx.name}...")
         if ctx.on_startup:
@@ -310,23 +311,23 @@ def main():
 Examples:
   # Validate manifests
   aquilary validate apps/*/manifest.py --config config.py --mode prod
-  
+
   # Inspect registry
   aquilary inspect --manifests apps/*/manifest.py --json diagnostics.json
-  
+
   # Freeze for deploy
   aquilary freeze --manifests apps/*/manifest.py --output frozen.json
-  
+
   # Visualize graph
   aquilary graph --manifests apps/*/manifest.py --output graph.dot
-  
+
   # Run with frozen manifest
   aquilary run --frozen frozen.json --config config.py
         """,
     )
-    
+
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
-    
+
     # Validate command
     validate_parser = subparsers.add_parser(
         "validate",
@@ -352,7 +353,7 @@ Examples:
         action="store_true",
         help="Auto-discover manifests in apps/",
     )
-    
+
     # Inspect command
     inspect_parser = subparsers.add_parser(
         "inspect",
@@ -383,7 +384,7 @@ Examples:
         "--json",
         help="Export diagnostics to JSON file",
     )
-    
+
     # Freeze command
     freeze_parser = subparsers.add_parser(
         "freeze",
@@ -408,7 +409,7 @@ Examples:
         action="store_true",
         help="Auto-discover manifests in apps/",
     )
-    
+
     # Graph command
     graph_parser = subparsers.add_parser(
         "graph",
@@ -439,7 +440,7 @@ Examples:
         action="store_true",
         help="Auto-discover manifests in apps/",
     )
-    
+
     # Run command
     run_parser = subparsers.add_parser(
         "run",
@@ -471,13 +472,13 @@ Examples:
         action="store_true",
         help="Auto-discover manifests in apps/",
     )
-    
+
     args = parser.parse_args()
-    
+
     if not args.command:
         parser.print_help()
         sys.exit(1)
-    
+
     # Dispatch to command handler
     commands = {
         "validate": cmd_validate,
@@ -486,7 +487,7 @@ Examples:
         "graph": cmd_graph,
         "run": cmd_run,
     }
-    
+
     handler = commands.get(args.command)
     if handler:
         handler(args)

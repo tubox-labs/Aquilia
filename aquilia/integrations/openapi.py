@@ -5,7 +5,7 @@ OpenAPIIntegration — typed OpenAPI documentation configuration.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
@@ -33,7 +33,7 @@ class OpenAPIIntegration:
     contact_url: str = ""
     license_name: str = ""
     license_url: str = ""
-    servers: List[Dict[str, str]] = field(default_factory=list)
+    servers: list[dict[str, str]] = field(default_factory=list)
     docs_path: str = "/docs"
     openapi_json_path: str = "/openapi.json"
     redoc_path: str = "/redoc"
@@ -45,10 +45,10 @@ class OpenAPIIntegration:
     external_docs_url: str = ""
     external_docs_description: str = ""
     swagger_ui_theme: str = ""
-    swagger_ui_config: Dict[str, Any] = field(default_factory=dict)
+    swagger_ui_config: dict[str, Any] = field(default_factory=dict)
     enabled: bool = True
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "_integration_type": "openapi",
             "enabled": self.enabled,

@@ -9,18 +9,12 @@ from __future__ import annotations
 
 import asyncio
 import json as stdlib_json
-import io
 import time as _time
 from typing import (
-    Any, AsyncIterator, Awaitable, Callable, Dict, List,
-    Mapping, Optional, Sequence, Tuple, Union,
+    Any,
 )
 
-from aquilia.request import Request
-from aquilia.response import Response
-from aquilia.controller.base import RequestCtx
-
-from .utils import make_test_scope, make_test_receive
+from .utils import make_test_receive, make_test_scope
 
 
 class TestResponse:
@@ -31,15 +25,21 @@ class TestResponse:
     """
 
     __slots__ = (
-        "status_code", "headers", "body", "_json_cache",
-        "content_type", "charset", "elapsed", "request_method",
+        "status_code",
+        "headers",
+        "body",
+        "_json_cache",
+        "content_type",
+        "charset",
+        "elapsed",
+        "request_method",
         "request_path",
     )
 
     def __init__(
         self,
         status_code: int,
-        headers: Dict[str, str],
+        headers: dict[str, str],
         body: bytes,
         *,
         elapsed: float = 0.0,
@@ -90,17 +90,17 @@ class TestResponse:
         return 500 <= self.status_code < 600
 
     @property
-    def content_length(self) -> Optional[int]:
+    def content_length(self) -> int | None:
         """Return Content-Length as int, or None."""
         cl = self.headers.get("content-length")
         return int(cl) if cl is not None else None
 
     @property
-    def location(self) -> Optional[str]:
+    def location(self) -> str | None:
         """Return Location header (useful for redirects)."""
         return self.headers.get("location")
 
-    def header(self, name: str, default: Optional[str] = None) -> Optional[str]:
+    def header(self, name: str, default: str | None = None) -> str | None:
         return self.headers.get(name.lower(), default)
 
     def has_header(self, name: str) -> bool:
@@ -108,11 +108,7 @@ class TestResponse:
         return name.lower() in self.headers
 
     def __repr__(self) -> str:
-        return (
-            f"<TestResponse [{self.status_code}] "
-            f"{self.content_type} {len(self.body)}B "
-            f"{self.elapsed:.1f}ms>"
-        )
+        return f"<TestResponse [{self.status_code}] {self.content_type} {len(self.body)}B {self.elapsed:.1f}ms>"
 
 
 class TestClient:
@@ -142,7 +138,7 @@ class TestClient:
         server_or_app: Any,
         *,
         base_url: str = "http://testserver",
-        default_headers: Optional[Dict[str, str]] = None,
+        default_headers: dict[str, str] | None = None,
         raise_server_exceptions: bool = True,
         follow_redirects: bool = False,
     ):
@@ -157,10 +153,7 @@ class TestClient:
         """
         from .server import TestServer
 
-        if isinstance(server_or_app, TestServer):
-            self._app = server_or_app.app
-            self._server = server_or_app
-        elif hasattr(server_or_app, "app"):
+        if isinstance(server_or_app, TestServer) or hasattr(server_or_app, "app"):
             self._app = server_or_app.app
             self._server = server_or_app
         else:
@@ -169,10 +162,10 @@ class TestClient:
 
         self._base_url = base_url
         self._default_headers = default_headers or {}
-        self._cookies: Dict[str, str] = {}
+        self._cookies: dict[str, str] = {}
         self._raise_server_exceptions = raise_server_exceptions
         self._follow_redirects = follow_redirects
-        self._history: List[TestResponse] = []
+        self._history: list[TestResponse] = []
 
     # ------------------------------------------------------------------
     # Auth helpers
@@ -191,7 +184,7 @@ class TestClient:
     # ------------------------------------------------------------------
 
     @property
-    def history(self) -> List[TestResponse]:
+    def history(self) -> list[TestResponse]:
         """Redirect chain history from the last request."""
         return list(self._history)
 
@@ -206,17 +199,21 @@ class TestClient:
         self,
         path: str,
         json: Any = None,
-        data: Optional[Dict[str, str]] = None,
+        data: dict[str, str] | None = None,
         body: bytes = b"",
-        files: Optional[Dict[str, Any]] = None,
+        files: dict[str, Any] | None = None,
         **kw,
     ) -> TestResponse:
         return await self._request("POST", path, json=json, data=data, body=body, files=files, **kw)
 
-    async def put(self, path: str, json: Any = None, body: bytes = b"", files: Optional[Dict[str, Any]] = None, **kw) -> TestResponse:
+    async def put(
+        self, path: str, json: Any = None, body: bytes = b"", files: dict[str, Any] | None = None, **kw
+    ) -> TestResponse:
         return await self._request("PUT", path, json=json, body=body, files=files, **kw)
 
-    async def patch(self, path: str, json: Any = None, body: bytes = b"", files: Optional[Dict[str, Any]] = None, **kw) -> TestResponse:
+    async def patch(
+        self, path: str, json: Any = None, body: bytes = b"", files: dict[str, Any] | None = None, **kw
+    ) -> TestResponse:
         return await self._request("PATCH", path, json=json, body=body, files=files, **kw)
 
     async def delete(self, path: str, **kw) -> TestResponse:
@@ -243,7 +240,7 @@ class TestClient:
         self._cookies.clear()
 
     @property
-    def cookies(self) -> Dict[str, str]:
+    def cookies(self) -> dict[str, str]:
         """Read-only view of the cookie jar."""
         return dict(self._cookies)
 
@@ -256,24 +253,31 @@ class TestClient:
         method: str,
         path: str,
         *,
-        headers: Optional[Dict[str, str]] = None,
+        headers: dict[str, str] | None = None,
         query_string: str = "",
         json: Any = None,
-        data: Optional[Dict[str, str]] = None,
+        data: dict[str, str] | None = None,
         body: bytes = b"",
-        files: Optional[Dict[str, Any]] = None,
+        files: dict[str, Any] | None = None,
         scheme: str = "http",
-        client: Optional[tuple] = None,
-        follow_redirects: Optional[bool] = None,
+        client: tuple | None = None,
+        follow_redirects: bool | None = None,
     ) -> TestResponse:
         """Issue an in-process ASGI request."""
         self._history.clear()
         should_follow = follow_redirects if follow_redirects is not None else self._follow_redirects
 
         resp = await self._single_request(
-            method, path, headers=headers, query_string=query_string,
-            json=json, data=data, body=body, files=files,
-            scheme=scheme, client=client,
+            method,
+            path,
+            headers=headers,
+            query_string=query_string,
+            json=json,
+            data=data,
+            body=body,
+            files=files,
+            scheme=scheme,
+            client=client,
         )
 
         # Follow redirects
@@ -286,7 +290,10 @@ class TestClient:
                 break
             # Follow with GET (PRG pattern)
             resp = await self._single_request(
-                "GET", location, scheme=scheme, client=client,
+                "GET",
+                location,
+                scheme=scheme,
+                client=client,
             )
 
         return resp
@@ -296,14 +303,14 @@ class TestClient:
         method: str,
         path: str,
         *,
-        headers: Optional[Dict[str, str]] = None,
+        headers: dict[str, str] | None = None,
         query_string: str = "",
         json: Any = None,
-        data: Optional[Dict[str, str]] = None,
+        data: dict[str, str] | None = None,
         body: bytes = b"",
-        files: Optional[Dict[str, Any]] = None,
+        files: dict[str, Any] | None = None,
         scheme: str = "http",
-        client: Optional[tuple] = None,
+        client: tuple | None = None,
     ) -> TestResponse:
         """Issue a single ASGI request (no redirect following)."""
         # Build combined headers
@@ -330,6 +337,7 @@ class TestClient:
             combined_headers.append(("content-length", str(len(body))))
         elif data is not None:
             from urllib.parse import urlencode
+
             body = urlencode(data).encode("utf-8")
             combined_headers.append(("content-type", "application/x-www-form-urlencoded"))
             combined_headers.append(("content-length", str(len(body))))
@@ -352,9 +360,9 @@ class TestClient:
         # Capture response events
         response_started = False
         status_code = 200
-        resp_headers: Dict[str, str] = {}
+        resp_headers: dict[str, str] = {}
         body_parts: list[bytes] = []
-        _exception: Optional[BaseException] = None
+        _exception: BaseException | None = None
 
         async def send(event: dict):
             nonlocal response_started, status_code, resp_headers
@@ -362,16 +370,8 @@ class TestClient:
                 response_started = True
                 status_code = event["status"]
                 for hdr_name, hdr_val in event.get("headers", []):
-                    name = (
-                        hdr_name.decode("latin-1")
-                        if isinstance(hdr_name, bytes)
-                        else hdr_name
-                    )
-                    val = (
-                        hdr_val.decode("latin-1")
-                        if isinstance(hdr_val, bytes)
-                        else hdr_val
-                    )
+                    name = hdr_name.decode("latin-1") if isinstance(hdr_name, bytes) else hdr_name
+                    val = hdr_val.decode("latin-1") if isinstance(hdr_val, bytes) else hdr_val
                     name_lower = name.lower()
                     # Handle multi-value headers (Set-Cookie)
                     if name_lower == "set-cookie" and name_lower in resp_headers:
@@ -418,10 +418,11 @@ class TestClient:
 # Multipart builder
 # -----------------------------------------------------------------------
 
+
 def _build_multipart(
-    data: Dict[str, str],
-    files: Dict[str, Any],
-) -> Tuple[bytes, str]:
+    data: dict[str, str],
+    files: dict[str, Any],
+) -> tuple[bytes, str]:
     """
     Build a multipart/form-data body from form fields and files.
 
@@ -434,16 +435,13 @@ def _build_multipart(
         ``(body_bytes, content_type_header)``
     """
     import uuid
+
     boundary = f"----AquiliaTestBoundary{uuid.uuid4().hex[:16]}"
     parts: list[bytes] = []
 
     # Form fields
     for name, value in data.items():
-        parts.append(
-            f"--{boundary}\r\n"
-            f'Content-Disposition: form-data; name="{name}"\r\n\r\n'
-            f"{value}\r\n".encode("utf-8")
-        )
+        parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="{name}"\r\n\r\n{value}\r\n'.encode())
 
     # File fields
     for field_name, file_info in files.items():
@@ -459,6 +457,7 @@ def _build_multipart(
                 filename, content, content_type = file_info[:3]
         else:
             from aquilia.faults.domains import ConfigInvalidFault
+
             raise ConfigInvalidFault(
                 key="multipart.file",
                 reason=f"File for {field_name!r}: expected bytes or tuple, got {type(file_info)}",
@@ -470,12 +469,12 @@ def _build_multipart(
         parts.append(
             f"--{boundary}\r\n"
             f'Content-Disposition: form-data; name="{field_name}"; filename="{filename}"\r\n'
-            f"Content-Type: {content_type}\r\n\r\n".encode("utf-8")
+            f"Content-Type: {content_type}\r\n\r\n".encode()
             + content
             + b"\r\n"
         )
 
-    parts.append(f"--{boundary}--\r\n".encode("utf-8"))
+    parts.append(f"--{boundary}--\r\n".encode())
     body = b"".join(parts)
     return body, f"multipart/form-data; boundary={boundary}"
 
@@ -499,24 +498,22 @@ class WebSocketTestClient:
     def __init__(self, server_or_app: Any):
         from .server import TestServer
 
-        if isinstance(server_or_app, TestServer):
-            self._app = server_or_app.app
-        elif hasattr(server_or_app, "app"):
+        if isinstance(server_or_app, TestServer) or hasattr(server_or_app, "app"):
             self._app = server_or_app.app
         else:
             self._app = server_or_app
 
         self._send_queue: asyncio.Queue = asyncio.Queue()
         self._receive_queue: asyncio.Queue = asyncio.Queue()
-        self._app_task: Optional[asyncio.Task] = None
+        self._app_task: asyncio.Task | None = None
         self._accepted = False
         self._closed = False
 
     async def connect(
         self,
         path: str = "/ws",
-        headers: Optional[List[tuple]] = None,
-        subprotocols: Optional[List[str]] = None,
+        headers: list[tuple] | None = None,
+        subprotocols: list[str] | None = None,
     ) -> None:
         """Initiate WebSocket handshake."""
         scope = {
@@ -526,8 +523,7 @@ class WebSocketTestClient:
             "raw_path": path.encode("utf-8"),
             "query_string": b"",
             "headers": [
-                (n.encode() if isinstance(n, str) else n,
-                 v.encode() if isinstance(v, str) else v)
+                (n.encode() if isinstance(n, str) else n, v.encode() if isinstance(v, str) else v)
                 for n, v in (headers or [])
             ],
             "scheme": "ws",
@@ -588,10 +584,12 @@ class WebSocketTestClient:
         return self._accepted and not self._closed
 
     async def close(self, code: int = 1000) -> None:
-        await self._send_queue.put({
-            "type": "websocket.disconnect",
-            "code": code,
-        })
+        await self._send_queue.put(
+            {
+                "type": "websocket.disconnect",
+                "code": code,
+            }
+        )
         if self._app_task and not self._app_task.done():
             try:
                 await asyncio.wait_for(self._app_task, timeout=2.0)

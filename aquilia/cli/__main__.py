@@ -17,9 +17,9 @@ Commands:
     version  - Show version information
 """
 
+import contextlib
 import sys
 from pathlib import Path
-from typing import Optional
 
 # ── Windows UTF-8 fix ────────────────────────────────────────────────────────
 # On Windows the default stdout/stderr codec is 'charmap' which cannot encode
@@ -29,15 +29,14 @@ from typing import Optional
 # the rest of the code never has to worry about the codec.
 if sys.platform == "win32":
     import io
+
     for _stream_name in ("stdout", "stderr"):
         _stream = getattr(sys, _stream_name)
         if hasattr(_stream, "reconfigure"):
-            try:
+            with contextlib.suppress(Exception):
                 _stream.reconfigure(encoding="utf-8", errors="replace")
-            except Exception:
-                pass
         elif hasattr(_stream, "buffer"):
-            try:
+            with contextlib.suppress(Exception):
                 setattr(
                     sys,
                     _stream_name,
@@ -48,25 +47,42 @@ if sys.platform == "win32":
                         line_buffering=_stream.line_buffering,
                     ),
                 )
-            except Exception:
-                pass
 # ─────────────────────────────────────────────────────────────────────────────
+
+import re as _re
 
 import click
 
-from . import __version__, __cli_name__
+from . import __cli_name__, __version__
 from .utils.colors import (
-    success, error, info, warning, dim, bold,
-    banner, section, kv, rule, step, bullet, panel, table, next_steps,
-    file_written, file_skipped, tree_item, badge, indent_echo, accent,
-    _CHECK, _CROSS, _ARROW, _BULLET,
+    _BULLET,
+    _CHECK,
+    _CROSS,
+    accent,
+    banner,
+    bold,
+    bullet,
+    dim,
+    error,
+    info,
+    kv,
+    next_steps,
+    panel,
+    section,
+    step,
+    success,
+    table,
+    tree_item,
+    warning,
 )
 from .utils.prompts import (
-    flow_header, flow_done, ask, ask_password,
-    select, multi_select, confirm, recap,
+    ask,
+    confirm,
+    flow_header,
+    multi_select,
+    recap,
+    select,
 )
-
-import re as _re
 
 _DEFAULT_DB_URL = "sqlite:///db.sqlite3"
 
@@ -75,9 +91,16 @@ _DEFAULT_DB_URL = "sqlite:///db.sqlite3"
 # ═══════════════════════════════════════════════════════════════════════════
 
 # Commands that do NOT require a workspace.py to exist:
-_NO_WORKSPACE_REQUIRED = frozenset({
-    "init", "version", "--version", "--help", "help", "doctor",
-})
+_NO_WORKSPACE_REQUIRED = frozenset(
+    {
+        "init",
+        "version",
+        "--version",
+        "--help",
+        "help",
+        "doctor",
+    }
+)
 
 
 def _require_workspace(ctx: click.Context) -> None:
@@ -92,12 +115,13 @@ def _require_workspace(ctx: click.Context) -> None:
         return
     # Check sys.argv for --help (covers Click's eager help handling)
     import sys as _sys
+
     if "--help" in _sys.argv or "-h" in _sys.argv:
         return
 
     # Walk up the invocation chain to find the actual sub-command name
     parts: list[str] = []
-    c: Optional[click.Context] = ctx
+    c: click.Context | None = ctx
     while c is not None:
         if c.info_name and c.info_name not in ("cli", "aq"):
             parts.insert(0, c.info_name)
@@ -116,9 +140,7 @@ def _require_workspace(ctx: click.Context) -> None:
     workspace_file = Path("workspace.py")
     if not workspace_file.exists():
         click.echo()
-        error(
-            f"  {_CROSS} No workspace.py found in the current directory."
-        )
+        error(f"  {_CROSS} No workspace.py found in the current directory.")
         click.echo()
         info("  Run 'aq init workspace <name>' to create a new Aquilia workspace first.")
         click.echo()
@@ -148,7 +170,7 @@ def _detect_workspace_db_url() -> str:
 
         # Match typed config: MysqlConfig(...), PostgresConfig(...), OracleConfig(...)
         cfg_match = _re.search(
-            r'(Mysql|Postgres|Oracle)Config\s*\((.*?)\)',
+            r"(Mysql|Postgres|Oracle)Config\s*\((.*?)\)",
             text,
             _re.DOTALL,
         )
@@ -161,7 +183,7 @@ def _detect_workspace_db_url() -> str:
                 return m.group(1) if m else default
 
             def _extract_int(key: str, default: int = 0) -> int:
-                m = _re.search(rf'{key}\s*=\s*(\d+)', block)
+                m = _re.search(rf"{key}\s*=\s*(\d+)", block)
                 return int(m.group(1)) if m else default
 
             host = _extract("host", "localhost")
@@ -220,9 +242,7 @@ class AquiliaGroup(click.Group):
 
         super().format_help(ctx, formatter)
 
-    def format_commands(
-        self, ctx: click.Context, formatter: click.HelpFormatter
-    ) -> None:
+    def format_commands(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
         """Format command listing with categorised groups."""
         commands_map = {}
         for subcommand in self.list_commands(ctx):
@@ -244,9 +264,7 @@ class AquiliaGroup(click.Group):
                 matched = [(c, commands_map[c]) for c in cat_cmds if c in commands_map]
                 if not matched:
                     continue
-                with formatter.section(
-                    click.style(cat_name, fg="cyan", bold=True)
-                ):
+                with formatter.section(click.style(cat_name, fg="cyan", bold=True)):
                     for name, help_text in matched:
                         padded = name.ljust(max_len)
                         styled_name = click.style(padded, fg="green")
@@ -256,18 +274,14 @@ class AquiliaGroup(click.Group):
             # Any uncategorised commands
             uncategorised = [(c, h) for c, h in commands_map.items() if c not in categorised]
             if uncategorised:
-                with formatter.section(
-                    click.style("Other", fg="cyan", bold=True)
-                ):
+                with formatter.section(click.style("Other", fg="cyan", bold=True)):
                     for name, help_text in uncategorised:
                         padded = name.ljust(max_len)
                         styled_name = click.style(padded, fg="green")
                         formatter.write(f"  {styled_name} {help_text}\n")
         else:
             # Subgroups: simple listing
-            with formatter.section(
-                click.style("Commands", fg="cyan", bold=True)
-            ):
+            with formatter.section(click.style("Commands", fg="cyan", bold=True)):
                 max_len = max(len(c) for c in commands_map) + 2
                 for name, help_text in commands_map.items():
                     padded = name.ljust(max_len)
@@ -277,10 +291,10 @@ class AquiliaGroup(click.Group):
 
 @click.group(cls=AquiliaGroup)
 @click.version_option(version=__version__, prog_name=__cli_name__)
-@click.option('--verbose', '-v', is_flag=True, help='Verbose output (show debug details, full tracebacks)')
-@click.option('--quiet', '-q', is_flag=True, help='Minimal output (suppress banners & decorations)')
-@click.option('--debug', is_flag=True, help='Enable debug mode (full stack traces on errors)')
-@click.option('--no-color', is_flag=True, help='Disable coloured output')
+@click.option("--verbose", "-v", is_flag=True, help="Verbose output (show debug details, full tracebacks)")
+@click.option("--quiet", "-q", is_flag=True, help="Minimal output (suppress banners & decorations)")
+@click.option("--debug", is_flag=True, help="Enable debug mode (full stack traces on errors)")
+@click.option("--no-color", is_flag=True, help="Disable coloured output")
 @click.pass_context
 def cli(ctx, verbose: bool, quiet: bool, debug: bool, no_color: bool):
     """Manifest-driven, artifact-first project orchestration.
@@ -294,10 +308,10 @@ def cli(ctx, verbose: bool, quiet: bool, debug: bool, no_color: bool):
       aq run
     """
     ctx.ensure_object(dict)
-    ctx.obj['verbose'] = verbose
-    ctx.obj['quiet'] = quiet
-    ctx.obj['debug'] = debug
-    ctx.obj['no_color'] = no_color
+    ctx.obj["verbose"] = verbose
+    ctx.obj["quiet"] = quiet
+    ctx.obj["debug"] = debug
+    ctx.obj["no_color"] = no_color
 
     # Disable click/ANSI colour if requested
     if no_color:
@@ -311,22 +325,23 @@ def cli(ctx, verbose: bool, quiet: bool, debug: bool, no_color: bool):
 # Commands
 # ============================================================================
 
+
 @cli.group(cls=AquiliaGroup)
 def init():
     """Initialize new workspace or module."""
     pass
 
 
-@init.command('workspace')
-@click.argument('name', required=False, default=None)
-@click.option('--minimal', is_flag=True, help='Minimal setup (no examples)')
-@click.option('--template', type=str, help='Use template (api, service, monolith)')
-@click.option('--yes', '-y', is_flag=True, help='Skip interactive prompts and use defaults')
+@init.command("workspace")
+@click.argument("name", required=False, default=None)
+@click.option("--minimal", is_flag=True, help="Minimal setup (no examples)")
+@click.option("--template", type=str, help="Use template (api, service, monolith)")
+@click.option("--yes", "-y", is_flag=True, help="Skip interactive prompts and use defaults")
 @click.pass_context
-def init_workspace(ctx, name: Optional[str], minimal: bool, template: Optional[str], yes: bool):
+def init_workspace(ctx, name: str | None, minimal: bool, template: str | None, yes: bool):
     """
     Create a new Aquilia workspace.
-    
+
     When run without arguments, starts an interactive setup wizard with
     styled prompts. Pass --yes to skip prompts and use defaults.
 
@@ -349,19 +364,24 @@ def init_workspace(ctx, name: Optional[str], minimal: bool, template: Optional[s
 
         # 1. Project name
         if not name:
-            name = ask("Project name", default="my-api", required=True,
-                        validator=_validate_name)
+            name = ask("Project name", default="my-api", required=True, validator=_validate_name)
         else:
-            click.echo(f"  {click.style('◆', fg='cyan')} {click.style('Project name', fg='white', bold=True)} {click.style('…', dim=True)} {click.style(name, fg='cyan')}")
+            click.echo(
+                f"  {click.style('◆', fg='cyan')} {click.style('Project name', fg='white', bold=True)} {click.style('…', dim=True)} {click.style(name, fg='cyan')}"
+            )
 
         # 2. Template
         if not template:
-            template_choice = select("Template", [
-                ("none",      "Blank workspace -- start from scratch"),
-                ("api",       "REST API -- routes, JSON responses, CORS"),
-                ("service",   "Microservice -- lightweight, single-purpose"),
-                ("monolith",  "Monolith -- full-featured, batteries included"),
-            ], default=0)
+            template_choice = select(
+                "Template",
+                [
+                    ("none", "Blank workspace -- start from scratch"),
+                    ("api", "REST API -- routes, JSON responses, CORS"),
+                    ("service", "Microservice -- lightweight, single-purpose"),
+                    ("monolith", "Monolith -- full-featured, batteries included"),
+                ],
+                default=0,
+            )
             template = None if template_choice == "none" else template_choice
 
         # 3. Minimal mode
@@ -370,20 +390,23 @@ def init_workspace(ctx, name: Optional[str], minimal: bool, template: Optional[s
 
         # 4. Features to include
         if not minimal:
-            features = multi_select("Include", [
-                ("Dockerfile",       "Container deployment",              True),
-                ("docker-compose",   "Multi-container orchestration",     True),
-                ("Makefile",         "Build automation targets",          True),
-                ("README",           "Project documentation",            True),
-                (".gitignore",       "Git ignore rules",                 True),
-                ("tests",            "Test directory with conftest",     True),
-            ])
+            features = multi_select(
+                "Include",
+                [
+                    ("Dockerfile", "Container deployment", True),
+                    ("docker-compose", "Multi-container orchestration", True),
+                    ("Makefile", "Build automation targets", True),
+                    ("README", "Project documentation", True),
+                    (".gitignore", "Git ignore rules", True),
+                    ("tests", "Test directory with conftest", True),
+                ],
+            )
 
-            include_docker    = "Dockerfile" in features or "docker-compose" in features
-            include_makefile  = "Makefile" in features
-            include_readme    = "README" in features
+            include_docker = "Dockerfile" in features or "docker-compose" in features
+            include_makefile = "Makefile" in features
+            include_readme = "README" in features
             include_gitignore = ".gitignore" in features
-            include_tests     = "tests" in features
+            include_tests = "tests" in features
         else:
             include_docker = False
             include_makefile = False
@@ -392,25 +415,32 @@ def init_workspace(ctx, name: Optional[str], minimal: bool, template: Optional[s
             include_tests = True
 
         # 5. License
-        license_choice = select("License", [
-            ("none",       "No license file"),
-            ("MIT",        "MIT License"),
-            ("Apache-2.0", "Apache License 2.0"),
-            ("BSD-3",      "BSD 3-Clause License"),
-        ], default=0)
+        license_choice = select(
+            "License",
+            [
+                ("none", "No license file"),
+                ("MIT", "MIT License"),
+                ("Apache-2.0", "Apache License 2.0"),
+                ("BSD-3", "BSD 3-Clause License"),
+            ],
+            default=0,
+        )
         include_license = None if license_choice == "none" else license_choice
 
         # 6. Confirmation
-        recap([
-            ("Name",      name),
-            ("Template",  template or "none"),
-            ("Mode",      "minimal" if minimal else "full"),
-            ("Docker",    "yes" if include_docker else "no"),
-            ("Makefile",  "yes" if include_makefile else "no"),
-            ("README",    "yes" if include_readme else "no"),
-            ("Tests",     "yes" if include_tests else "no"),
-            ("License",   include_license or "none"),
-        ], title="Configuration")
+        recap(
+            [
+                ("Name", name),
+                ("Template", template or "none"),
+                ("Mode", "minimal" if minimal else "full"),
+                ("Docker", "yes" if include_docker else "no"),
+                ("Makefile", "yes" if include_makefile else "no"),
+                ("README", "yes" if include_readme else "no"),
+                ("Tests", "yes" if include_tests else "no"),
+                ("License", include_license or "none"),
+            ],
+            title="Configuration",
+        )
 
         if not confirm("Scaffold project?", default=True):
             click.echo()
@@ -439,7 +469,7 @@ def init_workspace(ctx, name: Optional[str], minimal: bool, template: Optional[s
             name=name,
             minimal=minimal,
             template=template,
-            verbose=ctx.obj['verbose'],
+            verbose=ctx.obj["verbose"],
             include_docker=include_docker,
             include_readme=include_readme,
             include_makefile=include_makefile,
@@ -447,8 +477,8 @@ def init_workspace(ctx, name: Optional[str], minimal: bool, template: Optional[s
             include_gitignore=include_gitignore,
             include_license=include_license,
         )
-        
-        if not ctx.obj['quiet']:
+
+        if not ctx.obj["quiet"]:
             click.echo()
             banner("Aquilia", subtitle=f"Workspace created  {_CHECK}")
             click.echo()
@@ -483,20 +513,22 @@ def init_workspace(ctx, name: Optional[str], minimal: bool, template: Optional[s
                 tree_item("LICENSE", depth=0, last=True)
             click.echo()
 
-            next_steps([
-                f"cd {name}",
-                "cp .env.example .env",
-                "pip install -r requirements.txt",
-                "aq add module <module_name>",
-                "make run" if include_makefile else "aq run",
-            ])
-    
+            next_steps(
+                [
+                    f"cd {name}",
+                    "cp .env.example .env",
+                    "pip install -r requirements.txt",
+                    "aq add module <module_name>",
+                    "make run" if include_makefile else "aq run",
+                ]
+            )
+
     except Exception as e:
         error(f"  {_CROSS} Failed to create workspace: {e}")
         sys.exit(1)
 
 
-def _validate_name(value: str) -> Optional[str]:
+def _validate_name(value: str) -> str | None:
     """Validate a workspace/module name.
 
     Names must:
@@ -507,18 +539,21 @@ def _validate_name(value: str) -> Optional[str]:
     - Be at most 64 characters
     """
     import re as _vre
+
     if not value or len(value.strip()) < 2:
         return "Name must be at least 2 characters"
     if value[0].isupper():
         return "Name must start with a lowercase letter (no capitals allowed)"
-    if not _vre.match(r'^[a-z][a-z0-9_-]*$', value):
-        return "Name must start with a lowercase letter and contain only lowercase letters, digits, hyphens, underscores"
+    if not _vre.match(r"^[a-z][a-z0-9_-]*$", value):
+        return (
+            "Name must start with a lowercase letter and contain only lowercase letters, digits, hyphens, underscores"
+        )
     if len(value) > 64:
         return "Name must be 64 characters or fewer"
     return None
 
 
-def _validate_strong_password(password: str) -> Optional[str]:
+def _validate_strong_password(password: str) -> str | None:
     """Return an error message if *password* does not meet strength requirements.
 
     A strong password must:
@@ -529,15 +564,16 @@ def _validate_strong_password(password: str) -> Optional[str]:
     - Contain at least one special character (!@#$%^&*…)
     """
     import re as _pre
+
     if not password or len(password) < 8:
         return "Password must be at least 8 characters"
-    if not _pre.search(r'[A-Z]', password):
+    if not _pre.search(r"[A-Z]", password):
         return "Password must contain at least one uppercase letter"
-    if not _pre.search(r'[a-z]', password):
+    if not _pre.search(r"[a-z]", password):
         return "Password must contain at least one lowercase letter"
-    if not _pre.search(r'[0-9]', password):
+    if not _pre.search(r"[0-9]", password):
         return "Password must contain at least one digit"
-    if not _pre.search(r'[^A-Za-z0-9]', password):
+    if not _pre.search(r"[^A-Za-z0-9]", password):
         return "Password must contain at least one special character (e.g. !@#$%^&*)"
     return None
 
@@ -546,14 +582,14 @@ async def _check_admin_user_unique(
     db,
     username: str,
     email: str,
-) -> tuple[Optional[str], Optional[str]]:
+) -> tuple[str | None, str | None]:
     """Check whether *username* and *email* already exist in admin_users.
 
     Returns a tuple ``(username_error, email_error)`` where each element is
     either an error string or ``None`` if the value is available.
     """
-    username_err: Optional[str] = None
-    email_err: Optional[str] = None
+    username_err: str | None = None
+    email_err: str | None = None
     try:
         row = await db.fetch_one(
             "SELECT id FROM aq_admin_users WHERE username = :u",
@@ -581,26 +617,36 @@ def add():
     pass
 
 
-@add.command('module')
-@click.argument('name', required=False, default=None)
-@click.option('--depends-on', multiple=True, help='Module dependencies')
-@click.option('--fault-domain', type=str, help='Custom fault domain')
-@click.option('--route-prefix', type=str, help='Route prefix (default: /name)')
-@click.option('--with-tests', is_flag=True, help='Generate test routes')
-@click.option('--minimal', is_flag=True, help='Generate minimal module (controller + manifest only)')
-@click.option('--no-docker', is_flag=True, help='Skip auto-generating Docker files')
-@click.option('--yes', '-y', is_flag=True, help='Skip interactive prompts and use defaults')
+@add.command("module")
+@click.argument("name", required=False, default=None)
+@click.option("--depends-on", multiple=True, help="Module dependencies")
+@click.option("--fault-domain", type=str, help="Custom fault domain")
+@click.option("--route-prefix", type=str, help="Route prefix (default: /name)")
+@click.option("--with-tests", is_flag=True, help="Generate test routes")
+@click.option("--minimal", is_flag=True, help="Generate minimal module (controller + manifest only)")
+@click.option("--no-docker", is_flag=True, help="Skip auto-generating Docker files")
+@click.option("--yes", "-y", is_flag=True, help="Skip interactive prompts and use defaults")
 @click.pass_context
-def add_module(ctx, name: Optional[str], depends_on: tuple, fault_domain: Optional[str], route_prefix: Optional[str], with_tests: bool, minimal: bool, no_docker: bool, yes: bool):
+def add_module(
+    ctx,
+    name: str | None,
+    depends_on: tuple,
+    fault_domain: str | None,
+    route_prefix: str | None,
+    with_tests: bool,
+    minimal: bool,
+    no_docker: bool,
+    yes: bool,
+):
     """
     Add a new module to the workspace.
-    
+
     When run without arguments, starts an interactive setup wizard.
     Pass --yes to skip prompts and use defaults.
 
     By default also generates Dockerfile and docker-compose.yml if they
     don't exist yet.  Use --no-docker to skip.
-    
+
     Examples:
       aq add module                        # Interactive mode
       aq add module users                  # Interactive with name pre-filled
@@ -621,10 +667,11 @@ def add_module(ctx, name: Optional[str], depends_on: tuple, fault_domain: Option
 
         # 1. Module name
         if not name:
-            name = ask("Module name", required=True, validator=_validate_name,
-                        hint="e.g. users, products, auth")
+            name = ask("Module name", required=True, validator=_validate_name, hint="e.g. users, products, auth")
         else:
-            click.echo(f"  {click.style('◆', fg='cyan')} {click.style('Module name', fg='white', bold=True)} {click.style('…', dim=True)} {click.style(name, fg='cyan')}")
+            click.echo(
+                f"  {click.style('◆', fg='cyan')} {click.style('Module name', fg='white', bold=True)} {click.style('…', dim=True)} {click.style(name, fg='cyan')}"
+            )
 
         # 2. Route prefix
         if not route_prefix:
@@ -633,51 +680,60 @@ def add_module(ctx, name: Optional[str], depends_on: tuple, fault_domain: Option
 
         # 3. Module type
         if not minimal:
-            module_type = select("Module type", [
-                ("full",    "Full module -- controllers, services, faults, models"),
-                ("minimal", "Minimal -- controller + manifest only"),
-            ], default=0)
+            module_type = select(
+                "Module type",
+                [
+                    ("full", "Full module -- controllers, services, faults, models"),
+                    ("minimal", "Minimal -- controller + manifest only"),
+                ],
+                default=0,
+            )
             minimal = module_type == "minimal"
 
         # 4. Fault domain
         if not fault_domain and not minimal:
-            fault_domain = ask("Fault domain", default=name.upper(),
-                               hint="Used for error classification")
+            fault_domain = ask("Fault domain", default=name.upper(), hint="Used for error classification")
 
         # 5. Features
         if not minimal:
-            module_features = multi_select("Include", [
-                ("tests",          "Test routes file",               False),
-                ("docker",         "Auto-generate Docker files",     True),
-            ])
+            module_features = multi_select(
+                "Include",
+                [
+                    ("tests", "Test routes file", False),
+                    ("docker", "Auto-generate Docker files", True),
+                ],
+            )
             with_tests = "tests" in module_features
             no_docker = "docker" not in module_features
 
         # 6. Dependencies -- discover existing modules
         if not depends_on:
             workspace_root = Path.cwd()
-            modules_dir = workspace_root / 'modules'
+            modules_dir = workspace_root / "modules"
             existing_mods = []
             if modules_dir.exists():
                 existing_mods = [
-                    d.name for d in sorted(modules_dir.iterdir())
-                    if d.is_dir() and (d / 'manifest.py').exists()
-                    and d.name != name
+                    d.name
+                    for d in sorted(modules_dir.iterdir())
+                    if d.is_dir() and (d / "manifest.py").exists() and d.name != name
                 ]
             if existing_mods:
                 dep_choices = [(m, "", False) for m in existing_mods]
                 depends_on = tuple(multi_select("Dependencies", dep_choices))
 
         # 7. Confirmation
-        recap([
-            ("Module",       name),
-            ("Route prefix", route_prefix or f"/{name}"),
-            ("Type",         "minimal" if minimal else "full"),
-            ("Fault domain", fault_domain or name.upper()),
-            ("Tests",        "yes" if with_tests else "no"),
-            ("Docker",       "skip" if no_docker else "auto"),
-            ("Dependencies", ", ".join(depends_on) if depends_on else "none"),
-        ], title="Module Configuration")
+        recap(
+            [
+                ("Module", name),
+                ("Route prefix", route_prefix or f"/{name}"),
+                ("Type", "minimal" if minimal else "full"),
+                ("Fault domain", fault_domain or name.upper()),
+                ("Tests", "yes" if with_tests else "no"),
+                ("Docker", "skip" if no_docker else "auto"),
+                ("Dependencies", ", ".join(depends_on) if depends_on else "none"),
+            ],
+            title="Module Configuration",
+        )
 
         if not confirm("Add module?", default=True):
             click.echo()
@@ -695,7 +751,7 @@ def add_module(ctx, name: Optional[str], depends_on: tuple, fault_domain: Option
 
     # ── Generate ─────────────────────────────────────────────────────
     try:
-        module_path = _add_module(
+        _add_module(
             name=name,
             depends_on=list(depends_on),
             fault_domain=fault_domain,
@@ -703,10 +759,10 @@ def add_module(ctx, name: Optional[str], depends_on: tuple, fault_domain: Option
             with_tests=with_tests,
             minimal=minimal,
             no_docker=no_docker,
-            verbose=ctx.obj['verbose'],
+            verbose=ctx.obj["verbose"],
         )
-        
-        if not ctx.obj['quiet']:
+
+        if not ctx.obj["quiet"]:
             click.echo()
             success(f"  {_CHECK} Module '{name}' added successfully")
             click.echo()
@@ -746,7 +802,7 @@ def add_module(ctx, name: Optional[str], depends_on: tuple, fault_domain: Option
                 steps.append(f"Add services in modules/{name}/services.py")
             steps.extend(["aq run", "aq validate"])
             next_steps(steps)
-    
+
     except Exception as e:
         error(f"  {_CROSS} Failed to add module: {e}")
         sys.exit(1)
@@ -758,19 +814,28 @@ def generate():
     pass
 
 
-@generate.command('controller')
-@click.argument('name')
-@click.option('--prefix', type=str, help='Route prefix (default: /name)')
-@click.option('--resource', type=str, help='Resource name (default: name)')
-@click.option('--simple', is_flag=True, help='Generate simple controller')
-@click.option('--with-lifecycle', is_flag=True, help='Include lifecycle hooks')
-@click.option('--test', is_flag=True, help='Generate test/demo controller')
-@click.option('--output', type=click.Path(), help='Output directory')
+@generate.command("controller")
+@click.argument("name")
+@click.option("--prefix", type=str, help="Route prefix (default: /name)")
+@click.option("--resource", type=str, help="Resource name (default: name)")
+@click.option("--simple", is_flag=True, help="Generate simple controller")
+@click.option("--with-lifecycle", is_flag=True, help="Include lifecycle hooks")
+@click.option("--test", is_flag=True, help="Generate test/demo controller")
+@click.option("--output", type=click.Path(), help="Output directory")
 @click.pass_context
-def generate_controller(ctx, name: str, prefix: Optional[str], resource: Optional[str], simple: bool, with_lifecycle: bool, test: bool, output: Optional[str]):
+def generate_controller(
+    ctx,
+    name: str,
+    prefix: str | None,
+    resource: str | None,
+    simple: bool,
+    with_lifecycle: bool,
+    test: bool,
+    output: str | None,
+):
     """
     Generate a new controller.
-    
+
     Examples:
       aq generate controller Users
       aq generate controller Products --prefix=/api/products
@@ -780,19 +845,19 @@ def generate_controller(ctx, name: str, prefix: Optional[str], resource: Optiona
       aq generate controller Admin --output=apps/admin/
     """
     from .generators.controller import generate_controller as _generate_controller
-    
+
     try:
         file_path = _generate_controller(
             name=name,
-            output_dir=output or 'controllers',
+            output_dir=output or "controllers",
             prefix=prefix,
             resource=resource,
             simple=simple,
             with_lifecycle=with_lifecycle,
             test=test,
         )
-        
-        if not ctx.obj['quiet']:
+
+        if not ctx.obj["quiet"]:
             click.echo()
             success(f"  {_CHECK} Generated controller '{name}'")
             click.echo()
@@ -804,26 +869,28 @@ def generate_controller(ctx, name: str, prefix: Optional[str], resource: Optiona
             if test:
                 kv("Type", "Test/Demo controller")
             click.echo()
-            next_steps([
-                f"Register in manifest: controllers = ['{file_path.parent.name}.{file_path.stem}:{name}Controller']",
-                "Implement your business logic",
-                "aq run",
-            ])
-    
+            next_steps(
+                [
+                    f"Register in manifest: controllers = ['{file_path.parent.name}.{file_path.stem}:{name}Controller']",
+                    "Implement your business logic",
+                    "aq run",
+                ]
+            )
+
     except Exception as e:
         error(f"  {_CROSS} Failed to generate controller: {e}")
         sys.exit(1)
 
 
-@cli.command('validate')
-@click.option('--strict', is_flag=True, help='Strict validation (prod-level)')
-@click.option('--module', type=str, help='Validate single module')
-@click.option('--json', 'as_json', is_flag=True, help='Output results as JSON')
+@cli.command("validate")
+@click.option("--strict", is_flag=True, help="Strict validation (prod-level)")
+@click.option("--module", type=str, help="Validate single module")
+@click.option("--json", "as_json", is_flag=True, help="Output results as JSON")
 @click.pass_context
-def validate(ctx, strict: bool, module: Optional[str], as_json: bool):
+def validate(ctx, strict: bool, module: str | None, as_json: bool):
     """
     Validate workspace manifests.
-    
+
     Examples:
       aq validate
       aq validate --strict
@@ -831,30 +898,36 @@ def validate(ctx, strict: bool, module: Optional[str], as_json: bool):
       aq validate --json
     """
     from .commands.validate import validate_workspace
-    
+
     try:
         result = validate_workspace(
             strict=strict,
             module_filter=module,
-            verbose=ctx.obj['verbose'],
+            verbose=ctx.obj["verbose"],
         )
 
         if as_json:
             import json as _json
-            click.echo(_json.dumps({
-                "valid": result.is_valid,
-                "modules": result.module_count,
-                "routes": result.route_count,
-                "providers": result.provider_count,
-                "fingerprint": str(result.fingerprint)[:24] if result.fingerprint else None,
-                "faults": result.faults if hasattr(result, 'faults') else [],
-                "warnings": result.warnings if hasattr(result, 'warnings') else [],
-            }, indent=2))
+
+            click.echo(
+                _json.dumps(
+                    {
+                        "valid": result.is_valid,
+                        "modules": result.module_count,
+                        "routes": result.route_count,
+                        "providers": result.provider_count,
+                        "fingerprint": str(result.fingerprint)[:24] if result.fingerprint else None,
+                        "faults": result.faults if hasattr(result, "faults") else [],
+                        "warnings": result.warnings if hasattr(result, "warnings") else [],
+                    },
+                    indent=2,
+                )
+            )
             if not result.is_valid:
                 sys.exit(1)
             return
-        
-        if not ctx.obj['quiet']:
+
+        if not ctx.obj["quiet"]:
             click.echo()
             if result.is_valid:
                 success(f"  {_CHECK} Validation passed")
@@ -866,7 +939,7 @@ def validate(ctx, strict: bool, module: Optional[str], as_json: bool):
                 if result.fingerprint:
                     kv("Fingerprint", str(result.fingerprint)[:24])
                 # Show warnings even when valid
-                if hasattr(result, 'warnings') and result.warnings:
+                if hasattr(result, "warnings") and result.warnings:
                     click.echo()
                     section("Warnings")
                     for w in result.warnings:
@@ -877,41 +950,41 @@ def validate(ctx, strict: bool, module: Optional[str], as_json: bool):
                 section("Errors")
                 for fault in result.faults:
                     bullet(fault, fg="red")
-                if hasattr(result, 'warnings') and result.warnings:
+                if hasattr(result, "warnings") and result.warnings:
                     click.echo()
                     section("Warnings")
                     for w in result.warnings:
                         bullet(w, fg="yellow")
                 sys.exit(1)
-    
+
     except Exception as e:
         error(f"  {_CROSS} Validation error: {e}")
         sys.exit(1)
 
 
-@cli.command('compile')
-@click.option('--watch', is_flag=True, help='Watch for changes')
-@click.option('--output', type=click.Path(), help='Output directory')
+@cli.command("compile")
+@click.option("--watch", is_flag=True, help="Watch for changes")
+@click.option("--output", type=click.Path(), help="Output directory")
 @click.pass_context
-def compile(ctx, watch: bool, output: Optional[str]):
+def compile(ctx, watch: bool, output: str | None):
     """
     Compile manifests to artifacts.
-    
+
     Examples:
       aq compile
       aq compile --watch
       aq compile --output=dist/
     """
     from .commands.compile import compile_workspace
-    
+
     try:
         artifacts = compile_workspace(
             output_dir=output,
             watch=watch,
-            verbose=ctx.obj['verbose'],
+            verbose=ctx.obj["verbose"],
         )
-        
-        if not ctx.obj['quiet']:
+
+        if not ctx.obj["quiet"]:
             click.echo()
             success(f"  {_CHECK} Compilation complete")
             click.echo()
@@ -919,18 +992,22 @@ def compile(ctx, watch: bool, output: Optional[str]):
             kv("Count", str(len(artifacts)))
             for artifact in artifacts:
                 tree_item(str(artifact))
-    
+
     except Exception as e:
         error(f"  {_CROSS} Compilation failed: {e}")
         sys.exit(1)
 
 
-@cli.command('run')
-@click.option('--mode', type=click.Choice(['dev', 'test']), default='dev', help='Runtime mode')
-@click.option('--port', type=int, default=None, help='Server port (default: from workspace.py AquilaConfig, or 8000)')
-@click.option('--host', type=str, default=None, help='Server host (default: from workspace.py AquilaConfig, or 127.0.0.1)')
-@click.option('--reload/--no-reload', default=None, help='Enable hot-reload (default: from workspace.py AquilaConfig, or True)')
-@click.option('--skip-checks', is_flag=True, help='Skip pre-flight dependency checks')
+@cli.command("run")
+@click.option("--mode", type=click.Choice(["dev", "test"]), default="dev", help="Runtime mode")
+@click.option("--port", type=int, default=None, help="Server port (default: from workspace.py AquilaConfig, or 8000)")
+@click.option(
+    "--host", type=str, default=None, help="Server host (default: from workspace.py AquilaConfig, or 127.0.0.1)"
+)
+@click.option(
+    "--reload/--no-reload", default=None, help="Enable hot-reload (default: from workspace.py AquilaConfig, or True)"
+)
+@click.option("--skip-checks", is_flag=True, help="Skip pre-flight dependency checks")
 @click.pass_context
 def run(ctx, mode: str, port, host, reload, skip_checks: bool):
     """
@@ -952,10 +1029,7 @@ def run(ctx, mode: str, port, host, reload, skip_checks: bool):
         workspace_file = Path("workspace.py")
         if workspace_file.exists():
             ws_content = workspace_file.read_text(encoding="utf-8")
-            active_lines = "\n".join(
-                line for line in ws_content.splitlines()
-                if not line.strip().startswith("#")
-            )
+            active_lines = "\n".join(line for line in ws_content.splitlines() if not line.strip().startswith("#"))
             if "Integration.admin(" in active_lines:
                 # Check session support
                 has_sessions = (
@@ -966,11 +1040,11 @@ def run(ctx, mode: str, port, host, reload, skip_checks: bool):
                 if not has_sessions:
                     click.echo()
                     warning(
-                        f"  ! Admin integration detected but sessions are NOT configured.\n"
-                        f"    Admin login will NOT work without session support.\n"
-                        f"    Run 'aq admin setup' to auto-configure everything.\n"
-                        f"    Or:  'aq admin check' for full diagnostics.\n"
-                        f"    Use --skip-checks to suppress this warning."
+                        "  ! Admin integration detected but sessions are NOT configured.\n"
+                        "    Admin login will NOT work without session support.\n"
+                        "    Run 'aq admin setup' to auto-configure everything.\n"
+                        "    Or:  'aq admin check' for full diagnostics.\n"
+                        "    Use --skip-checks to suppress this warning."
                     )
                     click.echo()
 
@@ -980,11 +1054,11 @@ def run(ctx, mode: str, port, host, reload, skip_checks: bool):
             host=host,
             port=port,
             reload=reload,
-            verbose=ctx.obj['verbose'],
+            verbose=ctx.obj["verbose"],
         )
 
     except KeyboardInterrupt:
-        if not ctx.obj['quiet']:
+        if not ctx.obj["quiet"]:
             click.echo()
             info(f"  {_CHECK} Server stopped gracefully")
     except Exception as e:
@@ -992,17 +1066,21 @@ def run(ctx, mode: str, port, host, reload, skip_checks: bool):
         sys.exit(1)
 
 
-@cli.command('serve')
-@click.option('--workers', type=int, default=None, help='Number of workers (default: from workspace.py AquilaConfig, or 1)')
-@click.option('--bind', type=str, default=None, help='Bind address (default: from workspace.py AquilaConfig, or 0.0.0.0:8000)')
-@click.option('--use-gunicorn', is_flag=True, help='Use gunicorn with UvicornWorker (recommended for production)')
-@click.option('--timeout', type=int, default=120, help='Worker timeout in seconds (gunicorn only)')
-@click.option('--graceful-timeout', type=int, default=30, help='Graceful shutdown timeout (gunicorn only)')
+@cli.command("serve")
+@click.option(
+    "--workers", type=int, default=None, help="Number of workers (default: from workspace.py AquilaConfig, or 1)"
+)
+@click.option(
+    "--bind", type=str, default=None, help="Bind address (default: from workspace.py AquilaConfig, or 0.0.0.0:8000)"
+)
+@click.option("--use-gunicorn", is_flag=True, help="Use gunicorn with UvicornWorker (recommended for production)")
+@click.option("--timeout", type=int, default=120, help="Worker timeout in seconds (gunicorn only)")
+@click.option("--graceful-timeout", type=int, default=30, help="Graceful shutdown timeout (gunicorn only)")
 @click.pass_context
 def serve(ctx, workers, bind, use_gunicorn: bool, timeout: int, graceful_timeout: int):
     """
     Start production server with compiled Crous artifacts.
-    
+
     Uses uvicorn by default. Pass --use-gunicorn for production
     deployments with gunicorn process management and UvicornWorker.
 
@@ -1013,19 +1091,19 @@ def serve(ctx, workers, bind, use_gunicorn: bool, timeout: int, graceful_timeout
       aq serve --bind=0.0.0.0:8080 --use-gunicorn --timeout=180
     """
     from .commands.serve import serve_production
-    
+
     try:
         serve_production(
             workers=workers,
             bind=bind,
-            verbose=ctx.obj['verbose'],
+            verbose=ctx.obj["verbose"],
             use_gunicorn=use_gunicorn,
             timeout=timeout,
             graceful_timeout=graceful_timeout,
         )
-    
+
     except KeyboardInterrupt:
-        if not ctx.obj['quiet']:
+        if not ctx.obj["quiet"]:
             click.echo()
             info(f"  {_CHECK} Server stopped")
     except Exception as e:
@@ -1033,47 +1111,47 @@ def serve(ctx, workers, bind, use_gunicorn: bool, timeout: int, graceful_timeout
         sys.exit(1)
 
 
-@cli.command('freeze')
-@click.option('--output', type=click.Path(), help='Output directory')
-@click.option('--sign', is_flag=True, help='Sign artifacts')
+@cli.command("freeze")
+@click.option("--output", type=click.Path(), help="Output directory")
+@click.option("--sign", is_flag=True, help="Sign artifacts")
 @click.pass_context
-def freeze(ctx, output: Optional[str], sign: bool):
+def freeze(ctx, output: str | None, sign: bool):
     """
     Generate immutable artifacts for production.
-    
+
     Examples:
       aq freeze
       aq freeze --output=dist/
       aq freeze --sign
     """
     from .commands.freeze import freeze_artifacts
-    
+
     try:
         fingerprint = freeze_artifacts(
             output_dir=output,
             sign=sign,
-            verbose=ctx.obj['verbose'],
+            verbose=ctx.obj["verbose"],
         )
-        
-        if not ctx.obj['quiet']:
+
+        if not ctx.obj["quiet"]:
             click.echo()
             success(f"  {_CHECK} Artifacts frozen")
             kv("Fingerprint", fingerprint)
-    
+
     except Exception as e:
         error(f"  {_CROSS} Freeze failed: {e}")
         sys.exit(1)
 
 
-@cli.command('build')
-@click.option('--mode', type=click.Choice(['dev', 'prod']), default='dev', help='Build mode')
-@click.option('--output', type=click.Path(), default='build', help='Output directory')
-@click.option('--compress', type=click.Choice(['none', 'lz4', 'zstd']), default=None, help='Compression')
-@click.option('--check-only', is_flag=True, help='Only run checks, don\'t emit artifacts')
-@click.option('--skip-checks', is_flag=True, help='Skip static checks (faster)')
-@click.option('--force', is_flag=True, help='Bypass incremental build cache')
+@cli.command("build")
+@click.option("--mode", type=click.Choice(["dev", "prod"]), default="dev", help="Build mode")
+@click.option("--output", type=click.Path(), default="build", help="Output directory")
+@click.option("--compress", type=click.Choice(["none", "lz4", "zstd"]), default=None, help="Compression")
+@click.option("--check-only", is_flag=True, help="Only run checks, don't emit artifacts")
+@click.option("--skip-checks", is_flag=True, help="Skip static checks (faster)")
+@click.option("--force", is_flag=True, help="Bypass incremental build cache")
 @click.pass_context
-def build(ctx, mode: str, output: str, compress: Optional[str], check_only: bool, skip_checks: bool, force: bool):
+def build(ctx, mode: str, output: str, compress: str | None, check_only: bool, skip_checks: bool, force: bool):
     """
     Build the workspace (compile, check, bundle).
 
@@ -1095,9 +1173,9 @@ def build(ctx, mode: str, output: str, compress: Optional[str], check_only: bool
 
     try:
         compression = compress or ("lz4" if mode == "prod" else "none")
-        verbose = ctx.obj['verbose']
+        verbose = ctx.obj["verbose"]
 
-        if not ctx.obj['quiet']:
+        if not ctx.obj["quiet"]:
             click.echo()
             section("Aquilia Build Pipeline")
             kv("Mode", mode)
@@ -1119,7 +1197,7 @@ def build(ctx, mode: str, output: str, compress: Optional[str], check_only: bool
             force=force,
         )
 
-        if not ctx.obj['quiet']:
+        if not ctx.obj["quiet"]:
             # Phase timings
             if verbose and result.phases:
                 section("Phase Timings")
@@ -1167,37 +1245,37 @@ def manifest():
     pass
 
 
-@manifest.command('update')
-@click.argument('module')
-@click.option('--check', is_flag=True, help='Fail if manifest is out of sync (CI mode)')
-@click.option('--freeze', is_flag=True, help='Disable auto-discovery after Sync (Strict mode)')
+@manifest.command("update")
+@click.argument("module")
+@click.option("--check", is_flag=True, help="Fail if manifest is out of sync (CI mode)")
+@click.option("--freeze", is_flag=True, help="Disable auto-discovery after Sync (Strict mode)")
 @click.pass_context
 def manifest_update(ctx, module: str, check: bool, freeze: bool):
     """
     Update manifest with auto-discovered resources.
-    
+
     Scans the module for controllers and services, then explicitly
     writes them into manifest.py.
-    
+
     Examples:
       aq manifest update mymod
       aq manifest update mymod --check   # For CI
       aq manifest update mymod --freeze  # For Prod
     """
     from .commands.manifest import update_manifest
-    
+
     try:
         # Resolve workspace root (assume cwd)
         workspace_root = Path.cwd()
-        
+
         update_manifest(
             module_name=module,
             workspace_root=workspace_root,
             check=check,
             freeze=freeze,
-            verbose=ctx.obj['verbose'],
+            verbose=ctx.obj["verbose"],
         )
-        
+
     except Exception as e:
         error(f"  {_CROSS} Manifest update failed: {e}")
         sys.exit(1)
@@ -1212,108 +1290,108 @@ def inspect():
     pass
 
 
-@inspect.command('routes')
+@inspect.command("routes")
 @click.pass_context
 def inspect_routes(ctx):
     """Show compiled routes."""
     from .commands.inspect import inspect_routes as _inspect_routes
-    
+
     try:
-        _inspect_routes(verbose=ctx.obj['verbose'])
+        _inspect_routes(verbose=ctx.obj["verbose"])
     except Exception as e:
         error(f"  {_CROSS} Inspection failed: {e}")
         sys.exit(1)
 
 
-@inspect.command('di')
+@inspect.command("di")
 @click.pass_context
 def inspect_di(ctx):
     """Show DI graph."""
     from .commands.inspect import inspect_di as _inspect_di
-    
+
     try:
-        _inspect_di(verbose=ctx.obj['verbose'])
+        _inspect_di(verbose=ctx.obj["verbose"])
     except Exception as e:
         error(f"  {_CROSS} Inspection failed: {e}")
         sys.exit(1)
 
 
-@inspect.command('modules')
+@inspect.command("modules")
 @click.pass_context
 def inspect_modules(ctx):
     """List all modules."""
     from .commands.inspect import inspect_modules as _inspect_modules
-    
+
     try:
-        _inspect_modules(verbose=ctx.obj['verbose'])
+        _inspect_modules(verbose=ctx.obj["verbose"])
     except Exception as e:
         error(f"  {_CROSS} Inspection failed: {e}")
         sys.exit(1)
 
 
-@inspect.command('faults')
+@inspect.command("faults")
 @click.pass_context
 def inspect_faults(ctx):
     """Show fault domains."""
     from .commands.inspect import inspect_faults as _inspect_faults
-    
+
     try:
-        _inspect_faults(verbose=ctx.obj['verbose'])
+        _inspect_faults(verbose=ctx.obj["verbose"])
     except Exception as e:
         error(f"  {_CROSS} Inspection failed: {e}")
         sys.exit(1)
 
 
-@inspect.command('config')
+@inspect.command("config")
 @click.pass_context
 def inspect_config(ctx):
     """Show resolved configuration."""
     from .commands.inspect import inspect_config as _inspect_config
-    
+
     try:
-        _inspect_config(verbose=ctx.obj['verbose'])
+        _inspect_config(verbose=ctx.obj["verbose"])
     except Exception as e:
         error(f"  {_CROSS} Inspection failed: {e}")
         sys.exit(1)
 
 
-@cli.command('migrate')
-@click.argument('source', type=click.Choice(['legacy']))
-@click.option('--dry-run', is_flag=True, help='Preview migration')
+@cli.command("migrate")
+@click.argument("source", type=click.Choice(["legacy"]))
+@click.option("--dry-run", is_flag=True, help="Preview migration")
 @click.pass_context
 def migrate(ctx, source: str, dry_run: bool):
     """
     Migrate from legacy layout.
-    
+
     Examples:
       aq migrate legacy --dry-run
       aq migrate legacy
     """
     from .commands.migrate import migrate_legacy
-    
+
     try:
         result = migrate_legacy(
             dry_run=dry_run,
-            verbose=ctx.obj['verbose'],
+            verbose=ctx.obj["verbose"],
         )
-        
-        if not ctx.obj['quiet']:
+
+        if not ctx.obj["quiet"]:
             click.echo()
             if dry_run:
                 warning(f"  {_CHECK} Migration preview:")
             else:
                 success(f"  {_CHECK} Migration complete:")
-            
+
             for item in result.changes:
                 bullet(str(item))
-    
+
     except Exception as e:
         error(f"  {_CROSS} Migration failed: {e}")
         sys.exit(1)
 
 
-@cli.command('doctor')
-@click.option('--json', 'as_json', is_flag=True, help='Output results as JSON')
+@cli.command("doctor")
+@click.option("--json", "as_json", is_flag=True, help="Output results as JSON")
 @click.pass_context
 def doctor(ctx, as_json: bool):
     """Diagnose workspace issues.
@@ -1330,15 +1408,21 @@ def doctor(ctx, as_json: bool):
     from .commands.doctor import diagnose_workspace
 
     try:
-        issues = diagnose_workspace(verbose=ctx.obj['verbose'])
+        issues = diagnose_workspace(verbose=ctx.obj["verbose"])
 
         if as_json:
             import json as _json
-            click.echo(_json.dumps({
-                "healthy": len(issues) == 0,
-                "issue_count": len(issues),
-                "issues": issues,
-            }, indent=2))
+
+            click.echo(
+                _json.dumps(
+                    {
+                        "healthy": len(issues) == 0,
+                        "issue_count": len(issues),
+                        "issues": issues,
+                    },
+                    indent=2,
+                )
+            )
             return
 
         click.echo()
@@ -1351,16 +1435,19 @@ def doctor(ctx, as_json: bool):
             for issue in issues:
                 bullet(issue, fg="yellow")
             click.echo()
-            next_steps([
-                "Fix the issues above",
-                "aq doctor -v  (verbose details)",
-                "aq validate --strict  (full pipeline check)",
-            ])
+            next_steps(
+                [
+                    "Fix the issues above",
+                    "aq doctor -v  (verbose details)",
+                    "aq validate --strict  (full pipeline check)",
+                ]
+            )
 
     except Exception as e:
         error(f"  {_CROSS} Diagnosis failed: {e}")
-        if ctx.obj.get('debug'):
+        if ctx.obj.get("debug"):
             import traceback
+
             traceback.print_exc()
         sys.exit(1)
 
@@ -1369,87 +1456,93 @@ def doctor(ctx, as_json: bool):
 # WebSocket management
 # ============================================================================
 
+
 @cli.group(cls=AquiliaGroup)
 def ws():
     """WebSocket management commands."""
     pass
 
 
-@ws.command('inspect')
-@click.option('--artifacts-dir', type=click.Path(), default='artifacts', help='Artifacts directory')
+@ws.command("inspect")
+@click.option("--artifacts-dir", type=click.Path(), default="artifacts", help="Artifacts directory")
 @click.pass_context
 def ws_inspect(ctx, artifacts_dir: str):
     """Inspect compiled WebSocket namespaces."""
     from .commands.ws import cmd_ws_inspect
+
     try:
-        cmd_ws_inspect({'artifacts_dir': artifacts_dir})
+        cmd_ws_inspect({"artifacts_dir": artifacts_dir})
     except Exception as e:
         error(f"  {_CROSS} WS inspect failed: {e}")
         sys.exit(1)
 
 
-@ws.command('broadcast')
-@click.option('--namespace', required=True, help='Namespace')
-@click.option('--room', default=None, help='Room (optional)')
-@click.option('--event', required=True, help='Event name')
-@click.option('--payload', default='{}', help='JSON payload')
+@ws.command("broadcast")
+@click.option("--namespace", required=True, help="Namespace")
+@click.option("--room", default=None, help="Room (optional)")
+@click.option("--event", required=True, help="Event name")
+@click.option("--payload", default="{}", help="JSON payload")
 @click.pass_context
-def ws_broadcast(ctx, namespace: str, room: Optional[str], event: str, payload: str):
+def ws_broadcast(ctx, namespace: str, room: str | None, event: str, payload: str):
     """Broadcast message to namespace or room."""
     from .commands.ws import cmd_ws_broadcast
+
     try:
-        cmd_ws_broadcast({'namespace': namespace, 'room': room, 'event': event, 'payload': payload})
+        cmd_ws_broadcast({"namespace": namespace, "room": room, "event": event, "payload": payload})
     except Exception as e:
         error(f"  {_CROSS} WS broadcast failed: {e}")
         sys.exit(1)
 
 
-@ws.command('gen-client')
-@click.option('--lang', default='ts', help='Language (ts)')
-@click.option('--out', required=True, help='Output file')
-@click.option('--artifacts-dir', type=click.Path(), default='artifacts', help='Artifacts directory')
+@ws.command("gen-client")
+@click.option("--lang", default="ts", help="Language (ts)")
+@click.option("--out", required=True, help="Output file")
+@click.option("--artifacts-dir", type=click.Path(), default="artifacts", help="Artifacts directory")
 @click.pass_context
 def ws_gen_client(ctx, lang: str, out: str, artifacts_dir: str):
     """Generate TypeScript client SDK from compiled WebSocket artifacts."""
     from .commands.ws import cmd_ws_gen_client
+
     try:
-        cmd_ws_gen_client({'lang': lang, 'out': out, 'artifacts_dir': artifacts_dir})
+        cmd_ws_gen_client({"lang": lang, "out": out, "artifacts_dir": artifacts_dir})
     except Exception as e:
         error(f"  {_CROSS} WS gen-client failed: {e}")
         sys.exit(1)
 
 
-@ws.command('purge-room')
-@click.option('--namespace', required=True, help='Namespace')
-@click.option('--room', required=True, help='Room to purge')
-@click.option('--redis-url', default=None, help='Redis URL (optional)')
+@ws.command("purge-room")
+@click.option("--namespace", required=True, help="Namespace")
+@click.option("--room", required=True, help="Room to purge")
+@click.option("--redis-url", default=None, help="Redis URL (optional)")
 @click.pass_context
-def ws_purge_room(ctx, namespace: str, room: str, redis_url: Optional[str]):
+def ws_purge_room(ctx, namespace: str, room: str, redis_url: str | None):
     """Purge a room's state from the adapter.
 
     Examples:\n      aq ws purge-room --namespace /chat --room room1
     """
     from .commands.ws import cmd_ws_purge_room
+
     try:
-        cmd_ws_purge_room({'namespace': namespace, 'room': room, 'redis_url': redis_url})
+        cmd_ws_purge_room({"namespace": namespace, "room": room, "redis_url": redis_url})
     except Exception as e:
         error(f"  {_CROSS} WS purge-room failed: {e}")
         sys.exit(1)
 
 
-@ws.command('kick')
-@click.option('--conn', required=True, help='Connection ID to disconnect')
-@click.option('--reason', default='kicked by admin', help='Reason for kick')
-@click.option('--redis-url', default=None, help='Redis URL (optional)')
+@ws.command("kick")
+@click.option("--conn", required=True, help="Connection ID to disconnect")
+@click.option("--reason", default="kicked by admin", help="Reason for kick")
+@click.option("--redis-url", default=None, help="Redis URL (optional)")
 @click.pass_context
-def ws_kick(ctx, conn: str, reason: str, redis_url: Optional[str]):
+def ws_kick(ctx, conn: str, reason: str, redis_url: str | None):
     """Kick (disconnect) a WebSocket connection.
 
     Examples:\n      aq ws kick --conn abc-123 --reason "violated rules"
     """
     from .commands.ws import cmd_ws_kick
+
     try:
-        cmd_ws_kick({'conn': conn, 'reason': reason, 'redis_url': redis_url})
+        cmd_ws_kick({"conn": conn, "reason": reason, "redis_url": redis_url})
     except Exception as e:
         error(f"  {_CROSS} WS kick failed: {e}")
         sys.exit(1)
@@ -1459,13 +1552,14 @@ def ws_kick(ctx, conn: str, reason: str, redis_url: Optional[str]):
 # Discovery
 # ============================================================================
 
-@cli.command('discover')
-@click.option('--path', type=click.Path(), default=None, help='Workspace path')
-@click.option('--sync', is_flag=True, help='Auto-sync discovered components into manifest.py files')
-@click.option('--dry-run', is_flag=True, help='Preview sync changes without writing (use with --sync)')
-@click.option('--json', 'as_json', is_flag=True, help='Output results as JSON')
+
+@cli.command("discover")
+@click.option("--path", type=click.Path(), default=None, help="Workspace path")
+@click.option("--sync", is_flag=True, help="Auto-sync discovered components into manifest.py files")
+@click.option("--dry-run", is_flag=True, help="Preview sync changes without writing (use with --sync)")
+@click.option("--json", "as_json", is_flag=True, help="Output results as JSON")
 @click.pass_context
-def discover(ctx, path: Optional[str], sync: bool, dry_run: bool, as_json: bool):
+def discover(ctx, path: str | None, sync: bool, dry_run: bool, as_json: bool):
     """Inspect auto-discovered modules in workspace.
 
     Examples:
@@ -1480,14 +1574,15 @@ def discover(ctx, path: Optional[str], sync: bool, dry_run: bool, as_json: bool)
         workspace_root = Path(path) if path else Path.cwd()
         inspector = DiscoveryInspector(workspace_root.name, str(workspace_root))
         inspector.inspect(
-            verbose=ctx.obj['verbose'],
+            verbose=ctx.obj["verbose"],
             sync=sync,
             dry_run=dry_run,
         )
     except Exception as e:
         error(f"  {_CROSS} Discovery failed: {e}")
-        if ctx.obj.get('debug'):
+        if ctx.obj.get("debug"):
             import traceback
+
             traceback.print_exc()
         sys.exit(1)
 
@@ -1496,10 +1591,11 @@ def discover(ctx, path: Optional[str], sync: bool, dry_run: bool, as_json: bool)
 # Analytics
 # ============================================================================
 
-@cli.command('analytics')
-@click.option('--path', type=click.Path(), default=None, help='Workspace path')
+
+@cli.command("analytics")
+@click.option("--path", type=click.Path(), default=None, help="Workspace path")
 @click.pass_context
-def analytics(ctx, path: Optional[str]):
+def analytics(ctx, path: str | None):
     """Run discovery analytics and show health report."""
     from .commands.analytics import DiscoveryAnalytics, print_analysis_report
 
@@ -1517,13 +1613,14 @@ def analytics(ctx, path: Optional[str]):
 # Mail
 # ============================================================================
 
+
 @cli.group(cls=AquiliaGroup)
 def mail():
     """AquilaMail -- test, inspect, and validate mail configuration."""
     pass
 
 
-@mail.command('check')
+@mail.command("check")
 @click.pass_context
 def mail_check(ctx):
     """
@@ -1535,18 +1632,18 @@ def mail_check(ctx):
     from .commands.mail import cmd_mail_check
 
     try:
-        cmd_mail_check(verbose=ctx.obj['verbose'])
+        cmd_mail_check(verbose=ctx.obj["verbose"])
     except Exception as e:
         error(f"  {_CROSS} mail check failed: {e}")
         sys.exit(1)
 
 
-@mail.command('send-test')
-@click.argument('to')
-@click.option('--subject', type=str, default=None, help='Email subject')
-@click.option('--body', type=str, default=None, help='Email body')
+@mail.command("send-test")
+@click.argument("to")
+@click.option("--subject", type=str, default=None, help="Email subject")
+@click.option("--body", type=str, default=None, help="Email body")
 @click.pass_context
-def mail_send_test(ctx, to: str, subject: Optional[str], body: Optional[str]):
+def mail_send_test(ctx, to: str, subject: str | None, body: str | None):
     """
     Send a test email to verify mail provider configuration.
 
@@ -1561,14 +1658,14 @@ def mail_send_test(ctx, to: str, subject: Optional[str], body: Optional[str]):
             to=to,
             subject=subject,
             body=body,
-            verbose=ctx.obj['verbose'],
+            verbose=ctx.obj["verbose"],
         )
     except Exception as e:
         error(f"  {_CROSS} mail send-test failed: {e}")
         sys.exit(1)
 
 
-@mail.command('inspect')
+@mail.command("inspect")
 @click.pass_context
 def mail_inspect(ctx):
     """
@@ -1580,7 +1677,7 @@ def mail_inspect(ctx):
     from .commands.mail import cmd_mail_inspect
 
     try:
-        cmd_mail_inspect(verbose=ctx.obj['verbose'])
+        cmd_mail_inspect(verbose=ctx.obj["verbose"])
     except Exception as e:
         error(f"  {_CROSS} mail inspect failed: {e}")
         sys.exit(1)
@@ -1590,13 +1687,14 @@ def mail_inspect(ctx):
 # Cache
 # ============================================================================
 
+
 @cli.group(cls=AquiliaGroup)
 def cache():
     """AquilaCache -- check, inspect, clear, and view cache stats."""
     pass
 
 
-@cache.command('check')
+@cache.command("check")
 @click.pass_context
 def cache_check(ctx):
     """
@@ -1608,13 +1706,13 @@ def cache_check(ctx):
     from .commands.cache import cmd_cache_check
 
     try:
-        cmd_cache_check(verbose=ctx.obj['verbose'])
+        cmd_cache_check(verbose=ctx.obj["verbose"])
     except Exception as e:
         error(f"  {_CROSS} cache check failed: {e}")
         sys.exit(1)
 
 
-@cache.command('inspect')
+@cache.command("inspect")
 @click.pass_context
 def cache_inspect(ctx):
     """
@@ -1626,13 +1724,13 @@ def cache_inspect(ctx):
     from .commands.cache import cmd_cache_inspect
 
     try:
-        cmd_cache_inspect(verbose=ctx.obj['verbose'])
+        cmd_cache_inspect(verbose=ctx.obj["verbose"])
     except Exception as e:
         error(f"  {_CROSS} cache inspect failed: {e}")
         sys.exit(1)
 
 
-@cache.command('stats')
+@cache.command("stats")
 @click.pass_context
 def cache_stats(ctx):
     """
@@ -1644,16 +1742,16 @@ def cache_stats(ctx):
     from .commands.cache import cmd_cache_stats
 
     try:
-        cmd_cache_stats(verbose=ctx.obj['verbose'])
+        cmd_cache_stats(verbose=ctx.obj["verbose"])
     except Exception as e:
         error(f"  {_CROSS} cache stats failed: {e}")
         sys.exit(1)
 
 
-@cache.command('clear')
-@click.option('--namespace', '-n', type=str, default=None, help='Clear only this namespace')
+@cache.command("clear")
+@click.option("--namespace", "-n", type=str, default=None, help="Clear only this namespace")
 @click.pass_context
-def cache_clear(ctx, namespace: Optional[str]):
+def cache_clear(ctx, namespace: str | None):
     """
     Clear all or namespace-scoped cache entries.
 
@@ -1664,7 +1762,7 @@ def cache_clear(ctx, namespace: Optional[str]):
     from .commands.cache import cmd_cache_clear
 
     try:
-        cmd_cache_clear(namespace=namespace, verbose=ctx.obj['verbose'])
+        cmd_cache_clear(namespace=namespace, verbose=ctx.obj["verbose"])
     except Exception as e:
         error(f"  {_CROSS} cache clear failed: {e}")
         sys.exit(1)
@@ -1674,16 +1772,17 @@ def cache_clear(ctx, namespace: Optional[str]):
 # I18n (Internationalization)
 # ============================================================================
 
+
 @cli.group(cls=AquiliaGroup)
 def i18n():
     """AquilaI18n -- init, check, inspect, extract, and coverage."""
     pass
 
 
-@i18n.command('init')
-@click.option('--locales', '-l', type=str, default='en', help='Comma-separated locale list (e.g. en,fr,de)')
-@click.option('--directory', '-d', type=str, default='locales', help='Base directory for locale files')
-@click.option('--format', '-f', type=click.Choice(['json', 'yaml']), default='json', help='Translation file format')
+@i18n.command("init")
+@click.option("--locales", "-l", type=str, default="en", help="Comma-separated locale list (e.g. en,fr,de)")
+@click.option("--directory", "-d", type=str, default="locales", help="Base directory for locale files")
+@click.option("--format", "-f", type=click.Choice(["json", "yaml"]), default="json", help="Translation file format")
 @click.pass_context
 def i18n_init(ctx, locales: str, directory: str, format: str):
     """
@@ -1703,14 +1802,14 @@ def i18n_init(ctx, locales: str, directory: str, format: str):
             locales=locales,
             directory=directory,
             format=format,
-            verbose=ctx.obj['verbose'],
+            verbose=ctx.obj["verbose"],
         )
     except Exception as e:
         error(f"  {_CROSS} i18n init failed: {e}")
         sys.exit(1)
 
 
-@i18n.command('check')
+@i18n.command("check")
 @click.pass_context
 def i18n_check(ctx):
     """
@@ -1722,13 +1821,13 @@ def i18n_check(ctx):
     from .commands.i18n import cmd_i18n_check
 
     try:
-        cmd_i18n_check(verbose=ctx.obj['verbose'])
+        cmd_i18n_check(verbose=ctx.obj["verbose"])
     except Exception as e:
         error(f"  {_CROSS} i18n check failed: {e}")
         sys.exit(1)
 
 
-@i18n.command('inspect')
+@i18n.command("inspect")
 @click.pass_context
 def i18n_inspect(ctx):
     """
@@ -1746,10 +1845,10 @@ def i18n_inspect(ctx):
         sys.exit(1)
 
 
-@i18n.command('extract')
-@click.option('--source-dirs', '-s', type=str, default='modules,controllers', help='Comma-separated source directories')
-@click.option('--output', '-o', type=str, default='locales/en/messages.json', help='Output file path')
-@click.option('--no-merge', is_flag=True, default=False, help='Overwrite output instead of merging')
+@i18n.command("extract")
+@click.option("--source-dirs", "-s", type=str, default="modules,controllers", help="Comma-separated source directories")
+@click.option("--output", "-o", type=str, default="locales/en/messages.json", help="Output file path")
+@click.option("--no-merge", is_flag=True, default=False, help="Overwrite output instead of merging")
 @click.pass_context
 def i18n_extract(ctx, source_dirs: str, output: str, no_merge: bool):
     """
@@ -1768,14 +1867,14 @@ def i18n_extract(ctx, source_dirs: str, output: str, no_merge: bool):
             source_dirs=source_dirs,
             output=output,
             merge=not no_merge,
-            verbose=ctx.obj['verbose'],
+            verbose=ctx.obj["verbose"],
         )
     except Exception as e:
         error(f"  {_CROSS} i18n extract failed: {e}")
         sys.exit(1)
 
 
-@i18n.command('coverage')
+@i18n.command("coverage")
 @click.pass_context
 def i18n_coverage(ctx):
     """
@@ -1789,7 +1888,7 @@ def i18n_coverage(ctx):
     from .commands.i18n import cmd_i18n_coverage
 
     try:
-        cmd_i18n_coverage(verbose=ctx.obj['verbose'])
+        cmd_i18n_coverage(verbose=ctx.obj["verbose"])
     except Exception as e:
         error(f"  {_CROSS} i18n coverage failed: {e}")
         sys.exit(1)
@@ -1799,20 +1898,26 @@ def i18n_coverage(ctx):
 # Database / Models
 # ============================================================================
 
+
 @cli.group(cls=AquiliaGroup)
 def db():
     """Database and model ORM commands."""
     pass
 
 
-@db.command('makemigrations')
-@click.option('--app', type=str, default=None, help='Restrict to specific module/app')
-@click.option('--migrations-dir', type=click.Path(), default='migrations', help='Migrations directory')
-@click.option('--dsl/--no-dsl', default=True, help='Use new DSL format (default: True)')
-@click.option('--format', 'fmt', type=click.Choice(['python', 'crous']), default='crous',
-              help='Migration file format -- crous (binary, default) or python')
+@db.command("makemigrations")
+@click.option("--app", type=str, default=None, help="Restrict to specific module/app")
+@click.option("--migrations-dir", type=click.Path(), default="migrations", help="Migrations directory")
+@click.option("--dsl/--no-dsl", default=True, help="Use new DSL format (default: True)")
+@click.option(
+    "--format",
+    "fmt",
+    type=click.Choice(["python", "crous"]),
+    default="crous",
+    help="Migration file format -- crous (binary, default) or python",
+)
 @click.pass_context
-def db_makemigrations(ctx, app: Optional[str], migrations_dir: str, dsl: bool, fmt: str):
+def db_makemigrations(ctx, app: str | None, migrations_dir: str, dsl: bool, fmt: str):
     """
     Generate migration files from Python Model definitions.
 
@@ -1831,7 +1936,7 @@ def db_makemigrations(ctx, app: Optional[str], migrations_dir: str, dsl: bool, f
         cmd_makemigrations(
             app=app,
             migrations_dir=migrations_dir,
-            verbose=ctx.obj['verbose'],
+            verbose=ctx.obj["verbose"],
             use_dsl=dsl,
             migration_format=fmt,
         )
@@ -1840,16 +1945,17 @@ def db_makemigrations(ctx, app: Optional[str], migrations_dir: str, dsl: bool, f
         sys.exit(1)
 
 
-@db.command('migrate')
-@click.option('--migrations-dir', type=click.Path(), default='migrations', help='Migrations directory')
-@click.option('--database-url', type=str, default=None, help='Database URL (auto-detected from workspace.py)')
-@click.option('--database', type=str, default=None, help='Database alias (for multi-db)')
-@click.option('--target', type=str, default=None, help='Target revision (or "zero" to rollback all)')
-@click.option('--fake', is_flag=True, help='Mark migrations as applied without running SQL')
-@click.option('--plan', is_flag=True, help='Preview SQL without executing (dry-run)')
+@db.command("migrate")
+@click.option("--migrations-dir", type=click.Path(), default="migrations", help="Migrations directory")
+@click.option("--database-url", type=str, default=None, help="Database URL (auto-detected from workspace.py)")
+@click.option("--database", type=str, default=None, help="Database alias (for multi-db)")
+@click.option("--target", type=str, default=None, help='Target revision (or "zero" to rollback all)')
+@click.option("--fake", is_flag=True, help="Mark migrations as applied without running SQL")
+@click.option("--plan", is_flag=True, help="Preview SQL without executing (dry-run)")
 @click.pass_context
-def db_migrate(ctx, migrations_dir: str, database_url: Optional[str], database: Optional[str],
-               target: Optional[str], fake: bool, plan: bool):
+def db_migrate(
+    ctx, migrations_dir: str, database_url: str | None, database: str | None, target: str | None, fake: bool, plan: bool
+):
     """
     Apply pending migrations to the database.
 
@@ -1873,7 +1979,7 @@ def db_migrate(ctx, migrations_dir: str, database_url: Optional[str], database: 
             migrations_dir=migrations_dir,
             database_url=database_url,
             target=target,
-            verbose=ctx.obj['verbose'],
+            verbose=ctx.obj["verbose"],
             fake=fake,
             plan=plan,
             database=database,
@@ -1883,11 +1989,11 @@ def db_migrate(ctx, migrations_dir: str, database_url: Optional[str], database: 
         sys.exit(1)
 
 
-@db.command('dump')
-@click.option('--emit', type=click.Choice(['python', 'sql']), default='python', help='Output format')
-@click.option('--output-dir', type=click.Path(), default=None, help='Output directory')
+@db.command("dump")
+@click.option("--emit", type=click.Choice(["python", "sql"]), default="python", help="Output format")
+@click.option("--output-dir", type=click.Path(), default=None, help="Output directory")
 @click.pass_context
-def db_dump(ctx, emit: str, output_dir: Optional[str]):
+def db_dump(ctx, emit: str, output_dir: str | None):
     """
     Dump model schema -- annotated Python overview or raw SQL DDL.
 
@@ -1902,17 +2008,17 @@ def db_dump(ctx, emit: str, output_dir: Optional[str]):
         cmd_model_dump(
             emit=emit,
             output_dir=output_dir,
-            verbose=ctx.obj['verbose'],
+            verbose=ctx.obj["verbose"],
         )
     except Exception as e:
         error(f"  {_CROSS} dump failed: {e}")
         sys.exit(1)
 
 
-@db.command('shell')
-@click.option('--database-url', type=str, default=None, help='Database URL (auto-detected from workspace.py)')
+@db.command("shell")
+@click.option("--database-url", type=str, default=None, help="Database URL (auto-detected from workspace.py)")
 @click.pass_context
-def db_shell(ctx, database_url: Optional[str]):
+def db_shell(ctx, database_url: str | None):
     """
     Open an async REPL with models pre-loaded.
 
@@ -1931,19 +2037,19 @@ def db_shell(ctx, database_url: Optional[str]):
     try:
         cmd_shell(
             database_url=database_url,
-            verbose=ctx.obj['verbose'],
+            verbose=ctx.obj["verbose"],
         )
     except Exception as e:
         error(f"  {_CROSS} shell failed: {e}")
         sys.exit(1)
 
 
-@db.command('inspectdb')
-@click.option('--database-url', type=str, default=None, help='Database URL (auto-detected from workspace.py)')
-@click.option('--table', type=str, multiple=True, help='Specific tables to inspect')
-@click.option('--output', type=click.Path(), default=None, help='Output file path')
+@db.command("inspectdb")
+@click.option("--database-url", type=str, default=None, help="Database URL (auto-detected from workspace.py)")
+@click.option("--table", type=str, multiple=True, help="Specific tables to inspect")
+@click.option("--output", type=click.Path(), default=None, help="Output file path")
 @click.pass_context
-def db_inspectdb(ctx, database_url: Optional[str], table: tuple, output: Optional[str]):
+def db_inspectdb(ctx, database_url: str | None, table: tuple, output: str | None):
     """
     Introspect database and generate Model definitions.
 
@@ -1965,7 +2071,7 @@ def db_inspectdb(ctx, database_url: Optional[str], table: tuple, output: Optiona
         result = cmd_inspectdb(
             database_url=database_url,
             tables=tables,
-            verbose=ctx.obj['verbose'],
+            verbose=ctx.obj["verbose"],
         )
         if output and result:
             Path(output).parent.mkdir(parents=True, exist_ok=True)
@@ -1976,12 +2082,12 @@ def db_inspectdb(ctx, database_url: Optional[str], table: tuple, output: Optiona
         sys.exit(1)
 
 
-@db.command('showmigrations')
-@click.option('--migrations-dir', type=click.Path(), default='migrations', help='Migrations directory')
-@click.option('--database-url', type=str, default=None, help='Database URL (auto-detected from workspace.py)')
-@click.option('--database', type=str, default=None, help='Database alias')
+@db.command("showmigrations")
+@click.option("--migrations-dir", type=click.Path(), default="migrations", help="Migrations directory")
+@click.option("--database-url", type=str, default=None, help="Database URL (auto-detected from workspace.py)")
+@click.option("--database", type=str, default=None, help="Database alias")
 @click.pass_context
-def db_showmigrations(ctx, migrations_dir: str, database_url: Optional[str], database: Optional[str]):
+def db_showmigrations(ctx, migrations_dir: str, database_url: str | None, database: str | None):
     """
     Show all migrations and their applied/pending status.
 
@@ -1998,19 +2104,19 @@ def db_showmigrations(ctx, migrations_dir: str, database_url: Optional[str], dat
         cmd_showmigrations(
             migrations_dir=migrations_dir,
             database_url=database_url,
-            verbose=ctx.obj['verbose'],
+            verbose=ctx.obj["verbose"],
         )
     except Exception as e:
         error(f"  {_CROSS} showmigrations failed: {e}")
         sys.exit(1)
 
 
-@db.command('sqlmigrate')
-@click.argument('migration_name')
-@click.option('--migrations-dir', type=click.Path(), default='migrations', help='Migrations directory')
-@click.option('--database', type=str, default=None, help='Database alias')
+@db.command("sqlmigrate")
+@click.argument("migration_name")
+@click.option("--migrations-dir", type=click.Path(), default="migrations", help="Migrations directory")
+@click.option("--database", type=str, default=None, help="Database alias")
 @click.pass_context
-def db_sqlmigrate(ctx, migration_name: str, migrations_dir: str, database: Optional[str]):
+def db_sqlmigrate(ctx, migration_name: str, migrations_dir: str, database: str | None):
     """
     Display SQL statements for a specific migration.
 
@@ -2027,17 +2133,17 @@ def db_sqlmigrate(ctx, migration_name: str, migrations_dir: str, database: Optio
         cmd_sqlmigrate(
             migration_name=migration_name,
             migrations_dir=migrations_dir,
-            verbose=ctx.obj['verbose'],
+            verbose=ctx.obj["verbose"],
         )
     except Exception as e:
         error(f"  {_CROSS} sqlmigrate failed: {e}")
         sys.exit(1)
 
 
-@db.command('status')
-@click.option('--database-url', type=str, default=None, help='Database URL (auto-detected from workspace.py)')
+@db.command("status")
+@click.option("--database-url", type=str, default=None, help="Database URL (auto-detected from workspace.py)")
 @click.pass_context
-def db_status(ctx, database_url: Optional[str]):
+def db_status(ctx, database_url: str | None):
     """
     Show database status -- tables, row counts, columns.
 
@@ -2053,7 +2159,7 @@ def db_status(ctx, database_url: Optional[str]):
     try:
         cmd_db_status(
             database_url=database_url,
-            verbose=ctx.obj['verbose'],
+            verbose=ctx.obj["verbose"],
         )
     except Exception as e:
         error(f"  {_CROSS} status failed: {e}")
@@ -2065,14 +2171,14 @@ def db_status(ctx, database_url: Optional[str]):
 # ============================================================================
 
 from .commands.mlops_cmds import (
-    pack_group,
-    model_group,
     deploy_group,
-    observe_group,
-    export_group,
-    plugin_group,
-    lineage_group,
     experiment_group,
+    export_group,
+    lineage_group,
+    model_group,
+    observe_group,
+    pack_group,
+    plugin_group,
 )
 
 cli.add_command(pack_group)
@@ -2107,6 +2213,8 @@ cli.add_command(deploy_gen_group)
 # Cloud provider management (aq provider login/logout/status)
 # ============================================================================
 
+import contextlib
+
 from .commands.provider import provider_group
 
 cli.add_command(provider_group)
@@ -2116,16 +2224,18 @@ cli.add_command(provider_group)
 # Test command
 # ============================================================================
 
-@cli.command('test')
-@click.argument('paths', nargs=-1, type=click.Path())
-@click.option('-k', '--pattern', type=str, default=None, help='Only run tests matching pattern')
-@click.option('-m', '--markers', type=str, default=None, help='Only run tests matching markers')
-@click.option('--coverage', is_flag=True, help='Collect coverage')
-@click.option('--coverage-html', is_flag=True, help='Generate HTML coverage report')
-@click.option('--failfast', '-x', is_flag=True, help='Stop on first failure')
+
+@cli.command("test")
+@click.argument("paths", nargs=-1, type=click.Path())
+@click.option("-k", "--pattern", type=str, default=None, help="Only run tests matching pattern")
+@click.option("-m", "--markers", type=str, default=None, help="Only run tests matching markers")
+@click.option("--coverage", is_flag=True, help="Collect coverage")
+@click.option("--coverage-html", is_flag=True, help="Generate HTML coverage report")
+@click.option("--failfast", "-x", is_flag=True, help="Stop on first failure")
 @click.pass_context
-def test(ctx, paths: tuple, pattern: Optional[str], markers: Optional[str],
-         coverage: bool, coverage_html: bool, failfast: bool):
+def test(
+    ctx, paths: tuple, pattern: str | None, markers: str | None, coverage: bool, coverage_html: bool, failfast: bool
+):
     """
     Run the test suite with Aquilia-aware defaults.
 
@@ -2144,7 +2254,7 @@ def test(ctx, paths: tuple, pattern: Optional[str], markers: Optional[str],
     exit_code = run_tests(
         paths=list(paths) if paths else None,
         pattern=pattern,
-        verbose=ctx.obj.get('verbose', False),
+        verbose=ctx.obj.get("verbose", False),
         coverage=coverage,
         coverage_html=coverage_html,
         failfast=failfast,
@@ -2157,15 +2267,16 @@ def test(ctx, paths: tuple, pattern: Optional[str], markers: Optional[str],
 # Admin commands
 # ============================================================================
 
+
 @cli.group(cls=AquiliaGroup)
 def admin():
     """Admin dashboard management and diagnostics."""
     pass
 
 
-@admin.command('check')
-@click.option('--fix', is_flag=True, help='Auto-fix missing configuration by uncommenting workspace.py sections')
-@click.option('--json', 'as_json', is_flag=True, help='Output results as JSON')
+@admin.command("check")
+@click.option("--fix", is_flag=True, help="Auto-fix missing configuration by uncommenting workspace.py sections")
+@click.option("--json", "as_json", is_flag=True, help="Output results as JSON")
 @click.pass_context
 def admin_check(ctx, fix: bool, as_json: bool):
     """
@@ -2190,28 +2301,30 @@ def admin_check(ctx, fix: bool, as_json: bool):
     content = workspace_file.read_text(encoding="utf-8")
 
     # Remove comment-only lines for active config detection
-    active_lines = "\n".join(
-        line for line in content.splitlines()
-        if not line.strip().startswith("#")
-    )
+    active_lines = "\n".join(line for line in content.splitlines() if not line.strip().startswith("#"))
 
     checks: list[dict] = []
 
     # 1. Admin integration enabled?
     admin_enabled = "Integration.admin(" in active_lines
-    checks.append({
-        "name": "Admin Integration",
-        "status": "ok" if admin_enabled else "fail",
-        "detail": "Integration.admin() is configured" if admin_enabled else (
-            "Integration.admin() not found in workspace.py. "
-            "Add: .integrate(Integration.admin(url_prefix='/admin', auto_discover=True))"
-        ),
-    })
+    checks.append(
+        {
+            "name": "Admin Integration",
+            "status": "ok" if admin_enabled else "fail",
+            "detail": "Integration.admin() is configured"
+            if admin_enabled
+            else (
+                "Integration.admin() not found in workspace.py. "
+                "Add: .integrate(Integration.admin(url_prefix='/admin', auto_discover=True))"
+            ),
+        }
+    )
 
     if not admin_enabled:
         # No point checking dependencies if admin isn't even enabled
         if as_json:
             import json as _json
+
             click.echo(_json.dumps({"passed": False, "checks": checks}, indent=2))
         else:
             click.echo()
@@ -2219,30 +2332,32 @@ def admin_check(ctx, fix: bool, as_json: bool):
             click.echo()
             error(f"  {_CROSS} Admin integration is not enabled in workspace.py")
             click.echo()
-            next_steps([
-                "Add .integrate(Integration.admin(...)) to workspace.py",
-                "aq admin check",
-            ])
+            next_steps(
+                [
+                    "Add .integrate(Integration.admin(...)) to workspace.py",
+                    "aq admin check",
+                ]
+            )
         sys.exit(1)
 
     # 2. Sessions enabled?
-    sessions_active = (
-        ".sessions(" in active_lines
-        or "Integration.sessions(" in active_lines
-    )
+    sessions_active = ".sessions(" in active_lines or "Integration.sessions(" in active_lines
     auth_active = "Integration.auth(" in active_lines
     has_session_support = sessions_active or auth_active
-    checks.append({
-        "name": "Sessions",
-        "status": "ok" if has_session_support else "fail",
-        "detail": (
-            ("Sessions via .sessions()" if sessions_active else "Sessions via Integration.auth()")
-            if has_session_support else (
-                "Sessions are NOT configured. Admin login requires sessions. "
-                "Uncomment .sessions(...) in workspace.py or enable Integration.auth()"
-            )
-        ),
-    })
+    checks.append(
+        {
+            "name": "Sessions",
+            "status": "ok" if has_session_support else "fail",
+            "detail": (
+                ("Sessions via .sessions()" if sessions_active else "Sessions via Integration.auth()")
+                if has_session_support
+                else (
+                    "Sessions are NOT configured. Admin login requires sessions. "
+                    "Uncomment .sessions(...) in workspace.py or enable Integration.auth()"
+                )
+            ),
+        }
+    )
 
     # 3. Database configured?
     db_active = "Integration.database(" in active_lines
@@ -2260,58 +2375,73 @@ def admin_check(ctx, fix: bool, as_json: bool):
 
     # 4. Static files configured?
     static_active = "Integration.static_files(" in active_lines
-    checks.append({
-        "name": "Static Files",
-        "status": "ok" if static_active else "warn",
-        "detail": (
-            "Static files middleware configured"
-            if static_active else
-            "Static files not configured. Admin CSS/JS may not load. "
-            "Add: .integrate(Integration.static_files(directories={\"/static\": \"static\"}))"
-        ),
-    })
+    checks.append(
+        {
+            "name": "Static Files",
+            "status": "ok" if static_active else "warn",
+            "detail": (
+                "Static files middleware configured"
+                if static_active
+                else "Static files not configured. Admin CSS/JS may not load. "
+                'Add: .integrate(Integration.static_files(directories={"/static": "static"}))'
+            ),
+        }
+    )
 
     # 5. Templates configured?
     templates_active = "Integration.templates" in active_lines or "TemplateEngine" in active_lines
-    checks.append({
-        "name": "Templates",
-        "status": "ok" if templates_active else "warn",
-        "detail": (
-            "Template engine configured"
-            if templates_active else
-            "Template engine not explicitly configured in workspace.py. "
-            "Admin uses its built-in TemplateEngine but user templates "
-            "won't resolve. Add: .integrate(Integration.templates(directories=['templates']))"
-        ),
-    })
+    checks.append(
+        {
+            "name": "Templates",
+            "status": "ok" if templates_active else "warn",
+            "detail": (
+                "Template engine configured"
+                if templates_active
+                else "Template engine not explicitly configured in workspace.py. "
+                "Admin uses its built-in TemplateEngine but user templates "
+                "won't resolve. Add: .integrate(Integration.templates(directories=['templates']))"
+            ),
+        }
+    )
     # Infrastructure: Docker and kubectl availability
     import shutil
+
     docker_path = shutil.which("docker")
     kubectl_path = shutil.which("kubectl")
-    checks.append({
-        "name": "Docker CLI",
-        "status": "ok" if docker_path else "warn",
-        "detail": (
-            f"docker found at {docker_path}" if docker_path else "Docker CLI not found. Containers page will be disabled. Install Docker to enable full functionality."
-        ),
-    })
-    checks.append({
-        "name": "kubectl CLI",
-        "status": "ok" if kubectl_path else "warn",
-        "detail": (
-            f"kubectl found at {kubectl_path}" if kubectl_path else "kubectl CLI not found. Pods page will be disabled. Install kubectl to enable full functionality."
-        ),
-        })
+    checks.append(
+        {
+            "name": "Docker CLI",
+            "status": "ok" if docker_path else "warn",
+            "detail": (
+                f"docker found at {docker_path}"
+                if docker_path
+                else "Docker CLI not found. Containers page will be disabled. Install Docker to enable full functionality."
+            ),
+        }
+    )
+    checks.append(
+        {
+            "name": "kubectl CLI",
+            "status": "ok" if kubectl_path else "warn",
+            "detail": (
+                f"kubectl found at {kubectl_path}"
+                if kubectl_path
+                else "kubectl CLI not found. Pods page will be disabled. Install kubectl to enable full functionality."
+            ),
+        }
+    )
 
     # 6. Superuser exists?
     has_superuser = False
     su_detail = "Unknown (cannot check without database connection)"
     try:
         import asyncio as _aio
+
         database_url = _detect_workspace_db_url()
 
         async def _check_su():
             from aquilia.db.engine import configure_database
+
             db = configure_database(database_url)
             await db.connect()
             try:
@@ -2322,29 +2452,35 @@ def admin_check(ctx, fix: bool, as_json: bool):
 
         count = _aio.run(_check_su())
         has_superuser = count > 0
-        su_detail = f"{count} superuser(s) found" if has_superuser else (
-            "No superusers found. Run: aq admin createsuperuser"
+        su_detail = (
+            f"{count} superuser(s) found" if has_superuser else ("No superusers found. Run: aq admin createsuperuser")
         )
     except Exception:
-        su_detail = "Could not check (database not accessible or table missing). Run: aq db migrate && aq admin createsuperuser"
-    checks.append({
-        "name": "Superuser",
-        "status": "ok" if has_superuser else "warn",
-        "detail": su_detail,
-    })
+        su_detail = (
+            "Could not check (database not accessible or table missing). Run: aq db migrate && aq admin createsuperuser"
+        )
+    checks.append(
+        {
+            "name": "Superuser",
+            "status": "ok" if has_superuser else "warn",
+            "detail": su_detail,
+        }
+    )
 
     # 7. assets/ directory exists?
     assets_dir = Path("assets")
     has_assets = assets_dir.is_dir()
-    checks.append({
-        "name": "Admin Assets",
-        "status": "ok" if has_assets else "info",
-        "detail": (
-            f"assets/ directory found ({len(list(assets_dir.iterdir()))} files)"
-            if has_assets else
-            "assets/ directory not found (admin will use default styles)"
-        ),
-    })
+    checks.append(
+        {
+            "name": "Admin Assets",
+            "status": "ok" if has_assets else "info",
+            "detail": (
+                f"assets/ directory found ({len(list(assets_dir.iterdir()))} files)"
+                if has_assets
+                else "assets/ directory not found (admin will use default styles)"
+            ),
+        }
+    )
 
     # ── Output ───────────────────────────────────────────────────────
     all_passed = all(c["status"] in ("ok", "info") for c in checks)
@@ -2352,11 +2488,17 @@ def admin_check(ctx, fix: bool, as_json: bool):
 
     if as_json:
         import json as _json
-        click.echo(_json.dumps({
-            "passed": all_passed,
-            "has_failures": has_failures,
-            "checks": checks,
-        }, indent=2))
+
+        click.echo(
+            _json.dumps(
+                {
+                    "passed": all_passed,
+                    "has_failures": has_failures,
+                    "checks": checks,
+                },
+                indent=2,
+            )
+        )
     else:
         click.echo()
         banner("AquilAdmin", subtitle="Pre-flight Check")
@@ -2371,7 +2513,7 @@ def admin_check(ctx, fix: bool, as_json: bool):
             name_styled = click.style(f"{c['name']}:", bold=True)
             icon_styled = click.style(f"  {icon}", fg=color)
             click.echo(f"{icon_styled} {name_styled}")
-            if ctx.obj.get('verbose') or c["status"] in ("fail", "warn"):
+            if ctx.obj.get("verbose") or c["status"] in ("fail", "warn"):
                 dim(f"      {c['detail']}")
 
         click.echo()
@@ -2411,7 +2553,7 @@ def admin_check(ctx, fix: bool, as_json: bool):
                 )
             sys.exit(1)
         elif any(c["status"] == "warn" for c in checks):
-            warning(f"  ! Pre-flight check passed with warnings")
+            warning("  ! Pre-flight check passed with warnings")
         else:
             success(f"  {_CHECK} All pre-flight checks passed")
         click.echo()
@@ -2453,22 +2595,32 @@ def admin_check(ctx, fix: bool, as_json: bool):
             workspace_file.write_text("\n".join(fixed_lines), encoding="utf-8")
             success(f"  {_CHECK} Auto-fixed: Uncommented .sessions(...) in workspace.py")
             click.echo()
-            next_steps([
-                "Review workspace.py to verify the sessions config",
-                "aq admin check",
-                "aq run",
-            ])
+            next_steps(
+                [
+                    "Review workspace.py to verify the sessions config",
+                    "aq admin check",
+                    "aq run",
+                ]
+            )
 
 
-@admin.command('createsuperuser')
-@click.option('--username', prompt=click.style('  Username', fg='cyan', bold=True), help='Admin username')
-@click.option('--email', prompt=click.style('  Email', fg='cyan', bold=True), help='Admin email (required)')
-@click.option('--password', prompt=click.style('  Password', fg='cyan', bold=True), hide_input=True, confirmation_prompt=click.style('  Confirm password', fg='cyan', bold=True), help='Admin password')
-@click.option('--first-name', default=None, help='First name (optional)')
-@click.option('--last-name', default=None, help='Last name (optional)')
-@click.option('--no-input', is_flag=True, hidden=True, help='Non-interactive mode (requires all options)')
+@admin.command("createsuperuser")
+@click.option("--username", prompt=click.style("  Username", fg="cyan", bold=True), help="Admin username")
+@click.option("--email", prompt=click.style("  Email", fg="cyan", bold=True), help="Admin email (required)")
+@click.option(
+    "--password",
+    prompt=click.style("  Password", fg="cyan", bold=True),
+    hide_input=True,
+    confirmation_prompt=click.style("  Confirm password", fg="cyan", bold=True),
+    help="Admin password",
+)
+@click.option("--first-name", default=None, help="First name (optional)")
+@click.option("--last-name", default=None, help="Last name (optional)")
+@click.option("--no-input", is_flag=True, hidden=True, help="Non-interactive mode (requires all options)")
 @click.pass_context
-def admin_createsuperuser(ctx, username: str, email: str, password: str, first_name: Optional[str], last_name: Optional[str], no_input: bool):
+def admin_createsuperuser(
+    ctx, username: str, email: str, password: str, first_name: str | None, last_name: str | None, no_input: bool
+):
     """
     Create an admin superuser in the database.
 
@@ -2536,42 +2688,36 @@ def admin_createsuperuser(ctx, username: str, email: str, password: str, first_n
     if interactive:
         section("Profile (optional -- press Enter to skip)")
         if first_name is None:
-            first_name = click.prompt(
-                click.style('  First name', fg='cyan'), default='', show_default=False
-            ).strip() or None
+            first_name = (
+                click.prompt(click.style("  First name", fg="cyan"), default="", show_default=False).strip() or None
+            )
         if last_name is None:
-            last_name = click.prompt(
-                click.style('  Last name', fg='cyan'), default='', show_default=False
-            ).strip() or None
-        phone = click.prompt(
-            click.style('  Phone', fg='cyan'), default='', show_default=False
-        ).strip() or None
-        bio = click.prompt(
-            click.style('  Bio', fg='cyan'), default='', show_default=False
-        ).strip() or None
-        timezone = click.prompt(
-            click.style('  Timezone', fg='cyan'), default='UTC', show_default=False
-        ).strip() or 'UTC'
-        locale = click.prompt(
-            click.style('  Locale', fg='cyan'), default='en', show_default=False
-        ).strip() or 'en'
+            last_name = (
+                click.prompt(click.style("  Last name", fg="cyan"), default="", show_default=False).strip() or None
+            )
+        phone = click.prompt(click.style("  Phone", fg="cyan"), default="", show_default=False).strip() or None
+        bio = click.prompt(click.style("  Bio", fg="cyan"), default="", show_default=False).strip() or None
+        timezone = (
+            click.prompt(click.style("  Timezone", fg="cyan"), default="UTC", show_default=False).strip() or "UTC"
+        )
+        locale = click.prompt(click.style("  Locale", fg="cyan"), default="en", show_default=False).strip() or "en"
         click.echo()
 
         if phone:
-            extra_fields['phone'] = phone
+            extra_fields["phone"] = phone
         if bio:
-            extra_fields['bio'] = bio
-        if timezone and timezone != 'UTC':
-            extra_fields['timezone'] = timezone
-        if locale and locale != 'en':
-            extra_fields['locale'] = locale
+            extra_fields["bio"] = bio
+        if timezone and timezone != "UTC":
+            extra_fields["timezone"] = timezone
+        if locale and locale != "en":
+            extra_fields["locale"] = locale
     else:
         phone = bio = timezone = locale = None
 
     if first_name:
-        extra_fields['first_name'] = first_name
+        extra_fields["first_name"] = first_name
     if last_name:
-        extra_fields['last_name'] = last_name
+        extra_fields["last_name"] = last_name
 
     section("Credentials")
     kv("Username", username)
@@ -2593,6 +2739,7 @@ def admin_createsuperuser(ctx, username: str, email: str, password: str, first_n
         database_url = _detect_workspace_db_url()
         try:
             from aquilia.db.engine import configure_database
+
             db = configure_database(database_url)
             await db.connect()
         except Exception:
@@ -2600,20 +2747,18 @@ def admin_createsuperuser(ctx, username: str, email: str, password: str, first_n
 
         try:
             from aquilia.admin.models import (
-                AdminUser,
-                AdminAuditEntry,
                 AdminAPIKey,
+                AdminAuditEntry,
                 AdminPreference,
+                AdminUser,
             )
 
             if db is None:
                 from aquilia.faults.domains import DatabaseConnectionFault
+
                 raise DatabaseConnectionFault(
                     backend="unknown",
-                    reason=(
-                        "No database connection available. "
-                        "Run 'aq db migrate' first to set up the database."
-                    ),
+                    reason=("No database connection available. Run 'aq db migrate' first to set up the database."),
                 )
 
             # Auto-ensure admin tables exist (safety net).
@@ -2644,6 +2789,7 @@ def admin_createsuperuser(ctx, username: str, email: str, password: str, first_n
             if uname_err or email_err:
                 msgs = [m for m in (uname_err, email_err) if m]
                 from aquilia.faults.domains import ConfigInvalidFault
+
                 raise ConfigInvalidFault(
                     key="admin.user",
                     reason="\n".join(msgs),
@@ -2657,11 +2803,12 @@ def admin_createsuperuser(ctx, username: str, email: str, password: str, first_n
                     email=email,
                     **extra_fields,
                 )
-                return True, str(getattr(user, 'pk', '?'))
+                return True, str(getattr(user, "pk", "?"))
             except Exception as e:
                 err_msg = str(e).lower()
                 if "unique constraint" in err_msg and "username" in err_msg:
                     from aquilia.faults.domains import ConfigInvalidFault
+
                     raise ConfigInvalidFault(
                         key="admin.username",
                         reason=(
@@ -2671,6 +2818,7 @@ def admin_createsuperuser(ctx, username: str, email: str, password: str, first_n
                     ) from e
                 if "unique constraint" in err_msg and "email" in err_msg:
                     from aquilia.faults.domains import ConfigInvalidFault
+
                     raise ConfigInvalidFault(
                         key="admin.email",
                         reason=(
@@ -2680,14 +2828,13 @@ def admin_createsuperuser(ctx, username: str, email: str, password: str, first_n
                     ) from e
                 if "unique constraint" in err_msg:
                     from aquilia.faults.domains import ConfigInvalidFault
+
                     raise ConfigInvalidFault(
                         key="admin.user",
-                        reason=(
-                            f"A user with that username or email already exists. "
-                            "Choose different credentials."
-                        ),
+                        reason=("A user with that username or email already exists. Choose different credentials."),
                     ) from e
                 from aquilia.faults.domains import DatabaseFault
+
                 raise DatabaseFault(
                     operation="create_superuser",
                     reason=(
@@ -2697,10 +2844,8 @@ def admin_createsuperuser(ctx, username: str, email: str, password: str, first_n
                 ) from e
         finally:
             if db is not None:
-                try:
+                with contextlib.suppress(Exception):
                     await db.disconnect()
-                except Exception:
-                    pass
 
     t0 = _ctime.monotonic()
     try:
@@ -2739,7 +2884,7 @@ def admin_createsuperuser(ctx, username: str, email: str, password: str, first_n
 
     elapsed = (_ctime.monotonic() - t0) * 1000
 
-    if not ctx.obj.get('quiet'):
+    if not ctx.obj.get("quiet"):
         step(2, "Hashing password with Argon2id/PBKDF2...")
         step(3, "Writing to admin_users table...")
         click.echo()
@@ -2771,23 +2916,33 @@ def admin_createsuperuser(ctx, username: str, email: str, password: str, first_n
         click.echo()
 
         # ── Next steps ───────────────────────────────────────────────
-        next_steps([
-            "aq admin check",
-            "aq run",
-            f"Visit http://localhost:8000/admin/",
-            f"Log in with username '{username}' and your password",
-        ])
+        next_steps(
+            [
+                "aq admin check",
+                "aq run",
+                "Visit http://localhost:8000/admin/",
+                f"Log in with username '{username}' and your password",
+            ]
+        )
 
 
-@admin.command('createstaff')
-@click.option('--username', prompt=click.style('  Username', fg='cyan', bold=True), help='Staff username')
-@click.option('--email', prompt=click.style('  Email', fg='cyan', bold=True), help='Staff email (required)')
-@click.option('--password', prompt=click.style('  Password', fg='cyan', bold=True), hide_input=True, confirmation_prompt=click.style('  Confirm password', fg='cyan', bold=True), help='Staff password')
-@click.option('--first-name', default=None, help='First name (optional)')
-@click.option('--last-name', default=None, help='Last name (optional)')
-@click.option('--no-input', is_flag=True, hidden=True, help='Non-interactive mode (requires all options)')
+@admin.command("createstaff")
+@click.option("--username", prompt=click.style("  Username", fg="cyan", bold=True), help="Staff username")
+@click.option("--email", prompt=click.style("  Email", fg="cyan", bold=True), help="Staff email (required)")
+@click.option(
+    "--password",
+    prompt=click.style("  Password", fg="cyan", bold=True),
+    hide_input=True,
+    confirmation_prompt=click.style("  Confirm password", fg="cyan", bold=True),
+    help="Staff password",
+)
+@click.option("--first-name", default=None, help="First name (optional)")
+@click.option("--last-name", default=None, help="Last name (optional)")
+@click.option("--no-input", is_flag=True, hidden=True, help="Non-interactive mode (requires all options)")
 @click.pass_context
-def admin_createstaff(ctx, username: str, email: str, password: str, first_name: Optional[str], last_name: Optional[str], no_input: bool):
+def admin_createstaff(
+    ctx, username: str, email: str, password: str, first_name: str | None, last_name: str | None, no_input: bool
+):
     """
     Create an admin staff user in the database.
 
@@ -2855,42 +3010,36 @@ def admin_createstaff(ctx, username: str, email: str, password: str, first_name:
     if interactive:
         section("Profile (optional -- press Enter to skip)")
         if first_name is None:
-            first_name = click.prompt(
-                click.style('  First name', fg='cyan'), default='', show_default=False
-            ).strip() or None
+            first_name = (
+                click.prompt(click.style("  First name", fg="cyan"), default="", show_default=False).strip() or None
+            )
         if last_name is None:
-            last_name = click.prompt(
-                click.style('  Last name', fg='cyan'), default='', show_default=False
-            ).strip() or None
-        phone = click.prompt(
-            click.style('  Phone', fg='cyan'), default='', show_default=False
-        ).strip() or None
-        bio = click.prompt(
-            click.style('  Bio', fg='cyan'), default='', show_default=False
-        ).strip() or None
-        timezone = click.prompt(
-            click.style('  Timezone', fg='cyan'), default='UTC', show_default=False
-        ).strip() or 'UTC'
-        locale = click.prompt(
-            click.style('  Locale', fg='cyan'), default='en', show_default=False
-        ).strip() or 'en'
+            last_name = (
+                click.prompt(click.style("  Last name", fg="cyan"), default="", show_default=False).strip() or None
+            )
+        phone = click.prompt(click.style("  Phone", fg="cyan"), default="", show_default=False).strip() or None
+        bio = click.prompt(click.style("  Bio", fg="cyan"), default="", show_default=False).strip() or None
+        timezone = (
+            click.prompt(click.style("  Timezone", fg="cyan"), default="UTC", show_default=False).strip() or "UTC"
+        )
+        locale = click.prompt(click.style("  Locale", fg="cyan"), default="en", show_default=False).strip() or "en"
         click.echo()
 
         if phone:
-            extra_fields['phone'] = phone
+            extra_fields["phone"] = phone
         if bio:
-            extra_fields['bio'] = bio
-        if timezone and timezone != 'UTC':
-            extra_fields['timezone'] = timezone
-        if locale and locale != 'en':
-            extra_fields['locale'] = locale
+            extra_fields["bio"] = bio
+        if timezone and timezone != "UTC":
+            extra_fields["timezone"] = timezone
+        if locale and locale != "en":
+            extra_fields["locale"] = locale
     else:
         phone = bio = timezone = locale = None
 
     if first_name:
-        extra_fields['first_name'] = first_name
+        extra_fields["first_name"] = first_name
     if last_name:
-        extra_fields['last_name'] = last_name
+        extra_fields["last_name"] = last_name
 
     section("Credentials")
     kv("Username", username)
@@ -2911,6 +3060,7 @@ def admin_createstaff(ctx, username: str, email: str, password: str, first_name:
         database_url = _detect_workspace_db_url()
         try:
             from aquilia.db.engine import configure_database
+
             db = configure_database(database_url)
             await db.connect()
         except Exception:
@@ -2918,20 +3068,18 @@ def admin_createstaff(ctx, username: str, email: str, password: str, first_name:
 
         try:
             from aquilia.admin.models import (
-                AdminUser,
-                AdminAuditEntry,
                 AdminAPIKey,
+                AdminAuditEntry,
                 AdminPreference,
+                AdminUser,
             )
 
             if db is None:
                 from aquilia.faults.domains import DatabaseConnectionFault
+
                 raise DatabaseConnectionFault(
                     backend="unknown",
-                    reason=(
-                        "No database connection available. "
-                        "Run 'aq db migrate' first to set up the database."
-                    ),
+                    reason=("No database connection available. Run 'aq db migrate' first to set up the database."),
                 )
 
             _admin_models = [
@@ -2957,6 +3105,7 @@ def admin_createstaff(ctx, username: str, email: str, password: str, first_name:
             if uname_err or email_err:
                 msgs = [m for m in (uname_err, email_err) if m]
                 from aquilia.faults.domains import ConfigInvalidFault
+
                 raise ConfigInvalidFault(
                     key="admin.user",
                     reason="\n".join(msgs),
@@ -2969,11 +3118,12 @@ def admin_createstaff(ctx, username: str, email: str, password: str, first_name:
                     email=email,
                     **extra_fields,
                 )
-                return True, str(getattr(user, 'pk', '?'))
+                return True, str(getattr(user, "pk", "?"))
             except Exception as e:
                 err_msg = str(e).lower()
                 if "unique constraint" in err_msg and "username" in err_msg:
                     from aquilia.faults.domains import ConfigInvalidFault
+
                     raise ConfigInvalidFault(
                         key="admin.username",
                         reason=(
@@ -2983,6 +3133,7 @@ def admin_createstaff(ctx, username: str, email: str, password: str, first_name:
                     ) from e
                 if "unique constraint" in err_msg and "email" in err_msg:
                     from aquilia.faults.domains import ConfigInvalidFault
+
                     raise ConfigInvalidFault(
                         key="admin.email",
                         reason=(
@@ -2992,14 +3143,13 @@ def admin_createstaff(ctx, username: str, email: str, password: str, first_name:
                     ) from e
                 if "unique constraint" in err_msg:
                     from aquilia.faults.domains import ConfigInvalidFault
+
                     raise ConfigInvalidFault(
                         key="admin.user",
-                        reason=(
-                            f"A user with that username or email already exists. "
-                            "Choose different credentials."
-                        ),
+                        reason=("A user with that username or email already exists. Choose different credentials."),
                     ) from e
                 from aquilia.faults.domains import DatabaseFault
+
                 raise DatabaseFault(
                     operation="create_staff_user",
                     reason=(
@@ -3009,10 +3159,8 @@ def admin_createstaff(ctx, username: str, email: str, password: str, first_name:
                 ) from e
         finally:
             if db is not None:
-                try:
+                with contextlib.suppress(Exception):
                     await db.disconnect()
-                except Exception:
-                    pass
 
     t0 = _ctime.monotonic()
     try:
@@ -3051,7 +3199,7 @@ def admin_createstaff(ctx, username: str, email: str, password: str, first_name:
 
     elapsed = (_ctime.monotonic() - t0) * 1000
 
-    if not ctx.obj.get('quiet'):
+    if not ctx.obj.get("quiet"):
         step(2, "Hashing password with Argon2id/PBKDF2...")
         step(3, "Writing to admin_users table...")
         click.echo()
@@ -3079,21 +3227,23 @@ def admin_createstaff(ctx, username: str, email: str, password: str, first_name:
         bullet("Cannot modify system permissions", fg="yellow")
         click.echo()
 
-        next_steps([
-            "aq admin check",
-            "aq run",
-            f"Visit http://localhost:8000/admin/",
-            f"Log in with username '{username}' and your password",
-            "Grant additional permissions via superuser account",
-        ])
+        next_steps(
+            [
+                "aq admin check",
+                "aq run",
+                "Visit http://localhost:8000/admin/",
+                f"Log in with username '{username}' and your password",
+                "Grant additional permissions via superuser account",
+            ]
+        )
 
 
-@admin.command('listusers')
-@click.option('--database-url', type=str, default=None, help='Database URL')
-@click.option('--json', 'as_json', is_flag=True, help='Output as JSON')
-@click.option('--active-only', is_flag=True, help='Show only active users')
+@admin.command("listusers")
+@click.option("--database-url", type=str, default=None, help="Database URL")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+@click.option("--active-only", is_flag=True, help="Show only active users")
 @click.pass_context
-def admin_listusers(ctx, database_url: Optional[str], as_json: bool, active_only: bool):
+def admin_listusers(ctx, database_url: str | None, as_json: bool, active_only: bool):
     """
     List all admin users.
 
@@ -3109,6 +3259,7 @@ def admin_listusers(ctx, database_url: Optional[str], as_json: bool, active_only
 
     async def _list():
         from aquilia.db.engine import configure_database
+
         db = configure_database(database_url)
         await db.connect()
         try:
@@ -3125,22 +3276,24 @@ def admin_listusers(ctx, database_url: Optional[str], as_json: bool, active_only
         users = asyncio.run(_list())
     except Exception as e:
         error(f"  {_CROSS} Failed to list users: {e}")
-        if ctx.obj.get('verbose'):
+        if ctx.obj.get("verbose"):
             import traceback
+
             traceback.print_exc()
         sys.exit(1)
 
     if as_json:
         import json as _json
+
         # Convert datetime objects to strings
         for u in users:
             for k, v in u.items():
-                if hasattr(v, 'isoformat'):
+                if hasattr(v, "isoformat"):
                     u[k] = v.isoformat()
         click.echo(_json.dumps(users, indent=2))
         return
 
-    if not ctx.obj.get('quiet'):
+    if not ctx.obj.get("quiet"):
         click.echo()
         section(f"Admin Users ({len(users)})")
         click.echo()
@@ -3152,7 +3305,7 @@ def admin_listusers(ctx, database_url: Optional[str], as_json: bool, active_only
             rows_data = []
             for u in users:
                 joined = u.get("created_at", "")
-                if hasattr(joined, 'strftime'):
+                if hasattr(joined, "strftime"):
                     joined = joined.strftime("%Y-%m-%d")
                 role = u.get("role", "staff")
                 role_display = {
@@ -3160,26 +3313,32 @@ def admin_listusers(ctx, database_url: Optional[str], as_json: bool, active_only
                     "staff": click.style("staff", fg="yellow"),
                     "viewer": click.style("viewer", fg="cyan"),
                 }.get(role, role)
-                rows_data.append([
-                    str(u.get("id", "?"))[:8],
-                    u.get("username", ""),
-                    u.get("email", ""),
-                    _CHECK if u.get("is_active") else _CROSS,
-                    role_display,
-                    str(joined)[:10],
-                ])
+                rows_data.append(
+                    [
+                        str(u.get("id", "?"))[:8],
+                        u.get("username", ""),
+                        u.get("email", ""),
+                        _CHECK if u.get("is_active") else _CROSS,
+                        role_display,
+                        str(joined)[:10],
+                    ]
+                )
             table(headers, rows_data)
         click.echo()
 
 
-@admin.command('changepassword')
-@click.argument('username')
-@click.option('--password', prompt=click.style('  New password', fg='cyan', bold=True),
-              hide_input=True, confirmation_prompt=click.style('  Confirm password', fg='cyan', bold=True),
-              help='New password')
-@click.option('--database-url', type=str, default=None, help='Database URL')
+@admin.command("changepassword")
+@click.argument("username")
+@click.option(
+    "--password",
+    prompt=click.style("  New password", fg="cyan", bold=True),
+    hide_input=True,
+    confirmation_prompt=click.style("  Confirm password", fg="cyan", bold=True),
+    help="New password",
+)
+@click.option("--database-url", type=str, default=None, help="Database URL")
 @click.pass_context
-def admin_changepassword(ctx, username: str, password: str, database_url: Optional[str]):
+def admin_changepassword(ctx, username: str, password: str, database_url: str | None):
     """
     Change an admin user's password.
 
@@ -3199,14 +3358,15 @@ def admin_changepassword(ctx, username: str, password: str, database_url: Option
         sys.exit(1)
 
     async def _change():
-        from aquilia.db.engine import configure_database
         from aquilia.auth.hashing import PasswordHasher
+        from aquilia.db.engine import configure_database
+
         db = configure_database(database_url)
         await db.connect()
         try:
             hasher = PasswordHasher()
             hashed = hasher.hash(password)
-            result = await db.execute(
+            await db.execute(
                 "UPDATE aq_admin_users SET password_hash = :hash WHERE username = :username",
                 {"hash": hashed, "username": username},
             )
@@ -3234,11 +3394,11 @@ def admin_changepassword(ctx, username: str, password: str, database_url: Option
         sys.exit(1)
 
 
-@admin.command('setup')
-@click.option('--non-interactive', '-y', is_flag=True, help='Skip confirmation prompts')
-@click.option('--database-url', type=str, default=None, help='Database URL to use (default: sqlite:///db.sqlite3)')
+@admin.command("setup")
+@click.option("--non-interactive", "-y", is_flag=True, help="Skip confirmation prompts")
+@click.option("--database-url", type=str, default=None, help="Database URL to use (default: sqlite:///db.sqlite3)")
 @click.pass_context
-def admin_setup(ctx, non_interactive: bool, database_url: Optional[str]):
+def admin_setup(ctx, non_interactive: bool, database_url: str | None):
     """
     Auto-configure all admin dependencies in workspace.py.
 
@@ -3276,10 +3436,7 @@ def admin_setup(ctx, non_interactive: bool, database_url: Optional[str]):
 
     # Remove comment-only lines for active config detection
     def _active(text: str) -> str:
-        return "\n".join(
-            line for line in text.splitlines()
-            if not line.strip().startswith("#")
-        )
+        return "\n".join(line for line in text.splitlines() if not line.strip().startswith("#"))
 
     active = _active(content)
     changes_made: list[str] = []
@@ -3289,9 +3446,9 @@ def admin_setup(ctx, non_interactive: bool, database_url: Optional[str]):
     # Check only actual import lines (not comments) to avoid false positives
     # when class names appear inside commented-out config blocks.
     import_lines = "\n".join(
-        line for line in content.splitlines()
-        if (line.strip().startswith("from ") or line.strip().startswith("import "))
-        and not line.strip().startswith("#")
+        line
+        for line in content.splitlines()
+        if (line.strip().startswith("from ") or line.strip().startswith("import ")) and not line.strip().startswith("#")
     )
     needed_imports: list[str] = []
     if "timedelta" not in import_lines:
@@ -3328,11 +3485,7 @@ def admin_setup(ctx, non_interactive: bool, database_url: Optional[str]):
 
     # ── Step 2: Ensure sessions are enabled ──────────────────────────
     step(2, "Checking sessions config...")
-    has_sessions = (
-        ".sessions(" in active
-        or "Integration.sessions(" in active
-        or "Integration.auth(" in active
-    )
+    has_sessions = ".sessions(" in active or "Integration.sessions(" in active or "Integration.auth(" in active
     if not has_sessions:
         # Check if there's a commented-out .sessions block we can uncomment
         if "# .sessions(" in content:
@@ -3414,7 +3567,7 @@ def admin_setup(ctx, non_interactive: bool, database_url: Optional[str]):
                 changes_made.append("Injected .sessions(...) block")
                 success(f"    {_CHECK} Injected .sessions(...) config")
             else:
-                warning(f"    ! Could not find insertion point -- add .sessions() manually")
+                warning("    ! Could not find insertion point -- add .sessions() manually")
     else:
         dim(f"    {_CHECK} Sessions already configured")
 
@@ -3533,15 +3686,15 @@ def admin_setup(ctx, non_interactive: bool, database_url: Optional[str]):
                 changes_made.append("Injected Integration.database(...)")
                 success(f"    {_CHECK} Injected database integration (url={db_url_val})")
             else:
-                warning(f"    ! Could not find insertion point -- add Integration.database() manually")
+                warning("    ! Could not find insertion point -- add Integration.database() manually")
     else:
         dim(f"    {_CHECK} Database integration present")
 
     # ── Step 5: Ensure Integration.static_files(...) ─────────────────
     step(5, "Checking static files integration...")
     if "Integration.static_files(" not in active:
-        warning(f"    ! No static files integration -- admin CSS/JS may not load")
-        info(f'      Add: .integrate(Integration.static_files(directories={{"/static": "static"}}))')
+        warning("    ! No static files integration -- admin CSS/JS may not load")
+        info('      Add: .integrate(Integration.static_files(directories={"/static": "static"}))')
     else:
         dim(f"    {_CHECK} Static files integration present")
 
@@ -3573,6 +3726,7 @@ def admin_setup(ctx, non_interactive: bool, database_url: Optional[str]):
     async def _ensure_tables():
         try:
             from aquilia.db.engine import configure_database
+
             db = configure_database(db_url)
             await db.connect()
         except Exception as e:
@@ -3580,12 +3734,21 @@ def admin_setup(ctx, non_interactive: bool, database_url: Optional[str]):
 
         try:
             from aquilia.admin.models import (
-                AdminUser, ContentType, AdminPermission,
-                AdminGroup, AdminLogEntry, AdminSession,
+                AdminGroup,
+                AdminLogEntry,
+                AdminPermission,
+                AdminSession,
+                AdminUser,
+                ContentType,
             )
+
             _admin_models = [
-                ContentType, AdminPermission, AdminGroup,
-                AdminUser, AdminLogEntry, AdminSession,
+                ContentType,
+                AdminPermission,
+                AdminGroup,
+                AdminUser,
+                AdminLogEntry,
+                AdminSession,
             ]
             _dialect = getattr(db, "dialect", "sqlite")
             created = 0
@@ -3602,10 +3765,8 @@ def admin_setup(ctx, non_interactive: bool, database_url: Optional[str]):
                     pass  # Table already exists
             return True, f"{created} table(s) checked/created"
         finally:
-            try:
+            with contextlib.suppress(Exception):
                 await db.disconnect()
-            except Exception:
-                pass
 
     try:
         ok, detail = asyncio.run(_ensure_tables())
@@ -3615,7 +3776,7 @@ def admin_setup(ctx, non_interactive: bool, database_url: Optional[str]):
             warning(f"    ! {detail}")
     except Exception as e:
         warning(f"    ! Could not ensure tables: {e}")
-        info(f"      Run 'aq db migrate' manually")
+        info("      Run 'aq db migrate' manually")
 
     # ── Step 7: Check for superuser ──────────────────────────────────
     step(7, "Checking for superuser...")
@@ -3623,12 +3784,11 @@ def admin_setup(ctx, non_interactive: bool, database_url: Optional[str]):
     async def _check_su():
         try:
             from aquilia.db.engine import configure_database
+
             db = configure_database(db_url)
             await db.connect()
             try:
-                result = await db.fetch_one(
-                    "SELECT COUNT(*) as cnt FROM aq_admin_users WHERE role = 'superadmin'"
-                )
+                result = await db.fetch_one("SELECT COUNT(*) as cnt FROM aq_admin_users WHERE role = 'superadmin'")
                 return result["cnt"] if result else 0
             finally:
                 await db.disconnect()
@@ -3643,32 +3803,34 @@ def admin_setup(ctx, non_interactive: bool, database_url: Optional[str]):
     if su_count > 0:
         dim(f"    {_CHECK} {su_count} superuser(s) found")
     elif su_count == 0:
-        warning(f"    ! No superusers found")
+        warning("    ! No superusers found")
         if not non_interactive:
             if click.confirm(click.style("  Create a superuser now?", bold=True), default=True):
                 # Invoke the createsuperuser command
                 ctx.invoke(admin_createsuperuser)
                 return
         else:
-            info(f"      Run 'aq admin createsuperuser' to create one")
+            info("      Run 'aq admin createsuperuser' to create one")
     else:
-        dim(f"    ? Could not check (run 'aq db migrate' first)")
+        dim("    ? Could not check (run 'aq db migrate' first)")
 
     # ── Done ─────────────────────────────────────────────────────────
     click.echo()
     success(f"  {_CHECK} Admin setup complete!")
     click.echo()
-    next_steps([
-        "aq admin check          (verify configuration)",
-        "aq run                  (start the dev server)",
-        "Visit http://localhost:8000/admin/",
-    ])
+    next_steps(
+        [
+            "aq admin check          (verify configuration)",
+            "aq run                  (start the dev server)",
+            "Visit http://localhost:8000/admin/",
+        ]
+    )
 
 
-@admin.command('status')
-@click.option('--database-url', type=str, default=None, help='Database URL')
+@admin.command("status")
+@click.option("--database-url", type=str, default=None, help="Database URL")
 @click.pass_context
-def admin_status(ctx, database_url: Optional[str]):
+def admin_status(ctx, database_url: str | None):
     """
     Show admin dashboard status and registered models.
 
@@ -3684,7 +3846,7 @@ def admin_status(ctx, database_url: Optional[str]):
     site.initialize()
     autodiscover()
 
-    if not ctx.obj.get('quiet'):
+    if not ctx.obj.get("quiet"):
         click.echo()
         banner("AquilAdmin", subtitle="Dashboard Status")
         click.echo()
@@ -3707,12 +3869,12 @@ def admin_status(ctx, database_url: Optional[str]):
         click.echo()
 
 
-@admin.command('audit')
-@click.option('--limit', type=int, default=50, help='Number of entries to show')
-@click.option('--action', type=str, default=None, help='Filter by action type')
-@click.option('--user', type=str, default=None, help='Filter by username')
+@admin.command("audit")
+@click.option("--limit", type=int, default=50, help="Number of entries to show")
+@click.option("--action", type=str, default=None, help="Filter by action type")
+@click.option("--user", type=str, default=None, help="Filter by username")
 @click.pass_context
-def admin_audit(ctx, limit: int, action: Optional[str], user: Optional[str]):
+def admin_audit(ctx, limit: int, action: str | None, user: str | None):
     """
     View admin audit trail.
 
@@ -3722,7 +3884,7 @@ def admin_audit(ctx, limit: int, action: Optional[str], user: Optional[str]):
       aq admin audit --action=CREATE
       aq admin audit --user=admin
     """
-    from aquilia.admin import AdminSite, AdminAction
+    from aquilia.admin import AdminAction, AdminSite
 
     site = AdminSite.default()
 
@@ -3741,7 +3903,7 @@ def admin_audit(ctx, limit: int, action: Optional[str], user: Optional[str]):
         user_id=user,
     )
 
-    if not ctx.obj.get('quiet'):
+    if not ctx.obj.get("quiet"):
         click.echo()
         section(f"Admin Audit Trail ({len(entries)} entries)")
         click.echo()
@@ -3768,5 +3930,5 @@ def main():
     cli(obj={})
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

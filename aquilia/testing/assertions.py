@@ -7,8 +7,7 @@ model, fault system, DI container, config, cache, effects, and mail.
 
 from __future__ import annotations
 
-import json as stdlib_json
-from typing import Any, Dict, List, Optional, Sequence, Type, Union
+from typing import Any
 
 _sentinel = object()
 
@@ -31,25 +30,18 @@ class AquiliaAssertions:
     def assert_status(self, response, expected: int, msg: str = ""):
         """Assert HTTP status code."""
         actual = response.status_code
-        assert actual == expected, (
-            f"Expected status {expected}, got {actual}. "
-            f"{msg}\nBody: {_body_preview(response)}"
-        )
+        assert actual == expected, f"Expected status {expected}, got {actual}. {msg}\nBody: {_body_preview(response)}"
 
     def assert_status_in_range(self, response, low: int, high: int, msg: str = ""):
         """Assert status code is within [low, high) range."""
         actual = response.status_code
         assert low <= actual < high, (
-            f"Expected status in [{low}, {high}), got {actual}. "
-            f"{msg}\nBody: {_body_preview(response)}"
+            f"Expected status in [{low}, {high}), got {actual}. {msg}\nBody: {_body_preview(response)}"
         )
 
     def assert_success(self, response, msg: str = ""):
         """Assert 2xx status."""
-        assert response.is_success, (
-            f"Expected 2xx, got {response.status_code}. "
-            f"{msg}\nBody: {_body_preview(response)}"
-        )
+        assert response.is_success, f"Expected 2xx, got {response.status_code}. {msg}\nBody: {_body_preview(response)}"
 
     def assert_created(self, response, msg: str = ""):
         """Assert 201 Created."""
@@ -63,25 +55,19 @@ class AquiliaAssertions:
         """Assert 204 No Content."""
         self.assert_status(response, 204, msg)
 
-    def assert_redirect(self, response, location: Optional[str] = None, msg: str = ""):
+    def assert_redirect(self, response, location: str | None = None, msg: str = ""):
         """Assert 3xx redirect, optionally checking Location header."""
-        assert response.is_redirect, (
-            f"Expected 3xx redirect, got {response.status_code}. {msg}"
-        )
+        assert response.is_redirect, f"Expected 3xx redirect, got {response.status_code}. {msg}"
         if location is not None:
             actual = response.header("location")
-            assert actual == location, (
-                f"Expected redirect to {location!r}, got {actual!r}"
-            )
+            assert actual == location, f"Expected redirect to {location!r}, got {actual!r}"
 
-    def assert_permanent_redirect(self, response, location: Optional[str] = None, msg: str = ""):
+    def assert_permanent_redirect(self, response, location: str | None = None, msg: str = ""):
         """Assert 301 Moved Permanently."""
         self.assert_status(response, 301, msg)
         if location is not None:
             actual = response.header("location")
-            assert actual == location, (
-                f"Expected redirect to {location!r}, got {actual!r}"
-            )
+            assert actual == location, f"Expected redirect to {location!r}, got {actual!r}"
 
     def assert_bad_request(self, response, msg: str = ""):
         """Assert 400."""
@@ -137,11 +123,9 @@ class AquiliaAssertions:
         assert "json" in ct, f"Expected JSON content-type, got {ct!r}. {msg}"
         if expected is not None:
             actual = response.json()
-            assert actual == expected, (
-                f"JSON mismatch.\nExpected: {expected}\nActual:   {actual}\n{msg}"
-            )
+            assert actual == expected, f"JSON mismatch.\nExpected: {expected}\nActual:   {actual}\n{msg}"
 
-    def assert_json_contains(self, response, subset: Dict[str, Any], msg: str = ""):
+    def assert_json_contains(self, response, subset: dict[str, Any], msg: str = ""):
         """Assert JSON body contains all keys/values from *subset*."""
         actual = response.json()
         for key, expected_val in subset.items():
@@ -170,49 +154,34 @@ class AquiliaAssertions:
         for part in parts:
             if isinstance(ref, dict):
                 assert part in ref, (
-                    f"JSON path {path!r}: key {part!r} not found. "
-                    f"Available keys: {list(ref.keys())}. {msg}"
+                    f"JSON path {path!r}: key {part!r} not found. Available keys: {list(ref.keys())}. {msg}"
                 )
                 ref = ref[part]
             elif isinstance(ref, (list, tuple)):
                 try:
                     idx = int(part)
                 except ValueError:
-                    raise AssertionError(
-                        f"JSON path {path!r}: expected int index, got {part!r}. {msg}"
-                    )
-                assert 0 <= idx < len(ref), (
-                    f"JSON path {path!r}: index {idx} out of range (len={len(ref)}). {msg}"
-                )
+                    raise AssertionError(f"JSON path {path!r}: expected int index, got {part!r}. {msg}")
+                assert 0 <= idx < len(ref), f"JSON path {path!r}: index {idx} out of range (len={len(ref)}). {msg}"
                 ref = ref[idx]
             else:
-                raise AssertionError(
-                    f"JSON path {path!r}: cannot traverse into {type(ref).__name__}. {msg}"
-                )
+                raise AssertionError(f"JSON path {path!r}: cannot traverse into {type(ref).__name__}. {msg}")
         if expected is not _sentinel:
-            assert ref == expected, (
-                f"JSON path {path!r}: expected {expected!r}, got {ref!r}. {msg}"
-            )
+            assert ref == expected, f"JSON path {path!r}: expected {expected!r}, got {ref!r}. {msg}"
         return ref
 
-    def assert_json_list(self, response, min_length: Optional[int] = None, msg: str = ""):
+    def assert_json_list(self, response, min_length: int | None = None, msg: str = ""):
         """Assert JSON body is a list, optionally with minimum length."""
         data = response.json()
-        assert isinstance(data, list), (
-            f"Expected JSON list, got {type(data).__name__}. {msg}"
-        )
+        assert isinstance(data, list), f"Expected JSON list, got {type(data).__name__}. {msg}"
         if min_length is not None:
-            assert len(data) >= min_length, (
-                f"Expected list with >= {min_length} items, got {len(data)}. {msg}"
-            )
+            assert len(data) >= min_length, f"Expected list with >= {min_length} items, got {len(data)}. {msg}"
 
     def assert_json_length(self, response, expected: int, msg: str = ""):
         """Assert JSON list/dict has exactly *expected* items/keys."""
         data = response.json()
         actual = len(data)
-        assert actual == expected, (
-            f"Expected JSON length {expected}, got {actual}. {msg}"
-        )
+        assert actual == expected, f"Expected JSON length {expected}, got {actual}. {msg}"
 
     def assert_json_not_empty(self, response, msg: str = ""):
         """Assert JSON body is non-empty (non-null, non-empty list/dict)."""
@@ -231,44 +200,36 @@ class AquiliaAssertions:
     def assert_content_type(self, response, expected: str, msg: str = ""):
         """Assert exact content type."""
         actual = response.content_type
-        assert actual == expected, (
-            f"Expected content-type {expected!r}, got {actual!r}. {msg}"
-        )
+        assert actual == expected, f"Expected content-type {expected!r}, got {actual!r}. {msg}"
 
     # ------------------------------------------------------------------
     # Header assertions
     # ------------------------------------------------------------------
 
-    def assert_header(self, response, name: str, value: Optional[str] = None, msg: str = ""):
+    def assert_header(self, response, name: str, value: str | None = None, msg: str = ""):
         """Assert response header exists (and optionally matches value)."""
         actual = response.header(name)
         assert actual is not None, f"Header {name!r} not found. {msg}"
         if value is not None:
-            assert actual == value, (
-                f"Header {name!r}: expected {value!r}, got {actual!r}. {msg}"
-            )
+            assert actual == value, f"Header {name!r}: expected {value!r}, got {actual!r}. {msg}"
 
     def assert_header_contains(self, response, name: str, substring: str, msg: str = ""):
         """Assert response header value contains a substring."""
         actual = response.header(name)
         assert actual is not None, f"Header {name!r} not found. {msg}"
-        assert substring in actual, (
-            f"Header {name!r}: expected to contain {substring!r}, got {actual!r}. {msg}"
-        )
+        assert substring in actual, f"Header {name!r}: expected to contain {substring!r}, got {actual!r}. {msg}"
 
     def assert_no_header(self, response, name: str, msg: str = ""):
         """Assert response header does NOT exist."""
         actual = response.header(name)
         assert actual is None, f"Header {name!r} unexpectedly present: {actual!r}. {msg}"
 
-    def assert_content_length(self, response, expected: Optional[int] = None, msg: str = ""):
+    def assert_content_length(self, response, expected: int | None = None, msg: str = ""):
         """Assert Content-Length header exists (and optionally matches)."""
         cl = response.header("content-length")
         assert cl is not None, f"Content-Length header not found. {msg}"
         if expected is not None:
-            assert int(cl) == expected, (
-                f"Content-Length: expected {expected}, got {cl}. {msg}"
-            )
+            assert int(cl) == expected, f"Content-Length: expected {expected}, got {cl}. {msg}"
 
     # ------------------------------------------------------------------
     # Cookie assertions
@@ -299,9 +260,7 @@ class AquiliaAssertions:
     def assert_no_cookie(self, response, name: str, msg: str = ""):
         """Assert Set-Cookie does NOT contain the named cookie."""
         sc = response.header("set-cookie") or ""
-        assert name not in sc, (
-            f"Cookie {name!r} unexpectedly present in Set-Cookie. {msg}"
-        )
+        assert name not in sc, f"Cookie {name!r} unexpectedly present in Set-Cookie. {msg}"
 
     # ------------------------------------------------------------------
     # Body assertions
@@ -310,23 +269,16 @@ class AquiliaAssertions:
     def assert_body_contains(self, response, text: str, msg: str = ""):
         """Assert text body contains substring."""
         body = response.text
-        assert text in body, (
-            f"Expected {text!r} in body, not found. {msg}\n"
-            f"Body preview: {body[:300]}"
-        )
+        assert text in body, f"Expected {text!r} in body, not found. {msg}\nBody preview: {body[:300]}"
 
     def assert_body_not_contains(self, response, text: str, msg: str = ""):
         """Assert text body does NOT contain substring."""
         body = response.text
-        assert text not in body, (
-            f"Unexpected {text!r} found in body. {msg}"
-        )
+        assert text not in body, f"Unexpected {text!r} found in body. {msg}"
 
     def assert_body_empty(self, response, msg: str = ""):
         """Assert response body is empty."""
-        assert len(response.body) == 0, (
-            f"Expected empty body, got {len(response.body)} bytes. {msg}"
-        )
+        assert len(response.body) == 0, f"Expected empty body, got {len(response.body)} bytes. {msg}"
 
     # ------------------------------------------------------------------
     # Fault assertions
@@ -335,8 +287,8 @@ class AquiliaAssertions:
     def assert_fault_raised(
         self,
         fault_engine_or_captured: Any,
-        code: Optional[str] = None,
-        domain: Optional[str] = None,
+        code: str | None = None,
+        domain: str | None = None,
         msg: str = "",
     ):
         """Assert that a fault was emitted / captured."""
@@ -344,42 +296,32 @@ class AquiliaAssertions:
         if code:
             matching = [f for f in faults if getattr(f, "code", None) == code]
             assert matching, (
-                f"No fault with code {code!r} captured. "
-                f"Captured: {[getattr(f, 'code', '?') for f in faults]}. {msg}"
+                f"No fault with code {code!r} captured. Captured: {[getattr(f, 'code', '?') for f in faults]}. {msg}"
             )
         elif domain:
-            matching = [
-                f for f in faults
-                if str(getattr(f, "domain", "")) == domain
-            ]
-            assert matching, (
-                f"No fault in domain {domain!r} captured. {msg}"
-            )
+            matching = [f for f in faults if str(getattr(f, "domain", "")) == domain]
+            assert matching, f"No fault in domain {domain!r} captured. {msg}"
         else:
             assert faults, f"No faults captured. {msg}"
 
     def assert_no_faults(self, fault_engine_or_captured: Any, msg: str = ""):
         """Assert no faults were captured."""
         faults = _extract_faults(fault_engine_or_captured)
-        assert not faults, (
-            f"Expected no faults, got {len(faults)}: "
-            f"{[getattr(f, 'code', '?') for f in faults]}. {msg}"
-        )
+        assert not faults, f"Expected no faults, got {len(faults)}: {[getattr(f, 'code', '?') for f in faults]}. {msg}"
 
     def assert_fault_count(self, fault_engine_or_captured: Any, expected: int, msg: str = ""):
         """Assert exact number of faults captured."""
         faults = _extract_faults(fault_engine_or_captured)
         actual = len(faults)
         assert actual == expected, (
-            f"Expected {expected} faults, got {actual}: "
-            f"{[getattr(f, 'code', '?') for f in faults]}. {msg}"
+            f"Expected {expected} faults, got {actual}: {[getattr(f, 'code', '?') for f in faults]}. {msg}"
         )
 
     def assert_fault_severity(
         self,
         fault_engine_or_captured: Any,
         severity: Any,
-        code: Optional[str] = None,
+        code: str | None = None,
         msg: str = "",
     ):
         """Assert fault(s) have the expected severity."""
@@ -390,8 +332,7 @@ class AquiliaAssertions:
         for f in faults:
             actual_sev = getattr(f, "severity", None)
             assert actual_sev == severity, (
-                f"Fault {getattr(f, 'code', '?')}: expected severity "
-                f"{severity!r}, got {actual_sev!r}. {msg}"
+                f"Fault {getattr(f, 'code', '?')}: expected severity {severity!r}, got {actual_sev!r}. {msg}"
             )
 
     # ------------------------------------------------------------------
@@ -400,15 +341,11 @@ class AquiliaAssertions:
 
     def assert_registered(self, container, token: Any, msg: str = ""):
         """Assert a service is registered in the DI container."""
-        assert container.is_registered(token), (
-            f"Token {token!r} not registered in container. {msg}"
-        )
+        assert container.is_registered(token), f"Token {token!r} not registered in container. {msg}"
 
     def assert_not_registered(self, container, token: Any, msg: str = ""):
         """Assert a service is NOT registered in the DI container."""
-        assert not container.is_registered(token), (
-            f"Token {token!r} unexpectedly registered in container. {msg}"
-        )
+        assert not container.is_registered(token), f"Token {token!r} unexpectedly registered in container. {msg}"
 
     def assert_resolves(self, container, token: Any, msg: str = ""):
         """Assert a service resolves successfully (sync)."""
@@ -416,9 +353,7 @@ class AquiliaAssertions:
             result = container.resolve(token)
             assert result is not None
         except Exception as exc:
-            raise AssertionError(
-                f"Token {token!r} failed to resolve: {exc}. {msg}"
-            ) from exc
+            raise AssertionError(f"Token {token!r} failed to resolve: {exc}. {msg}") from exc
 
     async def assert_resolves_async(self, container, token: Any, msg: str = ""):
         """Assert a service resolves successfully (async)."""
@@ -426,31 +361,25 @@ class AquiliaAssertions:
             result = await container.resolve_async(token)
             assert result is not None
         except Exception as exc:
-            raise AssertionError(
-                f"Token {token!r} failed to resolve async: {exc}. {msg}"
-            ) from exc
+            raise AssertionError(f"Token {token!r} failed to resolve async: {exc}. {msg}") from exc
 
     # ------------------------------------------------------------------
     # Effect assertions
     # ------------------------------------------------------------------
 
-    def assert_effect_acquired(self, provider: Any, count: Optional[int] = None, msg: str = ""):
+    def assert_effect_acquired(self, provider: Any, count: int | None = None, msg: str = ""):
         """Assert an effect provider's acquire was called."""
         actual = getattr(provider, "acquire_count", 0)
         if count is not None:
-            assert actual == count, (
-                f"Expected {count} acquire calls, got {actual}. {msg}"
-            )
+            assert actual == count, f"Expected {count} acquire calls, got {actual}. {msg}"
         else:
             assert actual > 0, f"Expected effect to be acquired, got 0 calls. {msg}"
 
-    def assert_effect_released(self, provider: Any, count: Optional[int] = None, msg: str = ""):
+    def assert_effect_released(self, provider: Any, count: int | None = None, msg: str = ""):
         """Assert an effect provider's release was called."""
         actual = getattr(provider, "release_count", 0)
         if count is not None:
-            assert actual == count, (
-                f"Expected {count} release calls, got {actual}. {msg}"
-            )
+            assert actual == count, f"Expected {count} release calls, got {actual}. {msg}"
         else:
             assert actual > 0, f"Expected effect to be released, got 0 calls. {msg}"
 
@@ -463,16 +392,12 @@ class AquiliaAssertions:
         value = await cache.get(key)
         assert value is not None, f"Cache miss for key {key!r}. {msg}"
         if expected is not _sentinel:
-            assert value == expected, (
-                f"Cache key {key!r}: expected {expected!r}, got {value!r}. {msg}"
-            )
+            assert value == expected, f"Cache key {key!r}: expected {expected!r}, got {value!r}. {msg}"
 
     async def assert_cache_miss(self, cache: Any, key: str, msg: str = ""):
         """Assert a cache key does NOT exist."""
         value = await cache.get(key)
-        assert value is None, (
-            f"Expected cache miss for key {key!r}, got {value!r}. {msg}"
-        )
+        assert value is None, f"Expected cache miss for key {key!r}, got {value!r}. {msg}"
 
     # ------------------------------------------------------------------
     # Mail assertions
@@ -481,30 +406,23 @@ class AquiliaAssertions:
     def assert_mail_count(self, outbox: Any, expected: int, msg: str = ""):
         """Assert exact number of messages in the mail outbox."""
         actual = len(outbox)
-        assert actual == expected, (
-            f"Expected {expected} mail messages, got {actual}. {msg}"
-        )
+        assert actual == expected, f"Expected {expected} mail messages, got {actual}. {msg}"
 
     def assert_mail_to(self, outbox: Any, address: str, msg: str = ""):
         """Assert at least one message was sent to *address*."""
         matching = [m for m in outbox if address in m.to]
-        assert matching, (
-            f"No mail sent to {address!r}. "
-            f"Recipients: {[m.to for m in outbox]}. {msg}"
-        )
+        assert matching, f"No mail sent to {address!r}. Recipients: {[m.to for m in outbox]}. {msg}"
 
     def assert_mail_from(self, outbox: Any, address: str, msg: str = ""):
         """Assert at least one message was sent from *address*."""
         matching = [m for m in outbox if m.from_email == address]
-        assert matching, (
-            f"No mail from {address!r}. "
-            f"Senders: {[m.from_email for m in outbox]}. {msg}"
-        )
+        assert matching, f"No mail from {address!r}. Senders: {[m.from_email for m in outbox]}. {msg}"
 
 
 # -----------------------------------------------------------------------
 # Helpers
 # -----------------------------------------------------------------------
+
 
 def _body_preview(response, max_len: int = 200) -> str:
     try:

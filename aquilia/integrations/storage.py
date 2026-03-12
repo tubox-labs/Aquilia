@@ -5,7 +5,7 @@ StorageIntegration — typed file storage configuration.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
@@ -24,11 +24,11 @@ class StorageIntegration:
     _integration_type: str = field(default="storage", init=False, repr=False)
 
     default: str = "default"
-    backends: Optional[Dict[str, Any]] = None
+    backends: dict[str, Any] | None = None
     enabled: bool = True
 
-    def to_dict(self) -> Dict[str, Any]:
-        backend_list: List[Dict[str, Any]] = []
+    def to_dict(self) -> dict[str, Any]:
+        backend_list: list[dict[str, Any]] = []
         for alias, cfg in (self.backends or {}).items():
             if hasattr(cfg, "to_dict"):
                 entry = cfg.to_dict()

@@ -7,16 +7,16 @@ Defines the Job dataclass and all enumerations for task lifecycle management.
 from __future__ import annotations
 
 import hashlib
-import time
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, Optional, Tuple
+from typing import Any
 
 
 class JobState(str, Enum):
     """Task lifecycle states."""
+
     PENDING = "pending"
     SCHEDULED = "scheduled"
     RUNNING = "running"
@@ -29,6 +29,7 @@ class JobState(str, Enum):
 
 class Priority(int, Enum):
     """Task priority levels (lower value = higher priority)."""
+
     CRITICAL = 0
     HIGH = 1
     NORMAL = 2
@@ -38,14 +39,15 @@ class Priority(int, Enum):
 @dataclass
 class JobResult:
     """Stores the result or error from a completed/failed job."""
+
     success: bool
     value: Any = None
-    error: Optional[str] = None
-    error_type: Optional[str] = None
-    traceback: Optional[str] = None
+    error: str | None = None
+    error_type: str | None = None
+    traceback: str | None = None
     duration_ms: float = 0.0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "success": self.success,
             "value": repr(self.value) if self.value is not None else None,
@@ -73,12 +75,12 @@ class Job:
 
     # Callable reference (module:function format for serialisation)
     func_ref: str = ""
-    args: Tuple[Any, ...] = field(default_factory=tuple)
-    kwargs: Dict[str, Any] = field(default_factory=dict)
+    args: tuple[Any, ...] = field(default_factory=tuple)
+    kwargs: dict[str, Any] = field(default_factory=dict)
 
     # State
     state: JobState = JobState.PENDING
-    result: Optional[JobResult] = None
+    result: JobResult | None = None
 
     # Retry policy
     max_retries: int = 3
@@ -89,13 +91,13 @@ class Job:
 
     # Timing
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    started_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
-    scheduled_at: Optional[datetime] = None  # For delayed/scheduled tasks
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+    scheduled_at: datetime | None = None  # For delayed/scheduled tasks
     timeout: float = 300.0  # Max execution time in seconds (5 min default)
 
     # Metadata
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
     tags: list[str] = field(default_factory=list)
 
     # Internal
@@ -116,15 +118,14 @@ class Job:
         """Check if job can be executed now."""
         if self.state not in (JobState.PENDING, JobState.RETRYING, JobState.SCHEDULED):
             return False
-        if self.scheduled_at and datetime.now(timezone.utc) < self.scheduled_at:
-            return False
-        return True
+        return not (self.scheduled_at and datetime.now(timezone.utc) < self.scheduled_at)
 
     @property
     def next_retry_delay(self) -> float:
         """Calculate next retry delay with exponential backoff + jitter."""
         import random
-        delay = self.retry_delay * (self.retry_backoff ** self.retry_count)
+
+        delay = self.retry_delay * (self.retry_backoff**self.retry_count)
         delay = min(delay, self.retry_max_delay)
         # Add jitter (±25%)
         jitter = delay * 0.25 * (2 * random.random() - 1)
@@ -136,7 +137,7 @@ class Job:
         return self.retry_count < self.max_retries
 
     @property
-    def duration_ms(self) -> Optional[float]:
+    def duration_ms(self) -> float | None:
         """Execution duration in milliseconds."""
         if self.started_at and self.completed_at:
             return (self.completed_at - self.started_at).total_seconds() * 1000
@@ -148,7 +149,7 @@ class Job:
         data = f"{self.func_ref}:{self.queue}:{repr(self.args)}:{repr(sorted(self.kwargs.items()))}"
         return hashlib.sha256(data.encode()).hexdigest()[:12]
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialise job for API/admin consumption."""
         return {
             "id": self.id,

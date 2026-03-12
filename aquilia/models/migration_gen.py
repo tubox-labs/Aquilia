@@ -11,30 +11,29 @@ import datetime
 import logging
 import re
 from pathlib import Path
-from typing import Dict, List, Optional
 
 from .migration_dsl import (
-    ColumnDef,
-    CreateModel,
-    CreateIndex,
-    DropModel,
-    RenameModel,
-    AddField,
-    RemoveField,
-    AlterField,
-    RenameField,
-    DropIndex,
-    RunSQL,
-    Operation,
     _SENTINEL,
+    AddField,
+    AlterField,
+    ColumnDef,
+    CreateIndex,
+    CreateModel,
+    DropIndex,
+    DropModel,
+    Operation,
+    RemoveField,
+    RenameField,
+    RenameModel,
+    RunSQL,
 )
 from .schema_snapshot import (
-    create_snapshot,
-    save_snapshot,
-    load_snapshot,
-    compute_diff,
-    diff_to_operations,
     SchemaDiff,
+    compute_diff,
+    create_snapshot,
+    diff_to_operations,
+    load_snapshot,
+    save_snapshot,
 )
 
 logger = logging.getLogger("aquilia.models.migration_gen")
@@ -54,9 +53,9 @@ def _slugify(name: str) -> str:
 def generate_dsl_migration(
     model_classes: list,
     migrations_dir: str | Path,
-    snapshot_path: Optional[str | Path] = None,
-    slug: Optional[str] = None,
-) -> Optional[Path]:
+    snapshot_path: str | Path | None = None,
+    slug: str | None = None,
+) -> Path | None:
     """
     Generate a DSL migration file from the diff between the current
     snapshot and the current model definitions.
@@ -129,12 +128,12 @@ def generate_dsl_migration(
     return filepath
 
 
-def _affected_model_names(diff: SchemaDiff) -> List[str]:
+def _affected_model_names(diff: SchemaDiff) -> list[str]:
     """Get all model names affected by a diff."""
-    names: List[str] = []
+    names: list[str] = []
     names.extend(diff.added_models)
     names.extend(diff.removed_models)
-    for old, new in diff.renamed_models:
+    for _old, new in diff.renamed_models:
         names.append(new)
     names.extend(diff.altered_models.keys())
     return sorted(set(names))
@@ -143,8 +142,8 @@ def _affected_model_names(diff: SchemaDiff) -> List[str]:
 def _render_migration_file(
     revision: str,
     slug: str,
-    model_names: List[str],
-    operations: List[Operation],
+    model_names: list[str],
+    operations: list[Operation],
 ) -> str:
     """Render a DSL migration file as Python source."""
     now = datetime.datetime.now(datetime.timezone.utc).isoformat()
@@ -256,7 +255,7 @@ def _render_column_def(col: ColumnDef) -> str:
 
     # Determine builder method
     t = col.col_type.upper()
-    kwargs: List[str] = []
+    kwargs: list[str] = []
 
     if col.nullable:
         kwargs.append("null=True")
@@ -283,7 +282,8 @@ def _render_column_def(col: ColumnDef) -> str:
         return f'C.boolean("{col.name}"{extra})'
     elif "VARCHAR" in t:
         import re
-        m = re.search(r'\((\d+)\)', t)
+
+        m = re.search(r"\((\d+)\)", t)
         length = m.group(1) if m else "255"
         extra = f", {kwargs_str}" if kwargs_str else ""
         return f'C.varchar("{col.name}", {length}{extra})'
@@ -295,7 +295,8 @@ def _render_column_def(col: ColumnDef) -> str:
         return f'C.integer("{col.name}"{extra})'
     elif "DECIMAL" in t:
         import re
-        m = re.search(r'\((\d+),\s*(\d+)\)', t)
+
+        m = re.search(r"\((\d+),\s*(\d+)\)", t)
         if m:
             extra = f", {kwargs_str}" if kwargs_str else ""
             return f'C.decimal("{col.name}", {m.group(1)}, {m.group(2)}{extra})'

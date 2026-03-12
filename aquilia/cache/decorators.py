@@ -14,11 +14,11 @@ Features:
 
 from __future__ import annotations
 
-import asyncio
 import functools
 import inspect
 import logging
-from typing import Any, Callable, Optional, Tuple, TypeVar
+from collections.abc import Callable
+from typing import Any, TypeVar
 
 from .key_builder import DefaultKeyBuilder
 
@@ -30,17 +30,17 @@ _key_builder = DefaultKeyBuilder()
 
 # Module-level cache service registry for decorators
 # Set via `set_default_cache_service()` during app startup
-_default_cache_service: Optional[Any] = None
+_default_cache_service: Any | None = None
 
 
 def set_default_cache_service(service: Any) -> None:
     """
     Register a module-level CacheService for decorator resolution.
-    
+
     Called automatically during ``Server._setup_cache()``.
     Enables decorators to work on standalone functions (not just
     controller methods with ``self.cache``).
-    
+
     Args:
         service: CacheService instance
     """
@@ -48,7 +48,7 @@ def set_default_cache_service(service: Any) -> None:
     _default_cache_service = service
 
 
-def get_default_cache_service() -> Optional[Any]:
+def get_default_cache_service() -> Any | None:
     """Get the module-level default CacheService."""
     return _default_cache_service
 
@@ -56,15 +56,15 @@ def get_default_cache_service() -> Optional[Any]:
 def cached(
     ttl: int = 300,
     namespace: str = "default",
-    key: Optional[str] = None,
-    key_func: Optional[Callable[..., str]] = None,
-    tags: Tuple[str, ...] = (),
-    unless: Optional[Callable[..., bool]] = None,
-    condition: Optional[Callable[[Any], bool]] = None,
+    key: str | None = None,
+    key_func: Callable[..., str] | None = None,
+    tags: tuple[str, ...] = (),
+    unless: Callable[..., bool] | None = None,
+    condition: Callable[[Any], bool] | None = None,
 ):
     """
     Decorator to cache function results.
-    
+
     Args:
         ttl: Time-to-live in seconds
         namespace: Cache namespace
@@ -74,41 +74,42 @@ def cached(
         unless: Callable ``(*args, **kwargs) → bool`` -- skip caching if True
         condition: Callable ``(result) → bool`` -- only cache if True.
                    Useful for skipping error results or empty lists.
-        
+
     Usage::
-    
+
         @cached(ttl=60, namespace="users")
         async def get_user(user_id: int):
             return await db.fetch_user(user_id)
-        
+
         @cached(ttl=120, key="all_products", tags=("products",))
         async def list_products():
             return await db.fetch_all_products()
-        
+
         # Custom key function
         @cached(ttl=60, key_func=lambda f, a, kw: f"user:{kw.get('user_id')}")
         async def get_user_profile(user_id: int):
             ...
-        
+
         # Conditional caching -- don't cache empty results
         @cached(ttl=60, condition=lambda result: result is not None and len(result) > 0)
         async def search_products(query: str):
             ...
     """
+
     def decorator(func: Callable[..., T]) -> Callable[..., T]:
         @functools.wraps(func)
         async def wrapper(*args, **kwargs):
             # Try to get cache service from first arg (controller self)
             cache_service = _resolve_cache_service(args)
-            
+
             if cache_service is None:
                 # No cache available -- just call the function
                 return await _call_func(func, args, kwargs)
-            
+
             # Check unless condition
             if unless and unless(*args, **kwargs):
                 return await _call_func(func, args, kwargs)
-            
+
             # Build cache key
             if key:
                 cache_key = key
@@ -123,15 +124,15 @@ def cached(
                     args=args[skip:],
                     kwargs=kwargs,
                 )
-            
+
             # Try cache
             cached_value = await cache_service.get(cache_key, namespace=namespace)
             if cached_value is not None:
                 return cached_value
-            
+
             # Cache miss -- compute
             result = await _call_func(func, args, kwargs)
-            
+
             # Check condition before caching
             should_cache = True
             if condition is not None:
@@ -139,7 +140,7 @@ def cached(
                     should_cache = condition(result)
                 except Exception:
                     should_cache = False
-            
+
             # Store result (only if not None and condition passes)
             if result is not None and should_cache:
                 await cache_service.set(
@@ -149,30 +150,31 @@ def cached(
                     namespace=namespace,
                     tags=tags,
                 )
-            
+
             return result
-        
+
         # Attach metadata for introspection
         wrapper.__cached__ = True
         wrapper.__cache_ttl__ = ttl
         wrapper.__cache_namespace__ = namespace
         wrapper.__cache_tags__ = tags
-        
+
         return wrapper
+
     return decorator
 
 
 def cache_aside(
     ttl: int = 300,
     namespace: str = "default",
-    tags: Tuple[str, ...] = (),
+    tags: tuple[str, ...] = (),
 ):
     """
     Cache-aside decorator -- identical to @cached but semantically
     indicates the function is the authoritative data source.
-    
+
     Usage::
-    
+
         @cache_aside(ttl=120, namespace="products")
         async def find_product(product_id: int):
             return await db.find_product(product_id)
@@ -183,80 +185,83 @@ def cache_aside(
 def invalidate(
     *keys: str,
     namespace: str = "default",
-    tags: Tuple[str, ...] = (),
+    tags: tuple[str, ...] = (),
 ):
     """
     Decorator to invalidate cache entries after function execution.
-    
+
     Useful for write operations that should clear related cache entries.
-    
+
     Args:
         *keys: Specific cache keys to invalidate
         namespace: Cache namespace
         tags: Tags to invalidate
-        
+
     Usage::
-    
+
         @invalidate("all_products", tags=("products",))
         async def create_product(data: dict):
             return await db.insert_product(data)
     """
+
     def decorator(func: Callable[..., T]) -> Callable[..., T]:
         @functools.wraps(func)
         async def wrapper(*args, **kwargs):
             # Execute the function first
             result = await _call_func(func, args, kwargs)
-            
+
             # Then invalidate
             cache_service = _resolve_cache_service(args)
             if cache_service:
                 # Invalidate specific keys
                 for key in keys:
                     await cache_service.delete(key, namespace=namespace)
-                
+
                 # Invalidate by tags
                 if tags:
                     await cache_service.invalidate_tags(*tags)
-            
+
             return result
-        
+
         wrapper.__invalidates__ = True
         wrapper.__invalidate_keys__ = keys
         wrapper.__invalidate_tags__ = tags
-        
+
         return wrapper
+
     return decorator
 
 
 # ── Helpers ──────────────────────────────────────────────────────────
 
+
 def _resolve_cache_service(args: tuple):
     """
     Try to find a CacheService from function arguments.
-    
+
     Resolution order:
     1. ``self.cache`` on the first argument (controller/service)
     2. ``self._cache`` on the first argument
     3. Module-level default (set via ``set_default_cache_service()``)
     """
     from .service import CacheService
-    
+
     if args and hasattr(args[0], "__class__"):
         obj = args[0]
         # Check for cache attribute on controller/service
         cache = getattr(obj, "cache", None)
         if isinstance(cache, CacheService):
             return cache
-        
+
         # Check for _cache attribute
         cache = getattr(obj, "_cache", None)
         if isinstance(cache, CacheService):
             return cache
-    
+
     # Fall back to module-level default
     if _default_cache_service is not None:
         return _default_cache_service
-    
+
     return None
 
 

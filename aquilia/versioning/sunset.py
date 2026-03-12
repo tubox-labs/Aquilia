@@ -50,10 +50,7 @@ class SunsetPolicy:
     enforce_retired: bool = True
 
     # Custom response message for sunset versions
-    sunset_message: str = (
-        "This API version has been retired. "
-        "Please migrate to the latest version."
-    )
+    sunset_message: str = "This API version has been retired. Please migrate to the latest version."
 
     # Default migration guide URL template
     # {version} is replaced with the sunset version string
@@ -274,22 +271,16 @@ class SunsetEnforcer:
         if status in (VersionStatus.DEPRECATED, VersionStatus.SUNSET):
             # Deprecation header (RFC 9745)
             if entry.deprecated_at:
-                headers["Deprecation"] = entry.deprecated_at.strftime(
-                    "%a, %d %b %Y %H:%M:%S GMT"
-                )
+                headers["Deprecation"] = entry.deprecated_at.strftime("%a, %d %b %Y %H:%M:%S GMT")
 
             # Sunset header (RFC 8594)
             if entry.sunset_at:
-                headers["Sunset"] = entry.sunset_at.strftime(
-                    "%a, %d %b %Y %H:%M:%S GMT"
-                )
+                headers["Sunset"] = entry.sunset_at.strftime("%a, %d %b %Y %H:%M:%S GMT")
 
             # Link header with migration guide
             migration_url = entry.migration_url
             if not migration_url and self._policy.migration_url_template:
-                migration_url = self._policy.migration_url_template.replace(
-                    "{version}", str(version)
-                )
+                migration_url = self._policy.migration_url_template.replace("{version}", str(version))
             if migration_url:
                 headers["Link"] = f'<{migration_url}>; rel="deprecation"'
 

@@ -37,9 +37,8 @@ import json
 import logging
 import math
 import os
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Type, Union
-from urllib.parse import urlencode, urlparse, parse_qs, urlunparse
+from typing import Any
+from urllib.parse import urlencode
 
 _cursor_logger = logging.getLogger("aquilia.pagination")
 
@@ -57,7 +56,8 @@ __all__ = [
 #  Helpers
 # ═══════════════════════════════════════════════════════════════════════════
 
-def _build_url(request: Any, params: Dict[str, Any]) -> Optional[str]:
+
+def _build_url(request: Any, params: dict[str, Any]) -> str | None:
     """Build an absolute URL from the current request with updated query params."""
     try:
         # Get base URL components
@@ -86,7 +86,7 @@ def _build_url(request: Any, params: Dict[str, Any]) -> Optional[str]:
         return f"{path}?{qs}" if qs else path
 
 
-def _get_current_params(request: Any) -> Dict[str, str]:
+def _get_current_params(request: Any) -> dict[str, str]:
     """Extract current query parameters as a flat dict."""
     if hasattr(request, "query_params"):
         qp = request.query_params
@@ -100,6 +100,7 @@ def _get_current_params(request: Any) -> Dict[str, str]:
 #  Base class
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class BasePagination:
     """
     Abstract base for pagination backends.
@@ -110,9 +111,9 @@ class BasePagination:
 
     def paginate_list(
         self,
-        data: List[Any],
+        data: list[Any],
         request: Any,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Paginate an in-memory list.
 
@@ -125,24 +126,21 @@ class BasePagination:
         self,
         queryset: Any,
         request: Any,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Paginate an ORM queryset.
 
         Default implementation fetches all() and delegates to paginate_list.
         """
         items = await queryset.all()
-        serialized = [
-            item.to_dict() if hasattr(item, "to_dict") else item
-            for item in items
-        ]
+        serialized = [item.to_dict() if hasattr(item, "to_dict") else item for item in items]
         return self.paginate_list(serialized, request)
 
 
 class NoPagination(BasePagination):
     """Passthrough -- no pagination applied."""
 
-    def paginate_list(self, data: List[Any], request: Any) -> Dict[str, Any]:
+    def paginate_list(self, data: list[Any], request: Any) -> dict[str, Any]:
         return {
             "count": len(data),
             "next": None,
@@ -154,6 +152,7 @@ class NoPagination(BasePagination):
 # ═══════════════════════════════════════════════════════════════════════════
 #  PageNumberPagination
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class PageNumberPagination(BasePagination):
     """
@@ -187,8 +186,8 @@ class PageNumberPagination(BasePagination):
 
     def __init__(
         self,
-        page_size: Optional[int] = None,
-        max_page_size: Optional[int] = None,
+        page_size: int | None = None,
+        max_page_size: int | None = None,
     ):
         if page_size is not None:
             self.page_size = page_size
@@ -211,9 +210,9 @@ class PageNumberPagination(BasePagination):
 
     def paginate_list(
         self,
-        data: List[Any],
+        data: list[Any],
         request: Any,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         page, size = self._parse_page(request)
         total = len(data)
         total_pages = max(1, math.ceil(total / size))
@@ -251,7 +250,7 @@ class PageNumberPagination(BasePagination):
         self,
         queryset: Any,
         request: Any,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Optimised ORM pagination -- uses .count() + .offset().limit()
         instead of fetching all rows.
@@ -270,10 +269,7 @@ class PageNumberPagination(BasePagination):
 
         try:
             items = await queryset.offset(offset).limit(size).all()
-            results = [
-                item.to_dict() if hasattr(item, "to_dict") else item
-                for item in items
-            ]
+            results = [item.to_dict() if hasattr(item, "to_dict") else item for item in items]
         except Exception:
             return await super().paginate_queryset(queryset, request)
 
@@ -306,6 +302,7 @@ class PageNumberPagination(BasePagination):
 #  LimitOffsetPagination
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class LimitOffsetPagination(BasePagination):
     """
     Limit/Offset pagination.
@@ -331,8 +328,8 @@ class LimitOffsetPagination(BasePagination):
 
     def __init__(
         self,
-        default_limit: Optional[int] = None,
-        max_limit: Optional[int] = None,
+        default_limit: int | None = None,
+        max_limit: int | None = None,
     ):
         if default_limit is not None:
             self.default_limit = default_limit
@@ -354,12 +351,12 @@ class LimitOffsetPagination(BasePagination):
 
     def paginate_list(
         self,
-        data: List[Any],
+        data: list[Any],
         request: Any,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         limit, offset = self._parse_params(request)
         total = len(data)
-        results = data[offset: offset + limit]
+        results = data[offset : offset + limit]
 
         base_params = _get_current_params(request)
         base_params.pop(self.limit_param, None)
@@ -389,7 +386,7 @@ class LimitOffsetPagination(BasePagination):
         self,
         queryset: Any,
         request: Any,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         limit, offset = self._parse_params(request)
 
         try:
@@ -399,10 +396,7 @@ class LimitOffsetPagination(BasePagination):
 
         try:
             items = await queryset.offset(offset).limit(limit).all()
-            results = [
-                item.to_dict() if hasattr(item, "to_dict") else item
-                for item in items
-            ]
+            results = [item.to_dict() if hasattr(item, "to_dict") else item for item in items]
         except Exception:
             return await super().paginate_queryset(queryset, request)
 
@@ -435,6 +429,7 @@ class LimitOffsetPagination(BasePagination):
 #  CursorPagination
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class CursorPagination(BasePagination):
     """
     Cursor-based (keyset) pagination -- efficient for very large datasets.
@@ -464,8 +459,8 @@ class CursorPagination(BasePagination):
 
     def __init__(
         self,
-        page_size: Optional[int] = None,
-        ordering: Optional[str] = None,
+        page_size: int | None = None,
+        ordering: str | None = None,
     ):
         if page_size is not None:
             self.page_size = page_size
@@ -482,13 +477,12 @@ class CursorPagination(BasePagination):
             if not hasattr(CursorPagination, "_ephemeral_secret"):
                 CursorPagination._ephemeral_secret = os.urandom(32).hex()
                 _cursor_logger.warning(
-                    "AQUILIA_CURSOR_SECRET not set; using ephemeral key. "
-                    "Cursors will not survive process restarts."
+                    "AQUILIA_CURSOR_SECRET not set; using ephemeral key. Cursors will not survive process restarts."
                 )
             secret = CursorPagination._ephemeral_secret
         return secret.encode("utf-8")
 
-    def _decode_cursor(self, raw: Optional[str]) -> Optional[Dict[str, Any]]:
+    def _decode_cursor(self, raw: str | None) -> dict[str, Any] | None:
         """Decode and verify an HMAC-signed cursor token."""
         if not raw:
             return None
@@ -500,9 +494,7 @@ class CursorPagination(BasePagination):
             payload_b64, sig_b64 = raw.rsplit(".", 1)
             sig = base64.urlsafe_b64decode(sig_b64 + "==")
             payload_bytes = base64.urlsafe_b64decode(payload_b64 + "==")
-            expected_sig = hmac.new(
-                self._get_cursor_secret(), payload_bytes, hashlib.sha256
-            ).digest()
+            expected_sig = hmac.new(self._get_cursor_secret(), payload_bytes, hashlib.sha256).digest()
             if not hmac.compare_digest(sig, expected_sig):
                 _cursor_logger.warning("Cursor HMAC verification failed — possible tampering.")
                 return None
@@ -511,12 +503,10 @@ class CursorPagination(BasePagination):
             _cursor_logger.warning("Failed to decode cursor token.", exc_info=True)
             return None
 
-    def _encode_cursor(self, data: Dict[str, Any]) -> str:
+    def _encode_cursor(self, data: dict[str, Any]) -> str:
         """Encode cursor data with HMAC-SHA256 signature."""
         payload = json.dumps(data, default=str).encode("utf-8")
-        sig = hmac.new(
-            self._get_cursor_secret(), payload, hashlib.sha256
-        ).digest()
+        sig = hmac.new(self._get_cursor_secret(), payload, hashlib.sha256).digest()
         payload_b64 = base64.urlsafe_b64encode(payload).decode("utf-8").rstrip("=")
         sig_b64 = base64.urlsafe_b64encode(sig).decode("utf-8").rstrip("=")
         return f"{payload_b64}.{sig_b64}"
@@ -531,9 +521,9 @@ class CursorPagination(BasePagination):
 
     def paginate_list(
         self,
-        data: List[Any],
+        data: list[Any],
         request: Any,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         params = _get_current_params(request)
         size = self._get_page_size(request)
         cursor_data = self._decode_cursor(params.get(self.cursor_param))
@@ -556,32 +546,28 @@ class CursorPagination(BasePagination):
             if cursor_direction == "next":
                 if desc:
                     sorted_data = [
-                        item for item in sorted_data
-                        if _compare_values(
-                            _get_nested_value(item, field_name), cursor_value
-                        ) < 0
+                        item
+                        for item in sorted_data
+                        if _compare_values(_get_nested_value(item, field_name), cursor_value) < 0
                     ]
                 else:
                     sorted_data = [
-                        item for item in sorted_data
-                        if _compare_values(
-                            _get_nested_value(item, field_name), cursor_value
-                        ) > 0
+                        item
+                        for item in sorted_data
+                        if _compare_values(_get_nested_value(item, field_name), cursor_value) > 0
                     ]
             else:  # previous
                 if desc:
                     sorted_data = [
-                        item for item in sorted_data
-                        if _compare_values(
-                            _get_nested_value(item, field_name), cursor_value
-                        ) > 0
+                        item
+                        for item in sorted_data
+                        if _compare_values(_get_nested_value(item, field_name), cursor_value) > 0
                     ]
                 else:
                     sorted_data = [
-                        item for item in sorted_data
-                        if _compare_values(
-                            _get_nested_value(item, field_name), cursor_value
-                        ) < 0
+                        item
+                        for item in sorted_data
+                        if _compare_values(_get_nested_value(item, field_name), cursor_value) < 0
                     ]
                 # Reverse so we paginate backwards correctly
                 sorted_data = list(reversed(sorted_data))
@@ -618,7 +604,7 @@ class CursorPagination(BasePagination):
         self,
         queryset: Any,
         request: Any,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Cursor pagination on an ORM queryset.
 
@@ -656,10 +642,7 @@ class CursorPagination(BasePagination):
         except Exception:
             return await super().paginate_queryset(queryset, request)
 
-        results = [
-            item.to_dict() if hasattr(item, "to_dict") else item
-            for item in items
-        ]
+        results = [item.to_dict() if hasattr(item, "to_dict") else item for item in items]
 
         # For "prev" direction, re-reverse to restore original order
         if cursor_data and cursor_data.get("d") == "prev":
@@ -696,15 +679,13 @@ class CursorPagination(BasePagination):
 #  Helpers
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 def _get_nested_value(obj: Any, key: str) -> Any:
     """Get a value from a dict or object using dot notation."""
     parts = key.split(".")
     current = obj
     for part in parts:
-        if isinstance(current, dict):
-            current = current.get(part)
-        else:
-            current = getattr(current, part, None)
+        current = current.get(part) if isinstance(current, dict) else getattr(current, part, None)
         if current is None:
             return None
     return current

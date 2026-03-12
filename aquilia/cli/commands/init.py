@@ -1,16 +1,15 @@
 """Workspace and module initialization commands."""
 
 from pathlib import Path
-from typing import Optional
 
-from ..utils.colors import info, dim
-from ..generators import WorkspaceGenerator, ModuleGenerator
+from ..generators import WorkspaceGenerator
+from ..utils.colors import dim, info
 
 
 def create_workspace(
     name: str,
     minimal: bool = False,
-    template: Optional[str] = None,
+    template: str | None = None,
     verbose: bool = False,
     *,
     include_docker: bool = True,
@@ -18,7 +17,7 @@ def create_workspace(
     include_makefile: bool = True,
     include_tests: bool = True,
     include_gitignore: bool = True,
-    include_license: Optional[str] = None,
+    include_license: str | None = None,
 ) -> Path:
     """
     Create a new Aquilia workspace.
@@ -49,12 +48,13 @@ def create_workspace(
         if template:
             info(f"  Using template: {template}")
         if minimal:
-            info(f"  Minimal mode: enabled")
+            info("  Minimal mode: enabled")
 
     workspace_path = Path.cwd() / name
 
     if workspace_path.exists():
         from aquilia.faults.domains import ConfigInvalidFault
+
         raise ConfigInvalidFault(
             key="workspace.path",
             reason=f"Directory '{name}' already exists",
@@ -78,18 +78,18 @@ def create_workspace(
     if verbose:
         dim("\nGenerated structure:")
         dim(f"  {name}/")
-        dim(f"    workspace.py")
-        dim(f"    starter.py")
-        dim(f"    modules/")
+        dim("    workspace.py")
+        dim("    starter.py")
+        dim("    modules/")
         if not minimal:
-            dim(f"    artifacts/")
-            dim(f"    runtime/")
+            dim("    artifacts/")
+            dim("    runtime/")
             if include_docker:
-                dim(f"    Dockerfile")
-                dim(f"    docker-compose.yml")
+                dim("    Dockerfile")
+                dim("    docker-compose.yml")
             if include_gitignore:
-                dim(f"    .gitignore")
+                dim("    .gitignore")
             if include_readme:
-                dim(f"    README.md")
+                dim("    README.md")
 
     return workspace_path

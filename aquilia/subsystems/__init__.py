@@ -8,13 +8,14 @@ for optional subsystems.
 
 from __future__ import annotations
 
-from .base import SubsystemInitializer, BootContext, BaseSubsystem
+from .base import BaseSubsystem, BootContext, SubsystemInitializer
 from .effects import EffectSubsystem
 
 
 def _get_storage_subsystem():
     """Lazy import to break circular dependency."""
     from ..storage.subsystem import StorageSubsystem
+
     return StorageSubsystem
 
 

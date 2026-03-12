@@ -2,16 +2,17 @@
 Type registry and built-in type castors.
 """
 
-from typing import Callable, Dict, Any
-import uuid as uuid_lib
 import json
+import uuid as uuid_lib
+from collections.abc import Callable
+from typing import Any
 
 
 class TypeRegistry:
     """Registry of type castors for pattern parameters."""
 
     def __init__(self):
-        self.castors: Dict[str, Callable[[str], Any]] = {}
+        self.castors: dict[str, Callable[[str], Any]] = {}
 
     @classmethod
     def default(cls) -> "TypeRegistry":
@@ -40,6 +41,7 @@ class TypeRegistry:
         elif lower in ("false", "0", "no", "off"):
             return False
         from aquilia.faults.domains import ConfigInvalidFault
+
         raise ConfigInvalidFault(
             key="type_cast.bool",
             reason=f"Invalid boolean value: {value}",
@@ -55,6 +57,7 @@ class TypeRegistry:
         """Validate and return slug."""
         if not value.replace("-", "").replace("_", "").isalnum():
             from aquilia.faults.domains import ConfigInvalidFault
+
             raise ConfigInvalidFault(
                 key="type_cast.slug",
                 reason=f"Invalid slug: {value}",
@@ -74,6 +77,7 @@ class TypeRegistry:
         """Get castor for type."""
         if type_name not in self.castors:
             from aquilia.faults.domains import RegistryFault
+
             raise RegistryFault(
                 name=type_name,
                 message=f"Unknown type: {type_name}",
@@ -87,8 +91,10 @@ class TypeRegistry:
 
 def register_type(name: str, castor: Callable[[str], Any]):
     """Decorator to register a custom type."""
+
     def decorator(func: Callable) -> Callable:
         # Register in default registry
         TypeRegistry.default().register(name, castor)
         return func
+
     return decorator

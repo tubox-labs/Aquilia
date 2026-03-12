@@ -14,7 +14,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 class EnvelopeStatus(str, Enum):
@@ -51,7 +51,7 @@ class Attachment:
     digest: str  # SHA-256 of content (content-addressed)
     size: int  # bytes
     inline: bool = False  # True for inline images (Content-ID)
-    content_id: Optional[str] = None  # CID for inline
+    content_id: str | None = None  # CID for inline
 
     def to_dict(self) -> dict:
         return {
@@ -64,7 +64,7 @@ class Attachment:
         }
 
     @classmethod
-    def from_dict(cls, data: dict) -> "Attachment":
+    def from_dict(cls, data: dict) -> Attachment:
         return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
 
 
@@ -87,47 +87,47 @@ class MailEnvelope:
 
     # Addressing
     from_email: str = ""
-    to: List[str] = field(default_factory=list)
-    cc: List[str] = field(default_factory=list)
-    bcc: List[str] = field(default_factory=list)
-    reply_to: Optional[str] = None
+    to: list[str] = field(default_factory=list)
+    cc: list[str] = field(default_factory=list)
+    bcc: list[str] = field(default_factory=list)
+    reply_to: str | None = None
 
     # Content
     subject: str = ""
     body_text: str = ""
-    body_html: Optional[str] = None
-    headers: Dict[str, str] = field(default_factory=dict)
+    body_html: str | None = None
+    headers: dict[str, str] = field(default_factory=dict)
 
     # Template (if rendered from ATS)
-    template_name: Optional[str] = None
-    template_context: Optional[Dict[str, Any]] = None
+    template_name: str | None = None
+    template_context: dict[str, Any] | None = None
 
     # Attachments (metadata; blobs stored separately)
-    attachments: List[Attachment] = field(default_factory=list)
+    attachments: list[Attachment] = field(default_factory=list)
 
     # Retry tracking
     attempts: int = 0
     max_attempts: int = 5
-    last_attempt_at: Optional[datetime] = None
-    next_attempt_at: Optional[datetime] = None
+    last_attempt_at: datetime | None = None
+    next_attempt_at: datetime | None = None
 
     # Provider affinity
-    provider_name: Optional[str] = None
-    provider_message_id: Optional[str] = None
+    provider_name: str | None = None
+    provider_message_id: str | None = None
 
     # Idempotency & dedup
-    idempotency_key: Optional[str] = None
+    idempotency_key: str | None = None
     digest: str = ""  # computed lazily
 
     # Multi-tenant
-    tenant_id: Optional[str] = None
+    tenant_id: str | None = None
 
     # Observability
-    trace_id: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    trace_id: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     # Error tracking
-    error_message: Optional[str] = None
+    error_message: str | None = None
 
     def compute_digest(self) -> str:
         """
@@ -136,20 +136,20 @@ class MailEnvelope:
         Digest is stable across retries -- computed from subject, sorted
         recipients, body hash, and attachment digests.
         """
-        body_hash = hashlib.sha256(
-            (self.body_text + (self.body_html or "")).encode()
-        ).hexdigest()
+        body_hash = hashlib.sha256((self.body_text + (self.body_html or "")).encode()).hexdigest()
         att_digests = sorted(a.digest for a in self.attachments)
-        canonical = "|".join([
-            self.subject,
-            "|".join(sorted(self.to)),
-            body_hash,
-            "|".join(att_digests),
-        ])
+        canonical = "|".join(
+            [
+                self.subject,
+                "|".join(sorted(self.to)),
+                body_hash,
+                "|".join(att_digests),
+            ]
+        )
         self.digest = hashlib.sha256(canonical.encode()).hexdigest()
         return self.digest
 
-    def all_recipients(self) -> List[str]:
+    def all_recipients(self) -> list[str]:
         """All unique recipient addresses (to + cc + bcc)."""
         seen: set[str] = set()
         result: list[str] = []
@@ -202,12 +202,9 @@ class MailEnvelope:
         }
 
     @classmethod
-    def from_dict(cls, data: dict) -> "MailEnvelope":
+    def from_dict(cls, data: dict) -> MailEnvelope:
         """Deserialize from dictionary."""
-        attachments = [
-            Attachment.from_dict(a) if isinstance(a, dict) else a
-            for a in data.get("attachments", [])
-        ]
+        attachments = [Attachment.from_dict(a) if isinstance(a, dict) else a for a in data.get("attachments", [])]
         # Parse datetime strings
         created_at = data.get("created_at")
         if isinstance(created_at, str):
@@ -261,7 +258,4 @@ class MailEnvelope:
         to_str = ", ".join(self.to[:3])
         if len(self.to) > 3:
             to_str += f" (+{len(self.to) - 3})"
-        return (
-            f"MailEnvelope(id={self.id!r}, status={self.status.value}, "
-            f"to=[{to_str}], subject={self.subject!r})"
-        )
+        return f"MailEnvelope(id={self.id!r}, status={self.status.value}, to=[{to_str}], subject={self.subject!r})"

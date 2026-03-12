@@ -7,7 +7,6 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional
 
 from .._types import QuantizePreset
 
@@ -17,21 +16,20 @@ logger = logging.getLogger("aquilia.mlops.optimizer")
 @dataclass
 class OptimizationResult:
     """Result of an optimization pass."""
+
     original_size_bytes: int
     optimized_size_bytes: int
     original_path: str
     optimized_path: str
     preset: str
     compression_ratio: float = 0.0
-    notes: List[str] = None  # type: ignore
+    notes: list[str] = None  # type: ignore
 
     def __post_init__(self):
         if self.notes is None:
             self.notes = []
         if self.original_size_bytes > 0:
-            self.compression_ratio = 1.0 - (
-                self.optimized_size_bytes / self.original_size_bytes
-            )
+            self.compression_ratio = 1.0 - (self.optimized_size_bytes / self.original_size_bytes)
 
 
 class OptimizationPipeline:
@@ -71,6 +69,7 @@ class OptimizationPipeline:
         else:
             # Passthrough
             import shutil
+
             dest = out / path.name
             shutil.copy2(str(path), str(dest))
             result = OptimizationResult(
@@ -84,25 +83,25 @@ class OptimizationPipeline:
 
         return result
 
-    async def _quantize_onnx(
-        self, path: Path, preset: QuantizePreset, out: Path
-    ) -> OptimizationResult:
+    async def _quantize_onnx(self, path: Path, preset: QuantizePreset, out: Path) -> OptimizationResult:
         """Quantize ONNX model."""
         original_size = path.stat().st_size
         dest = out / f"{path.stem}_quantized.onnx"
 
         try:
-            from onnxruntime.quantization import quantize_dynamic, QuantType
+            from onnxruntime.quantization import QuantType, quantize_dynamic
 
             if preset in (QuantizePreset.INT8, QuantizePreset.DYNAMIC, QuantizePreset.EDGE):
                 quantize_dynamic(
-                    str(path), str(dest),
+                    str(path),
+                    str(dest),
                     weight_type=QuantType.QInt8,
                 )
             elif preset == QuantizePreset.FP16:
                 # FP16 conversion
                 import onnx
                 from onnxruntime.transformers.float16 import convert_float_to_float16
+
                 model = onnx.load(str(path))
                 model_fp16 = convert_float_to_float16(model)
                 onnx.save(model_fp16, str(dest))
@@ -120,6 +119,7 @@ class OptimizationPipeline:
         except ImportError:
             # Fallback: copy without quantization
             import shutil
+
             shutil.copy2(str(path), str(dest))
             return OptimizationResult(
                 original_size_bytes=original_size,
@@ -130,9 +130,7 @@ class OptimizationPipeline:
                 notes=["onnxruntime.quantization not available; model copied without quantization"],
             )
 
-    async def _quantize_pytorch(
-        self, path: Path, preset: QuantizePreset, out: Path
-    ) -> OptimizationResult:
+    async def _quantize_pytorch(self, path: Path, preset: QuantizePreset, out: Path) -> OptimizationResult:
         """Quantize PyTorch model."""
         original_size = path.stat().st_size
         dest = out / f"{path.stem}_quantized{path.suffix}"
@@ -143,9 +141,7 @@ class OptimizationPipeline:
             model = torch.load(str(path), map_location="cpu", weights_only=False)
 
             if preset in (QuantizePreset.INT8, QuantizePreset.DYNAMIC):
-                model = torch.quantization.quantize_dynamic(
-                    model, {torch.nn.Linear}, dtype=torch.qint8
-                )
+                model = torch.quantization.quantize_dynamic(model, {torch.nn.Linear}, dtype=torch.qint8)
             elif preset == QuantizePreset.FP16:
                 model = model.half()
 
@@ -161,6 +157,7 @@ class OptimizationPipeline:
             )
         except ImportError:
             import shutil
+
             shutil.copy2(str(path), str(dest))
             return OptimizationResult(
                 original_size_bytes=original_size,

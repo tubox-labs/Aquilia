@@ -12,54 +12,48 @@ from __future__ import annotations
 
 import hashlib
 import time
+from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import (
     Any,
-    AsyncIterator,
-    Dict,
-    List,
-    Optional,
     Protocol,
-    Sequence,
-    Tuple,
-    Union,
-    Type,
     runtime_checkable,
 )
 
-
 # ── DTypes ────────────────────────────────────────────────────────────────
+
 
 class DType(str, Enum):
     """
     Centralized DType system for Aquilia MLOps.
-    
-    Provides framework-agnostic numeric and tensor types with support for 
+
+    Provides framework-agnostic numeric and tensor types with support for
     runtime validation and conversion.
     """
+
     # Floating point
     FLOAT64 = "float64"
     FLOAT32 = "float32"
     FLOAT16 = "float16"
     BFLOAT16 = "bfloat16"
-    
+
     # Integer
     INT64 = "int64"
     INT32 = "int32"
     INT16 = "int16"
     INT8 = "int8"
     UINT8 = "uint8"
-    
+
     # Boolean & Other
     BOOL = "bool"
     STRING = "string"
     OBJECT = "object"
-    
+
     @property
     def is_floating(self) -> bool:
         return self in (DType.FLOAT64, DType.FLOAT32, DType.FLOAT16, DType.BFLOAT16)
-        
+
     @property
     def is_integer(self) -> bool:
         return self in (DType.INT64, DType.INT32, DType.INT16, DType.INT8, DType.UINT8)
@@ -68,24 +62,39 @@ class DType(str, Enum):
     def itemsize(self) -> int:
         """Returns size in bytes."""
         mapping = {
-            DType.FLOAT64: 8, DType.INT64: 8,
-            DType.FLOAT32: 4, DType.INT32: 4,
-            DType.FLOAT16: 2, DType.BFLOAT16: 2, DType.INT16: 2,
-            DType.INT8: 1, DType.UINT8: 1, DType.BOOL: 1,
+            DType.FLOAT64: 8,
+            DType.INT64: 8,
+            DType.FLOAT32: 4,
+            DType.INT32: 4,
+            DType.FLOAT16: 2,
+            DType.BFLOAT16: 2,
+            DType.INT16: 2,
+            DType.INT8: 1,
+            DType.UINT8: 1,
+            DType.BOOL: 1,
         }
         return mapping.get(self, 0)
 
     @classmethod
-    def from_numpy(cls, dtype: Any) -> "DType":
+    def from_numpy(cls, dtype: Any) -> DType:
         """Convert numpy dtype to MLOps DType."""
         import numpy as np
+
         s = str(np.dtype(dtype))
         # Normalize common names
         mapping = {
-            "float64": cls.FLOAT64, "float32": cls.FLOAT32, "float16": cls.FLOAT16,
-            "int64": cls.INT64, "int32": cls.INT32, "int16": cls.INT16, "int8": cls.INT8,
-            "uint8": cls.UINT8, "bool": cls.BOOL, "object": cls.OBJECT, "str": cls.STRING,
-            "<U": cls.STRING, # Numpy unicode
+            "float64": cls.FLOAT64,
+            "float32": cls.FLOAT32,
+            "float16": cls.FLOAT16,
+            "int64": cls.INT64,
+            "int32": cls.INT32,
+            "int16": cls.INT16,
+            "int8": cls.INT8,
+            "uint8": cls.UINT8,
+            "bool": cls.BOOL,
+            "object": cls.OBJECT,
+            "str": cls.STRING,
+            "<U": cls.STRING,  # Numpy unicode
         }
         for k, v in mapping.items():
             if s.startswith(k):
@@ -93,27 +102,39 @@ class DType(str, Enum):
         return cls.OBJECT
 
     @classmethod
-    def from_torch(cls, dtype: Any) -> "DType":
+    def from_torch(cls, dtype: Any) -> DType:
         """Convert torch dtype to MLOps DType."""
         import torch
+
         mapping = {
-            torch.float64: cls.FLOAT64, torch.float32: cls.FLOAT32,
-            torch.float16: cls.FLOAT16, torch.bfloat16: cls.BFLOAT16,
-            torch.int64: cls.INT64, torch.int32: cls.INT32,
-            torch.int16: cls.INT16, torch.int8: cls.INT8,
-            torch.uint8: cls.UINT8, torch.bool: cls.BOOL,
+            torch.float64: cls.FLOAT64,
+            torch.float32: cls.FLOAT32,
+            torch.float16: cls.FLOAT16,
+            torch.bfloat16: cls.BFLOAT16,
+            torch.int64: cls.INT64,
+            torch.int32: cls.INT32,
+            torch.int16: cls.INT16,
+            torch.int8: cls.INT8,
+            torch.uint8: cls.UINT8,
+            torch.bool: cls.BOOL,
         }
         return mapping.get(dtype, cls.OBJECT)
 
     def to_torch(self) -> Any:
         """Convert to torch dtype."""
         import torch
+
         mapping = {
-            DType.FLOAT64: torch.float64, DType.FLOAT32: torch.float32,
-            DType.FLOAT16: torch.float16, DType.BFLOAT16: torch.bfloat16,
-            DType.INT64: torch.int64, DType.INT32: torch.int32,
-            DType.INT16: torch.int16, DType.INT8: torch.int8,
-            DType.UINT8: torch.uint8, DType.BOOL: torch.bool,
+            DType.FLOAT64: torch.float64,
+            DType.FLOAT32: torch.float32,
+            DType.FLOAT16: torch.float16,
+            DType.BFLOAT16: torch.bfloat16,
+            DType.INT64: torch.int64,
+            DType.INT32: torch.int32,
+            DType.INT16: torch.int16,
+            DType.INT8: torch.int8,
+            DType.UINT8: torch.uint8,
+            DType.BOOL: torch.bool,
         }
         return mapping.get(self)
 
@@ -133,8 +154,10 @@ class DType(str, Enum):
 
 # ── Enums ──────────────────────────────────────────────────────────────────
 
+
 class Framework(str, Enum):
     """Supported ML frameworks."""
+
     PYTORCH = "pytorch"
     TENSORFLOW = "tensorflow"
     ONNX = "onnx"
@@ -150,6 +173,7 @@ class Framework(str, Enum):
 
 class RuntimeKind(str, Enum):
     """Available runtime backends."""
+
     PYTHON = "python"
     ONNXRUNTIME = "onnxruntime"
     TRITON = "triton"
@@ -162,22 +186,24 @@ class RuntimeKind(str, Enum):
 
 class QuantizePreset(str, Enum):
     """Quantization presets."""
-    MOBILE = "mobile"       # int8, aggressive
-    EDGE = "edge"           # int8, balanced
-    FP16 = "fp16"           # float16
-    BF16 = "bf16"           # bfloat16
-    INT8 = "int8"           # int8, dynamic
-    INT4 = "int4"           # int4, GPTQ/AWQ
-    DYNAMIC = "dynamic"     # dynamic quantization
-    GGUF_Q4 = "gguf_q4"    # GGUF 4-bit (llama.cpp)
-    GGUF_Q5 = "gguf_q5"    # GGUF 5-bit
-    GGUF_Q8 = "gguf_q8"    # GGUF 8-bit
-    AWQ = "awq"             # Activation-aware Weight Quantization
-    GPTQ = "gptq"           # GPTQ quantization
+
+    MOBILE = "mobile"  # int8, aggressive
+    EDGE = "edge"  # int8, balanced
+    FP16 = "fp16"  # float16
+    BF16 = "bf16"  # bfloat16
+    INT8 = "int8"  # int8, dynamic
+    INT4 = "int4"  # int4, GPTQ/AWQ
+    DYNAMIC = "dynamic"  # dynamic quantization
+    GGUF_Q4 = "gguf_q4"  # GGUF 4-bit (llama.cpp)
+    GGUF_Q5 = "gguf_q5"  # GGUF 5-bit
+    GGUF_Q8 = "gguf_q8"  # GGUF 8-bit
+    AWQ = "awq"  # Activation-aware Weight Quantization
+    GPTQ = "gptq"  # GPTQ quantization
 
 
 class ExportTarget(str, Enum):
     """Edge export targets."""
+
     TFLITE = "tflite"
     COREML = "coreml"
     ONNX_QUANTIZED = "onnx-quantized"
@@ -189,15 +215,17 @@ class ExportTarget(str, Enum):
 
 class BatchingStrategy(str, Enum):
     """Batching strategy modes."""
+
     SIZE = "size"
     TIME = "time"
     HYBRID = "hybrid"
-    CONTINUOUS = "continuous"   # continuous batching for LLMs
-    ADAPTIVE = "adaptive"      # adaptive based on load/latency
+    CONTINUOUS = "continuous"  # continuous batching for LLMs
+    ADAPTIVE = "adaptive"  # adaptive based on load/latency
 
 
 class RolloutStrategy(str, Enum):
     """Release rollout strategies."""
+
     CANARY = "canary"
     AB_TEST = "ab_test"
     SHADOW = "shadow"
@@ -207,19 +235,21 @@ class RolloutStrategy(str, Enum):
 
 class DriftMethod(str, Enum):
     """Drift detection methods."""
+
     PSI = "psi"
     KS_TEST = "ks_test"
     DISTRIBUTION = "distribution"
-    EMBEDDING = "embedding"      # embedding-space drift for LLMs
-    PERPLEXITY = "perplexity"    # perplexity-based drift
+    EMBEDDING = "embedding"  # embedding-space drift for LLMs
+    PERPLEXITY = "perplexity"  # perplexity-based drift
 
 
 class ModelType(str, Enum):
     """Model type classification for serving strategy selection."""
+
     CLASSICAL_ML = "classical_ml"
     DEEP_LEARNING = "deep_learning"
-    SLM = "slm"                    # small language model (< 3B params)
-    LLM = "llm"                    # large language model (3B+ params)
+    SLM = "slm"  # small language model (< 3B params)
+    LLM = "llm"  # large language model (3B+ params)
     VISION = "vision"
     MULTIMODAL = "multimodal"
     EMBEDDING = "embedding"
@@ -228,17 +258,19 @@ class ModelType(str, Enum):
 
 class InferenceMode(str, Enum):
     """Inference execution modes."""
+
     SYNC = "sync"
     ASYNC = "async"
-    STREAMING = "streaming"        # token-by-token streaming
+    STREAMING = "streaming"  # token-by-token streaming
     BATCH = "batch"
 
 
 class DeviceType(str, Enum):
     """Compute device types."""
+
     CPU = "cpu"
     CUDA = "cuda"
-    MPS = "mps"                    # Apple Silicon
+    MPS = "mps"  # Apple Silicon
     NPU = "npu"
     TPU = "tpu"
     AUTO = "auto"
@@ -246,52 +278,57 @@ class DeviceType(str, Enum):
 
 class CircuitState(str, Enum):
     """Circuit breaker states."""
-    CLOSED = "closed"              # healthy, requests pass through
-    OPEN = "open"                  # unhealthy, requests rejected
-    HALF_OPEN = "half_open"        # probing, limited requests
+
+    CLOSED = "closed"  # healthy, requests pass through
+    OPEN = "open"  # unhealthy, requests rejected
+    HALF_OPEN = "half_open"  # probing, limited requests
 
 
 # ── Data Classes ───────────────────────────────────────────────────────────
 
+
 @dataclass(frozen=True)
 class TensorSpec:
     """Describes a single tensor in the inference signature."""
-    name: str
-    dtype: DType          # Use the explicit DType enum
-    shape: List[Any]    # e.g. [None, 64] -- None means dynamic
 
-    def to_dict(self) -> Dict[str, Any]:
+    name: str
+    dtype: DType  # Use the explicit DType enum
+    shape: list[Any]  # e.g. [None, 64] -- None means dynamic
+
+    def to_dict(self) -> dict[str, Any]:
         return {"name": self.name, "dtype": self.dtype.value, "shape": self.shape}
 
     @classmethod
-    def from_dict(cls, d: Dict[str, Any]) -> "TensorSpec":
+    def from_dict(cls, d: dict[str, Any]) -> TensorSpec:
         return cls(name=d["name"], dtype=DType(d["dtype"]), shape=d["shape"])
 
 
 @dataclass(frozen=True)
 class BlobRef:
     """Reference to a blob inside a modelpack."""
-    path: str
-    digest: str     # "sha256:..."
-    size: int       # bytes
 
-    def to_dict(self) -> Dict[str, Any]:
+    path: str
+    digest: str  # "sha256:..."
+    size: int  # bytes
+
+    def to_dict(self) -> dict[str, Any]:
         return {"path": self.path, "digest": self.digest, "size": self.size}
 
     @classmethod
-    def from_dict(cls, d: Dict[str, Any]) -> "BlobRef":
+    def from_dict(cls, d: dict[str, Any]) -> BlobRef:
         return cls(path=d["path"], digest=d["digest"], size=d["size"])
 
 
 @dataclass(slots=True)
 class Provenance:
     """Provenance metadata for reproducibility."""
+
     git_sha: str = ""
     dataset_snapshot: str = ""
     dockerfile: str = ""
     build_timestamp: str = ""
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "git_sha": self.git_sha,
             "dataset_snapshot": self.dataset_snapshot,
@@ -300,39 +337,40 @@ class Provenance:
         }
 
     @classmethod
-    def from_dict(cls, d: Dict[str, Any]) -> "Provenance":
+    def from_dict(cls, d: dict[str, Any]) -> Provenance:
         return cls(**{k: d.get(k, "") for k in ("git_sha", "dataset_snapshot", "dockerfile", "build_timestamp")})
 
 
 @dataclass(slots=True)
 class LLMConfig:
     """Configuration specific to LLM/SLM model serving."""
+
     model_type: ModelType = ModelType.CUSTOM
     max_seq_length: int = 4096
     max_new_tokens: int = 2048
-    max_batch_tokens: int = 32768         # total tokens across batch
-    kv_cache_max_mb: int = 2048           # max KV cache memory in MB
-    tensor_parallel: int = 1              # tensor parallelism degree
-    pipeline_parallel: int = 1            # pipeline parallelism degree
-    dtype: str = "float16"                # compute dtype
+    max_batch_tokens: int = 32768  # total tokens across batch
+    kv_cache_max_mb: int = 2048  # max KV cache memory in MB
+    tensor_parallel: int = 1  # tensor parallelism degree
+    pipeline_parallel: int = 1  # pipeline parallelism degree
+    dtype: str = "float16"  # compute dtype
     device: DeviceType = DeviceType.AUTO
     trust_remote_code: bool = False
-    tokenizer_name: str = ""              # override tokenizer
-    chat_template: str = ""               # chat template override
-    rope_scaling: Optional[Dict[str, Any]] = None
-    stop_sequences: List[str] = field(default_factory=list)
+    tokenizer_name: str = ""  # override tokenizer
+    chat_template: str = ""  # chat template override
+    rope_scaling: dict[str, Any] | None = None
+    stop_sequences: list[str] = field(default_factory=list)
     temperature: float = 1.0
     top_p: float = 1.0
     top_k: int = 50
     repetition_penalty: float = 1.0
-    stream_chunk_size: int = 1            # tokens per stream chunk
-    prefix_caching: bool = True           # enable prefix/prompt caching
+    stream_chunk_size: int = 1  # tokens per stream chunk
+    prefix_caching: bool = True  # enable prefix/prompt caching
     speculative_decoding: bool = False
-    draft_model: str = ""                 # draft model for speculative decoding
-    draft_tokens: int = 5                 # speculative lookahead
+    draft_model: str = ""  # draft model for speculative decoding
+    draft_tokens: int = 5  # speculative lookahead
 
-    def to_dict(self) -> Dict[str, Any]:
-        d: Dict[str, Any] = {}
+    def to_dict(self) -> dict[str, Any]:
+        d: dict[str, Any] = {}
         for f_name in self.__slots__:
             val = getattr(self, f_name)
             if isinstance(val, Enum):
@@ -346,18 +384,33 @@ class LLMConfig:
         return d
 
     @classmethod
-    def from_dict(cls, d: Dict[str, Any]) -> "LLMConfig":
-        kwargs: Dict[str, Any] = {}
+    def from_dict(cls, d: dict[str, Any]) -> LLMConfig:
+        kwargs: dict[str, Any] = {}
         if "model_type" in d:
             kwargs["model_type"] = ModelType(d["model_type"])
         if "device" in d:
             kwargs["device"] = DeviceType(d["device"])
-        for k in ("max_seq_length", "max_new_tokens", "max_batch_tokens",
-                   "kv_cache_max_mb", "tensor_parallel", "pipeline_parallel",
-                   "dtype", "trust_remote_code", "tokenizer_name", "chat_template",
-                   "temperature", "top_p", "top_k", "repetition_penalty",
-                   "stream_chunk_size", "prefix_caching", "speculative_decoding",
-                   "draft_model", "draft_tokens"):
+        for k in (
+            "max_seq_length",
+            "max_new_tokens",
+            "max_batch_tokens",
+            "kv_cache_max_mb",
+            "tensor_parallel",
+            "pipeline_parallel",
+            "dtype",
+            "trust_remote_code",
+            "tokenizer_name",
+            "chat_template",
+            "temperature",
+            "top_p",
+            "top_k",
+            "repetition_penalty",
+            "stream_chunk_size",
+            "prefix_caching",
+            "speculative_decoding",
+            "draft_model",
+            "draft_tokens",
+        ):
             if k in d:
                 kwargs[k] = d[k]
         if "stop_sequences" in d:
@@ -375,22 +428,23 @@ class ModelpackManifest:
     This is the authoritative schema for ``manifest.json`` inside
     every ``.aquilia`` archive.
     """
+
     name: str
     version: str
     framework: str
     entrypoint: str
-    inputs: List[TensorSpec] = field(default_factory=list)
-    outputs: List[TensorSpec] = field(default_factory=list)
+    inputs: list[TensorSpec] = field(default_factory=list)
+    outputs: list[TensorSpec] = field(default_factory=list)
     env_lock: str = "env.lock"
     provenance: Provenance = field(default_factory=Provenance)
-    blobs: List[BlobRef] = field(default_factory=list)
+    blobs: list[BlobRef] = field(default_factory=list)
     created_at: str = ""
     signed_by: str = ""
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
     model_type: str = "custom"
-    llm_config: Optional[LLMConfig] = None
+    llm_config: LLMConfig | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         d = {
             "name": self.name,
             "version": self.version,
@@ -413,7 +467,7 @@ class ModelpackManifest:
         return d
 
     @classmethod
-    def from_dict(cls, d: Dict[str, Any]) -> "ModelpackManifest":
+    def from_dict(cls, d: dict[str, Any]) -> ModelpackManifest:
         sig = d.get("inference_signature", {})
         llm_cfg = None
         if "llm_config" in d and d["llm_config"]:
@@ -438,6 +492,7 @@ class ModelpackManifest:
     def content_digest(self) -> str:
         """Compute a content-addressable digest for this manifest."""
         import json
+
         canonical = json.dumps(self.to_dict(), sort_keys=True, separators=(",", ":"))
         return "sha256:" + hashlib.sha256(canonical.encode()).hexdigest()
 
@@ -445,43 +500,53 @@ class ModelpackManifest:
     def is_llm(self) -> bool:
         """Check if this manifest represents an LLM/SLM."""
         return self.model_type in (
-            ModelType.LLM.value, ModelType.SLM.value,
-            "llm", "slm",
+            ModelType.LLM.value,
+            ModelType.SLM.value,
+            "llm",
+            "slm",
         ) or self.framework in (
-            Framework.HUGGINGFACE.value, Framework.VLLM.value,
-            Framework.LLAMACPP.value, Framework.CTRANSFORMERS.value,
-            "huggingface", "vllm", "llamacpp", "ctransformers",
+            Framework.HUGGINGFACE.value,
+            Framework.VLLM.value,
+            Framework.LLAMACPP.value,
+            Framework.CTRANSFORMERS.value,
+            "huggingface",
+            "vllm",
+            "llamacpp",
+            "ctransformers",
         )
 
 
 @dataclass(slots=True)
 class InferenceRequest:
     """A single inference request."""
+
     request_id: str
-    inputs: Dict[str, Any]
-    parameters: Dict[str, Any] = field(default_factory=dict)
+    inputs: dict[str, Any]
+    parameters: dict[str, Any] = field(default_factory=dict)
     timestamp: float = field(default_factory=time.time)
-    priority: int = 0                          # higher = more urgent
-    stream: bool = False                       # streaming response
-    max_tokens: int = 0                        # 0 = use default
-    timeout_ms: float = 0.0                    # per-request timeout
+    priority: int = 0  # higher = more urgent
+    stream: bool = False  # streaming response
+    max_tokens: int = 0  # 0 = use default
+    timeout_ms: float = 0.0  # per-request timeout
 
 
 @dataclass(slots=True)
 class InferenceResult:
     """Result of a single inference."""
+
     request_id: str
-    outputs: Dict[str, Any]
+    outputs: dict[str, Any]
     latency_ms: float = 0.0
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    token_count: int = 0                       # tokens generated (LLM)
-    prompt_tokens: int = 0                     # prompt tokens (LLM)
-    finish_reason: str = ""                    # stop, length, error
+    metadata: dict[str, Any] = field(default_factory=dict)
+    token_count: int = 0  # tokens generated (LLM)
+    prompt_tokens: int = 0  # prompt tokens (LLM)
+    finish_reason: str = ""  # stop, length, error
 
 
 @dataclass(slots=True)
 class StreamChunk:
     """A single chunk in a streaming inference response."""
+
     request_id: str
     token: str
     token_id: int = 0
@@ -494,7 +559,8 @@ class StreamChunk:
 @dataclass(slots=True)
 class BatchRequest:
     """Aggregated batch of inference requests."""
-    requests: List[InferenceRequest]
+
+    requests: list[InferenceRequest]
     batch_id: str = ""
 
     @property
@@ -510,6 +576,7 @@ class BatchRequest:
 @dataclass(slots=True)
 class PlacementScore:
     """Score for scheduler placement decisions."""
+
     node_id: str
     device_affinity: float = 0.0
     memory_fit: float = 0.0
@@ -536,6 +603,7 @@ class PlacementScore:
 @dataclass(slots=True)
 class RolloutConfig:
     """Configuration for a traffic rollout."""
+
     from_version: str
     to_version: str
     strategy: RolloutStrategy = RolloutStrategy.CANARY
@@ -549,11 +617,12 @@ class RolloutConfig:
 @dataclass(slots=True)
 class DriftReport:
     """Result of a drift detection analysis."""
+
     method: DriftMethod
     score: float
     threshold: float
     is_drifted: bool
-    feature_scores: Dict[str, float] = field(default_factory=dict)
+    feature_scores: dict[str, float] = field(default_factory=dict)
     window_start: str = ""
     window_end: str = ""
 
@@ -561,15 +630,17 @@ class DriftReport:
 @dataclass(slots=True)
 class CircuitBreakerConfig:
     """Configuration for inference circuit breaker."""
-    failure_threshold: int = 5            # failures before opening
-    success_threshold: int = 3            # successes in half-open before closing
-    timeout_seconds: float = 30.0         # time in open state before half-open
-    half_open_max_calls: int = 3          # max concurrent calls in half-open
+
+    failure_threshold: int = 5  # failures before opening
+    success_threshold: int = 3  # successes in half-open before closing
+    timeout_seconds: float = 30.0  # time in open state before half-open
+    half_open_max_calls: int = 3  # max concurrent calls in half-open
 
 
 @dataclass(slots=True)
 class TokenUsage:
     """Token usage tracking for LLM inference."""
+
     prompt_tokens: int = 0
     completion_tokens: int = 0
     total_tokens: int = 0
@@ -579,6 +650,7 @@ class TokenUsage:
 
 
 # ── Protocols ──────────────────────────────────────────────────────────────
+
 
 @runtime_checkable
 class StorageAdapter(Protocol):
@@ -600,7 +672,7 @@ class StorageAdapter(Protocol):
         """Delete blob."""
         ...
 
-    async def list_blobs(self) -> List[str]:
+    async def list_blobs(self) -> list[str]:
         """List all blob digests."""
         ...
 
@@ -617,15 +689,15 @@ class Runtime(Protocol):
         """Load model into memory."""
         ...
 
-    async def infer(self, batch: BatchRequest) -> List[InferenceResult]:
+    async def infer(self, batch: BatchRequest) -> list[InferenceResult]:
         """Run inference on a batch."""
         ...
 
-    async def health(self) -> Dict[str, Any]:
+    async def health(self) -> dict[str, Any]:
         """Health check."""
         ...
 
-    async def metrics(self) -> Dict[str, float]:
+    async def metrics(self) -> dict[str, float]:
         """Collect runtime metrics."""
         ...
 
@@ -642,7 +714,7 @@ class StreamingRuntime(Protocol):
     async def load(self) -> None: ...
     async def unload(self) -> None: ...
 
-    async def infer(self, batch: BatchRequest) -> List[InferenceResult]:
+    async def infer(self, batch: BatchRequest) -> list[InferenceResult]:
         """Non-streaming inference."""
         ...
 
@@ -651,14 +723,14 @@ class StreamingRuntime(Protocol):
         ...
         yield  # type: ignore[misc]
 
-    async def health(self) -> Dict[str, Any]: ...
-    async def metrics(self) -> Dict[str, float]: ...
+    async def health(self) -> dict[str, Any]: ...
+    async def metrics(self) -> dict[str, float]: ...
 
     async def token_usage(self) -> TokenUsage:
         """Return current token usage stats."""
         ...
 
-    async def memory_info(self) -> Dict[str, Any]:
+    async def memory_info(self) -> dict[str, Any]:
         """Return memory/device usage info."""
         ...
 
@@ -667,8 +739,8 @@ class StreamingRuntime(Protocol):
 class PluginHook(Protocol):
     """Protocol for plugin lifecycle hooks."""
 
-    async def on_load(self, context: Dict[str, Any]) -> None: ...
+    async def on_load(self, context: dict[str, Any]) -> None: ...
     async def on_prepare(self, manifest: ModelpackManifest) -> None: ...
-    async def on_infer(self, batch: BatchRequest, results: List[InferenceResult]) -> None: ...
+    async def on_infer(self, batch: BatchRequest, results: list[InferenceResult]) -> None: ...
     async def on_stream_chunk(self, chunk: StreamChunk) -> None: ...
     async def on_unload(self) -> None: ...

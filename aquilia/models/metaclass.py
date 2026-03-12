@@ -6,21 +6,18 @@ Separates the metaclass logic from the Model base class for cleaner architecture
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple, Type, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from .fields_module import (
-    AutoField,
     BigAutoField,
     Field,
-    ForeignKey,
     ManyToManyField,
-    OneToOneField,
 )
+from .manager import BaseManager, Manager
 from .options import Options
-from .manager import Manager, BaseManager
 
 if TYPE_CHECKING:
-    from .base import Model
+    pass
 
 __all__ = ["ModelMeta"]
 
@@ -41,8 +38,8 @@ class ModelMeta(type):
     def __new__(
         mcs,
         name: str,
-        bases: Tuple[type, ...],
-        namespace: Dict[str, Any],
+        bases: tuple[type, ...],
+        namespace: dict[str, Any],
         **kwargs,
     ) -> ModelMeta:
         # Don't process the base Model class itself
@@ -55,14 +52,12 @@ class ModelMeta(type):
 
         # Extract `table = "..."`, `table_name = "..."`, or `__tablename__ = "..."` attribute
         table_attr = (
-            namespace.pop("table", None)
-            or namespace.pop("table_name", None)
-            or namespace.pop("__tablename__", None)
+            namespace.pop("table", None) or namespace.pop("table_name", None) or namespace.pop("__tablename__", None)
         )
 
         # Collect fields from current class
-        fields: Dict[str, Field] = {}
-        m2m_fields: Dict[str, ManyToManyField] = {}
+        fields: dict[str, Field] = {}
+        m2m_fields: dict[str, ManyToManyField] = {}
 
         # Inherit fields from parents
         for parent in bases:
@@ -72,7 +67,7 @@ class ModelMeta(type):
                 m2m_fields.update(parent._m2m_fields)
 
         # Collect new fields
-        new_fields: Dict[str, Field] = {}
+        new_fields: dict[str, Field] = {}
         for key, value in list(namespace.items()):
             if isinstance(value, ManyToManyField):
                 m2m_fields[key] = value
@@ -118,24 +113,15 @@ class ModelMeta(type):
             field.model = cls
 
         # Collect column names (excludes M2M)
-        cls._column_names = [
-            f.column_name for f in fields.values()
-            if not isinstance(f, ManyToManyField)
-        ]
+        cls._column_names = [f.column_name for f in fields.values() if not isinstance(f, ManyToManyField)]
 
         # Collect attr names (excludes M2M)
-        cls._attr_names = [
-            fname for fname, f in fields.items()
-            if not isinstance(f, ManyToManyField)
-        ]
+        cls._attr_names = [fname for fname, f in fields.items() if not isinstance(f, ManyToManyField)]
 
         # Pre-built list of (attr_name, field) for non-M2M fields.
         # Used by __init__, from_row, save, create etc. to avoid
         # isinstance(field, ManyToManyField) on every access.
-        cls._non_m2m_fields: list = [
-            (fname, f) for fname, f in fields.items()
-            if not isinstance(f, ManyToManyField)
-        ]
+        cls._non_m2m_fields: list = [(fname, f) for fname, f in fields.items() if not isinstance(f, ManyToManyField)]
 
         # Column-name → (attr_name, field) mapping for from_row()
         cls._col_to_attr: dict = {}
@@ -144,9 +130,7 @@ class ModelMeta(type):
             cls._col_to_attr[fname] = (fname, f)  # also allow attr-name lookup
 
         # Auto-inject default Manager if none declared
-        if not opts.abstract and not any(
-            isinstance(v, BaseManager) for v in namespace.values()
-        ):
+        if not opts.abstract and not any(isinstance(v, BaseManager) for v in namespace.values()):
             mgr = Manager()
             mgr.__set_name__(cls, "objects")
             cls.objects = mgr
@@ -154,10 +138,12 @@ class ModelMeta(type):
         # Register in global registry (skip abstract)
         if not opts.abstract:
             from .registry import ModelRegistry as _NewRegistry
+
             _NewRegistry.register(cls)
 
             # Signal: class_prepared (fired after model class is fully created)
             from .signals import class_prepared
+
             class_prepared.send_sync(sender=cls)
 
         return cls

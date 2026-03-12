@@ -4,9 +4,7 @@ Filesystem storage adapter -- stores blobs on local disk.
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
-from typing import List
 
 from .base import BaseStorageAdapter
 
@@ -43,8 +41,8 @@ class FilesystemStorageAdapter(BaseStorageAdapter):
         if path.exists():
             path.unlink()
 
-    async def list_blobs(self) -> List[str]:
-        digests: List[str] = []
+    async def list_blobs(self) -> list[str]:
+        digests: list[str] = []
         for algo_dir in self.root.iterdir():
             if not algo_dir.is_dir():
                 continue

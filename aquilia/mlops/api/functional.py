@@ -25,7 +25,8 @@ from __future__ import annotations
 
 import inspect
 import logging
-from typing import Any, Callable, Dict, List, Optional
+from collections.abc import Callable
+from typing import Any
 
 from .model_class import AquiliaModel, _get_global_registry
 
@@ -39,7 +40,7 @@ def serve(
     batch_size: int = 16,
     max_batch_latency_ms: float = 50.0,
     workers: int = 4,
-    tags: Optional[List[str]] = None,
+    tags: list[str] | None = None,
 ) -> Callable:
     """
     Decorator that wraps a function into a registered model.
@@ -64,15 +65,17 @@ def serve(
 
         # Dynamically create an AquiliaModel subclass
         if is_async:
+
             class _FunctionalModel(AquiliaModel):
-                async def predict(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
+                async def predict(self, inputs: dict[str, Any]) -> dict[str, Any]:
                     result = await fn(inputs)
                     if not isinstance(result, dict):
                         return {"prediction": result}
                     return result
         else:
+
             class _FunctionalModel(AquiliaModel):
-                async def predict(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
+                async def predict(self, inputs: dict[str, Any]) -> dict[str, Any]:
                     result = fn(inputs)
                     if not isinstance(result, dict):
                         return {"prediction": result}
@@ -83,7 +86,7 @@ def serve(
         _FunctionalModel.__qualname__ = f"_Serve_{fn.__name__}"
 
         # Store metadata
-        _FunctionalModel.__mlops_model_name__ = name       # type: ignore[attr-defined]
+        _FunctionalModel.__mlops_model_name__ = name  # type: ignore[attr-defined]
         _FunctionalModel.__mlops_model_version__ = version  # type: ignore[attr-defined]
 
         # Register with global registry
@@ -103,7 +106,7 @@ def serve(
 
         # Preserve the original function for direct calling
         fn.__mlops_model_class__ = _FunctionalModel  # type: ignore[attr-defined]
-        fn.__mlops_model_name__ = name                # type: ignore[attr-defined]
+        fn.__mlops_model_name__ = name  # type: ignore[attr-defined]
 
         return fn
 

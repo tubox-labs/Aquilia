@@ -15,7 +15,7 @@ Usage:
         patch_model_registry,
         create_model_fault_handler,
     )
-    
+
     patch_model_registry()
     engine.register_global(create_model_fault_handler())
     ```
@@ -24,25 +24,19 @@ Usage:
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
 
 from ..core import (
-    Fault,
     FaultContext,
     FaultDomain,
     FaultResult,
-    Resolved,
-    Severity,
     Transformed,
 )
 from ..domains import (
     AMDLParseFault,
     DatabaseConnectionFault,
     MigrationFault,
-    ModelFault,
     ModelNotFoundFault,
     ModelRegistrationFault,
-    QueryFault,
     SchemaFault,
 )
 from ..handlers import FaultHandler
@@ -54,10 +48,11 @@ logger = logging.getLogger("aquilia.faults.integrations.models")
 # Fault Handler
 # ============================================================================
 
+
 class ModelFaultHandler(FaultHandler):
     """
     Fault handler for MODEL domain faults.
-    
+
     Handles:
     - AMDL parse errors → logged + abort startup
     - Database connection failures → retry with backoff
@@ -65,46 +60,39 @@ class ModelFaultHandler(FaultHandler):
     - Migration failures → abort with diagnostics
     - Schema faults → abort with table info
     """
-    
+
     def __init__(self, max_retries: int = 3, log_queries: bool = True):
         self._max_retries = max_retries
         self._log_queries = log_queries
-    
+
     def can_handle(self, ctx: FaultContext) -> bool:
         """Check if this handler can handle the fault."""
         return ctx.fault.domain == FaultDomain.MODEL
-    
+
     def handle(self, ctx: FaultContext) -> FaultResult:
         """Handle a model domain fault."""
         fault = ctx.fault
-        
+
         # Log all model faults
-        logger.error(
-            f"[{fault.code}] {fault.message} "
-            f"(app={ctx.app}, trace={ctx.trace_id})"
-        )
-        
+        logger.error(f"[{fault.code}] {fault.message} (app={ctx.app}, trace={ctx.trace_id})")
+
         # Database connection failures: attempt retry
         if isinstance(fault, DatabaseConnectionFault) and fault.retryable:
             retry_count = fault.metadata.get("_retry_count", 0)
             if retry_count < self._max_retries:
                 fault.metadata["_retry_count"] = retry_count + 1
                 return Transformed(fault, preserve_context=True)
-        
+
         if isinstance(fault, (AMDLParseFault, SchemaFault)):
-            logger.critical(
-                f"Fatal model fault: {fault.message}"
-            )
-        
+            logger.critical(f"Fatal model fault: {fault.message}")
+
         # Migration faults: log migration name
         if isinstance(fault, MigrationFault):
-            logger.error(
-                f"Migration '{fault.metadata.get('migration')}' failed: "
-                f"{fault.metadata.get('reason')}"
-            )
-        
+            logger.error(f"Migration '{fault.metadata.get('migration')}' failed: {fault.metadata.get('reason')}")
+
         # Default: escalate to next handler
         from ..core import Escalate
+
         return Escalate()
 
 
@@ -114,11 +102,11 @@ def create_model_fault_handler(
 ) -> ModelFaultHandler:
     """
     Create a fault handler for the MODEL domain.
-    
+
     Args:
         max_retries: Max retry attempts for retryable faults
         log_queries: Whether to log query details on failure
-    
+
     Returns:
         ModelFaultHandler instance
     """
@@ -132,17 +120,18 @@ def create_model_fault_handler(
 # Patch Functions
 # ============================================================================
 
+
 def patch_model_registry() -> None:
     """
     Patch model registries to raise structured faults instead of bare exceptions.
-    
+
     Patches both the legacy AMDL ModelRegistry and the new Python ORM ModelRegistry.
-    
+
     Legacy wraps:
     - ModelRegistry.register_model() → ModelRegistrationFault
     - ModelRegistry.get_proxy() → ModelNotFoundFault
     - ModelRegistry.create_tables() → SchemaFault
-    
+
     New ORM wraps:
     - ModelRegistry.create_tables() → SchemaFault
     """
@@ -155,7 +144,7 @@ def patch_model_registry() -> None:
         _original_register = LegacyRegistry.register_model
         _original_get_proxy = LegacyRegistry.get_proxy
         _original_create_tables_legacy = LegacyRegistry.create_tables
-        
+
         def _patched_register(self, model_node, *args, **kwargs):
             try:
                 return _original_register(self, model_node, *args, **kwargs)
@@ -164,13 +153,13 @@ def patch_model_registry() -> None:
                     model_name=getattr(model_node, "name", "unknown"),
                     reason=str(e),
                 ) from e
-        
+
         def _patched_get_proxy(self, name):
             try:
                 return _original_get_proxy(self, name)
             except (KeyError, LookupError) as e:
                 raise ModelNotFoundFault(model_name=name) from e
-        
+
         async def _patched_create_tables_legacy(self):
             try:
                 return await _original_create_tables_legacy(self)
@@ -179,11 +168,11 @@ def patch_model_registry() -> None:
                     table="(multiple)",
                     reason=str(e),
                 ) from e
-        
+
         LegacyRegistry.register_model = _patched_register
         LegacyRegistry.get_proxy = _patched_get_proxy
         LegacyRegistry.create_tables = _patched_create_tables_legacy
-    
+
     # --- New Python ORM ModelRegistry ---
     try:
         from aquilia.models.base import ModelRegistry as NewRegistry
@@ -191,7 +180,7 @@ def patch_model_registry() -> None:
         pass
     else:
         _original_create_tables_new = NewRegistry.create_tables
-        
+
         @classmethod
         async def _patched_create_tables_new(cls):
             try:
@@ -201,7 +190,7 @@ def patch_model_registry() -> None:
                     table="(multiple)",
                     reason=str(e),
                 ) from e
-        
+
         NewRegistry.create_tables = _patched_create_tables_new
 
 
@@ -213,9 +202,9 @@ def patch_database_engine() -> None:
         from aquilia.db.engine import AquiliaDatabase
     except ImportError:
         return
-    
+
     _original_connect = AquiliaDatabase.connect
-    
+
     async def _patched_connect(self):
         try:
             return await _original_connect(self)
@@ -224,7 +213,7 @@ def patch_database_engine() -> None:
                 url=self._url,
                 reason=str(e),
             ) from e
-    
+
     AquiliaDatabase.connect = _patched_connect
 
 

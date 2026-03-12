@@ -2,18 +2,19 @@
 Lifecycle management for providers and containers.
 """
 
-from typing import Any, Callable, Coroutine, List, Optional
-from dataclasses import dataclass, field
-from enum import Enum
 import asyncio
 import logging
+from collections.abc import Callable, Coroutine
+from dataclasses import dataclass
+from enum import Enum
+from typing import Any
 
 logger = logging.getLogger("aquilia.di.lifecycle")
 
 
 class DisposalStrategy(str, Enum):
     """Strategy for disposing instances."""
-    
+
     LIFO = "lifo"  # Last in, first out (default)
     FIFO = "fifo"  # First in, first out
     PARALLEL = "parallel"  # All in parallel
@@ -23,10 +24,10 @@ class DisposalStrategy(str, Enum):
 class LifecycleHook:
     """
     Lifecycle hook registration.
-    
+
     Hooks are called during container startup/shutdown.
     """
-    
+
     name: str
     callback: Callable[[], Coroutine[Any, Any, None]]
     priority: int = 0  # Higher priority runs first
@@ -36,10 +37,10 @@ class LifecycleHook:
 class Lifecycle:
     """
     Manages lifecycle hooks and deterministic disposal.
-    
+
     Ensures proper cleanup order and error handling.
     """
-    
+
     __slots__ = (
         "_startup_hooks",
         "_shutdown_hooks",
@@ -47,18 +48,18 @@ class Lifecycle:
         "_disposal_strategy",
         "_hook_timeout",
     )
-    
+
     def __init__(
         self,
         disposal_strategy: DisposalStrategy = DisposalStrategy.LIFO,
         hook_timeout: float = 30.0,  # SEC-DI-10: default 30s per hook
     ):
-        self._startup_hooks: List[LifecycleHook] = []
-        self._shutdown_hooks: List[LifecycleHook] = []
-        self._finalizers: List[Callable[[], Coroutine]] = []
+        self._startup_hooks: list[LifecycleHook] = []
+        self._shutdown_hooks: list[LifecycleHook] = []
+        self._finalizers: list[Callable[[], Coroutine]] = []
         self._disposal_strategy = disposal_strategy
         self._hook_timeout = hook_timeout
-    
+
     def on_startup(
         self,
         callback: Callable[[], Coroutine],
@@ -68,7 +69,7 @@ class Lifecycle:
     ) -> None:
         """
         Register startup hook.
-        
+
         Args:
             callback: Async callback to run on startup
             name: Hook name for diagnostics
@@ -82,7 +83,7 @@ class Lifecycle:
         )
         self._startup_hooks.append(hook)
         self._startup_hooks.sort(key=lambda h: -h.priority)  # Descending
-    
+
     def on_shutdown(
         self,
         callback: Callable[[], Coroutine],
@@ -92,7 +93,7 @@ class Lifecycle:
     ) -> None:
         """
         Register shutdown hook.
-        
+
         Args:
             callback: Async callback to run on shutdown
             name: Hook name for diagnostics
@@ -106,67 +107,68 @@ class Lifecycle:
         )
         self._shutdown_hooks.append(hook)
         self._shutdown_hooks.sort(key=lambda h: -h.priority)  # Descending
-    
+
     def register_finalizer(
         self,
         finalizer: Callable[[], Coroutine],
     ) -> None:
         """
         Register finalizer for cleanup.
-        
+
         Finalizers are called in reverse order (LIFO) during shutdown.
-        
+
         Args:
             finalizer: Async callback for cleanup
         """
         self._finalizers.append(finalizer)
-    
+
     async def run_startup_hooks(self) -> None:
         """Run all startup hooks in priority order with per-hook timeout (SEC-DI-10)."""
         errors = []
-        
+
         for hook in self._startup_hooks:
             try:
                 await asyncio.wait_for(hook.callback(), timeout=self._hook_timeout)
             except asyncio.TimeoutError:
-                errors.append((hook.name, TimeoutError(
-                    f"Startup hook '{hook.name}' timed out after {self._hook_timeout}s"
-                )))
+                errors.append(
+                    (hook.name, TimeoutError(f"Startup hook '{hook.name}' timed out after {self._hook_timeout}s"))
+                )
             except Exception as e:
                 errors.append((hook.name, e))
-        
+
         if errors:
             error_msg = "Startup hooks failed:\n"
             for name, error in errors:
                 error_msg += f"  - {name}: {error}\n"
             from ..faults.domains import SystemFault
+
             raise SystemFault(
                 code="STARTUP_HOOKS_FAILED",
                 message=error_msg.strip(),
                 metadata={"failed_hooks": [name for name, _ in errors]},
             )
-    
+
     async def run_shutdown_hooks(self) -> None:
         """Run all shutdown hooks in priority order with per-hook timeout (SEC-DI-10)."""
         errors = []
-        
+
         for hook in self._shutdown_hooks:
             try:
                 await asyncio.wait_for(hook.callback(), timeout=self._hook_timeout)
             except asyncio.TimeoutError:
-                errors.append((hook.name, TimeoutError(
-                    f"Shutdown hook '{hook.name}' timed out after {self._hook_timeout}s"
-                )))
+                errors.append(
+                    (hook.name, TimeoutError(f"Shutdown hook '{hook.name}' timed out after {self._hook_timeout}s"))
+                )
                 # Continue with other hooks even if one times out
             except Exception as e:
                 errors.append((hook.name, e))
                 # Continue with other hooks even if one fails
-        
+
         if errors:
             # Log but don't raise during shutdown
             for name, error in errors:
                 logger.warning("Shutdown hook '%s' failed: %s", name, error)
-    
+
     async def run_finalizers(self) -> None:
         """Run all finalizers according to disposal strategy."""
         if self._disposal_strategy == DisposalStrategy.LIFO:
@@ -175,46 +177,46 @@ class Lifecycle:
             await self._run_finalizers_fifo()
         elif self._disposal_strategy == DisposalStrategy.PARALLEL:
             await self._run_finalizers_parallel()
-    
+
     async def _run_finalizers_lifo(self) -> None:
         """Run finalizers in LIFO order."""
         errors = []
-        
+
         for finalizer in reversed(self._finalizers):
             try:
                 await finalizer()
             except Exception as e:
                 errors.append(e)
                 # Continue with remaining finalizers
-        
+
         if errors:
             for error in errors:
                 logger.warning("Finalizer failed: %s", error)
-    
+
     async def _run_finalizers_fifo(self) -> None:
         """Run finalizers in FIFO order."""
         errors = []
-        
+
         for finalizer in self._finalizers:
             try:
                 await finalizer()
             except Exception as e:
                 errors.append(e)
-        
+
         if errors:
             for error in errors:
                 logger.warning("Finalizer failed: %s", error)
-    
+
     async def _run_finalizers_parallel(self) -> None:
         """Run all finalizers in parallel."""
         tasks = [finalizer() for finalizer in self._finalizers]
         results = await asyncio.gather(*tasks, return_exceptions=True)
-        
+
         errors = [r for r in results if isinstance(r, Exception)]
         if errors:
             for error in errors:
                 logger.warning("Finalizer failed: %s", error)
-    
+
     def clear(self) -> None:
         """Clear all hooks and finalizers."""
         self._startup_hooks.clear()
@@ -225,14 +227,14 @@ class Lifecycle:
 # Context manager support for lifecycle
 class LifecycleContext:
     """Context manager for automatic lifecycle management."""
-    
+
     def __init__(self, lifecycle: Lifecycle):
         self.lifecycle = lifecycle
-    
+
     async def __aenter__(self):
         await self.lifecycle.run_startup_hooks()
         return self
-    
+
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         await self.lifecycle.run_shutdown_hooks()
         await self.lifecycle.run_finalizers()

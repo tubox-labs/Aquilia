@@ -21,9 +21,8 @@ from __future__ import annotations
 
 import re
 from abc import ABC, abstractmethod
-from typing import Optional
 
-from .core import ApiVersion, VersionStatus
+from .core import ApiVersion
 from .errors import InvalidVersionError
 
 
@@ -126,10 +125,7 @@ class SemanticVersionParser(VersionParser):
 
         raise InvalidVersionError(
             raw,
-            reason=(
-                "Expected format: 'N', 'N.N', 'N.N.N', 'vN', 'vN.N', "
-                "'YYYY-MM', or 'YYYY-MM-DD'."
-            ),
+            reason=("Expected format: 'N', 'N.N', 'N.N.N', 'vN', 'vN.N', 'YYYY-MM', or 'YYYY-MM-DD'."),
         )
 
     def format(self, version: ApiVersion) -> str:

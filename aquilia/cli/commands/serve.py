@@ -19,14 +19,13 @@ The production pipeline:
 import os
 import sys
 from pathlib import Path
-from typing import Optional
 
 from ..utils.workspace import get_workspace_file
 
 
 def serve_production(
-    workers: Optional[int] = None,
-    bind: Optional[str] = None,
+    workers: int | None = None,
+    bind: str | None = None,
     verbose: bool = False,
     use_gunicorn: bool = False,
     timeout: int = 120,
@@ -53,16 +52,18 @@ def serve_production(
 
     if not ws_file:
         from aquilia.faults.domains import ConfigMissingFault
+
         raise ConfigMissingFault(key="workspace.py")
 
     # ── Resolve runtime settings from AquilaConfig ───────────────────
     from .run import _load_workspace_runtime_config
+
     rt = _load_workspace_runtime_config(workspace_root)
 
     if bind is not None:
         # Explicit --bind flag: parse host:port
-        if ':' in bind:
-            host, port_str = bind.rsplit(':', 1)
+        if ":" in bind:
+            host, port_str = bind.rsplit(":", 1)
             port = int(port_str)
         else:
             host = bind
@@ -79,13 +80,14 @@ def serve_production(
         sys.path.insert(0, str(workspace_root))
 
     # Set env variables for production mode
-    os.environ['AQUILIA_ENV'] = 'prod'
-    os.environ['AQUILIA_WORKSPACE'] = str(workspace_root)
+    os.environ["AQUILIA_ENV"] = "prod"
+    os.environ["AQUILIA_WORKSPACE"] = str(workspace_root)
 
     # ===== BUILD PIPELINE -- Compile, check, and bundle (prod mode) =====
     print("  Running production build pipeline...")
     try:
         from aquilia.build import AquiliaBuildPipeline
+
         build_result = AquiliaBuildPipeline.build(
             workspace_root=str(workspace_root),
             mode="prod",
@@ -125,6 +127,7 @@ def serve_production(
     if build_dir.exists():
         try:
             from aquilia.build.resolver import BuildResolver
+
             resolver = BuildResolver(build_dir, verbose=verbose)
             resolved = resolver.resolve()
 
@@ -139,12 +142,13 @@ def serve_production(
 
     # Use the same app loader as `aq run` (runtime/app.py)
     from .run import _create_workspace_app
-    app_module = _create_workspace_app(workspace_root, mode='prod', verbose=verbose)
+
+    app_module = _create_workspace_app(workspace_root, mode="prod", verbose=verbose)
 
     backend = "gunicorn" if use_gunicorn else "uvicorn"
 
     if verbose:
-        print(f"  Starting Aquilia production server")
+        print("  Starting Aquilia production server")
         print(f"  Backend: {backend}")
         print(f"  Bind:    {host}:{port}")
         print(f"  Workers: {workers}")
@@ -223,7 +227,7 @@ def _serve_with_uvicorn(
     port: int,
     workers: int,
     verbose: bool,
-    runtime_config: Optional[dict] = None,
+    runtime_config: dict | None = None,
 ) -> None:
     """Start production server using uvicorn directly.
 
@@ -242,11 +246,14 @@ def _serve_with_uvicorn(
 
     from .run import _build_uvicorn_kwargs
 
-    uv_kwargs = _build_uvicorn_kwargs(runtime_config or {}, overrides={
-        "host": host,
-        "port": port,
-        "workers": workers,
-    })
+    uv_kwargs = _build_uvicorn_kwargs(
+        runtime_config or {},
+        overrides={
+            "host": host,
+            "port": port,
+            "workers": workers,
+        },
+    )
     # Production-mode defaults
     uv_kwargs["reload"] = False
     uv_kwargs.setdefault("log_level", "info" if verbose else "warning")

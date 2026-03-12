@@ -27,10 +27,9 @@ non-colour terminals (click.style handles NO_COLOR / TERM=dumb).
 
 from __future__ import annotations
 
-import os
-import sys
 import shutil
-from typing import Optional, Sequence
+import sys
+from collections.abc import Sequence
 
 import click
 
@@ -38,7 +37,7 @@ import click
 # Terminal helpers
 # ═══════════════════════════════════════════════════════════════════════════
 
-_TERM_WIDTH: Optional[int] = None
+_TERM_WIDTH: int | None = None
 
 
 def _tw() -> int:
@@ -52,6 +51,7 @@ def _tw() -> int:
 # ═══════════════════════════════════════════════════════════════════════════
 # Safe Unicode glyph resolution
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 def _can_encode(char: str) -> bool:
     """Return True if the current stdout codec can encode *char* without error."""
@@ -69,7 +69,6 @@ def _G(unicode_char: str, ascii_fallback: str) -> str:
     return *ascii_fallback*.  Results are cached after the first call.
     """
     return unicode_char if _can_encode(unicode_char) else ascii_fallback
-
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -117,49 +116,48 @@ def accent(message: str) -> str:
 # ═══════════════════════════════════════════════════════════════════════════
 
 # Heavy box set
-_H_TL = _G("\u250f", "+")   # ┏
-_H_TR = _G("\u2513", "+")   # ┓
-_H_BL = _G("\u2517", "+")   # ┗
-_H_BR = _G("\u251b", "+")   # ┛
-_H_H  = _G("\u2501", "-")   # ━
-_H_V  = _G("\u2503", "|")   # ┃
+_H_TL = _G("\u250f", "+")  # ┏
+_H_TR = _G("\u2513", "+")  # ┓
+_H_BL = _G("\u2517", "+")  # ┗
+_H_BR = _G("\u251b", "+")  # ┛
+_H_H = _G("\u2501", "-")  # ━
+_H_V = _G("\u2503", "|")  # ┃
 
 # Light box set
-_L_TL = _G("\u250c", "+")   # ┌
-_L_TR = _G("\u2510", "+")   # ┐
-_L_BL = _G("\u2514", "+")   # └
-_L_BR = _G("\u2518", "+")   # ┘
-_L_H  = _G("\u2500", "-")   # ─
-_L_V  = _G("\u2502", "|")   # │
+_L_TL = _G("\u250c", "+")  # ┌
+_L_TR = _G("\u2510", "+")  # ┐
+_L_BL = _G("\u2514", "+")  # └
+_L_BR = _G("\u2518", "+")  # ┘
+_L_H = _G("\u2500", "-")  # ─
+_L_V = _G("\u2502", "|")  # │
 
 # Tee / cross
-_L_LT = _G("\u251c", "+")   # ├
-_L_RT = _G("\u2524", "+")   # ┤
+_L_LT = _G("\u251c", "+")  # ├
+_L_RT = _G("\u2524", "+")  # ┤
 
 # Other symbols
-_BULLET = _G("\u2022", "*")      # •
-_ARROW  = _G("\u2192", "->")     # →
-_CHECK  = _G("\u2714", "[ok]")   # ✔
-_CROSS  = _G("\u2718", "[x]")    # ✘
-_CIRCLE = _G("\u25cb", "o")      # ○
-_DOT    = _G("\u00b7", ".")      # ·
-_DASH   = _G("\u2500", "-")      # ─
-_ROCKET = _G("\U0001f680", ">>") # 🚀
-_LOCK   = _G("\U0001f512", "[#]")# 🔒
-_GLOBE  = _G("\U0001f310", "(o)")# 🌐
-_PKG    = _G("\U0001f4e6", "[p]")# 📦
-_GEAR   = _G("\u2699", "[*]")    # ⚙
-_BOLT   = _G("\u26a1", "!")      # ⚡
-_SHIELD = _G("\U0001f6e1", "[S]")# 🛡
-_LINK   = _G("\U0001f517", "[@]")# 🔗
-_CLOCK  = _G("\U0001f551", "[t]")# 🕑
-_SPARK  = _G("\u2728", "*")      # ✨
-_WARN   = _G("\u26a0", "[!]")    # ⚠
-_CLOUD  = _G("\u2601", "(c)")    # ☁
-_KEY    = _G("\U0001f511", "[k]")# 🔑
-_EYE    = _G("\U0001f441", "(e)")# 👁
-_DIAMOND = _G("\u25c6", "*")        # ◆
-
+_BULLET = _G("\u2022", "*")  # •
+_ARROW = _G("\u2192", "->")  # →
+_CHECK = _G("\u2714", "[ok]")  # ✔
+_CROSS = _G("\u2718", "[x]")  # ✘
+_CIRCLE = _G("\u25cb", "o")  # ○
+_DOT = _G("\u00b7", ".")  # ·
+_DASH = _G("\u2500", "-")  # ─
+_ROCKET = _G("\U0001f680", ">>")  # 🚀
+_LOCK = _G("\U0001f512", "[#]")  # 🔒
+_GLOBE = _G("\U0001f310", "(o)")  # 🌐
+_PKG = _G("\U0001f4e6", "[p]")  # 📦
+_GEAR = _G("\u2699", "[*]")  # ⚙
+_BOLT = _G("\u26a1", "!")  # ⚡
+_SHIELD = _G("\U0001f6e1", "[S]")  # 🛡
+_LINK = _G("\U0001f517", "[@]")  # 🔗
+_CLOCK = _G("\U0001f551", "[t]")  # 🕑
+_SPARK = _G("\u2728", "*")  # ✨
+_WARN = _G("\u26a0", "[!]")  # ⚠
+_CLOUD = _G("\u2601", "(c)")  # ☁
+_KEY = _G("\U0001f511", "[k]")  # 🔑
+_EYE = _G("\U0001f441", "(e)")  # 👁
+_DIAMOND = _G("\u25c6", "*")  # ◆
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -171,7 +169,7 @@ def banner(
     title: str = "Aquilia",
     subtitle: str = "",
     *,
-    width: Optional[int] = None,
+    width: int | None = None,
     fg: str = "cyan",
     icon: str = "",
 ) -> None:
@@ -203,7 +201,7 @@ def banner(
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-def section(title: str, *, width: Optional[int] = None, fg: str = "cyan") -> None:
+def section(title: str, *, width: int | None = None, fg: str = "cyan") -> None:
     """
     Print a section header with a ruled line.
 
@@ -218,7 +216,7 @@ def section(title: str, *, width: Optional[int] = None, fg: str = "cyan") -> Non
     click.echo(click.style(line, fg=fg, bold=True))
 
 
-def rule(*, char: str = _L_H, width: Optional[int] = None, fg: str = "white") -> None:
+def rule(*, char: str = _L_H, width: int | None = None, fg: str = "white") -> None:
     """Print a thin horizontal rule."""
     w = width or _tw()
     click.echo(click.style(char * w, fg=fg, dim=True))
@@ -263,11 +261,11 @@ def badge(label: str, *, style: str = "ok") -> str:
         [OK]  [FAIL]  [SKIP]  [WARN]
     """
     colours = {
-        "ok":   ("green",  f" {_CHECK} "),
-        "fail": ("red",    f" {_CROSS} "),
+        "ok": ("green", f" {_CHECK} "),
+        "fail": ("red", f" {_CROSS} "),
         "skip": ("yellow", f" {_CIRCLE} "),
-        "warn": ("yellow", f" ! "),
-        "info": ("cyan",   f" {_DOT} "),
+        "warn": ("yellow", " ! "),
+        "info": ("cyan", f" {_DOT} "),
     }
     fg, icon = colours.get(style, ("white", f" {_DOT} "))
     return click.style(f"[{icon}{label}]", fg=fg)
@@ -293,11 +291,7 @@ def tree_item(
     """
     indent_str = f"{'    ' * depth}"
     connector = f"{_L_BL}{_L_H}{_L_H} " if last else f"{_L_LT}{_L_H}{_L_H} "
-    click.echo(
-        click.style(indent_str, dim=True)
-        + click.style(connector, dim=True)
-        + click.style(text, fg=fg)
-    )
+    click.echo(click.style(indent_str, dim=True) + click.style(connector, dim=True) + click.style(text, fg=fg))
 
 
 def bullet(text: str, *, indent: int = 2, fg: str = "white") -> None:
@@ -331,7 +325,7 @@ def table(
     headers: Sequence[str],
     rows: Sequence[Sequence[str]],
     *,
-    col_widths: Optional[Sequence[int]] = None,
+    col_widths: Sequence[int] | None = None,
     header_fg: str = "cyan",
     row_fg: str = "white",
     indent: int = 2,
@@ -392,7 +386,7 @@ def panel(
     lines: Sequence[str],
     *,
     title: str = "",
-    width: Optional[int] = None,
+    width: int | None = None,
     fg: str = "cyan",
     pad: int = 1,
 ) -> None:
@@ -420,11 +414,7 @@ def panel(
         # Truncate if too long
         truncated = line[:inner] if len(line) > inner else line
         padded = truncated.ljust(inner)
-        click.echo(
-            click.style(f"{_L_V}{sp}", fg=fg)
-            + padded
-            + click.style(f"{sp}{_L_V}", fg=fg)
-        )
+        click.echo(click.style(f"{_L_V}{sp}", fg=fg) + padded + click.style(f"{sp}{_L_V}", fg=fg))
 
     # Bottom border
     bbar = f"{_L_BL}{_L_H * (w - 2)}{_L_BR}"
@@ -483,8 +473,8 @@ def status_line(
 ) -> None:
     """Print a status indicator with icon, label and value.
 
-        🔒  Encryption     AES-256-GCM
-        ☁   Provider       Render
+    🔒  Encryption     AES-256-GCM
+    ☁   Provider       Render
     """
     prefix = " " * indent
     lbl = click.style(label, fg=label_fg, bold=True)
@@ -504,7 +494,7 @@ def progress_bar(
 ) -> None:
     """Print a styled progress bar.
 
-        Building  [████████████░░░░░░░░░░░░░░░░░░]  40%
+    Building  [████████████░░░░░░░░░░░░░░░░░░]  40%
     """
     pct = min(current / max(total, 1), 1.0)
     filled = int(width * pct)
@@ -524,11 +514,11 @@ def detail_card(
 ) -> None:
     """Print a compact detail card with key-value pairs.
 
-        ┌─ 🔒 Credentials ───────────────────────┐
-        │  Status       Configured                │
-        │  Encrypted    AES-256-GCM               │
-        │  Stored at    2024-01-15 09:30:12        │
-        └─────────────────────────────────────────┘
+    ┌─ 🔒 Credentials ───────────────────────┐
+    │  Status       Configured                │
+    │  Encrypted    AES-256-GCM               │
+    │  Stored at    2024-01-15 09:30:12        │
+    └─────────────────────────────────────────┘
     """
     w = min(_tw(), 52)
     inner = w - 4  # 2 for borders, 2 for padding
@@ -544,12 +534,7 @@ def detail_card(
         # Pad to fill card width
         visible_len = len(key) + len(str(padding)) + len(str(value))
         right_pad = " " * max(1, inner - visible_len)
-        click.echo(
-            click.style(f"{_L_V} ", fg=fg)
-            + line
-            + right_pad
-            + click.style(f" {_L_V}", fg=fg)
-        )
+        click.echo(click.style(f"{_L_V} ", fg=fg) + line + right_pad + click.style(f" {_L_V}", fg=fg))
     click.echo(click.style(bbar, fg=fg))
 
 
@@ -562,7 +547,7 @@ def phase_header(
 ) -> None:
     """Print a numbered phase header for multi-step flows.
 
-        * [1/5]  Build Gate
+    * [1/5]  Build Gate
     """
     num = click.style(f"[{phase_num}]", fg=fg, bold=True)
     ico = f"{icon} " if icon else ""

@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import numpy as np
 
@@ -28,8 +28,8 @@ class ONNXRuntimeAdapter(BaseRuntime):
 
     def __init__(
         self,
-        providers: Optional[List[str]] = None,
-        session_options: Optional[Any] = None,
+        providers: list[str] | None = None,
+        session_options: Any | None = None,
     ):
         super().__init__()
         self._session: Any = None
@@ -46,6 +46,7 @@ class ONNXRuntimeAdapter(BaseRuntime):
     async def load(self) -> None:
         if not self._manifest:
             from aquilia.faults.domains import ConfigMissingFault
+
             raise ConfigMissingFault(key="mlops.runtime.manifest")
 
         self._set_state(ModelState.LOADING)
@@ -54,9 +55,7 @@ class ONNXRuntimeAdapter(BaseRuntime):
             import onnxruntime as ort
         except ImportError:
             self._set_state(ModelState.FAILED)
-            raise ImportError(
-                "onnxruntime required. Install with: pip install onnxruntime"
-            )
+            raise ImportError("onnxruntime required. Install with: pip install onnxruntime")
 
         start = time.monotonic()
 
@@ -72,9 +71,7 @@ class ONNXRuntimeAdapter(BaseRuntime):
             providers = self._providers or ort.get_available_providers()
             sess_opts = self._session_options or ort.SessionOptions()
 
-            self._session = ort.InferenceSession(
-                str(model_path), sess_options=sess_opts, providers=providers
-            )
+            self._session = ort.InferenceSession(str(model_path), sess_options=sess_opts, providers=providers)
         except Exception:
             self._set_state(ModelState.FAILED)
             raise
@@ -82,12 +79,13 @@ class ONNXRuntimeAdapter(BaseRuntime):
         self._set_state(ModelState.LOADED)
         self._load_time_ms = (time.monotonic() - start) * 1000
 
-    async def infer(self, batch: BatchRequest) -> List[InferenceResult]:
+    async def infer(self, batch: BatchRequest) -> list[InferenceResult]:
         if not self._session:
             from aquilia.faults.domains import ConfigMissingFault
+
             raise ConfigMissingFault(key="mlops.runtime.session")
 
-        results: List[InferenceResult] = []
+        results: list[InferenceResult] = []
         input_names = [inp.name for inp in self._session.get_inputs()]
         output_names = [out.name for out in self._session.get_outputs()]
 
@@ -95,7 +93,7 @@ class ONNXRuntimeAdapter(BaseRuntime):
             start = time.monotonic()
 
             # Build feed dict
-            feed: Dict[str, Any] = {}
+            feed: dict[str, Any] = {}
             for name in input_names:
                 if name in req.inputs:
                     val = req.inputs[name]
@@ -106,28 +104,32 @@ class ONNXRuntimeAdapter(BaseRuntime):
             raw_outputs = self._session.run(output_names, feed)
             outputs = {
                 name: out.tolist() if isinstance(out, np.ndarray) else out
-                for name, out in zip(output_names, raw_outputs)
+                for name, out in zip(output_names, raw_outputs, strict=False)
             }
 
             latency = (time.monotonic() - start) * 1000
             self._inference_count += 1
             self._total_latency_ms += latency
 
-            results.append(InferenceResult(
-                request_id=req.request_id,
-                outputs=outputs,
-                latency_ms=latency,
-            ))
+            results.append(
+                InferenceResult(
+                    request_id=req.request_id,
+                    outputs=outputs,
+                    latency_ms=latency,
+                )
+            )
 
         return results
 
-    async def metrics(self) -> Dict[str, float]:
+    async def metrics(self) -> dict[str, float]:
         base = await super().metrics()
         avg = self._total_latency_ms / max(self._inference_count, 1)
-        base.update({
-            "inference_count": float(self._inference_count),
-            "avg_latency_ms": avg,
-        })
+        base.update(
+            {
+                "inference_count": float(self._inference_count),
+                "avg_latency_ms": avg,
+            }
+        )
         return base
 
     async def unload(self) -> None:

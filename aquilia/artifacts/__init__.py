@@ -39,28 +39,28 @@ Quick start::
 
 from aquilia._version import __version__  # noqa: F401 — re-exported
 
+from .builder import ArtifactBuilder
 from .core import (
     Artifact,
     ArtifactEnvelope,
+    ArtifactIntegrity,
     ArtifactKind,
     ArtifactProvenance,
-    ArtifactIntegrity,
     register_artifact_kind,
 )
-from .builder import ArtifactBuilder
-from .store import ArtifactStore, MemoryArtifactStore, FilesystemArtifactStore
-from .reader import ArtifactReader
 from .kinds import (
+    BundleArtifact,
     CodeArtifact,
-    ModelArtifact,
     ConfigArtifact,
-    TemplateArtifact,
+    DIGraphArtifact,
     MigrationArtifact,
+    ModelArtifact,
     RegistryArtifact,
     RouteArtifact,
-    DIGraphArtifact,
-    BundleArtifact,
+    TemplateArtifact,
 )
+from .reader import ArtifactReader
+from .store import ArtifactStore, FilesystemArtifactStore, MemoryArtifactStore
 
 __all__ = [
     # Core

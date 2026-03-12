@@ -9,11 +9,11 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import random
 import time
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any
 
 from .._types import InferenceRequest, InferenceResult
 
@@ -36,7 +36,7 @@ class PredictionLogger:
         self,
         sample_rate: float = 0.01,
         log_dir: str = "prediction_logs",
-        sink: Optional[Callable[[Dict[str, Any]], None]] = None,
+        sink: Callable[[dict[str, Any]], None] | None = None,
     ):
         self.sample_rate = sample_rate
         self.log_dir = log_dir
@@ -46,7 +46,7 @@ class PredictionLogger:
         if not self._sink:
             Path(log_dir).mkdir(parents=True, exist_ok=True)
 
-    def set_sink(self, sink: Callable[[Dict[str, Any]], None]) -> None:
+    def set_sink(self, sink: Callable[[dict[str, Any]], None]) -> None:
         """Set a custom log sink function."""
         self._sink = sink
 
@@ -91,7 +91,7 @@ class PredictionLogger:
     def get_log_count(self) -> int:
         return self._log_count
 
-    def _write_to_file(self, event: Dict[str, Any]) -> None:
+    def _write_to_file(self, event: dict[str, Any]) -> None:
         """Write event as JSONL to log directory."""
         date_str = time.strftime("%Y-%m-%d")
         log_path = Path(self.log_dir) / f"predictions_{date_str}.jsonl"

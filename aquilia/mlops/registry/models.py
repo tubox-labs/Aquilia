@@ -6,11 +6,8 @@ Uses the native ``aquilia.sqlite`` async module (stdlib ``sqlite3``).
 
 from __future__ import annotations
 
-import json
 import logging
-from datetime import datetime, timezone
-from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger("aquilia.mlops.registry.models")
 
@@ -31,16 +28,14 @@ class RegistryDB:
 
     async def initialize(self) -> None:
         """Create tables if they don't exist."""
-        from aquilia.sqlite import create_pool, SqlitePoolConfig
+        from aquilia.sqlite import SqlitePoolConfig, create_pool
 
-        self._pool = await create_pool(
-            SqlitePoolConfig(path=self.db_path, pool_size=2, pool_min_size=1)
-        )
+        self._pool = await create_pool(SqlitePoolConfig(path=self.db_path, pool_size=2, pool_min_size=1))
         self._conn = self._pool  # duck-typed: execute, fetch_all, etc.
 
         async with self._pool.acquire(readonly=False) as conn:
             await conn.execute_script(
-            """
+                """
             CREATE TABLE IF NOT EXISTS packs (
                 id          INTEGER PRIMARY KEY AUTOINCREMENT,
                 name        TEXT    NOT NULL,
@@ -103,7 +98,7 @@ class RegistryDB:
             [name, tag, digest, manifest_json, signed_by],
         )
 
-    async def get_pack(self, name: str, tag: str) -> Optional[Dict[str, Any]]:
+    async def get_pack(self, name: str, tag: str) -> dict[str, Any] | None:
         """Get pack by name:tag via the tags table."""
         assert self._conn is not None
         row = await self._conn.fetch_one(
@@ -116,15 +111,13 @@ class RegistryDB:
         )
         return row.to_dict() if row else None
 
-    async def get_pack_by_digest(self, digest: str) -> Optional[Dict[str, Any]]:
+    async def get_pack_by_digest(self, digest: str) -> dict[str, Any] | None:
         """Get pack by content digest."""
         assert self._conn is not None
-        row = await self._conn.fetch_one(
-            "SELECT * FROM packs WHERE digest = ?", [digest]
-        )
+        row = await self._conn.fetch_one("SELECT * FROM packs WHERE digest = ?", [digest])
         return row.to_dict() if row else None
 
-    async def list_versions(self, name: str) -> List[Dict[str, Any]]:
+    async def list_versions(self, name: str) -> list[dict[str, Any]]:
         """List all versions (tags) of a named pack."""
         assert self._conn is not None
         rows = await self._conn.fetch_all(
@@ -139,9 +132,7 @@ class RegistryDB:
         )
         return [r.to_dict() for r in rows]
 
-    async def list_packs(
-        self, limit: int = 100, offset: int = 0
-    ) -> List[Dict[str, Any]]:
+    async def list_packs(self, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:
         """List distinct pack names with latest tag info."""
         assert self._conn is not None
         rows = await self._conn.fetch_all(
@@ -174,15 +165,11 @@ class RegistryDB:
     async def delete_tag(self, name: str, tag: str) -> None:
         """Delete a tag."""
         assert self._conn is not None
-        await self._conn.execute(
-            "DELETE FROM tags WHERE name = ? AND tag = ?", [name, tag]
-        )
+        await self._conn.execute("DELETE FROM tags WHERE name = ? AND tag = ?", [name, tag])
 
     # ── Blobs ────────────────────────────────────────────────────────
 
-    async def insert_blob(
-        self, digest: str, size: int, storage_path: str = ""
-    ) -> None:
+    async def insert_blob(self, digest: str, size: int, storage_path: str = "") -> None:
         """Track a blob in the registry."""
         assert self._conn is not None
         await self._conn.execute(

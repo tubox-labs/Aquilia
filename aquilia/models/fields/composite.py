@@ -20,10 +20,9 @@ Usage:
 from __future__ import annotations
 
 import json
-from typing import Any, Dict, List, Optional, Sequence, Tuple, Type
+from typing import Any
 
-from ..fields_module import Field, CharField, UNSET, FieldValidationError
-
+from ..fields_module import Field, FieldValidationError
 
 __all__ = [
     "CompositeField",
@@ -55,8 +54,8 @@ class CompositeAttribute:
     def __init__(
         self,
         *,
-        fields: List[str],
-        keys: Optional[List[str]] = None,
+        fields: list[str],
+        keys: list[str] | None = None,
     ):
         self.fields = fields
         self.keys = keys or fields
@@ -68,17 +67,17 @@ class CompositeAttribute:
         if instance is None:
             return self
         result = {}
-        for field_name, key in zip(self.fields, self.keys):
+        for field_name, key in zip(self.fields, self.keys, strict=False):
             result[key] = getattr(instance, field_name, None)
         return result
 
     def __set__(self, instance, value):
         if isinstance(value, dict):
-            for field_name, key in zip(self.fields, self.keys):
+            for field_name, key in zip(self.fields, self.keys, strict=False):
                 if key in value:
                     setattr(instance, field_name, value[key])
         elif isinstance(value, (list, tuple)):
-            for field_name, val in zip(self.fields, value):
+            for field_name, val in zip(self.fields, value, strict=False):
                 setattr(instance, field_name, val)
 
 
@@ -120,7 +119,7 @@ class CompositeField(Field):
     def __init__(
         self,
         *,
-        schema: Dict[str, Field],
+        schema: dict[str, Field],
         prefix: str = "",
         strategy: str = "json",
         **kwargs,
@@ -136,9 +135,7 @@ class CompositeField(Field):
                 return None
             raise FieldValidationError(self.name, "Cannot be null")
         if not isinstance(value, dict):
-            raise FieldValidationError(
-                self.name, f"Expected dict, got {type(value).__name__}"
-            )
+            raise FieldValidationError(self.name, f"Expected dict, got {type(value).__name__}")
         # Validate each sub-field
         cleaned = {}
         for key, field in self.schema.items():
@@ -171,13 +168,11 @@ class CompositeField(Field):
         # For expanded strategy, this field itself doesn't produce a column
         return "TEXT"
 
-    def deconstruct(self) -> Dict[str, Any]:
+    def deconstruct(self) -> dict[str, Any]:
         d = super().deconstruct()
         d["strategy"] = self.strategy
         d["prefix"] = self.prefix
-        d["schema"] = {
-            k: v.deconstruct() for k, v in self.schema.items()
-        }
+        d["schema"] = {k: v.deconstruct() for k, v in self.schema.items()}
         return d
 
 
@@ -200,9 +195,10 @@ class CompositePrimaryKey:
     as a table-level constraint instead of a column-level PK.
     """
 
-    def __init__(self, *, fields: List[str]):
+    def __init__(self, *, fields: list[str]):
         if len(fields) < 2:
             from aquilia.faults.domains import ConfigInvalidFault
+
             raise ConfigInvalidFault(
                 key="composite_primary_key.fields",
                 reason="CompositePrimaryKey requires at least 2 fields",
@@ -214,5 +210,5 @@ class CompositePrimaryKey:
         cols = ", ".join(f'"{f}"' for f in self.fields)
         return f"PRIMARY KEY ({cols})"
 
-    def deconstruct(self) -> Dict[str, Any]:
+    def deconstruct(self) -> dict[str, Any]:
         return {"type": "CompositePrimaryKey", "fields": self.fields}

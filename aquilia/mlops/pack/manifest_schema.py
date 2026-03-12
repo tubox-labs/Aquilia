@@ -23,8 +23,13 @@ MANIFEST_SCHEMA: dict = {
         "framework": {
             "type": "string",
             "enum": [
-                "pytorch", "tensorflow", "onnx",
-                "sklearn", "xgboost", "lightgbm", "custom",
+                "pytorch",
+                "tensorflow",
+                "onnx",
+                "sklearn",
+                "xgboost",
+                "lightgbm",
+                "custom",
             ],
         },
         "entrypoint": {
@@ -71,9 +76,17 @@ MANIFEST_SCHEMA: dict = {
                 "dtype": {
                     "type": "string",
                     "enum": [
-                        "float16", "float32", "float64",
-                        "int8", "int16", "int32", "int64",
-                        "uint8", "uint16", "bool", "string",
+                        "float16",
+                        "float32",
+                        "float64",
+                        "int8",
+                        "int16",
+                        "int32",
+                        "int64",
+                        "uint8",
+                        "uint16",
+                        "bool",
+                        "string",
                     ],
                 },
                 "shape": {

@@ -19,9 +19,9 @@ import logging
 import time
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-from .._structures import RingBuffer, AtomicCounter, ExponentialDecay, TopKHeap
+from .._structures import AtomicCounter, ExponentialDecay, RingBuffer, TopKHeap
 
 logger = logging.getLogger("aquilia.mlops.observe.metrics")
 
@@ -29,9 +29,10 @@ logger = logging.getLogger("aquilia.mlops.observe.metrics")
 @dataclass
 class MetricPoint:
     """Single metric data point."""
+
     name: str
     value: float
-    labels: Dict[str, str] = field(default_factory=dict)
+    labels: dict[str, str] = field(default_factory=dict)
     timestamp: float = field(default_factory=time.time)
 
 
@@ -55,21 +56,19 @@ class MetricsCollector:
         self._histogram_capacity = histogram_capacity
 
         # Counters (thread-safe)
-        self._counters: Dict[str, AtomicCounter] = defaultdict(AtomicCounter)
+        self._counters: dict[str, AtomicCounter] = defaultdict(AtomicCounter)
         # Gauges
-        self._gauges: Dict[str, float] = {}
+        self._gauges: dict[str, float] = {}
         # Histograms -- bounded ring buffers instead of unbounded lists
-        self._histograms: Dict[str, RingBuffer[float]] = {}
+        self._histograms: dict[str, RingBuffer[float]] = {}
         # EWMA smoothed latency tracker
-        self._ewma: Dict[str, ExponentialDecay] = {}
+        self._ewma: dict[str, ExponentialDecay] = {}
         # Hot-model tracker
         self._hot_models = TopKHeap(k=hot_k)
         # Per-model scoped counters: {model_name: {metric_name: AtomicCounter}}
-        self._model_counters: Dict[str, Dict[str, AtomicCounter]] = defaultdict(
-            lambda: defaultdict(AtomicCounter)
-        )
+        self._model_counters: dict[str, dict[str, AtomicCounter]] = defaultdict(lambda: defaultdict(AtomicCounter))
         # Per-model scoped histograms
-        self._model_histograms: Dict[str, Dict[str, RingBuffer]] = defaultdict(dict)
+        self._model_histograms: dict[str, dict[str, RingBuffer]] = defaultdict(dict)
 
     # ── Convenience Properties ───────────────────────────────────────
 
@@ -111,16 +110,15 @@ class MetricsCollector:
 
     def observe_for_model(self, model_name: str, name: str, value: float) -> None:
         """Record a histogram observation scoped to a specific model."""
-        key = f"{model_name}:{name}"
         if name not in self._model_histograms[model_name]:
             self._model_histograms[model_name][name] = RingBuffer(self._histogram_capacity)
         self._model_histograms[model_name][name].append(value)
         # Also record global observation
         self.observe(name, value)
 
-    def model_summary(self, model_name: str) -> Dict[str, Any]:
+    def model_summary(self, model_name: str) -> dict[str, Any]:
         """Get metrics summary scoped to a specific model."""
-        result: Dict[str, Any] = {"model_name": model_name}
+        result: dict[str, Any] = {"model_name": model_name}
         # Counters
         for name, counter in self._model_counters.get(model_name, {}).items():
             result[name] = counter.value
@@ -184,9 +182,9 @@ class MetricsCollector:
         e = self._ewma.get(name)
         return e.value if e else 0.0
 
-    def get_summary(self) -> Dict[str, Any]:
+    def get_summary(self) -> dict[str, Any]:
         """Get a summary of all metrics as a dict."""
-        result: Dict[str, Any] = {
+        result: dict[str, Any] = {
             "model_name": self.model_name,
             "model_version": self.model_version,
         }
@@ -218,7 +216,7 @@ class MetricsCollector:
         Returns:
             String in Prometheus text format.
         """
-        lines: List[str] = []
+        lines: list[str] = []
         labels = f'model="{self.model_name}",version="{self.model_version}"'
 
         # Counters

@@ -36,7 +36,7 @@ Usage:
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple, Type, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from .base import Model
@@ -68,11 +68,12 @@ class QuerySet:
         users = await User.objects.active().adults().order("-name").all()
     """
 
-    _model_cls: Optional[Type[Model]] = None
+    _model_cls: type[Model] | None = None
 
     def _get_queryset(self) -> Q:
         if self._model_cls is None:
             from aquilia.faults.domains import ModelRegistrationFault
+
             raise ModelRegistrationFault(
                 model="<unknown>",
                 reason="QuerySet is not bound to a model",
@@ -88,11 +89,11 @@ class BaseManager:
     Base manager with Python descriptor protocol.
 
     Accessible only from the model CLASS, not from instances:
-        User.objects.filter(...)    # 
+        User.objects.filter(...)    #
         user.objects                # AttributeError
     """
 
-    _model_cls: Optional[Type[Model]] = None
+    _model_cls: type[Model] | None = None
 
     def __set_name__(self, owner: type, name: str) -> None:
         self._model_cls = owner  # type: ignore
@@ -101,9 +102,7 @@ class BaseManager:
         # Bind to current class (supports inheritance)
         self._model_cls = owner  # type: ignore
         if instance is not None:
-            raise AttributeError(
-                "Manager is accessible only via the model class, not instances."
-            )
+            raise AttributeError("Manager is accessible only via the model class, not instances.")
         return self
 
     # ── QuerySet factory ─────────────────────────────────────────────
@@ -112,6 +111,7 @@ class BaseManager:
         """Return a fresh Q (QuerySet) for the model."""
         if self._model_cls is None:
             from aquilia.faults.domains import ModelRegistrationFault
+
             raise ModelRegistrationFault(
                 model="<unknown>",
                 reason="Manager is not bound to a model",
@@ -221,24 +221,24 @@ class BaseManager:
 
     # ── Forwarded terminal methods (async) ───────────────────────────
 
-    async def all(self) -> List[Model]:
+    async def all(self) -> list[Model]:
         return await self.get_queryset().all()
 
-    async def first(self) -> Optional[Model]:
+    async def first(self) -> Model | None:
         return await self.get_queryset().first()
 
-    async def last(self) -> Optional[Model]:
+    async def last(self) -> Model | None:
         return await self.get_queryset().last()
 
     async def one(self) -> Model:
         """Return exactly one row. Raises if 0 or >1 (Aquilia-only)."""
         return await self.get_queryset().one()
 
-    async def latest(self, field_name: Optional[str] = None) -> Model:
+    async def latest(self, field_name: str | None = None) -> Model:
         """Return latest record by date field."""
         return await self.get_queryset().latest(field_name)
 
-    async def earliest(self, field_name: Optional[str] = None) -> Model:
+    async def earliest(self, field_name: str | None = None) -> Model:
         """Return earliest record by date field."""
         return await self.get_queryset().earliest(field_name)
 
@@ -248,23 +248,23 @@ class BaseManager:
     async def exists(self) -> bool:
         return await self.get_queryset().exists()
 
-    async def values(self, *fields: str) -> List[Dict[str, Any]]:
+    async def values(self, *fields: str) -> list[dict[str, Any]]:
         return await self.get_queryset().values(*fields)
 
-    async def values_list(self, *fields: str, flat: bool = False) -> List[Any]:
+    async def values_list(self, *fields: str, flat: bool = False) -> list[Any]:
         return await self.get_queryset().values_list(*fields, flat=flat)
 
-    async def update(self, values: Optional[Dict[str, Any]] = None, **kwargs: Any) -> int:
+    async def update(self, values: dict[str, Any] | None = None, **kwargs: Any) -> int:
         return await self.get_queryset().update(values, **kwargs)
 
     async def delete(self) -> int:
         return await self.get_queryset().delete()
 
-    async def aggregate(self, **expressions: Any) -> Dict[str, Any]:
+    async def aggregate(self, **expressions: Any) -> dict[str, Any]:
         """Compute aggregates. See Q.aggregate() for details."""
         return await self.get_queryset().aggregate(**expressions)
 
-    async def in_bulk(self, id_list: List[Any]) -> Dict[Any, Model]:
+    async def in_bulk(self, id_list: list[Any]) -> dict[Any, Model]:
         """Return dict mapping PKs to instances."""
         return await self.get_queryset().in_bulk(id_list)
 
@@ -274,7 +274,7 @@ class BaseManager:
 
     # ── Convenience shortcuts (delegate to Model class methods) ──────
 
-    async def get(self, pk: Any = None, **filters: Any) -> Optional[Model]:
+    async def get(self, pk: Any = None, **filters: Any) -> Model | None:
         """
         Get a single instance by PK or filter kwargs.
 
@@ -284,15 +284,14 @@ class BaseManager:
         """
         if self._model_cls is None:
             from aquilia.faults.domains import ModelRegistrationFault
+
             raise ModelRegistrationFault(
                 model="<unknown>",
                 reason="Manager is not bound to a model",
             )
         return await self._model_cls.get(pk=pk, **filters)
 
-    async def get_or_create(
-        self, defaults: Optional[Dict[str, Any]] = None, **lookup: Any
-    ) -> Tuple[Model, bool]:
+    async def get_or_create(self, defaults: dict[str, Any] | None = None, **lookup: Any) -> tuple[Model, bool]:
         """
         Get existing instance or create a new one.
 
@@ -306,15 +305,14 @@ class BaseManager:
         """
         if self._model_cls is None:
             from aquilia.faults.domains import ModelRegistrationFault
+
             raise ModelRegistrationFault(
                 model="<unknown>",
                 reason="Manager is not bound to a model",
             )
         return await self._model_cls.get_or_create(defaults=defaults, **lookup)
 
-    async def update_or_create(
-        self, defaults: Optional[Dict[str, Any]] = None, **lookup: Any
-    ) -> Tuple[Model, bool]:
+    async def update_or_create(self, defaults: dict[str, Any] | None = None, **lookup: Any) -> tuple[Model, bool]:
         """
         Update existing instance or create a new one.
 
@@ -328,6 +326,7 @@ class BaseManager:
         """
         if self._model_cls is None:
             from aquilia.faults.domains import ModelRegistrationFault
+
             raise ModelRegistrationFault(
                 model="<unknown>",
                 reason="Manager is not bound to a model",
@@ -343,6 +342,7 @@ class BaseManager:
         """
         if self._model_cls is None:
             from aquilia.faults.domains import ModelRegistrationFault
+
             raise ModelRegistrationFault(
                 model="<unknown>",
                 reason="Manager is not bound to a model",
@@ -351,11 +351,11 @@ class BaseManager:
 
     async def bulk_create(
         self,
-        instances: List[Any],
+        instances: list[Any],
         *,
-        batch_size: Optional[int] = None,
+        batch_size: int | None = None,
         ignore_conflicts: bool = False,
-    ) -> List[Model]:
+    ) -> list[Model]:
         """
         Create multiple instances efficiently.
 
@@ -366,20 +366,19 @@ class BaseManager:
         """
         if self._model_cls is None:
             from aquilia.faults.domains import ModelRegistrationFault
+
             raise ModelRegistrationFault(
                 model="<unknown>",
                 reason="Manager is not bound to a model",
             )
-        return await self._model_cls.bulk_create(
-            instances, batch_size=batch_size, ignore_conflicts=ignore_conflicts
-        )
+        return await self._model_cls.bulk_create(instances, batch_size=batch_size, ignore_conflicts=ignore_conflicts)
 
     async def bulk_update(
         self,
-        instances: List[Model],
-        fields: List[str],
+        instances: list[Model],
+        fields: list[str],
         *,
-        batch_size: Optional[int] = None,
+        batch_size: int | None = None,
     ) -> int:
         """
         Update specific fields on multiple instances.
@@ -392,15 +391,14 @@ class BaseManager:
         """
         if self._model_cls is None:
             from aquilia.faults.domains import ModelRegistrationFault
+
             raise ModelRegistrationFault(
                 model="<unknown>",
                 reason="Manager is not bound to a model",
             )
-        return await self._model_cls.bulk_update(
-            instances, fields, batch_size=batch_size
-        )
+        return await self._model_cls.bulk_update(instances, fields, batch_size=batch_size)
 
-    async def raw(self, sql: str, params: Optional[List[Any]] = None) -> List[Model]:
+    async def raw(self, sql: str, params: list[Any] | None = None) -> list[Model]:
         """
         Execute raw SQL and return model instances.
 
@@ -411,6 +409,7 @@ class BaseManager:
         """
         if self._model_cls is None:
             from aquilia.faults.domains import ModelRegistrationFault
+
             raise ModelRegistrationFault(
                 model="<unknown>",
                 reason="Manager is not bound to a model",
@@ -495,18 +494,20 @@ class Manager(BaseManager):
             class_name = f"{cls.__name__}From{queryset_class.__name__}"
 
         # Copy non-private QuerySet methods to a new Manager subclass
-        attrs: Dict[str, Any] = {}
+        attrs: dict[str, Any] = {}
         for attr_name in dir(queryset_class):
             if attr_name.startswith("_"):
                 continue
             attr = getattr(queryset_class, attr_name)
             if callable(attr) and attr_name not in dir(cls):
+
                 def _make_proxy(method_name: str):
                     def _proxy(self_mgr, *args, **kwargs):
                         # Get the base queryset through get_queryset() to preserve
                         # any manager-level filtering (e.g., PublishedManager)
                         qs = self_mgr.get_queryset()
                         return getattr(qs, method_name)(*args, **kwargs)
+
                     _proxy.__name__ = method_name
                     _proxy.__qualname__ = f"{class_name}.{method_name}"
                     return _proxy

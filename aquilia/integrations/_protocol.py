@@ -8,7 +8,7 @@ can be passed to ``Workspace.integrate()``.
 
 from __future__ import annotations
 
-from typing import Any, Dict, Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 
 @runtime_checkable
@@ -20,6 +20,6 @@ class IntegrationConfig(Protocol):
         """Unique tag identifying this integration kind (e.g. ``"mail"``)."""
         ...  # pragma: no cover
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to the flat dict consumed by ``ConfigLoader``."""
         ...  # pragma: no cover

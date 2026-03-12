@@ -5,7 +5,7 @@ Security integrations — CORS, CSP, Rate-Limit, CSRF.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
@@ -23,23 +23,27 @@ class CorsIntegration:
 
     _integration_type: str = field(default="cors", init=False, repr=False)
 
-    allow_origins: List[str] = field(default_factory=lambda: ["*"])
-    allow_methods: List[str] = field(
+    allow_origins: list[str] = field(default_factory=lambda: ["*"])
+    allow_methods: list[str] = field(
         default_factory=lambda: ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"]
     )
-    allow_headers: List[str] = field(
+    allow_headers: list[str] = field(
         default_factory=lambda: [
-            "accept", "accept-language", "content-language",
-            "content-type", "authorization", "x-requested-with",
+            "accept",
+            "accept-language",
+            "content-language",
+            "content-type",
+            "authorization",
+            "x-requested-with",
         ]
     )
-    expose_headers: List[str] = field(default_factory=list)
+    expose_headers: list[str] = field(default_factory=list)
     allow_credentials: bool = False
     max_age: int = 600
-    allow_origin_regex: Optional[str] = None
+    allow_origin_regex: str | None = None
     enabled: bool = True
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "_integration_type": "cors",
             "enabled": self.enabled,
@@ -68,13 +72,13 @@ class CspIntegration:
 
     _integration_type: str = field(default="csp", init=False, repr=False)
 
-    policy: Optional[Dict[str, List[str]]] = None
+    policy: dict[str, list[str]] | None = None
     report_only: bool = False
     nonce: bool = True
     preset: str = "strict"
     enabled: bool = True
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "_integration_type": "csp",
             "enabled": self.enabled,
@@ -101,13 +105,11 @@ class RateLimitIntegration:
     window: int = 60
     algorithm: str = "sliding_window"
     per_user: bool = False
-    burst: Optional[int] = None
-    exempt_paths: List[str] = field(
-        default_factory=lambda: ["/health", "/healthz", "/ready"]
-    )
+    burst: int | None = None
+    exempt_paths: list[str] = field(default_factory=lambda: ["/health", "/healthz", "/ready"])
     enabled: bool = True
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "_integration_type": "rate_limit",
             "enabled": self.enabled,
@@ -141,22 +143,20 @@ class CsrfIntegration:
     field_name: str = "_csrf_token"
     cookie_name: str = "_csrf_cookie"
     cookie_path: str = "/"
-    cookie_domain: Optional[str] = None
+    cookie_domain: str | None = None
     cookie_secure: bool = True
     cookie_samesite: str = "Lax"
     cookie_httponly: bool = False
     cookie_max_age: int = 3600
-    safe_methods: List[str] = field(
-        default_factory=lambda: ["GET", "HEAD", "OPTIONS", "TRACE"]
-    )
-    exempt_paths: List[str] = field(default_factory=list)
-    exempt_content_types: List[str] = field(default_factory=list)
+    safe_methods: list[str] = field(default_factory=lambda: ["GET", "HEAD", "OPTIONS", "TRACE"])
+    exempt_paths: list[str] = field(default_factory=list)
+    exempt_content_types: list[str] = field(default_factory=list)
     trust_ajax: bool = True
     rotate_token: bool = False
     failure_status: int = 403
     enabled: bool = True
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "_integration_type": "csrf",
             "enabled": self.enabled,

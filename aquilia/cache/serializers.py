@@ -20,12 +20,12 @@ logger = logging.getLogger("aquilia.cache.serializers")
 class JsonCacheSerializer:
     """
     JSON serializer -- safe, human-readable, cross-language.
-    
+
     Default serializer. Handles most Python primitives and
     containers (dict, list, str, int, float, bool, None).
     Falls back to ``str()`` for non-serializable types.
     """
-    
+
     def serialize(self, value: Any) -> bytes:
         """Serialize value to JSON bytes."""
         try:
@@ -33,7 +33,7 @@ class JsonCacheSerializer:
         except (TypeError, ValueError, OverflowError) as e:
             logger.warning(f"JSON serialization failed: {e}")
             raise
-    
+
     def deserialize(self, data: bytes) -> Any:
         """Deserialize JSON bytes to value."""
         try:
@@ -69,9 +69,7 @@ class PickleCacheSerializer:
                 "deserialization of tampered payloads. Pass the application "
                 "secret key or a dedicated cache-signing key.",
             )
-        self._key: bytes = (
-            secret_key.encode("utf-8") if isinstance(secret_key, str) else secret_key
-        )
+        self._key: bytes = secret_key.encode("utf-8") if isinstance(secret_key, str) else secret_key
         logger.warning(
             "PickleCacheSerializer is enabled. While payloads are now "
             "HMAC-signed, pickle remains a powerful deserialization vector. "
@@ -81,13 +79,15 @@ class PickleCacheSerializer:
 
     def _sign(self, payload: bytes) -> bytes:
         """Return HMAC-SHA256 of *payload*."""
-        import hmac as _hmac
         import hashlib as _hashlib
+        import hmac as _hmac
+
         return _hmac.new(self._key, payload, _hashlib.sha256).digest()
 
     def serialize(self, value: Any) -> bytes:
         """Serialize value via pickle and prepend HMAC signature."""
         import pickle
+
         try:
             payload = pickle.dumps(value, protocol=pickle.HIGHEST_PROTOCOL)
             signature = self._sign(payload)
@@ -100,6 +100,7 @@ class PickleCacheSerializer:
         """Verify HMAC signature, then deserialize pickle bytes."""
         import hmac as _hmac
         import pickle
+
         if len(data) < self._HMAC_SIZE:
             raise CacheFault(
                 code="CACHE_PICKLE_MALFORMED",
@@ -115,8 +116,7 @@ class PickleCacheSerializer:
             )
             raise SecurityFault(
                 code="CACHE_HMAC_TAMPERED",
-                message="Pickle HMAC verification failed — refusing to deserialize "
-                "potentially tampered data.",
+                message="Pickle HMAC verification failed — refusing to deserialize potentially tampered data.",
             )
         try:
             return pickle.loads(payload)
@@ -128,34 +128,28 @@ class PickleCacheSerializer:
 class MsgpackCacheSerializer:
     """
     MessagePack serializer -- compact binary, cross-language.
-    
+
     Requires `msgpack` package: pip install msgpack
     """
-    
+
     def serialize(self, value: Any) -> bytes:
         """Serialize value to msgpack bytes."""
         try:
             import msgpack
         except ImportError:
-            raise ImportError(
-                "MsgpackCacheSerializer requires 'msgpack' package. "
-                "Install with: pip install msgpack"
-            )
+            raise ImportError("MsgpackCacheSerializer requires 'msgpack' package. Install with: pip install msgpack")
         try:
             return msgpack.packb(value, use_bin_type=True, default=str)
         except (TypeError, ValueError) as e:
             logger.warning(f"Msgpack serialization failed: {e}")
             raise
-    
+
     def deserialize(self, data: bytes) -> Any:
         """Deserialize msgpack bytes."""
         try:
             import msgpack
         except ImportError:
-            raise ImportError(
-                "MsgpackCacheSerializer requires 'msgpack' package. "
-                "Install with: pip install msgpack"
-            )
+            raise ImportError("MsgpackCacheSerializer requires 'msgpack' package. Install with: pip install msgpack")
         try:
             return msgpack.unpackb(data, raw=False)
         except Exception as e:
@@ -191,8 +185,7 @@ def get_serializer(name: str = "json", *, secret_key: str | bytes | None = None)
     if cls is None:
         raise ConfigInvalidFault(
             key="cache.serializer",
-            reason=f"Unknown serializer: {name!r}. "
-            f"Options: {['json', 'pickle', 'msgpack']}",
+            reason=f"Unknown serializer: {name!r}. Options: {['json', 'pickle', 'msgpack']}",
         )
 
     return cls()

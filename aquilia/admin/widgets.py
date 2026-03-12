@@ -42,26 +42,29 @@ Usage:
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Type, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from aquilia.models.base import Model
+    pass
 
 logger = logging.getLogger("aquilia.admin.widgets")
 
 
 class WidgetSize(Enum):
     """Widget size on the dashboard grid."""
-    SMALL = "sm"        # 1/4 width
-    MEDIUM = "md"       # 1/2 width
-    LARGE = "lg"        # 3/4 width
-    FULL = "full"       # Full width
+
+    SMALL = "sm"  # 1/4 width
+    MEDIUM = "md"  # 1/2 width
+    LARGE = "lg"  # 3/4 width
+    FULL = "full"  # Full width
 
 
 class WidgetPosition(Enum):
     """Widget placement section."""
+
     TOP = "top"
     MAIN = "main"
     SIDEBAR = "sidebar"
@@ -84,24 +87,25 @@ class AdminWidget:
         css_classes: Additional CSS classes
         visible: Whether widget is visible
     """
+
     title: str = ""
     icon: str = ""
     size: WidgetSize = WidgetSize.SMALL
     position: WidgetPosition = WidgetPosition.TOP
     order: int = 0
-    permission: Optional[str] = None
+    permission: str | None = None
     refresh_interval: int = 0
     css_classes: str = ""
     visible: bool = True
 
-    def get_data(self) -> Dict[str, Any]:
+    def get_data(self) -> dict[str, Any]:
         """
         Return data for rendering this widget.
         Override in subclasses for dynamic data.
         """
         return {}
 
-    def to_template_data(self) -> Dict[str, Any]:
+    def to_template_data(self) -> dict[str, Any]:
         """Serialize widget for template rendering."""
         return {
             "type": self.__class__.__name__,
@@ -136,17 +140,18 @@ class CountWidget(AdminWidget):
             color="green",
         )
     """
+
     model_name: str = ""
-    filter_field: Optional[str] = None
+    filter_field: str | None = None
     filter_value: Any = None
     color: str = "blue"
     count: int = 0
-    change_percent: Optional[float] = None
+    change_percent: float | None = None
     trend: str = ""  # "up", "down", "flat"
-    link: str = ""   # URL to navigate to on click
+    link: str = ""  # URL to navigate to on click
     footer_text: str = ""
 
-    def get_data(self) -> Dict[str, Any]:
+    def get_data(self) -> dict[str, Any]:
         return {
             "model_name": self.model_name,
             "filter_field": self.filter_field,
@@ -175,8 +180,9 @@ class StatWidget(AdminWidget):
             color="green",
         )
     """
+
     value: str = ""
-    value_fn: Optional[Callable] = None
+    value_fn: Callable | None = None
     change: str = ""
     trend: str = ""  # "up", "down", "flat"
     color: str = "blue"
@@ -185,7 +191,7 @@ class StatWidget(AdminWidget):
     link: str = ""
     footer_text: str = ""
 
-    def get_data(self) -> Dict[str, Any]:
+    def get_data(self) -> dict[str, Any]:
         val = self.value
         if self.value_fn:
             try:
@@ -220,10 +226,11 @@ class ChartWidget(AdminWidget):
             ],
         )
     """
+
     chart_type: str = "line"  # line, bar, pie, doughnut, area
-    labels: List[str] = field(default_factory=list)
-    datasets: List[Dict[str, Any]] = field(default_factory=list)
-    data_fn: Optional[Callable] = None
+    labels: list[str] = field(default_factory=list)
+    datasets: list[dict[str, Any]] = field(default_factory=list)
+    data_fn: Callable | None = None
     color_scheme: str = "default"
     show_legend: bool = True
     height: int = 300
@@ -239,7 +246,7 @@ class ChartWidget(AdminWidget):
         self.height = kwargs.pop("height", 300)
         super().__init__(**kwargs)
 
-    def get_data(self) -> Dict[str, Any]:
+    def get_data(self) -> dict[str, Any]:
         labels = self.labels
         datasets = self.datasets
         if self.data_fn:
@@ -268,8 +275,9 @@ class RecentActivityWidget(AdminWidget):
 
     Automatically pulls from the audit log.
     """
+
     limit: int = 10
-    actions: Optional[List[str]] = None
+    actions: list[str] | None = None
     show_user: bool = True
     show_timestamp: bool = True
     show_model: bool = True
@@ -286,7 +294,7 @@ class RecentActivityWidget(AdminWidget):
         if self.size == WidgetSize.SMALL:
             self.size = WidgetSize.MEDIUM
 
-    def get_data(self) -> Dict[str, Any]:
+    def get_data(self) -> dict[str, Any]:
         return {
             "limit": self.limit,
             "actions": self.actions,
@@ -313,9 +321,10 @@ class TableWidget(AdminWidget):
             ],
         )
     """
-    columns: List[str] = field(default_factory=list)
-    rows: List[List[Any]] = field(default_factory=list)
-    data_fn: Optional[Callable] = None
+
+    columns: list[str] = field(default_factory=list)
+    rows: list[list[Any]] = field(default_factory=list)
+    data_fn: Callable | None = None
     model_name: str = ""
     show_link: bool = True
     max_rows: int = 10
@@ -331,7 +340,7 @@ class TableWidget(AdminWidget):
         if self.size == WidgetSize.SMALL:
             self.size = WidgetSize.MEDIUM
 
-    def get_data(self) -> Dict[str, Any]:
+    def get_data(self) -> dict[str, Any]:
         columns = self.columns
         rows = self.rows
         if self.data_fn:
@@ -345,7 +354,7 @@ class TableWidget(AdminWidget):
 
         return {
             "columns": columns,
-            "rows": rows[:self.max_rows],
+            "rows": rows[: self.max_rows],
             "model_name": self.model_name,
             "show_link": self.show_link,
             "total_rows": len(rows),
@@ -366,8 +375,9 @@ class ListWidget(AdminWidget):
             ],
         )
     """
-    items: List[Dict[str, Any]] = field(default_factory=list)
-    items_fn: Optional[Callable] = None
+
+    items: list[dict[str, Any]] = field(default_factory=list)
+    items_fn: Callable | None = None
     show_icon: bool = True
 
     def __init__(self, **kwargs):
@@ -376,7 +386,7 @@ class ListWidget(AdminWidget):
         self.show_icon = kwargs.pop("show_icon", True)
         super().__init__(**kwargs)
 
-    def get_data(self) -> Dict[str, Any]:
+    def get_data(self) -> dict[str, Any]:
         items = self.items
         if self.items_fn:
             try:
@@ -403,15 +413,16 @@ class ProgressWidget(AdminWidget):
             ],
         )
     """
-    bars: List[Dict[str, Any]] = field(default_factory=list)
-    bars_fn: Optional[Callable] = None
+
+    bars: list[dict[str, Any]] = field(default_factory=list)
+    bars_fn: Callable | None = None
 
     def __init__(self, **kwargs):
         self.bars = kwargs.pop("bars", [])
         self.bars_fn = kwargs.pop("bars_fn", None)
         super().__init__(**kwargs)
 
-    def get_data(self) -> Dict[str, Any]:
+    def get_data(self) -> dict[str, Any]:
         bars = self.bars
         if self.bars_fn:
             try:
@@ -428,10 +439,11 @@ class CustomHTMLWidget(AdminWidget):
 
     For advanced use cases where built-in widgets don't suffice.
     """
-    html_content: str = ""
-    html_fn: Optional[Callable] = None
 
-    def get_data(self) -> Dict[str, Any]:
+    html_content: str = ""
+    html_fn: Callable | None = None
+
+    def get_data(self) -> dict[str, Any]:
         html = self.html_content
         if self.html_fn:
             try:
@@ -450,7 +462,7 @@ class WidgetRegistry:
     """
 
     def __init__(self):
-        self._widgets: List[AdminWidget] = []
+        self._widgets: list[AdminWidget] = []
 
     def register(self, widget: AdminWidget) -> None:
         """Register a widget."""
@@ -464,7 +476,7 @@ class WidgetRegistry:
         """Remove all widgets."""
         self._widgets.clear()
 
-    def get_widgets(self, position: Optional[WidgetPosition] = None) -> List[AdminWidget]:
+    def get_widgets(self, position: WidgetPosition | None = None) -> list[AdminWidget]:
         """
         Get widgets, optionally filtered by position.
 
@@ -475,11 +487,11 @@ class WidgetRegistry:
             widgets = [w for w in widgets if w.position == position]
         return sorted(widgets, key=lambda w: w.order)
 
-    def get_widgets_by_size(self, size: WidgetSize) -> List[AdminWidget]:
+    def get_widgets_by_size(self, size: WidgetSize) -> list[AdminWidget]:
         """Get widgets of a specific size."""
         return [w for w in self._widgets if w.visible and w.size == size]
 
-    def to_template_data(self, position: Optional[WidgetPosition] = None) -> List[Dict[str, Any]]:
+    def to_template_data(self, position: WidgetPosition | None = None) -> list[dict[str, Any]]:
         """Serialize all matching widgets for template rendering."""
         return [w.to_template_data() for w in self.get_widgets(position)]
 

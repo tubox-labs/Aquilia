@@ -18,14 +18,13 @@ from __future__ import annotations
 from ..blueprints.core import Blueprint
 from ..blueprints.facets import (
     BoolFacet,
-    TextFacet,
+    ChoiceFacet,
     DictFacet,
     FloatFacet,
     IntFacet,
     ListFacet,
-    ChoiceFacet,
+    TextFacet,
 )
-
 
 # ── Provider types ──────────────────────────────────────────────────
 
@@ -51,12 +50,17 @@ class ProviderConfigBlueprint(Blueprint):
         help_text="Provider backend type",
     )
     priority = IntFacet(
-        min_value=0, max_value=1000, default=50, required=False,
+        min_value=0,
+        max_value=1000,
+        default=50,
+        required=False,
         help_text="Lower = preferred",
     )
     enabled = BoolFacet(default=True, required=False)
     rate_limit_per_min = IntFacet(
-        min_value=0, default=600, required=False,
+        min_value=0,
+        default=600,
+        required=False,
         help_text="Max messages per minute for this provider",
     )
     config = DictFacet(default=dict, required=False, help_text="Extra provider-specific options")
@@ -64,7 +68,11 @@ class ProviderConfigBlueprint(Blueprint):
     # SMTP shortcuts
     host = TextFacet(default=None, required=False, allow_null=True)
     port = IntFacet(
-        min_value=1, max_value=65535, default=None, required=False, allow_null=True,
+        min_value=1,
+        max_value=65535,
+        default=None,
+        required=False,
+        allow_null=True,
     )
     username = TextFacet(default=None, required=False, allow_null=True)
     password = TextFacet(default=None, required=False, allow_null=True, write_only=True)
@@ -73,8 +81,12 @@ class ProviderConfigBlueprint(Blueprint):
     timeout = FloatFacet(min_value=0.1, max_value=300.0, default=30.0, required=False)
 
     # Nested auth block (preferred over flat username/password)
-    auth = DictFacet(default=None, required=False, allow_null=True,
-                     help_text="Nested MailAuthConfig dict -- preferred over flat username/password")
+    auth = DictFacet(
+        default=None,
+        required=False,
+        allow_null=True,
+        help_text="Nested MailAuthConfig dict -- preferred over flat username/password",
+    )
 
     def validate(self, attrs: dict) -> dict:
         """Cross-field validation: SMTP needs host."""
@@ -115,75 +127,114 @@ class MailAuthConfigBlueprint(Blueprint):
 
     # ── Plain / NTLM ──
     username = TextFacet(
-        default=None, required=False, allow_null=True,
+        default=None,
+        required=False,
+        allow_null=True,
         help_text="SMTP username or account identifier",
     )
     password = TextFacet(
-        default=None, required=False, allow_null=True, write_only=True,
+        default=None,
+        required=False,
+        allow_null=True,
+        write_only=True,
         help_text="SMTP password or app-specific password (write-only)",
     )
 
     # ── NTLM extras ──
     domain = TextFacet(
-        default=None, required=False, allow_null=True,
+        default=None,
+        required=False,
+        allow_null=True,
         help_text="Windows domain for NTLM authentication",
     )
 
     # ── API-key / SES / SendGrid ──
     api_key = TextFacet(
-        default=None, required=False, allow_null=True, write_only=True,
+        default=None,
+        required=False,
+        allow_null=True,
+        write_only=True,
         help_text="API key for API-key-authenticated providers (write-only)",
     )
     api_key_env = TextFacet(
-        default=None, required=False, allow_null=True,
+        default=None,
+        required=False,
+        allow_null=True,
         help_text="Environment variable name that holds the API key",
     )
 
     # ── AWS SES ──
     aws_access_key_id = TextFacet(
-        default=None, required=False, allow_null=True,
+        default=None,
+        required=False,
+        allow_null=True,
         help_text="AWS access key ID for SES",
     )
     aws_secret_access_key = TextFacet(
-        default=None, required=False, allow_null=True, write_only=True,
+        default=None,
+        required=False,
+        allow_null=True,
+        write_only=True,
         help_text="AWS secret access key for SES (write-only)",
     )
     aws_region = TextFacet(
-        default=None, required=False, allow_null=True,
+        default=None,
+        required=False,
+        allow_null=True,
         help_text="AWS region for SES (e.g. 'us-east-1')",
     )
     aws_session_token = TextFacet(
-        default=None, required=False, allow_null=True, write_only=True,
+        default=None,
+        required=False,
+        allow_null=True,
+        write_only=True,
         help_text="Temporary AWS session token (STS / assume-role)",
     )
 
     # ── OAuth2 ──
     access_token = TextFacet(
-        default=None, required=False, allow_null=True, write_only=True,
+        default=None,
+        required=False,
+        allow_null=True,
+        write_only=True,
         help_text="OAuth2 bearer access token (write-only)",
     )
     refresh_token = TextFacet(
-        default=None, required=False, allow_null=True, write_only=True,
+        default=None,
+        required=False,
+        allow_null=True,
+        write_only=True,
         help_text="OAuth2 refresh token for auto-renewal (write-only)",
     )
     token_url = TextFacet(
-        default=None, required=False, allow_null=True,
+        default=None,
+        required=False,
+        allow_null=True,
         help_text="OAuth2 token endpoint URL",
     )
     client_id = TextFacet(
-        default=None, required=False, allow_null=True,
+        default=None,
+        required=False,
+        allow_null=True,
         help_text="OAuth2 client ID",
     )
     client_secret = TextFacet(
-        default=None, required=False, allow_null=True, write_only=True,
+        default=None,
+        required=False,
+        allow_null=True,
+        write_only=True,
         help_text="OAuth2 client secret (write-only)",
     )
     scope = TextFacet(
-        default=None, required=False, allow_null=True,
+        default=None,
+        required=False,
+        allow_null=True,
         help_text="OAuth2 scope string (space-separated)",
     )
     token_expiry = IntFacet(
-        default=None, required=False, allow_null=True,
+        default=None,
+        required=False,
+        allow_null=True,
         help_text="Unix timestamp when the current access token expires",
     )
 
@@ -216,6 +267,7 @@ class RetryConfigBlueprint(Blueprint):
         mx = attrs.get("max_delay", 3600.0)
         if base > mx:
             from aquilia.faults.domains import ConfigInvalidFault
+
             raise ConfigInvalidFault(
                 key="retry.base_delay",
                 reason="base_delay must be <= max_delay",
@@ -229,7 +281,10 @@ class RateLimitConfigBlueprint(Blueprint):
     global_per_minute = IntFacet(min_value=0, default=1000, required=False)
     per_domain_per_minute = IntFacet(min_value=0, default=100, required=False)
     per_provider_per_minute = IntFacet(
-        min_value=0, default=None, required=False, allow_null=True,
+        min_value=0,
+        default=None,
+        required=False,
+        allow_null=True,
     )
 
 
@@ -322,9 +377,7 @@ class _ConfigObject:
         data = object.__getattribute__(self, "_data")
         if name in data:
             return data[name]
-        raise AttributeError(
-            f"{type(self).__name__!r} has no attribute {name!r}"
-        )
+        raise AttributeError(f"{type(self).__name__!r} has no attribute {name!r}")
 
     def __setattr__(self, name: str, value: Any) -> None:
         data = object.__getattribute__(self, "_data")
@@ -337,10 +390,7 @@ class _ConfigObject:
 
     def __eq__(self, other: object) -> bool:
         if isinstance(other, _ConfigObject):
-            return (
-                object.__getattribute__(self, "_data")
-                == object.__getattribute__(other, "_data")
-            )
+            return object.__getattribute__(self, "_data") == object.__getattribute__(other, "_data")
         return NotImplemented
 
     def to_dict(self) -> dict:
@@ -350,10 +400,7 @@ class _ConfigObject:
             if isinstance(v, _ConfigObject):
                 result[k] = v.to_dict()
             elif isinstance(v, list):
-                result[k] = [
-                    item.to_dict() if isinstance(item, _ConfigObject) else item
-                    for item in v
-                ]
+                result[k] = [item.to_dict() if isinstance(item, _ConfigObject) else item for item in v]
             else:
                 result[k] = v
         return result
@@ -361,31 +408,37 @@ class _ConfigObject:
 
 class ProviderConfig(_ConfigObject):
     """Attribute-access wrapper for a validated provider config."""
+
     _blueprint_cls = ProviderConfigBlueprint
 
 
 class RetryConfig(_ConfigObject):
     """Attribute-access wrapper for a validated retry config."""
+
     _blueprint_cls = RetryConfigBlueprint
 
 
 class RateLimitConfig(_ConfigObject):
     """Attribute-access wrapper for a validated rate-limit config."""
+
     _blueprint_cls = RateLimitConfigBlueprint
 
 
 class SecurityConfig(_ConfigObject):
     """Attribute-access wrapper for a validated security config."""
+
     _blueprint_cls = SecurityConfigBlueprint
 
 
 class TemplateConfig(_ConfigObject):
     """Attribute-access wrapper for a validated template config."""
+
     _blueprint_cls = TemplateConfigBlueprint
 
 
 class QueueConfig(_ConfigObject):
     """Attribute-access wrapper for a validated queue config."""
+
     _blueprint_cls = QueueConfigBlueprint
 
 
@@ -421,15 +474,16 @@ class MailAuthConfig(_ConfigObject):
             aws_region="us-east-1",
         )
     """
+
     _blueprint_cls = MailAuthConfigBlueprint
 
     @classmethod
-    def plain(cls, username: str, password: str) -> "MailAuthConfig":
+    def plain(cls, username: str, password: str) -> MailAuthConfig:
         """Convenience constructor for plain SMTP auth."""
         return cls({"method": "plain", "username": username, "password": password})
 
     @classmethod
-    def api_key(cls, key: Optional[str] = None, *, env: Optional[str] = None) -> "MailAuthConfig":
+    def api_key(cls, key: Optional[str] = None, *, env: Optional[str] = None) -> MailAuthConfig:
         """Convenience constructor for API-key-based auth (SendGrid, etc.)."""
         return cls({"method": "api_key", "api_key": key, "api_key_env": env})
 
@@ -440,15 +494,17 @@ class MailAuthConfig(_ConfigObject):
         secret_access_key: Optional[str] = None,
         region: str = "us-east-1",
         session_token: Optional[str] = None,
-    ) -> "MailAuthConfig":
+    ) -> MailAuthConfig:
         """Convenience constructor for AWS SES credentials."""
-        return cls({
-            "method": "api_key",
-            "aws_access_key_id": access_key_id,
-            "aws_secret_access_key": secret_access_key,
-            "aws_region": region,
-            "aws_session_token": session_token,
-        })
+        return cls(
+            {
+                "method": "api_key",
+                "aws_access_key_id": access_key_id,
+                "aws_secret_access_key": secret_access_key,
+                "aws_region": region,
+                "aws_session_token": session_token,
+            }
+        )
 
     @classmethod
     def oauth2(
@@ -459,20 +515,22 @@ class MailAuthConfig(_ConfigObject):
         scope: Optional[str] = None,
         access_token: Optional[str] = None,
         refresh_token: Optional[str] = None,
-    ) -> "MailAuthConfig":
+    ) -> MailAuthConfig:
         """Convenience constructor for OAuth2 auth."""
-        return cls({
-            "method": "oauth2",
-            "client_id": client_id,
-            "client_secret": client_secret,
-            "token_url": token_url,
-            "scope": scope,
-            "access_token": access_token,
-            "refresh_token": refresh_token,
-        })
+        return cls(
+            {
+                "method": "oauth2",
+                "client_id": client_id,
+                "client_secret": client_secret,
+                "token_url": token_url,
+                "scope": scope,
+                "access_token": access_token,
+                "refresh_token": refresh_token,
+            }
+        )
 
     @classmethod
-    def anonymous(cls) -> "MailAuthConfig":
+    def anonymous(cls) -> MailAuthConfig:
         """Convenience constructor for unauthenticated relay."""
         return cls({"method": "none"})
 
@@ -497,7 +555,7 @@ def _validate_sub(
 
 def _validate_auth(
     value: Any,
-) -> Optional["MailAuthConfig"]:
+) -> Optional[MailAuthConfig]:
     """
     Coerce a raw dict, MailAuthConfig, or None into a validated MailAuthConfig.
     Returns None when the value is None (anonymous / not set).
@@ -578,11 +636,22 @@ class MailConfig:
     """
 
     __slots__ = (
-        "enabled", "default_from", "default_reply_to", "subject_prefix",
-        "providers", "retry", "rate_limit", "security", "templates", "queue",
+        "enabled",
+        "default_from",
+        "default_reply_to",
+        "subject_prefix",
+        "providers",
+        "retry",
+        "rate_limit",
+        "security",
+        "templates",
+        "queue",
         "auth",
-        "console_backend", "file_backend_path", "preview_mode",
-        "metrics_enabled", "tracing_enabled",
+        "console_backend",
+        "file_backend_path",
+        "preview_mode",
+        "metrics_enabled",
+        "tracing_enabled",
     )
 
     def __init__(
@@ -613,13 +682,19 @@ class MailConfig:
         self.providers = _coerce_providers(providers or [])
         self.retry = _coerce_sub(retry, RetryConfigBlueprint, RetryConfig)
         self.rate_limit = _coerce_sub(
-            rate_limit, RateLimitConfigBlueprint, RateLimitConfig,
+            rate_limit,
+            RateLimitConfigBlueprint,
+            RateLimitConfig,
         )
         self.security = _coerce_sub(
-            security, SecurityConfigBlueprint, SecurityConfig,
+            security,
+            SecurityConfigBlueprint,
+            SecurityConfig,
         )
         self.templates = _coerce_sub(
-            templates, TemplateConfigBlueprint, TemplateConfig,
+            templates,
+            TemplateConfigBlueprint,
+            TemplateConfig,
         )
         self.queue = _coerce_sub(queue, QueueConfigBlueprint, QueueConfig)
 
@@ -650,7 +725,7 @@ class MailConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "MailConfig":
+    def from_dict(cls, data: Dict[str, Any]) -> MailConfig:
         """
         Build MailConfig from a configuration dictionary.
 
@@ -710,7 +785,7 @@ class MailConfig:
         )
 
     @classmethod
-    def development(cls) -> "MailConfig":
+    def development(cls) -> MailConfig:
         """Pre-configured for local development (console backend)."""
         return cls(
             console_backend=True,
@@ -722,7 +797,7 @@ class MailConfig:
         )
 
     @classmethod
-    def production(cls, default_from: str, **overrides: Any) -> "MailConfig":
+    def production(cls, default_from: str, **overrides: Any) -> MailConfig:
         """Pre-configured for production with sensible defaults."""
         config = cls(
             default_from=default_from,
@@ -730,11 +805,13 @@ class MailConfig:
             preview_mode=False,
             metrics_enabled=True,
             tracing_enabled=True,
-            security=SecurityConfig({
-                "dkim_enabled": True,
-                "require_tls": True,
-                "pii_redaction_enabled": True,
-            }),
+            security=SecurityConfig(
+                {
+                    "dkim_enabled": True,
+                    "require_tls": True,
+                    "pii_redaction_enabled": True,
+                }
+            ),
         )
         for k, v in overrides.items():
             if hasattr(config, k):

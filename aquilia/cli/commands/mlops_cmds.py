@@ -8,15 +8,15 @@ Registered into the main ``cli`` group by ``__main__.py``.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import sys
 from pathlib import Path
-from typing import Optional
 
 import click
 
-
 # ── helpers ──────────────────────────────────────────────────────────────
+
 
 def _run(coro):
     """Run an awaitable -- Python 3.14+ compatible."""
@@ -26,6 +26,7 @@ def _run(coro):
 # ═══════════════════════════════════════════════════════════════════════════
 # aq pack -- model packaging
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 @click.group("pack")
 def pack_group():
@@ -99,7 +100,7 @@ def pack_verify(archive_path, key):
     Examples:
       aq pack verify my-model-v1.0.0.aquilia --key mysecret
     """
-    from aquilia.mlops.pack.signer import verify_archive, HMACSigner
+    from aquilia.mlops.pack.signer import HMACSigner, verify_archive
 
     async def _verify():
         sig_path = archive_path + ".sig"
@@ -146,8 +147,10 @@ def pack_push(archive_path, registry, tag):
         await svc.initialize()
 
         from aquilia.mlops.pack.builder import ModelpackBuilder
+
         manifest_data = await ModelpackBuilder.inspect(archive_path)
         from aquilia.mlops._types import ModelpackManifest
+
         manifest = ModelpackManifest.from_dict(manifest_data)
         digest = await svc.publish(manifest, archive_path)
 
@@ -167,6 +170,7 @@ def pack_push(archive_path, registry, tag):
 # ═══════════════════════════════════════════════════════════════════════════
 # aq model -- model serving
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 @click.group("model")
 def model_group():
@@ -195,8 +199,8 @@ def model_serve(model_path, runtime, host, port, batch_size, batch_latency_ms):
     click.echo(f"  Batch:   {batch_size} / {batch_latency_ms}ms")
 
     async def _serve():
+        from aquilia.mlops._types import BlobRef, Framework, ModelpackManifest, TensorSpec
         from aquilia.mlops.serving.server import ModelServingServer
-        from aquilia.mlops._types import ModelpackManifest, TensorSpec, BlobRef, Framework
 
         fw = runtime if runtime != "python" else "pytorch"
         try:
@@ -222,6 +226,7 @@ def model_serve(model_path, runtime, host, port, batch_size, batch_latency_ms):
 
         # Keep alive
         import signal
+
         stop = asyncio.Event()
         for sig in (signal.SIGINT, signal.SIGTERM):
             asyncio.get_running_loop().add_signal_handler(sig, stop.set)
@@ -240,6 +245,7 @@ def model_serve(model_path, runtime, host, port, batch_size, batch_latency_ms):
 def model_health(url):
     """Check model server health."""
     import urllib.request
+
     try:
         with urllib.request.urlopen(f"{url}/health", timeout=5) as r:
             data = json.loads(r.read())
@@ -252,6 +258,7 @@ def model_health(url):
 # ═══════════════════════════════════════════════════════════════════════════
 # aq mlops-deploy -- MLOps deployment & rollout
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 @click.group("mlops-deploy")
 def deploy_group():
@@ -297,14 +304,19 @@ def deploy_rollout(model_name, from_version, to_version, strategy, steps, error_
 
     state = _run(_rollout())
     click.echo(click.style(f"Rollout started: {state.id}", fg="green"))
-    click.echo(json.dumps({
-        "model": model_name,
-        "from": from_version,
-        "to": to_version,
-        "strategy": strategy,
-        "initial_percentage": config.percentage,
-        "error_threshold": error_threshold,
-    }, indent=2))
+    click.echo(
+        json.dumps(
+            {
+                "model": model_name,
+                "from": from_version,
+                "to": to_version,
+                "strategy": strategy,
+                "initial_percentage": config.percentage,
+                "error_threshold": error_threshold,
+            },
+            indent=2,
+        )
+    )
 
 
 @deploy_group.command("ci-template")
@@ -334,6 +346,7 @@ def deploy_ci_template(registry, output):
 # aq observe -- observability
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 @click.group("observe")
 def observe_group():
     """Observability and monitoring commands."""
@@ -360,15 +373,13 @@ def observe_drift(reference_csv, current_csv, method, threshold):
             rows = list(reader)
         # Build column arrays
         cols = {}
-        for col in rows[0].keys():
-            try:
+        for col in rows[0]:
+            with contextlib.suppress(ValueError, TypeError):
                 cols[col] = [float(r[col]) for r in rows]
-            except (ValueError, TypeError):
-                pass
         return cols
 
-    from aquilia.mlops.observe.drift import DriftDetector
     from aquilia.mlops._types import DriftMethod
+    from aquilia.mlops.observe.drift import DriftDetector
 
     ref_cols = _load_csv(reference_csv)
     cur_cols = _load_csv(current_csv)
@@ -411,6 +422,7 @@ def observe_metrics(fmt):
 # aq export -- edge / optimised export
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 @click.group("export")
 def export_group():
     """Export and optimise models for edge / production."""
@@ -432,12 +444,13 @@ def export_onnx(model_path, output, opset):
 
     async def _export():
         from aquilia.mlops.optimizer.pipeline import OptimizationPipeline
+
         pipeline = OptimizationPipeline()
         result = await pipeline.to_onnx(model_path, output, opset_version=opset)
         return result
 
     try:
-        result = _run(_export())
+        _run(_export())
         click.echo(click.style(f"ONNX model saved: {output}", fg="green"))
     except Exception as e:
         click.echo(click.style(f"Export failed: {e}", fg="red"))
@@ -463,8 +476,9 @@ def export_edge(model_path, target, output):
     click.echo(f"Exporting {model_path} → {target} ...")
 
     async def _export():
-        from aquilia.mlops.optimizer.export import EdgeExporter
         from aquilia.mlops._types import ExportTarget
+        from aquilia.mlops.optimizer.export import EdgeExporter
+
         exporter = EdgeExporter()
         return await exporter.export(model_path, ExportTarget(target), output)
 
@@ -479,6 +493,7 @@ def export_edge(model_path, target, output):
 # ═══════════════════════════════════════════════════════════════════════════
 # aq plugin -- plugin management
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 @click.group("plugin")
 def plugin_group():
@@ -521,7 +536,7 @@ def plugin_install(package_name):
     if ok:
         click.echo(click.style(f"Installed {package_name}", fg="green"))
     else:
-        click.echo(click.style(f"Installation failed", fg="red"))
+        click.echo(click.style("Installation failed", fg="red"))
         sys.exit(1)
 
 
@@ -536,7 +551,7 @@ def plugin_uninstall(package_name):
     if ok:
         click.echo(click.style(f"Uninstalled {package_name}", fg="green"))
     else:
-        click.echo(click.style(f"Uninstallation failed", fg="red"))
+        click.echo(click.style("Uninstallation failed", fg="red"))
         sys.exit(1)
 
 
@@ -577,6 +592,7 @@ def plugin_search(query, verified_only):
 # ═══════════════════════════════════════════════════════════════════════════
 # aq lineage -- model lineage tracking
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 @click.group("lineage")
 def lineage_group():
@@ -681,6 +697,7 @@ def lineage_path(from_model, to_model):
 # aq experiment -- A/B experiment management
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 @click.group("experiment")
 def experiment_group():
     """A/B experiment management commands."""
@@ -708,13 +725,15 @@ def experiment_create(experiment_id, description, arm):
         if len(parts) < 2:
             click.echo(click.style(f"Invalid arm spec: {a} (expected name:version[:weight])", fg="red"))
             sys.exit(1)
-        arms.append({
-            "name": parts[0],
-            "model_version": parts[1],
-            "weight": float(parts[2]) if len(parts) > 2 else 0.5,
-        })
+        arms.append(
+            {
+                "name": parts[0],
+                "model_version": parts[1],
+                "weight": float(parts[2]) if len(parts) > 2 else 0.5,
+            }
+        )
 
-    exp = ledger.create(experiment_id, description=description, arms=arms)
+    ledger.create(experiment_id, description=description, arms=arms)
     click.echo(click.style(f"Experiment created: {experiment_id}", fg="green"))
     click.echo(json.dumps(ledger.summary(experiment_id), indent=2, default=str))
 

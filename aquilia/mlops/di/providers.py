@@ -27,10 +27,10 @@ Or manual DI wiring::
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, Optional
+from typing import Any
 
 from aquilia.di import Container
-from aquilia.di.providers import ValueProvider, FactoryProvider, ClassProvider
+from aquilia.di.providers import ValueProvider
 
 logger = logging.getLogger("aquilia.mlops.di")
 
@@ -78,7 +78,7 @@ class MLOpsConfig:
         "fault_engine_debug",
     )
 
-    def __init__(self, config_dict: Optional[Dict[str, Any]] = None):
+    def __init__(self, config_dict: dict[str, Any] | None = None):
         d = config_dict or {}
         self.enabled: bool = d.get("enabled", True)
         self.registry_db: str = d.get("registry_db", "registry.db")
@@ -92,12 +92,12 @@ class MLOpsConfig:
         self.batching_strategy: str = d.get("batching_strategy", "hybrid")
         self.sample_rate: float = d.get("sample_rate", 0.01)
         self.log_dir: str = d.get("log_dir", "prediction_logs")
-        self.hmac_secret: Optional[str] = d.get("hmac_secret")
-        self.signing_private_key: Optional[str] = d.get("signing_private_key")
-        self.signing_public_key: Optional[str] = d.get("signing_public_key")
-        self.encryption_key: Optional[bytes] = d.get("encryption_key")
+        self.hmac_secret: str | None = d.get("hmac_secret")
+        self.signing_private_key: str | None = d.get("signing_private_key")
+        self.signing_public_key: str | None = d.get("signing_public_key")
+        self.encryption_key: bytes | None = d.get("encryption_key")
         self.plugin_auto_discover: bool = d.get("plugin_auto_discover", True)
-        self.scaling_policy: Optional[Dict[str, Any]] = d.get("scaling_policy")
+        self.scaling_policy: dict[str, Any] | None = d.get("scaling_policy")
         self.metrics_model_name: str = d.get("metrics_model_name", "")
         self.metrics_model_version: str = d.get("metrics_model_version", "")
         # LLM/SLM
@@ -117,7 +117,7 @@ class MLOpsConfig:
 
 def register_mlops_providers(
     container: Container,
-    config: Optional[Dict[str, Any]] = None,
+    config: dict[str, Any] | None = None,
 ) -> None:
     """
     Register all MLOps services as DI providers.
@@ -152,23 +152,6 @@ def register_mlops_providers(
     - ``CacheService`` -- caching layer (resolve from container or skip)
     - ``FilesystemArtifactStore`` -- artifact storage (singleton)
     """
-    from ..observe.metrics import MetricsCollector
-    from ..observe.drift import DriftDetector
-    from ..observe.logger import PredictionLogger
-    from ..registry.service import RegistryService
-    from ..plugins.host import PluginHost
-    from ..serving.router import TrafficRouter
-    from ..release.rollout import RolloutEngine
-    from ..scheduler.autoscaler import Autoscaler, ScalingPolicy
-    from ..scheduler.placement import PlacementScheduler
-    from ..security.rbac import RBACManager
-    from ..security.signing import ArtifactSigner, EncryptionManager
-    from ..security.encryption import BlobEncryptor
-    from ..orchestrator.orchestrator import ModelOrchestrator
-    from ..orchestrator.persistence import ModelPersistenceManager
-    from ..orchestrator.loader import ModelLoader
-    from ..serving.router import TrafficRouter
-    from .._types import DriftMethod, BatchingStrategy
     from .._structures import (
         CircuitBreaker,
         ExperimentLedger,
@@ -176,27 +159,47 @@ def register_mlops_providers(
         ModelLineageDAG,
         TokenBucketRateLimiter,
     )
+    from .._types import DriftMethod
+    from ..observe.drift import DriftDetector
+    from ..observe.logger import PredictionLogger
+    from ..observe.metrics import MetricsCollector
+    from ..orchestrator.loader import ModelLoader
+    from ..orchestrator.orchestrator import ModelOrchestrator
+    from ..orchestrator.persistence import ModelPersistenceManager
+    from ..plugins.host import PluginHost
+    from ..registry.service import RegistryService
+    from ..release.rollout import RolloutEngine
+    from ..scheduler.autoscaler import Autoscaler, ScalingPolicy
+    from ..scheduler.placement import PlacementScheduler
+    from ..security.encryption import BlobEncryptor
+    from ..security.rbac import RBACManager
+    from ..security.signing import ArtifactSigner, EncryptionManager
     from ..serving.controllers import MLOpsController
+    from ..serving.router import TrafficRouter
 
     cfg = MLOpsConfig(config)
 
     # Config singleton
-    container.register(ValueProvider(
-        value=cfg,
-        token=MLOpsConfig,
-        scope="singleton",
-    ))
+    container.register(
+        ValueProvider(
+            value=cfg,
+            token=MLOpsConfig,
+            scope="singleton",
+        )
+    )
 
     # Metrics Collector
     collector = MetricsCollector(
         model_name=cfg.metrics_model_name,
         model_version=cfg.metrics_model_version,
     )
-    container.register(ValueProvider(
-        value=collector,
-        token=MetricsCollector,
-        scope="singleton",
-    ))
+    container.register(
+        ValueProvider(
+            value=collector,
+            token=MetricsCollector,
+            scope="singleton",
+        )
+    )
 
     # Drift Detector
     method = DriftMethod(cfg.drift_method)
@@ -205,70 +208,84 @@ def register_mlops_providers(
         threshold=cfg.drift_threshold,
         num_bins=cfg.drift_num_bins,
     )
-    container.register(ValueProvider(
-        value=detector,
-        token=DriftDetector,
-        scope="singleton",
-    ))
+    container.register(
+        ValueProvider(
+            value=detector,
+            token=DriftDetector,
+            scope="singleton",
+        )
+    )
 
     # Prediction Logger
     pred_logger = PredictionLogger(
         sample_rate=cfg.sample_rate,
         log_dir=cfg.log_dir,
     )
-    container.register(ValueProvider(
-        value=pred_logger,
-        token=PredictionLogger,
-        scope="singleton",
-    ))
+    container.register(
+        ValueProvider(
+            value=pred_logger,
+            token=PredictionLogger,
+            scope="singleton",
+        )
+    )
 
     # Registry Service
     registry = RegistryService(
         db_path=cfg.registry_db,
         blob_root=cfg.blob_root,
     )
-    container.register(ValueProvider(
-        value=registry,
-        token=RegistryService,
-        scope="singleton",
-    ))
+    container.register(
+        ValueProvider(
+            value=registry,
+            token=RegistryService,
+            scope="singleton",
+        )
+    )
 
     # Model Persistence Manager
     persistence = ModelPersistenceManager(root_dir=cfg.blob_root)
-    container.register(ValueProvider(
-        value=persistence,
-        token=ModelPersistenceManager,
-        scope="singleton",
-    ))
+    container.register(
+        ValueProvider(
+            value=persistence,
+            token=ModelPersistenceManager,
+            scope="singleton",
+        )
+    )
 
     # Model Loader
     loader = ModelLoader(
         registry=registry,
         persistence_manager=persistence,
     )
-    container.register(ValueProvider(
-        value=loader,
-        token=ModelLoader,
-        scope="singleton",
-    ))
+    container.register(
+        ValueProvider(
+            value=loader,
+            token=ModelLoader,
+            scope="singleton",
+        )
+    )
 
     # Plugin Host
     host = PluginHost()
     if cfg.plugin_auto_discover:
         host.discover_entrypoints()
-    container.register(ValueProvider(
-        value=host,
-        token=PluginHost,
-        scope="singleton",
-    ))
+    container.register(
+        ValueProvider(
+            value=host,
+            token=PluginHost,
+            scope="singleton",
+        )
+    )
 
     # Traffic Router
     router = TrafficRouter()
-    container.register(ValueProvider(
-        value=router,
-        token=TrafficRouter,
-        scope="singleton",
-    ))
+    container.register(
+        ValueProvider(
+            value=router,
+            token=TrafficRouter,
+            scope="singleton",
+        )
+    )
 
     # Model Orchestrator
     orchestrator = ModelOrchestrator(
@@ -276,44 +293,54 @@ def register_mlops_providers(
         router=router,
         loader=loader,
     )
-    container.register(ValueProvider(
-        value=orchestrator,
-        token=ModelOrchestrator,
-        scope="singleton",
-    ))
+    container.register(
+        ValueProvider(
+            value=orchestrator,
+            token=ModelOrchestrator,
+            scope="singleton",
+        )
+    )
 
     # Rollout Engine
     rollout_engine = RolloutEngine(router=router)
-    container.register(ValueProvider(
-        value=rollout_engine,
-        token=RolloutEngine,
-        scope="singleton",
-    ))
+    container.register(
+        ValueProvider(
+            value=rollout_engine,
+            token=RolloutEngine,
+            scope="singleton",
+        )
+    )
 
     # Autoscaler
     policy = ScalingPolicy(**(cfg.scaling_policy or {}))
     autoscaler = Autoscaler(policy=policy)
-    container.register(ValueProvider(
-        value=autoscaler,
-        token=Autoscaler,
-        scope="singleton",
-    ))
+    container.register(
+        ValueProvider(
+            value=autoscaler,
+            token=Autoscaler,
+            scope="singleton",
+        )
+    )
 
     # Placement Scheduler
     placement = PlacementScheduler()
-    container.register(ValueProvider(
-        value=placement,
-        token=PlacementScheduler,
-        scope="singleton",
-    ))
+    container.register(
+        ValueProvider(
+            value=placement,
+            token=PlacementScheduler,
+            scope="singleton",
+        )
+    )
 
     # RBAC Manager
     rbac = RBACManager()
-    container.register(ValueProvider(
-        value=rbac,
-        token=RBACManager,
-        scope="singleton",
-    ))
+    container.register(
+        ValueProvider(
+            value=rbac,
+            token=RBACManager,
+            scope="singleton",
+        )
+    )
 
     # Artifact Signer
     signer = ArtifactSigner(
@@ -321,78 +348,94 @@ def register_mlops_providers(
         private_key_path=cfg.signing_private_key,
         public_key_path=cfg.signing_public_key,
     )
-    container.register(ValueProvider(
-        value=signer,
-        token=ArtifactSigner,
-        scope="singleton",
-    ))
+    container.register(
+        ValueProvider(
+            value=signer,
+            token=ArtifactSigner,
+            scope="singleton",
+        )
+    )
 
     # Encryption Manager
     enc_mgr = EncryptionManager(key=cfg.encryption_key)
-    container.register(ValueProvider(
-        value=enc_mgr,
-        token=EncryptionManager,
-        scope="singleton",
-    ))
+    container.register(
+        ValueProvider(
+            value=enc_mgr,
+            token=EncryptionManager,
+            scope="singleton",
+        )
+    )
 
     # Blob Encryptor
     blob_enc = BlobEncryptor(key=cfg.encryption_key)
-    container.register(ValueProvider(
-        value=blob_enc,
-        token=BlobEncryptor,
-        scope="singleton",
-    ))
+    container.register(
+        ValueProvider(
+            value=blob_enc,
+            token=BlobEncryptor,
+            scope="singleton",
+        )
+    )
 
     # Circuit Breaker
     circuit_breaker = CircuitBreaker(
         failure_threshold=cfg.circuit_breaker_failure_threshold,
         timeout_seconds=cfg.circuit_breaker_timeout,
     )
-    container.register(ValueProvider(
-        value=circuit_breaker,
-        token=CircuitBreaker,
-        scope="singleton",
-    ))
+    container.register(
+        ValueProvider(
+            value=circuit_breaker,
+            token=CircuitBreaker,
+            scope="singleton",
+        )
+    )
 
     # Rate Limiter (only if rps > 0)
-    rate_limiter: Optional[TokenBucketRateLimiter] = None
+    rate_limiter: TokenBucketRateLimiter | None = None
     if cfg.rate_limit_rps > 0:
         cap = cfg.rate_limit_capacity or int(cfg.rate_limit_rps * 10)
         rate_limiter = TokenBucketRateLimiter(rate=cfg.rate_limit_rps, capacity=cap)
-    container.register(ValueProvider(
-        value=rate_limiter,
-        token=TokenBucketRateLimiter,
-        scope="singleton",
-    ))
+    container.register(
+        ValueProvider(
+            value=rate_limiter,
+            token=TokenBucketRateLimiter,
+            scope="singleton",
+        )
+    )
 
     # Memory Tracker (only if hard limit > 0)
-    memory_tracker: Optional[MemoryTracker] = None
+    memory_tracker: MemoryTracker | None = None
     if cfg.memory_hard_limit_mb > 0:
         memory_tracker = MemoryTracker(
             soft_limit_mb=cfg.memory_soft_limit_mb or cfg.memory_hard_limit_mb,
             hard_limit_mb=cfg.memory_hard_limit_mb,
         )
-    container.register(ValueProvider(
-        value=memory_tracker,
-        token=MemoryTracker,
-        scope="singleton",
-    ))
+    container.register(
+        ValueProvider(
+            value=memory_tracker,
+            token=MemoryTracker,
+            scope="singleton",
+        )
+    )
 
     # Model Lineage DAG
     lineage_dag = ModelLineageDAG()
-    container.register(ValueProvider(
-        value=lineage_dag,
-        token=ModelLineageDAG,
-        scope="singleton",
-    ))
+    container.register(
+        ValueProvider(
+            value=lineage_dag,
+            token=ModelLineageDAG,
+            scope="singleton",
+        )
+    )
 
     # Experiment Ledger
     experiment_ledger = ExperimentLedger()
-    container.register(ValueProvider(
-        value=experiment_ledger,
-        token=ExperimentLedger,
-        scope="singleton",
-    ))
+    container.register(
+        ValueProvider(
+            value=experiment_ledger,
+            token=ExperimentLedger,
+            scope="singleton",
+        )
+    )
 
     # ── Aquilia Ecosystem Services ───────────────────────────────────
 
@@ -400,23 +443,27 @@ def register_mlops_providers(
     fault_engine = None
     try:
         from aquilia.faults import FaultEngine
+
         # Check if FaultEngine was pre-registered (e.g. by the app)
-        token_key = container._token_to_key(FaultEngine) if hasattr(container, '_token_to_key') else None
-        cached = container._cache.get(token_key) if token_key and hasattr(container, '_cache') else None
+        token_key = container._token_to_key(FaultEngine) if hasattr(container, "_token_to_key") else None
+        cached = container._cache.get(token_key) if token_key and hasattr(container, "_cache") else None
         if cached is not None:
             fault_engine = cached
         else:
             fault_engine = FaultEngine(debug=cfg.fault_engine_debug)
-            container.register(ValueProvider(
-                value=fault_engine,
-                token=FaultEngine,
-                scope="singleton",
-            ))
+            container.register(
+                ValueProvider(
+                    value=fault_engine,
+                    token=FaultEngine,
+                    scope="singleton",
+                )
+            )
 
         # Register MLOps-specific fault handler
-        from ..engine.faults import MLOpsFault
+        from aquilia.faults.core import Escalate, FaultContext
         from aquilia.faults.handlers import FaultHandler
-        from aquilia.faults.core import FaultContext, Escalate
+
+        from ..engine.faults import MLOpsFault
 
         class MLOpsFaultHandler(FaultHandler):
             """Handler that logs MLOps-domain faults with structured metadata."""
@@ -432,45 +479,52 @@ def register_mlops_providers(
                 return Escalate()
 
         fault_engine.register_app("mlops", MLOpsFaultHandler())
-    except Exception as exc:
+    except Exception:
         pass
 
     # CacheService -- resolve from container if available
     cache_service = None
     try:
         from aquilia.cache import CacheService
+
         # Check if CacheService was pre-registered
-        token_key = container._token_to_key(CacheService) if hasattr(container, '_token_to_key') else None
-        cached = container._cache.get(token_key) if token_key and hasattr(container, '_cache') else None
+        token_key = container._token_to_key(CacheService) if hasattr(container, "_token_to_key") else None
+        cached = container._cache.get(token_key) if token_key and hasattr(container, "_cache") else None
         if cached is not None:
             cache_service = cached
         elif cfg.cache_enabled:
-            from aquilia.cache import MemoryBackend, CacheConfig
+            from aquilia.cache import CacheConfig, MemoryBackend
+
             backend = MemoryBackend(max_size=1024)
             cache_config = CacheConfig(
                 default_ttl=cfg.cache_ttl,
                 namespace=cfg.cache_namespace,
             )
             cache_service = CacheService(backend, cache_config)
-            container.register(ValueProvider(
-                value=cache_service,
-                token=CacheService,
-                scope="singleton",
-            ))
-    except Exception as exc:
+            container.register(
+                ValueProvider(
+                    value=cache_service,
+                    token=CacheService,
+                    scope="singleton",
+                )
+            )
+    except Exception:
         pass
 
     # ArtifactStore -- for model artifact management
     artifact_store = None
     try:
         from aquilia.artifacts import FilesystemArtifactStore
+
         artifact_store = FilesystemArtifactStore(cfg.artifact_store_dir)
-        container.register(ValueProvider(
-            value=artifact_store,
-            token=FilesystemArtifactStore,
-            scope="singleton",
-        ))
-    except Exception as exc:
+        container.register(
+            ValueProvider(
+                value=artifact_store,
+                token=FilesystemArtifactStore,
+                scope="singleton",
+            )
+        )
+    except Exception:
         pass
 
     # MLOps Controller (with ecosystem services injected)
@@ -487,8 +541,10 @@ def register_mlops_providers(
         fault_engine=fault_engine,
         artifact_store=artifact_store,
     )
-    container.register(ValueProvider(
-        value=controller,
-        token=MLOpsController,
-        scope="singleton",
-    ))
+    container.register(
+        ValueProvider(
+            value=controller,
+            token=MLOpsController,
+            scope="singleton",
+        )
+    )

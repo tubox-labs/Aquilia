@@ -22,18 +22,12 @@ Design notes:
 
 from __future__ import annotations
 
-import io
-import os
-from pathlib import Path
+import contextlib
+from collections.abc import AsyncIterator, Iterable
 from typing import (
     Any,
-    AsyncIterator,
-    Iterable,
-    Optional,
-    Union,
 )
 
-from ._config import FileSystemConfig
 from ._errors import FileClosedFault, wrap_os_error
 from ._pool import FileSystemPool
 
@@ -108,13 +102,13 @@ class AsyncFile:
         return self._closed
 
     @property
-    def encoding(self) -> Optional[str]:
+    def encoding(self) -> str | None:
         """Text encoding (None for binary files)."""
         return self._encoding
 
     # ── Reading ──────────────────────────────────────────────────────────
 
-    async def read(self, size: int = -1) -> Union[bytes, str]:
+    async def read(self, size: int = -1) -> bytes | str:
         """
         Read up to ``size`` bytes/characters.
 
@@ -132,7 +126,7 @@ class AsyncFile:
         except Exception as exc:
             raise wrap_os_error(exc, "read", self._name) from exc
 
-    async def readline(self) -> Union[bytes, str]:
+    async def readline(self) -> bytes | str:
         """Read a single line."""
         self._check_closed("readline")
         try:
@@ -140,7 +134,7 @@ class AsyncFile:
         except Exception as exc:
             raise wrap_os_error(exc, "readline", self._name) from exc
 
-    async def readlines(self) -> list[Union[bytes, str]]:
+    async def readlines(self) -> list[bytes | str]:
         """Read all lines into a list."""
         self._check_closed("readlines")
         try:
@@ -170,7 +164,7 @@ class AsyncFile:
 
     # ── Writing ──────────────────────────────────────────────────────────
 
-    async def write(self, data: Union[bytes, str]) -> int:
+    async def write(self, data: bytes | str) -> int:
         """
         Write data to the file.
 
@@ -187,10 +181,7 @@ class AsyncFile:
 
         if self._write_buffer is not None and self._write_buffer_size > 0:
             # Buffered write path
-            if isinstance(data, str):
-                raw = data.encode(self._encoding or "utf-8")
-            else:
-                raw = data
+            raw = data.encode(self._encoding or "utf-8") if isinstance(data, str) else data
             self._write_buffer.extend(raw)
             written = len(data)
 
@@ -204,7 +195,7 @@ class AsyncFile:
             except Exception as exc:
                 raise wrap_os_error(exc, "write", self._name) from exc
 
-    async def writelines(self, lines: Iterable[Union[bytes, str]]) -> None:
+    async def writelines(self, lines: Iterable[bytes | str]) -> None:
         """Write an iterable of lines."""
         self._check_closed("writelines")
         for line in lines:
@@ -223,7 +214,7 @@ class AsyncFile:
         except Exception as exc:
             raise wrap_os_error(exc, "flush", self._name) from exc
 
-    async def truncate(self, size: Optional[int] = None) -> int:
+    async def truncate(self, size: int | None = None) -> int:
         """Truncate the file to at most ``size`` bytes."""
         self._check_closed("truncate")
         await self._flush_buffer()
@@ -295,7 +286,7 @@ class AsyncFile:
         except Exception:
             pass  # Best-effort on close
 
-    async def __aenter__(self) -> "AsyncFile":
+    async def __aenter__(self) -> AsyncFile:
         return self
 
     async def __aexit__(self, *exc: Any) -> None:
@@ -303,11 +294,11 @@ class AsyncFile:
 
     # ── Async Iteration ──────────────────────────────────────────────────
 
-    def __aiter__(self) -> AsyncIterator[Union[bytes, str]]:
+    def __aiter__(self) -> AsyncIterator[bytes | str]:
         """Iterate over lines (text mode) or chunks (binary mode)."""
         return self._aiter_impl()
 
-    async def _aiter_impl(self) -> AsyncIterator[Union[bytes, str]]:
+    async def _aiter_impl(self) -> AsyncIterator[bytes | str]:
         """Internal async iterator."""
         while True:
             line = await self.readline()
@@ -358,10 +349,8 @@ class AsyncFile:
     def __del__(self) -> None:
         """Best-effort cleanup on garbage collection."""
         if not self._closed and self._fp and not getattr(self._fp, "closed", True):
-            try:
+            with contextlib.suppress(Exception):
                 self._fp.close()
-            except Exception:
-                pass
 
     def __repr__(self) -> str:
         state = "closed" if self._closed else "open"

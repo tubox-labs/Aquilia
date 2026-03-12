@@ -24,12 +24,9 @@ from __future__ import annotations
 
 import json
 import logging
-import os
-import shutil
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set
 
-from .core import Artifact, ArtifactEnvelope, ArtifactIntegrity
+from .core import Artifact
 
 logger = logging.getLogger("aquilia.artifacts.store")
 
@@ -43,10 +40,10 @@ class ArtifactStoreProtocol:
     def save(self, artifact: Artifact) -> str:
         raise NotImplementedError
 
-    def load(self, name: str, *, version: str = "") -> Optional[Artifact]:
+    def load(self, name: str, *, version: str = "") -> Artifact | None:
         raise NotImplementedError
 
-    def load_by_digest(self, digest: str) -> Optional[Artifact]:
+    def load_by_digest(self, digest: str) -> Artifact | None:
         raise NotImplementedError
 
     def list_artifacts(
@@ -55,7 +52,7 @@ class ArtifactStoreProtocol:
         kind: str = "",
         tag_key: str = "",
         tag_value: str = "",
-    ) -> List[Artifact]:
+    ) -> list[Artifact]:
         raise NotImplementedError
 
     def delete(self, name: str, *, version: str = "") -> int:
@@ -79,21 +76,21 @@ class MemoryArtifactStore(ArtifactStoreProtocol):
 
     def __init__(self) -> None:
         # key = (name, version)
-        self._artifacts: Dict[tuple, Artifact] = {}
+        self._artifacts: dict[tuple, Artifact] = {}
 
     def save(self, artifact: Artifact) -> str:
         key = (artifact.name, artifact.version)
         self._artifacts[key] = artifact
         return artifact.digest
 
-    def load(self, name: str, *, version: str = "") -> Optional[Artifact]:
+    def load(self, name: str, *, version: str = "") -> Artifact | None:
         if version:
             return self._artifacts.get((name, version))
         # Return latest (last inserted with this name)
         matches = [a for (n, _v), a in self._artifacts.items() if n == name]
         return matches[-1] if matches else None
 
-    def load_by_digest(self, digest: str) -> Optional[Artifact]:
+    def load_by_digest(self, digest: str) -> Artifact | None:
         for a in self._artifacts.values():
             if a.digest == digest:
                 return a
@@ -105,8 +102,8 @@ class MemoryArtifactStore(ArtifactStoreProtocol):
         kind: str = "",
         tag_key: str = "",
         tag_value: str = "",
-    ) -> List[Artifact]:
-        result: List[Artifact] = []
+    ) -> list[Artifact]:
+        result: list[Artifact] = []
         for a in self._artifacts.values():
             if kind and a.kind != kind:
                 continue
@@ -118,10 +115,7 @@ class MemoryArtifactStore(ArtifactStoreProtocol):
         return result
 
     def delete(self, name: str, *, version: str = "") -> int:
-        keys = [
-            k for k in self._artifacts
-            if k[0] == name and (not version or k[1] == version)
-        ]
+        keys = [k for k in self._artifacts if k[0] == name and (not version or k[1] == version)]
         for k in keys:
             del self._artifacts[k]
         return len(keys)
@@ -131,7 +125,7 @@ class MemoryArtifactStore(ArtifactStoreProtocol):
             return (name, version) in self._artifacts
         return any(n == name for n, _v in self._artifacts)
 
-    def gc(self, referenced: Set[str]) -> int:
+    def gc(self, referenced: set[str]) -> int:
         """Remove artifacts whose digest is not in *referenced*."""
         to_remove = [k for k, a in self._artifacts.items() if a.digest not in referenced]
         for k in to_remove:
@@ -193,10 +187,12 @@ class FilesystemArtifactStore(ArtifactStoreProtocol):
         """Initialize Crous encoder/decoder (native → pure Python fallback)."""
         try:
             import _crous_native as backend
+
             return backend
         except ImportError:
             try:
                 import crous as backend
+
                 return backend
             except ImportError:
                 return None
@@ -252,7 +248,7 @@ class FilesystemArtifactStore(ArtifactStoreProtocol):
 
         return artifact.digest
 
-    def load(self, name: str, *, version: str = "") -> Optional[Artifact]:
+    def load(self, name: str, *, version: str = "") -> Artifact | None:
         if version:
             path = self._artifact_path(name, version)
             if not path.exists():
@@ -261,7 +257,7 @@ class FilesystemArtifactStore(ArtifactStoreProtocol):
 
         # No version -- find latest by name prefix
         prefix = name.replace("/", "_").replace(":", "_").replace(" ", "_") + "-"
-        matches: List[Artifact] = []
+        matches: list[Artifact] = []
         for f in self._iter_files():
             if f.name.startswith(prefix):
                 a = self._read(f)
@@ -269,7 +265,7 @@ class FilesystemArtifactStore(ArtifactStoreProtocol):
                     matches.append(a)
         return matches[-1] if matches else None
 
-    def load_by_digest(self, digest: str) -> Optional[Artifact]:
+    def load_by_digest(self, digest: str) -> Artifact | None:
         for f in self._iter_files():
             a = self._read(f)
             if a and a.digest == digest:
@@ -282,8 +278,8 @@ class FilesystemArtifactStore(ArtifactStoreProtocol):
         kind: str = "",
         tag_key: str = "",
         tag_value: str = "",
-    ) -> List[Artifact]:
-        result: List[Artifact] = []
+    ) -> list[Artifact]:
+        result: list[Artifact] = []
         for f in self._iter_files():
             a = self._read(f)
             if a is None:
@@ -311,8 +307,10 @@ class FilesystemArtifactStore(ArtifactStoreProtocol):
         else:
             prefix = name.replace("/", "_").replace(":", "_").replace(" ", "_") + "-"
             for f in list(self.root.iterdir()):
-                if f.is_file() and f.name.startswith(prefix) and (
-                    f.name.endswith(".crous") or f.name.endswith(".aq.json")
+                if (
+                    f.is_file()
+                    and f.name.startswith(prefix)
+                    and (f.name.endswith(".crous") or f.name.endswith(".aq.json"))
                 ):
                     f.unlink()
                     removed += 1
@@ -324,7 +322,7 @@ class FilesystemArtifactStore(ArtifactStoreProtocol):
         prefix = name.replace("/", "_").replace(":", "_").replace(" ", "_") + "-"
         return any(f.name.startswith(prefix) for f in self._iter_files())
 
-    def gc(self, referenced: Set[str]) -> int:
+    def gc(self, referenced: set[str]) -> int:
         """Remove artifacts whose digest is not in *referenced*."""
         removed = 0
         for f in list(self._iter_files()):
@@ -336,7 +334,7 @@ class FilesystemArtifactStore(ArtifactStoreProtocol):
 
     def export_bundle(
         self,
-        names: List[str],
+        names: list[str],
         output_path: str,
     ) -> str:
         """
@@ -372,7 +370,7 @@ class FilesystemArtifactStore(ArtifactStoreProtocol):
 
     # ── Internal ─────────────────────────────────────────────────────
 
-    def _read(self, path: Path) -> Optional[Artifact]:
+    def _read(self, path: Path) -> Artifact | None:
         try:
             if path.name.endswith(".crous") and self._crous_backend:
                 raw = path.read_bytes()

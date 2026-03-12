@@ -8,12 +8,11 @@ creates tables, and manages the global database connection.
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional, Type, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ..db.engine import AquiliaDatabase
     from .base import Model
-    from .fields_module import RelationField
 
 logger = logging.getLogger("aquilia.models.registry")
 
@@ -28,12 +27,12 @@ class ModelRegistry:
     Tracks all concrete models and resolves forward references.
     """
 
-    _models: Dict[str, Type[Model]] = {}
-    _db: Optional[AquiliaDatabase] = None
-    _app_models: Dict[str, Dict[str, Type[Model]]] = {}  # app_label → {name → cls}
+    _models: dict[str, type[Model]] = {}
+    _db: AquiliaDatabase | None = None
+    _app_models: dict[str, dict[str, type[Model]]] = {}  # app_label → {name → cls}
 
     @classmethod
-    def register(cls, model_cls: Type[Model]) -> None:
+    def register(cls, model_cls: type[Model]) -> None:
         """Register a model class."""
         name = model_cls.__name__
         cls._models[name] = model_cls
@@ -48,17 +47,17 @@ class ModelRegistry:
         cls._resolve_relations()
 
     @classmethod
-    def get(cls, name: str) -> Optional[Type[Model]]:
+    def get(cls, name: str) -> type[Model] | None:
         """Get model class by name."""
         return cls._models.get(name)
 
     @classmethod
-    def all_models(cls) -> Dict[str, Type[Model]]:
+    def all_models(cls) -> dict[str, type[Model]]:
         """Get all registered models."""
         return dict(cls._models)
 
     @classmethod
-    def get_app_models(cls, app_label: str) -> Dict[str, Type[Model]]:
+    def get_app_models(cls, app_label: str) -> dict[str, type[Model]]:
         """Get all models for a specific app."""
         return dict(cls._app_models.get(app_label, {}))
 
@@ -70,20 +69,21 @@ class ModelRegistry:
             model_cls._db = db
 
     @classmethod
-    def get_database(cls) -> Optional[AquiliaDatabase]:
+    def get_database(cls) -> AquiliaDatabase | None:
         return cls._db
 
     @classmethod
     def _resolve_relations(cls) -> None:
         """Resolve forward-referenced model names in FK/M2M fields."""
         from .fields_module import RelationField
+
         for model_cls in cls._models.values():
             for field in model_cls._fields.values():
                 if isinstance(field, RelationField) and isinstance(field.to, str):
                     field.resolve_model(cls._models)
 
     @classmethod
-    async def create_tables(cls, db: Optional[AquiliaDatabase] = None) -> List[str]:
+    async def create_tables(cls, db: AquiliaDatabase | None = None) -> list[str]:
         """
         Create tables for all registered models in topological order.
 
@@ -92,17 +92,18 @@ class ModelRegistry:
         target_db = db or cls._db
         if not target_db:
             from ..faults.domains import DatabaseConnectionFault
+
             raise DatabaseConnectionFault(
                 url="(none)",
                 reason="No database configured for ModelRegistry. "
-                       "Call ModelRegistry.set_database(db) before create_tables().",
+                "Call ModelRegistry.set_database(db) before create_tables().",
             )
 
         # Build dependency graph and topologically sort
         ordered = cls._topological_sort()
         dialect = getattr(target_db, "dialect", "sqlite")
 
-        statements: List[str] = []
+        statements: list[str] = []
         for model_cls in ordered:
             if model_cls._meta.abstract:
                 continue
@@ -138,7 +139,7 @@ class ModelRegistry:
         return statements
 
     @classmethod
-    def _topological_sort(cls) -> List[Type[Model]]:
+    def _topological_sort(cls) -> list[type[Model]]:
         """
         Sort registered models in topological order based on FK dependencies.
 
@@ -148,8 +149,8 @@ class ModelRegistry:
         from .fields_module import ForeignKey, OneToOneField
 
         # Build adjacency: model_name -> set of dependency model names
-        deps: Dict[str, set] = {}
-        name_to_cls: Dict[str, Type[Model]] = {}
+        deps: dict[str, set] = {}
+        name_to_cls: dict[str, type[Model]] = {}
 
         for name, model_cls in cls._models.items():
             if model_cls._meta.abstract or not model_cls._meta.managed:
@@ -165,14 +166,14 @@ class ModelRegistry:
                         deps[name].add(target)
 
         # Kahn's algorithm for topological sort
-        in_degree: Dict[str, int] = {n: 0 for n in deps}
+        in_degree: dict[str, int] = {n: 0 for n in deps}
         for node, node_deps in deps.items():
             for dep in node_deps:
                 if dep in in_degree:
                     in_degree[dep] = in_degree.get(dep, 0)
 
         # Count incoming edges
-        reverse_adj: Dict[str, List[str]] = {n: [] for n in deps}
+        reverse_adj: dict[str, list[str]] = {n: [] for n in deps}
         for node, node_deps in deps.items():
             for dep in node_deps:
                 if dep in reverse_adj:
@@ -181,7 +182,7 @@ class ModelRegistry:
         in_degree = {n: len(d) for n, d in deps.items()}
 
         queue = [n for n, deg in in_degree.items() if deg == 0]
-        ordered: List[Type[Model]] = []
+        ordered: list[type[Model]] = []
 
         while queue:
             node = queue.pop(0)
@@ -200,18 +201,19 @@ class ModelRegistry:
         return ordered
 
     @classmethod
-    async def drop_tables(cls, db: Optional[AquiliaDatabase] = None) -> List[str]:
+    async def drop_tables(cls, db: AquiliaDatabase | None = None) -> list[str]:
         """Drop all registered model tables (dangerous!)."""
         target_db = db or cls._db
         if not target_db:
             from ..faults.domains import DatabaseConnectionFault
+
             raise DatabaseConnectionFault(
                 url="(none)",
                 reason="No database configured for ModelRegistry. "
-                       "Call ModelRegistry.set_database(db) before drop_tables().",
+                "Call ModelRegistry.set_database(db) before drop_tables().",
             )
 
-        statements: List[str] = []
+        statements: list[str] = []
         for model_cls in reversed(list(cls._models.values())):
             if model_cls._meta.abstract:
                 continue
@@ -229,7 +231,7 @@ class ModelRegistry:
         cls._db = None
 
     @classmethod
-    def check_constraints(cls) -> List[str]:
+    def check_constraints(cls) -> list[str]:
         """
         Validate all model constraints and return a list of issues.
 
@@ -239,8 +241,8 @@ class ModelRegistry:
         - No duplicate table names
         - No circular FK chains without nullable break
         """
-        issues: List[str] = []
-        table_names: Dict[str, str] = {}  # table → model name
+        issues: list[str] = []
+        table_names: dict[str, str] = {}  # table → model name
 
         from .fields_module import ForeignKey, ManyToManyField
 
@@ -250,24 +252,18 @@ class ModelRegistry:
 
             tbl = model_cls._table_name
             if tbl in table_names:
-                issues.append(
-                    f"Duplicate table '{tbl}': {name} and {table_names[tbl]}"
-                )
+                issues.append(f"Duplicate table '{tbl}': {name} and {table_names[tbl]}")
             table_names[tbl] = name
 
             for fname, field in model_cls._fields.items():
                 if isinstance(field, ForeignKey):
                     target = field.to if isinstance(field.to, str) else field.to.__name__
                     if target not in cls._models:
-                        issues.append(
-                            f"{name}.{fname}: FK target '{target}' not registered"
-                        )
+                        issues.append(f"{name}.{fname}: FK target '{target}' not registered")
                 elif isinstance(field, ManyToManyField):
                     target = field.to if isinstance(field.to, str) else field.to.__name__
                     if target not in cls._models:
-                        issues.append(
-                            f"{name}.{fname}: M2M target '{target}' not registered"
-                        )
+                        issues.append(f"{name}.{fname}: M2M target '{target}' not registered")
 
         return issues
 

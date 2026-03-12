@@ -11,10 +11,10 @@ Naming:
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional, Type, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-from .facets import Facet, UNSET
-from .exceptions import LensDepthFault, LensCycleFault
+from .exceptions import LensCycleFault
+from .facets import Facet
 
 if TYPE_CHECKING:
     from .core import Blueprint
@@ -51,7 +51,7 @@ class Lens(Facet):
 
     def __init__(
         self,
-        target: Type[Blueprint] | _ProjectedRef | None = None,
+        target: type[Blueprint] | _ProjectedRef | None = None,
         *,
         many: bool = False,
         depth: int = 3,
@@ -73,20 +73,20 @@ class Lens(Facet):
         self.max_depth = depth
 
     @property
-    def target(self) -> Type[Blueprint] | None:
+    def target(self) -> type[Blueprint] | None:
         return self._target_cls
 
     def bind(self, name: str, blueprint: Blueprint) -> None:
         super().bind(name, blueprint)
         # If source not explicitly set, try to match model FK attribute
-        if self.source == name and hasattr(blueprint, '_spec'):
+        if self.source == name and hasattr(blueprint, "_spec"):
             spec = blueprint._spec
             if spec and spec.model:
-                model_fields = getattr(spec.model, '_fields', {})
+                model_fields = getattr(spec.model, "_fields", {})
                 if name in model_fields:
                     # Check if it's a relation field
                     mf = model_fields[name]
-                    if hasattr(mf, 'to'):
+                    if hasattr(mf, "to"):
                         # It's a FK/M2M -- source is the attribute name
                         pass
 
@@ -110,7 +110,8 @@ class Lens(Facet):
         if target_id in _seen:
             raise LensCycleFault(
                 [cls.__name__ for cls in _seen] + [self._target_cls.__name__]
-                if hasattr(self._target_cls, '__name__') else ["<unknown>"]
+                if hasattr(self._target_cls, "__name__")
+                else ["<unknown>"]
             )
 
         # Depth check
@@ -123,18 +124,15 @@ class Lens(Facet):
         new_seen = _seen | {target_id}
 
         if self.many:
-            items = value if not hasattr(value, '__aiter__') else value
-            if hasattr(items, 'all'):
+            items = value if not hasattr(value, "__aiter__") else value
+            if hasattr(items, "all"):
                 # It's a manager/queryset -- can't iterate sync
                 # Return empty; async path should be used
                 return []
-            return [
-                self._mold_single(item, _depth=_depth + 1, _seen=new_seen)
-                for item in items
-            ]
+            return [self._mold_single(item, _depth=_depth + 1, _seen=new_seen) for item in items]
         return self._mold_single(value, _depth=_depth + 1, _seen=new_seen)
 
-    def _mold_single(self, instance: Any, *, _depth: int, _seen: set) -> Dict[str, Any]:
+    def _mold_single(self, instance: Any, *, _depth: int, _seen: set) -> dict[str, Any]:
         """Mold a single related instance through the target Blueprint."""
         if self._target_cls is None:
             # No target blueprint -- fall back to dict/PK
@@ -166,13 +164,10 @@ class Lens(Facet):
         for part in parts:
             if obj is None:
                 return None
-            if isinstance(obj, dict):
-                obj = obj.get(part)
-            else:
-                obj = getattr(obj, part, None)
+            obj = obj.get(part) if isinstance(obj, dict) else getattr(obj, part, None)
         return obj
 
-    def to_schema(self) -> Dict[str, Any]:
+    def to_schema(self) -> dict[str, Any]:
         """Generate JSON Schema with $ref for the target Blueprint."""
         if self._target_cls is None:
             return {"type": "object"}
@@ -198,7 +193,7 @@ class _ProjectedRef:
 
     __slots__ = ("blueprint_cls", "projection")
 
-    def __init__(self, blueprint_cls: Type[Blueprint], projection: str):
+    def __init__(self, blueprint_cls: type[Blueprint], projection: str):
         self.blueprint_cls = blueprint_cls
         self.projection = projection
 

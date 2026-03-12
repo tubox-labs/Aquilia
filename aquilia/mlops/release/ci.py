@@ -9,7 +9,6 @@ Generates:
 from __future__ import annotations
 
 import logging
-from typing import Optional
 
 logger = logging.getLogger("aquilia.mlops.release.ci")
 
@@ -137,6 +136,7 @@ LABEL org.opencontainers.image.source="aquilia-mlops"
 def generate_ci_workflow(output_dir: str = ".github/workflows") -> str:
     """Generate GitHub Actions workflow file."""
     from pathlib import Path
+
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
     path = out / "aquilia-ci.yml"
@@ -147,6 +147,7 @@ def generate_ci_workflow(output_dir: str = ".github/workflows") -> str:
 def generate_dockerfile(output_dir: str = ".") -> str:
     """Generate Dockerfile for model serving."""
     from pathlib import Path
+
     path = Path(output_dir) / "Dockerfile.aquilia"
     path.write_text(DOCKERFILE_TEMPLATE, encoding="utf-8")
     return str(path)

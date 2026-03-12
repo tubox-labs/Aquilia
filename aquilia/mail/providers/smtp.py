@@ -34,39 +34,44 @@ Usage::
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import ssl
 import time
+from collections.abc import Sequence
 from email import encoders
 from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from email.utils import formataddr, formatdate, make_msgid
-from typing import Any, Dict, List, Optional, Sequence
+from email.utils import formatdate, make_msgid
+from typing import Any
 
 from ..envelope import MailEnvelope
-from ..faults import MailSendFault
-from ..providers import IMailProvider, ProviderResult, ProviderResultStatus
+from ..providers import ProviderResult, ProviderResultStatus
 
 logger = logging.getLogger("aquilia.mail.providers.smtp")
 
 # ── Transient SMTP error codes (safe to retry) ─────────────────────
-_TRANSIENT_CODES = frozenset({
-    421,  # Service not available, closing channel
-    450,  # Mailbox unavailable (busy / blocked)
-    451,  # Local error in processing
-    452,  # Insufficient storage
-})
+_TRANSIENT_CODES = frozenset(
+    {
+        421,  # Service not available, closing channel
+        450,  # Mailbox unavailable (busy / blocked)
+        451,  # Local error in processing
+        452,  # Insufficient storage
+    }
+)
 
 # ── Permanent SMTP error codes (do NOT retry) ──────────────────────
-_PERMANENT_CODES = frozenset({
-    550,  # Mailbox unavailable (not found / no access)
-    551,  # User not local
-    552,  # Exceeded storage allocation
-    553,  # Mailbox name not allowed
-    554,  # Transaction failed
-    555,  # Parameters not recognised
-})
+_PERMANENT_CODES = frozenset(
+    {
+        550,  # Mailbox unavailable (not found / no access)
+        551,  # User not local
+        552,  # Exceeded storage allocation
+        553,  # Mailbox name not allowed
+        554,  # Transaction failed
+        555,  # Parameters not recognised
+    }
+)
 
 
 class SMTPProvider:
@@ -87,18 +92,18 @@ class SMTPProvider:
         name: str = "smtp",
         host: str = "localhost",
         port: int = 587,
-        username: Optional[str] = None,
-        password: Optional[str] = None,
+        username: str | None = None,
+        password: str | None = None,
         use_tls: bool = True,
         use_ssl: bool = False,
         timeout: float = 30.0,
         *,
         # Advanced options
-        source_address: Optional[str] = None,
-        local_hostname: Optional[str] = None,
+        source_address: str | None = None,
+        local_hostname: str | None = None,
         validate_certs: bool = True,
-        client_cert: Optional[str] = None,
-        client_key: Optional[str] = None,
+        client_cert: str | None = None,
+        client_key: str | None = None,
         pool_size: int = 3,
         pool_recycle: float = 300.0,
         priority: int = 10,
@@ -123,7 +128,7 @@ class SMTPProvider:
         # Connection pool state
         self._pool: list[Any] = []
         self._pool_lock = asyncio.Lock()
-        self._pool_created: Dict[int, float] = {}  # id(conn) → timestamp
+        self._pool_created: dict[int, float] = {}  # id(conn) → timestamp
         self._initialized = False
 
         # Metrics
@@ -142,9 +147,7 @@ class SMTPProvider:
             self._pool.append(conn)
             self._pool_created[id(conn)] = time.monotonic()
         except Exception as e:
-            logger.warning(
-                f"SMTP pool pre-warm failed (will retry on send): {e}"
-            )
+            logger.warning(f"SMTP pool pre-warm failed (will retry on send): {e}")
         self._initialized = True
 
     async def shutdown(self) -> None:
@@ -158,7 +161,7 @@ class SMTPProvider:
 
     # ── Connection Management ───────────────────────────────────────
 
-    def _build_tls_context(self) -> Optional[ssl.SSLContext]:
+    def _build_tls_context(self) -> ssl.SSLContext | None:
         """Build an SSL context for TLS/SSL connections."""
         if not self.use_tls and not self.use_ssl:
             return None
@@ -168,6 +171,7 @@ class SMTPProvider:
         if ctx.cert_store_stats()["x509_ca"] == 0:
             try:
                 import certifi
+
                 ctx.load_verify_locations(certifi.where())
             except (ImportError, OSError):
                 pass  # best-effort; user can set validate_certs=False
@@ -186,10 +190,7 @@ class SMTPProvider:
         try:
             import aiosmtplib
         except ImportError:
-            raise ImportError(
-                "aiosmtplib is required for the SMTP provider. "
-                "Install it with: pip install aiosmtplib"
-            )
+            raise ImportError("aiosmtplib is required for the SMTP provider. Install it with: pip install aiosmtplib")
 
         tls_context = self._build_tls_context()
 
@@ -250,10 +251,8 @@ class SMTPProvider:
         try:
             await conn.quit()
         except Exception:
-            try:
+            with contextlib.suppress(Exception):
                 conn.close()
-            except Exception:
-                pass
 
     # ── MIME Message Construction ───────────────────────────────────
 
@@ -312,20 +311,20 @@ class SMTPProvider:
             # set metadata only. The actual bytes must be resolved
             # before calling send() in a real pipeline.
             # For now, we set a placeholder and let the pipeline fill it.
-            part.set_payload(
-                envelope.metadata.get(f"blob:{attachment.digest}", b"")
-            )
+            part.set_payload(envelope.metadata.get(f"blob:{attachment.digest}", b""))
             encoders.encode_base64(part)
 
             if attachment.inline and attachment.content_id:
                 part.add_header(
-                    "Content-Disposition", "inline",
+                    "Content-Disposition",
+                    "inline",
                     filename=attachment.filename,
                 )
                 part.add_header("Content-ID", f"<{attachment.content_id}>")
             else:
                 part.add_header(
-                    "Content-Disposition", "attachment",
+                    "Content-Disposition",
+                    "attachment",
                     filename=attachment.filename,
                 )
             msg.attach(part)
@@ -365,7 +364,6 @@ class SMTPProvider:
             self._total_sent += 1
             message_id = mime_msg["Message-ID"]
 
-
             return ProviderResult(
                 status=ProviderResultStatus.SUCCESS,
                 provider_message_id=message_id,
@@ -376,8 +374,7 @@ class SMTPProvider:
             self._total_errors += 1
             status, retry_after = self._classify_error(e)
             logger.warning(
-                f"SMTP send error via {self.name}: {e} "
-                f"(status={status.value})",
+                f"SMTP send error via {self.name}: {e} (status={status.value})",
             )
             return ProviderResult(
                 status=status,
@@ -386,14 +383,13 @@ class SMTPProvider:
             )
         finally:
             if conn is not None:
-                try:
+                with contextlib.suppress(Exception):
                     await self._release_connection(conn)
-                except Exception:
-                    pass
 
     async def send_batch(
-        self, envelopes: Sequence[MailEnvelope],
-    ) -> List[ProviderResult]:
+        self,
+        envelopes: Sequence[MailEnvelope],
+    ) -> list[ProviderResult]:
         """
         Send a batch of envelopes, reusing a single connection.
 
@@ -413,40 +409,46 @@ class SMTPProvider:
                         recipients=recipients,
                     )
                     self._total_sent += 1
-                    results.append(ProviderResult(
-                        status=ProviderResultStatus.SUCCESS,
-                        provider_message_id=mime_msg["Message-ID"],
-                    ))
+                    results.append(
+                        ProviderResult(
+                            status=ProviderResultStatus.SUCCESS,
+                            provider_message_id=mime_msg["Message-ID"],
+                        )
+                    )
                 except Exception as e:
                     self._total_errors += 1
                     status, retry_after = self._classify_error(e)
-                    results.append(ProviderResult(
-                        status=status,
-                        error_message=str(e),
-                        retry_after=retry_after,
-                    ))
+                    results.append(
+                        ProviderResult(
+                            status=status,
+                            error_message=str(e),
+                            retry_after=retry_after,
+                        )
+                    )
                     # If connection-level error, break out of batch
                     if self._is_connection_error(e):
                         conn = None
-                        for remaining in envelopes[len(results):]:
-                            results.append(ProviderResult(
-                                status=ProviderResultStatus.TRANSIENT_FAILURE,
-                                error_message="Batch aborted due to connection error",
-                            ))
+                        for _remaining in envelopes[len(results) :]:
+                            results.append(
+                                ProviderResult(
+                                    status=ProviderResultStatus.TRANSIENT_FAILURE,
+                                    error_message="Batch aborted due to connection error",
+                                )
+                            )
                         break
         except Exception as e:
             # Connection acquisition failed entirely
-            for _ in envelopes[len(results):]:
-                results.append(ProviderResult(
-                    status=ProviderResultStatus.TRANSIENT_FAILURE,
-                    error_message=f"Connection failed: {e}",
-                ))
+            for _ in envelopes[len(results) :]:
+                results.append(
+                    ProviderResult(
+                        status=ProviderResultStatus.TRANSIENT_FAILURE,
+                        error_message=f"Connection failed: {e}",
+                    )
+                )
         finally:
             if conn is not None:
-                try:
+                with contextlib.suppress(Exception):
                     await self._release_connection(conn)
-                except Exception:
-                    pass
 
         return results
 
@@ -457,7 +459,7 @@ class SMTPProvider:
             await conn.noop()
             await self._release_connection(conn)
             return True
-        except Exception as e:
+        except Exception:
             return False
 
     # ── Error Classification ────────────────────────────────────────
@@ -498,7 +500,7 @@ class SMTPProvider:
         return ProviderResultStatus.TRANSIENT_FAILURE, 30.0
 
     @staticmethod
-    def _extract_smtp_code(error: Exception) -> Optional[int]:
+    def _extract_smtp_code(error: Exception) -> int | None:
         """Try to extract SMTP status code from an error."""
         # aiosmtplib stores code as .code attribute
         if hasattr(error, "code"):
@@ -518,17 +520,17 @@ class SMTPProvider:
     @staticmethod
     def _is_connection_error(error: Exception) -> bool:
         """Check if the error is a connection-level failure."""
-        return isinstance(error, (
-            ConnectionRefusedError,
-            ConnectionResetError,
-            ConnectionAbortedError,
-            TimeoutError,
-            asyncio.TimeoutError,
-            OSError,
-        ))
+        return isinstance(
+            error,
+            (
+                ConnectionRefusedError,
+                ConnectionResetError,
+                ConnectionAbortedError,
+                TimeoutError,
+                asyncio.TimeoutError,
+                OSError,
+            ),
+        )
 
     def __repr__(self) -> str:
-        return (
-            f"SMTPProvider(name={self.name!r}, host={self.host!r}, "
-            f"port={self.port}, tls={self.use_tls})"
-        )
+        return f"SMTPProvider(name={self.name!r}, host={self.host!r}, port={self.port}, tls={self.use_tls})"

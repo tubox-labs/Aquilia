@@ -6,21 +6,22 @@ Identity, credentials, and foundational data structures.
 
 from __future__ import annotations
 
-from typing import Literal, Any, Protocol
-from datetime import datetime, timedelta, timezone
-from dataclasses import dataclass, field
-from enum import Enum
-import secrets
 import hashlib
 import hmac as _hmac
-
+import secrets
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta, timezone
+from enum import Enum
+from typing import Any, Literal, Protocol
 
 # ============================================================================
 # Identity Model
 # ============================================================================
 
+
 class IdentityType(str, Enum):
     """Type of authenticated principal."""
+
     USER = "user"
     SERVICE = "service"
     DEVICE = "device"
@@ -29,6 +30,7 @@ class IdentityType(str, Enum):
 
 class IdentityStatus(str, Enum):
     """Identity status."""
+
     ACTIVE = "active"
     SUSPENDED = "suspended"
     DELETED = "deleted"
@@ -39,9 +41,9 @@ class IdentityStatus(str, Enum):
 class Identity:
     """
     Authenticated principal (user or service).
-    
+
     Immutable once created. Stored in DI request scope.
-    
+
     Design:
     - Stable ID that never changes
     - Type discrimination for policy decisions
@@ -49,6 +51,7 @@ class Identity:
     - Status for soft delete and suspension
     - Multi-tenant support via tenant_id
     """
+
     id: str
     type: IdentityType
     attributes: dict[str, Any]  # email, name, roles, dept, clearance, etc.
@@ -56,25 +59,25 @@ class Identity:
     tenant_id: str | None = None
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    
+
     def get_attribute(self, key: str, default: Any = None) -> Any:
         """Get attribute value with default."""
         return self.attributes.get(key, default)
-    
+
     def has_role(self, role: str) -> bool:
         """Check if identity has role."""
         roles = self.get_attribute("roles", [])
         return role in roles
-    
+
     def has_scope(self, scope: str) -> bool:
         """Check if identity has scope."""
         scopes = self.get_attribute("scopes", [])
         return scope in scopes or "*" in scopes
-    
+
     def is_active(self) -> bool:
         """Check if identity is active."""
         return self.status == IdentityStatus.ACTIVE
-    
+
     def to_dict(self) -> dict[str, Any]:
         """Serialize to dict."""
         return {
@@ -86,7 +89,7 @@ class Identity:
             "created_at": self.created_at.isoformat(),
             "updated_at": self.updated_at.isoformat(),
         }
-    
+
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Identity:
         """Deserialize from dict."""
@@ -105,8 +108,10 @@ class Identity:
 # Credential Types
 # ============================================================================
 
+
 class CredentialStatus(str, Enum):
     """Credential status."""
+
     ACTIVE = "active"
     SUSPENDED = "suspended"
     REVOKED = "revoked"
@@ -117,9 +122,10 @@ class CredentialStatus(str, Enum):
 class Credential(Protocol):
     """
     Base protocol for credentials.
-    
+
     All credential types must implement this protocol.
     """
+
     identity_id: str
     status: CredentialStatus
     created_at: datetime
@@ -130,27 +136,28 @@ class Credential(Protocol):
 class PasswordCredential:
     """
     Password-based credential.
-    
+
     Uses Argon2id for hashing (memory-hard, GPU-resistant).
     """
+
     identity_id: str
-    password_hash: str          # Argon2id hash
+    password_hash: str  # Argon2id hash
     algorithm: str = "argon2id"
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     last_changed_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     last_used_at: datetime | None = None
-    must_change: bool = False   # Force password change on next login
+    must_change: bool = False  # Force password change on next login
     status: CredentialStatus = CredentialStatus.ACTIVE
-    
+
     def should_rotate(self, max_age_days: int = 90) -> bool:
         """Check if password should be rotated."""
         age = datetime.now(timezone.utc) - self.last_changed_at
         return age > timedelta(days=max_age_days)
-    
+
     def touch(self) -> None:
         """Update last_used_at timestamp."""
         self.last_used_at = datetime.now(timezone.utc)
-    
+
     def to_dict(self) -> dict[str, Any]:
         """Serialize to dict."""
         return {
@@ -169,20 +176,21 @@ class PasswordCredential:
 class ApiKeyCredential:
     """
     API key credential (long-lived).
-    
+
     Key format: ak_<env>_<random>
     Example: ak_live_1234567890abcdef
-    
+
     Security:
     - Keys are hashed before storage (SHA256)
     - Prefix stored for identification
     - Scoped permissions
     - Rate limiting per key
     """
+
     identity_id: str
-    key_id: str                 # Unique identifier
-    key_hash: str               # SHA256(key_secret)
-    prefix: str                 # First 8 chars (e.g., "ak_live_")
+    key_id: str  # Unique identifier
+    key_hash: str  # SHA256(key_secret)
+    prefix: str  # First 8 chars (e.g., "ak_live_")
     scopes: list[str]
     rate_limit: int | None = None  # Requests per minute
     expires_at: datetime | None = None
@@ -190,32 +198,32 @@ class ApiKeyCredential:
     last_used_at: datetime | None = None
     status: CredentialStatus = CredentialStatus.ACTIVE
     metadata: dict[str, Any] = field(default_factory=dict)
-    
+
     def is_expired(self) -> bool:
         """Check if key has expired."""
         if self.expires_at is None:
             return False
         return datetime.now(timezone.utc) > self.expires_at
-    
+
     def touch(self) -> None:
         """Update last_used_at timestamp."""
         self.last_used_at = datetime.now(timezone.utc)
-    
+
     @staticmethod
     def generate_key(env: Literal["test", "live"] = "live") -> str:
         """
         Generate new API key.
-        
+
         Format: ak_<env>_<32_random_bytes>
         """
         random_part = secrets.token_urlsafe(32)
         return f"ak_{env}_{random_part}"
-    
+
     @staticmethod
     def hash_key(key: str) -> str:
         """
         Hash API key with HMAC-SHA256 (OWASP recommended).
-        
+
         Uses a domain-specific prefix as the HMAC key to prevent
         cross-context hash collisions.
         """
@@ -224,17 +232,17 @@ class ApiKeyCredential:
             key.encode(),
             hashlib.sha256,
         ).hexdigest()
-    
+
     @staticmethod
     def verify_key(key: str, stored_hash: str) -> bool:
         """
         Verify API key against stored hash using constant-time comparison.
-        
+
         Prevents timing attacks on API key validation.
         """
         computed = ApiKeyCredential.hash_key(key)
         return _hmac.compare_digest(computed, stored_hash)
-    
+
     def to_dict(self) -> dict[str, Any]:
         """Serialize to dict."""
         return {
@@ -256,13 +264,14 @@ class ApiKeyCredential:
 class OAuthClient:
     """
     OAuth2/OIDC client.
-    
+
     Supports multiple grant types:
     - authorization_code: Standard OAuth2 flow
     - client_credentials: Machine-to-machine
     - refresh_token: Token refresh
     - device_code: Device flow (TV, CLI)
     """
+
     client_id: str
     client_secret_hash: str | None  # None for public clients
     name: str
@@ -272,40 +281,40 @@ class OAuthClient:
     require_pkce: bool = True
     require_consent: bool = True
     token_endpoint_auth_method: Literal["client_secret_basic", "client_secret_post", "none"] = "client_secret_post"
-    access_token_ttl: int = 3600      # 1 hour
+    access_token_ttl: int = 3600  # 1 hour
     refresh_token_ttl: int = 2592000  # 30 days
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     status: CredentialStatus = CredentialStatus.ACTIVE
     metadata: dict[str, Any] = field(default_factory=dict)
-    
+
     def is_public_client(self) -> bool:
         """Check if client is public (no secret)."""
         return self.client_secret_hash is None
-    
+
     def supports_grant_type(self, grant_type: str) -> bool:
         """Check if client supports grant type."""
         return grant_type in self.grant_types
-    
+
     def is_redirect_uri_valid(self, redirect_uri: str) -> bool:
         """Check if redirect URI is allowed."""
         return redirect_uri in self.redirect_uris
-    
+
     @staticmethod
     def generate_client_id(prefix: str = "app") -> str:
         """Generate client ID."""
         random_part = secrets.token_urlsafe(16)
         return f"{prefix}_{random_part}"
-    
+
     @staticmethod
     def generate_client_secret() -> str:
         """Generate client secret."""
         return secrets.token_urlsafe(32)
-    
+
     @staticmethod
     def hash_client_secret(secret: str) -> str:
         """
         Hash client secret with HMAC-SHA256 (OWASP recommended).
-        
+
         Uses a domain-specific prefix as the HMAC key to prevent
         cross-context hash collisions between API keys and client secrets.
         """
@@ -314,17 +323,17 @@ class OAuthClient:
             secret.encode(),
             hashlib.sha256,
         ).hexdigest()
-    
+
     @staticmethod
     def verify_client_secret(secret: str, stored_hash: str) -> bool:
         """
         Verify client secret against stored hash using constant-time comparison.
-        
+
         Prevents timing attacks on OAuth client authentication.
         """
         computed = OAuthClient.hash_client_secret(secret)
         return _hmac.compare_digest(computed, stored_hash)
-    
+
     def to_dict(self) -> dict[str, Any]:
         """Serialize to dict."""
         return {
@@ -349,39 +358,41 @@ class OAuthClient:
 class MFACredential:
     """
     Multi-factor authentication credential.
-    
+
     Supports:
     - TOTP: Time-based one-time passwords (Google Authenticator)
     - WebAuthn: FIDO2 hardware keys
     - SMS/Email: OTP via message (requires external provider)
     """
+
     identity_id: str
     mfa_type: Literal["totp", "webauthn", "sms", "email"]
-    mfa_secret: str | None = None       # TOTP shared secret (base32)
+    mfa_secret: str | None = None  # TOTP shared secret (base32)
     backup_codes: list[str] = field(default_factory=list)  # Hashed backup codes
     webauthn_credentials: list[dict[str, Any]] = field(default_factory=list)  # Public keys
-    phone_number: str | None = None     # For SMS
-    email: str | None = None            # For email OTP
+    phone_number: str | None = None  # For SMS
+    email: str | None = None  # For email OTP
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     verified_at: datetime | None = None
     last_used_at: datetime | None = None
     status: CredentialStatus = CredentialStatus.ACTIVE
-    
+
     def is_verified(self) -> bool:
         """Check if MFA is verified."""
         return self.verified_at is not None
-    
+
     def touch(self) -> None:
         """Update last_used_at timestamp."""
         self.last_used_at = datetime.now(timezone.utc)
-    
+
     @staticmethod
     def generate_totp_secret() -> str:
         """Generate TOTP secret (base32)."""
         import base64
+
         random_bytes = secrets.token_bytes(20)
         return base64.b32encode(random_bytes).decode().rstrip("=")
-    
+
     @staticmethod
     def generate_backup_codes(count: int = 10) -> list[str]:
         """Generate backup codes (8-character alphanumeric)."""
@@ -390,7 +401,7 @@ class MFACredential:
             code = secrets.token_hex(4).upper()
             codes.append(f"{code[:4]}-{code[4:]}")
         return codes
-    
+
     def to_dict(self) -> dict[str, Any]:
         """Serialize to dict."""
         return {
@@ -412,11 +423,12 @@ class MFACredential:
 # Token Claims
 # ============================================================================
 
+
 @dataclass
 class TokenClaims:
     """
     Access token claims (JWT payload).
-    
+
     Standard claims:
     - iss: Issuer
     - sub: Subject (identity ID)
@@ -425,34 +437,36 @@ class TokenClaims:
     - iat: Issued at
     - nbf: Not before
     - jti: JWT ID (unique token identifier)
-    
+
     Custom claims:
     - scopes: Permitted scopes
     - sid: Session ID
     - roles: User roles
     - tenant_id: Multi-tenant ID
     """
-    iss: str                    # Issuer
-    sub: str                    # Subject (identity ID)
-    aud: list[str]              # Audience
-    exp: int                    # Expiration (Unix timestamp)
-    iat: int                    # Issued at (Unix timestamp)
-    nbf: int                    # Not before (Unix timestamp)
-    jti: str                    # Token ID
-    scopes: list[str]           # Scopes
-    sid: str | None = None      # Session ID
+
+    iss: str  # Issuer
+    sub: str  # Subject (identity ID)
+    aud: list[str]  # Audience
+    exp: int  # Expiration (Unix timestamp)
+    iat: int  # Issued at (Unix timestamp)
+    nbf: int  # Not before (Unix timestamp)
+    jti: str  # Token ID
+    scopes: list[str]  # Scopes
+    sid: str | None = None  # Session ID
     roles: list[str] = field(default_factory=list)
     tenant_id: str | None = None
-    
+
     def is_expired(self) -> bool:
         """Check if token has expired."""
         import time
+
         return time.time() > self.exp
-    
+
     def has_scope(self, scope: str) -> bool:
         """Check if token has scope."""
         return scope in self.scopes or "*" in self.scopes
-    
+
     def to_dict(self) -> dict[str, Any]:
         """Serialize to dict (JWT payload)."""
         return {
@@ -468,7 +482,7 @@ class TokenClaims:
             "roles": self.roles,
             "tenant_id": self.tenant_id,
         }
-    
+
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> TokenClaims:
         """Deserialize from dict (JWT payload)."""
@@ -491,11 +505,12 @@ class TokenClaims:
 # Authentication Result
 # ============================================================================
 
+
 @dataclass
 class AuthResult:
     """
     Result of authentication operation.
-    
+
     Contains:
     - Authenticated identity
     - Access token (for API requests)
@@ -503,6 +518,7 @@ class AuthResult:
     - Session handle (if session-based auth)
     - Metadata (auth method, MFA used, etc.)
     """
+
     identity: Identity
     access_token: str | None = None
     refresh_token: str | None = None
@@ -511,23 +527,23 @@ class AuthResult:
     token_type: str = "Bearer"
     scopes: list[str] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
-    
+
     def to_dict(self) -> dict[str, Any]:
         """Serialize to dict (token response)."""
         result = {
             "access_token": self.access_token,
             "token_type": self.token_type,
         }
-        
+
         if self.expires_in is not None:
             result["expires_in"] = self.expires_in
-        
+
         if self.refresh_token:
             result["refresh_token"] = self.refresh_token
-        
+
         if self.scopes:
             result["scope"] = " ".join(self.scopes)
-        
+
         return result
 
 
@@ -535,29 +551,30 @@ class AuthResult:
 # Store Protocols
 # ============================================================================
 
+
 class IdentityStore(Protocol):
     """Protocol for identity storage."""
-    
+
     async def create(self, identity: Identity) -> None:
         """Create new identity."""
         ...
-    
+
     async def get(self, identity_id: str) -> Identity | None:
         """Get identity by ID."""
         ...
-    
+
     async def get_by_attribute(self, key: str, value: Any) -> Identity | None:
         """Get identity by attribute (e.g., email)."""
         ...
-    
+
     async def update(self, identity: Identity) -> None:
         """Update identity."""
         ...
-    
+
     async def delete(self, identity_id: str) -> None:
         """Delete identity (soft delete)."""
         ...
-    
+
     async def list_by_tenant(self, tenant_id: str) -> list[Identity]:
         """List identities by tenant."""
         ...
@@ -565,47 +582,47 @@ class IdentityStore(Protocol):
 
 class CredentialStore(Protocol):
     """Protocol for credential storage."""
-    
+
     async def create_password(self, credential: PasswordCredential) -> None:
         """Create password credential."""
         ...
-    
+
     async def get_password(self, identity_id: str) -> PasswordCredential | None:
         """Get password credential."""
         ...
-    
+
     async def update_password(self, credential: PasswordCredential) -> None:
         """Update password credential."""
         ...
-    
+
     async def create_api_key(self, credential: ApiKeyCredential) -> None:
         """Create API key credential."""
         ...
-    
+
     async def get_api_key(self, key_id: str) -> ApiKeyCredential | None:
         """Get API key by ID."""
         ...
-    
+
     async def get_api_key_by_hash(self, key_hash: str) -> ApiKeyCredential | None:
         """Get API key by hash."""
         ...
-    
+
     async def list_api_keys(self, identity_id: str) -> list[ApiKeyCredential]:
         """List API keys for identity."""
         ...
-    
+
     async def revoke_api_key(self, key_id: str) -> None:
         """Revoke API key."""
         ...
-    
+
     async def create_mfa(self, credential: MFACredential) -> None:
         """Create MFA credential."""
         ...
-    
+
     async def get_mfa(self, identity_id: str) -> list[MFACredential]:
         """Get MFA credentials for identity."""
         ...
-    
+
     async def update_mfa(self, credential: MFACredential) -> None:
         """Update MFA credential."""
         ...
@@ -613,23 +630,23 @@ class CredentialStore(Protocol):
 
 class OAuthClientStore(Protocol):
     """Protocol for OAuth client storage."""
-    
+
     async def create(self, client: OAuthClient) -> None:
         """Create OAuth client."""
         ...
-    
+
     async def get(self, client_id: str) -> OAuthClient | None:
         """Get client by ID."""
         ...
-    
+
     async def update(self, client: OAuthClient) -> None:
         """Update client."""
         ...
-    
+
     async def delete(self, client_id: str) -> None:
         """Delete client."""
         ...
-    
+
     async def list_all(self) -> list[OAuthClient]:
         """List all clients."""
         ...

@@ -5,7 +5,7 @@ TasksIntegration — typed background task configuration.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict
+from typing import Any
 
 
 @dataclass
@@ -35,7 +35,7 @@ class TasksIntegration:
     scheduler_tick: float = 15.0
     enabled: bool = True
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "_integration_type": "tasks",
             "enabled": self.enabled,

@@ -20,9 +20,9 @@ to the pool-based API.
 
 from __future__ import annotations
 
-import sqlite3
 import warnings
-from typing import Any, Optional, Sequence
+from collections.abc import Sequence
+from typing import Any
 
 from ._config import SqlitePoolConfig
 from ._pool import ConnectionPool, create_pool
@@ -31,8 +31,7 @@ __all__ = ["connect", "CompatConnection"]
 
 # Emit deprecation warning when the compat module is used
 warnings.warn(
-    "aquilia.sqlite._compat is a migration shim for aiosqlite. "
-    "Use aquilia.sqlite.create_pool() for the native API.",
+    "aquilia.sqlite._compat is a migration shim for aiosqlite. Use aquilia.sqlite.create_pool() for the native API.",
     DeprecationWarning,
     stacklevel=2,
 )

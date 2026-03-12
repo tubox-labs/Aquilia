@@ -20,17 +20,17 @@ Usage::
 from __future__ import annotations
 
 import logging
-from typing import Any, AsyncIterator, Dict, List, Optional
+from collections.abc import AsyncIterator
+from typing import Any
 
 from .._types import (
     InferenceRequest,
     InferenceResult,
     StreamChunk,
 )
-from ..runtime.base import ModelState
+from .loader import ModelLoader
 from .registry import ModelRegistry
 from .router import VersionRouter
-from .loader import ModelLoader
 
 logger = logging.getLogger("aquilia.mlops.orchestrator")
 
@@ -58,9 +58,9 @@ class ModelOrchestrator:
     async def predict(
         self,
         model_name: str,
-        inputs: Dict[str, Any],
-        parameters: Optional[Dict[str, Any]] = None,
-        headers: Optional[Dict[str, str]] = None,
+        inputs: dict[str, Any],
+        parameters: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
         request_id: str = "",
     ) -> InferenceResult:
         """
@@ -101,10 +101,10 @@ class ModelOrchestrator:
     async def predict_batch(
         self,
         model_name: str,
-        batch_inputs: List[Dict[str, Any]],
-        parameters: Optional[Dict[str, Any]] = None,
-        headers: Optional[Dict[str, str]] = None,
-    ) -> List[InferenceResult]:
+        batch_inputs: list[dict[str, Any]],
+        parameters: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> list[InferenceResult]:
         """Run batch predictions."""
         import uuid
 
@@ -129,13 +129,14 @@ class ModelOrchestrator:
     async def stream_predict(
         self,
         model_name: str,
-        inputs: Dict[str, Any],
-        parameters: Optional[Dict[str, Any]] = None,
-        headers: Optional[Dict[str, str]] = None,
+        inputs: dict[str, Any],
+        parameters: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
         request_id: str = "",
     ) -> AsyncIterator[StreamChunk]:
         """Stream inference for LLM models."""
         import uuid
+
         from ..runtime.base import BaseStreamingRuntime
 
         if not request_id:
@@ -148,6 +149,7 @@ class ModelOrchestrator:
         runtime = loaded.pipeline._runtime
         if not isinstance(runtime, BaseStreamingRuntime):
             from aquilia.faults.domains import ConfigInvalidFault
+
             raise ConfigInvalidFault(
                 key="mlops.inference.stream",
                 reason=f"Model '{model_name}:{version}' does not support streaming inference",
@@ -165,7 +167,7 @@ class ModelOrchestrator:
 
     # ── Health & Metrics ─────────────────────────────────────────────
 
-    async def get_health(self, model_name: Optional[str] = None) -> Dict[str, Any]:
+    async def get_health(self, model_name: str | None = None) -> dict[str, Any]:
         """
         Get health status for one model or all models.
 
@@ -208,7 +210,7 @@ class ModelOrchestrator:
             "models": models,
         }
 
-    async def get_metrics(self, model_name: Optional[str] = None) -> Dict[str, Any]:
+    async def get_metrics(self, model_name: str | None = None) -> dict[str, Any]:
         """Get metrics for one model or all models."""
         if model_name:
             entry = self._registry.get(model_name)
@@ -229,7 +231,7 @@ class ModelOrchestrator:
         }
         return result
 
-    async def list_models(self) -> List[Dict[str, Any]]:
+    async def list_models(self) -> list[dict[str, Any]]:
         """List all registered models with their status."""
         models = []
         for entry in self._registry.list_entries():
@@ -238,7 +240,7 @@ class ModelOrchestrator:
 
     # ── Management ───────────────────────────────────────────────────
 
-    async def reload_model(self, model_name: str, version: str) -> Dict[str, Any]:
+    async def reload_model(self, model_name: str, version: str) -> dict[str, Any]:
         """Hot-reload a model to a specific version."""
         loaded = await self._loader.hot_reload(model_name, version)
         return {
@@ -248,7 +250,7 @@ class ModelOrchestrator:
             "load_time_ms": loaded.load_time_ms,
         }
 
-    async def unload_model(self, model_name: str, version: Optional[str] = None) -> bool:
+    async def unload_model(self, model_name: str, version: str | None = None) -> bool:
         """Unload a specific model version."""
         if version is None:
             version = self._registry.get_active_version(model_name)

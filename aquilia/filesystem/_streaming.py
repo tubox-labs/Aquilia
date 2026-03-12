@@ -17,13 +17,9 @@ Design notes:
 
 from __future__ import annotations
 
-import os
+import contextlib
+from collections.abc import AsyncIterator
 from pathlib import Path
-from typing import (
-    AsyncIterator,
-    Optional,
-    Union,
-)
 
 from ._config import FileSystemConfig
 from ._errors import wrap_os_error
@@ -47,12 +43,12 @@ class AsyncFileStream:
 
     def __init__(
         self,
-        path: Union[str, Path],
+        path: str | Path,
         *,
         chunk_size: int = 65_536,
-        pool: Optional[FileSystemPool] = None,
+        pool: FileSystemPool | None = None,
         offset: int = 0,
-        end: Optional[int] = None,
+        end: int | None = None,
     ) -> None:
         """
         Args:
@@ -73,6 +69,7 @@ class AsyncFileStream:
 
     async def _stream(self) -> AsyncIterator[bytes]:
         """Internal streaming implementation."""
+
         def _open():
             return open(self._path, "rb")
 
@@ -109,10 +106,8 @@ class AsyncFileStream:
 
                 yield chunk
         finally:
-            try:
+            with contextlib.suppress(Exception):
                 await self._pool.run(fp.close)
-            except Exception:
-                pass
 
 
 class AsyncWriteStream:
@@ -141,10 +136,10 @@ class AsyncWriteStream:
 
     def __init__(
         self,
-        path: Union[str, Path],
+        path: str | Path,
         *,
         buffer_size: int = 65_536,
-        pool: Optional[FileSystemPool] = None,
+        pool: FileSystemPool | None = None,
     ) -> None:
         self._path = Path(path)
         self._buffer = bytearray()
@@ -188,13 +183,11 @@ class AsyncWriteStream:
         """Flush remaining data and close the file."""
         await self._flush()
         if self._fp:
-            try:
+            with contextlib.suppress(Exception):
                 await self._pool.run(self._fp.close)
-            except Exception:
-                pass
             self._fp = None
 
-    async def __aenter__(self) -> "AsyncWriteStream":
+    async def __aenter__(self) -> AsyncWriteStream:
         await self._ensure_open()
         return self
 
@@ -207,12 +200,15 @@ class AsyncWriteStream:
             # Ensure parent directory exists
             parent = self._path.parent
             if not parent.exists():
+
                 def _mkdirs():
                     parent.mkdir(parents=True, exist_ok=True)
+
                 await self._pool.run(_mkdirs)
 
             def _open():
                 return open(self._path, "wb")
+
             try:
                 self._fp = await self._pool.run(_open)
             except Exception as exc:
@@ -235,13 +231,13 @@ class AsyncWriteStream:
 
 
 async def stream_copy(
-    src: Union[str, Path],
-    dst: Union[str, Path],
+    src: str | Path,
+    dst: str | Path,
     *,
     chunk_size: int = 65_536,
-    pool: Optional[FileSystemPool] = None,
-    config: Optional["FileSystemConfig"] = None,
-    sandbox: Optional[Union[str, Path]] = None,
+    pool: FileSystemPool | None = None,
+    config: FileSystemConfig | None = None,
+    sandbox: str | Path | None = None,
 ) -> int:
     """
     Copy a file via streaming.
@@ -270,14 +266,14 @@ async def stream_copy(
 
 
 async def stream_read(
-    path: Union[str, Path],
+    path: str | Path,
     *,
     chunk_size: int = 65_536,
-    pool: Optional[FileSystemPool] = None,
+    pool: FileSystemPool | None = None,
     offset: int = 0,
-    end: Optional[int] = None,
-    config: Optional["FileSystemConfig"] = None,
-    sandbox: Optional[Union[str, Path]] = None,
+    end: int | None = None,
+    config: FileSystemConfig | None = None,
+    sandbox: str | Path | None = None,
 ) -> AsyncIterator[bytes]:
     """
     Stream a file in chunks.
@@ -295,7 +291,11 @@ async def stream_read(
         Chunks of bytes.
     """
     stream = AsyncFileStream(
-        path, chunk_size=chunk_size, pool=pool, offset=offset, end=end,
+        path,
+        chunk_size=chunk_size,
+        pool=pool,
+        offset=offset,
+        end=end,
     )
     async for chunk in stream:
         yield chunk
@@ -304,4 +304,5 @@ async def stream_read(
 def _get_default_pool() -> FileSystemPool:
     """Get the default filesystem pool (lazy singleton)."""
     from ._path import _get_default_pool as _get
+
     return _get()

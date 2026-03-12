@@ -7,11 +7,10 @@ payload accessors so consumers don't need to dig into raw dicts.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-from .core import Artifact, ArtifactEnvelope
 from .builder import ArtifactBuilder
-
+from .core import Artifact
 
 # ── Helpers ─────────────────────────────────────────────────────────────
 
@@ -38,9 +37,9 @@ class ConfigArtifact(Artifact):
         cls,
         name: str,
         version: str,
-        config: Dict[str, Any],
+        config: dict[str, Any],
         **metadata: Any,
-    ) -> "ConfigArtifact":
+    ) -> ConfigArtifact:
         a = (
             ArtifactBuilder(name, kind="config", version=version)
             .set_payload(config)
@@ -51,7 +50,7 @@ class ConfigArtifact(Artifact):
         return cls(a.envelope)
 
     @property
-    def config(self) -> Dict[str, Any]:
+    def config(self) -> dict[str, Any]:
         return self.payload if isinstance(self.payload, dict) else {}
 
     def get(self, key: str, default: Any = None) -> Any:
@@ -74,13 +73,13 @@ class CodeArtifact(Artifact):
         name: str,
         version: str,
         *,
-        controllers: Optional[List[str]] = None,
-        services: Optional[List[str]] = None,
+        controllers: list[str] | None = None,
+        services: list[str] | None = None,
         route_prefix: str = "/",
         fault_domain: str = "GENERIC",
-        depends_on: Optional[List[str]] = None,
+        depends_on: list[str] | None = None,
         **metadata: Any,
-    ) -> "CodeArtifact":
+    ) -> CodeArtifact:
         payload = {
             "type": "module",
             "route_prefix": route_prefix,
@@ -99,11 +98,11 @@ class CodeArtifact(Artifact):
         return cls(a.envelope)
 
     @property
-    def controllers(self) -> List[str]:
+    def controllers(self) -> list[str]:
         return _payload_get(self, "controllers", [])
 
     @property
-    def services(self) -> List[str]:
+    def services(self) -> list[str]:
         return _payload_get(self, "services", [])
 
     @property
@@ -115,7 +114,7 @@ class CodeArtifact(Artifact):
         return _payload_get(self, "fault_domain", "GENERIC")
 
     @property
-    def depends_on(self) -> List[str]:
+    def depends_on(self) -> list[str]:
         return _payload_get(self, "depends_on", [])
 
 
@@ -139,9 +138,9 @@ class ModelArtifact(Artifact):
         framework: str = "custom",
         entrypoint: str = "",
         accuracy: float = 0.0,
-        files: Optional[List[Dict[str, Any]]] = None,
+        files: list[dict[str, Any]] | None = None,
         **metadata: Any,
-    ) -> "ModelArtifact":
+    ) -> ModelArtifact:
         payload = {
             "type": "model",
             "framework": framework,
@@ -171,7 +170,7 @@ class ModelArtifact(Artifact):
         return _payload_get(self, "accuracy", 0.0)
 
     @property
-    def files(self) -> List[Dict[str, Any]]:
+    def files(self) -> list[dict[str, Any]]:
         return _payload_get(self, "files", [])
 
 
@@ -191,9 +190,9 @@ class TemplateArtifact(Artifact):
         name: str,
         version: str,
         *,
-        templates: Optional[Dict[str, Any]] = None,
+        templates: dict[str, Any] | None = None,
         **metadata: Any,
-    ) -> "TemplateArtifact":
+    ) -> TemplateArtifact:
         payload = {
             "type": "templates",
             "templates": templates or {},
@@ -209,7 +208,7 @@ class TemplateArtifact(Artifact):
         return cls(a.envelope)
 
     @property
-    def templates(self) -> Dict[str, Any]:
+    def templates(self) -> dict[str, Any]:
         return _payload_get(self, "templates", {})
 
     @property
@@ -233,11 +232,11 @@ class MigrationArtifact(Artifact):
         name: str,
         version: str,
         *,
-        migrations_applied: Optional[List[str]] = None,
+        migrations_applied: list[str] | None = None,
         head: str = "",
         schema_hash: str = "",
         **metadata: Any,
-    ) -> "MigrationArtifact":
+    ) -> MigrationArtifact:
         payload = {
             "type": "migration",
             "migrations_applied": migrations_applied or [],
@@ -258,7 +257,7 @@ class MigrationArtifact(Artifact):
         return _payload_get(self, "head", "")
 
     @property
-    def migrations_applied(self) -> List[str]:
+    def migrations_applied(self) -> list[str]:
         return _payload_get(self, "migrations_applied", [])
 
     @property
@@ -278,9 +277,9 @@ class RegistryArtifact(Artifact):
         name: str,
         version: str,
         *,
-        modules: Optional[List[Dict[str, Any]]] = None,
+        modules: list[dict[str, Any]] | None = None,
         **metadata: Any,
-    ) -> "RegistryArtifact":
+    ) -> RegistryArtifact:
         payload = {"type": "registry", "modules": modules or []}
         a = (
             ArtifactBuilder(name, kind="registry", version=version)
@@ -292,7 +291,7 @@ class RegistryArtifact(Artifact):
         return cls(a.envelope)
 
     @property
-    def modules(self) -> List[Dict[str, Any]]:
+    def modules(self) -> list[dict[str, Any]]:
         return _payload_get(self, "modules", [])
 
 
@@ -308,9 +307,9 @@ class RouteArtifact(Artifact):
         name: str,
         version: str,
         *,
-        routes: Optional[List[Dict[str, Any]]] = None,
+        routes: list[dict[str, Any]] | None = None,
         **metadata: Any,
-    ) -> "RouteArtifact":
+    ) -> RouteArtifact:
         payload = {"type": "routes", "routes": routes or []}
         a = (
             ArtifactBuilder(name, kind="route", version=version)
@@ -322,7 +321,7 @@ class RouteArtifact(Artifact):
         return cls(a.envelope)
 
     @property
-    def routes(self) -> List[Dict[str, Any]]:
+    def routes(self) -> list[dict[str, Any]]:
         return _payload_get(self, "routes", [])
 
 
@@ -338,9 +337,9 @@ class DIGraphArtifact(Artifact):
         name: str,
         version: str,
         *,
-        providers: Optional[List[Dict[str, Any]]] = None,
+        providers: list[dict[str, Any]] | None = None,
         **metadata: Any,
-    ) -> "DIGraphArtifact":
+    ) -> DIGraphArtifact:
         payload = {"type": "di_graph", "providers": providers or []}
         a = (
             ArtifactBuilder(name, kind="di_graph", version=version)
@@ -352,7 +351,7 @@ class DIGraphArtifact(Artifact):
         return cls(a.envelope)
 
     @property
-    def providers(self) -> List[Dict[str, Any]]:
+    def providers(self) -> list[dict[str, Any]]:
         return _payload_get(self, "providers", [])
 
 
@@ -372,9 +371,9 @@ class BundleArtifact(Artifact):
         name: str,
         version: str,
         *,
-        artifacts: Optional[List[Dict[str, Any]]] = None,
+        artifacts: list[dict[str, Any]] | None = None,
         **metadata: Any,
-    ) -> "BundleArtifact":
+    ) -> BundleArtifact:
         items = artifacts or []
         payload = {"type": "bundle", "artifacts": items, "count": len(items)}
         a = (
@@ -387,14 +386,14 @@ class BundleArtifact(Artifact):
         return cls(a.envelope)
 
     @property
-    def artifacts(self) -> List[Dict[str, Any]]:
+    def artifacts(self) -> list[dict[str, Any]]:
         return _payload_get(self, "artifacts", [])
 
     @property
     def artifact_count(self) -> int:
         return _payload_get(self, "count", 0)
 
-    def unpack(self) -> List[Artifact]:
+    def unpack(self) -> list[Artifact]:
         """Deserialise contained artifacts."""
         return [Artifact.from_dict(d) for d in self.artifacts]
 

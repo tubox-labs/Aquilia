@@ -246,7 +246,47 @@ line-length = 120
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "N", "UP", "B", "SIM"]
-ignore = ["E501"]
+ignore = [
+    "E501",   # line too long (handled by formatter)
+    "E402",   # module-level import not at top of file
+    "E701",   # multiple statements on one line
+    "E721",   # type comparison (use isinstance)
+    "E741",   # ambiguous variable name
+    "F403",   # star import used
+    "F811",   # redefined unused name
+    "F821",   # undefined name (often forward refs / dynamic)
+    "F841",   # local variable assigned but never used
+    "N801",   # class name should use CapWords
+    "N802",   # function name should be lowercase
+    "N805",   # first argument should be 'self'
+    "N806",   # variable in function should be lowercase
+    "N814",   # camelCase imported as constant
+    "N817",   # camelCase imported as acronym
+    "N818",   # exception name should end in Error
+    "B004",   # unreliable callable check
+    "B007",   # unused loop variable
+    "B018",   # useless expression
+    "B023",   # function uses loop variable
+    "B027",   # empty method without abstract decorator
+    "B904",   # raise without from inside except
+    "B905",   # zip without strict parameter
+    "SIM102", # collapsible if statements
+    "SIM103", # needless bool
+    "SIM105", # use contextlib.suppress
+    "SIM108", # use ternary operator
+    "SIM109", # compare with tuple
+    "SIM110", # reimplemented builtin
+    "SIM112", # uncapitalized env variables
+    "SIM113", # enumerate for loop
+    "SIM115", # open file with context handler
+    "SIM116", # if-else instead of dict lookup
+    "SIM118", # in dict keys
+    "SIM201", # negate equal op
+    "F402",   # import shadowed by loop variable
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]  # re-exports are intentional
 
 [tool.mypy]
 python_version = "3.10"

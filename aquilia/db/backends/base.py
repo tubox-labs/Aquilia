@@ -16,9 +16,10 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
+from collections.abc import AsyncIterator, Sequence
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
-from typing import Any, AsyncIterator, Dict, List, Optional, Sequence, Tuple, Type
+from typing import Any
 
 logger = logging.getLogger("aquilia.db.backends")
 
@@ -56,10 +57,10 @@ class ColumnInfo:
     name: str
     data_type: str
     nullable: bool = True
-    default: Optional[str] = None
+    default: str | None = None
     primary_key: bool = False
     unique: bool = False
-    max_length: Optional[int] = None
+    max_length: int | None = None
 
 
 @dataclass
@@ -67,16 +68,16 @@ class TableInfo:
     """Introspection result for a table."""
 
     name: str
-    columns: List[ColumnInfo] = field(default_factory=list)
-    indexes: List[Dict[str, Any]] = field(default_factory=list)
-    foreign_keys: List[Dict[str, Any]] = field(default_factory=list)
+    columns: list[ColumnInfo] = field(default_factory=list)
+    indexes: list[dict[str, Any]] = field(default_factory=list)
+    foreign_keys: list[dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass
 class IntrospectionResult:
     """Full database introspection result."""
 
-    tables: List[TableInfo] = field(default_factory=list)
+    tables: list[TableInfo] = field(default_factory=list)
 
 
 class DatabaseAdapter(ABC):
@@ -101,7 +102,7 @@ class DatabaseAdapter(ABC):
         ...
 
     @abstractmethod
-    async def execute(self, sql: str, params: Optional[Sequence[Any]] = None) -> Any:
+    async def execute(self, sql: str, params: Sequence[Any] | None = None) -> Any:
         """Execute a SQL statement. Returns a cursor-like object."""
         ...
 
@@ -111,17 +112,17 @@ class DatabaseAdapter(ABC):
         ...
 
     @abstractmethod
-    async def fetch_all(self, sql: str, params: Optional[Sequence[Any]] = None) -> List[Dict[str, Any]]:
+    async def fetch_all(self, sql: str, params: Sequence[Any] | None = None) -> list[dict[str, Any]]:
         """Execute and return all rows as dicts."""
         ...
 
     @abstractmethod
-    async def fetch_one(self, sql: str, params: Optional[Sequence[Any]] = None) -> Optional[Dict[str, Any]]:
+    async def fetch_one(self, sql: str, params: Sequence[Any] | None = None) -> dict[str, Any] | None:
         """Execute and return one row as dict, or None."""
         ...
 
     @abstractmethod
-    async def fetch_val(self, sql: str, params: Optional[Sequence[Any]] = None) -> Any:
+    async def fetch_val(self, sql: str, params: Sequence[Any] | None = None) -> Any:
         """Execute and return a scalar value."""
         ...
 
@@ -176,12 +177,12 @@ class DatabaseAdapter(ABC):
         ...
 
     @abstractmethod
-    async def get_tables(self) -> List[str]:
+    async def get_tables(self) -> list[str]:
         """List all table names."""
         ...
 
     @abstractmethod
-    async def get_columns(self, table_name: str) -> List[ColumnInfo]:
+    async def get_columns(self, table_name: str) -> list[ColumnInfo]:
         """Get column info for a table."""
         ...
 
@@ -204,7 +205,7 @@ class DatabaseAdapter(ABC):
         """
         return sql
 
-    def last_insert_id(self, cursor: Any) -> Optional[int]:
+    def last_insert_id(self, cursor: Any) -> int | None:
         """Extract last inserted ID from cursor."""
         if hasattr(cursor, "lastrowid"):
             return cursor.lastrowid

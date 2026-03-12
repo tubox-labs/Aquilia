@@ -108,12 +108,14 @@ class VersionConfig:
     supported_versions_header: str = "X-API-Supported-Versions"
 
     # Version-neutral paths (always served regardless of version)
-    neutral_paths: list[str] = field(default_factory=lambda: [
-        "/_health",
-        "/openapi.json",
-        "/docs",
-        "/redoc",
-    ])
+    neutral_paths: list[str] = field(
+        default_factory=lambda: [
+            "/_health",
+            "/openapi.json",
+            "/docs",
+            "/redoc",
+        ]
+    )
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -204,20 +206,24 @@ class VersionStrategy:
         elif strategy == "composite":
             composite = CompositeResolver()
             # Stack all resolvers with URL first (highest priority)
-            composite.add(URLPathResolver(
-                segment_index=config.url_segment_index,
-                prefix=config.url_prefix,
-                strip_from_path=config.strip_version_from_path,
-            ))
+            composite.add(
+                URLPathResolver(
+                    segment_index=config.url_segment_index,
+                    prefix=config.url_prefix,
+                    strip_from_path=config.strip_version_from_path,
+                )
+            )
             composite.add(HeaderResolver(header_name=config.header_name))
             composite.add(QueryParamResolver(param_name=config.query_param))
             composite.add(MediaTypeResolver(param_name=config.media_type_param))
             if config.channels:
-                composite.add(ChannelResolver(
-                    channel_map=config.channels,
-                    header_name=config.channel_header,
-                    query_param=config.channel_query_param,
-                ))
+                composite.add(
+                    ChannelResolver(
+                        channel_map=config.channels,
+                        header_name=config.channel_header,
+                        query_param=config.channel_query_param,
+                    )
+                )
             return composite
         else:
             # Default to header
@@ -388,9 +394,7 @@ class VersionStrategy:
         if self._config.include_supported_versions_header:
             active = self._graph.active_versions
             if active:
-                headers[self._config.supported_versions_header] = ", ".join(
-                    str(v) for v in active
-                )
+                headers[self._config.supported_versions_header] = ", ".join(str(v) for v in active)
 
         # Sunset headers
         sunset_headers = self._sunset_enforcer.get_headers(version)

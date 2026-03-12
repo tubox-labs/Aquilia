@@ -17,12 +17,12 @@ Usage:
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from .sql_builder import DeleteBuilder, UpdateBuilder
 
 if TYPE_CHECKING:
-    from .base import Model
+    pass
 
 logger = logging.getLogger("aquilia.models.deletion")
 
@@ -163,15 +163,13 @@ class OnDeleteHandler:
         elif self.action == PROTECT:
             # Check if there are referencing rows
             row = await db.fetch_one(
-                f'SELECT COUNT(*) as cnt FROM "{table}" '
-                f'WHERE "{target_field_name}" = ?',
+                f'SELECT COUNT(*) as cnt FROM "{table}" WHERE "{target_field_name}" = ?',
                 [pk_value],
             )
             count = row.get("cnt", 0) if row else 0
             if count > 0:
                 raise ProtectedError(
-                    f"Cannot delete: {count} {source_model.__name__} "
-                    f"record(s) reference this object",
+                    f"Cannot delete: {count} {source_model.__name__} record(s) reference this object",
                     protected_objects=count,
                 )
             return 0
@@ -180,15 +178,13 @@ class OnDeleteHandler:
             # Similar to PROTECT but semantically different -- RESTRICT
             # is meant to mirror SQL RESTRICT (checked at DB level too)
             row = await db.fetch_one(
-                f'SELECT COUNT(*) as cnt FROM "{table}" '
-                f'WHERE "{target_field_name}" = ?',
+                f'SELECT COUNT(*) as cnt FROM "{table}" WHERE "{target_field_name}" = ?',
                 [pk_value],
             )
             count = row.get("cnt", 0) if row else 0
             if count > 0:
                 raise RestrictedError(
-                    f"Cannot delete: {source_model.__name__} records "
-                    f"reference this object (RESTRICT)",
+                    f"Cannot delete: {source_model.__name__} records reference this object (RESTRICT)",
                     restricted_objects=count,
                 )
             return 0

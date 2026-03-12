@@ -9,9 +9,7 @@ from __future__ import annotations
 
 import logging
 import math
-from collections import defaultdict
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Sequence
+from collections.abc import Sequence
 
 from .._types import DriftMethod, DriftReport
 from ..engine.faults import DriftDetectionFault
@@ -46,9 +44,9 @@ class DriftDetector:
         self.method = method
         self.threshold = threshold
         self.num_bins = num_bins
-        self._reference: Optional[Dict[str, List[float]]] = None
+        self._reference: dict[str, list[float]] | None = None
 
-    def set_reference(self, data: Dict[str, Sequence[float]]) -> None:
+    def set_reference(self, data: dict[str, Sequence[float]]) -> None:
         """
         Set the reference (training) distribution.
 
@@ -59,7 +57,7 @@ class DriftDetector:
 
     def detect(
         self,
-        current: Dict[str, Sequence[float]],
+        current: dict[str, Sequence[float]],
         window_start: str = "",
         window_end: str = "",
     ) -> DriftReport:
@@ -79,7 +77,7 @@ class DriftDetector:
                 "Reference distribution not set. Call set_reference() first.",
             )
 
-        feature_scores: Dict[str, float] = {}
+        feature_scores: dict[str, float] = {}
 
         for feature in self._reference:
             ref_values = self._reference[feature]
@@ -101,10 +99,7 @@ class DriftDetector:
 
             feature_scores[feature] = score
 
-        if feature_scores:
-            overall_score = sum(feature_scores.values()) / len(feature_scores)
-        else:
-            overall_score = 0.0
+        overall_score = sum(feature_scores.values()) / len(feature_scores) if feature_scores else 0.0
 
         is_drifted = overall_score > self.threshold
 
@@ -121,16 +116,16 @@ class DriftDetector:
         if is_drifted:
             logger.warning(
                 "Drift detected! score=%.4f threshold=%.4f method=%s",
-                overall_score, self.threshold, self.method.value,
+                overall_score,
+                self.threshold,
+                self.method.value,
             )
 
         return report
 
     # ── PSI ──────────────────────────────────────────────────────────
 
-    def _compute_psi(
-        self, reference: List[float], current: List[float]
-    ) -> float:
+    def _compute_psi(self, reference: list[float], current: list[float]) -> float:
         """
         Compute Population Stability Index.
 
@@ -147,7 +142,7 @@ class DriftDetector:
         cur_hist = self._histogram(current, self.num_bins, lo=lo, hi=hi)
 
         psi = 0.0
-        for p, q in zip(ref_hist, cur_hist):
+        for p, q in zip(ref_hist, cur_hist, strict=False):
             p = max(p, eps)
             q = max(q, eps)
             psi += (p - q) * math.log(p / q)
@@ -156,9 +151,7 @@ class DriftDetector:
 
     # ── KS Test ──────────────────────────────────────────────────────
 
-    def _compute_ks(
-        self, reference: List[float], current: List[float]
-    ) -> float:
+    def _compute_ks(self, reference: list[float], current: list[float]) -> float:
         """
         Compute Kolmogorov-Smirnov statistic (max CDF difference).
         """
@@ -182,21 +175,22 @@ class DriftDetector:
 
     # ── Distribution Diff ────────────────────────────────────────────
 
-    def _compute_distribution_diff(
-        self, reference: List[float], current: List[float]
-    ) -> float:
+    def _compute_distribution_diff(self, reference: list[float], current: list[float]) -> float:
         """Mean absolute difference between histograms."""
         ref_hist = self._histogram(reference, self.num_bins)
         cur_hist = self._histogram(current, self.num_bins)
 
-        return sum(abs(p - q) for p, q in zip(ref_hist, cur_hist)) / self.num_bins
+        return sum(abs(p - q) for p, q in zip(ref_hist, cur_hist, strict=False)) / self.num_bins
 
     # ── Helpers ──────────────────────────────────────────────────────
 
     def _histogram(
-        self, values: List[float], num_bins: int,
-        lo: Optional[float] = None, hi: Optional[float] = None,
-    ) -> List[float]:
+        self,
+        values: list[float],
+        num_bins: int,
+        lo: float | None = None,
+        hi: float | None = None,
+    ) -> list[float]:
         """Compute normalized histogram (proportions)."""
         if not values:
             return [0.0] * num_bins
@@ -261,7 +255,9 @@ class DriftDetector:
     # ── Embedding Drift (cosine distance) ────────────────────────────
 
     def _compute_embedding_drift(
-        self, reference: List[float], current: List[float],
+        self,
+        reference: list[float],
+        current: list[float],
     ) -> float:
         """
         Compute drift via cosine distance between mean embedding vectors.
@@ -293,7 +289,9 @@ class DriftDetector:
     # ── Perplexity Drift ─────────────────────────────────────────────
 
     def _compute_perplexity_drift(
-        self, reference: List[float], current: List[float],
+        self,
+        reference: list[float],
+        current: list[float],
     ) -> float:
         """
         Detect drift in LLM perplexity distributions.

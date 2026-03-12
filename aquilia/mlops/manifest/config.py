@@ -31,7 +31,7 @@ from __future__ import annotations
 import importlib
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger("aquilia.mlops.manifest.config")
 
@@ -39,8 +39,9 @@ logger = logging.getLogger("aquilia.mlops.manifest.config")
 @dataclass
 class ModelManifestEntry:
     """Configuration for a single model from the manifest."""
+
     name: str
-    class_path: str                          # dotted path: "myapp.models.SentimentModel"
+    class_path: str  # dotted path: "myapp.models.SentimentModel"
     version: str = "v1"
     device: str = "auto"
     batch_size: int = 16
@@ -50,14 +51,15 @@ class ModelManifestEntry:
     timeout_ms: float = 30000.0
     artifacts_dir: str = ""
     supports_streaming: bool = False
-    tags: List[str] = field(default_factory=list)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    tags: list[str] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def resolve_class(self) -> Any:
         """Import and return the model class from its dotted path."""
         module_path, _, class_name = self.class_path.rpartition(".")
         if not module_path:
             from aquilia.faults.domains import ConfigInvalidFault
+
             raise ConfigInvalidFault(
                 key="mlops.model.class_path",
                 reason=(
@@ -70,12 +72,9 @@ class ModelManifestEntry:
             cls = getattr(module, class_name)
             return cls
         except (ImportError, AttributeError) as exc:
-            raise ImportError(
-                f"Cannot import model class '{self.class_path}' "
-                f"for model '{self.name}': {exc}"
-            ) from exc
+            raise ImportError(f"Cannot import model class '{self.class_path}' for model '{self.name}': {exc}") from exc
 
-    def to_config_dict(self) -> Dict[str, Any]:
+    def to_config_dict(self) -> dict[str, Any]:
         """Convert to a config dict for ModelRegistry.register()."""
         return {
             "device": self.device,
@@ -96,6 +95,7 @@ class MLOpsManifestConfig:
 
     Contains global defaults and per-model entries.
     """
+
     enabled: bool = True
     default_device: str = "auto"
     default_workers: int = 4
@@ -103,10 +103,10 @@ class MLOpsManifestConfig:
     default_max_batch_latency_ms: float = 50.0
     default_timeout_ms: float = 30000.0
     route_prefix: str = "/mlops"
-    models: List[ModelManifestEntry] = field(default_factory=list)
+    models: list[ModelManifestEntry] = field(default_factory=list)
 
 
-def parse_mlops_config(config: Dict[str, Any]) -> MLOpsManifestConfig:
+def parse_mlops_config(config: dict[str, Any]) -> MLOpsManifestConfig:
     """
     Parse an ``[mlops]`` config dict into ``MLOpsManifestConfig``.
 
@@ -143,7 +143,8 @@ def parse_mlops_config(config: Dict[str, Any]) -> MLOpsManifestConfig:
                 device=model_cfg.get("device", manifest.default_device),
                 batch_size=model_cfg.get("batch_size", manifest.default_batch_size),
                 max_batch_latency_ms=model_cfg.get(
-                    "max_batch_latency_ms", manifest.default_max_batch_latency_ms,
+                    "max_batch_latency_ms",
+                    manifest.default_max_batch_latency_ms,
                 ),
                 warmup_requests=model_cfg.get("warmup_requests", 0),
                 workers=model_cfg.get("workers", manifest.default_workers),

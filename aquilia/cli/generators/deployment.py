@@ -31,17 +31,16 @@ Usage::
 
 from __future__ import annotations
 
-import textwrap
 import re
-import json
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+import textwrap
 from datetime import datetime, timezone
-
+from pathlib import Path
+from typing import Any
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Workspace Introspection
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class WorkspaceIntrospector:
     """
@@ -63,14 +62,14 @@ class WorkspaceIntrospector:
 
     def __init__(self, workspace_root: Path):
         self.root = workspace_root
-        self._cache: Optional[Dict[str, Any]] = None
+        self._cache: dict[str, Any] | None = None
 
-    def introspect(self) -> Dict[str, Any]:
+    def introspect(self) -> dict[str, Any]:
         """Return a full introspection dictionary."""
         if self._cache is not None:
             return self._cache
 
-        result: Dict[str, Any] = {
+        result: dict[str, Any] = {
             "name": self.root.name,
             "version": "0.1.0",
             "python_version": "3.12",
@@ -145,16 +144,22 @@ class WorkspaceIntrospector:
                     svc_file = d / "services.py"
                     if ctrl_file.exists():
                         ctrl_content = ctrl_file.read_text(encoding="utf-8")
-                        total_controllers += len(re.findall(
-                            r'^class\s+\w+(?:Controller|Resource|View)\b',
-                            ctrl_content, re.MULTILINE,
-                        ))
+                        total_controllers += len(
+                            re.findall(
+                                r"^class\s+\w+(?:Controller|Resource|View)\b",
+                                ctrl_content,
+                                re.MULTILINE,
+                            )
+                        )
                     if svc_file.exists():
                         svc_content = svc_file.read_text(encoding="utf-8")
-                        total_services += len(re.findall(
-                            r'^class\s+\w+(?:Service|Repository|Provider)\b',
-                            svc_content, re.MULTILINE,
-                        ))
+                        total_services += len(
+                            re.findall(
+                                r"^class\s+\w+(?:Service|Repository|Provider)\b",
+                                svc_content,
+                                re.MULTILINE,
+                            )
+                        )
             result["modules"] = modules
             result["module_count"] = len(modules)
             result["controller_count"] = total_controllers
@@ -162,10 +167,7 @@ class WorkspaceIntrospector:
 
         # ── Detect ecosystem from filesystem ──
         result["has_migrations"] = (self.root / "migrations").exists()
-        result["has_static"] = (
-            (self.root / "static").exists()
-            or result.get("has_static", False)
-        )
+        result["has_static"] = (self.root / "static").exists() or result.get("has_static", False)
         result["has_requirements_txt"] = (self.root / "requirements.txt").exists()
         result["has_dockerfile"] = (self.root / "Dockerfile").exists()
         result["has_compose"] = (self.root / "docker-compose.yml").exists()
@@ -198,9 +200,9 @@ class WorkspaceIntrospector:
             return "mssql"
         return "sqlite"
 
-    def _parse_pyproject(self, content: str) -> Dict[str, Any]:
+    def _parse_pyproject(self, content: str) -> dict[str, Any]:
         """Parse pyproject.toml for Python version, project name, and deps."""
-        data: Dict[str, Any] = {}
+        data: dict[str, Any] = {}
 
         # Project name
         m = re.search(r'^name\s*=\s*"([^"]+)"', content, re.MULTILINE)
@@ -225,7 +227,7 @@ class WorkspaceIntrospector:
                 data["python_version"] = min_py
 
         # Detect dependencies for service provisioning
-        deps: List[str] = []
+        deps: list[str] = []
         in_deps = False
         for line in content.splitlines():
             stripped = line.strip()
@@ -247,14 +249,14 @@ class WorkspaceIntrospector:
 
         return data
 
-    def _parse_workspace(self, content: str) -> Dict[str, Any]:
+    def _parse_workspace(self, content: str) -> dict[str, Any]:
         """Parse workspace.py for deployment-relevant configuration.
 
         Only considers *uncommented* lines so that commented-out
         configuration blocks (e.g. ``# .sessions(...)``) do not
         trigger service provisioning.
         """
-        data: Dict[str, Any] = {}
+        data: dict[str, Any] = {}
 
         # Strip comment-only lines and inline comments to avoid
         # false-positive matches on commented-out configuration.
@@ -265,7 +267,7 @@ class WorkspaceIntrospector:
                 continue  # skip full-line comments
             # Remove inline comments (naive but good enough for workspace.py)
             if " #" in stripped:
-                stripped = stripped[:stripped.index(" #")]
+                stripped = stripped[: stripped.index(" #")]
             active_lines.append(stripped)
         active = "\n".join(active_lines)
 
@@ -335,7 +337,9 @@ class WorkspaceIntrospector:
 
         # Security -- parse each flag
         sec_match = re.search(
-            r'\.security\((.*?)\)', active, re.DOTALL,
+            r"\.security\((.*?)\)",
+            active,
+            re.DOTALL,
         )
         if sec_match:
             sec_block = sec_match.group(1)
@@ -356,7 +360,9 @@ class WorkspaceIntrospector:
 
         # Telemetry -- parse each flag
         tel_match = re.search(
-            r'\.telemetry\((.*?)\)', active, re.DOTALL,
+            r"\.telemetry\((.*?)\)",
+            active,
+            re.DOTALL,
         )
         if tel_match:
             tel_block = tel_match.group(1)
@@ -382,7 +388,7 @@ class WorkspaceIntrospector:
 
         return data
 
-    def _parse_pyconfig_file(self, path: Path) -> Dict[str, Any]:
+    def _parse_pyconfig_file(self, path: Path) -> dict[str, Any]:
         """
         Parse Python config file for server settings.
 
@@ -390,14 +396,15 @@ class WorkspaceIntrospector:
         from class bodies (e.g. host, port, workers).
         """
         import re as _re
-        data: Dict[str, Any] = {}
+
+        data: dict[str, Any] = {}
         try:
             content = path.read_text(encoding="utf-8")
         except Exception:
             return data
 
         # Look for port, host, workers assignments
-        port_m = _re.search(r'\bport\s*=\s*(\d+)', content)
+        port_m = _re.search(r"\bport\s*=\s*(\d+)", content)
         if port_m:
             data["port"] = int(port_m.group(1))
 
@@ -405,16 +412,16 @@ class WorkspaceIntrospector:
         if host_m:
             data["host"] = host_m.group(1)
 
-        workers_m = _re.search(r'\bworkers\s*=\s*(\d+)', content)
+        workers_m = _re.search(r"\bworkers\s*=\s*(\d+)", content)
         if workers_m:
             data["workers"] = int(workers_m.group(1))
 
         return data
 
-    def _parse_yaml_config(self, content: str) -> Dict[str, Any]:
+    def _parse_yaml_config(self, content: str) -> dict[str, Any]:
         """DEPRECATED — kept for backwards compat. Use _parse_pyconfig_file."""
         return {}
-        data: Dict[str, Any] = {}
+        data: dict[str, Any] = {}
         in_server_block = False
 
         for line in content.splitlines():
@@ -467,6 +474,7 @@ class WorkspaceIntrospector:
 # Dockerfile Generator
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class DockerfileGenerator:
     """
     Generates production-ready, multi-stage Dockerfile for Aquilia workspaces.
@@ -484,7 +492,7 @@ class DockerfileGenerator:
     - BuildKit cache mounts for pip
     """
 
-    def __init__(self, ctx: Dict[str, Any]):
+    def __init__(self, ctx: dict[str, Any]):
         self.ctx = ctx
 
     def generate_dockerfile(self) -> str:
@@ -510,9 +518,7 @@ class DockerfileGenerator:
         build_deps_str = " \\\n                    ".join(
             ["build-essential", "gcc", "libffi-dev", "libssl-dev"] + extra_build_deps
         )
-        runtime_deps_str = " \\\n                    ".join(
-            ["curl", "tini"] + extra_runtime_deps
-        )
+        runtime_deps_str = " \\\n                    ".join(["curl", "tini"] + extra_runtime_deps)
 
         # Migration step in entrypoint
         migration_comment = ""
@@ -557,8 +563,8 @@ ARG APP_VERSION
 LABEL org.opencontainers.image.title="{name}" \\
       org.opencontainers.image.description="Aquilia application -- {name}" \\
       org.opencontainers.image.vendor="Aquilia" \\
-      org.opencontainers.image.version="${{APP_VERSION:-{self.ctx.get('version', '0.1.0')}}}" \\
-      org.opencontainers.image.created="{self.ctx.get('generated_at', '')}"
+      org.opencontainers.image.version="${{APP_VERSION:-{self.ctx.get("version", "0.1.0")}}}" \\
+      org.opencontainers.image.created="{self.ctx.get("generated_at", "")}"
 
 # Security: run as non-root
 RUN groupadd -r aquilia && \\
@@ -701,8 +707,8 @@ ARG APP_VERSION
 LABEL org.opencontainers.image.title="{name}" \\
       org.opencontainers.image.description="Aquilia MLOps model server -- {name}" \\
       org.opencontainers.image.vendor="Aquilia" \\
-      org.opencontainers.image.version="${{APP_VERSION:-{self.ctx.get('version', '0.1.0')}}}" \\
-      org.opencontainers.image.created="{self.ctx.get('generated_at', '')}"
+      org.opencontainers.image.version="${{APP_VERSION:-{self.ctx.get("version", "0.1.0")}}}" \\
+      org.opencontainers.image.created="{self.ctx.get("generated_at", "")}"
 
 WORKDIR /app
 
@@ -821,6 +827,7 @@ deploy/
 # Docker Compose Generator
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class ComposeGenerator:
     """
     Generates production-ready docker-compose.yml for Aquilia workspaces.
@@ -837,7 +844,7 @@ class ComposeGenerator:
     - Compose profiles for selective service activation
     """
 
-    def __init__(self, ctx: Dict[str, Any]):
+    def __init__(self, ctx: dict[str, Any]):
         self.ctx = ctx
 
     def generate_compose(self, *, include_monitoring: bool = False) -> str:
@@ -858,12 +865,12 @@ class ComposeGenerator:
         port = self.ctx.get("port", 8000)
         workers = self.ctx.get("workers", 4)
         has_db = self.ctx.get("has_db", False)
-        db_url = self.ctx.get("db_url", "")
+        self.ctx.get("db_url", "")
         db_driver = self.ctx.get("db_driver", "sqlite")
         has_cache = self.ctx.get("has_cache", False)
         has_sessions = self.ctx.get("has_sessions", False)
         session_store = self.ctx.get("session_store", "memory")
-        has_websockets = self.ctx.get("has_websockets", False)
+        self.ctx.get("has_websockets", False)
         has_mlops = self.ctx.get("has_mlops", False)
         has_mail = self.ctx.get("has_mail", False)
         has_migrations = self.ctx.get("has_migrations", False)
@@ -871,17 +878,17 @@ class ComposeGenerator:
 
         # Determine if we need Redis
         needs_redis = (
-            has_cache and self.ctx.get("cache_backend") == "redis"
-        ) or (
-            has_sessions and session_store == "redis"
-        ) or self.ctx.get("rate_limiting", False)
+            (has_cache and self.ctx.get("cache_backend") == "redis")
+            or (has_sessions and session_store == "redis")
+            or self.ctx.get("rate_limiting", False)
+        )
 
         # Determine database backend
         needs_postgres = has_db and db_driver == "postgres"
         needs_mysql = has_db and db_driver == "mysql"
         uses_sqlite = has_db and not needs_postgres and not needs_mysql
 
-        sections: List[str] = []
+        sections: list[str] = []
 
         # ── Header ──
         svc_list = ["#   app        -- Aquilia application server"]
@@ -929,25 +936,29 @@ class ComposeGenerator:
 
         # ── App service ──
         app_env_lines = [
-            f'      AQUILIA_ENV: production',
-            f'      AQUILIA_MODE: prod',
-            f'      AQ_SERVER_HOST: "0.0.0.0"',
+            "      AQUILIA_ENV: production",
+            "      AQUILIA_MODE: prod",
+            '      AQ_SERVER_HOST: "0.0.0.0"',
             f'      AQ_SERVER_PORT: "{port}"',
             f'      AQ_SERVER_WORKERS: "{workers}"',
         ]
         if needs_postgres:
-            app_env_lines.append('      DATABASE_URL: "postgresql+asyncpg://aquilia:${DB_PASSWORD:-aquilia}@db:5432/aquilia"')
+            app_env_lines.append(
+                '      DATABASE_URL: "postgresql+asyncpg://aquilia:${DB_PASSWORD:-aquilia}@db:5432/aquilia"'
+            )
         if needs_mysql:
-            app_env_lines.append('      DATABASE_URL: "mysql+aiomysql://aquilia:${DB_PASSWORD:-aquilia}@db:3306/aquilia"')
+            app_env_lines.append(
+                '      DATABASE_URL: "mysql+aiomysql://aquilia:${DB_PASSWORD:-aquilia}@db:3306/aquilia"'
+            )
         if uses_sqlite:
             app_env_lines.append('      DATABASE_URL: "sqlite:////app/data/db.sqlite3"')
         if needs_redis:
             app_env_lines.append('      REDIS_URL: "redis://redis:6379/0"')
             if has_sessions and session_store == "redis":
-                app_env_lines.append('      AQ_SESSION_STORE: redis')
+                app_env_lines.append("      AQ_SESSION_STORE: redis")
                 app_env_lines.append('      AQ_SESSION_REDIS_URL: "redis://redis:6379/1"')
             if has_cache:
-                app_env_lines.append('      AQ_CACHE_BACKEND: redis')
+                app_env_lines.append("      AQ_CACHE_BACKEND: redis")
                 app_env_lines.append('      AQ_CACHE_REDIS_URL: "redis://redis:6379/2"')
 
         depends = []
@@ -968,312 +979,342 @@ class ComposeGenerator:
 
         app_volumes = []
         if uses_sqlite:
-            app_volumes.append('      - app-data:/app/data')
-        app_volumes.append('      - app-artifacts:/app/artifacts')
+            app_volumes.append("      - app-data:/app/data")
+        app_volumes.append("      - app-artifacts:/app/artifacts")
 
-        compose_lines.extend([
-            f"  # ── Aquilia Application ──",
-            f"  app:",
-            f"    build:",
-            f"      context: .",
-            f"      dockerfile: Dockerfile",
-            f"      target: production",
-            f"    container_name: {name}-app",
-            f"    restart: unless-stopped",
-            f"    ports:",
-            f'      - "{port}:{port}"',
-            f"    environment:",
-            *app_env_lines,
-            f"    env_file:",
-            f"      - .env",
-            f"    volumes:",
-            *app_volumes,
-        ])
+        compose_lines.extend(
+            [
+                "  # ── Aquilia Application ──",
+                "  app:",
+                "    build:",
+                "      context: .",
+                "      dockerfile: Dockerfile",
+                "      target: production",
+                f"    container_name: {name}-app",
+                "    restart: unless-stopped",
+                "    ports:",
+                f'      - "{port}:{port}"',
+                "    environment:",
+                *app_env_lines,
+                "    env_file:",
+                "      - .env",
+                "    volumes:",
+                *app_volumes,
+            ]
+        )
         if depends_block:
             compose_lines.append(depends_block)
-        compose_lines.extend([
-            f"    healthcheck:",
-            f"      test: ['CMD', 'curl', '-f', 'http://localhost:{port}/_health']",
-            f"      interval: 30s",
-            f"      timeout: 10s",
-            f"      retries: 3",
-            f"      start_period: 30s",
-            f"    logging:",
-            f"      driver: json-file",
-            f"      options:",
-            f"        max-size: '10m'",
-            f"        max-file: '3'",
-            f"    networks:",
-            f"      - {name}-net",
-            "",
-        ])
+        compose_lines.extend(
+            [
+                "    healthcheck:",
+                f"      test: ['CMD', 'curl', '-f', 'http://localhost:{port}/_health']",
+                "      interval: 30s",
+                "      timeout: 10s",
+                "      retries: 3",
+                "      start_period: 30s",
+                "    logging:",
+                "      driver: json-file",
+                "      options:",
+                "        max-size: '10m'",
+                "        max-file: '3'",
+                "    networks:",
+                f"      - {name}-net",
+                "",
+            ]
+        )
 
         # ── Migration Service ──
         if has_migrations:
-            compose_lines.extend([
-                f"  # ── Database Migrations (run-once) ──",
-                f"  migrate:",
-                f"    build:",
-                f"      context: .",
-                f"      dockerfile: Dockerfile",
-                f"      target: production",
-                f"    container_name: {name}-migrate",
-                f"    command: ['python', '-m', 'aquilia.cli', 'db', 'migrate']",
-                f"    environment:",
-            ])
+            compose_lines.extend(
+                [
+                    "  # ── Database Migrations (run-once) ──",
+                    "  migrate:",
+                    "    build:",
+                    "      context: .",
+                    "      dockerfile: Dockerfile",
+                    "      target: production",
+                    f"    container_name: {name}-migrate",
+                    "    command: ['python', '-m', 'aquilia.cli', 'db', 'migrate']",
+                    "    environment:",
+                ]
+            )
             if needs_postgres:
-                compose_lines.append('      DATABASE_URL: "postgresql+asyncpg://aquilia:${DB_PASSWORD:-aquilia}@db:5432/aquilia"')
+                compose_lines.append(
+                    '      DATABASE_URL: "postgresql+asyncpg://aquilia:${DB_PASSWORD:-aquilia}@db:5432/aquilia"'
+                )
             elif needs_mysql:
-                compose_lines.append('      DATABASE_URL: "mysql+aiomysql://aquilia:${DB_PASSWORD:-aquilia}@db:3306/aquilia"')
+                compose_lines.append(
+                    '      DATABASE_URL: "mysql+aiomysql://aquilia:${DB_PASSWORD:-aquilia}@db:3306/aquilia"'
+                )
             elif uses_sqlite:
                 compose_lines.append('      DATABASE_URL: "sqlite:////app/data/db.sqlite3"')
 
             if uses_sqlite:
-                compose_lines.append('    volumes:')
+                compose_lines.append("    volumes:")
                 compose_lines.extend(app_volumes)
 
             if needs_postgres or needs_mysql:
-                compose_lines.extend([
-                    f"    depends_on:",
-                    f"      db:",
-                    f"        condition: service_healthy",
-                ])
+                compose_lines.extend(
+                    [
+                        "    depends_on:",
+                        "      db:",
+                        "        condition: service_healthy",
+                    ]
+                )
 
-            compose_lines.extend([
-                f"    networks:",
-                f"      - {name}-net",
-                "",
-            ])
+            compose_lines.extend(
+                [
+                    "    networks:",
+                    f"      - {name}-net",
+                    "",
+                ]
+            )
 
         # ── Nginx (opt-in via `docker compose --profile proxy up`) ──
-        compose_lines.extend([
-            f"  # ── Nginx Reverse Proxy (enable with --profile proxy) ──",
-            f"  nginx:",
-            f"    image: nginx:alpine",
-            f"    container_name: {name}-nginx",
-            f"    profiles:",
-            f"      - proxy",
-            f"    restart: unless-stopped",
-            f"    ports:",
-            f'      - "80:80"',
-            f'      - "443:443"',
-            f"    volumes:",
-            f"      - ./deploy/nginx/nginx.conf:/etc/nginx/nginx.conf:ro",
-            f"      - ./deploy/nginx/ssl:/etc/nginx/ssl:ro",
-            f"    depends_on:",
-            f"      app:",
-            f"        condition: service_healthy",
-            f"    healthcheck:",
-            f"      test: ['CMD', 'curl', '-f', 'http://localhost/nginx-health']",
-            f"      interval: 15s",
-            f"      timeout: 5s",
-            f"      retries: 3",
-            f"    networks:",
-            f"      - {name}-net",
-            "",
-        ])
+        compose_lines.extend(
+            [
+                "  # ── Nginx Reverse Proxy (enable with --profile proxy) ──",
+                "  nginx:",
+                "    image: nginx:alpine",
+                f"    container_name: {name}-nginx",
+                "    profiles:",
+                "      - proxy",
+                "    restart: unless-stopped",
+                "    ports:",
+                '      - "80:80"',
+                '      - "443:443"',
+                "    volumes:",
+                "      - ./deploy/nginx/nginx.conf:/etc/nginx/nginx.conf:ro",
+                "      - ./deploy/nginx/ssl:/etc/nginx/ssl:ro",
+                "    depends_on:",
+                "      app:",
+                "        condition: service_healthy",
+                "    healthcheck:",
+                "      test: ['CMD', 'curl', '-f', 'http://localhost/nginx-health']",
+                "      interval: 15s",
+                "      timeout: 5s",
+                "      retries: 3",
+                "    networks:",
+                f"      - {name}-net",
+                "",
+            ]
+        )
 
         # ── PostgreSQL ──
         if needs_postgres:
-            compose_lines.extend([
-                f"  # ── PostgreSQL Database ──",
-                f"  db:",
-                f"    image: postgres:16-alpine",
-                f"    container_name: {name}-db",
-                f"    restart: unless-stopped",
-                f"    environment:",
-                f"      POSTGRES_DB: aquilia",
-                f"      POSTGRES_USER: aquilia",
-                f"      POSTGRES_PASSWORD: ${{DB_PASSWORD:-aquilia}}",
-                f"    volumes:",
-                f"      - postgres-data:/var/lib/postgresql/data",
-                f"    ports:",
-                f'      - "5432:5432"',
-                f"    healthcheck:",
-                f"      test: ['CMD-SHELL', 'pg_isready -U aquilia']",
-                f"      interval: 10s",
-                f"      timeout: 5s",
-                f"      retries: 5",
-                f"    logging:",
-                f"      driver: json-file",
-                f"      options:",
-                f"        max-size: '5m'",
-                f"        max-file: '2'",
-                f"    networks:",
-                f"      - {name}-net",
-                "",
-            ])
+            compose_lines.extend(
+                [
+                    "  # ── PostgreSQL Database ──",
+                    "  db:",
+                    "    image: postgres:16-alpine",
+                    f"    container_name: {name}-db",
+                    "    restart: unless-stopped",
+                    "    environment:",
+                    "      POSTGRES_DB: aquilia",
+                    "      POSTGRES_USER: aquilia",
+                    "      POSTGRES_PASSWORD: ${DB_PASSWORD:-aquilia}",
+                    "    volumes:",
+                    "      - postgres-data:/var/lib/postgresql/data",
+                    "    ports:",
+                    '      - "5432:5432"',
+                    "    healthcheck:",
+                    "      test: ['CMD-SHELL', 'pg_isready -U aquilia']",
+                    "      interval: 10s",
+                    "      timeout: 5s",
+                    "      retries: 5",
+                    "    logging:",
+                    "      driver: json-file",
+                    "      options:",
+                    "        max-size: '5m'",
+                    "        max-file: '2'",
+                    "    networks:",
+                    f"      - {name}-net",
+                    "",
+                ]
+            )
 
         # ── MySQL ──
         if needs_mysql:
-            compose_lines.extend([
-                f"  # ── MySQL Database ──",
-                f"  db:",
-                f"    image: mysql:8.0",
-                f"    container_name: {name}-db",
-                f"    restart: unless-stopped",
-                f"    environment:",
-                f"      MYSQL_DATABASE: aquilia",
-                f"      MYSQL_USER: aquilia",
-                f"      MYSQL_PASSWORD: ${{DB_PASSWORD:-aquilia}}",
-                f"      MYSQL_ROOT_PASSWORD: ${{DB_ROOT_PASSWORD:-rootpass}}",
-                f"    volumes:",
-                f"      - mysql-data:/var/lib/mysql",
-                f"    ports:",
-                f'      - "3306:3306"',
-                f"    healthcheck:",
-                f"      test: ['CMD', 'mysqladmin', 'ping', '-h', 'localhost']",
-                f"      interval: 10s",
-                f"      timeout: 5s",
-                f"      retries: 5",
-                f"    networks:",
-                f"      - {name}-net",
-                "",
-            ])
+            compose_lines.extend(
+                [
+                    "  # ── MySQL Database ──",
+                    "  db:",
+                    "    image: mysql:8.0",
+                    f"    container_name: {name}-db",
+                    "    restart: unless-stopped",
+                    "    environment:",
+                    "      MYSQL_DATABASE: aquilia",
+                    "      MYSQL_USER: aquilia",
+                    "      MYSQL_PASSWORD: ${DB_PASSWORD:-aquilia}",
+                    "      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-rootpass}",
+                    "    volumes:",
+                    "      - mysql-data:/var/lib/mysql",
+                    "    ports:",
+                    '      - "3306:3306"',
+                    "    healthcheck:",
+                    "      test: ['CMD', 'mysqladmin', 'ping', '-h', 'localhost']",
+                    "      interval: 10s",
+                    "      timeout: 5s",
+                    "      retries: 5",
+                    "    networks:",
+                    f"      - {name}-net",
+                    "",
+                ]
+            )
 
         # ── Redis ──
         if needs_redis:
-            compose_lines.extend([
-                f"  # ── Redis (Sessions / Cache / Rate-limiting) ──",
-                f"  redis:",
-                f"    image: redis:7-alpine",
-                f"    container_name: {name}-redis",
-                f"    restart: unless-stopped",
-                f"    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru --save 60 1000",
-                f"    volumes:",
-                f"      - redis-data:/data",
-                f"    ports:",
-                f'      - "6379:6379"',
-                f"    healthcheck:",
-                f"      test: ['CMD', 'redis-cli', 'ping']",
-                f"      interval: 10s",
-                f"      timeout: 5s",
-                f"      retries: 5",
-                f"    logging:",
-                f"      driver: json-file",
-                f"      options:",
-                f"        max-size: '5m'",
-                f"        max-file: '2'",
-                f"    networks:",
-                f"      - {name}-net",
-                "",
-            ])
+            compose_lines.extend(
+                [
+                    "  # ── Redis (Sessions / Cache / Rate-limiting) ──",
+                    "  redis:",
+                    "    image: redis:7-alpine",
+                    f"    container_name: {name}-redis",
+                    "    restart: unless-stopped",
+                    "    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru --save 60 1000",
+                    "    volumes:",
+                    "      - redis-data:/data",
+                    "    ports:",
+                    '      - "6379:6379"',
+                    "    healthcheck:",
+                    "      test: ['CMD', 'redis-cli', 'ping']",
+                    "      interval: 10s",
+                    "      timeout: 5s",
+                    "      retries: 5",
+                    "    logging:",
+                    "      driver: json-file",
+                    "      options:",
+                    "        max-size: '5m'",
+                    "        max-file: '2'",
+                    "    networks:",
+                    f"      - {name}-net",
+                    "",
+                ]
+            )
 
         # ── MLOps Model Server (profile: mlops) ──
         if has_mlops:
-            compose_lines.extend([
-                f"  # ── MLOps Model Server ──",
-                f"  model-server:",
-                f"    build:",
-                f"      context: .",
-                f"      dockerfile: Dockerfile.mlops",
-                f"    container_name: {name}-model-server",
-                f"    restart: unless-stopped",
-                f"    profiles:",
-                f'      - mlops',
-                f"    ports:",
-                f'      - "9000:9000"',
-                f'      - "9090:9090"',
-                f"    environment:",
-                f"      AQUILIA_ENV: production",
-                f"      AQUILIA_MODEL_DIR: /models",
-                f'      AQUILIA_BATCH_SIZE: "8"',
-                f'      AQUILIA_BATCH_LATENCY_MS: "50"',
-                f'      AQUILIA_METRICS_PORT: "9090"',
-                f"    volumes:",
-                f"      - model-data:/models",
-                f"    healthcheck:",
-                f"      test: ['CMD', 'curl', '-f', 'http://localhost:9000/health']",
-                f"      interval: 15s",
-                f"      timeout: 5s",
-                f"      retries: 3",
-                f"      start_period: 30s",
-                f"    deploy:",
-                f"      resources:",
-                f"        limits:",
-                f"          memory: 4G",
-                f"        reservations:",
-                f"          memory: 1G",
-                f"          # devices:",
-                f"          #   - driver: nvidia",
-                f"          #     count: 1",
-                f"          #     capabilities: [gpu]",
-                f"    networks:",
-                f"      - {name}-net",
-                "",
-            ])
+            compose_lines.extend(
+                [
+                    "  # ── MLOps Model Server ──",
+                    "  model-server:",
+                    "    build:",
+                    "      context: .",
+                    "      dockerfile: Dockerfile.mlops",
+                    f"    container_name: {name}-model-server",
+                    "    restart: unless-stopped",
+                    "    profiles:",
+                    "      - mlops",
+                    "    ports:",
+                    '      - "9000:9000"',
+                    '      - "9090:9090"',
+                    "    environment:",
+                    "      AQUILIA_ENV: production",
+                    "      AQUILIA_MODEL_DIR: /models",
+                    '      AQUILIA_BATCH_SIZE: "8"',
+                    '      AQUILIA_BATCH_LATENCY_MS: "50"',
+                    '      AQUILIA_METRICS_PORT: "9090"',
+                    "    volumes:",
+                    "      - model-data:/models",
+                    "    healthcheck:",
+                    "      test: ['CMD', 'curl', '-f', 'http://localhost:9000/health']",
+                    "      interval: 15s",
+                    "      timeout: 5s",
+                    "      retries: 3",
+                    "      start_period: 30s",
+                    "    deploy:",
+                    "      resources:",
+                    "        limits:",
+                    "          memory: 4G",
+                    "        reservations:",
+                    "          memory: 1G",
+                    "          # devices:",
+                    "          #   - driver: nvidia",
+                    "          #     count: 1",
+                    "          #     capabilities: [gpu]",
+                    "    networks:",
+                    f"      - {name}-net",
+                    "",
+                ]
+            )
 
         # ── Mail (profile: dev) ──
         if has_mail:
-            compose_lines.extend([
-                f"  # ── MailHog (Development Mail Catcher) ──",
-                f"  mailhog:",
-                f"    image: mailhog/mailhog:latest",
-                f"    container_name: {name}-mailhog",
-                f"    restart: unless-stopped",
-                f"    profiles:",
-                f'      - dev',
-                f"    ports:",
-                f'      - "1025:1025"   # SMTP',
-                f'      - "8025:8025"   # Web UI',
-                f"    networks:",
-                f"      - {name}-net",
-                "",
-            ])
+            compose_lines.extend(
+                [
+                    "  # ── MailHog (Development Mail Catcher) ──",
+                    "  mailhog:",
+                    "    image: mailhog/mailhog:latest",
+                    f"    container_name: {name}-mailhog",
+                    "    restart: unless-stopped",
+                    "    profiles:",
+                    "      - dev",
+                    "    ports:",
+                    '      - "1025:1025"   # SMTP',
+                    '      - "8025:8025"   # Web UI',
+                    "    networks:",
+                    f"      - {name}-net",
+                    "",
+                ]
+            )
 
         # ── Monitoring (profile: monitoring) ──
         if include_monitoring or metrics_enabled:
-            compose_lines.extend([
-                f"  # ── Prometheus ──",
-                f"  prometheus:",
-                f"    image: prom/prometheus:latest",
-                f"    container_name: {name}-prometheus",
-                f"    restart: unless-stopped",
-                f"    profiles:",
-                f'      - monitoring',
-                f"    ports:",
-                f'      - "9091:9090"',
-                f"    volumes:",
-                f"      - ./deploy/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro",
-                f"      - prometheus-data:/prometheus",
-                f"    command:",
-                f"      - '--config.file=/etc/prometheus/prometheus.yml'",
-                f"      - '--storage.tsdb.retention.time=15d'",
-                f"      - '--storage.tsdb.retention.size=5GB'",
-                f"    networks:",
-                f"      - {name}-net",
-                "",
-                f"  # ── Grafana ──",
-                f"  grafana:",
-                f"    image: grafana/grafana:latest",
-                f"    container_name: {name}-grafana",
-                f"    restart: unless-stopped",
-                f"    profiles:",
-                f'      - monitoring',
-                f"    ports:",
-                f'      - "3000:3000"',
-                f"    environment:",
-                f"      GF_SECURITY_ADMIN_USER: admin",
-                f"      GF_SECURITY_ADMIN_PASSWORD: ${{GRAFANA_PASSWORD:-admin}}",
-                f"      GF_INSTALL_PLUGINS: grafana-clock-panel",
-                f"    volumes:",
-                f"      - grafana-data:/var/lib/grafana",
-                f"      - ./deploy/grafana/provisioning:/etc/grafana/provisioning:ro",
-                f"    depends_on:",
-                f"      - prometheus",
-                f"    networks:",
-                f"      - {name}-net",
-                "",
-            ])
+            compose_lines.extend(
+                [
+                    "  # ── Prometheus ──",
+                    "  prometheus:",
+                    "    image: prom/prometheus:latest",
+                    f"    container_name: {name}-prometheus",
+                    "    restart: unless-stopped",
+                    "    profiles:",
+                    "      - monitoring",
+                    "    ports:",
+                    '      - "9091:9090"',
+                    "    volumes:",
+                    "      - ./deploy/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro",
+                    "      - prometheus-data:/prometheus",
+                    "    command:",
+                    "      - '--config.file=/etc/prometheus/prometheus.yml'",
+                    "      - '--storage.tsdb.retention.time=15d'",
+                    "      - '--storage.tsdb.retention.size=5GB'",
+                    "    networks:",
+                    f"      - {name}-net",
+                    "",
+                    "  # ── Grafana ──",
+                    "  grafana:",
+                    "    image: grafana/grafana:latest",
+                    f"    container_name: {name}-grafana",
+                    "    restart: unless-stopped",
+                    "    profiles:",
+                    "      - monitoring",
+                    "    ports:",
+                    '      - "3000:3000"',
+                    "    environment:",
+                    "      GF_SECURITY_ADMIN_USER: admin",
+                    "      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}",
+                    "      GF_INSTALL_PLUGINS: grafana-clock-panel",
+                    "    volumes:",
+                    "      - grafana-data:/var/lib/grafana",
+                    "      - ./deploy/grafana/provisioning:/etc/grafana/provisioning:ro",
+                    "    depends_on:",
+                    "      - prometheus",
+                    "    networks:",
+                    f"      - {name}-net",
+                    "",
+                ]
+            )
 
         # ── Networks ──
-        compose_lines.extend([
-            f"# ── Networks ──",
-            f"networks:",
-            f"  {name}-net:",
-            f"    driver: bridge",
-            "",
-        ])
+        compose_lines.extend(
+            [
+                "# ── Networks ──",
+                "networks:",
+                f"  {name}-net:",
+                "    driver: bridge",
+                "",
+            ]
+        )
 
         # ── Volumes ──
         volume_names = ["app-artifacts"]
@@ -1290,10 +1331,12 @@ class ComposeGenerator:
         if include_monitoring or metrics_enabled:
             volume_names.extend(["prometheus-data", "grafana-data"])
 
-        compose_lines.extend([
-            f"# ── Volumes ──",
-            f"volumes:",
-        ])
+        compose_lines.extend(
+            [
+                "# ── Volumes ──",
+                "volumes:",
+            ]
+        )
         for v in volume_names:
             compose_lines.append(f"  {v}:")
         compose_lines.append("")
@@ -1340,6 +1383,7 @@ services:
 # Kubernetes Generator
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class KubernetesGenerator:
     """
     Generates production-ready Kubernetes manifests for Aquilia workspaces.
@@ -1361,7 +1405,7 @@ class KubernetesGenerator:
     - MLOps manifests (if detected)
     """
 
-    def __init__(self, ctx: Dict[str, Any]):
+    def __init__(self, ctx: dict[str, Any]):
         self.ctx = ctx
 
     def generate_namespace(self) -> str:
@@ -1384,22 +1428,23 @@ class KubernetesGenerator:
         workers = self.ctx.get("workers", 4)
 
         data_lines = [
-            f'  AQUILIA_ENV: "production"',
-            f'  AQUILIA_MODE: "prod"',
-            f'  AQ_SERVER_HOST: "0.0.0.0"',
+            '  AQUILIA_ENV: "production"',
+            '  AQUILIA_MODE: "prod"',
+            '  AQ_SERVER_HOST: "0.0.0.0"',
             f'  AQ_SERVER_PORT: "{port}"',
             f'  AQ_SERVER_WORKERS: "{workers}"',
         ]
         if self.ctx.get("has_cache") and self.ctx.get("cache_backend") == "redis":
-            data_lines.append(f'  AQ_CACHE_BACKEND: "redis"')
+            data_lines.append('  AQ_CACHE_BACKEND: "redis"')
         if self.ctx.get("has_sessions") and self.ctx.get("session_store") == "redis":
-            data_lines.append(f'  AQ_SESSION_STORE: "redis"')
+            data_lines.append('  AQ_SESSION_STORE: "redis"')
         if self.ctx.get("metrics_enabled"):
-            data_lines.append(f'  AQ_METRICS_ENABLED: "true"')
+            data_lines.append('  AQ_METRICS_ENABLED: "true"')
         if self.ctx.get("tracing_enabled"):
-            data_lines.append(f'  AQ_TRACING_ENABLED: "true"')
+            data_lines.append('  AQ_TRACING_ENABLED: "true"')
 
-        return textwrap.dedent(f"""\
+        return (
+            textwrap.dedent(f"""\
             apiVersion: v1
             kind: ConfigMap
             metadata:
@@ -1409,12 +1454,15 @@ class KubernetesGenerator:
                 app.kubernetes.io/name: {name}
                 app.kubernetes.io/component: config
             data:
-        """) + "\n".join(data_lines) + "\n"
+        """)
+            + "\n".join(data_lines)
+            + "\n"
+        )
 
     def generate_secret(self) -> str:
         """Generate Secret template for credentials."""
         name = self.ctx["name"]
-        secret_data: List[str] = [
+        secret_data: list[str] = [
             '  # Base64-encode your values: echo -n "value" | base64',
             '  AQ_SECRET_KEY: "CHANGEME_BASE64_ENCODED"',
         ]
@@ -1428,7 +1476,8 @@ class KubernetesGenerator:
         if self.ctx.get("has_mail"):
             secret_data.append('  AQ_MAIL_PASSWORD: "CHANGEME_BASE64_ENCODED"')
 
-        return textwrap.dedent(f"""\
+        return (
+            textwrap.dedent(f"""\
             apiVersion: v1
             kind: Secret
             metadata:
@@ -1439,13 +1488,16 @@ class KubernetesGenerator:
                 app.kubernetes.io/component: secrets
             type: Opaque
             data:
-        """) + "\n".join(secret_data) + "\n"
+        """)
+            + "\n".join(secret_data)
+            + "\n"
+        )
 
     def generate_deployment(self) -> str:
         """Generate production Deployment manifest."""
         name = self.ctx["name"]
         port = self.ctx.get("port", 8000)
-        workers = self.ctx.get("workers", 4)
+        self.ctx.get("workers", 4)
         has_db = self.ctx.get("has_db", False)
         db_driver = self.ctx.get("db_driver", "sqlite")
         has_migrations = self.ctx.get("has_migrations", False)
@@ -1455,9 +1507,9 @@ class KubernetesGenerator:
         min_replicas = max(2, module_count // 3)
 
         annotations = [
-            f'        prometheus.io/scrape: "true"',
+            '        prometheus.io/scrape: "true"',
             f'        prometheus.io/port: "{port}"',
-            f'        prometheus.io/path: "/metrics"',
+            '        prometheus.io/path: "/metrics"',
         ]
 
         # Init containers for database readiness + migrations
@@ -1471,7 +1523,8 @@ class KubernetesGenerator:
                 "postgres": "postgres:16-alpine",
                 "mysql": "mysql:8.0",
             }
-            init_sections = [textwrap.dedent(f"""\
+            init_sections = [
+                textwrap.dedent(f"""\
                   initContainers:
                     # Wait for database to be ready
                     - name: wait-for-db
@@ -1480,9 +1533,11 @@ class KubernetesGenerator:
                       env:
                         - name: DB_HOST
                           value: "{name}-db"
-            """)]
+            """)
+            ]
             if has_migrations:
-                init_sections.append(textwrap.dedent(f"""\
+                init_sections.append(
+                    textwrap.dedent(f"""\
                     # Run database migrations
                     - name: run-migrations
                       image: ghcr.io/YOUR_ORG/{name}:latest
@@ -1492,7 +1547,8 @@ class KubernetesGenerator:
                             name: {name}-config
                         - secretRef:
                             name: {name}-secrets
-                """))
+                """)
+                )
             init_containers = "\n".join(init_sections)
 
         annotations_str = "\n".join(annotations)
@@ -1525,10 +1581,7 @@ class KubernetesGenerator:
             f"      labels:\n"
             f"        app.kubernetes.io/name: {name}\n"
             f"        app.kubernetes.io/component: app\n"
-            f"      annotations:\n"
-            + annotations_str + "\n"
-            + init_str
-            + f"    spec:\n"
+            f"      annotations:\n" + annotations_str + "\n" + init_str + f"    spec:\n"
             f"      serviceAccountName: {name}-sa\n"
             f"      securityContext:\n"
             f"        runAsNonRoot: true\n"
@@ -1564,11 +1617,11 @@ class KubernetesGenerator:
             f"                name: {name}-secrets\n"
             f"          resources:\n"
             f"            requests:\n"
-            f"              cpu: \"250m\"\n"
-            f"              memory: \"256Mi\"\n"
+            f'              cpu: "250m"\n'
+            f'              memory: "256Mi"\n'
             f"            limits:\n"
-            f"              cpu: \"1000m\"\n"
-            f"              memory: \"1Gi\"\n"
+            f'              cpu: "1000m"\n'
+            f'              memory: "1Gi"\n'
             f"          readinessProbe:\n"
             f"            httpGet:\n"
             f"              path: /health\n"
@@ -1639,14 +1692,17 @@ class KubernetesGenerator:
             '    nginx.ingress.kubernetes.io/proxy-send-timeout: "60"',
         ]
         if has_websockets:
-            annotations.extend([
-                '    nginx.ingress.kubernetes.io/proxy-http-version: "1.1"',
-                '    nginx.ingress.kubernetes.io/websocket-services: "' + name + '-app"',
-            ])
+            annotations.extend(
+                [
+                    '    nginx.ingress.kubernetes.io/proxy-http-version: "1.1"',
+                    '    nginx.ingress.kubernetes.io/websocket-services: "' + name + '-app"',
+                ]
+            )
 
         annotations_str = "\n".join(annotations)
 
-        return textwrap.dedent(f"""\
+        return (
+            textwrap.dedent(f"""\
             apiVersion: networking.k8s.io/v1
             kind: Ingress
             metadata:
@@ -1657,7 +1713,9 @@ class KubernetesGenerator:
                 app.kubernetes.io/component: ingress
               annotations:
                 cert-manager.io/cluster-issuer: "letsencrypt-prod"
-        """) + annotations_str + textwrap.dedent(f"""
+        """)
+            + annotations_str
+            + textwrap.dedent(f"""
             spec:
               ingressClassName: nginx
               tls:
@@ -1676,6 +1734,7 @@ class KubernetesGenerator:
                             port:
                               number: {port}
         """)
+        )
 
     def generate_hpa(self) -> str:
         """Generate HPA for auto-scaling."""
@@ -1745,7 +1804,7 @@ class KubernetesGenerator:
     def generate_network_policy(self) -> str:
         """Generate NetworkPolicy for pod-level firewall."""
         name = self.ctx["name"]
-        has_mlops = self.ctx.get("has_mlops", False)
+        self.ctx.get("has_mlops", False)
 
         egress_rules = [
             "      # Allow DNS",
@@ -1756,7 +1815,8 @@ class KubernetesGenerator:
             "            protocol: TCP",
         ]
 
-        return textwrap.dedent(f"""\
+        return (
+            textwrap.dedent(f"""\
             apiVersion: networking.k8s.io/v1
             kind: NetworkPolicy
             metadata:
@@ -1780,7 +1840,10 @@ class KubernetesGenerator:
                     - port: {self.ctx.get("port", 8000)}
                       protocol: TCP
               egress:
-        """) + "\n".join(egress_rules) + "\n"
+        """)
+            + "\n".join(egress_rules)
+            + "\n"
+        )
 
     def generate_service_account(self) -> str:
         """Generate ServiceAccount with minimal RBAC."""
@@ -2011,10 +2074,10 @@ class KubernetesGenerator:
               # storageClassName: standard  # Uncomment to specify storage class
         """)
 
-    def generate_all(self) -> Dict[str, str]:
+    def generate_all(self) -> dict[str, str]:
         """Generate all Kubernetes manifests as a dict of filename → content."""
-        name = self.ctx["name"]
-        manifests: Dict[str, str] = {
+        self.ctx["name"]
+        manifests: dict[str, str] = {
             "00-namespace.yaml": self.generate_namespace(),
             "01-service-account.yaml": self.generate_service_account(),
             "02-configmap.yaml": self.generate_configmap(),
@@ -2037,10 +2100,11 @@ class KubernetesGenerator:
 # Nginx Generator
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class NginxGenerator:
     """Generate production-ready Nginx configuration for Aquilia."""
 
-    def __init__(self, ctx: Dict[str, Any]):
+    def __init__(self, ctx: dict[str, Any]):
         self.ctx = ctx
 
     def generate_nginx_conf(self) -> str:
@@ -2053,10 +2117,10 @@ class NginxGenerator:
 
         ws_block = ""
         if has_websockets:
-            ws_block = textwrap.dedent(f"""\
+            ws_block = textwrap.dedent("""\
 
                 # ── WebSocket Upgrade ──
-                location /ws/ {{
+                location /ws/ {
                     proxy_pass http://aquilia_upstream;
                     proxy_http_version 1.1;
                     proxy_set_header Upgrade $http_upgrade;
@@ -2065,15 +2129,15 @@ class NginxGenerator:
                     proxy_set_header X-Real-IP $remote_addr;
                     proxy_read_timeout 86400s;
                     proxy_send_timeout 86400s;
-                }}
+                }
             """)
 
         mlops_block = ""
         if has_mlops:
-            mlops_block = textwrap.dedent(f"""\
+            mlops_block = textwrap.dedent("""\
 
                 # ── MLOps Model Server ──
-                location /api/predict {{
+                location /api/predict {
                     proxy_pass http://model_upstream;
                     proxy_set_header Host $host;
                     proxy_set_header X-Real-IP $remote_addr;
@@ -2082,7 +2146,7 @@ class NginxGenerator:
                     proxy_read_timeout 120s;  # Model inference can be slow
                     proxy_buffering off;
                     client_max_body_size 100m;  # For large model inputs
-                }}
+                }
             """)
 
         static_block = ""
@@ -2100,11 +2164,11 @@ class NginxGenerator:
 
         mlops_upstream = ""
         if has_mlops:
-            mlops_upstream = textwrap.dedent(f"""\
+            mlops_upstream = textwrap.dedent("""\
 
-            upstream model_upstream {{
+            upstream model_upstream {
                 server model-server:9000;
-            }}
+            }
             """)
 
         return textwrap.dedent(f"""\
@@ -2257,10 +2321,11 @@ class NginxGenerator:
 # CI/CD Generator
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class CIGenerator:
     """Generate CI/CD pipelines (GitHub Actions, GitLab CI)."""
 
-    def __init__(self, ctx: Dict[str, Any]):
+    def __init__(self, ctx: dict[str, Any]):
         self.ctx = ctx
 
     def generate_github_actions(self) -> str:
@@ -2293,17 +2358,17 @@ class CIGenerator:
 
         mlops_step = ""
         if has_mlops:
-            mlops_step = textwrap.dedent(f"""\
+            mlops_step = textwrap.dedent("""\
 
               - name: Build MLOps image
                 uses: docker/build-push-action@v5
                 with:
                   context: .
                   file: Dockerfile.mlops
-                  push: ${{{{ github.ref == 'refs/heads/main' }}}}
+                  push: ${{ github.ref == 'refs/heads/main' }}
                   tags: |
-                    ghcr.io/${{{{ github.repository }}}}-model:latest
-                    ghcr.io/${{{{ github.repository }}}}-model:${{{{ github.sha }}}}
+                    ghcr.io/${{ github.repository }}-model:latest
+                    ghcr.io/${{ github.repository }}-model:${{ github.sha }}
                   cache-from: type=gha
                   cache-to: type=gha,mode=max
             """)
@@ -2493,7 +2558,7 @@ class CIGenerator:
 
         mlops_build = ""
         if has_mlops:
-            mlops_build = textwrap.dedent(f"""\
+            mlops_build = textwrap.dedent("""\
 
             build-mlops:
               stage: build
@@ -2612,10 +2677,11 @@ class CIGenerator:
 # Prometheus Config Generator
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class PrometheusGenerator:
     """Generate Prometheus configuration."""
 
-    def __init__(self, ctx: Dict[str, Any]):
+    def __init__(self, ctx: dict[str, Any]):
         self.ctx = ctx
 
     def generate_prometheus_yml(self) -> str:
@@ -2647,7 +2713,8 @@ class PrometheusGenerator:
 
         configs_str = "\n".join(f"    {line}" for sc in scrape_configs for line in sc.splitlines())
 
-        return textwrap.dedent(f"""\
+        return (
+            textwrap.dedent(f"""\
             # ──────────────────────────────────────────────────────────────
             # Prometheus Configuration -- {name}
             # Generated by: aq deploy monitoring
@@ -2658,17 +2725,21 @@ class PrometheusGenerator:
               evaluation_interval: 15s
 
             scrape_configs:
-        """) + configs_str + "\n"
+        """)
+            + configs_str
+            + "\n"
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Grafana Provisioning Generator
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class GrafanaGenerator:
     """Generate Grafana provisioning configuration."""
 
-    def __init__(self, ctx: Dict[str, Any]):
+    def __init__(self, ctx: dict[str, Any]):
         self.ctx = ctx
 
     def generate_datasource(self) -> str:
@@ -2711,10 +2782,11 @@ class GrafanaGenerator:
 # Env File Generator
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class EnvGenerator:
     """Generate .env templates for local and production."""
 
-    def __init__(self, ctx: Dict[str, Any]):
+    def __init__(self, ctx: dict[str, Any]):
         self.ctx = ctx
 
     def generate_env_example(self) -> str:
@@ -2722,104 +2794,122 @@ class EnvGenerator:
         name = self.ctx["name"]
         lines = [
             f"# ── Aquilia Environment -- {name} ──",
-            f"# Generated by: aq deploy env",
-            f"# Copy to .env and fill in real values",
-            f"# NEVER commit .env to version control!",
+            "# Generated by: aq deploy env",
+            "# Copy to .env and fill in real values",
+            "# NEVER commit .env to version control!",
             "",
             "# ── Application ──",
             "AQUILIA_ENV=production",
             "AQUILIA_MODE=prod",
-            f"AQ_SECRET_KEY=change-me-to-a-long-random-string",
+            "AQ_SECRET_KEY=change-me-to-a-long-random-string",
             "",
-            f"# ── Server ──",
-            f'AQ_SERVER_HOST=0.0.0.0',
-            f'AQ_SERVER_PORT={self.ctx.get("port", 8000)}',
-            f'AQ_SERVER_WORKERS={self.ctx.get("workers", 4)}',
+            "# ── Server ──",
+            "AQ_SERVER_HOST=0.0.0.0",
+            f"AQ_SERVER_PORT={self.ctx.get('port', 8000)}",
+            f"AQ_SERVER_WORKERS={self.ctx.get('workers', 4)}",
         ]
 
         if self.ctx.get("has_db"):
             db_driver = self.ctx.get("db_driver", "sqlite")
-            lines.extend([
-                "",
-                "# ── Database ──",
-            ])
+            lines.extend(
+                [
+                    "",
+                    "# ── Database ──",
+                ]
+            )
             if db_driver == "postgres":
-                lines.append('DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/dbname')
-                lines.append('DB_PASSWORD=change-me')
+                lines.append("DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/dbname")
+                lines.append("DB_PASSWORD=change-me")
             elif db_driver == "mysql":
-                lines.append('DATABASE_URL=mysql+aiomysql://user:pass@localhost:3306/dbname')
-                lines.append('DB_PASSWORD=change-me')
-                lines.append('DB_ROOT_PASSWORD=change-me-root')
+                lines.append("DATABASE_URL=mysql+aiomysql://user:pass@localhost:3306/dbname")
+                lines.append("DB_PASSWORD=change-me")
+                lines.append("DB_ROOT_PASSWORD=change-me-root")
             else:
-                lines.append('DATABASE_URL=sqlite:///db.sqlite3')
+                lines.append("DATABASE_URL=sqlite:///db.sqlite3")
 
         if self.ctx.get("has_cache") or self.ctx.get("has_sessions"):
-            lines.extend([
-                "",
-                "# ── Redis ──",
-                "REDIS_URL=redis://localhost:6379/0",
-            ])
+            lines.extend(
+                [
+                    "",
+                    "# ── Redis ──",
+                    "REDIS_URL=redis://localhost:6379/0",
+                ]
+            )
 
         if self.ctx.get("has_sessions"):
-            lines.extend([
-                "",
-                "# ── Sessions ──",
-                f'AQ_SESSION_STORE={self.ctx.get("session_store", "memory")}',
-                "AQ_SESSION_REDIS_URL=redis://localhost:6379/1",
-            ])
+            lines.extend(
+                [
+                    "",
+                    "# ── Sessions ──",
+                    f"AQ_SESSION_STORE={self.ctx.get('session_store', 'memory')}",
+                    "AQ_SESSION_REDIS_URL=redis://localhost:6379/1",
+                ]
+            )
 
         if self.ctx.get("has_auth"):
-            lines.extend([
-                "",
-                "# ── Auth ──",
-                "AQ_AUTH_SECRET=change-me",
-                "AQ_JWT_SECRET=change-me-jwt-secret",
-                "AQ_JWT_EXPIRY=3600",
-            ])
+            lines.extend(
+                [
+                    "",
+                    "# ── Auth ──",
+                    "AQ_AUTH_SECRET=change-me",
+                    "AQ_JWT_SECRET=change-me-jwt-secret",
+                    "AQ_JWT_EXPIRY=3600",
+                ]
+            )
 
         if self.ctx.get("has_mail"):
-            lines.extend([
-                "",
-                "# ── Mail ──",
-                "AQ_MAIL_HOST=smtp.example.com",
-                "AQ_MAIL_PORT=587",
-                "AQ_MAIL_USER=noreply@example.com",
-                "AQ_MAIL_PASSWORD=change-me",
-                'AQ_MAIL_FROM="Aquilia App <noreply@example.com>"',
-            ])
+            lines.extend(
+                [
+                    "",
+                    "# ── Mail ──",
+                    "AQ_MAIL_HOST=smtp.example.com",
+                    "AQ_MAIL_PORT=587",
+                    "AQ_MAIL_USER=noreply@example.com",
+                    "AQ_MAIL_PASSWORD=change-me",
+                    'AQ_MAIL_FROM="Aquilia App <noreply@example.com>"',
+                ]
+            )
 
         if self.ctx.get("has_mlops"):
-            lines.extend([
-                "",
-                "# ── MLOps ──",
-                "AQUILIA_MODEL_DIR=/models",
-                "AQUILIA_BATCH_SIZE=8",
-                "AQUILIA_BATCH_LATENCY_MS=50",
-            ])
+            lines.extend(
+                [
+                    "",
+                    "# ── MLOps ──",
+                    "AQUILIA_MODEL_DIR=/models",
+                    "AQUILIA_BATCH_SIZE=8",
+                    "AQUILIA_BATCH_LATENCY_MS=50",
+                ]
+            )
 
         if self.ctx.get("metrics_enabled") or self.ctx.get("tracing_enabled"):
-            lines.extend([
-                "",
-                "# ── Telemetry ──",
-            ])
+            lines.extend(
+                [
+                    "",
+                    "# ── Telemetry ──",
+                ]
+            )
             if self.ctx.get("metrics_enabled"):
                 lines.append("AQ_METRICS_ENABLED=true")
             if self.ctx.get("tracing_enabled"):
                 lines.append("AQ_TRACING_ENABLED=true")
 
         if self.ctx.get("cors_enabled"):
-            lines.extend([
-                "",
-                "# ── CORS ──",
-                'AQ_CORS_ORIGINS=https://example.com,https://app.example.com',
-            ])
+            lines.extend(
+                [
+                    "",
+                    "# ── CORS ──",
+                    "AQ_CORS_ORIGINS=https://example.com,https://app.example.com",
+                ]
+            )
 
         # Docker/monitoring
-        lines.extend([
-            "",
-            "# ── Monitoring ──",
-            "GRAFANA_PASSWORD=admin",
-        ])
+        lines.extend(
+            [
+                "",
+                "# ── Monitoring ──",
+                "GRAFANA_PASSWORD=admin",
+            ]
+        )
 
         lines.append("")
         return "\n".join(lines)
@@ -2829,6 +2919,7 @@ class EnvGenerator:
 # Makefile Generator
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class MakefileGenerator:
     """
     Generate a production-ready Makefile for Aquilia workspaces.
@@ -2837,7 +2928,7 @@ class MakefileGenerator:
     operations: build, run, test, lint, deploy, docker, k8s, etc.
     """
 
-    def __init__(self, ctx: Dict[str, Any]):
+    def __init__(self, ctx: dict[str, Any]):
         self.ctx = ctx
 
     def generate_makefile(self) -> str:
@@ -2851,7 +2942,7 @@ class MakefileGenerator:
 
         migration_targets = ""
         if has_migrations or has_db:
-            migration_targets = textwrap.dedent(f"""\
+            migration_targets = textwrap.dedent("""\
 
             ## ── Database ────────────────────────────────────────────────────
             .PHONY: migrate migrate-create db-reset
@@ -2901,7 +2992,7 @@ class MakefileGenerator:
 
             # Variables (override with: make PORT=3000 dev)
             PORT ?= {port}
-            WORKERS ?= {self.ctx.get('workers', 4)}
+            WORKERS ?= {self.ctx.get("workers", 4)}
             PYTHON_VERSION ?= {python_version}
             IMAGE_NAME ?= {name}
             COMPOSE_PROFILES ?=

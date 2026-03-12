@@ -46,85 +46,76 @@ Example::
 
 from aquilia._version import __version__  # noqa: F401 — re-exported
 
-from .locale import (
-    Locale,
-    parse_locale,
-    normalize_locale,
-    match_locale,
-    parse_accept_language,
-    negotiate_locale,
-    LOCALE_PATTERN,
-)
-
 from .catalog import (
-    TranslationCatalog,
-    MemoryCatalog,
-    FileCatalog,
     CrousCatalog,
-    NamespacedCatalog,
+    FileCatalog,
+    MemoryCatalog,
     MergedCatalog,
+    NamespacedCatalog,
+    TranslationCatalog,
     has_crous,
 )
-
-from .plural import (
-    PluralCategory,
-    PluralRule,
-    get_plural_rule,
-    select_plural,
-    CLDR_PLURAL_RULES,
+from .di_integration import (
+    register_i18n_providers,
 )
-
+from .faults import (
+    CatalogLoadFault,
+    I18nFault,
+    InvalidLocaleFault,
+    MissingTranslationFault,
+    PluralRuleFault,
+)
 from .formatter import (
     MessageFormatter,
-    format_message,
-    format_number,
     format_currency,
     format_date,
-    format_time,
     format_datetime,
-    format_percent,
     format_decimal,
+    format_message,
+    format_number,
     format_ordinal,
+    format_percent,
+    format_time,
 )
-
-from .service import (
-    I18nService,
-    I18nConfig,
-    create_i18n_service,
-)
-
 from .lazy import (
     LazyString,
     lazy_t,
     lazy_tn,
 )
-
+from .locale import (
+    LOCALE_PATTERN,
+    Locale,
+    match_locale,
+    negotiate_locale,
+    normalize_locale,
+    parse_accept_language,
+    parse_locale,
+)
 from .middleware import (
+    ChainLocaleResolver,
+    CookieLocaleResolver,
+    HeaderLocaleResolver,
     I18nMiddleware,
     LocaleResolver,
-    HeaderLocaleResolver,
-    CookieLocaleResolver,
-    QueryLocaleResolver,
     PathLocaleResolver,
+    QueryLocaleResolver,
     SessionLocaleResolver,
-    ChainLocaleResolver,
 )
-
-from .faults import (
-    I18nFault,
-    MissingTranslationFault,
-    InvalidLocaleFault,
-    CatalogLoadFault,
-    PluralRuleFault,
+from .plural import (
+    CLDR_PLURAL_RULES,
+    PluralCategory,
+    PluralRule,
+    get_plural_rule,
+    select_plural,
 )
-
+from .service import (
+    I18nConfig,
+    I18nService,
+    create_i18n_service,
+)
 from .template_integration import (
-    register_i18n_template_globals,
     I18nTemplateExtension,
-)
-
-from .di_integration import (
-    register_i18n_providers,
+    register_i18n_template_globals,
 )
 
 __all__ = [
@@ -135,7 +126,6 @@ __all__ = [
     "match_locale",
     "parse_accept_language",
     "negotiate_locale",
-
     # Catalog
     "TranslationCatalog",
     "MemoryCatalog",
@@ -144,14 +134,12 @@ __all__ = [
     "NamespacedCatalog",
     "MergedCatalog",
     "has_crous",
-
     # Plural rules
     "PluralCategory",
     "PluralRule",
     "get_plural_rule",
     "select_plural",
     "CLDR_PLURAL_RULES",
-
     # Formatting
     "MessageFormatter",
     "format_message",
@@ -163,17 +151,14 @@ __all__ = [
     "format_percent",
     "format_decimal",
     "format_ordinal",
-
     # Service
     "I18nService",
     "I18nConfig",
     "create_i18n_service",
-
     # Lazy strings
     "LazyString",
     "lazy_t",
     "lazy_tn",
-
     # Middleware
     "I18nMiddleware",
     "LocaleResolver",
@@ -183,18 +168,15 @@ __all__ = [
     "PathLocaleResolver",
     "SessionLocaleResolver",
     "ChainLocaleResolver",
-
     # Faults
     "I18nFault",
     "MissingTranslationFault",
     "InvalidLocaleFault",
     "CatalogLoadFault",
     "PluralRuleFault",
-
     # Template integration
     "register_i18n_template_globals",
     "I18nTemplateExtension",
-
     # DI integration
     "register_i18n_providers",
 ]

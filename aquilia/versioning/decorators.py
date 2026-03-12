@@ -32,7 +32,8 @@ Usage::
 
 from __future__ import annotations
 
-from typing import Any, Callable, List, Optional, TypeVar, Union
+from collections.abc import Callable
+from typing import Any, TypeVar
 
 from .core import VERSION_NEUTRAL, ApiVersion
 
@@ -40,7 +41,7 @@ F = TypeVar("F", bound=Callable[..., Any])
 
 
 def version(
-    ver: Union[str, List[str], ApiVersion, List[ApiVersion]],
+    ver: str | list[str] | ApiVersion | list[ApiVersion],
 ) -> Callable[[F], F]:
     """
     Bind a specific version (or list of versions) to a route.
@@ -65,10 +66,7 @@ def version(
 
     def decorator(func: F) -> F:
         # Normalize to list
-        if isinstance(ver, (str, ApiVersion)):
-            versions = [ver]
-        else:
-            versions = list(ver)
+        versions = [ver] if isinstance(ver, (str, ApiVersion)) else list(ver)
 
         # Store as metadata on the function
         if not hasattr(func, "__version_metadata__"):
@@ -104,8 +102,8 @@ def version_neutral(func: F) -> F:
 
 
 def version_range(
-    min_version: Union[str, ApiVersion],
-    max_version: Optional[Union[str, ApiVersion]] = None,
+    min_version: str | ApiVersion,
+    max_version: str | ApiVersion | None = None,
 ) -> Callable[[F], F]:
     """
     Bind a version range to a route.

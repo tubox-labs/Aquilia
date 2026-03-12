@@ -19,165 +19,163 @@ Status: Core implementation complete, ready for integration testing.
 """
 
 # Core types
-from .core import (
-    Identity,
-    IdentityType,
-    IdentityStatus,
-    IdentityStore,
-    Credential,
-    CredentialStatus,
-    CredentialStore,
-    PasswordCredential,
-    ApiKeyCredential,
-    OAuthClient,
-    OAuthClientStore,
-    MFACredential,
-    TokenClaims,
-    AuthResult,
+# Audit Trail
+from .audit import (
+    AuditEvent,
+    AuditEventType,
+    AuditSeverity,
+    AuditStore,
+    AuditTrail,
+    LoggingAuditStore,
+    MemoryAuditStore,
 )
-
-# Password hashing
-from .hashing import (
-    PasswordHasher,
-    PasswordPolicy,
-    HasherConfig,
-    hash_password,
-    verify_password,
-    validate_password,
-)
-
-# Token management
-from .tokens import (
-    KeyDescriptor,
-    KeyRing,
-    KeyAlgorithm,
-    KeyStatus,
-    TokenManager,
-    TokenConfig,
-    TokenStore,
-)
-
-# Faults
-from .faults import (
-    # Authentication faults
-    AUTH_INVALID_CREDENTIALS,
-    AUTH_TOKEN_INVALID,
-    AUTH_TOKEN_EXPIRED,
-    AUTH_TOKEN_REVOKED,
-    AUTH_MFA_REQUIRED,
-    AUTH_MFA_INVALID,
-    AUTH_ACCOUNT_SUSPENDED,
-    AUTH_ACCOUNT_LOCKED,
-    AUTH_RATE_LIMITED,
-    AUTH_REQUIRED,
-    AUTH_CLIENT_INVALID,
-    AUTH_GRANT_INVALID,
-    AUTH_REDIRECT_URI_MISMATCH,
-    AUTH_SCOPE_INVALID,
-    AUTH_PKCE_INVALID,
-    # Authorization faults
-    AUTHZ_POLICY_DENIED,
-    AUTHZ_INSUFFICIENT_SCOPE,
-    AUTHZ_INSUFFICIENT_ROLE,
-    AUTHZ_RESOURCE_FORBIDDEN,
-    AUTHZ_TENANT_MISMATCH,
-    # Credential faults
-    AUTH_PASSWORD_WEAK,
-    AUTH_PASSWORD_BREACHED,
-    AUTH_PASSWORD_REUSED,
-    AUTH_KEY_EXPIRED,
-    AUTH_KEY_REVOKED,
-    # Session faults
-    AUTH_SESSION_REQUIRED,
-    AUTH_SESSION_INVALID,
-    AUTH_SESSION_HIJACK_DETECTED,
-    # OAuth faults
-    AUTH_CONSENT_REQUIRED,
-    AUTH_DEVICE_CODE_PENDING,
-    AUTH_DEVICE_CODE_EXPIRED,
-    AUTH_SLOW_DOWN,
-    # MFA faults
-    AUTH_MFA_NOT_ENROLLED,
-    AUTH_MFA_ALREADY_ENROLLED,
-    AUTH_WEBAUTHN_INVALID,
-    AUTH_BACKUP_CODE_INVALID,
-    AUTH_BACKUP_CODE_EXHAUSTED,
-)
-
-# Manager
-from .manager import AuthManager, RateLimiter
 
 # Authorization engines
-from .authz import AuthzEngine, RBACEngine, ABACEngine
-
-# Policy DSL
-from .policy import (
-    Policy,
-    PolicyResult,
-    PolicyDecision,
-    PolicyRegistry,
-    Allow,
-    Deny,
-    Abstain,
-    rule,
-)
-
-# OAuth2
-from .oauth import OAuth2Manager
-
-# MFA
-from .mfa import MFAManager
-
-# Stores
-from .stores import (
-    MemoryIdentityStore,
-    MemoryCredentialStore,
-    MemoryTokenStore,
-)
+from .authz import ABACEngine, AuthzEngine, RBACEngine
 
 # Clearance System (Unique Aquilia access control)
 from .clearance import (
     AccessLevel,
     Clearance,
-    ClearanceVerdict,
     ClearanceEngine,
     ClearanceGuard,
-    grant,
+    ClearanceVerdict,
+    during_hours,
     exempt,
+    grant,
+    ip_allowlist,
+    is_owner_or_admin,
+    is_same_tenant,
     # Built-in conditions
     is_verified,
-    is_owner_or_admin,
-    within_quota,
-    is_same_tenant,
-    during_hours,
     require_attribute,
-    ip_allowlist,
+    within_quota,
+)
+from .core import (
+    ApiKeyCredential,
+    AuthResult,
+    Credential,
+    CredentialStatus,
+    CredentialStore,
+    Identity,
+    IdentityStatus,
+    IdentityStore,
+    IdentityType,
+    MFACredential,
+    OAuthClient,
+    OAuthClientStore,
+    PasswordCredential,
+    TokenClaims,
 )
 
-# Audit Trail
-from .audit import (
-    AuditEventType,
-    AuditSeverity,
-    AuditEvent,
-    AuditStore,
-    MemoryAuditStore,
-    LoggingAuditStore,
-    AuditTrail,
+# Faults
+from .faults import (
+    AUTH_ACCOUNT_LOCKED,
+    AUTH_ACCOUNT_SUSPENDED,
+    AUTH_BACKUP_CODE_EXHAUSTED,
+    AUTH_BACKUP_CODE_INVALID,
+    AUTH_CLIENT_INVALID,
+    # OAuth faults
+    AUTH_CONSENT_REQUIRED,
+    AUTH_DEVICE_CODE_EXPIRED,
+    AUTH_DEVICE_CODE_PENDING,
+    AUTH_GRANT_INVALID,
+    # Authentication faults
+    AUTH_INVALID_CREDENTIALS,
+    AUTH_KEY_EXPIRED,
+    AUTH_KEY_REVOKED,
+    AUTH_MFA_ALREADY_ENROLLED,
+    AUTH_MFA_INVALID,
+    # MFA faults
+    AUTH_MFA_NOT_ENROLLED,
+    AUTH_MFA_REQUIRED,
+    AUTH_PASSWORD_BREACHED,
+    AUTH_PASSWORD_REUSED,
+    # Credential faults
+    AUTH_PASSWORD_WEAK,
+    AUTH_PKCE_INVALID,
+    AUTH_RATE_LIMITED,
+    AUTH_REDIRECT_URI_MISMATCH,
+    AUTH_REQUIRED,
+    AUTH_SCOPE_INVALID,
+    AUTH_SESSION_HIJACK_DETECTED,
+    AUTH_SESSION_INVALID,
+    # Session faults
+    AUTH_SESSION_REQUIRED,
+    AUTH_SLOW_DOWN,
+    AUTH_TOKEN_EXPIRED,
+    AUTH_TOKEN_INVALID,
+    AUTH_TOKEN_REVOKED,
+    AUTH_WEBAUTHN_INVALID,
+    AUTHZ_INSUFFICIENT_ROLE,
+    AUTHZ_INSUFFICIENT_SCOPE,
+    # Authorization faults
+    AUTHZ_POLICY_DENIED,
+    AUTHZ_RESOURCE_FORBIDDEN,
+    AUTHZ_TENANT_MISMATCH,
 )
 
 # Security Hardening
 from .hardening import (
-    constant_time_compare,
     CSRFProtection,
     RequestFingerprint,
     SecurityHeaders,
     TokenBinder,
-    generate_secure_token,
+    constant_time_compare,
     generate_opaque_id,
-    hash_token,
+    generate_secure_token,
     hash_sensitive,
+    hash_token,
 )
 
+# Password hashing
+from .hashing import (
+    HasherConfig,
+    PasswordHasher,
+    PasswordPolicy,
+    hash_password,
+    validate_password,
+    verify_password,
+)
+
+# Manager
+from .manager import AuthManager, RateLimiter
+
+# MFA
+from .mfa import MFAManager
+
+# OAuth2
+from .oauth import OAuth2Manager
+
+# Policy DSL
+from .policy import (
+    Abstain,
+    Allow,
+    Deny,
+    Policy,
+    PolicyDecision,
+    PolicyRegistry,
+    PolicyResult,
+    rule,
+)
+
+# Stores
+from .stores import (
+    MemoryCredentialStore,
+    MemoryIdentityStore,
+    MemoryTokenStore,
+)
+
+# Token management
+from .tokens import (
+    KeyAlgorithm,
+    KeyDescriptor,
+    KeyRing,
+    KeyStatus,
+    TokenConfig,
+    TokenManager,
+    TokenStore,
+)
 
 __all__ = [
     # Core types

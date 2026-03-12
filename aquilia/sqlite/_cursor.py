@@ -9,9 +9,11 @@ result sets without loading everything into memory.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import sqlite3
+from collections.abc import AsyncIterator
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, AsyncIterator, Optional
+from typing import Any
 
 from ._rows import Row
 
@@ -64,10 +66,8 @@ class AsyncCursor:
     async def close(self) -> None:
         """Close the cursor."""
         if not self._closed:
-            try:
+            with contextlib.suppress(Exception):
                 await self._run(self._raw.close)
-            except Exception:
-                pass
             self._closed = True
 
     @property

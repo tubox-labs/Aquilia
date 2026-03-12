@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from .._types import BatchRequest, InferenceResult, ModelpackManifest
 from .base import BaseRuntime, ModelState
@@ -49,15 +49,15 @@ class TritonAdapter(BaseRuntime):
         try:
             if self._protocol == "grpc":
                 import tritonclient.grpc as grpcclient
+
                 self._client = grpcclient.InferenceServerClient(url=self._url)
             else:
                 import tritonclient.http as httpclient
+
                 self._client = httpclient.InferenceServerClient(url=self._url)
         except ImportError:
             self._set_state(ModelState.FAILED)
-            raise ImportError(
-                "tritonclient required. Install with: pip install tritonclient[all]"
-            )
+            raise ImportError("tritonclient required. Install with: pip install tritonclient[all]")
 
         try:
             if not self._client.is_server_live():
@@ -71,12 +71,13 @@ class TritonAdapter(BaseRuntime):
 
         self._set_state(ModelState.LOADED)
 
-    async def infer(self, batch: BatchRequest) -> List[InferenceResult]:
+    async def infer(self, batch: BatchRequest) -> list[InferenceResult]:
         if not self._client:
             from aquilia.faults.domains import DatabaseConnectionFault
+
             raise DatabaseConnectionFault(backend="triton", reason="Triton client not connected")
 
-        results: List[InferenceResult] = []
+        results: list[InferenceResult] = []
 
         for req in batch.requests:
             start = time.monotonic()
@@ -85,11 +86,13 @@ class TritonAdapter(BaseRuntime):
             outputs = {"prediction": req.inputs}  # Placeholder
             latency = (time.monotonic() - start) * 1000
 
-            results.append(InferenceResult(
-                request_id=req.request_id,
-                outputs=outputs,
-                latency_ms=latency,
-            ))
+            results.append(
+                InferenceResult(
+                    request_id=req.request_id,
+                    outputs=outputs,
+                    latency_ms=latency,
+                )
+            )
 
         return results
 

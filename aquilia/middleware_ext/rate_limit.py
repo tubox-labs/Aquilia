@@ -22,21 +22,15 @@ from __future__ import annotations
 
 import math
 import time
-from collections import defaultdict
+from collections.abc import Awaitable, Callable
 from typing import (
-    Any,
-    Awaitable,
-    Callable,
-    Dict,
-    List,
-    Optional,
-    Tuple,
     TYPE_CHECKING,
+    Any,
 )
 
+from aquilia.faults.domains import RateLimitExceededFault
 from aquilia.request import Request
 from aquilia.response import Response
-from aquilia.faults.domains import RateLimitExceededFault
 
 if TYPE_CHECKING:
     from aquilia.controller.base import RequestCtx
@@ -45,6 +39,7 @@ Handler = Callable[[Request, "RequestCtx"], Awaitable[Response]]
 
 
 # ─── Key extractors ──────────────────────────────────────────────────────────
+
 
 def ip_key_extractor(request: Request) -> str:
     """Extract client IP as rate-limit key."""
@@ -60,7 +55,7 @@ def ip_key_extractor(request: Request) -> str:
     return "ip:unknown"
 
 
-def api_key_extractor(request: Request) -> Optional[str]:
+def api_key_extractor(request: Request) -> str | None:
     """Extract API key from Authorization or X-API-Key header."""
     api_key = request.header("x-api-key")
     if api_key:
@@ -71,7 +66,7 @@ def api_key_extractor(request: Request) -> Optional[str]:
     return None
 
 
-def user_key_extractor(request: Request) -> Optional[str]:
+def user_key_extractor(request: Request) -> str | None:
     """Extract user ID from request state (set by auth middleware)."""
     user_id = request.state.get("user_id")
     if user_id:
@@ -83,6 +78,7 @@ def user_key_extractor(request: Request) -> Optional[str]:
 
 
 # ─── Token Bucket Algorithm ──────────────────────────────────────────────────
+
 
 class _TokenBucket:
     """
@@ -103,7 +99,7 @@ class _TokenBucket:
         self.tokens = float(capacity)
         self.last_refill = time.monotonic()
 
-    def consume(self, tokens: int = 1) -> Tuple[bool, float]:
+    def consume(self, tokens: int = 1) -> tuple[bool, float]:
         """
         Try to consume tokens.
 
@@ -131,6 +127,7 @@ class _TokenBucket:
 
 # ─── Sliding Window Counter ──────────────────────────────────────────────────
 
+
 class _SlidingWindowCounter:
     """
     Sliding window counter using two adjacent fixed windows.
@@ -146,8 +143,7 @@ class _SlidingWindowCounter:
         max_requests: Maximum requests per window.
     """
 
-    __slots__ = ("window_size", "max_requests", "_prev_count", "_curr_count",
-                 "_prev_start", "_curr_start")
+    __slots__ = ("window_size", "max_requests", "_prev_count", "_curr_count", "_prev_start", "_curr_start")
 
     def __init__(self, window_size: float, max_requests: int):
         self.window_size = window_size
@@ -158,7 +154,7 @@ class _SlidingWindowCounter:
         self._prev_start = now - window_size
         self._prev_count = 0
 
-    def consume(self) -> Tuple[bool, float]:
+    def consume(self) -> tuple[bool, float]:
         """
         Try to record a request.
 
@@ -214,6 +210,7 @@ class _SlidingWindowCounter:
 
 # ─── Expiry-aware bucket store ────────────────────────────────────────────────
 
+
 class _BucketStore:
     """
     In-memory store for rate-limit buckets with periodic cleanup.
@@ -223,8 +220,8 @@ class _BucketStore:
     """
 
     def __init__(self, cleanup_interval: float = 60.0):
-        self._buckets: Dict[str, Any] = {}
-        self._last_access: Dict[str, float] = {}
+        self._buckets: dict[str, Any] = {}
+        self._last_access: dict[str, float] = {}
         self._cleanup_interval = cleanup_interval
         self._last_cleanup = time.monotonic()
 
@@ -247,16 +244,14 @@ class _BucketStore:
         self._last_cleanup = now
         # Default 5 minute TTL for idle buckets
         ttl = max(self._cleanup_interval * 5, 300)
-        expired = [
-            k for k, t in self._last_access.items()
-            if now - t > ttl
-        ]
+        expired = [k for k, t in self._last_access.items() if now - t > ttl]
         for k in expired:
             self._buckets.pop(k, None)
             self._last_access.pop(k, None)
 
 
 # ─── Rate Limit Configuration ────────────────────────────────────────────────
+
 
 class RateLimitRule:
     """
@@ -285,10 +280,10 @@ class RateLimitRule:
         limit: int = 100,
         window: float = 60.0,
         algorithm: str = "sliding_window",
-        key_func: Optional[Callable[[Request], Optional[str]]] = None,
-        burst: Optional[int] = None,
+        key_func: Callable[[Request], str | None] | None = None,
+        burst: int | None = None,
         scope: str = "*",
-        methods: Optional[List[str]] = None,
+        methods: list[str] | None = None,
     ):
         self.limit = limit
         self.window = window
@@ -308,6 +303,7 @@ class RateLimitRule:
 
 
 # ─── Rate Limit Middleware ────────────────────────────────────────────────────
+
 
 class RateLimitMiddleware:
     """
@@ -334,12 +330,12 @@ class RateLimitMiddleware:
 
     def __init__(
         self,
-        rules: Optional[List[RateLimitRule]] = None,
+        rules: list[RateLimitRule] | None = None,
         default_limit: int = 100,
         default_window: float = 60.0,
         response_format: str = "json",
         include_headers: bool = True,
-        exempt_paths: Optional[List[str]] = None,
+        exempt_paths: list[str] | None = None,
     ):
         if rules:
             self._rules = rules
@@ -356,7 +352,7 @@ class RateLimitMiddleware:
     async def __call__(
         self,
         request: Request,
-        ctx: "RequestCtx",
+        ctx: RequestCtx,
         next_handler: Handler,
     ) -> Response:
         # Skip exempt paths
@@ -388,9 +384,7 @@ class RateLimitMiddleware:
             allowed, retry_after = bucket.consume()
 
             if not allowed:
-                return self._rate_limited_response(
-                    rule, bucket, retry_after
-                )
+                return self._rate_limited_response(rule, bucket, retry_after)
 
             # Add rate-limit headers for the first matching rule
             if self._include_headers:
@@ -420,9 +414,7 @@ class RateLimitMiddleware:
                 max_requests=rule.limit,
             )
 
-    def _rate_limited_response(
-        self, rule: RateLimitRule, bucket: Any, retry_after: float
-    ) -> Response:
+    def _rate_limited_response(self, rule: RateLimitRule, bucket: Any, retry_after: float) -> Response:
         # Create a RateLimitExceededFault for ecosystem integration.
         # The fault is attached to the response but NOT raised -- the middleware
         # returns a 429 response directly to avoid interrupting the pipeline.
@@ -464,9 +456,7 @@ class RateLimitMiddleware:
         resp._fault = fault
         return resp
 
-    def _apply_headers(
-        self, response: Response, rule: RateLimitRule, bucket: Any
-    ) -> None:
+    def _apply_headers(self, response: Response, rule: RateLimitRule, bucket: Any) -> None:
         remaining = bucket.remaining if hasattr(bucket, "remaining") else 0
         response.headers["x-ratelimit-limit"] = str(rule.limit)
         response.headers["x-ratelimit-remaining"] = str(max(0, remaining))

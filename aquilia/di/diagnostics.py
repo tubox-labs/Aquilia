@@ -2,16 +2,18 @@
 DI Diagnostics - Observability and event tracking for DI containers.
 """
 
-import time
-from typing import Any, Dict, List, Optional, Type, Protocol
-from enum import Enum
 import dataclasses
 import logging
+import time
+from enum import Enum
+from typing import Any, Protocol
 
 logger = logging.getLogger("aquilia.di.diagnostics")
 
+
 class DIEventType(Enum):
     """Types of DI events."""
+
     REGISTRATION = "registration"
     RESOLUTION_START = "resolution_start"
     RESOLUTION_SUCCESS = "resolution_success"
@@ -20,32 +22,40 @@ class DIEventType(Enum):
     LIFECYCLE_SHUTDOWN = "lifecycle_shutdown"
     PROVIDER_INSTANTATION = "provider_instantiation"
 
+
 @dataclasses.dataclass
 class DIEvent:
     """A diagnostic event in the DI system."""
+
     type: DIEventType
     timestamp: float = dataclasses.field(default_factory=time.monotonic)  # A-3: monotonic for ordering
-    token: Optional[Any] = None
-    tag: Optional[str] = None
-    provider_name: Optional[str] = None
-    duration: Optional[float] = None
-    error: Optional[Exception] = None
-    metadata: Dict[str, Any] = dataclasses.field(default_factory=dict)
+    token: Any | None = None
+    tag: str | None = None
+    provider_name: str | None = None
+    duration: float | None = None
+    error: Exception | None = None
+    metadata: dict[str, Any] = dataclasses.field(default_factory=dict)
+
 
 class DiagnosticListener(Protocol):
     """Interface for DI diagnostic listeners."""
+
     def on_event(self, event: DIEvent) -> None:
         """Called when a DI event occurs."""
         ...
 
+
 class ConsoleDiagnosticListener:
     """Simple diagnostic listener that logs to console/logging."""
+
     def __init__(self, log_level: int = logging.DEBUG):
         self.log_level = log_level
 
     def on_event(self, event: DIEvent) -> None:
         if event.type == DIEventType.REGISTRATION:
-            logger.log(self.log_level, f"Registered provider '{event.provider_name}' for token={event.token} (tag={event.tag})")
+            logger.log(
+                self.log_level, f"Registered provider '{event.provider_name}' for token={event.token} (tag={event.tag})"
+            )
         elif event.type == DIEventType.RESOLUTION_START:
             logger.log(self.log_level, f"Resolving token={event.token} (tag={event.tag})...")
         elif event.type == DIEventType.RESOLUTION_SUCCESS:
@@ -55,10 +65,12 @@ class ConsoleDiagnosticListener:
         elif event.type == DIEventType.LIFECYCLE_STARTUP:
             logger.log(logging.INFO, f"Container startup: {event.metadata.get('app_name', 'unknown')}")
 
+
 class DIDiagnostics:
     """Coordinator for DI diagnostic listeners."""
+
     def __init__(self):
-        self._listeners: List[DiagnosticListener] = []
+        self._listeners: list[DiagnosticListener] = []
 
     def add_listener(self, listener: DiagnosticListener) -> None:
         """Add a diagnostic listener."""
@@ -78,6 +90,7 @@ class DIDiagnostics:
         """Context manager to measure duration of an event."""
         return _DiagnosticMeasure(self, event_type, **kwargs)
 
+
 class _DiagnosticMeasure:
     def __init__(self, diagnostics: DIDiagnostics, event_type: DIEventType, **kwargs):
         self.diagnostics = diagnostics
@@ -92,18 +105,9 @@ class _DiagnosticMeasure:
     def __exit__(self, exc_type, exc_val, exc_tb):
         duration = time.monotonic() - self.start_time
         if exc_type:
-            self.diagnostics.emit(
-                DIEventType.RESOLUTION_FAILURE, 
-                duration=duration, 
-                error=exc_val,
-                **self.kwargs
-            )
+            self.diagnostics.emit(DIEventType.RESOLUTION_FAILURE, duration=duration, error=exc_val, **self.kwargs)
         else:
-            self.diagnostics.emit(
-                DIEventType.RESOLUTION_SUCCESS, 
-                duration=duration,
-                **self.kwargs
-            )
+            self.diagnostics.emit(DIEventType.RESOLUTION_SUCCESS, duration=duration, **self.kwargs)
 
     # Async context manager support
     async def __aenter__(self):
@@ -113,15 +117,6 @@ class _DiagnosticMeasure:
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         duration = time.monotonic() - self.start_time
         if exc_type:
-            self.diagnostics.emit(
-                DIEventType.RESOLUTION_FAILURE,
-                duration=duration,
-                error=exc_val,
-                **self.kwargs
-            )
+            self.diagnostics.emit(DIEventType.RESOLUTION_FAILURE, duration=duration, error=exc_val, **self.kwargs)
         else:
-            self.diagnostics.emit(
-                DIEventType.RESOLUTION_SUCCESS,
-                duration=duration,
-                **self.kwargs
-            )
+            self.diagnostics.emit(DIEventType.RESOLUTION_SUCCESS, duration=duration, **self.kwargs)

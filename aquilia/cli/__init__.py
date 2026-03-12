@@ -25,10 +25,12 @@ Philosophy:
 """
 
 from aquilia._version import __version__  # noqa: F401 — re-exported
+
 __cli_name__ = "aq"
 
 
 def main():
     """Wrapper to avoid eager import of __main__ which causes warnings with -m."""
     from .__main__ import main as _main
+
     return _main()

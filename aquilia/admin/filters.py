@@ -26,7 +26,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional, Sequence, Tuple, Type, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from aquilia.models.base import Model
@@ -49,7 +49,7 @@ class ListFilter:
     title: str = ""
     parameter_name: str = ""
 
-    def __init__(self, field_name: str = "", model: Optional[Type[Model]] = None):
+    def __init__(self, field_name: str = "", model: type[Model] | None = None):
         self.field_name = field_name
         self.model = model
         if not self.parameter_name:
@@ -57,7 +57,7 @@ class ListFilter:
         if not self.title:
             self.title = field_name.replace("_", " ").title()
 
-    def get_choices(self) -> List[Dict[str, Any]]:
+    def get_choices(self) -> list[dict[str, Any]]:
         """
         Return list of filter choices.
 
@@ -81,7 +81,7 @@ class ListFilter:
         """
         return queryset
 
-    def to_metadata(self) -> Dict[str, Any]:
+    def to_metadata(self) -> dict[str, Any]:
         """Serialize filter for template rendering."""
         return {
             "name": self.parameter_name,
@@ -100,18 +100,20 @@ class SimpleFilter(ListFilter):
     or from distinct values in the database.
     """
 
-    def get_choices(self) -> List[Dict[str, Any]]:
+    def get_choices(self) -> list[dict[str, Any]]:
         choices = [{"value": "", "label": "All", "selected": False}]
 
         if self.model and self.field_name:
             field = getattr(self.model, "_fields", {}).get(self.field_name)
             if field and field.choices:
                 for value, label in field.choices:
-                    choices.append({
-                        "value": str(value),
-                        "label": str(label),
-                        "selected": False,
-                    })
+                    choices.append(
+                        {
+                            "value": str(value),
+                            "label": str(label),
+                            "selected": False,
+                        }
+                    )
 
         return choices
 
@@ -119,14 +121,14 @@ class SimpleFilter(ListFilter):
 class BooleanFilter(ListFilter):
     """Filter for boolean fields with Yes/No/All choices."""
 
-    def get_choices(self) -> List[Dict[str, Any]]:
+    def get_choices(self) -> list[dict[str, Any]]:
         return [
             {"value": "", "label": "All", "selected": False},
             {"value": "true", "label": "Yes", "selected": False},
             {"value": "false", "label": "No", "selected": False},
         ]
 
-    def to_metadata(self) -> Dict[str, Any]:
+    def to_metadata(self) -> dict[str, Any]:
         data = super().to_metadata()
         data["type"] = "boolean"
         return data
@@ -146,16 +148,18 @@ class ChoiceFilter(ListFilter):
             ]
     """
 
-    choices_list: List[Tuple[str, str]] = []
+    choices_list: list[tuple[str, str]] = []
 
-    def get_choices(self) -> List[Dict[str, Any]]:
+    def get_choices(self) -> list[dict[str, Any]]:
         choices = [{"value": "", "label": "All", "selected": False}]
         for value, label in self.choices_list:
-            choices.append({
-                "value": str(value),
-                "label": str(label),
-                "selected": False,
-            })
+            choices.append(
+                {
+                    "value": str(value),
+                    "label": str(label),
+                    "selected": False,
+                }
+            )
         return choices
 
 
@@ -167,7 +171,7 @@ class DateRangeFilter(ListFilter):
     "This year", plus a custom date range picker.
     """
 
-    def get_choices(self) -> List[Dict[str, Any]]:
+    def get_choices(self) -> list[dict[str, Any]]:
         return [
             {"value": "", "label": "Any date", "selected": False},
             {"value": "today", "label": "Today", "selected": False},
@@ -179,7 +183,7 @@ class DateRangeFilter(ListFilter):
             {"value": "custom", "label": "Custom range...", "selected": False},
         ]
 
-    def get_date_range(self, value: str) -> Optional[Tuple[datetime, datetime]]:
+    def get_date_range(self, value: str) -> tuple[datetime, datetime] | None:
         """Convert a preset value to a (start, end) datetime pair."""
         now = datetime.now(timezone.utc)
         today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -194,7 +198,7 @@ class DateRangeFilter(ListFilter):
         }
         return ranges.get(value)
 
-    def to_metadata(self) -> Dict[str, Any]:
+    def to_metadata(self) -> dict[str, Any]:
         data = super().to_metadata()
         data["type"] = "date_range"
         data["supports_custom_range"] = True
@@ -209,15 +213,15 @@ class NumericRangeFilter(ListFilter):
     """
 
     step: float = 1
-    min_value: Optional[float] = None
-    max_value: Optional[float] = None
+    min_value: float | None = None
+    max_value: float | None = None
 
-    def get_choices(self) -> List[Dict[str, Any]]:
+    def get_choices(self) -> list[dict[str, Any]]:
         return [
             {"value": "", "label": "Any value", "selected": False},
         ]
 
-    def to_metadata(self) -> Dict[str, Any]:
+    def to_metadata(self) -> dict[str, Any]:
         data = super().to_metadata()
         data["type"] = "numeric_range"
         data["step"] = self.step
@@ -234,7 +238,7 @@ class AllValuesFilter(ListFilter):
     and presents them as filter options.
     """
 
-    def to_metadata(self) -> Dict[str, Any]:
+    def to_metadata(self) -> dict[str, Any]:
         data = super().to_metadata()
         data["type"] = "all_values"
         data["dynamic"] = True
@@ -248,7 +252,7 @@ class RelatedModelFilter(ListFilter):
     Provides a searchable dropdown of related model instances.
     """
 
-    def to_metadata(self) -> Dict[str, Any]:
+    def to_metadata(self) -> dict[str, Any]:
         data = super().to_metadata()
         data["type"] = "related_model"
         data["searchable"] = True
@@ -262,20 +266,20 @@ class EmptyFieldFilter(ListFilter):
     Useful for finding incomplete data or records missing values.
     """
 
-    def get_choices(self) -> List[Dict[str, Any]]:
+    def get_choices(self) -> list[dict[str, Any]]:
         return [
             {"value": "", "label": "All", "selected": False},
             {"value": "empty", "label": "Empty", "selected": False},
             {"value": "not_empty", "label": "Not empty", "selected": False},
         ]
 
-    def to_metadata(self) -> Dict[str, Any]:
+    def to_metadata(self) -> dict[str, Any]:
         data = super().to_metadata()
         data["type"] = "empty_field"
         return data
 
 
-def resolve_filter(filter_spec: Any, model: Optional[Type[Model]] = None) -> ListFilter:
+def resolve_filter(filter_spec: Any, model: type[Model] | None = None) -> ListFilter:
     """
     Resolve a filter specification into a ListFilter instance.
 
@@ -301,10 +305,16 @@ def resolve_filter(filter_spec: Any, model: Optional[Type[Model]] = None) -> Lis
             if field:
                 try:
                     from aquilia.models.fields_module import (
-                        BooleanField, DateTimeField, DateField,
-                        IntegerField, FloatField, DecimalField,
-                        ForeignKey, OneToOneField,
+                        BooleanField,
+                        DateField,
+                        DateTimeField,
+                        DecimalField,
+                        FloatField,
+                        ForeignKey,
+                        IntegerField,
+                        OneToOneField,
                     )
+
                     if isinstance(field, BooleanField):
                         return BooleanFilter(filter_spec, model)
                     if isinstance(field, (DateTimeField, DateField)):

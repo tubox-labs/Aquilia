@@ -21,12 +21,12 @@ Usage:
 
 from __future__ import annotations
 
-import asyncio
 import contextlib
 import inspect
 import logging
 import weakref
-from typing import Any, Callable, Dict, List, Optional, Type
+from collections.abc import Callable
+from typing import Any
 
 logger = logging.getLogger("aquilia.models.signals")
 
@@ -48,6 +48,7 @@ __all__ = [
 
 class _DeadRef:
     """Sentinel indicating a weak reference that has been garbage-collected."""
+
     pass
 
 
@@ -91,13 +92,13 @@ class Signal:
     def __init__(self, name: str):
         self.name = name
         # Each entry: (receiver_or_weakref, sender_filter, priority)
-        self._receivers: List[tuple] = []
+        self._receivers: list[tuple] = []
 
     def connect(
         self,
         receiver: Callable = None,
         *,
-        sender: Optional[Type] = None,
+        sender: type | None = None,
         weak: bool = False,
         priority: int = 100,
     ):
@@ -110,6 +111,7 @@ class Signal:
             weak: If True, store a weak reference (auto-cleanup on GC)
             priority: Lower values run first (default: 100)
         """
+
         def _decorator(fn: Callable) -> Callable:
             self._add_receiver(fn, sender, weak, priority)
             return fn
@@ -126,7 +128,7 @@ class Signal:
     def _add_receiver(
         self,
         fn: Callable,
-        sender: Optional[Type],
+        sender: type | None,
         weak: bool,
         priority: int,
     ) -> None:
@@ -151,13 +153,12 @@ class Signal:
         # Sort by priority (stable sort preserves insertion order for ties)
         self._receivers.sort(key=lambda x: x[2])
 
-    def _make_cleanup(self, fn: Callable, sender: Optional[Type]) -> Callable:
+    def _make_cleanup(self, fn: Callable, sender: type | None) -> Callable:
         """Create a weak-reference finalizer that removes dead entries."""
+
         def cleanup(ref):
-            self._receivers = [
-                (r, s, p) for r, s, p in self._receivers
-                if self._resolve_ref(r) is not _DeadRef
-            ]
+            self._receivers = [(r, s, p) for r, s, p in self._receivers if self._resolve_ref(r) is not _DeadRef]
+
         return cleanup
 
     @staticmethod
@@ -170,26 +171,26 @@ class Signal:
             return obj
         return ref
 
-    def disconnect(self, receiver: Callable, *, sender: Optional[Type] = None) -> bool:
+    def disconnect(self, receiver: Callable, *, sender: type | None = None) -> bool:
         """
         Disconnect a receiver.
 
         Returns True if the receiver was found and removed.
         """
-        for i, (ref, s, p) in enumerate(self._receivers):
+        for i, (ref, s, _p) in enumerate(self._receivers):
             resolved = self._resolve_ref(ref)
             if resolved is receiver and s is sender:
                 self._receivers.pop(i)
                 return True
         # Try removing without sender filter
-        for i, (ref, s, p) in enumerate(self._receivers):
+        for i, (ref, s, _p) in enumerate(self._receivers):
             resolved = self._resolve_ref(ref)
             if resolved is receiver:
                 self._receivers.pop(i)
                 return True
         return False
 
-    async def send(self, sender: Type, **kwargs) -> List[Any]:
+    async def send(self, sender: type, **kwargs) -> list[Any]:
         """
         Fire the signal, calling all connected receivers.
 
@@ -216,13 +217,12 @@ class Signal:
                 results.append(result)
             except Exception as exc:
                 logger.error(
-                    f"Signal '{self.name}' receiver {receiver.__name__} "
-                    f"raised {exc.__class__.__name__}: {exc}"
+                    f"Signal '{self.name}' receiver {receiver.__name__} raised {exc.__class__.__name__}: {exc}"
                 )
                 results.append(exc)
         return results
 
-    def send_sync(self, sender: Type, **kwargs) -> List[Any]:
+    def send_sync(self, sender: type, **kwargs) -> list[Any]:
         """
         Fire the signal synchronously (for sync receivers only).
         """
@@ -234,23 +234,19 @@ class Signal:
             if filter_sender is not None and sender is not filter_sender:
                 continue
             if inspect.iscoroutinefunction(receiver):
-                logger.warning(
-                    f"Signal '{self.name}': async receiver {receiver.__name__} "
-                    f"skipped in sync send"
-                )
+                logger.warning(f"Signal '{self.name}': async receiver {receiver.__name__} skipped in sync send")
                 continue
             try:
                 result = receiver(sender=sender, **kwargs)
                 results.append(result)
             except Exception as exc:
                 logger.error(
-                    f"Signal '{self.name}' receiver {receiver.__name__} "
-                    f"raised {exc.__class__.__name__}: {exc}"
+                    f"Signal '{self.name}' receiver {receiver.__name__} raised {exc.__class__.__name__}: {exc}"
                 )
                 results.append(exc)
         return results
 
-    async def robust_send(self, sender: Type, **kwargs) -> List[Any]:
+    async def robust_send(self, sender: type, **kwargs) -> list[Any]:
         """
         Fire the signal, catching exceptions from each receiver.
 
@@ -272,14 +268,13 @@ class Signal:
                 results.append((receiver, result))
             except Exception as exc:
                 logger.error(
-                    f"Signal '{self.name}' receiver {receiver.__name__} "
-                    f"raised {exc.__class__.__name__}: {exc}"
+                    f"Signal '{self.name}' receiver {receiver.__name__} raised {exc.__class__.__name__}: {exc}"
                 )
                 results.append((receiver, exc))
         return results
 
     @property
-    def receivers(self) -> List[Callable]:
+    def receivers(self) -> list[Callable]:
         """List of connected receiver functions (resolved, alive only)."""
         result = []
         for ref, _, _ in self._receivers:
@@ -288,21 +283,16 @@ class Signal:
                 result.append(resolved)
         return result
 
-    def has_listeners(self, sender: Optional[Type] = None) -> bool:
+    def has_listeners(self, sender: type | None = None) -> bool:
         """Check if any receivers are connected (optionally for a sender)."""
         if sender is None:
-            return any(
-                self._resolve_ref(ref) is not _DeadRef
-                for ref, _, _ in self._receivers
-            )
+            return any(self._resolve_ref(ref) is not _DeadRef for ref, _, _ in self._receivers)
         return any(
-            self._resolve_ref(ref) is not _DeadRef
-            and (s is None or s is sender)
-            for ref, s, _ in self._receivers
+            self._resolve_ref(ref) is not _DeadRef and (s is None or s is sender) for ref, s, _ in self._receivers
         )
 
     @contextlib.contextmanager
-    def connected(self, fn: Callable, *, sender: Optional[Type] = None, priority: int = 100):
+    def connected(self, fn: Callable, *, sender: type | None = None, priority: int = 100):
         """
         Context manager for temporary signal connection.
 
@@ -345,7 +335,7 @@ post_migrate = Signal("post_migrate")
 # ── receiver() shorthand decorator ──────────────────────────────────────────
 
 
-def receiver(signal: Signal, *, sender: Optional[Type] = None):
+def receiver(signal: Signal, *, sender: type | None = None):
     """
     Shorthand decorator to connect a function to a signal.
 
@@ -363,7 +353,9 @@ def receiver(signal: Signal, *, sender: Optional[Type] = None):
         async def log_save(sender, instance, **kwargs):
             print(f"Saving {sender.__name__}")
     """
+
     def _decorator(fn: Callable) -> Callable:
         signal.connect(fn, sender=sender)
         return fn
+
     return _decorator

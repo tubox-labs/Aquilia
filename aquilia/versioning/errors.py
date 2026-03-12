@@ -7,13 +7,14 @@ Aquilia's Fault system.
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 from ..faults import Fault, FaultDomain, Severity
 
 
 class VersionError(Fault):
     """Base class for all versioning errors."""
+
     domain = FaultDomain.ROUTING
     severity = Severity.ERROR
     public = True
@@ -21,6 +22,7 @@ class VersionError(Fault):
 
 class InvalidVersionError(VersionError):
     """Raised when a version string cannot be parsed."""
+
     code = "INVALID_API_VERSION"
     message = "Invalid API version"
 
@@ -35,22 +37,20 @@ class InvalidVersionError(VersionError):
 
 class UnsupportedVersionError(VersionError):
     """Raised when a valid version is not in the supported set."""
+
     code = "UNSUPPORTED_API_VERSION"
     message = "Unsupported API version"
 
     def __init__(
         self,
         version: Any,
-        supported: Optional[list] = None,
+        supported: list | None = None,
         **kw: Any,
     ) -> None:
         supported_str = ", ".join(str(v) for v in supported) if supported else "none"
         super().__init__(
             code=self.code,
-            message=(
-                f"API version '{version}' is not supported. "
-                f"Supported versions: {supported_str}"
-            ),
+            message=(f"API version '{version}' is not supported. Supported versions: {supported_str}"),
             metadata={
                 "requested_version": str(version),
                 "supported_versions": [str(v) for v in supported] if supported else [],
@@ -63,15 +63,16 @@ class UnsupportedVersionError(VersionError):
 
 class VersionSunsetError(VersionError):
     """Raised when a version has been sunset (permanently retired)."""
+
     code = "API_VERSION_SUNSET"
     message = "API version has been retired"
 
     def __init__(
         self,
         version: Any,
-        sunset_date: Optional[str] = None,
-        migration_url: Optional[str] = None,
-        successor: Optional[Any] = None,
+        sunset_date: str | None = None,
+        migration_url: str | None = None,
+        successor: Any | None = None,
         **kw: Any,
     ) -> None:
         parts = [f"API version '{version}' has been retired."]
@@ -101,21 +102,17 @@ class VersionSunsetError(VersionError):
 
 class MissingVersionError(VersionError):
     """Raised when no version is present and no default is configured."""
+
     code = "MISSING_API_VERSION"
     message = "API version is required"
 
-    def __init__(self, strategies: Optional[list] = None, **kw: Any) -> None:
+    def __init__(self, strategies: list | None = None, **kw: Any) -> None:
         hint_parts = []
         if strategies:
-            hint_parts.append(
-                "Send version via: " + ", ".join(str(s) for s in strategies)
-            )
+            hint_parts.append("Send version via: " + ", ".join(str(s) for s in strategies))
         super().__init__(
             code=self.code,
-            message=(
-                "API version is required but was not provided. "
-                + " ".join(hint_parts)
-            ).strip(),
+            message=("API version is required but was not provided. " + " ".join(hint_parts)).strip(),
             metadata={
                 "strategies": [str(s) for s in strategies] if strategies else [],
                 **kw,
@@ -125,22 +122,20 @@ class MissingVersionError(VersionError):
 
 class VersionNegotiationError(VersionError):
     """Raised when version negotiation fails."""
+
     code = "VERSION_NEGOTIATION_FAILED"
     message = "Version negotiation failed"
 
     def __init__(
         self,
         requested: Any,
-        available: Optional[list] = None,
+        available: list | None = None,
         **kw: Any,
     ) -> None:
         available_str = ", ".join(str(v) for v in available) if available else "none"
         super().__init__(
             code=self.code,
-            message=(
-                f"Could not negotiate API version for request '{requested}'. "
-                f"Available versions: {available_str}"
-            ),
+            message=(f"Could not negotiate API version for request '{requested}'. Available versions: {available_str}"),
             metadata={
                 "requested": str(requested),
                 "available": [str(v) for v in available] if available else [],

@@ -11,26 +11,26 @@ Performance (v3 — scalability):
 - Pool uses a pre-allocated ring buffer; acquire() resets fields in-place.
 """
 
-from typing import Any, Callable, Dict, List, Optional, TYPE_CHECKING
-import asyncio
 import logging
 import time
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
+    from aquilia.auth.core import Identity
     from aquilia.request import Request
     from aquilia.response import Response
     from aquilia.sessions import Session
-    from aquilia.auth.core import Identity
 
 logger = logging.getLogger("aquilia.controller")
 
 # Reusable empty dict to avoid allocation when state is unused
-_EMPTY_STATE: Dict[str, Any] = {}
+_EMPTY_STATE: dict[str, Any] = {}
 
 
 # ═══════════════════════════════════════════════════════════════════════════
 #  RequestCtx
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class RequestCtx:
     """
@@ -43,8 +43,13 @@ class RequestCtx:
     """
 
     __slots__ = (
-        'request', 'identity', 'session', 'container',
-        'state', 'request_id', '_extra',
+        "request",
+        "identity",
+        "session",
+        "container",
+        "state",
+        "request_id",
+        "_extra",
     )
 
     def __init__(
@@ -52,9 +57,9 @@ class RequestCtx:
         request: "Request",
         identity: Optional["Identity"] = None,
         session: Optional["Session"] = None,
-        container: Optional[Any] = None,
-        state: Optional[Dict[str, Any]] = None,
-        request_id: Optional[str] = None,
+        container: Any | None = None,
+        state: dict[str, Any] | None = None,
+        request_id: str | None = None,
     ):
         self.request = request
         self.identity = identity
@@ -62,13 +67,13 @@ class RequestCtx:
         self.container = container
         self.state = state if state is not None else {}
         self.request_id = request_id
-        self._extra: Optional[Dict[str, Any]] = None
+        self._extra: dict[str, Any] | None = None
 
     # -- dynamic attribute escape hatch for plugins/middleware -------
     def __getattr__(self, name: str) -> Any:
         """Fallback for dynamic attributes stored in _extra."""
         # __slots__ attrs are handled natively; this only fires for unknowns
-        extra = object.__getattribute__(self, '_extra')
+        extra = object.__getattribute__(self, "_extra")
         if extra is not None and name in extra:
             return extra[name]
         raise AttributeError(f"'RequestCtx' object has no attribute {name!r}")
@@ -79,36 +84,36 @@ class RequestCtx:
         try:
             object.__setattr__(self, name, value)
         except AttributeError:
-            extra = object.__getattribute__(self, '_extra')
+            extra = object.__getattribute__(self, "_extra")
             if extra is None:
                 extra = {}
-                object.__setattr__(self, '_extra', extra)
+                object.__setattr__(self, "_extra", extra)
             extra[name] = value
 
     @property
     def path(self) -> str:
         """Request path."""
         return self.request.path
-    
+
     @property
     def method(self) -> str:
         """Request method."""
         return self.request.method
-    
+
     @property
-    def headers(self) -> Dict[str, str]:
+    def headers(self) -> dict[str, str]:
         """Request headers."""
         return self.request.headers
-    
+
     @property
-    def query_params(self) -> Dict[str, list]:
+    def query_params(self) -> dict[str, list]:
         """Query parameters (parsed from query string)."""
         return self.request.query_params
-    
-    def query_param(self, key: str, default: Optional[str] = None) -> Optional[str]:
+
+    def query_param(self, key: str, default: str | None = None) -> str | None:
         """Get single query parameter."""
         return self.request.query_param(key, default)
-    
+
     async def json(self) -> Any:
         """Parse request body as JSON."""
         return await self.request.json()
@@ -117,7 +122,7 @@ class RequestCtx:
         """Read raw request body bytes."""
         return await self.request.body()
 
-    async def form(self) -> Dict[str, Any]:
+    async def form(self) -> dict[str, Any]:
         """Parse request body as form data."""
         return await self.request.form()
 
@@ -129,6 +134,7 @@ class RequestCtx:
 # ═══════════════════════════════════════════════════════════════════════════
 #  RequestCtx Object Pool
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class _RequestCtxPool:
     """
@@ -144,20 +150,20 @@ class _RequestCtxPool:
         _ctx_pool.release(ctx)
     """
 
-    __slots__ = ('_pool', '_max_size')
+    __slots__ = ("_pool", "_max_size")
 
     def __init__(self, max_size: int = 256):
         self._max_size = max_size
-        self._pool: List[RequestCtx] = []
+        self._pool: list[RequestCtx] = []
 
     def acquire(
         self,
         request: "Request",
         identity: Optional["Identity"] = None,
         session: Optional["Session"] = None,
-        container: Optional[Any] = None,
-        state: Optional[Dict[str, Any]] = None,
-        request_id: Optional[str] = None,
+        container: Any | None = None,
+        state: dict[str, Any] | None = None,
+        request_id: str | None = None,
     ) -> RequestCtx:
         """Get a RequestCtx from the pool or create a new one.
 
@@ -165,6 +171,7 @@ class _RequestCtxPool:
         to ensure reused contexts never carry a stale request_id.
         """
         import os
+
         if request_id is None:
             request_id = os.urandom(16).hex()
 
@@ -210,6 +217,7 @@ _ctx_pool = _RequestCtxPool(max_size=256)
 #  Exception Filter
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class ExceptionFilter:
     """
     Base class for exception filters.
@@ -233,7 +241,7 @@ class ExceptionFilter:
             exception_filters = [NotFoundFilter()]
     """
 
-    catches: List[type] = []  # Exception types this filter handles
+    catches: list[type] = []  # Exception types this filter handles
 
     async def catch(
         self,
@@ -251,6 +259,7 @@ class ExceptionFilter:
 # ═══════════════════════════════════════════════════════════════════════════
 #  Interceptor -- before/after hooks
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class Interceptor:
     """
@@ -303,6 +312,7 @@ class Interceptor:
 #  Throttle -- Controller-level rate limiting
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class Throttle:
     """
     Simple in-memory sliding-window rate limiter.
@@ -322,12 +332,12 @@ class Throttle:
         self.limit = limit
         self.window = window
         self.max_clients = max_clients
-        self._requests: Dict[str, list] = {}  # key -> [timestamps]
+        self._requests: dict[str, list] = {}  # key -> [timestamps]
         self._last_cleanup: float = 0.0
 
     def _client_key(self, request: Any) -> str:
         """Extract a client identifier from the request.
-        
+
         Delegates to ``request.client_ip()`` when available so that
         trusted-proxy chain validation is honoured.  Falls back to the
         ASGI scope's direct client tuple.
@@ -338,7 +348,7 @@ class Throttle:
                 return request.client_ip()
             except Exception:
                 pass
-        
+
         # Fallback: direct ASGI client (never trust X-Forwarded-For directly)
         if hasattr(request, "scope"):
             client = request.scope.get("client")
@@ -351,7 +361,7 @@ class Throttle:
         Check if the request is within the rate limit.
 
         Returns True if allowed, False if throttled.
-        
+
         SEC-CTRL-04: Includes periodic cleanup of expired entries and
         LRU eviction when max_clients is reached to prevent unbounded
         memory growth.
@@ -372,9 +382,7 @@ class Throttle:
 
         # Prune expired entries for this client
         cutoff = now - self.window
-        self._requests[key] = [
-            ts for ts in self._requests[key] if ts > cutoff
-        ]
+        self._requests[key] = [ts for ts in self._requests[key] if ts > cutoff]
 
         if len(self._requests[key]) >= self.limit:
             return False
@@ -385,10 +393,7 @@ class Throttle:
     def _cleanup_expired(self, now: float) -> None:
         """Remove all clients whose entries have fully expired."""
         cutoff = now - self.window
-        expired_keys = [
-            k for k, timestamps in self._requests.items()
-            if not timestamps or timestamps[-1] <= cutoff
-        ]
+        expired_keys = [k for k, timestamps in self._requests.items() if not timestamps or timestamps[-1] <= cutoff]
         for k in expired_keys:
             del self._requests[k]
 
@@ -420,6 +425,7 @@ class Throttle:
 #  ControllerMeta -- descriptor metaclass to fix mutable defaults
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class _ControllerMeta(type):
     """
     Metaclass for Controller that prevents the mutable-default-list bug.
@@ -448,10 +454,11 @@ class _ControllerMeta(type):
 #  Controller
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class Controller(metaclass=_ControllerMeta):
     """
     Base Controller class.
-    
+
     Controllers are class-based request handlers with:
     - Constructor DI injection
     - Method-level route definitions
@@ -463,7 +470,7 @@ class Controller(metaclass=_ControllerMeta):
     - Interceptors (before/after handler hooks)
     - Exception filters (structured error handling)
     - Handler execution timeouts
-    
+
     Class Attributes:
         prefix: URL prefix for all routes (e.g., "/users")
         pipeline: List of pipeline nodes applied to all methods
@@ -475,13 +482,13 @@ class Controller(metaclass=_ControllerMeta):
         exception_filters: List of ExceptionFilter instances
         timeout: Handler execution timeout in seconds (0 = no timeout)
         max_body_size: Max request body size in bytes (0 = no limit)
-    
+
     Lifecycle Hooks:
         async def on_startup(self, ctx): Called at app startup (singleton only)
         async def on_shutdown(self, ctx): Called at app shutdown (singleton only)
         async def on_request(self, ctx): Called before each request
         async def on_response(self, ctx, response): Called after each request
-    
+
     Example:
         class UsersController(Controller):
             prefix = "/users"
@@ -489,50 +496,50 @@ class Controller(metaclass=_ControllerMeta):
             pipeline = [Auth.guard()]
             throttle = Throttle(limit=100, window=60)
             timeout = 30
-            
+
             def __init__(self, repo: UserRepo, templates: TemplateEngine):
                 self.repo = repo
                 self.templates = templates
-            
+
             @GET("/")
             async def list(self, ctx):
                 users = self.repo.list_all()
                 return self.render("users/list.html", {"users": users}, ctx)
     """
-    
+
     # Class-level configuration
     prefix: str = ""
-    pipeline: List[Any] = []
-    tags: List[str] = []
+    pipeline: list[Any] = []
+    tags: list[str] = []
     instantiation_mode: str = "per_request"  # or "singleton"
-    
+
     # ── New industry-standard features ──
-    version: Optional[str] = None          # API version: "v1", "v2", etc.
-    throttle: Optional[Throttle] = None    # Rate limiting
-    interceptors: List[Any] = []           # Interceptor instances
-    exception_filters: List[Any] = []      # ExceptionFilter instances
-    timeout: float = 0                     # Handler timeout in seconds (0=disabled)
-    max_body_size: int = 0                 # Max body size in bytes (0=disabled)
-    
+    version: str | None = None  # API version: "v1", "v2", etc.
+    throttle: Throttle | None = None  # Rate limiting
+    interceptors: list[Any] = []  # Interceptor instances
+    exception_filters: list[Any] = []  # ExceptionFilter instances
+    timeout: float = 0  # Handler timeout in seconds (0=disabled)
+    max_body_size: int = 0  # Max body size in bytes (0=disabled)
+
     # Template engine (injected via DI)
-    _template_engine: Optional[Any] = None
-    
+    _template_engine: Any | None = None
+
     async def render(
         self,
         template_name: str,
-        context: Optional[Dict[str, Any]] = None,
-        request_ctx: Optional[RequestCtx] = None,
+        context: dict[str, Any] | None = None,
+        request_ctx: RequestCtx | None = None,
         *,
-        engine: Optional[Any] = None,
+        engine: Any | None = None,
         status: int = 200,
-        headers: Optional[Dict[str, str]] = None
+        headers: dict[str, str] | None = None,
     ) -> "Response":
         """
         Render template and return Response.
-        
+
         Convenience method for template rendering in controllers.
         Automatically injects request context if available.
-        
+
         Args:
             template_name: Template name
             context: Template variables
@@ -540,10 +547,10 @@ class Controller(metaclass=_ControllerMeta):
             engine: Template engine (optional, can be injected or passed)
             status: HTTP status code
             headers: Additional headers
-        
+
         Returns:
             Response with rendered template
-        
+
         Example:
             @GET("/profile")
             async def profile(self, ctx):
@@ -551,67 +558,62 @@ class Controller(metaclass=_ControllerMeta):
                 return await self.render("profile.html", {"user": user}, ctx)
         """
         from aquilia.response import Response
-        
+
         # Get template engine (if not provided as parameter)
         if engine is None:
             engine = getattr(self, "_template_engine", None) or getattr(self, "templates", None)
-        
+
         return await Response.render(
-            template_name,
-            context,
-            status=status,
-            headers=headers,
-            engine=engine,
-            request_ctx=request_ctx
+            template_name, context, status=status, headers=headers, engine=engine, request_ctx=request_ctx
         )
-    
+
     # Lifecycle hooks (optional)
-    
+
     async def on_startup(self, ctx: RequestCtx) -> None:
         """
         Called when controller is initialized (singleton mode only).
-        
+
         Use for one-time initialization like opening DB connections.
         """
         pass
-    
+
     async def on_shutdown(self, ctx: RequestCtx) -> None:
         """
         Called when controller is destroyed (singleton mode only).
-        
+
         Use for cleanup like closing connections.
         """
         pass
-    
+
     async def on_request(self, ctx: RequestCtx) -> None:
         """
         Called before each request is processed.
-        
+
         Use for per-request initialization or validation.
         """
         pass
-    
+
     async def on_response(self, ctx: RequestCtx, response: "Response") -> "Response":
         """
         Called after each request is processed.
-        
+
         Can modify the response before it's sent.
-        
+
         Args:
             ctx: Request context
             response: The response to be sent
-        
+
         Returns:
             Modified response
         """
         return response
-    
+
     # Context manager support for per-request lifecycle
-    
+
     async def __aenter__(self):
         """Enter request context (per-request mode)."""
         return self
-    
+
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         """Exit request context (per-request mode)."""
         pass

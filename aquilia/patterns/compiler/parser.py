@@ -4,32 +4,32 @@ Tokenizer and parser for AquilaPatterns.
 Implements the formal EBNF grammar with error recovery and span tracking.
 """
 
-import re
 from dataclasses import dataclass
-from typing import List, Optional, Tuple, Any
 from enum import Enum
+from typing import Any
 
+from ..diagnostics.errors import PatternSyntaxError
 from .ast_nodes import (
+    BaseSegment,
+    Constraint,
+    ConstraintKind,
+    OptionalGroup,
     PatternAST,
+    QueryParam,
+    Span,
+    SplatSegment,
     StaticSegment,
     TokenSegment,
-    OptionalGroup,
-    SplatSegment,
-    QueryParam,
-    Constraint,
     Transform,
-    Span,
-    ConstraintKind,
-    BaseSegment,
 )
-from ..diagnostics.errors import PatternSyntaxError
 
 
 class TokenType(str, Enum):
     """Token types for the lexer."""
+
     SLASH = "SLASH"
-    LANGLE = "LANGLE"         # <
-    RANGLE = "RANGLE"         # >
+    LANGLE = "LANGLE"  # <
+    RANGLE = "RANGLE"  # >
     LBRACKET = "LBRACKET"
     RBRACKET = "RBRACKET"
     LPAREN = "LPAREN"
@@ -52,6 +52,7 @@ class TokenType(str, Enum):
 @dataclass
 class PatternToken:
     """A lexical token with position information."""
+
     type: TokenType
     value: Any
     span: Span
@@ -63,13 +64,13 @@ class PatternToken:
 class Tokenizer:
     """Tokenizer for URL patterns."""
 
-    def __init__(self, source: str, filename: Optional[str] = None):
+    def __init__(self, source: str, filename: str | None = None):
         self.source = source
         self.filename = filename
         self.pos = 0
         self.line = 1
         self.column = 1
-        self.tokens: List[PatternToken] = []
+        self.tokens: list[PatternToken] = []
 
     def error(self, message: str) -> PatternSyntaxError:
         """Create syntax error at current position."""
@@ -79,12 +80,12 @@ class Tokenizer:
             file=self.filename,
         )
 
-    def peek(self, offset: int = 0) -> Optional[str]:
+    def peek(self, offset: int = 0) -> str | None:
         """Peek at character without consuming."""
         pos = self.pos + offset
         return self.source[pos] if pos < len(self.source) else None
 
-    def advance(self) -> Optional[str]:
+    def advance(self) -> str | None:
         """Consume and return next character."""
         if self.pos >= len(self.source):
             return None
@@ -111,7 +112,7 @@ class Tokenizer:
         while self.peek() and (self.peek().isalnum() or self.peek() == "_"):
             self.advance()
 
-        return self.source[start:self.pos]
+        return self.source[start : self.pos]
 
     def read_number(self) -> float:
         """Read numeric literal."""
@@ -129,10 +130,10 @@ class Tokenizer:
                 break
 
         try:
-            value_str = self.source[start:self.pos]
+            value_str = self.source[start : self.pos]
             return float(value_str) if has_dot else int(value_str)
         except ValueError:
-            raise self.error(f"Invalid number: {self.source[start:self.pos]}")
+            raise self.error(f"Invalid number: {self.source[start : self.pos]}")
 
     def read_string(self, quote: str) -> str:
         """Read quoted string."""
@@ -150,7 +151,7 @@ class Tokenizer:
                 self.advance()
             elif ch == quote:
                 self.advance()  # skip closing quote
-                return self.source[start + 1:self.pos - 1]
+                return self.source[start + 1 : self.pos - 1]
             else:
                 self.advance()
 
@@ -164,9 +165,9 @@ class Tokenizer:
         while self.peek() and self.peek() not in special:
             self.advance()
 
-        return self.source[start:self.pos]
+        return self.source[start : self.pos]
 
-    def tokenize(self) -> List[PatternToken]:
+    def tokenize(self) -> list[PatternToken]:
         """Tokenize the source into tokens."""
         self.tokens = []
 
@@ -179,148 +180,92 @@ class Tokenizer:
 
             if ch == "/":
                 self.advance()
-                self.tokens.append(PatternToken(
-                    TokenType.SLASH,
-                    "/",
-                    Span(start_pos, self.pos, start_line, start_col)
-                ))
+                self.tokens.append(PatternToken(TokenType.SLASH, "/", Span(start_pos, self.pos, start_line, start_col)))
             elif ch == "<":
                 self.advance()
-                self.tokens.append(PatternToken(
-                    TokenType.LANGLE,
-                    "<",
-                    Span(start_pos, self.pos, start_line, start_col)
-                ))
+                self.tokens.append(
+                    PatternToken(TokenType.LANGLE, "<", Span(start_pos, self.pos, start_line, start_col))
+                )
             elif ch == ">":
                 self.advance()
-                self.tokens.append(PatternToken(
-                    TokenType.RANGLE,
-                    ">",
-                    Span(start_pos, self.pos, start_line, start_col)
-                ))
+                self.tokens.append(
+                    PatternToken(TokenType.RANGLE, ">", Span(start_pos, self.pos, start_line, start_col))
+                )
             elif ch == "[":
                 self.advance()
-                self.tokens.append(PatternToken(
-                    TokenType.LBRACKET,
-                    "[",
-                    Span(start_pos, self.pos, start_line, start_col)
-                ))
+                self.tokens.append(
+                    PatternToken(TokenType.LBRACKET, "[", Span(start_pos, self.pos, start_line, start_col))
+                )
             elif ch == "]":
                 self.advance()
-                self.tokens.append(PatternToken(
-                    TokenType.RBRACKET,
-                    "]",
-                    Span(start_pos, self.pos, start_line, start_col)
-                ))
+                self.tokens.append(
+                    PatternToken(TokenType.RBRACKET, "]", Span(start_pos, self.pos, start_line, start_col))
+                )
             elif ch == "(":
                 self.advance()
-                self.tokens.append(PatternToken(
-                    TokenType.LPAREN,
-                    "(",
-                    Span(start_pos, self.pos, start_line, start_col)
-                ))
+                self.tokens.append(
+                    PatternToken(TokenType.LPAREN, "(", Span(start_pos, self.pos, start_line, start_col))
+                )
             elif ch == ")":
                 self.advance()
-                self.tokens.append(PatternToken(
-                    TokenType.RPAREN,
-                    ")",
-                    Span(start_pos, self.pos, start_line, start_col)
-                ))
+                self.tokens.append(
+                    PatternToken(TokenType.RPAREN, ")", Span(start_pos, self.pos, start_line, start_col))
+                )
             elif ch == "*":
                 self.advance()
-                self.tokens.append(PatternToken(
-                    TokenType.STAR,
-                    "*",
-                    Span(start_pos, self.pos, start_line, start_col)
-                ))
+                self.tokens.append(PatternToken(TokenType.STAR, "*", Span(start_pos, self.pos, start_line, start_col)))
             elif ch == ":":
                 self.advance()
-                self.tokens.append(PatternToken(
-                    TokenType.COLON,
-                    ":",
-                    Span(start_pos, self.pos, start_line, start_col)
-                ))
+                self.tokens.append(PatternToken(TokenType.COLON, ":", Span(start_pos, self.pos, start_line, start_col)))
             elif ch == "|":
                 self.advance()
-                self.tokens.append(PatternToken(
-                    TokenType.PIPE,
-                    "|",
-                    Span(start_pos, self.pos, start_line, start_col)
-                ))
+                self.tokens.append(PatternToken(TokenType.PIPE, "|", Span(start_pos, self.pos, start_line, start_col)))
             elif ch == "=":
                 self.advance()
-                self.tokens.append(PatternToken(
-                    TokenType.EQUALS,
-                    "=",
-                    Span(start_pos, self.pos, start_line, start_col)
-                ))
+                self.tokens.append(
+                    PatternToken(TokenType.EQUALS, "=", Span(start_pos, self.pos, start_line, start_col))
+                )
             elif ch == "@":
                 self.advance()
-                self.tokens.append(PatternToken(
-                    TokenType.AT,
-                    "@",
-                    Span(start_pos, self.pos, start_line, start_col)
-                ))
+                self.tokens.append(PatternToken(TokenType.AT, "@", Span(start_pos, self.pos, start_line, start_col)))
             elif ch == ",":
                 self.advance()
-                self.tokens.append(PatternToken(
-                    TokenType.COMMA,
-                    ",",
-                    Span(start_pos, self.pos, start_line, start_col)
-                ))
+                self.tokens.append(PatternToken(TokenType.COMMA, ",", Span(start_pos, self.pos, start_line, start_col)))
             elif ch == "&":
                 self.advance()
-                self.tokens.append(PatternToken(
-                    TokenType.AMP,
-                    "&",
-                    Span(start_pos, self.pos, start_line, start_col)
-                ))
+                self.tokens.append(PatternToken(TokenType.AMP, "&", Span(start_pos, self.pos, start_line, start_col)))
             elif ch == "?":
                 self.advance()
-                self.tokens.append(PatternToken(
-                    TokenType.QUESTION,
-                    "?",
-                    Span(start_pos, self.pos, start_line, start_col)
-                ))
+                self.tokens.append(
+                    PatternToken(TokenType.QUESTION, "?", Span(start_pos, self.pos, start_line, start_col))
+                )
             elif ch in " \t\n\r":
                 self.skip_whitespace()
             elif ch == '"' or ch == "'":
                 value = self.read_string(ch)
-                self.tokens.append(PatternToken(
-                    TokenType.STRING,
-                    value,
-                    Span(start_pos, self.pos, start_line, start_col)
-                ))
+                self.tokens.append(
+                    PatternToken(TokenType.STRING, value, Span(start_pos, self.pos, start_line, start_col))
+                )
             elif ch.isdigit():
                 value = self.read_number()
-                self.tokens.append(PatternToken(
-                    TokenType.NUMBER,
-                    value,
-                    Span(start_pos, self.pos, start_line, start_col)
-                ))
+                self.tokens.append(
+                    PatternToken(TokenType.NUMBER, value, Span(start_pos, self.pos, start_line, start_col))
+                )
             elif ch.isalpha() or ch == "_":
                 value = self.read_ident()
-                self.tokens.append(PatternToken(
-                    TokenType.IDENT,
-                    value,
-                    Span(start_pos, self.pos, start_line, start_col)
-                ))
+                self.tokens.append(
+                    PatternToken(TokenType.IDENT, value, Span(start_pos, self.pos, start_line, start_col))
+                )
             else:
                 # Static text
                 value = self.read_static()
                 if value:
-                    self.tokens.append(PatternToken(
-                        TokenType.STATIC,
-                        value,
-                        Span(start_pos, self.pos, start_line, start_col)
-                    ))
+                    self.tokens.append(
+                        PatternToken(TokenType.STATIC, value, Span(start_pos, self.pos, start_line, start_col))
+                    )
 
         # Add EOF token
-        self.tokens.append(PatternToken(
-            TokenType.EOF,
-            None,
-            Span(self.pos, self.pos, self.line, self.column)
-        ))
+        self.tokens.append(PatternToken(TokenType.EOF, None, Span(self.pos, self.pos, self.line, self.column)))
 
         return self.tokens
 
@@ -328,7 +273,7 @@ class Tokenizer:
 class PatternParser:
     """Parser for URL patterns following the EBNF grammar."""
 
-    def __init__(self, tokens: List[PatternToken], filename: Optional[str] = None):
+    def __init__(self, tokens: list[PatternToken], filename: str | None = None):
         self.tokens = tokens
         self.filename = filename
         self.pos = 0
@@ -385,7 +330,7 @@ class PatternParser:
             # Parse one path component (segments between slashes)
             component_segments = self.parse_segment_list()
             segments.extend(component_segments)
-            
+
             # Check for slash (path separator)
             if self.match(TokenType.SLASH):
                 self.advance()
@@ -411,14 +356,14 @@ class PatternParser:
             span=Span(start_span.start, end_span.end, start_span.line, start_span.column),
         )
 
-    def parse_segment_list(self) -> List[BaseSegment]:
+    def parse_segment_list(self) -> list[BaseSegment]:
         """Parse segments within a single path component (until a slash or end)."""
         segments = []
 
         # Parse segments until we hit a slash, EOF, question mark, or bracket
         while not self.match(TokenType.EOF, TokenType.SLASH, TokenType.QUESTION, TokenType.RBRACKET):
             segment = self.parse_segment()
-            
+
             # Combine adjacent static segments
             if segments and isinstance(segments[-1], StaticSegment) and isinstance(segment, StaticSegment):
                 segments[-1].value += segment.value
@@ -448,15 +393,13 @@ class PatternParser:
         start_token = self.current()
         parts = []
         start_span = start_token.span
-        end_span = start_token.span
-        
+
         # Consume IDENT and STATIC tokens together (for hyphenated names like "test-templates")
         while self.match(TokenType.IDENT, TokenType.STATIC):
             token = self.current()
             parts.append(token.value)
-            end_span = token.span
             self.advance()
-        
+
         value = "".join(parts)
         return StaticSegment(value=value, span=start_span)
 
@@ -534,7 +477,7 @@ class PatternParser:
             span=Span(start.start, name_token.span.end, start.line, start.column),
         )
 
-    def parse_constraint_list(self) -> List[Constraint]:
+    def parse_constraint_list(self) -> list[Constraint]:
         """Parse constraint list."""
         constraints = []
         constraints.append(self.parse_constraint())
@@ -580,10 +523,10 @@ class PatternParser:
 
         raise self.error(f"Invalid constraint: {token}")
 
-    def parse_value_list(self) -> List[Any]:
+    def parse_value_list(self) -> list[Any]:
         """Parse comma-separated value list."""
         values = []
-        
+
         if self.match(TokenType.STRING, TokenType.IDENT, TokenType.NUMBER):
             values.append(self.advance().value)
 
@@ -626,7 +569,7 @@ class PatternParser:
 
         return Transform(name=name, args=args, span=name_token.span)
 
-    def parse_query_list(self) -> List[QueryParam]:
+    def parse_query_list(self) -> list[QueryParam]:
         """Parse query parameter list."""
         params = []
         params.append(self.parse_query_param())
@@ -671,7 +614,7 @@ class PatternParser:
         )
 
 
-def parse_pattern(source: str, filename: Optional[str] = None) -> PatternAST:
+def parse_pattern(source: str, filename: str | None = None) -> PatternAST:
     """Parse a URL pattern into an AST."""
     tokenizer = Tokenizer(source, filename)
     tokens = tokenizer.tokenize()

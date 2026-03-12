@@ -13,56 +13,54 @@ The engine is async-safe and cancellation-aware.
 
 from __future__ import annotations
 
-import logging
 import asyncio
+import logging
 from collections import deque
-from typing import Any, Optional, Callable
+from collections.abc import Callable
 from contextvars import ContextVar
+from typing import Any
 
 from .core import (
+    Escalate,
     Fault,
     FaultContext,
-    FaultDomain,
-    Severity,
     FaultResult,
     Resolved,
-    Transformed,
-    Escalate,
+    Severity,
 )
-from .handlers import FaultHandler, ScopedHandlerRegistry
 from .domains import FlowCancelledFault, SystemFault
-
+from .handlers import FaultHandler, ScopedHandlerRegistry
 
 # Context variable for current request/app scope
-_current_app: ContextVar[Optional[str]] = ContextVar("current_app", default=None)
-_current_route: ContextVar[Optional[str]] = ContextVar("current_route", default=None)
-_current_request_id: ContextVar[Optional[str]] = ContextVar("current_request_id", default=None)
+_current_app: ContextVar[str | None] = ContextVar("current_app", default=None)
+_current_route: ContextVar[str | None] = ContextVar("current_route", default=None)
+_current_request_id: ContextVar[str | None] = ContextVar("current_request_id", default=None)
 
 
 class FaultEngine:
     """
     Runtime fault processor.
-    
+
     Responsibilities:
     1. Capture exceptions and convert to FaultContexts
     2. Route faults through handler chain
     3. Apply fault lifecycle phases
     4. Emit fault events
     5. Ensure deterministic fault handling
-    
+
     The engine maintains:
     - Handler registry (scoped handlers)
     - Event listeners (for observability)
     - Fault history (for debugging)
-    
+
     Usage:
         ```python
         engine = FaultEngine()
-        
+
         # Register handlers
         engine.register_global(RetryHandler())
         engine.register_app("auth", SecurityFaultHandler())
-        
+
         # Process fault
         try:
             # ... application code ...
@@ -70,99 +68,99 @@ class FaultEngine:
             result = await engine.process(e)
         ```
     """
-    
+
     def __init__(
         self,
         *,
-        logger: Optional[logging.Logger] = None,
+        logger: logging.Logger | None = None,
         debug: bool = False,
     ):
         """
         Initialize fault engine.
-        
+
         Args:
             logger: Logger for fault events (creates default if None)
             debug: Enable debug mode (verbose logging, history retention)
         """
         self.logger = logger or logging.getLogger("aquilia.faults")
         self.debug = debug
-        
+
         # Handler registry
         self.registry = ScopedHandlerRegistry()
-        
+
         # Event listeners
         self._event_listeners: list[Callable[[FaultContext], None]] = []
-        
+
         # Fault history (debug only)
         self._max_history = 100
         self._history: deque[FaultContext] = deque(maxlen=self._max_history)
-    
+
     # ========================================================================
     # Handler Registration
     # ========================================================================
-    
+
     def register_global(self, handler: FaultHandler):
         """Register global fault handler."""
         self.registry.register_global(handler)
-    
+
     def register_app(self, app: str, handler: FaultHandler):
         """Register app-scoped fault handler."""
         self.registry.register_app(app, handler)
-    
+
     def register_controller(self, controller: str, handler: FaultHandler):
         """Register controller-scoped fault handler."""
         self.registry.register_controller(controller, handler)
-    
+
     def register_route(self, route: str, handler: FaultHandler):
         """Register route-scoped fault handler."""
         self.registry.register_route(route, handler)
-    
+
     def on_fault(self, listener: Callable[[FaultContext], None]):
         """
         Register fault event listener.
-        
+
         Listeners are called after fault is captured but before processing.
         Useful for logging, metrics, tracing.
-        
+
         Args:
             listener: Callback receiving FaultContext
         """
         self._event_listeners.append(listener)
-    
+
     # ========================================================================
     # Fault Processing (Core Logic)
     # ========================================================================
-    
+
     async def process(
         self,
         exception: Exception | Fault,
         *,
-        app: Optional[str] = None,
-        route: Optional[str] = None,
-        request_id: Optional[str] = None,
+        app: str | None = None,
+        route: str | None = None,
+        request_id: str | None = None,
     ) -> FaultResult:
         """
         Process exception or fault.
-        
+
         Fault lifecycle phases:
         1. Origin: Exception/Fault created
         2. Annotation: Wrap with FaultContext
         3. Propagation: Route through handlers
         4. Resolution: Resolve, transform, or escalate
         5. Emission: Log and emit event
-        
+
         Args:
             exception: Exception or Fault to process
             app: App name (or use context var)
             route: Route pattern (or use context var)
             request_id: Request ID (or use context var)
-        
+
         Returns:
             FaultResult from handler chain
         """
         # Phase 1: Origin - Convert exception to Fault
         fault = self._to_fault(exception)
-        
+
         # Phase 2: Annotation - Wrap with context
         ctx = self._annotate(
             fault,
@@ -171,60 +169,60 @@ class FaultEngine:
             route=route or _current_route.get(),
             request_id=request_id or _current_request_id.get(),
         )
-        
+
         # Phase 5: Emission (before processing for observability)
         self._emit(ctx)
-        
+
         # Phase 3 & 4: Propagation & Resolution
         result = await self._propagate(ctx)
-        
+
         # Record in history (debug mode)
         if self.debug:
             self._history.append(ctx)
-        
+
         return result
-    
+
     async def process_async_exception(
         self,
         exception: Exception,
     ) -> FaultResult:
         """
         Process async exception with automatic context capture.
-        
+
         Extracts app/route/request_id from context vars.
-        
+
         Args:
             exception: Exception to process
-        
+
         Returns:
             FaultResult from handler chain
         """
         return await self.process(exception)
-    
+
     # ========================================================================
     # Lifecycle Phase Implementations
     # ========================================================================
-    
+
     def _to_fault(self, exception: Exception | Fault) -> Fault:
         """
         Phase 1: Origin - Convert exception to Fault.
-        
+
         If exception is already a Fault, return as-is.
         Otherwise, wrap in appropriate domain fault.
-        
+
         Args:
             exception: Exception to convert
-        
+
         Returns:
             Fault object
         """
         if isinstance(exception, Fault):
             return exception
-        
+
         # Convert asyncio.CancelledError to FlowCancelledFault
         if isinstance(exception, asyncio.CancelledError):
             return FlowCancelledFault(reason="async cancellation")
-        
+
         # Convert generic exceptions to SystemFault
         return SystemFault(
             code="UNHANDLED_EXCEPTION",
@@ -235,26 +233,26 @@ class FaultEngine:
                 "exception_message": str(exception),
             },
         )
-    
+
     def _annotate(
         self,
         fault: Fault,
-        cause: Optional[Exception],
+        cause: Exception | None,
         *,
-        app: Optional[str],
-        route: Optional[str],
-        request_id: Optional[str],
+        app: str | None,
+        route: str | None,
+        request_id: str | None,
     ) -> FaultContext:
         """
         Phase 2: Annotation - Wrap fault with runtime context.
-        
+
         Args:
             fault: Fault to annotate
             cause: Original exception (if any)
             app: App name
             route: Route pattern
             request_id: Request ID
-        
+
         Returns:
             FaultContext with runtime metadata
         """
@@ -265,20 +263,20 @@ class FaultEngine:
             request_id=request_id,
             cause=cause,
         )
-    
+
     async def _propagate(self, ctx: FaultContext) -> FaultResult:
         """
         Phase 3 & 4: Propagation & Resolution - Route through handlers.
-        
+
         Tries handlers in order:
         Route → Controller → App → Global
-        
+
         First handler to return Resolved or Transformed wins.
         If all escalate, returns Escalate.
-        
+
         Args:
             ctx: FaultContext to propagate
-        
+
         Returns:
             FaultResult from handler chain
         """
@@ -287,19 +285,19 @@ class FaultEngine:
             app=ctx.app,
             route=ctx.route,
         )
-        
+
         # Try each handler
         for handler in handlers:
             if not handler.can_handle(ctx):
                 continue
-            
+
             try:
                 result = await handler.handle(ctx)
-                
+
                 # If handler resolved or transformed, stop
                 if not isinstance(result, Escalate):
                     return result
-            
+
             except Exception as e:
                 # Handler itself raised an exception
                 self.logger.error(
@@ -307,14 +305,14 @@ class FaultEngine:
                     exc_info=True,
                 )
                 # Continue to next handler
-        
+
         # No handler resolved the fault
         return Escalate()
-    
+
     def _emit(self, ctx: FaultContext):
         """
         Phase 5: Emission - Log and emit fault event.
-        
+
         Args:
             ctx: FaultContext to emit
         """
@@ -325,7 +323,7 @@ class FaultEngine:
             Severity.ERROR: logging.ERROR,
             Severity.FATAL: logging.CRITICAL,
         }[ctx.fault.severity]
-        
+
         self.logger.log(
             log_level,
             f"[{ctx.fault.domain.value.upper()}] {ctx.fault.code}: {ctx.fault.message}",
@@ -335,30 +333,30 @@ class FaultEngine:
                 "fingerprint": ctx.fingerprint(),
             },
         )
-        
+
         # Notify listeners
         for listener in self._event_listeners:
             try:
                 listener(ctx)
             except Exception as e:
                 self.logger.error(f"Fault listener raised exception: {e}")
-    
+
     # ========================================================================
     # Context Management
     # ========================================================================
-    
+
     @staticmethod
     def set_context(
         *,
-        app: Optional[str] = None,
-        route: Optional[str] = None,
-        request_id: Optional[str] = None,
+        app: str | None = None,
+        route: str | None = None,
+        request_id: str | None = None,
     ):
         """
         Set fault context for current async task.
-        
+
         Used to automatically capture context when processing faults.
-        
+
         Args:
             app: App name
             route: Route pattern
@@ -370,35 +368,35 @@ class FaultEngine:
             _current_route.set(route)
         if request_id is not None:
             _current_request_id.set(request_id)
-    
+
     @staticmethod
     def clear_context():
         """Clear fault context for current async task."""
         _current_app.set(None)
         _current_route.set(None)
         _current_request_id.set(None)
-    
+
     # ========================================================================
     # Debugging & Inspection
     # ========================================================================
-    
+
     def get_history(self) -> list[FaultContext]:
         """
         Get fault history (debug mode only).
-        
+
         Returns:
             List of recent fault contexts
         """
         return self._history.copy()
-    
+
     def clear_history(self):
         """Clear fault history."""
         self._history.clear()
-    
+
     def get_stats(self) -> dict[str, Any]:
         """
         Get fault engine statistics.
-        
+
         Returns:
             Dictionary with engine stats
         """
@@ -420,13 +418,13 @@ class FaultEngine:
 # ============================================================================
 
 # Global fault engine instance (for convenience)
-_default_engine: Optional[FaultEngine] = None
+_default_engine: FaultEngine | None = None
 
 
 def get_default_engine() -> FaultEngine:
     """
     Get or create default global fault engine.
-    
+
     Returns:
         Global FaultEngine instance
     """
@@ -439,20 +437,15 @@ def get_default_engine() -> FaultEngine:
 class FaultMiddleware:
     """
     Middleware that bridges the FaultEngine with the request/response lifecycle.
-    
+
     Catches exceptions, processes them through the FaultEngine, and converts
     the result to a Response.
     """
-    
+
     def __init__(self, engine: FaultEngine):
         self.engine = engine
-    
-    async def __call__(
-        self, 
-        request: Any, 
-        ctx: Any, 
-        next_handler: Callable
-    ) -> Any:
+
+    async def __call__(self, request: Any, ctx: Any, next_handler: Callable) -> Any:
         try:
             return await next_handler(request, ctx)
         except Exception as e:
@@ -465,19 +458,21 @@ class FaultMiddleware:
             try:
                 # Process fault through engine
                 result = await self.engine.process(e)
-                
+
                 if isinstance(result, Resolved):
                     from ..response import Response
+
                     if isinstance(result.response, Response):
                         return result.response
                     if result.response is None:
                         # FatalHandler returns Resolved(None) — produce
                         # a safe 500 response rather than serialising null.
                         return Response.json(
-                            {"error": "Internal server error"}, status=500,
+                            {"error": "Internal server error"},
+                            status=500,
                         )
                     return Response.json(result.response)
-                
+
                 raise e
             finally:
                 self.engine.clear_context()
@@ -486,17 +481,17 @@ class FaultMiddleware:
 async def process_fault(
     exception: Exception | Fault,
     *,
-    engine: Optional[FaultEngine] = None,
+    engine: FaultEngine | None = None,
 ) -> FaultResult:
     """
     Process fault using engine.
-    
+
     Convenience function for processing faults.
-    
+
     Args:
         exception: Exception or Fault to process
         engine: FaultEngine to use (uses default if None)
-    
+
     Returns:
         FaultResult from handler chain
     """

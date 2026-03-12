@@ -7,7 +7,7 @@ Provides :class:`MockCacheBackend` and :class:`CacheTestMixin`.
 from __future__ import annotations
 
 import time as _time
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 
 class MockCacheBackend:
@@ -27,8 +27,8 @@ class MockCacheBackend:
     """
 
     def __init__(self):
-        self._store: Dict[str, Any] = {}
-        self._ttls: Dict[str, float] = {}  # key → expiry timestamp
+        self._store: dict[str, Any] = {}
+        self._ttls: dict[str, float] = {}  # key → expiry timestamp
         self.get_count = 0
         self.set_count = 0
         self.delete_count = 0
@@ -44,13 +44,13 @@ class MockCacheBackend:
             return True
         return False
 
-    def _set_ttl(self, key: str, ttl: Optional[int]) -> None:
+    def _set_ttl(self, key: str, ttl: int | None) -> None:
         if ttl is not None and ttl > 0:
             self._ttls[key] = _time.monotonic() + ttl
         else:
             self._ttls.pop(key, None)
 
-    def get_ttl(self, key: str) -> Optional[float]:
+    def get_ttl(self, key: str) -> float | None:
         """Return remaining TTL in seconds, or None if no TTL set."""
         if key not in self._ttls:
             return None
@@ -65,12 +65,12 @@ class MockCacheBackend:
     async def disconnect(self):
         self._connected = False
 
-    async def get(self, key: str) -> Optional[Any]:
+    async def get(self, key: str) -> Any | None:
         self.get_count += 1
         self._is_expired(key)
         return self._store.get(key)
 
-    async def set(self, key: str, value: Any, ttl: Optional[int] = None):
+    async def set(self, key: str, value: Any, ttl: int | None = None):
         self.set_count += 1
         self._store[key] = value
         self._set_ttl(key, ttl)
@@ -79,7 +79,7 @@ class MockCacheBackend:
         self,
         key: str,
         default: Any,
-        ttl: Optional[int] = None,
+        ttl: int | None = None,
     ) -> Any:
         """Get existing value or set & return default."""
         value = await self.get(key)
@@ -102,13 +102,14 @@ class MockCacheBackend:
         self._store.clear()
         self._ttls.clear()
 
-    async def keys(self, pattern: str = "*") -> List[str]:
+    async def keys(self, pattern: str = "*") -> list[str]:
         # Evict expired keys first
         for key in list(self._ttls):
             self._is_expired(key)
         if pattern == "*":
             return list(self._store.keys())
         import fnmatch
+
         return [k for k in self._store if fnmatch.fnmatch(k, pattern)]
 
     async def increment(self, key: str, delta: int = 1) -> int:
@@ -122,11 +123,11 @@ class MockCacheBackend:
         """Decrement a numeric cache value."""
         return await self.increment(key, -delta)
 
-    async def mget(self, *keys: str) -> List[Optional[Any]]:
+    async def mget(self, *keys: str) -> list[Any | None]:
         """Get multiple values at once."""
         return [await self.get(k) for k in keys]
 
-    async def mset(self, mapping: Dict[str, Any], ttl: Optional[int] = None) -> None:
+    async def mset(self, mapping: dict[str, Any], ttl: int | None = None) -> None:
         """Set multiple values at once."""
         for key, value in mapping.items():
             await self.set(key, value, ttl=ttl)
@@ -137,7 +138,7 @@ class MockCacheBackend:
     # -- Test helpers ----------------------------------------------------
 
     @property
-    def store(self) -> Dict[str, Any]:
+    def store(self) -> dict[str, Any]:
         """Direct access to the underlying store for assertions."""
         return self._store
 
@@ -196,9 +197,7 @@ class CacheTestMixin:
         assert cache is not None, "No cache backend/service available"
         value = await cache.get(key)
         assert value is not None, f"Key {key!r} not found in cache. {msg}"
-        assert value == expected, (
-            f"Cache key {key!r}: expected {expected!r}, got {value!r}. {msg}"
-        )
+        assert value == expected, f"Cache key {key!r}: expected {expected!r}, got {value!r}. {msg}"
 
     async def assert_cache_count(self, expected: int, pattern: str = "*", msg: str = ""):
         """Assert the number of keys in the cache."""
@@ -206,11 +205,9 @@ class CacheTestMixin:
         assert cache is not None, "No cache backend/service available"
         keys = await cache.keys(pattern)
         actual = len(keys)
-        assert actual == expected, (
-            f"Expected {expected} cache keys (pattern={pattern!r}), got {actual}. {msg}"
-        )
+        assert actual == expected, f"Expected {expected} cache keys (pattern={pattern!r}), got {actual}. {msg}"
 
-    async def populate_cache(self, data: Dict[str, Any], ttl: Optional[int] = None):
+    async def populate_cache(self, data: dict[str, Any], ttl: int | None = None):
         """Bulk-populate cache entries."""
         cache = self._get_cache()
         assert cache is not None, "No cache backend/service available"

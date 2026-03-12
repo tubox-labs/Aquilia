@@ -16,9 +16,8 @@ import hmac
 import os
 import secrets
 import time
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Set
-
+from dataclasses import dataclass
+from typing import Any
 
 # ============================================================================
 # Constant-time Utilities
@@ -28,7 +27,7 @@ from typing import Any, Dict, List, Optional, Set
 def constant_time_compare(a: str | bytes, b: str | bytes) -> bool:
     """
     Compare two strings/bytes in constant time to prevent timing attacks.
-    
+
     Uses hmac.compare_digest under the hood.
     """
     if isinstance(a, str):
@@ -46,10 +45,10 @@ def constant_time_compare(a: str | bytes, b: str | bytes) -> bool:
 class CSRFProtection:
     """
     CSRF token generation and validation.
-    
+
     Uses double-submit cookie pattern with HMAC signing.
     """
-    
+
     def __init__(
         self,
         secret: str | None = None,
@@ -65,37 +64,33 @@ class CSRFProtection:
         self.header_name = header_name
         self.cookie_name = cookie_name
         self.safe_methods = safe_methods
-    
+
     def generate_token(self) -> str:
         """Generate a new CSRF token."""
         nonce = secrets.token_hex(self._token_length)
         timestamp = str(int(time.time()))
         payload = f"{nonce}:{timestamp}"
-        signature = hmac.new(
-            self._secret, payload.encode(), hashlib.sha256
-        ).hexdigest()
+        signature = hmac.new(self._secret, payload.encode(), hashlib.sha256).hexdigest()
         return f"{payload}:{signature}"
-    
+
     def validate_token(self, token: str) -> bool:
         """Validate a CSRF token."""
         if not token or ":" not in token:
             return False
-        
+
         parts = token.split(":")
         if len(parts) != 3:
             return False
-        
+
         nonce, timestamp_str, signature = parts
-        
+
         # Verify signature
         payload = f"{nonce}:{timestamp_str}"
-        expected = hmac.new(
-            self._secret, payload.encode(), hashlib.sha256
-        ).hexdigest()
-        
+        expected = hmac.new(self._secret, payload.encode(), hashlib.sha256).hexdigest()
+
         if not constant_time_compare(signature, expected):
             return False
-        
+
         # Verify expiry
         try:
             ts = int(timestamp_str)
@@ -103,9 +98,9 @@ class CSRFProtection:
                 return False
         except (ValueError, OverflowError):
             return False
-        
+
         return True
-    
+
     def requires_validation(self, method: str) -> bool:
         """Check if the HTTP method requires CSRF validation."""
         return method.upper() not in self.safe_methods
@@ -120,13 +115,14 @@ class CSRFProtection:
 class RequestFingerprint:
     """
     Fingerprint a request for session binding.
-    
+
     Binds sessions to client characteristics to detect hijacking.
     """
+
     ip_hash: str
     ua_hash: str
     accept_hash: str
-    
+
     @classmethod
     def from_request(cls, request: Any) -> RequestFingerprint:
         """Create fingerprint from a request object."""
@@ -134,7 +130,7 @@ class RequestFingerprint:
         ip = ""
         if hasattr(request, "client") and request.client:
             ip = request.client[0] if isinstance(request.client, tuple) else str(request.client)
-        
+
         # User-Agent
         ua = ""
         accept_lang = ""
@@ -143,38 +139,40 @@ class RequestFingerprint:
             if hasattr(headers, "get"):
                 ua = headers.get("user-agent", "")
                 accept_lang = headers.get("accept-language", "")
-        
+
         return cls(
             ip_hash=hashlib.sha256(ip.encode()).hexdigest()[:16],
             ua_hash=hashlib.sha256(ua.encode()).hexdigest()[:16],
             accept_hash=hashlib.sha256(accept_lang.encode()).hexdigest()[:8],
         )
-    
+
     def matches(self, other: RequestFingerprint, strict: bool = False) -> bool:
         """
         Check if another fingerprint matches this one.
-        
+
         Args:
             other: Fingerprint to compare
             strict: If True, all fields must match.
                     If False, 2/3 must match (allows IP change).
         """
-        matches = sum([
-            constant_time_compare(self.ip_hash, other.ip_hash),
-            constant_time_compare(self.ua_hash, other.ua_hash),
-            constant_time_compare(self.accept_hash, other.accept_hash),
-        ])
-        
+        matches = sum(
+            [
+                constant_time_compare(self.ip_hash, other.ip_hash),
+                constant_time_compare(self.ua_hash, other.ua_hash),
+                constant_time_compare(self.accept_hash, other.accept_hash),
+            ]
+        )
+
         if strict:
             return matches == 3
         return matches >= 2
-    
+
     def to_string(self) -> str:
         """Serialize to storable string."""
         return f"{self.ip_hash}:{self.ua_hash}:{self.accept_hash}"
-    
+
     @classmethod
-    def from_string(cls, s: str) -> Optional[RequestFingerprint]:
+    def from_string(cls, s: str) -> RequestFingerprint | None:
         """Deserialize from string."""
         parts = s.split(":")
         if len(parts) != 3:
@@ -191,39 +189,39 @@ class RequestFingerprint:
 class SecurityHeaders:
     """
     Configurable security headers for HTTP responses.
-    
+
     Implements OWASP recommended headers.
     """
-    
+
     # Content Security Policy
     content_security_policy: str = "default-src 'self'"
-    
+
     # Strict Transport Security (HSTS)
     strict_transport_security: str = "max-age=31536000; includeSubDomains"
-    
+
     # X-Content-Type-Options
     x_content_type_options: str = "nosniff"
-    
+
     # X-Frame-Options
     x_frame_options: str = "DENY"
-    
+
     # Referrer-Policy
     referrer_policy: str = "strict-origin-when-cross-origin"
-    
+
     # Permissions-Policy
     permissions_policy: str = "geolocation=(), camera=(), microphone=()"
-    
+
     # Cross-Origin policies
     cross_origin_opener_policy: str = "same-origin"
     cross_origin_embedder_policy: str = "require-corp"
     cross_origin_resource_policy: str = "same-origin"
-    
+
     # Cache-Control for sensitive responses
     cache_control: str = "no-store, no-cache, must-revalidate"
-    
+
     # Pragma (legacy cache control)
     pragma: str = "no-cache"
-    
+
     def apply(self, response: Any) -> Any:
         """Apply security headers to a response object."""
         headers = {
@@ -238,18 +236,21 @@ class SecurityHeaders:
             "Cache-Control": self.cache_control,
             "Pragma": self.pragma,
         }
-        
+
         if self.cross_origin_embedder_policy:
             headers["Cross-Origin-Embedder-Policy"] = self.cross_origin_embedder_policy
-        
-        if hasattr(response, "headers") and hasattr(response.headers, "update"):
+
+        if (
+            hasattr(response, "headers")
+            and hasattr(response.headers, "update")
+            or hasattr(response, "headers")
+            and isinstance(response.headers, dict)
+        ):
             response.headers.update(headers)
-        elif hasattr(response, "headers") and isinstance(response.headers, dict):
-            response.headers.update(headers)
-        
+
         return response
-    
-    def to_dict(self) -> Dict[str, str]:
+
+    def to_dict(self) -> dict[str, str]:
         """Return headers as a dictionary."""
         return {
             "Content-Security-Policy": self.content_security_policy,
@@ -273,27 +274,23 @@ class SecurityHeaders:
 class TokenBinder:
     """
     Binds tokens to client characteristics for proof-of-possession.
-    
-    Prevents token theft by requiring the token to be used from 
+
+    Prevents token theft by requiring the token to be used from
     the same client that originally obtained it.
     """
-    
+
     def __init__(self, secret: str | None = None):
-        self._secret = (
-            secret or os.environ.get("TOKEN_BIND_SECRET") or secrets.token_hex(32)
-        ).encode()
-    
+        self._secret = (secret or os.environ.get("TOKEN_BIND_SECRET") or secrets.token_hex(32)).encode()
+
     def create_binding(self, token: str, fingerprint: RequestFingerprint) -> str:
         """
         Create a binding hash for a token + fingerprint combination.
-        
+
         Store this alongside the token to verify later.
         """
         binding_input = f"{token}:{fingerprint.to_string()}"
-        return hmac.new(
-            self._secret, binding_input.encode(), hashlib.sha256
-        ).hexdigest()
-    
+        return hmac.new(self._secret, binding_input.encode(), hashlib.sha256).hexdigest()
+
     def verify_binding(
         self,
         token: str,

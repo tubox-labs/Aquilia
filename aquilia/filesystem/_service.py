@@ -24,21 +24,14 @@ Usage::
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from pathlib import Path
-from typing import (
-    AsyncIterator,
-    List,
-    Optional,
-    Union,
-)
 
 from ._config import FileSystemConfig
 from ._directory import DirEntry
-from ._handle import AsyncFile
 from ._metrics import FileSystemMetrics
 from ._ops import FileStat
 from ._pool import FileSystemPool
-from ._security import validate_path
 
 
 class FileSystem:
@@ -63,9 +56,9 @@ class FileSystem:
 
     def __init__(
         self,
-        config: Optional[FileSystemConfig] = None,
-        pool: Optional[FileSystemPool] = None,
-        metrics: Optional[FileSystemMetrics] = None,
+        config: FileSystemConfig | None = None,
+        pool: FileSystemPool | None = None,
+        metrics: FileSystemMetrics | None = None,
     ) -> None:
         self._config = config or FileSystemConfig()
         self._owns_pool = pool is None
@@ -93,14 +86,14 @@ class FileSystem:
 
     def open(
         self,
-        path: Union[str, Path],
+        path: str | Path,
         mode: str = "r",
         buffering: int = -1,
-        encoding: Optional[str] = None,
-        errors: Optional[str] = None,
-        newline: Optional[str] = None,
+        encoding: str | None = None,
+        errors: str | None = None,
+        newline: str | None = None,
         *,
-        sandbox: Optional[Union[str, Path]] = None,
+        sandbox: str | Path | None = None,
     ):
         """
         Open a file asynchronously.
@@ -108,226 +101,303 @@ class FileSystem:
         Returns an awaitable context manager yielding :class:`AsyncFile`.
         """
         from ._ops import async_open
+
         return async_open(
-            path, mode, buffering, encoding, errors, newline,
-            pool=self._pool, config=self._config,
-            metrics=self._metrics, sandbox=sandbox,
+            path,
+            mode,
+            buffering,
+            encoding,
+            errors,
+            newline,
+            pool=self._pool,
+            config=self._config,
+            metrics=self._metrics,
+            sandbox=sandbox,
         )
 
     async def read_file(
         self,
-        path: Union[str, Path],
+        path: str | Path,
         *,
-        encoding: Optional[str] = None,
-        sandbox: Optional[Union[str, Path]] = None,
-    ) -> Union[str, bytes]:
+        encoding: str | None = None,
+        sandbox: str | Path | None = None,
+    ) -> str | bytes:
         """Read entire file contents."""
         from ._ops import read_file
+
         return await read_file(
-            path, encoding=encoding,
-            pool=self._pool, config=self._config,
-            metrics=self._metrics, sandbox=sandbox,
+            path,
+            encoding=encoding,
+            pool=self._pool,
+            config=self._config,
+            metrics=self._metrics,
+            sandbox=sandbox,
         )
 
     async def write_file(
         self,
-        path: Union[str, Path],
-        data: Union[str, bytes],
+        path: str | Path,
+        data: str | bytes,
         *,
         encoding: str = "utf-8",
-        atomic: Optional[bool] = None,
+        atomic: bool | None = None,
         mkdir: bool = False,
-        sandbox: Optional[Union[str, Path]] = None,
+        sandbox: str | Path | None = None,
     ) -> int:
         """Write data to a file. Returns bytes written."""
         from ._ops import write_file
+
         return await write_file(
-            path, data, encoding=encoding, atomic=atomic, mkdir=mkdir,
-            pool=self._pool, config=self._config,
-            metrics=self._metrics, sandbox=sandbox,
+            path,
+            data,
+            encoding=encoding,
+            atomic=atomic,
+            mkdir=mkdir,
+            pool=self._pool,
+            config=self._config,
+            metrics=self._metrics,
+            sandbox=sandbox,
         )
 
     async def append_file(
         self,
-        path: Union[str, Path],
-        data: Union[str, bytes],
+        path: str | Path,
+        data: str | bytes,
         *,
         encoding: str = "utf-8",
-        sandbox: Optional[Union[str, Path]] = None,
+        sandbox: str | Path | None = None,
     ) -> int:
         """Append data to a file. Returns bytes written."""
         from ._ops import append_file
+
         return await append_file(
-            path, data, encoding=encoding,
-            pool=self._pool, config=self._config,
-            metrics=self._metrics, sandbox=sandbox,
+            path,
+            data,
+            encoding=encoding,
+            pool=self._pool,
+            config=self._config,
+            metrics=self._metrics,
+            sandbox=sandbox,
         )
 
     async def copy_file(
         self,
-        src: Union[str, Path],
-        dst: Union[str, Path],
+        src: str | Path,
+        dst: str | Path,
         *,
-        sandbox: Optional[Union[str, Path]] = None,
+        sandbox: str | Path | None = None,
     ) -> str:
         """Copy a file. Returns destination path."""
         from ._ops import copy_file
+
         return await copy_file(
-            src, dst,
-            pool=self._pool, config=self._config, sandbox=sandbox,
+            src,
+            dst,
+            pool=self._pool,
+            config=self._config,
+            sandbox=sandbox,
         )
 
     async def move_file(
         self,
-        src: Union[str, Path],
-        dst: Union[str, Path],
+        src: str | Path,
+        dst: str | Path,
         *,
-        sandbox: Optional[Union[str, Path]] = None,
+        sandbox: str | Path | None = None,
     ) -> str:
         """Move/rename a file. Returns destination path."""
         from ._ops import move_file
+
         return await move_file(
-            src, dst,
-            pool=self._pool, config=self._config, sandbox=sandbox,
+            src,
+            dst,
+            pool=self._pool,
+            config=self._config,
+            sandbox=sandbox,
         )
 
     async def delete_file(
         self,
-        path: Union[str, Path],
+        path: str | Path,
         *,
         missing_ok: bool = False,
-        sandbox: Optional[Union[str, Path]] = None,
+        sandbox: str | Path | None = None,
     ) -> bool:
         """Delete a file. Returns True if deleted."""
         from ._ops import delete_file
+
         return await delete_file(
-            path, missing_ok=missing_ok,
-            pool=self._pool, config=self._config, sandbox=sandbox,
+            path,
+            missing_ok=missing_ok,
+            pool=self._pool,
+            config=self._config,
+            sandbox=sandbox,
         )
 
     async def file_exists(
         self,
-        path: Union[str, Path],
+        path: str | Path,
         *,
-        sandbox: Optional[Union[str, Path]] = None,
+        sandbox: str | Path | None = None,
     ) -> bool:
         """Check if a file exists."""
         from ._ops import file_exists
+
         return await file_exists(
-            path, pool=self._pool, config=self._config, sandbox=sandbox,
+            path,
+            pool=self._pool,
+            config=self._config,
+            sandbox=sandbox,
         )
 
     async def file_stat(
         self,
-        path: Union[str, Path],
+        path: str | Path,
         *,
-        follow_symlinks: Optional[bool] = None,
-        sandbox: Optional[Union[str, Path]] = None,
+        follow_symlinks: bool | None = None,
+        sandbox: str | Path | None = None,
     ) -> FileStat:
         """Get file status information."""
         from ._ops import file_stat
+
         return await file_stat(
-            path, follow_symlinks=follow_symlinks,
-            pool=self._pool, config=self._config, sandbox=sandbox,
+            path,
+            follow_symlinks=follow_symlinks,
+            pool=self._pool,
+            config=self._config,
+            sandbox=sandbox,
         )
 
     # ── Streaming ───────────────────────────────────────────────────────
 
     def stream_read(
         self,
-        path: Union[str, Path],
-        chunk_size: Optional[int] = None,
+        path: str | Path,
+        chunk_size: int | None = None,
         offset: int = 0,
-        end: Optional[int] = None,
+        end: int | None = None,
         *,
-        sandbox: Optional[Union[str, Path]] = None,
+        sandbox: str | Path | None = None,
     ) -> AsyncIterator[bytes]:
         """Stream file contents in chunks."""
         from ._streaming import stream_read
+
         return stream_read(
-            path, chunk_size=chunk_size, offset=offset, end=end,
-            pool=self._pool, config=self._config, sandbox=sandbox,
+            path,
+            chunk_size=chunk_size,
+            offset=offset,
+            end=end,
+            pool=self._pool,
+            config=self._config,
+            sandbox=sandbox,
         )
 
     async def stream_copy(
         self,
-        src: Union[str, Path],
-        dst: Union[str, Path],
-        chunk_size: Optional[int] = None,
+        src: str | Path,
+        dst: str | Path,
+        chunk_size: int | None = None,
         *,
-        sandbox: Optional[Union[str, Path]] = None,
+        sandbox: str | Path | None = None,
     ) -> int:
         """Stream-copy a file. Returns bytes copied."""
         from ._streaming import stream_copy
+
         return await stream_copy(
-            src, dst, chunk_size=chunk_size,
-            pool=self._pool, config=self._config, sandbox=sandbox,
+            src,
+            dst,
+            chunk_size=chunk_size,
+            pool=self._pool,
+            config=self._config,
+            sandbox=sandbox,
         )
 
     # ── Directory operations ────────────────────────────────────────────
 
     async def list_dir(
         self,
-        path: Union[str, Path],
+        path: str | Path,
         *,
-        sandbox: Optional[Union[str, Path]] = None,
-    ) -> List[str]:
+        sandbox: str | Path | None = None,
+    ) -> list[str]:
         """List directory contents (names only)."""
         from ._directory import list_dir
+
         return await list_dir(
-            path, pool=self._pool, config=self._config, sandbox=sandbox,
+            path,
+            pool=self._pool,
+            config=self._config,
+            sandbox=sandbox,
         )
 
     async def scan_dir(
         self,
-        path: Union[str, Path],
+        path: str | Path,
         *,
-        sandbox: Optional[Union[str, Path]] = None,
-    ) -> List[DirEntry]:
+        sandbox: str | Path | None = None,
+    ) -> list[DirEntry]:
         """Scan directory with metadata (os.scandir)."""
         from ._directory import scan_dir
+
         return await scan_dir(
-            path, pool=self._pool, config=self._config, sandbox=sandbox,
+            path,
+            pool=self._pool,
+            config=self._config,
+            sandbox=sandbox,
         )
 
     async def make_dir(
         self,
-        path: Union[str, Path],
+        path: str | Path,
         *,
         parents: bool = False,
         exist_ok: bool = False,
         mode: int = 0o755,
-        sandbox: Optional[Union[str, Path]] = None,
+        sandbox: str | Path | None = None,
     ) -> None:
         """Create a directory."""
         from ._directory import make_dir
+
         return await make_dir(
-            path, parents=parents, exist_ok=exist_ok, mode=mode,
-            pool=self._pool, config=self._config, sandbox=sandbox,
+            path,
+            parents=parents,
+            exist_ok=exist_ok,
+            mode=mode,
+            pool=self._pool,
+            config=self._config,
+            sandbox=sandbox,
         )
 
     async def remove_dir(
         self,
-        path: Union[str, Path],
+        path: str | Path,
         *,
-        sandbox: Optional[Union[str, Path]] = None,
+        sandbox: str | Path | None = None,
     ) -> None:
         """Remove an empty directory."""
         from ._directory import remove_dir
+
         return await remove_dir(
-            path, pool=self._pool, config=self._config, sandbox=sandbox,
+            path,
+            pool=self._pool,
+            config=self._config,
+            sandbox=sandbox,
         )
 
     async def remove_tree(
         self,
-        path: Union[str, Path],
+        path: str | Path,
         *,
-        sandbox: Optional[Union[str, Path]] = None,
+        sandbox: str | Path | None = None,
     ) -> None:
         """Recursively remove a directory tree."""
         from ._directory import remove_tree
+
         return await remove_tree(
-            path, pool=self._pool, config=self._config, sandbox=sandbox,
+            path,
+            pool=self._pool,
+            config=self._config,
+            sandbox=sandbox,
         )
 
     # ── Temporary files ─────────────────────────────────────────────────
@@ -337,14 +407,19 @@ class FileSystem:
         *,
         suffix: str = "",
         prefix: str = "aquilia-tmp-",
-        dir: Optional[Union[str, Path]] = None,
+        dir: str | Path | None = None,
         delete: bool = True,
     ):
         """Create an async temporary file context manager."""
         from ._tempfile import AsyncTemporaryFile
+
         return AsyncTemporaryFile(
-            suffix=suffix, prefix=prefix, dir=dir,
-            pool=self._pool, config=self._config, delete=delete,
+            suffix=suffix,
+            prefix=prefix,
+            dir=dir,
+            pool=self._pool,
+            config=self._config,
+            delete=delete,
         )
 
     def tempdir(
@@ -352,20 +427,24 @@ class FileSystem:
         *,
         suffix: str = "",
         prefix: str = "aquilia-tmpdir-",
-        dir: Optional[Union[str, Path]] = None,
+        dir: str | Path | None = None,
     ):
         """Create an async temporary directory context manager."""
         from ._tempfile import AsyncTemporaryDirectory
+
         return AsyncTemporaryDirectory(
-            suffix=suffix, prefix=prefix, dir=dir,
-            pool=self._pool, config=self._config,
+            suffix=suffix,
+            prefix=prefix,
+            dir=dir,
+            pool=self._pool,
+            config=self._config,
         )
 
     # ── Locking ─────────────────────────────────────────────────────────
 
     def lock(
         self,
-        path: Union[str, Path],
+        path: str | Path,
         *,
         timeout: float = -1,
         shared: bool = False,
@@ -379,9 +458,13 @@ class FileSystem:
                 ...  # exclusive access
         """
         from ._lock import AsyncFileLock
+
         return AsyncFileLock(
-            path, timeout=timeout, shared=shared,
-            pool=self._pool, config=self._config,
+            path,
+            timeout=timeout,
+            shared=shared,
+            pool=self._pool,
+            config=self._config,
         )
 
     # ── Lifecycle ───────────────────────────────────────────────────────

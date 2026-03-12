@@ -10,38 +10,38 @@ This module provides a unique, expressive, static-first URL pattern system with:
 - Comprehensive diagnostics and error reporting
 """
 
-from .compiler.parser import PatternParser, PatternToken, parse_pattern
-from .compiler.ast_nodes import (
-    PatternAST,
-    StaticSegment,
-    TokenSegment,
-    OptionalGroup,
-    SplatSegment,
-    QueryParam,
-)
-from .compiler.compiler import PatternCompiler, CompiledPattern
-from .compiler.specificity import calculate_specificity
-from .types.registry import TypeRegistry, register_type
-from .validators.registry import ConstraintRegistry, register_constraint
-from .transforms.registry import TransformRegistry, register_transform
-from .diagnostics.errors import (
-    PatternSyntaxError,
-    PatternSemanticError,
-    RouteAmbiguityError,
-    PatternDiagnostic,
-)
-from .matcher import PatternMatcher, MatchResult
-from .openapi import generate_openapi_params
-from .cache import PatternCache, compile_pattern, get_global_cache, set_global_cache
+from aquilia._version import __version__  # noqa: F401 — re-exported
+
 from .autofix import (
     AutoFixEngine,
-    FixSuggestion,
     DiagnosticFix,
-    generate_fix_suggestions,
     ErrorRecovery,
+    FixSuggestion,
+    generate_fix_suggestions,
 )
-
-from aquilia._version import __version__  # noqa: F401 — re-exported
+from .cache import PatternCache, compile_pattern, get_global_cache, set_global_cache
+from .compiler.ast_nodes import (
+    OptionalGroup,
+    PatternAST,
+    QueryParam,
+    SplatSegment,
+    StaticSegment,
+    TokenSegment,
+)
+from .compiler.compiler import CompiledPattern, PatternCompiler
+from .compiler.parser import PatternParser, PatternToken, parse_pattern
+from .compiler.specificity import calculate_specificity
+from .diagnostics.errors import (
+    PatternDiagnostic,
+    PatternSemanticError,
+    PatternSyntaxError,
+    RouteAmbiguityError,
+)
+from .matcher import MatchResult, PatternMatcher
+from .openapi import generate_openapi_params
+from .transforms.registry import TransformRegistry, register_transform
+from .types.registry import TypeRegistry, register_type
+from .validators.registry import ConstraintRegistry, register_constraint
 
 __all__ = [
     # Parser

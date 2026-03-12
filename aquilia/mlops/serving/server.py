@@ -17,30 +17,27 @@ Integrates with Aquilia's ASGI + controller architecture and provides:
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 import time
 import uuid
-from typing import Any, AsyncIterator, Dict, List, Optional
+from collections.abc import AsyncIterator
+from typing import Any
 
-from .._types import (
-    BatchRequest,
-    CircuitBreakerConfig,
-    InferenceRequest,
-    InferenceResult,
-    LLMConfig,
-    ModelpackManifest,
-    RuntimeKind,
-    StreamChunk,
-    TokenUsage,
-)
 from .._structures import (
     BloomFilter,
     CircuitBreaker,
     MemoryTracker,
     TokenBucketRateLimiter,
 )
-from ..engine.faults import InferenceFault, RuntimeLoadFault
+from .._types import (
+    BatchRequest,
+    CircuitBreakerConfig,
+    InferenceRequest,
+    InferenceResult,
+    ModelpackManifest,
+    StreamChunk,
+)
+from ..engine.faults import InferenceFault
 from ..runtime.base import BaseRuntime, select_runtime
 from .batching import DynamicBatcher
 
@@ -63,21 +60,23 @@ class WarmupStrategy:
     def __init__(
         self,
         num_requests: int = 3,
-        synthetic_payload: Optional[Dict[str, Any]] = None,
+        synthetic_payload: dict[str, Any] | None = None,
     ):
         self.num_requests = num_requests
         self.synthetic_payload = synthetic_payload
 
-    def generate_payload(self, manifest: ModelpackManifest) -> Dict[str, Any]:
+    def generate_payload(self, manifest: ModelpackManifest) -> dict[str, Any]:
         """Build a synthetic input from the manifest's tensor specs."""
         if self.synthetic_payload:
             return self.synthetic_payload
 
-        payload: Dict[str, Any] = {}
+        payload: dict[str, Any] = {}
         for spec in manifest.inputs:
             # Fill with zeros of the correct shape
             shape = [max(1, s) if isinstance(s, int) and s > 0 else 1 for s in spec.shape]
-            import functools, operator
+            import functools
+            import operator
+
             total = functools.reduce(operator.mul, shape, 1)
             payload[spec.name] = [0.0] * total
         return payload or {"input": [0.0]}
@@ -108,16 +107,16 @@ class ModelServingServer:
         self,
         manifest: ModelpackManifest,
         model_dir: str,
-        runtime: Optional[BaseRuntime] = None,
-        runtime_kind: Optional[str] = None,
+        runtime: BaseRuntime | None = None,
+        runtime_kind: str | None = None,
         max_batch_size: int = 16,
         max_latency_ms: float = 50.0,
         port: int = 8080,
         hot_reload: bool = False,
         dedup_capacity: int = 100_000,
-        warmup: Optional[WarmupStrategy] = None,
+        warmup: WarmupStrategy | None = None,
         # Circuit breaker
-        circuit_breaker_config: Optional[CircuitBreakerConfig] = None,
+        circuit_breaker_config: CircuitBreakerConfig | None = None,
         # Rate limiter
         rate_limit_rps: float = 0.0,
         rate_limit_capacity: int = 0,
@@ -131,9 +130,7 @@ class ModelServingServer:
         self.hot_reload = hot_reload
 
         # Runtime
-        self._runtime = runtime or select_runtime(
-            manifest, preferred=runtime_kind
-        )
+        self._runtime = runtime or select_runtime(manifest, preferred=runtime_kind)
 
         # Batcher -- auto-detect LLM manifests for continuous batching
         is_llm = manifest.is_llm
@@ -167,15 +164,16 @@ class ModelServingServer:
         )
 
         # Rate Limiter (disabled if rps == 0)
-        self._rate_limiter: Optional[TokenBucketRateLimiter] = None
+        self._rate_limiter: TokenBucketRateLimiter | None = None
         if rate_limit_rps > 0:
             cap = rate_limit_capacity or int(rate_limit_rps * 10)
             self._rate_limiter = TokenBucketRateLimiter(
-                rate=rate_limit_rps, capacity=cap,
+                rate=rate_limit_rps,
+                capacity=cap,
             )
 
         # Memory Tracker (disabled if limits == 0)
-        self._memory_tracker: Optional[MemoryTracker] = None
+        self._memory_tracker: MemoryTracker | None = None
         if memory_hard_limit_mb > 0:
             self._memory_tracker = MemoryTracker(
                 soft_limit_mb=memory_soft_limit_mb or memory_hard_limit_mb,
@@ -208,7 +206,7 @@ class ModelServingServer:
     async def _run_warmup(self) -> None:
         """Execute warm-up requests through the full pipeline."""
         payload = self._warmup.generate_payload(self.manifest)
-        warmup_times: List[float] = []
+        warmup_times: list[float] = []
         for i in range(self._warmup.num_requests):
             try:
                 start = time.monotonic()
@@ -223,9 +221,9 @@ class ModelServingServer:
             except Exception as exc:
                 logger.warning("Warmup request %d failed: %s", i, exc)
         if warmup_times:
-            avg = sum(warmup_times) / len(warmup_times)
+            sum(warmup_times) / len(warmup_times)
 
-    async def stop(self, drain_timeout_s: Optional[float] = None) -> None:
+    async def stop(self, drain_timeout_s: float | None = None) -> None:
         """
         Stop the server gracefully.
 
@@ -244,7 +242,8 @@ class ModelServingServer:
 
         if self._inflight > 0:
             logger.warning(
-                "Drain timeout: %d requests still in flight", self._inflight,
+                "Drain timeout: %d requests still in flight",
+                self._inflight,
             )
 
         await self._batcher.stop()
@@ -254,9 +253,9 @@ class ModelServingServer:
 
     async def predict(
         self,
-        inputs: Dict[str, Any],
-        parameters: Optional[Dict[str, Any]] = None,
-        request_id: Optional[str] = None,
+        inputs: dict[str, Any],
+        parameters: dict[str, Any] | None = None,
+        request_id: str | None = None,
         priority: int = 0,
         max_tokens: int = 0,
         timeout_ms: float = 0.0,
@@ -327,7 +326,7 @@ class ModelServingServer:
             self._total_latency_ms += result.latency_ms
             self._total_tokens_generated += result.token_count
             return result
-        except Exception as exc:
+        except Exception:
             self._circuit_breaker.record_failure()
             raise
         finally:
@@ -335,9 +334,9 @@ class ModelServingServer:
 
     async def stream_predict(
         self,
-        inputs: Dict[str, Any],
-        parameters: Optional[Dict[str, Any]] = None,
-        request_id: Optional[str] = None,
+        inputs: dict[str, Any],
+        parameters: dict[str, Any] | None = None,
+        request_id: str | None = None,
         max_tokens: int = 0,
     ) -> AsyncIterator[StreamChunk]:
         """
@@ -420,7 +419,7 @@ class ModelServingServer:
 
     # ── Health Probes ────────────────────────────────────────────────
 
-    async def liveness(self) -> Dict[str, Any]:
+    async def liveness(self) -> dict[str, Any]:
         """
         K8s liveness probe -- ``GET /healthz``.
 
@@ -432,7 +431,7 @@ class ModelServingServer:
             "uptime_s": time.time() - self._start_time if self._started else 0,
         }
 
-    async def readiness(self) -> Dict[str, Any]:
+    async def readiness(self) -> dict[str, Any]:
         """
         K8s readiness probe -- ``GET /readyz``.
 
@@ -446,7 +445,7 @@ class ModelServingServer:
             "request_count": self._request_count,
         }
 
-    async def health(self) -> Dict[str, Any]:
+    async def health(self) -> dict[str, Any]:
         """Full health check endpoint data (backward compat)."""
         runtime_health = await self._runtime.health()
         return {
@@ -467,16 +466,12 @@ class ModelServingServer:
             "memory": self._memory_tracker.stats if self._memory_tracker else None,
         }
 
-    async def metrics(self) -> Dict[str, float]:
+    async def metrics(self) -> dict[str, float]:
         """Prometheus-compatible metrics."""
         runtime_metrics = await self._runtime.metrics()
         batcher_metrics = self._batcher.metrics()
-        avg_latency = (
-            self._total_latency_ms / self._request_count
-            if self._request_count > 0
-            else 0.0
-        )
-        m: Dict[str, float] = {
+        avg_latency = self._total_latency_ms / self._request_count if self._request_count > 0 else 0.0
+        m: dict[str, float] = {
             "aquilia_request_count": float(self._request_count),
             "aquilia_stream_count": float(self._stream_count),
             "aquilia_avg_latency_ms": avg_latency,
@@ -484,8 +479,10 @@ class ModelServingServer:
             "aquilia_total_tokens_generated": float(self._total_tokens_generated),
             "aquilia_inflight": float(self._inflight),
             "aquilia_circuit_breaker_state": (
-                0.0 if self._circuit_breaker.state == "closed"
-                else 1.0 if self._circuit_breaker.state == "open"
+                0.0
+                if self._circuit_breaker.state == "closed"
+                else 1.0
+                if self._circuit_breaker.state == "open"
                 else 0.5
             ),
             **{f"runtime_{k}": v for k, v in runtime_metrics.items()},
@@ -507,11 +504,11 @@ class ModelServingServer:
         return self._circuit_breaker
 
     @property
-    def rate_limiter(self) -> Optional[TokenBucketRateLimiter]:
+    def rate_limiter(self) -> TokenBucketRateLimiter | None:
         """Access the rate limiter for external inspection."""
         return self._rate_limiter
 
     @property
-    def memory_tracker(self) -> Optional[MemoryTracker]:
+    def memory_tracker(self) -> MemoryTracker | None:
         """Access the memory tracker for external inspection."""
         return self._memory_tracker

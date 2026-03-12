@@ -24,7 +24,7 @@ import logging
 import os
 import uuid
 import warnings
-from typing import Any, Dict, List, Optional, Sequence, Type
+from typing import Any
 
 warnings.warn(
     "The AMDL runtime module (aquilia.models.runtime) is deprecated. "
@@ -63,6 +63,7 @@ def _eval_default(expr: str) -> Any:
         var_name = expr[5:-2]
         return os.environ.get(var_name)
     from aquilia.faults.domains import ConfigInvalidFault
+
     raise ConfigInvalidFault(
         key="amdl.default_expression",
         reason=f"Disallowed default expression: {expr}",
@@ -167,16 +168,10 @@ def _sql_col_def(slot: SlotNode, dialect: str = "sqlite") -> str:
 
     # Handle VARCHAR with max length
     if slot.field_type == FieldType.STR and slot.max_length:
-        if dialect == "oracle":
-            base_type = f"VARCHAR2({slot.max_length})"
-        else:
-            base_type = f"VARCHAR({slot.max_length})"
+        base_type = f"VARCHAR2({slot.max_length})" if dialect == "oracle" else f"VARCHAR({slot.max_length})"
     elif slot.field_type == FieldType.DECIMAL and slot.type_params:
         p, s = slot.type_params[0], slot.type_params[1] if len(slot.type_params) > 1 else 0
-        if dialect == "oracle":
-            base_type = f"NUMBER({p},{s})"
-        else:
-            base_type = f"DECIMAL({p},{s})"
+        base_type = f"NUMBER({p},{s})" if dialect == "oracle" else f"DECIMAL({p},{s})"
 
     parts = [f'"{slot.name}"', base_type]
 
@@ -203,9 +198,8 @@ def _sql_col_def(slot: SlotNode, dialect: str = "sqlite") -> str:
         parts.append("NOT NULL")
 
     # SQL-level defaults
-    if slot.default_expr:
-        if slot.default_expr == "now_utc()":
-            parts.append("DEFAULT CURRENT_TIMESTAMP")
+    if slot.default_expr and slot.default_expr == "now_utc()":
+        parts.append("DEFAULT CURRENT_TIMESTAMP")
         # Other defaults are handled at application level
 
     return " ".join(parts)
@@ -225,18 +219,15 @@ def generate_create_table_sql(model: ModelNode, dialect: str = "sqlite") -> str:
     return f'CREATE TABLE IF NOT EXISTS "{model.table_name}" (\n  {body}\n);'
 
 
-def generate_create_index_sql(model: ModelNode, dialect: str = "sqlite") -> List[str]:
+def generate_create_index_sql(model: ModelNode, dialect: str = "sqlite") -> list[str]:
     """Generate CREATE INDEX statements for non-unique indexes."""
     ine = "" if dialect == "mysql" else " IF NOT EXISTS"
-    stmts: List[str] = []
+    stmts: list[str] = []
     for idx in model.indexes:
         if not idx.is_unique:
             idx_name = idx.name or f"idx_{model.table_name}_{'_'.join(idx.fields)}"
-            field_list = ", ".join(f'"{ f}"' for f in idx.fields)
-            stmts.append(
-                f'CREATE INDEX{ine} "{idx_name}" '
-                f'ON "{model.table_name}" ({field_list});'
-            )
+            field_list = ", ".join(f'"{f}"' for f in idx.fields)
+            stmts.append(f'CREATE INDEX{ine} "{idx_name}" ON "{model.table_name}" ({field_list});')
     return stmts
 
 
@@ -268,14 +259,14 @@ class Q:
         "_db",
     )
 
-    def __init__(self, table: str, model_cls: Type[ModelProxy], db: AquiliaDatabase):
+    def __init__(self, table: str, model_cls: type[ModelProxy], db: AquiliaDatabase):
         self._table = table
         self._model_cls = model_cls
-        self._wheres: List[str] = []
-        self._params: List[Any] = []
-        self._order_clauses: List[str] = []
-        self._limit_val: Optional[int] = None
-        self._offset_val: Optional[int] = None
+        self._wheres: list[str] = []
+        self._params: list[Any] = []
+        self._order_clauses: list[str] = []
+        self._limit_val: int | None = None
+        self._offset_val: int | None = None
         self._db = db
 
     def where(self, clause: str, *args: Any, **kwargs: Any) -> Q:
@@ -293,7 +284,7 @@ class Q:
         if kwargs:
             # Convert :name placeholders to ? for SQLite
             processed_clause = clause
-            param_values: List[Any] = []
+            param_values: list[Any] = []
             for key, val in kwargs.items():
                 processed_clause = processed_clause.replace(f":{key}", "?")
                 param_values.append(val)
@@ -317,6 +308,7 @@ class Q:
             .filter(name__contains="Alice", active=True)
         """
         from .query import _build_filter_clause
+
         new = self._clone()
         for key, value in kwargs.items():
             clause, clause_params = _build_filter_clause(key, value)
@@ -377,7 +369,7 @@ class Q:
 
         return sql, params
 
-    async def all(self) -> List[ModelProxy]:
+    async def all(self) -> list[ModelProxy]:
         """Execute query and return all matching rows as proxy instances."""
         sql, params = self._build_select()
         rows = await self._db.fetch_all(sql, params)
@@ -398,7 +390,7 @@ class Q:
             )
         return self._model_cls._from_row(rows[0])
 
-    async def first(self) -> Optional[ModelProxy]:
+    async def first(self) -> ModelProxy | None:
         """Return first matching row or None."""
         sql, params = self._build_select()
         sql += " LIMIT 1"
@@ -413,7 +405,7 @@ class Q:
         val = await self._db.fetch_val(sql, params)
         return int(val) if val else 0
 
-    async def update(self, values: Dict[str, Any]) -> int:
+    async def update(self, values: dict[str, Any]) -> int:
         """Update matching rows. Returns affected row count."""
         set_parts = [f'"{k}" = ?' for k in values]
         set_clause = ", ".join(set_parts)
@@ -454,9 +446,9 @@ class ModelRegistry:
     ``on_startup`` / ``on_shutdown`` lifecycle hooks.
     """
 
-    def __init__(self, db: Optional[AquiliaDatabase] = None):
-        self._models: Dict[str, ModelNode] = {}
-        self._proxies: Dict[str, Type[ModelProxy]] = {}
+    def __init__(self, db: AquiliaDatabase | None = None):
+        self._models: dict[str, ModelNode] = {}
+        self._proxies: dict[str, type[ModelProxy]] = {}
         self._db = db
 
     # ── Lifecycle hooks ──────────────────────────────────────────────
@@ -470,7 +462,7 @@ class ModelRegistry:
         """Lifecycle hook -- cleanup (reserved for future use)."""
         pass
 
-    def register_model(self, model: ModelNode) -> Type[ModelProxy]:
+    def register_model(self, model: ModelNode) -> type[ModelProxy]:
         """
         Register an AMDL model and generate its runtime proxy class.
 
@@ -485,23 +477,23 @@ class ModelRegistry:
         self._proxies[model.name] = proxy_cls
         return proxy_cls
 
-    def get_model(self, name: str) -> Optional[ModelNode]:
+    def get_model(self, name: str) -> ModelNode | None:
         """Get parsed model AST by name."""
         return self._models.get(name)
 
-    def get_proxy(self, name: str) -> Optional[Type[ModelProxy]]:
+    def get_proxy(self, name: str) -> type[ModelProxy] | None:
         """Get generated proxy class by model name."""
         return self._proxies.get(name)
 
-    def all_models(self) -> List[ModelNode]:
+    def all_models(self) -> list[ModelNode]:
         """Get all registered model nodes."""
         return list(self._models.values())
 
-    def all_proxies(self) -> Dict[str, Type[ModelProxy]]:
+    def all_proxies(self) -> dict[str, type[ModelProxy]]:
         """Get all proxy classes."""
         return dict(self._proxies)
 
-    def _generate_proxy(self, model: ModelNode) -> Type[ModelProxy]:
+    def _generate_proxy(self, model: ModelNode) -> type[ModelProxy]:
         """Generate a ModelProxy subclass from a ModelNode."""
         # Determine PK
         pk_name = "id"
@@ -512,7 +504,7 @@ class ModelRegistry:
         slot_names = [s.name for s in model.slots]
 
         # Create class dynamically
-        cls_dict: Dict[str, Any] = {
+        cls_dict: dict[str, Any] = {
             "_model_node": model,
             "_table_name": model.table_name,
             "_slot_names": slot_names,
@@ -531,7 +523,7 @@ class ModelRegistry:
 
         return proxy_cls
 
-    async def create_tables(self, db: Optional[AquiliaDatabase] = None) -> List[str]:
+    async def create_tables(self, db: AquiliaDatabase | None = None) -> list[str]:
         """
         Create all registered model tables.
 
@@ -542,7 +534,7 @@ class ModelRegistry:
         """
         target_db = db or self._db or get_database()
         dialect = getattr(target_db, "dialect", "sqlite")
-        statements: List[str] = []
+        statements: list[str] = []
 
         for model in self._models.values():
             try:
@@ -595,7 +587,7 @@ class ModelRegistry:
             if not proxy_cls:
                 continue
 
-            lines.append(f"")
+            lines.append("")
             lines.append(f"class {model.name}(ModelProxy):")
             lines.append(f'    """Generated from AMDL: {model.source_file}"""')
             lines.append(f'    _table_name = "{model.table_name}"')
@@ -622,6 +614,7 @@ class ModelRegistry:
 
 # ── Metaclass for $-prefix support ──────────────────────────────────────────
 
+
 class _ModelProxyMeta(type):
     """Metaclass that supports $-prefixed attribute access on model classes."""
 
@@ -640,6 +633,7 @@ class _ModelProxyMeta(type):
 
 # ── ModelProxy (canonical, with metaclass) ───────────────────────────────────
 
+
 class ModelProxy(metaclass=_ModelProxyMeta):
     """
     Base class for AMDL-generated model proxies.
@@ -657,12 +651,12 @@ class ModelProxy(metaclass=_ModelProxyMeta):
     ``aquilia.faults.domains`` rather than bare Python exceptions.
     """
 
-    _model_node: Optional[ModelNode] = None
+    _model_node: ModelNode | None = None
     _table_name: str = ""
-    _slot_names: List[str] = []
+    _slot_names: list[str] = []
     _pk_name: str = "id"
-    _db: Optional[AquiliaDatabase] = None
-    _registry: Optional[ModelRegistry] = None
+    _db: AquiliaDatabase | None = None
+    _registry: ModelRegistry | None = None
 
     def __init__(self, **kwargs: Any):
         for k, v in kwargs.items():
@@ -678,7 +672,7 @@ class ModelProxy(metaclass=_ModelProxyMeta):
         raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
 
     @classmethod
-    def _from_row(cls, row: Dict[str, Any]) -> ModelProxy:
+    def _from_row(cls, row: dict[str, Any]) -> ModelProxy:
         instance = cls.__new__(cls)
         for k, v in row.items():
             setattr(instance, k, v)
@@ -693,7 +687,7 @@ class ModelProxy(metaclass=_ModelProxyMeta):
     # ── Class-level $ API ────────────────────────────────────────────
 
     @classmethod
-    async def _dollar_create(cls, data: Dict[str, Any]) -> ModelProxy:
+    async def _dollar_create(cls, data: dict[str, Any]) -> ModelProxy:
         """Create a new record. Usage: await Model.$create({...})"""
         db = cls._get_db()
         model = cls._model_node
@@ -735,7 +729,7 @@ class ModelProxy(metaclass=_ModelProxyMeta):
         return cls._from_row(final_data)
 
     @classmethod
-    async def _dollar_get(cls, pk: Any = None, **filters: Any) -> Optional[ModelProxy]:
+    async def _dollar_get(cls, pk: Any = None, **filters: Any) -> ModelProxy | None:
         """Get by PK or filters. Usage: await Model.$get(pk=1)"""
         db = cls._get_db()
 
@@ -763,21 +757,18 @@ class ModelProxy(metaclass=_ModelProxyMeta):
         return Q(cls._table_name, cls, cls._get_db())
 
     @classmethod
-    async def _dollar_update(cls, filters: Dict[str, Any], values: Dict[str, Any]) -> int:
+    async def _dollar_update(cls, filters: dict[str, Any], values: dict[str, Any]) -> int:
         """Update matching records. Returns affected count."""
         db = cls._get_db()
         set_parts = [f'"{k}" = ?' for k in values]
         where_parts = [f'"{k}" = ?' for k in filters]
         params = list(values.values()) + list(filters.values())
-        sql = (
-            f'UPDATE "{cls._table_name}" SET {", ".join(set_parts)} '
-            f'WHERE {" AND ".join(where_parts)}'
-        )
+        sql = f'UPDATE "{cls._table_name}" SET {", ".join(set_parts)} WHERE {" AND ".join(where_parts)}'
         cursor = await db.execute(sql, params)
         return cursor.rowcount
 
     @classmethod
-    async def _dollar_delete(cls, filters: Optional[Dict[str, Any]] = None, pk: Any = None) -> int:
+    async def _dollar_delete(cls, filters: dict[str, Any] | None = None, pk: Any = None) -> int:
         """Delete records. Returns affected count."""
         db = cls._get_db()
         if pk is not None:
@@ -797,7 +788,7 @@ class ModelProxy(metaclass=_ModelProxyMeta):
 
     # ── Instance-level $ API ─────────────────────────────────────────
 
-    async def _dollar_link(self, link_name: str) -> Optional[ModelProxy]:
+    async def _dollar_link(self, link_name: str) -> ModelProxy | None:
         """Access a ONE relationship. Usage: await instance.$link("profile")"""
         if not self._model_node or not self._registry:
             raise ModelRegistrationFault(
@@ -834,9 +825,7 @@ class ModelProxy(metaclass=_ModelProxyMeta):
             reason=f"$link expects ONE relationship, got {link.kind}",
         )
 
-    async def _dollar_link_many(
-        self, link_name: str, values: Optional[List[Any]] = None
-    ) -> List[ModelProxy]:
+    async def _dollar_link_many(self, link_name: str, values: list[Any] | None = None) -> list[ModelProxy]:
         """Access a MANY relationship. Usage: await instance.$link_many("posts")"""
         if not self._model_node or not self._registry:
             raise ModelRegistrationFault(
@@ -905,9 +894,7 @@ class ModelProxy(metaclass=_ModelProxyMeta):
         elif link.kind == LinkKind.MANY:
             back_fk = link.fk_field or f"{self.__class__.__name__.lower()}_id"
             my_pk = getattr(self, self._pk_name)
-            return await target_cls._dollar_query().where(
-                f'"{back_fk}" = ?', my_pk
-            ).all()
+            return await target_cls._dollar_query().where(f'"{back_fk}" = ?', my_pk).all()
 
         raise QueryFault(
             model=self.__class__.__name__,
@@ -915,7 +902,7 @@ class ModelProxy(metaclass=_ModelProxyMeta):
             reason=f"$link_many expects MANY relationship, got {link.kind}",
         )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize model instance to dict."""
         result = {}
         for name in self._slot_names:

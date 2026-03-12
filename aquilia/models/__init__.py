@@ -33,225 +33,37 @@ Public API:
 
 # ── New Pure Python Model System ─────────────────────────────────────────────
 
-from .base import (
-    Model,
-    ModelMeta,
-    ModelRegistry,
-    Options,
-    Q,
+# Re-export model-specific faults for convenience
+from ..faults.domains import (
+    AMDLParseFault,
+    DatabaseConnectionFault,
+    MigrationConflictFault,
+    MigrationFault,
+    ModelFault,
+    ModelNotFoundFault,
+    ModelRegistrationFault,
+    QueryFault,
+    SchemaFault,
 )
-
-from .manager import Manager, BaseManager, QuerySet
-
-# New split-module exports (available but not replacing base.py)
-from .registry import ModelRegistry as NewModelRegistry
-from .query import Q as QueryBuilder, QNode, QCombination, Prefetch
-from .options import Options as EnhancedOptions
-
-from .fields_module import (
-    # Base
-    Field,
-    FieldValidationError,
-    Index,
-    UniqueConstraint,
-    UNSET,
-    # Numeric
-    AutoField,
-    BigAutoField,
-    IntegerField,
-    BigIntegerField,
-    SmallIntegerField,
-    PositiveIntegerField,
-    PositiveSmallIntegerField,
-    PositiveBigIntegerField,
-    FloatField,
-    DecimalField,
-    # Text
-    CharField,
-    TextField,
-    SlugField,
-    EmailField,
-    URLField,
-    UUIDField,
-    FilePathField,
-    # Date/Time
-    DateField,
-    TimeField,
-    DateTimeField,
-    DurationField,
-    # Boolean
-    BooleanField,
-    # Binary/Special
-    BinaryField,
-    JSONField,
-    # Relationships
-    ForeignKey,
-    OneToOneField,
-    ManyToManyField,
-    RelationField,
-    # IP/Network
-    GenericIPAddressField,
-    InetAddressField,
-    # File/Media
-    FileField,
-    ImageField,
-    # PostgreSQL
-    ArrayField,
-    HStoreField,
-    RangeField,
-    IntegerRangeField,
-    BigIntegerRangeField,
-    DecimalRangeField,
-    DateRangeField,
-    DateTimeRangeField,
-    CICharField,
-    CIEmailField,
-    CITextField,
-    # Meta/Special
-    GeneratedField,
-    OrderWrt,
-)
-
-# New sub-module exports
-from .fields import (
-    NullableMixin,
-    UniqueMixin,
-    IndexedMixin,
-    AutoNowMixin,
-    ChoiceMixin,
-    EncryptedMixin,
-    CompositeField,
-    CompositePrimaryKey,
-    CompositeAttribute,
-    EnumField,
-)
-
-# ── Expression / Aggregate system ────────────────────────────────────────────
-
-from .expression import (
-    Expression,
-    F,
-    Value,
-    RawSQL,
-    Col,
-    Star,
-    CombinedExpression,
-    When,
-    Case,
-    Subquery,
-    Exists,
-    OuterRef,
-    ExpressionWrapper,
-    Func,
-    Cast,
-    Coalesce,
-    Greatest,
-    Least,
-    NullIf,
-    # String/math/date functions
-    OrderBy,
-    Length,
-    Upper,
-    Lower,
-    Trim,
-    LTrim,
-    RTrim,
-    Concat,
-    Left,
-    Right,
-    Substr,
-    Replace,
-    Abs,
-    Round,
-    Power,
-    Now,
-)
-
 from .aggregate import (
     Aggregate,
-    Sum,
+    ArrayAgg,
     Avg,
+    BoolAnd,
+    BoolOr,
     Count,
+    GroupConcat,
     Max,
     Min,
     StdDev,
-    Variance,
-    ArrayAgg,
     StringAgg,
-    GroupConcat,
-    BoolAnd,
-    BoolOr,
-)
-
-# ── Signals ──────────────────────────────────────────────────────────────────
-
-from .signals import (
-    Signal,
-    pre_save,
-    post_save,
-    pre_delete,
-    post_delete,
-    pre_init,
-    post_init,
-    m2m_changed,
-    receiver,
-    class_prepared,
-    pre_migrate,
-    post_migrate,
-)
-
-# ── Transactions ─────────────────────────────────────────────────────────────
-
-from .transactions import atomic, Atomic, TransactionManager
-
-# ── Deletion constants ───────────────────────────────────────────────────────
-
-from .deletion import (
-    CASCADE,
-    SET_NULL,
-    PROTECT,
-    SET_DEFAULT,
-    DO_NOTHING,
-    RESTRICT,
-    OnDeleteHandler,
-    SET,
-    ProtectedError,
-    RestrictedError,
-    normalize_on_delete,
-)
-
-# ── Enums / Choices ──────────────────────────────────────────────────────────
-
-from .enums import Choices, TextChoices, IntegerChoices
-
-# ── SQL Builder ──────────────────────────────────────────────────────────────
-
-from .sql_builder import (
-    SQLBuilder,
-    InsertBuilder,
-    UpdateBuilder,
-    DeleteBuilder,
-    CreateTableBuilder,
-    AlterTableBuilder,
-    UpsertBuilder,
-)
-
-# ── Constraints & Indexes ────────────────────────────────────────────────────
-
-from .constraint import CheckConstraint, ExclusionConstraint, Deferrable
-
-from .index import (
-    GinIndex,
-    GistIndex,
-    BrinIndex,
-    HashIndex,
-    FunctionalIndex,
+    Sum,
+    Variance,
 )
 
 # ── Legacy AMDL compatibility layer ─────────────────────────────────────────
 # These are preserved for backward compatibility with existing code that
 # imports AMDL types. They still function but are deprecated.
-
 from .ast_nodes import (
     AMDLFile,
     FieldType,
@@ -264,91 +76,291 @@ from .ast_nodes import (
     NoteNode,
     SlotNode,
 )
-
-from .parser import (
-    AMDLParseError,
-    parse_amdl,
-    parse_amdl_file,
-    parse_amdl_directory,
+from .base import (
+    Model,
+    ModelMeta,
+    ModelRegistry,
+    Options,
+    Q,
 )
 
-from .runtime import (
-    ModelProxy,
-    ModelRegistry as LegacyModelRegistry,
-    Q as LegacyQ,
-    generate_create_table_sql,
-    generate_create_index_sql,
+# ── Constraints & Indexes ────────────────────────────────────────────────────
+from .constraint import CheckConstraint, Deferrable, ExclusionConstraint
+
+# ── Deletion constants ───────────────────────────────────────────────────────
+from .deletion import (
+    CASCADE,
+    DO_NOTHING,
+    PROTECT,
+    RESTRICT,
+    SET,
+    SET_DEFAULT,
+    SET_NULL,
+    OnDeleteHandler,
+    ProtectedError,
+    RestrictedError,
+    normalize_on_delete,
 )
 
+# ── Enums / Choices ──────────────────────────────────────────────────────────
+from .enums import Choices, IntegerChoices, TextChoices
+
+# ── Expression / Aggregate system ────────────────────────────────────────────
+from .expression import (
+    Abs,
+    Case,
+    Cast,
+    Coalesce,
+    Col,
+    CombinedExpression,
+    Concat,
+    Exists,
+    Expression,
+    ExpressionWrapper,
+    F,
+    Func,
+    Greatest,
+    Least,
+    Left,
+    Length,
+    Lower,
+    LTrim,
+    Now,
+    NullIf,
+    # String/math/date functions
+    OrderBy,
+    OuterRef,
+    Power,
+    RawSQL,
+    Replace,
+    Right,
+    Round,
+    RTrim,
+    Star,
+    Subquery,
+    Substr,
+    Trim,
+    Upper,
+    Value,
+    When,
+)
+
+# New sub-module exports
+from .fields import (
+    AutoNowMixin,
+    ChoiceMixin,
+    CompositeAttribute,
+    CompositeField,
+    CompositePrimaryKey,
+    EncryptedMixin,
+    EnumField,
+    IndexedMixin,
+    NullableMixin,
+    UniqueMixin,
+)
+from .fields_module import (
+    UNSET,
+    # PostgreSQL
+    ArrayField,
+    # Numeric
+    AutoField,
+    BigAutoField,
+    BigIntegerField,
+    BigIntegerRangeField,
+    # Binary/Special
+    BinaryField,
+    # Boolean
+    BooleanField,
+    # Text
+    CharField,
+    CICharField,
+    CIEmailField,
+    CITextField,
+    # Date/Time
+    DateField,
+    DateRangeField,
+    DateTimeField,
+    DateTimeRangeField,
+    DecimalField,
+    DecimalRangeField,
+    DurationField,
+    EmailField,
+    # Base
+    Field,
+    FieldValidationError,
+    # File/Media
+    FileField,
+    FilePathField,
+    FloatField,
+    # Relationships
+    ForeignKey,
+    # Meta/Special
+    GeneratedField,
+    # IP/Network
+    GenericIPAddressField,
+    HStoreField,
+    ImageField,
+    Index,
+    InetAddressField,
+    IntegerField,
+    IntegerRangeField,
+    JSONField,
+    ManyToManyField,
+    OneToOneField,
+    OrderWrt,
+    PositiveBigIntegerField,
+    PositiveIntegerField,
+    PositiveSmallIntegerField,
+    RangeField,
+    RelationField,
+    SlugField,
+    SmallIntegerField,
+    TextField,
+    TimeField,
+    UniqueConstraint,
+    URLField,
+    UUIDField,
+)
+from .index import (
+    BrinIndex,
+    FunctionalIndex,
+    GinIndex,
+    GistIndex,
+    HashIndex,
+)
+from .manager import BaseManager, Manager, QuerySet
+from .migration_dsl import (
+    AddConstraint as DSLAddConstraint,
+)
+from .migration_dsl import (
+    AddField as DSLAddField,
+)
+from .migration_dsl import (
+    AlterField as DSLAlterField,
+)
+
+# ── New Migration DSL System ─────────────────────────────────────────────────
+from .migration_dsl import (
+    C,
+    ColumnDef,
+    Migration,
+    Operation,
+    columns,
+)
+from .migration_dsl import (
+    CreateIndex as DSLCreateIndex,
+)
+from .migration_dsl import (
+    CreateModel as DSLCreateModel,
+)
+from .migration_dsl import (
+    DropIndex as DSLDropIndex,
+)
+from .migration_dsl import (
+    DropModel as DSLDropModel,
+)
+from .migration_dsl import (
+    RemoveConstraint as DSLRemoveConstraint,
+)
+from .migration_dsl import (
+    RemoveField as DSLRemoveField,
+)
+from .migration_dsl import (
+    RenameField as DSLRenameField,
+)
+from .migration_dsl import (
+    RenameModel as DSLRenameModel,
+)
+from .migration_dsl import (
+    RunPython as DSLRunPython,
+)
+from .migration_dsl import (
+    RunSQL as DSLRunSQL,
+)
+from .migration_gen import (
+    generate_dsl_migration,
+)
+from .migration_runner import (
+    MigrationRunner as DSLMigrationRunner,
+)
+from .migration_runner import (
+    check_db_exists,
+    check_migrations_applied,
+)
 from .migrations import (
+    MigrationInfo,
     MigrationOps,
     MigrationRunner,
-    MigrationInfo,
     generate_migration_file,
     generate_migration_from_models,
     op,
 )
-
-# ── New Migration DSL System ─────────────────────────────────────────────────
-
-from .migration_dsl import (
-    Migration,
-    Operation,
-    CreateModel as DSLCreateModel,
-    DropModel as DSLDropModel,
-    RenameModel as DSLRenameModel,
-    AddField as DSLAddField,
-    RemoveField as DSLRemoveField,
-    AlterField as DSLAlterField,
-    RenameField as DSLRenameField,
-    CreateIndex as DSLCreateIndex,
-    DropIndex as DSLDropIndex,
-    RunSQL as DSLRunSQL,
-    RunPython as DSLRunPython,
-    AddConstraint as DSLAddConstraint,
-    RemoveConstraint as DSLRemoveConstraint,
-    ColumnDef,
-    columns,
-    C,
+from .options import Options as EnhancedOptions
+from .parser import (
+    AMDLParseError,
+    parse_amdl,
+    parse_amdl_directory,
+    parse_amdl_file,
 )
+from .query import Prefetch, QCombination, QNode
+from .query import Q as QueryBuilder
 
+# New split-module exports (available but not replacing base.py)
+from .registry import ModelRegistry as NewModelRegistry
+from .runtime import (
+    ModelProxy,
+    generate_create_index_sql,
+    generate_create_table_sql,
+)
+from .runtime import (
+    ModelRegistry as LegacyModelRegistry,
+)
+from .runtime import (
+    Q as LegacyQ,
+)
 from .schema_snapshot import (
-    create_snapshot,
-    save_snapshot,
-    load_snapshot,
-    compute_diff,
-    diff_to_operations,
-    SchemaDiff,
     ModelDiff,
+    SchemaDiff,
+    compute_diff,
+    create_snapshot,
+    diff_to_operations,
+    load_snapshot,
+    save_snapshot,
 )
 
-from .migration_runner import (
-    MigrationRunner as DSLMigrationRunner,
-    check_db_exists,
-    check_migrations_applied,
+# ── Signals ──────────────────────────────────────────────────────────────────
+from .signals import (
+    Signal,
+    class_prepared,
+    m2m_changed,
+    post_delete,
+    post_init,
+    post_migrate,
+    post_save,
+    pre_delete,
+    pre_init,
+    pre_migrate,
+    pre_save,
+    receiver,
 )
 
+# ── SQL Builder ──────────────────────────────────────────────────────────────
+from .sql_builder import (
+    AlterTableBuilder,
+    CreateTableBuilder,
+    DeleteBuilder,
+    InsertBuilder,
+    SQLBuilder,
+    UpdateBuilder,
+    UpsertBuilder,
+)
 from .startup_guard import (
-    check_db_ready,
     DatabaseNotReadyError,
+    check_db_ready,
 )
 
-from .migration_gen import (
-    generate_dsl_migration,
-)
-
-# Re-export model-specific faults for convenience
-from ..faults.domains import (
-    ModelFault,
-    AMDLParseFault,
-    ModelNotFoundFault,
-    ModelRegistrationFault,
-    MigrationFault,
-    MigrationConflictFault,
-    QueryFault,
-    DatabaseConnectionFault,
-    SchemaFault,
-)
+# ── Transactions ─────────────────────────────────────────────────────────────
+from .transactions import Atomic, TransactionManager, atomic
 
 __all__ = [
     # ── New Pure Python Model System ─────────────────────────────────

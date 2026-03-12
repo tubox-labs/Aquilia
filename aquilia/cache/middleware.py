@@ -20,13 +20,14 @@ import hmac
 import logging
 import os
 import time
-from typing import Any, Dict, Optional, Tuple, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from aquilia.response import Response
 
 if TYPE_CHECKING:
-    from aquilia.request import Request
     from aquilia.controller.base import RequestCtx
+    from aquilia.request import Request
+
     from .service import CacheService
 
 logger = logging.getLogger("aquilia.cache.middleware")
@@ -35,10 +36,10 @@ logger = logging.getLogger("aquilia.cache.middleware")
 class CacheMiddleware:
     """
     HTTP response caching middleware.
-    
+
     Caches response bodies for cacheable requests and serves them
     directly on subsequent identical requests, bypassing the handler.
-    
+
     Features:
     - Only caches GET/HEAD by default
     - Respects Cache-Control: no-cache, no-store
@@ -48,9 +49,9 @@ class CacheMiddleware:
     - X-Cache-Bypass header to skip cache for debugging
     - X-Cache-TTL response header for route-level TTL overrides
     - Integrates with CacheService for backend flexibility
-    
+
     Usage::
-    
+
         server.middleware_stack.add(
             CacheMiddleware(cache_service, default_ttl=60),
             scope="global",
@@ -58,13 +59,13 @@ class CacheMiddleware:
             name="response_cache",
         )
     """
-    
+
     def __init__(
         self,
-        cache_service: "CacheService",
+        cache_service: CacheService,
         default_ttl: int = 60,
-        cacheable_methods: Tuple[str, ...] = ("GET", "HEAD"),
-        vary_headers: Tuple[str, ...] = ("Accept", "Accept-Encoding"),
+        cacheable_methods: tuple[str, ...] = ("GET", "HEAD"),
+        vary_headers: tuple[str, ...] = ("Accept", "Accept-Encoding"),
         namespace: str = "http_response",
         stale_while_revalidate: int = 0,
     ):
@@ -74,18 +75,18 @@ class CacheMiddleware:
         self._vary_headers = vary_headers
         self._namespace = namespace
         self._stale_while_revalidate = stale_while_revalidate
-    
+
     async def __call__(
         self,
-        request: "Request",
-        ctx: "RequestCtx",
+        request: Request,
+        ctx: RequestCtx,
         next_handler: Any,
-    ) -> "Response":
+    ) -> Response:
         """Middleware handler."""
         # Only cache allowed methods
         if request.method not in self._cacheable_methods:
             return await next_handler(request, ctx)
-        
+
         # Check for cache bypass header (requires valid secret token)
         bypass = ""
         if hasattr(request, "headers") and hasattr(request.headers, "get"):
@@ -99,37 +100,37 @@ class CacheMiddleware:
             else:
                 # Ignore invalid bypass attempts silently — treat as normal request
                 logger.warning("Rejected X-Cache-Bypass: invalid or missing secret.")
-        
+
         # Respect no-cache/no-store directives
         cache_control = ""
         if hasattr(request, "headers") and hasattr(request.headers, "get"):
             cache_control = request.headers.get("cache-control", "") or ""
-        
+
         if "no-store" in cache_control:
             return await next_handler(request, ctx)
-        
+
         # Build cache key from request
         cache_key = self._build_request_key(request)
-        
+
         # Check for cached response
         cached_data = await self._cache.get(cache_key, namespace=self._namespace)
-        
+
         if cached_data and isinstance(cached_data, dict):
             # Check if stale
             cached_at = cached_data.get("cached_at", 0)
             ttl_used = cached_data.get("ttl", self._default_ttl)
             age = time.time() - cached_at
             is_stale = age > ttl_used
-            
+
             # Check ETag with If-None-Match
             etag = cached_data.get("etag", "")
             if_none_match = ""
             if hasattr(request, "headers") and hasattr(request.headers, "get"):
                 if_none_match = request.headers.get("if-none-match", "") or ""
-            
+
             if if_none_match and if_none_match == etag:
                 return Response(content=b"", status=304, headers={"ETag": etag})
-            
+
             # Handle no-cache: must revalidate but can serve stale during revalidation
             if "no-cache" in cache_control:
                 # Must revalidate -- go to handler
@@ -143,12 +144,10 @@ class CacheMiddleware:
                     headers["X-Cache"] = "STALE"
                     headers["ETag"] = etag
                     headers["Age"] = str(int(age))
-                    
+
                     # Trigger background refresh
-                    asyncio.ensure_future(
-                        self._background_refresh(request, ctx, next_handler, cache_key)
-                    )
-                    
+                    asyncio.ensure_future(self._background_refresh(request, ctx, next_handler, cache_key))
+
                     return Response(
                         content=cached_data.get("body", b""),
                         status=cached_data.get("status", 200),
@@ -160,40 +159,40 @@ class CacheMiddleware:
                 headers["X-Cache"] = "HIT"
                 headers["ETag"] = etag
                 headers["Age"] = str(int(age))
-                
+
                 return Response(
                     content=cached_data.get("body", b""),
                     status=cached_data.get("status", 200),
                     headers=headers,
                 )
-        
+
         # Cache miss -- call handler
         response = await next_handler(request, ctx)
-        
+
         # Only cache successful responses
         if response.status < 200 or response.status >= 400:
             return response
-        
+
         # Check response-level cache control
         resp_cache_control = ""
         if hasattr(response, "headers"):
             resp_cache_control = response.headers.get("Cache-Control", "") or ""
         if "no-store" in resp_cache_control or "private" in resp_cache_control:
             return response
-        
+
         # Determine TTL (route-level override via X-Cache-TTL header)
         ttl = self._default_ttl
         if hasattr(response, "headers"):
             custom_ttl = response.headers.get("X-Cache-TTL", "")
             if custom_ttl and custom_ttl.isdigit():
                 ttl = int(custom_ttl)
-        
+
         # Generate ETag
         body = response.content if hasattr(response, "content") else b""
         if isinstance(body, str):
             body = body.encode("utf-8")
         etag = self._generate_etag(body)
-        
+
         # Store in cache
         cache_data = {
             "body": body,
@@ -203,27 +202,27 @@ class CacheMiddleware:
             "cached_at": time.time(),
             "ttl": ttl,
         }
-        
+
         await self._cache.set(
             cache_key,
             cache_data,
             ttl=ttl + self._stale_while_revalidate,  # Keep longer for stale serving
             namespace=self._namespace,
         )
-        
+
         # Add cache headers to response
         response.headers["X-Cache"] = "MISS"
         response.headers["ETag"] = etag
         response.headers["Cache-Control"] = f"max-age={ttl}"
         if self._stale_while_revalidate > 0:
             response.headers["Cache-Control"] += f", stale-while-revalidate={self._stale_while_revalidate}"
-        
+
         return response
-    
+
     async def _background_refresh(
         self,
-        request: "Request",
-        ctx: "RequestCtx",
+        request: Request,
+        ctx: RequestCtx,
         next_handler: Any,
         cache_key: str,
     ) -> None:
@@ -234,7 +233,7 @@ class CacheMiddleware:
                 body = response.content if hasattr(response, "content") else b""
                 if isinstance(body, str):
                     body = body.encode("utf-8")
-                
+
                 etag = self._generate_etag(body)
                 cache_data = {
                     "body": body,
@@ -252,24 +251,24 @@ class CacheMiddleware:
                 )
         except Exception as e:
             logger.warning(f"Background cache refresh failed: {e}")
-    
-    def _build_request_key(self, request: "Request") -> str:
+
+    def _build_request_key(self, request: Request) -> str:
         """Build a cache key from request attributes."""
         parts = [request.method, request.path]
-        
+
         # Include query string
         if hasattr(request, "query_string") and request.query_string:
             parts.append(str(request.query_string))
-        
+
         # Include Vary headers
         for header in self._vary_headers:
             if hasattr(request, "headers") and hasattr(request.headers, "get"):
                 val = request.headers.get(header, "")
                 if val:
                     parts.append(f"{header}={val}")
-        
+
         return ":".join(parts)
-    
+
     def _generate_etag(self, body: bytes) -> str:
         """Generate ETag from response body using SHA-256."""
         digest = hashlib.sha256(body).hexdigest()[:32]

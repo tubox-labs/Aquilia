@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import logging
 from collections import defaultdict
-from typing import Any, Dict, List, Optional
 
 from .registry import ModelRegistry
 
@@ -33,7 +32,7 @@ class VersionManager:
     def __init__(self, registry: ModelRegistry) -> None:
         self._registry = registry
         # model_name → list of previous active versions (stack)
-        self._history: Dict[str, List[str]] = defaultdict(list)
+        self._history: dict[str, list[str]] = defaultdict(list)
 
     async def promote(
         self,
@@ -57,7 +56,9 @@ class VersionManager:
         entry = self._registry.get(name, from_version)
         if not entry:
             logger.warning(
-                "Cannot promote %s:%s -- not found in registry", name, from_version,
+                "Cannot promote %s:%s -- not found in registry",
+                name,
+                from_version,
             )
             return False
 
@@ -69,7 +70,7 @@ class VersionManager:
         ok = await self._registry.set_active_version(name, from_version)
         return ok
 
-    async def rollback(self, name: str) -> Optional[str]:
+    async def rollback(self, name: str) -> str | None:
         """
         Roll back to the previous active version.
 
@@ -90,7 +91,7 @@ class VersionManager:
             return previous
         return None
 
-    def history(self, name: str) -> List[str]:
+    def history(self, name: str) -> list[str]:
         """Return the version rollback history for a model."""
         return list(self._history.get(name, []))
 

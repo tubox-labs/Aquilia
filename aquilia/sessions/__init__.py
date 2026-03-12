@@ -19,77 +19,71 @@ Philosophy:
 
 from .core import (
     Session,
+    SessionFlag,
     SessionID,
     SessionPrincipal,
     SessionScope,
-    SessionFlag,
-)
-
-from .policy import (
-    SessionPolicy,
-    SessionPolicyBuilder,
-    PersistencePolicy,
-    ConcurrencyPolicy,
-    TransportPolicy,
-    DEFAULT_USER_POLICY,
-    API_TOKEN_POLICY,
-    EPHEMERAL_POLICY,
-    ADMIN_POLICY,
-)
-
-from .store import (
-    SessionStore,
-    MemoryStore,
-    FileStore,
-)
-
-from .transport import (
-    SessionTransport,
-    CookieTransport,
-    HeaderTransport,
-    create_transport,
-)
-
-from .engine import SessionEngine
-
-from .faults import (
-    SessionFault,
-    SessionExpiredFault,
-    SessionIdleTimeoutFault,
-    SessionAbsoluteTimeoutFault,
-    SessionInvalidFault,
-    SessionNotFoundFault,
-    SessionConcurrencyViolationFault,
-    SessionStoreUnavailableFault,
-    SessionStoreCorruptedFault,
-    SessionRotationFailedFault,
-    SessionPolicyViolationFault,
-    SessionTransportFault,
-    SessionForgeryAttemptFault,
-    SessionHijackAttemptFault,
-    SessionFingerprintMismatchFault,
-    SessionLockedFault,
 )
 
 # Session decorators + guards (includes merged enhanced.py features)
 from .decorators import (
-    session,
-    authenticated,
-    stateful,
-    SessionRequiredFault,
+    AdminGuard,
     AuthenticationRequiredFault,
     SessionContext,
     SessionGuard,
-    requires,
-    AdminGuard,
+    SessionRequiredFault,
     VerifiedEmailGuard,
+    authenticated,
+    requires,
+    session,
+    stateful,
 )
-
+from .engine import SessionEngine
+from .faults import (
+    SessionAbsoluteTimeoutFault,
+    SessionConcurrencyViolationFault,
+    SessionExpiredFault,
+    SessionFault,
+    SessionFingerprintMismatchFault,
+    SessionForgeryAttemptFault,
+    SessionHijackAttemptFault,
+    SessionIdleTimeoutFault,
+    SessionInvalidFault,
+    SessionLockedFault,
+    SessionNotFoundFault,
+    SessionPolicyViolationFault,
+    SessionRotationFailedFault,
+    SessionStoreCorruptedFault,
+    SessionStoreUnavailableFault,
+    SessionTransportFault,
+)
+from .policy import (
+    ADMIN_POLICY,
+    API_TOKEN_POLICY,
+    DEFAULT_USER_POLICY,
+    EPHEMERAL_POLICY,
+    ConcurrencyPolicy,
+    PersistencePolicy,
+    SessionPolicy,
+    SessionPolicyBuilder,
+    TransportPolicy,
+)
 from .state import (
-    SessionState,
-    Field,
     CartState,
+    Field,
+    SessionState,
     UserPreferencesState,
+)
+from .store import (
+    FileStore,
+    MemoryStore,
+    SessionStore,
+)
+from .transport import (
+    CookieTransport,
+    HeaderTransport,
+    SessionTransport,
+    create_transport,
 )
 
 __all__ = [

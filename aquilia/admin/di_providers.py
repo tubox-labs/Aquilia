@@ -29,11 +29,11 @@ Usage with DI decorators (auto-registered)::
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
-from .site import AdminSite
 from .audit import AdminAuditLog, ModelBackedAuditLog
 from .controller import AdminController
+from .site import AdminSite
 
 if TYPE_CHECKING:
     from aquilia.di.core import Container
@@ -49,12 +49,12 @@ def provide_admin_site() -> AdminSite:
     return AdminSite.default()
 
 
-def provide_admin_controller(site: Optional[AdminSite] = None) -> AdminController:
+def provide_admin_controller(site: AdminSite | None = None) -> AdminController:
     """Provide an AdminController bound to the given or default site."""
     return AdminController(site=site or AdminSite.default())
 
 
-def provide_audit_log(site: Optional[AdminSite] = None) -> AdminAuditLog:
+def provide_audit_log(site: AdminSite | None = None) -> AdminAuditLog:
     """Provide the audit log from the current AdminSite."""
     s = site or AdminSite.default()
     return s.audit_log
@@ -68,7 +68,7 @@ def provide_model_backed_audit_log() -> ModelBackedAuditLog:
 # ── Container registration ───────────────────────────────────────────────────
 
 
-def register_admin_providers(container: "Container") -> None:
+def register_admin_providers(container: Container) -> None:
     """
     Register all admin DI providers with the given container.
 
@@ -111,7 +111,7 @@ def register_admin_providers(container: "Container") -> None:
 
     except ImportError:
         pass
-    except Exception as exc:
+    except Exception:
         pass
 
 

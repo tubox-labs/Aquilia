@@ -25,7 +25,7 @@ Security Model
 
 from __future__ import annotations
 
-import base64
+import contextlib
 import hashlib
 import hmac as _hmac
 import json
@@ -36,7 +36,7 @@ import secrets
 import struct
 import time
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 from aquilia.faults.domains import ProviderCredentialFault
 
@@ -45,10 +45,10 @@ __all__ = ["RenderCredentialStore"]
 _logger = logging.getLogger("aquilia.providers.render.store")
 
 # ── Constants ────────────────────────────────────────────────────────────
-_CROUS_MAGIC = b"AQCR"   # Crous binary magic bytes
+_CROUS_MAGIC = b"AQCR"  # Crous binary magic bytes
 _CROUS_VERSION = 1
-_SALT_SIZE = 32           # bytes
-_KEY_ITERATIONS = 200_000 # PBKDF2 iterations
+_SALT_SIZE = 32  # bytes
+_KEY_ITERATIONS = 200_000  # PBKDF2 iterations
 _HMAC_ALGO = "sha256"
 
 # Default store location
@@ -108,7 +108,7 @@ class RenderCredentialStore:
         store.clear()
     """
 
-    def __init__(self, store_dir: Optional[Path] = None):
+    def __init__(self, store_dir: Path | None = None):
         self._dir = store_dir or _DEFAULT_STORE_DIR
         self._creds_file = self._dir / "credentials.crous"
         self._config_file = self._dir / "config.json"
@@ -133,9 +133,9 @@ class RenderCredentialStore:
         self,
         token: str,
         *,
-        owner_name: Optional[str] = None,
+        owner_name: str | None = None,
         default_region: str = "oregon",
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> None:
         """Encrypt and store the API token.
 
@@ -184,7 +184,7 @@ class RenderCredentialStore:
             pass  # Windows may not support chmod
 
         # ── Store non-sensitive config ───────────────────────────────
-        config: Dict[str, Any] = {
+        config: dict[str, Any] = {
             "owner_name": owner_name,
             "default_region": default_region,
             "stored_at": timestamp,
@@ -192,19 +192,15 @@ class RenderCredentialStore:
         if metadata:
             config["metadata"] = metadata
 
-        self._config_file.write_text(
-            json.dumps(config, indent=2), encoding="utf-8"
-        )
-        try:
+        self._config_file.write_text(json.dumps(config, indent=2), encoding="utf-8")
+        with contextlib.suppress(OSError):
             os.chmod(self._config_file, 0o600)
-        except OSError:
-            pass
 
         _logger.info("Render credentials stored at %s", self._creds_file)
 
     # ─── Load ────────────────────────────────────────────────────────
 
-    def load(self) -> Optional[str]:
+    def load(self) -> str | None:
         """Load and decrypt the stored API token.
 
         Returns:
@@ -250,10 +246,10 @@ class RenderCredentialStore:
 
         # Parse fields
         offset = 5
-        timestamp = struct.unpack_from(">d", blob, offset)[0]
+        struct.unpack_from(">d", blob, offset)[0]
         offset += 8
 
-        salt = blob[offset:offset + _SALT_SIZE]
+        salt = blob[offset : offset + _SALT_SIZE]
         offset += _SALT_SIZE
 
         token_len = struct.unpack_from(">I", blob, offset)[0]
@@ -265,10 +261,10 @@ class RenderCredentialStore:
                 path=str(self._creds_file),
             )
 
-        encrypted = blob[offset:offset + token_len]
+        encrypted = blob[offset : offset + token_len]
         offset += token_len
 
-        stored_signature = blob[offset:offset + 32]
+        stored_signature = blob[offset : offset + 32]
         payload_to_verify = blob[:offset]
 
         # ── Verify HMAC ──────────────────────────────────────────────
@@ -295,7 +291,7 @@ class RenderCredentialStore:
 
     # ─── Config ──────────────────────────────────────────────────────
 
-    def load_config(self) -> Dict[str, Any]:
+    def load_config(self) -> dict[str, Any]:
         """Load non-sensitive provider configuration."""
         if not self._config_file.exists():
             return {}
@@ -308,7 +304,7 @@ class RenderCredentialStore:
         """Get the default deployment region."""
         return self.load_config().get("default_region", "oregon")
 
-    def get_owner_name(self) -> Optional[str]:
+    def get_owner_name(self) -> str | None:
         """Get the stored workspace/owner name."""
         return self.load_config().get("owner_name")
 
@@ -333,16 +329,14 @@ class RenderCredentialStore:
                 _logger.warning("Could not delete credentials: %s", e)
 
         if self._config_file.exists():
-            try:
+            with contextlib.suppress(OSError):
                 self._config_file.unlink()
-            except OSError:
-                pass
 
         _logger.info("Render credentials cleared")
 
     # ─── Utility ─────────────────────────────────────────────────────
 
-    def status(self) -> Dict[str, Any]:
+    def status(self) -> dict[str, Any]:
         """Return credential store status (for CLI display)."""
         config = self.load_config()
         return {

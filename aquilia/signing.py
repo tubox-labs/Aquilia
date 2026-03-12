@@ -70,13 +70,12 @@ import hashlib
 import hmac as _hmac
 import json
 import logging
-import secrets
 import struct
-import time
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
-from typing import Any, Iterable, Literal, Optional, Sequence, Union
+from typing import Any, Literal
 
 __all__ = [
     # Exceptions
@@ -252,7 +251,7 @@ def derive_key(secret: str | bytes, salt: str, algorithm: str = "HS256") -> byte
     """
     if isinstance(secret, str):
         secret = secret.encode("utf-8")
-    info = f"aquilia.signing|{salt}|{algorithm}".encode("utf-8")
+    info = f"aquilia.signing|{salt}|{algorithm}".encode()
     return _hmac.new(secret, info, hashlib.sha256).digest()
 
 
@@ -390,8 +389,7 @@ class AsymmetricSignerBackend(SignerBackend):
     ) -> None:
         if algorithm not in _ASYMMETRIC_ALGORITHMS:
             raise UnsupportedAlgorithmError(
-                f"AsymmetricSignerBackend supports {sorted(_ASYMMETRIC_ALGORITHMS)}, "
-                f"got {algorithm!r}."
+                f"AsymmetricSignerBackend supports {sorted(_ASYMMETRIC_ALGORITHMS)}, got {algorithm!r}."
             )
         _require_cryptography(algorithm)
         if not private_key_pem and not public_key_pem:
@@ -410,9 +408,9 @@ class AsymmetricSignerBackend(SignerBackend):
     def sign(self, message: bytes) -> bytes:
         if not self._private_key_pem:
             raise SigningError("No private key configured — cannot sign.")
+        from cryptography.hazmat.backends import default_backend
         from cryptography.hazmat.primitives import hashes, serialization
         from cryptography.hazmat.primitives.asymmetric import ec, padding
-        from cryptography.hazmat.backends import default_backend
 
         private_key = serialization.load_pem_private_key(
             self._private_key_pem.encode(),
@@ -432,21 +430,17 @@ class AsymmetricSignerBackend(SignerBackend):
         pem = self._public_key_pem or self._private_key_pem
         if not pem:
             raise SigningError("No key configured for verification.")
+        from cryptography.exceptions import InvalidSignature
+        from cryptography.hazmat.backends import default_backend
         from cryptography.hazmat.primitives import hashes, serialization
         from cryptography.hazmat.primitives.asymmetric import ec, padding
-        from cryptography.hazmat.backends import default_backend
-        from cryptography.exceptions import InvalidSignature
 
         try:
             if self._public_key_pem:
-                key = serialization.load_pem_public_key(
-                    self._public_key_pem.encode(), backend=default_backend()
-                )
+                key = serialization.load_pem_public_key(self._public_key_pem.encode(), backend=default_backend())
             else:
                 # Extract public key from private key PEM
-                priv = serialization.load_pem_private_key(
-                    pem.encode(), password=None, backend=default_backend()
-                )
+                priv = serialization.load_pem_private_key(pem.encode(), password=None, backend=default_backend())
                 key = priv.public_key()
 
             if self._algorithm == "RS256":
@@ -614,7 +608,7 @@ class Signer:
         if idx == -1:
             raise SignatureMalformed("Separator not found in signed bytes.")
         data = signed_data[:idx]
-        sig_b64 = signed_data[idx + len(sep_b):]
+        sig_b64 = signed_data[idx + len(sep_b) :]
         sig = b64_decode(sig_b64)
         if not self._backend.verify(data, sig):
             raise BadSignature("Byte signature verification failed.")
@@ -657,10 +651,7 @@ class Signer:
             raise SignatureMalformed(f"Could not deserialise signed object: {exc}") from exc
 
     def __repr__(self) -> str:
-        return (
-            f"Signer(salt={self._salt!r}, algorithm={self._algorithm!r}, "
-            f"backend={type(self._backend).__name__})"
-        )
+        return f"Signer(salt={self._salt!r}, algorithm={self._algorithm!r}, backend={type(self._backend).__name__})"
 
 
 # ===========================================================================
@@ -702,7 +693,7 @@ class TimestampSigner(Signer):
         value, when = ts.unsign_with_timestamp(token)
     """
 
-    _TS_SEP = "."   # separates value from timestamp *within* the value part
+    _TS_SEP = "."  # separates value from timestamp *within* the value part
 
     def __init__(
         self,
@@ -758,9 +749,7 @@ class TimestampSigner(Signer):
             epoch_us = _EPOCH + us
             return datetime.fromtimestamp(epoch_us / 1_000_000, tz=timezone.utc)
         except (SignatureMalformed, ValueError, struct.error) as exc:
-            raise SignatureMalformed(
-                f"Cannot decode timestamp from {ts_b64!r}: {exc}"
-            ) from exc
+            raise SignatureMalformed(f"Cannot decode timestamp from {ts_b64!r}: {exc}") from exc
 
     # ── Core methods ─────────────────────────────────────────────────
 
@@ -860,9 +849,7 @@ class TimestampSigner(Signer):
         """Split the compound ``<val_b64>.<ts_b64>`` string."""
         parts = compound.rsplit(self._TS_SEP, 1)
         if len(parts) != 2:
-            raise SignatureMalformed(
-                f"TimestampSigner: expected '<value>.<timestamp>', got {compound!r}"
-            )
+            raise SignatureMalformed(f"TimestampSigner: expected '<value>.<timestamp>', got {compound!r}")
         val_b64, ts_b64 = parts
         ts = self._decode_timestamp(ts_b64)
         try:
@@ -878,10 +865,7 @@ class TimestampSigner(Signer):
         original: str,
     ) -> None:
         """Raise :class:`SignatureExpired` if the token is older than *max_age*."""
-        if isinstance(max_age, timedelta):
-            max_seconds = max_age.total_seconds()
-        else:
-            max_seconds = float(max_age)
+        max_seconds = max_age.total_seconds() if isinstance(max_age, timedelta) else float(max_age)
 
         now = datetime.now(timezone.utc)
         age = (now - ts).total_seconds()
@@ -998,8 +982,7 @@ class RotatingSigner:
             except (BadSignature, SignatureMalformed) as exc:
                 last_exc = exc
         raise BadSignature(
-            f"Signature could not be verified with any of the {len(self._signers)} "
-            f"configured secrets.",
+            f"Signature could not be verified with any of the {len(self._signers)} configured secrets.",
             original=signed_value,
         ) from last_exc
 
@@ -1022,15 +1005,12 @@ class RotatingSigner:
             except (BadSignature, SignatureMalformed) as exc:
                 last_exc = exc
         raise BadSignature(
-            f"Object signature could not be verified with any secret.",
+            "Object signature could not be verified with any secret.",
             original=token,
         ) from last_exc
 
     def __repr__(self) -> str:
-        return (
-            f"RotatingSigner(n_secrets={len(self._signers)}, "
-            f"salt={self._salt!r}, algorithm={self._algorithm!r})"
-        )
+        return f"RotatingSigner(n_secrets={len(self._signers)}, salt={self._salt!r}, algorithm={self._algorithm!r})"
 
 
 # ===========================================================================
@@ -1075,13 +1055,12 @@ def dumps(
         token = dumps({"user_id": 42, "role": "admin"}, secret="key")
         data  = loads(token, secret="key", max_age=3600)
     """
-    payload_bytes = json.dumps(
-        obj, separators=(",", ":"), ensure_ascii=False
-    ).encode("utf-8")
+    payload_bytes = json.dumps(obj, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
 
     header = b""
     if compress:
         import zlib
+
         compressed = zlib.compress(payload_bytes, level=6)
         if len(compressed) < len(payload_bytes):
             payload_bytes = compressed
@@ -1142,6 +1121,7 @@ def loads(
     payload_bytes = b64_decode(data)
     if payload_bytes and payload_bytes[0:1] == b"\x01":
         import zlib
+
         payload_bytes = zlib.decompress(payload_bytes[1:])
 
     try:

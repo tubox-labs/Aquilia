@@ -8,7 +8,6 @@ before any model loading occurs.
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional
 
 from .config import MLOpsManifestConfig, ModelManifestEntry
 
@@ -18,19 +17,20 @@ logger = logging.getLogger("aquilia.mlops.manifest.schema")
 class ManifestValidationError(ValueError):
     """Raised when manifest validation fails."""
 
-    def __init__(self, errors: List[str]) -> None:
+    def __init__(self, errors: list[str]) -> None:
         self.errors = errors
-        super().__init__(f"Manifest validation failed ({len(errors)} error(s)):\n" +
-                         "\n".join(f"  - {e}" for e in errors))
+        super().__init__(
+            f"Manifest validation failed ({len(errors)} error(s)):\n" + "\n".join(f"  - {e}" for e in errors)
+        )
 
 
-def validate_manifest_config(config: MLOpsManifestConfig) -> List[str]:
+def validate_manifest_config(config: MLOpsManifestConfig) -> list[str]:
     """
     Validate a parsed manifest config.
 
     Returns a list of error messages (empty if valid).
     """
-    errors: List[str] = []
+    errors: list[str] = []
 
     # Validate global settings
     if config.default_workers < 1:
@@ -43,7 +43,7 @@ def validate_manifest_config(config: MLOpsManifestConfig) -> List[str]:
         errors.append(f"default_max_batch_latency_ms must be > 0, got {config.default_max_batch_latency_ms}")
 
     # Validate each model entry
-    seen_names: Dict[str, str] = {}  # name:version → class_path
+    seen_names: dict[str, str] = {}  # name:version → class_path
     for entry in config.models:
         errors.extend(_validate_model_entry(entry, seen_names))
 
@@ -55,10 +55,10 @@ def validate_manifest_config(config: MLOpsManifestConfig) -> List[str]:
 
 def _validate_model_entry(
     entry: ModelManifestEntry,
-    seen: Dict[str, str],
-) -> List[str]:
+    seen: dict[str, str],
+) -> list[str]:
     """Validate a single model manifest entry."""
-    errors: List[str] = []
+    errors: list[str] = []
     prefix = f"models.{entry.name}"
 
     # Name validation
@@ -67,16 +67,12 @@ def _validate_model_entry(
         return errors  # can't validate further without a name
 
     if not entry.name.replace("-", "").replace("_", "").isalnum():
-        errors.append(
-            f"{prefix}: model name must be alphanumeric (with dashes/underscores)"
-        )
+        errors.append(f"{prefix}: model name must be alphanumeric (with dashes/underscores)")
 
     # Duplicate check
     key = f"{entry.name}:{entry.version}"
     if key in seen:
-        errors.append(
-            f"{prefix}: duplicate model entry '{key}' (also defined as {seen[key]})"
-        )
+        errors.append(f"{prefix}: duplicate model entry '{key}' (also defined as {seen[key]})")
     else:
         seen[key] = entry.class_path
 
@@ -94,10 +90,7 @@ def _validate_model_entry(
         errors.append(f"{prefix}: batch_size must be >= 1, got {entry.batch_size}")
 
     if entry.max_batch_latency_ms <= 0:
-        errors.append(
-            f"{prefix}: max_batch_latency_ms must be > 0, "
-            f"got {entry.max_batch_latency_ms}"
-        )
+        errors.append(f"{prefix}: max_batch_latency_ms must be > 0, got {entry.max_batch_latency_ms}")
 
     if entry.workers < 1:
         errors.append(f"{prefix}: workers must be >= 1, got {entry.workers}")
@@ -106,21 +99,12 @@ def _validate_model_entry(
         errors.append(f"{prefix}: timeout_ms must be > 0, got {entry.timeout_ms}")
 
     if entry.warmup_requests < 0:
-        errors.append(
-            f"{prefix}: warmup_requests must be >= 0, got {entry.warmup_requests}"
-        )
+        errors.append(f"{prefix}: warmup_requests must be >= 0, got {entry.warmup_requests}")
 
     # Device validation
     valid_devices = {"auto", "cpu", "mps"}
-    if (
-        entry.device not in valid_devices
-        and not entry.device.startswith("cuda:")
-        and entry.device != "cuda"
-    ):
-        errors.append(
-            f"{prefix}: invalid device '{entry.device}'. "
-            f"Must be one of {valid_devices} or 'cuda:N'"
-        )
+    if entry.device not in valid_devices and not entry.device.startswith("cuda:") and entry.device != "cuda":
+        errors.append(f"{prefix}: invalid device '{entry.device}'. Must be one of {valid_devices} or 'cuda:N'")
 
     return errors
 

@@ -9,13 +9,13 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional, Set
 
 logger = logging.getLogger("aquilia.mlops.security.rbac")
 
 
 class Permission(str, Enum):
     """Registry permissions."""
+
     PACK_READ = "pack:read"
     PACK_WRITE = "pack:write"
     PACK_DELETE = "pack:delete"
@@ -29,8 +29,9 @@ class Permission(str, Enum):
 @dataclass
 class Role:
     """A named role with a set of permissions."""
+
     name: str
-    permissions: Set[Permission] = field(default_factory=set)
+    permissions: set[Permission] = field(default_factory=set)
     description: str = ""
 
 
@@ -76,12 +77,13 @@ class RBACManager:
     """
 
     def __init__(self):
-        self._user_roles: Dict[str, Set[str]] = {}  # user_id → role names
+        self._user_roles: dict[str, set[str]] = {}  # user_id → role names
         self._roles = dict(BUILTIN_ROLES)
 
     def assign_role(self, user_id: str, role_name: str) -> None:
         if role_name not in self._roles:
             from aquilia.faults.domains import RegistryFault
+
             raise RegistryFault(name=role_name, message=f"Unknown role: {role_name}")
         self._user_roles.setdefault(user_id, set()).add(role_name)
 
@@ -97,8 +99,8 @@ class RBACManager:
                 return True
         return False
 
-    def get_user_permissions(self, user_id: str) -> Set[Permission]:
-        perms: Set[Permission] = set()
+    def get_user_permissions(self, user_id: str) -> set[Permission]:
+        perms: set[Permission] = set()
         for role_name in self._user_roles.get(user_id, set()):
             role = self._roles.get(role_name)
             if role:

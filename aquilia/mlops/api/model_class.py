@@ -31,7 +31,8 @@ HTTP endpoints for it.
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable, Dict, List, Optional, Type, TypeVar
+from collections.abc import Callable
+from typing import Any, TypeVar
 
 logger = logging.getLogger("aquilia.mlops.api.model_class")
 
@@ -46,6 +47,7 @@ def _get_global_registry() -> Any:
     global _global_registry
     if _global_registry is None:
         from ..orchestrator.registry import ModelRegistry
+
         _global_registry = ModelRegistry()
     return _global_registry
 
@@ -87,7 +89,7 @@ class AquiliaModel:
 
     # ── Inference ────────────────────────────────────────────────────
 
-    async def predict(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
+    async def predict(self, inputs: dict[str, Any]) -> dict[str, Any]:
         """
         Run inference on preprocessed inputs.
 
@@ -99,13 +101,11 @@ class AquiliaModel:
         Returns:
             Output dictionary with predictions.
         """
-        raise NotImplementedError(
-            f"{type(self).__name__} must implement predict()"
-        )
+        raise NotImplementedError(f"{type(self).__name__} must implement predict()")
 
     # ── Pre/Post Processing ──────────────────────────────────────────
 
-    async def preprocess(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
+    async def preprocess(self, inputs: dict[str, Any]) -> dict[str, Any]:
         """
         Transform raw inputs before prediction.
 
@@ -113,7 +113,7 @@ class AquiliaModel:
         """
         return inputs
 
-    async def postprocess(self, outputs: Dict[str, Any]) -> Dict[str, Any]:
+    async def postprocess(self, outputs: dict[str, Any]) -> dict[str, Any]:
         """
         Transform prediction outputs before returning to client.
 
@@ -123,7 +123,7 @@ class AquiliaModel:
 
     # ── Observability ────────────────────────────────────────────────
 
-    async def health(self) -> Dict[str, Any]:
+    async def health(self) -> dict[str, Any]:
         """
         Custom health check.
 
@@ -132,7 +132,7 @@ class AquiliaModel:
         """
         return {"status": "ok"}
 
-    async def metrics(self) -> Dict[str, float]:
+    async def metrics(self) -> dict[str, float]:
         """
         Custom metrics.
 
@@ -144,6 +144,7 @@ class AquiliaModel:
 
 # ── @model Decorator ─────────────────────────────────────────────────────
 
+
 def model(
     name: str,
     version: str = "v1",
@@ -153,9 +154,9 @@ def model(
     warmup_requests: int = 0,
     workers: int = 4,
     timeout_ms: float = 30000.0,
-    tags: Optional[List[str]] = None,
+    tags: list[str] | None = None,
     supports_streaming: bool = False,
-) -> Callable[[Type[T]], Type[T]]:
+) -> Callable[[type[T]], type[T]]:
     """
     Decorator that registers an ``AquiliaModel`` subclass with the model registry.
 
@@ -170,11 +171,11 @@ def model(
     ``RouteGenerator`` can auto-create endpoints for it.
     """
 
-    def decorator(cls: Type[T]) -> Type[T]:
+    def decorator(cls: type[T]) -> type[T]:
         # Store metadata on the class for later retrieval
-        cls.__mlops_model_name__ = name       # type: ignore[attr-defined]
+        cls.__mlops_model_name__ = name  # type: ignore[attr-defined]
         cls.__mlops_model_version__ = version  # type: ignore[attr-defined]
-        cls.__mlops_model_config__ = {        # type: ignore[attr-defined]
+        cls.__mlops_model_config__ = {  # type: ignore[attr-defined]
             "device": device,
             "batch_size": batch_size,
             "max_batch_latency_ms": max_batch_latency_ms,

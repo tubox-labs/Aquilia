@@ -24,8 +24,7 @@ Usage:
 from __future__ import annotations
 
 from enum import Enum, EnumType
-from typing import Any, List, Tuple
-
+from typing import Any
 
 __all__ = [
     "TextChoices",
@@ -38,19 +37,19 @@ class _ChoicesMeta(EnumType):
     """Metaclass that adds .choices / .values / .labels properties to Enum classes."""
 
     @property
-    def choices(cls) -> List[Tuple[Any, str]]:
+    def choices(cls) -> list[tuple[Any, str]]:
         return [(m.value, m.label) for m in cls]
 
     @property
-    def values(cls) -> List[Any]:
+    def values(cls) -> list[Any]:
         return [m.value for m in cls]
 
     @property
-    def names_list(cls) -> List[str]:
+    def names_list(cls) -> list[str]:
         return [m.name for m in cls]
 
     @property
-    def labels(cls) -> List[str]:
+    def labels(cls) -> list[str]:
         return [m.label for m in cls]
 
 

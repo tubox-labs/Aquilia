@@ -23,35 +23,30 @@ from __future__ import annotations
 
 from aquilia.blueprints import (
     Blueprint,
-    TextFacet,
-    IntFacet,
-    FloatFacet,
     BoolFacet,
-    ListFacet,
-    DictFacet,
     ChoiceFacet,
-    DateTimeFacet,
-    JSONFacet,
+    DictFacet,
+    FloatFacet,
+    IntFacet,
+    ListFacet,
     ReadOnly,
+    TextFacet,
 )
 
 from .._types import (
-    Framework,
-    RuntimeKind,
-    BatchingStrategy,
-    RolloutStrategy,
     DriftMethod,
-    QuantizePreset,
+    Framework,
     ModelType,
-    InferenceMode,
-    DeviceType,
+    QuantizePreset,
+    RolloutStrategy,
 )
-
 
 # ── TensorSpec ───────────────────────────────────────────────────────────
 
+
 class TensorSpecBlueprint(Blueprint):
     """Validates and renders tensor specifications."""
+
     name = TextFacet(max_length=128)
     dtype = TextFacet(max_length=32)
     shape = ListFacet(required=True)
@@ -59,8 +54,10 @@ class TensorSpecBlueprint(Blueprint):
 
 # ── BlobRef ──────────────────────────────────────────────────────────────
 
+
 class BlobRefBlueprint(Blueprint):
     """Validates blob references."""
+
     path = TextFacet(max_length=512)
     digest = TextFacet(max_length=128)
     size = IntFacet(min_value=0)
@@ -68,8 +65,10 @@ class BlobRefBlueprint(Blueprint):
 
 # ── Provenance ───────────────────────────────────────────────────────────
 
+
 class ProvenanceBlueprint(Blueprint):
     """Validates provenance metadata."""
+
     git_sha = TextFacet(max_length=64, required=False, default="")
     dataset_snapshot = TextFacet(max_length=256, required=False, default="")
     dockerfile = TextFacet(max_length=256, required=False, default="")
@@ -77,6 +76,7 @@ class ProvenanceBlueprint(Blueprint):
 
 
 # ── ModelpackManifest ────────────────────────────────────────────────────
+
 
 class ModelpackManifestBlueprint(Blueprint):
     """
@@ -90,6 +90,7 @@ class ModelpackManifestBlueprint(Blueprint):
         else:
             raise PackBuildFault(str(bp.errors))
     """
+
     name = TextFacet(max_length=256)
     version = TextFacet(max_length=64)
     framework = ChoiceFacet(
@@ -106,6 +107,7 @@ class ModelpackManifestBlueprint(Blueprint):
 
 # ── InferenceRequest ─────────────────────────────────────────────────────
 
+
 class InferenceRequestBlueprint(Blueprint):
     """
     Validates incoming inference request payloads.
@@ -113,6 +115,7 @@ class InferenceRequestBlueprint(Blueprint):
     Used by the serving controller to validate HTTP request bodies
     before dispatching to the batcher.
     """
+
     request_id = TextFacet(max_length=128)
     inputs = DictFacet(required=True)
     parameters = DictFacet(required=False, default=dict)
@@ -120,8 +123,10 @@ class InferenceRequestBlueprint(Blueprint):
 
 # ── InferenceResult ──────────────────────────────────────────────────────
 
+
 class InferenceResultBlueprint(Blueprint):
     """Renders inference results for API responses."""
+
     request_id = ReadOnly()
     outputs = DictFacet()
     latency_ms = FloatFacet(min_value=0.0)
@@ -130,8 +135,10 @@ class InferenceResultBlueprint(Blueprint):
 
 # ── DriftReport ──────────────────────────────────────────────────────────
 
+
 class DriftReportBlueprint(Blueprint):
     """Renders drift detection reports."""
+
     method = ChoiceFacet(choices=[m.value for m in DriftMethod])
     score = FloatFacet()
     threshold = FloatFacet()
@@ -143,8 +150,10 @@ class DriftReportBlueprint(Blueprint):
 
 # ── RolloutConfig ────────────────────────────────────────────────────────
 
+
 class RolloutConfigBlueprint(Blueprint):
     """Validates rollout configuration payloads."""
+
     from_version = TextFacet(max_length=64)
     to_version = TextFacet(max_length=64)
     strategy = ChoiceFacet(
@@ -161,8 +170,10 @@ class RolloutConfigBlueprint(Blueprint):
 
 # ── RolloutState ─────────────────────────────────────────────────────────
 
+
 class RolloutStateBlueprint(Blueprint):
     """Renders rollout state for API responses."""
+
     id = ReadOnly()
     phase = ReadOnly()
     current_percentage = IntFacet()
@@ -174,8 +185,10 @@ class RolloutStateBlueprint(Blueprint):
 
 # ── ScalingPolicy ────────────────────────────────────────────────────────
 
+
 class ScalingPolicyBlueprint(Blueprint):
     """Validates autoscaler policy configuration."""
+
     min_replicas = IntFacet(min_value=0, required=False, default=1)
     max_replicas = IntFacet(min_value=1, required=False, default=10)
     target_concurrency = FloatFacet(min_value=0.1, required=False, default=10.0)
@@ -187,8 +200,10 @@ class ScalingPolicyBlueprint(Blueprint):
 
 # ── NodeInfo ─────────────────────────────────────────────────────────────
 
+
 class NodeInfoBlueprint(Blueprint):
     """Validates compute node registration payloads."""
+
     node_id = TextFacet(max_length=128)
     device_type = ChoiceFacet(choices=["cpu", "gpu", "npu"], required=False, default="cpu")
     total_memory_mb = FloatFacet(min_value=0.0, required=False, default=0.0)
@@ -199,8 +214,10 @@ class NodeInfoBlueprint(Blueprint):
 
 # ── PlacementRequest ────────────────────────────────────────────────────
 
+
 class PlacementRequestBlueprint(Blueprint):
     """Validates model placement request payloads."""
+
     model_name = TextFacet(max_length=256)
     model_size_mb = FloatFacet(min_value=0.0)
     preferred_device = ChoiceFacet(
@@ -213,8 +230,10 @@ class PlacementRequestBlueprint(Blueprint):
 
 # ── Plugin ───────────────────────────────────────────────────────────────
 
+
 class PluginDescriptorBlueprint(Blueprint):
     """Renders plugin descriptor for API responses."""
+
     name = ReadOnly()
     version = ReadOnly()
     module = ReadOnly()
@@ -225,8 +244,10 @@ class PluginDescriptorBlueprint(Blueprint):
 
 # ── Metrics ──────────────────────────────────────────────────────────────
 
+
 class MetricsSummaryBlueprint(Blueprint):
     """Renders metrics summary for API responses."""
+
     model_name = ReadOnly()
     model_version = ReadOnly()
     # All other metrics are dynamic, rendered via DictFacet
@@ -234,8 +255,10 @@ class MetricsSummaryBlueprint(Blueprint):
 
 # ── LLM / Streaming Blueprints ──────────────────────────────────────────
 
+
 class LLMConfigBlueprint(Blueprint):
     """Validates LLM configuration payloads."""
+
     max_tokens = IntFacet(min_value=1, required=False, default=512)
     temperature = FloatFacet(min_value=0.0, max_value=2.0, required=False, default=1.0)
     top_k = IntFacet(min_value=1, required=False, default=50)
@@ -255,6 +278,7 @@ class LLMConfigBlueprint(Blueprint):
 
 class StreamChunkBlueprint(Blueprint):
     """Renders a single streaming token/chunk for SSE responses."""
+
     request_id = ReadOnly()
     token = TextFacet(required=False, default="")
     token_index = IntFacet(min_value=0)
@@ -264,6 +288,7 @@ class StreamChunkBlueprint(Blueprint):
 
 class TokenUsageBlueprint(Blueprint):
     """Renders token usage statistics for LLM inference."""
+
     prompt_tokens = IntFacet(min_value=0)
     completion_tokens = IntFacet(min_value=0)
     total_tokens = IntFacet(min_value=0)
@@ -275,6 +300,7 @@ class LLMInferenceRequestBlueprint(Blueprint):
 
     Extends InferenceRequestBlueprint with LLM-specific fields.
     """
+
     request_id = TextFacet(max_length=128)
     inputs = DictFacet(required=True)
     parameters = DictFacet(required=False, default=dict)
@@ -289,6 +315,7 @@ class LLMInferenceRequestBlueprint(Blueprint):
 
 class LLMInferenceResultBlueprint(Blueprint):
     """Renders LLM inference results including token metrics."""
+
     request_id = ReadOnly()
     outputs = DictFacet()
     latency_ms = FloatFacet(min_value=0.0)
@@ -301,6 +328,7 @@ class LLMInferenceResultBlueprint(Blueprint):
 
 class ChatMessageBlueprint(Blueprint):
     """Validates a single chat message."""
+
     role = ChoiceFacet(choices=["system", "user", "assistant", "function"], required=True)
     content = TextFacet(required=True)
     name = TextFacet(max_length=64, required=False, default="")
@@ -312,6 +340,7 @@ class ChatRequestBlueprint(Blueprint):
 
     Compatible with OpenAI-style chat completions API.
     """
+
     messages = ListFacet(required=True)
     model = TextFacet(max_length=256, required=False, default="")
     stream = BoolFacet(required=False, default=False)
@@ -324,6 +353,7 @@ class ChatRequestBlueprint(Blueprint):
 
 class ChatResponseBlueprint(Blueprint):
     """Renders chat-style LLM response."""
+
     id = ReadOnly()
     model = ReadOnly()
     choices = ListFacet()
@@ -333,6 +363,7 @@ class ChatResponseBlueprint(Blueprint):
 
 class CircuitBreakerStatusBlueprint(Blueprint):
     """Renders circuit breaker state for API responses."""
+
     state = ChoiceFacet(choices=["closed", "open", "half_open"])
     failure_count = IntFacet(min_value=0)
     success_count = IntFacet(min_value=0)
@@ -343,6 +374,7 @@ class CircuitBreakerStatusBlueprint(Blueprint):
 
 class RateLimiterStatusBlueprint(Blueprint):
     """Renders rate limiter state for API responses."""
+
     rate_rps = FloatFacet(min_value=0.0)
     capacity = IntFacet(min_value=0)
     available_tokens = FloatFacet(min_value=0.0)
@@ -350,6 +382,7 @@ class RateLimiterStatusBlueprint(Blueprint):
 
 class MemoryStatusBlueprint(Blueprint):
     """Renders memory tracker state for API responses."""
+
     current_mb = FloatFacet(min_value=0.0)
     soft_limit_mb = FloatFacet(min_value=0.0)
     hard_limit_mb = FloatFacet(min_value=0.0)
@@ -360,6 +393,7 @@ class MemoryStatusBlueprint(Blueprint):
 
 class ModelCapabilitiesBlueprint(Blueprint):
     """Renders model capabilities for API responses."""
+
     model_name = ReadOnly()
     model_type = ChoiceFacet(choices=[t.value for t in ModelType], required=False, default="SLM")
     supports_streaming = BoolFacet(required=False, default=False)

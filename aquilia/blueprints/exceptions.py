@@ -7,10 +7,9 @@ producing structured error responses with field→message mapping.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from ..faults.core import Fault, FaultDomain, Severity
-
 
 # ── Fault Domain ─────────────────────────────────────────────────────────
 
@@ -21,6 +20,7 @@ BLUEPRINT = FaultDomain(
 
 
 # ── Base ─────────────────────────────────────────────────────────────────
+
 
 class BlueprintFault(Fault):
     """Base fault for all Blueprint errors."""
@@ -34,20 +34,20 @@ class BlueprintFault(Fault):
         self,
         message: str = "Blueprint validation failed",
         *,
-        errors: Optional[Dict[str, List[str]]] = None,
-        code: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        errors: dict[str, list[str]] | None = None,
+        code: str | None = None,
+        metadata: dict[str, Any] | None = None,
     ):
-        self.field_errors: Dict[str, List[str]] = errors or {}
+        self.field_errors: dict[str, list[str]] = errors or {}
         super().__init__(
             message=message,
             code=code or self.__class__.code,
             metadata={**(metadata or {}), "field_errors": self.field_errors},
         )
 
-    def as_response_body(self) -> Dict[str, Any]:
+    def as_response_body(self) -> dict[str, Any]:
         """Structured error payload for API responses."""
-        body: Dict[str, Any] = {
+        body: dict[str, Any] = {
             "fault": self.code,
             "message": str(self),
         }
@@ -57,6 +57,7 @@ class BlueprintFault(Fault):
 
 
 # ── Specific Faults ──────────────────────────────────────────────────────
+
 
 class CastFault(BlueprintFault):
     """Raised when incoming data cannot be cast to the expected type."""
@@ -68,7 +69,7 @@ class CastFault(BlueprintFault):
         field: str,
         message: str = "Invalid value",
         *,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ):
         super().__init__(
             message=f"Cast failed for '{field}': {message}",

@@ -17,7 +17,7 @@ import traceback as tb_mod
 from collections import defaultdict, deque
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
@@ -25,9 +25,9 @@ class ErrorRecord:
     """Captured error with full context."""
 
     id: str = ""
-    code: str = ""          # Fault code
+    code: str = ""  # Fault code
     message: str = ""
-    domain: str = ""        # Fault domain (MODEL, FLOW, SECURITY, etc.)
+    domain: str = ""  # Fault domain (MODEL, FLOW, SECURITY, etc.)
     severity: str = "ERROR"
     trace_id: str = ""
     fingerprint: str = ""
@@ -41,15 +41,15 @@ class ErrorRecord:
     exception_type: str = ""
     exception_message: str = ""
     stack_trace: str = ""
-    stack_frames: List[Dict[str, Any]] = field(default_factory=list)
+    stack_frames: list[dict[str, Any]] = field(default_factory=list)
 
     # Timing
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Metadata
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "code": self.code,
@@ -79,13 +79,13 @@ class ErrorGroup:
     message: str = ""
     domain: str = ""
     count: int = 0
-    first_seen: Optional[datetime] = None
-    last_seen: Optional[datetime] = None
-    occurrences: List[str] = field(default_factory=list)  # List of error IDs
+    first_seen: datetime | None = None
+    last_seen: datetime | None = None
+    occurrences: list[str] = field(default_factory=list)  # List of error IDs
     routes: set = field(default_factory=set)
     apps: set = field(default_factory=set)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "fingerprint": self.fingerprint,
             "code": self.code,
@@ -137,34 +137,30 @@ class ErrorTracker:
         max_groups: int = 200,
     ):
         self._errors: deque[ErrorRecord] = deque(maxlen=max_errors)
-        self._groups: Dict[str, ErrorGroup] = {}
+        self._groups: dict[str, ErrorGroup] = {}
         self._max_groups = max_groups
         self._counter = 0
 
         # Aggregate counters
         self._total_errors = 0
-        self._by_domain: Dict[str, int] = defaultdict(int)
-        self._by_severity: Dict[str, int] = defaultdict(int)
-        self._by_route: Dict[str, int] = defaultdict(int)
-        self._by_code: Dict[str, int] = defaultdict(int)
+        self._by_domain: dict[str, int] = defaultdict(int)
+        self._by_severity: dict[str, int] = defaultdict(int)
+        self._by_route: dict[str, int] = defaultdict(int)
+        self._by_code: dict[str, int] = defaultdict(int)
         self._started_at = datetime.now(timezone.utc)
 
         # Hourly distribution (last 24 hours)
-        self._hourly: Dict[str, int] = defaultdict(int)
+        self._hourly: dict[str, int] = defaultdict(int)
 
         # ── Enhanced analytics (Phase 30) ────────────────────────────
         # 5-minute bucketed trend for high-resolution charts
-        self._five_min: Dict[str, int] = defaultdict(int)
+        self._five_min: dict[str, int] = defaultdict(int)
         # Per-domain hourly breakdown for stacked area charts
-        self._domain_hourly: Dict[str, Dict[str, int]] = defaultdict(
-            lambda: defaultdict(int)
-        )
+        self._domain_hourly: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
         # Severity over time (hourly)
-        self._severity_hourly: Dict[str, Dict[str, int]] = defaultdict(
-            lambda: defaultdict(int)
-        )
+        self._severity_hourly: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
         # Resolution tracking
-        self._resolved: Dict[str, datetime] = {}  # fingerprint -> resolved_at
+        self._resolved: dict[str, datetime] = {}  # fingerprint -> resolved_at
         self._total_resolved = 0
 
     def capture(self, fault_context) -> None:
@@ -181,7 +177,7 @@ class ErrorTracker:
 
         # Extract stack trace
         stack_trace = ""
-        stack_frames: List[Dict[str, Any]] = []
+        stack_frames: list[dict[str, Any]] = []
         if hasattr(fault_context, "stack") and fault_context.stack:
             for frame in fault_context.stack:
                 frame_dict = {
@@ -192,9 +188,7 @@ class ErrorTracker:
                 }
                 stack_frames.append(frame_dict)
             try:
-                stack_trace = "".join(
-                    tb_mod.format_list(fault_context.stack)
-                )
+                stack_trace = "".join(tb_mod.format_list(fault_context.stack))
             except Exception:
                 stack_trace = str(fault_context.stack)
 
@@ -210,8 +204,12 @@ class ErrorTracker:
             id=f"err-{self._counter:06d}",
             code=getattr(fault, "code", "UNKNOWN"),
             message=getattr(fault, "message", str(fault)),
-            domain=getattr(fault.domain, "value", str(getattr(fault, "domain", "UNKNOWN"))) if hasattr(fault, "domain") else "UNKNOWN",
-            severity=getattr(fault.severity, "value", str(getattr(fault, "severity", "ERROR"))) if hasattr(fault, "severity") else "ERROR",
+            domain=getattr(fault.domain, "value", str(getattr(fault, "domain", "UNKNOWN")))
+            if hasattr(fault, "domain")
+            else "UNKNOWN",
+            severity=getattr(fault.severity, "value", str(getattr(fault, "severity", "ERROR")))
+            if hasattr(fault, "severity")
+            else "ERROR",
             trace_id=getattr(fault_context, "trace_id", ""),
             fingerprint=fault_context.fingerprint() if hasattr(fault_context, "fingerprint") else "",
             app=getattr(fault_context, "app", "") or "",
@@ -240,7 +238,7 @@ class ErrorTracker:
         exception_type: str = "",
         exception_message: str = "",
         stack_trace: str = "",
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> ErrorRecord:
         """
         Manually record an error.
@@ -263,6 +261,7 @@ class ErrorTracker:
         """
         self._counter += 1
         import hashlib as _hashlib
+
         fp_data = f"{code}:{domain}:{app}:{route}"
         fingerprint = _hashlib.sha256(fp_data.encode()).hexdigest()[:16]
 
@@ -317,7 +316,10 @@ class ErrorTracker:
             if fp not in self._groups:
                 if len(self._groups) >= self._max_groups:
                     # Evict oldest group
-                    oldest_key = min(self._groups, key=lambda k: self._groups[k].last_seen or datetime.min.replace(tzinfo=timezone.utc))
+                    oldest_key = min(
+                        self._groups,
+                        key=lambda k: self._groups[k].last_seen or datetime.min.replace(tzinfo=timezone.utc),
+                    )
                     del self._groups[oldest_key]
                 self._groups[fp] = ErrorGroup(
                     fingerprint=fp,
@@ -339,32 +341,32 @@ class ErrorTracker:
     # Query API
     # ========================================================================
 
-    def get_recent_errors(self, limit: int = 50) -> List[ErrorRecord]:
+    def get_recent_errors(self, limit: int = 50) -> list[ErrorRecord]:
         """Get most recent errors."""
         errors = list(self._errors)
         return errors[-limit:]
 
-    def get_error(self, error_id: str) -> Optional[ErrorRecord]:
+    def get_error(self, error_id: str) -> ErrorRecord | None:
         """Get a specific error by ID."""
         for err in self._errors:
             if err.id == error_id:
                 return err
         return None
 
-    def get_groups(self, limit: int = 50) -> List[ErrorGroup]:
+    def get_groups(self, limit: int = 50) -> list[ErrorGroup]:
         """Get error groups sorted by count descending."""
         groups = sorted(self._groups.values(), key=lambda g: g.count, reverse=True)
         return groups[:limit]
 
-    def get_errors_by_route(self, route: str, limit: int = 50) -> List[ErrorRecord]:
+    def get_errors_by_route(self, route: str, limit: int = 50) -> list[ErrorRecord]:
         """Get errors for a specific route."""
         return [e for e in list(self._errors) if e.route == route][-limit:]
 
-    def get_errors_by_domain(self, domain: str, limit: int = 50) -> List[ErrorRecord]:
+    def get_errors_by_domain(self, domain: str, limit: int = 50) -> list[ErrorRecord]:
         """Get errors for a specific domain."""
         return [e for e in list(self._errors) if e.domain == domain][-limit:]
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get comprehensive error statistics with chart-ready data."""
         errors = list(self._errors)
         groups = self.get_groups(20)
@@ -373,28 +375,18 @@ class ErrorTracker:
 
         # Recent errors (last hour)
         now = datetime.now(timezone.utc)
-        errors_last_hour = sum(
-            1 for e in errors
-            if (now - e.timestamp).total_seconds() < 3600
-        )
-        errors_last_24h = sum(
-            1 for e in errors
-            if (now - e.timestamp).total_seconds() < 86400
-        )
+        errors_last_hour = sum(1 for e in errors if (now - e.timestamp).total_seconds() < 3600)
+        errors_last_24h = sum(1 for e in errors if (now - e.timestamp).total_seconds() < 86400)
 
         # Error rate
         elapsed = (now - self._started_at).total_seconds() or 1
         error_rate = self._total_errors / elapsed
 
         # Top routes
-        top_routes = sorted(
-            self._by_route.items(), key=lambda x: x[1], reverse=True
-        )[:10]
+        top_routes = sorted(self._by_route.items(), key=lambda x: x[1], reverse=True)[:10]
 
         # Top error codes
-        top_codes = sorted(
-            self._by_code.items(), key=lambda x: x[1], reverse=True
-        )[:10]
+        top_codes = sorted(self._by_code.items(), key=lambda x: x[1], reverse=True)[:10]
 
         # ── Chart data: Hourly trend (last 24h) ─────────────────────
         hourly_trend = []
@@ -450,10 +442,7 @@ class ErrorTracker:
             severity_series[sev] = series
 
         # ── Resolution stats ────────────────────────────────────────
-        unresolved_count = sum(
-            1 for g in self._groups.values()
-            if g.fingerprint not in self._resolved
-        )
+        unresolved_count = sum(1 for g in self._groups.values() if g.fingerprint not in self._resolved)
 
         # ── MTTR (Mean Time To Resolve) ─────────────────────────────
         mttr_ms = 0.0
@@ -554,7 +543,7 @@ class ErrorTracker:
 # Global instance
 # ============================================================================
 
-_default_tracker: Optional[ErrorTracker] = None
+_default_tracker: ErrorTracker | None = None
 
 
 def get_error_tracker() -> ErrorTracker:

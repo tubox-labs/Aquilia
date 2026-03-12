@@ -13,15 +13,14 @@ Discovers pure-Python Model subclasses from:
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import importlib
 import importlib.util
 import sys
 import types
 from pathlib import Path
-from typing import List, Optional
 
 import click
-
 
 # ── Discovery Helpers ─────────────────────────────────────────────────────────
 
@@ -29,6 +28,7 @@ import click
 def _has_admin_integration() -> bool:
     """Detect if admin integration is enabled in workspace.py."""
     import re as _re
+
     workspace_file = Path.cwd() / "workspace.py"
     if not workspace_file.exists():
         return False
@@ -39,7 +39,7 @@ def _has_admin_integration() -> bool:
             stripped = line.strip()
             if stripped.startswith("#"):
                 continue
-            if _re.search(r'Integration\.admin\s*\(', stripped):
+            if _re.search(r"Integration\.admin\s*\(", stripped):
                 return True
     except Exception:
         pass
@@ -55,14 +55,15 @@ def _discover_admin_models(verbose: bool = False) -> list:
     which only scans the workspace.
     """
     try:
-        from aquilia.models.base import Model
         from aquilia.admin.models import (
-            AdminUser,
-            AdminAuditEntry,
-            AdminAPIKey,
-            AdminPreference,
             _HAS_ORM,
+            AdminAPIKey,
+            AdminAuditEntry,
+            AdminPreference,
+            AdminUser,
         )
+        from aquilia.models.base import Model
+
         if not _HAS_ORM:
             return []
 
@@ -73,16 +74,12 @@ def _discover_admin_models(verbose: bool = False) -> list:
             AdminPreference,
         ]
         # Only return actual Model subclasses
-        result = [
-            m for m in admin_models
-            if isinstance(m, type) and issubclass(m, Model) and m is not Model
-        ]
+        result = [m for m in admin_models if isinstance(m, type) and issubclass(m, Model) and m is not Model]
         if verbose:
             for m in result:
                 click.echo(
                     click.style(
-                        f"  Found admin model: {m.__name__} "
-                        f"(table={m._meta.table_name})",
+                        f"  Found admin model: {m.__name__} (table={m._meta.table_name})",
                         fg="magenta",
                     )
                 )
@@ -91,7 +88,7 @@ def _discover_admin_models(verbose: bool = False) -> list:
         return []
 
 
-def _find_model_files(search_dirs: Optional[List[str]] = None) -> List[Path]:
+def _find_model_files(search_dirs: list[str] | None = None) -> list[Path]:
     """
     Find all Python model files in the workspace.
 
@@ -101,7 +98,7 @@ def _find_model_files(search_dirs: Optional[List[str]] = None) -> List[Path]:
     3. modules/*/models.py single-file models
     4. models/ at workspace root
     """
-    found: List[Path] = []
+    found: list[Path] = []
     cwd = Path.cwd()
 
     if search_dirs:
@@ -142,7 +139,7 @@ def _find_model_files(search_dirs: Optional[List[str]] = None) -> List[Path]:
     return list(dict.fromkeys(found))  # dedupe preserving order
 
 
-def _import_model_module(py_path: Path) -> Optional[types.ModuleType]:
+def _import_model_module(py_path: Path) -> types.ModuleType | None:
     """
     Import a Python model file using proper package-aware imports.
 
@@ -184,10 +181,8 @@ def _import_model_module(py_path: Path) -> Optional[types.ModuleType]:
                     if parent_spec and parent_spec.loader:
                         parent_mod = importlib.util.module_from_spec(parent_spec)
                         sys.modules[parent_dotted] = parent_mod
-                        try:
+                        with contextlib.suppress(Exception):
                             parent_spec.loader.exec_module(parent_mod)
-                        except Exception:
-                            pass
                 else:
                     # Create a namespace package stub
                     ns_mod = types.ModuleType(parent_dotted)
@@ -211,8 +206,8 @@ def _import_model_module(py_path: Path) -> Optional[types.ModuleType]:
 
 
 def _discover_models(
-    search_dirs: Optional[List[str]] = None,
-    app: Optional[str] = None,
+    search_dirs: list[str] | None = None,
+    app: str | None = None,
     verbose: bool = False,
     ignore_errors: bool = False,
 ) -> list:
@@ -242,10 +237,7 @@ def _discover_models(
 
     # Filter by app if specified
     if app:
-        py_files = [
-            f for f in py_files
-            if f"modules/{app}/" in str(f) or f"modules/{app}\\" in str(f)
-        ]
+        py_files = [f for f in py_files if f"modules/{app}/" in str(f) or f"modules/{app}\\" in str(f)]
 
     discovered = []
     seen_names: set = set()
@@ -278,23 +270,23 @@ def _discover_models(
                     if verbose:
                         click.echo(
                             click.style(
-                                f"  Found model: {attr.__name__} "
-                                f"(table={attr._meta.table_name})",
+                                f"  Found model: {attr.__name__} (table={attr._meta.table_name})",
                                 fg="blue",
                             )
                         )
         except Exception as e:
             if not ignore_errors:
                 import traceback
+
                 error_details = traceback.format_exc()
                 click.secho(f"\nError: Failed to import or process model file: {py_path}", fg="red", bold=True)
                 click.secho(f"{error_details}", fg="red")
-                raise click.ClickException(f"Failed to load model from {py_path}. Please fix the syntax/import errors before continuing.")
+                raise click.ClickException(
+                    f"Failed to load model from {py_path}. Please fix the syntax/import errors before continuing."
+                )
 
             if verbose:
-                click.echo(
-                    click.style(f"  ! Failed to import {py_path}: {e}", fg="yellow")
-                )
+                click.echo(click.style(f"  ! Failed to import {py_path}: {e}", fg="yellow"))
             continue
 
     return discovered
@@ -304,12 +296,12 @@ def _discover_models(
 
 
 def cmd_makemigrations(
-    app: Optional[str] = None,
+    app: str | None = None,
     migrations_dir: str = "migrations",
     verbose: bool = False,
     use_dsl: bool = True,
     migration_format: str = "crous",
-) -> List[Path]:
+) -> list[Path]:
     """
     Generate migration files from Python Model definitions.
 
@@ -332,8 +324,7 @@ def cmd_makemigrations(
     if not models:
         click.echo(
             click.style(
-                f"No models found{f' for app {app!r}' if app else ''}. "
-                "Define Model subclasses in modules/*/models/.",
+                f"No models found{f' for app {app!r}' if app else ''}. Define Model subclasses in modules/*/models/.",
                 fg="yellow",
             )
         )
@@ -349,9 +340,7 @@ def cmd_makemigrations(
         )
 
         if generated is None:
-            click.echo(
-                click.style("No model changes detected.", fg="yellow")
-            )
+            click.echo(click.style("No model changes detected.", fg="yellow"))
             return []
 
         # CROUS snapshot is now saved by default within generate_dsl_migration
@@ -360,8 +349,7 @@ def cmd_makemigrations(
         model_names = ", ".join(m.__name__ for m in models)
         click.echo(
             click.style(
-                f"Generated DSL migration: {generated.name} "
-                f"({len(models)} model(s): {model_names})",
+                f"Generated DSL migration: {generated.name} ({len(models)} model(s): {model_names})",
                 fg="green",
             )
         )
@@ -385,8 +373,7 @@ def cmd_makemigrations(
         model_names = ", ".join(m.__name__ for m in models)
         click.echo(
             click.style(
-                f"Generated migration: {generated.name} "
-                f"({len(models)} model(s): {model_names})",
+                f"Generated migration: {generated.name} ({len(models)} model(s): {model_names})",
                 fg="green",
             )
         )
@@ -396,12 +383,12 @@ def cmd_makemigrations(
 def cmd_migrate(
     migrations_dir: str = "migrations",
     database_url: str = "sqlite:///db.sqlite3",
-    target: Optional[str] = None,
+    target: str | None = None,
     verbose: bool = False,
     fake: bool = False,
     plan: bool = False,
-    database: Optional[str] = None,
-) -> List[str]:
+    database: str | None = None,
+) -> list[str]:
     """
     Apply pending migrations to the database.
 
@@ -419,7 +406,7 @@ def cmd_migrate(
     from aquilia.db import AquiliaDatabase
     from aquilia.models.migration_runner import MigrationRunner
 
-    async def _run() -> List[str]:
+    async def _run() -> list[str]:
         db = AquiliaDatabase(database_url)
         await db.connect()
         try:
@@ -469,9 +456,9 @@ def cmd_migrate(
 
 def cmd_model_dump(
     emit: str = "python",
-    output_dir: Optional[str] = None,
+    output_dir: str | None = None,
     verbose: bool = False,
-) -> Optional[str]:
+) -> str | None:
     """
     Dump model schema information.
 
@@ -492,7 +479,7 @@ def cmd_model_dump(
         click.echo(click.style("No models found in workspace.", fg="yellow"))
         return None
 
-    parts: List[str] = []
+    parts: list[str] = []
 
     if emit == "sql":
         # Raw SQL DDL
@@ -586,6 +573,7 @@ def cmd_shell(
         # Wire models to database
         try:
             from aquilia.models.base import ModelRegistry
+
             ModelRegistry.set_database(db)
         except ImportError:
             pass
@@ -615,7 +603,8 @@ def cmd_shell(
 
         # Add Q and ModelRegistry
         try:
-            from aquilia.models.base import Q, ModelRegistry
+            from aquilia.models.base import ModelRegistry, Q
+
             ns["Q"] = Q
             ns["ModelRegistry"] = ModelRegistry
         except ImportError:
@@ -644,7 +633,7 @@ def cmd_shell(
 
 def cmd_inspectdb(
     database_url: str = "sqlite:///db.sqlite3",
-    tables: Optional[List[str]] = None,
+    tables: list[str] | None = None,
     verbose: bool = False,
 ) -> str:
     """
@@ -671,8 +660,7 @@ def cmd_inspectdb(
             # Get table list
             if database_url.startswith("sqlite"):
                 rows = await db.fetch_all(
-                    "SELECT name FROM sqlite_master WHERE type='table' "
-                    "AND name NOT LIKE 'sqlite_%' ORDER BY name"
+                    "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name"
                 )
                 all_tables = [row["name"] for row in rows]
             else:
@@ -731,7 +719,7 @@ def cmd_inspectdb(
                     lines.append(f"    {col_name} = {field_type}({field_args})")
 
                 lines.append("")
-                lines.append(f"    class Meta:")
+                lines.append("    class Meta:")
                 lines.append(f'        verbose_name = "{class_name}"')
                 lines.append("")
                 lines.append("")
@@ -747,7 +735,7 @@ def cmd_showmigrations(
     migrations_dir: str = "migrations",
     database_url: str = "sqlite:///db.sqlite3",
     verbose: bool = False,
-) -> List[dict]:
+) -> list[dict]:
     """
     Show all migrations and their applied status against the database.
 
@@ -768,9 +756,7 @@ def cmd_showmigrations(
         return []
 
     # Collect on-disk migration files
-    files = sorted(
-        p for p in migrations_path.glob("*.py") if not p.name.startswith("_")
-    )
+    files = sorted(p for p in migrations_path.glob("*.py") if not p.name.startswith("_"))
 
     if not files:
         click.echo(click.style("  No migrations found.", fg="yellow"))
@@ -788,17 +774,13 @@ def cmd_showmigrations(
         except Exception:
             return set()
         finally:
-            try:
+            with contextlib.suppress(Exception):
                 await db.disconnect()
-            except Exception:
-                pass
 
-    try:
+    with contextlib.suppress(Exception):
         applied_set = asyncio.run(_fetch_applied())
-    except Exception:
-        pass
 
-    results: List[dict] = []
+    results: list[dict] = []
     for pyf in files:
         name = pyf.stem
         is_applied = name in applied_set
@@ -808,11 +790,7 @@ def cmd_showmigrations(
             "applied": is_applied,
         }
         results.append(info)
-        marker = (
-            click.style("[X]", fg="green")
-            if is_applied
-            else click.style("[ ]", fg="yellow")
-        )
+        marker = click.style("[X]", fg="green") if is_applied else click.style("[ ]", fg="yellow")
         click.echo(f"  {marker} {name}")
 
     return results
@@ -822,8 +800,8 @@ def cmd_sqlmigrate(
     migration_name: str,
     migrations_dir: str = "migrations",
     verbose: bool = False,
-    database: Optional[str] = None,
-) -> Optional[str]:
+    database: str | None = None,
+) -> str | None:
     """
     Display the SQL statements for a specific migration.
 
@@ -840,7 +818,6 @@ def cmd_sqlmigrate(
     Returns:
         SQL string or None
     """
-    from aquilia.models.migration_runner import MigrationRunner
 
     migrations_path = Path(migrations_dir)
     target = migrations_path / f"{migration_name}.py"
@@ -851,24 +828,18 @@ def cmd_sqlmigrate(
         if len(candidates) == 1:
             target = candidates[0]
         elif len(candidates) > 1:
-            click.echo(
-                click.style(
-                    f"Ambiguous: {[c.stem for c in candidates]}", fg="yellow"
-                )
-            )
+            click.echo(click.style(f"Ambiguous: {[c.stem for c in candidates]}", fg="yellow"))
             return None
         else:
-            click.echo(
-                click.style(f"Migration not found: {migration_name}", fg="red")
-            )
+            click.echo(click.style(f"Migration not found: {migration_name}", fg="red"))
             return None
 
     # Try DSL compilation first
     try:
         from aquilia.models.migration_runner import (
-            _load_migration_module,
             _build_migration_from_module,
             _extract_revision,
+            _load_migration_module,
         )
 
         rev = _extract_revision(target) or target.stem
@@ -942,8 +913,7 @@ def cmd_db_status(
 
             if database_url.startswith("sqlite"):
                 rows = await db.fetch_all(
-                    "SELECT name FROM sqlite_master WHERE type='table' "
-                    "AND name NOT LIKE 'sqlite_%' ORDER BY name"
+                    "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name"
                 )
                 for row in rows:
                     table_name = row["name"]
@@ -969,8 +939,7 @@ def cmd_db_status(
 
             click.echo(
                 click.style(
-                    f"\n  Total: {status['total_tables']} table(s), "
-                    f"{sum(t['rows'] for t in status['tables'])} row(s)",
+                    f"\n  Total: {status['total_tables']} table(s), {sum(t['rows'] for t in status['tables'])} row(s)",
                     fg="green",
                     bold=True,
                 )
@@ -993,11 +962,9 @@ def _table_to_class_name(table_name: str) -> str:
     return "".join(part.capitalize() for part in parts if part)
 
 
-def _sql_type_to_field(
-    col_type: str, notnull: int, default_val: Optional[str]
-) -> tuple:
+def _sql_type_to_field(col_type: str, notnull: int, default_val: str | None) -> tuple:
     """Map an SQL column type to an Aquilia field type + args."""
-    args: List[str] = []
+    args: list[str] = []
 
     if not notnull:
         args.append("null=True")
@@ -1013,7 +980,8 @@ def _sql_type_to_field(
     elif "CHAR" in col_upper or "VARCHAR" in col_upper:
         # Extract max_length from VARCHAR(N)
         import re
-        m = re.search(r'\((\d+)\)', col_type)
+
+        m = re.search(r"\((\d+)\)", col_type)
         if m:
             args.insert(0, f"max_length={m.group(1)}")
         else:

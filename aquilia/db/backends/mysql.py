@@ -10,14 +10,16 @@ Requires aiomysql:
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import re
-from typing import Any, Dict, List, Optional, Sequence
+from collections.abc import Sequence
+from typing import Any
 
 from .base import (
-    DatabaseAdapter,
     AdapterCapabilities,
     ColumnInfo,
+    DatabaseAdapter,
 )
 
 logger = logging.getLogger("aquilia.db.backends.mysql")
@@ -27,6 +29,7 @@ __all__ = ["MySQLAdapter"]
 # Try importing async MySQL driver
 try:
     import aiomysql
+
     _HAS_AIOMYSQL = True
 except ImportError:
     aiomysql = None  # type: ignore
@@ -53,15 +56,15 @@ class MySQLAdapter(DatabaseAdapter):
 
     capabilities = AdapterCapabilities(
         supports_returning=False,  # MySQL < 8.0.21 doesn't support RETURNING
-        supports_json_type=True,   # MySQL 5.7+
+        supports_json_type=True,  # MySQL 5.7+
         supports_arrays=False,
         supports_hstore=False,
         supports_citext=False,
         supports_upsert=True,  # ON DUPLICATE KEY UPDATE
         supports_savepoints=True,
-        supports_window_functions=True,   # MySQL 8.0+
-        supports_cte=True,               # MySQL 8.0+
-        param_style="format",            # %s
+        supports_window_functions=True,  # MySQL 8.0+
+        supports_cte=True,  # MySQL 8.0+
+        param_style="format",  # %s
         null_ordering=False,
         name="mysql",
     )
@@ -77,16 +80,14 @@ class MySQLAdapter(DatabaseAdapter):
             return
 
         if not _HAS_AIOMYSQL:
-            raise ImportError(
-                "aiomysql is required for MySQL support.\n"
-                "Install: pip install aiomysql"
-            )
+            raise ImportError("aiomysql is required for MySQL support.\nInstall: pip install aiomysql")
 
         conn_kwargs = _parse_mysql_url(url)
         conn_kwargs.update(options)
         conn_kwargs.setdefault("autocommit", True)
         # Silence aiomysql's internal DEBUG chatter (auth handshake, etc.)
         import logging as _logging
+
         _logging.getLogger("aiomysql").setLevel(_logging.WARNING)
         self._pool = await aiomysql.create_pool(**conn_kwargs)
         self._connected = True
@@ -96,10 +97,8 @@ class MySQLAdapter(DatabaseAdapter):
             return
         # Release transaction connection if held
         if self._txn_conn is not None:
-            try:
+            with contextlib.suppress(Exception):
                 await self._txn_conn.rollback()
-            except Exception:
-                pass
             self._txn_conn.close()
             self._txn_conn = None
             self._in_transaction = False
@@ -123,10 +122,11 @@ class MySQLAdapter(DatabaseAdapter):
         inside single-quoted strings).
         """
         import re
+
         # MySQL doesn't support CREATE INDEX IF NOT EXISTS — strip it.
         sql = re.sub(
-            r'CREATE\s+(UNIQUE\s+)?INDEX\s+IF\s+NOT\s+EXISTS',
-            r'CREATE \1INDEX',
+            r"CREATE\s+(UNIQUE\s+)?INDEX\s+IF\s+NOT\s+EXISTS",
+            r"CREATE \1INDEX",
             sql,
             flags=re.IGNORECASE,
         )
@@ -151,7 +151,7 @@ class MySQLAdapter(DatabaseAdapter):
             elif ch == '"' and not in_string:
                 # Toggle double-quote identifier mode; emit backtick
                 in_dq_ident = not in_dq_ident
-                result.append('`')
+                result.append("`")
             elif ch == "?" and not in_string and not in_dq_ident:
                 result.append("%s")
             else:
@@ -165,13 +165,15 @@ class MySQLAdapter(DatabaseAdapter):
             return self._txn_conn
         return None
 
-    async def execute(self, sql: str, params: Optional[Sequence[Any]] = None) -> Any:
+    async def execute(self, sql: str, params: Sequence[Any] | None = None) -> Any:
         if not self._connected:
             from aquilia.faults.domains import DatabaseConnectionFault
+
             raise DatabaseConnectionFault(backend="mysql", reason="Not connected to MySQL")
         adapted_sql = self.adapt_sql(sql)
         conn = self._get_conn()
         import warnings
+
         if conn is not None:
             async with conn.cursor(aiomysql.DictCursor) as cur:
                 with warnings.catch_warnings():
@@ -179,16 +181,16 @@ class MySQLAdapter(DatabaseAdapter):
                     await cur.execute(adapted_sql, params or ())
                 return cur
         else:
-            async with self._pool.acquire() as c:
-                async with c.cursor(aiomysql.DictCursor) as cur:
-                    with warnings.catch_warnings():
-                        warnings.simplefilter("ignore")
-                        await cur.execute(adapted_sql, params or ())
-                    return cur
+            async with self._pool.acquire() as c, c.cursor(aiomysql.DictCursor) as cur:
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore")
+                    await cur.execute(adapted_sql, params or ())
+                return cur
 
     async def execute_many(self, sql: str, params_list: Sequence[Sequence[Any]]) -> None:
         if not self._connected:
             from aquilia.faults.domains import DatabaseConnectionFault
+
             raise DatabaseConnectionFault(backend="mysql", reason="Not connected to MySQL")
         adapted_sql = self.adapt_sql(sql)
         conn = self._get_conn()
@@ -196,13 +198,13 @@ class MySQLAdapter(DatabaseAdapter):
             async with conn.cursor() as cur:
                 await cur.executemany(adapted_sql, params_list)
         else:
-            async with self._pool.acquire() as c:
-                async with c.cursor() as cur:
-                    await cur.executemany(adapted_sql, params_list)
+            async with self._pool.acquire() as c, c.cursor() as cur:
+                await cur.executemany(adapted_sql, params_list)
 
-    async def fetch_all(self, sql: str, params: Optional[Sequence[Any]] = None) -> List[Dict[str, Any]]:
+    async def fetch_all(self, sql: str, params: Sequence[Any] | None = None) -> list[dict[str, Any]]:
         if not self._connected:
             from aquilia.faults.domains import DatabaseConnectionFault
+
             raise DatabaseConnectionFault(backend="mysql", reason="Not connected to MySQL")
         adapted_sql = self.adapt_sql(sql)
         conn = self._get_conn()
@@ -212,15 +214,15 @@ class MySQLAdapter(DatabaseAdapter):
                 rows = await cur.fetchall()
                 return list(rows)
         else:
-            async with self._pool.acquire() as c:
-                async with c.cursor(aiomysql.DictCursor) as cur:
-                    await cur.execute(adapted_sql, params or ())
-                    rows = await cur.fetchall()
-                    return list(rows)
+            async with self._pool.acquire() as c, c.cursor(aiomysql.DictCursor) as cur:
+                await cur.execute(adapted_sql, params or ())
+                rows = await cur.fetchall()
+                return list(rows)
 
-    async def fetch_one(self, sql: str, params: Optional[Sequence[Any]] = None) -> Optional[Dict[str, Any]]:
+    async def fetch_one(self, sql: str, params: Sequence[Any] | None = None) -> dict[str, Any] | None:
         if not self._connected:
             from aquilia.faults.domains import DatabaseConnectionFault
+
             raise DatabaseConnectionFault(backend="mysql", reason="Not connected to MySQL")
         adapted_sql = self.adapt_sql(sql)
         conn = self._get_conn()
@@ -230,15 +232,15 @@ class MySQLAdapter(DatabaseAdapter):
                 row = await cur.fetchone()
                 return dict(row) if row else None
         else:
-            async with self._pool.acquire() as c:
-                async with c.cursor(aiomysql.DictCursor) as cur:
-                    await cur.execute(adapted_sql, params or ())
-                    row = await cur.fetchone()
-                    return dict(row) if row else None
+            async with self._pool.acquire() as c, c.cursor(aiomysql.DictCursor) as cur:
+                await cur.execute(adapted_sql, params or ())
+                row = await cur.fetchone()
+                return dict(row) if row else None
 
-    async def fetch_val(self, sql: str, params: Optional[Sequence[Any]] = None) -> Any:
+    async def fetch_val(self, sql: str, params: Sequence[Any] | None = None) -> Any:
         if not self._connected:
             from aquilia.faults.domains import DatabaseConnectionFault
+
             raise DatabaseConnectionFault(backend="mysql", reason="Not connected to MySQL")
         adapted_sql = self.adapt_sql(sql)
         conn = self._get_conn()
@@ -248,11 +250,10 @@ class MySQLAdapter(DatabaseAdapter):
                 row = await cur.fetchone()
                 return row[0] if row else None
         else:
-            async with self._pool.acquire() as c:
-                async with c.cursor() as cur:
-                    await cur.execute(adapted_sql, params or ())
-                    row = await cur.fetchone()
-                    return row[0] if row else None
+            async with self._pool.acquire() as c, c.cursor() as cur:
+                await cur.execute(adapted_sql, params or ())
+                row = await cur.fetchone()
+                return row[0] if row else None
 
     # ── Transactions ─────────────────────────────────────────────────
 
@@ -294,54 +295,58 @@ class MySQLAdapter(DatabaseAdapter):
         """Create a savepoint (must be inside a transaction)."""
         if not _SP_NAME_RE.match(name):
             from aquilia.faults.domains import QueryFault
+
             raise QueryFault(message=f"Invalid savepoint name: {name!r}")
         conn = self._get_conn()
         if conn is None:
             from aquilia.faults.domains import QueryFault
+
             raise QueryFault(message="Cannot create savepoint outside a transaction")
         async with conn.cursor() as cur:
-            await cur.execute(f'SAVEPOINT `{name}`')
+            await cur.execute(f"SAVEPOINT `{name}`")
 
     async def release_savepoint(self, name: str) -> None:
         if not _SP_NAME_RE.match(name):
             from aquilia.faults.domains import QueryFault
+
             raise QueryFault(message=f"Invalid savepoint name: {name!r}")
         conn = self._get_conn()
         if conn is None:
             from aquilia.faults.domains import QueryFault
+
             raise QueryFault(message="Cannot release savepoint outside a transaction")
         async with conn.cursor() as cur:
-            await cur.execute(f'RELEASE SAVEPOINT `{name}`')
+            await cur.execute(f"RELEASE SAVEPOINT `{name}`")
 
     async def rollback_to_savepoint(self, name: str) -> None:
         if not _SP_NAME_RE.match(name):
             from aquilia.faults.domains import QueryFault
+
             raise QueryFault(message=f"Invalid savepoint name: {name!r}")
         conn = self._get_conn()
         if conn is None:
             from aquilia.faults.domains import QueryFault
+
             raise QueryFault(message="Cannot rollback savepoint outside a transaction")
         async with conn.cursor() as cur:
-            await cur.execute(f'ROLLBACK TO SAVEPOINT `{name}`')
+            await cur.execute(f"ROLLBACK TO SAVEPOINT `{name}`")
 
     # ── Introspection ────────────────────────────────────────────────
 
     async def table_exists(self, table_name: str) -> bool:
         row = await self.fetch_one(
-            "SELECT COUNT(*) AS cnt FROM information_schema.tables "
-            "WHERE table_schema=DATABASE() AND table_name=?",
+            "SELECT COUNT(*) AS cnt FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name=?",
             [table_name],
         )
         return bool(row and row.get("cnt", 0) > 0)
 
-    async def get_tables(self) -> List[str]:
+    async def get_tables(self) -> list[str]:
         rows = await self.fetch_all(
-            "SELECT table_name FROM information_schema.tables "
-            "WHERE table_schema=DATABASE() ORDER BY table_name"
+            "SELECT table_name FROM information_schema.tables WHERE table_schema=DATABASE() ORDER BY table_name"
         )
         return [r["table_name"] for r in rows]
 
-    async def get_columns(self, table_name: str) -> List[ColumnInfo]:
+    async def get_columns(self, table_name: str) -> list[ColumnInfo]:
         rows = await self.fetch_all(
             "SELECT column_name, column_type, is_nullable, column_default, "
             "character_maximum_length "
@@ -352,16 +357,18 @@ class MySQLAdapter(DatabaseAdapter):
         )
         columns = []
         for row in rows:
-            columns.append(ColumnInfo(
-                name=row["column_name"],
-                data_type=row["column_type"],
-                nullable=row["is_nullable"] == "YES",
-                default=row.get("column_default"),
-                max_length=row.get("character_maximum_length"),
-            ))
+            columns.append(
+                ColumnInfo(
+                    name=row["column_name"],
+                    data_type=row["column_type"],
+                    nullable=row["is_nullable"] == "YES",
+                    default=row.get("column_default"),
+                    max_length=row.get("character_maximum_length"),
+                )
+            )
         return columns
 
-    async def get_indexes(self, table_name: str) -> List[Dict[str, Any]]:
+    async def get_indexes(self, table_name: str) -> list[dict[str, Any]]:
         """Get index info for a MySQL table."""
         rows = await self.fetch_all(
             "SELECT INDEX_NAME, COLUMN_NAME, NON_UNIQUE "
@@ -371,7 +378,7 @@ class MySQLAdapter(DatabaseAdapter):
             [table_name],
         )
         # Group by index name
-        idx_map: Dict[str, Dict[str, Any]] = {}
+        idx_map: dict[str, dict[str, Any]] = {}
         for row in rows:
             name = row["INDEX_NAME"]
             if name not in idx_map:
@@ -383,7 +390,7 @@ class MySQLAdapter(DatabaseAdapter):
             idx_map[name]["columns"].append(row["COLUMN_NAME"])
         return list(idx_map.values())
 
-    async def get_foreign_keys(self, table_name: str) -> List[Dict[str, Any]]:
+    async def get_foreign_keys(self, table_name: str) -> list[dict[str, Any]]:
         """Get foreign key info for a MySQL table."""
         rows = await self.fetch_all(
             "SELECT kcu.COLUMN_NAME AS from_column, "
@@ -412,7 +419,8 @@ class MySQLAdapter(DatabaseAdapter):
 
 # ── URL parsing helper ──────────────────────────────────────────────
 
-def _parse_mysql_url(url: str) -> Dict[str, Any]:
+
+def _parse_mysql_url(url: str) -> dict[str, Any]:
     """
     Parse a mysql:// URL into connection kwargs.
 
@@ -422,7 +430,7 @@ def _parse_mysql_url(url: str) -> Dict[str, Any]:
     from urllib.parse import urlparse
 
     parsed = urlparse(url)
-    kwargs: Dict[str, Any] = {
+    kwargs: dict[str, Any] = {
         "host": parsed.hostname or "localhost",
         "port": parsed.port or 3306,
         "db": (parsed.path or "/").lstrip("/") or None,

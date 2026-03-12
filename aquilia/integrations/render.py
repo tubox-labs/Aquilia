@@ -5,7 +5,7 @@ RenderIntegration — typed Render PaaS deployment configuration.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional
+from typing import Any
 
 
 @dataclass
@@ -24,17 +24,17 @@ class RenderIntegration:
 
     _integration_type: str = field(default="render", init=False, repr=False)
 
-    service_name: Optional[str] = None
+    service_name: str | None = None
     region: str = "oregon"
     plan: str = "starter"
     num_instances: int = 1
-    image: Optional[str] = None
+    image: str | None = None
     health_path: str = "/_health"
     auto_deploy: str = "no"
     enabled: bool = True
 
-    def to_dict(self) -> Dict[str, Any]:
-        config: Dict[str, Any] = {
+    def to_dict(self) -> dict[str, Any]:
+        config: dict[str, Any] = {
             "_integration_type": "render",
             "enabled": self.enabled,
             "region": self.region,

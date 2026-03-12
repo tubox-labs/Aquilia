@@ -4,30 +4,23 @@ Core DI types and protocols.
 Defines the fundamental contracts for the DI system.
 """
 
+import asyncio
+import inspect
+from collections.abc import Callable, Coroutine
+from dataclasses import dataclass, field
 from typing import (
     Any,
-    Callable,
-    Coroutine,
-    Type,
     Optional,
     Protocol,
-    Dict,
-    List,
     TypeVar,
-    Generic,
     runtime_checkable,
 )
-from dataclasses import dataclass, field
-from enum import Enum
-import inspect
-import asyncio
-from contextvars import ContextVar
 
 # Use inspect.iscoroutinefunction (asyncio version deprecated in 3.16)
 _is_coroutine = inspect.iscoroutinefunction
 
 # Module-level cache: type → "module.qualname" string
-_type_key_cache: Dict[type, str] = {}
+_type_key_cache: dict[type, str] = {}
 
 # Sentinel for cache-miss distinction (allows caching None values)
 _CACHE_SENTINEL = object()
@@ -43,20 +36,21 @@ T = TypeVar("T")
 class ProviderMeta:
     """
     Compact, serializable provider metadata.
-    
+
     Stored in di_manifest.json for LSP integration.
     """
+
     name: str
     token: str  # Type name or string key
     scope: str  # "singleton", "app", "request", "transient", "pooled", "ephemeral"
     tags: tuple[str, ...] = field(default_factory=tuple)
     module: str = ""
     qualname: str = ""
-    line: Optional[int] = None
-    version: Optional[str] = None
+    line: int | None = None
+    version: str | None = None
     allow_lazy: bool = False
-    
-    def to_dict(self) -> Dict[str, Any]:
+
+    def to_dict(self) -> dict[str, Any]:
         """Serialize for manifest JSON."""
         return {
             "name": self.name,
@@ -74,30 +68,31 @@ class ProviderMeta:
 class ResolveCtx:
     """
     Context for resolution operations.
-    
+
     Tracks resolution stack for cycle detection and diagnostics.
     Uses __slots__ for minimal allocation overhead.
     """
+
     __slots__ = ("container", "stack", "cache")
 
     def __init__(self, container: "Container"):
         self.container = container
-        self.stack: List[str] = []
-        self.cache: Dict[str, Any] = {}
-    
+        self.stack: list[str] = []
+        self.cache: dict[str, Any] = {}
+
     def push(self, token: str) -> None:
         """Push token onto resolution stack."""
         self.stack.append(token)
-    
+
     def pop(self) -> None:
         """Pop token from resolution stack."""
         self.stack.pop()
-    
+
     def in_cycle(self, token: str) -> bool:
         """Check if token is currently being resolved (cycle)."""
         return token in self.stack
-    
-    def get_trace(self) -> List[str]:
+
+    def get_trace(self) -> list[str]:
         """Get current resolution trace for error messages."""
         return self.stack.copy()
 
@@ -106,31 +101,31 @@ class ResolveCtx:
 class Provider(Protocol):
     """
     Provider protocol - how to instantiate a dependency.
-    
+
     All providers must implement this interface.
     """
-    
+
     @property
     def meta(self) -> ProviderMeta:
         """Provider metadata."""
         ...
-    
+
     async def instantiate(self, ctx: ResolveCtx) -> Any:
         """
         Instantiate the provider.
-        
+
         Args:
             ctx: Resolution context with container and stack
-            
+
         Returns:
             The instantiated object
         """
         ...
-    
+
     async def shutdown(self) -> None:
         """
         Shutdown hook for cleanup.
-        
+
         Called in reverse order of instantiation.
         """
         ...
@@ -139,10 +134,10 @@ class Provider(Protocol):
 class Container:
     """
     DI Container - manages provider instances and scopes.
-    
+
     Optimized for low-overhead hot path (<3µs cached lookups).
     """
-    
+
     __slots__ = (
         "_providers",
         "_providers_owned",
@@ -155,28 +150,28 @@ class Container:
         "_lifecycle",
         "_shutdown_called",
     )
-    
+
     def __init__(
         self,
         scope: str = "app",
         parent: Optional["Container"] = None,
-        diagnostics: Optional[Any] = None,
+        diagnostics: Any | None = None,
     ):
         from .diagnostics import DIDiagnostics
         from .lifecycle import Lifecycle
 
-        self._providers: Dict[str, Provider] = {}  # {cache_key: provider}
+        self._providers: dict[str, Provider] = {}  # {cache_key: provider}
         self._providers_owned: bool = True  # True when we own the dict (can mutate in-place)
-        self._cache: Dict[str, Any] = {}  # {cache_key: instance}
+        self._cache: dict[str, Any] = {}  # {cache_key: instance}
         self._scope = scope
         self._parent = parent
-        self._finalizers: List[Callable[[], Coroutine]] = []  # LIFO cleanup
-        self._resolve_plans: Dict[str, List[str]] = {}  # Precomputed dependency lists
+        self._finalizers: list[Callable[[], Coroutine]] = []  # LIFO cleanup
+        self._resolve_plans: dict[str, list[str]] = {}  # Precomputed dependency lists
         self._diagnostics = diagnostics or DIDiagnostics()
         self._lifecycle = Lifecycle()
         self._shutdown_called = False
-    
-    def register(self, provider: Provider, tag: Optional[str] = None):
+
+    def register(self, provider: Provider, tag: str | None = None):
         """
         Register a provider.
 
@@ -185,7 +180,7 @@ class Container:
         (i.e. it was created via ``create_request_scope()``), the first
         call to ``register()`` copies the dict before mutating.
         Subsequent ``register()`` calls on the same container are O(1).
-        
+
         Args:
             provider: Provider instance
             tag: Optional tag for disambiguation
@@ -193,7 +188,7 @@ class Container:
         meta = provider.meta
         token = meta.token
         key = self._make_cache_key(token, tag)
-        
+
         # Check for duplicates
         if key in self._providers:
             existing = self._providers[key]
@@ -201,6 +196,7 @@ class Container:
             if existing == provider:
                 return
             from ..faults.domains import DIFault
+
             raise DIFault(
                 code="PROVIDER_ALREADY_REGISTERED",
                 message=f"Provider for {token} (tag={tag}) already registered: {existing.meta.name}",
@@ -211,25 +207,21 @@ class Container:
         if not self._providers_owned:
             self._providers = self._providers.copy()
             self._providers_owned = True
-        
+
         self._providers[key] = provider
 
         # Emit diagnostic event
         from .diagnostics import DIEventType
-        self._diagnostics.emit(
-            DIEventType.REGISTRATION,
-            token=token,
-            tag=tag,
-            provider_name=meta.name
-        )
 
-    def bind(self, interface: Type, implementation: Type, scope: str = "app", tag: Optional[str] = None):
+        self._diagnostics.emit(DIEventType.REGISTRATION, token=token, tag=tag, provider_name=meta.name)
+
+    def bind(self, interface: type, implementation: type, scope: str = "app", tag: str | None = None):
         """
         Bind an interface to an implementation class.
-        
+
         Example:
             container.bind(UserRepository, SqlUserRepository)
-        
+
         Args:
             interface: Abstract base class or protocol
             implementation: Concrete class
@@ -237,14 +229,14 @@ class Container:
             tag: Optional tag
         """
         from .providers import ClassProvider
+
         provider = ClassProvider(implementation, scope=scope)
-        
+
         # Register under the INTERFACE token
-        meta = provider.meta
         # Hack: mutate the token to match the interface, but keep the implementation logic
         # A cleaner way would be to wrap or use AliasProvider, but ClassProvider is flexible.
         token = self._token_to_key(interface)
-        
+
         # We manually register it under the interface key
         key = self._make_cache_key(token, tag)
 
@@ -257,33 +249,34 @@ class Container:
 
         # Emit diagnostic event
         from .diagnostics import DIEventType
+
         self._diagnostics.emit(
             DIEventType.REGISTRATION,
             token=token,
             tag=tag,
             provider_name=provider.meta.name,
-            metadata={"binding": "interface"}
+            metadata={"binding": "interface"},
         )
-        
+
     async def register_instance(
         self,
-        token: Type[T] | str,
+        token: type[T] | str,
         instance: T,
         scope: str = "request",
-        tag: Optional[str] = None,
+        tag: str | None = None,
     ):
         """
         Register a pre-instantiated object as a provider.
-        
+
         This is useful for registering request-scoped instances like Session
         that are created outside the DI system.
-        
+
         Args:
             token: Type or string key
             instance: Pre-instantiated object
             scope: Scope for the instance (default: "request")
             tag: Optional tag for disambiguation
-            
+
         Example:
             >>> session = await engine.resolve(request)
             >>> await container.register_instance(Session, session, scope="request")
@@ -314,44 +307,44 @@ class Container:
 
         # Register the provider
         self.register(provider, tag=tag)
-    
+
     def resolve(
         self,
-        token: Type[T] | str,
+        token: type[T] | str,
         *,
-        tag: Optional[str] = None,
+        tag: str | None = None,
         optional: bool = False,
     ) -> T:
         """
         Resolve a dependency (hot path - optimized).
-        
+
         Args:
             token: Type or string key
             tag: Optional tag for disambiguation
             optional: If True, return None if not found instead of raising
-            
+
         Returns:
             The resolved instance
-            
+
         Raises:
             ProviderNotFoundError: If provider not found and not optional
         """
         # Convert type to string key
         token_key = self._token_to_key(token)
         cache_key = self._make_cache_key(token_key, tag)
-        
+
         # Fast path: check cache
         if cache_key in self._cache:
             return self._cache[cache_key]
-        
+
         # Lookup provider
         provider = self._lookup_provider(token_key, tag)
-        
+
         if provider is None:
             if optional:
                 return None
             self._raise_not_found(token_key, tag)
-        
+
         # Async instantiation requires event loop
         # For sync access, check if there's already a running loop
         try:
@@ -362,26 +355,25 @@ class Container:
         else:
             # We're in async context -- caller should use resolve_async() instead
             from ..faults.domains import DIResolutionFault
+
             raise DIResolutionFault(
                 provider=str(token_key),
                 reason="resolve() called from async context; use await resolve_async() instead",
             )
-        
+
         # No running loop -- create a temporary one for sync usage
         try:
             loop = asyncio.new_event_loop()
-            instance = loop.run_until_complete(
-                self.resolve_async(token, tag=tag, optional=optional)
-            )
+            instance = loop.run_until_complete(self.resolve_async(token, tag=tag, optional=optional))
             return instance
         finally:
             loop.close()
-    
+
     async def resolve_async(
         self,
-        token: Type[T] | str,
+        token: type[T] | str,
         *,
-        tag: Optional[str] = None,
+        tag: str | None = None,
         optional: bool = False,
     ) -> T:
         """
@@ -403,23 +395,23 @@ class Container:
                 _type_key_cache[token] = token_key
         else:
             token_key = str(token)
-        
+
         # ── Inline _make_cache_key ──
         cache_key = f"{token_key}#{tag}" if tag else token_key
-        
+
         # Fast path: check cache (no diagnostics overhead)
         cached = self._cache.get(cache_key, _CACHE_SENTINEL)
         if cached is not _CACHE_SENTINEL:
             return cached
-        
+
         # Lookup provider
         provider = self._lookup_provider(token_key, tag)
-        
+
         if provider is None:
             if optional:
                 return None
             self._raise_not_found(token_key, tag)
-        
+
         # Scope Delegation: singleton/app → parent
         # Only delegate when the provider was inherited from the parent,
         # not when the child registered it locally.
@@ -427,33 +419,37 @@ class Container:
             parent_provider = self._parent._providers.get(cache_key)
             if parent_provider is provider:
                 return await self._parent.resolve_async(token, tag=tag, optional=optional)
-        
+
         # ── SEC-DI-04: Scope validation — detect captive dependency ──
         # Prevent request/ephemeral scoped providers from being cached
         # in singleton/app scoped containers (captive dependency).
         from .scopes import ScopeValidator
+
         if not ScopeValidator.validate_injection(provider.meta.scope, self._scope):
             import logging as _log
-            _log.getLogger('aquilia.di').warning(
+
+            _log.getLogger("aquilia.di").warning(
                 "Scope violation: %s-scoped provider '%s' resolved in %s-scoped "
                 "container. This may cause captive dependency issues.",
-                provider.meta.scope, provider.meta.name, self._scope,
+                provider.meta.scope,
+                provider.meta.name,
+                self._scope,
             )
 
         # Create resolution context
         ctx = ResolveCtx(container=self)
         ctx.push(cache_key)
-        
+
         try:
             instance = await provider.instantiate(ctx)
-            
+
             # Cache if appropriate for scope
             if provider.meta.scope in _CACHEABLE_SCOPES:
                 self._cache[cache_key] = instance
                 await self._check_lifecycle_hooks(instance, provider.meta.name)
                 if hasattr(instance, "__aexit__") or hasattr(instance, "shutdown"):
                     self._register_finalizer(instance)
-            
+
             return instance
         finally:
             ctx.pop()
@@ -462,6 +458,7 @@ class Container:
         """Check and register lifecycle hooks for an instance."""
         # Skip lazy proxies -- they should not be introspected until resolved
         from .providers import _LazyProxy
+
         if isinstance(instance, _LazyProxy):
             return
 
@@ -475,7 +472,7 @@ class Container:
                     lambda _h=hook: asyncio.to_thread(_h),
                     name=f"{name}.on_startup",
                 )
-        
+
         if hasattr(instance, "on_shutdown"):
             hook = instance.on_shutdown
             if _is_coroutine(hook):
@@ -491,11 +488,11 @@ class Container:
         Run startup hooks for all registered providers.
         """
         from .diagnostics import DIEventType
+
         self._diagnostics.emit(DIEventType.LIFECYCLE_STARTUP, metadata={"scope": self._scope})
         await self._lifecycle.run_startup_hooks()
 
-    
-    def is_registered(self, token: Type[T] | str, tag: Optional[str] = None) -> bool:
+    def is_registered(self, token: type[T] | str, tag: str | None = None) -> bool:
         """Check if a provider is registered for the token."""
         token_key = self._token_to_key(token)
         return self._lookup_provider(token_key, tag) is not None
@@ -523,7 +520,7 @@ class Container:
         child._lifecycle = _NullLifecycle  # Singleton no-op lifecycle
         child._shutdown_called = False
         return child
-    
+
     async def shutdown(self) -> None:
         """
         Shutdown container - run lifecycle hooks and finalizers in LIFO order.
@@ -541,6 +538,7 @@ class Container:
             return
 
         from .diagnostics import DIEventType
+
         self._diagnostics.emit(DIEventType.LIFECYCLE_SHUTDOWN, metadata={"scope": self._scope})
 
         # Run lifecycle shutdown hooks
@@ -553,13 +551,14 @@ class Container:
                 await finalizer()
             except Exception as e:
                 import logging as _log
-                _log.getLogger('aquilia.di').warning(f"Error during finalizer: {e}")
+
+                _log.getLogger("aquilia.di").warning(f"Error during finalizer: {e}")
 
         self._finalizers.clear()
         self._cache.clear()
         self._lifecycle.clear()
-    
-    def _token_to_key(self, token: Type | str) -> str:
+
+    def _token_to_key(self, token: type | str) -> str:
         """Convert type or string to cache key.
 
         Performance: type→key results are cached in a module-level dict
@@ -567,31 +566,31 @@ class Container:
         """
         if isinstance(token, str):
             return token
-        
+
         if isinstance(token, type):
             key = _type_key_cache.get(token)
             if key is None:
                 key = f"{token.__module__}.{token.__qualname__}"
                 _type_key_cache[token] = key
             return key
-        
+
         # Handle typing generics
         return str(token)
-    
-    def _make_cache_key(self, token: str, tag: Optional[str]) -> str:
+
+    def _make_cache_key(self, token: str, tag: str | None) -> str:
         """Create cache key from token and tag."""
         if tag:
             return f"{token}#{tag}"
         return token
-    
+
     def _lookup_provider(
         self,
         token: str,
-        tag: Optional[str],
-    ) -> Optional[Provider]:
+        tag: str | None,
+    ) -> Provider | None:
         """
         Lookup provider in current container or parent.
-        
+
         Returns:
             Provider or None if not found
         """
@@ -599,36 +598,34 @@ class Container:
         key = self._make_cache_key(token, tag)
         if key in self._providers:
             return self._providers[key]
-        
+
         # Check parent
         if self._parent:
             return self._parent._lookup_provider(token, tag)
-        
+
         return None
-    
+
     def _should_cache(self, scope: str) -> bool:
         """Check if scope should cache instances."""
         return scope in _CACHEABLE_SCOPES
-    
+
     def _register_finalizer(self, instance: Any) -> None:
         """Register finalizer for cleanup."""
         if hasattr(instance, "__aexit__"):
-            self._finalizers.append(
-                lambda: instance.__aexit__(None, None, None)
-            )
+            self._finalizers.append(lambda: instance.__aexit__(None, None, None))
         elif hasattr(instance, "shutdown"):
             self._finalizers.append(instance.shutdown)
-    
-    def _raise_not_found(self, token: str, tag: Optional[str]) -> None:
+
+    def _raise_not_found(self, token: str, tag: str | None) -> None:
         """Raise ProviderNotFoundError with helpful diagnostics."""
         from .errors import ProviderNotFoundError
-        
+
         # Find similar providers
         candidates = []
-        for key, provider in self._providers.items():
+        for key, _provider in self._providers.items():
             if token in key:
-                 candidates.append(key)
-        
+                candidates.append(key)
+
         raise ProviderNotFoundError(
             token=token,
             tag=tag,
@@ -639,95 +636,108 @@ class Container:
 class Registry:
     """
     Registry - builds and validates provider graph from manifests.
-    
+
     Performs static analysis, cycle detection, and generates manifest JSON.
     """
-    
-    def __init__(self, config: Optional[Any] = None):
+
+    def __init__(self, config: Any | None = None):
         self.config = config
-        self._providers: List[Provider] = []
-        self._graph: Dict[str, List[str]] = {}  # {provider: [dependencies]}
-    
+        self._providers: list[Provider] = []
+        self._graph: dict[str, list[str]] = {}  # {provider: [dependencies]}
+
     @classmethod
     def from_manifests(
         cls,
-        manifests: List[Any],
-        config: Optional[Any] = None,
+        manifests: list[Any],
+        config: Any | None = None,
         *,
         enforce_cross_app: bool = True,
     ) -> "Registry":
         """
         Build registry from manifests.
-        
+
         Args:
             manifests: List of AppManifest instances
             config: Optional config object
             enforce_cross_app: If True, enforce depends_on rules
-            
+
         Returns:
             Validated registry
         """
         registry = cls(config=config)
-        
+
         # Phase 1: Load provider metadata (no imports yet)
         for manifest in manifests:
             registry._load_manifest_services(manifest)
-        
+
         # Phase 2: Build dependency graph
         registry._build_dependency_graph()
-        
+
         # Phase 3: Detect cycles
         registry._detect_cycles()
-        
+
         # Phase 4: Validate cross-app dependencies
         if enforce_cross_app:
             registry._validate_cross_app_deps(manifests)
-        
+
         return registry
-    
+
     def build_container(self) -> Container:
         """
         Build container from registry.
-        
+
         Returns:
             Configured container
         """
         container = Container(scope="app")
-        
+
         for provider in self._providers:
             # Extract tag from metadata if present
             tag = provider.meta.tags[0] if provider.meta.tags else None
             container.register(provider, tag=tag)
-        
+
         return container
-    
+
     def _load_manifest_services(self, manifest: Any) -> None:
         """Load services from manifest (phase 1)."""
-        if not hasattr(manifest, 'services') or not manifest.services:
+        if not hasattr(manifest, "services") or not manifest.services:
             return
-        
-        from .providers import ClassProvider
+
         import importlib
-        import re as _re
         import logging as _log
-        
-        _logger = _log.getLogger('aquilia.di')
-        
+        import re as _re
+
+        from .providers import ClassProvider
+
+        _logger = _log.getLogger("aquilia.di")
+
         # ── Security: restrict importable module paths ──────────────────
         # Only allow dotted Python identifiers (no path traversal, no dunders).
-        _SAFE_MODULE_RE = _re.compile(
-            r'^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)*$'
-        )
-        _SAFE_CLASS_RE = _re.compile(
-            r'^[a-zA-Z_][a-zA-Z0-9_]*$'
-        )
+        _SAFE_MODULE_RE = _re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)*$")
+        _SAFE_CLASS_RE = _re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
         # Block known dangerous top-level modules from being loaded via manifest.
-        _BLOCKED_MODULES = frozenset({
-            'os', 'sys', 'subprocess', 'shutil', 'importlib', 'ctypes',
-            'pickle', 'shelve', 'code', 'codeop', 'compile', 'compileall',
-            'builtins', '__builtin__', 'runpy', 'pty', 'commands',
-        })
-        
+        _BLOCKED_MODULES = frozenset(
+            {
+                "os",
+                "sys",
+                "subprocess",
+                "shutil",
+                "importlib",
+                "ctypes",
+                "pickle",
+                "shelve",
+                "code",
+                "codeop",
+                "compile",
+                "compileall",
+                "builtins",
+                "__builtin__",
+                "runpy",
+                "pty",
+                "commands",
+            }
+        )
+
         for service_entry in manifest.services:
             # Handle both string format and dict format
             if isinstance(service_entry, str):
@@ -740,143 +750,141 @@ class Registry:
                 scope = service_entry.get("scope", "singleton")
             else:
                 continue
-            
-            if not service_str or ':' not in service_str:
+
+            if not service_str or ":" not in service_str:
                 continue
-            
+
             # Parse module path and class name
-            module_path, class_name = service_str.rsplit(':', 1)
-            
+            module_path, class_name = service_str.rsplit(":", 1)
+
             # ── Validate module path & class name ───────────────────────
             if not _SAFE_MODULE_RE.match(module_path):
-                _logger.warning(
-                    "Rejected service %r: module path contains illegal characters.", service_str
-                )
+                _logger.warning("Rejected service %r: module path contains illegal characters.", service_str)
                 continue
-            
+
             if not _SAFE_CLASS_RE.match(class_name):
-                _logger.warning(
-                    "Rejected service %r: class name contains illegal characters.", service_str
-                )
+                _logger.warning("Rejected service %r: class name contains illegal characters.", service_str)
                 continue
-            
+
             # Check top-level module against blocklist
-            top_module = module_path.split('.')[0]
+            top_module = module_path.split(".")[0]
             if top_module in _BLOCKED_MODULES:
                 _logger.warning(
                     "Rejected service %r: top-level module %r is blocked for security.",
-                    service_str, top_module,
+                    service_str,
+                    top_module,
                 )
                 continue
-            
+
             # Reject dunder class names (e.g. __import__)
-            if class_name.startswith('__') and class_name.endswith('__'):
-                _logger.warning(
-                    "Rejected service %r: dunder class names are not allowed.", service_str
-                )
+            if class_name.startswith("__") and class_name.endswith("__"):
+                _logger.warning("Rejected service %r: dunder class names are not allowed.", service_str)
                 continue
-            
+
             try:
                 # Import module
                 module = importlib.import_module(module_path)
-                
+
                 # Get class
                 service_class = getattr(module, class_name)
-                
+
                 # Verify it's actually a class, not a function/module/arbitrary object
                 if not isinstance(service_class, type):
-                    _logger.warning(
-                        "Rejected service %r: resolved object is not a class.", service_str
-                    )
+                    _logger.warning("Rejected service %r: resolved object is not a class.", service_str)
                     continue
-                
+
                 # Create provider
                 provider = ClassProvider(
                     cls=service_class,
                     scope=scope,
                 )
-                
+
                 # Add to registry
                 self._providers.append(provider)
-                
+
             except (ImportError, AttributeError) as e:
                 # Log error but continue
                 _logger.warning(f"Could not load service {service_str}: {e}")
-    
+
     def _build_dependency_graph(self) -> None:
         """
         Build dependency graph from registered providers (phase 2).
-        
+
         Extracts dependencies from ClassProvider constructors and builds
         the dependency graph for analysis.
-        
+
         Raises:
             MissingDependencyError: If a required dependency is not registered
         """
-        from .graph import DependencyGraph
-        from .errors import MissingDependencyError
         import inspect
-        
+
+        from .errors import MissingDependencyError
+        from .graph import DependencyGraph
+
         # Create dependency graph
         self._dep_graph = DependencyGraph()
-        
+
         # Add all providers to graph
         for provider in self._providers:
             dependencies = []
-            
+
             # Extract dependencies from ClassProvider
-            if hasattr(provider, 'cls'):
+            if hasattr(provider, "cls"):
                 try:
                     # Get constructor signature
                     sig = inspect.signature(provider.cls.__init__)
-                    
+
                     for param_name, param in sig.parameters.items():
-                        if param_name == 'self':
+                        if param_name == "self":
                             continue
-                        
+
                         # Get type annotation
                         if param.annotation != inspect.Parameter.empty:
                             # Handle Optional types
                             param_type = param.annotation
-                            
+
                             # Skip if Optional (not required)
-                            origin = getattr(param_type, '__origin__', None)
+                            origin = getattr(param_type, "__origin__", None)
                             if origin is not None:
                                 # Handle Union types (Optional is Union[T, None])
                                 import typing
+
                                 if origin is typing.Union:
-                                    args = getattr(param_type, '__args__', ())
+                                    args = getattr(param_type, "__args__", ())
                                     # If None in args, it's optional
                                     if type(None) in args:
                                         continue
                                     # Otherwise use first non-None type
                                     param_type = next((a for a in args if a is not type(None)), param_type)
-                            
+
                             # Get token from type
-                            if hasattr(param_type, '__module__') and hasattr(param_type, '__name__'):
+                            if hasattr(param_type, "__module__") and hasattr(param_type, "__name__"):
                                 dep_token = f"{param_type.__module__}.{param_type.__name__}"
                                 dependencies.append(dep_token)
-                        
+
                         # If no annotation but has default, skip (optional)
                         elif param.default != inspect.Parameter.empty:
                             continue
-                
+
                 except Exception as e:
                     # Log warning but continue
                     import logging as _log
-                    _log.getLogger('aquilia.di').warning(f"Could not extract dependencies from {provider.meta.token}: {e}")
-            
+
+                    _log.getLogger("aquilia.di").warning(
+                        f"Could not extract dependencies from {provider.meta.token}: {e}"
+                    )
+
             # Add to graph
             self._dep_graph.add_provider(provider, dependencies)
             self._graph[provider.meta.token] = dependencies
-        
+
         # Validate all dependencies exist
         missing = []
         for token, deps in self._graph.items():
             for dep in deps:
                 if not any(p.meta.token == dep for p in self._providers):
                     missing.append((token, dep))
-        
+
         if missing:
             # Report first missing dependency
             service_token, dep_token = missing[0]
@@ -884,32 +892,32 @@ class Registry:
             location = None
             if provider and provider.meta.module and provider.meta.line:
                 location = (provider.meta.module, provider.meta.line)
-            
+
             raise MissingDependencyError(
                 service_token=service_token,
                 dependency_token=dep_token,
                 service_location=location,
             )
-    
+
     def _detect_cycles(self) -> None:
         """
         Detect cycles using Tarjan's algorithm (phase 3).
-        
+
         Uses the DependencyGraph's Tarjan implementation to find
         strongly connected components (cycles).
-        
+
         Raises:
             CircularDependencyError: If circular dependencies detected
         """
         from .errors import CircularDependencyError
-        
-        if not hasattr(self, '_dep_graph'):
+
+        if not hasattr(self, "_dep_graph"):
             # Graph not built yet
             return
-        
+
         # Detect cycles using Tarjan's algorithm
         cycles = self._dep_graph.detect_cycles()
-        
+
         if cycles:
             # Collect location information for error reporting
             locations = {}
@@ -918,65 +926,65 @@ class Registry:
                     provider = next((p for p in self._providers if p.meta.token == token), None)
                     if provider and provider.meta.module and provider.meta.line:
                         locations[token] = (provider.meta.module, provider.meta.line)
-            
+
             raise CircularDependencyError(cycles=cycles, locations=locations)
-    
-    def _validate_cross_app_deps(self, manifests: List[Any]) -> None:
+
+    def _validate_cross_app_deps(self, manifests: list[Any]) -> None:
         """
         Validate cross-app dependencies (phase 4).
-        
+
         Ensures that:
         1. Cross-app dependencies are declared in manifest depends_on
         2. No circular app dependencies
         3. Dependency load order is correct
-        
+
         Args:
             manifests: List of AppManifest instances
-            
+
         Raises:
             CrossAppDependencyError: If cross-app dependency rules violated
         """
         from .errors import CrossAppDependencyError
-        
+
         # Build app -> services mapping
-        app_services: Dict[str, List[str]] = {}
+        app_services: dict[str, list[str]] = {}
         for manifest in manifests:
-            app_name = getattr(manifest, 'name', 'unknown')
+            app_name = getattr(manifest, "name", "unknown")
             services = []
-            
-            if hasattr(manifest, 'services'):
+
+            if hasattr(manifest, "services"):
                 for service_entry in manifest.services:
                     if isinstance(service_entry, str):
                         service_str = service_entry
                     elif isinstance(service_entry, dict):
-                        service_str = service_entry.get('class', '')
+                        service_str = service_entry.get("class", "")
                     else:
                         continue
-                    
-                    if ':' in service_str:
+
+                    if ":" in service_str:
                         # Convert to token format
-                        module_path, class_name = service_str.rsplit(':', 1)
+                        module_path, class_name = service_str.rsplit(":", 1)
                         token = f"{module_path}.{class_name}"
                         services.append(token)
-            
+
             app_services[app_name] = services
-        
+
         # Build app dependencies from manifest
-        app_depends_on: Dict[str, List[str]] = {}
+        app_depends_on: dict[str, list[str]] = {}
         for manifest in manifests:
-            app_name = getattr(manifest, 'name', 'unknown')
-            depends_on = getattr(manifest, 'depends_on', [])
+            app_name = getattr(manifest, "name", "unknown")
+            depends_on = getattr(manifest, "depends_on", [])
             app_depends_on[app_name] = depends_on
-        
+
         # Check each service's dependencies
         for manifest in manifests:
-            consumer_app = getattr(manifest, 'name', 'unknown')
+            consumer_app = getattr(manifest, "name", "unknown")
             consumer_services = app_services.get(consumer_app, [])
-            
+
             for service_token in consumer_services:
                 # Get dependencies of this service
                 deps = self._graph.get(service_token, [])
-                
+
                 for dep_token in deps:
                     # Find which app provides this dependency
                     provider_app = None
@@ -984,7 +992,7 @@ class Registry:
                         if dep_token in services:
                             provider_app = app
                             break
-                    
+
                     # If dependency is from another app, check if declared
                     if provider_app and provider_app != consumer_app:
                         if provider_app not in app_depends_on.get(consumer_app, []):
@@ -997,16 +1005,30 @@ class Registry:
 
 # ── Lightweight null lifecycle for request-scoped containers ──
 
+
 class _NullLifecycleType:
     """No-op lifecycle singleton -- avoids allocating a real Lifecycle
     per request container."""
+
     __slots__ = ()
 
-    async def run_startup_hooks(self): pass
-    async def run_shutdown_hooks(self): pass
-    async def run_finalizers(self): pass
-    def on_startup(self, *a, **kw): pass
-    def on_shutdown(self, *a, **kw): pass
-    def clear(self): pass
+    async def run_startup_hooks(self):
+        pass
+
+    async def run_shutdown_hooks(self):
+        pass
+
+    async def run_finalizers(self):
+        pass
+
+    def on_startup(self, *a, **kw):
+        pass
+
+    def on_shutdown(self, *a, **kw):
+        pass
+
+    def clear(self):
+        pass
+
 
 _NullLifecycle = _NullLifecycleType()

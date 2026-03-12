@@ -5,7 +5,6 @@ Base storage adapter -- abstract interface for blob backends.
 from __future__ import annotations
 
 import abc
-from typing import List
 
 
 class BaseStorageAdapter(abc.ABC):
@@ -28,5 +27,5 @@ class BaseStorageAdapter(abc.ABC):
         """Delete a blob."""
 
     @abc.abstractmethod
-    async def list_blobs(self) -> List[str]:
+    async def list_blobs(self) -> list[str]:
         """List all blob digests."""

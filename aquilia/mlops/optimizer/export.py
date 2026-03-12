@@ -10,7 +10,7 @@ import logging
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from .._types import ExportTarget
 
@@ -20,10 +20,11 @@ logger = logging.getLogger("aquilia.mlops.optimizer.export")
 @dataclass
 class ExportResult:
     """Result of an edge export."""
+
     target: str
     output_path: str
     size_bytes: int
-    notes: List[str]
+    notes: list[str]
 
 
 class EdgeExporter:
@@ -65,14 +66,13 @@ class EdgeExporter:
             return await self._to_tensorrt(path, out)
         else:
             from aquilia.faults.domains import ConfigInvalidFault
+
             raise ConfigInvalidFault(
                 key="mlops.export.target",
                 reason=f"Unsupported export target: {target}",
             )
 
-    async def _to_tflite(
-        self, path: Path, out: Path, optimize: bool
-    ) -> ExportResult:
+    async def _to_tflite(self, path: Path, out: Path, optimize: bool) -> ExportResult:
         """Convert to TFLite format."""
         dest = out / f"{path.stem}.tflite"
         notes = []
@@ -84,6 +84,7 @@ class EdgeExporter:
                 notes.append("Converting ONNX → TF → TFLite")
                 import onnx
                 from onnx_tf.backend import prepare
+
                 onnx_model = onnx.load(str(path))
                 tf_rep = prepare(onnx_model)
                 tf_rep.export_graph(str(out / "tf_model"))
@@ -108,9 +109,7 @@ class EdgeExporter:
             notes=notes,
         )
 
-    async def _to_coreml(
-        self, path: Path, out: Path, optimize: bool
-    ) -> ExportResult:
+    async def _to_coreml(self, path: Path, out: Path, optimize: bool) -> ExportResult:
         """Convert to CoreML format."""
         dest = out / f"{path.stem}.mlmodel"
         notes = []
@@ -120,6 +119,7 @@ class EdgeExporter:
 
             if path.suffix in (".pt", ".pth"):
                 import torch
+
                 model = torch.load(str(path), map_location="cpu", weights_only=False)
                 model.eval()
                 traced = torch.jit.trace(model, torch.randn(1, 64))
@@ -130,6 +130,7 @@ class EdgeExporter:
                 notes.append("ONNX → CoreML conversion")
             else:
                 from aquilia.faults.domains import ConfigInvalidFault
+
                 raise ConfigInvalidFault(
                     key="mlops.export.coreml.input",
                     reason=f"Cannot convert {path.suffix} to CoreML",
@@ -149,13 +150,11 @@ class EdgeExporter:
 
     async def _to_quantized_onnx(self, path: Path, out: Path) -> ExportResult:
         """Quantize ONNX model."""
-        from .pipeline import OptimizationPipeline
         from .._types import QuantizePreset
+        from .pipeline import OptimizationPipeline
 
         pipeline = OptimizationPipeline()
-        result = await pipeline.run(
-            str(path), preset=QuantizePreset.INT8, output_dir=str(out)
-        )
+        result = await pipeline.run(str(path), preset=QuantizePreset.INT8, output_dir=str(out))
         return ExportResult(
             target="onnx-quantized",
             output_path=result.optimized_path,
@@ -179,7 +178,7 @@ class EdgeExporter:
 async def profile_model(
     model_path: str,
     target_device: str = "cpu",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Estimate latency and memory for a model on a target device.
 

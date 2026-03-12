@@ -65,11 +65,9 @@ Usage in migration files:
 
 from __future__ import annotations
 
-import copy
-import json
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
-
+from typing import Any
 
 # ── Sentinel for distinguishing 'no default' from None ──────────────────────
 
@@ -105,6 +103,7 @@ def _normalize_fk_action(action: str) -> str:
 
 class _SentinelType:
     """Sentinel to distinguish 'no default' from None."""
+
     _instance = None
 
     def __new__(cls):
@@ -160,7 +159,7 @@ class ColumnDef:
     unique: bool = False
     nullable: bool = False
     default: Any = _SENTINEL  # sentinel to distinguish from None
-    references: Optional[Tuple[str, str]] = None  # (table, column)
+    references: tuple[str, str] | None = None  # (table, column)
     on_delete: str = "CASCADE"
     on_update: str = "CASCADE"
 
@@ -187,9 +186,16 @@ class ColumnDef:
             resolved_type = self._resolve_type(dialect)
             # MySQL does not allow DEFAULT on TEXT/BLOB/JSON columns.
             _no_default = dialect == "mysql" and resolved_type.upper() in (
-                "TEXT", "TINYTEXT", "MEDIUMTEXT", "LONGTEXT",
-                "BLOB", "TINYBLOB", "MEDIUMBLOB", "LONGBLOB",
-                "JSON", "GEOMETRY",
+                "TEXT",
+                "TINYTEXT",
+                "MEDIUMTEXT",
+                "LONGTEXT",
+                "BLOB",
+                "TINYBLOB",
+                "MEDIUMBLOB",
+                "LONGBLOB",
+                "JSON",
+                "GEOMETRY",
             )
             if not _no_default:
                 parts.append(f"DEFAULT {_format_default(self.default, dialect, resolved_type)}")
@@ -257,9 +263,9 @@ class ColumnDef:
                 return "INTEGER"
         return t
 
-    def to_snapshot(self) -> Dict[str, Any]:
+    def to_snapshot(self) -> dict[str, Any]:
         """Serialize this column to a snapshot-compatible dict."""
-        d: Dict[str, Any] = {
+        d: dict[str, Any] = {
             "name": self.name,
             "type": self.col_type,
         }
@@ -280,7 +286,7 @@ class ColumnDef:
         return d
 
     @classmethod
-    def from_snapshot(cls, data: Dict[str, Any]) -> ColumnDef:
+    def from_snapshot(cls, data: dict[str, Any]) -> ColumnDef:
         """Deserialize from snapshot dict."""
         ref = data.get("references")
         return cls(
@@ -330,7 +336,9 @@ class _ColumnBuilder:
         return ColumnDef(name=name, col_type="BIGINT", nullable=null, unique=unique, default=default)
 
     @staticmethod
-    def varchar(name: str, length: int = 255, *, null: bool = False, unique: bool = False, default: Any = _SENTINEL) -> ColumnDef:
+    def varchar(
+        name: str, length: int = 255, *, null: bool = False, unique: bool = False, default: Any = _SENTINEL
+    ) -> ColumnDef:
         return ColumnDef(name=name, col_type=f"VARCHAR({length})", nullable=null, unique=unique, default=default)
 
     @staticmethod
@@ -346,7 +354,9 @@ class _ColumnBuilder:
         return ColumnDef(name=name, col_type="REAL", nullable=null, default=default)
 
     @staticmethod
-    def decimal(name: str, max_digits: int = 10, decimal_places: int = 2, *, null: bool = False, default: Any = _SENTINEL) -> ColumnDef:
+    def decimal(
+        name: str, max_digits: int = 10, decimal_places: int = 2, *, null: bool = False, default: Any = _SENTINEL
+    ) -> ColumnDef:
         return ColumnDef(name=name, col_type=f"DECIMAL({max_digits},{decimal_places})", nullable=null, default=default)
 
     @staticmethod
@@ -405,11 +415,11 @@ class Operation:
 
     reversible: bool = True
 
-    def to_sql(self, dialect: str = "sqlite") -> List[str]:
+    def to_sql(self, dialect: str = "sqlite") -> list[str]:
         """Compile this operation to SQL statement(s)."""
         raise NotImplementedError
 
-    def reverse_sql(self, dialect: str = "sqlite") -> List[str]:
+    def reverse_sql(self, dialect: str = "sqlite") -> list[str]:
         """Compile the reverse of this operation to SQL."""
         raise NotImplementedError(f"{type(self).__name__} is not reversible")
 
@@ -417,7 +427,7 @@ class Operation:
         """Human-readable description."""
         return type(self).__name__
 
-    def to_snapshot_delta(self) -> Dict[str, Any]:
+    def to_snapshot_delta(self) -> dict[str, Any]:
         """Describe the snapshot change this operation implies."""
         return {}
 
@@ -444,13 +454,13 @@ class CreateModel(Operation):
 
     name: str  # Model/class name
     table: str  # Database table name
-    fields: List[ColumnDef] = field(default_factory=list)
+    fields: list[ColumnDef] = field(default_factory=list)
 
-    def to_sql(self, dialect: str = "sqlite") -> List[str]:
+    def to_sql(self, dialect: str = "sqlite") -> list[str]:
         col_defs = ",\n  ".join(f.to_sql(dialect) for f in self.fields)
         return [f'CREATE TABLE IF NOT EXISTS "{self.table}" (\n  {col_defs}\n);']
 
-    def reverse_sql(self, dialect: str = "sqlite") -> List[str]:
+    def reverse_sql(self, dialect: str = "sqlite") -> list[str]:
         return [f'DROP TABLE IF EXISTS "{self.table}";']
 
     def describe(self) -> str:
@@ -467,10 +477,10 @@ class DropModel(Operation):
     name: str
     table: str
 
-    def to_sql(self, dialect: str = "sqlite") -> List[str]:
+    def to_sql(self, dialect: str = "sqlite") -> list[str]:
         return [f'DROP TABLE IF EXISTS "{self.table}";']
 
-    def reverse_sql(self, dialect: str = "sqlite") -> List[str]:
+    def reverse_sql(self, dialect: str = "sqlite") -> list[str]:
         raise NotImplementedError("DropModel is not auto-reversible -- provide a CreateModel")
 
     def describe(self) -> str:
@@ -489,10 +499,10 @@ class RenameModel(Operation):
     old_table: str
     new_table: str
 
-    def to_sql(self, dialect: str = "sqlite") -> List[str]:
+    def to_sql(self, dialect: str = "sqlite") -> list[str]:
         return [f'ALTER TABLE "{self.old_table}" RENAME TO "{self.new_table}";']
 
-    def reverse_sql(self, dialect: str = "sqlite") -> List[str]:
+    def reverse_sql(self, dialect: str = "sqlite") -> list[str]:
         return [f'ALTER TABLE "{self.new_table}" RENAME TO "{self.old_table}";']
 
     def describe(self) -> str:
@@ -510,10 +520,10 @@ class AddField(Operation):
     table: str
     column: ColumnDef = field(default_factory=lambda: ColumnDef(name="", col_type=""))
 
-    def to_sql(self, dialect: str = "sqlite") -> List[str]:
+    def to_sql(self, dialect: str = "sqlite") -> list[str]:
         return [f'ALTER TABLE "{self.table}" ADD COLUMN {self.column.to_sql(dialect)};']
 
-    def reverse_sql(self, dialect: str = "sqlite") -> List[str]:
+    def reverse_sql(self, dialect: str = "sqlite") -> list[str]:
         return [f'ALTER TABLE "{self.table}" DROP COLUMN "{self.column.name}";']
 
     def describe(self) -> str:
@@ -531,10 +541,10 @@ class RemoveField(Operation):
     table: str
     column_name: str
 
-    def to_sql(self, dialect: str = "sqlite") -> List[str]:
+    def to_sql(self, dialect: str = "sqlite") -> list[str]:
         return [f'ALTER TABLE "{self.table}" DROP COLUMN "{self.column_name}";']
 
-    def reverse_sql(self, dialect: str = "sqlite") -> List[str]:
+    def reverse_sql(self, dialect: str = "sqlite") -> list[str]:
         raise NotImplementedError("RemoveField is not auto-reversible")
 
     def describe(self) -> str:
@@ -556,46 +566,34 @@ class AlterField(Operation):
     model_name: str
     table: str
     column_name: str
-    new_type: Optional[str] = None
-    nullable: Optional[bool] = None
+    new_type: str | None = None
+    nullable: bool | None = None
     new_default: Any = _SENTINEL
     drop_default: bool = False
 
-    def to_sql(self, dialect: str = "sqlite") -> List[str]:
-        stmts: List[str] = []
+    def to_sql(self, dialect: str = "sqlite") -> list[str]:
+        stmts: list[str] = []
         if dialect == "sqlite":
             stmts.append(
-                f'-- SQLite: ALTER COLUMN not supported for '
+                f"-- SQLite: ALTER COLUMN not supported for "
                 f'"{self.table}"."{self.column_name}". Requires table rebuild.'
             )
             return stmts
 
         if dialect == "postgresql":
             if self.new_type:
-                stmts.append(
-                    f'ALTER TABLE "{self.table}" ALTER COLUMN '
-                    f'"{self.column_name}" TYPE {self.new_type};'
-                )
+                stmts.append(f'ALTER TABLE "{self.table}" ALTER COLUMN "{self.column_name}" TYPE {self.new_type};')
             if self.nullable is True:
-                stmts.append(
-                    f'ALTER TABLE "{self.table}" ALTER COLUMN '
-                    f'"{self.column_name}" DROP NOT NULL;'
-                )
+                stmts.append(f'ALTER TABLE "{self.table}" ALTER COLUMN "{self.column_name}" DROP NOT NULL;')
             elif self.nullable is False:
-                stmts.append(
-                    f'ALTER TABLE "{self.table}" ALTER COLUMN '
-                    f'"{self.column_name}" SET NOT NULL;'
-                )
+                stmts.append(f'ALTER TABLE "{self.table}" ALTER COLUMN "{self.column_name}" SET NOT NULL;')
             if self.drop_default:
-                stmts.append(
-                    f'ALTER TABLE "{self.table}" ALTER COLUMN '
-                    f'"{self.column_name}" DROP DEFAULT;'
-                )
+                stmts.append(f'ALTER TABLE "{self.table}" ALTER COLUMN "{self.column_name}" DROP DEFAULT;')
             elif self.new_default is not _SENTINEL:
                 stmts.append(
                     f'ALTER TABLE "{self.table}" ALTER COLUMN '
                     f'"{self.column_name}" SET DEFAULT '
-                    f'{_format_default(self.new_default, dialect)};'
+                    f"{_format_default(self.new_default, dialect)};"
                 )
         return stmts
 
@@ -615,17 +613,11 @@ class RenameField(Operation):
     old_name: str
     new_name: str
 
-    def to_sql(self, dialect: str = "sqlite") -> List[str]:
-        return [
-            f'ALTER TABLE "{self.table}" RENAME COLUMN '
-            f'"{self.old_name}" TO "{self.new_name}";'
-        ]
+    def to_sql(self, dialect: str = "sqlite") -> list[str]:
+        return [f'ALTER TABLE "{self.table}" RENAME COLUMN "{self.old_name}" TO "{self.new_name}";']
 
-    def reverse_sql(self, dialect: str = "sqlite") -> List[str]:
-        return [
-            f'ALTER TABLE "{self.table}" RENAME COLUMN '
-            f'"{self.new_name}" TO "{self.old_name}";'
-        ]
+    def reverse_sql(self, dialect: str = "sqlite") -> list[str]:
+        return [f'ALTER TABLE "{self.table}" RENAME COLUMN "{self.new_name}" TO "{self.old_name}";']
 
     def describe(self) -> str:
         return f"RenameField({self.model_name}.{self.old_name} → {self.new_name})"
@@ -640,11 +632,11 @@ class CreateIndex(Operation):
 
     name: str
     table: str
-    columns: List[str] = field(default_factory=list)
+    columns: list[str] = field(default_factory=list)
     unique: bool = False
-    condition: Optional[str] = None  # Partial index WHERE clause
+    condition: str | None = None  # Partial index WHERE clause
 
-    def to_sql(self, dialect: str = "sqlite") -> List[str]:
+    def to_sql(self, dialect: str = "sqlite") -> list[str]:
         u = "UNIQUE " if self.unique else ""
         cols = ", ".join(f'"{c}"' for c in self.columns)
         sql = f'CREATE {u}INDEX IF NOT EXISTS "{self.name}" ON "{self.table}" ({cols})'
@@ -652,7 +644,7 @@ class CreateIndex(Operation):
             sql += f" WHERE ({self.condition})"
         return [sql + ";"]
 
-    def reverse_sql(self, dialect: str = "sqlite") -> List[str]:
+    def reverse_sql(self, dialect: str = "sqlite") -> list[str]:
         return [f'DROP INDEX IF EXISTS "{self.name}";']
 
     def describe(self) -> str:
@@ -667,9 +659,9 @@ class DropIndex(Operation):
     """Drop a database index."""
 
     name: str
-    table: Optional[str] = None  # Required for MySQL
+    table: str | None = None  # Required for MySQL
 
-    def to_sql(self, dialect: str = "sqlite") -> List[str]:
+    def to_sql(self, dialect: str = "sqlite") -> list[str]:
         if dialect == "mysql" and self.table:
             return [f'DROP INDEX "{self.name}" ON "{self.table}";']
         return [f'DROP INDEX IF EXISTS "{self.name}";']
@@ -688,7 +680,7 @@ class AddConstraint(Operation):
     table: str
     constraint_sql: str
 
-    def to_sql(self, dialect: str = "sqlite") -> List[str]:
+    def to_sql(self, dialect: str = "sqlite") -> list[str]:
         return [f'ALTER TABLE "{self.table}" ADD {self.constraint_sql};']
 
     def describe(self) -> str:
@@ -705,7 +697,7 @@ class RemoveConstraint(Operation):
     table: str
     name: str
 
-    def to_sql(self, dialect: str = "sqlite") -> List[str]:
+    def to_sql(self, dialect: str = "sqlite") -> list[str]:
         if dialect == "sqlite":
             return [f'-- SQLite: Cannot drop constraint "{self.name}" via ALTER TABLE;']
         return [f'ALTER TABLE "{self.table}" DROP CONSTRAINT "{self.name}";']
@@ -736,15 +728,15 @@ class RunSQL(Operation):
         )
     """
 
-    sql: Union[str, List[str]] = ""
-    reverse: Union[str, List[str]] = ""
+    sql: str | list[str] = ""
+    reverse: str | list[str] = ""
 
-    def to_sql(self, dialect: str = "sqlite") -> List[str]:
+    def to_sql(self, dialect: str = "sqlite") -> list[str]:
         if isinstance(self.sql, list):
             return self.sql
         return [self.sql] if self.sql else []
 
-    def reverse_sql(self, dialect: str = "sqlite") -> List[str]:
+    def reverse_sql(self, dialect: str = "sqlite") -> list[str]:
         if isinstance(self.reverse, list):
             return self.reverse
         return [self.reverse] if self.reverse else []
@@ -765,15 +757,15 @@ class RunPython(Operation):
     The callable receives (conn) as argument -- the AquiliaDatabase instance.
     """
 
-    forward: Optional[Callable] = None
-    reverse: Optional[Callable] = None
+    forward: Callable | None = None
+    reverse: Callable | None = None
 
     reversible = True
 
-    def to_sql(self, dialect: str = "sqlite") -> List[str]:
+    def to_sql(self, dialect: str = "sqlite") -> list[str]:
         return []  # Not SQL -- handled by runner
 
-    def reverse_sql(self, dialect: str = "sqlite") -> List[str]:
+    def reverse_sql(self, dialect: str = "sqlite") -> list[str]:
         return []
 
     def describe(self) -> str:
@@ -805,20 +797,20 @@ class Migration:
 
     revision: str
     slug: str
-    models: List[str] = field(default_factory=list)
-    dependencies: List[str] = field(default_factory=list)
-    operations: List[Operation] = field(default_factory=list)
+    models: list[str] = field(default_factory=list)
+    dependencies: list[str] = field(default_factory=list)
+    operations: list[Operation] = field(default_factory=list)
 
-    def compile_upgrade(self, dialect: str = "sqlite") -> List[str]:
+    def compile_upgrade(self, dialect: str = "sqlite") -> list[str]:
         """Compile all operations to forward SQL."""
-        stmts: List[str] = []
+        stmts: list[str] = []
         for op in self.operations:
             stmts.extend(op.to_sql(dialect))
         return stmts
 
-    def compile_downgrade(self, dialect: str = "sqlite") -> List[str]:
+    def compile_downgrade(self, dialect: str = "sqlite") -> list[str]:
         """Compile all operations (reversed) to rollback SQL."""
-        stmts: List[str] = []
+        stmts: list[str] = []
         for op in reversed(self.operations):
             try:
                 stmts.extend(op.reverse_sql(dialect))
@@ -826,7 +818,7 @@ class Migration:
                 stmts.append(f"-- {op.describe()} is not auto-reversible")
         return stmts
 
-    def get_python_ops(self) -> List[RunPython]:
+    def get_python_ops(self) -> list[RunPython]:
         """Get all RunPython operations (for the runner)."""
         return [op for op in self.operations if isinstance(op, RunPython)]
 
@@ -844,13 +836,13 @@ class Migration:
 # ── Utility: Convert raw-SQL migration to DSL ──────────────────────────────
 
 
-def raw_sql_to_operations(upgrade_sql: str, downgrade_sql: str = "") -> List[Operation]:
+def raw_sql_to_operations(upgrade_sql: str, downgrade_sql: str = "") -> list[Operation]:
     """
     Convert raw SQL strings into a list of RunSQL operations.
 
     This is a compatibility helper for existing raw-SQL migration files.
     """
-    ops: List[Operation] = []
+    ops: list[Operation] = []
     if upgrade_sql.strip():
         ops.append(RunSQL(sql=upgrade_sql.strip(), reverse=downgrade_sql.strip()))
     return ops

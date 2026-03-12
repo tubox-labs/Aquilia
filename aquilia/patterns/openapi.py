@@ -2,11 +2,12 @@
 OpenAPI schema generation from compiled patterns.
 """
 
-from typing import Dict, Any, List
+from typing import Any
+
 from .compiler.compiler import CompiledPattern
 
 
-def generate_openapi_params(pattern: CompiledPattern) -> List[Dict[str, Any]]:
+def generate_openapi_params(pattern: CompiledPattern) -> list[dict[str, Any]]:
     """
     Generate OpenAPI parameter definitions from a compiled pattern.
 
@@ -24,13 +25,11 @@ def generate_openapi_path(pattern: CompiledPattern) -> str:
     parts = []
 
     for segment in pattern.ast.segments:
-        from .compiler.ast_nodes import StaticSegment, TokenSegment, SplatSegment, OptionalGroup
+        from .compiler.ast_nodes import OptionalGroup, SplatSegment, StaticSegment, TokenSegment
 
         if isinstance(segment, StaticSegment):
             parts.append(segment.value)
-        elif isinstance(segment, TokenSegment):
-            parts.append(f"{{{segment.name}}}")
-        elif isinstance(segment, SplatSegment):
+        elif isinstance(segment, (TokenSegment, SplatSegment)):
             parts.append(f"{{{segment.name}}}")
         elif isinstance(segment, OptionalGroup):
             # Flatten optional groups for OpenAPI
@@ -50,8 +49,8 @@ def pattern_to_openapi_operation(
     handler_name: str,
     summary: str = "",
     description: str = "",
-    tags: List[str] = None,
-) -> Dict[str, Any]:
+    tags: list[str] = None,
+) -> dict[str, Any]:
     """
     Generate a complete OpenAPI operation object.
 
@@ -87,11 +86,11 @@ def pattern_to_openapi_operation(
 
 
 def patterns_to_openapi_spec(
-    patterns: List[tuple[CompiledPattern, str, str]],
+    patterns: list[tuple[CompiledPattern, str, str]],
     title: str = "Aquilia API",
     version: str = "1.0.0",
     description: str = "",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Generate complete OpenAPI 3.0 specification from patterns.
 
@@ -112,9 +111,7 @@ def patterns_to_openapi_spec(
         if path not in paths:
             paths[path] = {}
 
-        paths[path][method.lower()] = pattern_to_openapi_operation(
-            pattern, method, handler_name
-        )
+        paths[path][method.lower()] = pattern_to_openapi_operation(pattern, method, handler_name)
 
     spec = {
         "openapi": "3.0.3",

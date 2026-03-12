@@ -5,7 +5,7 @@ AuthIntegration — typed auth configuration.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional
+from typing import Any
 
 
 @dataclass
@@ -27,7 +27,7 @@ class AuthIntegration:
 
     enabled: bool = True
     store_type: str = "memory"
-    secret_key: Optional[str] = None
+    secret_key: str | None = None
     algorithm: str = "HS256"
     issuer: str = "aquilia"
     audience: str = "aquilia-app"
@@ -35,7 +35,7 @@ class AuthIntegration:
     refresh_token_ttl_days: int = 30
     require_auth_by_default: bool = False
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "_integration_type": "auth",
             "enabled": self.enabled,

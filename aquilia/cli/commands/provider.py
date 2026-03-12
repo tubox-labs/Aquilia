@@ -16,27 +16,45 @@ never stored in plain text or logged.
 from __future__ import annotations
 
 import sys
-from pathlib import Path
-from typing import Optional
 
 import click
 
 from ..utils.colors import (
-    success, error, info, warning, dim, bold,
-    section, kv, rule, panel, next_steps,
-    banner, _CHECK, _CROSS, _ARROW,
-    status_line, detail_card, phase_header,
-    _ROCKET, _LOCK, _GLOBE, _PKG, _GEAR, _BOLT,
-    _SHIELD, _CLOUD, _CLOCK, _SPARK, _WARN, _KEY, _EYE, _LINK,
+    _ARROW,
+    _CHECK,
+    _CLOUD,
+    _CROSS,
+    _EYE,
+    _GEAR,
+    _GLOBE,
+    _KEY,
+    _LOCK,
+    _PKG,
+    _SHIELD,
+    _SPARK,
+    _WARN,
+    banner,
+    detail_card,
+    dim,
+    error,
+    info,
+    next_steps,
+    phase_header,
+    section,
+    status_line,
+    success,
+    warning,
 )
 from ..utils.prompts import (
-    flow_header, flow_done, ask, ask_password, select, confirm,
+    ask_password,
+    confirm,
+    flow_done,
 )
-
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Click groups
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 @click.group("provider")
 def provider_group():
@@ -68,13 +86,12 @@ def render_group():
 # aq provider login render
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 @provider_group.command("login")
 @click.argument("provider_name", type=click.Choice(["render"]))
-@click.option("--token", "-t", type=str, default=None,
-              help="API token (reads from stdin if omitted)")
-@click.option("--region", "-r", type=str, default="oregon",
-              help="Default deployment region")
-def provider_login(provider_name: str, token: Optional[str], region: str):
+@click.option("--token", "-t", type=str, default=None, help="API token (reads from stdin if omitted)")
+@click.option("--region", "-r", type=str, default="oregon", help="Default deployment region")
+def provider_login(provider_name: str, token: str | None, region: str):
     """Login to a cloud provider.
 
     Securely stores your API token using Crous-encrypted storage.
@@ -93,9 +110,9 @@ def provider_login(provider_name: str, token: Optional[str], region: str):
         error(f"  {_CROSS} Unknown provider: {provider_name}")
         sys.exit(1)
 
-    from aquilia.providers.render.store import RenderCredentialStore
+    from aquilia.faults.domains import ProviderAPIFault, ProviderAuthFault
     from aquilia.providers.render.client import RenderClient
-    from aquilia.faults.domains import ProviderAuthFault, ProviderAPIFault
+    from aquilia.providers.render.store import RenderCredentialStore
 
     store = RenderCredentialStore()
 
@@ -190,16 +207,19 @@ def provider_login(provider_name: str, token: Optional[str], region: str):
 
     flow_done(f"{_SPARK} Render login complete.")
     click.echo()
-    next_steps([
-        "aq deploy render               # Deploy your workspace",
-        "aq provider status render      # Check connection status",
-        "aq provider render env set     # Manage Render env vars",
-    ])
+    next_steps(
+        [
+            "aq deploy render               # Deploy your workspace",
+            "aq provider status render      # Check connection status",
+            "aq provider render env set     # Manage Render env vars",
+        ]
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════════════
 # aq provider logout render
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 @provider_group.command("logout")
 @click.argument("provider_name", type=click.Choice(["render"]))
@@ -250,6 +270,7 @@ def provider_logout(provider_name: str):
 # aq provider status render
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 @provider_group.command("status")
 @click.argument("provider_name", type=click.Choice(["render"]))
 def provider_status(provider_name: str):
@@ -260,9 +281,9 @@ def provider_status(provider_name: str):
     Example:
       aq provider status render
     """
-    from aquilia.providers.render.store import RenderCredentialStore
+    from aquilia.faults.domains import ProviderAPIFault
     from aquilia.providers.render.client import RenderClient
-    from aquilia.faults.domains import ProviderAPIFault, ProviderCredentialFault
+    from aquilia.providers.render.store import RenderCredentialStore
 
     store = RenderCredentialStore()
     status = store.status()
@@ -280,6 +301,7 @@ def provider_status(provider_name: str):
     ]
     if status.get("stored_at"):
         import datetime
+
         stored = datetime.datetime.fromtimestamp(status["stored_at"])
         cred_items.append(("Stored at", stored.strftime("%Y-%m-%d %H:%M:%S")))
 
@@ -338,7 +360,7 @@ def provider_status(provider_name: str):
             if len(services) > 8:
                 dim(f"    ... and {len(services) - 8} more")
         else:
-            dim(f"    No services found.")
+            dim("    No services found.")
         click.echo()
 
     except ProviderAPIFault as e:
@@ -348,6 +370,7 @@ def provider_status(provider_name: str):
 # ═══════════════════════════════════════════════════════════════════════════
 # aq provider render env — Env var management
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 @render_group.group("env")
 def render_env_group():
@@ -366,9 +389,8 @@ def render_env_group():
 
 def _get_render_client():
     """Get an authenticated RenderClient or exit with error."""
-    from aquilia.providers.render.store import RenderCredentialStore
     from aquilia.providers.render.client import RenderClient
-    from aquilia.faults.domains import ProviderCredentialFault
+    from aquilia.providers.render.store import RenderCredentialStore
 
     store = RenderCredentialStore()
     if not store.is_configured():
@@ -439,7 +461,7 @@ def render_env_list(service: str):
 @click.argument("name")
 @click.argument("value", required=False)
 @click.option("--service", "-s", required=True, help="Render service name")
-def render_env_set(name: str, value: Optional[str], service: str):
+def render_env_set(name: str, value: str | None, service: str):
     """Create or update an environment variable on a Render service.
 
     If VALUE is omitted, you'll be prompted to enter it securely.

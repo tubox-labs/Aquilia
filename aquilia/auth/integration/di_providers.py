@@ -13,42 +13,41 @@ This module provides:
 from __future__ import annotations
 
 import logging
-from datetime import timedelta
 from typing import TYPE_CHECKING, Any
 
 from aquilia.di import Container
-from aquilia.di.decorators import service, factory
-from aquilia.di.lifecycle import Lifecycle
+from aquilia.di.decorators import service
+
 # Scope imports removed - using string literals
 from aquilia.sessions import (
     MemoryStore as SessionMemoryStore,
+)
+from aquilia.sessions import (
     SessionEngine,
     SessionPolicy,
 )
 
-from ..core import Identity
+from ..authz import ABACEngine, AuthzEngine, RBACEngine
 from ..hashing import PasswordHasher
 from ..manager import AuthManager, RateLimiter
 from ..mfa import MFAManager, TOTPProvider
 from ..oauth import OAuth2Manager
-from ..authz import AuthzEngine, RBACEngine, ABACEngine
 from ..stores import (
-    MemoryIdentityStore,
+    MemoryAuthorizationCodeStore,
     MemoryCredentialStore,
+    MemoryDeviceCodeStore,
+    MemoryIdentityStore,
     MemoryOAuthClientStore,
     MemoryTokenStore,
-    MemoryAuthorizationCodeStore,
-    MemoryDeviceCodeStore,
 )
 from ..tokens import KeyRing, TokenManager
 from .aquila_sessions import (
     SessionAuthBridge,
     user_session_policy,
-    api_session_policy,
 )
 
 if TYPE_CHECKING:
-    from aquilia.faults import FaultEngine
+    pass
 
 
 # ============================================================================
@@ -59,7 +58,7 @@ if TYPE_CHECKING:
 @service(scope="app")
 class PasswordHasherProvider:
     """Provider for PasswordHasher."""
-    
+
     def provide(self) -> PasswordHasher:
         """Provide PasswordHasher instance."""
         return PasswordHasher()
@@ -68,32 +67,32 @@ class PasswordHasherProvider:
 @service(scope="app")
 class KeyRingProvider:
     """Provider for KeyRing."""
-    
+
     def provide(self) -> KeyRing:
         """Provide KeyRing with default keys."""
-        from ..tokens import KeyDescriptor, KeyAlgorithm
-        
+        from ..tokens import KeyAlgorithm, KeyDescriptor
+
         # Generate default key on startup
         default_key = KeyDescriptor.generate(
             kid="default",
             algorithm=KeyAlgorithm.RS256,
         )
-        
+
         return KeyRing(keys=[default_key])
 
 
 @service(scope="app")
 class TokenManagerProvider:
     """Provider for TokenManager."""
-    
+
     def __init__(
-        self, 
+        self,
         keyring: KeyRing,
         token_store: MemoryTokenStore,
     ):
         self.keyring = keyring
         self.token_store = token_store
-    
+
     def provide(self) -> TokenManager:
         """Provide TokenManager instance."""
         return TokenManager(
@@ -105,7 +104,7 @@ class TokenManagerProvider:
 @service(scope="app")
 class RateLimiterProvider:
     """Provider for RateLimiter."""
-    
+
     def provide(
         self,
         max_attempts: int = 5,
@@ -128,7 +127,7 @@ class RateLimiterProvider:
 @service(scope="app")
 class IdentityStoreProvider:
     """Provider for IdentityStore."""
-    
+
     def provide(self) -> MemoryIdentityStore:
         """Provide memory-based identity store."""
         return MemoryIdentityStore()
@@ -137,7 +136,7 @@ class IdentityStoreProvider:
 @service(scope="app")
 class CredentialStoreProvider:
     """Provider for CredentialStore."""
-    
+
     def provide(self) -> MemoryCredentialStore:
         """Provide memory-based credential store."""
         return MemoryCredentialStore()
@@ -146,7 +145,7 @@ class CredentialStoreProvider:
 @service(scope="app")
 class TokenStoreProvider:
     """Provider for TokenStore."""
-    
+
     def provide(self) -> MemoryTokenStore:
         """Provide memory-based token store."""
         return MemoryTokenStore()
@@ -155,7 +154,7 @@ class TokenStoreProvider:
 @service(scope="app")
 class OAuthClientStoreProvider:
     """Provider for OAuthClientStore."""
-    
+
     def provide(self) -> MemoryOAuthClientStore:
         """Provide memory-based OAuth client store."""
         return MemoryOAuthClientStore()
@@ -164,7 +163,7 @@ class OAuthClientStoreProvider:
 @service(scope="app")
 class AuthorizationCodeStoreProvider:
     """Provider for AuthorizationCodeStore."""
-    
+
     def provide(self) -> MemoryAuthorizationCodeStore:
         """Provide memory-based authorization code store."""
         return MemoryAuthorizationCodeStore()
@@ -173,7 +172,7 @@ class AuthorizationCodeStoreProvider:
 @service(scope="app")
 class DeviceCodeStoreProvider:
     """Provider for DeviceCodeStore."""
-    
+
     def provide(self) -> MemoryDeviceCodeStore:
         """Provide memory-based device code store."""
         return MemoryDeviceCodeStore()
@@ -187,7 +186,7 @@ class DeviceCodeStoreProvider:
 @service(scope="app")
 class AuthManagerProvider:
     """Provider for AuthManager."""
-    
+
     def __init__(
         self,
         identity_store: MemoryIdentityStore,
@@ -203,7 +202,7 @@ class AuthManagerProvider:
         self.token_manager = token_manager
         self.password_hasher = password_hasher
         self.rate_limiter = rate_limiter
-    
+
     def provide(self) -> AuthManager:
         """Provide AuthManager instance."""
         return AuthManager(
@@ -218,10 +217,10 @@ class AuthManagerProvider:
 @service(scope="app")
 class MFAManagerProvider:
     """Provider for MFAManager."""
-    
+
     def __init__(self, credential_store: MemoryCredentialStore):
         self.credential_store = credential_store
-    
+
     def provide(self) -> MFAManager:
         """Provide MFAManager instance."""
         return MFAManager(
@@ -233,7 +232,7 @@ class MFAManagerProvider:
 @service(scope="app")
 class OAuth2ManagerProvider:
     """Provider for OAuth2Manager."""
-    
+
     def __init__(
         self,
         client_store: MemoryOAuthClientStore,
@@ -247,7 +246,7 @@ class OAuth2ManagerProvider:
         self.device_code_store = device_code_store
         self.token_manager = token_manager
         self.identity_store = identity_store
-    
+
     def provide(self) -> OAuth2Manager:
         """Provide OAuth2Manager instance."""
         return OAuth2Manager(
@@ -262,7 +261,7 @@ class OAuth2ManagerProvider:
 @service(scope="app")
 class AuthzEngineProvider:
     """Provider for AuthzEngine."""
-    
+
     def provide(self) -> AuthzEngine:
         """Provide AuthzEngine instance."""
         rbac = RBACEngine()
@@ -278,7 +277,7 @@ class AuthzEngineProvider:
 @service(scope="app")
 class SessionEngineProvider:
     """Provider for SessionEngine."""
-    
+
     def provide(
         self,
         policy: SessionPolicy | None = None,
@@ -287,7 +286,7 @@ class SessionEngineProvider:
         """Provide SessionEngine instance."""
         if policy is None:
             policy = user_session_policy()
-        
+
         return SessionEngine(
             policy=policy,
             store=SessionMemoryStore(),
@@ -299,10 +298,10 @@ class SessionEngineProvider:
 @service(scope="app")
 class SessionAuthBridgeProvider:
     """Provider for SessionAuthBridge."""
-    
+
     def __init__(self, session_engine: SessionEngine):
         self.session_engine = session_engine
-    
+
     def provide(self) -> SessionAuthBridge:
         """Provide SessionAuthBridge instance."""
         return SessionAuthBridge(session_engine=self.session_engine)
@@ -313,30 +312,30 @@ class SessionAuthBridgeProvider:
 # ============================================================================
 
 
-
 def _register_provider_class(container: Container, provider_cls: Any) -> None:
     """Helper to register a class-based provider."""
-    from aquilia.di.providers import ClassProvider, FactoryProvider
-    from aquilia.di.decorators import provides
     import inspect
     from typing import get_type_hints
-    
+
+    from aquilia.di.decorators import provides
+    from aquilia.di.providers import ClassProvider, FactoryProvider
+
     # 1. Register the provider class itself
     # We need to give it a unique token so it doesn't conflict
-    provider_token = provider_cls
     container.register(ClassProvider(provider_cls))
-    
+
     # 2. Extract return type
     if not hasattr(provider_cls, "provide"):
         from aquilia.faults.domains import DIFault
+
         raise DIFault(
             message=f"Provider {provider_cls.__name__} missing 'provide' method",
         )
-        
+
     provide_method = provider_cls.provide
     hints = get_type_hints(provide_method)
     return_type = hints.get("return")
-    
+
     if not return_type:
         return
 
@@ -344,14 +343,14 @@ def _register_provider_class(container: Container, provider_cls: Any) -> None:
     scope = getattr(provider_cls, "__di_scope__", "app")
 
     @provides(return_type, scope=scope)
-    async def factory(p): 
+    async def factory(p):
         if inspect.iscoroutinefunction(p.provide):
             return await p.provide()
         return p.provide()
-    
+
     # Manually set annotation to avoid stringification issues with closure variable
     factory.__annotations__["p"] = provider_cls
-    
+
     # 4. Register factory
     # Use the return type's FQDN as the name/token
     token_name = f"{return_type.__module__}.{return_type.__qualname__}"
@@ -364,19 +363,19 @@ def register_auth_providers(
 ) -> None:
     """
     Register all auth providers in DI container.
-    
+
     Args:
         container: DI container
         config: Optional configuration dict
     """
     config = config or {}
-    
+
     # Core components
     _register_provider_class(container, PasswordHasherProvider)
     _register_provider_class(container, KeyRingProvider)
     _register_provider_class(container, TokenManagerProvider)
     _register_provider_class(container, RateLimiterProvider)
-    
+
     # Stores
     _register_provider_class(container, IdentityStoreProvider)
     _register_provider_class(container, CredentialStoreProvider)
@@ -384,13 +383,13 @@ def register_auth_providers(
     _register_provider_class(container, OAuthClientStoreProvider)
     _register_provider_class(container, AuthorizationCodeStoreProvider)
     _register_provider_class(container, DeviceCodeStoreProvider)
-    
+
     # Managers
     _register_provider_class(container, AuthManagerProvider)
     _register_provider_class(container, MFAManagerProvider)
     _register_provider_class(container, OAuth2ManagerProvider)
     _register_provider_class(container, AuthzEngineProvider)
-    
+
     # Sessions
     _register_provider_class(container, SessionEngineProvider)
     _register_provider_class(container, SessionAuthBridgeProvider)
@@ -402,11 +401,11 @@ def create_auth_container(
 ) -> Container:
     """
     Create DI container with all auth providers registered.
-    
+
     Args:
         config: Optional configuration dict
         parent: Optional parent container
-        
+
     Returns:
         Configured container
     """
@@ -423,10 +422,10 @@ def create_auth_container(
 class AuthConfig:
     """
     Authentication configuration builder.
-    
+
     Provides fluent interface for configuring auth system.
     """
-    
+
     def __init__(self):
         self._config: dict[str, Any] = {
             "rate_limit": {
@@ -452,7 +451,7 @@ class AuthConfig:
                 "enabled": False,
             },
         }
-    
+
     def rate_limit(
         self,
         max_attempts: int = 5,
@@ -466,7 +465,7 @@ class AuthConfig:
             "lockout_duration": lockout_duration,
         }
         return self
-    
+
     def sessions(
         self,
         policy: str = "user",
@@ -482,7 +481,7 @@ class AuthConfig:
             "max_sessions": max_sessions,
         }
         return self
-    
+
     def tokens(
         self,
         access_ttl_minutes: int = 15,
@@ -494,7 +493,7 @@ class AuthConfig:
             "refresh_ttl_days": refresh_ttl_days,
         }
         return self
-    
+
     def mfa(
         self,
         enabled: bool = True,
@@ -506,12 +505,12 @@ class AuthConfig:
             "required": required,
         }
         return self
-    
+
     def oauth(self, enabled: bool = True) -> AuthConfig:
         """Enable OAuth2/OIDC."""
         self._config["oauth"] = {"enabled": enabled}
         return self
-    
+
     def build(self) -> dict[str, Any]:
         """Build configuration dict."""
         return self._config

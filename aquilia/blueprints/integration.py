@@ -10,16 +10,15 @@ Provides:
 
 from __future__ import annotations
 
-import inspect
-from typing import Any, Dict, Type, TYPE_CHECKING
+import contextlib
+from typing import TYPE_CHECKING, Any
 
-from .core import Blueprint, BlueprintMeta
-from .lenses import _ProjectedRef
+from .core import Blueprint
 from .exceptions import SealFault
+from .lenses import _ProjectedRef
 
 if TYPE_CHECKING:
-    from ..request import Request
-    from ..response import Response
+    pass
 
 
 # ── Security Constants ──────────────────────────────────────────────────
@@ -56,7 +55,7 @@ def is_projected_blueprint(obj: Any) -> bool:
 
 def resolve_blueprint_from_annotation(
     annotation: Any,
-) -> tuple[Type[Blueprint] | None, str | None]:
+) -> tuple[type[Blueprint] | None, str | None]:
     """
     Resolve a Blueprint class and projection from a type annotation.
 
@@ -79,7 +78,7 @@ def resolve_blueprint_from_annotation(
 
 def _unflatten_dict(flat_dict: dict, *, max_depth: int | None = None, max_keys: int | None = None) -> dict:
     """Unflatten dot-notated dictionary keys into nested dictionaries.
-    
+
     Security: Limits nesting depth and key count to prevent resource
     exhaustion from crafted form field names.
     """
@@ -94,7 +93,7 @@ def _unflatten_dict(flat_dict: dict, *, max_depth: int | None = None, max_keys: 
 
     result = {}
     for key, value in flat_dict.items():
-        parts = key.split('.')
+        parts = key.split(".")
         if len(parts) > _max_depth:
             raise SealFault(
                 message=f"Form key nesting depth ({len(parts)}) exceeds maximum of {_max_depth}",
@@ -108,12 +107,12 @@ def _unflatten_dict(flat_dict: dict, *, max_depth: int | None = None, max_keys: 
 
 
 async def bind_blueprint_to_request(
-    blueprint_cls: Type[Blueprint],
+    blueprint_cls: type[Blueprint],
     request: Any,
     *,
     projection: str | None = None,
     partial: bool = False,
-    context: Dict[str, Any] | None = None,
+    context: dict[str, Any] | None = None,
 ) -> Blueprint:
     """
     Create and validate a Blueprint from an incoming request.
@@ -146,15 +145,12 @@ async def bind_blueprint_to_request(
         else:
             cl = None
         if cl is not None:
-            try:
+            with contextlib.suppress(ValueError, TypeError):
                 content_length = int(cl)
-            except (ValueError, TypeError):
-                pass
 
     if content_length is not None and content_length > max_body:
         raise SealFault(
-            message=f"Request body too large ({content_length} bytes). "
-                    f"Maximum allowed: {max_body} bytes",
+            message=f"Request body too large ({content_length} bytes). Maximum allowed: {max_body} bytes",
             errors={"__all__": [f"Request body exceeds {max_body} byte limit"]},
         )
 
@@ -175,7 +171,9 @@ async def bind_blueprint_to_request(
         except Exception:
             body = {}
 
-    if not body and ("multipart/form-data" in content_type or "application/x-www-form-urlencoded" in content_type or not content_type):
+    if not body and (
+        "multipart/form-data" in content_type or "application/x-www-form-urlencoded" in content_type or not content_type
+    ):
         try:
             form_data = await request.form()
             form_dict = form_data.fields.to_dict() if hasattr(form_data, "fields") else dict(form_data)
@@ -188,6 +186,7 @@ async def bind_blueprint_to_request(
     # Extract DI parameters (Query, Header) from Facet defaults
     try:
         from ..di.dep import Header, Query
+
         for name, facet in getattr(blueprint_cls, "_all_facets", {}).items():
             if hasattr(facet, "default"):
                 default_val = facet.default
@@ -213,9 +212,7 @@ async def bind_blueprint_to_request(
                     val = None
                     if hasattr(request, "headers"):
                         headers = request.headers
-                        if isinstance(headers, dict):
-                            val = headers.get(header_key)
-                        elif hasattr(headers, "get"):
+                        if isinstance(headers, dict) or hasattr(headers, "get"):
                             val = headers.get(header_key)
                     if val is not None:
                         data[name] = val
@@ -254,7 +251,7 @@ async def bind_blueprint_to_request(
 
 
 def render_blueprint_response(
-    blueprint_or_cls: Blueprint | Type[Blueprint],
+    blueprint_or_cls: Blueprint | type[Blueprint],
     data: Any = None,
     *,
     projection: str | None = None,

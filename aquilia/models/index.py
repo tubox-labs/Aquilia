@@ -8,7 +8,8 @@ and FunctionalIndex.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Sequence
+from collections.abc import Sequence
+from typing import Any
 
 # Re-export originals from fields_module
 from ..models.fields_module import Index, UniqueConstraint
@@ -35,8 +36,8 @@ class _PostgresOnlyIndex:
         self,
         *,
         fields: Sequence[str] = (),
-        name: Optional[str] = None,
-        condition: Optional[str] = None,
+        name: str | None = None,
+        condition: str | None = None,
         opclasses: Sequence[str] = (),
     ):
         self.fields = list(fields)
@@ -59,10 +60,7 @@ class _PostgresOnlyIndex:
             cols_with_opclass.append(col_str)
 
         col_list = ", ".join(cols_with_opclass)
-        sql = (
-            f'CREATE INDEX IF NOT EXISTS "{idx_name}" '
-            f'ON "{table_name}" USING {self._index_type} ({col_list})'
-        )
+        sql = f'CREATE INDEX IF NOT EXISTS "{idx_name}" ON "{table_name}" USING {self._index_type} ({col_list})'
         if self.condition:
             sql += f" WHERE ({self.condition})"
         sql += ";"
@@ -73,12 +71,9 @@ class _PostgresOnlyIndex:
         idx_name = self.name or f"idx_{table_name}_{'_'.join(self.fields)}"
         col_list = ", ".join(f'"{f}"' for f in self.fields)
         ine = "" if dialect == "mysql" else " IF NOT EXISTS"
-        return (
-            f'CREATE INDEX{ine} "{idx_name}" '
-            f'ON "{table_name}" ({col_list});'
-        )
+        return f'CREATE INDEX{ine} "{idx_name}" ON "{table_name}" ({col_list});'
 
-    def deconstruct(self) -> Dict[str, Any]:
+    def deconstruct(self) -> dict[str, Any]:
         return {
             "type": self.__class__.__name__,
             "fields": self.fields,
@@ -93,21 +88,25 @@ class _PostgresOnlyIndex:
 
 class GinIndex(_PostgresOnlyIndex):
     """PostgreSQL GIN index -- useful for full-text search, JSONB, arrays."""
+
     _index_type = "GIN"
 
 
 class GistIndex(_PostgresOnlyIndex):
     """PostgreSQL GiST index -- useful for geometric, range types, exclusion constraints."""
+
     _index_type = "GIST"
 
 
 class BrinIndex(_PostgresOnlyIndex):
     """PostgreSQL BRIN index -- useful for very large tables with natural ordering."""
+
     _index_type = "BRIN"
 
 
 class HashIndex(_PostgresOnlyIndex):
     """PostgreSQL Hash index -- useful for equality lookups only."""
+
     _index_type = "HASH"
 
 
@@ -127,8 +126,8 @@ class FunctionalIndex:
         *,
         expression: str,
         name: str,
-        index_type: Optional[str] = None,
-        condition: Optional[str] = None,
+        index_type: str | None = None,
+        condition: str | None = None,
     ):
         self.expression = expression
         self.name = name
@@ -138,16 +137,13 @@ class FunctionalIndex:
     def sql(self, table_name: str, dialect: str = "sqlite") -> str:
         using = f" USING {self.index_type}" if self.index_type and dialect not in ("sqlite", "mysql") else ""
         ine = "" if dialect == "mysql" else " IF NOT EXISTS"
-        sql = (
-            f'CREATE INDEX{ine} "{self.name}" '
-            f'ON "{table_name}"{using} ({self.expression})'
-        )
+        sql = f'CREATE INDEX{ine} "{self.name}" ON "{table_name}"{using} ({self.expression})'
         if self.condition:
             sql += f" WHERE ({self.condition})"
         sql += ";"
         return sql
 
-    def deconstruct(self) -> Dict[str, Any]:
+    def deconstruct(self) -> dict[str, Any]:
         return {
             "type": "FunctionalIndex",
             "expression": self.expression,

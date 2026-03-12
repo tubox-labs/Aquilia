@@ -27,11 +27,13 @@ Integration:
     - Testing: MockEffectRegistry auto-stubs missing effects
 """
 
-from typing import Any, Generic, TypeVar, Optional, Dict, List, Set, Sequence
-from abc import ABC, abstractmethod
-from enum import Enum
+import contextlib
 import logging
 import time
+from abc import ABC, abstractmethod
+from collections.abc import Sequence
+from enum import Enum
+from typing import Any, Generic, TypeVar
 
 T = TypeVar("T")
 
@@ -40,6 +42,7 @@ logger = logging.getLogger("aquilia.effects")
 
 class EffectKind(Enum):
     """Categories of effects."""
+
     DB = "db"
     CACHE = "cache"
     QUEUE = "queue"
@@ -58,7 +61,7 @@ class Effect(Generic[T]):
         Cache['user'] - User cache namespace
     """
 
-    def __init__(self, name: str, mode: Optional[T] = None, kind: EffectKind = EffectKind.CUSTOM):
+    def __init__(self, name: str, mode: T | None = None, kind: EffectKind = EffectKind.CUSTOM):
         self.name = name
         self.mode = mode
         self.kind = kind
@@ -93,7 +96,7 @@ class EffectProvider(ABC):
         pass
 
     @abstractmethod
-    async def acquire(self, mode: Optional[str] = None) -> Any:
+    async def acquire(self, mode: str | None = None) -> Any:
         """
         Acquire a resource for this effect (called per-request).
 
@@ -120,7 +123,7 @@ class EffectProvider(ABC):
         """Finalize provider (called at shutdown)."""
         pass
 
-    async def health_check(self) -> Dict[str, Any]:
+    async def health_check(self) -> dict[str, Any]:
         """
         Check provider health. Override for custom health reporting.
 
@@ -147,21 +150,21 @@ class CacheEffect(Effect):
 class QueueEffect(Effect):
     """Queue/message publish effect."""
 
-    def __init__(self, topic: Optional[str] = None):
+    def __init__(self, topic: str | None = None):
         super().__init__("Queue", mode=topic, kind=EffectKind.QUEUE)
 
 
 class HTTPEffect(Effect):
     """HTTP client effect for outbound requests."""
 
-    def __init__(self, service: Optional[str] = None):
+    def __init__(self, service: str | None = None):
         super().__init__("HTTP", mode=service, kind=EffectKind.HTTP)
 
 
 class StorageEffect(Effect):
     """File/blob storage effect."""
 
-    def __init__(self, bucket: Optional[str] = None):
+    def __init__(self, bucket: str | None = None):
         super().__init__("Storage", mode=bucket, kind=EffectKind.STORAGE)
 
 
@@ -183,7 +186,7 @@ class DBTxProvider(EffectProvider):
         """Initialize connection pool."""
         self.pool = {"initialized": True, "connection_string": self.connection_string}
 
-    async def acquire(self, mode: Optional[str] = None):
+    async def acquire(self, mode: str | None = None):
         """Acquire database connection."""
         self._acquire_count += 1
         return {
@@ -201,7 +204,7 @@ class DBTxProvider(EffectProvider):
         else:
             pass  # Rollback
 
-    async def health_check(self) -> Dict[str, Any]:
+    async def health_check(self) -> dict[str, Any]:
         return {
             "healthy": self.pool is not None,
             "acquire_count": self._acquire_count,
@@ -231,7 +234,7 @@ class CacheProvider(EffectProvider):
             except Exception:
                 pass  # CacheService.initialize is idempotent
 
-    async def acquire(self, mode: Optional[str] = None):
+    async def acquire(self, mode: str | None = None):
         """Get cache handle for namespace."""
         namespace = mode or "default"
         if self._svc is not None:
@@ -245,12 +248,10 @@ class CacheProvider(EffectProvider):
     async def finalize(self):
         """Shutdown underlying cache service."""
         if self._svc is not None:
-            try:
+            with contextlib.suppress(Exception):
                 await self._svc.shutdown()
-            except Exception:
-                pass
 
-    async def health_check(self) -> Dict[str, Any]:
+    async def health_check(self) -> dict[str, Any]:
         return {
             "healthy": True,
             "backend": self.backend,
@@ -265,15 +266,15 @@ class QueueProvider(EffectProvider):
     Wraps a message broker connection (RabbitMQ, Redis Streams, etc.).
     """
 
-    def __init__(self, broker_url: Optional[str] = None):
+    def __init__(self, broker_url: str | None = None):
         self.broker_url = broker_url
         self._connected = False
-        self._messages: List[Dict[str, Any]] = []  # In-memory fallback
+        self._messages: list[dict[str, Any]] = []  # In-memory fallback
 
     async def initialize(self):
         self._connected = True
 
-    async def acquire(self, mode: Optional[str] = None):
+    async def acquire(self, mode: str | None = None):
         """Return a queue handle for a topic/channel."""
         topic = mode or "default"
         return QueueHandle(self._messages, topic)
@@ -284,7 +285,7 @@ class QueueProvider(EffectProvider):
     async def finalize(self):
         self._connected = False
 
-    async def health_check(self) -> Dict[str, Any]:
+    async def health_check(self) -> dict[str, Any]:
         return {"healthy": self._connected, "broker_url": self.broker_url}
 
 
@@ -302,12 +303,12 @@ class TaskQueueProvider(EffectProvider):
 
     def __init__(self, *, task_manager: Any = None):
         self._manager = task_manager
-        self._fallback_messages: List[Dict[str, Any]] = []
+        self._fallback_messages: list[dict[str, Any]] = []
 
     async def initialize(self):
         pass  # Manager lifecycle is managed by the server
 
-    async def acquire(self, mode: Optional[str] = None):
+    async def acquire(self, mode: str | None = None):
         queue = mode or "default"
         if self._manager is not None:
             return TaskQueueHandle(self._manager, queue)
@@ -319,7 +320,7 @@ class TaskQueueProvider(EffectProvider):
     async def finalize(self):
         pass
 
-    async def health_check(self) -> Dict[str, Any]:
+    async def health_check(self) -> dict[str, Any]:
         if self._manager is not None:
             return {
                 "healthy": self._manager.is_running,
@@ -336,7 +337,7 @@ class HTTPProvider(EffectProvider):
     Manages an HTTP client session with connection pooling.
     """
 
-    def __init__(self, base_url: Optional[str] = None, *, timeout: float = 30.0):
+    def __init__(self, base_url: str | None = None, *, timeout: float = 30.0):
         self.base_url = base_url
         self.timeout = timeout
         self._session: Any = None
@@ -345,6 +346,7 @@ class HTTPProvider(EffectProvider):
         """Create HTTP client session."""
         try:
             import aiohttp
+
             self._session = aiohttp.ClientSession(
                 base_url=self.base_url,
                 timeout=aiohttp.ClientTimeout(total=self.timeout),
@@ -352,7 +354,7 @@ class HTTPProvider(EffectProvider):
         except ImportError:
             self._session = None  # Will use fallback
 
-    async def acquire(self, mode: Optional[str] = None):
+    async def acquire(self, mode: str | None = None):
         """Return HTTP client handle."""
         return HTTPHandle(self._session, self.base_url)
 
@@ -361,10 +363,8 @@ class HTTPProvider(EffectProvider):
 
     async def finalize(self):
         if self._session is not None:
-            try:
+            with contextlib.suppress(Exception):
                 await self._session.close()
-            except Exception:
-                pass
 
 
 class StorageProvider(EffectProvider):
@@ -379,17 +379,19 @@ class StorageProvider(EffectProvider):
 
     async def initialize(self):
         import os
+
         os.makedirs(self.root_path, exist_ok=True)
 
-    async def acquire(self, mode: Optional[str] = None):
+    async def acquire(self, mode: str | None = None):
         bucket = mode or "default"
         return StorageHandle(self.root_path, bucket)
 
     async def release(self, resource: Any, success: bool = True):
         pass
 
-    async def health_check(self) -> Dict[str, Any]:
+    async def health_check(self) -> dict[str, Any]:
         import os
+
         return {"healthy": os.path.isdir(self.root_path), "root": self.root_path}
 
 
@@ -407,10 +409,10 @@ class CacheServiceHandle:
         self._svc = svc
         self._ns = namespace
 
-    async def get(self, key: str) -> Optional[Any]:
+    async def get(self, key: str) -> Any | None:
         return await self._svc.get(key, namespace=self._ns)
 
-    async def set(self, key: str, value: Any, ttl: Optional[int] = None):
+    async def set(self, key: str, value: Any, ttl: int | None = None):
         await self._svc.set(key, value, ttl=ttl, namespace=self._ns)
 
     async def delete(self, key: str):
@@ -427,11 +429,11 @@ class CacheHandle:
     def _key(self, key: str) -> str:
         return f"{self._namespace}:{key}"
 
-    async def get(self, key: str) -> Optional[Any]:
+    async def get(self, key: str) -> Any | None:
         """Get value from cache."""
         return self._cache.get(self._key(key))
 
-    async def set(self, key: str, value: Any, ttl: Optional[int] = None):
+    async def set(self, key: str, value: Any, ttl: int | None = None):
         """Set value in cache."""
         self._cache[self._key(key)] = value
 
@@ -443,18 +445,20 @@ class CacheHandle:
 class QueueHandle:
     """Handle for queue operations on a topic."""
 
-    def __init__(self, messages: List[Dict[str, Any]], topic: str):
+    def __init__(self, messages: list[dict[str, Any]], topic: str):
         self._messages = messages
         self._topic = topic
 
-    async def publish(self, payload: Any, *, headers: Optional[Dict[str, str]] = None):
+    async def publish(self, payload: Any, *, headers: dict[str, str] | None = None):
         """Publish a message to the topic."""
-        self._messages.append({
-            "topic": self._topic,
-            "payload": payload,
-            "headers": headers or {},
-            "timestamp": time.monotonic(),
-        })
+        self._messages.append(
+            {
+                "topic": self._topic,
+                "payload": payload,
+                "headers": headers or {},
+                "timestamp": time.monotonic(),
+            }
+        )
 
     async def publish_batch(self, payloads: Sequence[Any]):
         """Publish multiple messages."""
@@ -483,7 +487,7 @@ class TaskQueueHandle:
         """
         return await self._manager.enqueue(func, *args, queue=self._queue, **kwargs)
 
-    async def publish(self, payload: Any, *, headers: Optional[Dict[str, str]] = None):
+    async def publish(self, payload: Any, *, headers: dict[str, str] | None = None):
         """Compatibility with QueueHandle -- enqueue payload as a task."""
         # For generic publish, store as a no-op message
         # Real usage should call enqueue() with a @task function
@@ -497,7 +501,7 @@ class TaskQueueHandle:
 class HTTPHandle:
     """Handle for outbound HTTP requests."""
 
-    def __init__(self, session: Any, base_url: Optional[str] = None):
+    def __init__(self, session: Any, base_url: str | None = None):
         self._session = session
         self._base_url = base_url
 
@@ -535,10 +539,12 @@ class StorageHandle:
 
     def _path(self, key: str) -> str:
         import os
+
         return os.path.join(self._root, self._bucket, key)
 
-    async def read(self, key: str) -> Optional[bytes]:
+    async def read(self, key: str) -> bytes | None:
         import os
+
         path = self._path(key)
         if not os.path.exists(path):
             return None
@@ -547,6 +553,7 @@ class StorageHandle:
 
     async def write(self, key: str, data: bytes) -> None:
         import os
+
         path = self._path(key)
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "wb") as f:
@@ -554,6 +561,7 @@ class StorageHandle:
 
     async def delete(self, key: str) -> bool:
         import os
+
         path = self._path(key)
         if os.path.exists(path):
             os.remove(path)
@@ -562,6 +570,7 @@ class StorageHandle:
 
     async def exists(self, key: str) -> bool:
         import os
+
         return os.path.exists(self._path(key))
 
 
@@ -593,16 +602,16 @@ class EffectRegistry:
     """
 
     def __init__(self):
-        self.providers: Dict[str, EffectProvider] = {}
+        self.providers: dict[str, EffectProvider] = {}
         self._initialized = False
-        self._metrics: Dict[str, Dict[str, int]] = {}  # per-effect acquire/release counts
+        self._metrics: dict[str, dict[str, int]] = {}  # per-effect acquire/release counts
 
     def register(self, effect_name: str, provider: EffectProvider):
         """Register an effect provider."""
         self.providers[effect_name] = provider
         self._metrics[effect_name] = {"acquires": 0, "releases": 0, "errors": 0}
 
-    def unregister(self, effect_name: str) -> Optional[EffectProvider]:
+    def unregister(self, effect_name: str) -> EffectProvider | None:
         """Unregister and return an effect provider."""
         self._metrics.pop(effect_name, None)
         return self.providers.pop(effect_name, None)
@@ -630,7 +639,7 @@ class EffectRegistry:
 
     # -- Per-request acquire/release --------------------------------------
 
-    async def acquire(self, effect_name: str, mode: Optional[str] = None) -> Any:
+    async def acquire(self, effect_name: str, mode: str | None = None) -> Any:
         """
         Acquire a resource for the named effect.
 
@@ -651,7 +660,7 @@ class EffectRegistry:
             if metrics:
                 metrics["acquires"] += 1
             return resource
-        except Exception as exc:
+        except Exception:
             metrics = self._metrics.get(effect_name)
             if metrics:
                 metrics["errors"] += 1
@@ -701,6 +710,7 @@ class EffectRegistry:
         """Get provider for effect."""
         if effect_name not in self.providers:
             from .faults.domains import EffectFault
+
             raise EffectFault(
                 code="EFFECT_NOT_REGISTERED",
                 message=f"Effect '{effect_name}' not registered",
@@ -709,9 +719,9 @@ class EffectRegistry:
 
     # -- Health -----------------------------------------------------------
 
-    async def health_check(self) -> Dict[str, Any]:
+    async def health_check(self) -> dict[str, Any]:
         """Aggregate health from all providers."""
-        results: Dict[str, Any] = {}
+        results: dict[str, Any] = {}
         all_healthy = True
         for name, provider in self.providers.items():
             try:
@@ -742,30 +752,34 @@ class EffectRegistry:
         from aquilia.di.providers import ValueProvider
 
         # Register the registry itself
-        container.register(ValueProvider(
-            value=self,
-            token=EffectRegistry,
-            scope="app",
-        ))
+        container.register(
+            ValueProvider(
+                value=self,
+                token=EffectRegistry,
+                scope="app",
+            )
+        )
 
         # Register individual providers by effect name
         for effect_name, provider in self.providers.items():
             try:
-                container.register(ValueProvider(
-                    value=provider,
-                    token=f"effect:{effect_name}",
-                    scope="app",
-                ))
+                container.register(
+                    ValueProvider(
+                        value=provider,
+                        token=f"effect:{effect_name}",
+                        scope="app",
+                    )
+                )
             except ValueError:
                 pass  # Already registered
 
     # -- Introspection ----------------------------------------------------
 
-    def list_effects(self) -> List[str]:
+    def list_effects(self) -> list[str]:
         """Return all registered effect names."""
         return list(self.providers.keys())
 
-    def get_metrics(self) -> Dict[str, Dict[str, int]]:
+    def get_metrics(self) -> dict[str, dict[str, int]]:
         """Return per-effect metrics."""
         return dict(self._metrics)
 

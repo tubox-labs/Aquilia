@@ -73,13 +73,13 @@ To load manually::
 
 from __future__ import annotations
 
-import os
+import inspect
 import json
 import logging
-import inspect
-from dataclasses import dataclass, field
+import os
+from dataclasses import field
 from pathlib import Path
-from typing import Any, Dict, Optional, List, ClassVar, Type, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from aquilia.config import ConfigLoader
@@ -90,6 +90,7 @@ log = logging.getLogger(__name__)
 # ============================================================================
 # Secret descriptor — never leaks values in repr/logs
 # ============================================================================
+
 
 class Secret:
     """
@@ -115,10 +116,10 @@ class Secret:
 
     def __init__(
         self,
-        value: Optional[str] = None,
+        value: str | None = None,
         *,
-        env: Optional[str] = None,
-        default: Optional[str] = None,
+        env: str | None = None,
+        default: str | None = None,
         required: bool = False,
     ):
         self._literal = value
@@ -126,7 +127,7 @@ class Secret:
         self._default = default
         self._required = required
 
-    def reveal(self) -> Optional[str]:
+    def reveal(self) -> str | None:
         """Return the actual secret value (use deliberately)."""
         if self._env_name:
             val = os.environ.get(self._env_name)
@@ -138,6 +139,7 @@ class Secret:
             return self._default
         if self._required:
             from aquilia.faults.domains import ConfigMissingFault
+
             raise ConfigMissingFault(
                 key=self._env_name or "secret",
                 metadata={
@@ -158,6 +160,7 @@ class Secret:
 # Env binding — transparently reads from environment variables
 # ============================================================================
 
+
 class Env:
     """
     Bind a configuration field to an environment variable.
@@ -172,7 +175,7 @@ class Env:
         host    = Env("AQ_HOST",    default="127.0.0.1")
     """
 
-    _CAST_TRUE  = {"1", "true", "yes", "on"}
+    _CAST_TRUE = {"1", "true", "yes", "on"}
     _CAST_FALSE = {"0", "false", "no", "off"}
 
     def __init__(
@@ -180,11 +183,11 @@ class Env:
         name: str,
         *,
         default: Any = None,
-        cast: Optional[type] = None,
+        cast: type | None = None,
     ):
-        self._name    = name
+        self._name = name
         self._default = default
-        self._cast    = cast
+        self._cast = cast
 
     def resolve(self) -> Any:
         """Return the resolved value from the environment or default."""
@@ -223,6 +226,7 @@ class Env:
 # section decorator — annotates nested config classes
 # ============================================================================
 
+
 def section(cls: type) -> type:
     """
     Mark a nested class as a config *section*.
@@ -247,6 +251,7 @@ def section(cls: type) -> type:
 # ConfigMeta — metaclass for section resolution
 # ============================================================================
 
+
 def _resolve_value(val: Any) -> Any:
     """Unwrap ``Env`` and ``Secret`` wrappers to their runtime values."""
     if isinstance(val, Env):
@@ -256,7 +261,7 @@ def _resolve_value(val: Any) -> Any:
     return val
 
 
-def _class_to_dict(cls: type) -> Dict[str, Any]:
+def _class_to_dict(cls: type) -> dict[str, Any]:
     """
     Recursively convert a (nested) config class into a plain dict.
 
@@ -268,7 +273,7 @@ def _class_to_dict(cls: type) -> Dict[str, Any]:
     - Callable attributes (methods) are skipped.
     - Dataclass/plain-class instances with a ``to_dict`` method are called.
     """
-    result: Dict[str, Any] = {}
+    result: dict[str, Any] = {}
     for name, val in inspect.getmembers(cls):
         if name.startswith("_"):
             continue
@@ -291,6 +296,7 @@ def _class_to_dict(cls: type) -> Dict[str, Any]:
 # ============================================================================
 # AquilaConfig — base class for all Python-native configs
 # ============================================================================
+
 
 class AquilaConfig:
     """
@@ -399,67 +405,68 @@ class AquilaConfig:
                     ssl_certfile       = "/etc/certs/cert.pem"
                     ssl_keyfile        = "/etc/certs/key.pem"
         """
+
         # ── Core ─────────────────────────────────────────────────────
-        host: str              = "127.0.0.1"
-        port: int              = 8000
-        uds: "Optional[str]"   = None        # Unix domain socket path
-        fd: "Optional[int]"    = None        # File descriptor to bind
-        workers: int           = 1
-        mode: str              = "dev"
-        debug: bool            = False
+        host: str = "127.0.0.1"
+        port: int = 8000
+        uds: str | None = None  # Unix domain socket path
+        fd: int | None = None  # File descriptor to bind
+        workers: int = 1
+        mode: str = "dev"
+        debug: bool = False
 
         # ── Reload / Development ─────────────────────────────────────
-        reload: bool                         = False
-        reload_dirs: "Optional[List[str]]"   = None   # directories to watch
-        reload_delay: float                  = 0.25   # seconds between checks
-        reload_includes: "Optional[List[str]]" = None # glob patterns to include
-        reload_excludes: "Optional[List[str]]" = None # glob patterns to exclude
+        reload: bool = False
+        reload_dirs: list[str] | None = None  # directories to watch
+        reload_delay: float = 0.25  # seconds between checks
+        reload_includes: list[str] | None = None  # glob patterns to include
+        reload_excludes: list[str] | None = None  # glob patterns to exclude
 
         # ── Protocol / Implementation ────────────────────────────────
-        http: str              = "auto"      # "auto" | "h11" | "httptools"
-        ws: str                = "auto"      # "auto" | "wsproto" | "websockets" | "none"
-        lifespan: str          = "auto"      # "auto" | "on" | "off"
-        interface: str         = "auto"      # "auto" | "asgi3" | "asgi2" | "wsgi"
-        loop: str              = "auto"      # "auto" | "asyncio" | "uvloop"
+        http: str = "auto"  # "auto" | "h11" | "httptools"
+        ws: str = "auto"  # "auto" | "wsproto" | "websockets" | "none"
+        lifespan: str = "auto"  # "auto" | "on" | "off"
+        interface: str = "auto"  # "auto" | "asgi3" | "asgi2" | "wsgi"
+        loop: str = "auto"  # "auto" | "asyncio" | "uvloop"
 
         # ── Timeouts ─────────────────────────────────────────────────
-        timeout_keep_alive: int              = 5       # seconds
-        timeout_worker_healthcheck: int      = 30      # seconds before worker considered unresponsive
-        timeout_graceful_shutdown: "Optional[int]" = None  # seconds (None = wait forever)
+        timeout_keep_alive: int = 5  # seconds
+        timeout_worker_healthcheck: int = 30  # seconds before worker considered unresponsive
+        timeout_graceful_shutdown: int | None = None  # seconds (None = wait forever)
 
         # ── Limits ───────────────────────────────────────────────────
-        backlog: int                         = 2048
-        limit_concurrency: "Optional[int]"   = None    # max concurrent connections
-        limit_max_requests: "Optional[int]"  = None    # restart worker after N requests
+        backlog: int = 2048
+        limit_concurrency: int | None = None  # max concurrent connections
+        limit_max_requests: int | None = None  # restart worker after N requests
 
         # ── Proxy / Headers ──────────────────────────────────────────
-        proxy_headers: bool                  = True
-        forwarded_allow_ips: "Optional[str]" = None    # comma-separated or "*"
-        server_header: bool                  = True
-        date_header: bool                    = True
-        root_path: str                       = ""      # ASGI root_path (reverse proxy)
+        proxy_headers: bool = True
+        forwarded_allow_ips: str | None = None  # comma-separated or "*"
+        server_header: bool = True
+        date_header: bool = True
+        root_path: str = ""  # ASGI root_path (reverse proxy)
 
         # ── Logging ──────────────────────────────────────────────────
-        access_log: bool                     = True
-        log_level: "Optional[str]"           = None    # "critical"|"error"|"warning"|"info"|"debug"|"trace"
-        use_colors: "Optional[bool]"         = None    # None = auto-detect
+        access_log: bool = True
+        log_level: str | None = None  # "critical"|"error"|"warning"|"info"|"debug"|"trace"
+        use_colors: bool | None = None  # None = auto-detect
 
         # ── WebSocket ────────────────────────────────────────────────
-        ws_max_size: int                     = 16_777_216   # 16 MiB
-        ws_max_queue: int                    = 32
-        ws_ping_interval: "Optional[float]"  = 20.0         # seconds (None = disabled)
-        ws_ping_timeout: "Optional[float]"   = 20.0         # seconds (None = disabled)
-        ws_per_message_deflate: bool         = True
+        ws_max_size: int = 16_777_216  # 16 MiB
+        ws_max_queue: int = 32
+        ws_ping_interval: float | None = 20.0  # seconds (None = disabled)
+        ws_ping_timeout: float | None = 20.0  # seconds (None = disabled)
+        ws_per_message_deflate: bool = True
 
         # ── TLS / SSL ────────────────────────────────────────────────
-        ssl_keyfile: "Optional[str]"         = None
-        ssl_certfile: "Optional[str]"        = None
-        ssl_keyfile_password: "Optional[str]" = None
-        ssl_ca_certs: "Optional[str]"        = None
-        ssl_ciphers: str                     = "TLSv1"
+        ssl_keyfile: str | None = None
+        ssl_certfile: str | None = None
+        ssl_keyfile_password: str | None = None
+        ssl_ca_certs: str | None = None
+        ssl_ciphers: str = "TLSv1"
 
         # ── HTTP/1.1 ─────────────────────────────────────────────────
-        h11_max_incomplete_event_size: "Optional[int]" = None  # bytes; None = h11 default (16 KiB)
+        h11_max_incomplete_event_size: int | None = None  # bytes; None = h11 default (16 KiB)
 
     class PasswordHasher:
         """
@@ -476,88 +483,90 @@ class AquilaConfig:
                     memory_cost=131072,   # 128 MiB
                 )
         """
+
         # Make it instantiable so it can be used as a field value
         def __init__(
             self,
             algorithm: str = "argon2id",
             *,
-            time_cost: int    = 2,
-            memory_cost: int  = 65536,
-            parallelism: int  = 4,
-            hash_len: int     = 32,
-            salt_len: int     = 16,
-            scrypt_n: int     = 32768,
-            scrypt_r: int     = 8,
-            scrypt_p: int     = 1,
+            time_cost: int = 2,
+            memory_cost: int = 65536,
+            parallelism: int = 4,
+            hash_len: int = 32,
+            salt_len: int = 16,
+            scrypt_n: int = 32768,
+            scrypt_r: int = 8,
+            scrypt_p: int = 1,
             scrypt_dklen: int = 32,
             bcrypt_rounds: int = 12,
-            pbkdf2_iterations: int        = 600000,
+            pbkdf2_iterations: int = 600000,
             pbkdf2_sha512_iterations: int = 210000,
-            pbkdf2_dklen: int             = 32,
+            pbkdf2_dklen: int = 32,
         ):
-            self.algorithm                = algorithm
-            self.time_cost                = time_cost
-            self.memory_cost              = memory_cost
-            self.parallelism              = parallelism
-            self.hash_len                 = hash_len
-            self.salt_len                 = salt_len
-            self.scrypt_n                 = scrypt_n
-            self.scrypt_r                 = scrypt_r
-            self.scrypt_p                 = scrypt_p
-            self.scrypt_dklen             = scrypt_dklen
-            self.bcrypt_rounds            = bcrypt_rounds
-            self.pbkdf2_iterations        = pbkdf2_iterations
+            self.algorithm = algorithm
+            self.time_cost = time_cost
+            self.memory_cost = memory_cost
+            self.parallelism = parallelism
+            self.hash_len = hash_len
+            self.salt_len = salt_len
+            self.scrypt_n = scrypt_n
+            self.scrypt_r = scrypt_r
+            self.scrypt_p = scrypt_p
+            self.scrypt_dklen = scrypt_dklen
+            self.bcrypt_rounds = bcrypt_rounds
+            self.pbkdf2_iterations = pbkdf2_iterations
             self.pbkdf2_sha512_iterations = pbkdf2_sha512_iterations
-            self.pbkdf2_dklen             = pbkdf2_dklen
+            self.pbkdf2_dklen = pbkdf2_dklen
 
-        def to_dict(self) -> Dict[str, Any]:
+        def to_dict(self) -> dict[str, Any]:
             return {
-                "algorithm":                self.algorithm,
-                "time_cost":                self.time_cost,
-                "memory_cost":              self.memory_cost,
-                "parallelism":              self.parallelism,
-                "hash_len":                 self.hash_len,
-                "salt_len":                 self.salt_len,
-                "scrypt_n":                 self.scrypt_n,
-                "scrypt_r":                 self.scrypt_r,
-                "scrypt_p":                 self.scrypt_p,
-                "scrypt_dklen":             self.scrypt_dklen,
-                "bcrypt_rounds":            self.bcrypt_rounds,
-                "pbkdf2_iterations":        self.pbkdf2_iterations,
+                "algorithm": self.algorithm,
+                "time_cost": self.time_cost,
+                "memory_cost": self.memory_cost,
+                "parallelism": self.parallelism,
+                "hash_len": self.hash_len,
+                "salt_len": self.salt_len,
+                "scrypt_n": self.scrypt_n,
+                "scrypt_r": self.scrypt_r,
+                "scrypt_p": self.scrypt_p,
+                "scrypt_dklen": self.scrypt_dklen,
+                "bcrypt_rounds": self.bcrypt_rounds,
+                "pbkdf2_iterations": self.pbkdf2_iterations,
                 "pbkdf2_sha512_iterations": self.pbkdf2_sha512_iterations,
-                "pbkdf2_dklen":             self.pbkdf2_dklen,
+                "pbkdf2_dklen": self.pbkdf2_dklen,
             }
 
         def build_hasher(self):
             """Instantiate and return a configured PasswordHasher."""
-            from aquilia.auth.hashing import PasswordHasher as _PH, HasherConfig as _HC
+            from aquilia.auth.hashing import HasherConfig as _HC
+            from aquilia.auth.hashing import PasswordHasher as _PH
+
             return _PH.from_config(_HC.from_dict(self.to_dict()))
 
         @classmethod
-        def argon2id(cls, *, time_cost: int = 2, memory_cost: int = 65536,
-                     parallelism: int = 4) -> "AquilaConfig.PasswordHasher":
+        def argon2id(
+            cls, *, time_cost: int = 2, memory_cost: int = 65536, parallelism: int = 4
+        ) -> AquilaConfig.PasswordHasher:
             """Argon2id with custom parameters."""
-            return cls("argon2id", time_cost=time_cost,
-                       memory_cost=memory_cost, parallelism=parallelism)
+            return cls("argon2id", time_cost=time_cost, memory_cost=memory_cost, parallelism=parallelism)
 
         @classmethod
-        def scrypt(cls, *, n: int = 32768, r: int = 8, p: int = 1,
-                   dklen: int = 32) -> "AquilaConfig.PasswordHasher":
+        def scrypt(cls, *, n: int = 32768, r: int = 8, p: int = 1, dklen: int = 32) -> AquilaConfig.PasswordHasher:
             """scrypt with custom parameters."""
             return cls("scrypt", scrypt_n=n, scrypt_r=r, scrypt_p=p, scrypt_dklen=dklen)
 
         @classmethod
-        def bcrypt(cls, *, rounds: int = 12) -> "AquilaConfig.PasswordHasher":
+        def bcrypt(cls, *, rounds: int = 12) -> AquilaConfig.PasswordHasher:
             """bcrypt with custom cost factor."""
             return cls("bcrypt", bcrypt_rounds=rounds)
 
         @classmethod
-        def pbkdf2_sha512(cls, *, iterations: int = 210000) -> "AquilaConfig.PasswordHasher":
+        def pbkdf2_sha512(cls, *, iterations: int = 210000) -> AquilaConfig.PasswordHasher:
             """PBKDF2-HMAC-SHA-512."""
             return cls("pbkdf2_sha512", pbkdf2_sha512_iterations=iterations)
 
         @classmethod
-        def pbkdf2_sha256(cls, *, iterations: int = 600000) -> "AquilaConfig.PasswordHasher":
+        def pbkdf2_sha256(cls, *, iterations: int = 600000) -> AquilaConfig.PasswordHasher:
             """PBKDF2-HMAC-SHA-256 (legacy fallback)."""
             return cls("pbkdf2_sha256", pbkdf2_iterations=iterations)
 
@@ -591,17 +600,18 @@ class AquilaConfig:
                 # Use RS256 (requires: pip install cryptography):
                 # algorithm = "RS256"
         """
-        enabled: bool                        = True
-        store_type: str                      = "memory"
-        secret_key: "Optional[str]"          = None
-        algorithm: str                       = "HS256"
-        issuer: str                          = "aquilia"
-        audience: str                        = "aquilia-app"
-        access_token_ttl_minutes: int        = 60
-        refresh_token_ttl_days: int          = 30
-        require_auth_by_default: bool        = False
+
+        enabled: bool = True
+        store_type: str = "memory"
+        secret_key: str | None = None
+        algorithm: str = "HS256"
+        issuer: str = "aquilia"
+        audience: str = "aquilia-app"
+        access_token_ttl_minutes: int = 60
+        refresh_token_ttl_days: int = 30
+        require_auth_by_default: bool = False
         #: Password hasher — override with an ``AquilaConfig.PasswordHasher`` instance.
-        password_hasher: "Optional[AquilaConfig.PasswordHasher]" = None
+        password_hasher: AquilaConfig.PasswordHasher | None = None
 
     class Apps:
         """
@@ -620,68 +630,75 @@ class AquilaConfig:
 
     class Database:
         """Database connection configuration."""
-        url: str              = "sqlite:///db.sqlite3"
-        auto_connect: bool    = True
-        auto_create: bool     = True
-        auto_migrate: bool    = False
-        pool_size: int        = 5
-        echo: bool            = False
-        migrations_dir: str   = "migrations"
+
+        url: str = "sqlite:///db.sqlite3"
+        auto_connect: bool = True
+        auto_create: bool = True
+        auto_migrate: bool = False
+        pool_size: int = 5
+        echo: bool = False
+        migrations_dir: str = "migrations"
 
     class Cache:
         """Cache backend configuration."""
-        backend: str          = "memory"
-        default_ttl: int      = 300
-        max_size: int         = 10000
-        eviction_policy: str  = "lru"
-        namespace: str        = "default"
-        key_prefix: str       = "aq:"
-        redis_url: str        = "redis://localhost:6379/0"
+
+        backend: str = "memory"
+        default_ttl: int = 300
+        max_size: int = 10000
+        eviction_policy: str = "lru"
+        namespace: str = "default"
+        key_prefix: str = "aq:"
+        redis_url: str = "redis://localhost:6379/0"
 
     class Sessions:
         """Session store and transport configuration."""
-        enabled: bool         = False
-        store_type: str       = "memory"    # "memory" | "file" | "redis"
-        cookie_name: str      = "aquilia_session"
-        cookie_secure: bool   = True
+
+        enabled: bool = False
+        store_type: str = "memory"  # "memory" | "file" | "redis"
+        cookie_name: str = "aquilia_session"
+        cookie_secure: bool = True
         cookie_httponly: bool = True
-        cookie_samesite: str  = "lax"
-        ttl_days: int         = 7
+        cookie_samesite: str = "lax"
+        ttl_days: int = 7
         idle_timeout_minutes: int = 30
 
     class Mail:
         """Mail provider configuration."""
-        enabled: bool               = False
-        default_from: str           = "noreply@localhost"
-        console_backend: bool       = False
-        require_tls: bool           = True
-        retry_max_attempts: int     = 5
+
+        enabled: bool = False
+        default_from: str = "noreply@localhost"
+        console_backend: bool = False
+        require_tls: bool = True
+        retry_max_attempts: int = 5
 
     class Security:
         """Security middleware flags."""
-        enabled: bool           = False
-        cors_enabled: bool      = False
-        csrf_protection: bool   = False
-        helmet_enabled: bool    = False
-        rate_limiting: bool     = False
-        https_redirect: bool    = False
-        hsts: bool              = False
+
+        enabled: bool = False
+        cors_enabled: bool = False
+        csrf_protection: bool = False
+        helmet_enabled: bool = False
+        rate_limiting: bool = False
+        https_redirect: bool = False
+        hsts: bool = False
 
     class Logging:
         """Request logging configuration."""
-        level: str              = "INFO"
-        colorize: bool          = True
+
+        level: str = "INFO"
+        colorize: bool = True
         slow_threshold_ms: float = 1000.0
-        include_headers: bool   = False
+        include_headers: bool = False
 
     class I18n:
         """Internationalisation configuration."""
-        enabled: bool           = False
-        default_locale: str     = "en"
-        available_locales: "List[str]" = field(default_factory=lambda: ["en"])  # type: ignore[misc]
-        fallback_locale: str    = "en"
-        catalog_dirs: "List[str]" = field(default_factory=lambda: ["locales"])  # type: ignore[misc]
-        catalog_format: str     = "json"
+
+        enabled: bool = False
+        default_locale: str = "en"
+        available_locales: list[str] = field(default_factory=lambda: ["en"])  # type: ignore[misc]
+        fallback_locale: str = "en"
+        catalog_dirs: list[str] = field(default_factory=lambda: ["locales"])  # type: ignore[misc]
+        catalog_format: str = "json"
 
     class Signing:
         """
@@ -723,26 +740,27 @@ class AquilaConfig:
             Salt "aquilia.cookies"     → generic signed cookies
             Salt "aquilia.apikeys"     → short-lived signed API keys
         """
+
         #: Primary signing secret.  **Must** be set in production.
         #: Use ``Secret(env="AQ_SECRET_KEY", required=True)`` in real apps.
-        secret: "Optional[str]"                   = None
+        secret: str | None = None
 
         #: Retired secrets kept for backward-compatible verification
         #: (key rotation).  Tokens signed with these can still be read;
         #: new tokens always use ``secret``.
-        fallback_secrets: "List[str]"             = []   # type: ignore[assignment]
+        fallback_secrets: list[str] = []  # type: ignore[assignment]
 
         #: Default HMAC algorithm.  One of ``"HS256"`` / ``"HS384"`` / ``"HS512"``.
-        algorithm: str                            = "HS256"
+        algorithm: str = "HS256"
 
         #: Default namespace salt (used by the plain :class:`~aquilia.signing.Signer`).
-        salt: str                                 = "aquilia.signing"
+        salt: str = "aquilia.signing"
 
         # ── Per-subsystem salts — override to isolate subsystems further ──
-        session_salt: str    = "aquilia.sessions"
-        csrf_salt: str       = "aquilia.csrf"
+        session_salt: str = "aquilia.sessions"
+        csrf_salt: str = "aquilia.csrf"
         activation_salt: str = "aquilia.activation"
-        cache_salt: str      = "aquilia.cache"
+        cache_salt: str = "aquilia.cache"
 
     class Render:
         """
@@ -783,38 +801,39 @@ class AquilaConfig:
                 plan          = "pro_plus"
                 num_instances = 4
         """
+
         #: Enable/disable Render deployment integration.
-        enabled: bool         = True
+        enabled: bool = True
 
         #: Render service name (defaults to workspace name at deploy time).
-        service_name: "Optional[str]" = None
+        service_name: str | None = None
 
         #: Deployment region.
-        region: str           = "oregon"
+        region: str = "oregon"
 
         #: Render compute plan.
-        plan: str             = "starter"
+        plan: str = "starter"
 
         #: Number of running instances.
-        num_instances: int    = 1
+        num_instances: int = 1
 
         #: Docker image reference (``registry/name:tag``).
         #: If ``None``, ``aq deploy render`` builds from the workspace Dockerfile.
-        image: "Optional[str]" = None
+        image: str | None = None
 
         #: Health-check endpoint path.
-        health_path: str      = "/_health"
+        health_path: str = "/_health"
 
         #: Auto-deploy on image push (``"yes"`` or ``"no"``).
-        auto_deploy: str      = "no"
+        auto_deploy: str = "no"
 
         #: Internal service port (the port your ASGI server listens on).
-        port: int             = 8000
+        port: int = 8000
 
     # ── Class-level helpers ───────────────────────────────────────────────
 
     @classmethod
-    def to_dict(cls) -> Dict[str, Any]:
+    def to_dict(cls) -> dict[str, Any]:
         """
         Serialise this config class into a plain nested dict.
 
@@ -825,7 +844,7 @@ class AquilaConfig:
         Returns:
             Nested configuration dictionary.
         """
-        result: Dict[str, Any] = {}
+        result: dict[str, Any] = {}
 
         for name in dir(cls):
             if name.startswith("_"):
@@ -855,7 +874,7 @@ class AquilaConfig:
         return result
 
     @classmethod
-    def to_loader(cls) -> "ConfigLoader":
+    def to_loader(cls) -> ConfigLoader:
         """
         Convert this Python config into a :class:`~aquilia.config.ConfigLoader`.
 
@@ -912,7 +931,7 @@ class AquilaConfig:
         return current
 
     @classmethod
-    def for_env(cls, env_name: str) -> "Type[AquilaConfig]":
+    def for_env(cls, env_name: str) -> type[AquilaConfig]:
         """
         Resolve the correct subclass for *env_name* from the subclass tree.
 
@@ -935,6 +954,7 @@ class AquilaConfig:
                 if getattr(subsub, "env", "").lower() == env_name.lower():
                     return subsub
         from aquilia.faults.domains import ConfigMissingFault
+
         raise ConfigMissingFault(
             key=f"AquilaConfig.env={env_name}",
             metadata={
@@ -948,7 +968,7 @@ class AquilaConfig:
         cls,
         var: str = "AQ_ENV",
         default: str = "dev",
-    ) -> "Type[AquilaConfig]":
+    ) -> type[AquilaConfig]:
         """
         Read ``var`` from the environment and return the matching subclass.
 
@@ -967,7 +987,8 @@ class AquilaConfig:
         except ValueError:
             log.warning(
                 "No AquilaConfig subclass for env=%r; using %s.",
-                env_name, cls.__name__,
+                env_name,
+                cls.__name__,
             )
             return cls
 
@@ -975,7 +996,8 @@ class AquilaConfig:
         super().__init_subclass__(**kwargs)
         # Inherit parent's nested section classes if the subclass doesn't define its own.
         parent_sections = [
-            name for name, val in inspect.getmembers(cls.__bases__[0])
+            name
+            for name, val in inspect.getmembers(cls.__bases__[0])
             if isinstance(val, type) and not name.startswith("_")
         ]
         for section_name in parent_sections:
@@ -983,13 +1005,14 @@ class AquilaConfig:
                 # Inherit silently
                 setattr(cls, section_name, getattr(cls.__bases__[0], section_name))
 
-    def __repr__(cls) -> str:
-        return f"<AquilaConfig env={getattr(cls, 'env', '?')!r}>"
+    def __repr__(self) -> str:
+        return f"<AquilaConfig env={getattr(self, 'env', '?')!r}>"
 
 
 # ============================================================================
 # PyConfigLoader — standalone loader that reads a Python config file
 # ============================================================================
+
 
 class PyConfigLoader:
     """
@@ -1006,18 +1029,18 @@ class PyConfigLoader:
         aq_loader = loader.to_aquilia_loader()
     """
 
-    def __init__(self, config_class: Type[AquilaConfig]):
+    def __init__(self, config_class: type[AquilaConfig]):
         self._cls = config_class
 
     @classmethod
     def from_file(
         cls,
-        path: "str | Path",
+        path: str | Path,
         *,
-        env: Optional[str] = None,
+        env: str | None = None,
         var: str = "AQ_ENV",
         default_env: str = "dev",
-    ) -> "PyConfigLoader":
+    ) -> PyConfigLoader:
         """
         Import a Python config file and resolve the right subclass.
 
@@ -1044,7 +1067,7 @@ class PyConfigLoader:
         spec.loader.exec_module(module)  # type: ignore[union-attr]
 
         # Find the first AquilaConfig subclass exported at module level
-        base_cls: Optional[Type[AquilaConfig]] = None
+        base_cls: type[AquilaConfig] | None = None
         for name in dir(module):
             obj = getattr(module, name)
             if (
@@ -1058,8 +1081,7 @@ class PyConfigLoader:
 
         if base_cls is None:
             raise ImportError(
-                f"No AquilaConfig subclass found in {path}. "
-                "Define at least one class inheriting from AquilaConfig."
+                f"No AquilaConfig subclass found in {path}. Define at least one class inheriting from AquilaConfig."
             )
 
         # Resolve the right environment variant
@@ -1076,7 +1098,7 @@ class PyConfigLoader:
         return self._cls.to_loader()
 
     @property
-    def config_class(self) -> Type[AquilaConfig]:
+    def config_class(self) -> type[AquilaConfig]:
         """The resolved :class:`AquilaConfig` subclass."""
         return self._cls
 

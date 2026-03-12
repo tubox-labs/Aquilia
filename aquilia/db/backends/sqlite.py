@@ -18,23 +18,21 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
-from typing import Any, Dict, List, Optional, Sequence
-
-from .base import (
-    DatabaseAdapter,
-    AdapterCapabilities,
-    ColumnInfo,
-    TableInfo,
-)
+from collections.abc import Sequence
+from typing import Any
 
 from aquilia.sqlite import (
     ConnectionPool,
-    SqlitePoolConfig,
-    SqliteMetrics,
-    create_pool,
-    SqliteError,
-    SqliteConnectionError,
     Row,
+    SqliteMetrics,
+    SqlitePoolConfig,
+    create_pool,
+)
+
+from .base import (
+    AdapterCapabilities,
+    ColumnInfo,
+    DatabaseAdapter,
 )
 
 logger = logging.getLogger("aquilia.db.backends.sqlite")
@@ -76,7 +74,7 @@ class SQLiteAdapter(DatabaseAdapter):
     )
 
     def __init__(self) -> None:
-        self._pool: Optional[ConnectionPool] = None
+        self._pool: ConnectionPool | None = None
         self._connected = False
         self._lock = asyncio.Lock()
         self._in_transaction = False
@@ -112,9 +110,10 @@ class SQLiteAdapter(DatabaseAdapter):
                 self._pool = None
             self._connected = False
 
-    async def execute(self, sql: str, params: Optional[Sequence[Any]] = None) -> Any:
+    async def execute(self, sql: str, params: Sequence[Any] | None = None) -> Any:
         if not self._connected or self._pool is None:
             from aquilia.faults.domains import DatabaseConnectionFault
+
             raise DatabaseConnectionFault(backend="sqlite", reason="Not connected")
         params = params or []
         if self._in_transaction and self._writer_conn is not None:
@@ -125,15 +124,17 @@ class SQLiteAdapter(DatabaseAdapter):
     async def execute_many(self, sql: str, params_list: Sequence[Sequence[Any]]) -> None:
         if not self._connected or self._pool is None:
             from aquilia.faults.domains import DatabaseConnectionFault
+
             raise DatabaseConnectionFault(backend="sqlite", reason="Not connected")
         if self._in_transaction and self._writer_conn is not None:
             await self._writer_conn.execute_many(sql, params_list)
             return
         await self._pool.execute_many(sql, params_list)
 
-    async def fetch_all(self, sql: str, params: Optional[Sequence[Any]] = None) -> List[Dict[str, Any]]:
+    async def fetch_all(self, sql: str, params: Sequence[Any] | None = None) -> list[dict[str, Any]]:
         if not self._connected or self._pool is None:
             from aquilia.faults.domains import DatabaseConnectionFault
+
             raise DatabaseConnectionFault(backend="sqlite", reason="Not connected")
         params = params or []
         if self._in_transaction and self._writer_conn is not None:
@@ -151,9 +152,10 @@ class SQLiteAdapter(DatabaseAdapter):
                 result.append(row)  # type: ignore[arg-type]
         return result
 
-    async def fetch_one(self, sql: str, params: Optional[Sequence[Any]] = None) -> Optional[Dict[str, Any]]:
+    async def fetch_one(self, sql: str, params: Sequence[Any] | None = None) -> dict[str, Any] | None:
         if not self._connected or self._pool is None:
             from aquilia.faults.domains import DatabaseConnectionFault
+
             raise DatabaseConnectionFault(backend="sqlite", reason="Not connected")
         params = params or []
         if self._in_transaction and self._writer_conn is not None:
@@ -168,9 +170,10 @@ class SQLiteAdapter(DatabaseAdapter):
             return dict(row)
         return None
 
-    async def fetch_val(self, sql: str, params: Optional[Sequence[Any]] = None) -> Any:
+    async def fetch_val(self, sql: str, params: Sequence[Any] | None = None) -> Any:
         if not self._connected or self._pool is None:
             from aquilia.faults.domains import DatabaseConnectionFault
+
             raise DatabaseConnectionFault(backend="sqlite", reason="Not connected")
         params = params or []
         if self._in_transaction and self._writer_conn is not None:
@@ -182,6 +185,7 @@ class SQLiteAdapter(DatabaseAdapter):
     async def begin(self) -> None:
         if not self._connected or self._pool is None:
             from aquilia.faults.domains import DatabaseConnectionFault
+
             raise DatabaseConnectionFault(backend="sqlite", reason="Not connected")
         # Acquire the writer connection and hold it for the transaction
         self._writer_conn = await self._pool._acquire(readonly=False)
@@ -205,6 +209,7 @@ class SQLiteAdapter(DatabaseAdapter):
     async def savepoint(self, name: str) -> None:
         if not _SP_NAME_RE.match(name):
             from aquilia.faults.domains import QueryFault
+
             raise QueryFault(message=f"Invalid savepoint name: {name!r}")
         if self._writer_conn is not None:
             await self._writer_conn.savepoint(name)
@@ -215,6 +220,7 @@ class SQLiteAdapter(DatabaseAdapter):
     async def release_savepoint(self, name: str) -> None:
         if not _SP_NAME_RE.match(name):
             from aquilia.faults.domains import QueryFault
+
             raise QueryFault(message=f"Invalid savepoint name: {name!r}")
         if self._writer_conn is not None:
             await self._writer_conn.release_savepoint(name)
@@ -225,6 +231,7 @@ class SQLiteAdapter(DatabaseAdapter):
     async def rollback_to_savepoint(self, name: str) -> None:
         if not _SP_NAME_RE.match(name):
             from aquilia.faults.domains import QueryFault
+
             raise QueryFault(message=f"Invalid savepoint name: {name!r}")
         if self._writer_conn is not None:
             await self._writer_conn.rollback_to_savepoint(name)
@@ -241,27 +248,28 @@ class SQLiteAdapter(DatabaseAdapter):
         )
         return row is not None
 
-    async def get_tables(self) -> List[str]:
+    async def get_tables(self) -> list[str]:
         rows = await self.fetch_all(
-            "SELECT name FROM sqlite_master WHERE type='table' "
-            "AND name NOT LIKE 'sqlite_%' ORDER BY name"
+            "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name"
         )
         return [r["name"] for r in rows]
 
-    async def get_columns(self, table_name: str) -> List[ColumnInfo]:
+    async def get_columns(self, table_name: str) -> list[ColumnInfo]:
         rows = await self.fetch_all(f'PRAGMA table_info("{table_name}")')
         columns = []
         for row in rows:
-            columns.append(ColumnInfo(
-                name=row["name"],
-                data_type=row["type"],
-                nullable=not row["notnull"],
-                default=row["dflt_value"],
-                primary_key=bool(row["pk"]),
-            ))
+            columns.append(
+                ColumnInfo(
+                    name=row["name"],
+                    data_type=row["type"],
+                    nullable=not row["notnull"],
+                    default=row["dflt_value"],
+                    primary_key=bool(row["pk"]),
+                )
+            )
         return columns
 
-    async def get_indexes(self, table_name: str) -> List[Dict[str, Any]]:
+    async def get_indexes(self, table_name: str) -> list[dict[str, Any]]:
         """Get index info for a table."""
         rows = await self.fetch_all(f'PRAGMA index_list("{table_name}")')
         indexes = []
@@ -269,25 +277,29 @@ class SQLiteAdapter(DatabaseAdapter):
             idx_name = row["name"]
             idx_info = await self.fetch_all(f'PRAGMA index_info("{idx_name}")')
             columns = [i["name"] for i in idx_info]
-            indexes.append({
-                "name": idx_name,
-                "unique": bool(row["unique"]),
-                "columns": columns,
-            })
+            indexes.append(
+                {
+                    "name": idx_name,
+                    "unique": bool(row["unique"]),
+                    "columns": columns,
+                }
+            )
         return indexes
 
-    async def get_foreign_keys(self, table_name: str) -> List[Dict[str, Any]]:
+    async def get_foreign_keys(self, table_name: str) -> list[dict[str, Any]]:
         """Get foreign key info for a table."""
         rows = await self.fetch_all(f'PRAGMA foreign_key_list("{table_name}")')
         fks = []
         for row in rows:
-            fks.append({
-                "from_column": row["from"],
-                "to_table": row["table"],
-                "to_column": row["to"],
-                "on_delete": row.get("on_delete", "NO ACTION"),
-                "on_update": row.get("on_update", "NO ACTION"),
-            })
+            fks.append(
+                {
+                    "from_column": row["from"],
+                    "to_table": row["table"],
+                    "to_column": row["to"],
+                    "on_delete": row.get("on_delete", "NO ACTION"),
+                    "on_update": row.get("on_update", "NO ACTION"),
+                }
+            )
         return fks
 
     @property
@@ -299,12 +311,12 @@ class SQLiteAdapter(DatabaseAdapter):
         return "sqlite"
 
     @property
-    def pool(self) -> Optional[ConnectionPool]:
+    def pool(self) -> ConnectionPool | None:
         """Access the underlying connection pool (for advanced usage)."""
         return self._pool
 
     @property
-    def metrics(self) -> Optional[SqliteMetrics]:
+    def metrics(self) -> SqliteMetrics | None:
         """Access pool metrics."""
         if self._pool:
             return self._pool.metrics
@@ -315,6 +327,6 @@ class SQLiteAdapter(DatabaseAdapter):
         """Extract file path from sqlite URL."""
         for prefix in ("sqlite:///", "sqlite://"):
             if url.startswith(prefix):
-                path = url[len(prefix):]
+                path = url[len(prefix) :]
                 return path or ":memory:"
         return url.replace("sqlite:", "").lstrip("/") or ":memory:"

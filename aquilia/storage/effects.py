@@ -19,9 +19,9 @@ Usage (in handlers)::
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
-from ..effects import EffectProvider, EffectKind
+from ..effects import EffectKind, EffectProvider
 from .base import StorageConfigFault
 
 logger = logging.getLogger("aquilia.storage.effects")
@@ -55,7 +55,7 @@ class StorageEffectProvider(EffectProvider):
         """No-op -- backends are initialised by StorageSubsystem."""
         pass
 
-    async def acquire(self, mode: Optional[str] = None) -> Any:
+    async def acquire(self, mode: str | None = None) -> Any:
         """
         Acquire a storage backend.
 

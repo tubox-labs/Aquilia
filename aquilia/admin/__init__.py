@@ -109,117 +109,140 @@ Usage:
 
 from aquilia._version import __version__  # noqa: F401 — re-exported
 
-from .site import AdminSite, AdminConfig
-from .options import ModelAdmin
-from .registry import register, autodiscover
-from .permissions import AdminPermission, AdminRole
-from .audit import AdminAuditLog, AdminAction
-from .controller import AdminController
-from .inlines import InlineModelAdmin, TabularInline, StackedInline
-from .filters import (
-    ListFilter, SimpleFilter, BooleanFilter, ChoiceFilter,
-    DateRangeFilter, NumericRangeFilter, AllValuesFilter,
-    RelatedModelFilter, EmptyFieldFilter, resolve_filter,
-)
-from .widgets import (
-    AdminWidget, CountWidget, StatWidget, ChartWidget,
-    RecentActivityWidget, TableWidget, ListWidget,
-    ProgressWidget, CustomHTMLWidget, WidgetRegistry,
-    WidgetSize, WidgetPosition, get_widget_registry, register_widget,
-)
-from .export import (
-    Exporter, CSVExporter, JSONExporter, XMLExporter,
-    ExportFormat, ExportRegistry,
-)
-from .hooks import (
-    AdminHooksMixin, SoftDeleteMixin, VersioningMixin, TimestampMixin,
-)
-from .models import (
-    AdminUser,
-    AdminAuditEntry,
-    AdminAPIKey,
-    AdminPreference,
-    # Backward-compat stubs
-    AdminGroup,
-    AdminPermission as AdminPermissionModel,
-    ContentType,
-    AdminLogEntry,
-    AdminSession,
-)
+from .audit import AdminAction, AdminAuditLog
 from .blueprints import (
-    AdminUserBlueprint,
-    AdminUserCreateBlueprint,
-    AdminAuditEntryBlueprint,
     AdminAPIKeyBlueprint,
-    AdminPreferenceBlueprint,
+    AdminAuditEntryBlueprint,
     # Backward-compat stubs
     AdminGroupBlueprint,
-    AdminPermissionBlueprint,
-    ContentTypeBlueprint,
     AdminLogEntryBlueprint,
+    AdminPermissionBlueprint,
+    AdminPreferenceBlueprint,
     AdminSessionBlueprint,
+    AdminUserBlueprint,
+    AdminUserCreateBlueprint,
+    ContentTypeBlueprint,
+)
+from .controller import AdminController
+from .di_providers import register_admin_providers
+from .export import (
+    CSVExporter,
+    Exporter,
+    ExportFormat,
+    ExportRegistry,
+    JSONExporter,
+    XMLExporter,
 )
 from .faults import (
-    AdminFault,
+    AdminActionFault,
     AdminAuthenticationFault,
     AdminAuthorizationFault,
-    AdminCSRFViolationFault,
-    AdminRateLimitFault,
-    AdminSecurityFault,
-    AdminModelNotFoundFault,
-    AdminRecordNotFoundFault,
-    AdminValidationFault,
-    AdminActionFault,
     AdminConfigurationFault,
-    AdminRegistrationFault,
-    AdminInlineFault,
-    AdminTemplateFault,
+    AdminCSRFViolationFault,
     AdminExportFault,
+    AdminFault,
+    AdminInlineFault,
+    AdminModelNotFoundFault,
+    AdminRateLimitFault,
+    AdminRecordNotFoundFault,
+    AdminRegistrationFault,
+    AdminSecurityFault,
+    AdminTemplateFault,
+    AdminValidationFault,
 )
+from .filters import (
+    AllValuesFilter,
+    BooleanFilter,
+    ChoiceFilter,
+    DateRangeFilter,
+    EmptyFieldFilter,
+    ListFilter,
+    NumericRangeFilter,
+    RelatedModelFilter,
+    SimpleFilter,
+    resolve_filter,
+)
+from .hooks import (
+    AdminHooksMixin,
+    SoftDeleteMixin,
+    TimestampMixin,
+    VersioningMixin,
+)
+from .inlines import InlineModelAdmin, StackedInline, TabularInline
+from .models import (
+    AdminAPIKey,
+    AdminAuditEntry,
+    # Backward-compat stubs
+    AdminGroup,
+    AdminLogEntry,
+    AdminPreference,
+    AdminSession,
+    AdminUser,
+    ContentType,
+)
+from .models import (
+    AdminPermission as AdminPermissionModel,
+)
+from .options import ModelAdmin
+from .permissions import AdminPermission, AdminRole
+from .registry import autodiscover, register
 from .security import (
     AdminCSRFProtection,
     AdminRateLimiter,
     AdminSecurityHeaders,
     AdminSecurityPolicy,
-    PasswordValidator,
     PasswordStrength,
-    SecurityEventTracker,
+    PasswordValidator,
     SecurityEvent,
+    SecurityEventTracker,
     register_security_providers,
 )
+from .site import AdminConfig, AdminSite
 from .subsystems import (
-    AdminSubsystems,
-    AdminCacheIntegration,
-    AdminTasks,
-    AdminLifecycle,
-    AdminAuthGuard,
-    AdminPermGuard,
-    AdminCSRFGuard,
-    AdminRateLimitGuard,
     AdminAuditHook,
-    AdminDBEffect,
+    AdminAuthGuard,
     AdminCacheEffect,
+    AdminCacheIntegration,
+    AdminCSRFGuard,
+    AdminDBEffect,
+    AdminLifecycle,
+    AdminPermGuard,
+    AdminRateLimitGuard,
+    AdminSubsystems,
     AdminTaskEffect,
+    AdminTasks,
     build_admin_flow_pipeline,
     get_admin_subsystems,
 )
-from .di_providers import register_admin_providers
+from .widgets import (
+    AdminWidget,
+    ChartWidget,
+    CountWidget,
+    CustomHTMLWidget,
+    ListWidget,
+    ProgressWidget,
+    RecentActivityWidget,
+    StatWidget,
+    TableWidget,
+    WidgetPosition,
+    WidgetRegistry,
+    WidgetSize,
+    get_widget_registry,
+    register_widget,
+)
 
 __all__ = [
     # Core
     "AdminSite",
     "AdminConfig",
     "ModelAdmin",
-    
     # Registration
     "register",
     "autodiscover",
-    
     # Inlines
     "InlineModelAdmin",
     "TabularInline",
     "StackedInline",
-    
     # Filters
     "ListFilter",
     "SimpleFilter",
@@ -231,7 +254,6 @@ __all__ = [
     "RelatedModelFilter",
     "EmptyFieldFilter",
     "resolve_filter",
-    
     # Widgets
     "AdminWidget",
     "CountWidget",
@@ -247,7 +269,6 @@ __all__ = [
     "WidgetPosition",
     "get_widget_registry",
     "register_widget",
-    
     # Export
     "Exporter",
     "CSVExporter",
@@ -255,24 +276,19 @@ __all__ = [
     "XMLExporter",
     "ExportFormat",
     "ExportRegistry",
-    
     # Hooks / Mixins
     "AdminHooksMixin",
     "SoftDeleteMixin",
     "VersioningMixin",
     "TimestampMixin",
-    
     # Permissions
     "AdminPermission",
     "AdminRole",
-    
     # Audit
     "AdminAuditLog",
     "AdminAction",
-    
     # Controller
     "AdminController",
-    
     # Models
     "AdminUser",
     "AdminAuditEntry",
@@ -284,7 +300,6 @@ __all__ = [
     "ContentType",
     "AdminLogEntry",
     "AdminSession",
-    
     # Blueprints
     "AdminUserBlueprint",
     "AdminUserCreateBlueprint",
@@ -297,7 +312,6 @@ __all__ = [
     "ContentTypeBlueprint",
     "AdminLogEntryBlueprint",
     "AdminSessionBlueprint",
-    
     # Faults
     "AdminFault",
     "AdminAuthenticationFault",
@@ -314,10 +328,8 @@ __all__ = [
     "AdminInlineFault",
     "AdminTemplateFault",
     "AdminExportFault",
-    
     # DI
     "register_admin_providers",
-    
     # Security
     "AdminCSRFProtection",
     "AdminRateLimiter",
@@ -328,7 +340,6 @@ __all__ = [
     "SecurityEventTracker",
     "SecurityEvent",
     "register_security_providers",
-    
     # Subsystems
     "AdminSubsystems",
     "AdminCacheIntegration",

@@ -17,28 +17,25 @@ Security annotations:
 from __future__ import annotations
 
 import os
-import re
-import string
 from pathlib import Path, PurePosixPath
-from typing import Optional, Union
 
 from ._config import FileSystemConfig
 from ._errors import (
-    PathTraversalFault,
     PathTooLongFault,
+    PathTraversalFault,
     PermissionDeniedFault,
 )
-
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Path Validation
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 def validate_path(
-    path: Union[str, Path],
+    path: str | Path,
     *,
-    config: Optional[FileSystemConfig] = None,
-    sandbox: Optional[Union[str, Path]] = None,
+    config: FileSystemConfig | None = None,
+    sandbox: str | Path | None = None,
     operation: str = "",
 ) -> Path:
     """
@@ -107,7 +104,7 @@ def validate_path(
 def validate_relative_path(
     name: str,
     *,
-    config: Optional[FileSystemConfig] = None,
+    config: FileSystemConfig | None = None,
     operation: str = "",
 ) -> str:
     """
@@ -179,11 +176,16 @@ _CONTROL_CHARS = frozenset(chr(c) for c in range(0x20))
 _SHELL_CHARS = frozenset(";|&$`(){}[]!~")
 
 # Windows reserved names
-_WINDOWS_RESERVED = frozenset({
-    "CON", "PRN", "AUX", "NUL",
-    *(f"COM{i}" for i in range(1, 10)),
-    *(f"LPT{i}" for i in range(1, 10)),
-})
+_WINDOWS_RESERVED = frozenset(
+    {
+        "CON",
+        "PRN",
+        "AUX",
+        "NUL",
+        *(f"COM{i}" for i in range(1, 10)),
+        *(f"LPT{i}" for i in range(1, 10)),
+    }
+)
 
 # All dangerous characters combined
 _DANGEROUS = _UNSAFE_CHARS | _CONTROL_CHARS | _SHELL_CHARS | frozenset("/\\")
@@ -233,10 +235,7 @@ def sanitize_filename(
     if len(filename) > max_length:
         name, ext = os.path.splitext(filename)
         available = max_length - len(ext)
-        if available > 0:
-            filename = name[:available] + ext
-        else:
-            filename = filename[:max_length]
+        filename = name[:available] + ext if available > 0 else filename[:max_length]
 
     # Ensure non-empty
     if not filename or filename == replacement:

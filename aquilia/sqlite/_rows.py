@@ -10,8 +10,8 @@ Provides a lightweight row object that supports:
 
 from __future__ import annotations
 
-from typing import Any, Iterator, Tuple
-
+from collections.abc import Iterator
+from typing import Any
 
 __all__ = ["Row", "row_factory"]
 
@@ -58,9 +58,7 @@ class Row:
         try:
             return self._values[self._index[name]]
         except KeyError:
-            raise AttributeError(
-                f"'Row' object has no attribute {name!r}"
-            ) from None
+            raise AttributeError(f"'Row' object has no attribute {name!r}") from None
 
     def __setattr__(self, name: str, value: Any) -> None:
         raise AttributeError("Row objects are immutable")
@@ -77,11 +75,11 @@ class Row:
 
     def items(self) -> tuple[tuple[str, Any], ...]:
         """Return (key, value) pairs."""
-        return tuple(zip(self._keys, self._values))
+        return tuple(zip(self._keys, self._values, strict=False))
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to a plain dictionary."""
-        return dict(zip(self._keys, self._values))
+        return dict(zip(self._keys, self._values, strict=False))
 
     def get(self, key: str, default: Any = None) -> Any:
         """Get a value by column name with a default."""
@@ -109,13 +107,14 @@ class Row:
         return hash((self._keys, self._values))
 
     def __repr__(self) -> str:
-        pairs = ", ".join(f"{k}={v!r}" for k, v in zip(self._keys, self._values))
+        pairs = ", ".join(f"{k}={v!r}" for k, v in zip(self._keys, self._values, strict=False))
         return f"Row({pairs})"
 
 
 # ═══════════════════════════════════════════════════════════════════════════
 # sqlite3 Row Factory
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 def row_factory(cursor: Any, row_tuple: tuple[Any, ...]) -> Row:
     """

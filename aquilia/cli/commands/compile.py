@@ -8,16 +8,15 @@ Uses the Aquilia Build Pipeline to:
 """
 
 from pathlib import Path
-from typing import Optional, List
 
 
 def compile_workspace(
-    output_dir: Optional[str] = None,
+    output_dir: str | None = None,
     watch: bool = False,
     verbose: bool = False,
     mode: str = "dev",
     check_only: bool = False,
-) -> List[str]:
+) -> list[str]:
     """
     Compile manifests to artifacts using the build pipeline.
 
@@ -32,13 +31,14 @@ def compile_workspace(
         List of generated artifact paths
     """
     workspace_root = Path.cwd()
-    workspace_config = workspace_root / 'workspace.py'
+    workspace_config = workspace_root / "workspace.py"
 
     if not workspace_config.exists():
         from aquilia.faults.domains import ConfigMissingFault
+
         raise ConfigMissingFault(key="workspace.py")
 
-    output = Path(output_dir) if output_dir else workspace_root / 'build'
+    output = Path(output_dir) if output_dir else workspace_root / "build"
     output.mkdir(parents=True, exist_ok=True)
 
     from aquilia.build import AquiliaBuildPipeline
@@ -62,7 +62,4 @@ def compile_workspace(
 
     # Return paths of generated artifacts
     crous_files = sorted(output.glob("*.crous"))
-    return [
-        str(f.relative_to(workspace_root))
-        for f in crous_files
-    ]
+    return [str(f.relative_to(workspace_root)) for f in crous_files]

@@ -7,7 +7,6 @@ from __future__ import annotations
 import logging
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional
 
 from .._types import BatchRequest, InferenceResult, ModelpackManifest
 from .base import BaseRuntime
@@ -30,17 +29,19 @@ class BentoExporter(BaseRuntime):
     async def load(self) -> None:
         self._loaded = True
 
-    async def infer(self, batch: BatchRequest) -> List[InferenceResult]:
-        results: List[InferenceResult] = []
+    async def infer(self, batch: BatchRequest) -> list[InferenceResult]:
+        results: list[InferenceResult] = []
         for req in batch.requests:
             start = time.monotonic()
             outputs = {"prediction": req.inputs}
             latency = (time.monotonic() - start) * 1000
-            results.append(InferenceResult(
-                request_id=req.request_id,
-                outputs=outputs,
-                latency_ms=latency,
-            ))
+            results.append(
+                InferenceResult(
+                    request_id=req.request_id,
+                    outputs=outputs,
+                    latency_ms=latency,
+                )
+            )
         return results
 
     async def export_bento(self, output_dir: str = ".") -> str:
@@ -51,6 +52,7 @@ class BentoExporter(BaseRuntime):
         """
         if not self._manifest:
             from aquilia.faults.domains import ConfigMissingFault
+
             raise ConfigMissingFault(key="mlops.runtime.manifest")
 
         out = Path(output_dir)

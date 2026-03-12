@@ -15,48 +15,45 @@ Usage:
         fault_handling_middleware,
         create_routing_fault_handler,
     )
-    
+
     # Patch subsystems
     patch_runtime_registry()
     patch_di_container()
-    
+
     # Register handlers
     engine.register_global(create_routing_fault_handler())
     ```
 """
 
-from .registry import (
-    ManifestLoadFault,
-    AppContextInvalidFault,
-    RouteCompilationFault,
-    DependencyResolutionFault,
-    patch_runtime_registry,
-    create_registry_fault_handler,
-)
-
 from .di import (
+    AsyncResolutionFault,
     CircularDependencyFault,
     ProviderRegistrationFault,
-    AsyncResolutionFault,
-    patch_di_container,
     create_di_fault_handler,
+    patch_di_container,
 )
-
+from .models import (
+    ModelFaultHandler,
+    create_model_fault_handler,
+    patch_all_model_subsystems,
+    patch_database_engine,
+    patch_model_registry,
+)
+from .registry import (
+    AppContextInvalidFault,
+    DependencyResolutionFault,
+    ManifestLoadFault,
+    RouteCompilationFault,
+    create_registry_fault_handler,
+    patch_runtime_registry,
+)
 from .routing import (
-    RouteConflictFault,
     MethodNotAllowedFault,
+    RouteConflictFault,
     RouteParameterFault,
     create_routing_fault_handler,
     safe_route_lookup,
     validate_route_pattern,
-)
-
-from .models import (
-    ModelFaultHandler,
-    create_model_fault_handler,
-    patch_model_registry,
-    patch_database_engine,
-    patch_all_model_subsystems,
 )
 
 # Flow integration removed - flows are deprecated in favor of controllers
@@ -82,14 +79,12 @@ __all__ = [
     "DependencyResolutionFault",
     "patch_runtime_registry",
     "create_registry_fault_handler",
-    
     # DI
     "CircularDependencyFault",
     "ProviderRegistrationFault",
     "AsyncResolutionFault",
     "patch_di_container",
     "create_di_fault_handler",
-    
     # Routing
     "RouteConflictFault",
     "MethodNotAllowedFault",
@@ -97,7 +92,6 @@ __all__ = [
     "create_routing_fault_handler",
     "safe_route_lookup",
     "validate_route_pattern",
-    
     # Models
     "ModelFaultHandler",
     "create_model_fault_handler",
@@ -111,7 +105,7 @@ __all__ = [
 def patch_all_subsystems():
     """
     Patch all Aquilia subsystems to use AquilaFaults.
-    
+
     Call this once at application startup to enable
     structured fault handling throughout the system.
     """
@@ -124,7 +118,7 @@ def patch_all_subsystems():
 def create_all_integration_handlers():
     """
     Create fault handlers for all subsystem integrations.
-    
+
     Returns:
         List of FaultHandler instances
     """

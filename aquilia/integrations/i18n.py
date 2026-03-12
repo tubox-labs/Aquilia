@@ -5,7 +5,7 @@ I18nIntegration — typed internationalization configuration.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
@@ -24,9 +24,9 @@ class I18nIntegration:
     _integration_type: str = field(default="i18n", init=False, repr=False)
 
     default_locale: str = "en"
-    available_locales: List[str] = field(default_factory=lambda: ["en"])
+    available_locales: list[str] = field(default_factory=lambda: ["en"])
     fallback_locale: str = "en"
-    catalog_dirs: List[str] = field(default_factory=lambda: ["locales"])
+    catalog_dirs: list[str] = field(default_factory=lambda: ["locales"])
     catalog_format: str = "json"
     missing_key_strategy: str = "log_and_key"
     auto_reload: bool = False
@@ -34,12 +34,10 @@ class I18nIntegration:
     cookie_name: str = "aq_locale"
     query_param: str = "lang"
     path_prefix: bool = False
-    resolver_order: List[str] = field(
-        default_factory=lambda: ["query", "cookie", "header"]
-    )
+    resolver_order: list[str] = field(default_factory=lambda: ["query", "cookie", "header"])
     enabled: bool = True
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "_integration_type": "i18n",
             "enabled": self.enabled,

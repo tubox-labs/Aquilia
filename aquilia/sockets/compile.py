@@ -7,15 +7,14 @@ Integrated with `aq compile` command.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Type
-from dataclasses import dataclass, asdict
-from pathlib import Path
 import inspect
 import json
 import logging
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
 
 from .controller import SocketController
-from .decorators import Socket
 from .envelope import Schema
 
 logger = logging.getLogger("aquilia.sockets.compile")
@@ -24,9 +23,10 @@ logger = logging.getLogger("aquilia.sockets.compile")
 @dataclass
 class EventMetadata:
     """Compiled event handler metadata."""
+
     event: str
     handler_name: str
-    schema: Optional[Dict[str, Any]]
+    schema: dict[str, Any] | None
     ack: bool
     handler_type: str  # "event", "subscribe", "unsubscribe"
 
@@ -34,96 +34,98 @@ class EventMetadata:
 @dataclass
 class SocketControllerMetadata:
     """Compiled controller metadata."""
+
     class_name: str
     module_path: str
     namespace: str
     path_pattern: str
-    events: List[EventMetadata]
-    guards: List[str]
-    config: Dict[str, Any]
+    events: list[EventMetadata]
+    guards: list[str]
+    config: dict[str, Any]
 
 
 class SocketCompiler:
     """
     Compiler for WebSocket controllers.
-    
+
     Extracts metadata without executing controller code.
     Generates artifacts/ws.crous for runtime and tooling.
     """
-    
+
     def __init__(self):
         """Initialize compiler."""
-        self.controllers: List[SocketControllerMetadata] = []
-        self.namespaces: Dict[str, str] = {}  # namespace -> controller
-    
+        self.controllers: list[SocketControllerMetadata] = []
+        self.namespaces: dict[str, str] = {}  # namespace -> controller
+
     def compile_controller(
         self,
-        controller_class: Type[SocketController],
+        controller_class: type[SocketController],
     ) -> SocketControllerMetadata:
         """
         Compile controller to metadata.
-        
+
         Args:
             controller_class: Controller class to compile
-            
+
         Returns:
             Compiled metadata
         """
         # Extract @Socket metadata
         if not hasattr(controller_class, "__socket_metadata__"):
             from aquilia.faults.domains import ConfigInvalidFault
+
             raise ConfigInvalidFault(
                 key="socket.controller",
                 reason=f"{controller_class.__name__} is missing @Socket decorator",
             )
-        
+
         socket_meta = controller_class.__socket_metadata__
-        
+
         namespace = socket_meta["path"]
         module_path = f"{controller_class.__module__}:{controller_class.__name__}"
-        
+
         # Check for namespace conflicts
         if namespace in self.namespaces:
             from aquilia.faults.domains import RegistryFault
+
             raise RegistryFault(
                 name=namespace,
-                message=f"Namespace conflict: {namespace} already registered by "
-                f"{self.namespaces[namespace]}",
+                message=f"Namespace conflict: {namespace} already registered by {self.namespaces[namespace]}",
             )
-        
+
         self.namespaces[namespace] = module_path
-        
+
         # Extract event handlers
         events = []
         guards = []
-        
+
         for name, method in inspect.getmembers(controller_class, inspect.isfunction):
             if hasattr(method, "__socket_handler__"):
                 handler_meta = method.__socket_handler__
                 handler_type = handler_meta.get("type")
-                
+
                 if handler_type in ("event", "subscribe", "unsubscribe"):
                     event = handler_meta.get("event")
                     schema_obj = handler_meta.get("schema")
-                    
+
                     # Serialize schema
                     schema_dict = None
                     if schema_obj and isinstance(schema_obj, Schema):
-                        schema_dict = {
-                            "spec": self._serialize_schema_spec(schema_obj.spec)
-                        }
-                    
-                    events.append(EventMetadata(
-                        event=event,
-                        handler_name=name,
-                        schema=schema_dict,
-                        ack=handler_meta.get("ack", False),
-                        handler_type=handler_type,
-                    ))
-                
+                        schema_dict = {"spec": self._serialize_schema_spec(schema_obj.spec)}
+
+                    events.append(
+                        EventMetadata(
+                            event=event,
+                            handler_name=name,
+                            schema=schema_dict,
+                            ack=handler_meta.get("ack", False),
+                            handler_type=handler_type,
+                        )
+                    )
+
                 elif handler_type == "guard":
                     guards.append(name)
-        
+
         # Build config
         config = {
             "allowed_origins": socket_meta.get("allowed_origins"),
@@ -133,7 +135,7 @@ class SocketCompiler:
             "compression": socket_meta.get("compression"),
             "subprotocols": socket_meta.get("subprotocols"),
         }
-        
+
         metadata = SocketControllerMetadata(
             class_name=controller_class.__name__,
             module_path=module_path,
@@ -143,16 +145,15 @@ class SocketCompiler:
             guards=guards,
             config=config,
         )
-        
+
         self.controllers.append(metadata)
-        
-        
+
         return metadata
-    
-    def _serialize_schema_spec(self, spec: Dict[str, Any]) -> Dict[str, Any]:
+
+    def _serialize_schema_spec(self, spec: dict[str, Any]) -> dict[str, Any]:
         """Serialize schema spec to JSON-compatible dict."""
         result = {}
-        
+
         for key, value in spec.items():
             if isinstance(value, type):
                 result[key] = {"type": value.__name__}
@@ -164,18 +165,18 @@ class SocketCompiler:
                 }
             else:
                 result[key] = str(value)
-        
+
         return result
-    
+
     def generate_artifacts(self, output_path: Path):
         """
         Generate artifacts/ws.crous.
-        
+
         Args:
             output_path: Output file path
         """
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        
+
         # Build artifact structure
         artifact = {
             "version": "1.0.0",
@@ -203,28 +204,27 @@ class SocketCompiler:
             ],
             "namespaces": self.namespaces,
         }
-        
+
         # Write to file
         with open(output_path, "w", encoding="utf-8") as f:
             json.dump(artifact, f, indent=2)
-        
-    
-    def validate(self) -> List[str]:
+
+    def validate(self) -> list[str]:
         """
         Validate compiled controllers.
-        
+
         Returns:
             List of validation errors
         """
         errors = []
-        
+
         # Check for duplicate event handlers
         for controller in self.controllers:
             event_handlers = {}
-            
+
             for event in controller.events:
                 key = (event.event, event.handler_type)
-                
+
                 if key in event_handlers:
                     errors.append(
                         f"{controller.class_name}: Duplicate handler for event "
@@ -233,47 +233,48 @@ class SocketCompiler:
                     )
                 else:
                     event_handlers[key] = event.handler_name
-        
+
         # Check for missing required handlers
         for controller in self.controllers:
             # Could add checks for required events
             pass
-        
+
         return errors
 
 
 def compile_socket_controllers(
-    controller_classes: List[Type[SocketController]],
+    controller_classes: list[type[SocketController]],
     output_dir: Path,
 ) -> Path:
     """
     Compile socket controllers to artifacts.
-    
+
     Args:
         controller_classes: List of controller classes
         output_dir: Output directory for artifacts
-        
+
     Returns:
         Path to generated artifact file
     """
     compiler = SocketCompiler()
-    
+
     for controller_class in controller_classes:
         compiler.compile_controller(controller_class)
-    
+
     # Validate
     errors = compiler.validate()
     if errors:
         for error in errors:
             logger.error(f"Validation error: {error}")
         from aquilia.faults.domains import ConfigInvalidFault
+
         raise ConfigInvalidFault(
             key="websocket.compilation",
             reason=f"WebSocket compilation failed with {len(errors)} errors",
         )
-    
+
     # Generate artifacts
     artifact_path = output_dir / "ws.crous"
     compiler.generate_artifacts(artifact_path)
-    
+
     return artifact_path

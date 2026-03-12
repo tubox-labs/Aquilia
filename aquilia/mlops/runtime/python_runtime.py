@@ -13,22 +13,22 @@ Lifecycle states are managed via ``ModelState`` from ``base.py``::
 
 from __future__ import annotations
 
+import contextlib
 import importlib
 import logging
 import pickle
 import time
+from collections.abc import AsyncIterator, Callable
 from pathlib import Path
-from typing import Any, AsyncIterator, Callable, Dict, List, Optional
+from typing import Any
 
 from .._types import (
     BatchRequest,
-    Framework,
     InferenceRequest,
     InferenceResult,
     LLMConfig,
     ModelpackManifest,
     StreamChunk,
-    TokenUsage,
 )
 from .base import BaseStreamingRuntime, ModelState
 
@@ -54,16 +54,16 @@ class PythonRuntime(BaseStreamingRuntime):
     - Device auto-detection (CUDA, MPS, CPU)
     """
 
-    def __init__(self, predict_fn: Optional[Callable] = None) -> None:
+    def __init__(self, predict_fn: Callable | None = None) -> None:
         super().__init__()
         self._model: Any = None
         self._tokenizer: Any = None
-        self._predict_fn: Optional[Callable] = predict_fn
+        self._predict_fn: Callable | None = predict_fn
         self._inference_count: int = 0
         self._total_latency_ms: float = 0.0
-        self._llm_config: Optional[LLMConfig] = None
+        self._llm_config: LLMConfig | None = None
         self._is_llm: bool = False
-        self._generation_kwargs: Dict[str, Any] = {}
+        self._generation_kwargs: dict[str, Any] = {}
 
     # ── Lifecycle ────────────────────────────────────────────────────
 
@@ -88,11 +88,11 @@ class PythonRuntime(BaseStreamingRuntime):
             if self._llm_config.stop_sequences:
                 self._generation_kwargs["stop_strings"] = self._llm_config.stop_sequences
 
-
     async def load(self) -> None:
         """Load model into memory, transitioning through LOADING → LOADED."""
         if not self._manifest:
             from aquilia.faults.domains import ConfigMissingFault
+
             raise ConfigMissingFault(key="mlops.runtime.manifest")
 
         self._set_state(ModelState.LOADING)
@@ -129,6 +129,7 @@ class PythonRuntime(BaseStreamingRuntime):
         # Let torch free GPU memory if available
         try:
             import torch
+
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
         except ImportError:
@@ -161,6 +162,7 @@ class PythonRuntime(BaseStreamingRuntime):
             self._model = None
         else:
             from aquilia.faults.domains import ConfigInvalidFault
+
             raise ConfigInvalidFault(
                 key="mlops.runtime.model_format",
                 reason=f"Unsupported model format: {ext}",
@@ -173,8 +175,7 @@ class PythonRuntime(BaseStreamingRuntime):
             from transformers import AutoModelForCausalLM, AutoTokenizer
         except ImportError:
             raise ImportError(
-                "HuggingFace Transformers required for LLM support. "
-                "Install with: pip install transformers torch"
+                "HuggingFace Transformers required for LLM support. Install with: pip install transformers torch"
             )
 
         model_path = self._manifest.entrypoint
@@ -190,7 +191,6 @@ class PythonRuntime(BaseStreamingRuntime):
         }
         torch_dtype = dtype_map.get(cfg.dtype, torch.float16)
 
-
         self._tokenizer = AutoTokenizer.from_pretrained(
             model_path,
             trust_remote_code=cfg.trust_remote_code,
@@ -198,7 +198,7 @@ class PythonRuntime(BaseStreamingRuntime):
         if self._tokenizer.pad_token is None:
             self._tokenizer.pad_token = self._tokenizer.eos_token
 
-        load_kwargs: Dict[str, Any] = {
+        load_kwargs: dict[str, Any] = {
             "torch_dtype": torch_dtype,
             "trust_remote_code": cfg.trust_remote_code,
             "low_cpu_mem_usage": True,
@@ -209,26 +209,26 @@ class PythonRuntime(BaseStreamingRuntime):
             load_kwargs["device_map"] = "mps"
 
         self._model = AutoModelForCausalLM.from_pretrained(
-            model_path, **load_kwargs,
+            model_path,
+            **load_kwargs,
         )
         if self._device not in ("cuda",) or "device_map" not in load_kwargs:
-            try:
+            with contextlib.suppress(Exception):
                 self._model = self._model.to(self._device)
-            except Exception:
-                pass
         self._model.eval()
 
     # ── Inference ────────────────────────────────────────────────────
 
-    async def infer(self, batch: BatchRequest) -> List[InferenceResult]:
+    async def infer(self, batch: BatchRequest) -> list[InferenceResult]:
         if self._state != ModelState.LOADED:
             from aquilia.faults.domains import ConfigMissingFault
+
             raise ConfigMissingFault(
                 key="mlops.runtime.model",
                 metadata={"hint": f"Model not loaded (state={self._state.value}). Call load() first."},
             )
 
-        results: List[InferenceResult] = []
+        results: list[InferenceResult] = []
 
         for req in batch.requests:
             start = time.monotonic()
@@ -246,6 +246,7 @@ class PythonRuntime(BaseStreamingRuntime):
                     outputs = self._model(req.inputs)
                 else:
                     from aquilia.faults.domains import ConfigMissingFault
+
                     raise ConfigMissingFault(
                         key="mlops.runtime.predict_method",
                         metadata={"hint": "Model has no predict/forward/callable method"},
@@ -265,35 +266,41 @@ class PythonRuntime(BaseStreamingRuntime):
                     prompt_tokens = outputs.pop("_prompt_tokens", 0)
                     finish_reason = outputs.pop("_finish_reason", "stop")
 
-                results.append(InferenceResult(
-                    request_id=req.request_id,
-                    outputs={"prediction": outputs} if not isinstance(outputs, dict) else outputs,
-                    latency_ms=latency,
-                    token_count=token_count,
-                    prompt_tokens=prompt_tokens,
-                    finish_reason=finish_reason,
-                ))
+                results.append(
+                    InferenceResult(
+                        request_id=req.request_id,
+                        outputs={"prediction": outputs} if not isinstance(outputs, dict) else outputs,
+                        latency_ms=latency,
+                        token_count=token_count,
+                        prompt_tokens=prompt_tokens,
+                        finish_reason=finish_reason,
+                    )
+                )
 
             except Exception as exc:
                 latency = (time.monotonic() - start) * 1000
-                results.append(InferenceResult(
-                    request_id=req.request_id,
-                    outputs={"error": str(exc)},
-                    latency_ms=latency,
-                    finish_reason="error",
-                    metadata={"error_type": type(exc).__name__},
-                ))
+                results.append(
+                    InferenceResult(
+                        request_id=req.request_id,
+                        outputs={"error": str(exc)},
+                        latency_ms=latency,
+                        finish_reason="error",
+                        metadata={"error_type": type(exc).__name__},
+                    )
+                )
 
         return results
 
-    async def _infer_llm(self, req: InferenceRequest) -> Dict[str, Any]:
+    async def _infer_llm(self, req: InferenceRequest) -> dict[str, Any]:
         """Run LLM inference (non-streaming) for a single request."""
         import torch
 
         prompt = req.inputs.get("prompt", req.inputs.get("input", ""))
         if isinstance(prompt, list):
             prompt = self._tokenizer.apply_chat_template(
-                prompt, tokenize=False, add_generation_prompt=True,
+                prompt,
+                tokenize=False,
+                add_generation_prompt=True,
             )
 
         inputs = self._tokenizer(prompt, return_tensors="pt", padding=True)
@@ -326,19 +333,23 @@ class PythonRuntime(BaseStreamingRuntime):
         """Stream tokens one at a time for LLM inference."""
         if not self._is_llm or self._tokenizer is None:
             from aquilia.faults.domains import ConfigInvalidFault
+
             raise ConfigInvalidFault(
                 key="mlops.runtime.stream",
                 reason="Streaming inference requires an LLM model",
             )
 
         import asyncio
+
         import torch
 
         self._total_stream_requests += 1
         prompt = request.inputs.get("prompt", request.inputs.get("input", ""))
         if isinstance(prompt, list):
             prompt = self._tokenizer.apply_chat_template(
-                prompt, tokenize=False, add_generation_prompt=True,
+                prompt,
+                tokenize=False,
+                add_generation_prompt=True,
             )
 
         inputs = self._tokenizer(prompt, return_tensors="pt", padding=True)
@@ -411,35 +422,34 @@ class PythonRuntime(BaseStreamingRuntime):
 
     # ── Preprocessing / Postprocessing ───────────────────────────────
 
-    async def preprocess(self, raw_input: Dict[str, Any]) -> Dict[str, Any]:
+    async def preprocess(self, raw_input: dict[str, Any]) -> dict[str, Any]:
         """Default preprocessing -- identity pass-through."""
         return raw_input
 
-    async def postprocess(self, raw_output: Dict[str, Any]) -> Dict[str, Any]:
+    async def postprocess(self, raw_output: dict[str, Any]) -> dict[str, Any]:
         """Default postprocessing -- identity pass-through."""
         return raw_output
 
     # ── Observability ────────────────────────────────────────────────
 
-    async def metrics(self) -> Dict[str, float]:
+    async def metrics(self) -> dict[str, float]:
         base = await super().metrics()
-        avg_latency = (
-            self._total_latency_ms / self._inference_count
-            if self._inference_count > 0
-            else 0.0
+        avg_latency = self._total_latency_ms / self._inference_count if self._inference_count > 0 else 0.0
+        base.update(
+            {
+                "inference_count": float(self._inference_count),
+                "avg_latency_ms": avg_latency,
+                "total_latency_ms": self._total_latency_ms,
+            }
         )
-        base.update({
-            "inference_count": float(self._inference_count),
-            "avg_latency_ms": avg_latency,
-            "total_latency_ms": self._total_latency_ms,
-        })
         return base
 
-    async def memory_info(self) -> Dict[str, Any]:
+    async def memory_info(self) -> dict[str, Any]:
         """Return GPU/CPU memory info."""
-        info: Dict[str, Any] = {"device": self._device, "state": self._state.value}
+        info: dict[str, Any] = {"device": self._device, "state": self._state.value}
         try:
             import torch
+
             if self._device == "cuda" and torch.cuda.is_available():
                 info["gpu_memory_allocated_mb"] = torch.cuda.memory_allocated() / (1024 * 1024)
                 info["gpu_memory_reserved_mb"] = torch.cuda.memory_reserved() / (1024 * 1024)
@@ -454,6 +464,7 @@ class PythonRuntime(BaseStreamingRuntime):
     def _load_pytorch(path: Path) -> Any:
         try:
             import torch
+
             model = torch.load(str(path), map_location="cpu", weights_only=False)
             if hasattr(model, "eval"):
                 model.eval()
@@ -466,6 +477,7 @@ class PythonRuntime(BaseStreamingRuntime):
         if path.suffix == ".joblib":
             try:
                 import joblib
+
                 return joblib.load(str(path))
             except ImportError:
                 pass

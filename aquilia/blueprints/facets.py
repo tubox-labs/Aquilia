@@ -16,18 +16,12 @@ from __future__ import annotations
 
 import re
 import uuid
-import inspect
+from collections.abc import Callable, Sequence
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal, InvalidOperation
 from typing import (
-    Any,
-    Callable,
-    Dict,
-    List,
-    Optional,
-    Sequence,
-    Type,
     TYPE_CHECKING,
+    Any,
 )
 
 from .exceptions import CastFault
@@ -69,6 +63,7 @@ __all__ = [
 
 # ── Sentinel ─────────────────────────────────────────────────────────────
 
+
 class _Unset:
     """Sentinel for 'no value provided'."""
 
@@ -90,6 +85,7 @@ UNSET = _Unset()
 
 
 # ── Facet Base ───────────────────────────────────────────────────────────
+
 
 class Facet:
     """
@@ -161,9 +157,7 @@ class Facet:
             return False
         if self.default is not UNSET:
             return False
-        if self.allow_null:
-            return False
-        return True
+        return not self.allow_null
 
     @required.setter
     def required(self, value: bool) -> None:
@@ -180,6 +174,7 @@ class Facet:
     def clone(self) -> Facet:
         """Create a shallow copy for Blueprint inheritance."""
         import copy
+
         new = copy.copy(self)
         new.validators = list(self.validators)
         new._bound = False
@@ -242,17 +237,14 @@ class Facet:
         for part in parts:
             if obj is None:
                 return None
-            if isinstance(obj, dict):
-                obj = obj.get(part)
-            else:
-                obj = getattr(obj, part, None)
+            obj = obj.get(part) if isinstance(obj, dict) else getattr(obj, part, None)
         return obj
 
     # ── Schema ───────────────────────────────────────────────────────
 
-    def to_schema(self) -> Dict[str, Any]:
+    def to_schema(self) -> dict[str, Any]:
         """Generate JSON Schema for this facet."""
-        schema: Dict[str, Any] = {"type": self._type_name}
+        schema: dict[str, Any] = {"type": self._type_name}
         if self.label:
             schema["title"] = self.label
         if self.help_text:
@@ -286,6 +278,7 @@ class Facet:
 
 # ── Text Facets ──────────────────────────────────────────────────────────
 
+
 class TextFacet(Facet):
     """Text/string facet with length constraints."""
 
@@ -311,14 +304,14 @@ class TextFacet(Facet):
             if len(pattern) > self.MAX_PATTERN_LENGTH:
                 raise CastFault(
                     "<pattern>",
-                    f"Regex pattern too long ({len(pattern)} chars). "
-                    f"Maximum allowed: {self.MAX_PATTERN_LENGTH}",
+                    f"Regex pattern too long ({len(pattern)} chars). Maximum allowed: {self.MAX_PATTERN_LENGTH}",
                 )
             # Check for dangerous nested quantifiers (basic ReDoS detection)
             import re as _re
+
             _nested_quantifier = _re.compile(
-                r'(\([^)]*[+*]\)[+*?]|\([^)]*\)\{[0-9,]+\}[+*?]|'
-                r'[+*]\{[0-9,]+\}|[+*][+*])'
+                r"(\([^)]*[+*]\)[+*?]|\([^)]*\)\{[0-9,]+\}[+*?]|"
+                r"[+*]\{[0-9,]+\}|[+*][+*])"
             )
             if _nested_quantifier.search(pattern):
                 raise CastFault(
@@ -352,10 +345,10 @@ class TextFacet(Facet):
         if self.max_length is not None and len(value) > self.max_length:
             raise CastFault(self.name or "<unbound>", f"Must be at most {self.max_length} characters")
         if self.pattern and not self.pattern.search(value):
-            raise CastFault(self.name or "<unbound>", f"Does not match required pattern")
+            raise CastFault(self.name or "<unbound>", "Does not match required pattern")
         return super().seal(value)
 
-    def to_schema(self) -> Dict[str, Any]:
+    def to_schema(self) -> dict[str, Any]:
         schema = super().to_schema()
         if self.min_length is not None:
             schema["minLength"] = self.min_length
@@ -380,7 +373,7 @@ class EmailFacet(TextFacet):
             raise CastFault(self.name or "<unbound>", "Invalid email address")
         return super().seal(value)
 
-    def to_schema(self) -> Dict[str, Any]:
+    def to_schema(self) -> dict[str, Any]:
         schema = super().to_schema()
         schema["format"] = "email"
         return schema
@@ -402,7 +395,7 @@ class URLFacet(TextFacet):
             raise CastFault(self.name or "<unbound>", "Invalid URL")
         return super().seal(value)
 
-    def to_schema(self) -> Dict[str, Any]:
+    def to_schema(self) -> dict[str, Any]:
         schema = super().to_schema()
         schema["format"] = "uri"
         return schema
@@ -422,7 +415,7 @@ class SlugFacet(TextFacet):
             raise CastFault(self.name or "<unbound>", "Invalid slug (use letters, numbers, hyphens, underscores)")
         return super().seal(value)
 
-    def to_schema(self) -> Dict[str, Any]:
+    def to_schema(self) -> dict[str, Any]:
         schema = super().to_schema()
         schema["pattern"] = self._SLUG_RE.pattern
         return schema
@@ -433,19 +426,21 @@ class IPFacet(TextFacet):
 
     def seal(self, value: Any) -> str:
         import ipaddress
+
         try:
             ipaddress.ip_address(value)
         except ValueError:
             raise CastFault(self.name or "<unbound>", "Invalid IP address")
         return super().seal(value)
 
-    def to_schema(self) -> Dict[str, Any]:
+    def to_schema(self) -> dict[str, Any]:
         schema = super().to_schema()
         schema["format"] = "ip-address"
         return schema
 
 
 # ── Numeric Facets ───────────────────────────────────────────────────────
+
 
 class IntFacet(Facet):
     """Integer facet with range constraints."""
@@ -478,7 +473,7 @@ class IntFacet(Facet):
             raise CastFault(self.name or "<unbound>", f"Must be at most {self.max_value}")
         return super().seal(value)
 
-    def to_schema(self) -> Dict[str, Any]:
+    def to_schema(self) -> dict[str, Any]:
         schema = super().to_schema()
         if self.min_value is not None:
             schema["minimum"] = self.min_value
@@ -509,6 +504,7 @@ class FloatFacet(Facet):
 
     def cast(self, value: Any) -> float:
         import math
+
         try:
             result = float(value)
         except (ValueError, TypeError, OverflowError) as exc:
@@ -526,7 +522,7 @@ class FloatFacet(Facet):
             raise CastFault(self.name or "<unbound>", f"Must be at most {self.max_value}")
         return super().seal(value)
 
-    def to_schema(self) -> Dict[str, Any]:
+    def to_schema(self) -> dict[str, Any]:
         schema = super().to_schema()
         if self.min_value is not None:
             schema["minimum"] = self.min_value
@@ -561,7 +557,7 @@ class DecimalFacet(Facet):
         try:
             return Decimal(str(value))
         except (InvalidOperation, ValueError, TypeError) as exc:
-            raise CastFault(self.name or "<unbound>", f"Invalid decimal value") from exc
+            raise CastFault(self.name or "<unbound>", "Invalid decimal value") from exc
 
     def seal(self, value: Decimal) -> Decimal:
         if self.min_value is not None and value < self.min_value:
@@ -586,13 +582,14 @@ class DecimalFacet(Facet):
             return None
         return str(value)
 
-    def to_schema(self) -> Dict[str, Any]:
+    def to_schema(self) -> dict[str, Any]:
         schema = super().to_schema()
         schema["format"] = "decimal"
         return schema
 
 
 # ── Boolean Facet ────────────────────────────────────────────────────────
+
 
 class BoolFacet(Facet):
     """Boolean facet with truthy/falsy coercion."""
@@ -618,6 +615,7 @@ class BoolFacet(Facet):
 
 # ── Date/Time Facets ─────────────────────────────────────────────────────
 
+
 class DateFacet(Facet):
     """Date facet (ISO 8601)."""
 
@@ -642,7 +640,7 @@ class DateFacet(Facet):
             return value.isoformat()
         return str(value)
 
-    def to_schema(self) -> Dict[str, Any]:
+    def to_schema(self) -> dict[str, Any]:
         schema = super().to_schema()
         schema["format"] = "date"
         return schema
@@ -670,7 +668,7 @@ class TimeFacet(Facet):
             return value.isoformat()
         return str(value)
 
-    def to_schema(self) -> Dict[str, Any]:
+    def to_schema(self) -> dict[str, Any]:
         schema = super().to_schema()
         schema["format"] = "time"
         return schema
@@ -698,7 +696,7 @@ class DateTimeFacet(Facet):
             return value.isoformat()
         return str(value)
 
-    def to_schema(self) -> Dict[str, Any]:
+    def to_schema(self) -> dict[str, Any]:
         schema = super().to_schema()
         schema["format"] = "date-time"
         return schema
@@ -736,7 +734,7 @@ class DurationFacet(Facet):
             return value.total_seconds()
         return value
 
-    def to_schema(self) -> Dict[str, Any]:
+    def to_schema(self) -> dict[str, Any]:
         schema = super().to_schema()
         schema["format"] = "duration"
         return schema
@@ -760,13 +758,14 @@ class UUIDFacet(Facet):
             return None
         return str(value)
 
-    def to_schema(self) -> Dict[str, Any]:
+    def to_schema(self) -> dict[str, Any]:
         schema = super().to_schema()
         schema["format"] = "uuid"
         return schema
 
 
 # ── Structured Facets ────────────────────────────────────────────────────
+
 
 class ListFacet(Facet):
     """List/array facet with optional child facet."""
@@ -823,7 +822,7 @@ class ListFacet(Facet):
             return [self.child.mold(item) for item in value]
         return list(value)
 
-    def to_schema(self) -> Dict[str, Any]:
+    def to_schema(self) -> dict[str, Any]:
         schema = super().to_schema()
         if self.child is not None:
             schema["items"] = self.child.to_schema()
@@ -856,7 +855,7 @@ class DictFacet(Facet):
                 self.name or "<unbound>",
                 f"Too many keys: {len(value)} exceeds maximum of {self.max_keys}",
             )
-        
+
         result = {}
         for k, v in value.items():
             if not isinstance(k, str):
@@ -875,7 +874,7 @@ class DictFacet(Facet):
     def seal(self, value: dict) -> dict:
         if not self.value_facet:
             return value
-            
+
         result = {}
         for k, v in value.items():
             child_name = f"{self.name or '<unbound>'}[{k}]"
@@ -893,16 +892,16 @@ class DictFacet(Facet):
                 value = dict(value)
             except (TypeError, ValueError):
                 return value
-            
+
         if not self.value_facet:
             return value
-            
+
         result = {}
         for k, v in value.items():
             result[k] = self.value_facet.mold(v)
         return result
 
-    def to_schema(self) -> Dict[str, Any]:
+    def to_schema(self) -> dict[str, Any]:
         schema = super().to_schema()
         if self.value_facet:
             schema["additionalProperties"] = self.value_facet.to_schema()
@@ -957,6 +956,7 @@ class JSONFacet(Facet):
 
 # ── File Facet ───────────────────────────────────────────────────────────
 
+
 class FileFacet(Facet):
     """File reference facet -- stores path/URL string."""
 
@@ -971,13 +971,14 @@ class FileFacet(Facet):
             return None
         return str(value)
 
-    def to_schema(self) -> Dict[str, Any]:
+    def to_schema(self) -> dict[str, Any]:
         schema = super().to_schema()
         schema["format"] = "binary"
         return schema
 
 
 # ── Choice Facet ─────────────────────────────────────────────────────────
+
 
 class ChoiceFacet(Facet):
     """Facet with a fixed set of allowed values."""
@@ -1007,7 +1008,7 @@ class ChoiceFacet(Facet):
             )
         return super().seal(value)
 
-    def to_schema(self) -> Dict[str, Any]:
+    def to_schema(self) -> dict[str, Any]:
         schema = super().to_schema()
         schema["enum"] = sorted(str(v) for v in self._valid_values)
         return schema
@@ -1015,12 +1016,13 @@ class ChoiceFacet(Facet):
 
 # ── PolymorphicFacet ───────────────────────────────────────────────────
 
+
 class PolymorphicFacet(Facet):
     """
     A Facet that attempts to cast and seal through multiple candidate Facets.
     Useful for Union types like `Union[CatBlueprint, DogBlueprint]`.
     """
-    
+
     _type_name = "object"
 
     def __init__(self, choices: list[Facet], **kwargs):
@@ -1035,10 +1037,9 @@ class PolymorphicFacet(Facet):
                 return choice.cast(value)
             except CastFault as e:
                 errors.append(str(e))
-                
+
         raise CastFault(
-            self.name or "<unbound>", 
-            f"Value did not match any polymorphic schema. Errors: {'; '.join(errors)}"
+            self.name or "<unbound>", f"Value did not match any polymorphic schema. Errors: {'; '.join(errors)}"
         )
 
     def seal(self, value: Any) -> Any:
@@ -1049,10 +1050,10 @@ class PolymorphicFacet(Facet):
                 return choice.seal(value)
             except (CastFault, SealFault) as e:
                 errors.append(str(e))
-                
+
         raise SealFault(
-            self.name or "<unbound>", 
-            f"Value did not match any polymorphic schema during seal. Errors: {'; '.join(errors)}"
+            self.name or "<unbound>",
+            f"Value did not match any polymorphic schema during seal. Errors: {'; '.join(errors)}",
         )
 
     def mold(self, value: Any) -> Any:
@@ -1060,7 +1061,7 @@ class PolymorphicFacet(Facet):
             choice.name = self.name
             try:
                 molded = choice.mold(value)
-                # If molding didn't crash, we assume success. 
+                # If molding didn't crash, we assume success.
                 # For dictionaries, we might want to ensure it's not None if value wasn't None.
                 if molded is not None or value is None:
                     return molded
@@ -1068,13 +1069,14 @@ class PolymorphicFacet(Facet):
                 pass
         return value
 
-    def to_schema(self) -> Dict[str, Any]:
+    def to_schema(self) -> dict[str, Any]:
         schema = super().to_schema()
         schema["anyOf"] = [choice.to_schema() for choice in self.choices]
         return schema
 
 
 # ── Special Facets ───────────────────────────────────────────────────────
+
 
 class Computed(Facet):
     """
@@ -1134,7 +1136,7 @@ class Constant(Facet):
     def mold(self, value: Any) -> Any:
         return self._constant
 
-    def to_schema(self) -> Dict[str, Any]:
+    def to_schema(self) -> dict[str, Any]:
         schema = super().to_schema()
         schema["const"] = self._constant
         return schema
@@ -1197,6 +1199,7 @@ class Hidden(Facet):
 
 # ── DI Injection Facet ───────────────────────────────────────────────────
 
+
 class Inject(Facet):
     """
     A facet that resolves its value from the DI container at validation time.
@@ -1230,7 +1233,7 @@ class Inject(Facet):
         self.via = via
         self.attr = attr
 
-    def resolve_from_context(self, context: Dict[str, Any]) -> Any:
+    def resolve_from_context(self, context: dict[str, Any]) -> Any:
         """Resolve value from DI container or context in Blueprint context.
 
         Resolution order:
@@ -1277,7 +1280,7 @@ class Inject(Facet):
 # ── Model Field → Facet Mapping ──────────────────────────────────────────
 
 # Maps model field class names to facet classes for auto-derivation
-MODEL_FIELD_TO_FACET: Dict[str, Type[Facet]] = {
+MODEL_FIELD_TO_FACET: dict[str, type[Facet]] = {
     # Text
     "CharField": TextFacet,
     "TextField": TextFacet,
@@ -1332,7 +1335,7 @@ def derive_facet(model_field: Any) -> Facet:
     field_cls_name = type(model_field).__name__
     facet_cls = MODEL_FIELD_TO_FACET.get(field_cls_name, Facet)
 
-    kwargs: Dict[str, Any] = {}
+    kwargs: dict[str, Any] = {}
 
     # Null/blank
     if getattr(model_field, "null", False):

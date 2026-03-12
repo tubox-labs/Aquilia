@@ -39,15 +39,13 @@ Architecture:
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import time
-from typing import Any, Callable, Dict, List, Optional, Tuple, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from aquilia.admin.site import AdminSite
-    from aquilia.auth.core import Identity
-    from aquilia.controller.base import RequestCtx
-    from aquilia.response import Response
+    pass
 
 logger = logging.getLogger("aquilia.admin.subsystems")
 
@@ -72,12 +70,12 @@ class AdminCacheIntegration:
     """
 
     NAMESPACE = "admin"
-    MODEL_LIST_TTL = 30         # 30 seconds for model list views
-    DASHBOARD_TTL = 60          # 60 seconds for dashboard stats
-    FRAGMENT_TTL = 120          # 2 minutes for template fragments
-    RATE_LIMIT_TTL = 3600       # 1 hour for rate limiter records
+    MODEL_LIST_TTL = 30  # 30 seconds for model list views
+    DASHBOARD_TTL = 60  # 60 seconds for dashboard stats
+    FRAGMENT_TTL = 120  # 2 minutes for template fragments
+    RATE_LIMIT_TTL = 3600  # 1 hour for rate limiter records
 
-    def __init__(self, cache_service: Optional[Any] = None):
+    def __init__(self, cache_service: Any | None = None):
         self._cache = cache_service
         self._enabled = cache_service is not None
 
@@ -100,10 +98,10 @@ class AdminCacheIntegration:
         self,
         model_name: str,
         page: int = 1,
-        filters: Optional[Dict[str, Any]] = None,
+        filters: dict[str, Any] | None = None,
         search: str = "",
         ordering: str = "",
-    ) -> Optional[Any]:
+    ) -> Any | None:
         """
         Get cached model list result.
 
@@ -129,7 +127,7 @@ class AdminCacheIntegration:
         self,
         model_name: str,
         page: int,
-        filters: Optional[Dict[str, Any]],
+        filters: dict[str, Any] | None,
         search: str,
         ordering: str,
         data: Any,
@@ -138,10 +136,8 @@ class AdminCacheIntegration:
         if not self._enabled:
             return
         key = self._model_list_key(model_name, page, filters, search, ordering)
-        try:
+        with contextlib.suppress(Exception):
             await self._cache.set(key, data, ttl=self.MODEL_LIST_TTL, namespace=self.NAMESPACE)
-        except Exception:
-            pass
 
     async def invalidate_model(self, model_name: str) -> int:
         """
@@ -164,7 +160,7 @@ class AdminCacheIntegration:
         except Exception:
             return 0
 
-    async def get_dashboard_stats(self) -> Optional[Dict[str, Any]]:
+    async def get_dashboard_stats(self) -> dict[str, Any] | None:
         """Get cached dashboard statistics."""
         if not self._enabled:
             return None
@@ -173,20 +169,19 @@ class AdminCacheIntegration:
         except Exception:
             return None
 
-    async def set_dashboard_stats(self, stats: Dict[str, Any]) -> None:
+    async def set_dashboard_stats(self, stats: dict[str, Any]) -> None:
         """Cache dashboard statistics."""
         if not self._enabled:
             return
-        try:
+        with contextlib.suppress(Exception):
             await self._cache.set(
-                "dashboard_stats", stats,
+                "dashboard_stats",
+                stats,
                 ttl=self.DASHBOARD_TTL,
                 namespace=self.NAMESPACE,
             )
-        except Exception:
-            pass
 
-    async def get_fragment(self, fragment_key: str) -> Optional[str]:
+    async def get_fragment(self, fragment_key: str) -> str | None:
         """Get a cached template fragment."""
         if not self._enabled:
             return None
@@ -195,29 +190,29 @@ class AdminCacheIntegration:
         except Exception:
             return None
 
-    async def set_fragment(self, fragment_key: str, html: str, ttl: Optional[int] = None) -> None:
+    async def set_fragment(self, fragment_key: str, html: str, ttl: int | None = None) -> None:
         """Cache a template fragment."""
         if not self._enabled:
             return
-        try:
+        with contextlib.suppress(Exception):
             await self._cache.set(
-                f"fragment:{fragment_key}", html,
+                f"fragment:{fragment_key}",
+                html,
                 ttl=ttl or self.FRAGMENT_TTL,
                 namespace=self.NAMESPACE,
             )
-        except Exception:
-            pass
 
     def _model_list_key(
         self,
         model_name: str,
         page: int,
-        filters: Optional[Dict[str, Any]],
+        filters: dict[str, Any] | None,
         search: str,
         ordering: str,
     ) -> str:
         """Build a deterministic cache key for model list queries."""
         import hashlib
+
         filter_str = ""
         if filters:
             sorted_filters = sorted(filters.items())
@@ -318,7 +313,7 @@ class AdminTasks:
     on-demand via the admin dashboard.
     """
 
-    def __init__(self, task_manager: Optional[Any] = None):
+    def __init__(self, task_manager: Any | None = None):
         self._task_manager = task_manager
         self._registered = False
 
@@ -331,7 +326,7 @@ class AdminTasks:
         """Set the TaskManager instance during server startup."""
         self._task_manager = manager
 
-    async def audit_log_cleanup(self, max_entries: int = 10_000) -> Dict[str, Any]:
+    async def audit_log_cleanup(self, max_entries: int = 10_000) -> dict[str, Any]:
         """
         Prune old audit log entries beyond the configured maximum.
 
@@ -343,6 +338,7 @@ class AdminTasks:
         """
         try:
             from .site import AdminSite
+
             site = AdminSite.default()
             audit_log = site.audit_log
 
@@ -359,7 +355,7 @@ class AdminTasks:
             logger.error("Audit log cleanup failed: %s", exc)
             return {"pruned": 0, "remaining": 0, "error": str(exc)}
 
-    async def session_cleanup(self) -> Dict[str, Any]:
+    async def session_cleanup(self) -> dict[str, Any]:
         """
         Remove expired admin sessions.
 
@@ -373,20 +369,20 @@ class AdminTasks:
         cleaned = 0
         try:
             from .models import AdminSession
+
             if hasattr(AdminSession, "objects") and hasattr(AdminSession.objects, "filter"):
                 # If ORM is available, delete expired sessions
                 from datetime import datetime, timezone
+
                 now = datetime.now(timezone.utc)
-                expired = await AdminSession.objects.filter(
-                    expires_at__lt=now
-                ).delete()
+                expired = await AdminSession.objects.filter(expires_at__lt=now).delete()
                 cleaned = expired if isinstance(expired, int) else 0
         except Exception:
             pass
 
         return {"cleaned": cleaned}
 
-    async def security_report(self) -> Dict[str, Any]:
+    async def security_report(self) -> dict[str, Any]:
         """
         Generate a summary of recent security events.
 
@@ -395,12 +391,13 @@ class AdminTasks:
         """
         try:
             from .site import AdminSite
+
             site = AdminSite.default()
             tracker = site.security.event_tracker
 
             events = tracker.get_events(limit=1000)
-            by_type: Dict[str, int] = {}
-            by_ip: Dict[str, int] = {}
+            by_type: dict[str, int] = {}
+            by_ip: dict[str, int] = {}
 
             for event in events:
                 by_type[event.event_type] = by_type.get(event.event_type, 0) + 1
@@ -420,7 +417,7 @@ class AdminTasks:
             logger.error("Security report generation failed: %s", exc)
             return {"error": str(exc)}
 
-    async def rate_limit_cleanup(self) -> Dict[str, Any]:
+    async def rate_limit_cleanup(self) -> dict[str, Any]:
         """
         Force cleanup of stale rate limiter records.
 
@@ -429,6 +426,7 @@ class AdminTasks:
         """
         try:
             from .site import AdminSite
+
             site = AdminSite.default()
             limiter = site.security.rate_limiter
 
@@ -450,7 +448,7 @@ class AdminTasks:
             logger.error("Rate limit cleanup failed: %s", exc)
             return {"error": str(exc)}
 
-    async def enqueue_audit_cleanup(self, max_entries: int = 10_000) -> Optional[str]:
+    async def enqueue_audit_cleanup(self, max_entries: int = 10_000) -> str | None:
         """
         Enqueue audit cleanup as a background task.
 
@@ -472,7 +470,7 @@ class AdminTasks:
             await self.audit_log_cleanup(max_entries)
             return None
 
-    async def enqueue_session_cleanup(self) -> Optional[str]:
+    async def enqueue_session_cleanup(self) -> str | None:
         """Enqueue session cleanup as a background task."""
         if not self._task_manager:
             await self.session_cleanup()
@@ -562,6 +560,7 @@ class AdminPermGuard:
 
         try:
             from .permissions import has_model_permission
+
             return has_model_permission(identity, self.model, self.action)
         except Exception:
             return False
@@ -582,7 +581,7 @@ class AdminCSRFGuard:
     name = "admin_csrf_guard"
     priority = 15  # After auth, before perm
 
-    def __init__(self, security_policy: Optional[Any] = None):
+    def __init__(self, security_policy: Any | None = None):
         self._policy = security_policy
 
     def __call__(self, ctx: Any) -> bool:
@@ -626,7 +625,7 @@ class AdminRateLimitGuard:
     name = "admin_rate_limit_guard"
     priority = 5  # Runs first (before even auth)
 
-    def __init__(self, security_policy: Optional[Any] = None, operation: str = "login"):
+    def __init__(self, security_policy: Any | None = None, operation: str = "login"):
         self._policy = security_policy
         self._operation = operation
 
@@ -677,6 +676,7 @@ class AdminAuditHook:
         """Log the admin action to the audit trail."""
         try:
             from .site import AdminSite
+
             site = AdminSite.default()
 
             identity = getattr(ctx, "identity", None)
@@ -703,13 +703,13 @@ class AdminAuditHook:
 
 
 def build_admin_flow_pipeline(
-    security_policy: Optional[Any] = None,
+    security_policy: Any | None = None,
     model_name: str = "",
     action: str = "view",
     require_auth: bool = True,
     require_csrf: bool = False,
-    rate_limit_op: Optional[str] = None,
-) -> Dict[str, Any]:
+    rate_limit_op: str | None = None,
+) -> dict[str, Any]:
     """
     Build a standard admin flow pipeline configuration.
 
@@ -784,7 +784,7 @@ class AdminLifecycle:
         """Get the task integration."""
         return self._tasks
 
-    async def on_startup(self, config: Optional[Dict[str, Any]] = None, container: Optional[Any] = None) -> None:
+    async def on_startup(self, config: dict[str, Any] | None = None, container: Any | None = None) -> None:
         """
         Admin startup hook.
 
@@ -805,6 +805,7 @@ class AdminLifecycle:
         try:
             # 1. Initialize admin site
             from .site import AdminSite
+
             site = AdminSite.default()
             site.initialize()
 
@@ -812,6 +813,7 @@ class AdminLifecycle:
             if container:
                 try:
                     from aquilia.cache import CacheService
+
                     cache = container.resolve(CacheService)
                     if cache:
                         self._cache_integration.set_cache_service(cache)
@@ -821,6 +823,7 @@ class AdminLifecycle:
                 # 3. Wire task manager from DI
                 try:
                     from aquilia.tasks import TaskManager
+
                     task_mgr = container.resolve(TaskManager)
                     if task_mgr:
                         self._tasks.set_task_manager(task_mgr)
@@ -830,6 +833,7 @@ class AdminLifecycle:
                 # 4. Register security DI providers
                 try:
                     from .security import register_security_providers
+
                     security_config = None
                     if hasattr(site, "admin_config"):
                         security_config = site.admin_config.security_config
@@ -842,7 +846,7 @@ class AdminLifecycle:
         except Exception as exc:
             logger.error("Admin lifecycle startup error: %s", exc)
 
-    async def on_shutdown(self, config: Optional[Dict[str, Any]] = None, container: Optional[Any] = None) -> None:
+    async def on_shutdown(self, config: dict[str, Any] | None = None, container: Any | None = None) -> None:
         """
         Admin shutdown hook.
 
@@ -859,6 +863,7 @@ class AdminLifecycle:
         try:
             # 1. Flush audit log
             from .site import AdminSite
+
             site = AdminSite.default()
             if hasattr(site.audit_log, "flush"):
                 try:
@@ -867,16 +872,12 @@ class AdminLifecycle:
                     logger.warning("Audit log flush failed: %s", exc)
 
             # 2. Rate limiter cleanup
-            try:
+            with contextlib.suppress(Exception):
                 await self._tasks.rate_limit_cleanup()
-            except Exception:
-                pass
 
             # 3. Clear security event tracker
-            try:
+            with contextlib.suppress(Exception):
                 site.security.event_tracker.clear()
-            except Exception:
-                pass
 
             self._started = False
 
@@ -919,13 +920,13 @@ class AdminSubsystems:
         await subsystems.lifecycle.on_shutdown()
     """
 
-    _instance: Optional["AdminSubsystems"] = None
+    _instance: AdminSubsystems | None = None
 
     def __init__(self) -> None:
         self._lifecycle = AdminLifecycle()
 
     @classmethod
-    def default(cls) -> "AdminSubsystems":
+    def default(cls) -> AdminSubsystems:
         """Get or create the default AdminSubsystems singleton."""
         if cls._instance is None:
             cls._instance = cls()
@@ -957,8 +958,8 @@ class AdminSubsystems:
         action: str = "view",
         require_auth: bool = True,
         require_csrf: bool = False,
-        rate_limit_op: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        rate_limit_op: str | None = None,
+    ) -> dict[str, Any]:
         """
         Build a flow pipeline for an admin request.
 
@@ -975,6 +976,7 @@ class AdminSubsystems:
         security_policy = None
         try:
             from .site import AdminSite
+
             site = AdminSite.default()
             security_policy = site.security
         except Exception:
@@ -991,6 +993,7 @@ class AdminSubsystems:
 
 
 # ── Convenience factory ──────────────────────────────────────────────────────
+
 
 def get_admin_subsystems() -> AdminSubsystems:
     """Get the default AdminSubsystems instance."""

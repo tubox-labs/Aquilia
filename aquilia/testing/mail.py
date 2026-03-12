@@ -8,37 +8,35 @@ Provides :class:`MailTestMixin` with a captured outbox and
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
 class CapturedMail:
     """A mail message captured during testing."""
-    to: List[str]
+
+    to: list[str]
     subject: str
     body: str = ""
     html_body: str = ""
     from_email: str = ""
-    cc: List[str] = field(default_factory=list)
-    bcc: List[str] = field(default_factory=list)
-    reply_to: Optional[str] = None
-    attachments: List[Dict[str, Any]] = field(default_factory=list)
-    headers: Dict[str, str] = field(default_factory=dict)
+    cc: list[str] = field(default_factory=list)
+    bcc: list[str] = field(default_factory=list)
+    reply_to: str | None = None
+    attachments: list[dict[str, Any]] = field(default_factory=list)
+    headers: dict[str, str] = field(default_factory=dict)
     provider: str = ""
-    template_name: Optional[str] = None
+    template_name: str | None = None
 
     def __repr__(self) -> str:
-        return (
-            f"<CapturedMail to={self.to} "
-            f"subject={self.subject!r}>"
-        )
+        return f"<CapturedMail to={self.to} subject={self.subject!r}>"
 
 
 # Module-level outbox for capturing sent mail
-_mail_outbox: List[CapturedMail] = []
+_mail_outbox: list[CapturedMail] = []
 
 
-def get_outbox() -> List[CapturedMail]:
+def get_outbox() -> list[CapturedMail]:
     """Return the global mail outbox."""
     return _mail_outbox
 
@@ -49,7 +47,7 @@ def clear_outbox() -> None:
 
 
 def capture_mail(
-    to: List[str],
+    to: list[str],
     subject: str,
     body: str = "",
     **kwargs: Any,
@@ -83,88 +81,70 @@ class MailTestMixin:
         clear_outbox()
 
     @property
-    def mail_outbox(self) -> List[CapturedMail]:
+    def mail_outbox(self) -> list[CapturedMail]:
         """All captured mail messages."""
         return get_outbox()
 
     @property
-    def latest_mail(self) -> Optional[CapturedMail]:
+    def latest_mail(self) -> CapturedMail | None:
         """Return the most recently sent mail, or None."""
         outbox = self.mail_outbox
         return outbox[-1] if outbox else None
 
-    def get_mail_for(self, address: str) -> List[CapturedMail]:
+    def get_mail_for(self, address: str) -> list[CapturedMail]:
         """Return all mail sent to a specific address."""
         return [m for m in self.mail_outbox if address in m.to]
 
     def assert_mail_sent(
         self,
-        to: Optional[str] = None,
-        count: Optional[int] = None,
+        to: str | None = None,
+        count: int | None = None,
         msg: str = "",
     ):
         """Assert that mail was sent."""
         outbox = self.mail_outbox
         if to is not None:
             matching = [m for m in outbox if to in m.to]
-            assert matching, (
-                f"No mail sent to {to!r}. "
-                f"Outbox ({len(outbox)} messages): "
-                f"{[m.to for m in outbox]}. {msg}"
-            )
+            assert matching, f"No mail sent to {to!r}. Outbox ({len(outbox)} messages): {[m.to for m in outbox]}. {msg}"
         elif count is not None:
-            assert len(outbox) == count, (
-                f"Expected {count} messages, got {len(outbox)}. {msg}"
-            )
+            assert len(outbox) == count, f"Expected {count} messages, got {len(outbox)}. {msg}"
         else:
             assert outbox, f"No mail was sent. {msg}"
 
     def assert_no_mail_sent(self, msg: str = ""):
         """Assert that no mail was sent."""
         assert not self.mail_outbox, (
-            f"Expected no mail, got {len(self.mail_outbox)}: "
-            f"{[m.subject for m in self.mail_outbox]}. {msg}"
+            f"Expected no mail, got {len(self.mail_outbox)}: {[m.subject for m in self.mail_outbox]}. {msg}"
         )
 
     def assert_mail_count(self, expected: int, msg: str = ""):
         """Assert exact number of messages in the outbox."""
         actual = len(self.mail_outbox)
-        assert actual == expected, (
-            f"Expected {expected} mail messages, got {actual}. {msg}"
-        )
+        assert actual == expected, f"Expected {expected} mail messages, got {actual}. {msg}"
 
     def assert_mail_to(self, address: str, msg: str = ""):
         """Assert at least one message was sent to *address*."""
         matching = self.get_mail_for(address)
-        assert matching, (
-            f"No mail sent to {address!r}. "
-            f"Recipients: {[m.to for m in self.mail_outbox]}. {msg}"
-        )
+        assert matching, f"No mail sent to {address!r}. Recipients: {[m.to for m in self.mail_outbox]}. {msg}"
 
     def assert_mail_from(self, address: str, msg: str = ""):
         """Assert at least one message was sent from *address*."""
         matching = [m for m in self.mail_outbox if m.from_email == address]
-        assert matching, (
-            f"No mail from {address!r}. "
-            f"Senders: {[m.from_email for m in self.mail_outbox]}. {msg}"
-        )
+        assert matching, f"No mail from {address!r}. Senders: {[m.from_email for m in self.mail_outbox]}. {msg}"
 
     def assert_mail_subject_contains(self, text: str, msg: str = ""):
         """Assert at least one message has a subject containing *text*."""
         matching = [m for m in self.mail_outbox if text in m.subject]
         assert matching, (
-            f"No mail with subject containing {text!r}. "
-            f"Subjects: {[m.subject for m in self.mail_outbox]}. {msg}"
+            f"No mail with subject containing {text!r}. Subjects: {[m.subject for m in self.mail_outbox]}. {msg}"
         )
 
     def assert_mail_body_contains(self, text: str, msg: str = ""):
         """Assert at least one message has body containing *text*."""
         matching = [m for m in self.mail_outbox if text in m.body or text in m.html_body]
-        assert matching, (
-            f"No mail with body containing {text!r}. {msg}"
-        )
+        assert matching, f"No mail with body containing {text!r}. {msg}"
 
-    def assert_mail_has_attachment(self, filename: Optional[str] = None, msg: str = ""):
+    def assert_mail_has_attachment(self, filename: str | None = None, msg: str = ""):
         """Assert at least one message has an attachment."""
         for m in self.mail_outbox:
             if m.attachments:
@@ -180,13 +160,9 @@ class MailTestMixin:
     def assert_mail_cc(self, address: str, msg: str = ""):
         """Assert at least one message has *address* in CC."""
         matching = [m for m in self.mail_outbox if address in m.cc]
-        assert matching, (
-            f"No mail with CC {address!r}. {msg}"
-        )
+        assert matching, f"No mail with CC {address!r}. {msg}"
 
     def assert_mail_bcc(self, address: str, msg: str = ""):
         """Assert at least one message has *address* in BCC."""
         matching = [m for m in self.mail_outbox if address in m.bcc]
-        assert matching, (
-            f"No mail with BCC {address!r}. {msg}"
-        )
+        assert matching, f"No mail with BCC {address!r}. {msg}"

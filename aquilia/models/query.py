@@ -20,16 +20,17 @@ Usage:
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import re
-from typing import Any, Dict, List, Optional, Tuple, Type, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-from .fields.lookups import resolve_lookup, lookup_registry
+from .fields.lookups import lookup_registry, resolve_lookup
 
 logger = logging.getLogger("aquilia.models.query")
 
 # Regex for validating field names in order() to prevent injection
-_SAFE_FIELD_RE = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*$')
+_SAFE_FIELD_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
 
 
 def _validate_field_name(name: str, *, context: str = "query") -> None:
@@ -39,12 +40,13 @@ def _validate_field_name(name: str, *, context: str = "query") -> None:
     """
     if not _SAFE_FIELD_RE.match(name):
         from ..faults.domains import QueryFault
+
         raise QueryFault(
             model="<query>",
             operation=context,
-            reason=f"Invalid field name: {name!r}. "
-                   "Field names must contain only letters, digits, and underscores.",
+            reason=f"Invalid field name: {name!r}. Field names must contain only letters, digits, and underscores.",
         )
+
 
 # Module-level cached lookup registry -- avoid calling lookup_registry()
 # on every filter clause.
@@ -52,8 +54,12 @@ _cached_lookup_registry = None
 
 # Pre-built operator map for Expression-based filter comparisons
 _EXPR_OP_MAP = {
-    "exact": "=", "gt": ">", "gte": ">=",
-    "lt": "<", "lte": "<=", "ne": "!=",
+    "exact": "=",
+    "gt": ">",
+    "gte": ">=",
+    "lt": "<",
+    "lte": "<=",
+    "ne": "!=",
 }
 
 if TYPE_CHECKING:
@@ -90,9 +96,9 @@ class QNode:
     OR = "OR"
 
     def __init__(self, **kwargs: Any):
-        self.filters: Dict[str, Any] = kwargs
+        self.filters: dict[str, Any] = kwargs
         self.negated: bool = False
-        self.children: List[QNode] = []
+        self.children: list[QNode] = []
         self.connector: str = self.AND
 
     def __and__(self, other: QNode) -> QNode:
@@ -114,10 +120,10 @@ class QNode:
         clone.connector = self.connector
         return clone
 
-    def _build_sql(self) -> Tuple[str, List[Any]]:
+    def _build_sql(self) -> tuple[str, list[Any]]:
         """Build SQL WHERE clause fragment from this node."""
-        parts: List[str] = []
-        params: List[Any] = []
+        parts: list[str] = []
+        params: list[Any] = []
 
         # Own filters
         for key, value in self.filters.items():
@@ -173,8 +179,8 @@ class Prefetch:
     def __init__(
         self,
         lookup: str,
-        queryset: Optional[Q] = None,
-        to_attr: Optional[str] = None,
+        queryset: Q | None = None,
+        to_attr: str | None = None,
     ):
         self.lookup = lookup
         self.queryset = queryset
@@ -184,7 +190,7 @@ class Prefetch:
         return f"Prefetch({self.lookup!r})"
 
 
-def _build_filter_clause(key: str, value: Any) -> Tuple[str, List[Any]]:
+def _build_filter_clause(key: str, value: Any) -> tuple[str, list[Any]]:
     """Convert a key=value filter pair to SQL clause + params.
 
     Delegates to the Lookup registry from fields.lookups for all
@@ -198,9 +204,9 @@ def _build_filter_clause(key: str, value: Any) -> Tuple[str, List[Any]]:
     Security: All field names are validated against ``_SAFE_FIELD_RE`` to
     prevent SQL injection through dict-key controlled identifier positions.
     """
-    from .expression import Expression, Combinable
+    from .expression import Combinable, Expression
 
-    def _render_value(val: Any) -> Tuple[str, List[Any]]:
+    def _render_value(val: Any) -> tuple[str, list[Any]]:
         """Render a value -- returns (sql_fragment, params)."""
         if isinstance(val, (Expression, Combinable)):
             return val.as_sql("sqlite")
@@ -220,7 +226,7 @@ def _build_filter_clause(key: str, value: Any) -> Tuple[str, List[Any]]:
             if sql_op is not None:
                 return f'"{field}" {sql_op} {rhs_sql}', rhs_params
             # For 'in' with a Subquery
-            if op == "in" and hasattr(value, '_build_select'):
+            if op == "in" and hasattr(value, "_build_select"):
                 sub_sql, sub_params = value._build_select()
                 return f'"{field}" IN ({sub_sql})', sub_params
 
@@ -327,46 +333,46 @@ class Q:
         "_iterator_chunk_size",
     )
 
-    def __init__(self, table: str, model_cls: Type[Model], db: AquiliaDatabase):
+    def __init__(self, table: str, model_cls: type[Model], db: AquiliaDatabase):
         self._table = table
         self._model_cls = model_cls
-        self._wheres: List[str] = []
-        self._params: List[Any] = []
-        self._order_clauses: List[str] = []
-        self._limit_val: Optional[int] = None
-        self._offset_val: Optional[int] = None
+        self._wheres: list[str] = []
+        self._params: list[Any] = []
+        self._order_clauses: list[str] = []
+        self._limit_val: int | None = None
+        self._offset_val: int | None = None
         self._db = db
-        self._db_alias: Optional[str] = None
-        self._annotations: Dict[str, Any] = {}
-        self._group_by: List[str] = []
-        self._having: List[str] = []
-        self._having_params: List[Any] = []
+        self._db_alias: str | None = None
+        self._annotations: dict[str, Any] = {}
+        self._group_by: list[str] = []
+        self._having: list[str] = []
+        self._having_params: list[Any] = []
         self._distinct: bool = False
-        self._select_related: List[str] = []
-        self._prefetch_related: List[Any] = []  # str or Prefetch
-        self._only_fields: List[str] = []
-        self._defer_fields: List[str] = []
+        self._select_related: list[str] = []
+        self._prefetch_related: list[Any] = []  # str or Prefetch
+        self._only_fields: list[str] = []
+        self._defer_fields: list[str] = []
         self._select_for_update: bool = False
         self._sfu_nowait: bool = False
         self._sfu_skip_locked: bool = False
         self._is_none: bool = False
-        self._set_operations: List[Tuple[str, Q]] = []
-        self._result_cache: Optional[List] = None
-        self._iterator_chunk_size: Optional[int] = None
+        self._set_operations: list[tuple[str, Q]] = []
+        self._result_cache: list | None = None
+        self._iterator_chunk_size: int | None = None
 
     # ── Dialect helper ───────────────────────────────────────────────
 
     def _get_dialect(self) -> str:
         """Resolve the SQL dialect from the database driver."""
-        if hasattr(self._db, 'dialect'):
+        if hasattr(self._db, "dialect"):
             return self._db.dialect
-        if hasattr(self._db, 'driver'):
+        if hasattr(self._db, "driver"):
             drv = self._db.driver
-            if drv in ('postgresql', 'postgres', 'asyncpg'):
-                return 'postgresql'
-            if drv in ('mysql', 'mariadb', 'aiomysql'):
-                return 'mysql'
-        return 'sqlite'
+            if drv in ("postgresql", "postgres", "asyncpg"):
+                return "postgresql"
+            if drv in ("mysql", "mariadb", "aiomysql"):
+                return "mysql"
+        return "sqlite"
 
     # ── Chain methods (return new Q) ─────────────────────────────────
 
@@ -392,6 +398,7 @@ class Q:
         for kw in _DANGEROUS_DDL:
             if kw in _upper:
                 from aquilia.faults.domains import SecurityFault
+
                 raise SecurityFault(
                     message=f"Potentially unsafe WHERE clause rejected: contains '{kw.strip()}'. "
                     f"Use Model.raw() for DDL/DCL operations.",
@@ -400,7 +407,7 @@ class Q:
         new = self._clone()
         if kwargs:
             processed = clause
-            param_values: List[Any] = []
+            param_values: list[Any] = []
             for key, val in kwargs.items():
                 processed = processed.replace(f":{key}", "?")
                 param_values.append(val)
@@ -486,7 +493,9 @@ class Q:
             .order(F("name").asc())                # expression-based
             .order(F("score").desc(nulls_last=True))  # NULLS LAST
         """
-        from .expression import F as FExpr, OrderBy
+        from .expression import F as FExpr
+        from .expression import OrderBy
+
         new = self._clone()
         dialect = new._get_dialect()
         for f in fields:
@@ -504,6 +513,7 @@ class Q:
                     name = f.lstrip("-")
                     if not _SAFE_FIELD_RE.match(name):
                         from aquilia.faults.domains import QueryFault
+
                         raise QueryFault(
                             message=f"Invalid field name in order(): {name!r}. "
                             f"Field names must contain only alphanumeric characters and underscores.",
@@ -514,7 +524,7 @@ class Q:
                         new._order_clauses.append(f'"{f}" ASC')
             else:
                 # Other expression types
-                if hasattr(f, 'as_sql'):
+                if hasattr(f, "as_sql"):
                     sql, _ = f.as_sql(dialect)
                     new._order_clauses.append(sql)
         return new
@@ -659,6 +669,7 @@ class Q:
             for kw in _DANGEROUS:
                 if kw in _upper:
                     from aquilia.faults.domains import SecurityFault
+
                     raise SecurityFault(
                         message=f"Potentially unsafe HAVING clause rejected: contains '{kw}'. "
                         f"Use parameterized values (?) for user-supplied data.",
@@ -779,16 +790,16 @@ class Q:
 
     def __bool__(self) -> bool:
         from aquilia.faults.domains import QueryFault
+
         raise QueryFault(
-            message="Q objects cannot be used in boolean context. "
-            "Use 'await qs.exists()' instead.",
+            message="Q objects cannot be used in boolean context. Use 'await qs.exists()' instead.",
         )
 
     def __len__(self) -> int:
         from aquilia.faults.domains import QueryFault
+
         raise QueryFault(
-            message="Q objects don't support len(). "
-            "Use 'await qs.count()' instead.",
+            message="Q objects don't support len(). Use 'await qs.count()' instead.",
         )
 
     # ── Slicing support ──────────────────────────────────────────────
@@ -815,6 +826,7 @@ class Q:
             new._limit_val = 1
             return new
         from aquilia.faults.domains import QueryFault
+
         raise QueryFault(
             message=f"Q indices must be integers or slices, not {type(key).__name__}",
         )
@@ -823,7 +835,7 @@ class Q:
 
     def _clone(self) -> Q:
         """Create an immutable copy of this queryset.
-        
+
         Optimized: only copies non-empty collections to reduce allocation
         pressure on chained queries where most fields are default/empty.
         """
@@ -856,7 +868,7 @@ class Q:
         c._iterator_chunk_size = self._iterator_chunk_size
         return c
 
-    def _build_select(self, count: bool = False, columns: Optional[List[str]] = None) -> Tuple[str, List[Any]]:
+    def _build_select(self, count: bool = False, columns: list[str] | None = None) -> tuple[str, list[Any]]:
         """Build the SELECT SQL and parameter list.
 
         Args:
@@ -869,7 +881,7 @@ class Q:
         dialect = self._get_dialect()
         # Annotation params must come BEFORE where params in the final list
         # because annotation SQL appears in SELECT (before WHERE).
-        annotation_params: List[Any] = []
+        annotation_params: list[Any] = []
 
         if count:
             col = "COUNT(*)"
@@ -893,7 +905,7 @@ class Q:
             # Determine base columns
             if self._only_fields:
                 parts.extend(f'"{f}"' for f in self._only_fields)
-            elif self._defer_fields and hasattr(self._model_cls, '_column_names'):
+            elif self._defer_fields and hasattr(self._model_cls, "_column_names"):
                 for cn in self._model_cls._attr_names:
                     if cn not in self._defer_fields:
                         field = self._model_cls._fields.get(cn)
@@ -911,7 +923,7 @@ class Q:
             col = ", ".join(parts)
         elif self._only_fields:
             col = ", ".join(f'"{f}"' for f in self._only_fields)
-        elif self._defer_fields and hasattr(self._model_cls, '_attr_names'):
+        elif self._defer_fields and hasattr(self._model_cls, "_attr_names"):
             selected = []
             for cn in self._model_cls._attr_names:
                 if cn not in self._defer_fields:
@@ -925,6 +937,7 @@ class Q:
         # ── select_related: add aliased columns for joined tables ─────
         if self._select_related and not count and columns is None:
             from .fields_module import ForeignKey, OneToOneField
+
             extra_cols = []
             for rel_name in self._select_related:
                 field = self._model_cls._fields.get(rel_name)
@@ -932,15 +945,14 @@ class Q:
                     related_model = field.related_model
                     if related_model is None:
                         from .registry import ModelRegistry as _Reg
+
                         target_name = field.to if isinstance(field.to, str) else field.to.__name__
                         related_model = _Reg.get(target_name)
                     if related_model is not None:
                         rtable = related_model._table_name
                         for rattr, rfield in related_model._fields.items():
                             alias = f"{rel_name}__{rattr}"
-                            extra_cols.append(
-                                f'"{rtable}"."{rfield.column_name}" AS "{alias}"'
-                            )
+                            extra_cols.append(f'"{rtable}"."{rfield.column_name}" AS "{alias}"')
             if extra_cols:
                 col = col + ", " + ", ".join(extra_cols)
 
@@ -950,22 +962,21 @@ class Q:
         # ── select_related: generate LEFT JOINs for FK fields ────────
         if self._select_related and not count:
             from .fields_module import ForeignKey, OneToOneField
+
             for rel_name in self._select_related:
                 field = self._model_cls._fields.get(rel_name)
                 if isinstance(field, (ForeignKey, OneToOneField)):
                     related_model = field.related_model
                     if related_model is None:
                         from .registry import ModelRegistry as _Reg
+
                         target_name = field.to if isinstance(field.to, str) else field.to.__name__
                         related_model = _Reg.get(target_name)
                     if related_model is not None:
                         rtable = related_model._table_name
                         rpk = related_model._pk_name
                         fk_col = field.column_name
-                        sql += (
-                            f' LEFT JOIN "{rtable}" ON '
-                            f'"{self._table}"."{fk_col}" = "{rtable}"."{rpk}"'
-                        )
+                        sql += f' LEFT JOIN "{rtable}" ON "{self._table}"."{fk_col}" = "{rtable}"."{rpk}"'
 
         # Combine params: annotation params first, then WHERE params
         params = annotation_params + self._params.copy()
@@ -982,16 +993,14 @@ class Q:
 
         if not count and self._order_clauses:
             sql += " ORDER BY " + ", ".join(self._order_clauses)
-        elif not count and not self._order_clauses and hasattr(self._model_cls, '_meta'):
-            meta_ordering = getattr(self._model_cls._meta, 'ordering', [])
+        elif not count and not self._order_clauses and hasattr(self._model_cls, "_meta"):
+            meta_ordering = getattr(self._model_cls._meta, "ordering", [])
             if meta_ordering:
                 default_order = []
                 for f in meta_ordering:
                     raw = f.lstrip("-")
                     if not _SAFE_FIELD_RE.match(raw):
-                        logger.warning(
-                            "Meta.ordering field %r rejected by _SAFE_FIELD_RE — skipped", f
-                        )
+                        logger.warning("Meta.ordering field %r rejected by _SAFE_FIELD_RE — skipped", f)
                         continue
                     if f.startswith("-"):
                         default_order.append(f'"{raw}" DESC')
@@ -1009,11 +1018,12 @@ class Q:
         if self._select_for_update and not count:
             if dialect == "sqlite":
                 from ..faults.domains import QueryFault
+
                 raise QueryFault(
-                    model=getattr(self._model_cls, '__name__', self._table),
+                    model=getattr(self._model_cls, "__name__", self._table),
                     operation="select_for_update",
                     reason="SELECT FOR UPDATE is not supported on SQLite. "
-                           "Use transactions (atomic()) for concurrency control.",
+                    "Use transactions (atomic()) for concurrency control.",
                 )
             else:
                 sql += " FOR UPDATE"
@@ -1026,7 +1036,7 @@ class Q:
 
     # ── Terminal methods (async, execute query) ──────────────────────
 
-    async def all(self) -> List[Model]:
+    async def all(self) -> list[Model]:
         """Execute and return all matching rows as model instances."""
         if self._is_none:
             return []
@@ -1073,16 +1083,13 @@ class Q:
                     has_data = False
                     for key in list(row_dict.keys()):
                         if key.startswith(prefix):
-                            attr_name = key[len(prefix):]
+                            attr_name = key[len(prefix) :]
                             val = row_dict.pop(key)
                             related_data[attr_name] = val
                             if val is not None:
                                 has_data = True
                     # Build related instance (or None for LEFT JOIN miss)
-                    if has_data:
-                        related_instance = related_model.from_row(related_data)
-                    else:
-                        related_instance = None
+                    related_instance = related_model.from_row(related_data) if has_data else None
                     # We'll attach it after creating the parent instance
                     row_dict[f"_sr_{rel_name}"] = related_instance
 
@@ -1093,10 +1100,8 @@ class Q:
                     related_obj = getattr(instance, sr_key, row_dict.get(sr_key))
                     setattr(instance, rel_name, related_obj)
                     # Clean up the temp attribute
-                    try:
+                    with contextlib.suppress(AttributeError):
                         delattr(instance, sr_key)
-                    except AttributeError:
-                        pass
                 instances.append(instance)
         else:
             instances = [self._model_cls.from_row(row) for row in rows]
@@ -1109,7 +1114,7 @@ class Q:
         self._result_cache = instances
         return instances
 
-    async def _execute_prefetch(self, instances: List[Model]) -> None:
+    async def _execute_prefetch(self, instances: list[Model]) -> None:
         """
         Execute prefetch_related queries and attach results to instances.
 
@@ -1118,7 +1123,7 @@ class Q:
         - If it's a M2M: fetch via junction table
         - If it's a Prefetch object: use its custom queryset
         """
-        from .fields_module import ForeignKey, OneToOneField, ManyToManyField
+        from .fields_module import ForeignKey, OneToOneField
         from .registry import ModelRegistry as _Reg
 
         for lookup in self._prefetch_related:
@@ -1156,19 +1161,14 @@ class Q:
 
                 # Fetch related objects
                 if custom_qs is not None:
-                    related_objects = await custom_qs.filter(
-                        **{f"{related_model._pk_attr}__in": list(fk_values)}
-                    ).all()
+                    related_objects = await custom_qs.filter(**{f"{related_model._pk_attr}__in": list(fk_values)}).all()
                 else:
-                    related_objects = await related_model.query().filter(
-                        **{f"{related_model._pk_attr}__in": list(fk_values)}
-                    ).all()
+                    related_objects = (
+                        await related_model.query().filter(**{f"{related_model._pk_attr}__in": list(fk_values)}).all()
+                    )
 
                 # Index by PK
-                related_map = {
-                    getattr(obj, related_model._pk_attr): obj
-                    for obj in related_objects
-                }
+                related_map = {getattr(obj, related_model._pk_attr): obj for obj in related_objects}
 
                 # Attach to instances
                 for inst in instances:
@@ -1195,10 +1195,7 @@ class Q:
                     continue
 
                 placeholders = ", ".join("?" for _ in pk_values)
-                junction_sql = (
-                    f'SELECT "{src_col}", "{tgt_col}" FROM "{jt}" '
-                    f'WHERE "{src_col}" IN ({placeholders})'
-                )
+                junction_sql = f'SELECT "{src_col}", "{tgt_col}" FROM "{jt}" WHERE "{src_col}" IN ({placeholders})'
                 junction_rows = await self._db.fetch_all(junction_sql, pk_values)
 
                 # Collect target IDs
@@ -1214,17 +1211,12 @@ class Q:
                 if target_ids:
                     target_pk_name = related_model._pk_attr
                     if custom_qs is not None:
-                        related_objects = await custom_qs.filter(
-                            **{f"{target_pk_name}__in": list(target_ids)}
-                        ).all()
+                        related_objects = await custom_qs.filter(**{f"{target_pk_name}__in": list(target_ids)}).all()
                     else:
-                        related_objects = await related_model.query().filter(
-                            **{f"{target_pk_name}__in": list(target_ids)}
-                        ).all()
-                    target_map = {
-                        getattr(obj, target_pk_name): obj
-                        for obj in related_objects
-                    }
+                        related_objects = (
+                            await related_model.query().filter(**{f"{target_pk_name}__in": list(target_ids)}).all()
+                        )
+                    target_map = {getattr(obj, target_pk_name): obj for obj in related_objects}
                 else:
                     target_map = {}
 
@@ -1246,8 +1238,10 @@ class Q:
         """
         if self._is_none:
             from ..faults.domains import ModelNotFoundFault
+
             raise ModelNotFoundFault(model_name=self._model_cls.__name__)
         from ..faults.domains import ModelNotFoundFault, QueryFault
+
         sql, params = self._build_select()
         sql += " LIMIT 2"
         rows = await self._db.fetch_all(sql, params)
@@ -1261,7 +1255,7 @@ class Q:
             )
         return self._model_cls.from_row(rows[0])
 
-    async def first(self) -> Optional[Model]:
+    async def first(self) -> Model | None:
         """Return first matching row or None."""
         if self._is_none:
             return None
@@ -1272,7 +1266,7 @@ class Q:
             return None
         return self._model_cls.from_row(rows[0])
 
-    async def last(self) -> Optional[Model]:
+    async def last(self) -> Model | None:
         """Return last matching row or None (reverses ordering)."""
         if self._is_none:
             return None
@@ -1292,7 +1286,7 @@ class Q:
             new._order_clauses = [f'"{pk}" DESC']
         return await new.first()
 
-    async def latest(self, field_name: Optional[str] = None) -> Model:
+    async def latest(self, field_name: str | None = None) -> Model:
         """
         Return the latest record by date field.
 
@@ -1301,16 +1295,18 @@ class Q:
         field = field_name or getattr(self._model_cls._meta, "get_latest_by", None)
         if not field:
             from aquilia.faults.domains import QueryFault
+
             raise QueryFault(
                 message="latest() requires 'field_name' or Meta.get_latest_by",
             )
         result = await self.order(f"-{field}").first()
         if result is None:
             from ..faults.domains import ModelNotFoundFault
+
             raise ModelNotFoundFault(model_name=self._model_cls.__name__)
         return result
 
-    async def earliest(self, field_name: Optional[str] = None) -> Model:
+    async def earliest(self, field_name: str | None = None) -> Model:
         """
         Return the earliest record by date field.
 
@@ -1319,12 +1315,14 @@ class Q:
         field = field_name or getattr(self._model_cls._meta, "get_latest_by", None)
         if not field:
             from aquilia.faults.domains import QueryFault
+
             raise QueryFault(
                 message="earliest() requires 'field_name' or Meta.get_latest_by",
             )
         result = await self.order(field).first()
         if result is None:
             from ..faults.domains import ModelNotFoundFault
+
             raise ModelNotFoundFault(model_name=self._model_cls.__name__)
         return result
 
@@ -1362,7 +1360,7 @@ class Q:
         val = await self._db.fetch_val(exists_sql, params)
         return bool(val)
 
-    async def update(self, values: Dict[str, Any] = None, **kwargs) -> int:
+    async def update(self, values: dict[str, Any] = None, **kwargs) -> int:
         """
         Update matching rows. Returns number of affected rows.
 
@@ -1378,6 +1376,7 @@ class Q:
         if self._is_none:
             return 0
         from .expression import Expression
+
         dialect = self._get_dialect()
         data = {**(values or {}), **kwargs}
         set_parts = []
@@ -1391,7 +1390,7 @@ class Q:
                 set_params.extend(expr_params)
             else:
                 # Apply field.to_db() conversion if the field exists
-                field = self._model_cls._fields.get(k) if hasattr(self._model_cls, '_fields') else None
+                field = self._model_cls._fields.get(k) if hasattr(self._model_cls, "_fields") else None
                 if field is not None:
                     v = field.to_db(v, dialect=dialect)
                 set_parts.append(f'"{k}" = ?')
@@ -1428,7 +1427,7 @@ class Q:
         cursor = await self._db.execute(sql, params)
         return cursor.rowcount
 
-    async def values(self, *fields: str) -> List[Dict[str, Any]]:
+    async def values(self, *fields: str) -> list[dict[str, Any]]:
         """
         Return rows as dicts with only specified field values.
 
@@ -1463,7 +1462,7 @@ class Q:
         rows = await self._db.fetch_all(sql, params)
         return rows
 
-    async def values_list(self, *fields: str, flat: bool = False) -> List[Any]:
+    async def values_list(self, *fields: str, flat: bool = False) -> list[Any]:
         """
         Return field values as tuples, or flat list if single field + flat=True.
 
@@ -1476,7 +1475,7 @@ class Q:
             return [row[fields[0]] for row in rows]
         return [tuple(row.values()) for row in rows]
 
-    async def in_bulk(self, id_list: List[Any], *, batch_size: int = 999) -> Dict[Any, Model]:
+    async def in_bulk(self, id_list: list[Any], *, batch_size: int = 999) -> dict[Any, Model]:
         """
         Return a dict mapping PKs to instances for the given ID list.
 
@@ -1491,11 +1490,11 @@ class Q:
             return {}
         pk_name = self._model_cls._pk_name
         pk_attr = self._model_cls._pk_attr
-        result: Dict[Any, Model] = {}
+        result: dict[Any, Model] = {}
 
         # Process in batches to avoid overly large IN clauses
         for i in range(0, len(id_list), batch_size):
-            chunk = id_list[i:i + batch_size]
+            chunk = id_list[i : i + batch_size]
             placeholders = ", ".join("?" for _ in chunk)
             sql = f'SELECT * FROM "{self._table}" WHERE "{pk_name}" IN ({placeholders})'
             rows = await self._db.fetch_all(sql, list(chunk))
@@ -1504,7 +1503,7 @@ class Q:
                 result[getattr(instance, pk_attr)] = instance
         return result
 
-    async def aggregate(self, **expressions: Any) -> Dict[str, Any]:
+    async def aggregate(self, **expressions: Any) -> dict[str, Any]:
         """
         Compute aggregates and return a dict.
 
@@ -1523,7 +1522,7 @@ class Q:
 
         dialect = self._get_dialect()
         select_parts = []
-        params: List[Any] = []
+        params: list[Any] = []
         for alias, expr in expressions.items():
             if isinstance(expr, (Aggregate, Expression)):
                 sql_fragment, expr_params = expr.as_sql(dialect)
@@ -1531,11 +1530,12 @@ class Q:
                 params.extend(expr_params)
             else:
                 from ..faults.domains import QueryFault
+
                 raise QueryFault(
                     model=self._model_cls.__name__,
                     operation="aggregate",
                     reason=f"aggregate() expects Aggregate/Expression objects, got {type(expr).__name__}. "
-                           "Raw strings are not allowed — use Count(), Sum(), Avg(), etc.",
+                    "Raw strings are not allowed — use Count(), Sum(), Avg(), etc.",
                 )
 
         sql = f'SELECT {", ".join(select_parts)} FROM "{self._table}"'
@@ -1557,9 +1557,7 @@ class Q:
         """
         return await self._model_cls.create(**data)
 
-    async def get_or_create(
-        self, defaults: Optional[Dict[str, Any]] = None, **lookup: Any
-    ) -> Tuple[Model, bool]:
+    async def get_or_create(self, defaults: dict[str, Any] | None = None, **lookup: Any) -> tuple[Model, bool]:
         """
         Get existing or create new.
 
@@ -1567,9 +1565,7 @@ class Q:
         """
         return await self._model_cls.get_or_create(defaults=defaults, **lookup)
 
-    async def update_or_create(
-        self, defaults: Optional[Dict[str, Any]] = None, **lookup: Any
-    ) -> Tuple[Model, bool]:
+    async def update_or_create(self, defaults: dict[str, Any] | None = None, **lookup: Any) -> tuple[Model, bool]:
         """
         Update existing or create new.
 
@@ -1577,7 +1573,7 @@ class Q:
         """
         return await self._model_cls.update_or_create(defaults=defaults, **lookup)
 
-    async def explain(self, *, format: Optional[str] = None) -> str:
+    async def explain(self, *, format: str | None = None) -> str:
         """
         Return the query execution plan (EXPLAIN).
 
@@ -1592,9 +1588,9 @@ class Q:
         _ALLOWED_FORMATS = {"TEXT", "JSON", "YAML", "XML", "TRADITIONAL", "TREE"}
         if format is not None and format.upper() not in _ALLOWED_FORMATS:
             from aquilia.faults.domains import QueryFault
+
             raise QueryFault(
-                message=f"Invalid EXPLAIN format: {format!r}. "
-                f"Allowed: {', '.join(sorted(_ALLOWED_FORMATS))}",
+                message=f"Invalid EXPLAIN format: {format!r}. Allowed: {', '.join(sorted(_ALLOWED_FORMATS))}",
             )
 
         sql, params = self._build_select()
@@ -1603,10 +1599,7 @@ class Q:
             fmt = format or "TEXT"
             explain_sql = f"EXPLAIN (FORMAT {fmt.upper()}) {sql}"
         elif dialect == "mysql":
-            if format and format.upper() == "JSON":
-                explain_sql = f"EXPLAIN FORMAT=JSON {sql}"
-            else:
-                explain_sql = f"EXPLAIN {sql}"
+            explain_sql = f"EXPLAIN FORMAT=JSON {sql}" if format and format.upper() == "JSON" else f"EXPLAIN {sql}"
         else:
             explain_sql = f"EXPLAIN QUERY PLAN {sql}"
         rows = await self._db.fetch_all(explain_sql, params)
@@ -1657,7 +1650,7 @@ class _QueryIterator:
 
     def __init__(self, query: Q):
         self._query = query
-        self._results: Optional[List] = None
+        self._results: list | None = None
         self._index = 0
 
     async def __anext__(self):
@@ -1681,7 +1674,7 @@ class _ChunkedQueryIterator:
         self._query = query
         self._chunk_size = chunk_size
         self._offset = 0
-        self._buffer: List = []
+        self._buffer: list = []
         self._index = 0
         self._exhausted = False
 

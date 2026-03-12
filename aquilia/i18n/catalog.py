@@ -30,9 +30,10 @@ import hashlib
 import json
 import logging
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Set
+from typing import Any
 
 logger = logging.getLogger("aquilia.i18n.catalog")
 
@@ -40,6 +41,7 @@ logger = logging.getLogger("aquilia.i18n.catalog")
 _HAS_CROUS = False
 try:
     import crous as _crous_mod
+
     _HAS_CROUS = True
 except ImportError:
     _crous_mod = None  # type: ignore[assignment]
@@ -48,6 +50,7 @@ except ImportError:
 # ═══════════════════════════════════════════════════════════════════════════
 # Abstract Base
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TranslationCatalog(ABC):
     """Abstract base for translation catalogs."""
@@ -58,8 +61,8 @@ class TranslationCatalog(ABC):
         key: str,
         locale: str,
         *,
-        default: Optional[str] = None,
-    ) -> Optional[str]:
+        default: str | None = None,
+    ) -> str | None:
         """
         Retrieve a translation string.
 
@@ -80,8 +83,8 @@ class TranslationCatalog(ABC):
         locale: str,
         category: str,
         *,
-        default: Optional[str] = None,
-    ) -> Optional[str]:
+        default: str | None = None,
+    ) -> str | None:
         """
         Retrieve a plural translation variant.
 
@@ -111,12 +114,12 @@ class TranslationCatalog(ABC):
         ...
 
     @abstractmethod
-    def locales(self) -> Set[str]:
+    def locales(self) -> set[str]:
         """Return set of available locale tags."""
         ...
 
     @abstractmethod
-    def keys(self, locale: str) -> Set[str]:
+    def keys(self, locale: str) -> set[str]:
         """Return all keys for a locale."""
         ...
 
@@ -124,6 +127,7 @@ class TranslationCatalog(ABC):
 # ═══════════════════════════════════════════════════════════════════════════
 # Memory Catalog
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class MemoryCatalog(TranslationCatalog):
     """
@@ -154,17 +158,17 @@ class MemoryCatalog(TranslationCatalog):
         })
     """
 
-    def __init__(self, translations: Optional[Dict[str, Dict]] = None):
-        self._data: Dict[str, Dict] = translations or {}
+    def __init__(self, translations: dict[str, dict] | None = None):
+        self._data: dict[str, dict] = translations or {}
 
-    def add(self, locale: str, translations: Dict) -> None:
+    def add(self, locale: str, translations: dict) -> None:
         """Add translations for a locale (merges with existing)."""
         if locale in self._data:
             self._deep_merge(self._data[locale], translations)
         else:
             self._data[locale] = translations
 
-    def _resolve_key(self, data: Dict, key: str) -> Any:
+    def _resolve_key(self, data: dict, key: str) -> Any:
         """Resolve a dotted key against a nested dict."""
         parts = key.split(".")
         current = data
@@ -180,8 +184,8 @@ class MemoryCatalog(TranslationCatalog):
         key: str,
         locale: str,
         *,
-        default: Optional[str] = None,
-    ) -> Optional[str]:
+        default: str | None = None,
+    ) -> str | None:
         data = self._data.get(locale)
         if data is None:
             return default
@@ -200,8 +204,8 @@ class MemoryCatalog(TranslationCatalog):
         locale: str,
         category: str,
         *,
-        default: Optional[str] = None,
-    ) -> Optional[str]:
+        default: str | None = None,
+    ) -> str | None:
         data = self._data.get(locale)
         if data is None:
             return default
@@ -225,16 +229,16 @@ class MemoryCatalog(TranslationCatalog):
             return False
         return self._resolve_key(data, key) is not None
 
-    def locales(self) -> Set[str]:
+    def locales(self) -> set[str]:
         return set(self._data.keys())
 
-    def keys(self, locale: str) -> Set[str]:
+    def keys(self, locale: str) -> set[str]:
         data = self._data.get(locale, {})
         result: set[str] = set()
         self._collect_keys(data, "", result)
         return result
 
-    def _collect_keys(self, data: Dict, prefix: str, result: Set[str]) -> None:
+    def _collect_keys(self, data: dict, prefix: str, result: set[str]) -> None:
         """Recursively collect dotted keys."""
         for k, v in data.items():
             full_key = f"{prefix}.{k}" if prefix else k
@@ -248,7 +252,7 @@ class MemoryCatalog(TranslationCatalog):
                 result.add(full_key)
 
     @staticmethod
-    def _deep_merge(base: Dict, overlay: Dict) -> None:
+    def _deep_merge(base: dict, overlay: dict) -> None:
         """Deep-merge overlay into base."""
         for k, v in overlay.items():
             if k in base and isinstance(base[k], dict) and isinstance(v, dict):
@@ -260,6 +264,7 @@ class MemoryCatalog(TranslationCatalog):
 # ═══════════════════════════════════════════════════════════════════════════
 # File Catalog
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class FileCatalog(TranslationCatalog):
     """
@@ -300,7 +305,7 @@ class FileCatalog(TranslationCatalog):
         self._watch = watch
         self._inner = MemoryCatalog()
         self._loaded = False
-        self._file_mtimes: Dict[Path, float] = {}
+        self._file_mtimes: dict[Path, float] = {}
 
     def load(self) -> None:
         """Load all translation files from configured directories."""
@@ -351,7 +356,7 @@ class FileCatalog(TranslationCatalog):
                 if data:
                     self._inner.add(locale_tag, {namespace: data})
 
-    def _load_file(self, path: Path) -> Optional[Dict]:
+    def _load_file(self, path: Path) -> dict | None:
         """Load a single translation file."""
         try:
             if path.suffix == ".json":
@@ -359,11 +364,12 @@ class FileCatalog(TranslationCatalog):
             elif path.suffix in (".yaml", ".yml"):
                 try:
                     import yaml
+
                     return yaml.safe_load(path.read_text(encoding="utf-8"))
                 except ImportError:
                     logger.warning(
-                        "PyYAML not installed — cannot load %s. "
-                        "Install with: pip install pyyaml", path,
+                        "PyYAML not installed — cannot load %s. Install with: pip install pyyaml",
+                        path,
                     )
                     return None
             else:
@@ -376,11 +382,11 @@ class FileCatalog(TranslationCatalog):
         if not self._loaded:
             self.load()
 
-    def get(self, key: str, locale: str, *, default: Optional[str] = None) -> Optional[str]:
+    def get(self, key: str, locale: str, *, default: str | None = None) -> str | None:
         self._ensure_loaded()
         return self._inner.get(key, locale, default=default)
 
-    def get_plural(self, key: str, locale: str, category: str, *, default: Optional[str] = None) -> Optional[str]:
+    def get_plural(self, key: str, locale: str, category: str, *, default: str | None = None) -> str | None:
         self._ensure_loaded()
         return self._inner.get_plural(key, locale, category, default=default)
 
@@ -388,11 +394,11 @@ class FileCatalog(TranslationCatalog):
         self._ensure_loaded()
         return self._inner.has(key, locale)
 
-    def locales(self) -> Set[str]:
+    def locales(self) -> set[str]:
         self._ensure_loaded()
         return self._inner.locales()
 
-    def keys(self, locale: str) -> Set[str]:
+    def keys(self, locale: str) -> set[str]:
         self._ensure_loaded()
         return self._inner.keys(locale)
 
@@ -400,6 +406,7 @@ class FileCatalog(TranslationCatalog):
 # ═══════════════════════════════════════════════════════════════════════════
 # CROUS Catalog
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 def has_crous() -> bool:
     """Check if the CROUS binary format library is available."""
@@ -456,7 +463,7 @@ class CrousCatalog(TranslationCatalog):
     def __init__(
         self,
         directories: Sequence[str | Path],
-        artifact_dir: Optional[str | Path] = None,
+        artifact_dir: str | Path | None = None,
         auto_compile: bool = True,
         watch: bool = False,
     ):
@@ -466,7 +473,7 @@ class CrousCatalog(TranslationCatalog):
         self._watch = watch
         self._inner = MemoryCatalog()
         self._loaded = False
-        self._file_mtimes: Dict[Path, float] = {}
+        self._file_mtimes: dict[Path, float] = {}
 
     def load(self) -> None:
         """Load translations from CROUS and/or JSON files."""
@@ -482,7 +489,7 @@ class CrousCatalog(TranslationCatalog):
             if directory.exists():
                 self._scan_directory(directory, check_mtime=True)
 
-    def compile(self, directory: Optional[str | Path] = None) -> int:
+    def compile(self, directory: str | Path | None = None) -> int:
         """
         Compile all JSON locale files to CROUS format.
 
@@ -527,7 +534,7 @@ class CrousCatalog(TranslationCatalog):
             locale_tag = locale_dir.name
 
             # Discover all files, group by namespace
-            namespace_files: Dict[str, Dict[str, Path]] = {}
+            namespace_files: dict[str, dict[str, Path]] = {}
             for file_path in sorted(locale_dir.rglob("*")):
                 if not file_path.is_file():
                     continue
@@ -604,7 +611,7 @@ class CrousCatalog(TranslationCatalog):
                             pass
 
     @staticmethod
-    def _load_crous_file(path: Path) -> Optional[Dict]:
+    def _load_crous_file(path: Path) -> dict | None:
         """Load translations from a .crous file."""
         if not _HAS_CROUS:
             return None
@@ -623,7 +630,7 @@ class CrousCatalog(TranslationCatalog):
             return None
 
     @staticmethod
-    def _load_json_file(path: Path) -> Optional[Dict]:
+    def _load_json_file(path: Path) -> dict | None:
         """Load translations from a .json file."""
         try:
             return json.loads(path.read_text(encoding="utf-8"))
@@ -632,10 +639,11 @@ class CrousCatalog(TranslationCatalog):
             return None
 
     @staticmethod
-    def _load_yaml_file(path: Path) -> Optional[Dict]:
+    def _load_yaml_file(path: Path) -> dict | None:
         """Load translations from a .yaml file."""
         try:
             import yaml
+
             return yaml.safe_load(path.read_text(encoding="utf-8"))
         except ImportError:
             logger.warning("PyYAML not installed — cannot load %s", path)
@@ -645,7 +653,7 @@ class CrousCatalog(TranslationCatalog):
             return None
 
     @staticmethod
-    def _write_crous_file(path: Path, locale: str, namespace: str, data: Dict) -> None:
+    def _write_crous_file(path: Path, locale: str, namespace: str, data: dict) -> None:
         """Write translations to a .crous file with envelope."""
         if not _HAS_CROUS:
             return
@@ -681,11 +689,11 @@ class CrousCatalog(TranslationCatalog):
         if not self._loaded:
             self.load()
 
-    def get(self, key: str, locale: str, *, default: Optional[str] = None) -> Optional[str]:
+    def get(self, key: str, locale: str, *, default: str | None = None) -> str | None:
         self._ensure_loaded()
         return self._inner.get(key, locale, default=default)
 
-    def get_plural(self, key: str, locale: str, category: str, *, default: Optional[str] = None) -> Optional[str]:
+    def get_plural(self, key: str, locale: str, category: str, *, default: str | None = None) -> str | None:
         self._ensure_loaded()
         return self._inner.get_plural(key, locale, category, default=default)
 
@@ -693,11 +701,11 @@ class CrousCatalog(TranslationCatalog):
         self._ensure_loaded()
         return self._inner.has(key, locale)
 
-    def locales(self) -> Set[str]:
+    def locales(self) -> set[str]:
         self._ensure_loaded()
         return self._inner.locales()
 
-    def keys(self, locale: str) -> Set[str]:
+    def keys(self, locale: str) -> set[str]:
         self._ensure_loaded()
         return self._inner.keys(locale)
 
@@ -705,6 +713,7 @@ class CrousCatalog(TranslationCatalog):
 # ═══════════════════════════════════════════════════════════════════════════
 # Namespaced Catalog
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class NamespacedCatalog(TranslationCatalog):
     """
@@ -728,29 +737,27 @@ class NamespacedCatalog(TranslationCatalog):
     def _prefix(self, key: str) -> str:
         return f"{self._namespace}.{key}" if self._namespace else key
 
-    def get(self, key: str, locale: str, *, default: Optional[str] = None) -> Optional[str]:
+    def get(self, key: str, locale: str, *, default: str | None = None) -> str | None:
         return self._inner.get(self._prefix(key), locale, default=default)
 
-    def get_plural(self, key: str, locale: str, category: str, *, default: Optional[str] = None) -> Optional[str]:
+    def get_plural(self, key: str, locale: str, category: str, *, default: str | None = None) -> str | None:
         return self._inner.get_plural(self._prefix(key), locale, category, default=default)
 
     def has(self, key: str, locale: str) -> bool:
         return self._inner.has(self._prefix(key), locale)
 
-    def locales(self) -> Set[str]:
+    def locales(self) -> set[str]:
         return self._inner.locales()
 
-    def keys(self, locale: str) -> Set[str]:
+    def keys(self, locale: str) -> set[str]:
         prefix = f"{self._namespace}."
-        return {
-            k[len(prefix):] for k in self._inner.keys(locale)
-            if k.startswith(prefix)
-        }
+        return {k[len(prefix) :] for k in self._inner.keys(locale) if k.startswith(prefix)}
 
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Merged Catalog
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class MergedCatalog(TranslationCatalog):
     """
@@ -773,14 +780,14 @@ class MergedCatalog(TranslationCatalog):
         """Add a catalog to the beginning (highest priority)."""
         self._catalogs.insert(0, catalog)
 
-    def get(self, key: str, locale: str, *, default: Optional[str] = None) -> Optional[str]:
+    def get(self, key: str, locale: str, *, default: str | None = None) -> str | None:
         for cat in self._catalogs:
             val = cat.get(key, locale)
             if val is not None:
                 return val
         return default
 
-    def get_plural(self, key: str, locale: str, category: str, *, default: Optional[str] = None) -> Optional[str]:
+    def get_plural(self, key: str, locale: str, category: str, *, default: str | None = None) -> str | None:
         for cat in self._catalogs:
             val = cat.get_plural(key, locale, category)
             if val is not None:
@@ -790,13 +797,13 @@ class MergedCatalog(TranslationCatalog):
     def has(self, key: str, locale: str) -> bool:
         return any(cat.has(key, locale) for cat in self._catalogs)
 
-    def locales(self) -> Set[str]:
+    def locales(self) -> set[str]:
         result: set[str] = set()
         for cat in self._catalogs:
             result.update(cat.locales())
         return result
 
-    def keys(self, locale: str) -> Set[str]:
+    def keys(self, locale: str) -> set[str]:
         result: set[str] = set()
         for cat in self._catalogs:
             result.update(cat.keys(locale))

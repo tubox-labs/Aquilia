@@ -19,16 +19,10 @@ Usage::
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
+from collections.abc import AsyncIterator
 from typing import (
     Any,
-    AsyncIterator,
     BinaryIO,
-    Dict,
-    List,
-    Optional,
-    Tuple,
-    Union,
 )
 
 from ..base import (
@@ -73,7 +67,7 @@ class S3Storage(StorageBackend):
                 backend="s3",
             )
 
-        kwargs: Dict[str, Any] = {
+        kwargs: dict[str, Any] = {
             "region_name": self._config.region,
         }
         if self._config.access_key:
@@ -92,12 +86,8 @@ class S3Storage(StorageBackend):
         kwargs["config"] = boto_config
 
         loop = asyncio.get_event_loop()
-        self._client = await loop.run_in_executor(
-            None, lambda: boto3.client("s3", **kwargs)
-        )
-        self._resource = await loop.run_in_executor(
-            None, lambda: boto3.resource("s3", **kwargs)
-        )
+        self._client = await loop.run_in_executor(None, lambda: boto3.client("s3", **kwargs))
+        self._resource = await loop.run_in_executor(None, lambda: boto3.resource("s3", **kwargs))
 
     async def shutdown(self) -> None:
         if self._client:
@@ -132,16 +122,16 @@ class S3Storage(StorageBackend):
         if self._config.prefix:
             prefix = self._config.prefix.strip("/") + "/"
             if key.startswith(prefix):
-                return key[len(prefix):]
+                return key[len(prefix) :]
         return key
 
     async def save(
         self,
         name: str,
-        content: Union[bytes, BinaryIO, AsyncIterator[bytes], StorageFile],
+        content: bytes | BinaryIO | AsyncIterator[bytes] | StorageFile,
         *,
-        content_type: Optional[str] = None,
-        metadata: Optional[Dict[str, str]] = None,
+        content_type: str | None = None,
+        metadata: dict[str, str] | None = None,
         overwrite: bool = False,
     ) -> str:
         self._ensure_client()
@@ -154,7 +144,7 @@ class S3Storage(StorageBackend):
         data = await self._read_content(content)
         ct = content_type or self.guess_content_type(name)
 
-        put_kwargs: Dict[str, Any] = {
+        put_kwargs: dict[str, Any] = {
             "Bucket": self._config.bucket,
             "Key": key,
             "Body": data,
@@ -168,9 +158,7 @@ class S3Storage(StorageBackend):
             put_kwargs["StorageClass"] = self._config.storage_class
 
         loop = asyncio.get_event_loop()
-        await loop.run_in_executor(
-            None, lambda: self._client.put_object(**put_kwargs)
-        )
+        await loop.run_in_executor(None, lambda: self._client.put_object(**put_kwargs))
         return name
 
     async def open(self, name: str, mode: str = "rb") -> StorageFile:
@@ -181,15 +169,11 @@ class S3Storage(StorageBackend):
             loop = asyncio.get_event_loop()
             response = await loop.run_in_executor(
                 None,
-                lambda: self._client.get_object(
-                    Bucket=self._config.bucket, Key=key
-                ),
+                lambda: self._client.get_object(Bucket=self._config.bucket, Key=key),
             )
         except Exception as e:
             if "NoSuchKey" in str(type(e).__name__) or "404" in str(e):
-                raise FileNotFoundError(
-                    f"File not found: {name}", backend="s3", path=name
-                )
+                raise FileNotFoundError(f"File not found: {name}", backend="s3", path=name)
             raise StorageError(str(e), backend="s3", path=name)
 
         data = await loop.run_in_executor(None, lambda: response["Body"].read())
@@ -211,9 +195,7 @@ class S3Storage(StorageBackend):
         try:
             await loop.run_in_executor(
                 None,
-                lambda: self._client.delete_object(
-                    Bucket=self._config.bucket, Key=key
-                ),
+                lambda: self._client.delete_object(Bucket=self._config.bucket, Key=key),
             )
         except Exception:
             pass  # Idempotent delete
@@ -225,9 +207,7 @@ class S3Storage(StorageBackend):
         try:
             await loop.run_in_executor(
                 None,
-                lambda: self._client.head_object(
-                    Bucket=self._config.bucket, Key=key
-                ),
+                lambda: self._client.head_object(Bucket=self._config.bucket, Key=key),
             )
             return True
         except Exception:
@@ -240,14 +220,10 @@ class S3Storage(StorageBackend):
         try:
             head = await loop.run_in_executor(
                 None,
-                lambda: self._client.head_object(
-                    Bucket=self._config.bucket, Key=key
-                ),
+                lambda: self._client.head_object(Bucket=self._config.bucket, Key=key),
             )
         except Exception:
-            raise FileNotFoundError(
-                f"File not found: {name}", backend="s3", path=name
-            )
+            raise FileNotFoundError(f"File not found: {name}", backend="s3", path=name)
 
         return StorageMetadata(
             name=self._normalize_path(name),
@@ -259,7 +235,7 @@ class S3Storage(StorageBackend):
             storage_class=head.get("StorageClass", ""),
         )
 
-    async def listdir(self, path: str = "") -> Tuple[List[str], List[str]]:
+    async def listdir(self, path: str = "") -> tuple[list[str], list[str]]:
         self._ensure_client()
         prefix = self._key(path)
         if prefix and not prefix.endswith("/"):
@@ -275,8 +251,8 @@ class S3Storage(StorageBackend):
             ),
         )
 
-        dirs: List[str] = []
-        files: List[str] = []
+        dirs: list[str] = []
+        files: list[str] = []
 
         for cp in response.get("CommonPrefixes", []):
             d = cp["Prefix"].rstrip("/")
@@ -296,7 +272,7 @@ class S3Storage(StorageBackend):
         meta = await self.stat(name)
         return meta.size
 
-    async def url(self, name: str, expire: Optional[int] = None) -> str:
+    async def url(self, name: str, expire: int | None = None) -> str:
         self._ensure_client()
         key = self._key(name)
         expiry = expire or self._config.presigned_expiry

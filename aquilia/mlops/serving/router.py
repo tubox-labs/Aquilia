@@ -13,12 +13,11 @@ from __future__ import annotations
 import hashlib
 import logging
 import random
-import time
-from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional
+from collections.abc import Callable
+from dataclasses import dataclass
 
-from .._types import RolloutConfig, RolloutStrategy
 from .._structures import ConsistentHash, TopKHeap
+from .._types import RolloutConfig, RolloutStrategy
 
 logger = logging.getLogger("aquilia.mlops.serving.router")
 
@@ -26,9 +25,10 @@ logger = logging.getLogger("aquilia.mlops.serving.router")
 @dataclass
 class RouteTarget:
     """A model version target with associated weight."""
+
     version: str
     weight: float  # 0.0 – 1.0
-    handler: Optional[Callable] = None
+    handler: Callable | None = None
     request_count: int = 0
     error_count: int = 0
     total_latency_ms: float = 0.0
@@ -46,7 +46,7 @@ class TrafficRouter:
     """
 
     def __init__(self, sticky_buckets: int = 64):
-        self._targets: Dict[str, RouteTarget] = {}
+        self._targets: dict[str, RouteTarget] = {}
         self._strategy: RolloutStrategy = RolloutStrategy.CANARY
         self._hasher = ConsistentHash(num_buckets=max(1, sticky_buckets))
         self._hot_tracker = TopKHeap(k=20)
@@ -55,12 +55,10 @@ class TrafficRouter:
         self,
         version: str,
         weight: float,
-        handler: Optional[Callable] = None,
+        handler: Callable | None = None,
     ) -> None:
         """Register a model version as a routing target."""
-        self._targets[version] = RouteTarget(
-            version=version, weight=weight, handler=handler
-        )
+        self._targets[version] = RouteTarget(version=version, weight=weight, handler=handler)
         self._normalize_weights()
 
     def remove_target(self, version: str) -> None:
@@ -76,6 +74,7 @@ class TrafficRouter:
         """Set canary percentage for a specific version."""
         if version not in self._targets:
             from aquilia.faults.domains import RegistryFault
+
             raise RegistryFault(name=version, message=f"Unknown target: {version}")
 
         # Set weight for canary target
@@ -94,6 +93,7 @@ class TrafficRouter:
         """
         if not self._targets:
             from aquilia.faults.domains import ConfigMissingFault
+
             raise ConfigMissingFault(key="mlops.routing.targets")
 
         if len(self._targets) == 1:
@@ -126,6 +126,7 @@ class TrafficRouter:
         """
         if not self._targets:
             from aquilia.faults.domains import ConfigMissingFault
+
             raise ConfigMissingFault(key="mlops.routing.targets")
         targets = sorted(self._targets.keys())
         # Use ConsistentHash buckets mapped to target list
@@ -150,7 +151,7 @@ class TrafficRouter:
             # Track hot models by request volume
             self._hot_tracker.push(version, target.request_count)
 
-    def hot_models(self, k: int = 10) -> List[tuple]:
+    def hot_models(self, k: int = 10) -> list[tuple]:
         """Return the top-K most-requested model versions."""
         return self._hot_tracker.top()[:k]
 
@@ -173,19 +174,15 @@ class TrafficRouter:
         baseline_avg = baseline.total_latency_ms / max(baseline.request_count, 1)
 
         # Check if canary is significantly worse
-        if config.metric == "latency_p95":
-            if canary_avg > baseline_avg * (1.0 + abs(config.threshold)):
-                return True
+        if config.metric == "latency_p95" and canary_avg > baseline_avg * (1.0 + abs(config.threshold)):
+            return True
 
         canary_error_rate = canary.error_count / max(canary.request_count, 1)
         baseline_error_rate = baseline.error_count / max(baseline.request_count, 1)
 
-        if canary_error_rate > baseline_error_rate + 0.05:
-            return True
+        return canary_error_rate > baseline_error_rate + 0.05
 
-        return False
-
-    def get_metrics(self) -> Dict[str, Dict[str, float]]:
+    def get_metrics(self) -> dict[str, dict[str, float]]:
         """Get per-version metrics."""
         result = {}
         for version, target in self._targets.items():

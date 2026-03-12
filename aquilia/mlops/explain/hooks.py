@@ -8,9 +8,10 @@ the rest of the platform never depends on a specific XAI library.
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Sequence
+from typing import Any
 
 import numpy as np
 
@@ -18,6 +19,7 @@ logger = logging.getLogger("aquilia.mlops.explain")
 
 
 # ── types ────────────────────────────────────────────────────────────────
+
 
 class ExplainMethod(str, Enum):
     SHAP_KERNEL = "shap_kernel"
@@ -31,41 +33,38 @@ class ExplainMethod(str, Enum):
 @dataclass(frozen=True)
 class FeatureAttribution:
     """Single feature's contribution."""
+
     name: str
-    value: float          # attribution score
-    base_value: float     # model baseline (expected value)
+    value: float  # attribution score
+    base_value: float  # model baseline (expected value)
 
 
 @dataclass(frozen=True)
 class Explanation:
     """Complete explanation for one prediction."""
+
     method: ExplainMethod
-    attributions: List[FeatureAttribution]
+    attributions: list[FeatureAttribution]
     prediction: Any = None
-    extra: Dict[str, Any] = field(default_factory=dict)
+    extra: dict[str, Any] = field(default_factory=dict)
 
     @property
-    def top_k(self) -> List[FeatureAttribution]:
+    def top_k(self) -> list[FeatureAttribution]:
         """Top 10 features by absolute attribution."""
         return sorted(self.attributions, key=lambda a: abs(a.value), reverse=True)[:10]
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "method": self.method.value,
             "prediction": self.prediction,
-            "attributions": [
-                {"name": a.name, "value": a.value, "base_value": a.base_value}
-                for a in self.attributions
-            ],
-            "top_k": [
-                {"name": a.name, "value": a.value, "base_value": a.base_value}
-                for a in self.top_k
-            ],
+            "attributions": [{"name": a.name, "value": a.value, "base_value": a.base_value} for a in self.attributions],
+            "top_k": [{"name": a.name, "value": a.value, "base_value": a.base_value} for a in self.top_k],
             **self.extra,
         }
 
 
 # ── SHAP wrapper ─────────────────────────────────────────────────────────
+
 
 class SHAPExplainer:
     """
@@ -78,15 +77,12 @@ class SHAPExplainer:
         predict_fn: Callable,
         background_data: Any,
         method: ExplainMethod = ExplainMethod.SHAP_KERNEL,
-        feature_names: Optional[Sequence[str]] = None,
+        feature_names: Sequence[str] | None = None,
     ):
         try:
             import shap  # noqa: F811
         except ImportError:
-            raise ImportError(
-                "SHAP is required for SHAPExplainer.  "
-                "Install it with: pip install shap"
-            )
+            raise ImportError("SHAP is required for SHAPExplainer.  Install it with: pip install shap")
 
         self._feature_names = list(feature_names) if feature_names else None
         self._method = method
@@ -99,6 +95,7 @@ class SHAPExplainer:
             self._explainer = shap.DeepExplainer(predict_fn, background_data)
         else:
             from aquilia.faults.domains import ConfigInvalidFault
+
             raise ConfigInvalidFault(
                 key="mlops.explain.shap_method",
                 reason=f"Unsupported SHAP method: {method}",
@@ -125,8 +122,7 @@ class SHAPExplainer:
         names = self._feature_names or [f"f{i}" for i in range(len(vals))]
 
         attributions = [
-            FeatureAttribution(name=n, value=float(v), base_value=base)
-            for n, v in zip(names, vals)
+            FeatureAttribution(name=n, value=float(v), base_value=base) for n, v in zip(names, vals, strict=False)
         ]
         return Explanation(
             method=self._method,
@@ -136,6 +132,7 @@ class SHAPExplainer:
 
 
 # ── LIME wrapper ─────────────────────────────────────────────────────────
+
 
 class LIMEExplainer:
     """
@@ -148,8 +145,8 @@ class LIMEExplainer:
         training_data: Any,
         predict_fn: Callable,
         method: ExplainMethod = ExplainMethod.LIME_TABULAR,
-        feature_names: Optional[Sequence[str]] = None,
-        class_names: Optional[Sequence[str]] = None,
+        feature_names: Sequence[str] | None = None,
+        class_names: Sequence[str] | None = None,
         num_features: int = 10,
     ):
         self._predict_fn = predict_fn
@@ -160,10 +157,7 @@ class LIMEExplainer:
             try:
                 from lime.lime_tabular import LimeTabularExplainer
             except ImportError:
-                raise ImportError(
-                    "LIME is required for LIMEExplainer.  "
-                    "Install it with: pip install lime"
-                )
+                raise ImportError("LIME is required for LIMEExplainer.  Install it with: pip install lime")
             self._explainer = LimeTabularExplainer(
                 np.asarray(training_data),
                 feature_names=list(feature_names) if feature_names else None,
@@ -174,15 +168,13 @@ class LIMEExplainer:
             try:
                 from lime.lime_text import LimeTextExplainer
             except ImportError:
-                raise ImportError(
-                    "LIME is required for LIMEExplainer.  "
-                    "Install it with: pip install lime"
-                )
+                raise ImportError("LIME is required for LIMEExplainer.  Install it with: pip install lime")
             self._explainer = LimeTextExplainer(
                 class_names=list(class_names) if class_names else None,
             )
         else:
             from aquilia.faults.domains import ConfigInvalidFault
+
             raise ConfigInvalidFault(
                 key="mlops.explain.lime_method",
                 reason=f"Unsupported LIME method: {method}",
@@ -198,13 +190,10 @@ class LIMEExplainer:
 
     def _explain_tabular(self, instance: Any, **kwargs: Any) -> Explanation:
         arr = np.asarray(instance).ravel()
-        exp = self._explainer.explain_instance(
-            arr, self._predict_fn, num_features=self._num_features, **kwargs
-        )
+        exp = self._explainer.explain_instance(arr, self._predict_fn, num_features=self._num_features, **kwargs)
         pairs = exp.as_list()
         attributions = [
-            FeatureAttribution(name=str(name), value=float(weight), base_value=0.0)
-            for name, weight in pairs
+            FeatureAttribution(name=str(name), value=float(weight), base_value=0.0) for name, weight in pairs
         ]
         return Explanation(
             method=self._method,
@@ -213,13 +202,10 @@ class LIMEExplainer:
         )
 
     def _explain_text(self, instance: str, **kwargs: Any) -> Explanation:
-        exp = self._explainer.explain_instance(
-            instance, self._predict_fn, num_features=self._num_features, **kwargs
-        )
+        exp = self._explainer.explain_instance(instance, self._predict_fn, num_features=self._num_features, **kwargs)
         pairs = exp.as_list()
         attributions = [
-            FeatureAttribution(name=str(name), value=float(weight), base_value=0.0)
-            for name, weight in pairs
+            FeatureAttribution(name=str(name), value=float(weight), base_value=0.0) for name, weight in pairs
         ]
         return Explanation(
             method=self._method,
@@ -230,11 +216,12 @@ class LIMEExplainer:
 
 # ── Unified factory ──────────────────────────────────────────────────────
 
+
 def create_explainer(
     method: ExplainMethod,
     predict_fn: Callable,
     data: Any,
-    feature_names: Optional[Sequence[str]] = None,
+    feature_names: Sequence[str] | None = None,
     **kwargs: Any,
 ) -> SHAPExplainer | LIMEExplainer:
     """

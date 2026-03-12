@@ -40,12 +40,12 @@ import logging
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Union
+from typing import Any
 
-from .catalog import CrousCatalog, FileCatalog, MemoryCatalog, MergedCatalog, TranslationCatalog, has_crous
+from .catalog import CrousCatalog, FileCatalog, MemoryCatalog, MergedCatalog, TranslationCatalog
 from .formatter import MessageFormatter
 from .locale import Locale, negotiate_locale, normalize_locale, parse_locale
-from .plural import PluralCategory, select_plural
+from .plural import select_plural
 
 logger = logging.getLogger("aquilia.i18n.service")
 
@@ -53,11 +53,11 @@ logger = logging.getLogger("aquilia.i18n.service")
 class MissingKeyStrategy(str, Enum):
     """What to do when a translation key is not found."""
 
-    RETURN_KEY = "return_key"          # Return the dotted key as-is
-    RETURN_EMPTY = "return_empty"      # Return empty string
+    RETURN_KEY = "return_key"  # Return the dotted key as-is
+    RETURN_EMPTY = "return_empty"  # Return empty string
     RETURN_DEFAULT = "return_default"  # Return the ``default`` argument
-    RAISE = "raise"                    # Raise MissingTranslationFault
-    LOG_AND_KEY = "log_and_key"        # Log a warning and return the key
+    RAISE = "raise"  # Raise MissingTranslationFault
+    LOG_AND_KEY = "log_and_key"  # Log a warning and return the key
 
 
 @dataclass
@@ -73,11 +73,11 @@ class I18nConfig:
 
     # Locale settings
     default_locale: str = "en"
-    available_locales: List[str] = field(default_factory=lambda: ["en"])
+    available_locales: list[str] = field(default_factory=lambda: ["en"])
     fallback_locale: str = "en"
 
     # Catalog settings
-    catalog_dirs: List[str] = field(default_factory=lambda: ["locales"])
+    catalog_dirs: list[str] = field(default_factory=lambda: ["locales"])
     catalog_format: str = "crous"  # "crous" (default, fast binary), "json", or "yaml"
 
     # Behaviour
@@ -91,12 +91,10 @@ class I18nConfig:
     path_prefix: bool = False  # /en/about, /fr/about
 
     # Resolver chain order
-    resolver_order: List[str] = field(
-        default_factory=lambda: ["query", "cookie", "header"]
-    )
+    resolver_order: list[str] = field(default_factory=lambda: ["query", "cookie", "header"])
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "I18nConfig":
+    def from_dict(cls, data: dict[str, Any]) -> I18nConfig:
         """Create config from a dictionary (e.g. from ConfigLoader)."""
         return cls(
             enabled=data.get("enabled", True),
@@ -114,7 +112,7 @@ class I18nConfig:
             resolver_order=data.get("resolver_order", ["query", "cookie", "header"]),
         )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dict for ConfigLoader round-tripping."""
         return {
             "enabled": self.enabled,
@@ -154,7 +152,7 @@ class I18nService:
     def __init__(
         self,
         config: I18nConfig,
-        catalog: Optional[TranslationCatalog] = None,
+        catalog: TranslationCatalog | None = None,
     ):
         self.config = config
         self.formatter = MessageFormatter(config.default_locale)
@@ -166,15 +164,14 @@ class I18nService:
         else:
             self.catalog = self._build_catalog()
 
-
     # ── Public API ───────────────────────────────────────────────────
 
     def t(
         self,
         key: str,
         *,
-        locale: Optional[str] = None,
-        default: Optional[str] = None,
+        locale: str | None = None,
+        default: str | None = None,
         **kwargs: Any,
     ) -> str:
         """
@@ -203,10 +200,10 @@ class I18nService:
     def tn(
         self,
         key: str,
-        count: Union[int, float],
+        count: int | float,
         *,
-        locale: Optional[str] = None,
-        default: Optional[str] = None,
+        locale: str | None = None,
+        default: str | None = None,
         **kwargs: Any,
     ) -> str:
         """
@@ -247,8 +244,8 @@ class I18nService:
         self,
         key: str,
         *,
-        locale: Optional[str] = None,
-        default: Optional[str] = None,
+        locale: str | None = None,
+        default: str | None = None,
         **kwargs: Any,
     ) -> str:
         """
@@ -259,12 +256,12 @@ class I18nService:
         """
         return self.t(key, locale=locale, default=default, **kwargs)
 
-    def has(self, key: str, locale: Optional[str] = None) -> bool:
+    def has(self, key: str, locale: str | None = None) -> bool:
         """Check if a key exists for the given locale."""
         loc = locale or self.config.default_locale
         return self.catalog.has(key, loc)
 
-    def available_locales(self) -> List[str]:
+    def available_locales(self) -> list[str]:
         """Return the list of configured available locales."""
         return list(self.config.available_locales)
 
@@ -289,7 +286,7 @@ class I18nService:
             self.config.default_locale,
         )
 
-    def locale(self, tag: Optional[str] = None) -> Locale:
+    def locale(self, tag: str | None = None) -> Locale:
         """
         Get a ``Locale`` object for the given tag.
 
@@ -316,7 +313,7 @@ class I18nService:
         key: str,
         locale: str,
         *,
-        default: Optional[str] = None,
+        default: str | None = None,
     ) -> str:
         """Resolve a key through the catalog with locale fallback chain."""
         # Try the exact locale
@@ -347,7 +344,7 @@ class I18nService:
         self,
         key: str,
         locale: str,
-        default: Optional[str] = None,
+        default: str | None = None,
     ) -> str:
         """Apply missing key strategy."""
         if default is not None:
@@ -363,6 +360,7 @@ class I18nService:
             return default or key
         elif strategy == MissingKeyStrategy.RAISE:
             from .faults import MissingTranslationFault
+
             raise MissingTranslationFault(key, locale)
         elif strategy == MissingKeyStrategy.LOG_AND_KEY:
             logger.warning("Missing translation: key='%s' locale='%s'", key, locale)
@@ -401,8 +399,8 @@ class I18nService:
 
 
 def create_i18n_service(
-    config: Optional[Union[I18nConfig, Dict[str, Any]]] = None,
-    catalog: Optional[TranslationCatalog] = None,
+    config: I18nConfig | dict[str, Any] | None = None,
+    catalog: TranslationCatalog | None = None,
 ) -> I18nService:
     """
     Factory function for creating an ``I18nService``.

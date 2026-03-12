@@ -80,40 +80,28 @@ Usage:
 
 # ── Core types ───────────────────────────────────────────────────────────
 from .core import (
+    VERSION_ANY,
+    VERSION_NEUTRAL,
     ApiVersion,
     VersionChannel,
     VersionStatus,
-    VERSION_NEUTRAL,
-    VERSION_ANY,
 )
 
-# ── Resolvers — extract version from request ─────────────────────────────
-from .resolvers import (
-    BaseVersionResolver,
-    URLPathResolver,
-    HeaderResolver,
-    QueryParamResolver,
-    MediaTypeResolver,
-    CompositeResolver,
-    ChannelResolver,
-)
+# ── Decorators — route-level version binding ─────────────────────────────
+from .decorators import version, version_neutral, version_range
 
-# ── Parser — parse raw strings into ApiVersion ───────────────────────────
-from .parser import VersionParser, SemanticVersionParser
+# ── Errors ───────────────────────────────────────────────────────────────
+from .errors import (
+    InvalidVersionError,
+    MissingVersionError,
+    UnsupportedVersionError,
+    VersionError,
+    VersionNegotiationError,
+    VersionSunsetError,
+)
 
 # ── Graph — compile-time version relationship map ────────────────────────
 from .graph import VersionGraph, VersionNode
-
-# ── Strategy — central orchestrator ──────────────────────────────────────
-from .strategy import VersionStrategy, VersionConfig
-
-# ── Sunset — deprecation / sunset lifecycle ──────────────────────────────
-from .sunset import (
-    SunsetPolicy,
-    SunsetEntry,
-    SunsetRegistry,
-    SunsetEnforcer,
-)
 
 # ── Middleware — inject version into request context ─────────────────────
 from .middleware import VersionMiddleware
@@ -121,17 +109,29 @@ from .middleware import VersionMiddleware
 # ── Negotiation — best-match version selection ───────────────────────────
 from .negotiation import VersionNegotiator
 
-# ── Decorators — route-level version binding ─────────────────────────────
-from .decorators import version, version_neutral, version_range
+# ── Parser — parse raw strings into ApiVersion ───────────────────────────
+from .parser import SemanticVersionParser, VersionParser
 
-# ── Errors ───────────────────────────────────────────────────────────────
-from .errors import (
-    VersionError,
-    InvalidVersionError,
-    UnsupportedVersionError,
-    VersionSunsetError,
-    MissingVersionError,
-    VersionNegotiationError,
+# ── Resolvers — extract version from request ─────────────────────────────
+from .resolvers import (
+    BaseVersionResolver,
+    ChannelResolver,
+    CompositeResolver,
+    HeaderResolver,
+    MediaTypeResolver,
+    QueryParamResolver,
+    URLPathResolver,
+)
+
+# ── Strategy — central orchestrator ──────────────────────────────────────
+from .strategy import VersionConfig, VersionStrategy
+
+# ── Sunset — deprecation / sunset lifecycle ──────────────────────────────
+from .sunset import (
+    SunsetEnforcer,
+    SunsetEntry,
+    SunsetPolicy,
+    SunsetRegistry,
 )
 
 __all__ = [

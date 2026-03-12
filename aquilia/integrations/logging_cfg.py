@@ -5,7 +5,7 @@ LoggingIntegration — typed request/response logging configuration.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
@@ -26,9 +26,7 @@ class LoggingIntegration:
     format: str = "%(method)s %(path)s %(status)s %(duration_ms).1fms"
     level: str = "INFO"
     slow_threshold_ms: float = 1000.0
-    skip_paths: List[str] = field(
-        default_factory=lambda: ["/health", "/healthz", "/ready", "/metrics"]
-    )
+    skip_paths: list[str] = field(default_factory=lambda: ["/health", "/healthz", "/ready", "/metrics"])
     include_headers: bool = False
     include_query: bool = True
     include_user_agent: bool = False
@@ -37,7 +35,7 @@ class LoggingIntegration:
     colorize: bool = True
     enabled: bool = True
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "_integration_type": "logging",
             "enabled": self.enabled,

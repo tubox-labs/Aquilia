@@ -17,10 +17,9 @@ Usage:
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any, Dict, Optional, Type
+from typing import Any
 
-from ..fields_module import Field, CharField, FieldValidationError, UNSET
-
+from ..fields_module import Field, FieldValidationError
 
 __all__ = ["EnumField"]
 
@@ -43,7 +42,7 @@ class EnumField(Field):
     def __init__(
         self,
         *,
-        enum_class: Type[Enum],
+        enum_class: type[Enum],
         max_length: int = 50,
         store_name: bool = False,
         **kwargs,
@@ -80,8 +79,7 @@ class EnumField(Field):
 
         raise FieldValidationError(
             self.name,
-            f"Invalid value '{value}' for {self.enum_class.__name__}. "
-            f"Valid: {[m.value for m in self.enum_class]}",
+            f"Invalid value '{value}' for {self.enum_class.__name__}. Valid: {[m.value for m in self.enum_class]}",
             value,
         )
 
@@ -114,7 +112,7 @@ class EnumField(Field):
             return "INTEGER"
         return f"VARCHAR({self.max_length})"
 
-    def deconstruct(self) -> Dict[str, Any]:
+    def deconstruct(self) -> dict[str, Any]:
         d = super().deconstruct()
         d["enum_class"] = f"{self.enum_class.__module__}.{self.enum_class.__qualname__}"
         d["max_length"] = self.max_length
