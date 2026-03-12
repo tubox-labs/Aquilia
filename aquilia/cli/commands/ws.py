@@ -30,7 +30,7 @@ def cmd_ws_inspect(args: dict):
         print(f"Error: {ws_crous} not found. Run 'aq compile' first.")
         sys.exit(1)
     
-    with open(ws_crous) as f:
+    with open(ws_crous, encoding="utf-8") as f:
         data = json.load(f)
     
     print(f"WebSocket Namespaces ({len(data['controllers'])} controllers)\n")
@@ -271,7 +271,7 @@ def cmd_ws_gen_client(args: dict):
         print(f"Error: {ws_crous} not found. Run 'aq compile' first.")
         sys.exit(1)
     
-    with open(ws_crous) as f:
+    with open(ws_crous, encoding="utf-8") as f:
         data = json.load(f)
     
     # Generate TypeScript client
@@ -280,7 +280,7 @@ def cmd_ws_gen_client(args: dict):
     
     ts_code = _generate_typescript_client(data)
     
-    with open(output, "w") as f:
+    with open(output, "w", encoding="utf-8") as f:
         f.write(ts_code)
     
     print(f"Generated TypeScript client: {output}")

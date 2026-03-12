@@ -140,7 +140,7 @@ def _detect_workspace_db_url() -> str:
     if not workspace_file.exists():
         return _DEFAULT_DB_URL
     try:
-        text = workspace_file.read_text()
+        text = workspace_file.read_text(encoding="utf-8")
         # Match .database(url="<url>") or .database(url='<url>')
         m = _re.search(r'\.database\(\s*url\s*=\s*["\']([^"\']+)["\']', text)
         if m:
@@ -951,7 +951,7 @@ def run(ctx, mode: str, port, host, reload, skip_checks: bool):
     if not skip_checks:
         workspace_file = Path("workspace.py")
         if workspace_file.exists():
-            ws_content = workspace_file.read_text()
+            ws_content = workspace_file.read_text(encoding="utf-8")
             active_lines = "\n".join(
                 line for line in ws_content.splitlines()
                 if not line.strip().startswith("#")
@@ -2187,7 +2187,7 @@ def admin_check(ctx, fix: bool, as_json: bool):
         error(f"  {_CROSS} workspace.py not found")
         sys.exit(1)
 
-    content = workspace_file.read_text()
+    content = workspace_file.read_text(encoding="utf-8")
 
     # Remove comment-only lines for active config detection
     active_lines = "\n".join(
@@ -3271,7 +3271,7 @@ def admin_setup(ctx, non_interactive: bool, database_url: Optional[str]):
         error(f"  {_CROSS} workspace.py not found -- run 'aq init workspace <name>' first")
         sys.exit(1)
 
-    content = workspace_file.read_text()
+    content = workspace_file.read_text(encoding="utf-8")
     original_content = content
 
     # Remove comment-only lines for active config detection

@@ -582,7 +582,7 @@ class EnhancedDiscovery:
             # Check if it might be an __init__.py export
             init_file = target / "__init__.py"
             if init_file.exists():
-                return class_name in init_file.read_text()
+                return class_name in init_file.read_text(encoding="utf-8")
 
             return False
         except Exception:

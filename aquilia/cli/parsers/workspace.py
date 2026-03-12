@@ -21,7 +21,7 @@ class WorkspaceManifest:
     @classmethod
     def from_file(cls, path: Path) -> 'WorkspaceManifest':
         """Load workspace manifest from file."""
-        with open(path, 'r') as f:
+        with open(path, 'r', encoding="utf-8") as f:
             data = json.load(f)
         
         workspace = data.get('workspace', {})
@@ -61,5 +61,5 @@ class WorkspaceManifest:
     
     def save(self, path: Path) -> None:
         """Save manifest to file."""
-        with open(path, 'w') as f:
+        with open(path, 'w', encoding="utf-8") as f:
             json.dump(self._raw, f, indent=2, ensure_ascii=False)

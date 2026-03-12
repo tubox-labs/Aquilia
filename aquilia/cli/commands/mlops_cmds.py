@@ -355,7 +355,7 @@ def observe_drift(reference_csv, current_csv, method, threshold):
     import csv
 
     def _load_csv(path):
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             reader = csv.DictReader(f)
             rows = list(reader)
         # Build column arrays

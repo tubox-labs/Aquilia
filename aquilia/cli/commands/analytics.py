@@ -232,7 +232,7 @@ class DiscoveryAnalytics:
             cache_file.write_bytes(crous_backend.encode(analysis))
         except ImportError:
             cache_file = self.cache_dir / 'analysis.json'
-            with open(cache_file, 'w') as f:
+            with open(cache_file, 'w', encoding="utf-8") as f:
                 json.dump(analysis, f, indent=2, default=str)
     
     def get_cached_analysis(self, max_age_seconds: int = 3600) -> Optional[Dict]:
@@ -257,7 +257,7 @@ class DiscoveryAnalytics:
                     import crous as crous_backend
                 return crous_backend.decode(cache_file.read_bytes())
             else:
-                with open(cache_file) as f:
+                with open(cache_file, encoding="utf-8") as f:
                     return json.load(f)
         except Exception:
             return None

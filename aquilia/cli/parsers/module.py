@@ -23,7 +23,7 @@ class ModuleManifest:
     @classmethod
     def from_file(cls, path: Path) -> 'ModuleManifest':
         """Load module manifest from file."""
-        with open(path, 'r') as f:
+        with open(path, 'r', encoding="utf-8") as f:
             data = json.load(f)
         
         module = data.get('module', {})
