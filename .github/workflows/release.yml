@@ -133,6 +133,7 @@ jobs:
           pip install -r requirements-dev.txt
 
       - name: Run tests
+        shell: bash
         run: |
           pytest tests/ -v --tb=short -q --co -q 2>/dev/null | head -5 || true
           pytest tests/ -v --tb=short --junitxml=reports/junit-${{ matrix.os }}-py${{ matrix.python }}.xml
