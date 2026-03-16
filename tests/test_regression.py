@@ -1134,11 +1134,10 @@ class TestProjectConfig:
     """Test project configuration reflects actual dependency usage."""
 
     def test_pyproject_core_dependencies(self):
-        """Core deps should only include click, PyYAML, uvicorn."""
+        """Core deps should only include click, uvicorn."""
         pyproject = Path(__file__).parent.parent / "pyproject.toml"
         content = pyproject.read_text(encoding="utf-8")
         assert "click>=8.1.0" in content, "pyproject.toml missing click core dep"
-        assert "PyYAML>=6.0.0" in content, "pyproject.toml missing PyYAML core dep"
         assert "uvicorn>=0.30.0" in content, "pyproject.toml missing uvicorn core dep"
 
     def test_pyproject_no_phantom_deps(self):

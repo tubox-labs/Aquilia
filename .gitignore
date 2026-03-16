@@ -71,3 +71,5 @@ dist/
 
 myapp/
 myapp/*
+
+.ruff_cache/
