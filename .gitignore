@@ -73,3 +73,9 @@ myapp/
 myapp/*
 
 .ruff_cache/
+skills-lock.json
+.claude/
+.agents/
+
+.github/copilot-instructions.md
+CLAUDE.md
