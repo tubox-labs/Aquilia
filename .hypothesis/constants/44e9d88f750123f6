@@ -1,4 +1,0 @@
-# file: /Users/kuroyami/PyProjects/Aquilia/authentication/modules/auth/models/models.py
-# hypothesis_version: 6.151.9
-
-[225, '-created_at', 'email', 'first_name', 'last_name', 'name', 'unknown', 'users']

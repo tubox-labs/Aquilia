@@ -1,4 +1,0 @@
-# file: /Users/kuroyami/PyProjects/Aquilia/aquilia/di/dep.py
-# hypothesis_version: 6.151.9
-
-['Any', 'Dep', '__module__', '__qualname__', '_body_cache', 'application/json', 'cls', 'get', 'headers', 'query_param', 'query_params', 'request', 'self', 'tag']

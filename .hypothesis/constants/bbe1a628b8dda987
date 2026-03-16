@@ -1,4 +1,0 @@
-# file: /Users/kuroyami/PyProjects/Aquilia/aquilia/models/transactions.py
-# hypothesis_version: 6.151.9
-
-['Atomic', 'BEGIN', 'COMMIT', 'ROLLBACK', 'TransactionManager', 'atomic', 'sqlite', 'value']

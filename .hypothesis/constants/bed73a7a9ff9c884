@@ -1,4 +1,0 @@
-# file: /Users/kuroyami/PyProjects/Aquilia/authentication/workspace.py
-# hypothesis_version: 6.151.9
-
-[86400, '/auth', '/static', '0.1.0', 'Aquilia workspace', 'Auth module', 'auth', 'authentication', 'auto', 'cookie', 'core', 'default', 'evict_oldest', 'lax', 'memory', 'propagate', 'sqlite:///db.sqlite3', 'static', 'templates', 'user', 'workspace']

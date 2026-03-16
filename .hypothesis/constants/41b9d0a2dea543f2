@@ -1,4 +1,0 @@
-# file: /Users/kuroyami/PyProjects/Aquilia/aquilia/patterns/compiler/parser.py
-# hypothesis_version: 6.151.9
-
-['"', '&', "'", '(', ')', '*', ',', '.', '/', '/<[]?&*', ':', '<', '=', '>', '?', '@', 'AMP', 'AT', 'COLON', 'COMMA', 'EOF', 'EQUALS', 'Expected identifier', 'False', 'IDENT', 'LANGLE', 'LBRACKET', 'LPAREN', 'NUMBER', 'None', 'PIPE', 'QUESTION', 'RANGLE', 'RBRACKET', 'RPAREN', 'SLASH', 'STAR', 'STATIC', 'STRING', 'True', '[', '\\', ']', '_', 'false', 'in', 'max', 'min', 'null', 'path', 're', 'str', 'true', '|']

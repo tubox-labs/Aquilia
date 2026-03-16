@@ -1,4 +1,0 @@
-# file: /Users/kuroyami/PyProjects/Aquilia/aquilia/blueprints/annotations.py
-# hypothesis_version: 6.151.9
-
-['$ref', '*', '.', '<unbound>', 'ANNOTATION_TO_FACET', 'Any', 'Blueprint', 'Decimal', 'Dict', 'Field', 'FrozenSet', 'List', 'NestedBlueprintFacet', 'Optional', 'Sequence', 'Set', 'Tuple', 'Type', 'UUID', 'Union', 'UnionType', '_', '__annotations__', '__iter__', '__module__', '_order', 'alias', 'allow_blank', 'allow_null', 'aquilia.blueprints', 'array', 'choices', 'computed', 'date', 'datetime', 'decimal_places', 'default', 'default_factory', 'func', 'ge', 'gt', 'help_text', 'items', 'label', 'le', 'lt', 'max_digits', 'max_items', 'max_length', 'max_value', 'min_items', 'min_length', 'min_value', 'object', 'pattern', 'read_only', 'required', 'source', 'time', 'timedelta', 'type', 'uuid', 'validators', 'write_only']

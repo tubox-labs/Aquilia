@@ -1,4 +1,0 @@
-# file: /Users/kuroyami/PyProjects/Aquilia/aquilia/patterns/diagnostics/__init__.py
-# hypothesis_version: 6.151.9
-
-['PatternDiagnostic', 'PatternSemanticError', 'PatternSyntaxError', 'RouteAmbiguityError']
