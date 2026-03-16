@@ -419,6 +419,22 @@ class TestDecorators:
         assert "WS" in VALID_HTTP_METHODS
         assert "INVALID" not in VALID_HTTP_METHODS
 
+    def test_http_decorator_signature_has_no_var_keyword(self):
+        params = inspect.signature(GET.__init__).parameters.values()
+        kinds = {param.kind for param in params}
+        assert inspect.Parameter.VAR_KEYWORD not in kinds
+
+    def test_route_signature_has_no_var_keyword(self):
+        params = inspect.signature(route).parameters.values()
+        kinds = {param.kind for param in params}
+        assert inspect.Parameter.VAR_KEYWORD not in kinds
+
+    def test_unknown_kwarg_still_fails_fast(self):
+        with pytest.raises(TypeError):
+            @GET("/", unsupported_option=True)
+            async def handler(self, ctx):
+                pass
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 #  SECTION 3: Throttle

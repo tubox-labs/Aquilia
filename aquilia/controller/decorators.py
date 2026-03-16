@@ -179,74 +179,500 @@ class RouteDecorator:
 class GET(RouteDecorator):
     """GET request decorator."""
 
-    def __init__(self, path: str | None = None, **kwargs):
-        super().__init__(path, method="GET", **kwargs)
+    def __init__(
+        self,
+        path: str | None = None,
+        *,
+        pipeline: list[Any] | None = None,
+        summary: str | None = None,
+        description: str | None = None,
+        tags: list[str] | None = None,
+        deprecated: bool = False,
+        response_model: type | None = None,
+        status_code: int = 200,
+        request_blueprint: type | None = None,
+        response_blueprint: type | None = None,
+        filterset_class: type | None = None,
+        filterset_fields: list[str] | Any | None = None,
+        search_fields: list[str] | None = None,
+        ordering_fields: list[str] | None = None,
+        pagination_class: type | None = None,
+        renderer_classes: list[Any] | None = None,
+        throttle: Any | None = None,
+        timeout: float | None = None,
+        version: str | list[str] | None = None,
+    ):
+        super().__init__(
+            path,
+            method="GET",
+            pipeline=pipeline,
+            summary=summary,
+            description=description,
+            tags=tags,
+            deprecated=deprecated,
+            response_model=response_model,
+            status_code=status_code,
+            request_blueprint=request_blueprint,
+            response_blueprint=response_blueprint,
+            filterset_class=filterset_class,
+            filterset_fields=filterset_fields,
+            search_fields=search_fields,
+            ordering_fields=ordering_fields,
+            pagination_class=pagination_class,
+            renderer_classes=renderer_classes,
+            throttle=throttle,
+            timeout=timeout,
+            version=version,
+        )
 
 
 class POST(RouteDecorator):
     """POST request decorator."""
 
-    def __init__(self, path: str | None = None, **kwargs):
-        super().__init__(path, method="POST", **kwargs)
+    def __init__(
+        self,
+        path: str | None = None,
+        *,
+        pipeline: list[Any] | None = None,
+        summary: str | None = None,
+        description: str | None = None,
+        tags: list[str] | None = None,
+        deprecated: bool = False,
+        response_model: type | None = None,
+        status_code: int = 200,
+        request_blueprint: type | None = None,
+        response_blueprint: type | None = None,
+        filterset_class: type | None = None,
+        filterset_fields: list[str] | Any | None = None,
+        search_fields: list[str] | None = None,
+        ordering_fields: list[str] | None = None,
+        pagination_class: type | None = None,
+        renderer_classes: list[Any] | None = None,
+        throttle: Any | None = None,
+        timeout: float | None = None,
+        version: str | list[str] | None = None,
+    ):
+        super().__init__(
+            path,
+            method="POST",
+            pipeline=pipeline,
+            summary=summary,
+            description=description,
+            tags=tags,
+            deprecated=deprecated,
+            response_model=response_model,
+            status_code=status_code,
+            request_blueprint=request_blueprint,
+            response_blueprint=response_blueprint,
+            filterset_class=filterset_class,
+            filterset_fields=filterset_fields,
+            search_fields=search_fields,
+            ordering_fields=ordering_fields,
+            pagination_class=pagination_class,
+            renderer_classes=renderer_classes,
+            throttle=throttle,
+            timeout=timeout,
+            version=version,
+        )
 
 
 class PUT(RouteDecorator):
     """PUT request decorator."""
 
-    def __init__(self, path: str | None = None, **kwargs):
-        super().__init__(path, method="PUT", **kwargs)
+    def __init__(
+        self,
+        path: str | None = None,
+        *,
+        pipeline: list[Any] | None = None,
+        summary: str | None = None,
+        description: str | None = None,
+        tags: list[str] | None = None,
+        deprecated: bool = False,
+        response_model: type | None = None,
+        status_code: int = 200,
+        request_blueprint: type | None = None,
+        response_blueprint: type | None = None,
+        filterset_class: type | None = None,
+        filterset_fields: list[str] | Any | None = None,
+        search_fields: list[str] | None = None,
+        ordering_fields: list[str] | None = None,
+        pagination_class: type | None = None,
+        renderer_classes: list[Any] | None = None,
+        throttle: Any | None = None,
+        timeout: float | None = None,
+        version: str | list[str] | None = None,
+    ):
+        super().__init__(
+            path,
+            method="PUT",
+            pipeline=pipeline,
+            summary=summary,
+            description=description,
+            tags=tags,
+            deprecated=deprecated,
+            response_model=response_model,
+            status_code=status_code,
+            request_blueprint=request_blueprint,
+            response_blueprint=response_blueprint,
+            filterset_class=filterset_class,
+            filterset_fields=filterset_fields,
+            search_fields=search_fields,
+            ordering_fields=ordering_fields,
+            pagination_class=pagination_class,
+            renderer_classes=renderer_classes,
+            throttle=throttle,
+            timeout=timeout,
+            version=version,
+        )
 
 
 class PATCH(RouteDecorator):
     """PATCH request decorator."""
 
-    def __init__(self, path: str | None = None, **kwargs):
-        super().__init__(path, method="PATCH", **kwargs)
+    def __init__(
+        self,
+        path: str | None = None,
+        *,
+        pipeline: list[Any] | None = None,
+        summary: str | None = None,
+        description: str | None = None,
+        tags: list[str] | None = None,
+        deprecated: bool = False,
+        response_model: type | None = None,
+        status_code: int = 200,
+        request_blueprint: type | None = None,
+        response_blueprint: type | None = None,
+        filterset_class: type | None = None,
+        filterset_fields: list[str] | Any | None = None,
+        search_fields: list[str] | None = None,
+        ordering_fields: list[str] | None = None,
+        pagination_class: type | None = None,
+        renderer_classes: list[Any] | None = None,
+        throttle: Any | None = None,
+        timeout: float | None = None,
+        version: str | list[str] | None = None,
+    ):
+        super().__init__(
+            path,
+            method="PATCH",
+            pipeline=pipeline,
+            summary=summary,
+            description=description,
+            tags=tags,
+            deprecated=deprecated,
+            response_model=response_model,
+            status_code=status_code,
+            request_blueprint=request_blueprint,
+            response_blueprint=response_blueprint,
+            filterset_class=filterset_class,
+            filterset_fields=filterset_fields,
+            search_fields=search_fields,
+            ordering_fields=ordering_fields,
+            pagination_class=pagination_class,
+            renderer_classes=renderer_classes,
+            throttle=throttle,
+            timeout=timeout,
+            version=version,
+        )
 
 
 class DELETE(RouteDecorator):
     """DELETE request decorator."""
 
-    def __init__(self, path: str | None = None, **kwargs):
-        super().__init__(path, method="DELETE", **kwargs)
+    def __init__(
+        self,
+        path: str | None = None,
+        *,
+        pipeline: list[Any] | None = None,
+        summary: str | None = None,
+        description: str | None = None,
+        tags: list[str] | None = None,
+        deprecated: bool = False,
+        response_model: type | None = None,
+        status_code: int = 200,
+        request_blueprint: type | None = None,
+        response_blueprint: type | None = None,
+        filterset_class: type | None = None,
+        filterset_fields: list[str] | Any | None = None,
+        search_fields: list[str] | None = None,
+        ordering_fields: list[str] | None = None,
+        pagination_class: type | None = None,
+        renderer_classes: list[Any] | None = None,
+        throttle: Any | None = None,
+        timeout: float | None = None,
+        version: str | list[str] | None = None,
+    ):
+        super().__init__(
+            path,
+            method="DELETE",
+            pipeline=pipeline,
+            summary=summary,
+            description=description,
+            tags=tags,
+            deprecated=deprecated,
+            response_model=response_model,
+            status_code=status_code,
+            request_blueprint=request_blueprint,
+            response_blueprint=response_blueprint,
+            filterset_class=filterset_class,
+            filterset_fields=filterset_fields,
+            search_fields=search_fields,
+            ordering_fields=ordering_fields,
+            pagination_class=pagination_class,
+            renderer_classes=renderer_classes,
+            throttle=throttle,
+            timeout=timeout,
+            version=version,
+        )
 
 
 class HEAD(RouteDecorator):
     """HEAD request decorator."""
 
-    def __init__(self, path: str | None = None, **kwargs):
-        super().__init__(path, method="HEAD", **kwargs)
+    def __init__(
+        self,
+        path: str | None = None,
+        *,
+        pipeline: list[Any] | None = None,
+        summary: str | None = None,
+        description: str | None = None,
+        tags: list[str] | None = None,
+        deprecated: bool = False,
+        response_model: type | None = None,
+        status_code: int = 200,
+        request_blueprint: type | None = None,
+        response_blueprint: type | None = None,
+        filterset_class: type | None = None,
+        filterset_fields: list[str] | Any | None = None,
+        search_fields: list[str] | None = None,
+        ordering_fields: list[str] | None = None,
+        pagination_class: type | None = None,
+        renderer_classes: list[Any] | None = None,
+        throttle: Any | None = None,
+        timeout: float | None = None,
+        version: str | list[str] | None = None,
+    ):
+        super().__init__(
+            path,
+            method="HEAD",
+            pipeline=pipeline,
+            summary=summary,
+            description=description,
+            tags=tags,
+            deprecated=deprecated,
+            response_model=response_model,
+            status_code=status_code,
+            request_blueprint=request_blueprint,
+            response_blueprint=response_blueprint,
+            filterset_class=filterset_class,
+            filterset_fields=filterset_fields,
+            search_fields=search_fields,
+            ordering_fields=ordering_fields,
+            pagination_class=pagination_class,
+            renderer_classes=renderer_classes,
+            throttle=throttle,
+            timeout=timeout,
+            version=version,
+        )
 
 
 class OPTIONS(RouteDecorator):
     """OPTIONS request decorator."""
 
-    def __init__(self, path: str | None = None, **kwargs):
-        super().__init__(path, method="OPTIONS", **kwargs)
+    def __init__(
+        self,
+        path: str | None = None,
+        *,
+        pipeline: list[Any] | None = None,
+        summary: str | None = None,
+        description: str | None = None,
+        tags: list[str] | None = None,
+        deprecated: bool = False,
+        response_model: type | None = None,
+        status_code: int = 200,
+        request_blueprint: type | None = None,
+        response_blueprint: type | None = None,
+        filterset_class: type | None = None,
+        filterset_fields: list[str] | Any | None = None,
+        search_fields: list[str] | None = None,
+        ordering_fields: list[str] | None = None,
+        pagination_class: type | None = None,
+        renderer_classes: list[Any] | None = None,
+        throttle: Any | None = None,
+        timeout: float | None = None,
+        version: str | list[str] | None = None,
+    ):
+        super().__init__(
+            path,
+            method="OPTIONS",
+            pipeline=pipeline,
+            summary=summary,
+            description=description,
+            tags=tags,
+            deprecated=deprecated,
+            response_model=response_model,
+            status_code=status_code,
+            request_blueprint=request_blueprint,
+            response_blueprint=response_blueprint,
+            filterset_class=filterset_class,
+            filterset_fields=filterset_fields,
+            search_fields=search_fields,
+            ordering_fields=ordering_fields,
+            pagination_class=pagination_class,
+            renderer_classes=renderer_classes,
+            throttle=throttle,
+            timeout=timeout,
+            version=version,
+        )
 
 
 class TRACE(RouteDecorator):
     """TRACE request decorator."""
 
-    def __init__(self, path: str | None = None, **kwargs):
-        super().__init__(path, method="TRACE", **kwargs)
+    def __init__(
+        self,
+        path: str | None = None,
+        *,
+        pipeline: list[Any] | None = None,
+        summary: str | None = None,
+        description: str | None = None,
+        tags: list[str] | None = None,
+        deprecated: bool = False,
+        response_model: type | None = None,
+        status_code: int = 200,
+        request_blueprint: type | None = None,
+        response_blueprint: type | None = None,
+        filterset_class: type | None = None,
+        filterset_fields: list[str] | Any | None = None,
+        search_fields: list[str] | None = None,
+        ordering_fields: list[str] | None = None,
+        pagination_class: type | None = None,
+        renderer_classes: list[Any] | None = None,
+        throttle: Any | None = None,
+        timeout: float | None = None,
+        version: str | list[str] | None = None,
+    ):
+        super().__init__(
+            path,
+            method="TRACE",
+            pipeline=pipeline,
+            summary=summary,
+            description=description,
+            tags=tags,
+            deprecated=deprecated,
+            response_model=response_model,
+            status_code=status_code,
+            request_blueprint=request_blueprint,
+            response_blueprint=response_blueprint,
+            filterset_class=filterset_class,
+            filterset_fields=filterset_fields,
+            search_fields=search_fields,
+            ordering_fields=ordering_fields,
+            pagination_class=pagination_class,
+            renderer_classes=renderer_classes,
+            throttle=throttle,
+            timeout=timeout,
+            version=version,
+        )
 
 
 class WS(RouteDecorator):
     """WebSocket request decorator."""
 
-    def __init__(self, path: str | None = None, **kwargs):
-        super().__init__(path, method="WS", **kwargs)
+    def __init__(
+        self,
+        path: str | None = None,
+        *,
+        pipeline: list[Any] | None = None,
+        summary: str | None = None,
+        description: str | None = None,
+        tags: list[str] | None = None,
+        deprecated: bool = False,
+        response_model: type | None = None,
+        status_code: int = 200,
+        request_blueprint: type | None = None,
+        response_blueprint: type | None = None,
+        filterset_class: type | None = None,
+        filterset_fields: list[str] | Any | None = None,
+        search_fields: list[str] | None = None,
+        ordering_fields: list[str] | None = None,
+        pagination_class: type | None = None,
+        renderer_classes: list[Any] | None = None,
+        throttle: Any | None = None,
+        timeout: float | None = None,
+        version: str | list[str] | None = None,
+    ):
+        super().__init__(
+            path,
+            method="WS",
+            pipeline=pipeline,
+            summary=summary,
+            description=description,
+            tags=tags,
+            deprecated=deprecated,
+            response_model=response_model,
+            status_code=status_code,
+            request_blueprint=request_blueprint,
+            response_blueprint=response_blueprint,
+            filterset_class=filterset_class,
+            filterset_fields=filterset_fields,
+            search_fields=search_fields,
+            ordering_fields=ordering_fields,
+            pagination_class=pagination_class,
+            renderer_classes=renderer_classes,
+            throttle=throttle,
+            timeout=timeout,
+            version=version,
+        )
 
 
-def route(method: str | list[str], path: str | None = None, **kwargs) -> Callable[[F], F]:
+def route(
+    method: str | list[str],
+    path: str | None = None,
+    *,
+    pipeline: list[Any] | None = None,
+    summary: str | None = None,
+    description: str | None = None,
+    tags: list[str] | None = None,
+    deprecated: bool = False,
+    response_model: type | None = None,
+    status_code: int = 200,
+    request_blueprint: type | None = None,
+    response_blueprint: type | None = None,
+    filterset_class: type | None = None,
+    filterset_fields: list[str] | Any | None = None,
+    search_fields: list[str] | None = None,
+    ordering_fields: list[str] | None = None,
+    pagination_class: type | None = None,
+    renderer_classes: list[Any] | None = None,
+    throttle: Any | None = None,
+    timeout: float | None = None,
+    version: str | list[str] | None = None,
+) -> Callable[[F], F]:
     """
     Generic route decorator.
 
     Args:
         method: HTTP method or list of methods
         path: URL path template
-        **kwargs: Additional route metadata
+        pipeline: Method-level pipeline nodes (overrides class-level)
+        summary: OpenAPI summary
+        description: OpenAPI description
+        tags: OpenAPI tags (extends class-level)
+        deprecated: Mark as deprecated in OpenAPI
+        response_model: Response type for OpenAPI
+        status_code: Default status code
+        request_blueprint: Aquilia Blueprint class for request body casting and sealing
+        response_blueprint: Aquilia Blueprint class for response molding
+        filterset_class: FilterSet subclass for declarative filtering
+        filterset_fields: List/dict shorthand for filter fields
+        search_fields: List of field names for text search
+        ordering_fields: List of field names allowed for dynamic ordering
+        pagination_class: Pagination backend class
+        renderer_classes: List of renderer instances/classes for content negotiation
+        throttle: Per-route Throttle override
+        timeout: Per-route handler timeout override (seconds)
+        version: API version binding for this route
 
     Example:
         @route("GET", "/users")
@@ -285,7 +711,27 @@ def route(method: str | list[str], path: str | None = None, **kwargs) -> Callabl
                 )
             decorator_cls = _METHOD_MAP.get(upper)
             if decorator_cls:
-                func = decorator_cls(path, **kwargs)(func)
+                func = decorator_cls(
+                    path,
+                    pipeline=pipeline,
+                    summary=summary,
+                    description=description,
+                    tags=tags,
+                    deprecated=deprecated,
+                    response_model=response_model,
+                    status_code=status_code,
+                    request_blueprint=request_blueprint,
+                    response_blueprint=response_blueprint,
+                    filterset_class=filterset_class,
+                    filterset_fields=filterset_fields,
+                    search_fields=search_fields,
+                    ordering_fields=ordering_fields,
+                    pagination_class=pagination_class,
+                    renderer_classes=renderer_classes,
+                    throttle=throttle,
+                    timeout=timeout,
+                    version=version,
+                )(func)
 
         return func
 
