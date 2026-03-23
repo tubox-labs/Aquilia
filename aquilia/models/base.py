@@ -486,6 +486,287 @@ class Model(metaclass=ModelMeta):
         return instance, True
 
     @classmethod
+    async def find_or_create(
+        cls,
+        defaults: dict[str, Any] | None = None,
+        create_defaults: dict[str, Any] | None = None,
+        **lookup: Any,
+    ) -> tuple[Model, bool]:
+        """
+        Atomically find an existing record or create a new one.
+
+        Unlike ``get_or_create()``, this method is truly atomic at the database
+        level using ``INSERT ... ON CONFLICT DO NOTHING``, avoiding TOCTOU race
+        conditions under concurrent access.
+
+        Parameters
+        ----------
+        defaults : dict[str, Any] | None
+            Extra fields to set only when creating a new record. These are
+            merged with ``lookup`` fields for the INSERT.
+        create_defaults : dict[str, Any] | None
+            Override values for creation that take precedence over both
+            ``lookup`` and ``defaults``. Use when the lookup value differs from
+            the desired create value.
+        **lookup : Any
+            Field=value pairs to match. At least one lookup field MUST have
+            a unique constraint (single-column or composite) for atomicity.
+
+        Returns
+        -------
+        tuple[Model, bool]
+            A 2-tuple of (instance, was_created):
+            - instance: The found or newly created model instance
+            - was_created: True if a new record was created, False if existing
+
+        Raises
+        ------
+        QueryFault
+            If lookup fields are invalid, empty, or lack a unique constraint.
+
+        Concurrency Notes
+        -----------------
+        This method is safe for concurrent execution. The database-level upsert
+        ensures that:
+
+        1. If the record exists, no INSERT is attempted (conflict detected)
+        2. If INSERT succeeds, the record was created atomically
+        3. If INSERT is skipped due to conflict, a SELECT fetches the existing
+
+        The method uses ``INSERT ... ON CONFLICT DO NOTHING`` (PostgreSQL/SQLite)
+        or ``INSERT IGNORE`` (MySQL) to achieve atomicity without exceptions
+        for control flow.
+
+        Examples
+        --------
+        Basic usage::
+
+            user, created = await User.find_or_create(
+                email="alice@example.com",
+                defaults={"name": "Alice"}
+            )
+            if created:
+                print("New user created")
+
+        With create_defaults to override lookup value::
+
+            user, created = await User.find_or_create(
+                email=email.lower(),
+                create_defaults={"email": original_email, "name": "User"}
+            )
+
+        Multiple lookup fields (composite unique)::
+
+            membership, created = await Membership.find_or_create(
+                user_id=user.id,
+                team_id=team.id,
+                defaults={"role": "member"}
+            )
+        """
+        import re
+
+        from ..faults.domains import QueryFault
+
+        # ── Validate lookup fields ────────────────────────────────────────
+        if not lookup:
+            raise QueryFault(
+                model=cls.__name__,
+                operation="find_or_create",
+                reason="At least one lookup field is required",
+            )
+
+        # Validate field names (prevent SQL injection)
+        _SAFE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
+        for key in lookup:
+            if not _SAFE.match(key):
+                raise QueryFault(
+                    model=cls.__name__,
+                    operation="find_or_create",
+                    reason=f"Invalid field name: {key!r}. "
+                    "Field names must contain only letters, digits, and underscores.",
+                )
+            if key not in cls._fields:
+                raise QueryFault(
+                    model=cls.__name__,
+                    operation="find_or_create",
+                    reason=f"Unknown field: {key!r}. Valid fields: {list(cls._fields.keys())}",
+                )
+
+        # ── Validate unique constraint exists on lookup fields ────────────
+        lookup_fields = set(lookup.keys())
+        has_unique = cls._validate_unique_constraint(lookup_fields)
+        if not has_unique:
+            raise QueryFault(
+                model=cls.__name__,
+                operation="find_or_create",
+                reason=f"Lookup fields {list(lookup_fields)} must have a unique constraint "
+                "for atomic find_or_create. Add unique=True to the field or "
+                "define a UniqueConstraint in Meta.constraints.",
+            )
+
+        # ── Prepare create data ───────────────────────────────────────────
+        db = cls._get_db()
+        dialect = getattr(db, "dialect", "sqlite")
+
+        # Merge: lookup < defaults < create_defaults
+        create_data = {**lookup}
+        if defaults:
+            create_data.update(defaults)
+        if create_defaults:
+            create_data.update(create_defaults)
+
+        # Build instance for field processing (defaults, pre_save hooks)
+        instance = cls(**create_data)
+
+        # Process fields: apply defaults, pre_save hooks, convert to DB format
+        final_data: dict[str, Any] = {}
+        for attr_name, field in cls._non_m2m_fields:
+            value = getattr(instance, attr_name, None)
+
+            # Skip auto-PKs
+            if field.primary_key and isinstance(field, (AutoField, BigAutoField)) and value is None:
+                continue
+
+            # pre_save hook (auto_now_add, etc.)
+            if hasattr(field, "pre_save"):
+                value = field.pre_save(instance, is_create=True)
+                if value is not None:
+                    setattr(instance, attr_name, value)
+
+            # Apply default if still None
+            if value is None and field.has_default():
+                value = field.get_default()
+                setattr(instance, attr_name, value)
+
+            if value is not None:
+                db_value = field.to_db(value, dialect=dialect)
+                final_data[field.column_name] = db_value
+            elif not field.null and not field.primary_key:
+                if not field.has_default():
+                    final_data[field.column_name] = None
+
+        if not final_data:
+            raise QueryFault(
+                model=cls.__name__,
+                operation="find_or_create",
+                reason="Cannot create record with empty data",
+            )
+
+        # ── Build conflict target (unique constraint columns) ─────────────
+        conflict_columns = cls._get_conflict_columns(lookup_fields, dialect)
+
+        # ── Execute atomic INSERT ... ON CONFLICT DO NOTHING ──────────────
+        from .sql_builder import UpsertIgnoreBuilder
+
+        builder = UpsertIgnoreBuilder(cls._table_name, dialect=dialect)
+        builder.from_dict(final_data)
+        builder.conflict_target(*conflict_columns)
+        sql, params = builder.build()
+
+        cursor = await db.execute(sql, params)
+
+        # ── Determine if insert succeeded ─────────────────────────────────
+        # For INSERT ON CONFLICT DO NOTHING / INSERT IGNORE:
+        # - lastrowid > 0 means insert succeeded (SQLite, MySQL)
+        # - lastrowid == 0 or rowcount == 0 means conflict (no insert)
+        was_created = bool(cursor.lastrowid)
+
+        if was_created:
+            setattr(instance, cls._pk_attr, cursor.lastrowid)
+            return instance, True
+
+        # ── If not created, SELECT the existing record ────────────────────
+        where_parts = []
+        where_values = []
+        for key, value in lookup.items():
+            field = cls._fields[key]
+            where_parts.append(f'"{field.column_name}" = ?')
+            where_values.append(field.to_db(value, dialect=dialect))
+
+        select_sql = f'SELECT * FROM "{cls._table_name}" WHERE ' + " AND ".join(where_parts)
+        row = await db.fetch_one(select_sql, where_values)
+
+        if row is None:
+            # Extremely rare: record existed during INSERT but gone now
+            raise QueryFault(
+                model=cls.__name__,
+                operation="find_or_create",
+                reason="Record vanished between INSERT and SELECT. This may indicate concurrent DELETE operations.",
+            )
+
+        return cls.from_row(row), False
+
+    @classmethod
+    def _validate_unique_constraint(cls, lookup_fields: set[str]) -> bool:
+        """
+        Check if lookup fields are covered by a unique constraint.
+
+        Returns True if:
+        - Any single lookup field has unique=True
+        - The primary key field is in lookup_fields
+        - All lookup fields together form a composite unique constraint
+          (via Meta.unique_together or Meta.constraints with UniqueConstraint)
+        """
+        # Check single-field unique constraints
+        for field_name in lookup_fields:
+            field = cls._fields.get(field_name)
+            if field and (field.unique or field.primary_key):
+                return True
+
+        # Check unique_together (legacy)
+        if hasattr(cls._meta, "unique_together"):
+            for unique_fields in cls._meta.unique_together:
+                unique_set = set(unique_fields)
+                if unique_set.issubset(lookup_fields) or lookup_fields == unique_set:
+                    return True
+
+        # Check Meta.constraints for UniqueConstraint
+        if hasattr(cls._meta, "constraints"):
+            from .fields_module import UniqueConstraint
+
+            for constraint in cls._meta.constraints:
+                if isinstance(constraint, UniqueConstraint):
+                    constraint_fields = set(constraint.fields)
+                    if constraint_fields.issubset(lookup_fields) or lookup_fields == constraint_fields:
+                        return True
+
+        return False
+
+    @classmethod
+    def _get_conflict_columns(cls, lookup_fields: set[str], dialect: str) -> list[str]:
+        """
+        Determine the database column names for conflict detection.
+
+        For single unique field: returns that field's column name.
+        For composite unique: returns all columns in the unique constraint.
+        """
+        # Prefer single unique field if available
+        for field_name in lookup_fields:
+            field = cls._fields.get(field_name)
+            if field and (field.unique or field.primary_key):
+                return [field.column_name]
+
+        # Check unique_together
+        if hasattr(cls._meta, "unique_together"):
+            for unique_fields in cls._meta.unique_together:
+                unique_set = set(unique_fields)
+                if unique_set.issubset(lookup_fields):
+                    return [cls._fields[f].column_name for f in unique_fields]
+
+        # Check Meta.constraints for UniqueConstraint
+        if hasattr(cls._meta, "constraints"):
+            from .fields_module import UniqueConstraint
+
+            for constraint in cls._meta.constraints:
+                if isinstance(constraint, UniqueConstraint):
+                    constraint_fields = set(constraint.fields)
+                    if constraint_fields.issubset(lookup_fields):
+                        return [cls._fields[f].column_name for f in constraint.fields]
+
+        # Fallback: use all lookup fields as conflict target
+        return [cls._fields[f].column_name for f in lookup_fields]
+
+    @classmethod
     async def bulk_create(
         cls,
         instances: list[dict[str, Any]],
