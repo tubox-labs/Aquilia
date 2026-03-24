@@ -862,6 +862,7 @@ def _icon(name: str, cls: str = "icon") -> str:
         "lock": '<rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path>',
         "cpu": '<rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect><rect x="9" y="9" width="6" height="6"></rect><line x1="9" y1="1" x2="9" y2="4"></line><line x1="15" y1="1" x2="15" y2="4"></line><line x1="9" y1="20" x2="9" y2="23"></line><line x1="15" y1="20" x2="15" y2="23"></line><line x1="20" y1="9" x2="23" y2="9"></line><line x1="20" y1="14" x2="23" y2="14"></line><line x1="1" y1="9" x2="4" y2="9"></line><line x1="1" y1="14" x2="4" y2="14"></line>',
         "layout": '<rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line>',
+        "layers": '<polygon points="12 2 22 7 12 12 2 7 12 2"></polygon><polyline points="2 12 12 17 22 12"></polyline><polyline points="2 17 12 22 22 17"></polyline>',
     }
     return f'<svg class="{cls}" viewBox="0 0 24 24">{icons.get(name, "")}</svg>'
 
@@ -1091,7 +1092,23 @@ def render_version_error_page(
         except Exception:
             request_hint = ""
 
-    version_badge = f"<span class=\"badge gray\">Aquilia { _esc(aquilia_version or 'dev') }</span>"
+    version_badge = f"<span class=\"badge green\">Aquilia { _esc(aquilia_version or 'dev') }</span>"
+
+    signal_panel = ""
+    requested = safe_meta.get("requested")
+    supported = safe_meta.get("supported")
+    if requested is not None or supported:
+        requested_html = _esc(str(requested)) if requested is not None else "not provided"
+        supported_html = ", ".join(_esc(str(v)) for v in supported) if isinstance(supported, list) and supported else "none"
+        signal_panel = f"""
+        <div class="card" style="max-width:760px;margin:20px auto 0;padding:16px;border-color:var(--tx-accent-dim);box-shadow:0 0 0 1px var(--tx-accent-glow) inset;">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+                <span class="badge green">Version Signal</span>
+                <code style="color:var(--tx-accent);">requested={requested_html}</code>
+            </div>
+            <p style="margin-top:10px;color:var(--tx-text-muted);font-size:13px;">Supported versions: <span style="color:var(--tx-accent);font-weight:600;">{supported_html}</span></p>
+        </div>
+        """
 
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -1103,21 +1120,22 @@ def render_version_error_page(
 </head>
 <body>
     <div class="bg-grid"></div>
-    <div class="bg-glow" style="opacity:0.35"></div>
+    <div class="bg-glow" style="opacity:0.5"></div>
 
     <div class="http-page">
         <div class="http-container">
-            <div class="http-icon-bg">
+            <div class="http-icon-bg" style="border-color:var(--tx-accent-dim);box-shadow:0 0 0 1px var(--tx-accent-glow) inset;">
                 {_icon("layers", "icon icon-xl")}
             </div>
             <div style="display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-bottom:20px;">
-                <span class="badge red">{status_code}</span>
-                <span class="badge blue">{_esc(error_code or 'API_VERSION_ERROR')}</span>
+                <span class="badge green">{status_code}</span>
+                <span class="badge green">{_esc(error_code or 'API_VERSION_ERROR')}</span>
                 {version_badge}
             </div>
             <h1 class="http-title">{_esc(message or 'API Version Error')}</h1>
             <p class="http-desc">{_esc(detail or 'The requested API version cannot be served.')}</p>
             {request_hint}
+            {signal_panel}
             {meta_rows}
 
             <div style="display:flex;justify-content:center;gap:12px;margin-top:24px;flex-wrap:wrap;">
