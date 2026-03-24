@@ -1573,6 +1573,36 @@ class Q:
         """
         return await self._model_cls.update_or_create(defaults=defaults, **lookup)
 
+    async def find_or_create(
+        self,
+        defaults: dict[str, Any] | None = None,
+        create_defaults: dict[str, Any] | None = None,
+        **lookup: Any,
+    ) -> tuple[Model, bool]:
+        """
+        Atomically find an existing record or create a new one.
+
+        Unlike ``get_or_create()``, this method is truly atomic at the database
+        level using ``INSERT ... ON CONFLICT DO NOTHING``, avoiding TOCTOU race
+        conditions under concurrent access.
+
+        Parameters
+        ----------
+        defaults : dict[str, Any] | None
+            Extra fields to set only when creating a new record.
+        create_defaults : dict[str, Any] | None
+            Override values for creation that take precedence over both
+            ``lookup`` and ``defaults``.
+        **lookup : Any
+            Field=value pairs to match. Must have a unique constraint.
+
+        Returns
+        -------
+        tuple[Model, bool]
+            (instance, was_created) - True if new record was created.
+        """
+        return await self._model_cls.find_or_create(defaults=defaults, create_defaults=create_defaults, **lookup)
+
     async def explain(self, *, format: str | None = None) -> str:
         """
         Return the query execution plan (EXPLAIN).
