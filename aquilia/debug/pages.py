@@ -1055,60 +1055,10 @@ def render_version_error_page(
     aquilia_version: str = "",
 ) -> str:
     """Render a themed HTML page for API versioning errors."""
-    safe_meta = metadata or {}
-
-    meta_rows = ""
-    if safe_meta:
-        row_chunks = []
-        for key, value in safe_meta.items():
-            if value is None:
-                continue
-            pretty_key = str(key).replace("_", " ").title()
-            pretty_value = ", ".join(str(v) for v in value) if isinstance(value, list) else str(value)
-            row_chunks.append(
-                f"""
-                <div style="display:flex;justify-content:space-between;gap:16px;padding:10px 14px;border-bottom:1px solid var(--tx-border);">
-                    <span style="color:var(--tx-text-muted);font-size:12px;text-transform:uppercase;letter-spacing:.04em;">{_esc(pretty_key)}</span>
-                    <code style="color:var(--tx-text);text-align:right;word-break:break-word;">{_esc(pretty_value)}</code>
-                </div>
-                """
-            )
-        if row_chunks:
-            meta_rows = (
-                "<div class=\"card\" style=\"max-width:760px;margin:24px auto 0;text-align:left;\">"
-                + "".join(row_chunks)
-                + "</div>"
-            )
-
-    request_hint = ""
-    if request is not None:
-        try:
-            method = getattr(request, "method", "") or "GET"
-            path = getattr(request, "path", "") or "/"
-            request_hint = (
-                f"<p style=\"margin-top:12px;color:var(--tx-text-muted);font-size:13px;\">"
-                f"Request: <code>{_esc(str(method))} {_esc(str(path))}</code></p>"
-            )
-        except Exception:
-            request_hint = ""
+    _ = metadata  # reserved for future use
+    _ = request
 
     version_badge = f"<span class=\"badge green\">Aquilia { _esc(aquilia_version or 'dev') }</span>"
-
-    signal_panel = ""
-    requested = safe_meta.get("requested")
-    supported = safe_meta.get("supported")
-    if requested is not None or supported:
-        requested_html = _esc(str(requested)) if requested is not None else "not provided"
-        supported_html = ", ".join(_esc(str(v)) for v in supported) if isinstance(supported, list) and supported else "none"
-        signal_panel = f"""
-        <div class="card" style="max-width:760px;margin:20px auto 0;padding:16px;border-color:var(--tx-accent-dim);box-shadow:0 0 0 1px var(--tx-accent-glow) inset;">
-            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
-                <span class="badge green">Version Signal</span>
-                <code style="color:var(--tx-accent);">requested={requested_html}</code>
-            </div>
-            <p style="margin-top:10px;color:var(--tx-text-muted);font-size:13px;">Supported versions: <span style="color:var(--tx-accent);font-weight:600;">{supported_html}</span></p>
-        </div>
-        """
 
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -1124,7 +1074,7 @@ def render_version_error_page(
 
     <div class="http-page">
         <div class="http-container">
-            <div class="http-icon-bg" style="border-color:var(--tx-accent-dim);box-shadow:0 0 0 1px var(--tx-accent-glow) inset;">
+            <div style="display:flex;justify-content:center;margin-bottom:16px;color:var(--tx-accent);">
                 {_icon("layers", "icon icon-xl")}
             </div>
             <div style="display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-bottom:20px;">
@@ -1132,11 +1082,8 @@ def render_version_error_page(
                 <span class="badge green">{_esc(error_code or 'API_VERSION_ERROR')}</span>
                 {version_badge}
             </div>
-            <h1 class="http-title">{_esc(message or 'API Version Error')}</h1>
-            <p class="http-desc">{_esc(detail or 'The requested API version cannot be served.')}</p>
-            {request_hint}
-            {signal_panel}
-            {meta_rows}
+            <h1 class="http-title">API Version Error</h1>
+            <p class="http-desc">The requested API version cannot be served.</p>
 
             <div style="display:flex;justify-content:center;gap:12px;margin-top:24px;flex-wrap:wrap;">
                 <a href="/" class="btn-primary" style="border-radius:8px;">{_icon("home")} Back Home</a>
