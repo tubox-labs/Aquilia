@@ -204,11 +204,11 @@ def _build_filter_clause(key: str, value: Any) -> tuple[str, list[Any]]:
     Security: All field names are validated against ``_SAFE_FIELD_RE`` to
     prevent SQL injection through dict-key controlled identifier positions.
     """
-    from .expression import Combinable, Expression
+    from .expression import Expression
 
     def _render_value(val: Any) -> tuple[str, list[Any]]:
         """Render a value -- returns (sql_fragment, params)."""
-        if isinstance(val, (Expression, Combinable)):
+        if isinstance(val, Expression):
             return val.as_sql("sqlite")
         return "?", [val]
 
@@ -220,7 +220,7 @@ def _build_filter_clause(key: str, value: Any) -> tuple[str, list[Any]]:
 
         # If value is an F()/Expression, handle comparisons directly
         # This MUST come before the lookup registry which treats values as literals
-        if isinstance(value, (Expression, Combinable)):
+        if isinstance(value, Expression):
             rhs_sql, rhs_params = value.as_sql("sqlite")
             sql_op = _EXPR_OP_MAP.get(op)
             if sql_op is not None:
@@ -400,6 +400,7 @@ class Q:
                 from aquilia.faults.domains import SecurityFault
 
                 raise SecurityFault(
+                    code="UNSAFE_WHERE_CLAUSE",
                     message=f"Potentially unsafe WHERE clause rejected: contains '{kw.strip()}'. "
                     f"Use Model.raw() for DDL/DCL operations.",
                 )
@@ -671,6 +672,7 @@ class Q:
                     from aquilia.faults.domains import SecurityFault
 
                     raise SecurityFault(
+                        code="UNSAFE_HAVING_CLAUSE",
                         message=f"Potentially unsafe HAVING clause rejected: contains '{kw}'. "
                         f"Use parameterized values (?) for user-supplied data.",
                     )
@@ -901,7 +903,7 @@ class Q:
                     col_parts.append(f'"{f}"')
             col = ", ".join(col_parts)
         elif self._annotations:
-            parts = []
+            parts: list[str] = []
             # Determine base columns
             if self._only_fields:
                 parts.extend(f'"{f}"' for f in self._only_fields)
@@ -1200,7 +1202,7 @@ class Q:
 
                 # Collect target IDs
                 target_ids = set()
-                src_to_targets = {}  # source_pk -> [target_pk, ...]
+                src_to_targets: dict[Any, list[Any]] = {}  # source_pk -> [target_pk, ...]
                 for row in junction_rows:
                     src_pk = row[src_col]
                     tgt_pk = row[tgt_col]
@@ -1360,7 +1362,7 @@ class Q:
         val = await self._db.fetch_val(exists_sql, params)
         return bool(val)
 
-    async def update(self, values: dict[str, Any] = None, **kwargs) -> int:
+    async def update(self, values: dict[str, Any] | None = None, **kwargs: Any) -> int:
         """
         Update matching rows. Returns number of affected rows.
 
@@ -1404,7 +1406,7 @@ class Q:
             params.extend(self._params)
 
         cursor = await self._db.execute(sql, params)
-        return cursor.rowcount
+        return int(cursor.rowcount or 0)
 
     async def delete(self) -> int:
         """Delete matching rows. Returns number of deleted rows.
@@ -1425,7 +1427,7 @@ class Q:
             sql += " WHERE " + " AND ".join(f"({w})" for w in self._wheres)
 
         cursor = await self._db.execute(sql, params)
-        return cursor.rowcount
+        return int(cursor.rowcount or 0)
 
     async def values(self, *fields: str) -> list[dict[str, Any]]:
         """

@@ -419,7 +419,7 @@ class Q:
             params.extend(self._params)
 
         cursor = await self._db.execute(sql, params)
-        return cursor.rowcount
+        return int(cursor.rowcount or 0)
 
     async def delete(self) -> int:
         """Delete matching rows. Returns affected row count."""
@@ -430,7 +430,7 @@ class Q:
             sql += " WHERE " + " AND ".join(f"({w})" for w in self._wheres)
 
         cursor = await self._db.execute(sql, params)
-        return cursor.rowcount
+        return int(cursor.rowcount or 0)
 
 
 # ── ModelRegistry ────────────────────────────────────────────────────────────
@@ -765,7 +765,7 @@ class ModelProxy(metaclass=_ModelProxyMeta):
         params = list(values.values()) + list(filters.values())
         sql = f'UPDATE "{cls._table_name}" SET {", ".join(set_parts)} WHERE {" AND ".join(where_parts)}'
         cursor = await db.execute(sql, params)
-        return cursor.rowcount
+        return int(cursor.rowcount or 0)
 
     @classmethod
     async def _dollar_delete(cls, filters: dict[str, Any] | None = None, pk: Any = None) -> int:
@@ -784,7 +784,7 @@ class ModelProxy(metaclass=_ModelProxyMeta):
                 operation="$delete",
                 reason="Must provide pk or filters to $delete",
             )
-        return cursor.rowcount
+        return int(cursor.rowcount or 0)
 
     # ── Instance-level $ API ─────────────────────────────────────────
 
