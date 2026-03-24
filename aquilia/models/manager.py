@@ -36,7 +36,7 @@ Usage:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 if TYPE_CHECKING:
     from .base import Model
@@ -44,6 +44,8 @@ if TYPE_CHECKING:
 
 
 __all__ = ["Manager", "BaseManager", "QuerySet"]
+
+M = TypeVar("M", bound="BaseManager")
 
 
 class QuerySet:
@@ -75,7 +77,7 @@ class QuerySet:
             from aquilia.faults.domains import ModelRegistrationFault
 
             raise ModelRegistrationFault(
-                model="<unknown>",
+                model_name="<unknown>",
                 reason="QuerySet is not bound to a model",
             )
         return self._model_cls.query()
@@ -96,11 +98,11 @@ class BaseManager:
     _model_cls: type[Model] | None = None
 
     def __set_name__(self, owner: type, name: str) -> None:
-        self._model_cls = owner  # type: ignore
+        self._model_cls = cast("type[Model]", owner)
 
-    def __get__(self, instance: Any, owner: type) -> BaseManager:
+    def __get__(self: M, instance: Any, owner: type) -> M:
         # Bind to current class (supports inheritance)
-        self._model_cls = owner  # type: ignore
+        self._model_cls = cast("type[Model]", owner)
         if instance is not None:
             raise AttributeError("Manager is accessible only via the model class, not instances.")
         return self
@@ -113,7 +115,7 @@ class BaseManager:
             from aquilia.faults.domains import ModelRegistrationFault
 
             raise ModelRegistrationFault(
-                model="<unknown>",
+                model_name="<unknown>",
                 reason="Manager is not bound to a model",
             )
         return self._model_cls.query()
@@ -255,7 +257,7 @@ class BaseManager:
         return await self.get_queryset().values_list(*fields, flat=flat)
 
     async def update(self, values: dict[str, Any] | None = None, **kwargs: Any) -> int:
-        return await self.get_queryset().update(values, **kwargs)
+        return await self.get_queryset().update(values or {}, **kwargs)
 
     async def delete(self) -> int:
         return await self.get_queryset().delete()
@@ -286,7 +288,7 @@ class BaseManager:
             from aquilia.faults.domains import ModelRegistrationFault
 
             raise ModelRegistrationFault(
-                model="<unknown>",
+                model_name="<unknown>",
                 reason="Manager is not bound to a model",
             )
         return await self._model_cls.get(pk=pk, **filters)
@@ -307,7 +309,7 @@ class BaseManager:
             from aquilia.faults.domains import ModelRegistrationFault
 
             raise ModelRegistrationFault(
-                model="<unknown>",
+                model_name="<unknown>",
                 reason="Manager is not bound to a model",
             )
         return await self._model_cls.get_or_create(defaults=defaults, **lookup)
@@ -328,7 +330,7 @@ class BaseManager:
             from aquilia.faults.domains import ModelRegistrationFault
 
             raise ModelRegistrationFault(
-                model="<unknown>",
+                model_name="<unknown>",
                 reason="Manager is not bound to a model",
             )
         return await self._model_cls.update_or_create(defaults=defaults, **lookup)
@@ -344,7 +346,7 @@ class BaseManager:
             from aquilia.faults.domains import ModelRegistrationFault
 
             raise ModelRegistrationFault(
-                model="<unknown>",
+                model_name="<unknown>",
                 reason="Manager is not bound to a model",
             )
         return await self._model_cls.create(**data)
@@ -368,7 +370,7 @@ class BaseManager:
             from aquilia.faults.domains import ModelRegistrationFault
 
             raise ModelRegistrationFault(
-                model="<unknown>",
+                model_name="<unknown>",
                 reason="Manager is not bound to a model",
             )
         return await self._model_cls.bulk_create(instances, batch_size=batch_size, ignore_conflicts=ignore_conflicts)
@@ -393,7 +395,7 @@ class BaseManager:
             from aquilia.faults.domains import ModelRegistrationFault
 
             raise ModelRegistrationFault(
-                model="<unknown>",
+                model_name="<unknown>",
                 reason="Manager is not bound to a model",
             )
         return await self._model_cls.bulk_update(instances, fields, batch_size=batch_size)
@@ -411,7 +413,7 @@ class BaseManager:
             from aquilia.faults.domains import ModelRegistrationFault
 
             raise ModelRegistrationFault(
-                model="<unknown>",
+                model_name="<unknown>",
                 reason="Manager is not bound to a model",
             )
         return await self._model_cls.raw(sql, params)
@@ -472,7 +474,7 @@ class Manager(BaseManager):
     """
 
     @classmethod
-    def from_queryset(cls, queryset_class: type, class_name: str = None) -> type:
+    def from_queryset(cls, queryset_class: type, class_name: str | None = None) -> type:
         """
         Create a Manager subclass that includes methods from a QuerySet.
 

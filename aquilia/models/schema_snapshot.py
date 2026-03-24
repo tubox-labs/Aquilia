@@ -19,7 +19,7 @@ import logging
 from dataclasses import dataclass, field
 from difflib import SequenceMatcher
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from .migration_dsl import (
     _SENTINEL,
@@ -202,9 +202,9 @@ def _serialize_field(fld) -> dict[str, Any]:
                 # passed alongside this one during snapshot creation.
                 ref_table = None
                 try:
-                    from .base import _model_registry
+                    from .base import ModelRegistry
 
-                    for _reg_cls in _model_registry.values():
+                    for _reg_cls in ModelRegistry.all_models().values():
                         if _reg_cls.__name__ == to:
                             ref_table = getattr(_reg_cls._meta, "table_name", to.lower())
                             break
@@ -333,7 +333,7 @@ def load_snapshot(path: Path) -> dict[str, Any] | None:
     try:
         import _crous_native as crous_backend
 
-        return crous_backend.decode_from_file(str(path))
+        return cast(dict[str, Any] | None, crous_backend.decode_from_file(str(path)))
     except (OSError, Exception) as exc:
         logger.warning(f"Failed to load snapshot {path}: {exc}")
         return None

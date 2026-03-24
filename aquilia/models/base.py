@@ -237,6 +237,9 @@ class Model(metaclass=ModelMeta):
     _pk_attr: ClassVar[str] = "id"
     _column_names: ClassVar[list[str]] = []
     _attr_names: ClassVar[list[str]] = []
+    _non_m2m_fields: ClassVar[list[tuple[str, Field]]] = []
+    _col_to_attr: ClassVar[dict[str, tuple[str, Field]]] = {}
+    _reverse_fk_cache: ClassVar[list[tuple[type[Model], str, str]] | None] = None
     _db: ClassVar[AquiliaDatabase | None] = None
     _using_db: str | None = None  # per-instance DB alias
 
@@ -279,7 +282,7 @@ class Model(metaclass=ModelMeta):
     def __eq__(self, other: Any) -> bool:
         if not isinstance(other, self.__class__):
             return False
-        return getattr(self, self._pk_attr) == getattr(other, other._pk_attr)
+        return bool(getattr(self, self._pk_attr) == getattr(other, other._pk_attr))
 
     def __hash__(self) -> int:
         return hash((self.__class__.__name__, getattr(self, self._pk_attr, None)))
@@ -1093,24 +1096,24 @@ class Model(metaclass=ModelMeta):
                 )
 
             for attr_name in target_fields:
-                field = self._fields.get(attr_name)
-                if field is None or isinstance(field, ManyToManyField):
+                upd_field = self._fields.get(attr_name)
+                if upd_field is None or isinstance(upd_field, ManyToManyField):
                     continue
-                if field.primary_key:
+                if upd_field.primary_key:
                     continue
                 value = getattr(self, attr_name, None)
-                if hasattr(field, "pre_save"):
-                    value = field.pre_save(self, is_create=False)
+                if hasattr(upd_field, "pre_save"):
+                    value = upd_field.pre_save(self, is_create=False)
                     setattr(self, attr_name, value)
                 if value is not None:
-                    data[field.column_name] = field.to_db(value, dialect=dialect)
+                    data[upd_field.column_name] = upd_field.to_db(value, dialect=dialect)
                 else:
-                    data[field.column_name] = None
+                    data[upd_field.column_name] = None
 
             if data:
-                builder = UpdateBuilder(self._table_name).set_dict(data)
-                builder.where(f'"{self._pk_name}" = ?', pk_val)
-                sql, params = builder.build()
+                update_builder = UpdateBuilder(self._table_name).set_dict(data)
+                update_builder.where(f'"{self._pk_name}" = ?', pk_val)
+                sql, params = update_builder.build()
                 await db.execute(sql, params)
 
             # select_on_save: re-read from DB to get computed columns
@@ -1120,32 +1123,32 @@ class Model(metaclass=ModelMeta):
             # Insert -- build and execute directly to avoid
             # double signal firing from cls.create()
             final_data: dict[str, Any] = {}
-            for attr_name, field in self._non_m2m_fields:
+            for attr_name, create_field in self._non_m2m_fields:
                 value = getattr(self, attr_name, None)
 
                 # Skip auto-PKs unless force_insert with explicit PK
-                if field.primary_key and isinstance(field, (AutoField, BigAutoField)):
+                if create_field.primary_key and isinstance(create_field, (AutoField, BigAutoField)):
                     if force_insert and pk_val is not None:
-                        final_data[field.column_name] = pk_val
+                        final_data[create_field.column_name] = pk_val
                     continue
 
                 # pre_save hook
-                if hasattr(field, "pre_save"):
-                    value = field.pre_save(self, is_create=True)
+                if hasattr(create_field, "pre_save"):
+                    value = create_field.pre_save(self, is_create=True)
                     if value is not None:
                         setattr(self, attr_name, value)
 
                 # Apply default if still None
-                if value is None and field.has_default():
-                    value = field.get_default()
+                if value is None and create_field.has_default():
+                    value = create_field.get_default()
                     setattr(self, attr_name, value)
 
                 if value is not None:
-                    final_data[field.column_name] = field.to_db(value, dialect=dialect)
+                    final_data[create_field.column_name] = create_field.to_db(value, dialect=dialect)
 
             if final_data:
-                builder = InsertBuilder(self._table_name).from_dict(final_data)
-                sql, params = builder.build()
+                insert_builder = InsertBuilder(self._table_name).from_dict(final_data)
+                sql, params = insert_builder.build()
                 cursor = await db.execute(sql, params)
                 if cursor.lastrowid:
                     setattr(self, self._pk_attr, cursor.lastrowid)
@@ -1164,8 +1167,7 @@ class Model(metaclass=ModelMeta):
         Get all (model_cls, column_name, on_delete) tuples where other models
         have ForeignKey pointing to this model. Cached per class.
         """
-        cache_attr = "_reverse_fk_cache"
-        if hasattr(cls, cache_attr) and cls._reverse_fk_cache is not None:
+        if cls._reverse_fk_cache is not None:
             return cls._reverse_fk_cache
 
         refs: list[tuple[type[Model], str, str]] = []
@@ -1214,7 +1216,7 @@ class Model(metaclass=ModelMeta):
         builder.where(f'"{self._pk_name}" = ?', pk_val)
         sql, params = builder.build()
         cursor = await db.execute(sql, params)
-        row_count = cursor.rowcount
+        row_count = int(cursor.rowcount or 0)
 
         # Signal: post_delete
         await post_delete.send(sender=self.__class__, instance=self)
@@ -1244,12 +1246,12 @@ class Model(metaclass=ModelMeta):
         Raises:
             FieldValidationError: On first validation failure
         """
-        exclude = set(exclude or [])
+        exclude_set = set(exclude or [])
         errors: dict[str, str] = {}
         for attr_name, field in self._fields.items():
             if isinstance(field, ManyToManyField):
                 continue
-            if attr_name in exclude:
+            if attr_name in exclude_set:
                 continue
             value = getattr(self, attr_name, None)
             try:
