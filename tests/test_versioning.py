@@ -977,6 +977,32 @@ class TestVersionMiddleware:
         assert resp.status == 400
 
     @pytest.mark.asyncio
+    async def test_unsupported_url_version_renders_html_for_browser(self):
+        from aquilia.versioning.middleware import VersionMiddleware
+
+        strategy = self._build_strategy(
+            strategy="url",
+            versions=["1.0", "2.0"],
+            default_version="1.0",
+        )
+        mw = VersionMiddleware(strategy)
+
+        req = _make_request(path="/v9/users", headers={"accept": "text/html"})
+        ctx = MagicMock()
+
+        async def next_handler(r, c):
+            from aquilia.response import Response
+
+            return Response.json({"ok": True})
+
+        resp = await mw(req, ctx, next_handler)
+        assert resp.status == 400
+        assert str(resp.headers.get("content-type", "")).startswith("text/html")
+        body = resp._content.decode("utf-8") if isinstance(resp._content, (bytes, bytearray)) else str(resp._content)
+        assert "UNSUPPORTED_API_VERSION" in body
+        assert "API Version" in body
+
+    @pytest.mark.asyncio
     async def test_version_headers_in_response(self):
         from aquilia.versioning.middleware import VersionMiddleware
 
