@@ -56,12 +56,31 @@ class VersionMiddleware:
 
     @staticmethod
     def _wants_html(request: Request) -> bool:
-        """Return True when the client prefers HTML responses."""
+        """Return True when request likely expects an HTML page."""
         try:
             accept = (request.header("accept") or "").lower()
         except Exception:
             accept = ""
-        return "text/html" in accept
+
+        # Direct browser navigations typically include text/html.
+        if "text/html" in accept:
+            return True
+
+        # Browsers can send wildcard accept depending on request context.
+        # Gate this path on browser-ish headers so API clients with */*
+        # still receive structured JSON.
+        try:
+            user_agent = (request.header("user-agent") or "").lower()
+        except Exception:
+            user_agent = ""
+        try:
+            fetch_dest = (request.header("sec-fetch-dest") or "").lower()
+        except Exception:
+            fetch_dest = ""
+
+        browser_hint = "mozilla" in user_agent or fetch_dest == "document"
+        wildcard_accept = not accept or "*/*" in accept
+        return browser_hint and wildcard_accept
 
     @staticmethod
     def _aquilia_version() -> str:
@@ -148,7 +167,6 @@ class VersionMiddleware:
                     request.scope["path"] = stripped_path
 
         except MissingVersionError as e:
-            logger.debug("Missing API version: %s", e)
             return self._version_error_response(
                 request,
                 status=400,
@@ -158,7 +176,6 @@ class VersionMiddleware:
             )
 
         except InvalidVersionError as e:
-            logger.debug("Invalid API version: %s", e)
             return self._version_error_response(
                 request,
                 status=400,
@@ -168,7 +185,6 @@ class VersionMiddleware:
             )
 
         except UnsupportedVersionError as e:
-            logger.debug("Unsupported API version: %s", e)
             return self._version_error_response(
                 request,
                 status=400,
@@ -181,7 +197,6 @@ class VersionMiddleware:
             )
 
         except VersionSunsetError as e:
-            logger.info("Sunset API version requested: %s", e.version)
             headers = self._strategy.get_response_headers(e.version)
             return self._version_error_response(
                 request,
